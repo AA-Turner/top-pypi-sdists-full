@@ -10,7 +10,7 @@ readme = "README.md"
 authors = [
     { name = "Sebastián Ramírez", email = "tiangolo@gmail.com" },
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 classifiers = [
     "Intended Audience :: Information Technology",
     "Intended Audience :: System Administrators",
@@ -26,7 +26,6 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -35,7 +34,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
 ]
 dependencies = []
-version = "0.0.4"
+version = "0.0.5"
 
 [project.urls]
 Homepage = "https://github.com/fastapi/annotated-doc"
@@ -43,6 +42,22 @@ Documentation = "https://github.com/fastapi/annotated-doc"
 Repository = "https://github.com/fastapi/annotated-doc"
 Issues = "https://github.com/fastapi/annotated-doc/issues"
 Changelog = "https://github.com/fastapi/annotated-doc/release-notes.md"
+
+[dependency-groups]
+dev = [
+    { include-group = "tests" },
+    "prek>=0.2.24,<1.0.0",
+    "zizmor>=1.2.0",
+]
+tests = [
+    "coverage[toml]>=7.6.1",
+    "mypy==1.14.1",
+    "pytest>=8.3.5",
+    "ruff>=0.15.14",
+    "smokeshow>=0.5.0",
+    "ty>=0.0.25",
+    "typer>=0.16.1",
+]
 
 [build-system]
 requires = [
@@ -109,6 +124,23 @@ path = "src/annotated_doc/__init__.py"
 [tool.pdm.build]
 source-includes = [
     "tests/",
-    "requirements*.txt",
     "scripts/",
 ]
+
+[tool.ty.terminal]
+error-on-warning = true
+
+[tool.typos.files]
+extend-exclude = [
+    "uv.lock",
+    "coverage/",
+    "htmlcov/",
+]
+
+[tool.typos.default]
+extend-ignore-re = [
+    "@[a-zA-Z0-9](?:-?[a-zA-Z0-9])*",
+]
+
+[tool.typos.default.extend-identifiers]
+alls = "alls"

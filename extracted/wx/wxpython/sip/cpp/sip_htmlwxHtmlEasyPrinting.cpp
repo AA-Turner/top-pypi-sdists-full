@@ -744,7 +744,7 @@ static void *init_type_wxHtmlEasyPrinting(sipSimpleWrapper *, PyObject *sipArgs,
         const ::wxString& namedef = "Printing";
         const ::wxString* name = &namedef;
         int nameState = 0;
-        ::wxWindow* parentWindow = 0;
+        ::wxWindow* parentWindow = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_name,
@@ -777,7 +777,7 @@ static void *init_type_wxHtmlEasyPrinting(sipSimpleWrapper *, PyObject *sipArgs,
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxHtmlEasyPrinting[] = {{25, 0, 1}};
+static sipEncodedTypeDef supers_wxHtmlEasyPrinting[] = {{26, 0, 1}};
 
 
 static PyMethodDef methods_wxHtmlEasyPrinting[] = {
@@ -812,7 +812,7 @@ sipVariableDef variables_wxHtmlEasyPrinting[] = {
     {PropertyVariable, sipName_Name, &methods_wxHtmlEasyPrinting[0], &methods_wxHtmlEasyPrinting[12], SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxHtmlEasyPrinting, "HtmlEasyPrinting(name=\"Printing\", parentWindow=None) -> None\n"
+PyDoc_STRVAR(doc_wxHtmlEasyPrinting, "HtmlEasyPrinting(name=\"Printing\", parentWindow=nullptr) -> None\n"
 "\n"
 "This class provides very simple interface to printing architecture.");
 

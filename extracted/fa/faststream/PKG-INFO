@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: faststream
-Version: 0.7.2
+Version: 0.7.3
 Summary: FastStream: the simplest way to work with a messaging queues
 Keywords: rabbitmq,kafka,nats,redis,mqtt,asyncapi,framework,message brokers
 Author: AG2AI, Nikita Pastukhov
@@ -46,8 +46,8 @@ Requires-Dist: zmqtt>=0.0.5 ; extra == 'mqtt'
 Requires-Dist: nats-py>=2.12.0,<=3.0.0 ; extra == 'nats'
 Requires-Dist: opentelemetry-sdk>=1.24.0,<2.0.0 ; extra == 'otel'
 Requires-Dist: prometheus-client>=0.20.0,<0.30.0 ; extra == 'prometheus'
-Requires-Dist: aio-pika>=9,<10 ; extra == 'rabbit'
-Requires-Dist: redis>=5.0.0,<8.0.0 ; extra == 'redis'
+Requires-Dist: aio-pika>=9,<11 ; extra == 'rabbit'
+Requires-Dist: redis>=5.0.0,<9.0.0 ; extra == 'redis'
 Requires-Python: >=3.10
 Project-URL: Homepage, https://faststream.ag2.ai/latest/
 Project-URL: Documentation, https://faststream.ag2.ai/latest/getting-started/
@@ -438,7 +438,11 @@ if __name__ == "__main__":
     web.run_app(app)
 ```
 
-### **FastAPI** Plugin
+### **FastAPI** Plugin (deprecated)
+
+The integration has been moved to the
+**[faststream_fastapi](https://github.com/faststream-community/faststream_fastapi)**
+package and will be removed in 1.0.0 version.
 
 Also, **FastStream** can be used as part of **FastAPI**.
 

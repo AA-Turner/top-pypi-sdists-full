@@ -2,7 +2,6 @@
 // Name:        src/common/fontpickercmn.cpp
 // Purpose:     wxFontPickerCtrl class implementation
 // Author:      Francesco Montorsi
-// Modified by:
 // Created:     15/04/2006
 // Copyright:   (c) Francesco Montorsi
 // Licence:     wxWindows licence
@@ -35,7 +34,7 @@
 // implementation
 // ============================================================================
 
-#if defined(__WXGTK20__) && !defined(__WXUNIVERSAL__)
+#if defined(__WXGTK__) && !defined(__WXUNIVERSAL__)
     #define SetMinMaxPointSize(min, max)
 #else
     #define SetMinMaxPointSize(min, max)  GetPickerWidget()->GetFontData()->SetRange((min), (max))
@@ -79,8 +78,8 @@ bool wxFontPickerCtrl::Create( wxWindow *parent, wxWindowID id,
 wxString wxFontPickerCtrl::Font2String(const wxFont &f)
 {
     wxString ret = f.GetNativeFontInfoUserDesc();
-#ifdef __WXMSW__
-    // on wxMSW the encoding of the font is appended at the end of the string;
+#if defined(__WXMSW__) || defined(__WXOSX__)
+    // on wxMSW and wxOSX the encoding of the font is appended at the end of the string;
     // since encoding is not very user-friendly we remove it.
     wxFontEncoding enc = f.GetEncoding();
     if ( enc != wxFONTENCODING_DEFAULT && enc != wxFONTENCODING_SYSTEM )

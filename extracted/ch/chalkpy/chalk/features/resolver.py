@@ -461,6 +461,12 @@ class ResolverProtocol(Protocol[P, T_co]):
     validation than legacy ``@online`` / ``@offline`` resolvers. ``None`` for
     resolvers declared with the legacy decorators."""
 
+    max_batch_size: int | None
+    """Max rows per invocation for DataFrame -> DataFrame resolvers that declare
+    ``Index`` in their input and output DataFrames. The engine slices the input
+    and invokes the resolver once per chunk of at most this many rows. ``None``
+    (the default) means unlimited: a single invocation over all rows."""
+
     fqn: str
     """The fully qualified name for the resolver"""
 
@@ -671,6 +677,7 @@ class Resolver(ResolverProtocol[P, T], abc.ABC):
         incremental_settings: IncrementalConfig | None = None,
         resource_group: str | None = None,
         output_row_order: Literal["one-to-one"] | None = None,
+        max_batch_size: int | None = None,
         venv: str | None = None,
         name: None = None,  # deprecated
         postprocessing: Underscore | None = None,
@@ -729,6 +736,7 @@ class Resolver(ResolverProtocol[P, T], abc.ABC):
         self._sql_settings = sql_settings
         self.incremental_settings = incremental_settings
         self.output_row_order = output_row_order
+        self.max_batch_size = max_batch_size
         self.postprocessing = postprocessing
         self.handle_duplicate_outputs = handle_duplicate_outputs
         self.runtime_contract = runtime_contract
@@ -2271,6 +2279,7 @@ def _build_resolver(
     partitioned_by: Collection[Any] | None,
     resource_group: str | None,
     output_row_order: Literal["one-to-one"] | None,
+    max_batch_size: int | None,
     venv: str | None,
     incremental: IncrementalConfig | None,
     handle_duplicate_outputs: str | None,
@@ -2285,6 +2294,10 @@ def _build_resolver(
     that `inspect.currentframe().f_back` resolves to the user's frame; we
     cannot do that frame walk here without skipping an extra level."""
     caller_filename = inspect.getsourcefile(fn) or "<unknown file>"
+    if max_batch_size is not None and max_batch_size < 1:
+        raise ValueError(
+            f"Resolver '{fn.__name__}' sets max_batch_size={max_batch_size}, but max_batch_size must be >= 1."
+        )
     error_builder = get_resolver_error_builder(fn)
     parse_fn = parse_function(
         fn=fn,
@@ -2330,6 +2343,7 @@ def _build_resolver(
         incremental_settings=incremental,
         resource_group=resource_group,
         output_row_order=output_row_order,
+        max_batch_size=max_batch_size,
         venv=venv,
         handle_duplicate_outputs=handle_duplicate_outputs,
         runtime_contract=runtime_contract,
@@ -2356,6 +2370,7 @@ def online(
     partitioned_by: Collection[Any] | None = None,
     resource_group: str | None = None,
     output_row_order: Literal["one-to-one"] | None = None,
+    max_batch_size: int | None = None,
     venv: str | None = None,
     incremental: IncrementalConfig | None = None,
     handle_duplicate_outputs: str | None = None,
@@ -2388,6 +2403,7 @@ def online(
     partitioned_by: Collection[Any] | None = None,
     resource_group: str | None = None,
     output_row_order: Literal["one-to-one"] | None = None,
+    max_batch_size: int | None = None,
     venv: str | None = None,
     incremental: IncrementalConfig | None = None,
     handle_duplicate_outputs: str | None = None,
@@ -2519,6 +2535,19 @@ def online(
         ...             info_to_ids_map.get(info, []) for info in input_as_pydict[str(User.account_info)]
         ...         ]
         ...     })
+    max_batch_size
+        Only valid for DataFrame -> DataFrame resolvers that declare `Index` in exactly one
+        input DataFrame and in the output DataFrame. The engine slices the input and invokes
+        the resolver once per chunk of at most this many rows, streaming outputs incrementally.
+        `None` (the default) means unlimited: a single invocation over all rows. The resolver
+        `timeout` applies to each chunk invocation, and a chunk that raises produces an error
+        for that chunk while the remaining chunks still emit data.
+
+        >>> @online(max_batch_size=1024)
+        ... def batch_embed(
+        ...     docs: DataFrame[Document.id, Document.text, Index]
+        ... ) -> DataFrame[Document.id, Document.embedding, Index]:
+        ...     ...
     venv
         A virtual environment to use for the resolver. This is used to isolate the resolver
         from the default requirements, allowing different versions of packages to be used.
@@ -2572,6 +2601,7 @@ def online(
             partitioned_by=partitioned_by,
             resource_group=resource_group,
             output_row_order=output_row_order,
+            max_batch_size=max_batch_size,
             venv=venv,
             incremental=incremental,
             handle_duplicate_outputs=handle_duplicate_outputs,
@@ -2597,6 +2627,7 @@ def offline(
     unique_on: Collection[Any] | None = None,
     partitioned_by: Collection[Any] | None = None,
     output_row_order: Literal["one-to-one"] | None = None,
+    max_batch_size: int | None = None,
     venv: str | None = None,
     incremental: IncrementalConfig | None = None,
     handle_duplicate_outputs: str | None = None,
@@ -2628,6 +2659,7 @@ def offline(
     unique_on: Collection[Any] | None = None,
     partitioned_by: Collection[Any] | None = None,
     output_row_order: Literal["one-to-one"] | None = None,
+    max_batch_size: int | None = None,
     venv: str | None = None,
     incremental: IncrementalConfig | None = None,
     handle_duplicate_outputs: str | None = None,
@@ -2754,6 +2786,19 @@ def offline(
         ...             info_to_ids_map.get(info, []) for info in input_as_pydict[str(User.account_info)]
         ...         ]
         ...     })
+    max_batch_size
+        Only valid for DataFrame -> DataFrame resolvers that declare `Index` in exactly one
+        input DataFrame and in the output DataFrame. The engine slices the input and invokes
+        the resolver once per chunk of at most this many rows, streaming outputs incrementally.
+        `None` (the default) means unlimited: a single invocation over all rows. The resolver
+        `timeout` applies to each chunk invocation, and a chunk that raises produces an error
+        for that chunk while the remaining chunks still emit data.
+
+        >>> @offline(max_batch_size=1024)
+        ... def batch_embed(
+        ...     docs: DataFrame[Document.id, Document.text, Index]
+        ... ) -> DataFrame[Document.id, Document.embedding, Index]:
+        ...     ...
     venv
         A virtual environment to use for the resolver. This is used to isolate the resolver
         from the default requirements, allowing different versions of packages to be used.
@@ -2805,6 +2850,7 @@ def offline(
             partitioned_by=partitioned_by,
             resource_group=None,
             output_row_order=output_row_order,
+            max_batch_size=max_batch_size,
             venv=venv,
             incremental=incremental,
             handle_duplicate_outputs=handle_duplicate_outputs,
@@ -2832,6 +2878,7 @@ def resolver(
     partitioned_by: Collection[Any] | None = None,
     resource_group: str | None = None,
     output_row_order: Literal["one-to-one"] | None = None,
+    max_batch_size: int | None = None,
     venv: str | None = None,
     incremental: IncrementalConfig | None = None,
     handle_duplicate_outputs: str | None = None,
@@ -2865,6 +2912,7 @@ def resolver(
     partitioned_by: Collection[Any] | None = None,
     resource_group: str | None = None,
     output_row_order: Literal["one-to-one"] | None = None,
+    max_batch_size: int | None = None,
     venv: str | None = None,
     incremental: IncrementalConfig | None = None,
     handle_duplicate_outputs: str | None = None,
@@ -3008,6 +3056,7 @@ def resolver(
             partitioned_by=partitioned_by,
             resource_group=resource_group,
             output_row_order=output_row_order,
+            max_batch_size=max_batch_size,
             venv=venv,
             incremental=incremental,
             handle_duplicate_outputs=handle_duplicate_outputs,
@@ -4419,7 +4468,13 @@ def make_stream_resolver(
                 range=error_builder.function_arg_range_by_name("output_features"),
             )
         unwrapped_features.append(unwrap_feature(f))
-    _validate_output_features(unwrapped_features, error_builder, name, require_primary=True)
+    _validate_output_features(
+        unwrapped_features,
+        error_builder,
+        f"Stream resolver '{name}'",
+        require_primary=True,
+        range_arg_name="output_features",
+    )
     validate_message_attributes(
         expressions=output_features.values(), message_type=message_type, error_builder=error_builder, name=name
     )
@@ -4490,6 +4545,26 @@ def make_stream_resolver(
             excluded_aggregations, error_builder, "excluded_aggregations"
         )
         if excluded_features is not None:
+            # excluded_aggregations must reference materialized-aggregate features. Flag a reference
+            # that is not any kind of windowed/materialized/group-by aggregation (i.e. a plain
+            # feature, typically a typo) so it cannot silently no-op at planning time. Conservative
+            # on purpose: anything windowed/materialized/grouped is accepted.
+            for ef in excluded_features:
+                if not (
+                    ef.is_windowed
+                    or ef.has_window_materialization
+                    or ef.is_group_by_windowed
+                    or ef.is_windowed_pseudofeature
+                ):
+                    error_builder.add_diagnostic(
+                        message=(
+                            f"Feature '{ef.fqn}' in excluded_aggregations is not a materialized aggregation. "
+                            "excluded_aggregations must reference windowed or materialized aggregate features."
+                        ),
+                        code="213",
+                        label="Not an aggregation",
+                        range=error_builder.function_arg_range_by_name("excluded_aggregations"),
+                    )
             excluded_aggregation_fqns = tuple(ef.fqn for ef in excluded_features)
 
     resolver = StreamResolver(
@@ -4657,8 +4732,15 @@ def parse_message_producer_with_lsp_errors(
             )
             return None
 
-    # Run the same validation as stream resolvers (primary key, namespace consistency)
-    _validate_output_features(unwrapped_features, error_builder, resolver_name, require_primary=True)
+    # Run the same validation as stream resolvers (primary key, namespace consistency), attributing
+    # any diagnostic to the Sink argument rather than the resolver's own output_features.
+    _validate_output_features(
+        unwrapped_features,
+        error_builder,
+        f"Sink for stream resolver '{resolver_name}'",
+        require_primary=True,
+        range_arg_name=param_name,
+    )
 
     # Validate feature_expressions if present
     if message_producer.feature_expressions is not None:
@@ -4785,7 +4867,13 @@ def parse_additional_output_features_with_lsp_errors(
     # Reuse existing validation. The primary key need not be listed in additional_output_features:
     # it is declared in the resolver's main output_features and re-derived engine-side from the
     # output namespace, so persistence keys rows correctly without the caller repeating it.
-    _validate_output_features(unwrapped_features, error_builder, resolver_name, require_primary=False)
+    _validate_output_features(
+        unwrapped_features,
+        error_builder,
+        f"Stream resolver '{resolver_name}'",
+        require_primary=False,
+        range_arg_name=param_name,
+    )
 
     return StreamResolverMessageProducerParsed(
         output_features=[str(f) for f in unwrapped_features],
@@ -4815,9 +4903,14 @@ class StreamResolverMessageProducerParsed:
 def _validate_output_features(
     features: Iterable[Feature],
     error_builder: FunctionCallErrorBuilder,
-    name: str,
+    error_subject: str,
     require_primary: bool,
+    range_arg_name: str,
 ):
+    # `error_subject` is the phrase the diagnostic is about (e.g. the stream resolver or its Sink);
+    # `range_arg_name` is the keyword argument whose source range the diagnostic underlines. Together
+    # they attribute a Sink's missing-primary error to the Sink rather than the resolver's own
+    # output_features.
     found_primary = False
     namespace = None
     for feature in features:
@@ -4828,23 +4921,23 @@ def _validate_output_features(
         elif namespace != feature.root_namespace:
             error_builder.add_diagnostic(
                 message=(
-                    f"Stream resolver '{name}' returned features with different namespaces '{namespace}' and '{feature.root_namespace}'. "
+                    f"{error_subject} returned features with different namespaces '{namespace}' and '{feature.root_namespace}'. "
                     "Stream resolvers must return features with the same namespace."
                 ),
                 code="194",
                 label="different namespaces",
-                range=error_builder.function_arg_range_by_name("output_features"),
+                range=error_builder.function_arg_range_by_name(range_arg_name),
                 raise_error=TypeError,
             )
     if require_primary and not found_primary:
         error_builder.add_diagnostic(
             message=(
-                f"Stream resolver '{name}' did not return a primary key feature. "
+                f"{error_subject} did not return a primary key feature. "
                 "Stream resolvers must return a primary key feature."
             ),
             code="194",
             label="missing primary key",
-            range=error_builder.function_arg_range_by_name("output_features"),
+            range=error_builder.function_arg_range_by_name(range_arg_name),
             raise_error=TypeError,
         )
 

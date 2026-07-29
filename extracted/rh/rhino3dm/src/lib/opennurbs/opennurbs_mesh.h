@@ -5208,21 +5208,25 @@ Returns:
 
    bool HasSinglePrecisionVertices() const;
 
-
   /*
   Description:
-    If you modify the values of double precision vertices,
-    then you must call UpdateSinglePrecisionVertices().
+    Copies the values of the double precision vertices array to the 
+      single precision array.
+    If you modify the values of double precision vertices only,
+      then you must call UpdateSinglePrecisionVertices().
   Remarks:
     If double precision vertices are not present, this function
-    does nothing.
+    empties the single precision vertices array.
   */
   void UpdateSinglePrecisionVertices();
 
   /*
   Description:
+    Copies the values of the single precision vertices array to the
+      double precision array.
     If you modify the values of the single precision vertices
-    in m_V[], then you must call UpdateDoublePrecisionVertices().
+      in m_V[], and double precision vertices are present, 
+      then you must call UpdateDoublePrecisionVertices().
   Remarks:
     If double precision vertices are not present, this function
     creates them.
@@ -6134,6 +6138,8 @@ The map is an array of length m_F.Count(), ngon_map[]
     false - failure - no changes made to the mesh.
   */
   bool SetSurfaceParamtersFromTextureCoodinates();
+
+  bool SetSurfaceParametersFromTextureCoodinates(const ON_SimpleArray<ON_2fPoint>& TCs);
 
 
   /////////////////////////////////////////////////////////////////

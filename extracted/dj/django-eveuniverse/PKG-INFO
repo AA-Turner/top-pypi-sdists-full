@@ -1,10 +1,11 @@
 Metadata-Version: 2.4
 Name: django-eveuniverse
-Version: 2.0.1
+Version: 2.1.0
 Summary: Complete set of Eve Universe models with on-demand loading from ESI.
-Author-email: Erik Kalkoken <kalkoken87@gmail.com>
+Author-email: Erik Kalkoken <erik.kalkoken@gmail.com>
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
+License-Expression: MIT
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2

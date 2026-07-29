@@ -1,5 +1,7 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+from torch.nn.parameter import UninitializedParameter
+
 
 def l_prod(in_list):
     """Compute the product of all elements in the input list."""
@@ -10,8 +12,11 @@ def l_prod(in_list):
 
 
 def calculate_parameters(param_list):
-    """Calculate the total number of parameters in a list of tensors using the product of their shapes."""
-    return sum(p.nelement() for p in param_list)
+    """Sum the element counts of an iterable of parameters, skipping any a lazy module has not created yet."""
+    # a lazy module's parameters hold no elements until its first forward pass, and asking one for its
+    # element count raises rather than answering 0, so they are skipped instead of being counted.
+    # isinstance rather than torch.nn.parameter.is_lazy: that helper only exists from torch 1.9 on
+    return sum(p.nelement() for p in param_list if not isinstance(p, UninitializedParameter))
 
 
 def calculate_zero_ops():
@@ -38,11 +43,6 @@ def calculate_norm(input_size):
     return 2 * input_size
 
 
-def calculate_relu_flops(input_size):
-    """Calculates the FLOPs for a ReLU activation function based on the input tensor's dimensions."""
-    return 0
-
-
 def calculate_softmax(batch_size, nfeatures):
     """Compute FLOPs for a softmax activation given batch size and feature count."""
     total_exp = nfeatures
@@ -55,27 +55,6 @@ def calculate_softmax(batch_size, nfeatures):
 def calculate_avgpool(input_size):
     """Calculate the average pooling size for a given input tensor."""
     return int(input_size)
-
-
-def calculate_adaptive_avg(kernel_size, output_size):
-    """Calculate FLOPs for adaptive average pooling given kernel size and output size."""
-    total_div = 1
-    kernel_op = kernel_size + total_div
-    return int(kernel_op * output_size)
-
-
-def calculate_upsample(mode: str, output_size):
-    """Calculate the operations required for various upsample methods based on mode and output size."""
-    total_ops = output_size
-    if mode == "bicubic":
-        total_ops *= 224 + 35
-    elif mode == "bilinear":
-        total_ops *= 11
-    elif mode == "linear":
-        total_ops *= 5
-    elif mode == "trilinear":
-        total_ops *= 13 * 2 + 5
-    return int(total_ops)
 
 
 def calculate_linear(in_feature, num_elements):

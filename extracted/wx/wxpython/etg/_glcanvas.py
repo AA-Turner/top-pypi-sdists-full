@@ -54,6 +54,7 @@ def run():
     # customizing the generated code and docstrings.
 
     module.addHeaderCode('#include <wxPython/wxpy_api.h>')
+    tools.addAccessibilityHeaderCode(module)
     module.addImport('_core')
     module.addPyCode('import wx', order=10)
     module.addInclude(INCLUDES)
@@ -62,17 +63,22 @@ def run():
     #-----------------------------------------------------------------
 
     module.addHeaderCode('#include <wx/glcanvas.h>')
+    module.find('wxGLExtFunction').ignore()
+    module.find('wxGLContext').find('GetProcAddress').ignore()
 
     tools.generateStubs('wxUSE_GLCANVAS', module,
+                        excludes=['wxGLExtFunction'],
                         extraHdrCode='#define wxGLCanvasName wxT("GLCanvas")\n',
                         typeValMap={'wxGLAttributes &': '*this',
                                     'wxGLContextAttrs &': '*this',
+                                    'SwapInterval': '0',
                                     })
 
     c = module.find('wxGLContext')
     assert isinstance(c, etgtools.ClassDef)
     c.mustHaveApp()
     c.addPrivateCopyCtor()
+    c.find('GetProcAddress').ignore()
 
 
     c = module.find('wxGLAttribsBase')
@@ -125,12 +131,23 @@ def run():
         sipRes = wxGLCanvas::IsDisplaySupported(attribPtr);
         """)
 
-    c.find('CreateSurface').setCppCode("""\
-        #if wxUSE_GLCANVAS_EGL
-            return self->CreateSurface();
+    # Needs additional work in etgtools to deal with out args in setCppCode
+    c.find('GetEGLVersion').ignore()
+
+    c.find('GetGLXVersion').setCppCode("""\
+        #if wxHAS_GLX
+            return wxGLCanvas::GetGLXVersion();
         #else
             wxPyRaiseNotImplemented();
-            return false;
+            return 0;
+        #endif
+        """)
+
+    c.find('PreferGLX').setCppCode("""\
+        #if wxHAS_GLX
+            wxGLCanvas::PreferGLX();
+        #else
+            wxPyRaiseNotImplemented();
         #endif
         """)
 

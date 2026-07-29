@@ -9,6 +9,7 @@
 
 #include "sipAPI_core.h"
         #include <wx/geometry.h>
+        #include <wx/gdicmn.h>
         #include <wx/geometry.h>
         #include <wx/gdicmn.h>
     PyObject* _wxRect2DDouble_Get(wxRect2DDouble* self)
@@ -19,7 +20,207 @@
     }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_GetPosition, "GetPosition() -> Point2DDouble");
+PyDoc_STRVAR(doc_wxRect2DDouble_Inflate, "Inflate(d) -> Rect2DDouble\n"
+"Inflate(d) -> Rect2DDouble\n"
+"Inflate(dx, dy) -> Rect2DDouble\n"
+"\n"
+"This is an overloaded member function, provided for convenience. It\n"
+"differs from the above function only in what argument(s) it accepts.\n"
+"\n"
+"");
+
+extern "C" {static PyObject *meth_wxRect2DDouble_Inflate(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxRect2DDouble_Inflate(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxSize* d;
+        int dState = 0;
+        ::wxRect2DDouble *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_d,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxRect2DDouble, &sipCpp, sipType_wxSize, &d, &dState))
+        {
+            ::wxRect2DDouble*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = &sipCpp->Inflate(*d);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxSize *>(d), sipType_wxSize, dState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxRect2DDouble, SIP_NULLPTR);
+        }
+    }
+
+    {
+        ::wxDouble d;
+        ::wxRect2DDouble *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_d,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bd", &sipSelf, sipType_wxRect2DDouble, &sipCpp, &d))
+        {
+            ::wxRect2DDouble*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = &sipCpp->Inflate(d);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxRect2DDouble, SIP_NULLPTR);
+        }
+    }
+
+    {
+        ::wxDouble dx;
+        ::wxDouble dy;
+        const ::wxRect2DDouble *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_dx,
+            sipName_dy,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bdd", &sipSelf, sipType_wxRect2DDouble, &sipCpp, &dx, &dy))
+        {
+            ::wxRect2DDouble*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxRect2DDouble(sipCpp->Inflate(dx, dy));
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxRect2DDouble, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Rect2D, sipName_Inflate, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxRect2DDouble_Deflate, "Deflate(d) -> Rect2DDouble\n"
+"Deflate(d) -> Rect2DDouble\n"
+"Deflate(dx, dy) -> Rect2DDouble\n"
+"\n"
+"This is an overloaded member function, provided for convenience. It\n"
+"differs from the above function only in what argument(s) it accepts.\n"
+"\n"
+"");
+
+extern "C" {static PyObject *meth_wxRect2DDouble_Deflate(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxRect2DDouble_Deflate(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxSize* d;
+        int dState = 0;
+        ::wxRect2DDouble *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_d,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxRect2DDouble, &sipCpp, sipType_wxSize, &d, &dState))
+        {
+            ::wxRect2DDouble*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = &sipCpp->Deflate(*d);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxSize *>(d), sipType_wxSize, dState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxRect2DDouble, SIP_NULLPTR);
+        }
+    }
+
+    {
+        ::wxDouble d;
+        ::wxRect2DDouble *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_d,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bd", &sipSelf, sipType_wxRect2DDouble, &sipCpp, &d))
+        {
+            ::wxRect2DDouble*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = &sipCpp->Deflate(d);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxRect2DDouble, SIP_NULLPTR);
+        }
+    }
+
+    {
+        ::wxDouble dx;
+        ::wxDouble dy;
+        const ::wxRect2DDouble *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_dx,
+            sipName_dy,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bdd", &sipSelf, sipType_wxRect2DDouble, &sipCpp, &dx, &dy))
+        {
+            ::wxRect2DDouble*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxRect2DDouble(sipCpp->Deflate(dx, dy));
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxRect2DDouble, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Rect2D, sipName_Deflate, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxRect2DDouble_GetPosition, "GetPosition() -> Point2DDouble\n"
+"\n"
+"Returns the position.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_GetPosition(PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_GetPosition(PyObject *sipSelf, PyObject *sipArgs)
@@ -52,7 +253,9 @@ static PyObject *meth_wxRect2DDouble_GetPosition(PyObject *sipSelf, PyObject *si
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_GetSize, "GetSize() -> Size");
+PyDoc_STRVAR(doc_wxRect2DDouble_GetSize, "GetSize() -> Size\n"
+"\n"
+"Returns the size.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_GetSize(PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_GetSize(PyObject *sipSelf, PyObject *sipArgs)
@@ -85,7 +288,227 @@ static PyObject *meth_wxRect2DDouble_GetSize(PyObject *sipSelf, PyObject *sipArg
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_GetLeft, "GetLeft() -> float");
+PyDoc_STRVAR(doc_wxRect2DDouble_GetX, "GetX() -> float\n"
+"\n"
+"Returns the left position of the rectangle.");
+
+extern "C" {static PyObject *meth_wxRect2DDouble_GetX(PyObject *, PyObject *);}
+static PyObject *meth_wxRect2DDouble_GetX(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxRect2DDouble *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRect2DDouble, &sipCpp))
+        {
+            ::wxDouble sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetX();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyFloat_FromDouble(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Rect2D, sipName_GetX, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxRect2DDouble_GetY, "GetY() -> float\n"
+"\n"
+"Returns the top position of the rect.");
+
+extern "C" {static PyObject *meth_wxRect2DDouble_GetY(PyObject *, PyObject *);}
+static PyObject *meth_wxRect2DDouble_GetY(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxRect2DDouble *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRect2DDouble, &sipCpp))
+        {
+            ::wxDouble sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetY();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyFloat_FromDouble(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Rect2D, sipName_GetY, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxRect2DDouble_GetWidth, "GetWidth() -> float\n"
+"\n"
+"Returns the width.");
+
+extern "C" {static PyObject *meth_wxRect2DDouble_GetWidth(PyObject *, PyObject *);}
+static PyObject *meth_wxRect2DDouble_GetWidth(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxRect2DDouble *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRect2DDouble, &sipCpp))
+        {
+            ::wxDouble sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetWidth();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyFloat_FromDouble(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Rect2D, sipName_GetWidth, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxRect2DDouble_SetWidth, "SetWidth(w) -> None\n"
+"\n"
+"Sets the width.");
+
+extern "C" {static PyObject *meth_wxRect2DDouble_SetWidth(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxRect2DDouble_SetWidth(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxDouble w;
+        ::wxRect2DDouble *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_w,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bd", &sipSelf, sipType_wxRect2DDouble, &sipCpp, &w))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetWidth(w);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Rect2D, sipName_SetWidth, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxRect2DDouble_GetHeight, "GetHeight() -> float\n"
+"\n"
+"Returns the height.");
+
+extern "C" {static PyObject *meth_wxRect2DDouble_GetHeight(PyObject *, PyObject *);}
+static PyObject *meth_wxRect2DDouble_GetHeight(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxRect2DDouble *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRect2DDouble, &sipCpp))
+        {
+            ::wxDouble sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetHeight();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyFloat_FromDouble(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Rect2D, sipName_GetHeight, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxRect2DDouble_SetHeight, "SetHeight(h) -> None\n"
+"\n"
+"Sets the height.");
+
+extern "C" {static PyObject *meth_wxRect2DDouble_SetHeight(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxRect2DDouble_SetHeight(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxDouble h;
+        ::wxRect2DDouble *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_h,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bd", &sipSelf, sipType_wxRect2DDouble, &sipCpp, &h))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetHeight(h);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Rect2D, sipName_SetHeight, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxRect2DDouble_GetLeft, "GetLeft() -> float\n"
+"\n"
+"Returns the left point of the rectangle (the same as GetX()).");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_GetLeft(PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_GetLeft(PyObject *sipSelf, PyObject *sipArgs)
@@ -118,7 +541,9 @@ static PyObject *meth_wxRect2DDouble_GetLeft(PyObject *sipSelf, PyObject *sipArg
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_SetLeft, "SetLeft(n) -> None");
+PyDoc_STRVAR(doc_wxRect2DDouble_SetLeft, "SetLeft(n) -> None\n"
+"\n"
+"Set the left side of the rectangle.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_SetLeft(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_SetLeft(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -155,7 +580,9 @@ static PyObject *meth_wxRect2DDouble_SetLeft(PyObject *sipSelf, PyObject *sipArg
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_MoveLeftTo, "MoveLeftTo(n) -> None");
+PyDoc_STRVAR(doc_wxRect2DDouble_MoveLeftTo, "MoveLeftTo(n) -> None\n"
+"\n"
+"Sets the left position, which may adjust the width of the rectangle.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_MoveLeftTo(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_MoveLeftTo(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -192,7 +619,9 @@ static PyObject *meth_wxRect2DDouble_MoveLeftTo(PyObject *sipSelf, PyObject *sip
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_GetTop, "GetTop() -> float");
+PyDoc_STRVAR(doc_wxRect2DDouble_GetTop, "GetTop() -> float\n"
+"\n"
+"Returns the top point of the rectangle (the same as GetY()).");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_GetTop(PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_GetTop(PyObject *sipSelf, PyObject *sipArgs)
@@ -225,7 +654,9 @@ static PyObject *meth_wxRect2DDouble_GetTop(PyObject *sipSelf, PyObject *sipArgs
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_SetTop, "SetTop(n) -> None");
+PyDoc_STRVAR(doc_wxRect2DDouble_SetTop, "SetTop(n) -> None\n"
+"\n"
+"Set the top edge of the rectangle.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_SetTop(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_SetTop(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -262,7 +693,9 @@ static PyObject *meth_wxRect2DDouble_SetTop(PyObject *sipSelf, PyObject *sipArgs
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_MoveTopTo, "MoveTopTo(n) -> None");
+PyDoc_STRVAR(doc_wxRect2DDouble_MoveTopTo, "MoveTopTo(n) -> None\n"
+"\n"
+"Set the top edge of the rectangle, preserving the height.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_MoveTopTo(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_MoveTopTo(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -299,7 +732,9 @@ static PyObject *meth_wxRect2DDouble_MoveTopTo(PyObject *sipSelf, PyObject *sipA
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_GetBottom, "GetBottom() -> float");
+PyDoc_STRVAR(doc_wxRect2DDouble_GetBottom, "GetBottom() -> float\n"
+"\n"
+"Returns the bottom point of the rectangle.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_GetBottom(PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_GetBottom(PyObject *sipSelf, PyObject *sipArgs)
@@ -332,7 +767,9 @@ static PyObject *meth_wxRect2DDouble_GetBottom(PyObject *sipSelf, PyObject *sipA
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_SetBottom, "SetBottom(n) -> None");
+PyDoc_STRVAR(doc_wxRect2DDouble_SetBottom, "SetBottom(n) -> None\n"
+"\n"
+"Set the bottom edge of the rectangle.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_SetBottom(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_SetBottom(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -369,7 +806,9 @@ static PyObject *meth_wxRect2DDouble_SetBottom(PyObject *sipSelf, PyObject *sipA
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_MoveBottomTo, "MoveBottomTo(n) -> None");
+PyDoc_STRVAR(doc_wxRect2DDouble_MoveBottomTo, "MoveBottomTo(n) -> None\n"
+"\n"
+"Set the bottom edge of the rectangle, preserving the height.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_MoveBottomTo(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_MoveBottomTo(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -406,7 +845,9 @@ static PyObject *meth_wxRect2DDouble_MoveBottomTo(PyObject *sipSelf, PyObject *s
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_GetRight, "GetRight() -> float");
+PyDoc_STRVAR(doc_wxRect2DDouble_GetRight, "GetRight() -> float\n"
+"\n"
+"Returns the right point of the rectangle.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_GetRight(PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_GetRight(PyObject *sipSelf, PyObject *sipArgs)
@@ -439,7 +880,9 @@ static PyObject *meth_wxRect2DDouble_GetRight(PyObject *sipSelf, PyObject *sipAr
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_SetRight, "SetRight(n) -> None");
+PyDoc_STRVAR(doc_wxRect2DDouble_SetRight, "SetRight(n) -> None\n"
+"\n"
+"Set the right side of the rectangle.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_SetRight(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_SetRight(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -476,7 +919,9 @@ static PyObject *meth_wxRect2DDouble_SetRight(PyObject *sipSelf, PyObject *sipAr
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_MoveRightTo, "MoveRightTo(n) -> None");
+PyDoc_STRVAR(doc_wxRect2DDouble_MoveRightTo, "MoveRightTo(n) -> None\n"
+"\n"
+"Set the right side of the rectangle, preserving the width.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_MoveRightTo(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_MoveRightTo(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -513,7 +958,10 @@ static PyObject *meth_wxRect2DDouble_MoveRightTo(PyObject *sipSelf, PyObject *si
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_GetLeftTop, "GetLeftTop() -> Point2DDouble");
+PyDoc_STRVAR(doc_wxRect2DDouble_GetLeftTop, "GetLeftTop() -> Point2DDouble\n"
+"\n"
+"Returns the position of the top left corner of the rectangle, same as\n"
+"GetPosition().");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_GetLeftTop(PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_GetLeftTop(PyObject *sipSelf, PyObject *sipArgs)
@@ -546,7 +994,9 @@ static PyObject *meth_wxRect2DDouble_GetLeftTop(PyObject *sipSelf, PyObject *sip
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_SetLeftTop, "SetLeftTop(pt) -> None");
+PyDoc_STRVAR(doc_wxRect2DDouble_SetLeftTop, "SetLeftTop(pt) -> None\n"
+"\n"
+"Set the top-left point of the rectangle.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_SetLeftTop(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_SetLeftTop(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -585,7 +1035,10 @@ static PyObject *meth_wxRect2DDouble_SetLeftTop(PyObject *sipSelf, PyObject *sip
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_MoveLeftTopTo, "MoveLeftTopTo(pt) -> None");
+PyDoc_STRVAR(doc_wxRect2DDouble_MoveLeftTopTo, "MoveLeftTopTo(pt) -> None\n"
+"\n"
+"Set the top-left point of the rectangle, while preserving the width\n"
+"and height of the rectangle.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_MoveLeftTopTo(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_MoveLeftTopTo(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -624,7 +1077,9 @@ static PyObject *meth_wxRect2DDouble_MoveLeftTopTo(PyObject *sipSelf, PyObject *
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_GetLeftBottom, "GetLeftBottom() -> Point2DDouble");
+PyDoc_STRVAR(doc_wxRect2DDouble_GetLeftBottom, "GetLeftBottom() -> Point2DDouble\n"
+"\n"
+"Returns the position of the bottom left corner.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_GetLeftBottom(PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_GetLeftBottom(PyObject *sipSelf, PyObject *sipArgs)
@@ -657,7 +1112,9 @@ static PyObject *meth_wxRect2DDouble_GetLeftBottom(PyObject *sipSelf, PyObject *
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_SetLeftBottom, "SetLeftBottom(pt) -> None");
+PyDoc_STRVAR(doc_wxRect2DDouble_SetLeftBottom, "SetLeftBottom(pt) -> None\n"
+"\n"
+"Set the bottom-left point of the rectangle.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_SetLeftBottom(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_SetLeftBottom(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -696,7 +1153,10 @@ static PyObject *meth_wxRect2DDouble_SetLeftBottom(PyObject *sipSelf, PyObject *
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_MoveLeftBottomTo, "MoveLeftBottomTo(pt) -> None");
+PyDoc_STRVAR(doc_wxRect2DDouble_MoveLeftBottomTo, "MoveLeftBottomTo(pt) -> None\n"
+"\n"
+"Set the bottom-left point of the rectangle, while preserving the width\n"
+"and height of the rectangle.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_MoveLeftBottomTo(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_MoveLeftBottomTo(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -735,7 +1195,9 @@ static PyObject *meth_wxRect2DDouble_MoveLeftBottomTo(PyObject *sipSelf, PyObjec
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_GetRightTop, "GetRightTop() -> Point2DDouble");
+PyDoc_STRVAR(doc_wxRect2DDouble_GetRightTop, "GetRightTop() -> Point2DDouble\n"
+"\n"
+"Returns the position of the top right corner.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_GetRightTop(PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_GetRightTop(PyObject *sipSelf, PyObject *sipArgs)
@@ -768,7 +1230,9 @@ static PyObject *meth_wxRect2DDouble_GetRightTop(PyObject *sipSelf, PyObject *si
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_SetRightTop, "SetRightTop(pt) -> None");
+PyDoc_STRVAR(doc_wxRect2DDouble_SetRightTop, "SetRightTop(pt) -> None\n"
+"\n"
+"Set the top-right point of the rectangle.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_SetRightTop(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_SetRightTop(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -807,7 +1271,10 @@ static PyObject *meth_wxRect2DDouble_SetRightTop(PyObject *sipSelf, PyObject *si
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_MoveRightTopTo, "MoveRightTopTo(pt) -> None");
+PyDoc_STRVAR(doc_wxRect2DDouble_MoveRightTopTo, "MoveRightTopTo(pt) -> None\n"
+"\n"
+"Set the top-right point of the rectangle, while preserving the width\n"
+"and height of the rectangle.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_MoveRightTopTo(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_MoveRightTopTo(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -846,7 +1313,9 @@ static PyObject *meth_wxRect2DDouble_MoveRightTopTo(PyObject *sipSelf, PyObject 
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_GetRightBottom, "GetRightBottom() -> Point2DDouble");
+PyDoc_STRVAR(doc_wxRect2DDouble_GetRightBottom, "GetRightBottom() -> Point2DDouble\n"
+"\n"
+"Returns the position of the bottom right corner.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_GetRightBottom(PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_GetRightBottom(PyObject *sipSelf, PyObject *sipArgs)
@@ -879,7 +1348,9 @@ static PyObject *meth_wxRect2DDouble_GetRightBottom(PyObject *sipSelf, PyObject 
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_SetRightBottom, "SetRightBottom(pt) -> None");
+PyDoc_STRVAR(doc_wxRect2DDouble_SetRightBottom, "SetRightBottom(pt) -> None\n"
+"\n"
+"Set the bottom-right point of the rectangle.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_SetRightBottom(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_SetRightBottom(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -918,7 +1389,10 @@ static PyObject *meth_wxRect2DDouble_SetRightBottom(PyObject *sipSelf, PyObject 
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_MoveRightBottomTo, "MoveRightBottomTo(pt) -> None");
+PyDoc_STRVAR(doc_wxRect2DDouble_MoveRightBottomTo, "MoveRightBottomTo(pt) -> None\n"
+"\n"
+"Set the bottom-right point of the rectangle, while preserving the\n"
+"width and height of the rectangle.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_MoveRightBottomTo(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_MoveRightBottomTo(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -957,7 +1431,9 @@ static PyObject *meth_wxRect2DDouble_MoveRightBottomTo(PyObject *sipSelf, PyObje
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_GetCentre, "GetCentre() -> Point2DDouble");
+PyDoc_STRVAR(doc_wxRect2DDouble_GetCentre, "GetCentre() -> Point2DDouble\n"
+"\n"
+"Returns the centre point of the rectangle.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_GetCentre(PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_GetCentre(PyObject *sipSelf, PyObject *sipArgs)
@@ -990,7 +1466,9 @@ static PyObject *meth_wxRect2DDouble_GetCentre(PyObject *sipSelf, PyObject *sipA
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_SetCentre, "SetCentre(pt) -> None");
+PyDoc_STRVAR(doc_wxRect2DDouble_SetCentre, "SetCentre(pt) -> None\n"
+"\n"
+"Recenters (i.e., moves) the rectangle to the given point.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_SetCentre(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_SetCentre(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1029,7 +1507,9 @@ static PyObject *meth_wxRect2DDouble_SetCentre(PyObject *sipSelf, PyObject *sipA
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_MoveCentreTo, "MoveCentreTo(pt) -> None");
+PyDoc_STRVAR(doc_wxRect2DDouble_MoveCentreTo, "MoveCentreTo(pt) -> None\n"
+"\n"
+"An alias for MoveCentreTo().");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_MoveCentreTo(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_MoveCentreTo(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1068,7 +1548,10 @@ static PyObject *meth_wxRect2DDouble_MoveCentreTo(PyObject *sipSelf, PyObject *s
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_GetOutCode, "GetOutCode(pt) -> OutCode");
+PyDoc_STRVAR(doc_wxRect2DDouble_GetOutCode, "GetOutCode(pt) -> OutCode\n"
+"\n"
+"Returns the relative location of a point to the rectangle (e.g.,\n"
+"inside or to the left of it).");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_GetOutCode(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_GetOutCode(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1108,48 +1591,11 @@ static PyObject *meth_wxRect2DDouble_GetOutCode(PyObject *sipSelf, PyObject *sip
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_GetOutcode, "GetOutcode(pt) -> OutCode");
-
-extern "C" {static PyObject *meth_wxRect2DDouble_GetOutcode(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxRect2DDouble_GetOutcode(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxPoint2DDouble* pt;
-        int ptState = 0;
-        const ::wxRect2DDouble *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_pt,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxRect2DDouble, &sipCpp, sipType_wxPoint2DDouble, &pt, &ptState))
-        {
-            ::wxOutCode sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->GetOutcode(*pt);
-            Py_END_ALLOW_THREADS
-            sipReleaseType(const_cast< ::wxPoint2DDouble *>(pt), sipType_wxPoint2DDouble, ptState);
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxOutCode);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_Rect2D, sipName_GetOutcode, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxRect2DDouble_Contains, "Contains(pt) -> bool\n"
 "Contains(rect) -> bool\n"
+"\n"
+"Returns true if the given point is inside the rectangle (or on its\n"
+"boundary) and false otherwise.\n"
 "");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_Contains(PyObject *, PyObject *, PyObject *);}
@@ -1217,7 +1663,10 @@ static PyObject *meth_wxRect2DDouble_Contains(PyObject *sipSelf, PyObject *sipAr
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_IsEmpty, "IsEmpty() -> bool");
+PyDoc_STRVAR(doc_wxRect2DDouble_IsEmpty, "IsEmpty() -> bool\n"
+"\n"
+"Returns true if this rectangle has a width or height less than or\n"
+"equal to 0 and false otherwise.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_IsEmpty(PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_IsEmpty(PyObject *sipSelf, PyObject *sipArgs)
@@ -1250,7 +1699,9 @@ static PyObject *meth_wxRect2DDouble_IsEmpty(PyObject *sipSelf, PyObject *sipArg
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_HaveEqualSize, "HaveEqualSize(rect) -> bool");
+PyDoc_STRVAR(doc_wxRect2DDouble_HaveEqualSize, "HaveEqualSize(rect) -> bool\n"
+"\n"
+"Returns true if another rectangle has the same width and height.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_HaveEqualSize(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_HaveEqualSize(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1292,6 +1743,9 @@ static PyObject *meth_wxRect2DDouble_HaveEqualSize(PyObject *sipSelf, PyObject *
 
 PyDoc_STRVAR(doc_wxRect2DDouble_Inset, "Inset(x, y) -> None\n"
 "Inset(left, top, right, bottom) -> None\n"
+"\n"
+"Offsets the rectangle by x and y, but maintains the bottom right\n"
+"corner.\n"
 "");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_Inset(PyObject *, PyObject *, PyObject *);}
@@ -1361,7 +1815,11 @@ static PyObject *meth_wxRect2DDouble_Inset(PyObject *sipSelf, PyObject *sipArgs,
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_Offset, "Offset(pt) -> None");
+PyDoc_STRVAR(doc_wxRect2DDouble_Offset, "Offset(pt) -> None\n"
+"Offset(dx, dy) -> None\n"
+"\n"
+"Moves the rectangle by the specified offset.\n"
+"");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_Offset(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_Offset(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1394,13 +1852,42 @@ static PyObject *meth_wxRect2DDouble_Offset(PyObject *sipSelf, PyObject *sipArgs
         }
     }
 
+    {
+        ::wxDouble dx;
+        ::wxDouble dy;
+        ::wxRect2DDouble *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_dx,
+            sipName_dy,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bdd", &sipSelf, sipType_wxRect2DDouble, &sipCpp, &dx, &dy))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->Offset(dx, dy);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
     sipNoMethod(sipParseErr, sipName_Rect2D, sipName_Offset, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_ConstrainTo, "ConstrainTo(rect) -> None");
+PyDoc_STRVAR(doc_wxRect2DDouble_ConstrainTo, "ConstrainTo(rect) -> None\n"
+"\n"
+"Resizes the rectangle to fit within the dimensions of another\n"
+"rectangle.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_ConstrainTo(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_ConstrainTo(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1481,6 +1968,8 @@ static PyObject *meth_wxRect2DDouble_Interpolate(PyObject *sipSelf, PyObject *si
 
 PyDoc_STRVAR(doc_wxRect2DDouble_Intersect, "Intersect(otherRect) -> None\n"
 "Intersect(src1, src2, dest) -> None\n"
+"\n"
+"Constrains the rectangle to the intersection of another rectangle.\n"
 "");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_Intersect(PyObject *, PyObject *, PyObject *);}
@@ -1553,7 +2042,9 @@ static PyObject *meth_wxRect2DDouble_Intersect(PyObject *sipSelf, PyObject *sipA
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_CreateIntersection, "CreateIntersection(otherRect) -> Rect2DDouble");
+PyDoc_STRVAR(doc_wxRect2DDouble_CreateIntersection, "CreateIntersection(otherRect) -> Rect2DDouble\n"
+"\n"
+"Returns the intersecting rectangle of this rectangle with another one.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_CreateIntersection(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_CreateIntersection(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1593,7 +2084,10 @@ static PyObject *meth_wxRect2DDouble_CreateIntersection(PyObject *sipSelf, PyObj
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_Intersects, "Intersects(rect) -> bool");
+PyDoc_STRVAR(doc_wxRect2DDouble_Intersects, "Intersects(rect) -> bool\n"
+"\n"
+"Returns true if this rectangle has a non-empty intersection with the\n"
+"rectangle rect and false otherwise.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_Intersects(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_Intersects(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1636,6 +2130,8 @@ static PyObject *meth_wxRect2DDouble_Intersects(PyObject *sipSelf, PyObject *sip
 PyDoc_STRVAR(doc_wxRect2DDouble_Union, "Union(otherRect) -> None\n"
 "Union(pt) -> None\n"
 "Union(src1, src2, dest) -> None\n"
+"\n"
+"Expands the rectangle to the union with another rectangle.\n"
 "\n"
 "");
 
@@ -1735,7 +2231,9 @@ static PyObject *meth_wxRect2DDouble_Union(PyObject *sipSelf, PyObject *sipArgs,
 }
 
 
-PyDoc_STRVAR(doc_wxRect2DDouble_CreateUnion, "CreateUnion(otherRect) -> Rect2DDouble");
+PyDoc_STRVAR(doc_wxRect2DDouble_CreateUnion, "CreateUnion(otherRect) -> Rect2DDouble\n"
+"\n"
+"Returns the union of this rectangle with another one.");
 
 extern "C" {static PyObject *meth_wxRect2DDouble_CreateUnion(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRect2DDouble_CreateUnion(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1835,6 +2333,41 @@ static PyObject *meth_wxRect2DDouble_Scale(PyObject *sipSelf, PyObject *sipArgs,
     }
 
     sipNoMethod(sipParseErr, sipName_Rect2D, sipName_Scale, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxRect2DDouble_ToRect, "ToRect() -> Rect\n"
+"\n"
+"Returns the rectangle as a wxRect.");
+
+extern "C" {static PyObject *meth_wxRect2DDouble_ToRect(PyObject *, PyObject *);}
+static PyObject *meth_wxRect2DDouble_ToRect(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxRect2DDouble *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRect2DDouble, &sipCpp))
+        {
+            ::wxRect*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxRect(sipCpp->ToRect());
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxRect, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Rect2D, sipName_ToRect, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -2030,23 +2563,50 @@ static void *init_type_wxRect2DDouble(sipSimpleWrapper *, PyObject *sipArgs, PyO
     {
         ::wxDouble x;
         ::wxDouble y;
-        ::wxDouble w;
-        ::wxDouble h;
+        ::wxDouble width;
+        ::wxDouble height;
 
         static const char *sipKwdList[] = {
             sipName_x,
             sipName_y,
-            sipName_w,
-            sipName_h,
+            sipName_width,
+            sipName_height,
         };
 
-        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, sipKwdList, sipUnused, "dddd", &x, &y, &w, &h))
+        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, sipKwdList, sipUnused, "dddd", &x, &y, &width, &height))
         {
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipCpp = new ::wxRect2DDouble(x, y, w, h);
+            sipCpp = new ::wxRect2DDouble(x, y, width, height);
             Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+            {
+                delete sipCpp;
+                return SIP_NULLPTR;
+            }
+
+            return sipCpp;
+        }
+    }
+
+    {
+        const ::wxRect* rect;
+        int rectState = 0;
+
+        static const char *sipKwdList[] = {
+            sipName_rect,
+        };
+
+        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, sipKwdList, sipUnused, "J1", sipType_wxRect, &rect, &rectState))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp = new ::wxRect2DDouble(*rect);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxRect *>(rect), sipType_wxRect, rectState);
 
             if (PyErr_Occurred())
             {
@@ -2129,21 +2689,26 @@ static PyMethodDef methods_wxRect2DDouble[] = {
     {sipName_Contains, SIP_MLMETH_CAST(meth_wxRect2DDouble_Contains), METH_VARARGS|METH_KEYWORDS, doc_wxRect2DDouble_Contains},
     {sipName_CreateIntersection, SIP_MLMETH_CAST(meth_wxRect2DDouble_CreateIntersection), METH_VARARGS|METH_KEYWORDS, doc_wxRect2DDouble_CreateIntersection},
     {sipName_CreateUnion, SIP_MLMETH_CAST(meth_wxRect2DDouble_CreateUnion), METH_VARARGS|METH_KEYWORDS, doc_wxRect2DDouble_CreateUnion},
+    {sipName_Deflate, SIP_MLMETH_CAST(meth_wxRect2DDouble_Deflate), METH_VARARGS|METH_KEYWORDS, doc_wxRect2DDouble_Deflate},
     {sipName_Get, meth_wxRect2DDouble_Get, METH_VARARGS, doc_wxRect2DDouble_Get},
     {sipName_GetBottom, meth_wxRect2DDouble_GetBottom, METH_VARARGS, doc_wxRect2DDouble_GetBottom},
     {sipName_GetCentre, meth_wxRect2DDouble_GetCentre, METH_VARARGS, doc_wxRect2DDouble_GetCentre},
+    {sipName_GetHeight, meth_wxRect2DDouble_GetHeight, METH_VARARGS, doc_wxRect2DDouble_GetHeight},
     {sipName_GetLeft, meth_wxRect2DDouble_GetLeft, METH_VARARGS, doc_wxRect2DDouble_GetLeft},
     {sipName_GetLeftBottom, meth_wxRect2DDouble_GetLeftBottom, METH_VARARGS, doc_wxRect2DDouble_GetLeftBottom},
     {sipName_GetLeftTop, meth_wxRect2DDouble_GetLeftTop, METH_VARARGS, doc_wxRect2DDouble_GetLeftTop},
     {sipName_GetOutCode, SIP_MLMETH_CAST(meth_wxRect2DDouble_GetOutCode), METH_VARARGS|METH_KEYWORDS, doc_wxRect2DDouble_GetOutCode},
-    {sipName_GetOutcode, SIP_MLMETH_CAST(meth_wxRect2DDouble_GetOutcode), METH_VARARGS|METH_KEYWORDS, doc_wxRect2DDouble_GetOutcode},
     {sipName_GetPosition, meth_wxRect2DDouble_GetPosition, METH_VARARGS, doc_wxRect2DDouble_GetPosition},
     {sipName_GetRight, meth_wxRect2DDouble_GetRight, METH_VARARGS, doc_wxRect2DDouble_GetRight},
     {sipName_GetRightBottom, meth_wxRect2DDouble_GetRightBottom, METH_VARARGS, doc_wxRect2DDouble_GetRightBottom},
     {sipName_GetRightTop, meth_wxRect2DDouble_GetRightTop, METH_VARARGS, doc_wxRect2DDouble_GetRightTop},
     {sipName_GetSize, meth_wxRect2DDouble_GetSize, METH_VARARGS, doc_wxRect2DDouble_GetSize},
     {sipName_GetTop, meth_wxRect2DDouble_GetTop, METH_VARARGS, doc_wxRect2DDouble_GetTop},
+    {sipName_GetWidth, meth_wxRect2DDouble_GetWidth, METH_VARARGS, doc_wxRect2DDouble_GetWidth},
+    {sipName_GetX, meth_wxRect2DDouble_GetX, METH_VARARGS, doc_wxRect2DDouble_GetX},
+    {sipName_GetY, meth_wxRect2DDouble_GetY, METH_VARARGS, doc_wxRect2DDouble_GetY},
     {sipName_HaveEqualSize, SIP_MLMETH_CAST(meth_wxRect2DDouble_HaveEqualSize), METH_VARARGS|METH_KEYWORDS, doc_wxRect2DDouble_HaveEqualSize},
+    {sipName_Inflate, SIP_MLMETH_CAST(meth_wxRect2DDouble_Inflate), METH_VARARGS|METH_KEYWORDS, doc_wxRect2DDouble_Inflate},
     {sipName_Inset, SIP_MLMETH_CAST(meth_wxRect2DDouble_Inset), METH_VARARGS|METH_KEYWORDS, doc_wxRect2DDouble_Inset},
     {sipName_Interpolate, SIP_MLMETH_CAST(meth_wxRect2DDouble_Interpolate), METH_VARARGS|METH_KEYWORDS, doc_wxRect2DDouble_Interpolate},
     {sipName_Intersect, SIP_MLMETH_CAST(meth_wxRect2DDouble_Intersect), METH_VARARGS|METH_KEYWORDS, doc_wxRect2DDouble_Intersect},
@@ -2162,6 +2727,7 @@ static PyMethodDef methods_wxRect2DDouble[] = {
     {sipName_Scale, SIP_MLMETH_CAST(meth_wxRect2DDouble_Scale), METH_VARARGS|METH_KEYWORDS, doc_wxRect2DDouble_Scale},
     {sipName_SetBottom, SIP_MLMETH_CAST(meth_wxRect2DDouble_SetBottom), METH_VARARGS|METH_KEYWORDS, doc_wxRect2DDouble_SetBottom},
     {sipName_SetCentre, SIP_MLMETH_CAST(meth_wxRect2DDouble_SetCentre), METH_VARARGS|METH_KEYWORDS, doc_wxRect2DDouble_SetCentre},
+    {sipName_SetHeight, SIP_MLMETH_CAST(meth_wxRect2DDouble_SetHeight), METH_VARARGS|METH_KEYWORDS, doc_wxRect2DDouble_SetHeight},
     {sipName_SetLeft, SIP_MLMETH_CAST(meth_wxRect2DDouble_SetLeft), METH_VARARGS|METH_KEYWORDS, doc_wxRect2DDouble_SetLeft},
     {sipName_SetLeftBottom, SIP_MLMETH_CAST(meth_wxRect2DDouble_SetLeftBottom), METH_VARARGS|METH_KEYWORDS, doc_wxRect2DDouble_SetLeftBottom},
     {sipName_SetLeftTop, SIP_MLMETH_CAST(meth_wxRect2DDouble_SetLeftTop), METH_VARARGS|METH_KEYWORDS, doc_wxRect2DDouble_SetLeftTop},
@@ -2169,6 +2735,8 @@ static PyMethodDef methods_wxRect2DDouble[] = {
     {sipName_SetRightBottom, SIP_MLMETH_CAST(meth_wxRect2DDouble_SetRightBottom), METH_VARARGS|METH_KEYWORDS, doc_wxRect2DDouble_SetRightBottom},
     {sipName_SetRightTop, SIP_MLMETH_CAST(meth_wxRect2DDouble_SetRightTop), METH_VARARGS|METH_KEYWORDS, doc_wxRect2DDouble_SetRightTop},
     {sipName_SetTop, SIP_MLMETH_CAST(meth_wxRect2DDouble_SetTop), METH_VARARGS|METH_KEYWORDS, doc_wxRect2DDouble_SetTop},
+    {sipName_SetWidth, SIP_MLMETH_CAST(meth_wxRect2DDouble_SetWidth), METH_VARARGS|METH_KEYWORDS, doc_wxRect2DDouble_SetWidth},
+    {sipName_ToRect, meth_wxRect2DDouble_ToRect, METH_VARARGS, doc_wxRect2DDouble_ToRect},
     {sipName_Union, SIP_MLMETH_CAST(meth_wxRect2DDouble_Union), METH_VARARGS|METH_KEYWORDS, doc_wxRect2DDouble_Union}
 };
 
@@ -2289,17 +2857,21 @@ static int varset_wxRect2DDouble_m_y(void *sipSelf, PyObject *sipPy, PyObject *)
 }
 
 sipVariableDef variables_wxRect2DDouble[] = {
-    {PropertyVariable, sipName_Top, &methods_wxRect2DDouble[17], &methods_wxRect2DDouble[43], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Size, &methods_wxRect2DDouble[16], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_RightTop, &methods_wxRect2DDouble[15], &methods_wxRect2DDouble[42], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_RightBottom, &methods_wxRect2DDouble[14], &methods_wxRect2DDouble[41], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Right, &methods_wxRect2DDouble[13], &methods_wxRect2DDouble[40], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Position, &methods_wxRect2DDouble[12], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_LeftTop, &methods_wxRect2DDouble[9], &methods_wxRect2DDouble[39], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_LeftBottom, &methods_wxRect2DDouble[8], &methods_wxRect2DDouble[38], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Left, &methods_wxRect2DDouble[7], &methods_wxRect2DDouble[37], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Centre, &methods_wxRect2DDouble[6], &methods_wxRect2DDouble[36], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Bottom, &methods_wxRect2DDouble[5], &methods_wxRect2DDouble[35], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Y, &methods_wxRect2DDouble[21], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_X, &methods_wxRect2DDouble[20], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Width, &methods_wxRect2DDouble[19], &methods_wxRect2DDouble[50], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Top, &methods_wxRect2DDouble[18], &methods_wxRect2DDouble[49], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Size, &methods_wxRect2DDouble[17], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_RightTop, &methods_wxRect2DDouble[16], &methods_wxRect2DDouble[48], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_RightBottom, &methods_wxRect2DDouble[15], &methods_wxRect2DDouble[47], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Right, &methods_wxRect2DDouble[14], &methods_wxRect2DDouble[46], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Position, &methods_wxRect2DDouble[13], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_LeftTop, &methods_wxRect2DDouble[11], &methods_wxRect2DDouble[45], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_LeftBottom, &methods_wxRect2DDouble[10], &methods_wxRect2DDouble[44], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Left, &methods_wxRect2DDouble[9], &methods_wxRect2DDouble[43], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Height, &methods_wxRect2DDouble[8], &methods_wxRect2DDouble[42], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Centre, &methods_wxRect2DDouble[7], &methods_wxRect2DDouble[41], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Bottom, &methods_wxRect2DDouble[6], &methods_wxRect2DDouble[40], SIP_NULLPTR, SIP_NULLPTR},
     {InstanceVariable, sipName_height, (PyMethodDef *)varget_wxRect2DDouble_m_height, (PyMethodDef *)varset_wxRect2DDouble_m_height, SIP_NULLPTR, SIP_NULLPTR},
     {InstanceVariable, sipName_width, (PyMethodDef *)varget_wxRect2DDouble_m_width, (PyMethodDef *)varset_wxRect2DDouble_m_width, SIP_NULLPTR, SIP_NULLPTR},
     {InstanceVariable, sipName_x, (PyMethodDef *)varget_wxRect2DDouble_m_x, (PyMethodDef *)varset_wxRect2DDouble_m_x, SIP_NULLPTR, SIP_NULLPTR},
@@ -2307,7 +2879,11 @@ sipVariableDef variables_wxRect2DDouble[] = {
 };
 
 PyDoc_STRVAR(doc_wxRect2DDouble, "Rect2DDouble() -> None\n"
-"Rect2DDouble(x, y, w, h) -> None");
+"Rect2DDouble(x, y, width, height) -> None\n"
+"Rect2DDouble(rect) -> None\n"
+"\n"
+"wxRect2DDouble is an axis-aligned rectangle; each side of the rect is\n"
+"parallel to the X or Y axis.");
 
 
 sipClassTypeDef sipTypeDef__core_wxRect2DDouble = {
@@ -2323,9 +2899,9 @@ sipClassTypeDef sipTypeDef__core_wxRect2DDouble = {
     {
         sipNameNr_Rect2D,
         {0, 0, 1},
-        45, methods_wxRect2DDouble,
+        53, methods_wxRect2DDouble,
         0, SIP_NULLPTR,
-        15, variables_wxRect2DDouble,
+        19, variables_wxRect2DDouble,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxRect2DDouble,

@@ -1351,7 +1351,7 @@ impl ManagedPythonDownload {
         // Extract the top-level directory.
         let mut extracted = match uv_extract::strip_component(temp_dir.path()) {
             Ok(top_level) => top_level,
-            Err(uv_extract::Error::NonSingularArchive(_)) => temp_dir.keep(),
+            Err(uv_extract::Error::NonSingularArchive(_)) => temp_dir.path().to_path_buf(),
             Err(err) => return Err(Error::ExtractError(filename, err)),
         };
 
@@ -1485,12 +1485,12 @@ impl ManagedPythonDownload {
         if let Some(reporter) = reporter {
             let progress_key = reporter.on_request_start(direction, &self.key, size);
             let mut reader = ProgressReader::new(&mut hasher, progress_key, reporter);
-            uv_extract::stream::archive(filename, &mut reader, ext, target)
+            uv_extract::stream::archive(&mut reader, ext, target)
                 .await
                 .map_err(|err| Error::ExtractError(filename.to_owned(), err))?;
             reporter.on_request_complete(direction, progress_key);
         } else {
-            uv_extract::stream::archive(filename, &mut hasher, ext, target)
+            uv_extract::stream::archive(&mut hasher, ext, target)
                 .await
                 .map_err(|err| Error::ExtractError(filename.to_owned(), err))?;
         }

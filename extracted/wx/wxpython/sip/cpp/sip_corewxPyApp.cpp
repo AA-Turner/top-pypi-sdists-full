@@ -92,6 +92,13 @@
             void OSXEnableAutomaticTabbing(bool) {}
         #endif
         
+        #ifndef __WXMSW__
+            enum {
+                DarkMode_Auto   = 0,
+                DarkMode_Always = 1
+            };
+        #endif
+        
         #ifdef __WXMAC__
             static long GetMacAboutMenuItemId()               { return s_macAboutMenuItemId; }
             static long GetMacPreferencesMenuItemId()         { return s_macPreferencesMenuItemId; }
@@ -368,6 +375,15 @@
         {
             return wxApp::GetInstance();
         }
+    bool _wxPyApp_MSWEnableDarkMode(wxPyApp* self, int flags, wxDarkModeSettings *settings)
+    {
+        #ifdef __WXMSW__
+            return self->MSWEnableDarkMode(flags, settings);
+        #else
+            wxPyRaiseNotImplemented();
+            return false;
+        #endif
+    }
     void _wxPyApp_GTKSuppressDiagnostics(int flags)
     {
         #ifdef __WXGTK__
@@ -437,6 +453,7 @@ protected:
     int OnExit() SIP_OVERRIDE;
     bool OnInit() SIP_OVERRIDE;
     int OnRun() SIP_OVERRIDE;
+    void SetErrorExitCode(int) SIP_OVERRIDE;
 
 public:
     sipSimpleWrapper *sipPySelf;
@@ -445,7 +462,7 @@ private:
     sipwxPyApp(const sipwxPyApp &);
     sipwxPyApp &operator = (const sipwxPyApp &);
 
-    char sipPyMethods[22];
+    char sipPyMethods[23];
 };
 
 sipwxPyApp::sipwxPyApp(): ::wxPyApp(), sipPySelf(SIP_NULLPTR)
@@ -591,9 +608,9 @@ void sipwxPyApp::MacOpenFiles(const ::wxArrayString& fileNames)
         return;
     }
 
-    extern void sipVH__core_123(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxArrayString&);
+    extern void sipVH__core_122(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxArrayString&);
 
-    sipVH__core_123(sipGILState, 0, sipPySelf, sipMeth, fileNames);
+    sipVH__core_122(sipGILState, 0, sipPySelf, sipMeth, fileNames);
 }
 
 void sipwxPyApp::MacNewFile()
@@ -624,9 +641,9 @@ bool sipwxPyApp::TryAfter(::wxEvent& event)
     if (!sipMeth)
         return ::wxPyApp::TryAfter(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxPyApp::TryBefore(::wxEvent& event)
@@ -639,9 +656,9 @@ bool sipwxPyApp::TryBefore(::wxEvent& event)
     if (!sipMeth)
         return ::wxPyApp::TryBefore(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxPyApp::ProcessEvent(::wxEvent& event)
@@ -654,9 +671,9 @@ bool sipwxPyApp::ProcessEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxPyApp::ProcessEvent(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 int sipwxPyApp::FilterEvent(::wxEvent& event)
@@ -669,9 +686,9 @@ int sipwxPyApp::FilterEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxPyApp::FilterEvent(event);
 
-    extern int sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern int sipVH__core_110(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_110(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 int sipwxPyApp::MainLoop()
@@ -684,9 +701,9 @@ int sipwxPyApp::MainLoop()
     if (!sipMeth)
         return ::wxPyApp::MainLoop();
 
-    extern int sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern int sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPyApp::ExitMainLoop()
@@ -753,9 +770,9 @@ void sipwxPyApp::OnEventLoopEnter(::wxEventLoopBase*loop)
         return;
     }
 
-    extern void sipVH__core_122(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEventLoopBase*);
+    extern void sipVH__core_121(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEventLoopBase*);
 
-    sipVH__core_122(sipGILState, 0, sipPySelf, sipMeth, loop);
+    sipVH__core_121(sipGILState, 0, sipPySelf, sipMeth, loop);
 }
 
 void sipwxPyApp::OnEventLoopExit(::wxEventLoopBase*loop)
@@ -771,9 +788,9 @@ void sipwxPyApp::OnEventLoopExit(::wxEventLoopBase*loop)
         return;
     }
 
-    extern void sipVH__core_122(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEventLoopBase*);
+    extern void sipVH__core_121(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEventLoopBase*);
 
-    sipVH__core_122(sipGILState, 0, sipPySelf, sipMeth, loop);
+    sipVH__core_121(sipGILState, 0, sipPySelf, sipMeth, loop);
 }
 
 int sipwxPyApp::OnExit()
@@ -786,9 +803,9 @@ int sipwxPyApp::OnExit()
     if (!sipMeth)
         return ::wxPyApp::OnExit();
 
-    extern int sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern int sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPyApp::OnInit()
@@ -816,9 +833,27 @@ int sipwxPyApp::OnRun()
     if (!sipMeth)
         return ::wxPyApp::OnRun();
 
-    extern int sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern int sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth);
+}
+
+void sipwxPyApp::SetErrorExitCode(int code)
+{
+    sip_gilstate_t sipGILState;
+    PyObject *sipMeth;
+
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[22], &sipPySelf, SIP_NULLPTR, sipName_SetErrorExitCode);
+
+    if (!sipMeth)
+    {
+        ::wxPyApp::SetErrorExitCode(code);
+        return;
+    }
+
+    extern void sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+
+    sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth, code);
 }
 
 bool sipwxPyApp::sipProtectVirt_TryBefore(bool sipSelfWasArg, ::wxEvent& event)
@@ -1144,6 +1179,48 @@ static PyObject *meth_wxPyApp_OSXEnableAutomaticTabbing(PyObject *sipSelf, PyObj
     }
 
     sipNoMethod(sipParseErr, sipName_PyApp, sipName_OSXEnableAutomaticTabbing, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxPyApp_MSWEnableDarkMode, "MSWEnableDarkMode(flags=0, settings=nullptr) -> bool\n"
+"\n"
+"Enable experimental dark mode support for MSW applications.");
+
+extern "C" {static PyObject *meth_wxPyApp_MSWEnableDarkMode(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxPyApp_MSWEnableDarkMode(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int flags = 0;
+        ::wxDarkModeSettings* settings = nullptr;
+        ::wxPyApp *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_flags,
+            sipName_settings,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "B|iJ:", &sipSelf, sipType_wxPyApp, &sipCpp, &flags, sipType_wxDarkModeSettings, &settings))
+        {
+            bool sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxPyApp_MSWEnableDarkMode(sipCpp, flags, settings);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_PyApp, sipName_MSWEnableDarkMode, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -1517,6 +1594,47 @@ static PyObject *meth_wxPyApp_SafeYieldFor(PyObject *sipSelf, PyObject *sipArgs,
     }
 
     sipNoMethod(sipParseErr, sipName_PyApp, sipName_SafeYieldFor, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxPyApp_SetAppearance, "SetAppearance(appearance) -> AppearanceResult\n"
+"\n"
+"Request using either system default or explicitly light or dark theme\n"
+"for the application.");
+
+extern "C" {static PyObject *meth_wxPyApp_SetAppearance(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxPyApp_SetAppearance(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxPyApp::Appearance appearance;
+        ::wxPyApp *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_appearance,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BE", &sipSelf, sipType_wxPyApp, &sipCpp, sipType_wxPyApp_Appearance, &appearance))
+        {
+            ::wxPyApp::AppearanceResult sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->SetAppearance(appearance);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxPyApp_AppearanceResult);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_PyApp, sipName_SetAppearance, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -2619,7 +2737,7 @@ static void *init_type_wxPyApp(sipSimpleWrapper *sipSelf, PyObject *sipArgs, PyO
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxPyApp[] = {{20, 255, 1}};
+static sipEncodedTypeDef supers_wxPyApp[] = {{22, 255, 1}};
 
 
 static PyMethodDef methods_wxPyApp[] = {
@@ -2639,6 +2757,7 @@ static PyMethodDef methods_wxPyApp[] = {
     {sipName_GetUseBestVisual, meth_wxPyApp_GetUseBestVisual, METH_VARARGS, doc_wxPyApp_GetUseBestVisual},
     {sipName_IsActive, meth_wxPyApp_IsActive, METH_VARARGS, doc_wxPyApp_IsActive},
     {sipName_IsDisplayAvailable, meth_wxPyApp_IsDisplayAvailable, METH_VARARGS, doc_wxPyApp_IsDisplayAvailable},
+    {sipName_MSWEnableDarkMode, SIP_MLMETH_CAST(meth_wxPyApp_MSWEnableDarkMode), METH_VARARGS|METH_KEYWORDS, doc_wxPyApp_MSWEnableDarkMode},
     {sipName_MacHideApp, meth_wxPyApp_MacHideApp, METH_VARARGS, doc_wxPyApp_MacHideApp},
     {sipName_MacNewFile, meth_wxPyApp_MacNewFile, METH_VARARGS, doc_wxPyApp_MacNewFile},
     {sipName_MacOpenFile, SIP_MLMETH_CAST(meth_wxPyApp_MacOpenFile), METH_VARARGS|METH_KEYWORDS, doc_wxPyApp_MacOpenFile},
@@ -2656,6 +2775,7 @@ static PyMethodDef methods_wxPyApp[] = {
     {sipName_OnRun, meth_wxPyApp_OnRun, METH_VARARGS, doc_wxPyApp_OnRun},
     {sipName_SafeYield, SIP_MLMETH_CAST(meth_wxPyApp_SafeYield), METH_VARARGS|METH_KEYWORDS, doc_wxPyApp_SafeYield},
     {sipName_SafeYieldFor, SIP_MLMETH_CAST(meth_wxPyApp_SafeYieldFor), METH_VARARGS|METH_KEYWORDS, doc_wxPyApp_SafeYieldFor},
+    {sipName_SetAppearance, SIP_MLMETH_CAST(meth_wxPyApp_SetAppearance), METH_VARARGS|METH_KEYWORDS, doc_wxPyApp_SetAppearance},
     {sipName_SetAssertMode, SIP_MLMETH_CAST(meth_wxPyApp_SetAssertMode), METH_VARARGS|METH_KEYWORDS, doc_wxPyApp_SetAssertMode},
     {sipName_SetDisplayMode, SIP_MLMETH_CAST(meth_wxPyApp_SetDisplayMode), METH_VARARGS|METH_KEYWORDS, doc_wxPyApp_SetDisplayMode},
     {sipName_SetExitOnFrameDelete, SIP_MLMETH_CAST(meth_wxPyApp_SetExitOnFrameDelete), METH_VARARGS|METH_KEYWORDS, doc_wxPyApp_SetExitOnFrameDelete},
@@ -2671,13 +2791,24 @@ static PyMethodDef methods_wxPyApp[] = {
     {sipName__BootstrapApp, meth_wxPyApp__BootstrapApp, METH_VARARGS, doc_wxPyApp__BootstrapApp}
 };
 
+static sipEnumMemberDef enummembers_wxPyApp[] = {
+    {sipName_CannotChange, static_cast<int>(::wxPyApp::AppearanceResult::CannotChange), 474},
+    {sipName_Dark, static_cast<int>(::wxPyApp::Appearance::Dark), 473},
+    {sipName_DarkMode_Always, static_cast<int>(::wxPyApp::DarkMode_Always), -1},
+    {sipName_DarkMode_Auto, static_cast<int>(::wxPyApp::DarkMode_Auto), -1},
+    {sipName_Failure, static_cast<int>(::wxPyApp::AppearanceResult::Failure), 474},
+    {sipName_Light, static_cast<int>(::wxPyApp::Appearance::Light), 473},
+    {sipName_Ok, static_cast<int>(::wxPyApp::AppearanceResult::Ok), 474},
+    {sipName_System, static_cast<int>(::wxPyApp::Appearance::System), 473},
+};
+
 sipVariableDef variables_wxPyApp[] = {
-    {PropertyVariable, sipName_TopWindow, &methods_wxPyApp[12], &methods_wxPyApp[41], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_UseBestVisual, &methods_wxPyApp[13], &methods_wxPyApp[42], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TopWindow, &methods_wxPyApp[12], &methods_wxPyApp[43], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_UseBestVisual, &methods_wxPyApp[13], &methods_wxPyApp[44], SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_LayoutDirection, &methods_wxPyApp[6], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ExitOnFrameDelete, &methods_wxPyApp[5], &methods_wxPyApp[35], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DisplayMode, &methods_wxPyApp[4], &methods_wxPyApp[34], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_AssertMode, &methods_wxPyApp[2], &methods_wxPyApp[33], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ExitOnFrameDelete, &methods_wxPyApp[5], &methods_wxPyApp[37], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DisplayMode, &methods_wxPyApp[4], &methods_wxPyApp[36], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_AssertMode, &methods_wxPyApp[2], &methods_wxPyApp[35], SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxPyApp, "PyApp() -> None\n"
@@ -2698,8 +2829,8 @@ sipClassTypeDef sipTypeDef__core_wxPyApp = {
     {
         sipNameNr_PyApp,
         {0, 0, 1},
-        46, methods_wxPyApp,
-        0, SIP_NULLPTR,
+        48, methods_wxPyApp,
+        8, enummembers_wxPyApp,
         6, variables_wxPyApp,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },

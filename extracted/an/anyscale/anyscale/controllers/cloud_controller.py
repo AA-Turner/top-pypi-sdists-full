@@ -534,7 +534,7 @@ class CloudController(BaseController):
         setup_utils = try_import_gcp_managed_setup_utils()
 
         anyscale_access_service_account_name = anyscale_access_service_account.split(
-            "@"
+            "@", maxsplit=1
         )[0]
         deployment_config = setup_utils.generate_deployment_manager_config(
             region,
@@ -637,7 +637,7 @@ class CloudController(BaseController):
                 deployment_name=deployment_name,
                 cloud_id_underscore=cloud_id,
                 anyscale_access_service_account_name=anyscale_access_service_account.split(
-                    "@"
+                    "@", maxsplit=1
                 )[
                     0
                 ],
@@ -857,7 +857,7 @@ class CloudController(BaseController):
         setup_utils = try_import_gcp_managed_setup_utils()
         gcp_utils = try_import_gcp_utils()
         anyscale_access_service_account_name = anyscale_access_service_account.split(
-            "@"
+            "@", maxsplit=1
         )[0]
 
         cloud_resources = setup_utils.get_deployment_resources(
@@ -865,7 +865,7 @@ class CloudController(BaseController):
         )
         gcp_vpc_id = cloud_resources["compute.v1.network"]
         gcp_subnet_ids = [cloud_resources["compute.v1.subnetwork"]]
-        gcp_cluster_node_service_account_email = f'{cloud_resources["iam.v1.serviceAccount"]}@{anyscale_access_service_account.split("@")[-1]}'
+        gcp_cluster_node_service_account_email = f'{cloud_resources["iam.v1.serviceAccount"]}@{anyscale_access_service_account.rsplit("@", maxsplit=1)[-1]}'
         gcp_anyscale_iam_service_account_email = anyscale_access_service_account
         gcp_firewall_policy = cloud_resources[
             "gcp-types/compute-v1:networkFirewallPolicies"
@@ -3112,6 +3112,29 @@ class CloudController(BaseController):
             return bool(re.search(r"API Exception \(5\d\d\)", e.message))
         return False
 
+    @staticmethod
+    def _default_cloud_resource_name(cloud_deployment: CloudDeployment) -> str:
+        """Stable name (the backend base name, minus the uniquifier) so a retried
+        add_resource 409s on the (cloud_id, name) index instead of duplicating."""
+        stack = "k8s" if cloud_deployment.compute_stack == ComputeStack.K8S else "vm"
+        provider = (cloud_deployment.provider or "").lower()
+        return f"{stack}-{provider}-{cloud_deployment.region or ''}"
+
+    def _recover_if_resource_created(self, cloud_id: str, name: str) -> bool:
+        """Best-effort: True if a resource named ``name`` already exists, so a
+        retry can treat a lost/timed-out attempt as success. Errors -> False."""
+        try:
+            resources = self.api_client.get_cloud_resources_api_v2_clouds_cloud_id_resources_get(
+                cloud_id=cloud_id,
+            ).results
+            already_created = any(r.name == name for r in resources)
+        except Exception:  # noqa: BLE001
+            return False
+        if already_created:
+            self.log.info(f"Cloud resource {name!r} already created; recovering.")
+            return True
+        return False
+
     def _add_cloud_resource_with_retries(
         self, *, cloud_id: str, cloud_deployment: CloudDeployment,
     ):
@@ -3120,6 +3143,10 @@ class CloudController(BaseController):
         See ``_is_retryable_add_resource_error`` for why this is needed. Non-5xx
         errors re-raise immediately; on timeout the last error re-raises.
         """
+        # Stable name so a retry 409s instead of duplicating; honor a
+        # caller-supplied name (e.g. from --resource-file).
+        if not cloud_deployment.name:
+            cloud_deployment.name = self._default_cloud_resource_name(cloud_deployment)
         end_time = time.time() + ADD_CLOUD_RESOURCE_TIMEOUT_SECONDS
         delay = 1
         max_delay = 64
@@ -3129,6 +3156,9 @@ class CloudController(BaseController):
                     cloud_id=cloud_id, cloud_deployment=cloud_deployment,
                 )
             except (ApiException, ClickException) as e:
+                # A prior attempt may have already committed the resource.
+                if self._recover_if_resource_created(cloud_id, cloud_deployment.name):
+                    return
                 if (
                     not self._is_retryable_add_resource_error(e)
                     or time.time() >= end_time
@@ -3142,6 +3172,11 @@ class CloudController(BaseController):
                 jitter = random.uniform(0, delay / 2)
                 time.sleep(delay + jitter)
                 delay *= 2  # exponential backoff
+            except Exception:  # noqa: BLE001
+                # Transport error (e.g. dropped connection) not caught above.
+                if self._recover_if_resource_created(cloud_id, cloud_deployment.name):
+                    return
+                raise
 
     def _run_functional_verification_on_all_resources(
         self,

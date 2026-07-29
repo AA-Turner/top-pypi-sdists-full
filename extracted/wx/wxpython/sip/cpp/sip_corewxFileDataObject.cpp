@@ -81,9 +81,9 @@ bool sipwxFileDataObject::SetData(const ::wxDataFormat& format, size_t len, cons
     if (!sipMeth)
         return ::wxFileDataObject::SetData(format, len, buf);
 
-    extern bool sipVH__core_84(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxDataFormat&, size_t, const void*);
+    extern bool sipVH__core_83(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxDataFormat&, size_t, const void*);
 
-    return sipVH__core_84(sipGILState, 0, sipPySelf, sipMeth, format, len, buf);
+    return sipVH__core_83(sipGILState, 0, sipPySelf, sipMeth, format, len, buf);
 }
 
 ::wxDataFormat sipwxFileDataObject::GetPreferredFormat(::wxDataObject::Direction dir) const
@@ -96,9 +96,9 @@ bool sipwxFileDataObject::SetData(const ::wxDataFormat& format, size_t len, cons
     if (!sipMeth)
         return ::wxFileDataObject::GetPreferredFormat(dir);
 
-    extern ::wxDataFormat sipVH__core_69(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject::Direction);
+    extern ::wxDataFormat sipVH__core_68(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject::Direction);
 
-    return sipVH__core_69(sipGILState, 0, sipPySelf, sipMeth, dir);
+    return sipVH__core_68(sipGILState, 0, sipPySelf, sipMeth, dir);
 }
 
 size_t sipwxFileDataObject::GetFormatCount(::wxDataObject::Direction dir) const
@@ -111,9 +111,9 @@ size_t sipwxFileDataObject::GetFormatCount(::wxDataObject::Direction dir) const
     if (!sipMeth)
         return ::wxFileDataObject::GetFormatCount(dir);
 
-    extern size_t sipVH__core_68(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject::Direction);
+    extern size_t sipVH__core_67(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject::Direction);
 
-    return sipVH__core_68(sipGILState, 0, sipPySelf, sipMeth, dir);
+    return sipVH__core_67(sipGILState, 0, sipPySelf, sipMeth, dir);
 }
 
 void sipwxFileDataObject::GetAllFormats(::wxDataFormat*formats, ::wxDataObject::Direction dir) const
@@ -129,9 +129,9 @@ void sipwxFileDataObject::GetAllFormats(::wxDataFormat*formats, ::wxDataObject::
         return;
     }
 
-    extern void sipVH__core_65(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataFormat*, ::wxDataObject::Direction);
+    extern void sipVH__core_64(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataFormat*, ::wxDataObject::Direction);
 
-    sipVH__core_65(sipGILState, 0, sipPySelf, sipMeth, formats, dir);
+    sipVH__core_64(sipGILState, 0, sipPySelf, sipMeth, formats, dir);
 }
 
 bool sipwxFileDataObject::GetDataHere(void*buf) const
@@ -144,9 +144,9 @@ bool sipwxFileDataObject::GetDataHere(void*buf) const
     if (!sipMeth)
         return ::wxFileDataObject::GetDataHere(buf);
 
-    extern bool sipVH__core_77(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, void*);
+    extern bool sipVH__core_76(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, void*);
 
-    return sipVH__core_77(sipGILState, 0, sipPySelf, sipMeth, buf);
+    return sipVH__core_76(sipGILState, 0, sipPySelf, sipMeth, buf);
 }
 
 size_t sipwxFileDataObject::GetDataSize() const
@@ -159,9 +159,9 @@ size_t sipwxFileDataObject::GetDataSize() const
     if (!sipMeth)
         return ::wxFileDataObject::GetDataSize();
 
-    extern size_t sipVH__core_74(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern size_t sipVH__core_73(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_74(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_73(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxFileDataObject::SetData(size_t len, const void*buf)
@@ -174,9 +174,9 @@ bool sipwxFileDataObject::SetData(size_t len, const void*buf)
     if (!sipMeth)
         return ::wxFileDataObject::SetData(len, buf);
 
-    extern bool sipVH__core_76(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, const void*);
+    extern bool sipVH__core_75(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, const void*);
 
-    return sipVH__core_76(sipGILState, 0, sipPySelf, sipMeth, len, buf);
+    return sipVH__core_75(sipGILState, 0, sipPySelf, sipMeth, len, buf);
 }
 
 
@@ -611,7 +611,7 @@ static void *init_type_wxFileDataObject(sipSimpleWrapper *sipSelf, PyObject *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxFileDataObject[] = {{117, 255, 1}};
+static sipEncodedTypeDef supers_wxFileDataObject[] = {{122, 255, 1}};
 
 
 static PyMethodDef methods_wxFileDataObject[] = {

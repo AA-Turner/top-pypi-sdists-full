@@ -401,7 +401,7 @@ static void *init_type_wxToolTip(sipSimpleWrapper *, PyObject *sipArgs, PyObject
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxToolTip[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxToolTip[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxToolTip[] = {

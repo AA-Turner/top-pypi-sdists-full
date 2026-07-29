@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: highdicom
-Version: 0.28.0
+Version: 0.28.1
 Summary: High-level DICOM abstractions.
 Author: Markus D. Herrmann, Christopher P. Bridge
 Maintainer: Markus D. Herrmann, Christopher P. Bridge

@@ -13,18 +13,19 @@
         #include <wx/gdicmn.h>
         #include <wx/gdicmn.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/validate.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -40,6 +41,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
+    wxAccessible* _wxSashWindow_CreateAccessible(wxSashWindow* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxSashWindow : public ::wxSashWindow
@@ -67,7 +77,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -113,7 +122,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -126,7 +134,7 @@ private:
     sipwxSashWindow(const sipwxSashWindow &);
     sipwxSashWindow &operator = (const sipwxSashWindow &);
 
-    char sipPyMethods[39];
+    char sipPyMethods[38];
 };
 
 sipwxSashWindow::sipwxSashWindow(): ::wxSashWindow(), sipPySelf(SIP_NULLPTR)
@@ -705,27 +713,12 @@ void sipwxSashWindow::DoSetWindowVariant(::wxWindowVariant variant)
     return sipVH__adv_25(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxSashWindow::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxSashWindow::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__adv_25(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__adv_25(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 void sipwxSashWindow::DoFreeze()
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -743,7 +736,7 @@ void sipwxSashWindow::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -761,7 +754,7 @@ void sipwxSashWindow::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxSashWindow::DoGetBestSize();
@@ -776,7 +769,7 @@ void sipwxSashWindow::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxSashWindow::DoGetBestClientSize();
@@ -854,11 +847,6 @@ void sipwxSashWindow::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, ::wx
 ::wxBorder sipwxSashWindow::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxSashWindow::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxSashWindow::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxSashWindow::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxSashWindow::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -2768,40 +2756,6 @@ static PyObject *meth_wxSashWindow_GetDefaultBorder(PyObject *sipSelf, PyObject 
 }
 
 
-PyDoc_STRVAR(doc_wxSashWindow_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxSashWindow_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxSashWindow_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxSashWindow *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxSashWindow, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_SashWindow, sipName_GetDefaultBorderForControl, doc_wxSashWindow_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxSashWindow_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxSashWindow_DoFreeze(PyObject *, PyObject *);}
@@ -2975,6 +2929,39 @@ static PyObject *meth_wxSashWindow_TryAfter(PyObject *sipSelf, PyObject *sipArgs
     }
 
     sipNoMethod(sipParseErr, sipName_SashWindow, sipName_TryAfter, doc_wxSashWindow_TryAfter);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxSashWindow_CreateAccessible, "CreateAccessible() -> wx.Accessible");
+
+extern "C" {static PyObject *meth_wxSashWindow_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxSashWindow_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxSashWindow *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxSashWindow, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxSashWindow_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_SashWindow, sipName_CreateAccessible, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -3158,7 +3145,7 @@ static void *init_type_wxSashWindow(sipSimpleWrapper *sipSelf, PyObject *sipArgs
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxSashWindow[] = {{61, 0, 1}};
+static sipEncodedTypeDef supers_wxSashWindow[] = {{62, 0, 1}};
 
 
 static PyMethodDef methods_wxSashWindow[] = {
@@ -3166,6 +3153,7 @@ static PyMethodDef methods_wxSashWindow[] = {
     {sipName_AcceptsFocusFromKeyboard, meth_wxSashWindow_AcceptsFocusFromKeyboard, METH_VARARGS, doc_wxSashWindow_AcceptsFocusFromKeyboard},
     {sipName_AcceptsFocusRecursively, meth_wxSashWindow_AcceptsFocusRecursively, METH_VARARGS, doc_wxSashWindow_AcceptsFocusRecursively},
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxSashWindow_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxSashWindow_AddChild},
+    {sipName_CreateAccessible, meth_wxSashWindow_CreateAccessible, METH_VARARGS, doc_wxSashWindow_CreateAccessible},
     {sipName_Destroy, meth_wxSashWindow_Destroy, METH_VARARGS, doc_wxSashWindow_Destroy},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxSashWindow_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxSashWindow_DoEnable},
     {sipName_DoFreeze, meth_wxSashWindow_DoFreeze, METH_VARARGS, doc_wxSashWindow_DoFreeze},
@@ -3184,7 +3172,6 @@ static PyMethodDef methods_wxSashWindow[] = {
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxSashWindow_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxSashWindow_GetClassDefaultAttributes},
     {sipName_GetClientAreaOrigin, meth_wxSashWindow_GetClientAreaOrigin, METH_VARARGS, doc_wxSashWindow_GetClientAreaOrigin},
     {sipName_GetDefaultBorder, meth_wxSashWindow_GetDefaultBorder, METH_VARARGS, doc_wxSashWindow_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxSashWindow_GetDefaultBorderForControl, METH_VARARGS, doc_wxSashWindow_GetDefaultBorderForControl},
     {sipName_GetDefaultBorderSize, meth_wxSashWindow_GetDefaultBorderSize, METH_VARARGS, doc_wxSashWindow_GetDefaultBorderSize},
     {sipName_GetEdgeMargin, SIP_MLMETH_CAST(meth_wxSashWindow_GetEdgeMargin), METH_VARARGS|METH_KEYWORDS, doc_wxSashWindow_GetEdgeMargin},
     {sipName_GetExtraBorderSize, meth_wxSashWindow_GetExtraBorderSize, METH_VARARGS, doc_wxSashWindow_GetExtraBorderSize},

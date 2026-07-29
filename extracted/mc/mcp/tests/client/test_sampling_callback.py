@@ -1,11 +1,6 @@
 import pytest
-
-from mcp.client.session import ClientSession
-from mcp.shared.context import RequestContext
-from mcp.shared.memory import (
-    create_connected_server_and_client_session as create_session,
-)
-from mcp.types import (
+from mcp_types import (
+    INVALID_REQUEST,
     CreateMessageRequestParams,
     CreateMessageResult,
     CreateMessageResultWithTools,
@@ -14,29 +9,32 @@ from mcp.types import (
     ToolUseContent,
 )
 
+from mcp import Client
+from mcp.client import ClientRequestContext
+from mcp.server.mcpserver import Context, MCPServer
+from mcp.shared.exceptions import MCPError
+
 
 @pytest.mark.anyio
 async def test_sampling_callback():
-    from mcp.server.fastmcp import FastMCP
-
-    server = FastMCP("test")
+    server = MCPServer("test")
 
     callback_return = CreateMessageResult(
         role="assistant",
         content=TextContent(type="text", text="This is a response from the sampling callback"),
         model="test-model",
-        stopReason="endTurn",
+        stop_reason="endTurn",
     )
 
     async def sampling_callback(
-        context: RequestContext[ClientSession, None],
+        context: ClientRequestContext,
         params: CreateMessageRequestParams,
     ) -> CreateMessageResult:
         return callback_return
 
     @server.tool("test_sampling")
-    async def test_sampling_tool(message: str):
-        value = await server.get_context().session.create_message(
+    async def test_sampling_tool(message: str, ctx: Context) -> bool:
+        value = await ctx.session.create_message(  # pyright: ignore[reportDeprecated]
             messages=[SamplingMessage(role="user", content=TextContent(type="text", text=message))],
             max_tokens=100,
         )
@@ -44,47 +42,45 @@ async def test_sampling_callback():
         return True
 
     # Test with sampling callback
-    async with create_session(server._mcp_server, sampling_callback=sampling_callback) as client_session:
+    async with Client(server, sampling_callback=sampling_callback, mode="legacy") as client:
         # Make a request to trigger sampling callback
-        result = await client_session.call_tool("test_sampling", {"message": "Test message for sampling"})
-        assert result.isError is False
+        result = await client.call_tool("test_sampling", {"message": "Test message for sampling"})
+        assert result.is_error is False
         assert isinstance(result.content[0], TextContent)
         assert result.content[0].text == "true"
 
-    # Test without sampling callback
-    async with create_session(server._mcp_server) as client_session:
-        # Make a request to trigger sampling callback
-        result = await client_session.call_tool("test_sampling", {"message": "Test message for sampling"})
-        assert result.isError is True
-        assert isinstance(result.content[0], TextContent)
-        assert result.content[0].text == "Error executing tool test_sampling: Sampling not supported"
+    # Without a sampling callback the client responds with an MCPError, which the
+    # tool body doesn't catch — the wrapper re-raises it as a top-level JSON-RPC
+    # error rather than wrapping it as an isError result.
+    async with Client(server, mode="legacy") as client:
+        with pytest.raises(MCPError) as exc_info:
+            await client.call_tool("test_sampling", {"message": "Test message for sampling"})
+    assert exc_info.value.error.code == INVALID_REQUEST
 
 
 @pytest.mark.anyio
 async def test_create_message_backwards_compat_single_content():
     """Test backwards compatibility: create_message without tools returns single content."""
-    from mcp.server.fastmcp import FastMCP
-
-    server = FastMCP("test")
+    server = MCPServer("test")
 
     # Callback returns single content (text)
     callback_return = CreateMessageResult(
         role="assistant",
         content=TextContent(type="text", text="Hello from LLM"),
         model="test-model",
-        stopReason="endTurn",
+        stop_reason="endTurn",
     )
 
     async def sampling_callback(
-        context: RequestContext[ClientSession, None],
+        context: ClientRequestContext,
         params: CreateMessageRequestParams,
     ) -> CreateMessageResult:
         return callback_return
 
     @server.tool("test_backwards_compat")
-    async def test_tool(message: str):
+    async def test_tool(message: str, ctx: Context) -> bool:
         # Call create_message WITHOUT tools
-        result = await server.get_context().session.create_message(
+        result = await ctx.session.create_message(  # pyright: ignore[reportDeprecated]
             messages=[SamplingMessage(role="user", content=TextContent(type="text", text=message))],
             max_tokens=100,
         )
@@ -97,9 +93,9 @@ async def test_create_message_backwards_compat_single_content():
         assert not hasattr(result, "content_as_list") or not callable(getattr(result, "content_as_list", None))
         return True
 
-    async with create_session(server._mcp_server, sampling_callback=sampling_callback) as client_session:
-        result = await client_session.call_tool("test_backwards_compat", {"message": "Test"})
-        assert result.isError is False
+    async with Client(server, sampling_callback=sampling_callback, mode="legacy") as client:
+        result = await client.call_tool("test_backwards_compat", {"message": "Test"})
+        assert result.is_error is False
         assert isinstance(result.content[0], TextContent)
         assert result.content[0].text == "true"
 
@@ -112,7 +108,7 @@ async def test_create_message_result_with_tools_type():
         role="assistant",
         content=ToolUseContent(type="tool_use", id="call_123", name="get_weather", input={"city": "SF"}),
         model="test-model",
-        stopReason="toolUse",
+        stop_reason="toolUse",
     )
 
     # CreateMessageResultWithTools should have content_as_list
@@ -128,7 +124,7 @@ async def test_create_message_result_with_tools_type():
             ToolUseContent(type="tool_use", id="call_456", name="get_weather", input={"city": "NYC"}),
         ],
         model="test-model",
-        stopReason="toolUse",
+        stop_reason="toolUse",
     )
     content_list_array = result_array.content_as_list
     assert len(content_list_array) == 2

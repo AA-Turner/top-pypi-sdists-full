@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from pyfakefs.fake_filesystem import FakeFilesystem, set_uid
 
 from ggshield.core.cache import Cache
 from ggshield.core.config import Config
@@ -11,6 +12,17 @@ from ggshield.core.types import IgnoredMatch
 from ggshield.utils.git_shell import is_gitignored
 from ggshield.utils.os import cd
 from tests.repository import Repository
+
+
+@pytest.fixture(autouse=True)
+def _isolate_cache_path():
+    """Opt out of conftest's CACHE_PATH redirection.
+
+    These tests exercise Cache's path/gitignore behaviour and manage the cache
+    location themselves (via isolated_fs or cd into tmp_path), so the default
+    relative ``./.cache_ggshield`` must be kept.
+    """
+    yield
 
 
 @pytest.mark.usefixtures("isolated_fs")
@@ -48,18 +60,26 @@ class TestCache:
                 "last_found_secrets": [{"match": "XXX", "name": ""}]
             }
 
-    def test_read_only_fs(self):
+    def test_read_only_fs(self, fs: FakeFilesystem):
         """
         GIVEN a read-only cache file
         WHEN save is called
         THEN it shouldn't raise an exception
         """
 
+        # pyfakefs skips permission checks for the root user and maps a Windows
+        # admin (CI runners) to uid 0; force a non-root uid so the read-only
+        # mode is enforced. Set it before the file is created so it owns it.
+        set_uid(1)
+
         cache = Cache()
         cache.update_cache(last_found_secrets=[{"match": "XXX"}])
 
-        # Make cache file read-only and verify it really is read-only
-        cache.cache_path.touch(mode=0o400)
+        # Make cache file read-only and verify it really is read-only.
+        # `touch(mode=...)` is not honored on Windows; `chmod` with
+        # `force_unix_mode` is required for the read-only bit to take effect.
+        cache.cache_path.touch()
+        fs.chmod(str(cache.cache_path), 0o400, force_unix_mode=True)
         with pytest.raises(PermissionError):
             cache.cache_path.open("w")
 

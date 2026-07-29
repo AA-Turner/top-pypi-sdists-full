@@ -14,21 +14,22 @@
         #include <wx/gdicmn.h>
         #include <wx/validate.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/control.h>
         #include <wx/textctrl.h>
         #include <wx/dc.h>
         #include <wx/event.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -44,6 +45,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
+    wxAccessible* _wxDirPickerCtrl_CreateAccessible(wxDirPickerCtrl* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxDirPickerCtrl : public ::wxDirPickerCtrl
@@ -74,7 +84,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -120,7 +129,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -137,7 +145,7 @@ private:
     sipwxDirPickerCtrl(const sipwxDirPickerCtrl &);
     sipwxDirPickerCtrl &operator = (const sipwxDirPickerCtrl &);
 
-    char sipPyMethods[43];
+    char sipPyMethods[42];
 };
 
 sipwxDirPickerCtrl::sipwxDirPickerCtrl(): ::wxDirPickerCtrl(), sipPySelf(SIP_NULLPTR)
@@ -168,9 +176,9 @@ void sipwxDirPickerCtrl::RemoveChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 void sipwxDirPickerCtrl::AddChild(::wxWindowBase*child)
@@ -186,9 +194,9 @@ void sipwxDirPickerCtrl::AddChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 bool sipwxDirPickerCtrl::ProcessEvent(::wxEvent& event)
@@ -201,9 +209,9 @@ bool sipwxDirPickerCtrl::ProcessEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxDirPickerCtrl::ProcessEvent(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxDirPickerCtrl::TryBefore(::wxEvent& event)
@@ -216,9 +224,9 @@ bool sipwxDirPickerCtrl::TryBefore(::wxEvent& event)
     if (!sipMeth)
         return ::wxDirPickerCtrl::TryBefore(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxDirPickerCtrl::TryAfter(::wxEvent& event)
@@ -231,9 +239,9 @@ bool sipwxDirPickerCtrl::TryAfter(::wxEvent& event)
     if (!sipMeth)
         return ::wxDirPickerCtrl::TryAfter(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxDirPickerCtrl::AcceptsFocus() const
@@ -294,9 +302,9 @@ void sipwxDirPickerCtrl::SetCanFocus(bool canFocus)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, canFocus);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, canFocus);
 }
 
 void sipwxDirPickerCtrl::EnableVisibleFocus(bool enabled)
@@ -312,9 +320,9 @@ void sipwxDirPickerCtrl::EnableVisibleFocus(bool enabled)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enabled);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enabled);
 }
 
 bool sipwxDirPickerCtrl::InformFirstDirection(int direction, int size, int availableOtherDir)
@@ -327,9 +335,9 @@ bool sipwxDirPickerCtrl::InformFirstDirection(int direction, int size, int avail
     if (!sipMeth)
         return ::wxDirPickerCtrl::InformFirstDirection(direction, size, availableOtherDir);
 
-    extern bool sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern bool sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
 
-    return sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
+    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
 }
 
 ::wxPoint sipwxDirPickerCtrl::GetClientAreaOrigin() const
@@ -342,9 +350,9 @@ bool sipwxDirPickerCtrl::InformFirstDirection(int direction, int size, int avail
     if (!sipMeth)
         return ::wxDirPickerCtrl::GetClientAreaOrigin();
 
-    extern ::wxPoint sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPoint sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxDirPickerCtrl::HasTransparentBackground()
@@ -387,9 +395,9 @@ bool sipwxDirPickerCtrl::ShouldInheritColours() const
     if (!sipMeth)
         return ::wxDirPickerCtrl::GetValidator();
 
-    extern ::wxValidator* sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxValidator* sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxDirPickerCtrl::SetValidator(const ::wxValidator& validator)
@@ -405,9 +413,9 @@ void sipwxDirPickerCtrl::SetValidator(const ::wxValidator& validator)
         return;
     }
 
-    extern void sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
+    extern void sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
 
-    sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth, validator);
+    sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth, validator);
 }
 
 bool sipwxDirPickerCtrl::TransferDataFromWindow()
@@ -534,9 +542,9 @@ void sipwxDirPickerCtrl::OnInternalIdle()
     if (!sipMeth)
         return ::wxDirPickerCtrl::GetMainWindowOfCompositeControl();
 
-    extern ::wxWindow* sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxWindow* sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxDirPickerCtrl::DoEnable(bool enable)
@@ -552,9 +560,9 @@ void sipwxDirPickerCtrl::DoEnable(bool enable)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enable);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enable);
 }
 
 void sipwxDirPickerCtrl::DoGetPosition(int*x, int*y) const
@@ -570,9 +578,9 @@ void sipwxDirPickerCtrl::DoGetPosition(int*x, int*y) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, x, y);
 }
 
 void sipwxDirPickerCtrl::DoGetSize(int*width, int*height) const
@@ -588,9 +596,9 @@ void sipwxDirPickerCtrl::DoGetSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxDirPickerCtrl::DoGetClientSize(int*width, int*height) const
@@ -606,9 +614,9 @@ void sipwxDirPickerCtrl::DoGetClientSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxDirPickerCtrl::DoSetSize(int x, int y, int width, int height, int sizeFlags)
@@ -624,9 +632,9 @@ void sipwxDirPickerCtrl::DoSetSize(int x, int y, int width, int height, int size
         return;
     }
 
-    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
+    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
 
-    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
+    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
 }
 
 void sipwxDirPickerCtrl::DoSetClientSize(int width, int height)
@@ -642,9 +650,9 @@ void sipwxDirPickerCtrl::DoSetClientSize(int width, int height)
         return;
     }
 
-    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
+    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
 
-    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxDirPickerCtrl::DoSetSizeHints(int minW, int minH, int maxW, int maxH, int incW, int incH)
@@ -660,9 +668,9 @@ void sipwxDirPickerCtrl::DoSetSizeHints(int minW, int minH, int maxW, int maxH, 
         return;
     }
 
-    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
+    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
 
-    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
+    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
 }
 
 void sipwxDirPickerCtrl::DoMoveWindow(int x, int y, int width, int height)
@@ -678,9 +686,9 @@ void sipwxDirPickerCtrl::DoMoveWindow(int x, int y, int width, int height)
         return;
     }
 
-    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
+    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
 
-    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
+    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
 }
 
 void sipwxDirPickerCtrl::DoSetWindowVariant(::wxWindowVariant variant)
@@ -696,9 +704,9 @@ void sipwxDirPickerCtrl::DoSetWindowVariant(::wxWindowVariant variant)
         return;
     }
 
-    extern void sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
+    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
 
-    sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth, variant);
+    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, variant);
 }
 
 ::wxBorder sipwxDirPickerCtrl::GetDefaultBorder() const
@@ -711,24 +719,9 @@ void sipwxDirPickerCtrl::DoSetWindowVariant(::wxWindowVariant variant)
     if (!sipMeth)
         return ::wxDirPickerCtrl::GetDefaultBorder();
 
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxBorder sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
-}
-
-::wxBorder sipwxDirPickerCtrl::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxDirPickerCtrl::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxDirPickerCtrl::DoFreeze()
@@ -736,7 +729,7 @@ void sipwxDirPickerCtrl::DoFreeze()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -754,7 +747,7 @@ void sipwxDirPickerCtrl::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -772,7 +765,7 @@ void sipwxDirPickerCtrl::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxDirPickerCtrl::DoGetBestSize();
@@ -787,7 +780,7 @@ void sipwxDirPickerCtrl::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxDirPickerCtrl::DoGetBestClientSize();
@@ -802,7 +795,7 @@ void sipwxDirPickerCtrl::UpdatePickerFromTextCtrl()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[39], &sipPySelf, SIP_NULLPTR, sipName_UpdatePickerFromTextCtrl);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_UpdatePickerFromTextCtrl);
 
     if (!sipMeth)
     {
@@ -820,7 +813,7 @@ void sipwxDirPickerCtrl::UpdateTextCtrlFromPicker()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[40], &sipPySelf, SIP_NULLPTR, sipName_UpdateTextCtrlFromPicker);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[39], &sipPySelf, SIP_NULLPTR, sipName_UpdateTextCtrlFromPicker);
 
     if (!sipMeth)
     {
@@ -838,14 +831,14 @@ long sipwxDirPickerCtrl::GetTextCtrlStyle(long style) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[41]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetTextCtrlStyle);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[40]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetTextCtrlStyle);
 
     if (!sipMeth)
         return ::wxDirPickerCtrl::GetTextCtrlStyle(style);
 
-    extern long sipVH__core_180(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, long);
+    extern long sipVH__core_179(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, long);
 
-    return sipVH__core_180(sipGILState, 0, sipPySelf, sipMeth, style);
+    return sipVH__core_179(sipGILState, 0, sipPySelf, sipMeth, style);
 }
 
 long sipwxDirPickerCtrl::GetPickerStyle(long style) const
@@ -853,14 +846,14 @@ long sipwxDirPickerCtrl::GetPickerStyle(long style) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[42]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetPickerStyle);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[41]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetPickerStyle);
 
     if (!sipMeth)
         return ::wxDirPickerCtrl::GetPickerStyle(style);
 
-    extern long sipVH__core_180(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, long);
+    extern long sipVH__core_179(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, long);
 
-    return sipVH__core_180(sipGILState, 0, sipPySelf, sipMeth, style);
+    return sipVH__core_179(sipGILState, 0, sipPySelf, sipMeth, style);
 }
 
 void sipwxDirPickerCtrl::sipProtect_SendDestroyEvent()
@@ -946,11 +939,6 @@ void sipwxDirPickerCtrl::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, :
 ::wxBorder sipwxDirPickerCtrl::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxDirPickerCtrl::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxDirPickerCtrl::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxDirPickerCtrl::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxDirPickerCtrl::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -2521,40 +2509,6 @@ static PyObject *meth_wxDirPickerCtrl_GetDefaultBorder(PyObject *sipSelf, PyObje
 }
 
 
-PyDoc_STRVAR(doc_wxDirPickerCtrl_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxDirPickerCtrl_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxDirPickerCtrl_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxDirPickerCtrl *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxDirPickerCtrl, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DirPickerCtrl, sipName_GetDefaultBorderForControl, doc_wxDirPickerCtrl_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxDirPickerCtrl_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxDirPickerCtrl_DoFreeze(PyObject *, PyObject *);}
@@ -2728,6 +2682,39 @@ static PyObject *meth_wxDirPickerCtrl_TryAfter(PyObject *sipSelf, PyObject *sipA
     }
 
     sipNoMethod(sipParseErr, sipName_DirPickerCtrl, sipName_TryAfter, doc_wxDirPickerCtrl_TryAfter);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxDirPickerCtrl_CreateAccessible, "CreateAccessible() -> Accessible");
+
+extern "C" {static PyObject *meth_wxDirPickerCtrl_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxDirPickerCtrl_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxDirPickerCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxDirPickerCtrl, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxDirPickerCtrl_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_DirPickerCtrl, sipName_CreateAccessible, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -2990,7 +2977,7 @@ static void *init_type_wxDirPickerCtrl(sipSimpleWrapper *sipSelf, PyObject *sipA
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxDirPickerCtrl[] = {{418, 255, 1}};
+static sipEncodedTypeDef supers_wxDirPickerCtrl[] = {{426, 255, 1}};
 
 
 static PyMethodDef methods_wxDirPickerCtrl[] = {
@@ -2999,6 +2986,7 @@ static PyMethodDef methods_wxDirPickerCtrl[] = {
     {sipName_AcceptsFocusRecursively, meth_wxDirPickerCtrl_AcceptsFocusRecursively, METH_VARARGS, doc_wxDirPickerCtrl_AcceptsFocusRecursively},
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxDirPickerCtrl_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxDirPickerCtrl_AddChild},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxDirPickerCtrl_Create), METH_VARARGS|METH_KEYWORDS, doc_wxDirPickerCtrl_Create},
+    {sipName_CreateAccessible, meth_wxDirPickerCtrl_CreateAccessible, METH_VARARGS, doc_wxDirPickerCtrl_CreateAccessible},
     {sipName_Destroy, meth_wxDirPickerCtrl_Destroy, METH_VARARGS, doc_wxDirPickerCtrl_Destroy},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxDirPickerCtrl_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxDirPickerCtrl_DoEnable},
     {sipName_DoFreeze, meth_wxDirPickerCtrl_DoFreeze, METH_VARARGS, doc_wxDirPickerCtrl_DoFreeze},
@@ -3017,7 +3005,6 @@ static PyMethodDef methods_wxDirPickerCtrl[] = {
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxDirPickerCtrl_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxDirPickerCtrl_GetClassDefaultAttributes},
     {sipName_GetClientAreaOrigin, meth_wxDirPickerCtrl_GetClientAreaOrigin, METH_VARARGS, doc_wxDirPickerCtrl_GetClientAreaOrigin},
     {sipName_GetDefaultBorder, meth_wxDirPickerCtrl_GetDefaultBorder, METH_VARARGS, doc_wxDirPickerCtrl_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxDirPickerCtrl_GetDefaultBorderForControl, METH_VARARGS, doc_wxDirPickerCtrl_GetDefaultBorderForControl},
     {sipName_GetMainWindowOfCompositeControl, meth_wxDirPickerCtrl_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxDirPickerCtrl_GetMainWindowOfCompositeControl},
     {sipName_GetPath, meth_wxDirPickerCtrl_GetPath, METH_VARARGS, doc_wxDirPickerCtrl_GetPath},
     {sipName_GetPickerStyle, SIP_MLMETH_CAST(meth_wxDirPickerCtrl_GetPickerStyle), METH_VARARGS|METH_KEYWORDS, SIP_NULLPTR},

@@ -66,9 +66,9 @@ sipwxUpdateUIEvent::~sipwxUpdateUIEvent()
     if (!sipMeth)
         return ::wxUpdateUIEvent::GetEventCategory();
 
-    extern ::wxEventCategory sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEventCategory sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxEvent* sipwxUpdateUIEvent::Clone() const
@@ -81,9 +81,9 @@ sipwxUpdateUIEvent::~sipwxUpdateUIEvent()
     if (!sipMeth)
         return ::wxUpdateUIEvent::Clone();
 
-    extern ::wxEvent* sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEvent* sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
@@ -121,6 +121,45 @@ static PyObject *meth_wxUpdateUIEvent_Check(PyObject *sipSelf, PyObject *sipArgs
     }
 
     sipNoMethod(sipParseErr, sipName_UpdateUIEvent, sipName_Check, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxUpdateUIEvent_Set3StateValue, "Set3StateValue(check) -> None\n"
+"\n"
+"For wxCheckBox with wxCHK_3STATE: Set the UI element state.");
+
+extern "C" {static PyObject *meth_wxUpdateUIEvent_Set3StateValue(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxUpdateUIEvent_Set3StateValue(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxCheckBoxState check;
+        ::wxUpdateUIEvent *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_check,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BE", &sipSelf, sipType_wxUpdateUIEvent, &sipCpp, sipType_wxCheckBoxState, &check))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->Set3StateValue(check);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_UpdateUIEvent, sipName_Set3StateValue, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -200,6 +239,41 @@ static PyObject *meth_wxUpdateUIEvent_GetChecked(PyObject *sipSelf, PyObject *si
 }
 
 
+PyDoc_STRVAR(doc_wxUpdateUIEvent_Get3StateValue, "Get3StateValue() -> CheckBoxState\n"
+"\n"
+"Return the state a wxCheckBox with wxCHK_3STATE should display.");
+
+extern "C" {static PyObject *meth_wxUpdateUIEvent_Get3StateValue(PyObject *, PyObject *);}
+static PyObject *meth_wxUpdateUIEvent_Get3StateValue(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxUpdateUIEvent *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxUpdateUIEvent, &sipCpp))
+        {
+            ::wxCheckBoxState sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->Get3StateValue();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxCheckBoxState);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_UpdateUIEvent, sipName_Get3StateValue, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxUpdateUIEvent_GetEnabled, "GetEnabled() -> bool\n"
 "\n"
 "Returns true if the UI element should be enabled.");
@@ -270,9 +344,45 @@ static PyObject *meth_wxUpdateUIEvent_IsCheckable(PyObject *sipSelf, PyObject *s
 }
 
 
+PyDoc_STRVAR(doc_wxUpdateUIEvent_Is3State, "Is3State() -> bool\n"
+"\n"
+"Returns true if the UI element supports wxCheckboxState.");
+
+extern "C" {static PyObject *meth_wxUpdateUIEvent_Is3State(PyObject *, PyObject *);}
+static PyObject *meth_wxUpdateUIEvent_Is3State(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxUpdateUIEvent *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxUpdateUIEvent, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->Is3State();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_UpdateUIEvent, sipName_Is3State, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxUpdateUIEvent_GetSetChecked, "GetSetChecked() -> bool\n"
 "\n"
-"Returns true if the application has called Check().");
+"Returns true if the application has called Check() or\n"
+"SetSet3StateValue().");
 
 extern "C" {static PyObject *meth_wxUpdateUIEvent_GetSetChecked(PyObject *, PyObject *);}
 static PyObject *meth_wxUpdateUIEvent_GetSetChecked(PyObject *sipSelf, PyObject *sipArgs)
@@ -908,7 +1018,7 @@ static void *init_type_wxUpdateUIEvent(sipSimpleWrapper *sipSelf, PyObject *sipA
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxUpdateUIEvent[] = {{84, 255, 1}};
+static sipEncodedTypeDef supers_wxUpdateUIEvent[] = {{87, 255, 1}};
 
 
 static PyMethodDef methods_wxUpdateUIEvent[] = {
@@ -916,6 +1026,7 @@ static PyMethodDef methods_wxUpdateUIEvent[] = {
     {sipName_Check, SIP_MLMETH_CAST(meth_wxUpdateUIEvent_Check), METH_VARARGS|METH_KEYWORDS, doc_wxUpdateUIEvent_Check},
     {sipName_Clone, meth_wxUpdateUIEvent_Clone, METH_VARARGS, doc_wxUpdateUIEvent_Clone},
     {sipName_Enable, SIP_MLMETH_CAST(meth_wxUpdateUIEvent_Enable), METH_VARARGS|METH_KEYWORDS, doc_wxUpdateUIEvent_Enable},
+    {sipName_Get3StateValue, meth_wxUpdateUIEvent_Get3StateValue, METH_VARARGS, doc_wxUpdateUIEvent_Get3StateValue},
     {sipName_GetChecked, meth_wxUpdateUIEvent_GetChecked, METH_VARARGS, doc_wxUpdateUIEvent_GetChecked},
     {sipName_GetEnabled, meth_wxUpdateUIEvent_GetEnabled, METH_VARARGS, doc_wxUpdateUIEvent_GetEnabled},
     {sipName_GetMode, meth_wxUpdateUIEvent_GetMode, METH_VARARGS, doc_wxUpdateUIEvent_GetMode},
@@ -926,8 +1037,10 @@ static PyMethodDef methods_wxUpdateUIEvent[] = {
     {sipName_GetShown, meth_wxUpdateUIEvent_GetShown, METH_VARARGS, doc_wxUpdateUIEvent_GetShown},
     {sipName_GetText, meth_wxUpdateUIEvent_GetText, METH_VARARGS, doc_wxUpdateUIEvent_GetText},
     {sipName_GetUpdateInterval, meth_wxUpdateUIEvent_GetUpdateInterval, METH_VARARGS, doc_wxUpdateUIEvent_GetUpdateInterval},
+    {sipName_Is3State, meth_wxUpdateUIEvent_Is3State, METH_VARARGS, doc_wxUpdateUIEvent_Is3State},
     {sipName_IsCheckable, meth_wxUpdateUIEvent_IsCheckable, METH_VARARGS, doc_wxUpdateUIEvent_IsCheckable},
     {sipName_ResetUpdateTime, meth_wxUpdateUIEvent_ResetUpdateTime, METH_VARARGS, doc_wxUpdateUIEvent_ResetUpdateTime},
+    {sipName_Set3StateValue, SIP_MLMETH_CAST(meth_wxUpdateUIEvent_Set3StateValue), METH_VARARGS|METH_KEYWORDS, doc_wxUpdateUIEvent_Set3StateValue},
     {sipName_SetMode, SIP_MLMETH_CAST(meth_wxUpdateUIEvent_SetMode), METH_VARARGS|METH_KEYWORDS, doc_wxUpdateUIEvent_SetMode},
     {sipName_SetText, SIP_MLMETH_CAST(meth_wxUpdateUIEvent_SetText), METH_VARARGS|METH_KEYWORDS, doc_wxUpdateUIEvent_SetText},
     {sipName_SetUpdateInterval, SIP_MLMETH_CAST(meth_wxUpdateUIEvent_SetUpdateInterval), METH_VARARGS|METH_KEYWORDS, doc_wxUpdateUIEvent_SetUpdateInterval},
@@ -935,10 +1048,10 @@ static PyMethodDef methods_wxUpdateUIEvent[] = {
 };
 
 sipVariableDef variables_wxUpdateUIEvent[] = {
-    {PropertyVariable, sipName_Text, &methods_wxUpdateUIEvent[12], &methods_wxUpdateUIEvent[17], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Shown, &methods_wxUpdateUIEvent[11], &methods_wxUpdateUIEvent[19], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Enabled, &methods_wxUpdateUIEvent[5], &methods_wxUpdateUIEvent[3], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Checked, &methods_wxUpdateUIEvent[4], &methods_wxUpdateUIEvent[1], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Text, &methods_wxUpdateUIEvent[13], &methods_wxUpdateUIEvent[20], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Shown, &methods_wxUpdateUIEvent[12], &methods_wxUpdateUIEvent[22], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Enabled, &methods_wxUpdateUIEvent[6], &methods_wxUpdateUIEvent[3], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Checked, &methods_wxUpdateUIEvent[5], &methods_wxUpdateUIEvent[1], SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxUpdateUIEvent, "UpdateUIEvent(commandId=0) -> None\n"
@@ -961,7 +1074,7 @@ sipClassTypeDef sipTypeDef__core_wxUpdateUIEvent = {
     {
         sipNameNr_UpdateUIEvent,
         {0, 0, 1},
-        20, methods_wxUpdateUIEvent,
+        23, methods_wxUpdateUIEvent,
         0, SIP_NULLPTR,
         4, variables_wxUpdateUIEvent,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

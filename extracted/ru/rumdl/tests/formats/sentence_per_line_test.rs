@@ -24,6 +24,7 @@ fn create_sentence_per_line_rule() -> MD013LineLength {
         require_sentence_capital: true,
         ignore_link_urls: true,
         atomic_spans: true,
+        ..Default::default()
     })
 }
 
@@ -312,6 +313,7 @@ fn test_single_sentence_with_no_line_length_constraint() {
         require_sentence_capital: true,
         ignore_link_urls: true,
         atomic_spans: true,
+        ..Default::default()
     });
     let content = "This document provides advice for porting Rust code using PyO3 to run under\n\
                    free-threaded Python.";
@@ -380,6 +382,7 @@ fn test_custom_abbreviations_recognized() {
         require_sentence_capital: true,
         ignore_link_urls: true,
         atomic_spans: true,
+        ..Default::default()
     });
 
     // With custom "Assn" abbreviation, this should be ONE sentence
@@ -416,6 +419,7 @@ fn test_custom_abbreviations_merged_with_builtin() {
         require_sentence_capital: true,
         ignore_link_urls: true,
         atomic_spans: true,
+        ..Default::default()
     });
 
     // Both "Dr." (built-in) and "Assn." (custom) should be recognized
@@ -452,6 +456,7 @@ fn test_custom_abbreviation_with_period_in_config() {
         require_sentence_capital: true,
         ignore_link_urls: true,
         atomic_spans: true,
+        ..Default::default()
     });
 
     let rule_with_period = MD013LineLength::from_config_struct(MD013Config {
@@ -473,6 +478,7 @@ fn test_custom_abbreviation_with_period_in_config() {
         require_sentence_capital: true,
         ignore_link_urls: true,
         atomic_spans: true,
+        ..Default::default()
     });
 
     let content = "Visit Univ. Campus for the tour.";
@@ -516,6 +522,7 @@ fn test_issue_335_abbreviations_config_empty_vec_uses_defaults() {
         require_sentence_capital: true,
         ignore_link_urls: true,
         atomic_spans: true,
+        ..Default::default()
     });
 
     // "Dr." is a built-in abbreviation - should NOT split after it
@@ -573,6 +580,7 @@ fn test_issue_335_custom_abbreviations_extend_defaults() {
         require_sentence_capital: true,
         ignore_link_urls: true,
         atomic_spans: true,
+        ..Default::default()
     });
 
     // Single sentence with multiple abbreviations - no warning expected
@@ -856,21 +864,11 @@ fn test_issue_338_bare_snippet_delimiter_as_paragraph_boundary() {
 
 #[test]
 fn test_emphasis_wrapping_multiple_sentences() {
-    // Test case from issue #360 - emphasis spanning multiple sentences
+    // Emphasis spanning multiple sentences
     let rule = create_sentence_per_line_rule();
     let content = "**First sentence. Second sentence.**\n";
     let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
-
-    println!("Content: {content:?}");
-    println!("Warnings: {:?}", result.len());
-    for w in &result {
-        println!("  Warning: {}", w.message);
-        if let Some(fix) = &w.fix {
-            println!("    Fix range: {:?}", fix.range);
-            println!("    Replacement: {:?}", fix.replacement);
-        }
-    }
 
     assert!(!result.is_empty(), "Should detect multiple sentences");
     assert!(result[0].fix.is_some(), "Should have fix");
@@ -879,12 +877,14 @@ fn test_emphasis_wrapping_multiple_sentences() {
 
     // The fix should NOT have leading spaces on the second line
     assert!(
-        !fix.replacement.contains("  **Second"),
+        !fix.replacement.contains("  Second"),
         "Second sentence should not have leading spaces: {:?}",
         fix.replacement
     );
 
-    // The expected output is each sentence on its own line with emphasis preserved
-    let expected = "**First sentence.**\n**Second sentence.**\n";
+    // Each sentence gets its own line. The span is not reopened per line: a line
+    // break inside emphasis is whitespace, and duplicating the markers would
+    // delete the space the closing marker replaces.
+    let expected = "**First sentence.\nSecond sentence.**\n";
     assert_eq!(fix.replacement, expected, "Fix should produce correct output");
 }

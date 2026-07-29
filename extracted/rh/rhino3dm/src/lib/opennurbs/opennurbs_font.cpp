@@ -5554,7 +5554,7 @@ const ON_ClassArray< ON_FontFaceQuartet >& ON_FontList::QuartetList() const
           && ssw_dex.j >= 0 && ssw_dex.j < 2
           && ssw_dex.k >= 1 && ssw_dex.k < max_weight_dex
           )
-          ? fonts_by_ssw[ssw_dex.i][ssw_dex.k][ssw_dex.k]
+          ? fonts_by_ssw[ssw_dex.i][ssw_dex.j][ssw_dex.k]
           : nullptr;
         if (nullptr != cleanf)
         {
@@ -7638,7 +7638,7 @@ const ON_wString ON_Font::FakeWindowsLogfontNameFromFamilyAndPostScriptNames(
     Internal_FakeWindowsLogfontName(L"Avenir", L"Avenir-Heavy",         L"Avenir Heavy", ON_FontFaceQuartet::Member::Regular),
     Internal_FakeWindowsLogfontName(L"Avenir", L"Avenir-HeavyOblique",  L"Avenir Heavy", ON_FontFaceQuartet::Member::Italic),
     Internal_FakeWindowsLogfontName(L"Avenir", L"Avenir-Black",         L"Avenir Black", ON_FontFaceQuartet::Member::Regular),
-    Internal_FakeWindowsLogfontName(L"Avenir", L"Avenir-BlackOblique",  L"Avenir-Black", ON_FontFaceQuartet::Member::Italic),
+    Internal_FakeWindowsLogfontName(L"Avenir", L"Avenir-BlackOblique",  L"Avenir Black", ON_FontFaceQuartet::Member::Italic),
 
     Internal_FakeWindowsLogfontName(L"Avenir Next", L"AvenirNext-UltraLight", L"Avenir Next Ultralight", ON_FontFaceQuartet::Member::Regular),
     Internal_FakeWindowsLogfontName(L"Avenir Next", L"AvenirNext-UltraLightItalic", L"Avenir Next Ultralight", ON_FontFaceQuartet::Member::Italic),
@@ -10752,7 +10752,16 @@ bool ON_Font::Read(
     || (file.PeekAt3dmBigChunkType(&typecode,&big_value) && 1 == typecode)
     )
   {
-    ON_WARNING("Should probably be reading an ON_TextStyle");
+    // Dale Lear 2025 May 8 - RH-87126
+    // Some older version files are triggering this warning when 
+    // override dimstyles are read. It is true V5 files had a text style table,
+    // but we didn't expect to encounter override dimstyles in these old
+    // files. It's not clear to me how these files come into existence,
+    // but this warning seems to be doing more harm than good. In the xase in the bug,
+    // the older version files read correctly. When V8 and V9 files are saved, they appear
+    // to be getting saved correctly.
+    // 
+    // ON_WARNING("Should probably be reading an ON_TextStyle");
     int font_index = -1;
     ON_UUID font_id = ON_nil_uuid;
     return ReadV5(

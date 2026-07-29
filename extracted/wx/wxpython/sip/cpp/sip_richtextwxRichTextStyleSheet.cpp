@@ -38,13 +38,52 @@ sipwxRichTextStyleSheet::sipwxRichTextStyleSheet(): ::wxRichTextStyleSheet(), si
 {
 }
 
-sipwxRichTextStyleSheet::sipwxRichTextStyleSheet(const ::wxRichTextStyleSheet& a0): ::wxRichTextStyleSheet(a0), sipPySelf(SIP_NULLPTR)
+sipwxRichTextStyleSheet::sipwxRichTextStyleSheet(const ::wxRichTextStyleSheet& sheet): ::wxRichTextStyleSheet(sheet), sipPySelf(SIP_NULLPTR)
 {
 }
 
 sipwxRichTextStyleSheet::~sipwxRichTextStyleSheet()
 {
     sipInstanceDestroyedEx(&sipPySelf);
+}
+
+
+PyDoc_STRVAR(doc_wxRichTextStyleSheet_Copy, "Copy(sheet) -> None\n"
+"\n"
+"Copies given style sheet.");
+
+extern "C" {static PyObject *meth_wxRichTextStyleSheet_Copy(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxRichTextStyleSheet_Copy(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxRichTextStyleSheet* sheet;
+        ::wxRichTextStyleSheet *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_sheet,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9", &sipSelf, sipType_wxRichTextStyleSheet, &sipCpp, sipType_wxRichTextStyleSheet, &sheet))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->Copy(*sheet);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_RichTextStyleSheet, sipName_Copy, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
 }
 
 
@@ -1134,13 +1173,25 @@ static void *init_type_wxRichTextStyleSheet(sipSimpleWrapper *sipSelf, PyObject 
     }
 
     {
-        const ::wxRichTextStyleSheet* a0;
+        const ::wxRichTextStyleSheet* sheet;
 
-        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, SIP_NULLPTR, sipUnused, "J9", sipType_wxRichTextStyleSheet, &a0))
+        static const char *sipKwdList[] = {
+            sipName_sheet,
+        };
+
+        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, sipKwdList, sipUnused, "J9", sipType_wxRichTextStyleSheet, &sheet))
         {
+            PyErr_Clear();
+
             Py_BEGIN_ALLOW_THREADS
-            sipCpp = new sipwxRichTextStyleSheet(*a0);
+            sipCpp = new sipwxRichTextStyleSheet(*sheet);
             Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+            {
+                delete sipCpp;
+                return SIP_NULLPTR;
+            }
 
             sipCpp->sipPySelf = sipSelf;
 
@@ -1153,7 +1204,7 @@ static void *init_type_wxRichTextStyleSheet(sipSimpleWrapper *sipSelf, PyObject 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxRichTextStyleSheet[] = {{42, 0, 1}};
+static sipEncodedTypeDef supers_wxRichTextStyleSheet[] = {{43, 0, 1}};
 
 
 static PyMethodDef methods_wxRichTextStyleSheet[] = {
@@ -1161,6 +1212,7 @@ static PyMethodDef methods_wxRichTextStyleSheet[] = {
     {sipName_AddListStyle, SIP_MLMETH_CAST(meth_wxRichTextStyleSheet_AddListStyle), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextStyleSheet_AddListStyle},
     {sipName_AddParagraphStyle, SIP_MLMETH_CAST(meth_wxRichTextStyleSheet_AddParagraphStyle), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextStyleSheet_AddParagraphStyle},
     {sipName_AddStyle, SIP_MLMETH_CAST(meth_wxRichTextStyleSheet_AddStyle), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextStyleSheet_AddStyle},
+    {sipName_Copy, SIP_MLMETH_CAST(meth_wxRichTextStyleSheet_Copy), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextStyleSheet_Copy},
     {sipName_DeleteStyles, meth_wxRichTextStyleSheet_DeleteStyles, METH_VARARGS, doc_wxRichTextStyleSheet_DeleteStyles},
     {sipName_FindCharacterStyle, SIP_MLMETH_CAST(meth_wxRichTextStyleSheet_FindCharacterStyle), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextStyleSheet_FindCharacterStyle},
     {sipName_FindListStyle, SIP_MLMETH_CAST(meth_wxRichTextStyleSheet_FindListStyle), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextStyleSheet_FindListStyle},
@@ -1185,15 +1237,16 @@ static PyMethodDef methods_wxRichTextStyleSheet[] = {
 };
 
 sipVariableDef variables_wxRichTextStyleSheet[] = {
-    {PropertyVariable, sipName_Properties, &methods_wxRichTextStyleSheet[17], &methods_wxRichTextStyleSheet[24], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ParagraphStyleCount, &methods_wxRichTextStyleSheet[16], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Name, &methods_wxRichTextStyleSheet[14], &methods_wxRichTextStyleSheet[23], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ListStyleCount, &methods_wxRichTextStyleSheet[13], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Description, &methods_wxRichTextStyleSheet[11], &methods_wxRichTextStyleSheet[22], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CharacterStyleCount, &methods_wxRichTextStyleSheet[10], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Properties, &methods_wxRichTextStyleSheet[18], &methods_wxRichTextStyleSheet[25], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ParagraphStyleCount, &methods_wxRichTextStyleSheet[17], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Name, &methods_wxRichTextStyleSheet[15], &methods_wxRichTextStyleSheet[24], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ListStyleCount, &methods_wxRichTextStyleSheet[14], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Description, &methods_wxRichTextStyleSheet[12], &methods_wxRichTextStyleSheet[23], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CharacterStyleCount, &methods_wxRichTextStyleSheet[11], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxRichTextStyleSheet, "RichTextStyleSheet() -> None\n"
+"RichTextStyleSheet(sheet) -> None\n"
 "\n"
 "A style sheet contains named paragraph and character styles that make\n"
 "it easy for a user to apply combinations of attributes to a\n"
@@ -1213,7 +1266,7 @@ sipClassTypeDef sipTypeDef__richtext_wxRichTextStyleSheet = {
     {
         sipNameNr_RichTextStyleSheet,
         {0, 0, 1},
-        25, methods_wxRichTextStyleSheet,
+        26, methods_wxRichTextStyleSheet,
         0, SIP_NULLPTR,
         6, variables_wxRichTextStyleSheet,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

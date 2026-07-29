@@ -354,7 +354,7 @@ static void *init_type_wxFindReplaceData(sipSimpleWrapper *, PyObject *sipArgs, 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxFindReplaceData[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxFindReplaceData[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxFindReplaceData[] = {

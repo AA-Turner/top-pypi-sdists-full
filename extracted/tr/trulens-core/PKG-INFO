@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: trulens-core
-Version: 2.9.0
+Version: 2.10.0
 Summary: Library to systematically track and evaluate LLM based applications.
 Home-page: https://trulens.org/
 License: MIT

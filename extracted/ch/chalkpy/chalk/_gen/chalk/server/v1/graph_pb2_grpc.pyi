@@ -28,6 +28,10 @@ from chalk._gen.chalk.server.v1.graph_pb2 import (
     GetGraphResponse,
     GetOfflineStoreTableRequest,
     GetOfflineStoreTableResponse,
+    GetResolverRequest,
+    GetResolverResponse,
+    GetStreamResolverRequest,
+    GetStreamResolverResponse,
     SmartDiffDeploymentRequest,
     SmartDiffDeploymentResponse,
     TestGraphMutationsRequest,
@@ -57,6 +61,20 @@ class GraphServiceStub:
         GetGraphRequest,
         GetGraphResponse,
     ]
+    GetResolver: UnaryUnaryMultiCallable[
+        GetResolverRequest,
+        GetResolverResponse,
+    ]
+    """GetResolver returns a single resolver. Pass a read_mask to fetch just the
+    large sub-trees (e.g. postprocessing) that GetGraph omits from the bulk payload.
+    """
+    GetStreamResolver: UnaryUnaryMultiCallable[
+        GetStreamResolverRequest,
+        GetStreamResolverResponse,
+    ]
+    """GetStreamResolver returns a single stream resolver. Pass a read_mask to fetch
+    just the large sub-trees (e.g. parse_info) that GetGraph omits from the bulk payload.
+    """
     UpdateGraph: UnaryUnaryMultiCallable[
         UpdateGraphRequest,
         UpdateGraphResponse,
@@ -135,6 +153,24 @@ class GraphServiceServicer(metaclass=ABCMeta):
         request: GetGraphRequest,
         context: ServicerContext,
     ) -> GetGraphResponse: ...
+    @abstractmethod
+    def GetResolver(
+        self,
+        request: GetResolverRequest,
+        context: ServicerContext,
+    ) -> GetResolverResponse:
+        """GetResolver returns a single resolver. Pass a read_mask to fetch just the
+        large sub-trees (e.g. postprocessing) that GetGraph omits from the bulk payload.
+        """
+    @abstractmethod
+    def GetStreamResolver(
+        self,
+        request: GetStreamResolverRequest,
+        context: ServicerContext,
+    ) -> GetStreamResolverResponse:
+        """GetStreamResolver returns a single stream resolver. Pass a read_mask to fetch
+        just the large sub-trees (e.g. parse_info) that GetGraph omits from the bulk payload.
+        """
     @abstractmethod
     def UpdateGraph(
         self,

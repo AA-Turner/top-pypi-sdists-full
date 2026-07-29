@@ -88,9 +88,9 @@ void sipwxStdDialogButtonSizer::RepositionChildren(const ::wxSize& minSize)
         return;
     }
 
-    extern void sipVH__core_106(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxSize&);
+    extern void sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxSize&);
 
-    sipVH__core_106(sipGILState, 0, sipPySelf, sipMeth, minSize);
+    sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, minSize);
 }
 
 bool sipwxStdDialogButtonSizer::InformFirstDirection(int direction, int size, int availableOtherDir)
@@ -103,9 +103,9 @@ bool sipwxStdDialogButtonSizer::InformFirstDirection(int direction, int size, in
     if (!sipMeth)
         return ::wxStdDialogButtonSizer::InformFirstDirection(direction, size, availableOtherDir);
 
-    extern bool sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern bool sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
 
-    return sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
+    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
 }
 
 ::wxSize sipwxStdDialogButtonSizer::CalcMin()
@@ -193,6 +193,181 @@ static PyObject *meth_wxStdDialogButtonSizer_Realize(PyObject *sipSelf, PyObject
     }
 
     sipNoMethod(sipParseErr, sipName_StdDialogButtonSizer, sipName_Realize, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStdDialogButtonSizer_GetAffirmativeButton, "GetAffirmativeButton() -> Button\n"
+"\n"
+"Returns the affirmative button for the sizer.");
+
+extern "C" {static PyObject *meth_wxStdDialogButtonSizer_GetAffirmativeButton(PyObject *, PyObject *);}
+static PyObject *meth_wxStdDialogButtonSizer_GetAffirmativeButton(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxStdDialogButtonSizer *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStdDialogButtonSizer, &sipCpp))
+        {
+            ::wxButton*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetAffirmativeButton();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxButton, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StdDialogButtonSizer, sipName_GetAffirmativeButton, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStdDialogButtonSizer_GetApplyButton, "GetApplyButton() -> Button\n"
+"\n"
+"Returns the apply button for the sizer.");
+
+extern "C" {static PyObject *meth_wxStdDialogButtonSizer_GetApplyButton(PyObject *, PyObject *);}
+static PyObject *meth_wxStdDialogButtonSizer_GetApplyButton(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxStdDialogButtonSizer *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStdDialogButtonSizer, &sipCpp))
+        {
+            ::wxButton*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetApplyButton();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxButton, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StdDialogButtonSizer, sipName_GetApplyButton, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStdDialogButtonSizer_GetNegativeButton, "GetNegativeButton() -> Button\n"
+"\n"
+"Returns the negative button for the sizer.");
+
+extern "C" {static PyObject *meth_wxStdDialogButtonSizer_GetNegativeButton(PyObject *, PyObject *);}
+static PyObject *meth_wxStdDialogButtonSizer_GetNegativeButton(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxStdDialogButtonSizer *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStdDialogButtonSizer, &sipCpp))
+        {
+            ::wxButton*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetNegativeButton();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxButton, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StdDialogButtonSizer, sipName_GetNegativeButton, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStdDialogButtonSizer_GetCancelButton, "GetCancelButton() -> Button\n"
+"\n"
+"Returns the cancel button for the sizer.");
+
+extern "C" {static PyObject *meth_wxStdDialogButtonSizer_GetCancelButton(PyObject *, PyObject *);}
+static PyObject *meth_wxStdDialogButtonSizer_GetCancelButton(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxStdDialogButtonSizer *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStdDialogButtonSizer, &sipCpp))
+        {
+            ::wxButton*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetCancelButton();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxButton, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StdDialogButtonSizer, sipName_GetCancelButton, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStdDialogButtonSizer_GetHelpButton, "GetHelpButton() -> Button\n"
+"\n"
+"Returns the help button for the sizer.");
+
+extern "C" {static PyObject *meth_wxStdDialogButtonSizer_GetHelpButton(PyObject *, PyObject *);}
+static PyObject *meth_wxStdDialogButtonSizer_GetHelpButton(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxStdDialogButtonSizer *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStdDialogButtonSizer, &sipCpp))
+        {
+            ::wxButton*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetHelpButton();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxButton, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StdDialogButtonSizer, sipName_GetHelpButton, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -469,17 +644,30 @@ static void *init_type_wxStdDialogButtonSizer(sipSimpleWrapper *sipSelf, PyObjec
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxStdDialogButtonSizer[] = {{44, 255, 1}};
+static sipEncodedTypeDef supers_wxStdDialogButtonSizer[] = {{46, 255, 1}};
 
 
 static PyMethodDef methods_wxStdDialogButtonSizer[] = {
     {sipName_AddButton, SIP_MLMETH_CAST(meth_wxStdDialogButtonSizer_AddButton), METH_VARARGS|METH_KEYWORDS, doc_wxStdDialogButtonSizer_AddButton},
     {sipName_CalcMin, meth_wxStdDialogButtonSizer_CalcMin, METH_VARARGS, doc_wxStdDialogButtonSizer_CalcMin},
+    {sipName_GetAffirmativeButton, meth_wxStdDialogButtonSizer_GetAffirmativeButton, METH_VARARGS, doc_wxStdDialogButtonSizer_GetAffirmativeButton},
+    {sipName_GetApplyButton, meth_wxStdDialogButtonSizer_GetApplyButton, METH_VARARGS, doc_wxStdDialogButtonSizer_GetApplyButton},
+    {sipName_GetCancelButton, meth_wxStdDialogButtonSizer_GetCancelButton, METH_VARARGS, doc_wxStdDialogButtonSizer_GetCancelButton},
+    {sipName_GetHelpButton, meth_wxStdDialogButtonSizer_GetHelpButton, METH_VARARGS, doc_wxStdDialogButtonSizer_GetHelpButton},
+    {sipName_GetNegativeButton, meth_wxStdDialogButtonSizer_GetNegativeButton, METH_VARARGS, doc_wxStdDialogButtonSizer_GetNegativeButton},
     {sipName_Realize, meth_wxStdDialogButtonSizer_Realize, METH_VARARGS, doc_wxStdDialogButtonSizer_Realize},
     {sipName_RepositionChildren, SIP_MLMETH_CAST(meth_wxStdDialogButtonSizer_RepositionChildren), METH_VARARGS|METH_KEYWORDS, doc_wxStdDialogButtonSizer_RepositionChildren},
     {sipName_SetAffirmativeButton, SIP_MLMETH_CAST(meth_wxStdDialogButtonSizer_SetAffirmativeButton), METH_VARARGS|METH_KEYWORDS, doc_wxStdDialogButtonSizer_SetAffirmativeButton},
     {sipName_SetCancelButton, SIP_MLMETH_CAST(meth_wxStdDialogButtonSizer_SetCancelButton), METH_VARARGS|METH_KEYWORDS, doc_wxStdDialogButtonSizer_SetCancelButton},
     {sipName_SetNegativeButton, SIP_MLMETH_CAST(meth_wxStdDialogButtonSizer_SetNegativeButton), METH_VARARGS|METH_KEYWORDS, doc_wxStdDialogButtonSizer_SetNegativeButton}
+};
+
+sipVariableDef variables_wxStdDialogButtonSizer[] = {
+    {PropertyVariable, sipName_NegativeButton, &methods_wxStdDialogButtonSizer[6], &methods_wxStdDialogButtonSizer[11], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_HelpButton, &methods_wxStdDialogButtonSizer[5], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CancelButton, &methods_wxStdDialogButtonSizer[4], &methods_wxStdDialogButtonSizer[10], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ApplyButton, &methods_wxStdDialogButtonSizer[3], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_AffirmativeButton, &methods_wxStdDialogButtonSizer[2], &methods_wxStdDialogButtonSizer[9], SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxStdDialogButtonSizer, "StdDialogButtonSizer() -> None\n"
@@ -502,9 +690,9 @@ sipClassTypeDef sipTypeDef__core_wxStdDialogButtonSizer = {
     {
         sipNameNr_StdDialogButtonSizer,
         {0, 0, 1},
-        7, methods_wxStdDialogButtonSizer,
+        12, methods_wxStdDialogButtonSizer,
         0, SIP_NULLPTR,
-        0, SIP_NULLPTR,
+        5, variables_wxStdDialogButtonSizer,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxStdDialogButtonSizer,

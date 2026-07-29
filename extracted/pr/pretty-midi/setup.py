@@ -1,18 +1,21 @@
+import os
 from setuptools import setup
+
+# Read the contents of the README file
+with open(os.path.join(os.path.dirname(__file__), 'README.md'), encoding='utf-8') as f:
+    long_description = f.read()
 
 setup(
     name='pretty_midi',
-    version='0.2.11',
+    version='0.2.11.post0',
     description='Functions and classes for handling MIDI data conveniently.',
     author='Colin Raffel',
     author_email='craffel@gmail.com',
     url='https://github.com/craffel/pretty-midi',
     packages=['pretty_midi'],
     package_data={'': ['TimGM6mb.sf2']},
-    long_description="""\
-    Functions and classes which make handling MIDI data easy in Python.
-    Provides methods for parsing, modifying, and analyzing MIDI files.
-    """,
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python",

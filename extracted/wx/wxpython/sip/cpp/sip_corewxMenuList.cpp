@@ -115,9 +115,7 @@ static int slot_wxMenuList___contains__(PyObject *sipSelf, PyObject *sipArg)
         if (sipParseArgs(&sipParseErr, sipArg, "1J8", sipType_wxMenu, &obj))
         {
             int sipRes = 0;
-        wxMenuList::compatibility_iterator node;
-        node = sipCpp->Find((wxMenu*)obj);
-        sipRes = node != NULL;
+        sipRes = sipCpp->Member((wxMenu*)obj);
 
             return sipRes;
         }

@@ -65,6 +65,36 @@ class GitHubAppServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.ListGitHubPullRequestsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_github__app__pb2.ListGitHubPullRequestsResponse.FromString,
         )
+        self.ListGitHubBranches = channel.unary_unary(
+            "/chalk.server.v1.GitHubAppService/ListGitHubBranches",
+            request_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.ListGitHubBranchesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_github__app__pb2.ListGitHubBranchesResponse.FromString,
+        )
+        self.GetGitHubRepositoryArchive = channel.unary_stream(
+            "/chalk.server.v1.GitHubAppService/GetGitHubRepositoryArchive",
+            request_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.GetGitHubRepositoryArchiveRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_github__app__pb2.GetGitHubRepositoryArchiveResponse.FromString,
+        )
+        self.LinkProjectToGitHubRepository = channel.unary_unary(
+            "/chalk.server.v1.GitHubAppService/LinkProjectToGitHubRepository",
+            request_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.LinkProjectToGitHubRepositoryRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_github__app__pb2.LinkProjectToGitHubRepositoryResponse.FromString,
+        )
+        self.UnlinkProjectFromGitHubRepository = channel.unary_unary(
+            "/chalk.server.v1.GitHubAppService/UnlinkProjectFromGitHubRepository",
+            request_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.UnlinkProjectFromGitHubRepositoryRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_github__app__pb2.UnlinkProjectFromGitHubRepositoryResponse.FromString,
+        )
+        self.GetProjectGitHubRepoLink = channel.unary_unary(
+            "/chalk.server.v1.GitHubAppService/GetProjectGitHubRepoLink",
+            request_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.GetProjectGitHubRepoLinkRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_github__app__pb2.GetProjectGitHubRepoLinkResponse.FromString,
+        )
+        self.ListProjectGitHubRepoLinks = channel.unary_unary(
+            "/chalk.server.v1.GitHubAppService/ListProjectGitHubRepoLinks",
+            request_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.ListProjectGitHubRepoLinksRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_github__app__pb2.ListProjectGitHubRepoLinksResponse.FromString,
+        )
 
 
 class GitHubAppServiceServicer(object):
@@ -130,6 +160,42 @@ class GitHubAppServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ListGitHubBranches(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetGitHubRepositoryArchive(self, request, context):
+        """Streams the repository's zip archive (GitHub zipball) at the requested ref."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def LinkProjectToGitHubRepository(self, request, context):
+        """-- Project links --"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UnlinkProjectFromGitHubRepository(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetProjectGitHubRepoLink(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListProjectGitHubRepoLinks(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_GitHubAppServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -182,6 +248,36 @@ def add_GitHubAppServiceServicer_to_server(servicer, server):
             servicer.ListGitHubPullRequests,
             request_deserializer=chalk_dot_server_dot_v1_dot_github__app__pb2.ListGitHubPullRequestsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.ListGitHubPullRequestsResponse.SerializeToString,
+        ),
+        "ListGitHubBranches": grpc.unary_unary_rpc_method_handler(
+            servicer.ListGitHubBranches,
+            request_deserializer=chalk_dot_server_dot_v1_dot_github__app__pb2.ListGitHubBranchesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.ListGitHubBranchesResponse.SerializeToString,
+        ),
+        "GetGitHubRepositoryArchive": grpc.unary_stream_rpc_method_handler(
+            servicer.GetGitHubRepositoryArchive,
+            request_deserializer=chalk_dot_server_dot_v1_dot_github__app__pb2.GetGitHubRepositoryArchiveRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.GetGitHubRepositoryArchiveResponse.SerializeToString,
+        ),
+        "LinkProjectToGitHubRepository": grpc.unary_unary_rpc_method_handler(
+            servicer.LinkProjectToGitHubRepository,
+            request_deserializer=chalk_dot_server_dot_v1_dot_github__app__pb2.LinkProjectToGitHubRepositoryRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.LinkProjectToGitHubRepositoryResponse.SerializeToString,
+        ),
+        "UnlinkProjectFromGitHubRepository": grpc.unary_unary_rpc_method_handler(
+            servicer.UnlinkProjectFromGitHubRepository,
+            request_deserializer=chalk_dot_server_dot_v1_dot_github__app__pb2.UnlinkProjectFromGitHubRepositoryRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.UnlinkProjectFromGitHubRepositoryResponse.SerializeToString,
+        ),
+        "GetProjectGitHubRepoLink": grpc.unary_unary_rpc_method_handler(
+            servicer.GetProjectGitHubRepoLink,
+            request_deserializer=chalk_dot_server_dot_v1_dot_github__app__pb2.GetProjectGitHubRepoLinkRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.GetProjectGitHubRepoLinkResponse.SerializeToString,
+        ),
+        "ListProjectGitHubRepoLinks": grpc.unary_unary_rpc_method_handler(
+            servicer.ListProjectGitHubRepoLinks,
+            request_deserializer=chalk_dot_server_dot_v1_dot_github__app__pb2.ListProjectGitHubRepoLinksRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.ListProjectGitHubRepoLinksResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.GitHubAppService", rpc_method_handlers)
@@ -472,6 +568,180 @@ class GitHubAppService(object):
             "/chalk.server.v1.GitHubAppService/ListGitHubPullRequests",
             chalk_dot_server_dot_v1_dot_github__app__pb2.ListGitHubPullRequestsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_github__app__pb2.ListGitHubPullRequestsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListGitHubBranches(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.GitHubAppService/ListGitHubBranches",
+            chalk_dot_server_dot_v1_dot_github__app__pb2.ListGitHubBranchesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_github__app__pb2.ListGitHubBranchesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetGitHubRepositoryArchive(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            "/chalk.server.v1.GitHubAppService/GetGitHubRepositoryArchive",
+            chalk_dot_server_dot_v1_dot_github__app__pb2.GetGitHubRepositoryArchiveRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_github__app__pb2.GetGitHubRepositoryArchiveResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def LinkProjectToGitHubRepository(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.GitHubAppService/LinkProjectToGitHubRepository",
+            chalk_dot_server_dot_v1_dot_github__app__pb2.LinkProjectToGitHubRepositoryRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_github__app__pb2.LinkProjectToGitHubRepositoryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UnlinkProjectFromGitHubRepository(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.GitHubAppService/UnlinkProjectFromGitHubRepository",
+            chalk_dot_server_dot_v1_dot_github__app__pb2.UnlinkProjectFromGitHubRepositoryRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_github__app__pb2.UnlinkProjectFromGitHubRepositoryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetProjectGitHubRepoLink(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.GitHubAppService/GetProjectGitHubRepoLink",
+            chalk_dot_server_dot_v1_dot_github__app__pb2.GetProjectGitHubRepoLinkRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_github__app__pb2.GetProjectGitHubRepoLinkResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListProjectGitHubRepoLinks(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.GitHubAppService/ListProjectGitHubRepoLinks",
+            chalk_dot_server_dot_v1_dot_github__app__pb2.ListProjectGitHubRepoLinksRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_github__app__pb2.ListProjectGitHubRepoLinksResponse.FromString,
             options,
             channel_credentials,
             insecure,

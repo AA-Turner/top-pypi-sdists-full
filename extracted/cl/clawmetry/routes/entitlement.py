@@ -8497,6 +8497,289 @@ def api_license_pro_installation():
         return jsonify({"installed": False, "version": None, "marker": {}})
 
 
+def _pro_install_snapshot() -> dict:
+    """Shared helper: read once, derive the quartet the two ``installed_at``-
+    derived endpoints both need (``installed_at``, ``age_days``,
+    ``marker_present``, ``installed``). Lives in the handler layer -- not
+    in :mod:`clawmetry.license` -- because ``marker_present`` /
+    ``installed`` are install-state facts rather than marker-payload
+    facts, and both endpoints below need them together so a UI cannot
+    catch them disagreeing on the same install.
+
+    ``installed_at`` mirrors :func:`clawmetry.license.pro_installed_at` --
+    the raw epoch surfaced by the marker, unmodified. ``age_days`` mirrors
+    :func:`clawmetry.license.pro_install_age_days` -- floor-divided from
+    seconds, clamped to ``max(0, ...)`` so a clock-skewed
+    ``installed_at`` in the future never renders as a negative age.
+
+    ``marker_present`` is deliberately independent of ``installed``: an
+    operator can have the marker on disk (wheel was provisioned
+    yesterday) even when Python cannot currently import
+    ``clawmetry-pro`` (wheel was pip-uninstalled since), and the paywall-
+    debug tile that binds these endpoints wants to see that disagreement
+    rather than have it collapsed into a single boolean.
+
+    Never raises: any underlying failure collapses to
+    ``{installed_at: None, age_days: None, marker_present: False,
+    installed: False}`` so callers keep the "no marker" branch shape.
+    """
+    try:
+        from clawmetry import license as _lic
+
+        installed_at = _lic.pro_installed_at()
+        age = _lic.pro_install_age_days()
+        installed = _lic.pro_installed()
+    except Exception as exc:
+        logger.debug("_pro_install_snapshot: underlying read failed: %s", exc)
+        return {
+            "installed_at": None,
+            "age_days": None,
+            "marker_present": False,
+            "installed": False,
+        }
+    marker_present = installed_at is not None
+    return {
+        "installed_at": installed_at,
+        "age_days": age,
+        "marker_present": marker_present,
+        "installed": bool(installed),
+    }
+
+
+@bp_entitlement.route("/api/license/pro-installed-at")
+def api_license_pro_installed_at():
+    """``GET /api/license/pro-installed-at`` -- scalar view of the
+    ``installed_at`` field of the ``clawmetry-pro`` provisioning marker
+    (``~/.clawmetry/pro_installed.json``), for a "pro installed:
+    <date>" row that wants ONE integer rather than the whole
+    ``/api/license/pro-installation`` envelope.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "installed_at": <int|null>,    # epoch seconds; None if no marker
+          "age_days": <int|null>,        # days since provisioning
+          "marker_present": <bool>,      # is the marker file readable?
+          "installed": <bool>            # can Python import clawmetry-pro right now?
+        }
+
+    ``installed_at`` mirrors :func:`clawmetry.license.pro_installed_at`:
+
+      * ``null`` when the marker is missing (wheel was never provisioned
+        OR was provisioned by a pre-marker version of ClawMetry), when
+        the marker exists but has no ``installed_at`` key, or when the
+        value carried by the marker is non-numeric / non-positive.
+      * A positive epoch integer otherwise, unmodified from what
+        :func:`clawmetry.license._write_pro_marker` wrote at provision
+        time.
+
+    Deliberately independent of ``installed``: an operator can have the
+    marker on disk yet Python cannot currently import ``clawmetry-pro``
+    (wheel was pip-uninstalled since), and that disagreement is exactly
+    what a paywall-debugging tile needs to see rather than collapsing
+    both facts into one boolean. The ``installed`` field on this
+    envelope surfaces the live ``importlib.metadata`` probe so a caller
+    binding a single endpoint gets both facts side-by-side.
+
+    Pairs with ``/api/license/pro-install-age-days`` -- this endpoint
+    surfaces the raw epoch for a debug row, that endpoint answers the
+    "how old" gate without the caller having to do the arithmetic. The
+    two endpoints share :func:`_pro_install_snapshot` so a UI binding
+    both sees a consistent snapshot.
+
+    Never 5xxs -- any underlying failure degrades to
+    ``{installed_at: null, age_days: null, marker_present: false,
+    installed: false}`` (the "no marker" branch shape), matching the
+    never-crash posture of the surrounding license endpoints.
+    """
+    try:
+        return jsonify(_pro_install_snapshot())
+    except Exception as exc:
+        logger.warning("api_license_pro_installed_at: error: %s", exc)
+        return jsonify(
+            {
+                "installed_at": None,
+                "age_days": None,
+                "marker_present": False,
+                "installed": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/license/pro-install-age-days")
+def api_license_pro_install_age_days():
+    """``GET /api/license/pro-install-age-days`` -- scalar view of how
+    long ago the ``clawmetry-pro`` wheel was provisioned (days since the
+    marker's ``installed_at``), for a support/audit tile that wants ONE
+    integer rather than computing ``(now - installed_at) // 86400`` at
+    the call site.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "age_days": <int|null>,        # days since provisioning
+          "installed_at": <int|null>,    # epoch seconds
+          "marker_present": <bool>,      # is the marker file readable?
+          "installed": <bool>            # can Python import clawmetry-pro right now?
+        }
+
+    ``age_days`` mirrors :func:`clawmetry.license.pro_install_age_days`:
+
+      * ``null`` when the marker is missing, has no ``installed_at``
+        key, or carries a non-numeric / non-positive value.
+      * A non-negative integer otherwise -- zero on the day of
+        provisioning, growing monotonically thereafter. Clamped to
+        ``max(0, ...)`` so a clock-skewed ``installed_at`` in the future
+        never renders as a negative age.
+
+    Days are floor-divided from seconds ``(now - installed_at) // 86400``,
+    matching how ``/api/license/age-days`` derives its counterpart from
+    the signed ``iat`` claim so the two scalars never disagree at the
+    day boundary.
+
+    Deliberately independent of ``installed`` (see
+    ``/api/license/pro-installed-at``): a marker on disk with the wheel
+    since uninstalled still surfaces its real ``age_days``. The
+    ``installed`` field independently carries the live-importability
+    signal for callers that DO want to hide the row on a broken
+    install.
+
+    Never 5xxs -- any underlying failure degrades to
+    ``{age_days: null, installed_at: null, marker_present: false,
+    installed: false}``.
+    """
+    try:
+        snap = _pro_install_snapshot()
+        return jsonify(
+            {
+                "age_days": snap["age_days"],
+                "installed_at": snap["installed_at"],
+                "marker_present": snap["marker_present"],
+                "installed": snap["installed"],
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_license_pro_install_age_days: error: %s", exc)
+        return jsonify(
+            {
+                "age_days": None,
+                "installed_at": None,
+                "marker_present": False,
+                "installed": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/license/pro-install-age-days-at")
+def api_license_pro_install_age_days_at():
+    """``GET /api/license/pro-install-age-days-at?epoch=<int>`` -- scalar
+    view of how old the ``clawmetry-pro`` install was at an operator-
+    supplied perspective epoch, for a scheduled-audit / retrospective
+    tile that wants to answer "how old was the pro wheel as of <date>?"
+    without the caller having to snapshot the marker state at that
+    time or compute ``(epoch - installed_at) // 86400`` at the call
+    site.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "age_days": <int|null>,        # signed days from installed_at to epoch
+          "requested_epoch": <int|null>, # int-coerced input, or null on typo
+          "installed_at": <int|null>,    # current on-disk marker installed_at
+          "marker_present": <bool>,      # is the marker file readable?
+          "installed": <bool>            # can Python import clawmetry-pro right now?
+        }
+
+    ``age_days`` mirrors :func:`clawmetry.license.pro_install_age_days_at`:
+
+      * ``null`` when there is no marker file, when the marker has no
+        ``installed_at`` key, when ``installed_at`` is non-numeric /
+        non-positive, OR when ``epoch`` doesn't parse as an integer.
+      * A signed integer number of days otherwise. Zero when ``epoch``
+        equals the ``installed_at`` second; positive when ``epoch`` is
+        after ``installed_at`` (the normal case -- "N days old as of
+        <date>"); negative when ``epoch`` is BEFORE ``installed_at``
+        (support scenario: "the operator rolled a machine back to a
+        pre-provisioning timestamp -- how far before install were
+        we?").
+
+    Deliberately NOT clamped to ``max(0, ...)`` -- unlike the "now"
+    endpoint ``/api/license/pro-install-age-days``, which clamps
+    because clock-skew is the only way ``installed_at`` can be in the
+    future when reading against ``time.time()``. Here the caller
+    EXPLICITLY passes a perspective epoch, so a negative result is a
+    real, actionable signal (they asked a question that only makes
+    sense pre-install), not clock skew to be hidden. Mirrors the
+    signed-integer posture of ``/api/license/age-days-at``.
+
+    Deliberately independent of ``installed``: an operator can have
+    the marker on disk yet Python cannot currently import
+    ``clawmetry-pro`` (wheel was pip-uninstalled since), and that
+    disagreement is exactly what a paywall-debug / audit tile needs
+    to see rather than collapsing both facts into one boolean. The
+    ``installed`` field independently carries the live-importability
+    signal for callers that DO want to hide the row on a broken
+    install.
+
+    Query parameter:
+
+      * ``epoch`` -- required. Unix epoch seconds as an integer. A
+        missing / non-integer value collapses to ``age_days=null`` with
+        ``requested_epoch=null`` so a caller cannot silently miscount on
+        a typo. HTTP status is 200 either way -- the "bad input" signal
+        is the ``null`` result, not a 4xx, matching the never-crash
+        posture of the surrounding license endpoints.
+
+    Pairs with ``/api/license/pro-installed-at`` and
+    ``/api/license/pro-install-age-days`` -- all three share
+    :func:`_pro_install_snapshot`, so a UI binding any pair of them for
+    the same install cannot catch them disagreeing on ``installed_at``
+    / ``marker_present`` / ``installed``. Together they let a
+    dashboard render "on <date>, the pro install was N days old,
+    provisioned at epoch E" from two orthogonal one-shot GETs.
+
+    Never 5xxs -- any underlying failure degrades to
+    ``{age_days: null, requested_epoch: <echoed|null>, installed_at: null,
+    marker_present: false, installed: false}`` (the "no marker" branch
+    shape).
+    """
+    raw = request.args.get("epoch", "")
+    try:
+        requested = int(str(raw).strip())
+    except (TypeError, ValueError):
+        requested = None
+    try:
+        snap = _pro_install_snapshot()
+    except Exception as exc:
+        logger.warning("api_license_pro_install_age_days_at: snapshot error: %s", exc)
+        snap = {
+            "installed_at": None,
+            "age_days": None,
+            "marker_present": False,
+            "installed": False,
+        }
+    age_days: int | None
+    if requested is None:
+        age_days = None
+    else:
+        try:
+            from clawmetry import license as _lic
+
+            age_days = _lic.pro_install_age_days_at(requested)
+        except Exception as exc:
+            logger.warning("api_license_pro_install_age_days_at: derive error: %s", exc)
+            age_days = None
+    return jsonify(
+        {
+            "age_days": age_days,
+            "requested_epoch": requested,
+            "installed_at": snap["installed_at"],
+            "marker_present": snap["marker_present"],
+            "installed": snap["installed"],
+        }
+    )
+
+
 def _license_nodes_snapshot() -> dict:
     """Shared helper: read once, derive the trio the two node-limit endpoints
     both need (``nodes``, ``has_license``, ``valid``). Lives in the handler
@@ -9196,6 +9479,786 @@ def api_license_age_days():
                 "valid": False,
             }
         )
+
+
+
+def _license_state_snapshot() -> dict:
+    """Shared one-shot read for the paired ``/api/license/state`` and
+    ``/api/license/is-state`` endpoints below.
+
+    Reads :func:`clawmetry.license.license_state` and
+    :func:`clawmetry.license.current_license_info` ONCE so a UI binding
+    both endpoints in the same tile can't catch them disagreeing on
+    ``state`` / ``has_license`` / ``valid`` for the same install --
+    mirrors the ``_license_tier_snapshot`` / ``_license_issued_snapshot``
+    pattern used by the tier + issued-at endpoint pairs.
+
+    Never raises. Any introspection failure collapses to the OSS-free
+    branch shape (``state="no_license"``, ``has_license=False``,
+    ``valid=False``) so the endpoint stack never 5xxs -- same posture as
+    the surrounding license endpoints.
+    """
+    try:
+        from clawmetry import license as _lic
+
+        state = _lic.license_state()
+        info = _lic.current_license_info()
+    except Exception as exc:
+        logger.debug("_license_state_snapshot: underlying read failed: %s", exc)
+        return {"state": "no_license", "has_license": False, "valid": False}
+    if not isinstance(state, str):
+        state = "no_license"
+    if info is None:
+        return {"state": state, "has_license": False, "valid": False}
+    if not isinstance(info, dict):
+        return {"state": state, "has_license": False, "valid": False}
+    return {
+        "state": state,
+        "has_license": True,
+        "valid": bool(info.get("valid")),
+    }
+
+
+@bp_entitlement.route("/api/license/state")
+def api_license_state():
+    """``GET /api/license/state`` -- scalar view of the installed license's
+    high-level lifecycle state, for a status badge / audit row that wants
+    ONE string rather than the whole ``/api/license/status`` envelope.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "state": "<active|expired|invalid|no_license>",
+          "has_license": <bool>,     # is a license file installed at all?
+          "valid": <bool>            # signature-valid AND not expired
+        }
+
+    ``state`` mirrors :func:`clawmetry.license.license_state` exactly:
+
+      * ``"active"``   -- signature-valid AND not expired.
+      * ``"expired"``  -- signature-valid but past its ``exp`` claim.
+      * ``"invalid"``  -- file exists but signature is bogus.
+      * ``"no_license"`` -- no license file on disk (OSS-free).
+
+    Unlike ``/api/license/tier`` / ``/api/license/subject`` / ``/api/license/nodes``
+    (which surface ``null`` on the invalid / expired / no-license branches),
+    this endpoint always carries a non-null string -- "no license" is a
+    real answer here, not a missing answer, so a UI switch can bind
+    directly on ``data.state`` without a null branch.
+
+    A caller who wants ``tier`` / ``sub`` / ``exp`` / ``nodes`` alongside
+    should keep hitting ``/api/license/status``; this endpoint deliberately
+    strips those to keep a lightweight status-badge tile cheap.
+
+    Never 5xxs -- any underlying failure degrades to
+    ``{state: "no_license", has_license: false, valid: false}`` (the
+    OSS-free branch shape), matching the never-crash posture of the
+    surrounding license endpoints.
+    """
+    try:
+        return jsonify(_license_state_snapshot())
+    except Exception as exc:
+        logger.warning("api_license_state: error: %s", exc)
+        return jsonify(
+            {"state": "no_license", "has_license": False, "valid": False}
+        )
+
+
+@bp_entitlement.route("/api/license/is-state")
+def api_license_is_state():
+    """``GET /api/license/is-state?state=<name>`` -- boolean gate for
+    "is the installed license in state <X> right now?" UIs.
+
+    Query parameters:
+      * ``state`` (str, required) -- the state to test against. One of
+        ``"active"``, ``"expired"``, ``"invalid"``, ``"no_license"``.
+        Compared case-insensitively after strip, matching
+        :func:`clawmetry.license.is_state`. Missing / empty / unknown
+        input degrades to ``is_state=false`` rather than a 4xx, matching
+        the surrounding endpoints' never-5xx / never-4xx posture.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "is_state": <bool>,
+          "state": "<active|expired|invalid|no_license>",  # currently-installed
+          "requested_state": <str>,                        # normalised echo of query
+          "has_license": <bool>,
+          "valid": <bool>                                  # signature-valid AND not expired
+        }
+
+    ``is_state`` is ``True`` iff the currently-installed state
+    byte-equals ``requested_state`` (after both are lower/stripped) AND
+    the requested value is one of the four canonical states -- a typo
+    like ``?state=actiev`` returns ``is_state=false`` so a caller cannot
+    silently mis-gate on a mis-spelled state name.
+
+    Mirrors :func:`clawmetry.license.is_state` -- the HTTP shape layers
+    ``state`` / ``requested_state`` / ``has_license`` / ``valid`` on top
+    of that bool so a widget never needs a second call to
+    ``/api/license/state`` (or ``/api/license/status``) to render the
+    accompanying "you're in state <X>" copy.
+    """
+    from clawmetry.license import LICENSE_STATES
+
+    raw = request.args.get("state", "") or ""
+    try:
+        requested = str(raw).strip().lower()
+    except Exception:
+        requested = ""
+    try:
+        snap = _license_state_snapshot()
+    except Exception as exc:
+        logger.warning("api_license_is_state: error: %s", exc)
+        snap = {"state": "no_license", "has_license": False, "valid": False}
+    match = bool(
+        requested
+        and requested in LICENSE_STATES
+        and isinstance(snap["state"], str)
+        and snap["state"] == requested
+    )
+    return jsonify(
+        {
+            "is_state": match,
+            "state": snap["state"],
+            "requested_state": requested,
+            "has_license": snap["has_license"],
+            "valid": snap["valid"],
+        }
+    )
+
+
+def _license_pubkey_fingerprint_snapshot() -> dict:
+    """Shared helper: read once, derive the trio the two pubkey-fingerprint
+    endpoints both need (``pubkey_fingerprint_sha256``,
+    ``pubkey_fingerprint_short``, ``valid``). Lives in the handler layer so a
+    UI binding both endpoints cannot catch them disagreeing on the trust
+    anchor for the same install.
+
+    ``valid`` here means the EMBEDDED PUBKEY parses -- distinct from
+    ``/api/license/valid`` (signature-valid + not expired). A tampered
+    ``_PUBLIC_KEY_PEM`` collapses ``valid`` to ``False`` even without any
+    license file installed, exactly matching the trust-anchor semantic a
+    supply-chain / attestation tile needs.
+
+    Never raises: any underlying failure collapses to
+    ``{pubkey_fingerprint_sha256: None, pubkey_fingerprint_short: None,
+    valid: False}`` so callers keep the "OSS-free" branch shape.
+    """
+    try:
+        from clawmetry import license as _lic
+
+        fp = _lic.pubkey_fingerprint()
+    except Exception as exc:
+        logger.debug(
+            "_license_pubkey_fingerprint_snapshot: underlying read failed: %s",
+            exc,
+        )
+        return {
+            "pubkey_fingerprint_sha256": None,
+            "pubkey_fingerprint_short": None,
+            "valid": False,
+        }
+    short = fp[:16] if isinstance(fp, str) and fp else None
+    return {
+        "pubkey_fingerprint_sha256": fp if isinstance(fp, str) and fp else None,
+        "pubkey_fingerprint_short": short,
+        "valid": bool(fp) and isinstance(fp, str),
+    }
+
+
+@bp_entitlement.route("/api/license/pubkey-fingerprint")
+def api_license_pubkey_fingerprint():
+    """``GET /api/license/pubkey-fingerprint`` -- scalar view of the embedded
+    Ed25519 verification key's SHA-256 fingerprint, for a trust-anchor
+    attestation tile that wants ONE string rather than the whole
+    ``/api/license/pubkey`` envelope (algorithm, format, PEM body, ...).
+
+    Response shape (always HTTP 200)::
+
+        {
+          "pubkey_fingerprint_sha256": <str|null>,   # 64-char lowercase hex
+          "pubkey_fingerprint_short":  <str|null>,   # first 16 chars
+          "valid": <bool>                            # embedded PEM parses?
+        }
+
+    Independent of any installed license file: this endpoint answers
+    "which trust anchor is THIS install verifying against?" so an
+    operator can compare the value to the canonical fingerprint published
+    at ``https://clawmetry.com/security`` and detect that ``_PUBLIC_KEY_PEM``
+    hasn't been swapped for an attacker-controlled key. A dashboard tile
+    that only needs the fingerprint string should bind here rather than to
+    ``/api/license/pubkey``; the two share :func:`pubkey_fingerprint` so
+    they never disagree.
+
+    Never 5xxs -- any underlying failure degrades to
+    ``{pubkey_fingerprint_sha256: null, pubkey_fingerprint_short: null,
+    valid: false}`` matching the never-crash posture of the surrounding
+    license endpoints.
+    """
+    try:
+        return jsonify(_license_pubkey_fingerprint_snapshot())
+    except Exception as exc:
+        logger.warning("api_license_pubkey_fingerprint: error: %s", exc)
+        return jsonify(
+            {
+                "pubkey_fingerprint_sha256": None,
+                "pubkey_fingerprint_short": None,
+                "valid": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/license/is-pubkey-fingerprint")
+def api_license_is_pubkey_fingerprint():
+    """``GET /api/license/is-pubkey-fingerprint?fp=<hex>`` -- boolean gate
+    for "is this install verifying against pubkey <FP> right now?" UIs.
+
+    Query parameters:
+      * ``fp`` (str, required) -- the fingerprint to test against. Compared
+        under the same tolerant normalisation as
+        :func:`clawmetry.license.is_pubkey_fingerprint`: whitespace
+        stripped, lowercased, ``:`` separators removed, either the full
+        64-char hex OR the 16-char short-form accepted. Missing / empty
+        input degrades to ``is_pubkey_fingerprint=false`` rather than a
+        4xx, matching the surrounding endpoints' never-5xx / never-4xx
+        posture.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "is_pubkey_fingerprint": <bool>,
+          "pubkey_fingerprint_sha256": <str|null>,   # currently-active fp
+          "pubkey_fingerprint_short":  <str|null>,   # first 16 chars
+          "requested_fp": <str>,                     # normalised echo
+          "valid": <bool>                            # embedded PEM parses?
+        }
+
+    ``is_pubkey_fingerprint`` is ``True`` iff the embedded PEM parses AND
+    the normalised request matches (full or short form). A typo like
+    ``?fp=abcxyz`` collapses to ``False`` (non-hex rejected up-front) so a
+    caller cannot silently mis-gate on a bad string.
+
+    Mirrors :func:`clawmetry.license.is_pubkey_fingerprint` -- the HTTP
+    shape layers ``pubkey_fingerprint_sha256`` /
+    ``pubkey_fingerprint_short`` / ``requested_fp`` / ``valid`` on top of
+    that bool so a supply-chain audit widget never needs a second call to
+    ``/api/license/pubkey-fingerprint`` to render the accompanying
+    "expected <X>" copy.
+    """
+    raw = request.args.get("fp", "") or ""
+    try:
+        requested = raw.strip().lower().replace(":", "")
+    except Exception:
+        requested = ""
+    try:
+        snap = _license_pubkey_fingerprint_snapshot()
+    except Exception as exc:
+        logger.warning("api_license_is_pubkey_fingerprint: error: %s", exc)
+        snap = {
+            "pubkey_fingerprint_sha256": None,
+            "pubkey_fingerprint_short": None,
+            "valid": False,
+        }
+    actual = snap["pubkey_fingerprint_sha256"]
+    matches = False
+    if requested and isinstance(actual, str) and actual:
+        if all(c in "0123456789abcdef" for c in requested):
+            actual_norm = actual.strip().lower()
+            if len(requested) == 64:
+                matches = actual_norm == requested
+            elif len(requested) == 16:
+                matches = actual_norm.startswith(requested)
+    return jsonify(
+        {
+            "is_pubkey_fingerprint": bool(matches),
+            "pubkey_fingerprint_sha256": snap["pubkey_fingerprint_sha256"],
+            "pubkey_fingerprint_short": snap["pubkey_fingerprint_short"],
+            "requested_fp": requested,
+            "valid": snap["valid"],
+        }
+    )
+
+
+def _license_expires_snapshot() -> dict:
+    """Shared helper: read once, derive the quartet the two ``exp``-derived
+    endpoints both need (``expires_at``, ``days_until_expiry``,
+    ``has_license``, ``valid``). Lives in the handler layer -- not in
+    :mod:`clawmetry.license` -- because ``has_license`` is an install-state
+    fact rather than a license-payload fact, and both endpoints below need
+    the pair together so a UI cannot catch them disagreeing on
+    ``has_license`` for the same install.
+
+    Deliberately lenient on expiry, matching the ``license_expires_at`` /
+    ``days_until_expiry`` posture: a signed-but-lapsed key still surfaces
+    its real ``expires_at`` (with a negative ``days_until_expiry``) so a
+    support/audit tile can render "expired 12 days ago" without special-
+    casing the expired branch. The ``valid`` field independently carries
+    the "signature-valid AND not expired" signal for callers that DO want
+    to hide the row on lapsed keys.
+
+    Never raises: any underlying failure collapses to
+    ``{expires_at: None, days_until_expiry: None, has_license: False,
+    valid: False}`` so callers keep the "OSS-free" branch shape.
+    """
+    try:
+        from clawmetry import license as _lic
+
+        info = _lic.current_license_info()
+        expires = _lic.license_expires_at()
+        days = _lic.days_until_expiry()
+    except Exception as exc:
+        logger.debug("_license_expires_snapshot: underlying read failed: %s", exc)
+        return {
+            "expires_at": None,
+            "days_until_expiry": None,
+            "has_license": False,
+            "valid": False,
+        }
+    if not isinstance(info, dict):
+        return {
+            "expires_at": None,
+            "days_until_expiry": None,
+            "has_license": False,
+            "valid": False,
+        }
+    return {
+        "expires_at": expires,
+        "days_until_expiry": days,
+        "has_license": True,
+        "valid": bool(info.get("valid")),
+    }
+
+
+@bp_entitlement.route("/api/license/expires-at")
+def api_license_expires_at():
+    """``GET /api/license/expires-at`` -- scalar view of the installed
+    license's ``exp`` claim (epoch seconds), for a "license expires:
+    <date>" row that wants ONE integer rather than the whole
+    ``/api/license/status`` envelope.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "expires_at": <int|null>,          # epoch; None if untrusted / perpetual
+          "days_until_expiry": <int|null>,   # signed days remaining
+          "has_license": <bool>,             # is a license file installed at all?
+          "valid": <bool>                    # signature-valid AND not expired
+        }
+
+    ``expires_at`` mirrors :func:`clawmetry.license.license_expires_at`:
+
+      * ``null`` when there is no license file, on the invalid-signature
+        branch (payload cannot be trusted -- an attacker could stuff any
+        ``exp`` into an unsigned body), OR when the signed payload has
+        no ``exp`` claim (perpetual license -- distinguish from
+        no-license via ``has_license``).
+      * A positive epoch integer otherwise, unmodified from the signed
+        payload.
+
+    Deliberately lenient on expiry, unlike ``/api/license/tier`` and
+    ``/api/license/nodes``: a signed-but-lapsed key still surfaces its
+    real ``expires_at`` so a support tile can render "expired 12 days
+    ago" on an expired key. The ``valid`` field independently carries
+    the "signature-valid AND not expired" signal for callers that DO
+    want to hide the row on lapsed keys.
+
+    Pairs with ``/api/license/days-until-expiry`` -- this endpoint
+    surfaces the raw epoch for an audit row, that endpoint answers the
+    caller-friendly "how many days left" without the caller having to do
+    the arithmetic. The two endpoints share :func:`_license_expires_snapshot`
+    so a UI binding both sees a consistent snapshot.
+
+    Never 5xxs -- any underlying failure degrades to
+    ``{expires_at: null, days_until_expiry: null, has_license: false,
+    valid: false}`` (the OSS-free branch shape), matching the never-crash
+    posture of the surrounding license endpoints.
+    """
+    try:
+        return jsonify(_license_expires_snapshot())
+    except Exception as exc:
+        logger.warning("api_license_expires_at: error: %s", exc)
+        return jsonify(
+            {
+                "expires_at": None,
+                "days_until_expiry": None,
+                "has_license": False,
+                "valid": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/license/is-expiring-at")
+def api_license_is_expiring_at():
+    """``GET /api/license/is-expiring-at?epoch=<int>`` -- predicate
+    matching the operator-supplied epoch against the installed license's
+    ``exp`` claim, for a "we noticed your key expires <date>" tile that
+    binds a specific ``exp`` value and wants to detect renewal (the on-
+    disk key no longer matches the value it was rendered with).
+
+    Response shape (always HTTP 200)::
+
+        {
+          "is_expiring_at": <bool>,          # exact match; else false
+          "requested_epoch": <int|null>,     # int-coerced input, or null on typo
+          "expires_at": <int|null>,          # current on-disk exp for comparison
+          "has_license": <bool>,
+          "valid": <bool>                    # signature-valid AND not expired
+        }
+
+    ``is_expiring_at`` mirrors :func:`clawmetry.license.is_expiring_at`:
+
+      * ``false`` when there is no license file, on the invalid-signature
+        branch, on the expired branch (a predicate that fired ``true`` on
+        a lapsed key would push callers to gate renewal UI on a value
+        that no longer implies entitlement), on the perpetual-license
+        branch (no ``exp`` to compare), OR when ``epoch`` doesn't parse
+        as an integer.
+      * ``true`` iff the installed key is signature-valid, not expired,
+        carries an ``exp`` claim, AND that claim equals the supplied
+        ``epoch`` exactly.
+
+    Deliberately strict on validity, unlike the sibling
+    ``/api/license/expires-at`` endpoint (which is lenient on expiry so a
+    support tile can render "expired 12 days ago"). See the docstring on
+    :func:`clawmetry.license.is_expiring_at` for the rationale.
+
+    Query parameter:
+
+      * ``epoch`` -- required. Unix epoch seconds as an integer. A
+        missing / non-integer value collapses to
+        ``is_expiring_at=false`` with ``requested_epoch=null`` so a
+        caller cannot silently mis-gate on a typo. HTTP status is 200
+        either way -- the "bad input" signal is the ``false`` result,
+        not a 4xx, matching the never-crash posture of the surrounding
+        license endpoints.
+    """
+    raw = request.args.get("epoch", "")
+    try:
+        requested = int(str(raw).strip())
+    except (TypeError, ValueError):
+        requested = None
+    snap = _license_expires_snapshot()
+    try:
+        from clawmetry import license as _lic
+
+        matched = _lic.is_expiring_at(requested) if requested is not None else False
+    except Exception as exc:
+        logger.warning("api_license_is_expiring_at: error: %s", exc)
+        matched = False
+    return jsonify(
+        {
+            "is_expiring_at": bool(matched),
+            "requested_epoch": requested,
+            "expires_at": snap["expires_at"],
+            "has_license": snap["has_license"],
+            "valid": snap["valid"],
+        }
+    )
+
+
+@bp_entitlement.route("/api/license/days-until-expiry-at")
+def api_license_days_until_expiry_at():
+    """``GET /api/license/days-until-expiry-at?epoch=<int>`` -- scalar
+    countdown evaluated at an operator-supplied perspective epoch, for a
+    scheduled-audit / retrospective tile that wants to answer "how many
+    days until (or past) expiry was <date>?" without the caller having
+    to compute ``(exp - epoch) // 86400`` at the call site.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "days_left": <int|null>,           # signed days from epoch to exp
+          "requested_epoch": <int|null>,     # int-coerced input, or null on typo
+          "expires_at": <int|null>,          # current on-disk exp
+          "has_license": <bool>,             # is a license file installed at all?
+          "valid": <bool>                    # signature-valid AND not expired
+        }
+
+    ``days_left`` mirrors :func:`clawmetry.license.days_until_expiry_at`:
+
+      * ``null`` when there is no license file, on the invalid-signature
+        branch (payload cannot be trusted -- an attacker could stuff any
+        ``exp`` into an unsigned body), on the perpetual-license branch
+        (no ``exp`` to count against), OR when ``epoch`` doesn't parse
+        as an integer.
+      * A signed integer number of days otherwise. Zero when ``epoch``
+        falls on the day of expiry; negative when ``epoch`` is after
+        ``exp`` (support scenario: "how many days past expiry was
+        <date>?"); positive when ``epoch`` is before ``exp``.
+
+    Deliberately lenient on expiry, mirroring
+    ``/api/license/days-until-expiry`` and ``/api/license/expires-at``: a
+    signed-but-lapsed key still surfaces its real ``days_left`` (with a
+    negative sign when ``epoch`` is after ``exp``) so a support/audit
+    tile can render "would have been expired 12 days ago as of last
+    Friday" without special-casing the expired branch. The ``valid``
+    field independently carries the "signature-valid AND not expired"
+    signal for callers that DO want to hide the row on lapsed keys.
+
+    Query parameter:
+
+      * ``epoch`` -- required. Unix epoch seconds as an integer. A
+        missing / non-integer value collapses to ``days_left=null`` with
+        ``requested_epoch=null`` so a caller cannot silently miscount on
+        a typo. HTTP status is 200 either way -- the "bad input" signal
+        is the ``null`` result, not a 4xx, matching the never-crash
+        posture of the surrounding license endpoints.
+
+    Pairs with ``/api/license/is-expiring-at`` -- both share the
+    perspective-epoch input pattern and the
+    :func:`_license_expires_snapshot` reader, so a UI binding both
+    endpoints for the same install cannot catch them disagreeing on
+    ``expires_at`` / ``has_license`` / ``valid``. Together they let a
+    dashboard render "on <date>, the license would have been N days
+    from expiry -- an exact match against a specific ``exp`` value?"
+    from two orthogonal one-shot GETs.
+
+    Never 5xxs -- any underlying failure degrades to
+    ``{days_left: null, requested_epoch: null, expires_at: null,
+    has_license: false, valid: false}`` (the OSS-free branch shape).
+    """
+    raw = request.args.get("epoch", "")
+    try:
+        requested = int(str(raw).strip())
+    except (TypeError, ValueError):
+        requested = None
+    try:
+        snap = _license_expires_snapshot()
+    except Exception as exc:
+        logger.warning("api_license_days_until_expiry_at: snapshot error: %s", exc)
+        snap = {
+            "expires_at": None,
+            "days_until_expiry": None,
+            "has_license": False,
+            "valid": False,
+        }
+    days_left: int | None
+    if requested is None:
+        days_left = None
+    else:
+        try:
+            from clawmetry import license as _lic
+
+            days_left = _lic.days_until_expiry_at(requested)
+        except Exception as exc:
+            logger.warning("api_license_days_until_expiry_at: derive error: %s", exc)
+            days_left = None
+    return jsonify(
+        {
+            "days_left": days_left,
+            "requested_epoch": requested,
+            "expires_at": snap["expires_at"],
+            "has_license": snap["has_license"],
+            "valid": snap["valid"],
+        }
+    )
+
+
+@bp_entitlement.route("/api/license/age-days-at")
+def api_license_age_days_at():
+    """``GET /api/license/age-days-at?epoch=<int>`` -- scalar view of the
+    installed license's age evaluated at an operator-supplied perspective
+    epoch, for a scheduled-audit / retrospective tile that wants to
+    answer "how old was the license as of <date>?" without the caller
+    having to snapshot the license state at that time or compute
+    ``(epoch - iat) // 86400`` at the call site.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "age_days": <int|null>,        # signed days from iat to epoch
+          "requested_epoch": <int|null>, # int-coerced input, or null on typo
+          "issued_at": <int|null>,       # current on-disk iat
+          "has_license": <bool>,         # is a license file installed at all?
+          "valid": <bool>                # signature-valid AND not expired
+        }
+
+    ``age_days`` mirrors :func:`clawmetry.license.license_age_days_at`:
+
+      * ``null`` when there is no license file, on the invalid-signature
+        branch (payload cannot be trusted -- an attacker could stuff any
+        ``iat`` into an unsigned body), when the signed payload has no
+        ``iat`` claim, OR when ``epoch`` doesn't parse as an integer.
+      * A signed integer number of days otherwise. Zero when ``epoch``
+        equals the ``iat`` second; positive when ``epoch`` is after
+        ``iat`` (the normal case -- "N days old as of <date>"); negative
+        when ``epoch`` is BEFORE ``iat`` (support scenario: "the operator
+        rolled a machine back to a pre-issuance timestamp -- how far
+        before issuance were we?").
+
+    Deliberately NOT clamped to ``max(0, ...)`` -- unlike the "now"
+    endpoint ``/api/license/age-days``, which clamps because clock-skew
+    is the only way ``iat`` can be in the future when reading against
+    ``time.time()``. Here the caller EXPLICITLY passes a perspective
+    epoch, so a negative result is a real, actionable signal (they asked
+    a question that only makes sense pre-issuance), not clock skew to be
+    hidden. Mirrors the signed-integer posture of
+    ``/api/license/days-until-expiry-at``.
+
+    Deliberately lenient on expiry, mirroring ``/api/license/age-days``
+    and ``/api/license/issued-at``: a signed-but-lapsed key still
+    surfaces its real ``age_days`` at the perspective epoch, so a
+    support tile can render "was 12 days old as of that date" without
+    special-casing the expired branch. The ``valid`` field independently
+    carries the "signature-valid AND not expired" signal for callers
+    that DO want to hide the row on lapsed keys.
+
+    Query parameter:
+
+      * ``epoch`` -- required. Unix epoch seconds as an integer. A
+        missing / non-integer value collapses to ``age_days=null`` with
+        ``requested_epoch=null`` so a caller cannot silently miscount on
+        a typo. HTTP status is 200 either way -- the "bad input" signal
+        is the ``null`` result, not a 4xx, matching the never-crash
+        posture of the surrounding license endpoints.
+
+    Pairs with ``/api/license/issued-at`` and ``/api/license/age-days``
+    -- all three share :func:`_license_issued_snapshot`, so a UI binding
+    any pair of them for the same install cannot catch them disagreeing
+    on ``issued_at`` / ``has_license`` / ``valid``. Together they let a
+    dashboard render "on <date>, the license was N days old, issued at
+    epoch E" from two orthogonal one-shot GETs.
+
+    Never 5xxs -- any underlying failure degrades to
+    ``{age_days: null, requested_epoch: null, issued_at: null,
+    has_license: false, valid: false}`` (the OSS-free branch shape).
+    """
+    raw = request.args.get("epoch", "")
+    try:
+        requested = int(str(raw).strip())
+    except (TypeError, ValueError):
+        requested = None
+    try:
+        snap = _license_issued_snapshot()
+    except Exception as exc:
+        logger.warning("api_license_age_days_at: snapshot error: %s", exc)
+        snap = {
+            "issued_at": None,
+            "age_days": None,
+            "has_license": False,
+            "valid": False,
+        }
+    age_days: int | None
+    if requested is None:
+        age_days = None
+    else:
+        try:
+            from clawmetry import license as _lic
+
+            age_days = _lic.license_age_days_at(requested)
+        except Exception as exc:
+            logger.warning("api_license_age_days_at: derive error: %s", exc)
+            age_days = None
+    return jsonify(
+        {
+            "age_days": age_days,
+            "requested_epoch": requested,
+            "issued_at": snap["issued_at"],
+            "has_license": snap["has_license"],
+            "valid": snap["valid"],
+        }
+    )
+
+
+@bp_entitlement.route("/api/license/is-expired-at")
+def api_license_is_expired_at():
+    """``GET /api/license/is-expired-at?epoch=<int>`` -- boolean gate
+    for "was the installed license expired evaluated as of ``epoch``?" --
+    the perspective-epoch flavour of ``/api/license/is-expired``, for a
+    scheduled-audit / retrospective tile that wants to answer "would we
+    have shown the expired banner on <date>?" without the caller having
+    to compare ``exp`` against a specific epoch themselves.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "is_expired_at": <bool>,           # true iff exp <= epoch on a signed key
+          "requested_epoch": <int|null>,     # int-coerced input, or null on typo
+          "expires_at": <int|null>,          # current on-disk exp for comparison
+          "has_license": <bool>,             # is a license file installed at all?
+          "valid": <bool>                    # signature-valid AND not expired NOW
+        }
+
+    ``is_expired_at`` mirrors :func:`clawmetry.license.is_expired_at`:
+
+      * ``false`` when there is no license file, on the invalid-signature
+        branch (payload cannot be trusted -- an attacker could stuff any
+        ``exp`` into an unsigned body), on the perpetual-license branch
+        (no ``exp`` to compare against), when ``exp`` is strictly greater
+        than ``epoch`` (the key was not yet expired at that perspective),
+        OR when ``epoch`` doesn't parse as an integer.
+      * ``true`` iff the installed key is signature-valid, carries an
+        ``exp`` claim, AND ``exp <= epoch``.
+
+    Deliberately lenient on expiry NOW, unlike ``/api/license/is-expiring-at``
+    (which refuses lapsed keys because a renewal-window predicate on a
+    lapsed key would push callers to gate the WRONG UI). A retrospective
+    "was this expired on <date>?" tile absolutely should keep firing
+    ``true`` on a lapsed key -- that IS the support scenario -- so
+    ``is_expired_at`` still returns ``true`` on a signed-but-lapsed key
+    when ``epoch`` falls at or after ``exp``. The ``valid`` field
+    independently carries the "signature-valid AND not expired NOW"
+    signal for callers that DO want to gate off the current-state
+    validity.
+
+    Query parameter:
+
+      * ``epoch`` -- required. Unix epoch seconds as an integer. A
+        missing / non-integer value collapses to
+        ``is_expired_at=false`` with ``requested_epoch=null`` so a
+        caller cannot silently mis-gate on a typo. HTTP status is 200
+        either way -- the "bad input" signal is the ``false`` result,
+        not a 4xx, matching the never-crash posture of the surrounding
+        license endpoints.
+
+    Pairs with ``/api/license/is-expiring-at`` and
+    ``/api/license/days-until-expiry-at`` -- all three share the
+    perspective-epoch input pattern and the
+    :func:`_license_expires_snapshot` reader, so a UI binding any two
+    for the same install cannot catch them disagreeing on
+    ``expires_at`` / ``has_license`` / ``valid``. Together they let a
+    dashboard render "on <date>, the license would have been N days
+    from expiry, matched a specific ``exp`` value, and was expired?"
+    from three orthogonal one-shot GETs.
+
+    Never 5xxs -- any underlying failure degrades to
+    ``{is_expired_at: false, requested_epoch: null, expires_at: null,
+    has_license: false, valid: false}`` (the OSS-free branch shape).
+    """
+    raw = request.args.get("epoch", "")
+    try:
+        requested = int(str(raw).strip())
+    except (TypeError, ValueError):
+        requested = None
+    try:
+        snap = _license_expires_snapshot()
+    except Exception as exc:
+        logger.warning("api_license_is_expired_at: snapshot error: %s", exc)
+        snap = {
+            "expires_at": None,
+            "days_until_expiry": None,
+            "has_license": False,
+            "valid": False,
+        }
+    matched = False
+    if requested is not None:
+        try:
+            from clawmetry import license as _lic
+
+            matched = _lic.is_expired_at(requested)
+        except Exception as exc:
+            logger.warning("api_license_is_expired_at: derive error: %s", exc)
+            matched = False
+    return jsonify(
+        {
+            "is_expired_at": bool(matched),
+            "requested_epoch": requested,
+            "expires_at": snap["expires_at"],
+            "has_license": snap["has_license"],
+            "valid": snap["valid"],
+        }
+    )
 
 
 @bp_entitlement.route("/api/paywall/event", methods=["POST"])

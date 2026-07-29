@@ -61,6 +61,15 @@ fn each_element_on_its_line_array(elements: impl Iterator<Item = impl Into<Value
 pub enum PylockTomlErrorKind {
     #[error("Multiple active package entries found for `{0}`")]
     DuplicateActivePackage(PackageName),
+    #[error(
+        "Archive `{}` has size {actual}, but the lockfile records {expected}",
+        path.display()
+    )]
+    ArchiveSizeMismatch {
+        path: PathBuf,
+        expected: u64,
+        actual: u64,
+    },
     #[error("Package `{0}` requires Python {2}, but the target Python version is {1}")]
     IncompatibleRequiresPython(PackageName, Version, RequiresPython),
     #[error(
@@ -197,6 +206,21 @@ impl uv_errors::Hint for PylockTomlError {
     }
 }
 
+fn validate_path_size(path: &Path, expected: Option<u64>) -> Result<(), PylockTomlErrorKind> {
+    let Some(expected) = expected else {
+        return Ok(());
+    };
+    let actual = fs_err::metadata(path)?.len();
+    if actual != expected {
+        return Err(PylockTomlErrorKind::ArchiveSizeMismatch {
+            path: path.to_path_buf(),
+            expected,
+            actual,
+        });
+    }
+    Ok(())
+}
+
 impl<E> From<E> for PylockTomlError
 where
     PylockTomlErrorKind: From<E>,
@@ -223,7 +247,6 @@ pub struct PylockToml {
     pub dependency_groups: Vec<GroupName>,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub default_groups: Vec<GroupName>,
-    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub packages: Vec<PylockTomlPackage>,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     attestation_identities: Vec<PylockTomlAttestationIdentity>,
@@ -1452,6 +1475,7 @@ impl PylockTomlWheel {
 
         let file_url = if let Some(path) = self.path.as_ref() {
             let path = install_path.join(path);
+            validate_path_size(&path, self.size)?;
             let url = DisplaySafeUrl::from_file_path(path)
                 .map_err(|()| PylockTomlErrorKind::PathToUrl)?;
             UrlString::from(url)
@@ -1492,6 +1516,7 @@ impl PylockTomlWheel {
             filename,
             file,
             index,
+            size_is_authoritative: true,
         })
     }
 }
@@ -1613,6 +1638,7 @@ impl PylockTomlSdist {
 
         let file_url = if let Some(path) = self.path.as_ref() {
             let path = install_path.join(path);
+            validate_path_size(&path, self.size)?;
             let url = DisplaySafeUrl::from_file_path(path)
                 .map_err(|()| PylockTomlErrorKind::PathToUrl)?;
             UrlString::from(url)
@@ -1656,6 +1682,7 @@ impl PylockTomlSdist {
             ext,
             index,
             wheels: vec![],
+            size_is_authoritative: true,
         })
     }
 }
@@ -1681,6 +1708,7 @@ impl PylockTomlArchive {
                 DistExtension::Wheel => {
                     let filename = WheelFilename::from_str(filename)?;
                     let install_path = install_path.join(path);
+                    validate_path_size(&install_path, self.size)?;
                     let url = VerbatimUrl::from_absolute_path(&install_path)
                         .map_err(|_| PylockTomlErrorKind::PathToUrl)?;
                     Ok(Dist::Built(BuiltDist::Path(PathBuiltDist {
@@ -1691,6 +1719,7 @@ impl PylockTomlArchive {
                 }
                 DistExtension::Source(ext) => {
                     let install_path = install_path.join(path);
+                    validate_path_size(&install_path, self.size)?;
                     let url = VerbatimUrl::from_absolute_path(&install_path)
                         .map_err(|_| PylockTomlErrorKind::PathToUrl)?;
                     Ok(Dist::Source(SourceDist::Path(PathSourceDist {
@@ -1715,6 +1744,7 @@ impl PylockTomlArchive {
                         filename,
                         location: Box::new(url.clone()),
                         url: VerbatimUrl::from_url(url.clone()),
+                        size: self.size,
                     })))
                 }
                 DistExtension::Source(ext) => {
@@ -1724,6 +1754,7 @@ impl PylockTomlArchive {
                         subdirectory: self.subdirectory.clone().map(Box::<Path>::from),
                         ext,
                         url: VerbatimUrl::from_url(url.clone()),
+                        size: self.size,
                     })))
                 }
             }

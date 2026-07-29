@@ -1325,7 +1325,7 @@ static void *init_type_wxPageSetupDialogData(sipSimpleWrapper *, PyObject *sipAr
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxPageSetupDialogData[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxPageSetupDialogData[] = {{400, 255, 1}};
 
 
 /* Define this type's Python slots. */

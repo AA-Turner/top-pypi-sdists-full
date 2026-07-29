@@ -57,7 +57,7 @@ static void dealloc_wxFileDialogButton(sipSimpleWrapper *sipSelf)
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxFileDialogButton[] = {{171, 255, 1}};
+static sipEncodedTypeDef supers_wxFileDialogButton[] = {{179, 255, 1}};
 
 PyDoc_STRVAR(doc_wxFileDialogButton, "Represents a custom button inside wxFileDialog.");
 

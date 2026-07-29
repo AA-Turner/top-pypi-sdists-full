@@ -2,7 +2,6 @@
 // Name:        wx/osx/app.h
 // Purpose:     wxApp class
 // Author:      Stefan Csomor
-// Modified by:
 // Created:     1998-01-01
 // Copyright:   (c) Stefan Csomor
 // Licence:     wxWindows licence
@@ -38,21 +37,23 @@ class WXDLLIMPEXP_CORE wxApp: public wxAppBase
     wxApp();
     virtual ~wxApp();
 
-    virtual void WakeUpIdle() wxOVERRIDE;
+    virtual void WakeUpIdle() override;
 
-    virtual void SetPrintMode(int mode) wxOVERRIDE { m_printMode = mode; }
+    virtual void SetPrintMode(int mode) override { m_printMode = mode; }
     virtual int GetPrintMode() const { return m_printMode; }
 
+    virtual AppearanceResult SetAppearance(Appearance appearance) override;
+
     // calling OnInit with an auto-release pool ready ...
-    virtual bool CallOnInit() wxOVERRIDE;
+    virtual bool CallOnInit() override;
 #if wxUSE_GUI
     // setting up all MacOS Specific Event-Handlers etc
-    virtual bool OnInitGui() wxOVERRIDE;
+    virtual bool OnInitGui() override;
 #endif // wxUSE_GUI
 
-    virtual int OnRun() wxOVERRIDE;
+    virtual int OnRun() override;
 
-    virtual bool ProcessIdle() wxOVERRIDE;
+    virtual bool ProcessIdle() override;
 
     // implementation only
     void OnIdle(wxIdleEvent& event);
@@ -67,8 +68,8 @@ public:
 
     static bool           sm_isEmbedded;
     // Implementation
-    virtual bool Initialize(int& argc, wxChar **argv) wxOVERRIDE;
-    virtual void CleanUp() wxOVERRIDE;
+    virtual bool Initialize(int& argc, wxChar **argv) override;
+    virtual void CleanUp() override;
 
     // the installed application event handler
     WXEVENTHANDLERREF    MacGetEventHandler() { return m_macEventHandler ; }
@@ -131,13 +132,17 @@ public:
     virtual void         MacPrintFiles(const wxArrayString &fileNames) ;
     // called by MacPrintFiles for each file
     virtual void         MacPrintFile(const wxString &fileName) ;
-    // in response of a open-application apple event
+    // in response of an open-application apple event
     virtual void         MacNewFile() ;
     // in response of a reopen-application apple event
     virtual void         MacReopenApp() ;
 
     // override this to return false from a non-bundled console app in order to stay in background ...
     virtual bool         OSXIsGUIApplication() { return true; }
+
+    // Returns false on macOS and on windowed iPad apps (iPadOS 26), this is not the same as a fullscreen app window
+    // in a desktop OS which still has options to escape the fullscreen mode, while on an iPhone you cannot.
+    bool                 OSXIsFullScreenApp();
 
     // Allow the user to disable the tab bar support in the application
     void                 OSXEnableAutomaticTabbing(bool enable);
@@ -151,7 +156,9 @@ public:
     virtual bool         OSXOnShouldTerminate();
     // before application terminates
     virtual void         OSXOnWillTerminate();
-
+#if wxOSX_USE_IPHONE && wxUSE_MENUBAR
+    virtual void         OSXOnBuildMenu(WX_NSObject menuBuilder);
+#endif
 private:
     bool                m_onInitResult;
     bool                m_inited;

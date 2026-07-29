@@ -1,9 +1,9 @@
-# -*- coding: utf-8 -*-
 """Constant values"""
 
 from __future__ import annotations
-import platform
+
 import os
+import platform
 
 """Copyright 2019-2023 Sean Whalen
 
@@ -19,7 +19,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License."""
 
-__version__ = "5.17.3"
+__version__ = "5.17.4"
 
 OS = platform.system()
 OS_RELEASE = platform.release()

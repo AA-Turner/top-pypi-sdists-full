@@ -2,7 +2,7 @@
 
 #[cfg(all(test, feature = "admin"))]
 #[allow(clippy::await_holding_lock)] // Intentional: parking_lot Mutex for env-var test serialization
-mod admin_tests {
+pub(in crate::gateway::admin) mod admin_tests {
     use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::time::Duration;
@@ -89,7 +89,7 @@ mod admin_tests {
         }
     }
 
-    fn make_admin_state() -> AdminState {
+    pub(in crate::gateway::admin) fn make_admin_state() -> AdminState {
         AdminState::new(make_gateway_state())
     }
 
@@ -97,7 +97,10 @@ mod admin_tests {
         build_admin_router(make_admin_state())
     }
 
-    async fn body_json(router: Router, uri: &str) -> (StatusCode, Value) {
+    pub(in crate::gateway::admin) async fn body_json(
+        router: Router,
+        uri: &str,
+    ) -> (StatusCode, Value) {
         let resp = router
             .oneshot(
                 Request::builder()
@@ -120,6 +123,30 @@ mod admin_tests {
                     .method("POST")
                     .uri(uri)
                     .header("content-type", "application/json")
+                    .body(axum::body::Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+        let json: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+        (status, json)
+    }
+
+    pub(in crate::gateway::admin) async fn post_json_as_session(
+        router: Router,
+        uri: &str,
+        session_id: &str,
+        body: Value,
+    ) -> (StatusCode, Value) {
+        let resp = router
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .header("x-dcc-mcp-agent-session-id", session_id)
                     .body(axum::body::Body::from(body.to_string()))
                     .unwrap(),
             )

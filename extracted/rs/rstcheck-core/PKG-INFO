@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rstcheck-core
-Version: 1.3.0
+Version: 1.3.1
 Summary: Checks syntax of reStructuredText and code blocks nested within it
 Author-email: Steven Myint <git@stevenmyint.com>
 Maintainer-email: Christian Riedel <cielquan@protonmail.com>

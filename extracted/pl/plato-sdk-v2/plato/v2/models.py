@@ -125,10 +125,15 @@ class EnvOption(BaseModel):
 
 
 class SandboxState(BaseModel):
-    """Schema for the sandbox state file (.plato/state.yaml).
+    """Schema for one sandbox slot (``.plato/sandboxes/<name>.json``).
 
     All fields that can be persisted in the state file.
     """
+
+    # Slot name within the working directory. Sandboxes are addressed by it
+    # (`--name`, `$PLATO_SANDBOX`, `plato sandbox use`), so several can live in
+    # one working directory instead of clobbering a single state file.
+    name: str | None = None
 
     # Core identifiers
     session_id: str
@@ -159,9 +164,21 @@ class SandboxState(BaseModel):
     ssh_config_path: str | None = None
     ssh_host: str | None = None
     ssh_command: str | None = None  # Full SSH command for copy-paste
+    ssh_key_path: str | None = None  # Private key, so `stop` can clean it up
 
     # Process management
     heartbeat_pid: int | None = None
+
+    # Lifecycle. expires_at is the idle lease the heartbeat enforces: it exits
+    # (and the backend then reaps the VM) once expires_at passes, and commands
+    # that use the sandbox push it forward by `timeout` — so an actively-used
+    # sandbox stays alive and an abandoned one dies at most `timeout` after
+    # the last touch. stopped_at marks a slot as dead so other commands (and
+    # the heartbeat itself) stop targeting it.
+    created_at: float | None = None
+    expires_at: float | None = None
+    timeout: float | None = None
+    stopped_at: float | None = None
 
     # Network
     network_connected: bool = False

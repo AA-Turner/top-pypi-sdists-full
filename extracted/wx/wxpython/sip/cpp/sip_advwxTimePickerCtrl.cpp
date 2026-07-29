@@ -15,19 +15,20 @@
         #include <wx/gdicmn.h>
         #include <wx/validate.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/dc.h>
         #include <wx/event.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -43,6 +44,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
+    wxAccessible* _wxTimePickerCtrl_CreateAccessible(wxTimePickerCtrl* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxTimePickerCtrl : public ::wxTimePickerCtrl
@@ -70,7 +80,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -86,7 +95,6 @@ protected:
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
@@ -129,7 +137,7 @@ private:
     sipwxTimePickerCtrl(const sipwxTimePickerCtrl &);
     sipwxTimePickerCtrl &operator = (const sipwxTimePickerCtrl &);
 
-    char sipPyMethods[39];
+    char sipPyMethods[38];
 };
 
 sipwxTimePickerCtrl::sipwxTimePickerCtrl(): ::wxTimePickerCtrl(), sipPySelf(SIP_NULLPTR)
@@ -213,27 +221,12 @@ void sipwxTimePickerCtrl::DoFreeze()
     sipVH__adv_4(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxTimePickerCtrl::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[4]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxTimePickerCtrl::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__adv_25(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__adv_25(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 ::wxBorder sipwxTimePickerCtrl::GetDefaultBorder() const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[5]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[4]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
 
     if (!sipMeth)
         return ::wxTimePickerCtrl::GetDefaultBorder();
@@ -248,7 +241,7 @@ void sipwxTimePickerCtrl::DoSetWindowVariant(::wxWindowVariant variant)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[6], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[5], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
 
     if (!sipMeth)
     {
@@ -266,7 +259,7 @@ void sipwxTimePickerCtrl::DoMoveWindow(int x, int y, int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[7], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[6], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
 
     if (!sipMeth)
     {
@@ -284,7 +277,7 @@ void sipwxTimePickerCtrl::DoSetSizeHints(int minW, int minH, int maxW, int maxH,
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[8], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[7], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
 
     if (!sipMeth)
     {
@@ -302,7 +295,7 @@ void sipwxTimePickerCtrl::DoSetClientSize(int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[9], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[8], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
 
     if (!sipMeth)
     {
@@ -320,7 +313,7 @@ void sipwxTimePickerCtrl::DoSetSize(int x, int y, int width, int height, int siz
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[10], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[9], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
 
     if (!sipMeth)
     {
@@ -338,7 +331,7 @@ void sipwxTimePickerCtrl::DoGetClientSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[11]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[10]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
 
     if (!sipMeth)
     {
@@ -356,7 +349,7 @@ void sipwxTimePickerCtrl::DoGetSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[12]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[11]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
 
     if (!sipMeth)
     {
@@ -374,7 +367,7 @@ void sipwxTimePickerCtrl::DoGetPosition(int*x, int*y) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[13]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[12]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
 
     if (!sipMeth)
     {
@@ -392,7 +385,7 @@ void sipwxTimePickerCtrl::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[14], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[13], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
 
     if (!sipMeth)
     {
@@ -410,7 +403,7 @@ void sipwxTimePickerCtrl::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[15], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[14], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
 
     if (!sipMeth)
         return ::wxTimePickerCtrl::GetMainWindowOfCompositeControl();
@@ -425,7 +418,7 @@ void sipwxTimePickerCtrl::OnInternalIdle()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[16], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[15], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
 
     if (!sipMeth)
     {
@@ -443,7 +436,7 @@ void sipwxTimePickerCtrl::InitDialog()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[17], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[16], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
 
     if (!sipMeth)
     {
@@ -461,7 +454,7 @@ void sipwxTimePickerCtrl::InheritAttributes()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[18], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[17], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
 
     if (!sipMeth)
     {
@@ -479,7 +472,7 @@ bool sipwxTimePickerCtrl::Destroy()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[19], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[18], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
 
     if (!sipMeth)
         return ::wxTimePickerCtrl::Destroy();
@@ -494,7 +487,7 @@ bool sipwxTimePickerCtrl::Validate()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[20], &sipPySelf, SIP_NULLPTR, sipName_Validate);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[19], &sipPySelf, SIP_NULLPTR, sipName_Validate);
 
     if (!sipMeth)
         return ::wxTimePickerCtrl::Validate();
@@ -509,7 +502,7 @@ bool sipwxTimePickerCtrl::TransferDataToWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[21], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[20], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
 
     if (!sipMeth)
         return ::wxTimePickerCtrl::TransferDataToWindow();
@@ -524,7 +517,7 @@ bool sipwxTimePickerCtrl::TransferDataFromWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[22], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[21], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
 
     if (!sipMeth)
         return ::wxTimePickerCtrl::TransferDataFromWindow();
@@ -539,7 +532,7 @@ void sipwxTimePickerCtrl::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[22], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
 
     if (!sipMeth)
     {
@@ -557,7 +550,7 @@ void sipwxTimePickerCtrl::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[24], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
 
     if (!sipMeth)
         return ::wxTimePickerCtrl::GetValidator();
@@ -572,7 +565,7 @@ bool sipwxTimePickerCtrl::ShouldInheritColours() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[25]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[24]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
 
     if (!sipMeth)
         return ::wxTimePickerCtrl::ShouldInheritColours();
@@ -587,7 +580,7 @@ bool sipwxTimePickerCtrl::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[26], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[25], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
 
     if (!sipMeth)
         return ::wxTimePickerCtrl::HasTransparentBackground();
@@ -602,7 +595,7 @@ bool sipwxTimePickerCtrl::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[27]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[26]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
 
     if (!sipMeth)
         return ::wxTimePickerCtrl::GetClientAreaOrigin();
@@ -617,7 +610,7 @@ bool sipwxTimePickerCtrl::InformFirstDirection(int direction, int size, int avai
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[28], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[27], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
 
     if (!sipMeth)
         return ::wxTimePickerCtrl::InformFirstDirection(direction, size, availableOtherDir);
@@ -632,7 +625,7 @@ void sipwxTimePickerCtrl::EnableVisibleFocus(bool enabled)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[29], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[28], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
 
     if (!sipMeth)
     {
@@ -650,7 +643,7 @@ void sipwxTimePickerCtrl::SetCanFocus(bool canFocus)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[30], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[29], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
 
     if (!sipMeth)
     {
@@ -668,7 +661,7 @@ bool sipwxTimePickerCtrl::AcceptsFocusRecursively() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[31]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[30]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
 
     if (!sipMeth)
         return ::wxTimePickerCtrl::AcceptsFocusRecursively();
@@ -683,7 +676,7 @@ bool sipwxTimePickerCtrl::AcceptsFocusFromKeyboard() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[32]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[31]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
 
     if (!sipMeth)
         return ::wxTimePickerCtrl::AcceptsFocusFromKeyboard();
@@ -698,7 +691,7 @@ bool sipwxTimePickerCtrl::AcceptsFocus() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[33]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[32]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
 
     if (!sipMeth)
         return ::wxTimePickerCtrl::AcceptsFocus();
@@ -713,7 +706,7 @@ bool sipwxTimePickerCtrl::TryAfter(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[33], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
 
     if (!sipMeth)
         return ::wxTimePickerCtrl::TryAfter(event);
@@ -728,7 +721,7 @@ bool sipwxTimePickerCtrl::TryBefore(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
 
     if (!sipMeth)
         return ::wxTimePickerCtrl::TryBefore(event);
@@ -743,7 +736,7 @@ bool sipwxTimePickerCtrl::ProcessEvent(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
 
     if (!sipMeth)
         return ::wxTimePickerCtrl::ProcessEvent(event);
@@ -758,7 +751,7 @@ void sipwxTimePickerCtrl::AddChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
 
     if (!sipMeth)
     {
@@ -776,7 +769,7 @@ void sipwxTimePickerCtrl::RemoveChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
 
     if (!sipMeth)
     {
@@ -857,11 +850,6 @@ void sipwxTimePickerCtrl::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, 
 ::wxBorder sipwxTimePickerCtrl::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxTimePickerCtrl::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxTimePickerCtrl::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxTimePickerCtrl::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxTimePickerCtrl::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -2356,40 +2344,6 @@ static PyObject *meth_wxTimePickerCtrl_GetDefaultBorder(PyObject *sipSelf, PyObj
 }
 
 
-PyDoc_STRVAR(doc_wxTimePickerCtrl_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxTimePickerCtrl_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxTimePickerCtrl_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxTimePickerCtrl *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxTimePickerCtrl, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_TimePickerCtrl, sipName_GetDefaultBorderForControl, doc_wxTimePickerCtrl_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxTimePickerCtrl_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxTimePickerCtrl_DoFreeze(PyObject *, PyObject *);}
@@ -2563,6 +2517,39 @@ static PyObject *meth_wxTimePickerCtrl_TryAfter(PyObject *sipSelf, PyObject *sip
     }
 
     sipNoMethod(sipParseErr, sipName_TimePickerCtrl, sipName_TryAfter, doc_wxTimePickerCtrl_TryAfter);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxTimePickerCtrl_CreateAccessible, "CreateAccessible() -> wx.Accessible");
+
+extern "C" {static PyObject *meth_wxTimePickerCtrl_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxTimePickerCtrl_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxTimePickerCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxTimePickerCtrl, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxTimePickerCtrl_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_TimePickerCtrl, sipName_CreateAccessible, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -2754,7 +2741,7 @@ static void *init_type_wxTimePickerCtrl(sipSimpleWrapper *sipSelf, PyObject *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxTimePickerCtrl[] = {{15, 0, 1}};
+static sipEncodedTypeDef supers_wxTimePickerCtrl[] = {{16, 0, 1}};
 
 
 static PyMethodDef methods_wxTimePickerCtrl[] = {
@@ -2763,6 +2750,7 @@ static PyMethodDef methods_wxTimePickerCtrl[] = {
     {sipName_AcceptsFocusRecursively, meth_wxTimePickerCtrl_AcceptsFocusRecursively, METH_VARARGS, doc_wxTimePickerCtrl_AcceptsFocusRecursively},
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxTimePickerCtrl_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxTimePickerCtrl_AddChild},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxTimePickerCtrl_Create), METH_VARARGS|METH_KEYWORDS, doc_wxTimePickerCtrl_Create},
+    {sipName_CreateAccessible, meth_wxTimePickerCtrl_CreateAccessible, METH_VARARGS, doc_wxTimePickerCtrl_CreateAccessible},
     {sipName_Destroy, meth_wxTimePickerCtrl_Destroy, METH_VARARGS, doc_wxTimePickerCtrl_Destroy},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxTimePickerCtrl_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxTimePickerCtrl_DoEnable},
     {sipName_DoFreeze, meth_wxTimePickerCtrl_DoFreeze, METH_VARARGS, doc_wxTimePickerCtrl_DoFreeze},
@@ -2781,7 +2769,6 @@ static PyMethodDef methods_wxTimePickerCtrl[] = {
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxTimePickerCtrl_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxTimePickerCtrl_GetClassDefaultAttributes},
     {sipName_GetClientAreaOrigin, meth_wxTimePickerCtrl_GetClientAreaOrigin, METH_VARARGS, doc_wxTimePickerCtrl_GetClientAreaOrigin},
     {sipName_GetDefaultBorder, meth_wxTimePickerCtrl_GetDefaultBorder, METH_VARARGS, doc_wxTimePickerCtrl_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxTimePickerCtrl_GetDefaultBorderForControl, METH_VARARGS, doc_wxTimePickerCtrl_GetDefaultBorderForControl},
     {sipName_GetMainWindowOfCompositeControl, meth_wxTimePickerCtrl_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxTimePickerCtrl_GetMainWindowOfCompositeControl},
     {sipName_GetTime, SIP_MLMETH_CAST(meth_wxTimePickerCtrl_GetTime), METH_VARARGS|METH_KEYWORDS, doc_wxTimePickerCtrl_GetTime},
     {sipName_GetValidator, meth_wxTimePickerCtrl_GetValidator, METH_VARARGS, doc_wxTimePickerCtrl_GetValidator},

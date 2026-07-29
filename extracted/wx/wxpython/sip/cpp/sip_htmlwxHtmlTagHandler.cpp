@@ -438,7 +438,7 @@ static void *init_type_wxHtmlTagHandler(sipSimpleWrapper *sipSelf, PyObject *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxHtmlTagHandler[] = {{25, 0, 1}};
+static sipEncodedTypeDef supers_wxHtmlTagHandler[] = {{26, 0, 1}};
 
 
 static PyMethodDef methods_wxHtmlTagHandler[] = {

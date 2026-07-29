@@ -46,13 +46,6 @@ wxSecretValue::wxSecretValue(const wxSecretValue& other)
         m_impl->IncRef();
 }
 
-/* static */
-wxSecretValueImpl*
-wxSecretValue::NewImpl(size_t size, const void *data)
-{
-    return NewImpl(size, data, "text/plain");
-}
-
 wxSecretValue& wxSecretValue::operator=(const wxSecretValue& other)
 {
     // This code is written to be safe in case of self-assignment.
@@ -106,7 +99,7 @@ size_t wxSecretValue::GetSize() const
 
 const void *wxSecretValue::GetData() const
 {
-    return m_impl ? m_impl->GetData() : NULL;
+    return m_impl ? m_impl->GetData() : nullptr;
 }
 
 wxString wxSecretValue::GetAsString(const wxMBConv& conv) const
@@ -204,7 +197,7 @@ wxSecretStore::Load(const wxString& service,
         return false;
 
     wxString err;
-    wxSecretValueImpl* secretImpl = NULL;
+    wxSecretValueImpl* secretImpl = nullptr;
     if ( !m_impl->Load(service, &user, &secretImpl, err) )
     {
         if ( !err.empty() )

@@ -12,8 +12,12 @@ from chalk._gen.chalk.server.v1.monitor_service_pb2 import (
     CreateMonitorResponse,
     DeleteMonitorRequest,
     DeleteMonitorResponse,
+    GetMonitorRequest,
+    GetMonitorResponse,
     ListMonitorsRequest,
     ListMonitorsResponse,
+    UpdateMonitorRequest,
+    UpdateMonitorResponse,
 )
 from grpc import (
     Channel,
@@ -24,9 +28,17 @@ from grpc import (
 
 class MonitorServiceStub:
     def __init__(self, channel: Channel) -> None: ...
+    GetMonitor: UnaryUnaryMultiCallable[
+        GetMonitorRequest,
+        GetMonitorResponse,
+    ]
     CreateMonitor: UnaryUnaryMultiCallable[
         CreateMonitorRequest,
         CreateMonitorResponse,
+    ]
+    UpdateMonitor: UnaryUnaryMultiCallable[
+        UpdateMonitorRequest,
+        UpdateMonitorResponse,
     ]
     DeleteMonitor: UnaryUnaryMultiCallable[
         DeleteMonitorRequest,
@@ -39,11 +51,23 @@ class MonitorServiceStub:
 
 class MonitorServiceServicer(metaclass=ABCMeta):
     @abstractmethod
+    def GetMonitor(
+        self,
+        request: GetMonitorRequest,
+        context: ServicerContext,
+    ) -> GetMonitorResponse: ...
+    @abstractmethod
     def CreateMonitor(
         self,
         request: CreateMonitorRequest,
         context: ServicerContext,
     ) -> CreateMonitorResponse: ...
+    @abstractmethod
+    def UpdateMonitor(
+        self,
+        request: UpdateMonitorRequest,
+        context: ServicerContext,
+    ) -> UpdateMonitorResponse: ...
     @abstractmethod
     def DeleteMonitor(
         self,

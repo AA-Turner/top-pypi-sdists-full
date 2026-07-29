@@ -63,8 +63,8 @@ enum wxPortId
     wxPORT_BASE     = 1 << 0,       //!< wxBase, no native toolkit used
 
     wxPORT_MSW      = 1 << 1,       //!< wxMSW, native toolkit is Windows API
-    wxPORT_MOTIF    = 1 << 2,       //!< wxMotif, using [Open]Motif or Lesstif
-    wxPORT_GTK      = 1 << 3,       //!< wxGTK, using GTK+ 1.x, 2.x, 3.x, GPE
+    wxPORT_MOTIF    = 1 << 2,       //!< wxMotif, not supported any longer.
+    wxPORT_GTK      = 1 << 3,       //!< wxGTK, using GTK
     wxPORT_DFB      = 1 << 4,       //!< wxDFB, using wxUniversal
     wxPORT_X11      = 1 << 5,       //!< wxX11, using wxUniversal
     wxPORT_MAC      = 1 << 7,       //!< wxMac, using Carbon or Classic Mac API
@@ -120,8 +120,7 @@ enum wxEndianness
 };
 
 /**
-    A structure containing information about a Linux distribution as returned
-    by the @c lsb_release utility.
+    A structure containing information about a Linux distribution.
 
     See wxGetLinuxDistributionInfo() or wxPlatformInfo::GetLinuxDistributionInfo()
     for more info.
@@ -132,6 +131,18 @@ struct wxLinuxDistributionInfo
     wxString Release;           //!< The version of the distribution; e.g. "9.04"
     wxString CodeName;          //!< The code name of the distribution; e.g. "jaunty"
     wxString Description;       //!< The description of the distribution; e.g. "Ubuntu 9.04"
+    /**
+        The parent distribution name; e.g. "ubuntu debian".
+
+        @since 3.3.3
+    */
+    wxString ParentName;
+    /**
+        The upstream release codename; e.g. "noble".
+
+        @since 3.3.3
+    */
+    wxString ParentCodeName;
 
     bool operator==(const wxLinuxDistributionInfo& ldi) const;
     bool operator!=(const wxLinuxDistributionInfo& ldi) const;
@@ -647,12 +658,17 @@ public:
 /**
     Returns @true only for MSW programs running under Wine.
 
-    This function can be used to check for some functionality not implemented
-    when using Wine.
+    Return @true if the program is running under [Wine](https://www.winehq.org/)
+    and not a "native" MSW system.
+
+    @param ver If non-null and the program is executing under Wine, it is
+        filled with Wine version information (this output parameter is only
+        available in wxWidgets 3.3.0 and later).
+    @return @true if running under Wine, @false otherwise.
 
     @since 3.1.6
 
     @library{wxbase}
     @category{cfg}
 */
-bool wxIsRunningUnderWine();
+bool wxIsRunningUnderWine(wxVersionInfo* ver = nullptr);

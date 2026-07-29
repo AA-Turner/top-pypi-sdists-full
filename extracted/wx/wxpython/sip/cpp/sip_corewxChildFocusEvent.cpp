@@ -66,9 +66,9 @@ sipwxChildFocusEvent::~sipwxChildFocusEvent()
     if (!sipMeth)
         return ::wxChildFocusEvent::GetEventCategory();
 
-    extern ::wxEventCategory sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEventCategory sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxEvent* sipwxChildFocusEvent::Clone() const
@@ -81,9 +81,9 @@ sipwxChildFocusEvent::~sipwxChildFocusEvent()
     if (!sipMeth)
         return ::wxChildFocusEvent::Clone();
 
-    extern ::wxEvent* sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEvent* sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
@@ -208,7 +208,7 @@ static void *init_type_wxChildFocusEvent(sipSimpleWrapper *sipSelf, PyObject *si
     sipwxChildFocusEvent *sipCpp = SIP_NULLPTR;
 
     {
-        ::wxWindow* win = 0;
+        ::wxWindow* win = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_win,
@@ -254,7 +254,7 @@ static void *init_type_wxChildFocusEvent(sipSimpleWrapper *sipSelf, PyObject *si
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxChildFocusEvent[] = {{84, 255, 1}};
+static sipEncodedTypeDef supers_wxChildFocusEvent[] = {{87, 255, 1}};
 
 
 static PyMethodDef methods_wxChildFocusEvent[] = {
@@ -266,7 +266,7 @@ sipVariableDef variables_wxChildFocusEvent[] = {
     {PropertyVariable, sipName_Window, &methods_wxChildFocusEvent[1], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxChildFocusEvent, "ChildFocusEvent(win=None) -> None\n"
+PyDoc_STRVAR(doc_wxChildFocusEvent, "ChildFocusEvent(win=nullptr) -> None\n"
 "\n"
 "A child focus event is sent to a (parent-)window when one of its child\n"
 "windows gains focus, so that the window could restore the focus back\n"

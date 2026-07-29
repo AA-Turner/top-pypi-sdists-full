@@ -13,6 +13,7 @@
         #include <wx/bmpbndl.h>
         #include <wx/bitmap.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/validate.h>
         #include <wx/window.h>
@@ -20,15 +21,15 @@
         #include <wx/dc.h>
         #include <wx/event.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -688,7 +689,7 @@ static void dealloc_wxAnyButton(sipSimpleWrapper *sipSelf)
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxAnyButton[] = {{97, 255, 1}};
+static sipEncodedTypeDef supers_wxAnyButton[] = {{100, 255, 1}};
 
 
 static PyMethodDef methods_wxAnyButton[] = {

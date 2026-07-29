@@ -743,6 +743,15 @@ bool ON_ReferencedComponentSettingsImpl::Internal_UpdateLayer(
 
   // Add more settings here without breaking anything
 
+  // 25-Apr-2025 Dale Fugier, https://mcneel.myjetbrains.com/youtrack/issue/RH-68718
+  const bool visible_in_new_details = ON_ReferencedComponentSettingsImpl::Internal_UpdateBool(
+    previous_referenced_file_layer.PerViewportIsVisibleInNewDetails(),
+    reference_file_layer.PerViewportIsVisibleInNewDetails(),
+    previous_model_layer.PerViewportIsVisibleInNewDetails()
+  );
+  model_layer.SetPerViewportIsVisibleInNewDetails(visible_in_new_details);
+
+
   // Dale Lear August 2017 - RH-39457
   // Saved PerViewport settings need to be applied to model_layer
   //
@@ -1750,6 +1759,21 @@ bool ON_InstanceRef::IsValid( ON_TextLog* text_log ) const
     return false;
   }
   return true;
+}
+
+unsigned int ON_InstanceRef::SizeOf() const
+{
+  unsigned int sz = ON_Geometry::SizeOf();
+  sz += (sizeof(*this) - sizeof(ON_Geometry));
+  return sz;
+}
+
+ON__UINT32 ON_InstanceRef::DataCRC(ON__UINT32 current_remainder) const
+{
+  current_remainder = ON_CRC32(current_remainder, sizeof(m_instance_definition_uuid), &m_instance_definition_uuid);
+  current_remainder = ON_CRC32(current_remainder, sizeof(m_xform), &m_xform);
+  current_remainder = ON_CRC32(current_remainder, sizeof(m_bbox), &m_bbox);
+  return current_remainder;
 }
 
 bool ON_InstanceRef::Write(

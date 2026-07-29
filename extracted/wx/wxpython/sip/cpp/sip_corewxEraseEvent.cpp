@@ -66,9 +66,9 @@ sipwxEraseEvent::~sipwxEraseEvent()
     if (!sipMeth)
         return ::wxEraseEvent::Clone();
 
-    extern ::wxEvent* sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEvent* sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxEventCategory sipwxEraseEvent::GetEventCategory() const
@@ -81,9 +81,9 @@ sipwxEraseEvent::~sipwxEraseEvent()
     if (!sipMeth)
         return ::wxEraseEvent::GetEventCategory();
 
-    extern ::wxEventCategory sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEventCategory sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
@@ -208,7 +208,7 @@ static void *init_type_wxEraseEvent(sipSimpleWrapper *sipSelf, PyObject *sipArgs
 
     {
         int id = 0;
-        ::wxDC* dc = 0;
+        ::wxDC* dc = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_id,
@@ -255,7 +255,7 @@ static void *init_type_wxEraseEvent(sipSimpleWrapper *sipSelf, PyObject *sipArgs
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxEraseEvent[] = {{151, 255, 1}};
+static sipEncodedTypeDef supers_wxEraseEvent[] = {{158, 255, 1}};
 
 
 static PyMethodDef methods_wxEraseEvent[] = {
@@ -267,7 +267,7 @@ sipVariableDef variables_wxEraseEvent[] = {
     {PropertyVariable, sipName_DC, &methods_wxEraseEvent[1], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxEraseEvent, "EraseEvent(id=0, dc=None) -> None\n"
+PyDoc_STRVAR(doc_wxEraseEvent, "EraseEvent(id=0, dc=nullptr) -> None\n"
 "\n"
 "An erase event is sent when a window's background needs to be\n"
 "repainted.");

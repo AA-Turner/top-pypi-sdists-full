@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ag2
-Version: 1.0.0
+Version: 1.0.1
 Summary: A programming framework for agentic AI
 Keywords: ai,agent,autogen,ag2,ag2.ai,ag2ai,agentic
 Author: Chi Wang & Qingyun Wu
@@ -55,7 +55,9 @@ Requires-Dist: pillow ; extra == 'gemini'
 Requires-Dist: jsonschema ; extra == 'gemini'
 Requires-Dist: mcp>=1.11.0,<2 ; extra == 'mcp'
 Requires-Dist: mcp-ui-server>=1.0.0 ; extra == 'mcp-ui'
+Requires-Dist: mcp>=1.11.0,<2 ; extra == 'mcp-ui'
 Requires-Dist: prometheus-client>=0.20.0,<0.30.0 ; extra == 'metrics'
+Requires-Dist: mistralai>=2.8.0,<3 ; extra == 'mistral'
 Requires-Dist: ollama>=0.4.7 ; extra == 'ollama'
 Requires-Dist: fix-busted-json>=0.0.18 ; extra == 'ollama'
 Requires-Dist: openai>=2.45.0,<3.0 ; extra == 'openai'
@@ -84,6 +86,7 @@ Provides-Extra: gemini
 Provides-Extra: mcp
 Provides-Extra: mcp-ui
 Provides-Extra: metrics
+Provides-Extra: mistral
 Provides-Extra: ollama
 Provides-Extra: openai
 Provides-Extra: perplexity

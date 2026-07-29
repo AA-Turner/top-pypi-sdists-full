@@ -174,7 +174,7 @@ otel_require = [
 
 lint_require = (
     [
-        "ruff>=0.14.1",
+        "ruff==0.15.22",
         "vermin>=1.8.0",
     ]
     + _mypy_require

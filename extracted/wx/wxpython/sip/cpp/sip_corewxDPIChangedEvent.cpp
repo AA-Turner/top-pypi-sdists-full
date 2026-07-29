@@ -11,6 +11,8 @@
         #include <wx/event.h>
         #include <wx/event.h>
         #include <wx/gdicmn.h>
+        #include <wx/gdicmn.h>
+        #include <wx/gdicmn.h>
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
@@ -66,9 +68,9 @@ sipwxDPIChangedEvent::~sipwxDPIChangedEvent()
     if (!sipMeth)
         return ::wxDPIChangedEvent::Clone();
 
-    extern ::wxEvent* sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEvent* sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxEventCategory sipwxDPIChangedEvent::GetEventCategory() const
@@ -81,9 +83,9 @@ sipwxDPIChangedEvent::~sipwxDPIChangedEvent()
     if (!sipMeth)
         return ::wxDPIChangedEvent::GetEventCategory();
 
-    extern ::wxEventCategory sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEventCategory sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
@@ -158,8 +160,12 @@ static PyObject *meth_wxDPIChangedEvent_GetNewDPI(PyObject *sipSelf, PyObject *s
 
 
 PyDoc_STRVAR(doc_wxDPIChangedEvent_Scale, "Scale(sz) -> Size\n"
+"Scale(pt) -> Point\n"
+"Scale(rect) -> Rect\n"
 "\n"
-"Rescale a value in pixels to match the new DPI.");
+"Rescale a value in pixels to match the new DPI.\n"
+"\n"
+"");
 
 extern "C" {static PyObject *meth_wxDPIChangedEvent_Scale(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxDPIChangedEvent_Scale(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -190,6 +196,60 @@ static PyObject *meth_wxDPIChangedEvent_Scale(PyObject *sipSelf, PyObject *sipAr
                 return 0;
 
             return sipConvertFromNewType(sipRes, sipType_wxSize, SIP_NULLPTR);
+        }
+    }
+
+    {
+        ::wxPoint* pt;
+        int ptState = 0;
+        const ::wxDPIChangedEvent *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_pt,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxDPIChangedEvent, &sipCpp, sipType_wxPoint, &pt, &ptState))
+        {
+            ::wxPoint*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxPoint(sipCpp->Scale(*pt));
+            Py_END_ALLOW_THREADS
+            sipReleaseType(pt, sipType_wxPoint, ptState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxPoint, SIP_NULLPTR);
+        }
+    }
+
+    {
+        ::wxRect* rect;
+        int rectState = 0;
+        const ::wxDPIChangedEvent *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_rect,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxDPIChangedEvent, &sipCpp, sipType_wxRect, &rect, &rectState))
+        {
+            ::wxRect*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxRect(sipCpp->Scale(*rect));
+            Py_END_ALLOW_THREADS
+            sipReleaseType(rect, sipType_wxRect, rectState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxRect, SIP_NULLPTR);
         }
     }
 
@@ -396,7 +456,7 @@ static void *init_type_wxDPIChangedEvent(sipSimpleWrapper *sipSelf, PyObject *si
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxDPIChangedEvent[] = {{151, 255, 1}};
+static sipEncodedTypeDef supers_wxDPIChangedEvent[] = {{158, 255, 1}};
 
 
 static PyMethodDef methods_wxDPIChangedEvent[] = {

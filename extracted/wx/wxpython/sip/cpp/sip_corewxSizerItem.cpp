@@ -696,7 +696,7 @@ static PyObject *meth_wxSizerItem_GetRect(PyObject *sipSelf, PyObject *sipArgs)
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        ::wxSizerItem *sipCpp;
+        const ::wxSizerItem *sipCpp;
 
         if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxSizerItem, &sipCpp))
         {
@@ -1435,7 +1435,7 @@ static void *init_type_wxSizerItem(sipSimpleWrapper *sipSelf, PyObject *sipArgs,
         int proportion = 0;
         int flag = 0;
         int border = 0;
-        ::wxPyUserData* userData = 0;
+        ::wxPyUserData* userData = nullptr;
         int userDataState = 0;
 
         static const char *sipKwdList[] = {
@@ -1497,7 +1497,7 @@ static void *init_type_wxSizerItem(sipSimpleWrapper *sipSelf, PyObject *sipArgs,
         int proportion = 0;
         int flag = 0;
         int border = 0;
-        ::wxPyUserData* userData = 0;
+        ::wxPyUserData* userData = nullptr;
         int userDataState = 0;
 
         static const char *sipKwdList[] = {
@@ -1533,7 +1533,7 @@ static void *init_type_wxSizerItem(sipSimpleWrapper *sipSelf, PyObject *sipArgs,
         int proportion = 0;
         int flag = 0;
         int border = 0;
-        ::wxPyUserData* userData = 0;
+        ::wxPyUserData* userData = nullptr;
         int userDataState = 0;
 
         static const char *sipKwdList[] = {
@@ -1569,7 +1569,7 @@ static void *init_type_wxSizerItem(sipSimpleWrapper *sipSelf, PyObject *sipArgs,
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxSizerItem[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxSizerItem[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxSizerItem[] = {
@@ -1625,10 +1625,10 @@ sipVariableDef variables_wxSizerItem[] = {
 };
 
 PyDoc_STRVAR(doc_wxSizerItem, "SizerItem(window, flags) -> None\n"
-"SizerItem(window, proportion=0, flag=0, border=0, userData=None) -> None\n"
+"SizerItem(window, proportion=0, flag=0, border=0, userData=nullptr) -> None\n"
 "SizerItem(sizer, flags) -> None\n"
-"SizerItem(sizer, proportion=0, flag=0, border=0, userData=None) -> None\n"
-"SizerItem(width, height, proportion=0, flag=0, border=0, userData=None) -> None\n"
+"SizerItem(sizer, proportion=0, flag=0, border=0, userData=nullptr) -> None\n"
+"SizerItem(width, height, proportion=0, flag=0, border=0, userData=nullptr) -> None\n"
 "\n"
 "The wxSizerItem class is used to track the position, size and other\n"
 "attributes of each item managed by a wxSizer.");

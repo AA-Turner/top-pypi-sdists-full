@@ -37,13 +37,20 @@
         aboutInfo.SetName("MyApp");
         aboutInfo.SetVersion(MY_APP_VERSION_STRING);
         aboutInfo.SetDescription(_("My wxWidgets-based application!"));
-        aboutInfo.SetCopyright("(C) 1992-2025");
+        aboutInfo.SetCopyright("(C) 1992-2026");
         aboutInfo.SetWebSite("http://myapp.org");
         aboutInfo.AddDeveloper("My Self");
 
         wxAboutBox(aboutInfo);
     }
     @endcode
+
+    Example of appearance of a simple about dialog:
+    @appearance{about-simple}
+
+    And that of a dialog using a web site link, which results in using the
+    generic version under MSW and Mac:
+    @appearance{about-with-url}
 
     @library{wxcore}
     @category{cmndlg,data}
@@ -139,6 +146,10 @@ public:
         any occurrences of @c "(C)" in @a copyright will be replaced by the
         copyright symbol (circled C) automatically, which means that you can avoid
         using this symbol in the program source code which can be problematic,
+
+        Also note that under MSW platform the word "Copyright" itself will be
+        removed from the string if it is followed by the copyright symbol, to
+        follow the platform convention.
     */
     void SetCopyright(const wxString& copyright);
 
@@ -168,8 +179,12 @@ public:
 
     /**
        Returns the icon set by SetIcon().
+
+       @param window
+           If non-null, this is used to help select an icon based on window DPI.
+           New since wxWidgets 3.3.3.
     */
-    wxIcon GetIcon() const;
+    wxIcon GetIcon(const wxWindow* window = nullptr) const;
 
     /**
         Set the icon to be shown in the dialog. By default the icon of the main frame
@@ -178,7 +193,7 @@ public:
         used instead so you should avoid calling this function for maximally native
         look and feel.
     */
-    void SetIcon(const wxIcon& icon);
+    void SetIcon(const wxBitmapBundle& icon);
 
     /**
        Returns @true if the licence string has been set.
@@ -343,7 +358,7 @@ public:
         info.SetName(_("My Program"));
         info.SetVersion(_("1.2.3 Beta"));
         info.SetDescription(_("This program does something great."));
-        info.SetCopyright(wxT("(C) 2007 Me <my@email.addre.ss>"));
+        info.SetCopyright("(C) 2007 Me <my@email.addre.ss>");
 
         wxAboutBox(info);
     }
@@ -355,7 +370,7 @@ public:
 
     @header{wx/aboutdlg.h}
 */
-void wxAboutBox(const wxAboutDialogInfo& info, wxWindow* parent = NULL);
+void wxAboutBox(const wxAboutDialogInfo& info, wxWindow* parent = nullptr);
 
 /**
     This function does the same thing as wxAboutBox() except that it always uses
@@ -372,6 +387,6 @@ void wxAboutBox(const wxAboutDialogInfo& info, wxWindow* parent = NULL);
 
     @header{wx/aboutdlg.h}
 */
-void wxGenericAboutBox(const wxAboutDialogInfo& info, wxWindow* parent = NULL);
+void wxGenericAboutBox(const wxAboutDialogInfo& info, wxWindow* parent = nullptr);
 
 ///@}

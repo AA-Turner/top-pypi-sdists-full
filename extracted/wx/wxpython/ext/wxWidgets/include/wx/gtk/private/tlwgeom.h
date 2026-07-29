@@ -14,9 +14,9 @@ class wxTLWGeometry : public wxTLWGeometryGeneric
 {
     typedef wxTLWGeometryGeneric BaseType;
 public:
-    virtual bool Save(const Serializer& ser) const wxOVERRIDE
+    virtual bool Save(Store& store) const override
     {
-        if ( !wxTLWGeometryGeneric::Save(ser) )
+        if ( !wxTLWGeometryGeneric::Save(store) )
             return false;
 
         // Don't save the decoration sizes if we don't really have any values
@@ -24,29 +24,29 @@ public:
         if ( m_decorSize.left || m_decorSize.right ||
                 m_decorSize.top || m_decorSize.bottom )
         {
-            ser.SaveField("decor_l", m_decorSize.left);
-            ser.SaveField("decor_r", m_decorSize.right);
-            ser.SaveField("decor_t", m_decorSize.top);
-            ser.SaveField("decor_b", m_decorSize.bottom);
+            store.SaveValue("decor_l", m_decorSize.left);
+            store.SaveValue("decor_r", m_decorSize.right);
+            store.SaveValue("decor_t", m_decorSize.top);
+            store.SaveValue("decor_b", m_decorSize.bottom);
         }
 
         return true;
     }
 
-    virtual bool Restore(Serializer& ser) wxOVERRIDE
+    virtual bool Restore(const Store& store) override
     {
-        if ( !wxTLWGeometryGeneric::Restore(ser) )
+        if ( !wxTLWGeometryGeneric::Restore(store) )
             return false;
 
-        ser.RestoreField("decor_l", &m_decorSize.left);
-        ser.RestoreField("decor_r", &m_decorSize.right);
-        ser.RestoreField("decor_t", &m_decorSize.top);
-        ser.RestoreField("decor_b", &m_decorSize.bottom);
+        store.RestoreValue("decor_l", &m_decorSize.left);
+        store.RestoreValue("decor_r", &m_decorSize.right);
+        store.RestoreValue("decor_t", &m_decorSize.top);
+        store.RestoreValue("decor_b", &m_decorSize.bottom);
 
         return true;
     }
 
-    virtual bool GetFrom(const wxTopLevelWindow* tlw) wxOVERRIDE
+    virtual bool GetFrom(const wxTopLevelWindow* tlw) override
     {
         if ( !wxTLWGeometryGeneric::GetFrom(tlw) )
             return false;
@@ -56,7 +56,7 @@ public:
         return true;
     }
 
-    virtual bool ApplyTo(wxTopLevelWindow* tlw) wxOVERRIDE
+    virtual bool ApplyTo(wxTopLevelWindow* tlw) override
     {
         // Don't overwrite the current decoration size if we already have it.
         if ( !tlw->m_decorSize.left && !tlw->m_decorSize.right &&

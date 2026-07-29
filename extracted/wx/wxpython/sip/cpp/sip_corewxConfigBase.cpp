@@ -1441,7 +1441,7 @@ static PyObject *meth_wxConfigBase_Create(PyObject *, PyObject *sipArgs)
 PyDoc_STRVAR(doc_wxConfigBase_DontCreateOnDemand, "DontCreateOnDemand() -> None\n"
 "\n"
 "Calling this function will prevent Get() from automatically creating a\n"
-"new config object if the current one is NULL.");
+"new config object if the current one is nullptr.");
 
 extern "C" {static PyObject *meth_wxConfigBase_DontCreateOnDemand(PyObject *, PyObject *);}
 static PyObject *meth_wxConfigBase_DontCreateOnDemand(PyObject *, PyObject *sipArgs)
@@ -1513,7 +1513,7 @@ static PyObject *meth_wxConfigBase_Get(PyObject *, PyObject *sipArgs, PyObject *
 
 PyDoc_STRVAR(doc_wxConfigBase_Set, "Set(pConfig) -> ConfigBase\n"
 "\n"
-"Sets the config object as the current one, returns the pointer to the previous current object (both the parameter and returned value may be NULL).");
+"Sets the config object as the current one, returns the pointer to the previous current object (both the parameter and returned value may be nullptr).");
 
 extern "C" {static PyObject *meth_wxConfigBase_Set(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxConfigBase_Set(PyObject *, PyObject *sipArgs, PyObject *sipKwds)
@@ -1799,7 +1799,7 @@ static void dealloc_wxConfigBase(sipSimpleWrapper *sipSelf)
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxConfigBase[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxConfigBase[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxConfigBase[] = {
@@ -1845,11 +1845,11 @@ static PyMethodDef methods_wxConfigBase[] = {
 };
 
 static sipEnumMemberDef enummembers_wxConfigBase[] = {
-    {sipName_Type_Boolean, static_cast<int>(::wxConfigBase::Type_Boolean), 91},
-    {sipName_Type_Float, static_cast<int>(::wxConfigBase::Type_Float), 91},
-    {sipName_Type_Integer, static_cast<int>(::wxConfigBase::Type_Integer), 91},
-    {sipName_Type_String, static_cast<int>(::wxConfigBase::Type_String), 91},
-    {sipName_Type_Unknown, static_cast<int>(::wxConfigBase::Type_Unknown), 91},
+    {sipName_Type_Boolean, static_cast<int>(::wxConfigBase::Type_Boolean), 94},
+    {sipName_Type_Float, static_cast<int>(::wxConfigBase::Type_Float), 94},
+    {sipName_Type_Integer, static_cast<int>(::wxConfigBase::Type_Integer), 94},
+    {sipName_Type_String, static_cast<int>(::wxConfigBase::Type_String), 94},
+    {sipName_Type_Unknown, static_cast<int>(::wxConfigBase::Type_Unknown), 94},
 };
 
 sipVariableDef variables_wxConfigBase[] = {

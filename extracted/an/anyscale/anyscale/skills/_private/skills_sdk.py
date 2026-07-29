@@ -50,18 +50,53 @@ def _normalize_version(version: Optional[str]) -> Optional[str]:
     return stripped
 
 
-def _catalog_entry_key(entry: CatalogEntry) -> tuple:
-    """Stable composite key for a catalog entry."""
-    platforms = tuple(sorted(entry.platforms)) if entry.platforms else ()
-    return (entry.type, entry.name, platforms)
+def _catalog_entry_key(entry: CatalogEntry) -> Tuple[str, str]:
+    """Stable identity key for a catalog entry: (type, name).
+
+    `platforms` is deliberately excluded. A skill's supported-platform list
+    can broaden across versions (e.g. adding codex/copilot) without the
+    skill itself changing; folding it into identity made every such bump read
+    as a full teardown + re-add. `CatalogEntry.name` is the documented unique
+    identifier.
+    """
+    return (entry.type, entry.name)
 
 
-def _catalog_diff(old: List[CatalogEntry], new: List[CatalogEntry]) -> tuple:
-    """Return (added, removed) catalog entries between two versions."""
+def _catalog_diff(
+    old: List[CatalogEntry], new: List[CatalogEntry]
+) -> Tuple[List[CatalogEntry], List[CatalogEntry], List[CatalogEntry]]:
+    """Return (added, removed, updated) catalog entries between two versions.
+
+    `updated` holds entries present under the same key in both versions whose
+    description changed. A platforms-only change is not counted, so a pure
+    supported-platform broadening reads as a benign version bump rather than
+    churn.
+    """
     old_map = {_catalog_entry_key(entry): entry for entry in old}
     new_map = {_catalog_entry_key(entry): entry for entry in new}
     added = [new_map[key] for key in new_map if key not in old_map]
     removed = [old_map[key] for key in old_map if key not in new_map]
+    updated = [
+        new_map[key]
+        for key in new_map
+        if key in old_map and new_map[key].description != old_map[key].description
+    ]
+    return added, removed, updated
+
+
+def _platform_support_delta(
+    old: List[CatalogEntry], new: List[CatalogEntry]
+) -> Tuple[List[str], List[str]]:
+    """Return (added, removed) supported platforms across the whole catalog.
+
+    Compares the union of every entry's platforms between versions, so a
+    version that broadens support (e.g. adds codex) surfaces as one
+    'added support' signal instead of per-skill churn.
+    """
+    old_platforms = {p for entry in old for p in entry.platforms}
+    new_platforms = {p for entry in new for p in entry.platforms}
+    added = sorted(new_platforms - old_platforms)
+    removed = sorted(old_platforms - new_platforms)
     return added, removed
 
 
@@ -152,6 +187,22 @@ def _merge_hooks_config(existing_path: str, bundle_path: str) -> None:
 
     existing["hooks"] = merged_hooks
     _save_json(existing_path, existing)
+
+
+def _platform_owned_paths(info: PlatformInstallInfo) -> set:
+    """Absolute realpaths a platform's install owns.
+
+    For shared-dir safety: when platforms share a skills_dir, one platform's
+    rollback must not delete files another still owns.
+    """
+    owned = set()
+    skills_root = os.path.expanduser(info.skills_dir)
+    for rel in info.skills_files:
+        owned.add(os.path.realpath(os.path.join(skills_root, rel)))
+    hooks_root = os.path.expanduser(info.hooks_dir)
+    for rel in info.hooks_files:
+        owned.add(os.path.realpath(os.path.join(hooks_root, rel)))
+    return owned
 
 
 def _migrate_v1_to_v2(data: dict) -> dict:
@@ -262,8 +313,14 @@ class PrivateSkillsSDK(BaseSDK):
         up_to_date = metadata is not None and metadata.version == manifest.version
         added: List[CatalogEntry] = []
         removed: List[CatalogEntry] = []
+        updated: List[CatalogEntry] = []
+        added_platforms: List[str] = []
+        removed_platforms: List[str] = []
         if metadata and not up_to_date:
-            added, removed = _catalog_diff(installed_catalog, manifest.catalog)
+            added, removed, updated = _catalog_diff(installed_catalog, manifest.catalog)
+            added_platforms, removed_platforms = _platform_support_delta(
+                installed_catalog, manifest.catalog
+            )
 
         return SkillsListResult(
             installed=metadata,
@@ -272,6 +329,9 @@ class PrivateSkillsSDK(BaseSDK):
             up_to_date=up_to_date,
             added=added,
             removed=removed,
+            updated=updated,
+            added_platforms=added_platforms,
+            removed_platforms=removed_platforms,
         )
 
     def install(
@@ -610,18 +670,31 @@ class PrivateSkillsSDK(BaseSDK):
         else:
             platforms_info = {}
 
+        # Cache each platform's owned paths (refreshed as installs are added
+        # below) so a failed install can't delete a sibling's files in a shared
+        # skills_dir, without recomputing every platform's set on each iteration.
+        owned_paths: Dict[Platform, set] = {
+            other: _platform_owned_paths(info) for other, info in platforms_info.items()
+        }
+
         for platform in platforms:
             platform_config = self._platform_configs[platform]
             previous = platforms_info.get(platform)
+            protected_paths: set = set()
+            for other, paths in owned_paths.items():
+                if other != platform:
+                    protected_paths |= paths
             skills_files, hooks_files = self._install_for_platform(
-                bundle, platform, previous,
+                bundle, platform, previous, protected_paths,
             )
-            platforms_info[platform] = PlatformInstallInfo(
-                skills_dir=platform_config.skills_dir,
-                hooks_dir=platform_config.hooks_dir,
+            info = PlatformInstallInfo(
+                skills_dir=platform_config.skills_dir.resolve(),
+                hooks_dir=platform_config.hooks_dir.resolve(),
                 skills_files=skills_files,
                 hooks_files=hooks_files,
             )
+            platforms_info[platform] = info
+            owned_paths[platform] = _platform_owned_paths(info)
             self._save_metadata(
                 InstalledMetadata(
                     version=plan.version,
@@ -634,24 +707,27 @@ class PrivateSkillsSDK(BaseSDK):
                 )
             )
             total = len(skills_files) + len(hooks_files)
-            self._logger.info(f"  [{platform}] {total} file(s) installed")
+            self._logger.info(
+                f"  [{platform_config.display}] {total} file(s) installed"
+            )
 
     def _install_for_platform(
         self,
         bundle: bytes,
         platform: Platform,
         previous: Optional[PlatformInstallInfo] = None,
+        protected_paths: Optional[set] = None,
     ) -> Tuple[List[str], List[str]]:
         """Extract and install skill + hooks files for a given platform."""
         if platform not in self._platform_configs:
             raise ValueError(
-                f"Unsupported platform: {platform}. "
+                f"Unsupported platform: {platform.value}. "
                 f"Supported: {', '.join(self._platform_configs.keys())}"
             )
 
         platform_config = self._platform_configs[platform]
-        skills_dir = os.path.expanduser(platform_config.skills_dir)
-        hooks_dir = os.path.expanduser(platform_config.hooks_dir)
+        skills_dir = platform_config.skills_dir.resolve()
+        hooks_dir = platform_config.hooks_dir.resolve()
         hooks_config_name = platform_config.hooks_config
         hooks_config_path = os.path.join(hooks_dir, hooks_config_name)
 
@@ -667,7 +743,7 @@ class PrivateSkillsSDK(BaseSDK):
             platform_source_dir = os.path.join(tmpdir, platform)
             if not os.path.isdir(platform_source_dir):
                 raise ValueError(
-                    f"Skills bundle does not contain files for platform '{platform}'."
+                    f"Skills bundle does not contain files for platform '{platform.value}'."
                 )
 
             self._pre_write_validate(skills_dir, hooks_dir, hooks_config_path)
@@ -705,10 +781,11 @@ class PrivateSkillsSDK(BaseSDK):
                     hooks_config_path,
                     hooks_backup,
                     hooks_existed_before,
+                    protected_paths,
                 )
                 if isinstance(e, PermissionError):
                     raise ValueError(
-                        f"Permission denied while installing skills for '{platform}': {e}.\n"
+                        f"Permission denied while installing skills for '{platform.value}': {e}.\n"
                         "  No changes were applied. Check write access to "
                         f"'{skills_dir}' and '{hooks_dir}' and retry."
                     ) from e
@@ -760,9 +837,17 @@ class PrivateSkillsSDK(BaseSDK):
         hooks_config_path: str,
         hooks_backup: Optional[bytes],
         hooks_existed_before: bool,
+        protected_paths: Optional[set] = None,
     ) -> None:
-        """Undo files written during a failed per-platform install."""
+        """Undo files written during a failed per-platform install.
+
+        Files owned by another installed platform (shared skills_dir) are left
+        in place so a failed install for one platform can't delete another's.
+        """
+        protected = protected_paths or set()
         for path in written_files:
+            if os.path.realpath(path) in protected:
+                continue
             with contextlib.suppress(OSError):
                 os.remove(path)
 
@@ -794,8 +879,8 @@ class PrivateSkillsSDK(BaseSDK):
     ) -> None:
         """Remove files from the previous version that are no longer in the bundle."""
         platform_config = self._platform_configs[platform]
-        skills_dir = os.path.expanduser(platform_config.skills_dir)
-        hooks_dir = os.path.expanduser(platform_config.hooks_dir)
+        skills_dir = os.path.expanduser(previous.skills_dir)
+        hooks_dir = os.path.expanduser(previous.hooks_dir)
         hooks_config_name = platform_config.hooks_config
 
         skills_orphans = set(previous.skills_files) - set(skills_files)
@@ -813,6 +898,7 @@ class PrivateSkillsSDK(BaseSDK):
 
     def _remove_orphans(self, platform: Platform, base_dir: str, orphans: set,) -> bool:
         """Remove orphan files under base_dir. Returns True if any were removed."""
+        display = self._platform_configs[platform].display
         removed_any = False
         for rel_path in orphans:
             abs_path = os.path.join(base_dir, rel_path)
@@ -821,10 +907,10 @@ class PrivateSkillsSDK(BaseSDK):
                     os.remove(abs_path)
                 except PermissionError:
                     self._logger.info(
-                        f"  [{platform}] warning: permission denied removing {rel_path}"
+                        f"  [{display}] warning: permission denied removing {rel_path}"
                     )
                     continue
-                self._logger.info(f"  [{platform}] removed: {rel_path}")
+                self._logger.info(f"  [{display}] removed: {rel_path}")
                 removed_any = True
         return removed_any
 

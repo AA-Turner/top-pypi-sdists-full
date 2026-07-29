@@ -11,6 +11,7 @@
         #include <wx/richmsgdlg.h>
         #include <wx/window.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/gdicmn.h>
         #include <wx/validate.h>
@@ -25,14 +26,14 @@
         #include <wx/region.h>
         #include <wx/graphics.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -47,6 +48,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
+    wxAccessible* _wxRichMessageDialog_CreateAccessible(wxRichMessageDialog* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxRichMessageDialog : public ::wxRichMessageDialog
@@ -75,7 +85,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -122,7 +131,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -136,7 +144,7 @@ private:
     sipwxRichMessageDialog(const sipwxRichMessageDialog &);
     sipwxRichMessageDialog &operator = (const sipwxRichMessageDialog &);
 
-    char sipPyMethods[41];
+    char sipPyMethods[40];
 };
 
 sipwxRichMessageDialog::sipwxRichMessageDialog(::wxWindow*parent, const ::wxString& message, const ::wxString& caption, long style): ::wxRichMessageDialog(parent, message, caption, style), sipPySelf(SIP_NULLPTR)
@@ -159,9 +167,9 @@ sipwxRichMessageDialog::~sipwxRichMessageDialog()
     if (!sipMeth)
         return ::wxRichMessageDialog::GetContentWindow();
 
-    extern ::wxWindow* sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxWindow* sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxRichMessageDialog::RemoveChild(::wxWindowBase*child)
@@ -177,9 +185,9 @@ void sipwxRichMessageDialog::RemoveChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 void sipwxRichMessageDialog::AddChild(::wxWindowBase*child)
@@ -195,9 +203,9 @@ void sipwxRichMessageDialog::AddChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 bool sipwxRichMessageDialog::ProcessEvent(::wxEvent& event)
@@ -210,9 +218,9 @@ bool sipwxRichMessageDialog::ProcessEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxRichMessageDialog::ProcessEvent(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxRichMessageDialog::TryBefore(::wxEvent& event)
@@ -225,9 +233,9 @@ bool sipwxRichMessageDialog::TryBefore(::wxEvent& event)
     if (!sipMeth)
         return ::wxRichMessageDialog::TryBefore(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxRichMessageDialog::TryAfter(::wxEvent& event)
@@ -240,9 +248,9 @@ bool sipwxRichMessageDialog::TryAfter(::wxEvent& event)
     if (!sipMeth)
         return ::wxRichMessageDialog::TryAfter(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxRichMessageDialog::AcceptsFocus() const
@@ -303,9 +311,9 @@ void sipwxRichMessageDialog::SetCanFocus(bool canFocus)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, canFocus);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, canFocus);
 }
 
 void sipwxRichMessageDialog::EnableVisibleFocus(bool enabled)
@@ -321,9 +329,9 @@ void sipwxRichMessageDialog::EnableVisibleFocus(bool enabled)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enabled);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enabled);
 }
 
 bool sipwxRichMessageDialog::InformFirstDirection(int direction, int size, int availableOtherDir)
@@ -336,9 +344,9 @@ bool sipwxRichMessageDialog::InformFirstDirection(int direction, int size, int a
     if (!sipMeth)
         return ::wxRichMessageDialog::InformFirstDirection(direction, size, availableOtherDir);
 
-    extern bool sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern bool sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
 
-    return sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
+    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
 }
 
 ::wxPoint sipwxRichMessageDialog::GetClientAreaOrigin() const
@@ -351,9 +359,9 @@ bool sipwxRichMessageDialog::InformFirstDirection(int direction, int size, int a
     if (!sipMeth)
         return ::wxRichMessageDialog::GetClientAreaOrigin();
 
-    extern ::wxPoint sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPoint sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxRichMessageDialog::HasTransparentBackground()
@@ -396,9 +404,9 @@ bool sipwxRichMessageDialog::ShouldInheritColours() const
     if (!sipMeth)
         return ::wxRichMessageDialog::GetValidator();
 
-    extern ::wxValidator* sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxValidator* sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxRichMessageDialog::SetValidator(const ::wxValidator& validator)
@@ -414,9 +422,9 @@ void sipwxRichMessageDialog::SetValidator(const ::wxValidator& validator)
         return;
     }
 
-    extern void sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
+    extern void sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
 
-    sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth, validator);
+    sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth, validator);
 }
 
 bool sipwxRichMessageDialog::TransferDataFromWindow()
@@ -543,9 +551,9 @@ void sipwxRichMessageDialog::OnInternalIdle()
     if (!sipMeth)
         return ::wxRichMessageDialog::GetMainWindowOfCompositeControl();
 
-    extern ::wxWindow* sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxWindow* sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxRichMessageDialog::DoEnable(bool enable)
@@ -561,9 +569,9 @@ void sipwxRichMessageDialog::DoEnable(bool enable)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enable);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enable);
 }
 
 void sipwxRichMessageDialog::DoGetPosition(int*x, int*y) const
@@ -579,9 +587,9 @@ void sipwxRichMessageDialog::DoGetPosition(int*x, int*y) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, x, y);
 }
 
 void sipwxRichMessageDialog::DoGetSize(int*width, int*height) const
@@ -597,9 +605,9 @@ void sipwxRichMessageDialog::DoGetSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxRichMessageDialog::DoGetClientSize(int*width, int*height) const
@@ -615,9 +623,9 @@ void sipwxRichMessageDialog::DoGetClientSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxRichMessageDialog::DoSetSize(int x, int y, int width, int height, int sizeFlags)
@@ -633,9 +641,9 @@ void sipwxRichMessageDialog::DoSetSize(int x, int y, int width, int height, int 
         return;
     }
 
-    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
+    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
 
-    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
+    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
 }
 
 void sipwxRichMessageDialog::DoSetClientSize(int width, int height)
@@ -651,9 +659,9 @@ void sipwxRichMessageDialog::DoSetClientSize(int width, int height)
         return;
     }
 
-    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
+    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
 
-    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxRichMessageDialog::DoSetSizeHints(int minW, int minH, int maxW, int maxH, int incW, int incH)
@@ -669,9 +677,9 @@ void sipwxRichMessageDialog::DoSetSizeHints(int minW, int minH, int maxW, int ma
         return;
     }
 
-    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
+    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
 
-    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
+    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
 }
 
 void sipwxRichMessageDialog::DoMoveWindow(int x, int y, int width, int height)
@@ -687,9 +695,9 @@ void sipwxRichMessageDialog::DoMoveWindow(int x, int y, int width, int height)
         return;
     }
 
-    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
+    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
 
-    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
+    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
 }
 
 void sipwxRichMessageDialog::DoSetWindowVariant(::wxWindowVariant variant)
@@ -705,9 +713,9 @@ void sipwxRichMessageDialog::DoSetWindowVariant(::wxWindowVariant variant)
         return;
     }
 
-    extern void sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
+    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
 
-    sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth, variant);
+    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, variant);
 }
 
 ::wxBorder sipwxRichMessageDialog::GetDefaultBorder() const
@@ -720,24 +728,9 @@ void sipwxRichMessageDialog::DoSetWindowVariant(::wxWindowVariant variant)
     if (!sipMeth)
         return ::wxRichMessageDialog::GetDefaultBorder();
 
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxBorder sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
-}
-
-::wxBorder sipwxRichMessageDialog::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[35]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxRichMessageDialog::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxRichMessageDialog::DoFreeze()
@@ -745,7 +738,7 @@ void sipwxRichMessageDialog::DoFreeze()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -763,7 +756,7 @@ void sipwxRichMessageDialog::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -781,7 +774,7 @@ void sipwxRichMessageDialog::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxRichMessageDialog::DoGetBestSize();
@@ -796,7 +789,7 @@ void sipwxRichMessageDialog::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[39]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxRichMessageDialog::DoGetBestClientSize();
@@ -811,7 +804,7 @@ bool sipwxRichMessageDialog::ShouldPreventAppExit() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[40]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldPreventAppExit);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[39]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldPreventAppExit);
 
     if (!sipMeth)
         return ::wxRichMessageDialog::ShouldPreventAppExit();
@@ -899,11 +892,6 @@ void sipwxRichMessageDialog::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasAr
 ::wxBorder sipwxRichMessageDialog::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxRichMessageDialog::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxRichMessageDialog::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxRichMessageDialog::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxRichMessageDialog::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -2624,40 +2612,6 @@ static PyObject *meth_wxRichMessageDialog_GetDefaultBorder(PyObject *sipSelf, Py
 }
 
 
-PyDoc_STRVAR(doc_wxRichMessageDialog_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxRichMessageDialog_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxRichMessageDialog_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxRichMessageDialog *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRichMessageDialog, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_RichMessageDialog, sipName_GetDefaultBorderForControl, doc_wxRichMessageDialog_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxRichMessageDialog_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxRichMessageDialog_DoFreeze(PyObject *, PyObject *);}
@@ -2836,6 +2790,39 @@ static PyObject *meth_wxRichMessageDialog_TryAfter(PyObject *sipSelf, PyObject *
 }
 
 
+PyDoc_STRVAR(doc_wxRichMessageDialog_CreateAccessible, "CreateAccessible() -> Accessible");
+
+extern "C" {static PyObject *meth_wxRichMessageDialog_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxRichMessageDialog_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxRichMessageDialog *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRichMessageDialog, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxRichMessageDialog_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_RichMessageDialog, sipName_CreateAccessible, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxRichMessageDialog_GetClassDefaultAttributes, "GetClassDefaultAttributes(variant=WINDOW_VARIANT_NORMAL) -> VisualAttributes");
 
 extern "C" {static PyObject *meth_wxRichMessageDialog_GetClassDefaultAttributes(PyObject *, PyObject *, PyObject *);}
@@ -2971,7 +2958,7 @@ static void *init_type_wxRichMessageDialog(sipSimpleWrapper *sipSelf, PyObject *
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxRichMessageDialog[] = {{232, 255, 1}};
+static sipEncodedTypeDef supers_wxRichMessageDialog[] = {{240, 255, 1}};
 
 
 static PyMethodDef methods_wxRichMessageDialog[] = {
@@ -2981,6 +2968,7 @@ static PyMethodDef methods_wxRichMessageDialog[] = {
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxRichMessageDialog_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxRichMessageDialog_AddChild},
     {sipName_AddMessageDialogCheckBox, SIP_MLMETH_CAST(meth_wxRichMessageDialog_AddMessageDialogCheckBox), METH_VARARGS|METH_KEYWORDS, SIP_NULLPTR},
     {sipName_AddMessageDialogDetails, SIP_MLMETH_CAST(meth_wxRichMessageDialog_AddMessageDialogDetails), METH_VARARGS|METH_KEYWORDS, SIP_NULLPTR},
+    {sipName_CreateAccessible, meth_wxRichMessageDialog_CreateAccessible, METH_VARARGS, doc_wxRichMessageDialog_CreateAccessible},
     {sipName_Destroy, meth_wxRichMessageDialog_Destroy, METH_VARARGS, doc_wxRichMessageDialog_Destroy},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxRichMessageDialog_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxRichMessageDialog_DoEnable},
     {sipName_DoFreeze, meth_wxRichMessageDialog_DoFreeze, METH_VARARGS, doc_wxRichMessageDialog_DoFreeze},
@@ -3000,7 +2988,6 @@ static PyMethodDef methods_wxRichMessageDialog[] = {
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxRichMessageDialog_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxRichMessageDialog_GetClassDefaultAttributes},
     {sipName_GetClientAreaOrigin, meth_wxRichMessageDialog_GetClientAreaOrigin, METH_VARARGS, doc_wxRichMessageDialog_GetClientAreaOrigin},
     {sipName_GetDefaultBorder, meth_wxRichMessageDialog_GetDefaultBorder, METH_VARARGS, doc_wxRichMessageDialog_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxRichMessageDialog_GetDefaultBorderForControl, METH_VARARGS, doc_wxRichMessageDialog_GetDefaultBorderForControl},
     {sipName_GetDetailedText, meth_wxRichMessageDialog_GetDetailedText, METH_VARARGS, doc_wxRichMessageDialog_GetDetailedText},
     {sipName_GetFooterIcon, meth_wxRichMessageDialog_GetFooterIcon, METH_VARARGS, doc_wxRichMessageDialog_GetFooterIcon},
     {sipName_GetFooterText, meth_wxRichMessageDialog_GetFooterText, METH_VARARGS, doc_wxRichMessageDialog_GetFooterText},
@@ -3034,7 +3021,7 @@ sipVariableDef variables_wxRichMessageDialog[] = {
     {PropertyVariable, sipName_FooterText, &methods_wxRichMessageDialog[28], &methods_wxRichMessageDialog[42], SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_FooterIcon, &methods_wxRichMessageDialog[27], &methods_wxRichMessageDialog[41], SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_DetailedText, &methods_wxRichMessageDialog[26], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CheckBoxText, &methods_wxRichMessageDialog[21], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CheckBoxText, &methods_wxRichMessageDialog[22], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxRichMessageDialog, "RichMessageDialog(parent, message, caption=MessageBoxCaptionStr, style=OK|CENTRE) -> None\n"

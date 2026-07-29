@@ -59,9 +59,9 @@ void sipwxPreferencesEditor::Show(::wxWindow*parent)
         return;
     }
 
-    extern void sipVH__core_138(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*);
+    extern void sipVH__core_137(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*);
 
-    sipVH__core_138(sipGILState, 0, sipPySelf, sipMeth, parent);
+    sipVH__core_137(sipGILState, 0, sipPySelf, sipMeth, parent);
 }
 
 

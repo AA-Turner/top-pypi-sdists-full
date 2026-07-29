@@ -17,6 +17,13 @@ from rich.table import Table
 from anyscale.cli_logger import BlockLogger
 from anyscale.client.openapi_client.models import LogFilter
 from anyscale.client.openapi_client.models.node_type import NodeType
+from anyscale.commands.doc_metadata import (
+    command_metadata,
+    CommandExample,
+    ReleaseStatus,
+)
+from anyscale.commands.output_format import OutputFormat
+from anyscale.commands.util import AnyscaleCommand
 from anyscale.controllers.logs_controller import (
     DEFAULT_PAGE_SIZE,
     DEFAULT_PARALLELISM,
@@ -93,7 +100,23 @@ def log_cli() -> None:
     pass
 
 
-@log_cli.command(name="cluster", help="Access log files of a cluster.")
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Download the logs of a cluster.",
+            command="anyscale logs cluster --id ses_abc123 --download",
+        ),
+    ],
+)
+@log_cli.command(
+    name="cluster",
+    short_help="Access log files of a cluster.",
+    help="Access log files of a cluster.",
+    cls=AnyscaleCommand,
+)
 @click.option("--id", type=str, required=True, help="Provide a cluster ID.")
 @option_download
 @option_tail
@@ -255,8 +278,21 @@ def execute_anyscale_logs_cluster(  # noqa: PLR0913
         click.echo()
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Print the logs of a job.",
+            command="anyscale logs job --id prodjob_abc123",
+        ),
+    ],
+)
 @log_cli.command(
     name="job",
+    short_help="Access log files of a production job.",
+    cls=AnyscaleCommand,
     help=(
         "Access log files of a production job. By default, fetches logs scoped "
         "to the last job attempt. Pass --head-only to instead fetch all "
@@ -357,7 +393,23 @@ def anyscale_logs_job(  # noqa: PLR0913
     )
 
 
-@log_cli.command(name="workspace", help="Access log files of a workspace.")
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Download the logs of a workspace.",
+            command="anyscale logs workspace --id expwrk_abc123 --download",
+        ),
+    ],
+)
+@log_cli.command(
+    name="workspace",
+    short_help="Access log files of a workspace.",
+    help="Access log files of a workspace.",
+    cls=AnyscaleCommand,
+)
 @click.option("--id", type=str, required=True, help="Provide a workspace ID.")
 @option_download
 @option_tail
@@ -407,8 +459,22 @@ def anyscale_logs_workspace(  # noqa: PLR0913
     )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Print the logs of a service version.",
+            command="anyscale logs service --id service2_abc123",
+        ),
+    ],
+)
 @log_cli.command(
-    name="service", help="Access log files of a service for a single service version."
+    name="service",
+    short_help="Access log files of a service for a single service version.",
+    help="Access log files of a service for a single service version.",
+    cls=AnyscaleCommand,
 )
 @click.option("--id", type=str, required=True, help="Provide a service ID.")
 @click.option(

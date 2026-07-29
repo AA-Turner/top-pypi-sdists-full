@@ -13,6 +13,7 @@
         #include <wx/gdicmn.h>
         #include <wx/gdicmn.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/validate.h>
         #include <wx/colour.h>
@@ -34,16 +35,17 @@
         #include "arrayholder.h"
         #include <wx/grid.h>
         #include <wx/event.h>
+        #include <wx/dc.h>
+        #include <wx/event.h>
         #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -83,6 +85,15 @@
         }
         return result;
     }
+    wxAccessible* _wxGrid_CreateAccessible(wxGrid* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxGrid : public ::wxGrid
@@ -111,7 +122,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -135,7 +145,6 @@ protected:
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
@@ -181,7 +190,7 @@ private:
     sipwxGrid(const sipwxGrid &);
     sipwxGrid &operator = (const sipwxGrid &);
 
-    char sipPyMethods[45];
+    char sipPyMethods[44];
 };
 
 sipwxGrid::sipwxGrid(): ::wxGrid(), sipPySelf(SIP_NULLPTR)
@@ -310,27 +319,12 @@ void sipwxGrid::DoFreeze()
     sipVH__grid_9(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxGrid::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[7]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxGrid::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__grid_64(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__grid_64(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 ::wxBorder sipwxGrid::GetDefaultBorder() const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[8]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[7]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
 
     if (!sipMeth)
         return ::wxGrid::GetDefaultBorder();
@@ -345,7 +339,7 @@ void sipwxGrid::DoSetWindowVariant(::wxWindowVariant variant)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[9], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[8], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
 
     if (!sipMeth)
     {
@@ -363,7 +357,7 @@ void sipwxGrid::DoMoveWindow(int x, int y, int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[10], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[9], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
 
     if (!sipMeth)
     {
@@ -381,7 +375,7 @@ void sipwxGrid::DoSetSizeHints(int minW, int minH, int maxW, int maxH, int incW,
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[11], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[10], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
 
     if (!sipMeth)
     {
@@ -399,7 +393,7 @@ void sipwxGrid::DoSetClientSize(int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[12], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[11], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
 
     if (!sipMeth)
     {
@@ -417,7 +411,7 @@ void sipwxGrid::DoSetSize(int x, int y, int width, int height, int sizeFlags)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[13], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[12], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
 
     if (!sipMeth)
     {
@@ -435,7 +429,7 @@ void sipwxGrid::DoGetClientSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[14]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[13]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
 
     if (!sipMeth)
     {
@@ -453,7 +447,7 @@ void sipwxGrid::DoGetSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[15]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[14]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
 
     if (!sipMeth)
     {
@@ -471,7 +465,7 @@ void sipwxGrid::DoGetPosition(int*x, int*y) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[16]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[15]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
 
     if (!sipMeth)
     {
@@ -489,7 +483,7 @@ void sipwxGrid::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[17], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[16], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
 
     if (!sipMeth)
     {
@@ -507,7 +501,7 @@ void sipwxGrid::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[18], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[17], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
 
     if (!sipMeth)
         return ::wxGrid::GetMainWindowOfCompositeControl();
@@ -522,7 +516,7 @@ void sipwxGrid::OnInternalIdle()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[19], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[18], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
 
     if (!sipMeth)
     {
@@ -540,7 +534,7 @@ void sipwxGrid::InitDialog()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[20], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[19], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
 
     if (!sipMeth)
     {
@@ -558,7 +552,7 @@ void sipwxGrid::InheritAttributes()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[21], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[20], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
 
     if (!sipMeth)
     {
@@ -576,7 +570,7 @@ bool sipwxGrid::Destroy()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[22], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[21], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
 
     if (!sipMeth)
         return ::wxGrid::Destroy();
@@ -591,7 +585,7 @@ bool sipwxGrid::Validate()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, SIP_NULLPTR, sipName_Validate);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[22], &sipPySelf, SIP_NULLPTR, sipName_Validate);
 
     if (!sipMeth)
         return ::wxGrid::Validate();
@@ -606,7 +600,7 @@ bool sipwxGrid::TransferDataToWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[24], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
 
     if (!sipMeth)
         return ::wxGrid::TransferDataToWindow();
@@ -621,7 +615,7 @@ bool sipwxGrid::TransferDataFromWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[25], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[24], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
 
     if (!sipMeth)
         return ::wxGrid::TransferDataFromWindow();
@@ -636,7 +630,7 @@ void sipwxGrid::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[26], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[25], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
 
     if (!sipMeth)
     {
@@ -654,7 +648,7 @@ void sipwxGrid::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[27], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[26], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
 
     if (!sipMeth)
         return ::wxGrid::GetValidator();
@@ -669,7 +663,7 @@ bool sipwxGrid::ShouldInheritColours() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[28]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[27]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
 
     if (!sipMeth)
         return ::wxGrid::ShouldInheritColours();
@@ -684,7 +678,7 @@ bool sipwxGrid::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[29], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[28], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
 
     if (!sipMeth)
         return ::wxGrid::HasTransparentBackground();
@@ -699,7 +693,7 @@ bool sipwxGrid::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[30]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[29]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
 
     if (!sipMeth)
         return ::wxGrid::GetClientAreaOrigin();
@@ -714,7 +708,7 @@ bool sipwxGrid::InformFirstDirection(int direction, int size, int availableOther
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[31], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[30], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
 
     if (!sipMeth)
         return ::wxGrid::InformFirstDirection(direction, size, availableOtherDir);
@@ -729,7 +723,7 @@ void sipwxGrid::EnableVisibleFocus(bool enabled)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[32], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[31], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
 
     if (!sipMeth)
     {
@@ -747,7 +741,7 @@ void sipwxGrid::SetCanFocus(bool canFocus)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[33], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[32], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
 
     if (!sipMeth)
     {
@@ -765,7 +759,7 @@ bool sipwxGrid::AcceptsFocusRecursively() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[33]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
 
     if (!sipMeth)
         return ::wxGrid::AcceptsFocusRecursively();
@@ -780,7 +774,7 @@ bool sipwxGrid::AcceptsFocusFromKeyboard() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[35]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
 
     if (!sipMeth)
         return ::wxGrid::AcceptsFocusFromKeyboard();
@@ -795,7 +789,7 @@ bool sipwxGrid::AcceptsFocus() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[35]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
 
     if (!sipMeth)
         return ::wxGrid::AcceptsFocus();
@@ -810,7 +804,7 @@ bool sipwxGrid::TryAfter(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
 
     if (!sipMeth)
         return ::wxGrid::TryAfter(event);
@@ -825,7 +819,7 @@ bool sipwxGrid::TryBefore(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
 
     if (!sipMeth)
         return ::wxGrid::TryBefore(event);
@@ -840,7 +834,7 @@ bool sipwxGrid::ProcessEvent(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[39], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
 
     if (!sipMeth)
         return ::wxGrid::ProcessEvent(event);
@@ -855,7 +849,7 @@ void sipwxGrid::AddChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[40], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[39], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
 
     if (!sipMeth)
     {
@@ -873,7 +867,7 @@ void sipwxGrid::RemoveChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[41], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[40], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
 
     if (!sipMeth)
     {
@@ -891,7 +885,7 @@ void sipwxGrid::OnDraw(::wxDC& dc)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[42], &sipPySelf, SIP_NULLPTR, sipName_OnDraw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[41], &sipPySelf, SIP_NULLPTR, sipName_OnDraw);
 
     if (!sipMeth)
     {
@@ -909,7 +903,7 @@ bool sipwxGrid::SendAutoScrollEvents(::wxScrollWinEvent& event) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[43]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_SendAutoScrollEvents);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[42]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_SendAutoScrollEvents);
 
     if (!sipMeth)
         return ::wxGrid::SendAutoScrollEvents(event);
@@ -924,7 +918,7 @@ bool sipwxGrid::ShouldScrollToChildOnFocus(::wxWindow*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[44], &sipPySelf, SIP_NULLPTR, sipName_ShouldScrollToChildOnFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[43], &sipPySelf, SIP_NULLPTR, sipName_ShouldScrollToChildOnFocus);
 
     if (!sipMeth)
         return ::wxGrid::ShouldScrollToChildOnFocus(child);
@@ -1007,11 +1001,6 @@ void sipwxGrid::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, ::wxWindow
 ::wxBorder sipwxGrid::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxGrid::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxGrid::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxGrid::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxGrid::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -1336,8 +1325,10 @@ static PyObject *meth_wxGrid_AssignTable(PyObject *sipSelf, PyObject *sipArgs, P
 
 
 PyDoc_STRVAR(doc_wxGrid_ProcessTableMessage, "ProcessTableMessage(msg) -> bool\n"
+"ProcessTableMessage(table, id, comInt1=-1, comInt2=-1) -> bool\n"
 "\n"
-"Receive and handle a message from the table.");
+"Reacts to a message notifying about a change to the grid shape.\n"
+"");
 
 extern "C" {static PyObject *meth_wxGrid_ProcessTableMessage(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGrid_ProcessTableMessage(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1345,7 +1336,7 @@ static PyObject *meth_wxGrid_ProcessTableMessage(PyObject *sipSelf, PyObject *si
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        ::wxGridTableMessage* msg;
+        const ::wxGridTableMessage* msg;
         ::wxGrid *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -1360,6 +1351,37 @@ static PyObject *meth_wxGrid_ProcessTableMessage(PyObject *sipSelf, PyObject *si
 
             Py_BEGIN_ALLOW_THREADS
             sipRes = sipCpp->ProcessTableMessage(*msg);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    {
+        ::wxGridTableBase* table;
+        int id;
+        int comInt1 = -1;
+        int comInt2 = -1;
+        ::wxGrid *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_table,
+            sipName_id,
+            sipName_comInt1,
+            sipName_comInt2,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8i|ii", &sipSelf, sipType_wxGrid, &sipCpp, sipType_wxGridTableBase, &table, &id, &comInt1, &comInt2))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->ProcessTableMessage(table, id, comInt1, comInt2);
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
@@ -6837,6 +6859,78 @@ static PyObject *meth_wxGrid_CanDragRowSize(PyObject *sipSelf, PyObject *sipArgs
 }
 
 
+PyDoc_STRVAR(doc_wxGrid_CanDragRowLabelSize, "CanDragRowLabelSize() -> bool\n"
+"\n"
+"Returns true if the row labels can be resized by dragging with the\n"
+"mouse.");
+
+extern "C" {static PyObject *meth_wxGrid_CanDragRowLabelSize(PyObject *, PyObject *);}
+static PyObject *meth_wxGrid_CanDragRowLabelSize(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxGrid *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxGrid, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->CanDragRowLabelSize();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Grid, sipName_CanDragRowLabelSize, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxGrid_CanDragColLabelSize, "CanDragColLabelSize() -> bool\n"
+"\n"
+"Returns true if the column labels can be resized by dragging with the\n"
+"mouse.");
+
+extern "C" {static PyObject *meth_wxGrid_CanDragColLabelSize(PyObject *, PyObject *);}
+static PyObject *meth_wxGrid_CanDragColLabelSize(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxGrid *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxGrid, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->CanDragColLabelSize();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Grid, sipName_CanDragColLabelSize, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxGrid_CanHideColumns, "CanHideColumns() -> bool\n"
 "\n"
 "Returns true if columns can be hidden from the popup menu of the\n"
@@ -7121,6 +7215,74 @@ static PyObject *meth_wxGrid_DisableDragRowSize(PyObject *sipSelf, PyObject *sip
 }
 
 
+PyDoc_STRVAR(doc_wxGrid_DisableDragRowLabelSize, "DisableDragRowLabelSize() -> None\n"
+"\n"
+"Disables row label sizing by dragging with the mouse.");
+
+extern "C" {static PyObject *meth_wxGrid_DisableDragRowLabelSize(PyObject *, PyObject *);}
+static PyObject *meth_wxGrid_DisableDragRowLabelSize(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxGrid *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxGrid, &sipCpp))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->DisableDragRowLabelSize();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Grid, sipName_DisableDragRowLabelSize, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxGrid_DisableDragColLabelSize, "DisableDragColLabelSize() -> None\n"
+"\n"
+"Disables column label sizing by dragging with the mouse.");
+
+extern "C" {static PyObject *meth_wxGrid_DisableDragColLabelSize(PyObject *, PyObject *);}
+static PyObject *meth_wxGrid_DisableDragColLabelSize(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxGrid *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxGrid, &sipCpp))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->DisableDragColLabelSize();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Grid, sipName_DisableDragColLabelSize, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxGrid_DisableHidingColumns, "DisableHidingColumns() -> None\n"
 "\n"
 "Disables column hiding from the header popup menu.");
@@ -7150,6 +7312,45 @@ static PyObject *meth_wxGrid_DisableHidingColumns(PyObject *sipSelf, PyObject *s
     }
 
     sipNoMethod(sipParseErr, sipName_Grid, sipName_DisableHidingColumns, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxGrid_EnableColResize, "EnableColResize(col) -> None\n"
+"\n"
+"Enable interactively resizing a column if it was previously forbidden.");
+
+extern "C" {static PyObject *meth_wxGrid_EnableColResize(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxGrid_EnableColResize(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int col;
+        ::wxGrid *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_col,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxGrid, &sipCpp, &col))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->EnableColResize(col);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Grid, sipName_EnableColResize, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -7392,6 +7593,84 @@ static PyObject *meth_wxGrid_EnableDragRowSize(PyObject *sipSelf, PyObject *sipA
 }
 
 
+PyDoc_STRVAR(doc_wxGrid_EnableDragRowLabelSize, "EnableDragRowLabelSize(enable=True) -> None\n"
+"\n"
+"Enables or disables row label sizing by dragging with the mouse.");
+
+extern "C" {static PyObject *meth_wxGrid_EnableDragRowLabelSize(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxGrid_EnableDragRowLabelSize(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        bool enable = 1;
+        ::wxGrid *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_enable,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "B|b", &sipSelf, sipType_wxGrid, &sipCpp, &enable))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->EnableDragRowLabelSize(enable);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Grid, sipName_EnableDragRowLabelSize, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxGrid_EnableDragColLabelSize, "EnableDragColLabelSize(enable=True) -> None\n"
+"\n"
+"Enables or disables col label sizing by dragging with the mouse.");
+
+extern "C" {static PyObject *meth_wxGrid_EnableDragColLabelSize(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxGrid_EnableDragColLabelSize(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        bool enable = 1;
+        ::wxGrid *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_enable,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "B|b", &sipSelf, sipType_wxGrid, &sipCpp, &enable))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->EnableDragColLabelSize(enable);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Grid, sipName_EnableDragColLabelSize, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxGrid_EnableHidingColumns, "EnableHidingColumns(enable=True) -> bool\n"
 "\n"
 "Enables or disables column hiding from the header popup menu.");
@@ -7427,6 +7706,45 @@ static PyObject *meth_wxGrid_EnableHidingColumns(PyObject *sipSelf, PyObject *si
     }
 
     sipNoMethod(sipParseErr, sipName_Grid, sipName_EnableHidingColumns, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxGrid_EnableRowResize, "EnableRowResize(row) -> None\n"
+"\n"
+"Enable interactively resizing a row if it was previously forbidden.");
+
+extern "C" {static PyObject *meth_wxGrid_EnableRowResize(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxGrid_EnableRowResize(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int row;
+        ::wxGrid *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_row,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxGrid, &sipCpp, &row))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->EnableRowResize(row);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Grid, sipName_EnableRowResize, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -8536,6 +8854,41 @@ static PyObject *meth_wxGrid_ClearSelection(PyObject *sipSelf, PyObject *sipArgs
 }
 
 
+PyDoc_STRVAR(doc_wxGrid_CopySelection, "CopySelection() -> bool\n"
+"\n"
+"Copies all cells that are currently selected.");
+
+extern "C" {static PyObject *meth_wxGrid_CopySelection(PyObject *, PyObject *);}
+static PyObject *meth_wxGrid_CopySelection(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxGrid *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxGrid, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->CopySelection();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Grid, sipName_CopySelection, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxGrid_DeselectRow, "DeselectRow(row) -> None\n"
 "\n"
 "Deselects a row of cells.");
@@ -9466,6 +9819,77 @@ static PyObject *meth_wxGrid_SetSelectionMode(PyObject *sipSelf, PyObject *sipAr
 }
 
 
+PyDoc_STRVAR(doc_wxGrid_UsesOverlaySelection, "UsesOverlaySelection() -> bool\n"
+"\n"
+"Return true if overlay selection can be used\n"
+"(wxUSE_GRAPHICS_CONTEXT=1) and DisableOverlaySelection() hadn't been\n"
+"called, false otherwise.");
+
+extern "C" {static PyObject *meth_wxGrid_UsesOverlaySelection(PyObject *, PyObject *);}
+static PyObject *meth_wxGrid_UsesOverlaySelection(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxGrid *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxGrid, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->UsesOverlaySelection();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Grid, sipName_UsesOverlaySelection, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxGrid_DisableOverlaySelection, "DisableOverlaySelection() -> None\n"
+"\n"
+"Disable overlay selection if it is enabled.");
+
+extern "C" {static PyObject *meth_wxGrid_DisableOverlaySelection(PyObject *, PyObject *);}
+static PyObject *meth_wxGrid_DisableOverlaySelection(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxGrid *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxGrid, &sipCpp))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->DisableOverlaySelection();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Grid, sipName_DisableOverlaySelection, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxGrid_GetScrollLineX, "GetScrollLineX() -> int\n"
 "\n"
 "Returns the number of pixels per horizontal scroll increment.");
@@ -9830,7 +10254,7 @@ static PyObject *meth_wxGrid_SetScrollLineY(PyObject *sipSelf, PyObject *sipArgs
 }
 
 
-PyDoc_STRVAR(doc_wxGrid_BlockToDeviceRect, "BlockToDeviceRect(topLeft, bottomRight, gridWindow=None) -> wx.Rect\n"
+PyDoc_STRVAR(doc_wxGrid_BlockToDeviceRect, "BlockToDeviceRect(topLeft, bottomRight, gridWindow=nullptr) -> wx.Rect\n"
 "\n"
 "Convert grid cell coordinates to grid window pixel coordinates.");
 
@@ -9844,7 +10268,7 @@ static PyObject *meth_wxGrid_BlockToDeviceRect(PyObject *sipSelf, PyObject *sipA
         int topLeftState = 0;
         const ::wxGridCellCoords* bottomRight;
         int bottomRightState = 0;
-        const ::wxGridWindow* gridWindow = 0;
+        const ::wxGridWindow* gridWindow = nullptr;
         const ::wxGrid *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -10285,7 +10709,7 @@ static PyObject *meth_wxGrid_CalcGridWindowScrolledPosition(PyObject *sipSelf, P
 }
 
 
-PyDoc_STRVAR(doc_wxGrid_XToCol, "XToCol(x, clipToMinMax=False, gridWindow=None) -> int\n"
+PyDoc_STRVAR(doc_wxGrid_XToCol, "XToCol(x, clipToMinMax=False, gridWindow=nullptr) -> int\n"
 "\n"
 "Returns the column at the given pixel position depending on the\n"
 "window.");
@@ -10298,7 +10722,7 @@ static PyObject *meth_wxGrid_XToCol(PyObject *sipSelf, PyObject *sipArgs, PyObje
     {
         int x;
         bool clipToMinMax = 0;
-        ::wxGridWindow* gridWindow = 0;
+        ::wxGridWindow* gridWindow = nullptr;
         const ::wxGrid *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -10371,8 +10795,8 @@ static PyObject *meth_wxGrid_XToEdgeOfCol(PyObject *sipSelf, PyObject *sipArgs, 
 }
 
 
-PyDoc_STRVAR(doc_wxGrid_XYToCell, "XYToCell(x, y, gridWindow=None) -> GridCellCoords\n"
-"XYToCell(pos, gridWindow=None) -> GridCellCoords\n"
+PyDoc_STRVAR(doc_wxGrid_XYToCell, "XYToCell(x, y, gridWindow=nullptr) -> GridCellCoords\n"
+"XYToCell(pos, gridWindow=nullptr) -> GridCellCoords\n"
 "\n"
 "Translates logical pixel coordinates to the grid cell coordinates.\n"
 "");
@@ -10385,7 +10809,7 @@ static PyObject *meth_wxGrid_XYToCell(PyObject *sipSelf, PyObject *sipArgs, PyOb
     {
         int x;
         int y;
-        ::wxGridWindow* gridWindow = 0;
+        ::wxGridWindow* gridWindow = nullptr;
         const ::wxGrid *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -10414,7 +10838,7 @@ static PyObject *meth_wxGrid_XYToCell(PyObject *sipSelf, PyObject *sipArgs, PyOb
     {
         const ::wxPoint* pos;
         int posState = 0;
-        ::wxGridWindow* gridWindow = 0;
+        ::wxGridWindow* gridWindow = nullptr;
         const ::wxGrid *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -10487,7 +10911,7 @@ static PyObject *meth_wxGrid_YToEdgeOfRow(PyObject *sipSelf, PyObject *sipArgs, 
 }
 
 
-PyDoc_STRVAR(doc_wxGrid_YToRow, "YToRow(y, clipToMinMax=False, gridWindow=None) -> int\n"
+PyDoc_STRVAR(doc_wxGrid_YToRow, "YToRow(y, clipToMinMax=False, gridWindow=nullptr) -> int\n"
 "\n"
 "Returns the grid row that corresponds to the logical y coordinate.");
 
@@ -10499,7 +10923,7 @@ static PyObject *meth_wxGrid_YToRow(PyObject *sipSelf, PyObject *sipArgs, PyObje
     {
         int y;
         bool clipToMinMax = 0;
-        ::wxGridWindow* gridWindow = 0;
+        ::wxGridWindow* gridWindow = nullptr;
         const ::wxGrid *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -10937,8 +11361,8 @@ static PyObject *meth_wxGrid_FreezeTo(PyObject *sipSelf, PyObject *sipArgs, PyOb
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        uint row;
-        uint col;
+        int row;
+        int col;
         ::wxGrid *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -10946,7 +11370,7 @@ static PyObject *meth_wxGrid_FreezeTo(PyObject *sipSelf, PyObject *sipArgs, PyOb
             sipName_col,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Buu", &sipSelf, sipType_wxGrid, &sipCpp, &row, &col))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bii", &sipSelf, sipType_wxGrid, &sipCpp, &row, &col))
         {
             bool sipRes;
 
@@ -11828,7 +12252,7 @@ static PyObject *meth_wxGrid_SetRowAttr(PyObject *sipSelf, PyObject *sipArgs, Py
 }
 
 
-PyDoc_STRVAR(doc_wxGrid_CalcRowLabelsExposed, "CalcRowLabelsExposed(reg, gridWindow=None) -> List[int]\n"
+PyDoc_STRVAR(doc_wxGrid_CalcRowLabelsExposed, "CalcRowLabelsExposed(reg, gridWindow=nullptr) -> List[int]\n"
 "\n"
 "Returns an array of row labels within the given region.");
 
@@ -11839,7 +12263,7 @@ static PyObject *meth_wxGrid_CalcRowLabelsExposed(PyObject *sipSelf, PyObject *s
 
     {
         const ::wxRegion* reg;
-        ::wxGridWindow* gridWindow = 0;
+        ::wxGridWindow* gridWindow = nullptr;
         const ::wxGrid *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -11870,7 +12294,7 @@ static PyObject *meth_wxGrid_CalcRowLabelsExposed(PyObject *sipSelf, PyObject *s
 }
 
 
-PyDoc_STRVAR(doc_wxGrid_CalcColLabelsExposed, "CalcColLabelsExposed(reg, gridWindow=None) -> List[int]\n"
+PyDoc_STRVAR(doc_wxGrid_CalcColLabelsExposed, "CalcColLabelsExposed(reg, gridWindow=nullptr) -> List[int]\n"
 "\n"
 "Returns an array of column labels within the given region.");
 
@@ -11881,7 +12305,7 @@ static PyObject *meth_wxGrid_CalcColLabelsExposed(PyObject *sipSelf, PyObject *s
 
     {
         const ::wxRegion* reg;
-        ::wxGridWindow* gridWindow = 0;
+        ::wxGridWindow* gridWindow = nullptr;
         const ::wxGrid *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -11912,7 +12336,7 @@ static PyObject *meth_wxGrid_CalcColLabelsExposed(PyObject *sipSelf, PyObject *s
 }
 
 
-PyDoc_STRVAR(doc_wxGrid_CalcCellsExposed, "CalcCellsExposed(reg, gridWindow=None) -> GridCellCoordsArray\n"
+PyDoc_STRVAR(doc_wxGrid_CalcCellsExposed, "CalcCellsExposed(reg, gridWindow=nullptr) -> GridCellCoordsArray\n"
 "\n"
 "Returns an array of (visible) cells within the given region.");
 
@@ -11923,7 +12347,7 @@ static PyObject *meth_wxGrid_CalcCellsExposed(PyObject *sipSelf, PyObject *sipAr
 
     {
         const ::wxRegion* reg;
-        ::wxGridWindow* gridWindow = 0;
+        ::wxGridWindow* gridWindow = nullptr;
         const ::wxGrid *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -12276,6 +12700,76 @@ static PyObject *meth_wxGrid_GetFrozenColGridWindow(PyObject *sipSelf, PyObject 
     }
 
     sipNoMethod(sipParseErr, sipName_Grid, sipName_GetFrozenColGridWindow, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxGrid_GetFrozenRowLabelWindow, "GetFrozenRowLabelWindow() -> wx.Window\n"
+"\n"
+"Return the row labels window containing frozen cells.");
+
+extern "C" {static PyObject *meth_wxGrid_GetFrozenRowLabelWindow(PyObject *, PyObject *);}
+static PyObject *meth_wxGrid_GetFrozenRowLabelWindow(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxGrid *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxGrid, &sipCpp))
+        {
+            ::wxWindow*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetFrozenRowLabelWindow();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxWindow, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Grid, sipName_GetFrozenRowLabelWindow, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxGrid_GetFrozenColLabelWindow, "GetFrozenColLabelWindow() -> wx.Window\n"
+"\n"
+"Return the column labels window containing frozen cells.");
+
+extern "C" {static PyObject *meth_wxGrid_GetFrozenColLabelWindow(PyObject *, PyObject *);}
+static PyObject *meth_wxGrid_GetFrozenColLabelWindow(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxGrid *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxGrid, &sipCpp))
+        {
+            ::wxWindow*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetFrozenColLabelWindow();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxWindow, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Grid, sipName_GetFrozenColLabelWindow, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -12694,6 +13188,10 @@ static PyObject *meth_wxGrid_DrawCornerLabel(PyObject *sipSelf, PyObject *sipArg
 
 PyDoc_STRVAR(doc_wxGrid_DrawTextRectangle, "DrawTextRectangle(dc, text, rect, horizontalAlignment=wx.ALIGN_LEFT, verticalAlignment=wx.ALIGN_TOP, textOrientation=wx.HORIZONTAL) -> None\n"
 "DrawTextRectangle(dc, lines, rect, horizontalAlignment=wx.ALIGN_LEFT, verticalAlignment=wx.ALIGN_TOP, textOrientation=wx.HORIZONTAL) -> None\n"
+"DrawTextRectangle(dc, text, rect, attr, defaultHAlign=wx.ALIGN_INVALID, defaultVAlign=wx.ALIGN_INVALID) -> None\n"
+"\n"
+"Draw the given text inside the specified rectangle.\n"
+"\n"
 "");
 
 extern "C" {static PyObject *meth_wxGrid_DrawTextRectangle(PyObject *, PyObject *, PyObject *);}
@@ -12767,6 +13265,44 @@ static PyObject *meth_wxGrid_DrawTextRectangle(PyObject *sipSelf, PyObject *sipA
             sipCpp->DrawTextRectangle(*dc, *lines, *rect, horizontalAlignment, verticalAlignment, textOrientation);
             Py_END_ALLOW_THREADS
             sipReleaseType(const_cast< ::wxArrayString *>(lines), sipType_wxArrayString, linesState);
+            sipReleaseType(const_cast< ::wxRect *>(rect), sipType_wxRect, rectState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    {
+        ::wxDC* dc;
+        const ::wxString* text;
+        int textState = 0;
+        const ::wxRect* rect;
+        int rectState = 0;
+        const ::wxGridCellAttr* attr;
+        int defaultHAlign = wxALIGN_INVALID;
+        int defaultVAlign = wxALIGN_INVALID;
+        const ::wxGrid *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_dc,
+            sipName_text,
+            sipName_rect,
+            sipName_attr,
+            sipName_defaultHAlign,
+            sipName_defaultVAlign,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J1J1J9|ii", &sipSelf, sipType_wxGrid, &sipCpp, sipType_wxDC, &dc, sipType_wxString, &text, &textState, sipType_wxRect, &rect, &rectState, sipType_wxGridCellAttr, &attr, &defaultHAlign, &defaultVAlign))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->DrawTextRectangle(*dc, *text, *rect, *attr, defaultHAlign, defaultVAlign);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxString *>(text), sipType_wxString, textState);
             sipReleaseType(const_cast< ::wxRect *>(rect), sipType_wxRect, rectState);
 
             if (PyErr_Occurred())
@@ -14266,40 +14802,6 @@ static PyObject *meth_wxGrid_GetDefaultBorder(PyObject *sipSelf, PyObject *sipAr
 }
 
 
-PyDoc_STRVAR(doc_wxGrid_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxGrid_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxGrid_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxGrid *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxGrid, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_Grid, sipName_GetDefaultBorderForControl, doc_wxGrid_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxGrid_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxGrid_DoFreeze(PyObject *, PyObject *);}
@@ -14473,6 +14975,39 @@ static PyObject *meth_wxGrid_TryAfter(PyObject *sipSelf, PyObject *sipArgs, PyOb
     }
 
     sipNoMethod(sipParseErr, sipName_Grid, sipName_TryAfter, doc_wxGrid_TryAfter);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxGrid_CreateAccessible, "CreateAccessible() -> wx.Accessible");
+
+extern "C" {static PyObject *meth_wxGrid_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxGrid_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxGrid *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxGrid, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxGrid_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Grid, sipName_CreateAccessible, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -14847,7 +15382,7 @@ static void *init_type_wxGrid(sipSimpleWrapper *sipSelf, PyObject *sipArgs, PyOb
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGrid[] = {{25, 0, 1}};
+static sipEncodedTypeDef supers_wxGrid[] = {{26, 0, 1}};
 
 
 static PyMethodDef methods_wxGrid[] = {
@@ -14875,11 +15410,13 @@ static PyMethodDef methods_wxGrid[] = {
     {sipName_CalcGridWindowUnscrolledPosition, SIP_MLMETH_CAST(meth_wxGrid_CalcGridWindowUnscrolledPosition), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_CalcGridWindowUnscrolledPosition},
     {sipName_CalcRowLabelsExposed, SIP_MLMETH_CAST(meth_wxGrid_CalcRowLabelsExposed), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_CalcRowLabelsExposed},
     {sipName_CanDragCell, meth_wxGrid_CanDragCell, METH_VARARGS, doc_wxGrid_CanDragCell},
+    {sipName_CanDragColLabelSize, meth_wxGrid_CanDragColLabelSize, METH_VARARGS, doc_wxGrid_CanDragColLabelSize},
     {sipName_CanDragColMove, meth_wxGrid_CanDragColMove, METH_VARARGS, doc_wxGrid_CanDragColMove},
     {sipName_CanDragColSize, SIP_MLMETH_CAST(meth_wxGrid_CanDragColSize), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_CanDragColSize},
     {sipName_CanDragGridColEdges, meth_wxGrid_CanDragGridColEdges, METH_VARARGS, doc_wxGrid_CanDragGridColEdges},
     {sipName_CanDragGridRowEdges, meth_wxGrid_CanDragGridRowEdges, METH_VARARGS, doc_wxGrid_CanDragGridRowEdges},
     {sipName_CanDragGridSize, meth_wxGrid_CanDragGridSize, METH_VARARGS, doc_wxGrid_CanDragGridSize},
+    {sipName_CanDragRowLabelSize, meth_wxGrid_CanDragRowLabelSize, METH_VARARGS, doc_wxGrid_CanDragRowLabelSize},
     {sipName_CanDragRowMove, meth_wxGrid_CanDragRowMove, METH_VARARGS, doc_wxGrid_CanDragRowMove},
     {sipName_CanDragRowSize, SIP_MLMETH_CAST(meth_wxGrid_CanDragRowSize), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_CanDragRowSize},
     {sipName_CanEnableCellControl, meth_wxGrid_CanEnableCellControl, METH_VARARGS, doc_wxGrid_CanEnableCellControl},
@@ -14891,7 +15428,9 @@ static PyMethodDef methods_wxGrid[] = {
     {sipName_ClearSelection, meth_wxGrid_ClearSelection, METH_VARARGS, doc_wxGrid_ClearSelection},
     {sipName_ClipHorzGridLines, SIP_MLMETH_CAST(meth_wxGrid_ClipHorzGridLines), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_ClipHorzGridLines},
     {sipName_ClipVertGridLines, SIP_MLMETH_CAST(meth_wxGrid_ClipVertGridLines), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_ClipVertGridLines},
+    {sipName_CopySelection, meth_wxGrid_CopySelection, METH_VARARGS, doc_wxGrid_CopySelection},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxGrid_Create), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_Create},
+    {sipName_CreateAccessible, meth_wxGrid_CreateAccessible, METH_VARARGS, doc_wxGrid_CreateAccessible},
     {sipName_CreateGrid, SIP_MLMETH_CAST(meth_wxGrid_CreateGrid), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_CreateGrid},
     {sipName_DeleteCols, SIP_MLMETH_CAST(meth_wxGrid_DeleteCols), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_DeleteCols},
     {sipName_DeleteRows, SIP_MLMETH_CAST(meth_wxGrid_DeleteRows), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_DeleteRows},
@@ -14902,12 +15441,15 @@ static PyMethodDef methods_wxGrid[] = {
     {sipName_DevicePosToGridWindow, SIP_MLMETH_CAST(meth_wxGrid_DevicePosToGridWindow), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_DevicePosToGridWindow},
     {sipName_DisableCellEditControl, meth_wxGrid_DisableCellEditControl, METH_VARARGS, doc_wxGrid_DisableCellEditControl},
     {sipName_DisableColResize, SIP_MLMETH_CAST(meth_wxGrid_DisableColResize), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_DisableColResize},
+    {sipName_DisableDragColLabelSize, meth_wxGrid_DisableDragColLabelSize, METH_VARARGS, doc_wxGrid_DisableDragColLabelSize},
     {sipName_DisableDragColMove, meth_wxGrid_DisableDragColMove, METH_VARARGS, doc_wxGrid_DisableDragColMove},
     {sipName_DisableDragColSize, meth_wxGrid_DisableDragColSize, METH_VARARGS, doc_wxGrid_DisableDragColSize},
     {sipName_DisableDragGridSize, meth_wxGrid_DisableDragGridSize, METH_VARARGS, doc_wxGrid_DisableDragGridSize},
+    {sipName_DisableDragRowLabelSize, meth_wxGrid_DisableDragRowLabelSize, METH_VARARGS, doc_wxGrid_DisableDragRowLabelSize},
     {sipName_DisableDragRowMove, meth_wxGrid_DisableDragRowMove, METH_VARARGS, doc_wxGrid_DisableDragRowMove},
     {sipName_DisableDragRowSize, meth_wxGrid_DisableDragRowSize, METH_VARARGS, doc_wxGrid_DisableDragRowSize},
     {sipName_DisableHidingColumns, meth_wxGrid_DisableHidingColumns, METH_VARARGS, doc_wxGrid_DisableHidingColumns},
+    {sipName_DisableOverlaySelection, meth_wxGrid_DisableOverlaySelection, METH_VARARGS, doc_wxGrid_DisableOverlaySelection},
     {sipName_DisableRowResize, SIP_MLMETH_CAST(meth_wxGrid_DisableRowResize), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_DisableRowResize},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxGrid_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_DoEnable},
     {sipName_DoFreeze, meth_wxGrid_DoFreeze, METH_VARARGS, doc_wxGrid_DoFreeze},
@@ -14930,15 +15472,19 @@ static PyMethodDef methods_wxGrid[] = {
     {sipName_DrawRowLabels, SIP_MLMETH_CAST(meth_wxGrid_DrawRowLabels), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_DrawRowLabels},
     {sipName_DrawTextRectangle, SIP_MLMETH_CAST(meth_wxGrid_DrawTextRectangle), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_DrawTextRectangle},
     {sipName_EnableCellEditControl, SIP_MLMETH_CAST(meth_wxGrid_EnableCellEditControl), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_EnableCellEditControl},
+    {sipName_EnableColResize, SIP_MLMETH_CAST(meth_wxGrid_EnableColResize), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_EnableColResize},
     {sipName_EnableDragCell, SIP_MLMETH_CAST(meth_wxGrid_EnableDragCell), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_EnableDragCell},
+    {sipName_EnableDragColLabelSize, SIP_MLMETH_CAST(meth_wxGrid_EnableDragColLabelSize), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_EnableDragColLabelSize},
     {sipName_EnableDragColMove, SIP_MLMETH_CAST(meth_wxGrid_EnableDragColMove), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_EnableDragColMove},
     {sipName_EnableDragColSize, SIP_MLMETH_CAST(meth_wxGrid_EnableDragColSize), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_EnableDragColSize},
     {sipName_EnableDragGridSize, SIP_MLMETH_CAST(meth_wxGrid_EnableDragGridSize), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_EnableDragGridSize},
+    {sipName_EnableDragRowLabelSize, SIP_MLMETH_CAST(meth_wxGrid_EnableDragRowLabelSize), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_EnableDragRowLabelSize},
     {sipName_EnableDragRowMove, SIP_MLMETH_CAST(meth_wxGrid_EnableDragRowMove), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_EnableDragRowMove},
     {sipName_EnableDragRowSize, SIP_MLMETH_CAST(meth_wxGrid_EnableDragRowSize), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_EnableDragRowSize},
     {sipName_EnableEditing, SIP_MLMETH_CAST(meth_wxGrid_EnableEditing), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_EnableEditing},
     {sipName_EnableGridLines, SIP_MLMETH_CAST(meth_wxGrid_EnableGridLines), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_EnableGridLines},
     {sipName_EnableHidingColumns, SIP_MLMETH_CAST(meth_wxGrid_EnableHidingColumns), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_EnableHidingColumns},
+    {sipName_EnableRowResize, SIP_MLMETH_CAST(meth_wxGrid_EnableRowResize), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_EnableRowResize},
     {sipName_EnableVisibleFocus, SIP_MLMETH_CAST(meth_wxGrid_EnableVisibleFocus), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_EnableVisibleFocus},
     {sipName_EndBatch, meth_wxGrid_EndBatch, METH_VARARGS, doc_wxGrid_EndBatch},
     {sipName_Fit, meth_wxGrid_Fit, METH_VARARGS, doc_wxGrid_Fit},
@@ -14977,7 +15523,6 @@ static PyMethodDef methods_wxGrid[] = {
     {sipName_GetCornerLabelTextOrientation, meth_wxGrid_GetCornerLabelTextOrientation, METH_VARARGS, doc_wxGrid_GetCornerLabelTextOrientation},
     {sipName_GetCornerLabelValue, meth_wxGrid_GetCornerLabelValue, METH_VARARGS, doc_wxGrid_GetCornerLabelValue},
     {sipName_GetDefaultBorder, meth_wxGrid_GetDefaultBorder, METH_VARARGS, doc_wxGrid_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxGrid_GetDefaultBorderForControl, METH_VARARGS, doc_wxGrid_GetDefaultBorderForControl},
     {sipName_GetDefaultCellAlignment, SIP_MLMETH_CAST(meth_wxGrid_GetDefaultCellAlignment), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_GetDefaultCellAlignment},
     {sipName_GetDefaultCellBackgroundColour, meth_wxGrid_GetDefaultCellBackgroundColour, METH_VARARGS, doc_wxGrid_GetDefaultCellBackgroundColour},
     {sipName_GetDefaultCellFitMode, meth_wxGrid_GetDefaultCellFitMode, METH_VARARGS, doc_wxGrid_GetDefaultCellFitMode},
@@ -14998,8 +15543,10 @@ static PyMethodDef methods_wxGrid[] = {
     {sipName_GetFirstFullyVisibleColumn, meth_wxGrid_GetFirstFullyVisibleColumn, METH_VARARGS, doc_wxGrid_GetFirstFullyVisibleColumn},
     {sipName_GetFirstFullyVisibleRow, meth_wxGrid_GetFirstFullyVisibleRow, METH_VARARGS, doc_wxGrid_GetFirstFullyVisibleRow},
     {sipName_GetFrozenColGridWindow, meth_wxGrid_GetFrozenColGridWindow, METH_VARARGS, doc_wxGrid_GetFrozenColGridWindow},
+    {sipName_GetFrozenColLabelWindow, meth_wxGrid_GetFrozenColLabelWindow, METH_VARARGS, doc_wxGrid_GetFrozenColLabelWindow},
     {sipName_GetFrozenCornerGridWindow, meth_wxGrid_GetFrozenCornerGridWindow, METH_VARARGS, doc_wxGrid_GetFrozenCornerGridWindow},
     {sipName_GetFrozenRowGridWindow, meth_wxGrid_GetFrozenRowGridWindow, METH_VARARGS, doc_wxGrid_GetFrozenRowGridWindow},
+    {sipName_GetFrozenRowLabelWindow, meth_wxGrid_GetFrozenRowLabelWindow, METH_VARARGS, doc_wxGrid_GetFrozenRowLabelWindow},
     {sipName_GetGridColHeader, meth_wxGrid_GetGridColHeader, METH_VARARGS, doc_wxGrid_GetGridColHeader},
     {sipName_GetGridColLabelWindow, meth_wxGrid_GetGridColLabelWindow, METH_VARARGS, doc_wxGrid_GetGridColLabelWindow},
     {sipName_GetGridCornerLabelWindow, meth_wxGrid_GetGridCornerLabelWindow, METH_VARARGS, doc_wxGrid_GetGridCornerLabelWindow},
@@ -15183,6 +15730,7 @@ static PyMethodDef methods_wxGrid[] = {
     {sipName_TryBefore, SIP_MLMETH_CAST(meth_wxGrid_TryBefore), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_TryBefore},
     {sipName_UnsetSortingColumn, meth_wxGrid_UnsetSortingColumn, METH_VARARGS, doc_wxGrid_UnsetSortingColumn},
     {sipName_UseNativeColHeader, SIP_MLMETH_CAST(meth_wxGrid_UseNativeColHeader), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_UseNativeColHeader},
+    {sipName_UsesOverlaySelection, meth_wxGrid_UsesOverlaySelection, METH_VARARGS, doc_wxGrid_UsesOverlaySelection},
     {sipName_Validate, meth_wxGrid_Validate, METH_VARARGS, doc_wxGrid_Validate},
     {sipName_XToCol, SIP_MLMETH_CAST(meth_wxGrid_XToCol), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_XToCol},
     {sipName_XToEdgeOfCol, SIP_MLMETH_CAST(meth_wxGrid_XToEdgeOfCol), METH_VARARGS|METH_KEYWORDS, doc_wxGrid_XToEdgeOfCol},
@@ -15207,66 +15755,68 @@ static sipEnumMemberDef enummembers_wxGrid[] = {
 };
 
 sipVariableDef variables_wxGrid[] = {
-    {PropertyVariable, sipName_SortingColumn, &methods_wxGrid[193], &methods_wxGrid[317], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelectionMode, &methods_wxGrid[191], &methods_wxGrid[316], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelectionForeground, &methods_wxGrid[190], &methods_wxGrid[315], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelectionBlockTopLeft, &methods_wxGrid[189], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelectionBlockBottomRight, &methods_wxGrid[188], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelectionBackground, &methods_wxGrid[187], &methods_wxGrid[314], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelectedRows, &methods_wxGrid[186], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelectedRowBlocks, &methods_wxGrid[185], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelectedCols, &methods_wxGrid[184], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelectedColBlocks, &methods_wxGrid[183], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelectedCells, &methods_wxGrid[182], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelectedBlocks, &methods_wxGrid[181], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ScrollLineY, &methods_wxGrid[180], &methods_wxGrid[313], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ScrollLineX, &methods_wxGrid[179], &methods_wxGrid[312], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_RowSizes, &methods_wxGrid[178], &methods_wxGrid[310], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_RowMinimalAcceptableHeight, &methods_wxGrid[174], &methods_wxGrid[306], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_RowLabelSize, &methods_wxGrid[172], &methods_wxGrid[304], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_NumberRows, &methods_wxGrid[166], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_NumberFrozenRows, &methods_wxGrid[165], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_NumberFrozenCols, &methods_wxGrid[164], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_NumberCols, &methods_wxGrid[163], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_LabelTextColour, &methods_wxGrid[161], &methods_wxGrid[299], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_LabelFont, &methods_wxGrid[160], &methods_wxGrid[298], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_LabelBackgroundColour, &methods_wxGrid[159], &methods_wxGrid[297], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_GridWindow, &methods_wxGrid[157], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_GridRowLabelWindow, &methods_wxGrid[156], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_GridLineColour, &methods_wxGrid[155], &methods_wxGrid[296], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_GridCursorRow, &methods_wxGrid[154], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_GridCursorCoords, &methods_wxGrid[153], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_GridCursorCol, &methods_wxGrid[152], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_GridCornerLabelWindow, &methods_wxGrid[151], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_GridColLabelWindow, &methods_wxGrid[150], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_GridColHeader, &methods_wxGrid[149], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_FrozenRowGridWindow, &methods_wxGrid[148], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_FrozenCornerGridWindow, &methods_wxGrid[147], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_FrozenColGridWindow, &methods_wxGrid[146], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_FirstFullyVisibleRow, &methods_wxGrid[145], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_FirstFullyVisibleColumn, &methods_wxGrid[144], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DefaultRowSize, &methods_wxGrid[143], &methods_wxGrid[292], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DefaultRowLabelSize, &methods_wxGrid[142], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DefaultRenderer, &methods_wxGrid[139], &methods_wxGrid[291], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DefaultGridLinePen, &methods_wxGrid[138], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DefaultEditor, &methods_wxGrid[135], &methods_wxGrid[290], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DefaultColSize, &methods_wxGrid[134], &methods_wxGrid[289], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DefaultColLabelSize, &methods_wxGrid[133], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DefaultCellTextColour, &methods_wxGrid[132], &methods_wxGrid[288], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DefaultCellOverflow, &methods_wxGrid[131], &methods_wxGrid[287], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DefaultCellFont, &methods_wxGrid[130], &methods_wxGrid[286], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DefaultCellFitMode, &methods_wxGrid[129], &methods_wxGrid[285], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DefaultCellBackgroundColour, &methods_wxGrid[128], &methods_wxGrid[284], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CornerLabelValue, &methods_wxGrid[124], &methods_wxGrid[282], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CornerLabelTextOrientation, &methods_wxGrid[123], &methods_wxGrid[281], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ColSizes, &methods_wxGrid[121], &methods_wxGrid[278], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ColMinimalAcceptableWidth, &methods_wxGrid[116], &methods_wxGrid[274], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ColLabelTextOrientation, &methods_wxGrid[113], &methods_wxGrid[272], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ColLabelSize, &methods_wxGrid[112], &methods_wxGrid[271], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CellHighlightROPenWidth, &methods_wxGrid[101], &methods_wxGrid[258], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CellHighlightPenWidth, &methods_wxGrid[100], &methods_wxGrid[257], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CellHighlightColour, &methods_wxGrid[99], &methods_wxGrid[256], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_BatchCount, &methods_wxGrid[93], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SortingColumn, &methods_wxGrid[205], &methods_wxGrid[329], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelectionMode, &methods_wxGrid[203], &methods_wxGrid[328], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelectionForeground, &methods_wxGrid[202], &methods_wxGrid[327], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelectionBlockTopLeft, &methods_wxGrid[201], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelectionBlockBottomRight, &methods_wxGrid[200], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelectionBackground, &methods_wxGrid[199], &methods_wxGrid[326], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelectedRows, &methods_wxGrid[198], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelectedRowBlocks, &methods_wxGrid[197], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelectedCols, &methods_wxGrid[196], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelectedColBlocks, &methods_wxGrid[195], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelectedCells, &methods_wxGrid[194], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelectedBlocks, &methods_wxGrid[193], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ScrollLineY, &methods_wxGrid[192], &methods_wxGrid[325], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ScrollLineX, &methods_wxGrid[191], &methods_wxGrid[324], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_RowSizes, &methods_wxGrid[190], &methods_wxGrid[322], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_RowMinimalAcceptableHeight, &methods_wxGrid[186], &methods_wxGrid[318], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_RowLabelSize, &methods_wxGrid[184], &methods_wxGrid[316], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_NumberRows, &methods_wxGrid[178], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_NumberFrozenRows, &methods_wxGrid[177], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_NumberFrozenCols, &methods_wxGrid[176], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_NumberCols, &methods_wxGrid[175], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_LabelTextColour, &methods_wxGrid[173], &methods_wxGrid[311], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_LabelFont, &methods_wxGrid[172], &methods_wxGrid[310], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_LabelBackgroundColour, &methods_wxGrid[171], &methods_wxGrid[309], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_GridWindow, &methods_wxGrid[169], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_GridRowLabelWindow, &methods_wxGrid[168], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_GridLineColour, &methods_wxGrid[167], &methods_wxGrid[308], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_GridCursorRow, &methods_wxGrid[166], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_GridCursorCoords, &methods_wxGrid[165], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_GridCursorCol, &methods_wxGrid[164], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_GridCornerLabelWindow, &methods_wxGrid[163], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_GridColLabelWindow, &methods_wxGrid[162], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_GridColHeader, &methods_wxGrid[161], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_FrozenRowLabelWindow, &methods_wxGrid[160], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_FrozenRowGridWindow, &methods_wxGrid[159], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_FrozenCornerGridWindow, &methods_wxGrid[158], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_FrozenColLabelWindow, &methods_wxGrid[157], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_FrozenColGridWindow, &methods_wxGrid[156], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_FirstFullyVisibleRow, &methods_wxGrid[155], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_FirstFullyVisibleColumn, &methods_wxGrid[154], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DefaultRowSize, &methods_wxGrid[153], &methods_wxGrid[304], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DefaultRowLabelSize, &methods_wxGrid[152], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DefaultRenderer, &methods_wxGrid[149], &methods_wxGrid[303], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DefaultGridLinePen, &methods_wxGrid[148], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DefaultEditor, &methods_wxGrid[145], &methods_wxGrid[302], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DefaultColSize, &methods_wxGrid[144], &methods_wxGrid[301], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DefaultColLabelSize, &methods_wxGrid[143], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DefaultCellTextColour, &methods_wxGrid[142], &methods_wxGrid[300], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DefaultCellOverflow, &methods_wxGrid[141], &methods_wxGrid[299], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DefaultCellFont, &methods_wxGrid[140], &methods_wxGrid[298], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DefaultCellFitMode, &methods_wxGrid[139], &methods_wxGrid[297], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DefaultCellBackgroundColour, &methods_wxGrid[138], &methods_wxGrid[296], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CornerLabelValue, &methods_wxGrid[135], &methods_wxGrid[294], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CornerLabelTextOrientation, &methods_wxGrid[134], &methods_wxGrid[293], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ColSizes, &methods_wxGrid[132], &methods_wxGrid[290], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ColMinimalAcceptableWidth, &methods_wxGrid[127], &methods_wxGrid[286], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ColLabelTextOrientation, &methods_wxGrid[124], &methods_wxGrid[284], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ColLabelSize, &methods_wxGrid[123], &methods_wxGrid[283], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CellHighlightROPenWidth, &methods_wxGrid[112], &methods_wxGrid[270], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CellHighlightPenWidth, &methods_wxGrid[111], &methods_wxGrid[269], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CellHighlightColour, &methods_wxGrid[110], &methods_wxGrid[268], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_BatchCount, &methods_wxGrid[104], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxGrid, "Grid() -> None\n"
@@ -15289,9 +15839,9 @@ sipClassTypeDef sipTypeDef__grid_wxGrid = {
     {
         sipNameNr_Grid,
         {0, 0, 1},
-        339, methods_wxGrid,
+        352, methods_wxGrid,
         11, enummembers_wxGrid,
-        60, variables_wxGrid,
+        62, variables_wxGrid,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxGrid,

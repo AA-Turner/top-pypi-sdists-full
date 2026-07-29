@@ -37,17 +37,22 @@ _SUBMIT_EXAMPLE = """
 import anyscale
 from anyscale.job.models import JobConfig, ConnectionConfig, ConnectionType
 
-# Basic job submission
-anyscale.job.submit(
+# Basic job submission. submit() returns the ID of the submitted job as a string.
+job_id: str = anyscale.job.submit(
     JobConfig(
         name="my-job",
         entrypoint="python main.py",
         working_dir=".",
     ),
 )
+print(job_id)
+# e.g. "prodjob_6ntzknwk1i9b1uw1zk1gp9dbhe"
 
-# Job with Databricks connection for credential injection
-anyscale.job.submit(
+# The returned ID can be passed to other commands, e.g. status / get_logs / terminate.
+status = anyscale.job.status(id=job_id)
+
+# Job with Databricks connection for credential injection.
+job_id = anyscale.job.submit(
     JobConfig(
         name="my-job-with-databricks",
         entrypoint="python main.py",
@@ -83,7 +88,10 @@ _STATUS_EXAMPLE = """
 import anyscale
 from anyscale.job.models import JobStatus
 
+# status() returns a JobStatus describing the job.
 status: JobStatus = anyscale.job.status(name="my-job")
+print(status.id, status.name, status.state)
+# Key fields: id, name, state, runs, config (see the JobStatus model).
 """
 
 _STATUS_ARG_DOCSTRINGS = {
@@ -119,7 +127,9 @@ def status(
 _TERMINATE_EXAMPLE = """
 import anyscale
 
-anyscale.job.terminate(name="my-job")
+# terminate() returns the ID of the terminated job as a string.
+job_id: str = anyscale.job.terminate(name="my-job")
+# e.g. "prodjob_6ntzknwk1i9b1uw1zk1gp9dbhe"
 """
 
 _TERMINATE_ARG_DOCSTRINGS = {
@@ -160,7 +170,9 @@ def terminate(
 _ARCHIVE_EXAMPLE = """
 import anyscale
 
-anyscale.job.archive(name="my-job")
+# archive() returns the ID of the archived job as a string.
+job_id: str = anyscale.job.archive(name="my-job")
+# e.g. "prodjob_6ntzknwk1i9b1uw1zk1gp9dbhe"
 """
 
 _ARCHIVE_ARG_DOCSTRINGS = {
@@ -201,7 +213,9 @@ def archive(
 _DELETE_EXAMPLE = """
 import anyscale
 
-anyscale.job.delete(name="my-job")
+# delete() returns the ID of the deleted job as a string.
+job_id: str = anyscale.job.delete(name="my-job")
+# e.g. "prodjob_6ntzknwk1i9b1uw1zk1gp9dbhe"
 """
 
 _DELETE_ARG_DOCSTRINGS = {
@@ -243,6 +257,8 @@ def delete(
 _WAIT_EXAMPLE = """\
 import anyscale
 
+# wait() blocks until the job reaches the target state (SUCCEEDED by default),
+# or raises a TimeoutError if timeout_s elapses first. It returns no value.
 anyscale.job.wait(name="my-job", timeout_s=180)"""
 
 _WAIT_ARG_DOCSTRINGS = {
@@ -293,7 +309,9 @@ def wait(
 _GET_LOGS_EXAMPLE = """\
 import anyscale
 
-anyscale.job.get_logs(name="my-job", run="job-run-name")
+# get_logs() returns the job logs as a string.
+logs: str = anyscale.job.get_logs(name="my-job", run="job-run-name")
+print(logs)
 """
 
 _GET_LOGS_ARG_DOCSTRINGS = {
@@ -344,6 +362,7 @@ def get_logs(
 _ADD_TAGS_EXAMPLE = """
 import anyscale
 
+# add_tags() returns nothing; it raises an exception on failure.
 anyscale.job.add_tags(job_id="job_123", tags={"team": "mlops", "env": "prod"})
 """
 
@@ -359,6 +378,7 @@ _ADD_TAGS_ARG_DOCSTRINGS = {
 _REMOVE_TAGS_EXAMPLE = """
 import anyscale
 
+# remove_tags() returns nothing; it raises an exception on failure.
 anyscale.job.remove_tags(job_id="job_123", keys=["team", "env"])
 """
 
@@ -429,7 +449,9 @@ def remove_tags(
 _LIST_TAGS_EXAMPLE = """
 import anyscale
 
+# list_tags() returns the job's tags as a key/value dict.
 tags: dict[str, str] = anyscale.job.list_tags(name="my-job")
+print(tags)
 """
 
 _LIST_TAGS_ARG_DOCSTRINGS = {
@@ -470,11 +492,11 @@ _LIST_EXAMPLE = """
 import anyscale
 from anyscale.job.models import JobStatus
 
-# List all jobs
+# list() returns a ResultIterator; each item is a JobStatus.
 for job in anyscale.job.list(max_items=10):
     print(f"{job.name}: {job.state}")
 
-# Filter by project
+# Materialize into a list of JobStatus objects.
 jobs = list(anyscale.job.list(project="my-project"))
 """
 

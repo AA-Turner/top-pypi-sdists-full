@@ -1,28 +1,55 @@
+import subprocess
+import sys
+from types import ModuleType
 from typing import Any
 
+import mcp_types
+import mcp_types.jsonrpc
+import mcp_types.methods
+import mcp_types.version
 import pytest
-
-from mcp.types import (
+from inline_snapshot import snapshot
+from mcp_types import (
     LATEST_PROTOCOL_VERSION,
+    CallToolResult,
     ClientCapabilities,
-    ClientRequest,
+    CompleteResult,
+    Completion,
     CreateMessageRequestParams,
     CreateMessageResult,
     CreateMessageResultWithTools,
+    DiscoverResult,
+    EmptyResult,
+    GetPromptResult,
     Implementation,
     InitializeRequest,
     InitializeRequestParams,
-    JSONRPCMessage,
+    InputRequiredResult,
     JSONRPCRequest,
+    ListPromptsResult,
+    ListResourcesResult,
+    ListResourceTemplatesResult,
     ListToolsResult,
+    ReadResourceResult,
+    Result,
     SamplingCapability,
     SamplingMessage,
+    ServerCapabilities,
     TextContent,
     Tool,
     ToolChoice,
     ToolResultContent,
     ToolUseContent,
+    client_request_adapter,
+    jsonrpc_message_adapter,
 )
+from pydantic import ValidationError
+
+import mcp
+import mcp.types
+import mcp.types.jsonrpc
+import mcp.types.methods
+import mcp.types.version
 
 
 @pytest.mark.anyio
@@ -38,28 +65,27 @@ async def test_jsonrpc_request():
         },
     }
 
-    request = JSONRPCMessage.model_validate(json_data)
-    assert isinstance(request.root, JSONRPCRequest)
-    ClientRequest.model_validate(request.model_dump(by_alias=True, exclude_none=True))
+    request = jsonrpc_message_adapter.validate_python(json_data)
+    assert isinstance(request, JSONRPCRequest)
+    client_request_adapter.validate_python(request.model_dump(by_alias=True, exclude_none=True))
 
-    assert request.root.jsonrpc == "2.0"
-    assert request.root.id == 1
-    assert request.root.method == "initialize"
-    assert request.root.params is not None
-    assert request.root.params["protocolVersion"] == LATEST_PROTOCOL_VERSION
+    assert request.jsonrpc == "2.0"
+    assert request.id == 1
+    assert request.method == "initialize"
+    assert request.params is not None
+    assert request.params["protocolVersion"] == LATEST_PROTOCOL_VERSION
 
 
 @pytest.mark.anyio
 async def test_method_initialization():
-    """
-    Test that the method is automatically set on object creation.
+    """Test that the method is automatically set on object creation.
     Testing just for InitializeRequest to keep the test simple, but should be set for other types as well.
     """
     initialize_request = InitializeRequest(
         params=InitializeRequestParams(
-            protocolVersion=LATEST_PROTOCOL_VERSION,
+            protocol_version=LATEST_PROTOCOL_VERSION,
             capabilities=ClientCapabilities(),
-            clientInfo=Implementation(
+            client_info=Implementation(
                 name="mcp",
                 version="0.1.0",
             ),
@@ -68,7 +94,7 @@ async def test_method_initialization():
 
     assert initialize_request.method == "initialize", "method should be set to 'initialize'"
     assert initialize_request.params is not None
-    assert initialize_request.params.protocolVersion == LATEST_PROTOCOL_VERSION
+    assert initialize_request.params.protocol_version == LATEST_PROTOCOL_VERSION
 
 
 @pytest.mark.anyio
@@ -105,9 +131,9 @@ async def test_tool_result_content():
 
     tool_result = ToolResultContent.model_validate(tool_result_data)
     assert tool_result.type == "tool_result"
-    assert tool_result.toolUseId == "call_abc123"
+    assert tool_result.tool_use_id == "call_abc123"
     assert len(tool_result.content) == 1
-    assert tool_result.isError is False
+    assert tool_result.is_error is False
 
     # Test with empty content (should default to [])
     minimal_result_data = {"type": "tool_result", "toolUseId": "call_xyz"}
@@ -221,21 +247,21 @@ async def test_create_message_request_params_with_tools():
     tool = Tool(
         name="get_weather",
         description="Get weather information",
-        inputSchema={"type": "object", "properties": {"location": {"type": "string"}}},
+        input_schema={"type": "object", "properties": {"location": {"type": "string"}}},
     )
 
     params = CreateMessageRequestParams(
         messages=[SamplingMessage(role="user", content=TextContent(type="text", text="What's the weather?"))],
-        maxTokens=1000,
+        max_tokens=1000,
         tools=[tool],
-        toolChoice=ToolChoice(mode="auto"),
+        tool_choice=ToolChoice(mode="auto"),
     )
 
     assert params.tools is not None
     assert len(params.tools) == 1
     assert params.tools[0].name == "get_weather"
-    assert params.toolChoice is not None
-    assert params.toolChoice.mode == "auto"
+    assert params.tool_choice is not None
+    assert params.tool_choice.mode == "auto"
 
 
 @pytest.mark.anyio
@@ -252,7 +278,7 @@ async def test_create_message_result_with_tool_use():
     result = CreateMessageResultWithTools.model_validate(result_data)
     assert result.role == "assistant"
     assert isinstance(result.content, ToolUseContent)
-    assert result.stopReason == "toolUse"
+    assert result.stop_reason == "toolUse"
     assert result.model == "claude-3"
 
     # Test content_as_list with single content (covers else branch)
@@ -276,7 +302,7 @@ async def test_create_message_result_basic():
     assert result.role == "assistant"
     assert isinstance(result.content, TextContent)
     assert result.content.text == "Hello!"
-    assert result.stopReason == "endTurn"
+    assert result.stop_reason == "endTurn"
     assert result.model == "claude-3"
 
 
@@ -322,13 +348,13 @@ def test_tool_preserves_json_schema_2020_12_fields():
         "additionalProperties": False,
     }
 
-    tool = Tool(name="test_tool", description="A test tool", inputSchema=input_schema)
+    tool = Tool(name="test_tool", description="A test tool", input_schema=input_schema)
 
     # Verify fields are preserved in the model
-    assert tool.inputSchema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-    assert "$defs" in tool.inputSchema
-    assert "address" in tool.inputSchema["$defs"]
-    assert tool.inputSchema["additionalProperties"] is False
+    assert tool.input_schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+    assert "$defs" in tool.input_schema
+    assert "address" in tool.input_schema["$defs"]
+    assert tool.input_schema["additionalProperties"] is False
 
     # Verify fields survive serialization round-trip
     serialized = tool.model_dump(mode="json", by_alias=True)
@@ -358,6 +384,122 @@ def test_list_tools_result_preserves_json_schema_2020_12_fields():
     result = ListToolsResult.model_validate(raw_response)
     tool = result.tools[0]
 
-    assert tool.inputSchema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-    assert "$defs" in tool.inputSchema
-    assert tool.inputSchema["additionalProperties"] is False
+    assert tool.input_schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+    assert "$defs" in tool.input_schema
+    assert tool.input_schema["additionalProperties"] is False
+
+
+def _wire_dump(result: Result) -> dict[str, Any]:
+    return result.model_dump(by_alias=True, mode="json", exclude_none=True)
+
+
+def test_concrete_wire_results_always_dump_result_type_complete():
+    """Required by 2026-07-28; the runner's per-version sieve drops it for older peers."""
+    carriers: list[Result] = [
+        CompleteResult(completion=Completion(values=[])),
+        GetPromptResult(messages=[]),
+        CallToolResult(content=[]),
+        ReadResourceResult(contents=[]),
+        ListPromptsResult(prompts=[]),
+        ListResourcesResult(resources=[]),
+        ListResourceTemplatesResult(resource_templates=[]),
+        ListToolsResult(tools=[]),
+        DiscoverResult(
+            supported_versions=["2026-07-28"],
+            capabilities=ServerCapabilities(),
+        ),
+    ]
+    for result in carriers:
+        assert _wire_dump(result)["resultType"] == "complete", type(result).__name__
+
+
+def test_cacheable_results_default_to_immediately_stale_private():
+    """`ttl_ms`/`cache_scope` default to 0/"private" so list-results validate at
+    2026-07-28 without the handler setting them, and never accidentally enable
+    shared caching."""
+    cacheable: list[Result] = [
+        ReadResourceResult(contents=[]),
+        ListPromptsResult(prompts=[]),
+        ListResourceTemplatesResult(resource_templates=[]),
+        ListResourcesResult(resources=[]),
+        ListToolsResult(tools=[]),
+        DiscoverResult(
+            supported_versions=["2026-07-28"],
+            capabilities=ServerCapabilities(),
+        ),
+    ]
+    for result in cacheable:
+        dumped = _wire_dump(result)
+        assert dumped["ttlMs"] == 0, type(result).__name__
+        assert dumped["cacheScope"] == "private", type(result).__name__
+    explicit = _wire_dump(ListToolsResult(tools=[], ttl_ms=5, cache_scope="public"))
+    assert explicit["ttlMs"] == 5
+    assert explicit["cacheScope"] == "public"
+
+
+def test_empty_result_dumps_no_fields_by_default():
+    """Deployed peers reject extra keys on empty results, so resultType is never volunteered."""
+    assert _wire_dump(EmptyResult()) == snapshot({})
+
+
+def test_empty_result_dumps_result_type_only_when_explicitly_tagged():
+    assert _wire_dump(EmptyResult(result_type="complete")) == snapshot({"resultType": "complete"})
+
+
+def test_input_required_result_dumps_its_discriminating_tag():
+    assert _wire_dump(InputRequiredResult(request_state="s")) == snapshot(
+        {"resultType": "input_required", "requestState": "s"}
+    )
+
+
+def test_input_required_result_requires_at_least_one_of_input_requests_or_request_state():
+    with pytest.raises(ValidationError):
+        InputRequiredResult()
+    with pytest.raises(ValidationError):
+        InputRequiredResult(input_requests={})
+    assert InputRequiredResult(request_state="s").input_requests is None
+
+
+def _assert_mirrors(mirror: ModuleType, source: ModuleType) -> None:
+    # The mirror shares the source's `__all__` list object by construction (`from source import
+    # __all__`), so the meaningful proof is that every exported name is the identical object.
+    assert all(getattr(mirror, name) is getattr(source, name) for name in source.__all__)
+
+
+def test_mcp_types_namespace_mirrors_mcp_types_exactly():
+    """SDK-defined: `mcp.types` is a permanent alias whose every name is the `mcp_types` object."""
+    _assert_mirrors(mcp.types, mcp_types)
+
+
+@pytest.mark.parametrize(
+    ("mirror", "source"),
+    [
+        (mcp.types.jsonrpc, mcp_types.jsonrpc),
+        (mcp.types.methods, mcp_types.methods),
+        (mcp.types.version, mcp_types.version),
+    ],
+    ids=["jsonrpc", "methods", "version"],
+)
+def test_mcp_types_submodules_mirror_mcp_types_submodules_exactly(mirror: ModuleType, source: ModuleType):
+    """SDK-defined: every supported `mcp_types` submodule has an `mcp.types` mirror, name for name."""
+    _assert_mirrors(mirror, source)
+
+
+def test_bare_import_mcp_binds_the_types_submodule():
+    """SDK-defined: `import mcp` alone binds `mcp.types`, so v1's `mcp.types.Tool` idiom works.
+
+    A fresh interpreter is required to observe `import mcp` in isolation: this test process
+    has already imported `mcp.types`, and reloading `mcp` here would rebind classes that other
+    tests hold references to.
+    """
+    # A regression hangs forever, so the bound only has to beat never (matches the suite's
+    # other subprocess.run calls).
+    result = subprocess.run(
+        [sys.executable, "-c", "import mcp; print(mcp.types.Tool.__name__)"],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=20,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == snapshot("Tool\n")

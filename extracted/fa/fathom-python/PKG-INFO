@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fathom-python
-Version: 0.0.42
+Version: 0.0.43
 Summary: Fathom's official Python SDK.
 Author: Speakeasy
 Requires-Python: >=3.9.2
@@ -233,6 +233,8 @@ with Fathom(
 * [list_meetings](docs/sdks/fathom/README.md#list_meetings) - List meetings
 * [get_recording_summary](docs/sdks/fathom/README.md#get_recording_summary) - Get summary
 * [get_recording_transcript](docs/sdks/fathom/README.md#get_recording_transcript) - Get transcript
+* [create_recording_download](docs/sdks/fathom/README.md#create_recording_download) - Request a download
+* [get_recording_download](docs/sdks/fathom/README.md#get_recording_download) - Get download status
 * [list_teams](docs/sdks/fathom/README.md#list_teams) - List teams
 * [list_team_members](docs/sdks/fathom/README.md#list_team_members) - List team members
 * [list_users](docs/sdks/fathom/README.md#list_users) - List users and their permissions

@@ -2,7 +2,6 @@
 // Name:        wx/msw/uxtheme.h
 // Purpose:     wxUxThemeEngine class: support for XP themes
 // Author:      John Platts, Vadim Zeitlin
-// Modified by:
 // Created:     2003
 // Copyright:   (c) 2003 John Platts, Vadim Zeitlin
 // Licence:     wxWindows licence
@@ -12,8 +11,6 @@
 #define _WX_UXTHEME_H_
 
 #include "wx/defs.h"
-
-#if wxUSE_UXTHEME
 
 #include "wx/msw/private.h"     // we use GetHwndOf()
 #include <uxtheme.h>
@@ -160,88 +157,144 @@ enum POPUPCHECKSTATES
 // End definitions for legacy Windows SDKs
 // ----------------------------------------------------------------------------
 
-// Amazingly, GetThemeFont() and GetThemeSysFont() functions use LOGFONTA under
-// XP but LOGFONTW (even in non-Unicode build) under later versions of Windows.
-// If we declare them as taking LOGFONT below, the code would be able to
-// silently pass LOGFONTA to them in ANSI build and would crash at run-time
-// under Windows Vista/7 because of a buffer overrun (LOGFONTA being smaller
-// than LOGFONTW expected by these functions). If we declare them as taking
-// LOGFONTW, the code wouldn't work correctly under XP. So we use a special
-// wxUxThemeFont class to encapsulate this and intentionally change the LOGFONT
-// output parameters of the theme functions to take it instead.
-
-class wxUxThemeFont
-{
-public:
-    // Trivial default ctor.
-    wxUxThemeFont() { }
-
-#if wxUSE_UNICODE
-    // In Unicode build we always use LOGFONT anyhow so this class is
-    // completely trivial.
-    LPLOGFONTW GetPtr() { return &m_lfW; }
-    const LOGFONTW& GetLOGFONT() { return m_lfW; }
-#else // !wxUSE_UNICODE
-    // Return either LOGFONTA or LOGFONTW pointer as required by the current
-    // Windows version.
-    LPLOGFONTW GetPtr()
-    {
-        return UseLOGFONTW() ? &m_lfW
-                             : reinterpret_cast<LPLOGFONTW>(&m_lfA);
-    }
-
-    // This method returns LOGFONT (i.e. LOGFONTA in ANSI build and LOGFONTW in
-    // Unicode one) which can be used with other, normal, Windows or wx
-    // functions. Internally it may need to transform LOGFONTW to LOGFONTA.
-    const LOGFONTA& GetLOGFONT()
-    {
-        if ( UseLOGFONTW() )
-        {
-            // Most of the fields are the same in LOGFONTA and LOGFONTW so just
-            // copy everything by default.
-            memcpy(&m_lfA, &m_lfW, sizeof(m_lfA));
-
-            // But the face name must be converted from Unicode.
-            WideCharToMultiByte(CP_ACP, 0, m_lfW.lfFaceName, -1,
-                                m_lfA.lfFaceName, sizeof(m_lfA.lfFaceName),
-                                NULL, NULL);
-        }
-
-        return m_lfA;
-    }
-
-private:
-    static bool UseLOGFONTW()
-    {
-        return wxGetWinVersion() >= wxWinVersion_Vista;
-    }
-
-    LOGFONTA m_lfA;
-#endif // wxUSE_UNICODE/!wxUSE_UNICODE
-
-private:
-    LOGFONTW m_lfW;
-
-    wxDECLARE_NO_COPY_CLASS(wxUxThemeFont);
-};
-
 WXDLLIMPEXP_CORE bool wxUxThemeIsActive();
 
 // ----------------------------------------------------------------------------
 // wxUxThemeHandle: encapsulates ::Open/CloseThemeData()
 // ----------------------------------------------------------------------------
 
-class wxUxThemeHandle
+class WXDLLIMPEXP_CORE wxUxThemeHandle
 {
 public:
-    wxUxThemeHandle(const wxWindow *win, const wchar_t *classes)
+    // For all factory functions, HWND doesn't need to be valid and may be
+    // entirely omitted when using NewAtStdDPI(). However DPI must be valid if
+    // it's specified, i.e. NewForStdDPI() can be used if the DPI doesn't
+    // matter at all (which is the case if the theme is only used to query some
+    // colours, for example), but otherwise (e.g. when using the theme to get
+    // any metrics) the actual DPI of the window must be passed to NewForDPI().
+    static wxUxThemeHandle
+    NewAtDPI(HWND hwnd,
+             const wchar_t *classes,
+             const wchar_t *classesDark,
+             int dpi)
     {
-        m_hTheme = (HTHEME)::OpenThemeData(GetHwndOf(win), classes);
+        return wxUxThemeHandle(hwnd, classes, classesDark, dpi);
+    }
+
+    static wxUxThemeHandle
+    NewAtDPI(HWND hwnd,
+             const wchar_t *classes,
+             int dpi)
+    {
+        return NewAtDPI(hwnd, classes, nullptr, dpi);
+    }
+
+    static wxUxThemeHandle
+    NewAtStdDPI(HWND hwnd,
+                const wchar_t *classes,
+                const wchar_t *classesDark = nullptr)
+    {
+        return NewAtDPI(hwnd, classes, classesDark, STD_DPI);
+    }
+
+    static wxUxThemeHandle
+    NewAtStdDPI(const wchar_t *classes,
+                const wchar_t *classesDark = nullptr)
+    {
+        return NewAtStdDPI(0, classes, classesDark);
+    }
+
+    // Default ctor, use move assignment to really initialize this object later.
+    wxUxThemeHandle() = default;
+
+    // wxWindow pointer here must be valid and its DPI is always used.
+    // If classesDark is non-nullptr and the dark mode is active, it's used
+    // instead of classes.
+    //
+    // Prefer using factory functions above instead of this ctor for clarity.
+    wxUxThemeHandle(const wxWindowMSW* win,
+                    const wchar_t* classes,
+                    const wchar_t* classesDark = nullptr);
+
+    wxUxThemeHandle(wxUxThemeHandle&& other)
+        : m_hTheme{other.m_hTheme}
+    {
+        other.m_hTheme = 0;
+    }
+
+    wxUxThemeHandle& operator=(wxUxThemeHandle&& other)
+    {
+        Free();
+        m_hTheme = other.m_hTheme;
+        other.m_hTheme = 0;
+
+        return *this;
     }
 
     operator HTHEME() const { return m_hTheme; }
 
     ~wxUxThemeHandle()
+    {
+        Free();
+    }
+
+    // Return the colour for the given part, property and state.
+    //
+    // Note that the order of arguments here is _not_ the same as for
+    // GetThemeColor() because we want to default the state.
+    wxColour GetColour(int part, int prop, int state = 0) const;
+
+    // Return the size of a theme element, either "as is" (TS_TRUE size) or as
+    // it would be used for drawing (TS_DRAW size).
+    //
+    // For now we don't allow specifying the rectangle as it doesn't seem to be
+    // useful.
+    wxSize GetTrueSize(int part, int state = 0, HDC hdc = 0) const
+    {
+        return DoGetSize(hdc, part, state, TS_TRUE);
+    }
+
+    wxSize GetDrawSize(int part, int state = 0, HDC hdc = 0) const
+    {
+        return DoGetSize(hdc, part, state, TS_DRAW);
+    }
+
+    // Get the margins of a theme element in the output parameter.
+    //
+    // The output parameter is not modified if the function fails, so it can be
+    // initialized with some default values before calling this function.
+    bool
+    GetMargins(MARGINS& margins,
+               int part, int prop, int state = 0, HDC hdc = 0) const;
+
+    // Get the font of a theme element.
+    bool GetFont(LOGFONTW& lf, HDC hdc, int part, int state = 0) const;
+
+
+    // Draw theme background: if the caller already has a RECT, it can be
+    // provided directly, otherwise wxRect is converted to it.
+    void DrawBackground(HDC hdc, const RECT& rc, int part, int state = 0,
+                        const RECT* rcClip = nullptr);
+    void DrawBackground(HDC hdc, const wxRect& rect, int part, int state = 0);
+
+private:
+    static const int STD_DPI = 96;
+
+    static HTHEME
+    DoOpenThemeData(HWND hwnd,
+                    const wchar_t *classes,
+                    const wchar_t *classesDark,
+                    int dpi);
+
+    wxUxThemeHandle(HWND hwnd,
+                    const wchar_t *classes,
+                    const wchar_t* classesDark,
+                    int dpi)
+        : m_hTheme{DoOpenThemeData(hwnd, classes, classesDark, dpi)}
+    {
+    }
+
+    void Free()
     {
         if ( m_hTheme )
         {
@@ -249,17 +302,13 @@ public:
         }
     }
 
-private:
-    HTHEME m_hTheme;
+    wxSize DoGetSize(HDC hdc, int part, int state, THEMESIZE ts) const;
+
+
+    HTHEME m_hTheme = 0;
 
     wxDECLARE_NO_COPY_CLASS(wxUxThemeHandle);
 };
-
-#else // !wxUSE_UXTHEME
-
-inline bool wxUxThemeIsActive() { return false; }
-
-#endif // wxUSE_UXTHEME/!wxUSE_UXTHEME
 
 #endif // _WX_UXTHEME_H_
 

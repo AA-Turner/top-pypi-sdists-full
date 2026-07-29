@@ -140,8 +140,8 @@ class RibbonControl(wx.Control):
         """
         GetAncestorRibbonBar() -> RibbonBar
         
-        Get the first ancestor which is a wxRibbonBar (or derived) or NULL if
-        not having such parent.
+        Get the first ancestor which is a wxRibbonBar (or derived) or nullptr
+        if not having such parent.
         """
 
     def GetBestSizeForParentSize(self, parentSize: wx.Size) -> wx.Size:
@@ -149,6 +149,11 @@ class RibbonControl(wx.Control):
         GetBestSizeForParentSize(parentSize) -> wx.Size
         
         Finds the best width and height given the parent's width and height.
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
         """
 
     @staticmethod
@@ -184,27 +189,27 @@ class RibbonControl(wx.Control):
 class RibbonPage(RibbonControl):
     """
     RibbonPage() -> None
-    RibbonPage(parent, id=wx.ID_ANY, label='', icon=wx.NullBitmap, style=0) -> None
+    RibbonPage(parent, id=wx.ID_ANY, label='', icon=wx.BitmapBundle(), style=0) -> None
     
     Container for related ribbon panels, and a tab within a ribbon bar.
     """
 
     @overload
-    def __init__(self, parent: RibbonBar, id: int=wx.ID_ANY, label: str='', icon: wx.Bitmap=wx.NullBitmap, style: int=0) -> None:
+    def __init__(self, parent: RibbonBar, id: int=wx.ID_ANY, label: str='', icon: wx.BitmapBundle=wx.BitmapBundle(), style: int=0) -> None:
         ...
 
     @overload
     def __init__(self) -> None:
         """
         RibbonPage() -> None
-        RibbonPage(parent, id=wx.ID_ANY, label='', icon=wx.NullBitmap, style=0) -> None
+        RibbonPage(parent, id=wx.ID_ANY, label='', icon=wx.BitmapBundle(), style=0) -> None
         
         Container for related ribbon panels, and a tab within a ribbon bar.
         """
 
-    def Create(self, parent: RibbonBar, id: int=wx.ID_ANY, label: str='', icon: wx.Bitmap=wx.NullBitmap, style: int=0) -> bool:
+    def Create(self, parent: RibbonBar, id: int=wx.ID_ANY, label: str='', icon: wx.BitmapBundle=wx.BitmapBundle(), style: int=0) -> bool:
         """
-        Create(parent, id=wx.ID_ANY, label='', icon=wx.NullBitmap, style=0) -> bool
+        Create(parent, id=wx.ID_ANY, label='', icon=wx.BitmapBundle(), style=0) -> bool
         
         Create a ribbon page in two-step ribbon page construction.
         """
@@ -221,6 +226,14 @@ class RibbonPage(RibbonControl):
         GetIcon() -> wx.Bitmap
         
         Get the icon used for the page in the ribbon bar tab area (only
+        displayed if the ribbon bar is actually showing icons).
+        """
+
+    def GetIconBundle(self) -> wx.BitmapBundle:
+        """
+        GetIconBundle() -> wx.BitmapBundle
+        
+        Get the icon bundle used for the page in the ribbon bar tab area (only
         displayed if the ribbon bar is actually showing icons).
         """
 
@@ -281,6 +294,32 @@ class RibbonPage(RibbonControl):
         Get the direction in which ribbon panels are stacked within the page.
         """
 
+    def GetPanel(self, n: int) -> RibbonPanel:
+        """
+        GetPanel(n) -> RibbonPanel
+        
+        Get a panel by index.
+        """
+
+    def GetPanelById(self, id: int) -> RibbonPanel:
+        """
+        GetPanelById(id) -> RibbonPanel
+        
+        Get a panel by window ID.
+        """
+
+    def GetPanelCount(self) -> int:
+        """
+        GetPanelCount() -> int
+        
+        Get the number of panels in this page.
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
@@ -289,7 +328,11 @@ class RibbonPage(RibbonControl):
     @property
     def Icon(self) -> wx.Bitmap: ...
     @property
+    def IconBundle(self) -> wx.BitmapBundle: ...
+    @property
     def MajorAxis(self) -> wx.Orientation: ...
+    @property
+    def PanelCount(self) -> int: ...
 # end of class RibbonPage
 
 #-- end-ribbon_page --#
@@ -345,6 +388,14 @@ class RibbonPanel(RibbonControl):
         
         Get the bitmap to be used in place of the panel children when it is
         minimised.
+        """
+
+    def GetMinimisedIconBundle(self) -> wx.BitmapBundle:
+        """
+        GetMinimisedIconBundle() -> wx.BitmapBundle
+        
+        Get the bitmap bundle defining the bitmap to be used in place of the
+        panel children when it is minimised.
         """
 
     def HasExtButton(self) -> bool:
@@ -430,6 +481,11 @@ class RibbonPanel(RibbonControl):
         Get the expanded panel of a dummy panel.
         """
 
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
@@ -441,19 +497,21 @@ class RibbonPanel(RibbonControl):
     def ExpandedPanel(self) -> RibbonPanel: ...
     @property
     def MinimisedIcon(self) -> wx.Bitmap: ...
+    @property
+    def MinimisedIconBundle(self) -> wx.BitmapBundle: ...
 # end of class RibbonPanel
 
 
 class RibbonPanelEvent(wx.CommandEvent):
     """
-    RibbonPanelEvent(command_type=wx.wxEVT_NULL, win_id=0, panel=None) -> None
+    RibbonPanelEvent(command_type=wx.wxEVT_NULL, win_id=0, panel=nullptr) -> None
     
     Event used to indicate various actions relating to a wxRibbonPanel.
     """
 
-    def __init__(self, command_type: EventType=wx.wxEVT_NULL, win_id: int=0, panel: Optional[RibbonPanel]=None) -> None:
+    def __init__(self, command_type: EventType=wx.wxEVT_NULL, win_id: int=0, panel: RibbonPanel=nullptr) -> None:
         """
-        RibbonPanelEvent(command_type=wx.wxEVT_NULL, win_id=0, panel=None) -> None
+        RibbonPanelEvent(command_type=wx.wxEVT_NULL, win_id=0, panel=nullptr) -> None
         
         Event used to indicate various actions relating to a wxRibbonPanel.
         """
@@ -527,14 +585,14 @@ wxEVT_RIBBONBAR_HELP_CLICK: int
 
 class RibbonBarEvent(wx.NotifyEvent):
     """
-    RibbonBarEvent(command_type=wx.wxEVT_NULL, win_id=0, page=None) -> None
+    RibbonBarEvent(command_type=wx.wxEVT_NULL, win_id=0, page=nullptr) -> None
     
     Event used to indicate various actions relating to a wxRibbonBar.
     """
 
-    def __init__(self, command_type: EventType=wx.wxEVT_NULL, win_id: int=0, page: Optional[RibbonPage]=None) -> None:
+    def __init__(self, command_type: EventType=wx.wxEVT_NULL, win_id: int=0, page: RibbonPage=nullptr) -> None:
         """
-        RibbonBarEvent(command_type=wx.wxEVT_NULL, win_id=0, page=None) -> None
+        RibbonBarEvent(command_type=wx.wxEVT_NULL, win_id=0, page=nullptr) -> None
         
         Event used to indicate various actions relating to a wxRibbonBar.
         """
@@ -644,6 +702,13 @@ class RibbonBar(RibbonControl):
         GetPage(n) -> RibbonPage
         
         Get a page by index.
+        """
+
+    def GetPageById(self, id: int) -> RibbonPage:
+        """
+        GetPageById(id) -> RibbonPage
+        
+        Get a page by window ID.
         """
 
     def GetPageCount(self) -> int:
@@ -759,12 +824,39 @@ class RibbonBar(RibbonControl):
         Returns the current display mode of the panel area.
         """
 
+    def HasMultiplePages(self) -> bool:
+        """
+        HasMultiplePages() -> bool
+        
+        Returns whether the bar contains multiple pages.
+        """
+
+    def HideIfExpanded(self) -> None:
+        """
+        HideIfExpanded() -> None
+        
+        Hide the panels if its display mode is wxRIBBON_BAR_EXPANDED.
+        """
+
+    def GetButtonImageList(self, size: wx.Size, initialCount: int=1) -> wx.ImageList:
+        """
+        GetButtonImageList(size, initialCount=1) -> wx.ImageList
+        
+        Return the image list containing images of the given size, creating it
+        if necessary.
+        """
+
     def Realize(self) -> bool:
         """
         Realize() -> bool
         
         Perform initial layout and size calculations of the bar and its
         children.
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
         """
 
     @staticmethod
@@ -1155,6 +1247,14 @@ class RibbonArtProvider:
         Set all applicable colour settings from a few base colours.
         """
 
+    def UpdateColoursFromSystem(self) -> None:
+        """
+        UpdateColoursFromSystem() -> None
+        
+        Called when the system colours change to allow the art provider to
+        update its colours.
+        """
+
     def DrawTabCtrlBackground(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect) -> None:
         """
         DrawTabCtrlBackground(dc, wnd, rect) -> None
@@ -1267,7 +1367,7 @@ class RibbonArtProvider:
         Draw help button on wxRibbonBar.
         """
 
-    def GetBarTabWidth(self, dc: wx.DC, wnd: wx.Window, label: str, bitmap: wx.Bitmap, ideal: int, small_begin_need_separator: int, small_must_have_separator: int, minimum: int) -> None:
+    def GetBarTabWidth(self, dc: wx.ReadOnlyDC, wnd: wx.Window, label: str, bitmap: wx.Bitmap, ideal: int, small_begin_need_separator: int, small_must_have_separator: int, minimum: int) -> None:
         """
         GetBarTabWidth(dc, wnd, label, bitmap, ideal, small_begin_need_separator, small_must_have_separator, minimum) -> None
         
@@ -1275,42 +1375,42 @@ class RibbonArtProvider:
         bar.
         """
 
-    def GetTabCtrlHeight(self, dc: wx.DC, wnd: wx.Window, pages: RibbonPageTabInfoArray) -> int:
+    def GetTabCtrlHeight(self, dc: wx.ReadOnlyDC, wnd: wx.Window, pages: RibbonPageTabInfoArray) -> int:
         """
         GetTabCtrlHeight(dc, wnd, pages) -> int
         
         Calculate the height (in pixels) of the tab region of a ribbon bar.
         """
 
-    def GetScrollButtonMinimumSize(self, dc: wx.DC, wnd: wx.Window, style: int) -> wx.Size:
+    def GetScrollButtonMinimumSize(self, dc: wx.ReadOnlyDC, wnd: wx.Window, style: int) -> wx.Size:
         """
         GetScrollButtonMinimumSize(dc, wnd, style) -> wx.Size
         
         Calculate the minimum size (in pixels) of a scroll button.
         """
 
-    def GetPanelSize(self, dc: wx.DC, wnd: RibbonPanel, client_size: wx.Size, client_offset: wx.Point) -> wx.Size:
+    def GetPanelSize(self, dc: wx.ReadOnlyDC, wnd: RibbonPanel, client_size: wx.Size, client_offset: wx.Point) -> wx.Size:
         """
         GetPanelSize(dc, wnd, client_size, client_offset) -> wx.Size
         
         Calculate the size of a panel for a given client size.
         """
 
-    def GetPanelClientSize(self, dc: wx.DC, wnd: RibbonPanel, size: wx.Size, client_offset: wx.Point) -> wx.Size:
+    def GetPanelClientSize(self, dc: wx.ReadOnlyDC, wnd: RibbonPanel, size: wx.Size, client_offset: wx.Point) -> wx.Size:
         """
         GetPanelClientSize(dc, wnd, size, client_offset) -> wx.Size
         
         Calculate the client size of a panel for a given overall size.
         """
 
-    def GetPanelExtButtonArea(self, dc: wx.DC, wnd: RibbonPanel, rect: wx.Rect) -> wx.Rect:
+    def GetPanelExtButtonArea(self, dc: wx.ReadOnlyDC, wnd: RibbonPanel, rect: wx.Rect) -> wx.Rect:
         """
         GetPanelExtButtonArea(dc, wnd, rect) -> wx.Rect
         
         Calculate the position and size of the panel extension button.
         """
 
-    def GetGallerySize(self, dc: wx.DC, wnd: RibbonGallery, client_size: wx.Size) -> wx.Size:
+    def GetGallerySize(self, dc: wx.ReadOnlyDC, wnd: RibbonGallery, client_size: wx.Size) -> wx.Size:
         """
         GetGallerySize(dc, wnd, client_size) -> wx.Size
         
@@ -1318,7 +1418,7 @@ class RibbonArtProvider:
         size.
         """
 
-    def GetGalleryClientSize(self, dc: wx.DC, wnd: RibbonGallery, size: wx.Size, client_offset: wx.Point, scroll_up_button: wx.Rect, scroll_down_button: wx.Rect, extension_button: wx.Rect) -> wx.Size:
+    def GetGalleryClientSize(self, dc: wx.ReadOnlyDC, wnd: RibbonGallery, size: wx.Size, client_offset: wx.Point, scroll_up_button: wx.Rect, scroll_down_button: wx.Rect, extension_button: wx.Rect) -> wx.Size:
         """
         GetGalleryClientSize(dc, wnd, size, client_offset, scroll_up_button, scroll_down_button, extension_button) -> wx.Size
         
@@ -1326,7 +1426,7 @@ class RibbonArtProvider:
         size.
         """
 
-    def GetPageBackgroundRedrawArea(self, dc: wx.DC, wnd: RibbonPage, page_old_size: wx.Size, page_new_size: wx.Size) -> wx.Rect:
+    def GetPageBackgroundRedrawArea(self, dc: wx.ReadOnlyDC, wnd: RibbonPage, page_old_size: wx.Size, page_new_size: wx.Size) -> wx.Rect:
         """
         GetPageBackgroundRedrawArea(dc, wnd, page_old_size, page_new_size) -> wx.Rect
         
@@ -1334,14 +1434,14 @@ class RibbonArtProvider:
         when a page is resized.
         """
 
-    def GetButtonBarButtonSize(self, dc: wx.DC, wnd: wx.Window, kind: RibbonButtonKind, size: RibbonButtonBarButtonState, label: str, text_min_width: int, bitmap_size_large: wx.Size, bitmap_size_small: wx.Size, button_size: wx.Size, normal_region: wx.Rect, dropdown_region: wx.Rect) -> bool:
+    def GetButtonBarButtonSize(self, dc: wx.ReadOnlyDC, wnd: wx.Window, kind: RibbonButtonKind, size: RibbonButtonBarButtonState, label: str, text_min_width: int, bitmap_size_large: wx.Size, bitmap_size_small: wx.Size, button_size: wx.Size, normal_region: wx.Rect, dropdown_region: wx.Rect) -> bool:
         """
         GetButtonBarButtonSize(dc, wnd, kind, size, label, text_min_width, bitmap_size_large, bitmap_size_small, button_size, normal_region, dropdown_region) -> bool
         
         Calculate the size of a button within a wxRibbonButtonBar.
         """
 
-    def GetButtonBarButtonTextWidth(self, dc: wx.DC, label: str, kind: RibbonButtonKind, size: RibbonButtonBarButtonState) -> int:
+    def GetButtonBarButtonTextWidth(self, dc: wx.ReadOnlyDC, label: str, kind: RibbonButtonKind, size: RibbonButtonBarButtonState) -> int:
         """
         GetButtonBarButtonTextWidth(dc, label, kind, size) -> int
         
@@ -1349,14 +1449,14 @@ class RibbonArtProvider:
         button label.
         """
 
-    def GetMinimisedPanelMinimumSize(self, dc: wx.DC, wnd: RibbonPanel, desired_bitmap_size: wx.Size, expanded_panel_direction: wx.Direction) -> wx.Size:
+    def GetMinimisedPanelMinimumSize(self, dc: wx.ReadOnlyDC, wnd: RibbonPanel, desired_bitmap_size: wx.Size, expanded_panel_direction: wx.Direction) -> wx.Size:
         """
         GetMinimisedPanelMinimumSize(dc, wnd, desired_bitmap_size, expanded_panel_direction) -> wx.Size
         
         Calculate the size of a minimised ribbon panel.
         """
 
-    def GetToolSize(self, dc: wx.DC, wnd: wx.Window, bitmap_size: wx.Size, kind: RibbonButtonKind, is_first: bool, is_last: bool, dropdown_region: wx.Rect) -> wx.Size:
+    def GetToolSize(self, dc: wx.ReadOnlyDC, wnd: wx.Window, bitmap_size: wx.Size, kind: RibbonButtonKind, is_first: bool, is_last: bool, dropdown_region: wx.Rect) -> wx.Size:
         """
         GetToolSize(dc, wnd, bitmap_size, kind, is_first, is_last, dropdown_region) -> wx.Size
         
@@ -1386,502 +1486,35 @@ class RibbonArtProvider:
 class RibbonMSWArtProvider(RibbonArtProvider):
     """
     RibbonMSWArtProvider(set_colour_scheme=True) -> None
+    
+    An art provider which draws a ribbon using gradients to mimic the
+    appearance of Microsoft Office 2007 and the Windows Vista / Aero
+    visual style.
     """
 
     def __init__(self, set_colour_scheme: bool=True) -> None:
         """
         RibbonMSWArtProvider(set_colour_scheme=True) -> None
-        """
-
-    def Clone(self) -> RibbonArtProvider:
-        """
-        Clone() -> RibbonArtProvider
         
-        Create a new art provider which is a clone of this one.
+        An art provider which draws a ribbon using gradients to mimic the
+        appearance of Microsoft Office 2007 and the Windows Vista / Aero
+        visual style.
         """
-
-    def SetFlags(self, flags: int) -> None:
-        """
-        SetFlags(flags) -> None
-        
-        Set the style flags.
-        """
-
-    def GetFlags(self) -> int:
-        """
-        GetFlags() -> int
-        
-        Get the previously set style flags.
-        """
-
-    def GetMetric(self, id: int) -> int:
-        """
-        GetMetric(id) -> int
-        
-        Get the value of a certain integer setting.
-        """
-
-    def SetMetric(self, id: int, new_val: int) -> None:
-        """
-        SetMetric(id, new_val) -> None
-        
-        Set the value of a certain integer setting to the value new_val.
-        """
-
-    def SetFont(self, id: int, font: wx.Font) -> None:
-        """
-        SetFont(id, font) -> None
-        
-        Set the value of a certain font setting to the value font.
-        """
-
-    def GetFont(self, id: int) -> wx.Font:
-        """
-        GetFont(id) -> wx.Font
-        
-        Get the value of a certain font setting.
-        """
-
-    def GetColour(self, id: int) -> wx.Colour:
-        """
-        GetColour(id) -> wx.Colour
-        
-        Get the value of a certain colour setting.
-        """
-
-    def SetColour(self, id: int, colour: wx.Colour) -> None:
-        """
-        SetColour(id, colour) -> None
-        
-        Set the value of a certain colour setting to the value colour.
-        """
-
-    def GetColourScheme(self) -> Tuple[wx.Colour, wx.Colour, wx.Colour]:
-        """
-        GetColourScheme() -> Tuple[wx.Colour, wx.Colour, wx.Colour]
-        
-        Get the current colour scheme.
-        """
-
-    def SetColourScheme(self, primary: wx.Colour, secondary: wx.Colour, tertiary: wx.Colour) -> None:
-        """
-        SetColourScheme(primary, secondary, tertiary) -> None
-        
-        Set all applicable colour settings from a few base colours.
-        """
-
-    def GetTabCtrlHeight(self, dc: wx.DC, wnd: wx.Window, pages: RibbonPageTabInfoArray) -> int:
-        """
-        GetTabCtrlHeight(dc, wnd, pages) -> int
-        
-        Calculate the height (in pixels) of the tab region of a ribbon bar.
-        """
-
-    def DrawTabCtrlBackground(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect) -> None:
-        """
-        DrawTabCtrlBackground(dc, wnd, rect) -> None
-        
-        Draw the background of the tab region of a ribbon bar.
-        """
-
-    def DrawTab(self, dc: wx.DC, wnd: wx.Window, tab: RibbonPageTabInfo) -> None:
-        """
-        DrawTab(dc, wnd, tab) -> None
-        
-        Draw a single tab in the tab region of a ribbon bar.
-        """
-
-    def DrawTabSeparator(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect, visibility: float) -> None:
-        """
-        DrawTabSeparator(dc, wnd, rect, visibility) -> None
-        
-        Draw a separator between two tabs in a ribbon bar.
-        """
-
-    def DrawPageBackground(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect) -> None:
-        """
-        DrawPageBackground(dc, wnd, rect) -> None
-        
-        Draw the background of a ribbon page.
-        """
-
-    def DrawScrollButton(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect, style: int) -> None:
-        """
-        DrawScrollButton(dc, wnd, rect, style) -> None
-        
-        Draw a ribbon-style scroll button.
-        """
-
-    def DrawPanelBackground(self, dc: wx.DC, wnd: RibbonPanel, rect: wx.Rect) -> None:
-        """
-        DrawPanelBackground(dc, wnd, rect) -> None
-        
-        Draw the background and chrome for a ribbon panel.
-        """
-
-    def DrawGalleryBackground(self, dc: wx.DC, wnd: RibbonGallery, rect: wx.Rect) -> None:
-        """
-        DrawGalleryBackground(dc, wnd, rect) -> None
-        
-        Draw the background and chrome for a wxRibbonGallery control.
-        """
-
-    def DrawGalleryItemBackground(self, dc: wx.DC, wnd: RibbonGallery, rect: wx.Rect, item: RibbonGalleryItem) -> None:
-        """
-        DrawGalleryItemBackground(dc, wnd, rect, item) -> None
-        
-        Draw the background of a single item in a wxRibbonGallery control.
-        """
-
-    def DrawMinimisedPanel(self, dc: wx.DC, wnd: RibbonPanel, rect: wx.Rect, bitmap: wx.Bitmap) -> None:
-        """
-        DrawMinimisedPanel(dc, wnd, rect, bitmap) -> None
-        
-        Draw a minimised ribbon panel.
-        """
-
-    def DrawButtonBarBackground(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect) -> None:
-        """
-        DrawButtonBarBackground(dc, wnd, rect) -> None
-        
-        Draw the background for a wxRibbonButtonBar control.
-        """
-
-    def DrawButtonBarButton(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect, kind: RibbonButtonKind, state: int, label: str, bitmap_large: wx.Bitmap, bitmap_small: wx.Bitmap) -> None:
-        """
-        DrawButtonBarButton(dc, wnd, rect, kind, state, label, bitmap_large, bitmap_small) -> None
-        
-        Draw a single button for a wxRibbonButtonBar control.
-        """
-
-    def DrawToolBarBackground(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect) -> None:
-        """
-        DrawToolBarBackground(dc, wnd, rect) -> None
-        
-        Draw the background for a wxRibbonToolBar control.
-        """
-
-    def DrawToolGroupBackground(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect) -> None:
-        """
-        DrawToolGroupBackground(dc, wnd, rect) -> None
-        
-        Draw the background for a group of tools on a wxRibbonToolBar control.
-        """
-
-    def DrawTool(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect, bitmap: wx.Bitmap, kind: RibbonButtonKind, state: int) -> None:
-        """
-        DrawTool(dc, wnd, rect, bitmap, kind, state) -> None
-        
-        Draw a single tool (for a wxRibbonToolBar control).
-        """
-
-    def DrawToggleButton(self, dc: wx.DC, wnd: RibbonBar, rect: wx.Rect, mode: RibbonDisplayMode) -> None:
-        """
-        DrawToggleButton(dc, wnd, rect, mode) -> None
-        
-        Draw toggle button on wxRibbonBar.
-        """
-
-    def DrawHelpButton(self, dc: wx.DC, wnd: RibbonBar, rect: wx.Rect) -> None:
-        """
-        DrawHelpButton(dc, wnd, rect) -> None
-        
-        Draw help button on wxRibbonBar.
-        """
-
-    def GetBarTabWidth(self, dc: wx.DC, wnd: wx.Window, label: str, bitmap: wx.Bitmap, ideal: int, small_begin_need_separator: int, small_must_have_separator: int, minimum: int) -> None:
-        """
-        GetBarTabWidth(dc, wnd, label, bitmap, ideal, small_begin_need_separator, small_must_have_separator, minimum) -> None
-        
-        Calculate the ideal and minimum width (in pixels) of a tab in a ribbon
-        bar.
-        """
-
-    def GetScrollButtonMinimumSize(self, dc: wx.DC, wnd: wx.Window, style: int) -> wx.Size:
-        """
-        GetScrollButtonMinimumSize(dc, wnd, style) -> wx.Size
-        
-        Calculate the minimum size (in pixels) of a scroll button.
-        """
-
-    def GetPanelSize(self, dc: wx.DC, wnd: RibbonPanel, client_size: wx.Size, client_offset: wx.Point) -> wx.Size:
-        """
-        GetPanelSize(dc, wnd, client_size, client_offset) -> wx.Size
-        
-        Calculate the size of a panel for a given client size.
-        """
-
-    def GetPanelClientSize(self, dc: wx.DC, wnd: RibbonPanel, size: wx.Size, client_offset: wx.Point) -> wx.Size:
-        """
-        GetPanelClientSize(dc, wnd, size, client_offset) -> wx.Size
-        
-        Calculate the client size of a panel for a given overall size.
-        """
-
-    def GetPanelExtButtonArea(self, dc: wx.DC, wnd: RibbonPanel, rect: wx.Rect) -> wx.Rect:
-        """
-        GetPanelExtButtonArea(dc, wnd, rect) -> wx.Rect
-        
-        Calculate the position and size of the panel extension button.
-        """
-
-    def GetGallerySize(self, dc: wx.DC, wnd: RibbonGallery, client_size: wx.Size) -> wx.Size:
-        """
-        GetGallerySize(dc, wnd, client_size) -> wx.Size
-        
-        Calculate the size of a wxRibbonGallery control for a given client
-        size.
-        """
-
-    def GetGalleryClientSize(self, dc: wx.DC, wnd: RibbonGallery, size: wx.Size, client_offset: wx.Point, scroll_up_button: wx.Rect, scroll_down_button: wx.Rect, extension_button: wx.Rect) -> wx.Size:
-        """
-        GetGalleryClientSize(dc, wnd, size, client_offset, scroll_up_button, scroll_down_button, extension_button) -> wx.Size
-        
-        Calculate the client size of a wxRibbonGallery control for a given
-        size.
-        """
-
-    def GetPageBackgroundRedrawArea(self, dc: wx.DC, wnd: RibbonPage, page_old_size: wx.Size, page_new_size: wx.Size) -> wx.Rect:
-        """
-        GetPageBackgroundRedrawArea(dc, wnd, page_old_size, page_new_size) -> wx.Rect
-        
-        Calculate the portion of a page background which needs to be redrawn
-        when a page is resized.
-        """
-
-    def GetButtonBarButtonSize(self, dc: wx.DC, wnd: wx.Window, kind: RibbonButtonKind, size: RibbonButtonBarButtonState, label: str, text_min_width: int, bitmap_size_large: wx.Size, bitmap_size_small: wx.Size, button_size: wx.Size, normal_region: wx.Rect, dropdown_region: wx.Rect) -> bool:
-        """
-        GetButtonBarButtonSize(dc, wnd, kind, size, label, text_min_width, bitmap_size_large, bitmap_size_small, button_size, normal_region, dropdown_region) -> bool
-        
-        Calculate the size of a button within a wxRibbonButtonBar.
-        """
-
-    def GetButtonBarButtonTextWidth(self, dc: wx.DC, label: str, kind: RibbonButtonKind, size: RibbonButtonBarButtonState) -> int:
-        """
-        GetButtonBarButtonTextWidth(dc, label, kind, size) -> int
-        
-        Gets the width of the string if it is used as a wxRibbonButtonBar
-        button label.
-        """
-
-    def GetMinimisedPanelMinimumSize(self, dc: wx.DC, wnd: RibbonPanel, desired_bitmap_size: wx.Size, expanded_panel_direction: wx.Direction) -> wx.Size:
-        """
-        GetMinimisedPanelMinimumSize(dc, wnd, desired_bitmap_size, expanded_panel_direction) -> wx.Size
-        
-        Calculate the size of a minimised ribbon panel.
-        """
-
-    def GetToolSize(self, dc: wx.DC, wnd: wx.Window, bitmap_size: wx.Size, kind: RibbonButtonKind, is_first: bool, is_last: bool, dropdown_region: wx.Rect) -> wx.Size:
-        """
-        GetToolSize(dc, wnd, bitmap_size, kind, is_first, is_last, dropdown_region) -> wx.Size
-        
-        Calculate the size of a tool within a wxRibbonToolBar.
-        """
-
-    def GetBarToggleButtonArea(self, rect: wx.Rect) -> wx.Rect:
-        """
-        GetBarToggleButtonArea(rect) -> wx.Rect
-        
-        Calculate the position and size of the ribbon's toggle button.
-        """
-
-    def GetRibbonHelpButtonArea(self, rect: wx.Rect) -> wx.Rect:
-        """
-        GetRibbonHelpButtonArea(rect) -> wx.Rect
-        
-        Calculate the position and size of the ribbon's help button.
-        """
-    @property
-    def Flags(self) -> int: ...
-    @Flags.setter
-    def Flags(self, value: int, /) -> None: ...
 # end of class RibbonMSWArtProvider
 
 
 class RibbonAUIArtProvider(RibbonMSWArtProvider):
     """
     RibbonAUIArtProvider() -> None
+    
+    An art provider styled after the wxAUI docking framework.
     """
 
     def __init__(self) -> None:
         """
         RibbonAUIArtProvider() -> None
-        """
-
-    def Clone(self) -> RibbonArtProvider:
-        """
-        Clone() -> RibbonArtProvider
         
-        Create a new art provider which is a clone of this one.
-        """
-
-    def GetColour(self, id: int) -> wx.Colour:
-        """
-        GetColour(id) -> wx.Colour
-        
-        Get the value of a certain colour setting.
-        """
-
-    def SetColour(self, id: int, colour: wx.Colour) -> None:
-        """
-        SetColour(id, colour) -> None
-        
-        Set the value of a certain colour setting to the value colour.
-        """
-
-    def SetColourScheme(self, primary: wx.Colour, secondary: wx.Colour, tertiary: wx.Colour) -> None:
-        """
-        SetColourScheme(primary, secondary, tertiary) -> None
-        
-        Set all applicable colour settings from a few base colours.
-        """
-
-    def SetFont(self, id: int, font: wx.Font) -> None:
-        """
-        SetFont(id, font) -> None
-        
-        Set the value of a certain font setting to the value font.
-        """
-
-    def GetScrollButtonMinimumSize(self, dc: wx.DC, wnd: wx.Window, style: int) -> wx.Size:
-        """
-        GetScrollButtonMinimumSize(dc, wnd, style) -> wx.Size
-        
-        Calculate the minimum size (in pixels) of a scroll button.
-        """
-
-    def DrawScrollButton(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect, style: int) -> None:
-        """
-        DrawScrollButton(dc, wnd, rect, style) -> None
-        
-        Draw a ribbon-style scroll button.
-        """
-
-    def GetPanelSize(self, dc: wx.DC, wnd: RibbonPanel, client_size: wx.Size, client_offset: wx.Point) -> wx.Size:
-        """
-        GetPanelSize(dc, wnd, client_size, client_offset) -> wx.Size
-        
-        Calculate the size of a panel for a given client size.
-        """
-
-    def GetPanelClientSize(self, dc: wx.DC, wnd: RibbonPanel, size: wx.Size, client_offset: wx.Point) -> wx.Size:
-        """
-        GetPanelClientSize(dc, wnd, size, client_offset) -> wx.Size
-        
-        Calculate the client size of a panel for a given overall size.
-        """
-
-    def GetPanelExtButtonArea(self, dc: wx.DC, wnd: RibbonPanel, rect: wx.Rect) -> wx.Rect:
-        """
-        GetPanelExtButtonArea(dc, wnd, rect) -> wx.Rect
-        
-        Calculate the position and size of the panel extension button.
-        """
-
-    def DrawTabCtrlBackground(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect) -> None:
-        """
-        DrawTabCtrlBackground(dc, wnd, rect) -> None
-        
-        Draw the background of the tab region of a ribbon bar.
-        """
-
-    def GetTabCtrlHeight(self, dc: wx.DC, wnd: wx.Window, pages: RibbonPageTabInfoArray) -> int:
-        """
-        GetTabCtrlHeight(dc, wnd, pages) -> int
-        
-        Calculate the height (in pixels) of the tab region of a ribbon bar.
-        """
-
-    def GetBarTabWidth(self, dc: wx.DC, wnd: wx.Window, label: str, bitmap: wx.Bitmap, ideal: int, small_begin_need_separator: int, small_must_have_separator: int, minimum: int) -> None:
-        """
-        GetBarTabWidth(dc, wnd, label, bitmap, ideal, small_begin_need_separator, small_must_have_separator, minimum) -> None
-        
-        Calculate the ideal and minimum width (in pixels) of a tab in a ribbon
-        bar.
-        """
-
-    def DrawTab(self, dc: wx.DC, wnd: wx.Window, tab: RibbonPageTabInfo) -> None:
-        """
-        DrawTab(dc, wnd, tab) -> None
-        
-        Draw a single tab in the tab region of a ribbon bar.
-        """
-
-    def DrawTabSeparator(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect, visibility: float) -> None:
-        """
-        DrawTabSeparator(dc, wnd, rect, visibility) -> None
-        
-        Draw a separator between two tabs in a ribbon bar.
-        """
-
-    def DrawPageBackground(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect) -> None:
-        """
-        DrawPageBackground(dc, wnd, rect) -> None
-        
-        Draw the background of a ribbon page.
-        """
-
-    def DrawPanelBackground(self, dc: wx.DC, wnd: RibbonPanel, rect: wx.Rect) -> None:
-        """
-        DrawPanelBackground(dc, wnd, rect) -> None
-        
-        Draw the background and chrome for a ribbon panel.
-        """
-
-    def DrawMinimisedPanel(self, dc: wx.DC, wnd: RibbonPanel, rect: wx.Rect, bitmap: wx.Bitmap) -> None:
-        """
-        DrawMinimisedPanel(dc, wnd, rect, bitmap) -> None
-        
-        Draw a minimised ribbon panel.
-        """
-
-    def DrawGalleryBackground(self, dc: wx.DC, wnd: RibbonGallery, rect: wx.Rect) -> None:
-        """
-        DrawGalleryBackground(dc, wnd, rect) -> None
-        
-        Draw the background and chrome for a wxRibbonGallery control.
-        """
-
-    def DrawGalleryItemBackground(self, dc: wx.DC, wnd: RibbonGallery, rect: wx.Rect, item: RibbonGalleryItem) -> None:
-        """
-        DrawGalleryItemBackground(dc, wnd, rect, item) -> None
-        
-        Draw the background of a single item in a wxRibbonGallery control.
-        """
-
-    def DrawButtonBarBackground(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect) -> None:
-        """
-        DrawButtonBarBackground(dc, wnd, rect) -> None
-        
-        Draw the background for a wxRibbonButtonBar control.
-        """
-
-    def DrawButtonBarButton(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect, kind: RibbonButtonKind, state: int, label: str, bitmap_large: wx.Bitmap, bitmap_small: wx.Bitmap) -> None:
-        """
-        DrawButtonBarButton(dc, wnd, rect, kind, state, label, bitmap_large, bitmap_small) -> None
-        
-        Draw a single button for a wxRibbonButtonBar control.
-        """
-
-    def DrawToolBarBackground(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect) -> None:
-        """
-        DrawToolBarBackground(dc, wnd, rect) -> None
-        
-        Draw the background for a wxRibbonToolBar control.
-        """
-
-    def DrawToolGroupBackground(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect) -> None:
-        """
-        DrawToolGroupBackground(dc, wnd, rect) -> None
-        
-        Draw the background for a group of tools on a wxRibbonToolBar control.
-        """
-
-    def DrawTool(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect, bitmap: wx.Bitmap, kind: RibbonButtonKind, state: int) -> None:
-        """
-        DrawTool(dc, wnd, rect, bitmap, kind, state) -> None
-        
-        Draw a single tool (for a wxRibbonToolBar control).
+        An art provider styled after the wxAUI docking framework.
         """
 # end of class RibbonAUIArtProvider
 
@@ -2056,7 +1689,7 @@ class RibbonButtonBar(RibbonControl):
         """
         GetItemById(id) -> RibbonButtonBarButtonBase
         
-        Returns the first button having a given id or NULL if none matches.
+        Returns the first button having a given id or nullptr if none matches.
         """
 
     def GetItemId(self, item: RibbonButtonBarButtonBase) -> int:
@@ -2156,14 +1789,15 @@ class RibbonButtonBar(RibbonControl):
         """
         GetActiveItem() -> RibbonButtonBarButtonBase
         
-        Returns the active item of the button bar or NULL if there is none.
+        Returns the active item of the button bar or nullptr if there is none.
         """
 
     def GetHoveredItem(self) -> RibbonButtonBarButtonBase:
         """
         GetHoveredItem() -> RibbonButtonBarButtonBase
         
-        Returns the hovered item of the button bar or NULL if there is none.
+        Returns the hovered item of the button bar or nullptr if there is
+        none.
         """
 
     def SetShowToolTipsForDisabled(self, show: bool) -> None:
@@ -2178,6 +1812,11 @@ class RibbonButtonBar(RibbonControl):
         GetShowToolTipsForDisabled() -> bool
         
         Sets whether tooltips should be shown for disabled buttons or not.
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
         """
 
     @staticmethod
@@ -2200,15 +1839,15 @@ class RibbonButtonBar(RibbonControl):
 
 class RibbonButtonBarEvent(wx.CommandEvent):
     """
-    RibbonButtonBarEvent(command_type=wx.wxEVT_NULL, win_id=0, bar=None, button=None) -> None
+    RibbonButtonBarEvent(command_type=wx.wxEVT_NULL, win_id=0, bar=nullptr, button=nullptr) -> None
     
     Event used to indicate various actions relating to a button on a
     wxRibbonButtonBar.
     """
 
-    def __init__(self, command_type: EventType=wx.wxEVT_NULL, win_id: int=0, bar: Optional[RibbonButtonBar]=None, button: Optional[RibbonButtonBarButtonBase]=None) -> None:
+    def __init__(self, command_type: EventType=wx.wxEVT_NULL, win_id: int=0, bar: RibbonButtonBar=nullptr, button: RibbonButtonBarButtonBase=nullptr) -> None:
         """
-        RibbonButtonBarEvent(command_type=wx.wxEVT_NULL, win_id=0, bar=None, button=None) -> None
+        RibbonButtonBarEvent(command_type=wx.wxEVT_NULL, win_id=0, bar=nullptr, button=nullptr) -> None
         
         Event used to indicate various actions relating to a button on a
         wxRibbonButtonBar.
@@ -2368,28 +2007,28 @@ class RibbonGallery(RibbonControl):
         SetSelection(item) -> None
         
         Set the selection to the given item, or removes the selection if item
-        == NULL.
+        == nullptr.
         """
 
     def GetSelection(self) -> RibbonGalleryItem:
         """
         GetSelection() -> RibbonGalleryItem
         
-        Get the currently selected item, or NULL if there is none.
+        Get the currently selected item, or nullptr if there is none.
         """
 
     def GetHoveredItem(self) -> RibbonGalleryItem:
         """
         GetHoveredItem() -> RibbonGalleryItem
         
-        Get the currently hovered item, or NULL if there is none.
+        Get the currently hovered item, or nullptr if there is none.
         """
 
     def GetActiveItem(self) -> RibbonGalleryItem:
         """
         GetActiveItem() -> RibbonGalleryItem
         
-        Get the currently active item, or NULL if there is none.
+        Get the currently active item, or nullptr if there is none.
         """
 
     def GetUpButtonState(self) -> RibbonGalleryButtonState:
@@ -2441,6 +2080,11 @@ class RibbonGallery(RibbonControl):
         Scroll the gallery to ensure that the given item is visible.
         """
 
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
@@ -2467,12 +2111,12 @@ class RibbonGallery(RibbonControl):
 
 class RibbonGalleryEvent(wx.CommandEvent):
     """
-    RibbonGalleryEvent(command_type=wx.wxEVT_NULL, win_id=0, gallery=None, item=None) -> None
+    RibbonGalleryEvent(command_type=wx.wxEVT_NULL, win_id=0, gallery=nullptr, item=nullptr) -> None
     """
 
-    def __init__(self, command_type: EventType=wx.wxEVT_NULL, win_id: int=0, gallery: Optional[RibbonGallery]=None, item: Optional[RibbonGalleryItem]=None) -> None:
+    def __init__(self, command_type: EventType=wx.wxEVT_NULL, win_id: int=0, gallery: RibbonGallery=nullptr, item: RibbonGalleryItem=nullptr) -> None:
         """
-        RibbonGalleryEvent(command_type=wx.wxEVT_NULL, win_id=0, gallery=None, item=None) -> None
+        RibbonGalleryEvent(command_type=wx.wxEVT_NULL, win_id=0, gallery=nullptr, item=nullptr) -> None
         """
 
     def GetGallery(self) -> RibbonGallery:
@@ -2486,7 +2130,7 @@ class RibbonGalleryEvent(wx.CommandEvent):
         """
         GetGalleryItem() -> RibbonGalleryItem
         
-        Returns the gallery item which the event relates to, or NULL if it
+        Returns the gallery item which the event relates to, or nullptr if it
         does not relate to an item.
         """
 
@@ -2553,14 +2197,14 @@ class RibbonToolBar(RibbonControl):
         """
 
     @overload
-    def AddTool(self, tool_id: int, bitmap: wx.Bitmap, bitmap_disabled: wx.Bitmap=wx.NullBitmap, help_string: str='', kind: RibbonButtonKind=RIBBON_BUTTON_NORMAL, clientData: Optional[PyUserData]=None) -> RibbonToolBarToolBase:
+    def AddTool(self, tool_id: int, bitmap: wx.Bitmap, bitmap_disabled: wx.Bitmap=wx.NullBitmap, help_string: str='', kind: RibbonButtonKind=RIBBON_BUTTON_NORMAL, clientData: PyUserData=nullptr) -> RibbonToolBarToolBase:
         ...
 
     @overload
     def AddTool(self, tool_id: int, bitmap: wx.Bitmap, help_string: str, kind: RibbonButtonKind=RIBBON_BUTTON_NORMAL) -> RibbonToolBarToolBase:
         """
         AddTool(tool_id, bitmap, help_string, kind=RIBBON_BUTTON_NORMAL) -> RibbonToolBarToolBase
-        AddTool(tool_id, bitmap, bitmap_disabled=wx.NullBitmap, help_string='', kind=RIBBON_BUTTON_NORMAL, clientData=None) -> RibbonToolBarToolBase
+        AddTool(tool_id, bitmap, bitmap_disabled=wx.NullBitmap, help_string='', kind=RIBBON_BUTTON_NORMAL, clientData=nullptr) -> RibbonToolBarToolBase
         
         Add a tool to the tool bar (simple version).
         """
@@ -2594,14 +2238,14 @@ class RibbonToolBar(RibbonControl):
         """
 
     @overload
-    def InsertTool(self, pos: int, tool_id: int, bitmap: wx.Bitmap, bitmap_disabled: wx.Bitmap=wx.NullBitmap, help_string: str='', kind: RibbonButtonKind=RIBBON_BUTTON_NORMAL, clientData: Optional[PyUserData]=None) -> RibbonToolBarToolBase:
+    def InsertTool(self, pos: int, tool_id: int, bitmap: wx.Bitmap, bitmap_disabled: wx.Bitmap=wx.NullBitmap, help_string: str='', kind: RibbonButtonKind=RIBBON_BUTTON_NORMAL, clientData: PyUserData=nullptr) -> RibbonToolBarToolBase:
         ...
 
     @overload
     def InsertTool(self, pos: int, tool_id: int, bitmap: wx.Bitmap, help_string: str, kind: RibbonButtonKind=RIBBON_BUTTON_NORMAL) -> RibbonToolBarToolBase:
         """
         InsertTool(pos, tool_id, bitmap, help_string, kind=RIBBON_BUTTON_NORMAL) -> RibbonToolBarToolBase
-        InsertTool(pos, tool_id, bitmap, bitmap_disabled=wx.NullBitmap, help_string='', kind=RIBBON_BUTTON_NORMAL, clientData=None) -> RibbonToolBarToolBase
+        InsertTool(pos, tool_id, bitmap, bitmap_disabled=wx.NullBitmap, help_string='', kind=RIBBON_BUTTON_NORMAL, clientData=nullptr) -> RibbonToolBarToolBase
         
         Insert a tool to the tool bar (simple version) as the specified
         position.
@@ -2664,7 +2308,7 @@ class RibbonToolBar(RibbonControl):
         """
         FindById(tool_id) -> RibbonToolBarToolBase
         
-        Returns a pointer to the tool opaque structure by id or NULL if no
+        Returns a pointer to the tool opaque structure by id or nullptr if no
         corresponding tool is found.
         """
 
@@ -2699,7 +2343,7 @@ class RibbonToolBar(RibbonControl):
         """
         GetActiveTool() -> RibbonToolBarToolBase
         
-        Returns the active item of the tool bar or NULL if there is none.
+        Returns the active item of the tool bar or nullptr if there is none.
         """
 
     def GetToolClientData(self, tool_id: int) -> PyUserData:
@@ -2811,6 +2455,11 @@ class RibbonToolBar(RibbonControl):
         Set a toggle tool to the checked or unchecked state.
         """
 
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
@@ -2825,12 +2474,12 @@ class RibbonToolBar(RibbonControl):
 
 class RibbonToolBarEvent(wx.CommandEvent):
     """
-    RibbonToolBarEvent(command_type=wx.wxEVT_NULL, win_id=0, bar=None) -> None
+    RibbonToolBarEvent(command_type=wx.wxEVT_NULL, win_id=0, bar=nullptr) -> None
     """
 
-    def __init__(self, command_type: EventType=wx.wxEVT_NULL, win_id: int=0, bar: Optional[RibbonToolBar]=None) -> None:
+    def __init__(self, command_type: EventType=wx.wxEVT_NULL, win_id: int=0, bar: RibbonToolBar=nullptr) -> None:
         """
-        RibbonToolBarEvent(command_type=wx.wxEVT_NULL, win_id=0, bar=None) -> None
+        RibbonToolBarEvent(command_type=wx.wxEVT_NULL, win_id=0, bar=nullptr) -> None
         """
 
     def GetBar(self) -> RibbonToolBar:

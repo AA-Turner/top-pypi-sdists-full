@@ -13,12 +13,14 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
+from chalk._gen.chalk.auth.v1 import audit_pb2 as chalk_dot_auth_dot_v1_dot_audit__pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
+from chalk._gen.chalk.utils.v1 import sensitive_pb2 as chalk_dot_utils_dot_v1_dot_sensitive__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n)chalk/server/v1/environment_secrets.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xdd\x01\n\x06Secret\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x39\n\nupdated_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt\x12*\n\x0eintegration_id\x18\x04 \x01(\tH\x00R\rintegrationId\x88\x01\x01\x12\x35\n\x06source\x18\x05 \x01(\x0e\x32\x1d.chalk.server.v1.SecretSourceR\x06sourceB\x11\n\x0f_integration_id"n\n\x0bSecretValue\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value\x12\x35\n\x06source\x18\x03 \x01(\x0e\x32\x1d.chalk.server.v1.SecretSourceR\x06source"W\n\x11SecretConfigValue\x12\x1a\n\x07literal\x18\x01 \x01(\tH\x00R\x07literal\x12\x1d\n\tsecret_id\x18\x02 \x01(\tH\x00R\x08secretIdB\x07\n\x05value"\xe9\x01\n\x0fSecretWithValue\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x39\n\nupdated_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x12\n\x04name\x18\x03 \x01(\tR\x04name\x12\x1b\n\tfull_name\x18\x04 \x01(\tR\x08\x66ullName\x12\x19\n\x05value\x18\x05 \x01(\tH\x00R\x05value\x88\x01\x01\x12\x35\n\x06source\x18\x06 \x01(\x0e\x32\x1d.chalk.server.v1.SecretSourceR\x06sourceB\x08\n\x06_value"\x14\n\x12ListSecretsRequest"H\n\x13ListSecretsResponse\x12\x31\n\x07secrets\x18\x01 \x03(\x0b\x32\x17.chalk.server.v1.SecretR\x07secrets"\'\n\x15GetSecretValueRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"o\n\x16GetSecretValueResponse\x12\x44\n\x0csecret_value\x18\x01 \x01(\x0b\x32\x1c.chalk.server.v1.SecretValueH\x00R\x0bsecretValue\x88\x01\x01\x42\x0f\n\r_secret_value"\x7f\n\x13UpsertSecretRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n\x05value\x18\x02 \x01(\tB\x02\x18\x01R\x05value\x12:\n\x06\x63onfig\x18\x03 \x01(\x0b\x32".chalk.server.v1.SecretConfigValueR\x06\x63onfig"I\n\x14UpsertSecretResponse\x12\x31\n\x07secrets\x18\x01 \x03(\x0b\x32\x17.chalk.server.v1.SecretR\x07secrets")\n\x13\x44\x65leteSecretRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name"I\n\x14\x44\x65leteSecretResponse\x12\x31\n\x07secrets\x18\x01 \x03(\x0b\x32\x17.chalk.server.v1.SecretR\x07secrets"\x1b\n\x19GetAllSecretValuesRequest"\xa8\x01\n\x1aGetAllSecretValuesResponse\x12O\n\x06values\x18\x01 \x03(\x0b\x32\x37.chalk.server.v1.GetAllSecretValuesResponse.ValuesEntryR\x06values\x1a\x39\n\x0bValuesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01*d\n\x0cSecretSource\x12\x1d\n\x19SECRET_SOURCE_UNSPECIFIED\x10\x00\x12\x19\n\x15SECRET_SOURCE_MANAGED\x10\x01\x12\x1a\n\x16SECRET_SOURCE_EXTERNAL\x10\x02\x32\x9a\x04\n\x19\x45nvironmentSecretsService\x12]\n\x0bListSecrets\x12#.chalk.server.v1.ListSecretsRequest\x1a$.chalk.server.v1.ListSecretsResponse"\x03\x80}\x14\x12\x66\n\x0eGetSecretValue\x12&.chalk.server.v1.GetSecretValueRequest\x1a\'.chalk.server.v1.GetSecretValueResponse"\x03\x80}\x13\x12r\n\x12GetAllSecretValues\x12*.chalk.server.v1.GetAllSecretValuesRequest\x1a+.chalk.server.v1.GetAllSecretValuesResponse"\x03\x80}\x13\x12`\n\x0cUpsertSecret\x12$.chalk.server.v1.UpsertSecretRequest\x1a%.chalk.server.v1.UpsertSecretResponse"\x03\x80}\x12\x12`\n\x0c\x44\x65leteSecret\x12$.chalk.server.v1.DeleteSecretRequest\x1a%.chalk.server.v1.DeleteSecretResponse"\x03\x80}\x12\x42\xa0\x01\n\x13\x63om.chalk.server.v1B\x17\x45nvironmentSecretsProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n)chalk/server/v1/environment_secrets.proto\x12\x0f\x63halk.server.v1\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1e\x63halk/utils/v1/sensitive.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xe5\x02\n\x06Secret\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x39\n\nupdated_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt\x12*\n\x0eintegration_id\x18\x04 \x01(\tH\x00R\rintegrationId\x88\x01\x01\x12\x35\n\x06source\x18\x05 \x01(\x0e\x32\x1d.chalk.server.v1.SecretSourceR\x06source\x12\x37\n\x05scope\x18\x06 \x01(\x0b\x32\x1c.chalk.server.v1.SecretScopeH\x01R\x05scope\x88\x01\x01\x12\x43\n\x0egranted_scopes\x18\x07 \x03(\x0b\x32\x1c.chalk.server.v1.SecretScopeR\rgrantedScopesB\x11\n\x0f_integration_idB\x08\n\x06_scope"b\n\x0bSecretScope\x12\x34\n\x04type\x18\x01 \x01(\x0e\x32 .chalk.server.v1.SecretScopeTypeR\x04type\x12\x15\n\x03ref\x18\x02 \x01(\tH\x00R\x03ref\x88\x01\x01\x42\x06\n\x04_ref"n\n\x0bSecretValue\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value\x12\x35\n\x06source\x18\x03 \x01(\x0e\x32\x1d.chalk.server.v1.SecretSourceR\x06source"]\n\x11SecretConfigValue\x12 \n\x07literal\x18\x01 \x01(\tB\x04\xd8\xa1\'\x01H\x00R\x07literal\x12\x1d\n\tsecret_id\x18\x02 \x01(\tH\x00R\x08secretIdB\x07\n\x05value"\xe9\x01\n\x0fSecretWithValue\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x39\n\nupdated_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x12\n\x04name\x18\x03 \x01(\tR\x04name\x12\x1b\n\tfull_name\x18\x04 \x01(\tR\x08\x66ullName\x12\x19\n\x05value\x18\x05 \x01(\tH\x00R\x05value\x88\x01\x01\x12\x35\n\x06source\x18\x06 \x01(\x0e\x32\x1d.chalk.server.v1.SecretSourceR\x06sourceB\x08\n\x06_value";\n\x12ListSecretsRequest\x12%\n\x0einclude_scoped\x18\x01 \x01(\x08R\rincludeScoped"H\n\x13ListSecretsResponse\x12\x31\n\x07secrets\x18\x01 \x03(\x0b\x32\x17.chalk.server.v1.SecretR\x07secrets"\'\n\x15GetSecretValueRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"o\n\x16GetSecretValueResponse\x12\x44\n\x0csecret_value\x18\x01 \x01(\x0b\x32\x1c.chalk.server.v1.SecretValueH\x00R\x0bsecretValue\x88\x01\x01\x42\x0f\n\r_secret_value"\xc6\x01\n\x13UpsertSecretRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n\x05value\x18\x02 \x01(\tB\x06\x18\x01\xd8\xa1\'\x01R\x05value\x12:\n\x06\x63onfig\x18\x03 \x01(\x0b\x32".chalk.server.v1.SecretConfigValueR\x06\x63onfig\x12\x37\n\x05scope\x18\x04 \x01(\x0b\x32\x1c.chalk.server.v1.SecretScopeH\x00R\x05scope\x88\x01\x01\x42\x08\n\x06_scope"I\n\x14UpsertSecretResponse\x12\x31\n\x07secrets\x18\x01 \x03(\x0b\x32\x17.chalk.server.v1.SecretR\x07secrets"l\n\x13\x44\x65leteSecretRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x37\n\x05scope\x18\x02 \x01(\x0b\x32\x1c.chalk.server.v1.SecretScopeH\x00R\x05scope\x88\x01\x01\x42\x08\n\x06_scope"I\n\x14\x44\x65leteSecretResponse\x12\x31\n\x07secrets\x18\x01 \x03(\x0b\x32\x17.chalk.server.v1.SecretR\x07secrets"\x1b\n\x19GetAllSecretValuesRequest"\xa8\x01\n\x1aGetAllSecretValuesResponse\x12O\n\x06values\x18\x01 \x03(\x0b\x32\x37.chalk.server.v1.GetAllSecretValuesResponse.ValuesEntryR\x06values\x1a\x39\n\x0bValuesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01*\xdb\x01\n\x0fSecretScopeType\x12!\n\x1dSECRET_SCOPE_TYPE_UNSPECIFIED\x10\x00\x12!\n\x1dSECRET_SCOPE_TYPE_ENVIRONMENT\x10\x01\x12\x1d\n\x19SECRET_SCOPE_TYPE_SANDBOX\x10\x02\x12#\n\x1fSECRET_SCOPE_TYPE_SCALING_GROUP\x10\x03\x12\x1e\n\x1aSECRET_SCOPE_TYPE_FUNCTION\x10\x04\x12\x1e\n\x1aSECRET_SCOPE_TYPE_NOTEBOOK\x10\x05*d\n\x0cSecretSource\x12\x1d\n\x19SECRET_SOURCE_UNSPECIFIED\x10\x00\x12\x19\n\x15SECRET_SOURCE_MANAGED\x10\x01\x12\x1a\n\x16SECRET_SOURCE_EXTERNAL\x10\x02\x32\xf5\x04\n\x19\x45nvironmentSecretsService\x12]\n\x0bListSecrets\x12#.chalk.server.v1.ListSecretsRequest\x1a$.chalk.server.v1.ListSecretsResponse"\x03\x80}\x14\x12\x66\n\x0eGetSecretValue\x12&.chalk.server.v1.GetSecretValueRequest\x1a\'.chalk.server.v1.GetSecretValueResponse"\x03\x80}\x13\x12r\n\x12GetAllSecretValues\x12*.chalk.server.v1.GetAllSecretValuesRequest\x1a+.chalk.server.v1.GetAllSecretValuesResponse"\x03\x80}\x13\x12\x91\x01\n\x0cUpsertSecret\x12$.chalk.server.v1.UpsertSecretRequest\x1a%.chalk.server.v1.UpsertSecretResponse"4\x80}\x12\x8a\xd3\x0e-\x08\x02\x12)Added or updated a user-configured secret\x12\x88\x01\n\x0c\x44\x65leteSecret\x12$.chalk.server.v1.DeleteSecretRequest\x1a%.chalk.server.v1.DeleteSecretResponse"+\x80}\x12\x8a\xd3\x0e$\x08\x02\x12 Deleted a user-configured secretB\xa0\x01\n\x13\x63om.chalk.server.v1B\x17\x45nvironmentSecretsProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -29,8 +31,10 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals[
         "DESCRIPTOR"
     ]._serialized_options = b"\n\023com.chalk.server.v1B\027EnvironmentSecretsProtoP\001Z\022server/v1;serverv1\242\002\003CSX\252\002\017Chalk.Server.V1\312\002\017Chalk\\Server\\V1\342\002\033Chalk\\Server\\V1\\GPBMetadata\352\002\021Chalk::Server::V1"
+    _globals["_SECRETCONFIGVALUE"].fields_by_name["literal"]._options = None
+    _globals["_SECRETCONFIGVALUE"].fields_by_name["literal"]._serialized_options = b"\330\241'\001"
     _globals["_UPSERTSECRETREQUEST"].fields_by_name["value"]._options = None
-    _globals["_UPSERTSECRETREQUEST"].fields_by_name["value"]._serialized_options = b"\030\001"
+    _globals["_UPSERTSECRETREQUEST"].fields_by_name["value"]._serialized_options = b"\030\001\330\241'\001"
     _globals["_GETALLSECRETVALUESRESPONSE_VALUESENTRY"]._options = None
     _globals["_GETALLSECRETVALUESRESPONSE_VALUESENTRY"]._serialized_options = b"8\001"
     _globals["_ENVIRONMENTSECRETSSERVICE"].methods_by_name["ListSecrets"]._options = None
@@ -40,41 +44,49 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_ENVIRONMENTSECRETSSERVICE"].methods_by_name["GetAllSecretValues"]._options = None
     _globals["_ENVIRONMENTSECRETSSERVICE"].methods_by_name["GetAllSecretValues"]._serialized_options = b"\200}\023"
     _globals["_ENVIRONMENTSECRETSSERVICE"].methods_by_name["UpsertSecret"]._options = None
-    _globals["_ENVIRONMENTSECRETSSERVICE"].methods_by_name["UpsertSecret"]._serialized_options = b"\200}\022"
+    _globals["_ENVIRONMENTSECRETSSERVICE"].methods_by_name[
+        "UpsertSecret"
+    ]._serialized_options = b"\200}\022\212\323\016-\010\002\022)Added or updated a user-configured secret"
     _globals["_ENVIRONMENTSECRETSSERVICE"].methods_by_name["DeleteSecret"]._options = None
-    _globals["_ENVIRONMENTSECRETSSERVICE"].methods_by_name["DeleteSecret"]._serialized_options = b"\200}\022"
-    _globals["_SECRETSOURCE"]._serialized_start = 1561
-    _globals["_SECRETSOURCE"]._serialized_end = 1661
-    _globals["_SECRET"]._serialized_start = 129
-    _globals["_SECRET"]._serialized_end = 350
-    _globals["_SECRETVALUE"]._serialized_start = 352
-    _globals["_SECRETVALUE"]._serialized_end = 462
-    _globals["_SECRETCONFIGVALUE"]._serialized_start = 464
-    _globals["_SECRETCONFIGVALUE"]._serialized_end = 551
-    _globals["_SECRETWITHVALUE"]._serialized_start = 554
-    _globals["_SECRETWITHVALUE"]._serialized_end = 787
-    _globals["_LISTSECRETSREQUEST"]._serialized_start = 789
-    _globals["_LISTSECRETSREQUEST"]._serialized_end = 809
-    _globals["_LISTSECRETSRESPONSE"]._serialized_start = 811
-    _globals["_LISTSECRETSRESPONSE"]._serialized_end = 883
-    _globals["_GETSECRETVALUEREQUEST"]._serialized_start = 885
-    _globals["_GETSECRETVALUEREQUEST"]._serialized_end = 924
-    _globals["_GETSECRETVALUERESPONSE"]._serialized_start = 926
-    _globals["_GETSECRETVALUERESPONSE"]._serialized_end = 1037
-    _globals["_UPSERTSECRETREQUEST"]._serialized_start = 1039
-    _globals["_UPSERTSECRETREQUEST"]._serialized_end = 1166
-    _globals["_UPSERTSECRETRESPONSE"]._serialized_start = 1168
-    _globals["_UPSERTSECRETRESPONSE"]._serialized_end = 1241
-    _globals["_DELETESECRETREQUEST"]._serialized_start = 1243
-    _globals["_DELETESECRETREQUEST"]._serialized_end = 1284
-    _globals["_DELETESECRETRESPONSE"]._serialized_start = 1286
-    _globals["_DELETESECRETRESPONSE"]._serialized_end = 1359
-    _globals["_GETALLSECRETVALUESREQUEST"]._serialized_start = 1361
-    _globals["_GETALLSECRETVALUESREQUEST"]._serialized_end = 1388
-    _globals["_GETALLSECRETVALUESRESPONSE"]._serialized_start = 1391
-    _globals["_GETALLSECRETVALUESRESPONSE"]._serialized_end = 1559
-    _globals["_GETALLSECRETVALUESRESPONSE_VALUESENTRY"]._serialized_start = 1502
-    _globals["_GETALLSECRETVALUESRESPONSE_VALUESENTRY"]._serialized_end = 1559
-    _globals["_ENVIRONMENTSECRETSSERVICE"]._serialized_start = 1664
-    _globals["_ENVIRONMENTSECRETSSERVICE"]._serialized_end = 2202
+    _globals["_ENVIRONMENTSECRETSSERVICE"].methods_by_name[
+        "DeleteSecret"
+    ]._serialized_options = b"\200}\022\212\323\016$\010\002\022 Deleted a user-configured secret"
+    _globals["_SECRETSCOPETYPE"]._serialized_start = 2041
+    _globals["_SECRETSCOPETYPE"]._serialized_end = 2260
+    _globals["_SECRETSOURCE"]._serialized_start = 2262
+    _globals["_SECRETSOURCE"]._serialized_end = 2362
+    _globals["_SECRET"]._serialized_start = 188
+    _globals["_SECRET"]._serialized_end = 545
+    _globals["_SECRETSCOPE"]._serialized_start = 547
+    _globals["_SECRETSCOPE"]._serialized_end = 645
+    _globals["_SECRETVALUE"]._serialized_start = 647
+    _globals["_SECRETVALUE"]._serialized_end = 757
+    _globals["_SECRETCONFIGVALUE"]._serialized_start = 759
+    _globals["_SECRETCONFIGVALUE"]._serialized_end = 852
+    _globals["_SECRETWITHVALUE"]._serialized_start = 855
+    _globals["_SECRETWITHVALUE"]._serialized_end = 1088
+    _globals["_LISTSECRETSREQUEST"]._serialized_start = 1090
+    _globals["_LISTSECRETSREQUEST"]._serialized_end = 1149
+    _globals["_LISTSECRETSRESPONSE"]._serialized_start = 1151
+    _globals["_LISTSECRETSRESPONSE"]._serialized_end = 1223
+    _globals["_GETSECRETVALUEREQUEST"]._serialized_start = 1225
+    _globals["_GETSECRETVALUEREQUEST"]._serialized_end = 1264
+    _globals["_GETSECRETVALUERESPONSE"]._serialized_start = 1266
+    _globals["_GETSECRETVALUERESPONSE"]._serialized_end = 1377
+    _globals["_UPSERTSECRETREQUEST"]._serialized_start = 1380
+    _globals["_UPSERTSECRETREQUEST"]._serialized_end = 1578
+    _globals["_UPSERTSECRETRESPONSE"]._serialized_start = 1580
+    _globals["_UPSERTSECRETRESPONSE"]._serialized_end = 1653
+    _globals["_DELETESECRETREQUEST"]._serialized_start = 1655
+    _globals["_DELETESECRETREQUEST"]._serialized_end = 1763
+    _globals["_DELETESECRETRESPONSE"]._serialized_start = 1765
+    _globals["_DELETESECRETRESPONSE"]._serialized_end = 1838
+    _globals["_GETALLSECRETVALUESREQUEST"]._serialized_start = 1840
+    _globals["_GETALLSECRETVALUESREQUEST"]._serialized_end = 1867
+    _globals["_GETALLSECRETVALUESRESPONSE"]._serialized_start = 1870
+    _globals["_GETALLSECRETVALUESRESPONSE"]._serialized_end = 2038
+    _globals["_GETALLSECRETVALUESRESPONSE_VALUESENTRY"]._serialized_start = 1981
+    _globals["_GETALLSECRETVALUESRESPONSE_VALUESENTRY"]._serialized_end = 2038
+    _globals["_ENVIRONMENTSECRETSSERVICE"]._serialized_start = 2365
+    _globals["_ENVIRONMENTSECRETSSERVICE"]._serialized_end = 2994
 # @@protoc_insertion_point(module_scope)

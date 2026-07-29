@@ -1,5 +1,6 @@
 """Tests for plugin signature verification."""
 
+import sys
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
@@ -117,12 +118,12 @@ class TestVerifierIsPinnedToBundledRoot:
                 "ggshield.core.plugin.signature._bundled_verifier",
                 return_value=mock_verifier,
             ) as mock_bundled,
-            patch("ggshield.core.plugin.signature.Verifier", mock_verifier_cls),
-            patch("ggshield.core.plugin.signature.Bundle", mock_bundle_cls),
-            patch("ggshield.core.plugin.signature.AllOf", MagicMock()),
-            patch("ggshield.core.plugin.signature.OIDCIssuer", MagicMock()),
+            patch("sigstore.verify.Verifier", mock_verifier_cls),
+            patch("sigstore.models.Bundle", mock_bundle_cls),
+            patch("sigstore.verify.policy.AllOf", MagicMock()),
+            patch("sigstore.verify.policy.OIDCIssuer", MagicMock()),
             patch(
-                "ggshield.core.plugin.signature.GitHubWorkflowRepository",
+                "sigstore.verify.policy.GitHubWorkflowRepository",
                 MagicMock(),
             ),
         ):
@@ -164,18 +165,18 @@ class TestBundleVerification:
         """Patch the sigstore seams: the bundled/pinned verifier plus the
         bundle and policy helpers used by the signature module."""
         with (
-            patch("ggshield.core.plugin.signature.Bundle", mock_bundle_cls),
+            patch("sigstore.models.Bundle", mock_bundle_cls),
             patch(
                 "ggshield.core.plugin.signature._bundled_verifier",
                 return_value=mock_verifier,
             ),
-            patch("ggshield.core.plugin.signature.AllOf", mock_all_of_cls),
+            patch("sigstore.verify.policy.AllOf", mock_all_of_cls),
             patch(
-                "ggshield.core.plugin.signature.OIDCIssuer",
+                "sigstore.verify.policy.OIDCIssuer",
                 mock_oidc_issuer_cls,
             ),
             patch(
-                "ggshield.core.plugin.signature.GitHubWorkflowRepository",
+                "sigstore.verify.policy.GitHubWorkflowRepository",
                 mock_gh_repo_cls,
             ),
         ):
@@ -315,18 +316,16 @@ class TestBundledVerifier:
     """Guards the private-sigstore wiring that pins the bundled trust root."""
 
     def test_resolves_embedded_root_and_skips_production(self) -> None:
-        # Exercises the real embedded-root resolution
-        # (files / as_file / TrustedRoot.from_file): fails loudly if a sigstore
-        # upgrade relocates the embedded _store or changes the production TUF URL.
-        # Verifier itself is mocked so no real verifier/network is built; we
-        # only assert it is constructed from a trusted_root, never via the
-        # cache/network-backed production() path.
+        # Exercises the real embedded-root resolution (our vendored
+        # TRUSTED_ROOT_JSON -> TrustedRoot.from_file). Verifier itself is mocked
+        # so no real verifier/network is built; we only assert it is constructed
+        # from a trusted_root, never via the cache/network-backed production().
         from ggshield.core.plugin.signature import _bundled_verifier
 
         _bundled_verifier.cache_clear()
         sentinel = MagicMock()
         try:
-            with patch("ggshield.core.plugin.signature.Verifier") as mock_verifier_cls:
+            with patch("sigstore.verify.Verifier") as mock_verifier_cls:
                 mock_verifier_cls.return_value = sentinel
                 result = _bundled_verifier()
         finally:
@@ -336,3 +335,44 @@ class TestBundledVerifier:
         mock_verifier_cls.assert_called_once()
         assert "trusted_root" in mock_verifier_cls.call_args.kwargs
         mock_verifier_cls.production.assert_not_called()
+
+    def test_builds_real_verifier_from_embedded_root(self) -> None:
+        # End-to-end (no mocks): the vendored TRUSTED_ROOT_JSON must parse into a
+        # real TrustedRoot and build a real, offline Verifier.
+        from sigstore.verify import Verifier
+
+        from ggshield.core.plugin.signature import _bundled_verifier
+
+        _bundled_verifier.cache_clear()
+        try:
+            verifier = _bundled_verifier()
+        finally:
+            _bundled_verifier.cache_clear()
+
+        assert isinstance(verifier, Verifier)
+
+    @pytest.mark.skipif(
+        sys.version_info < (3, 10),
+        reason=(
+            "Python < 3.10 resolves sigstore 4.1.x, which ships an older trusted "
+            "root than the 4.2.x bundled in the released binaries (built on 3.10); "
+            "we vendor the 4.2.x root."
+        ),
+    )
+    def test_embedded_trusted_root_matches_sigstore(self) -> None:
+        # The vendored copy must track the trusted_root.json shipped by the installed
+        # sigstore; if a bump rotates the root this fails -> refresh
+        # _sigstore_trusted_root.py.
+        import json
+        from importlib.resources import files
+        from urllib.parse import quote
+
+        from ggshield.core.plugin._sigstore_trusted_root import TRUSTED_ROOT_JSON
+        from ggshield.core.plugin.signature import _SIGSTORE_PROD_TUF_URL
+
+        sigstore_root = (
+            files("sigstore._store")
+            / quote(_SIGSTORE_PROD_TUF_URL, safe="")
+            / "trusted_root.json"
+        ).read_text()
+        assert json.loads(TRUSTED_ROOT_JSON) == json.loads(sigstore_root)

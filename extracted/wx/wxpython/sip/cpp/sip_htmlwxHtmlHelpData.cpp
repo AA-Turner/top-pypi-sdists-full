@@ -366,7 +366,7 @@ static void *init_type_wxHtmlHelpData(sipSimpleWrapper *, PyObject *sipArgs, PyO
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxHtmlHelpData[] = {{25, 0, 1}};
+static sipEncodedTypeDef supers_wxHtmlHelpData[] = {{26, 0, 1}};
 
 
 static PyMethodDef methods_wxHtmlHelpData[] = {

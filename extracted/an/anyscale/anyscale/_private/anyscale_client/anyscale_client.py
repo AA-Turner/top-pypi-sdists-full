@@ -994,7 +994,21 @@ class AnyscaleClient(AnyscaleClientInterface):
                 self.logger.info("")
                 return
             elif build.status == ClusterEnvironmentBuildStatus.FAILED:
-                raise RuntimeError(f"Image build {build_id} failed.")
+                # Surface everything the API exposes about the failure so callers
+                # see the real reason instead of an opaque "build failed". The
+                # server-side detail lives in `error_message` (may be empty if the
+                # backend recorded none); full build logs live on the build page.
+                details = f"Image build {build_id} failed (status: {build.status})."
+                error_message = getattr(build, "error_message", None)
+                if error_message:
+                    details += f" Reason: {error_message}"
+                cluster_env_id = getattr(build, "cluster_environment_id", None)
+                if cluster_env_id:
+                    details += (
+                        " See full build logs at: "
+                        f"{self.get_build_ui_url(cluster_env_id, build_id)}"
+                    )
+                raise RuntimeError(details)
             elif build.status == ClusterEnvironmentBuildStatus.CANCELED:
                 raise RuntimeError(f"Image build {build_id} unexpectedly cancelled.")
 
@@ -1579,7 +1593,7 @@ class AnyscaleClient(AnyscaleClientInterface):
             rollback_service_model=RollbackServiceModel(
                 max_surge_percent=max_surge_percent
             ),
-        )
+        ).result
         return result
 
     @handle_api_exceptions
@@ -1588,7 +1602,7 @@ class AnyscaleClient(AnyscaleClientInterface):
     ) -> DecoratedProductionServiceV2APIModel:
         result = self._internal_api_client.terminate_service_api_v2_services_v2_service_id_terminate_post(
             service_id
-        )
+        ).result
         return result
 
     @handle_api_exceptions
@@ -1603,6 +1617,22 @@ class AnyscaleClient(AnyscaleClientInterface):
         self._internal_api_client.delete_service_api_v2_services_v2_service_id_delete(
             service_id
         )
+
+    @handle_api_exceptions
+    def add_service_secondary_auth_token(
+        self, service_id: str
+    ) -> DecoratedProductionServiceV2APIModel:
+        return self._internal_api_client.add_service_secondary_auth_token_api_v2_services_v2_service_id_add_secondary_auth_token_post(
+            service_id
+        ).result
+
+    @handle_api_exceptions
+    def delete_service_auth_token(
+        self, service_id: str, auth_token: Optional[str] = None
+    ) -> DecoratedProductionServiceV2APIModel:
+        return self._internal_api_client.delete_service_auth_token_api_v2_services_v2_service_id_delete_secondary_auth_token_post(
+            service_id, auth_token=auth_token
+        ).result
 
     @handle_api_exceptions
     def submit_job(self, model: CreateInternalProductionJob) -> InternalProductionJob:
@@ -1850,6 +1880,11 @@ class AnyscaleClient(AnyscaleClientInterface):
             # This is the default schema for ray core logger but users
             # could technically use any schema they want for structured logs.
             # Fall back to spitting out the json in the worst-case scenario.
+            # A JSON scalar (e.g. a bare number) or container is valid JSON but
+            # not a dict; membership tests below would raise on scalars, so pass
+            # the original line through unchanged.
+            if not isinstance(json_line, dict):
+                return line
             if "asctime" in json_line and "message" in json_line:
                 return f"{json_line['asctime']} {json_line['message']}"
             elif "message" in json_line:

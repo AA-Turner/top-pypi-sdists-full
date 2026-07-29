@@ -343,11 +343,51 @@ def test_request_headers(scan_mock: Mock, client):
             "GGShield-OS-Name": os_name,
             "GGShield-OS-Version": os_version,
             "GGShield-Python-Version": platform.python_version(),
+            "GGShield-Machine-Id": ANY,
+            "GGShield-Machine-Username": ANY,
             "mode": "path",
             "scan_options": ANY,
         },
         all_secrets=True,
     )
+
+
+@pytest.mark.parametrize(
+    "filename_only,expected_filename",
+    [
+        pytest.param(True, "config.py", id="filename_only"),
+        pytest.param(False, "src/app/config.py", id="full_path"),
+    ],
+)
+@patch("pygitguardian.GGClient.multi_content_scan")
+def test_scan_filename_only(scan_mock: Mock, client, filename_only, expected_filename):
+    """
+    GIVEN a scannable with a nested path
+    WHEN SecretScanner.scan() is called with the filename_only option
+    THEN GGClient.multi_content_scan() receives only the basename as `filename`,
+    otherwise it receives the full path
+    """
+    scannable = StringScannable(url="src/app/config.py", content="content")
+
+    scan_result = ScanResult(policy_break_count=0, policy_breaks=[], policies=[])
+    multi_scan_result = MultiScanResult([scan_result])
+    multi_scan_result.status_code = 200
+    scan_mock.return_value = multi_scan_result
+
+    scanner = SecretScanner(
+        client=client,
+        cache=Cache(),
+        scan_context=ScanContext(
+            scan_mode=ScanMode.PATH,
+            command_path="ggshield",
+        ),
+        check_api_key=False,
+        secret_config=SecretConfig(filename_only=filename_only),
+    )
+    scanner.scan([scannable], scanner_ui=Mock())
+
+    documents = scan_mock.call_args[0][0]
+    assert documents == [{"document": "content", "filename": expected_filename}]
 
 
 @pytest.mark.parametrize("ignore_known_secrets", (True, False))

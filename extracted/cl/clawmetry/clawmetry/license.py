@@ -1071,6 +1071,174 @@ def is_expiring_within(days: int) -> bool:
     return 0 <= remaining <= threshold
 
 
+def license_expires_at() -> int | None:
+    """Scalar view onto the installed license's ``exp`` claim -- the epoch
+    timestamp the key expires at -- for a "license expires: <date>" row
+    that wants ONE integer rather than the whole
+    :func:`current_license_info` envelope.
+
+    Returns:
+      * ``None`` when there is nothing meaningful to surface: no license
+        file on disk, an invalid signature (the payload can't be trusted
+        -- an attacker could stuff any ``exp`` into an unsigned body), OR
+        a signed payload whose ``exp`` claim is absent / non-numeric
+        (perpetual license). A caller distinguishes "perpetual" from "no
+        license" via :func:`is_perpetual` + :func:`has_license`.
+      * A positive epoch integer otherwise -- the exact timestamp carried
+        by the signed payload, unmodified.
+
+    Deliberately lenient on expiry, mirroring :func:`license_issued_at`:
+    an expired-but-signature-valid key still carries a meaningful ``exp``
+    (support scenario: "when did this lapsed key expire?") and callers
+    would otherwise have to fall back to ``/api/license/status``. The
+    :func:`is_expired` / :func:`days_until_expiry` helpers independently
+    carry the "past-expiry" signal for callers that DO want to hide the
+    row on lapsed keys.
+
+    Pairs with :func:`days_until_expiry` the way :func:`license_issued_at`
+    pairs with :func:`license_age_days` -- this scalar surfaces the raw
+    epoch for an audit row, that one answers the caller-friendly "how
+    many days left" without either side having to do the arithmetic. The
+    two are floor-divided from the same ``exp`` so they never disagree at
+    the day boundary.
+
+    Never raises. Any exception under the hood degrades to ``None`` so a
+    UI tile bound to this helper never breaks on a partial install.
+    """
+    try:
+        info = current_license_info()
+    except Exception as exc:
+        logger.debug("license: license_expires_at underlying read failed: %s", exc)
+        return None
+    if not isinstance(info, dict):
+        return None
+    if info.get("status") == "invalid":
+        # Invalid-signature branch: payload cannot be trusted, refuse to
+        # surface any payload-derived claim (mirrors the issued_at scalar).
+        # Expired-but-signed keys still carry a meaningful ``exp`` so we
+        # do NOT refuse them here.
+        return None
+    exp = info.get("exp")
+    return int(exp) if isinstance(exp, (int, float)) else None
+
+
+def is_expiring_at(epoch: int) -> bool:
+    """Boolean gate for "does the installed license expire at THIS exact
+    epoch?" UIs -- e.g. a "we noticed your key expires <date>" tile that
+    binds a specific ``exp`` value and wants to detect renewal (the on-
+    disk key no longer matches the value it was rendered with).
+
+    Returns ``True`` iff a license is installed, signature-valid, NOT
+    expired, carries an ``exp`` claim, AND that claim matches ``epoch``
+    exactly. Perpetual licenses (no ``exp``) and the no-license path both
+    return ``False``: nothing to compare against.
+
+    ``epoch`` is coerced through ``int()``; a non-numeric value collapses
+    to ``False`` so a caller cannot silently mis-gate on a typo. Never
+    raises; every underlying failure returns ``False`` so a scheduled
+    reminder job never crashes on a bad install.
+
+    Deliberately strict on validity, unlike the underlying
+    :func:`license_expires_at` scalar (which is lenient on expiry so a
+    support tile can render "expired 12 days ago"). A predicate that
+    fired ``True`` on an already-lapsed key would push callers to gate
+    renewal UI on a value that no longer implies the customer is
+    entitled.
+    """
+    try:
+        wanted = int(epoch)
+    except (TypeError, ValueError):
+        return False
+    try:
+        info = current_license_info()
+    except Exception as exc:
+        logger.debug("license: is_expiring_at underlying read failed: %s", exc)
+        return False
+    if not isinstance(info, dict):
+        return False
+    if not info.get("valid"):
+        return False
+    exp = info.get("exp")
+    if not isinstance(exp, (int, float)):
+        return False
+    return int(exp) == wanted
+
+
+def days_until_expiry_at(epoch: int) -> int | None:
+    """Scalar view of "how many days from ``epoch`` until the installed
+    license's ``exp`` claim?" for a perspective-epoch audit tile that
+    wants to answer "was the license in the renewal window on <date>?"
+    without the caller having to compute ``(exp - epoch) // 86400`` at
+    every call site.
+
+    Returns:
+      * ``None`` when there is nothing meaningful to compute against: no
+        license file on disk, an invalid signature (the payload can't be
+        trusted -- an attacker could stuff any ``exp`` into an unsigned
+        body), a signed payload whose ``exp`` claim is absent
+        (perpetual license -- nothing to count down to), OR a non-numeric
+        / bool ``epoch`` argument.
+      * A signed integer number of days otherwise. Zero when ``epoch``
+        falls on the day of expiry; negative when ``epoch`` is after
+        ``exp`` (support scenario: "how many days past expiry was
+        <date>?"); positive when ``epoch`` is before ``exp``. A caller
+        distinguishes "expires that day" from "expired 3 days before
+        then" by sign without a second call to
+        :func:`current_license_info`.
+
+    Days are floor-divided from seconds ``(exp - epoch) // 86400``,
+    matching how :func:`days_until_expiry` derives its "now" counterpart
+    from the same claim so the two scalars never disagree at the day
+    boundary when ``epoch`` equals the current time.
+
+    ``epoch`` is coerced through ``int()``; ``bool`` is explicitly
+    refused despite being an ``int`` subclass so a caller that passes
+    ``True`` / ``False`` gets ``None`` rather than a spurious "days
+    until epoch 1" number. A non-numeric value collapses to ``None`` so
+    a caller cannot silently miscount on a typo.
+
+    Deliberately lenient on expiry, mirroring :func:`days_until_expiry`:
+    an expired-but-signature-valid key still carries a meaningful ``exp``
+    (support scenario: "when did this lapsed key expire, evaluated as
+    of last Friday?") and callers would otherwise have to fall back to
+    ``current_license_info``. The :func:`is_expired` /
+    :func:`is_expiring_at` helpers independently carry the "past-expiry"
+    / "exact-match" signals for callers that DO want to hide the row on
+    lapsed keys.
+
+    Pairs with :func:`license_expires_at` the way
+    :func:`days_until_expiry` pairs with :func:`license_expires_at`:
+    both derive from the same ``exp`` claim so they cannot disagree at
+    the day boundary. The perspective-epoch flavour lets a scheduled
+    audit tile answer "would we have warned yesterday? last week?"
+    without having to snapshot the license state at those times.
+
+    Never raises. Any exception under the hood degrades to ``None`` so a
+    scheduled audit job never crashes on a bad install.
+    """
+    if isinstance(epoch, bool):
+        # ``bool`` is a subclass of ``int``; refuse it explicitly so a
+        # caller that passes ``True`` doesn't silently ask "days until
+        # epoch 1?" and get a very negative number back.
+        return None
+    try:
+        wanted = int(epoch)
+    except (TypeError, ValueError):
+        return None
+    try:
+        exp = license_expires_at()
+    except Exception as exc:
+        logger.debug("license: days_until_expiry_at underlying read failed: %s", exc)
+        return None
+    if not isinstance(exp, int):
+        return None
+    try:
+        return (exp - wanted) // 86400
+    except Exception as exc:
+        logger.debug("license: days_until_expiry_at arithmetic failed: %s", exc)
+        return None
+
+
 def license_tier() -> str | None:
     """Scalar view onto the installed license's ``tier`` claim -- for a
     paywall tile / tier badge that wants ONE string rather than the whole
@@ -1173,6 +1341,73 @@ def is_expired() -> bool:
     except Exception as exc:
         logger.warning("license: is_expired failed: %s", exc)
         return False
+
+
+
+def is_expired_at(epoch: int) -> bool:
+    """Boolean gate for "was the installed license expired evaluated as of
+    ``epoch``?" -- the perspective-epoch flavour of :func:`is_expired`, for
+    a scheduled-audit tile that wants to answer "would we have shown the
+    expired banner on <date>?" without the caller having to snapshot the
+    license state at that time or compare ``exp`` to a caller-supplied
+    epoch themselves.
+
+    Returns ``True`` iff a license is installed, signature-valid, carries
+    an ``exp`` claim, AND ``exp <= epoch``. Returns ``False`` for every
+    other state: no license file, invalid signature (an attacker could
+    stuff any ``exp`` into an unsigned body, so we refuse to trust it),
+    perpetual / no-``exp`` keys (nothing to compare against), and any
+    ``exp`` value strictly greater than ``epoch``.
+
+    When ``epoch`` equals "now", this predicate must agree with
+    :func:`is_expired` for the same install -- both derive from the same
+    signed ``exp`` claim and use the same ``<=`` cutoff, so the two
+    scalars cannot disagree at the boundary. On any other epoch this
+    helper answers the retrospective question that :func:`is_expired`
+    cannot -- e.g. "was this key already expired last Friday?" (positive
+    signal even on a key that has since been renewed) or "will this key
+    be expired at our next quarterly audit?" (positive signal on an
+    active key whose ``exp`` falls before the audit date).
+
+    Deliberately lenient on expiry NOW, unlike :func:`is_expiring_at`
+    (which refuses lapsed keys because a renewal-window predicate on a
+    lapsed key would push callers to gate the WRONG UI). A retrospective
+    "was this expired on <date>?" tile absolutely should keep firing
+    ``True`` on a lapsed key -- that is the entire support scenario --
+    so the "signature-valid" check here does NOT roll in the "not
+    expired now" clause the sibling :func:`is_expiring_at` uses.
+
+    ``epoch`` is coerced through ``int()``; ``bool`` is explicitly
+    refused despite being an ``int`` subclass so a caller that passes
+    ``True`` / ``False`` gets ``False`` back rather than a spurious
+    "was the key expired at epoch 1?" answer. A non-numeric value
+    collapses to ``False`` so a caller cannot silently mis-gate on a
+    typo.
+
+    Never raises. Any underlying introspection failure (import error,
+    corrupt install, cryptography-lib mismatch) collapses to ``False``
+    so a scheduled audit job never crashes on a bad install.
+    """
+    if isinstance(epoch, bool):
+        # ``bool`` is a subclass of ``int``; refuse it explicitly so a
+        # caller that passes ``True`` doesn't silently ask "was the key
+        # expired at epoch 1?" and get a positive answer back.
+        return False
+    try:
+        wanted = int(epoch)
+    except (TypeError, ValueError):
+        return False
+    try:
+        exp = license_expires_at()
+    except Exception as exc:
+        logger.debug("license: is_expired_at underlying read failed: %s", exc)
+        return False
+    if not isinstance(exp, int):
+        # ``license_expires_at`` returns None for no-license, invalid-
+        # signature, and perpetual branches. Nothing to compare against
+        # in any of those cases.
+        return False
+    return exp <= wanted
 
 
 def is_perpetual() -> bool:
@@ -1288,6 +1523,186 @@ def pro_installation_info() -> dict:
         "marker": marker,
     }
 
+
+def pro_installed_at() -> int | None:
+    """Scalar view onto the ``installed_at`` field of the ``clawmetry-pro``
+    provisioning marker (``~/.clawmetry/pro_installed.json``) -- the epoch
+    timestamp the paid wheel was first laid down on this node -- for a
+    "pro installed: <date>" row that wants ONE integer rather than the
+    whole :func:`pro_installation_info` envelope.
+
+    Returns:
+      * ``None`` when there is nothing meaningful to surface: the marker
+        file is missing (wheel was never provisioned OR was provisioned by
+        a pre-marker version of ClawMetry), the marker exists but has no
+        ``installed_at`` key, or the value carried by the marker is
+        non-numeric / negative.
+      * A positive epoch integer otherwise -- the exact timestamp written
+        by :func:`_write_pro_marker` at provision time.
+
+    Deliberately independent of ``importlib.metadata`` -- an operator can
+    have the marker on disk (wheel was provisioned yesterday) even when
+    Python cannot currently import ``clawmetry-pro`` (wheel was pip-
+    uninstalled since). That disagreement is exactly what a paywall-
+    debugging tile wants to see, so this scalar answers "when was the
+    marker last written?" without collapsing to :func:`pro_installed`.
+
+    Pairs with :func:`pro_install_age_days` the way
+    :func:`license_issued_at` pairs with :func:`license_age_days`: this
+    getter surfaces the raw epoch for a debug row, that helper answers the
+    "how old" derived integer without the caller having to compute
+    ``(now - installed_at) // 86400`` themselves.
+
+    Never raises. Any exception under the hood degrades to ``None`` so a
+    UI tile bound to this helper never breaks on a partial install.
+    """
+    try:
+        marker = _read_pro_marker()
+    except Exception as exc:
+        logger.debug("license: pro_installed_at marker read failed: %s", exc)
+        return None
+    if not isinstance(marker, dict):
+        return None
+    installed_at = marker.get("installed_at")
+    if not isinstance(installed_at, (int, float)):
+        return None
+    if isinstance(installed_at, bool):
+        # ``bool`` is a subclass of ``int``; refuse it explicitly so a
+        # marker that somehow contains ``{"installed_at": true}`` collapses
+        # to ``None`` rather than surfacing as epoch 1.
+        return None
+    if installed_at <= 0:
+        return None
+    return int(installed_at)
+
+
+def pro_install_age_days() -> int | None:
+    """Scalar view onto how long ago the ``clawmetry-pro`` wheel was
+    provisioned on this node -- days since the ``installed_at`` field of
+    the provisioning marker -- for a support/audit tile that wants ONE
+    integer rather than computing ``(now - installed_at) // 86400`` at
+    every call site.
+
+    Returns:
+      * ``None`` when there is nothing meaningful to derive: no marker
+        file, a marker with no ``installed_at`` key, or a marker whose
+        ``installed_at`` value is non-numeric / non-positive.
+      * A non-negative integer number of days otherwise. Zero on the day
+        of provisioning; grows monotonically thereafter.
+
+    Days are floor-divided from seconds ``(now - installed_at) // 86400``,
+    matching how :func:`license_age_days` derives its counterpart from the
+    signed ``iat`` claim so the two scalars never disagree at the day
+    boundary. Clamped to ``max(0, ...)`` to guard against clock skew (an
+    ``installed_at`` in the future would otherwise render as a negative
+    age and break ``f"{age} days old"`` formatting).
+
+    Pairs with :func:`pro_installed_at` the way :func:`license_age_days`
+    pairs with :func:`license_issued_at`: raw epoch for the debug row,
+    derived integer for the display tile, both reading the same marker so
+    a UI binding both cannot catch them disagreeing on the same install.
+
+    Never raises. Any exception under the hood degrades to ``None`` so a
+    scheduled audit tile never crashes on a bad install.
+    """
+    import time as _t
+
+    try:
+        installed = pro_installed_at()
+    except Exception as exc:
+        logger.debug("license: pro_install_age_days underlying read failed: %s", exc)
+        return None
+    if not isinstance(installed, int):
+        return None
+    try:
+        age = int((_t.time() - installed) // 86400)
+    except Exception as exc:
+        logger.debug("license: pro_install_age_days arithmetic failed: %s", exc)
+        return None
+    return age if age >= 0 else 0
+
+
+def pro_install_age_days_at(epoch: int) -> int | None:
+    """Scalar view of "how many days from ``installed_at`` to ``epoch``?" --
+    the perspective-epoch flavour of :func:`pro_install_age_days`, for a
+    scheduled-audit / retrospective tile that wants to answer "how old
+    was the ``clawmetry-pro`` install as of <date>?" without the caller
+    having to snapshot the marker state at that time or compute
+    ``(epoch - installed_at) // 86400`` at every call site.
+
+    Returns:
+      * ``None`` when there is nothing meaningful to derive: no marker
+        file on disk, a marker with no ``installed_at`` key, a marker
+        whose ``installed_at`` value is non-numeric / non-positive, OR
+        a non-numeric / bool ``epoch`` argument.
+      * A signed integer number of days otherwise. Zero when ``epoch``
+        equals the ``installed_at`` second; positive when ``epoch`` is
+        after ``installed_at`` (the normal case -- "N days old as of
+        <date>"); negative when ``epoch`` is BEFORE ``installed_at``
+        (support scenario: "the operator rolled a machine back to a
+        pre-provisioning timestamp -- how far before install were we?").
+
+    Deliberately NOT clamped to ``max(0, ...)`` -- unlike the "now"
+    flavour :func:`pro_install_age_days`, which clamps because clock-
+    skew is the only way ``installed_at`` can be in the future when
+    reading against ``time.time()``. Here the caller EXPLICITLY passes
+    a perspective epoch, so a negative result is a real, actionable
+    signal (they asked a question that only makes sense pre-install),
+    not clock skew to be hidden. Mirrors the signed-integer posture of
+    :func:`license_age_days_at`, which returns negative days when the
+    perspective epoch is before ``iat``.
+
+    Days are floor-divided from seconds ``(epoch - installed_at) //
+    86400``, matching how :func:`pro_install_age_days` derives its
+    "now" counterpart from ``(now - installed_at)`` so the two scalars
+    never disagree at the day boundary when ``epoch`` equals the
+    current time.
+
+    ``epoch`` is coerced through ``int()``; ``bool`` is explicitly
+    refused despite being an ``int`` subclass so a caller that passes
+    ``True`` / ``False`` gets ``None`` rather than a spurious "days
+    from installed_at to epoch 1" number. A non-numeric value collapses
+    to ``None`` so a caller cannot silently miscount on a typo.
+
+    Pairs with :func:`pro_installed_at` the way
+    :func:`license_age_days_at` pairs with :func:`license_issued_at`:
+    both derive from the same marker so they cannot disagree at the
+    day boundary. The perspective-epoch flavour lets a scheduled audit
+    tile answer "how old was the pro wheel when we shipped that build
+    last Friday?" without having to snapshot the marker state at those
+    times.
+
+    Independent of live importability -- an operator can have the
+    marker on disk (wheel was provisioned yesterday) even when Python
+    cannot currently import ``clawmetry-pro`` (wheel was pip-
+    uninstalled since), and the age still refers to the marker. Use
+    :func:`pro_installed` alongside this scalar for the live-import
+    signal.
+
+    Never raises. Any exception under the hood degrades to ``None`` so
+    a scheduled audit job never crashes on a bad install.
+    """
+    if isinstance(epoch, bool):
+        # ``bool`` is a subclass of ``int``; refuse it explicitly so a
+        # caller that passes ``True`` doesn't silently ask "days from
+        # installed_at to epoch 1?" and get a very negative number back.
+        return None
+    try:
+        wanted = int(epoch)
+    except (TypeError, ValueError):
+        return None
+    try:
+        installed = pro_installed_at()
+    except Exception as exc:
+        logger.debug("license: pro_install_age_days_at underlying read failed: %s", exc)
+        return None
+    if not isinstance(installed, int):
+        return None
+    try:
+        return (wanted - installed) // 86400
+    except Exception as exc:
+        logger.debug("license: pro_install_age_days_at arithmetic failed: %s", exc)
+        return None
 
 
 def license_nodes() -> int | None:
@@ -1649,6 +2064,60 @@ def license_issued_at() -> int | None:
     return int(issued) if isinstance(issued, int) else None
 
 
+def is_pubkey_fingerprint(fp: str) -> bool:
+    """Boolean gate for "is this install verifying against pubkey <FP>?" UIs.
+
+    Returns ``True`` iff :func:`pubkey_fingerprint` resolves to a non-empty
+    SHA-256 hex string AND ``fp`` matches it under a tolerant normalisation:
+
+      * whitespace stripped on both sides,
+      * lowercased (SHA-256 hex is case-insensitive),
+      * ``:`` separators removed -- many display formats print
+        fingerprints as ``ab:cd:ef:...`` and an operator comparing a
+        pasted string against the canonical one should not have to strip
+        colons themselves,
+      * short-form (16-char, matching :func:`pubkey_info`'s
+        ``fingerprint_short``) also matches if it is a prefix of the
+        full digest, so a UI can accept either the full digest or the
+        short-form printed on ``/api/license/pubkey``.
+
+    Every other state returns ``False``: unparseable embedded PEM
+    (fingerprint helper collapses to ``None``), non-string / empty input,
+    or a normalised digest that simply differs from the trust anchor.
+    Never raises; every underlying failure returns ``False`` so a
+    scheduled trust-anchor audit never crashes on a bad install.
+
+    Pairs with :func:`pubkey_fingerprint` the way :func:`is_subject`
+    pairs with :func:`license_subject` -- the scalar reports the raw
+    hex digest for a badge tile, this bool answers the yes/no question
+    a supply-chain / trust-anchor audit needs without the caller having
+    to normalise the string themselves.
+    """
+    try:
+        requested = str(fp).strip().lower().replace(":", "")
+    except Exception:
+        return False
+    if not requested:
+        return False
+    # Only hex is valid -- reject accidental non-hex input up-front so
+    # ``is_pubkey_fingerprint("not a fingerprint")`` collapses to ``False``
+    # instead of doing a full comparison against the real digest.
+    if not all(c in "0123456789abcdef" for c in requested):
+        return False
+    try:
+        actual = pubkey_fingerprint()
+    except Exception:
+        return False
+    if not isinstance(actual, str) or not actual:
+        return False
+    actual_norm = actual.strip().lower()
+    if len(requested) == 64:
+        return actual_norm == requested
+    if len(requested) == 16:
+        return actual_norm.startswith(requested)
+    return False
+
+
 def license_age_days() -> int | None:
     """Scalar view onto the installed license's age -- days since the
     ``iat`` claim -- for a support/audit tile that wants ONE integer
@@ -1690,3 +2159,176 @@ def license_age_days() -> int | None:
         logger.debug("license: license_age_days arithmetic failed: %s", exc)
         return None
     return age if age >= 0 else 0
+
+
+def license_age_days_at(epoch: int) -> int | None:
+    """Scalar view of "how many days from ``iat`` to ``epoch``?" -- the
+    perspective-epoch flavour of :func:`license_age_days`, for a
+    scheduled-audit / retrospective tile that wants to answer "how old
+    was the license as of <date>?" without the caller having to snapshot
+    the license state at that time or compute ``(epoch - iat) // 86400``
+    at every call site.
+
+    Returns:
+      * ``None`` when there is nothing meaningful to derive: no license
+        file on disk, an invalid signature (the payload can't be trusted
+        -- an attacker could stuff any ``iat`` into an unsigned body), a
+        signed payload whose ``iat`` claim is absent / non-numeric, OR a
+        non-numeric / bool ``epoch`` argument.
+      * A signed integer number of days otherwise. Zero when ``epoch``
+        equals the ``iat`` second; positive when ``epoch`` is after
+        ``iat`` (the normal case -- "N days old as of <date>"); negative
+        when ``epoch`` is BEFORE ``iat`` (support scenario: "the operator
+        rolled a machine back to a pre-issuance timestamp -- how far
+        before issuance were we?").
+
+    Deliberately NOT clamped to ``max(0, ...)`` -- unlike the "now"
+    flavour :func:`license_age_days`, which clamps because clock-skew is
+    the only way ``iat`` can be in the future when reading against
+    ``time.time()``. Here the caller EXPLICITLY passes a perspective
+    epoch, so a negative result is a real, actionable signal (they asked
+    a question that only makes sense pre-issuance), not clock skew to be
+    hidden. Mirrors the signed-integer posture of
+    :func:`days_until_expiry_at`, which returns negative days when the
+    perspective epoch is past ``exp``.
+
+    Days are floor-divided from seconds ``(epoch - iat) // 86400``,
+    matching how :func:`license_age_days` derives its "now" counterpart
+    from ``(now - iat)`` so the two scalars never disagree at the day
+    boundary when ``epoch`` equals the current time.
+
+    ``epoch`` is coerced through ``int()``; ``bool`` is explicitly
+    refused despite being an ``int`` subclass so a caller that passes
+    ``True`` / ``False`` gets ``None`` rather than a spurious "days
+    from iat to epoch 1" number. A non-numeric value collapses to
+    ``None`` so a caller cannot silently miscount on a typo.
+
+    Deliberately lenient on expiry, mirroring :func:`license_age_days`:
+    an expired-but-signature-valid key still carries a meaningful
+    ``iat`` (support scenario: "how old was this lapsed key evaluated
+    as of last Friday?") and callers would otherwise have to fall back
+    to :func:`current_license_info`. The :func:`is_expired` /
+    :func:`is_expiring_at` helpers independently carry the "past-
+    expiry" signals for callers that DO want to hide the row on lapsed
+    keys.
+
+    Pairs with :func:`license_issued_at` the way
+    :func:`days_until_expiry_at` pairs with :func:`license_expires_at`:
+    both derive from the same ``iat`` claim so they cannot disagree at
+    the day boundary. The perspective-epoch flavour lets a scheduled
+    audit tile answer "how old was the key when we shipped that build
+    last Friday?" without having to snapshot the license state at
+    those times.
+
+    Never raises. Any exception under the hood degrades to ``None`` so a
+    scheduled audit job never crashes on a bad install.
+    """
+    if isinstance(epoch, bool):
+        # ``bool`` is a subclass of ``int``; refuse it explicitly so a
+        # caller that passes ``True`` doesn't silently ask "days from
+        # iat to epoch 1?" and get a very negative number back.
+        return None
+    try:
+        wanted = int(epoch)
+    except (TypeError, ValueError):
+        return None
+    try:
+        issued = license_issued_at()
+    except Exception as exc:
+        logger.debug("license: license_age_days_at underlying read failed: %s", exc)
+        return None
+    if not isinstance(issued, int):
+        return None
+    try:
+        return (wanted - issued) // 86400
+    except Exception as exc:
+        logger.debug("license: license_age_days_at arithmetic failed: %s", exc)
+        return None
+
+
+# Canonical set of values :func:`license_state` may return. Kept in a frozenset
+# so a caller (`if state in LICENSE_STATES: ...`) never accidentally accepts a
+# typo like ``"actiev"`` as a valid state, and so :func:`is_state` can normalise
+# / validate its input against the same source of truth the getter uses.
+LICENSE_STATES = frozenset({"active", "expired", "invalid", "no_license"})
+
+
+def license_state() -> str:
+    """Scalar view onto the installed license's high-level lifecycle state --
+    for a status badge / audit row that wants ONE string rather than the
+    whole :func:`current_license_info` envelope.
+
+    Returns one of :data:`LICENSE_STATES` -- never ``None``. Unlike the
+    tier / nodes / subject scalars, "no license installed" is a real answer
+    here (``"no_license"``), not a missing answer, so callers can bind a
+    switch without a ``None`` branch:
+
+      * ``"active"``   -- signature-valid AND not expired.
+      * ``"expired"``  -- signature-valid but past its ``exp`` claim.
+      * ``"invalid"``  -- file exists but signature is bogus (bit-flip,
+        tamper, key rotated server-side, wrong-environment key).
+      * ``"no_license"`` -- no license file on disk (the OSS-free branch).
+
+    Mirrors the ``status`` field carried by :func:`current_license_info`
+    exactly for the three file-exists branches, and adds ``"no_license"``
+    for the None-info branch so the caller never has to translate
+    ``current_license_info() is None`` themselves. On any introspection
+    failure (import error, corrupt install, cryptography-lib mismatch) the
+    helper degrades to ``"no_license"`` -- same fallback as
+    :func:`has_license` -- so a UI tile bound to this helper never breaks
+    on a partial install.
+
+    Never raises. Pairs with :func:`is_state` the way :func:`license_tier`
+    pairs with :func:`is_tier`: this getter surfaces the string for a
+    display row, that matcher answers the "am I in state <X> right now?"
+    gate without the caller having to string-compare themselves.
+    """
+    try:
+        info = current_license_info()
+    except Exception as exc:
+        logger.debug("license: license_state underlying read failed: %s", exc)
+        return "no_license"
+    if info is None:
+        return "no_license"
+    if not isinstance(info, dict):
+        return "no_license"
+    status = info.get("status")
+    if isinstance(status, str) and status in LICENSE_STATES:
+        return status
+    # Defensive: an unexpected status string (future refactor, downstream
+    # patch) must never leak through as a bogus state -- collapse to
+    # ``"invalid"`` since the file exists but we cannot classify it.
+    return "invalid"
+
+
+def is_state(state: str) -> bool:
+    """Boolean gate for "is the installed license in state <X> right now?"
+
+    Compares :func:`license_state` case-insensitively (after strip) to the
+    supplied ``state``. Missing / empty / non-string input degrades to
+    ``False`` -- matches the never-raise posture of :func:`is_tier` /
+    :func:`is_subject` / :func:`is_within_node_limit`.
+
+    Only values in :data:`LICENSE_STATES` can ever return ``True``; a
+    typo like ``"actiev"`` collapses to ``False`` so a caller cannot
+    silently mis-gate on a mis-spelled state name. Callers wanting to
+    validate their input up-front can ``if requested in LICENSE_STATES:``
+    against the same source of truth.
+
+    Never raises. Any underlying failure of :func:`license_state`
+    collapses this to ``False`` -- a UI tile bound to this gate stays
+    "unclaimed" rather than falsely asserting an entitlement it can't
+    verify.
+    """
+    try:
+        requested = str(state).strip().lower() if state is not None else ""
+    except Exception:
+        return False
+    if not requested or requested not in LICENSE_STATES:
+        return False
+    try:
+        current = license_state()
+    except Exception as exc:
+        logger.debug("license: is_state underlying read failed: %s", exc)
+        return False
+    return current == requested

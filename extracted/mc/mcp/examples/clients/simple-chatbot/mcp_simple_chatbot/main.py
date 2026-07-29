@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
@@ -6,7 +8,7 @@ import shutil
 from contextlib import AsyncExitStack
 from typing import Any
 
-import httpx
+import httpx2
 from dotenv import load_dotenv
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
@@ -93,7 +95,7 @@ class Server:
             await self.cleanup()
             raise
 
-    async def list_tools(self) -> list[Any]:
+    async def list_tools(self) -> list[Tool]:
         """List available tools from the server.
 
         Returns:
@@ -106,11 +108,11 @@ class Server:
             raise RuntimeError(f"Server {self.name} not initialized")
 
         tools_response = await self.session.list_tools()
-        tools = []
+        tools: list[Tool] = []
 
         for item in tools_response:
-            if isinstance(item, tuple) and item[0] == "tools":
-                tools.extend(Tool(tool.name, tool.description, tool.inputSchema, tool.title) for tool in item[1])
+            if item[0] == "tools":
+                tools.extend(Tool(tool.name, tool.description, tool.input_schema, tool.title) for tool in item[1])
 
         return tools
 
@@ -189,7 +191,7 @@ class Tool:
         Returns:
             A formatted string describing the tool.
         """
-        args_desc = []
+        args_desc: list[str] = []
         if "properties" in self.input_schema:
             for param_name, param_info in self.input_schema["properties"].items():
                 arg_desc = f"- {param_name}: {param_info.get('description', 'No description')}"
@@ -225,10 +227,7 @@ class LLMClient:
             messages: A list of message dictionaries.
 
         Returns:
-            The LLM's response as a string.
-
-        Raises:
-            httpx.RequestError: If the request to the LLM fails.
+            The LLM's response as a string, or an error message if the request fails.
         """
         url = "https://api.groq.com/openai/v1/chat/completions"
 
@@ -247,17 +246,17 @@ class LLMClient:
         }
 
         try:
-            with httpx.Client() as client:
+            with httpx2.Client() as client:
                 response = client.post(url, headers=headers, json=payload)
                 response.raise_for_status()
                 data = response.json()
                 return data["choices"][0]["message"]["content"]
 
-        except httpx.RequestError as e:
+        except httpx2.HTTPError as e:
             error_message = f"Error getting LLM response: {str(e)}"
             logging.error(error_message)
 
-            if isinstance(e, httpx.HTTPStatusError):
+            if isinstance(e, httpx2.HTTPStatusError):
                 status_code = e.response.status_code
                 logging.error(f"Status code: {status_code}")
                 logging.error(f"Response details: {e.response.text}")
@@ -311,9 +310,9 @@ class ChatSession:
                             result = await server.execute_tool(tool_call["tool"], tool_call["arguments"])
 
                             if isinstance(result, dict) and "progress" in result:
-                                progress = result["progress"]
-                                total = result["total"]
-                                percentage = (progress / total) * 100
+                                progress = result["progress"]  # type: ignore
+                                total = result["total"]  # type: ignore
+                                percentage = (progress / total) * 100  # type: ignore
                                 logging.info(f"Progress: {progress}/{total} ({percentage:.1f}%)")
 
                             return f"Tool execution result: {result}"
@@ -338,7 +337,7 @@ class ChatSession:
                     await self.cleanup_servers()
                     return
 
-            all_tools = []
+            all_tools: list[Tool] = []
             for server in self.servers:
                 tools = await server.list_tools()
                 all_tools.extend(tools)

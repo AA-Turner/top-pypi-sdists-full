@@ -20,19 +20,19 @@
 class WXDLLIMPEXP_CORE wxPCXHandler : public wxImageHandler
 {
 public:
-    inline wxPCXHandler()
+    wxPCXHandler() : wxImageHandler(
+        wxT("PCX file"),
+        wxT("pcx"),
+        wxBITMAP_TYPE_PCX,
+        wxT("image/pcx"))
     {
-        m_name = wxT("PCX file");
-        m_extension = wxT("pcx");
-        m_type = wxBITMAP_TYPE_PCX;
-        m_mime = wxT("image/pcx");
     }
 
 #if wxUSE_STREAMS
-    virtual bool LoadFile( wxImage *image, wxInputStream& stream, bool verbose=true, int index=-1 ) wxOVERRIDE;
-    virtual bool SaveFile( wxImage *image, wxOutputStream& stream, bool verbose=true ) wxOVERRIDE;
+    virtual bool LoadFile( wxImage *image, wxInputStream& stream, bool verbose=true, int index=-1 ) override;
+    virtual bool SaveFile( wxImage *image, wxOutputStream& stream, bool verbose=true ) override;
 protected:
-    virtual bool DoCanRead( wxInputStream& stream ) wxOVERRIDE;
+    virtual bool DoCanRead( wxInputStream& stream ) override;
 #endif // wxUSE_STREAMS
 
 private:

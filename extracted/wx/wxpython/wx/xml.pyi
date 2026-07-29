@@ -85,7 +85,7 @@ XMLDOC_KEEP_WHITESPACE_NODES = _XmlDocumentLoadFlag.XMLDOC_KEEP_WHITESPACE_NODES
 
 class XmlNode:
     """
-    XmlNode(parent, type, name, content='', attrs=None, next=None, lineNo=-1) -> None
+    XmlNode(parent, type, name, content='', attrs=nullptr, next=nullptr, lineNo=-1) -> None
     XmlNode(type, name, content='', lineNo=-1) -> None
     XmlNode(node) -> None
     
@@ -101,9 +101,9 @@ class XmlNode:
         ...
 
     @overload
-    def __init__(self, parent: XmlNode, type: XmlNodeType, name: str, content: str='', attrs: Optional[XmlAttribute]=None, next: Optional[XmlNode]=None, lineNo: int=-1) -> None:
+    def __init__(self, parent: XmlNode, type: XmlNodeType, name: str, content: str='', attrs: XmlAttribute=nullptr, next: XmlNode=nullptr, lineNo: int=-1) -> None:
         """
-        XmlNode(parent, type, name, content='', attrs=None, next=None, lineNo=-1) -> None
+        XmlNode(parent, type, name, content='', attrs=nullptr, next=nullptr, lineNo=-1) -> None
         XmlNode(type, name, content='', lineNo=-1) -> None
         XmlNode(node) -> None
         
@@ -167,9 +167,9 @@ class XmlNode:
         Returns the content of this node.
         """
 
-    def GetDepth(self, grandparent: Optional[XmlNode]=None) -> int:
+    def GetDepth(self, grandparent: XmlNode=nullptr) -> int:
         """
-        GetDepth(grandparent=None) -> int
+        GetDepth(grandparent=nullptr) -> int
         
         Returns the number of nodes which separate this node from grandparent.
         """
@@ -201,8 +201,8 @@ class XmlNode:
         """
         GetNext() -> XmlNode
         
-        Returns a pointer to the sibling of this node or NULL if there are no
-        siblings.
+        Returns a pointer to the sibling of this node or nullptr if there are
+        no siblings.
         """
 
     def GetNodeContent(self) -> str:
@@ -217,8 +217,8 @@ class XmlNode:
         """
         GetParent() -> XmlNode
         
-        Returns a pointer to the parent of this node or NULL if this node has
-        no parent.
+        Returns a pointer to the parent of this node or nullptr if this node
+        has no parent.
         """
 
     def GetType(self) -> XmlNodeType:
@@ -348,20 +348,20 @@ class XmlNode:
 class XmlAttribute:
     """
     XmlAttribute() -> None
-    XmlAttribute(name, value, next=None) -> None
+    XmlAttribute(name, value, next=nullptr) -> None
     
     Represents a node attribute.
     """
 
     @overload
-    def __init__(self, name: str, value: str, next: Optional[XmlAttribute]=None) -> None:
+    def __init__(self, name: str, value: str, next: XmlAttribute=nullptr) -> None:
         ...
 
     @overload
     def __init__(self) -> None:
         """
         XmlAttribute() -> None
-        XmlAttribute(name, value, next=None) -> None
+        XmlAttribute(name, value, next=nullptr) -> None
         
         Represents a node attribute.
         """
@@ -377,7 +377,7 @@ class XmlAttribute:
         """
         GetNext() -> XmlAttribute
         
-        Returns the sibling of this attribute or NULL if there are no
+        Returns the sibling of this attribute or nullptr if there are no
         siblings.
         """
 
@@ -427,8 +427,8 @@ class XmlDocument(wx.wx.Object):
     """
     XmlDocument() -> None
     XmlDocument(doc) -> None
-    XmlDocument(filename, encoding="UTF-8") -> None
-    XmlDocument(stream, encoding="UTF-8") -> None
+    XmlDocument(filename) -> None
+    XmlDocument(stream) -> None
     
     This class holds XML data/document as parsed by XML parser in the root
     node.
@@ -439,11 +439,11 @@ class XmlDocument(wx.wx.Object):
         ...
 
     @overload
-    def __init__(self, filename: str, encoding: str="UTF-8") -> None:
+    def __init__(self, filename: str) -> None:
         ...
 
     @overload
-    def __init__(self, stream: InputStream, encoding: str="UTF-8") -> None:
+    def __init__(self, stream: InputStream) -> None:
         ...
 
     @overload
@@ -451,8 +451,8 @@ class XmlDocument(wx.wx.Object):
         """
         XmlDocument() -> None
         XmlDocument(doc) -> None
-        XmlDocument(filename, encoding="UTF-8") -> None
-        XmlDocument(stream, encoding="UTF-8") -> None
+        XmlDocument(filename) -> None
+        XmlDocument(stream) -> None
         
         This class holds XML data/document as parsed by XML parser in the root
         node.
@@ -537,14 +537,14 @@ class XmlDocument(wx.wx.Object):
         """
 
     @overload
-    def Load(self, stream: InputStream, encoding: str="UTF-8", flags: int=XMLDOC_NONE) -> bool:
+    def Load(self, stream: InputStream, flags: int=XMLDOC_NONE, err: XmlParseError=nullptr) -> bool:
         ...
 
     @overload
-    def Load(self, filename: str, encoding: str="UTF-8", flags: int=XMLDOC_NONE) -> bool:
+    def Load(self, filename: str, flags: int=XMLDOC_NONE, err: XmlParseError=nullptr) -> bool:
         """
-        Load(filename, encoding="UTF-8", flags=XMLDOC_NONE) -> bool
-        Load(stream, encoding="UTF-8", flags=XMLDOC_NONE) -> bool
+        Load(filename, flags=XMLDOC_NONE, err=nullptr) -> bool
+        Load(stream, flags=XMLDOC_NONE, err=nullptr) -> bool
         
         Parses filename as an xml document and loads its data.
         """
@@ -706,6 +706,18 @@ class XmlDoctype:
     @property
     def SystemId(self) -> str: ...
 # end of class XmlDoctype
+
+
+class XmlParseError:
+    """
+    Pass this structure to wxXmlDocument::Load() to get more information
+    if an error occurred during XML parsing.
+    """
+    message: str
+    line: int
+    column: int
+    offset: FileOffset
+# end of class XmlParseError
 
 
 XmlProperty = wx.deprecated(XmlAttribute, 'Use XmlProperty instead.')

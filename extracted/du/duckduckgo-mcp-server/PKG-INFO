@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: duckduckgo-mcp-server
-Version: 0.6.0
+Version: 0.6.1
 Summary: MCP Server for searching via DuckDuckGo
 Project-URL: Homepage, https://github.com/nickclyde/duckduckgo-mcp-server
 Project-URL: Issues, https://github.com/nickclyde/duckduckgo-mcp-server/issues
@@ -19,7 +19,7 @@ Requires-Python: >=3.10
 Requires-Dist: beautifulsoup4>=4.13.3
 Requires-Dist: httpcore>=1.0.8
 Requires-Dist: httpx>=0.28.1
-Requires-Dist: mcp[cli]>=1.26.0
+Requires-Dist: mcp[cli]<2,>=1.26.0
 Provides-Extra: browser
 Requires-Dist: curl-cffi>=0.7.0; extra == 'browser'
 Description-Content-Type: text/markdown

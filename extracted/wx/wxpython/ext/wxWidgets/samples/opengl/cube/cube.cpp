@@ -41,7 +41,7 @@
 // control ids
 enum
 {
-    SpinTimer = wxID_HIGHEST + 1
+    SpinTimer = wxID_HIGHEST
 };
 
 // ----------------------------------------------------------------------------
@@ -309,29 +309,27 @@ wxBEGIN_EVENT_TABLE(TestGLCanvas, wxGLCanvas)
     EVT_TIMER(SpinTimer, TestGLCanvas::OnSpinTimer)
 wxEND_EVENT_TABLE()
 
-TestGLCanvas::TestGLCanvas(wxWindow *parent, int *attribList)
+TestGLCanvas::TestGLCanvas(wxWindow *parent, bool useStereo)
     // With perspective OpenGL graphics, the wxFULL_REPAINT_ON_RESIZE style
     // flag should always be set, because even making the canvas smaller should
     // be followed by a paint event that updates the entire canvas with new
     // viewport settings.
-    : wxGLCanvas(parent, wxID_ANY, attribList,
-                 wxDefaultPosition, wxDefaultSize,
-                 wxFULL_REPAINT_ON_RESIZE),
-      m_xangle(30.0),
+    : m_xangle(30.0),
       m_yangle(30.0),
       m_spinTimer(this,SpinTimer),
-      m_useStereo(false),
+      m_useStereo(useStereo),
       m_stereoWarningAlreadyDisplayed(false)
 {
-    if ( attribList )
+    wxGLAttributes attribs = wxGLAttributes().Defaults();
+    if ( useStereo )
+        attribs.Stereo();
+    attribs.EndList();
+
+    if ( !wxGLCanvas::Create(parent, attribs, wxID_ANY,
+                             wxDefaultPosition, wxDefaultSize,
+                             wxFULL_REPAINT_ON_RESIZE) )
     {
-        int i = 0;
-        while ( attribList[i] != 0 )
-        {
-            if ( attribList[i] == WX_GL_STEREO )
-                m_useStereo = true;
-            ++i;
-        }
+        wxLogError("Creating OpenGL window failed.");
     }
 }
 
@@ -432,7 +430,7 @@ void TestGLCanvas::OnSpinTimer(wxTimerEvent& WXUNUSED(event))
 wxString glGetwxString(GLenum name)
 {
     const GLubyte *v = glGetString(name);
-    if ( v == 0 )
+    if ( v == nullptr )
     {
         // The error is not important. It is GL_INVALID_ENUM.
         // We just want to clear the error stack.
@@ -452,15 +450,20 @@ wxString glGetwxString(GLenum name)
 wxBEGIN_EVENT_TABLE(MyFrame, wxFrame)
     EVT_MENU(wxID_NEW, MyFrame::OnNewWindow)
     EVT_MENU(NEW_STEREO_WINDOW, MyFrame::OnNewStereoWindow)
+
+    EVT_MENU(DISABLE_VSYNC, MyFrame::OnDisableVSync)
+    EVT_MENU(ENABLE_VSYNC, MyFrame::OnEnableVSync)
+    EVT_MENU(ENABLE_ADAPTIVE_VSYNC, MyFrame::OnEnableAdaptiveVSync)
+    EVT_MENU(GET_SWAP_INTERVAL, MyFrame::OnGetSwapInterval)
+
+    EVT_MENU(wxID_ABOUT, MyFrame::OnAbout)
     EVT_MENU(wxID_CLOSE, MyFrame::OnClose)
 wxEND_EVENT_TABLE()
 
 MyFrame::MyFrame( bool stereoWindow )
-       : wxFrame(NULL, wxID_ANY, "wxWidgets OpenGL Cube Sample")
+       : wxFrame(nullptr, wxID_ANY, "wxWidgets OpenGL Cube Sample")
 {
-    int stereoAttribList[] = { WX_GL_RGBA, WX_GL_DOUBLEBUFFER, WX_GL_STEREO, 0 };
-
-    new TestGLCanvas(this, stereoWindow ? stereoAttribList : NULL);
+    m_canvas = new TestGLCanvas(this, stereoWindow);
 
     SetIcon(wxICON(sample));
 
@@ -468,6 +471,13 @@ MyFrame::MyFrame( bool stereoWindow )
     wxMenu *menu = new wxMenu;
     menu->Append(wxID_NEW);
     menu->Append(NEW_STEREO_WINDOW, "New Stereo Window");
+    menu->AppendSeparator();
+    menu->Append(DISABLE_VSYNC, "&Disable VSync");
+    menu->Append(ENABLE_VSYNC, "&Enable VSync");
+    menu->Append(ENABLE_ADAPTIVE_VSYNC, "Enable &adaptive VSync");
+    menu->Append(GET_SWAP_INTERVAL, "Display Swap &Interval\tCtrl+I");
+    menu->AppendSeparator();
+    menu->Append(wxID_ABOUT, "&About...\tF1");
     menu->AppendSeparator();
     menu->Append(wxID_CLOSE);
     wxMenuBar *menuBar = new wxMenuBar;
@@ -481,7 +491,8 @@ MyFrame::MyFrame( bool stereoWindow )
     Show();
 
     // test IsDisplaySupported() function:
-    static const int attribs[] = { WX_GL_RGBA, WX_GL_DOUBLEBUFFER, 0 };
+    wxGLAttributes attribs;
+    attribs.RGBA().DoubleBuffer().EndList();
     wxLogStatus("Double-buffered display %s supported",
                 wxGLCanvas::IsDisplaySupported(attribs) ? "is" : "not");
 
@@ -493,6 +504,48 @@ MyFrame::MyFrame( bool stereoWindow )
                 renderer.find("quadro") == wxString::npos )
             ShowFullScreen(true);
     }
+}
+
+void MyFrame::OnAbout(wxCommandEvent& WXUNUSED(event))
+{
+    wxString info = "This is the wxWidgets OpenGL Cube sample.\n\n";
+
+#ifdef wxHAS_GLX
+    const int glxVersion = wxGLCanvasUnix::GetGLXVersion();
+    if ( glxVersion == 0 )
+    {
+        int eglMajor = 0, eglMinor = 0;
+        if ( wxGLCanvasUnix::GetEGLVersion(&eglMajor, &eglMinor) )
+        {
+            info += wxString::Format("Using EGL %d.%d.\n\n",
+                                     eglMajor, eglMinor);
+        }
+        else
+        {
+            info += "Using unknown OpenGL binding API.\n\n";
+        }
+    }
+    else
+    {
+        info += wxString::Format("Using GLX %d.%d.\n\n",
+                                 glxVersion / 10, glxVersion % 10);
+    }
+#endif // wxHAS_GLX
+
+    auto const getString = [](GLenum name) -> wxString
+    {
+        const GLubyte* const str = glGetString(name);
+        return wxString::FromUTF8(reinterpret_cast<const char*>(str));
+    };
+
+    info += wxString::Format("OpenGL version: %s\n", getString(GL_VERSION));
+    info += wxString::Format("OpenGL vendor: %s\n", getString(GL_VENDOR));
+    info += wxString::Format("OpenGL renderer: %s", getString(GL_RENDERER));
+
+    wxMessageBox(info,
+                 "About wxWidgets OpenGL cube sample",
+                 wxOK | wxICON_INFORMATION,
+                 this);
 }
 
 void MyFrame::OnClose(wxCommandEvent& WXUNUSED(event))
@@ -508,5 +561,57 @@ void MyFrame::OnNewWindow( wxCommandEvent& WXUNUSED(event) )
 
 void MyFrame::OnNewStereoWindow( wxCommandEvent& WXUNUSED(event) )
 {
-    new MyFrame(true);
+    wxGLAttributes attribs;
+    attribs.RGBA().DoubleBuffer().Stereo().EndList();
+    if ( wxGLCanvas::IsDisplaySupported(attribs) )
+    {
+        new MyFrame(true);
+    }
+    else
+    {
+        wxLogError("Stereo not supported by OpenGL on this system, sorry.");
+    }
+}
+
+void MyFrame::OnDisableVSync( wxCommandEvent& WXUNUSED(event) )
+{
+    if ( m_canvas->SetSwapInterval(0) == wxGLCanvas::SwapInterval::Set )
+        wxLogStatus("VSync disabled.");
+    else
+        wxLogStatus("Couldn't disable VSync.");
+}
+
+void MyFrame::OnEnableVSync( wxCommandEvent& WXUNUSED(event) )
+{
+    if ( m_canvas->SetSwapInterval(1) == wxGLCanvas::SwapInterval::Set )
+        wxLogStatus("VSync enabled.");
+    else
+        wxLogStatus("Couldn't enable VSync.");
+}
+
+void MyFrame::OnEnableAdaptiveVSync( wxCommandEvent& WXUNUSED(event) )
+{
+    switch ( m_canvas->SetSwapInterval(-1) )
+    {
+        case wxGLCanvas::SwapInterval::Set:
+            wxLogStatus("Adaptive VSync enabled.");
+            break;
+
+        case wxGLCanvas::SwapInterval::NonAdaptive:
+            wxLogStatus("Adaptive VSync not supported, but VSync enabled.");
+            break;
+
+        case wxGLCanvas::SwapInterval::NotSet:
+            wxLogStatus("Couldn't enable VSync.");
+            break;
+    }
+}
+
+void MyFrame::OnGetSwapInterval( wxCommandEvent& WXUNUSED(event) )
+{
+    const int swapInterval = m_canvas->GetSwapInterval();
+    if ( swapInterval != wxGLCanvas::DefaultSwapInterval )
+        wxLogMessage("Current swap interval is %d.", swapInterval);
+    else
+        wxLogMessage("Couldn't get current swap interval.");
 }

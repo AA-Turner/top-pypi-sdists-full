@@ -116,7 +116,7 @@ static void *init_type_wxGraphicsPen(sipSimpleWrapper *, PyObject *sipArgs, PyOb
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGraphicsPen[] = {{246, 255, 1}};
+static sipEncodedTypeDef supers_wxGraphicsPen[] = {{254, 255, 1}};
 
 PyDoc_STRVAR(doc_wxGraphicsPen, "A wxGraphicsPen is a native representation of a pen.");
 

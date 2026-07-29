@@ -530,7 +530,12 @@ class LogsController(BaseController):
     def _list_job_log_chunks(
         self, job_run_id: str, page_size: Optional[int], timeout: timedelta,
     ) -> Tuple[List[LogFileChunk], Optional[str]]:
-        next_page_token: Optional[str] = None
+        # Job logs are served newest-first (streaming logs use a reverse-timestamp key
+        # prefix so the most recent chunks sort first). To download the *entire* log we
+        # must page in the "older" direction via previous_page_token. Following
+        # next_page_token instead returns only the most recent page and silently drops
+        # the beginning of long-running jobs (see CI-2032).
+        previous_page_token: Optional[str] = None
         all_log_chunks: List[LogFileChunk] = []
         bearer_token = None
 
@@ -540,7 +545,7 @@ class LogsController(BaseController):
                     self.api_client.get_job_logs_download_v2_api_v2_logs_job_logs_download_v2_job_id_get(
                         job_id=job_run_id,
                         page_size=page_size,
-                        next_page_token=next_page_token,
+                        previous_page_token=previous_page_token,
                         _request_timeout=timeout,
                     ).result
                 )
@@ -551,11 +556,11 @@ class LogsController(BaseController):
                         f"Scanning available logs...discovered {len(all_log_chunks)} log file chunks."
                     )
                 if (
-                    result.next_page_token is None
-                    or result.next_page_token == next_page_token
+                    result.previous_page_token is None
+                    or result.previous_page_token == previous_page_token
                 ):
                     break
-                next_page_token = result.next_page_token
+                previous_page_token = result.previous_page_token
 
         return all_log_chunks, bearer_token
 

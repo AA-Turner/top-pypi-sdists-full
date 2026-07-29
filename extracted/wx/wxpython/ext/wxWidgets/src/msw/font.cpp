@@ -2,7 +2,6 @@
 // Name:        src/msw/font.cpp
 // Purpose:     wxFont class
 // Author:      Julian Smart
-// Modified by:
 // Created:     01/02/97
 // Copyright:   (c) wxWidgets team
 // Licence:     wxWindows licence
@@ -23,7 +22,6 @@
 #include "wx/font.h"
 
 #ifndef WX_PRECOMP
-    #include "wx/list.h"
     #include "wx/utils.h"
     #include "wx/app.h"
     #include "wx/log.h"
@@ -46,6 +44,43 @@
 
 // the mask used to extract the pitch from LOGFONT::lfPitchAndFamily field
 static const int PITCH_MASK = FIXED_PITCH | VARIABLE_PITCH;
+
+// ----------------------------------------------------------------------------
+// global functions implementation
+// ----------------------------------------------------------------------------
+
+wxString wxGetMSWFaceNameFromHFONT(HFONT hFont)
+{
+    ScreenHDC hdc;
+    SelectInHDC selectFont(hdc, hFont);
+
+    UINT otmSize = GetOutlineTextMetrics(hdc, 0, nullptr);
+    if ( !otmSize )
+    {
+        wxLogLastError("GetOutlineTextMetrics(nullptr)");
+        return wxString();
+    }
+
+    OUTLINETEXTMETRIC * const
+        otm = static_cast<OUTLINETEXTMETRIC *>(malloc(otmSize));
+    wxON_BLOCK_EXIT1( free, otm );
+
+    otm->otmSize = otmSize;
+    if ( !GetOutlineTextMetrics(hdc, otmSize, otm) )
+    {
+        wxLogLastError("GetOutlineTextMetrics()");
+        return wxString();
+    }
+
+    // in spite of its type, the otmpFamilyName field of OUTLINETEXTMETRIC
+    // gives an offset in _bytes_ of the face (not family!) name from the
+    // struct start while the name itself is an array of TCHARs
+    //
+    // FWIW otmpFaceName contains the same thing as otmpFamilyName followed
+    // by a possible " Italic" or " Bold" or something else suffix
+    return reinterpret_cast<wxChar *>(otm) +
+                wxPtrToUInt(otm->otmpFamilyName)/sizeof(wxChar);
+}
 
 // ----------------------------------------------------------------------------
 // wxFontRefData - the internal description of the font
@@ -117,9 +152,9 @@ public:
     wxString GetFaceName() const
     {
         wxString facename = m_nativeFontInfo.GetFaceName();
-        if ( facename.empty() )
+        if ( facename.empty() || wxIsFaceNamePossiblyTruncated(facename) )
         {
-            facename = GetMSWFaceName();
+            facename = wxGetMSWFaceNameFromHFONT((HFONT)GetHFONT());
             if ( !facename.empty() )
             {
                 // cache the face name, it shouldn't change unless the family
@@ -268,41 +303,6 @@ protected:
             const_cast<wxFontRefData *>(this)->Alloc();
     }
 
-    // retrieve the face name really being used by the font: this is used to
-    // get the face name selected by the system when we don't specify it (but
-    // use just the family for example)
-    wxString GetMSWFaceName() const
-    {
-        ScreenHDC hdc;
-        SelectInHDC selectFont(hdc, (HFONT)GetHFONT());
-
-        UINT otmSize = GetOutlineTextMetrics(hdc, 0, NULL);
-        if ( !otmSize )
-        {
-            wxLogLastError("GetOutlineTextMetrics(NULL)");
-            return wxString();
-        }
-
-        OUTLINETEXTMETRIC * const
-            otm = static_cast<OUTLINETEXTMETRIC *>(malloc(otmSize));
-        wxON_BLOCK_EXIT1( free, otm );
-
-        otm->otmSize = otmSize;
-        if ( !GetOutlineTextMetrics(hdc, otmSize, otm) )
-        {
-            wxLogLastError("GetOutlineTextMetrics()");
-            return wxString();
-        }
-
-        // in spite of its type, the otmpFamilyName field of OUTLINETEXTMETRIC
-        // gives an offset in _bytes_ of the face (not family!) name from the
-        // struct start while the name itself is an array of TCHARs
-        //
-        // FWIW otmpFaceName contains the same thing as otmpFamilyName followed
-        // by a possible " Italic" or " Bold" or something else suffix
-        return reinterpret_cast<wxChar *>(otm) +
-                    wxPtrToUInt(otm->otmpFamilyName)/sizeof(wxChar);
-    }
 
     // are we using m_nativeFontInfo.lf.lfHeight for point size or pixel size?
     bool             m_sizeUsingPixels;
@@ -326,7 +326,7 @@ protected:
 
 wxFontRefData::wxFontRefData(const wxFontInfo& info)
 {
-    m_hFont = NULL;
+    m_hFont = nullptr;
 
     m_sizeUsingPixels = info.IsUsingSizeInPixels();
     if ( m_sizeUsingPixels )
@@ -835,10 +835,6 @@ bool wxFont::DoCreate(const wxFontInfo& info)
     return RealizeResource();
 }
 
-wxFont::~wxFont()
-{
-}
-
 // ----------------------------------------------------------------------------
 // real implementation
 // ----------------------------------------------------------------------------
@@ -857,8 +853,8 @@ bool wxFont::RealizeResource()
 {
     // NOTE: the GetHFONT() call automatically triggers a reallocation of
     //       the HFONT if necessary (will do nothing if we already have the resource);
-    //       it returns NULL only if there is a failure in wxFontRefData::Alloc()...
-    return GetHFONT() != NULL;
+    //       it returns nullptr only if there is a failure in wxFontRefData::Alloc()...
+    return GetHFONT() != nullptr;
 }
 
 bool wxFont::FreeResource(bool WXUNUSED(force))
@@ -1059,7 +1055,7 @@ wxFontEncoding wxFont::GetEncoding() const
 
 const wxNativeFontInfo *wxFont::GetNativeFontInfo() const
 {
-    return IsOk() ? &(M_FONTDATA->GetNativeFontInfo()) : NULL;
+    return IsOk() ? &(M_FONTDATA->GetNativeFontInfo()) : nullptr;
 }
 
 bool wxFont::IsFixedWidth() const
@@ -1110,8 +1106,8 @@ class wxPrivateFontsListModule : public wxModule
 public:
     wxPrivateFontsListModule() { }
 
-    bool OnInit() wxOVERRIDE { return true; }
-    void OnExit() wxOVERRIDE { gs_privateFontFileNames.clear(); }
+    bool OnInit() override { return true; }
+    void OnExit() override { gs_privateFontFileNames.clear(); }
 
 private:
     wxDECLARE_DYNAMIC_CLASS(wxPrivateFontsListModule);

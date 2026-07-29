@@ -498,6 +498,17 @@ class FeedbackType(_common.CaseInSensitiveEnum):
     """Indicates a thumbs down feedback (e.g., a "thumbs down")."""
 
 
+class EvaluationExperimentMergeStrategy(_common.CaseInSensitiveEnum):
+    """Merge strategy for the evaluation experiment."""
+
+    MERGE_STRATEGY_UNSPECIFIED = "MERGE_STRATEGY_UNSPECIFIED"
+    """Unspecified merge strategy."""
+    SEQUENTIAL_HISTORY = "SEQUENTIAL_HISTORY"
+    """Default. Runs are treated as an independent, sequential history."""
+    SHARED_RESULT_SET = "SHARED_RESULT_SET"
+    """Runs are parallel iterations contributing to a shared result set."""
+
+
 class EvaluationItemType(_common.CaseInSensitiveEnum):
     """The type of the EvaluationItem."""
 
@@ -611,17 +622,6 @@ class PromptOptimizerMethod(_common.CaseInSensitiveEnum):
     """The default data driven Vertex AI Prompt Optimizer."""
     OPTIMIZATION_TARGET_GEMINI_NANO = "OPTIMIZATION_TARGET_GEMINI_NANO"
     """The data driven prompt optimizer designer for prompts from Android core API."""
-
-
-class EvaluationExperimentMergeStrategy(_common.CaseInSensitiveEnum):
-    """Merge strategy for the evaluation experiment."""
-
-    MERGE_STRATEGY_UNSPECIFIED = "MERGE_STRATEGY_UNSPECIFIED"
-    """Unspecified merge strategy."""
-    SEQUENTIAL_HISTORY = "SEQUENTIAL_HISTORY"
-    """Default. Runs are treated as an independent, sequential history."""
-    SHARED_RESULT_SET = "SHARED_RESULT_SET"
-    """Runs are parallel iterations contributing to a shared result set."""
 
 
 class OptimizationMethod(_common.CaseInSensitiveEnum):
@@ -1496,6 +1496,131 @@ class ListAgentEngineTaskEventsResponseDict(TypedDict, total=False):
 ListAgentEngineTaskEventsResponseOrDict = Union[
     ListAgentEngineTaskEventsResponse, ListAgentEngineTaskEventsResponseDict
 ]
+
+
+class CreateEvaluationExperimentConfig(_common.BaseModel):
+    """Config to create an evaluation experiment."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class CreateEvaluationExperimentConfigDict(TypedDict, total=False):
+    """Config to create an evaluation experiment."""
+
+    http_options: Optional[genai_types.HttpOptions]
+    """Used to override HTTP request options."""
+
+
+CreateEvaluationExperimentConfigOrDict = Union[
+    CreateEvaluationExperimentConfig, CreateEvaluationExperimentConfigDict
+]
+
+
+class _CreateEvaluationExperimentParameters(_common.BaseModel):
+    """Parameters for creating an evaluation experiment."""
+
+    display_name: Optional[str] = Field(default=None, description="""""")
+    labels: Optional[dict[str, str]] = Field(default=None, description="""""")
+    merge_strategy: Optional[EvaluationExperimentMergeStrategy] = Field(
+        default=None, description=""""""
+    )
+    metadata: Optional[dict[str, Any]] = Field(default=None, description="""""")
+    config: Optional[CreateEvaluationExperimentConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _CreateEvaluationExperimentParametersDict(TypedDict, total=False):
+    """Parameters for creating an evaluation experiment."""
+
+    display_name: Optional[str]
+    """"""
+
+    labels: Optional[dict[str, str]]
+    """"""
+
+    merge_strategy: Optional[EvaluationExperimentMergeStrategy]
+    """"""
+
+    metadata: Optional[dict[str, Any]]
+    """"""
+
+    config: Optional[CreateEvaluationExperimentConfigDict]
+    """"""
+
+
+_CreateEvaluationExperimentParametersOrDict = Union[
+    _CreateEvaluationExperimentParameters, _CreateEvaluationExperimentParametersDict
+]
+
+
+class EvaluationExperiment(_common.BaseModel):
+    """Represents an experiment for iterating on and visualizing evaluation runs."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""The resource name of the EvaluationExperiment. Format:
+      `projects/{project}/locations/{location}/evaluationExperiments/{evaluation_experiment}`.""",
+    )
+    display_name: Optional[str] = Field(
+        default=None, description="""The display name of the evaluation experiment."""
+    )
+    evaluation_runs: Optional[list[str]] = Field(
+        default=None,
+        description="""The EvaluationRuns that are part of this experiment.""",
+    )
+    labels: Optional[dict[str, str]] = Field(
+        default=None, description="""Labels for the evaluation experiment."""
+    )
+    merge_strategy: Optional[EvaluationExperimentMergeStrategy] = Field(
+        default=None, description="""Merge strategy for the evaluation experiment."""
+    )
+    metadata: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""Metadata about the evaluation experiment, can be used by the caller
+      to store additional tracking information about the experiment.""",
+    )
+    create_time: Optional[datetime.datetime] = Field(
+        default=None, description="""Timestamp when this experiment was created."""
+    )
+    update_time: Optional[datetime.datetime] = Field(
+        default=None, description="""Timestamp when this experiment was last updated."""
+    )
+
+
+class EvaluationExperimentDict(TypedDict, total=False):
+    """Represents an experiment for iterating on and visualizing evaluation runs."""
+
+    name: Optional[str]
+    """The resource name of the EvaluationExperiment. Format:
+      `projects/{project}/locations/{location}/evaluationExperiments/{evaluation_experiment}`."""
+
+    display_name: Optional[str]
+    """The display name of the evaluation experiment."""
+
+    evaluation_runs: Optional[list[str]]
+    """The EvaluationRuns that are part of this experiment."""
+
+    labels: Optional[dict[str, str]]
+    """Labels for the evaluation experiment."""
+
+    merge_strategy: Optional[EvaluationExperimentMergeStrategy]
+    """Merge strategy for the evaluation experiment."""
+
+    metadata: Optional[dict[str, Any]]
+    """Metadata about the evaluation experiment, can be used by the caller
+      to store additional tracking information about the experiment."""
+
+    create_time: Optional[datetime.datetime]
+    """Timestamp when this experiment was created."""
+
+    update_time: Optional[datetime.datetime]
+    """Timestamp when this experiment was last updated."""
+
+
+EvaluationExperimentOrDict = Union[EvaluationExperiment, EvaluationExperimentDict]
 
 
 class CreateEvaluationItemConfig(_common.BaseModel):
@@ -4012,6 +4137,92 @@ class EvaluationSetDict(TypedDict, total=False):
 EvaluationSetOrDict = Union[EvaluationSet, EvaluationSetDict]
 
 
+class DeleteEvaluationExperimentConfig(_common.BaseModel):
+    """Config for deleting an evaluation experiment."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class DeleteEvaluationExperimentConfigDict(TypedDict, total=False):
+    """Config for deleting an evaluation experiment."""
+
+    http_options: Optional[genai_types.HttpOptions]
+    """Used to override HTTP request options."""
+
+
+DeleteEvaluationExperimentConfigOrDict = Union[
+    DeleteEvaluationExperimentConfig, DeleteEvaluationExperimentConfigDict
+]
+
+
+class _DeleteEvaluationExperimentParameters(_common.BaseModel):
+    """Parameters for deleting an evaluation experiment."""
+
+    name: Optional[str] = Field(default=None, description="""""")
+    config: Optional[DeleteEvaluationExperimentConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _DeleteEvaluationExperimentParametersDict(TypedDict, total=False):
+    """Parameters for deleting an evaluation experiment."""
+
+    name: Optional[str]
+    """"""
+
+    config: Optional[DeleteEvaluationExperimentConfigDict]
+    """"""
+
+
+_DeleteEvaluationExperimentParametersOrDict = Union[
+    _DeleteEvaluationExperimentParameters, _DeleteEvaluationExperimentParametersDict
+]
+
+
+class DeleteEvaluationExperimentOperation(_common.BaseModel):
+    """Operation for deleting an evaluation experiment."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`.""",
+    )
+    metadata: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any.""",
+    )
+    done: Optional[bool] = Field(
+        default=None,
+        description="""If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available.""",
+    )
+    error: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""The error result of the operation in case of failure or cancellation.""",
+    )
+
+
+class DeleteEvaluationExperimentOperationDict(TypedDict, total=False):
+    """Operation for deleting an evaluation experiment."""
+
+    name: Optional[str]
+    """The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`."""
+
+    metadata: Optional[dict[str, Any]]
+    """Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any."""
+
+    done: Optional[bool]
+    """If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available."""
+
+    error: Optional[dict[str, Any]]
+    """The error result of the operation in case of failure or cancellation."""
+
+
+DeleteEvaluationExperimentOperationOrDict = Union[
+    DeleteEvaluationExperimentOperation, DeleteEvaluationExperimentOperationDict
+]
+
+
 class DeleteEvaluationMetricConfig(_common.BaseModel):
     """Config for deleting an evaluation metric."""
 
@@ -5805,6 +6016,50 @@ GenerateInstanceRubricsResponseOrDict = Union[
 ]
 
 
+class GetEvaluationExperimentConfig(_common.BaseModel):
+    """Config for getting an evaluation experiment."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class GetEvaluationExperimentConfigDict(TypedDict, total=False):
+    """Config for getting an evaluation experiment."""
+
+    http_options: Optional[genai_types.HttpOptions]
+    """Used to override HTTP request options."""
+
+
+GetEvaluationExperimentConfigOrDict = Union[
+    GetEvaluationExperimentConfig, GetEvaluationExperimentConfigDict
+]
+
+
+class _GetEvaluationExperimentParameters(_common.BaseModel):
+    """Parameters for getting an evaluation experiment."""
+
+    name: Optional[str] = Field(default=None, description="""""")
+    config: Optional[GetEvaluationExperimentConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _GetEvaluationExperimentParametersDict(TypedDict, total=False):
+    """Parameters for getting an evaluation experiment."""
+
+    name: Optional[str]
+    """"""
+
+    config: Optional[GetEvaluationExperimentConfigDict]
+    """"""
+
+
+_GetEvaluationExperimentParametersOrDict = Union[
+    _GetEvaluationExperimentParameters, _GetEvaluationExperimentParametersDict
+]
+
+
 class GetEvaluationMetricConfig(_common.BaseModel):
     """Config for getting an evaluation metric."""
 
@@ -5971,6 +6226,111 @@ _GetEvaluationItemParametersOrDict = Union[
 ]
 
 
+class ListEvaluationExperimentsConfig(_common.BaseModel):
+    """Config for listing evaluation experiments."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    page_size: Optional[int] = Field(default=None, description="""""")
+    page_token: Optional[str] = Field(default=None, description="""""")
+    filter: Optional[str] = Field(
+        default=None,
+        description="""An expression for filtering the results of the request.
+      For field names both snake_case and camelCase are supported.
+      For more information about filter syntax, see
+      `AIP-160 <https://google.aip.dev/160>`_.""",
+    )
+    order_by: Optional[str] = Field(
+        default=None,
+        description="""A comma-separated list of fields to order by, sorted in ascending
+      order by default. Use ``desc`` after a field name for descending.
+      Example: ``"create_time desc"``.""",
+    )
+
+
+class ListEvaluationExperimentsConfigDict(TypedDict, total=False):
+    """Config for listing evaluation experiments."""
+
+    http_options: Optional[genai_types.HttpOptions]
+    """Used to override HTTP request options."""
+
+    page_size: Optional[int]
+    """"""
+
+    page_token: Optional[str]
+    """"""
+
+    filter: Optional[str]
+    """An expression for filtering the results of the request.
+      For field names both snake_case and camelCase are supported.
+      For more information about filter syntax, see
+      `AIP-160 <https://google.aip.dev/160>`_."""
+
+    order_by: Optional[str]
+    """A comma-separated list of fields to order by, sorted in ascending
+      order by default. Use ``desc`` after a field name for descending.
+      Example: ``"create_time desc"``."""
+
+
+ListEvaluationExperimentsConfigOrDict = Union[
+    ListEvaluationExperimentsConfig, ListEvaluationExperimentsConfigDict
+]
+
+
+class _ListEvaluationExperimentsParameters(_common.BaseModel):
+    """Parameters for listing evaluation experiments."""
+
+    config: Optional[ListEvaluationExperimentsConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _ListEvaluationExperimentsParametersDict(TypedDict, total=False):
+    """Parameters for listing evaluation experiments."""
+
+    config: Optional[ListEvaluationExperimentsConfigDict]
+    """"""
+
+
+_ListEvaluationExperimentsParametersOrDict = Union[
+    _ListEvaluationExperimentsParameters, _ListEvaluationExperimentsParametersDict
+]
+
+
+class ListEvaluationExperimentsResponse(_common.BaseModel):
+    """Response for listing evaluation experiments."""
+
+    sdk_http_response: Optional[genai_types.HttpResponse] = Field(
+        default=None, description="""Used to retain the full HTTP response."""
+    )
+    next_page_token: Optional[str] = Field(default=None, description="""""")
+    evaluation_experiments: Optional[list[EvaluationExperiment]] = Field(
+        default=None,
+        description="""List of evaluation experiments.
+      """,
+    )
+
+
+class ListEvaluationExperimentsResponseDict(TypedDict, total=False):
+    """Response for listing evaluation experiments."""
+
+    sdk_http_response: Optional[genai_types.HttpResponse]
+    """Used to retain the full HTTP response."""
+
+    next_page_token: Optional[str]
+    """"""
+
+    evaluation_experiments: Optional[list[EvaluationExperimentDict]]
+    """List of evaluation experiments.
+      """
+
+
+ListEvaluationExperimentsResponseOrDict = Union[
+    ListEvaluationExperimentsResponse, ListEvaluationExperimentsResponseDict
+]
+
+
 class ListEvaluationMetricsConfig(_common.BaseModel):
     """Config for listing evaluation metrics."""
 
@@ -6073,6 +6433,85 @@ class ListEvaluationMetricsResponseDict(TypedDict, total=False):
 
 ListEvaluationMetricsResponseOrDict = Union[
     ListEvaluationMetricsResponse, ListEvaluationMetricsResponseDict
+]
+
+
+class UpdateEvaluationExperimentConfig(_common.BaseModel):
+    """Config for updating an evaluation experiment."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    update_mask: Optional[str] = Field(
+        default=None,
+        description="""The update mask to apply. For the `FieldMask` definition, see
+      https://protobuf.dev/reference/protobuf/google.protobuf/#field-mask.""",
+    )
+    display_name: Optional[str] = Field(
+        default=None, description="""The display name of the evaluation experiment."""
+    )
+    labels: Optional[dict[str, str]] = Field(
+        default=None, description="""Labels for the evaluation experiment."""
+    )
+    merge_strategy: Optional[EvaluationExperimentMergeStrategy] = Field(
+        default=None, description="""Merge strategy for the evaluation experiment."""
+    )
+    metadata: Optional[dict[str, Any]] = Field(
+        default=None, description="""Metadata about the evaluation experiment."""
+    )
+
+
+class UpdateEvaluationExperimentConfigDict(TypedDict, total=False):
+    """Config for updating an evaluation experiment."""
+
+    http_options: Optional[genai_types.HttpOptions]
+    """Used to override HTTP request options."""
+
+    update_mask: Optional[str]
+    """The update mask to apply. For the `FieldMask` definition, see
+      https://protobuf.dev/reference/protobuf/google.protobuf/#field-mask."""
+
+    display_name: Optional[str]
+    """The display name of the evaluation experiment."""
+
+    labels: Optional[dict[str, str]]
+    """Labels for the evaluation experiment."""
+
+    merge_strategy: Optional[EvaluationExperimentMergeStrategy]
+    """Merge strategy for the evaluation experiment."""
+
+    metadata: Optional[dict[str, Any]]
+    """Metadata about the evaluation experiment."""
+
+
+UpdateEvaluationExperimentConfigOrDict = Union[
+    UpdateEvaluationExperimentConfig, UpdateEvaluationExperimentConfigDict
+]
+
+
+class _UpdateEvaluationExperimentParameters(_common.BaseModel):
+    """Parameters for updating an evaluation experiment."""
+
+    name: Optional[str] = Field(
+        default=None, description="""The resource name of the EvaluationExperiment."""
+    )
+    config: Optional[UpdateEvaluationExperimentConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _UpdateEvaluationExperimentParametersDict(TypedDict, total=False):
+    """Parameters for updating an evaluation experiment."""
+
+    name: Optional[str]
+    """The resource name of the EvaluationExperiment."""
+
+    config: Optional[UpdateEvaluationExperimentConfigDict]
+    """"""
+
+
+_UpdateEvaluationExperimentParametersOrDict = Union[
+    _UpdateEvaluationExperimentParameters, _UpdateEvaluationExperimentParametersDict
 ]
 
 
@@ -23755,6 +24194,193 @@ class RecommendSpecResponseDict(TypedDict, total=False):
 RecommendSpecResponseOrDict = Union[RecommendSpecResponse, RecommendSpecResponseDict]
 
 
+class ExportPublisherModelConfig(_common.BaseModel):
+    """RPC-level config for ``export_publisher_model``."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    destination: Optional[genai_types.GcsDestination] = Field(
+        default=None, description=""""""
+    )
+
+
+class ExportPublisherModelConfigDict(TypedDict, total=False):
+    """RPC-level config for ``export_publisher_model``."""
+
+    http_options: Optional[genai_types.HttpOptions]
+    """Used to override HTTP request options."""
+
+    destination: Optional[genai_types.GcsDestination]
+    """"""
+
+
+ExportPublisherModelConfigOrDict = Union[
+    ExportPublisherModelConfig, ExportPublisherModelConfigDict
+]
+
+
+class _ExportPublisherModelRequestParameters(_common.BaseModel):
+    """Parameters for ``export_publisher_model``."""
+
+    parent: Optional[str] = Field(default=None, description="""""")
+    name: Optional[str] = Field(default=None, description="""""")
+    config: Optional[ExportPublisherModelConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _ExportPublisherModelRequestParametersDict(TypedDict, total=False):
+    """Parameters for ``export_publisher_model``."""
+
+    parent: Optional[str]
+    """"""
+
+    name: Optional[str]
+    """"""
+
+    config: Optional[ExportPublisherModelConfigDict]
+    """"""
+
+
+_ExportPublisherModelRequestParametersOrDict = Union[
+    _ExportPublisherModelRequestParameters, _ExportPublisherModelRequestParametersDict
+]
+
+
+class ExportPublisherModelResponse(_common.BaseModel):
+    """Response for the ``ExportPublisherModel`` RPC.
+
+    Fields are re-declared as ``SdkFieldPatch`` (both are already in the
+    discovery-generated class) so the SDK's dependency on ``destination_uri``
+    is visible in one place and proto drift is caught at codegen time
+    instead of at first user call.
+    """
+
+    destination_uri: Optional[str] = Field(
+        default=None,
+        description="""Cloud Storage URI where the exported weights were written.""",
+    )
+    publisher_model: Optional[str] = Field(
+        default=None,
+        description="""Resource name of the publisher model that was exported.""",
+    )
+
+
+class ExportPublisherModelResponseDict(TypedDict, total=False):
+    """Response for the ``ExportPublisherModel`` RPC.
+
+    Fields are re-declared as ``SdkFieldPatch`` (both are already in the
+    discovery-generated class) so the SDK's dependency on ``destination_uri``
+    is visible in one place and proto drift is caught at codegen time
+    instead of at first user call.
+    """
+
+    destination_uri: Optional[str]
+    """Cloud Storage URI where the exported weights were written."""
+
+    publisher_model: Optional[str]
+    """Resource name of the publisher model that was exported."""
+
+
+ExportPublisherModelResponseOrDict = Union[
+    ExportPublisherModelResponse, ExportPublisherModelResponseDict
+]
+
+
+class ExportModelOperation(_common.BaseModel):
+    """Long-running operation returned by ``ExportPublisherModel``."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`.""",
+    )
+    metadata: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any.""",
+    )
+    done: Optional[bool] = Field(
+        default=None,
+        description="""If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available.""",
+    )
+    error: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""The error result of the operation in case of failure or cancellation.""",
+    )
+    response: Optional[ExportPublisherModelResponse] = Field(
+        default=None, description=""""""
+    )
+
+
+class ExportModelOperationDict(TypedDict, total=False):
+    """Long-running operation returned by ``ExportPublisherModel``."""
+
+    name: Optional[str]
+    """The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`."""
+
+    metadata: Optional[dict[str, Any]]
+    """Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any."""
+
+    done: Optional[bool]
+    """If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available."""
+
+    error: Optional[dict[str, Any]]
+    """The error result of the operation in case of failure or cancellation."""
+
+    response: Optional[ExportPublisherModelResponseDict]
+    """"""
+
+
+ExportModelOperationOrDict = Union[ExportModelOperation, ExportModelOperationDict]
+
+
+class GetExportPublisherModelOperationConfig(_common.BaseModel):
+    """Config for ``get_export_publisher_model_operation``."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class GetExportPublisherModelOperationConfigDict(TypedDict, total=False):
+    """Config for ``get_export_publisher_model_operation``."""
+
+    http_options: Optional[genai_types.HttpOptions]
+    """Used to override HTTP request options."""
+
+
+GetExportPublisherModelOperationConfigOrDict = Union[
+    GetExportPublisherModelOperationConfig, GetExportPublisherModelOperationConfigDict
+]
+
+
+class _GetExportPublisherModelOperationParameters(_common.BaseModel):
+    """Parameters for polling an ``export_publisher_model`` operation."""
+
+    operation_name: Optional[str] = Field(
+        default=None, description="""The server-assigned name for the operation."""
+    )
+    config: Optional[GetExportPublisherModelOperationConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _GetExportPublisherModelOperationParametersDict(TypedDict, total=False):
+    """Parameters for polling an ``export_publisher_model`` operation."""
+
+    operation_name: Optional[str]
+    """The server-assigned name for the operation."""
+
+    config: Optional[GetExportPublisherModelOperationConfigDict]
+    """"""
+
+
+_GetExportPublisherModelOperationParametersOrDict = Union[
+    _GetExportPublisherModelOperationParameters,
+    _GetExportPublisherModelOperationParametersDict,
+]
+
+
 class CreateRuntimeFeedbackEntryConfig(_common.BaseModel):
     """Config for creating a Feedback Entry."""
 
@@ -24910,73 +25536,6 @@ class ObservabilityEvalCaseDict(TypedDict, total=False):
 
 
 ObservabilityEvalCaseOrDict = Union[ObservabilityEvalCase, ObservabilityEvalCaseDict]
-
-
-class EvaluationExperiment(_common.BaseModel):
-    """Represents an experiment for iterating on and visualizing evaluation runs."""
-
-    name: Optional[str] = Field(
-        default=None,
-        description="""The resource name of the EvaluationExperiment. Format:
-      `projects/{project}/locations/{location}/evaluationExperiments/{evaluation_experiment}`.""",
-    )
-    display_name: Optional[str] = Field(
-        default=None, description="""The display name of the evaluation experiment."""
-    )
-    evaluation_runs: Optional[list[str]] = Field(
-        default=None,
-        description="""The EvaluationRuns that are part of this experiment.""",
-    )
-    labels: Optional[dict[str, str]] = Field(
-        default=None, description="""Labels for the evaluation experiment."""
-    )
-    merge_strategy: Optional[EvaluationExperimentMergeStrategy] = Field(
-        default=None, description="""Merge strategy for the evaluation experiment."""
-    )
-    metadata: Optional[dict[str, Any]] = Field(
-        default=None,
-        description="""Metadata about the evaluation experiment, can be used by the caller
-      to store additional tracking information about the experiment.""",
-    )
-    create_time: Optional[datetime.datetime] = Field(
-        default=None, description="""Timestamp when this experiment was created."""
-    )
-    update_time: Optional[datetime.datetime] = Field(
-        default=None, description="""Timestamp when this experiment was last updated."""
-    )
-
-
-class EvaluationExperimentDict(TypedDict, total=False):
-    """Represents an experiment for iterating on and visualizing evaluation runs."""
-
-    name: Optional[str]
-    """The resource name of the EvaluationExperiment. Format:
-      `projects/{project}/locations/{location}/evaluationExperiments/{evaluation_experiment}`."""
-
-    display_name: Optional[str]
-    """The display name of the evaluation experiment."""
-
-    evaluation_runs: Optional[list[str]]
-    """The EvaluationRuns that are part of this experiment."""
-
-    labels: Optional[dict[str, str]]
-    """Labels for the evaluation experiment."""
-
-    merge_strategy: Optional[EvaluationExperimentMergeStrategy]
-    """Merge strategy for the evaluation experiment."""
-
-    metadata: Optional[dict[str, Any]]
-    """Metadata about the evaluation experiment, can be used by the caller
-      to store additional tracking information about the experiment."""
-
-    create_time: Optional[datetime.datetime]
-    """Timestamp when this experiment was created."""
-
-    update_time: Optional[datetime.datetime]
-    """Timestamp when this experiment was last updated."""
-
-
-EvaluationExperimentOrDict = Union[EvaluationExperiment, EvaluationExperimentDict]
 
 
 class RubricGroup(_common.BaseModel):
@@ -26795,6 +27354,53 @@ class ListCustomModelDeployOptionsConfigDict(TypedDict, total=False):
 ListCustomModelDeployOptionsConfigOrDict = Union[
     ListCustomModelDeployOptionsConfig, ListCustomModelDeployOptionsConfigDict
 ]
+
+
+class ExportOpenModelConfig(_common.BaseModel):
+    """Config for ``export_open_model``."""
+
+    wait_for_completion: Optional[bool] = Field(
+        default=True,
+        description="""Whether to block on the export long-running operation. When
+      ``True`` (default), returns the destination URI on completion. When
+      ``False``, returns the ``ExportModelOperation`` for the caller to
+      poll.""",
+    )
+    poll_interval_seconds: Optional[float] = Field(
+        default=None,
+        description="""Seconds between LRO polls when ``wait_for_completion=True``.
+      Defaults to 30. Ignored when ``wait_for_completion=False``.""",
+    )
+    timeout_seconds: Optional[float] = Field(
+        default=None,
+        description="""Total wall-clock seconds to wait for the export to complete
+      when ``wait_for_completion=True``. Defaults to 2 hours to
+      accommodate large model weights. Ignored when
+      ``wait_for_completion=False``.""",
+    )
+
+
+class ExportOpenModelConfigDict(TypedDict, total=False):
+    """Config for ``export_open_model``."""
+
+    wait_for_completion: Optional[bool]
+    """Whether to block on the export long-running operation. When
+      ``True`` (default), returns the destination URI on completion. When
+      ``False``, returns the ``ExportModelOperation`` for the caller to
+      poll."""
+
+    poll_interval_seconds: Optional[float]
+    """Seconds between LRO polls when ``wait_for_completion=True``.
+      Defaults to 30. Ignored when ``wait_for_completion=False``."""
+
+    timeout_seconds: Optional[float]
+    """Total wall-clock seconds to wait for the export to complete
+      when ``wait_for_completion=True``. Defaults to 2 hours to
+      accommodate large model weights. Ignored when
+      ``wait_for_completion=False``."""
+
+
+ExportOpenModelConfigOrDict = Union[ExportOpenModelConfig, ExportOpenModelConfigDict]
 
 
 class DeployOption(_common.BaseModel):

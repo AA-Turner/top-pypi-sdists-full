@@ -66,9 +66,9 @@ sipwxWindowDestroyEvent::~sipwxWindowDestroyEvent()
     if (!sipMeth)
         return ::wxWindowDestroyEvent::GetEventCategory();
 
-    extern ::wxEventCategory sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEventCategory sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxEvent* sipwxWindowDestroyEvent::Clone() const
@@ -81,9 +81,9 @@ sipwxWindowDestroyEvent::~sipwxWindowDestroyEvent()
     if (!sipMeth)
         return ::wxWindowDestroyEvent::Clone();
 
-    extern ::wxEvent* sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEvent* sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
@@ -207,7 +207,7 @@ static void *init_type_wxWindowDestroyEvent(sipSimpleWrapper *sipSelf, PyObject 
     sipwxWindowDestroyEvent *sipCpp = SIP_NULLPTR;
 
     {
-        ::wxWindow* win = 0;
+        ::wxWindow* win = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_win,
@@ -253,7 +253,7 @@ static void *init_type_wxWindowDestroyEvent(sipSimpleWrapper *sipSelf, PyObject 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxWindowDestroyEvent[] = {{84, 255, 1}};
+static sipEncodedTypeDef supers_wxWindowDestroyEvent[] = {{87, 255, 1}};
 
 
 static PyMethodDef methods_wxWindowDestroyEvent[] = {
@@ -265,7 +265,7 @@ sipVariableDef variables_wxWindowDestroyEvent[] = {
     {PropertyVariable, sipName_Window, &methods_wxWindowDestroyEvent[1], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxWindowDestroyEvent, "WindowDestroyEvent(win=None) -> None\n"
+PyDoc_STRVAR(doc_wxWindowDestroyEvent, "WindowDestroyEvent(win=nullptr) -> None\n"
 "\n"
 "This event is sent as early as possible during the window destruction\n"
 "process.");

@@ -9,7 +9,7 @@
 
 #include "wx/wxprec.h"
 
-#if wxUSE_AUI && wxUSE_UXTHEME
+#if wxUSE_AUI
 
 #ifndef WX_PRECOMP
     #include "wx/bitmap.h"
@@ -22,45 +22,34 @@
 #include "wx/aui/framemanager.h"
 #include "wx/msw/uxtheme.h"
 #include "wx/msw/private.h"
+#include "wx/msw/private/darkmode.h"
 
 wxAuiMSWToolBarArt::wxAuiMSWToolBarArt()
 {
     if ( wxUxThemeIsActive() )
     {
-        m_themed = true;
-
         // Determine sizes from theme
         wxWindow* window = static_cast<wxApp*>(wxApp::GetInstance())->GetTopWindow();
         wxUxThemeHandle hTheme(window, L"Rebar");
 
-        SIZE overflowSize;
-        ::GetThemePartSize(hTheme, NULL, RP_CHEVRON, 0,
-            NULL, TS_TRUE, &overflowSize);
-        m_overflowSize = overflowSize.cx;
+        m_overflowSize = hTheme.GetTrueSize(RP_CHEVRON).x;
 
-        SIZE gripperSize;
-        ::GetThemePartSize(hTheme, NULL, RP_GRIPPER, 0,
-            NULL, TS_TRUE, &gripperSize);
-        m_gripperSize = gripperSize.cx;
+        m_gripperSize = hTheme.GetTrueSize(RP_GRIPPER).x;
 
         wxUxThemeHandle hThemeToolbar(window, L"Toolbar");
 
-        SIZE seperatorSize;
-        ::GetThemePartSize(hThemeToolbar, NULL, TP_SEPARATOR, 0,
-            NULL, TS_TRUE, &seperatorSize);
-        m_separatorSize = seperatorSize.cx;
+        m_separatorSize = hThemeToolbar.GetTrueSize(TP_SEPARATOR).x;
 
         // TP_DROPDOWNBUTTON is only 7px, too small to fit the dropdown arrow,
         // use 14px instead.
-        m_dropdownSize = window->FromDIP(14);
+        //
+        // Note that this value is intentionally in DIPs.
+        m_dropdownSize = 14;
 
-        SIZE buttonSize;
-        ::GetThemePartSize(hThemeToolbar, NULL, TP_BUTTON, 0,
-            NULL, TS_TRUE, &buttonSize);
-        m_buttonSize.Set(buttonSize.cx, buttonSize.cy);
+        m_buttonSize = hThemeToolbar.GetTrueSize(TP_BUTTON);
     }
-    else
-        m_themed = false;
+
+    UpdateColoursFromSystem();
 }
 
 wxAuiToolBarArt* wxAuiMSWToolBarArt::Clone()
@@ -75,18 +64,13 @@ void wxAuiMSWToolBarArt::DrawBackground(
 {
     if ( m_themed )
     {
-        RECT r;
-        wxCopyRectToRECT(rect, r);
-
         wxUxThemeHandle hTheme(wnd, L"Rebar");
 
-        ::DrawThemeBackground(
-            hTheme,
+        hTheme.DrawBackground(
             GetHdcOf(dc.GetTempHDC()),
-            RP_BACKGROUND,
-            0,
-            &r,
-            NULL);
+            rect,
+            RP_BACKGROUND
+        );
     }
     else
         wxAuiGenericToolBarArt::DrawBackground(dc, wnd, rect);
@@ -109,9 +93,6 @@ void wxAuiMSWToolBarArt::DrawButton(
 {
     if ( m_themed )
     {
-        RECT r;
-        wxCopyRectToRECT(rect, r);
-
         wxUxThemeHandle hTheme(wnd, L"Toolbar");
 
         int btnState;
@@ -129,13 +110,12 @@ void wxAuiMSWToolBarArt::DrawButton(
         else
             btnState = TS_NORMAL;
 
-        ::DrawThemeBackground(
-            hTheme,
+        hTheme.DrawBackground(
             GetHdcOf(dc.GetTempHDC()),
+            rect,
             TP_BUTTON,
-            btnState,
-            &r,
-            NULL);
+            btnState
+        );
 
         int textWidth = 0, textHeight = 0;
 
@@ -143,42 +123,69 @@ void wxAuiMSWToolBarArt::DrawButton(
         {
             dc.SetFont(m_font);
 
-            int tx, ty;
-
-            dc.GetTextExtent(wxT("ABCDHgj"), &tx, &textHeight);
-            textWidth = 0;
-            dc.GetTextExtent(item.GetLabel(), &textWidth, &ty);
+            dc.GetTextExtent(wxT("ABCDHgj"), nullptr, &textHeight);
+            dc.GetTextExtent(item.GetLabel(), &textWidth, nullptr);
         }
 
         int bmpX = 0, bmpY = 0;
         int textX = 0, textY = 0;
+        double textAngle = 0.0;
 
-        const wxBitmap& bmp = item.GetCurrentBitmapFor(wnd);
-        if ( m_textOrientation == wxAUI_TBTOOL_TEXT_BOTTOM )
+        wxBitmap bmp = item.GetCurrentBitmapFor(wnd);
+        switch ( GetTextDirection() )
         {
-            bmpX = rect.x +
-                (rect.width / 2) -
-                (bmp.GetWidth() / 2);
+            case wxAuiTextDirection::LeftToRight:
+                if ( m_textOrientation == wxAUI_TBTOOL_TEXT_BOTTOM )
+                {
+                    bmpX = rect.x +
+                        (rect.width / 2) -
+                        (bmp.GetWidth() / 2);
 
-            bmpY = rect.y +
-                ((rect.height - textHeight) / 2) -
-                (bmp.GetHeight() / 2);
+                    bmpY = rect.y +
+                        ((rect.height - textHeight) / 2) -
+                        (bmp.GetHeight() / 2);
 
-            textX = rect.x + (rect.width / 2) - (textWidth / 2) + 1;
-            textY = rect.y + rect.height - textHeight - 1;
-        }
-        else if ( m_textOrientation == wxAUI_TBTOOL_TEXT_RIGHT )
-        {
-            bmpX = rect.x + wnd->FromDIP(3);
+                    textX = rect.x + (rect.width / 2) - (textWidth / 2) + 1;
+                    textY = rect.y + rect.height - textHeight - 1;
+                }
+                else if ( m_textOrientation == wxAUI_TBTOOL_TEXT_RIGHT )
+                {
+                    bmpX = rect.x + wnd->FromDIP(3);
 
-            bmpY = rect.y +
-                (rect.height / 2) -
-                (bmp.GetHeight() / 2);
+                    bmpY = rect.y +
+                        (rect.height / 2) -
+                        (bmp.GetHeight() / 2);
 
-            textX = bmpX + wnd->FromDIP(3) + bmp.GetWidth();
-            textY = rect.y +
-                (rect.height / 2) -
-                (textHeight / 2);
+                    textX = bmpX + wnd->FromDIP(3) + bmp.GetWidth();
+                    textY = rect.y +
+                        (rect.height / 2) -
+                        (textHeight / 2);
+                }
+                break;
+
+            case wxAuiTextDirection::TopToBottom:
+                if ( bmp.IsOk() && (m_flags & wxAUI_TB_ROTATE_ICON_WITH_TEXT) )
+                    bmp = wxBitmap(bmp.ConvertToImage().Rotate90(true), -1, bmp.GetScaleFactor());
+
+                bmpX = rect.x + (rect.width - bmp.GetWidth()) / 2;
+                bmpY = rect.y + wnd->FromDIP(3);
+
+                textAngle = -90.0;
+                textX = rect.x + (rect.width + textHeight) / 2;
+                textY = bmpY + bmp.GetWidth() + wnd->FromDIP(3);
+                break;
+
+            case wxAuiTextDirection::BottomToTop:
+                if ( bmp.IsOk() && (m_flags & wxAUI_TB_ROTATE_ICON_WITH_TEXT) )
+                    bmp = wxBitmap(bmp.ConvertToImage().Rotate90(false), -1, bmp.GetScaleFactor());
+
+                bmpX = rect.x + (rect.width - bmp.GetWidth()) / 2;
+                bmpY = rect.y + rect.height - bmp.GetHeight() - wnd->FromDIP(3);
+
+                textAngle = 90.0;
+                textX = rect.x + (rect.width - textHeight) / 2;
+                textY = bmpY - wnd->FromDIP(3);
+                break;
         }
 
         if ( bmp.IsOk() )
@@ -192,7 +199,10 @@ void wxAuiMSWToolBarArt::DrawButton(
 
         if ( (m_flags & wxAUI_TB_TEXT) && !item.GetLabel().empty() )
         {
-            dc.DrawText(item.GetLabel(), textX, textY);
+            if ( textAngle != 0.0 )
+                dc.DrawRotatedText(item.GetLabel(), textX, textY, textAngle);
+            else
+                dc.DrawText(item.GetLabel(), textX, textY);
         }
     }
     else
@@ -225,20 +235,13 @@ void wxAuiMSWToolBarArt::DrawDropDownButton(
         {
             dc.SetFont(m_font);
 
-            int tx, ty;
             if ( m_flags & wxAUI_TB_TEXT )
             {
-                dc.GetTextExtent(wxT("ABCDHgj"), &tx, &textHeight);
-                textWidth = 0;
+                dc.GetTextExtent(wxT("ABCDHgj"), nullptr, &textHeight);
             }
 
-            dc.GetTextExtent(item.GetLabel(), &textWidth, &ty);
+            dc.GetTextExtent(item.GetLabel(), &textWidth, nullptr);
         }
-
-        RECT btnR;
-        wxCopyRectToRECT(buttonRect, btnR);
-        RECT dropDownR;
-        wxCopyRectToRECT(dropDownRect, dropDownR);
 
         int btnState;
         if ( item.GetState() & wxAUI_BUTTON_STATE_DISABLED )
@@ -250,21 +253,23 @@ void wxAuiMSWToolBarArt::DrawDropDownButton(
         else
             btnState = TS_NORMAL;
 
-        ::DrawThemeBackground(
-            hTheme,
-            GetHdcOf(dc.GetTempHDC()),
-            TP_SPLITBUTTON,
-            btnState,
-            &btnR,
-            NULL);
+        {
+        auto tempHDC = dc.GetTempHDC();
 
-        ::DrawThemeBackground(
-            hTheme,
-            GetHdcOf(dc.GetTempHDC()),
+        hTheme.DrawBackground(
+            GetHdcOf(tempHDC),
+            buttonRect,
+            TP_SPLITBUTTON,
+            btnState
+        );
+
+        hTheme.DrawBackground(
+            GetHdcOf(tempHDC),
+            dropDownRect,
             TP_SPLITBUTTONDROPDOWN,
-            btnState,
-            &dropDownR,
-            NULL);
+            btnState
+        );
+        } // End of tempHDC scope.
 
         const wxBitmap& bmp = item.GetCurrentBitmapFor(wnd);
         if ( !bmp.IsOk() )
@@ -330,18 +335,13 @@ void wxAuiMSWToolBarArt::DrawSeparator(
 {
     if ( m_themed )
     {
-        RECT r;
-        wxCopyRectToRECT(rect, r);
-
         wxUxThemeHandle hTheme(wnd, L"Toolbar");
 
-        ::DrawThemeBackground(
-            hTheme,
+        hTheme.DrawBackground(
             GetHdcOf(dc.GetTempHDC()),
-            (m_flags & wxAUI_TB_VERTICAL) ? TP_SEPARATORVERT : TP_SEPARATOR,
-            0,
-            &r,
-            NULL);
+            rect,
+            (m_flags & wxAUI_TB_VERTICAL) ? TP_SEPARATORVERT : TP_SEPARATOR
+        );
     }
     else
         wxAuiGenericToolBarArt::DrawSeparator(dc, wnd, rect);
@@ -354,18 +354,13 @@ void wxAuiMSWToolBarArt::DrawGripper(
 {
     if ( m_themed )
     {
-        RECT r;
-        wxCopyRectToRECT(rect, r);
-
         wxUxThemeHandle hTheme(wnd, L"Rebar");
 
-        ::DrawThemeBackground(
-            hTheme,
+        hTheme.DrawBackground(
             GetHdcOf(dc.GetTempHDC()),
-            (m_flags & wxAUI_TB_VERTICAL) ? RP_GRIPPERVERT : RP_GRIPPER,
-            0,
-            &r,
-            NULL);
+            rect,
+            (m_flags & wxAUI_TB_VERTICAL) ? RP_GRIPPERVERT : RP_GRIPPER
+        );
     }
     else
         wxAuiGenericToolBarArt::DrawGripper(dc, wnd, rect);
@@ -379,33 +374,29 @@ void wxAuiMSWToolBarArt::DrawOverflowButton(
 {
     if ( m_themed )
     {
-        RECT r;
-        wxCopyRectToRECT(rect, r);
-
         wxUxThemeHandle hTheme(wnd, L"Rebar");
 
         int chevState;
         if ( state & wxAUI_BUTTON_STATE_PRESSED )
             chevState = CHEVS_PRESSED;
         else if ( state & wxAUI_BUTTON_STATE_HOVER )
-                chevState = CHEVS_HOT;
+            chevState = CHEVS_HOT;
         else
             chevState = CHEVS_NORMAL;
 
-        ::DrawThemeBackground(
-            hTheme,
+        hTheme.DrawBackground(
             GetHdcOf(dc.GetTempHDC()),
+            rect,
             (m_flags & wxAUI_TB_VERTICAL) ? RP_CHEVRONVERT : RP_CHEVRON,
-            chevState,
-            &r,
-            NULL);
+            chevState
+        );
     }
     else
         wxAuiGenericToolBarArt::DrawOverflowButton(dc, wnd, rect, state);
 }
 
 wxSize wxAuiMSWToolBarArt::GetLabelSize(
-    wxDC& dc,
+    wxReadOnlyDC& dc,
     wxWindow* wnd,
     const wxAuiToolBarItem& item)
 {
@@ -413,7 +404,7 @@ wxSize wxAuiMSWToolBarArt::GetLabelSize(
 }
 
 wxSize wxAuiMSWToolBarArt::GetToolSize(
-    wxDC& dc,
+    wxReadOnlyDC& dc,
     wxWindow* wnd,
     const wxAuiToolBarItem& item)
 {
@@ -432,20 +423,18 @@ wxSize wxAuiMSWToolBarArt::GetToolSize(
         return wxAuiGenericToolBarArt::GetToolSize(dc, wnd, item);
 }
 
-int wxAuiMSWToolBarArt::GetElementSize(int element)
-{
-    return wxAuiGenericToolBarArt::GetElementSize(element);
-}
-
-void wxAuiMSWToolBarArt::SetElementSize(int elementId, int size)
-{
-    wxAuiGenericToolBarArt::SetElementSize(elementId, size);
-}
-
 int wxAuiMSWToolBarArt::ShowDropDown(wxWindow* wnd,
     const wxAuiToolBarItemArray& items)
 {
     return wxAuiGenericToolBarArt::ShowDropDown(wnd, items);
 }
 
-#endif // wxUSE_AUI && wxUSE_UXTHEME
+void wxAuiMSWToolBarArt::UpdateColoursFromSystem()
+{
+    wxAuiGenericToolBarArt::UpdateColoursFromSystem();
+
+    // Theme colours do not work in dark mode.
+    m_themed = wxUxThemeIsActive() && !wxMSWDarkMode::IsActive();
+}
+
+#endif // wxUSE_AUI

@@ -96,7 +96,7 @@ static PyObject *meth_wxTextAttrSize_EqPartial(PyObject *sipSelf, PyObject *sipA
 }
 
 
-PyDoc_STRVAR(doc_wxTextAttrSize_Apply, "Apply(dims, compareWith=None) -> bool\n"
+PyDoc_STRVAR(doc_wxTextAttrSize_Apply, "Apply(dims, compareWith=nullptr) -> bool\n"
 "\n"
 "Apply to this object, but not if the same as compareWith.");
 
@@ -107,7 +107,7 @@ static PyObject *meth_wxTextAttrSize_Apply(PyObject *sipSelf, PyObject *sipArgs,
 
     {
         const ::wxTextAttrSize* dims;
-        const ::wxTextAttrSize* compareWith = 0;
+        const ::wxTextAttrSize* compareWith = nullptr;
         ::wxTextAttrSize *sipCpp;
 
         static const char *sipKwdList[] = {

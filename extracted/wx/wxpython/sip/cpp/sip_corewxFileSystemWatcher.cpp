@@ -89,9 +89,9 @@ bool sipwxFileSystemWatcher::RemoveTree(const ::wxFileName& path)
     if (!sipMeth)
         return ::wxFileSystemWatcher::RemoveTree(path);
 
-    extern bool sipVH__core_245(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxFileName&);
+    extern bool sipVH__core_244(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxFileName&);
 
-    return sipVH__core_245(sipGILState, 0, sipPySelf, sipMeth, path);
+    return sipVH__core_244(sipGILState, 0, sipPySelf, sipMeth, path);
 }
 
 bool sipwxFileSystemWatcher::Remove(const ::wxFileName& path)
@@ -104,9 +104,9 @@ bool sipwxFileSystemWatcher::Remove(const ::wxFileName& path)
     if (!sipMeth)
         return ::wxFileSystemWatcher::Remove(path);
 
-    extern bool sipVH__core_245(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxFileName&);
+    extern bool sipVH__core_244(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxFileName&);
 
-    return sipVH__core_245(sipGILState, 0, sipPySelf, sipMeth, path);
+    return sipVH__core_244(sipGILState, 0, sipPySelf, sipMeth, path);
 }
 
 bool sipwxFileSystemWatcher::AddTree(const ::wxFileName& path, int events, const ::wxString& filter)
@@ -119,9 +119,9 @@ bool sipwxFileSystemWatcher::AddTree(const ::wxFileName& path, int events, const
     if (!sipMeth)
         return ::wxFileSystemWatcher::AddTree(path, events, filter);
 
-    extern bool sipVH__core_244(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxFileName&, int, const ::wxString&);
+    extern bool sipVH__core_243(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxFileName&, int, const ::wxString&);
 
-    return sipVH__core_244(sipGILState, 0, sipPySelf, sipMeth, path, events, filter);
+    return sipVH__core_243(sipGILState, 0, sipPySelf, sipMeth, path, events, filter);
 }
 
 bool sipwxFileSystemWatcher::Add(const ::wxFileName& path, int events)
@@ -134,9 +134,9 @@ bool sipwxFileSystemWatcher::Add(const ::wxFileName& path, int events)
     if (!sipMeth)
         return ::wxFileSystemWatcher::Add(path, events);
 
-    extern bool sipVH__core_243(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxFileName&, int);
+    extern bool sipVH__core_242(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxFileName&, int);
 
-    return sipVH__core_243(sipGILState, 0, sipPySelf, sipMeth, path, events);
+    return sipVH__core_242(sipGILState, 0, sipPySelf, sipMeth, path, events);
 }
 
 bool sipwxFileSystemWatcher::ProcessEvent(::wxEvent& event)
@@ -149,9 +149,9 @@ bool sipwxFileSystemWatcher::ProcessEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxFileSystemWatcher::ProcessEvent(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxFileSystemWatcher::TryBefore(::wxEvent& event)
@@ -164,9 +164,9 @@ bool sipwxFileSystemWatcher::TryBefore(::wxEvent& event)
     if (!sipMeth)
         return ::wxFileSystemWatcher::TryBefore(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxFileSystemWatcher::TryAfter(::wxEvent& event)
@@ -179,9 +179,9 @@ bool sipwxFileSystemWatcher::TryAfter(::wxEvent& event)
     if (!sipMeth)
         return ::wxFileSystemWatcher::TryAfter(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxFileSystemWatcher::sipProtectVirt_TryBefore(bool sipSelfWasArg, ::wxEvent& event)
@@ -703,7 +703,7 @@ static void *init_type_wxFileSystemWatcher(sipSimpleWrapper *sipSelf, PyObject *
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxFileSystemWatcher[] = {{158, 255, 1}};
+static sipEncodedTypeDef supers_wxFileSystemWatcher[] = {{165, 255, 1}};
 
 
 static PyMethodDef methods_wxFileSystemWatcher[] = {

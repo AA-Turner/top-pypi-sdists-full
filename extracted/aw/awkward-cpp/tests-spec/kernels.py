@@ -2264,6 +2264,55 @@ awkward_reduce_sum_int32_int16_64 = awkward_reduce_sum
 awkward_reduce_sum_uint32_uint16_64 = awkward_reduce_sum
 awkward_reduce_sum_int32_int32_64 = awkward_reduce_sum
 awkward_reduce_sum_uint32_uint32_64 = awkward_reduce_sum
+awkward_reduce_sum_float64_int8_64 = awkward_reduce_sum
+awkward_reduce_sum_float64_uint8_64 = awkward_reduce_sum
+awkward_reduce_sum_float64_int16_64 = awkward_reduce_sum
+awkward_reduce_sum_float64_uint16_64 = awkward_reduce_sum
+awkward_reduce_sum_float64_int32_64 = awkward_reduce_sum
+awkward_reduce_sum_float64_uint32_64 = awkward_reduce_sum
+awkward_reduce_sum_float64_int64_64 = awkward_reduce_sum
+awkward_reduce_sum_float64_uint64_64 = awkward_reduce_sum
+awkward_reduce_sum_float64_float32_64 = awkward_reduce_sum
+
+
+def awkward_reduce_sumofsquares(toptr, fromptr, offsets, outlength):
+    for bin in range(outlength):
+        acc = 0
+        for i in range(offsets[bin], offsets[bin + 1]):
+            acc += fromptr[i] * fromptr[i]
+        toptr[bin] = acc
+
+awkward_reduce_sumofsquares_float64_int8_64 = awkward_reduce_sumofsquares
+awkward_reduce_sumofsquares_float64_uint8_64 = awkward_reduce_sumofsquares
+awkward_reduce_sumofsquares_float64_int16_64 = awkward_reduce_sumofsquares
+awkward_reduce_sumofsquares_float64_uint16_64 = awkward_reduce_sumofsquares
+awkward_reduce_sumofsquares_float64_int32_64 = awkward_reduce_sumofsquares
+awkward_reduce_sumofsquares_float64_uint32_64 = awkward_reduce_sumofsquares
+awkward_reduce_sumofsquares_float64_int64_64 = awkward_reduce_sumofsquares
+awkward_reduce_sumofsquares_float64_uint64_64 = awkward_reduce_sumofsquares
+awkward_reduce_sumofsquares_float64_bool_64 = awkward_reduce_sumofsquares
+awkward_reduce_sumofsquares_float64_float32_64 = awkward_reduce_sumofsquares
+awkward_reduce_sumofsquares_float64_float64_64 = awkward_reduce_sumofsquares
+
+
+def awkward_reduce_sumofpowers(toptr, fromptr, offsets, outlength, n):
+    for bin in range(outlength):
+        acc = 0
+        for i in range(offsets[bin], offsets[bin + 1]):
+            acc += fromptr[i] ** n
+        toptr[bin] = acc
+
+awkward_reduce_sumofpowers_float64_int8_64 = awkward_reduce_sumofpowers
+awkward_reduce_sumofpowers_float64_uint8_64 = awkward_reduce_sumofpowers
+awkward_reduce_sumofpowers_float64_int16_64 = awkward_reduce_sumofpowers
+awkward_reduce_sumofpowers_float64_uint16_64 = awkward_reduce_sumofpowers
+awkward_reduce_sumofpowers_float64_int32_64 = awkward_reduce_sumofpowers
+awkward_reduce_sumofpowers_float64_uint32_64 = awkward_reduce_sumofpowers
+awkward_reduce_sumofpowers_float64_int64_64 = awkward_reduce_sumofpowers
+awkward_reduce_sumofpowers_float64_uint64_64 = awkward_reduce_sumofpowers
+awkward_reduce_sumofpowers_float64_bool_64 = awkward_reduce_sumofpowers
+awkward_reduce_sumofpowers_float64_float32_64 = awkward_reduce_sumofpowers
+awkward_reduce_sumofpowers_float64_float64_64 = awkward_reduce_sumofpowers
 
 
 def awkward_reduce_sum_complex(toptr, fromptr, offsets, outlength):

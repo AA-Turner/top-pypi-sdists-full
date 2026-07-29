@@ -261,6 +261,27 @@ class KubernetesPodData(_message.Message):
             pod_anti_affinity: _Optional[_Union[KubernetesPodData.PodAntiAffinity, _Mapping]] = ...,
         ) -> None: ...
 
+    class Toleration(_message.Message):
+        __slots__ = ("key", "operator", "value", "effect", "toleration_seconds")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        OPERATOR_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        EFFECT_FIELD_NUMBER: _ClassVar[int]
+        TOLERATION_SECONDS_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        operator: str
+        value: str
+        effect: str
+        toleration_seconds: int
+        def __init__(
+            self,
+            key: _Optional[str] = ...,
+            operator: _Optional[str] = ...,
+            value: _Optional[str] = ...,
+            effect: _Optional[str] = ...,
+            toleration_seconds: _Optional[int] = ...,
+        ) -> None: ...
+
     class PodSpec(_message.Message):
         __slots__ = (
             "volumes",
@@ -282,6 +303,7 @@ class KubernetesPodData(_message.Message):
             "subdomain",
             "affinity",
             "scheduler_name",
+            "tolerations",
             "priority_class_name",
             "priority",
             "runtime_class_name",
@@ -317,6 +339,7 @@ class KubernetesPodData(_message.Message):
         SUBDOMAIN_FIELD_NUMBER: _ClassVar[int]
         AFFINITY_FIELD_NUMBER: _ClassVar[int]
         SCHEDULER_NAME_FIELD_NUMBER: _ClassVar[int]
+        TOLERATIONS_FIELD_NUMBER: _ClassVar[int]
         PRIORITY_CLASS_NAME_FIELD_NUMBER: _ClassVar[int]
         PRIORITY_FIELD_NUMBER: _ClassVar[int]
         RUNTIME_CLASS_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -343,6 +366,7 @@ class KubernetesPodData(_message.Message):
         subdomain: str
         affinity: KubernetesPodData.Affinity
         scheduler_name: str
+        tolerations: _containers.RepeatedCompositeFieldContainer[KubernetesPodData.Toleration]
         priority_class_name: str
         priority: int
         runtime_class_name: str
@@ -371,6 +395,7 @@ class KubernetesPodData(_message.Message):
             subdomain: _Optional[str] = ...,
             affinity: _Optional[_Union[KubernetesPodData.Affinity, _Mapping]] = ...,
             scheduler_name: _Optional[str] = ...,
+            tolerations: _Optional[_Iterable[_Union[KubernetesPodData.Toleration, _Mapping]]] = ...,
             priority_class_name: _Optional[str] = ...,
             priority: _Optional[int] = ...,
             runtime_class_name: _Optional[str] = ...,

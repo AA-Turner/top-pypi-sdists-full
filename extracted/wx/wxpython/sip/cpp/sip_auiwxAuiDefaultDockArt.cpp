@@ -10,9 +10,9 @@
 #include "sipAPI_aui.h"
         #include <wx/aui/dockart.h>
         #include <wx/dc.h>
+        #include <wx/window.h>
         #include <wx/gdicmn.h>
         #include <wx/aui/framemanager.h>
-        #include <wx/window.h>
         #include <wx/font.h>
         #include <wx/colour.h>
         #include <wx/aui/dockart.h>
@@ -40,6 +40,7 @@ protected:
     ::wxColour GetColour(int) SIP_OVERRIDE;
     ::wxFont GetFont(int) SIP_OVERRIDE;
     int GetMetric(int) SIP_OVERRIDE;
+    int GetMetricForWindow(int, ::wxWindow*) SIP_OVERRIDE;
     void SetColour(int, const ::wxColour&) SIP_OVERRIDE;
     void SetFont(int, const ::wxFont&) SIP_OVERRIDE;
     void SetMetric(int, int) SIP_OVERRIDE;
@@ -51,7 +52,7 @@ private:
     sipwxAuiDefaultDockArt(const sipwxAuiDefaultDockArt &);
     sipwxAuiDefaultDockArt &operator = (const sipwxAuiDefaultDockArt &);
 
-    char sipPyMethods[13];
+    char sipPyMethods[14];
 };
 
 sipwxAuiDefaultDockArt::sipwxAuiDefaultDockArt(): ::wxAuiDefaultDockArt(), sipPySelf(SIP_NULLPTR)
@@ -237,12 +238,27 @@ int sipwxAuiDefaultDockArt::GetMetric(int id)
     return sipVH__aui_34(sipGILState, 0, sipPySelf, sipMeth, id);
 }
 
+int sipwxAuiDefaultDockArt::GetMetricForWindow(int id, ::wxWindow*window)
+{
+    sip_gilstate_t sipGILState;
+    PyObject *sipMeth;
+
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[10], &sipPySelf, SIP_NULLPTR, sipName_GetMetricForWindow);
+
+    if (!sipMeth)
+        return ::wxAuiDefaultDockArt::GetMetricForWindow(id, window);
+
+    extern int sipVH__aui_35(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, ::wxWindow*);
+
+    return sipVH__aui_35(sipGILState, 0, sipPySelf, sipMeth, id, window);
+}
+
 void sipwxAuiDefaultDockArt::SetColour(int id, const ::wxColour& colour)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[10], &sipPySelf, SIP_NULLPTR, sipName_SetColour);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[11], &sipPySelf, SIP_NULLPTR, sipName_SetColour);
 
     if (!sipMeth)
     {
@@ -250,9 +266,9 @@ void sipwxAuiDefaultDockArt::SetColour(int id, const ::wxColour& colour)
         return;
     }
 
-    extern void sipVH__aui_35(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, const ::wxColour&);
+    extern void sipVH__aui_36(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, const ::wxColour&);
 
-    sipVH__aui_35(sipGILState, 0, sipPySelf, sipMeth, id, colour);
+    sipVH__aui_36(sipGILState, 0, sipPySelf, sipMeth, id, colour);
 }
 
 void sipwxAuiDefaultDockArt::SetFont(int id, const ::wxFont& font)
@@ -260,7 +276,7 @@ void sipwxAuiDefaultDockArt::SetFont(int id, const ::wxFont& font)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[11], &sipPySelf, SIP_NULLPTR, sipName_SetFont);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[12], &sipPySelf, SIP_NULLPTR, sipName_SetFont);
 
     if (!sipMeth)
     {
@@ -268,9 +284,9 @@ void sipwxAuiDefaultDockArt::SetFont(int id, const ::wxFont& font)
         return;
     }
 
-    extern void sipVH__aui_36(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, const ::wxFont&);
+    extern void sipVH__aui_37(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, const ::wxFont&);
 
-    sipVH__aui_36(sipGILState, 0, sipPySelf, sipMeth, id, font);
+    sipVH__aui_37(sipGILState, 0, sipPySelf, sipMeth, id, font);
 }
 
 void sipwxAuiDefaultDockArt::SetMetric(int id, int new_val)
@@ -278,7 +294,7 @@ void sipwxAuiDefaultDockArt::SetMetric(int id, int new_val)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[12], &sipPySelf, SIP_NULLPTR, sipName_SetMetric);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[13], &sipPySelf, SIP_NULLPTR, sipName_SetMetric);
 
     if (!sipMeth)
     {
@@ -875,52 +891,6 @@ static PyObject *meth_wxAuiDefaultDockArt_DrawPaneButton(PyObject *sipSelf, PyOb
 }
 
 
-PyDoc_STRVAR(doc_wxAuiDefaultDockArt_DrawIcon, "DrawIcon(dc, rect, pane) -> None");
-
-extern "C" {static PyObject *meth_wxAuiDefaultDockArt_DrawIcon(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxAuiDefaultDockArt_DrawIcon(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        ::wxDC* dc;
-        const ::wxRect* rect;
-        int rectState = 0;
-        ::wxAuiPaneInfo* pane;
-        ::wxAuiDefaultDockArt *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_dc,
-            sipName_rect,
-            sipName_pane,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J1J9", &sipSelf, sipType_wxAuiDefaultDockArt, &sipCpp, sipType_wxDC, &dc, sipType_wxRect, &rect, &rectState, sipType_wxAuiPaneInfo, &pane))
-        {
-            if (sipDeprecated(sipName_AuiDefaultDockArt, sipName_DrawIcon) < 0)
-                return SIP_NULLPTR;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->DrawIcon(*dc, *rect, *pane);
-            Py_END_ALLOW_THREADS
-            sipReleaseType(const_cast< ::wxRect *>(rect), sipType_wxRect, rectState);
-
-            if (PyErr_Occurred())
-                return 0;
-
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_AuiDefaultDockArt, sipName_DrawIcon, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
 /* Cast a pointer to a type somewhere in its inheritance hierarchy. */
 extern "C" {static void *cast_wxAuiDefaultDockArt(void *, const sipTypeDef *);}
 static void *cast_wxAuiDefaultDockArt(void *sipCppV, const sipTypeDef *targetType)
@@ -1039,7 +1009,7 @@ static void *init_type_wxAuiDefaultDockArt(sipSimpleWrapper *sipSelf, PyObject *
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxAuiDefaultDockArt[] = {{4, 255, 1}};
+static sipEncodedTypeDef supers_wxAuiDefaultDockArt[] = {{6, 255, 1}};
 
 
 static PyMethodDef methods_wxAuiDefaultDockArt[] = {
@@ -1048,7 +1018,6 @@ static PyMethodDef methods_wxAuiDefaultDockArt[] = {
     {sipName_DrawBorder, SIP_MLMETH_CAST(meth_wxAuiDefaultDockArt_DrawBorder), METH_VARARGS|METH_KEYWORDS, doc_wxAuiDefaultDockArt_DrawBorder},
     {sipName_DrawCaption, SIP_MLMETH_CAST(meth_wxAuiDefaultDockArt_DrawCaption), METH_VARARGS|METH_KEYWORDS, doc_wxAuiDefaultDockArt_DrawCaption},
     {sipName_DrawGripper, SIP_MLMETH_CAST(meth_wxAuiDefaultDockArt_DrawGripper), METH_VARARGS|METH_KEYWORDS, doc_wxAuiDefaultDockArt_DrawGripper},
-    {sipName_DrawIcon, SIP_MLMETH_CAST(meth_wxAuiDefaultDockArt_DrawIcon), METH_VARARGS|METH_KEYWORDS, doc_wxAuiDefaultDockArt_DrawIcon},
     {sipName_DrawPaneButton, SIP_MLMETH_CAST(meth_wxAuiDefaultDockArt_DrawPaneButton), METH_VARARGS|METH_KEYWORDS, doc_wxAuiDefaultDockArt_DrawPaneButton},
     {sipName_DrawSash, SIP_MLMETH_CAST(meth_wxAuiDefaultDockArt_DrawSash), METH_VARARGS|METH_KEYWORDS, doc_wxAuiDefaultDockArt_DrawSash},
     {sipName_GetColour, SIP_MLMETH_CAST(meth_wxAuiDefaultDockArt_GetColour), METH_VARARGS|METH_KEYWORDS, doc_wxAuiDefaultDockArt_GetColour},
@@ -1077,7 +1046,7 @@ sipClassTypeDef sipTypeDef__aui_wxAuiDefaultDockArt = {
     {
         sipNameNr_AuiDefaultDockArt,
         {0, 0, 1},
-        14, methods_wxAuiDefaultDockArt,
+        13, methods_wxAuiDefaultDockArt,
         0, SIP_NULLPTR,
         0, SIP_NULLPTR,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

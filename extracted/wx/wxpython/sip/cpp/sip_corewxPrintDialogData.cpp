@@ -10,6 +10,14 @@
 #include "sipAPI_core.h"
         #include <wx/cmndata.h>
         #include <wx/cmndata.h>
+    #include <vector>
+    #include <algorithm>
+
+    
+#include <wx/cmndata.h>
+inline bool operator==(const wxPrintPageRange& a, const wxPrintPageRange& b) {
+    return a.fromPage == b.fromPage && a.toPage == b.toPage;
+}
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
@@ -174,6 +182,46 @@ static PyObject *meth_wxPrintDialogData_EnableSelection(PyObject *sipSelf, PyObj
     }
 
     sipNoMethod(sipParseErr, sipName_PrintDialogData, sipName_EnableSelection, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxPrintDialogData_EnableCurrentPage, "EnableCurrentPage(flag) -> None\n"
+"\n"
+"Allows or disallows selecting printing the \"Current Page\" in the\n"
+"dialog.");
+
+extern "C" {static PyObject *meth_wxPrintDialogData_EnableCurrentPage(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxPrintDialogData_EnableCurrentPage(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        bool flag;
+        ::wxPrintDialogData *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_flag,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bb", &sipSelf, sipType_wxPrintDialogData, &sipCpp, &flag))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->EnableCurrentPage(flag);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_PrintDialogData, sipName_EnableCurrentPage, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -495,6 +543,76 @@ static PyObject *meth_wxPrintDialogData_GetSelection(PyObject *sipSelf, PyObject
 }
 
 
+PyDoc_STRVAR(doc_wxPrintDialogData_GetCurrentPage, "GetCurrentPage() -> bool\n"
+"\n"
+"Returns true if the user requested that the current page be printed.");
+
+extern "C" {static PyObject *meth_wxPrintDialogData_GetCurrentPage(PyObject *, PyObject *);}
+static PyObject *meth_wxPrintDialogData_GetCurrentPage(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxPrintDialogData *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxPrintDialogData, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetCurrentPage();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_PrintDialogData, sipName_GetCurrentPage, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxPrintDialogData_GetSpecifiedPages, "GetSpecifiedPages() -> bool\n"
+"\n"
+"Returns true if the user requested printing only the specified pages.");
+
+extern "C" {static PyObject *meth_wxPrintDialogData_GetSpecifiedPages(PyObject *, PyObject *);}
+static PyObject *meth_wxPrintDialogData_GetSpecifiedPages(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxPrintDialogData *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxPrintDialogData, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetSpecifiedPages();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_PrintDialogData, sipName_GetSpecifiedPages, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxPrintDialogData_GetToPage, "GetToPage() -> int\n"
 "\n"
 "Returns the \"print to\" page number, as entered by the user.");
@@ -560,6 +678,45 @@ static PyObject *meth_wxPrintDialogData_IsOk(PyObject *sipSelf, PyObject *sipArg
     }
 
     sipNoMethod(sipParseErr, sipName_PrintDialogData, sipName_IsOk, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxPrintDialogData_SetAllPages, "SetAllPages(flag=True) -> None\n"
+"\n"
+"Selects the \"All pages\" radio button.");
+
+extern "C" {static PyObject *meth_wxPrintDialogData_SetAllPages(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxPrintDialogData_SetAllPages(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        bool flag = 1;
+        ::wxPrintDialogData *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_flag,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "B|b", &sipSelf, sipType_wxPrintDialogData, &sipCpp, &flag))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetAllPages(flag);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_PrintDialogData, sipName_SetAllPages, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -839,7 +996,7 @@ static PyObject *meth_wxPrintDialogData_SetPrintToFile(PyObject *sipSelf, PyObje
 }
 
 
-PyDoc_STRVAR(doc_wxPrintDialogData_SetSelection, "SetSelection(flag) -> None\n"
+PyDoc_STRVAR(doc_wxPrintDialogData_SetSelection, "SetSelection(flag=True) -> None\n"
 "\n"
 "Selects the \"Selection\" radio button.");
 
@@ -849,14 +1006,14 @@ static PyObject *meth_wxPrintDialogData_SetSelection(PyObject *sipSelf, PyObject
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        bool flag;
+        bool flag = 1;
         ::wxPrintDialogData *sipCpp;
 
         static const char *sipKwdList[] = {
             sipName_flag,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bb", &sipSelf, sipType_wxPrintDialogData, &sipCpp, &flag))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "B|b", &sipSelf, sipType_wxPrintDialogData, &sipCpp, &flag))
         {
             PyErr_Clear();
 
@@ -873,6 +1030,46 @@ static PyObject *meth_wxPrintDialogData_SetSelection(PyObject *sipSelf, PyObject
     }
 
     sipNoMethod(sipParseErr, sipName_PrintDialogData, sipName_SetSelection, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxPrintDialogData_SetCurrentPage, "SetCurrentPage(flag=True) -> None\n"
+"\n"
+"Selects the \"Current Page\" radio button when the dialog is initially\n"
+"shown.");
+
+extern "C" {static PyObject *meth_wxPrintDialogData_SetCurrentPage(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxPrintDialogData_SetCurrentPage(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        bool flag = 1;
+        ::wxPrintDialogData *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_flag,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "B|b", &sipSelf, sipType_wxPrintDialogData, &sipCpp, &flag))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetCurrentPage(flag);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_PrintDialogData, sipName_SetCurrentPage, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -912,6 +1109,115 @@ static PyObject *meth_wxPrintDialogData_SetToPage(PyObject *sipSelf, PyObject *s
     }
 
     sipNoMethod(sipParseErr, sipName_PrintDialogData, sipName_SetToPage, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxPrintDialogData_SetMaxPageRanges, "SetMaxPageRanges(maxRanges) -> None\n"
+"\n"
+"Sets the maximum number of page ranges that the user can specify.");
+
+extern "C" {static PyObject *meth_wxPrintDialogData_SetMaxPageRanges(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxPrintDialogData_SetMaxPageRanges(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int maxRanges;
+        ::wxPrintDialogData *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_maxRanges,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxPrintDialogData, &sipCpp, &maxRanges))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetMaxPageRanges(maxRanges);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_PrintDialogData, sipName_SetMaxPageRanges, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxPrintDialogData_GetMaxPageRanges, "GetMaxPageRanges() -> int\n"
+"\n"
+"Returns the maximum number of page ranges that the user can specify.");
+
+extern "C" {static PyObject *meth_wxPrintDialogData_GetMaxPageRanges(PyObject *, PyObject *);}
+static PyObject *meth_wxPrintDialogData_GetMaxPageRanges(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxPrintDialogData *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxPrintDialogData, &sipCpp))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetMaxPageRanges();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_PrintDialogData, sipName_GetMaxPageRanges, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxPrintDialogData_GetPageRanges, "GetPageRanges() -> PrintPageRanges\n"
+"\n"
+"Returns the page ranges to print.");
+
+extern "C" {static PyObject *meth_wxPrintDialogData_GetPageRanges(PyObject *, PyObject *);}
+static PyObject *meth_wxPrintDialogData_GetPageRanges(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxPrintDialogData *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxPrintDialogData, &sipCpp))
+        {
+            ::wxPrintPageRanges*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxPrintPageRanges(sipCpp->GetPageRanges());
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxPrintPageRanges, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_PrintDialogData, sipName_GetPageRanges, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -1125,7 +1431,7 @@ static void *init_type_wxPrintDialogData(sipSimpleWrapper *, PyObject *sipArgs, 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxPrintDialogData[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxPrintDialogData[] = {{400, 255, 1}};
 
 
 /* Define this type's Python slots. */
@@ -1136,24 +1442,32 @@ static sipPySlotDef slots_wxPrintDialogData[] = {
 
 
 static PyMethodDef methods_wxPrintDialogData[] = {
+    {sipName_EnableCurrentPage, SIP_MLMETH_CAST(meth_wxPrintDialogData_EnableCurrentPage), METH_VARARGS|METH_KEYWORDS, doc_wxPrintDialogData_EnableCurrentPage},
     {sipName_EnableHelp, SIP_MLMETH_CAST(meth_wxPrintDialogData_EnableHelp), METH_VARARGS|METH_KEYWORDS, doc_wxPrintDialogData_EnableHelp},
     {sipName_EnablePageNumbers, SIP_MLMETH_CAST(meth_wxPrintDialogData_EnablePageNumbers), METH_VARARGS|METH_KEYWORDS, doc_wxPrintDialogData_EnablePageNumbers},
     {sipName_EnablePrintToFile, SIP_MLMETH_CAST(meth_wxPrintDialogData_EnablePrintToFile), METH_VARARGS|METH_KEYWORDS, doc_wxPrintDialogData_EnablePrintToFile},
     {sipName_EnableSelection, SIP_MLMETH_CAST(meth_wxPrintDialogData_EnableSelection), METH_VARARGS|METH_KEYWORDS, doc_wxPrintDialogData_EnableSelection},
     {sipName_GetAllPages, meth_wxPrintDialogData_GetAllPages, METH_VARARGS, doc_wxPrintDialogData_GetAllPages},
     {sipName_GetCollate, meth_wxPrintDialogData_GetCollate, METH_VARARGS, doc_wxPrintDialogData_GetCollate},
+    {sipName_GetCurrentPage, meth_wxPrintDialogData_GetCurrentPage, METH_VARARGS, doc_wxPrintDialogData_GetCurrentPage},
     {sipName_GetFromPage, meth_wxPrintDialogData_GetFromPage, METH_VARARGS, doc_wxPrintDialogData_GetFromPage},
     {sipName_GetMaxPage, meth_wxPrintDialogData_GetMaxPage, METH_VARARGS, doc_wxPrintDialogData_GetMaxPage},
+    {sipName_GetMaxPageRanges, meth_wxPrintDialogData_GetMaxPageRanges, METH_VARARGS, doc_wxPrintDialogData_GetMaxPageRanges},
     {sipName_GetMinPage, meth_wxPrintDialogData_GetMinPage, METH_VARARGS, doc_wxPrintDialogData_GetMinPage},
     {sipName_GetNoCopies, meth_wxPrintDialogData_GetNoCopies, METH_VARARGS, doc_wxPrintDialogData_GetNoCopies},
+    {sipName_GetPageRanges, meth_wxPrintDialogData_GetPageRanges, METH_VARARGS, doc_wxPrintDialogData_GetPageRanges},
     {sipName_GetPrintData, meth_wxPrintDialogData_GetPrintData, METH_VARARGS, doc_wxPrintDialogData_GetPrintData},
     {sipName_GetPrintToFile, meth_wxPrintDialogData_GetPrintToFile, METH_VARARGS, doc_wxPrintDialogData_GetPrintToFile},
     {sipName_GetSelection, meth_wxPrintDialogData_GetSelection, METH_VARARGS, doc_wxPrintDialogData_GetSelection},
+    {sipName_GetSpecifiedPages, meth_wxPrintDialogData_GetSpecifiedPages, METH_VARARGS, doc_wxPrintDialogData_GetSpecifiedPages},
     {sipName_GetToPage, meth_wxPrintDialogData_GetToPage, METH_VARARGS, doc_wxPrintDialogData_GetToPage},
     {sipName_IsOk, meth_wxPrintDialogData_IsOk, METH_VARARGS, doc_wxPrintDialogData_IsOk},
+    {sipName_SetAllPages, SIP_MLMETH_CAST(meth_wxPrintDialogData_SetAllPages), METH_VARARGS|METH_KEYWORDS, doc_wxPrintDialogData_SetAllPages},
     {sipName_SetCollate, SIP_MLMETH_CAST(meth_wxPrintDialogData_SetCollate), METH_VARARGS|METH_KEYWORDS, doc_wxPrintDialogData_SetCollate},
+    {sipName_SetCurrentPage, SIP_MLMETH_CAST(meth_wxPrintDialogData_SetCurrentPage), METH_VARARGS|METH_KEYWORDS, doc_wxPrintDialogData_SetCurrentPage},
     {sipName_SetFromPage, SIP_MLMETH_CAST(meth_wxPrintDialogData_SetFromPage), METH_VARARGS|METH_KEYWORDS, doc_wxPrintDialogData_SetFromPage},
     {sipName_SetMaxPage, SIP_MLMETH_CAST(meth_wxPrintDialogData_SetMaxPage), METH_VARARGS|METH_KEYWORDS, doc_wxPrintDialogData_SetMaxPage},
+    {sipName_SetMaxPageRanges, SIP_MLMETH_CAST(meth_wxPrintDialogData_SetMaxPageRanges), METH_VARARGS|METH_KEYWORDS, doc_wxPrintDialogData_SetMaxPageRanges},
     {sipName_SetMinPage, SIP_MLMETH_CAST(meth_wxPrintDialogData_SetMinPage), METH_VARARGS|METH_KEYWORDS, doc_wxPrintDialogData_SetMinPage},
     {sipName_SetNoCopies, SIP_MLMETH_CAST(meth_wxPrintDialogData_SetNoCopies), METH_VARARGS|METH_KEYWORDS, doc_wxPrintDialogData_SetNoCopies},
     {sipName_SetPrintData, SIP_MLMETH_CAST(meth_wxPrintDialogData_SetPrintData), METH_VARARGS|METH_KEYWORDS, doc_wxPrintDialogData_SetPrintData},
@@ -1164,16 +1478,20 @@ static PyMethodDef methods_wxPrintDialogData[] = {
 };
 
 sipVariableDef variables_wxPrintDialogData[] = {
-    {PropertyVariable, sipName_ToPage, &methods_wxPrintDialogData[13], &methods_wxPrintDialogData[23], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Selection, &methods_wxPrintDialogData[12], &methods_wxPrintDialogData[22], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_PrintToFile, &methods_wxPrintDialogData[11], &methods_wxPrintDialogData[21], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_PrintData, &methods_wxPrintDialogData[10], &methods_wxPrintDialogData[20], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_NoCopies, &methods_wxPrintDialogData[9], &methods_wxPrintDialogData[19], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_MinPage, &methods_wxPrintDialogData[8], &methods_wxPrintDialogData[18], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_MaxPage, &methods_wxPrintDialogData[7], &methods_wxPrintDialogData[17], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_FromPage, &methods_wxPrintDialogData[6], &methods_wxPrintDialogData[16], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Collate, &methods_wxPrintDialogData[5], &methods_wxPrintDialogData[15], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_AllPages, &methods_wxPrintDialogData[4], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ToPage, &methods_wxPrintDialogData[18], &methods_wxPrintDialogData[31], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SpecifiedPages, &methods_wxPrintDialogData[17], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Selection, &methods_wxPrintDialogData[16], &methods_wxPrintDialogData[30], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_PrintToFile, &methods_wxPrintDialogData[15], &methods_wxPrintDialogData[29], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_PrintData, &methods_wxPrintDialogData[14], &methods_wxPrintDialogData[28], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_PageRanges, &methods_wxPrintDialogData[13], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_NoCopies, &methods_wxPrintDialogData[12], &methods_wxPrintDialogData[27], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_MinPage, &methods_wxPrintDialogData[11], &methods_wxPrintDialogData[26], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_MaxPageRanges, &methods_wxPrintDialogData[10], &methods_wxPrintDialogData[25], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_MaxPage, &methods_wxPrintDialogData[9], &methods_wxPrintDialogData[24], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_FromPage, &methods_wxPrintDialogData[8], &methods_wxPrintDialogData[23], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CurrentPage, &methods_wxPrintDialogData[7], &methods_wxPrintDialogData[22], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Collate, &methods_wxPrintDialogData[6], &methods_wxPrintDialogData[21], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_AllPages, &methods_wxPrintDialogData[5], &methods_wxPrintDialogData[20], SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxPrintDialogData, "PrintDialogData() -> None\n"
@@ -1197,9 +1515,9 @@ sipClassTypeDef sipTypeDef__core_wxPrintDialogData = {
     {
         sipNameNr_PrintDialogData,
         {0, 0, 1},
-        25, methods_wxPrintDialogData,
+        33, methods_wxPrintDialogData,
         0, SIP_NULLPTR,
-        10, variables_wxPrintDialogData,
+        14, variables_wxPrintDialogData,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxPrintDialogData,

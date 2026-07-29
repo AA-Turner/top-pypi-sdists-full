@@ -1,118 +1,107 @@
 """Test that cancelled requests don't cause double responses."""
 
-from typing import Any
-
 import anyio
 import pytest
-
-import mcp.types as types
-from mcp.server.lowlevel.server import Server
-from mcp.shared.exceptions import McpError
-from mcp.shared.memory import create_connected_server_and_client_session
-from mcp.shared.message import SessionMessage
-from mcp.types import (
-    LATEST_PROTOCOL_VERSION,
+from mcp_types import (
     CallToolRequest,
     CallToolRequestParams,
     CallToolResult,
     CancelledNotification,
     CancelledNotificationParams,
     ClientCapabilities,
-    ClientNotification,
-    ClientRequest,
     Implementation,
     InitializeRequestParams,
     JSONRPCNotification,
     JSONRPCRequest,
+    ListToolsResult,
+    PaginatedRequestParams,
+    TextContent,
     Tool,
 )
+from mcp_types.version import LATEST_HANDSHAKE_VERSION
+
+from mcp import Client
+from mcp.server import Server, ServerRequestContext
+from mcp.shared.message import SessionMessage
 
 
 @pytest.mark.anyio
 async def test_server_remains_functional_after_cancel():
     """Verify server can handle new requests after a cancellation."""
 
-    server = Server("test-server")
-
     # Track tool calls
     call_count = 0
     ev_first_call = anyio.Event()
+    ev_first_call_cancelled = anyio.Event()
     first_request_id = None
 
-    @server.list_tools()
-    async def handle_list_tools() -> list[Tool]:
-        return [
-            Tool(
-                name="test_tool",
-                description="Tool for testing",
-                inputSchema={},
-            )
-        ]
+    async def handle_list_tools(ctx: ServerRequestContext, params: PaginatedRequestParams | None) -> ListToolsResult:
+        return ListToolsResult(
+            tools=[
+                Tool(
+                    name="test_tool",
+                    description="Tool for testing",
+                    input_schema={"type": "object"},
+                )
+            ]
+        )
 
-    @server.call_tool()
-    async def handle_call_tool(name: str, arguments: dict[str, Any] | None) -> list[types.TextContent]:
+    async def handle_call_tool(ctx: ServerRequestContext, params: CallToolRequestParams) -> CallToolResult:
         nonlocal call_count, first_request_id
-        if name == "test_tool":
+        if params.name == "test_tool":
             call_count += 1
             if call_count == 1:
-                first_request_id = server.request_context.request_id
+                first_request_id = ctx.request_id
                 ev_first_call.set()
-                await anyio.sleep(5)  # First call is slow
-            return [types.TextContent(type="text", text=f"Call number: {call_count}")]
-        raise ValueError(f"Unknown tool: {name}")  # pragma: no cover
+                try:
+                    await anyio.sleep_forever()  # First call blocks until cancelled
+                except anyio.get_cancelled_exc_class():
+                    ev_first_call_cancelled.set()
+                    raise
+            return CallToolResult(content=[TextContent(type="text", text=f"Call number: {call_count}")])
+        raise ValueError(f"Unknown tool: {params.name}")  # pragma: no cover
 
-    async with create_connected_server_and_client_session(server) as client:
-        # First request (will be cancelled)
+    server = Server("test-server", on_list_tools=handle_list_tools, on_call_tool=handle_call_tool)
+
+    async with Client(server, mode="legacy") as client:
+        # First request (will be cancelled server-side, then abandoned here: a
+        # cancelled request is never answered, so nothing would wake this call)
         async def first_request():
-            try:
-                await client.send_request(
-                    ClientRequest(
-                        CallToolRequest(
-                            params=CallToolRequestParams(name="test_tool", arguments={}),
-                        )
-                    ),
-                    CallToolResult,
-                )
-                pytest.fail("First request should have been cancelled")  # pragma: no cover
-            except McpError:
-                pass  # Expected
+            await client.session.send_request(
+                CallToolRequest(params=CallToolRequestParams(name="test_tool", arguments={})),
+                CallToolResult,
+            )
+            raise NotImplementedError  # unreachable: the task is cancelled before any answer
 
         # Start first request
-        async with anyio.create_task_group() as tg:
-            tg.start_soon(first_request)
+        with anyio.fail_after(5):
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(first_request)
 
-            # Wait for it to start
-            await ev_first_call.wait()
+                # Wait for it to start
+                await ev_first_call.wait()
 
-            # Cancel it
-            assert first_request_id is not None
-            await client.send_notification(
-                ClientNotification(
+                # Cancel it
+                assert first_request_id is not None
+                await client.session.send_notification(
                     CancelledNotification(
                         params=CancelledNotificationParams(
-                            requestId=first_request_id,
-                            reason="Testing server recovery",
+                            request_id=first_request_id, reason="Testing server recovery"
                         ),
                     )
                 )
-            )
+                await ev_first_call_cancelled.wait()
+                tg.cancel_scope.cancel()  # abandon the parked call
 
         # Second request (should work normally)
-        result = await client.send_request(
-            ClientRequest(
-                CallToolRequest(
-                    params=CallToolRequestParams(name="test_tool", arguments={}),
-                )
-            ),
-            CallToolResult,
-        )
+        result = await client.call_tool("test_tool", {})
 
         # Verify second request completed successfully
         assert len(result.content) == 1
         # Type narrowing for pyright
         content = result.content[0]
         assert content.type == "text"
-        assert isinstance(content, types.TextContent)
+        assert isinstance(content, TextContent)
         assert content.text == "Call number: 2"
         assert call_count == 2
 
@@ -133,10 +122,7 @@ async def test_server_cancels_in_flight_handlers_on_transport_close():
     handler_cancelled = anyio.Event()
     server_run_returned = anyio.Event()
 
-    server = Server("test")
-
-    @server.call_tool()
-    async def handle_call_tool(name: str, arguments: dict[str, Any] | None) -> list[types.TextContent]:
+    async def handle_call_tool(ctx: ServerRequestContext, params: CallToolRequestParams) -> CallToolResult:
         handler_started.set()
         try:
             await anyio.sleep_forever()
@@ -144,6 +130,8 @@ async def test_server_cancels_in_flight_handlers_on_transport_close():
             handler_cancelled.set()
         # unreachable: sleep_forever only exits via cancellation
         raise AssertionError  # pragma: no cover
+
+    server = Server("test", on_call_tool=handle_call_tool)
 
     to_server, server_read = anyio.create_memory_object_stream[SessionMessage | Exception](10)
     server_write, from_server = anyio.create_memory_object_stream[SessionMessage](10)
@@ -157,9 +145,9 @@ async def test_server_cancels_in_flight_handlers_on_transport_close():
         id=1,
         method="initialize",
         params=InitializeRequestParams(
-            protocolVersion=LATEST_PROTOCOL_VERSION,
+            protocol_version=LATEST_HANDSHAKE_VERSION,
             capabilities=ClientCapabilities(),
-            clientInfo=Implementation(name="test", version="1.0"),
+            client_info=Implementation(name="test", version="1.0"),
         ).model_dump(by_alias=True, mode="json", exclude_none=True),
     )
     initialized = JSONRPCNotification(jsonrpc="2.0", method="notifications/initialized")
@@ -174,10 +162,10 @@ async def test_server_cancels_in_flight_handlers_on_transport_close():
         async with anyio.create_task_group() as tg, to_server, server_read, server_write, from_server:
             tg.start_soon(run_server)
 
-            await to_server.send(SessionMessage(message=types.JSONRPCMessage(init_req)))
+            await to_server.send(SessionMessage(init_req))
             await from_server.receive()  # init response
-            await to_server.send(SessionMessage(message=types.JSONRPCMessage(initialized)))
-            await to_server.send(SessionMessage(message=types.JSONRPCMessage(call_req)))
+            await to_server.send(SessionMessage(initialized))
+            await to_server.send(SessionMessage(call_req))
 
             await handler_started.wait()
 
@@ -207,18 +195,17 @@ async def test_server_handles_transport_close_with_pending_server_to_client_requ
     both_started = anyio.Event()
     server_run_returned = anyio.Event()
 
-    server = Server("test")
-
-    @server.call_tool()
-    async def handle_call_tool(name: str, arguments: dict[str, Any] | None) -> list[types.TextContent]:
+    async def handle_call_tool(ctx: ServerRequestContext, params: CallToolRequestParams) -> CallToolResult:
         nonlocal handlers_started
         handlers_started += 1
         if handlers_started == 2:
             both_started.set()
         # Blocks on send_request waiting for a client response that never comes.
         # _receive_loop's finally will wake this with CONNECTION_CLOSED.
-        await server.request_context.session.list_roots()
+        await ctx.session.list_roots()  # pyright: ignore[reportDeprecated]
         raise AssertionError  # pragma: no cover
+
+    server = Server("test", on_call_tool=handle_call_tool)
 
     to_server, server_read = anyio.create_memory_object_stream[SessionMessage | Exception](10)
     server_write, from_server = anyio.create_memory_object_stream[SessionMessage](10)
@@ -232,9 +219,9 @@ async def test_server_handles_transport_close_with_pending_server_to_client_requ
         id=1,
         method="initialize",
         params=InitializeRequestParams(
-            protocolVersion=LATEST_PROTOCOL_VERSION,
+            protocol_version=LATEST_HANDSHAKE_VERSION,
             capabilities=ClientCapabilities(),
-            clientInfo=Implementation(name="test", version="1.0"),
+            client_info=Implementation(name="test", version="1.0"),
         ).model_dump(by_alias=True, mode="json", exclude_none=True),
     )
     initialized = JSONRPCNotification(jsonrpc="2.0", method="notifications/initialized")
@@ -243,9 +230,9 @@ async def test_server_handles_transport_close_with_pending_server_to_client_requ
         async with anyio.create_task_group() as tg, to_server, server_read, server_write, from_server:
             tg.start_soon(run_server)
 
-            await to_server.send(SessionMessage(message=types.JSONRPCMessage(init_req)))
+            await to_server.send(SessionMessage(init_req))
             await from_server.receive()  # init response
-            await to_server.send(SessionMessage(message=types.JSONRPCMessage(initialized)))
+            await to_server.send(SessionMessage(initialized))
 
             # Two tool calls → two handlers → two _response_streams entries.
             for rid in (2, 3):
@@ -255,7 +242,7 @@ async def test_server_handles_transport_close_with_pending_server_to_client_requ
                     method="tools/call",
                     params=CallToolRequestParams(name="t", arguments={}).model_dump(by_alias=True, mode="json"),
                 )
-                await to_server.send(SessionMessage(message=types.JSONRPCMessage(call_req)))
+                await to_server.send(SessionMessage(call_req))
 
             await both_started.wait()
             # Drain the two roots/list requests so send_request's _write_stream.send()

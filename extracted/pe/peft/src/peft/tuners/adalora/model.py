@@ -30,7 +30,7 @@ from peft.utils import (
 from peft.utils.integrations import gather_params_ctx
 
 from .gptq import SVDQuantLinear
-from .layer import AdaLoraLayer, RankAllocator, SVDLinear
+from .layer import AdaLoraLayer, RankAllocator, SVDConv2d, SVDLinear
 
 
 class AdaLoraModel(LoraModel):
@@ -48,14 +48,23 @@ class AdaLoraModel(LoraModel):
     Returns:
         `torch.nn.Module`: The AdaLora model.
 
-    Example::
+    Example:
+        ```py
+        >>> from transformers import AutoModelForSeq2SeqLM
+        >>> from peft import AdaLoraConfig, get_peft_model
 
-        >>> from transformers import AutoModelForSeq2SeqLM >>> from peft import LoraConfig, AdaLoraModel, AdaLoraConfig
         >>> config = AdaLoraConfig(
-                peft_type="ADALORA", task_type="SEQ_2_SEQ_LM", init_r=12, lora_alpha=32, target_modules=["q", "v"],
-                lora_dropout=0.01,
-            )
-        >>> model = AutoModelForSeq2SeqLM.from_pretrained("t5-base") >>> model = AdaLoraModel(model, config, "default")
+        ...     peft_type="ADALORA",
+        ...     task_type="SEQ_2_SEQ_LM",
+        ...     init_r=12,
+        ...     lora_alpha=32,
+        ...     target_modules=["q", "v"],
+        ...     lora_dropout=0.01,
+        ...     total_step=1000,
+        ... )
+        >>> model = AutoModelForSeq2SeqLM.from_pretrained("t5-base")
+        >>> adalora_model = get_peft_model(model, config)
+        ```
 
     **Attributes**:
         - **model** ([`transformers.PreTrainedModel`]) -- The model to be adapted.
@@ -69,8 +78,8 @@ class AdaLoraModel(LoraModel):
         super().__init__(model, config, adapter_name, **kwargs)
 
         traininable_mode_counter = 0
-        for config in self.peft_config.values():
-            if not config.inference_mode:
+        for peft_config in self.peft_config.values():
+            if not peft_config.inference_mode:
                 traininable_mode_counter += 1
 
         if traininable_mode_counter > 1:
@@ -205,12 +214,15 @@ class AdaLoraModel(LoraModel):
                         "Setting fan_in_fan_out to True."
                     )
                     lora_config.fan_in_fan_out = True
-            else:
+            elif not isinstance(target_base_layer, torch.nn.Conv2d):
                 raise ValueError(
                     f"Target module {target} is not supported. "
-                    f"Currently, only `torch.nn.Linear` and `Conv1D` are supported."
+                    f"Currently, only `torch.nn.Linear`, `Conv1D`, and `torch.nn.Conv2d` are supported."
                 )
-            new_module = SVDLinear(target, adapter_name, config=lora_config, **kwargs)
+            if isinstance(target_base_layer, torch.nn.Conv2d):
+                new_module = SVDConv2d(target, adapter_name, config=lora_config, **kwargs)
+            else:
+                new_module = SVDLinear(target, adapter_name, config=lora_config, **kwargs)
 
         return new_module
 
@@ -221,8 +233,8 @@ class AdaLoraModel(LoraModel):
             # Calculate the orthogonal regularization
             orth_reg_weight = self.peft_config[self.trainable_adapter_name].orth_reg_weight
 
-            if orth_reg_weight <= 0:
-                raise ValueError("orth_reg_weight should be greater than 0. ")
+            if orth_reg_weight < 0:
+                raise ValueError("orth_reg_weight should be greater than or equal to 0. ")
 
             regu_loss = 0
             num_param = 0
@@ -253,7 +265,7 @@ class AdaLoraModel(LoraModel):
                 rank_idx = rank_idx.view(-1)
                 rank = rank_idx.sum().item()
             else:
-                raise ValueError("Unexpected type of rank_idx")
+                raise TypeError("Unexpected type of rank_idx")
             key = ".".join(name.split(".")[0:-2]) if adapter_name in name else ".".join(name.split(".")[0:-1])
             _, target, _ = _get_submodules(self.model, key)
             lora_E_weights = target.lora_E[adapter_name][rank_idx]
@@ -330,7 +342,7 @@ class AdaLoraModel(LoraModel):
             self.rankallocator.mask_using_rank_pattern(self.model, lora_config.rank_pattern)
         # Pass the function and do forward propagation
         else:
-            return None
+            return
 
     def add_weighted_adapter(self, *args, **kwargs):
         """This method is not supported for AdaLoRA, use LoRA instead."""

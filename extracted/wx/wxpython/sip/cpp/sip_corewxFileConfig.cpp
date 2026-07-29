@@ -10,6 +10,8 @@
 #include "sipAPI_core.h"
         #include <wx/fileconf.h>
         #include <wx/stream.h>
+        #include <wx/fileconf.h>
+            #include <wx/fileconf.h>
         #include <wx/stream.h>
         #include <wx/config.h>
         #include <wx/object.h>
@@ -86,9 +88,9 @@ const ::wxString& sipwxFileConfig::GetPath() const
     if (!sipMeth)
         return ::wxFileConfig::GetPath();
 
-    extern const ::wxString& sipVH__core_97(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern const ::wxString& sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_97(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxFileConfig::SetPath(const ::wxString& strPath)
@@ -119,9 +121,9 @@ size_t sipwxFileConfig::GetNumberOfEntries(bool bRecursive) const
     if (!sipMeth)
         return ::wxFileConfig::GetNumberOfEntries(bRecursive);
 
-    extern size_t sipVH__core_98(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern size_t sipVH__core_97(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    return sipVH__core_98(sipGILState, 0, sipPySelf, sipMeth, bRecursive);
+    return sipVH__core_97(sipGILState, 0, sipPySelf, sipMeth, bRecursive);
 }
 
 size_t sipwxFileConfig::GetNumberOfGroups(bool bRecursive) const
@@ -134,9 +136,9 @@ size_t sipwxFileConfig::GetNumberOfGroups(bool bRecursive) const
     if (!sipMeth)
         return ::wxFileConfig::GetNumberOfGroups(bRecursive);
 
-    extern size_t sipVH__core_98(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern size_t sipVH__core_97(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    return sipVH__core_98(sipGILState, 0, sipPySelf, sipMeth, bRecursive);
+    return sipVH__core_97(sipGILState, 0, sipPySelf, sipMeth, bRecursive);
 }
 
 ::wxConfigBase::EntryType sipwxFileConfig::GetEntryType(const ::wxString& name) const
@@ -149,9 +151,9 @@ size_t sipwxFileConfig::GetNumberOfGroups(bool bRecursive) const
     if (!sipMeth)
         return ::wxFileConfig::GetEntryType(name);
 
-    extern ::wxConfigBase::EntryType sipVH__core_99(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&);
+    extern ::wxConfigBase::EntryType sipVH__core_98(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&);
 
-    return sipVH__core_99(sipGILState, 0, sipPySelf, sipMeth, name);
+    return sipVH__core_98(sipGILState, 0, sipPySelf, sipMeth, name);
 }
 
 bool sipwxFileConfig::HasEntry(const ::wxString& strName) const
@@ -194,9 +196,9 @@ bool sipwxFileConfig::Flush(bool bCurrentOnly)
     if (!sipMeth)
         return ::wxFileConfig::Flush(bCurrentOnly);
 
-    extern bool sipVH__core_100(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern bool sipVH__core_99(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    return sipVH__core_100(sipGILState, 0, sipPySelf, sipMeth, bCurrentOnly);
+    return sipVH__core_99(sipGILState, 0, sipPySelf, sipMeth, bCurrentOnly);
 }
 
 bool sipwxFileConfig::RenameEntry(const ::wxString& oldName, const ::wxString& newName)
@@ -254,9 +256,9 @@ bool sipwxFileConfig::DeleteEntry(const ::wxString& key, bool bDeleteGroupIfEmpt
     if (!sipMeth)
         return ::wxFileConfig::DeleteEntry(key, bDeleteGroupIfEmpty);
 
-    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, bool);
+    extern bool sipVH__core_100(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, bool);
 
-    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, key, bDeleteGroupIfEmpty);
+    return sipVH__core_100(sipGILState, 0, sipPySelf, sipMeth, key, bDeleteGroupIfEmpty);
 }
 
 bool sipwxFileConfig::DeleteGroup(const ::wxString& key)
@@ -1010,6 +1012,51 @@ static PyObject *meth_wxFileConfig_GetLocalFileName(PyObject *, PyObject *sipArg
 }
 
 
+PyDoc_STRVAR(doc_wxFileConfig_MigrateLocalFile, "MigrateLocalFile(name, newStyle, oldStyle=CONFIG_USE_HOME) -> MigrationResult\n"
+"\n"
+"Move the existing configuration file to a new location.");
+
+extern "C" {static PyObject *meth_wxFileConfig_MigrateLocalFile(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxFileConfig_MigrateLocalFile(PyObject *, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxString* name;
+        int nameState = 0;
+        int newStyle;
+        int oldStyle = wxCONFIG_USE_HOME;
+
+        static const char *sipKwdList[] = {
+            sipName_name,
+            sipName_newStyle,
+            sipName_oldStyle,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "J1i|i", sipType_wxString, &name, &nameState, &newStyle, &oldStyle))
+        {
+            ::wxFileConfig::MigrationResult*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxFileConfig::MigrationResult(::wxFileConfig::MigrateLocalFile(*name, newStyle, oldStyle));
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxString *>(name), sipType_wxString, nameState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxFileConfig_MigrationResult, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_FileConfig, sipName_MigrateLocalFile, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 /* Cast a pointer to a type somewhere in its inheritance hierarchy. */
 extern "C" {static void *cast_wxFileConfig(void *, const sipTypeDef *);}
 static void *cast_wxFileConfig(void *sipCppV, const sipTypeDef *targetType)
@@ -1159,7 +1206,7 @@ static void *init_type_wxFileConfig(sipSimpleWrapper *sipSelf, PyObject *sipArgs
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxFileConfig[] = {{90, 255, 1}};
+static sipEncodedTypeDef supers_wxFileConfig[] = {{93, 255, 1}};
 
 
 static PyMethodDef methods_wxFileConfig[] = {
@@ -1176,6 +1223,7 @@ static PyMethodDef methods_wxFileConfig[] = {
     {sipName_GetPath, meth_wxFileConfig_GetPath, METH_VARARGS, doc_wxFileConfig_GetPath},
     {sipName_HasEntry, SIP_MLMETH_CAST(meth_wxFileConfig_HasEntry), METH_VARARGS|METH_KEYWORDS, doc_wxFileConfig_HasEntry},
     {sipName_HasGroup, SIP_MLMETH_CAST(meth_wxFileConfig_HasGroup), METH_VARARGS|METH_KEYWORDS, doc_wxFileConfig_HasGroup},
+    {sipName_MigrateLocalFile, SIP_MLMETH_CAST(meth_wxFileConfig_MigrateLocalFile), METH_VARARGS|METH_KEYWORDS, doc_wxFileConfig_MigrateLocalFile},
     {sipName_RenameEntry, SIP_MLMETH_CAST(meth_wxFileConfig_RenameEntry), METH_VARARGS|METH_KEYWORDS, doc_wxFileConfig_RenameEntry},
     {sipName_RenameGroup, SIP_MLMETH_CAST(meth_wxFileConfig_RenameGroup), METH_VARARGS|METH_KEYWORDS, doc_wxFileConfig_RenameGroup},
     {sipName_Save, SIP_MLMETH_CAST(meth_wxFileConfig_Save), METH_VARARGS|METH_KEYWORDS, doc_wxFileConfig_Save},
@@ -1184,7 +1232,7 @@ static PyMethodDef methods_wxFileConfig[] = {
 };
 
 sipVariableDef variables_wxFileConfig[] = {
-    {PropertyVariable, sipName_Path, &methods_wxFileConfig[10], &methods_wxFileConfig[16], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Path, &methods_wxFileConfig[10], &methods_wxFileConfig[17], SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_NumberOfGroups, &methods_wxFileConfig[9], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_NumberOfEntries, &methods_wxFileConfig[8], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
@@ -1209,7 +1257,7 @@ sipClassTypeDef sipTypeDef__core_wxFileConfig = {
     {
         sipNameNr_FileConfig,
         {0, 0, 1},
-        18, methods_wxFileConfig,
+        19, methods_wxFileConfig,
         0, SIP_NULLPTR,
         3, variables_wxFileConfig,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

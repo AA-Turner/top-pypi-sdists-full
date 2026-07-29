@@ -301,11 +301,13 @@ if TYPE_CHECKING:
     from .apprankingsresponse import AppRankingsResponse, AppRankingsResponseTypedDict
     from .autobetarouterplugin import (
         AutoBetaRouterPlugin,
+        AutoBetaRouterPluginCostTier,
         AutoBetaRouterPluginID,
         AutoBetaRouterPluginTypedDict,
     )
     from .autorouterplugin import (
         AutoRouterPlugin,
+        AutoRouterPluginCostTier,
         AutoRouterPluginID,
         AutoRouterPluginTypedDict,
     )
@@ -2729,6 +2731,12 @@ if TYPE_CHECKING:
         UnifiedBenchmarksMetaTypedDict,
         UnifiedBenchmarksMetaVersion,
     )
+    from .unifiedbenchmarksoritem import (
+        BenchmarkType,
+        UnifiedBenchmarksORItem,
+        UnifiedBenchmarksORItemSource,
+        UnifiedBenchmarksORItemTypedDict,
+    )
     from .unifiedbenchmarksresponse import (
         UnifiedBenchmarksResponse,
         UnifiedBenchmarksResponseData,
@@ -3112,9 +3120,11 @@ __all__ = [
     "AudioURL",
     "AudioURLTypedDict",
     "AutoBetaRouterPlugin",
+    "AutoBetaRouterPluginCostTier",
     "AutoBetaRouterPluginID",
     "AutoBetaRouterPluginTypedDict",
     "AutoRouterPlugin",
+    "AutoRouterPluginCostTier",
     "AutoRouterPluginID",
     "AutoRouterPluginTypedDict",
     "BYOKKey",
@@ -3155,6 +3165,7 @@ __all__ = [
     "BashServerToolEnvironmentTypedDict",
     "BashServerToolType",
     "BashServerToolTypedDict",
+    "BenchmarkType",
     "Billable",
     "BooleanCapability",
     "BooleanCapabilityType",
@@ -4893,6 +4904,9 @@ __all__ = [
     "UnifiedBenchmarksMetaSource",
     "UnifiedBenchmarksMetaTypedDict",
     "UnifiedBenchmarksMetaVersion",
+    "UnifiedBenchmarksORItem",
+    "UnifiedBenchmarksORItemSource",
+    "UnifiedBenchmarksORItemTypedDict",
     "UnifiedBenchmarksResponse",
     "UnifiedBenchmarksResponseData",
     "UnifiedBenchmarksResponseDataTypedDict",
@@ -5235,9 +5249,11 @@ _dynamic_imports: dict[str, str] = {
     "AppRankingsResponse": ".apprankingsresponse",
     "AppRankingsResponseTypedDict": ".apprankingsresponse",
     "AutoBetaRouterPlugin": ".autobetarouterplugin",
+    "AutoBetaRouterPluginCostTier": ".autobetarouterplugin",
     "AutoBetaRouterPluginID": ".autobetarouterplugin",
     "AutoBetaRouterPluginTypedDict": ".autobetarouterplugin",
     "AutoRouterPlugin": ".autorouterplugin",
+    "AutoRouterPluginCostTier": ".autorouterplugin",
     "AutoRouterPluginID": ".autorouterplugin",
     "AutoRouterPluginTypedDict": ".autorouterplugin",
     "BadGatewayResponseErrorData": ".badgatewayresponseerrordata",
@@ -7052,6 +7068,10 @@ _dynamic_imports: dict[str, str] = {
     "UnifiedBenchmarksMetaSource": ".unifiedbenchmarksmeta",
     "UnifiedBenchmarksMetaTypedDict": ".unifiedbenchmarksmeta",
     "UnifiedBenchmarksMetaVersion": ".unifiedbenchmarksmeta",
+    "BenchmarkType": ".unifiedbenchmarksoritem",
+    "UnifiedBenchmarksORItem": ".unifiedbenchmarksoritem",
+    "UnifiedBenchmarksORItemSource": ".unifiedbenchmarksoritem",
+    "UnifiedBenchmarksORItemTypedDict": ".unifiedbenchmarksoritem",
     "UnifiedBenchmarksResponse": ".unifiedbenchmarksresponse",
     "UnifiedBenchmarksResponseData": ".unifiedbenchmarksresponse",
     "UnifiedBenchmarksResponseDataTypedDict": ".unifiedbenchmarksresponse",

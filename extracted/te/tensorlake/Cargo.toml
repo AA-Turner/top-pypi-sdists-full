@@ -6,7 +6,7 @@ exclude = ["crates/gsvc-mount", "crates/gsvc-codec", "crates/gsvc-fs-client"]
 resolver = "3"
 
 [workspace.package]
-version = "0.5.89"
+version = "0.5.91"
 authors = ["Tensorlake Inc. <support@tensorlake.ai>"]
 edition = "2024"
 license = "Apache-2.0"
@@ -74,6 +74,7 @@ minijinja = "2"
 bytes = "1.11.1"
 chrono = { version = "0.4.44", features = ["serde"] }
 rand = "0.9.2"
+nanoid = "0.4"
 uuid = { version = "1.22.0", features = ["serde", "v4"] }
 xattr = "1"
 

@@ -49,7 +49,7 @@ TRich = TypeVar("TRich")
 from chalk.features._encoding.serialized_rich_type import SerializedRichType
 from chalk.features.feature_wrapper import FeatureWrapper, unwrap_feature
 from chalk.features.incremental import IncrementalConfig
-from chalk.features.pseudofeatures import PSEUDONAMESPACE
+from chalk.features.pseudofeatures import PSEUDONAMESPACE, Index
 from chalk.features.resolver import (
     Cron,
     FunctionCapturedGlobal,
@@ -1349,6 +1349,36 @@ class ToProtoConverter:
         postprocessing_underscore_expr: expr_pb.LogicalExprNode | None = None
         if isinstance(r.postprocessing, Underscore):
             postprocessing_underscore_expr = r.postprocessing._to_proto()  # pyright: ignore[reportPrivateUsage]
+
+        if r.max_batch_size is not None:
+            # The engine only supports chunked invocation for Index-correlated DataFrame
+            # resolvers; anything else would reassemble chunk outputs positionally and
+            # silently mis-correlate rows. The server revalidates; this is the early error.
+            def _has_index_column(df: Any) -> bool:
+                return any(c.root_fqn == Index.root_fqn for c in df.columns)
+
+            input_dfs: list[Any] = [
+                x
+                for x in (r.inputs or [])
+                if isinstance(x, type) and issubclass(x, DataFrame)  # pyright: ignore[reportUnnecessaryIsInstance]
+            ]
+            output_dfs: list[Any] = [
+                x
+                for x in (r.output.features or [])
+                if isinstance(x, type) and issubclass(x, DataFrame)  # pyright: ignore[reportUnnecessaryIsInstance]
+            ]
+            if (
+                len(input_dfs) != 1
+                or len(output_dfs) != 1
+                or not _has_index_column(input_dfs[0])
+                or not _has_index_column(output_dfs[0])
+            ):
+                raise ValueError(
+                    f"Resolver '{r.fqn}' sets max_batch_size, but max_batch_size is only supported for DataFrame"
+                    + " resolvers that declare Index in exactly one input DataFrame and in the output DataFrame."
+                    + " Add Index to both, or remove max_batch_size."
+                )
+
         return pb.Resolver(
             fqn=r.fqn,
             kind=(
@@ -1381,6 +1411,7 @@ class ToProtoConverter:
             sql_settings=ToProtoConverter.convert_sql_settings(r.sql_settings) if r.sql_settings else None,
             resource_group=r.resource_group,
             output_row_order=r.output_row_order,
+            max_batch_size=r.max_batch_size,
             venv=r.venv,
             incremental_settings=(
                 ToProtoConverter.convert_incremental_config(r.incremental_settings)
@@ -1515,8 +1546,14 @@ class ToProtoConverter:
         message_producer: pb.StreamResolverMessageProducerParsed | None = None
         if r.message_producer_parsed is not None:
             message_producer = pb.StreamResolverMessageProducerParsed(
+                # send_to (reference) deprecated; prefer send_to_full (embedded whole source). Keep both.
                 send_to=(
                     ToProtoConverter.create_stream_source_reference(r.message_producer_parsed.send_to)
+                    if r.message_producer_parsed.send_to is not None
+                    else None
+                ),
+                send_to_full=(
+                    ToProtoConverter._convert_stream_source(r.message_producer_parsed.send_to)
                     if r.message_producer_parsed.send_to is not None
                     else None
                 ),
@@ -1570,7 +1607,11 @@ class ToProtoConverter:
                 if r.keys is not None
                 else None
             ),
+            # source_v2 (a (type,name) reference) is deprecated: a reference can't uniquely identify a
+            # source since every source field is customer-overridable. source_full embeds the whole
+            # source, which is the only sound identity. source_v2 kept for older engines.
             source_v2=ToProtoConverter.create_stream_source_reference(r.source),
+            source_full=ToProtoConverter._convert_stream_source(r.source),
             parse_info=(
                 ToProtoConverter.convert_parse_info(
                     r.parse,

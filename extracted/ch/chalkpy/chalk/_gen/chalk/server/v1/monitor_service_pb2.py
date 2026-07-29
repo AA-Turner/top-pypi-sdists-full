@@ -19,7 +19,7 @@ from google.protobuf import field_mask_pb2 as google_dot_protobuf_dot_field__mas
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n%chalk/server/v1/monitor_service.proto\x12\x0f\x63halk.server.v1\x1a chalk/artifacts/v1/monitor.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a google/protobuf/field_mask.proto"M\n\x14\x43reateMonitorRequest\x12\x35\n\x07monitor\x18\x01 \x01(\x0b\x32\x1b.chalk.artifacts.v1.MonitorR\x07monitor"N\n\x15\x43reateMonitorResponse\x12\x35\n\x07monitor\x18\x01 \x01(\x0b\x32\x1b.chalk.artifacts.v1.MonitorR\x07monitor"5\n\x14\x44\x65leteMonitorRequest\x12\x1d\n\nmonitor_id\x18\x01 \x01(\tR\tmonitorId"\x17\n\x15\x44\x65leteMonitorResponse"\x9b\x01\n\x13ListMonitorsRequest\x12\x19\n\x05limit\x18\x01 \x01(\x05H\x00R\x05limit\x88\x01\x01\x12\x1b\n\x06\x63ursor\x18\x02 \x01(\tH\x01R\x06\x63ursor\x88\x01\x01\x12\x37\n\tread_mask\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskR\x08readMaskB\x08\n\x06_limitB\t\n\x07_cursor"w\n\x14ListMonitorsResponse\x12\x37\n\x08monitors\x18\x01 \x03(\x0b\x32\x1b.chalk.artifacts.v1.MonitorR\x08monitors\x12\x1b\n\x06\x63ursor\x18\x02 \x01(\tH\x00R\x06\x63ursor\x88\x01\x01\x42\t\n\x07_cursor2\xbc\x02\n\x0eMonitorService\x12\x63\n\rCreateMonitor\x12%.chalk.server.v1.CreateMonitorRequest\x1a&.chalk.server.v1.CreateMonitorResponse"\x03\x80}\x05\x12\x63\n\rDeleteMonitor\x12%.chalk.server.v1.DeleteMonitorRequest\x1a&.chalk.server.v1.DeleteMonitorResponse"\x03\x80}\x05\x12`\n\x0cListMonitors\x12$.chalk.server.v1.ListMonitorsRequest\x1a%.chalk.server.v1.ListMonitorsResponse"\x03\x80}\x06\x42\x9c\x01\n\x13\x63om.chalk.server.v1B\x13MonitorServiceProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n%chalk/server/v1/monitor_service.proto\x12\x0f\x63halk.server.v1\x1a chalk/artifacts/v1/monitor.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a google/protobuf/field_mask.proto"~\n\x11GetMonitorRequest\x12\x1d\n\nmonitor_id\x18\x01 \x01(\tR\tmonitorId\x12<\n\tread_mask\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskH\x00R\x08readMask\x88\x01\x01\x42\x0c\n\n_read_mask"K\n\x12GetMonitorResponse\x12\x35\n\x07monitor\x18\x01 \x01(\x0b\x32\x1b.chalk.artifacts.v1.MonitorR\x07monitor"M\n\x14\x43reateMonitorRequest\x12\x35\n\x07monitor\x18\x01 \x01(\x0b\x32\x1b.chalk.artifacts.v1.MonitorR\x07monitor"N\n\x15\x43reateMonitorResponse\x12\x35\n\x07monitor\x18\x01 \x01(\x0b\x32\x1b.chalk.artifacts.v1.MonitorR\x07monitor"\x8a\x01\n\x14UpdateMonitorRequest\x12\x35\n\x07monitor\x18\x01 \x01(\x0b\x32\x1b.chalk.artifacts.v1.MonitorR\x07monitor\x12;\n\x0bupdate_mask\x18\x64 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskR\nupdateMask"N\n\x15UpdateMonitorResponse\x12\x35\n\x07monitor\x18\x01 \x01(\x0b\x32\x1b.chalk.artifacts.v1.MonitorR\x07monitor"5\n\x14\x44\x65leteMonitorRequest\x12\x1d\n\nmonitor_id\x18\x01 \x01(\tR\tmonitorId"\x17\n\x15\x44\x65leteMonitorResponse"\x9b\x01\n\x13ListMonitorsRequest\x12\x19\n\x05limit\x18\x01 \x01(\x05H\x00R\x05limit\x88\x01\x01\x12\x1b\n\x06\x63ursor\x18\x02 \x01(\tH\x01R\x06\x63ursor\x88\x01\x01\x12\x37\n\tread_mask\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskR\x08readMaskB\x08\n\x06_limitB\t\n\x07_cursor"w\n\x14ListMonitorsResponse\x12\x37\n\x08monitors\x18\x01 \x03(\x0b\x32\x1b.chalk.artifacts.v1.MonitorR\x08monitors\x12\x1b\n\x06\x63ursor\x18\x02 \x01(\tH\x00R\x06\x63ursor\x88\x01\x01\x42\t\n\x07_cursor2\xfd\x03\n\x0eMonitorService\x12Z\n\nGetMonitor\x12".chalk.server.v1.GetMonitorRequest\x1a#.chalk.server.v1.GetMonitorResponse"\x03\x80}\x06\x12\x63\n\rCreateMonitor\x12%.chalk.server.v1.CreateMonitorRequest\x1a&.chalk.server.v1.CreateMonitorResponse"\x03\x80}\x05\x12\x63\n\rUpdateMonitor\x12%.chalk.server.v1.UpdateMonitorRequest\x1a&.chalk.server.v1.UpdateMonitorResponse"\x03\x80}\x05\x12\x63\n\rDeleteMonitor\x12%.chalk.server.v1.DeleteMonitorRequest\x1a&.chalk.server.v1.DeleteMonitorResponse"\x03\x80}\x05\x12`\n\x0cListMonitors\x12$.chalk.server.v1.ListMonitorsRequest\x1a%.chalk.server.v1.ListMonitorsResponse"\x03\x80}\x06\x42\x9c\x01\n\x13\x63om.chalk.server.v1B\x13MonitorServiceProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -30,24 +30,36 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals[
         "DESCRIPTOR"
     ]._serialized_options = b"\n\023com.chalk.server.v1B\023MonitorServiceProtoP\001Z\022server/v1;serverv1\242\002\003CSX\252\002\017Chalk.Server.V1\312\002\017Chalk\\Server\\V1\342\002\033Chalk\\Server\\V1\\GPBMetadata\352\002\021Chalk::Server::V1"
+    _globals["_MONITORSERVICE"].methods_by_name["GetMonitor"]._options = None
+    _globals["_MONITORSERVICE"].methods_by_name["GetMonitor"]._serialized_options = b"\200}\006"
     _globals["_MONITORSERVICE"].methods_by_name["CreateMonitor"]._options = None
     _globals["_MONITORSERVICE"].methods_by_name["CreateMonitor"]._serialized_options = b"\200}\005"
+    _globals["_MONITORSERVICE"].methods_by_name["UpdateMonitor"]._options = None
+    _globals["_MONITORSERVICE"].methods_by_name["UpdateMonitor"]._serialized_options = b"\200}\005"
     _globals["_MONITORSERVICE"].methods_by_name["DeleteMonitor"]._options = None
     _globals["_MONITORSERVICE"].methods_by_name["DeleteMonitor"]._serialized_options = b"\200}\005"
     _globals["_MONITORSERVICE"].methods_by_name["ListMonitors"]._options = None
     _globals["_MONITORSERVICE"].methods_by_name["ListMonitors"]._serialized_options = b"\200}\006"
-    _globals["_CREATEMONITORREQUEST"]._serialized_start = 159
-    _globals["_CREATEMONITORREQUEST"]._serialized_end = 236
-    _globals["_CREATEMONITORRESPONSE"]._serialized_start = 238
-    _globals["_CREATEMONITORRESPONSE"]._serialized_end = 316
-    _globals["_DELETEMONITORREQUEST"]._serialized_start = 318
-    _globals["_DELETEMONITORREQUEST"]._serialized_end = 371
-    _globals["_DELETEMONITORRESPONSE"]._serialized_start = 373
-    _globals["_DELETEMONITORRESPONSE"]._serialized_end = 396
-    _globals["_LISTMONITORSREQUEST"]._serialized_start = 399
-    _globals["_LISTMONITORSREQUEST"]._serialized_end = 554
-    _globals["_LISTMONITORSRESPONSE"]._serialized_start = 556
-    _globals["_LISTMONITORSRESPONSE"]._serialized_end = 675
-    _globals["_MONITORSERVICE"]._serialized_start = 678
-    _globals["_MONITORSERVICE"]._serialized_end = 994
+    _globals["_GETMONITORREQUEST"]._serialized_start = 159
+    _globals["_GETMONITORREQUEST"]._serialized_end = 285
+    _globals["_GETMONITORRESPONSE"]._serialized_start = 287
+    _globals["_GETMONITORRESPONSE"]._serialized_end = 362
+    _globals["_CREATEMONITORREQUEST"]._serialized_start = 364
+    _globals["_CREATEMONITORREQUEST"]._serialized_end = 441
+    _globals["_CREATEMONITORRESPONSE"]._serialized_start = 443
+    _globals["_CREATEMONITORRESPONSE"]._serialized_end = 521
+    _globals["_UPDATEMONITORREQUEST"]._serialized_start = 524
+    _globals["_UPDATEMONITORREQUEST"]._serialized_end = 662
+    _globals["_UPDATEMONITORRESPONSE"]._serialized_start = 664
+    _globals["_UPDATEMONITORRESPONSE"]._serialized_end = 742
+    _globals["_DELETEMONITORREQUEST"]._serialized_start = 744
+    _globals["_DELETEMONITORREQUEST"]._serialized_end = 797
+    _globals["_DELETEMONITORRESPONSE"]._serialized_start = 799
+    _globals["_DELETEMONITORRESPONSE"]._serialized_end = 822
+    _globals["_LISTMONITORSREQUEST"]._serialized_start = 825
+    _globals["_LISTMONITORSREQUEST"]._serialized_end = 980
+    _globals["_LISTMONITORSRESPONSE"]._serialized_start = 982
+    _globals["_LISTMONITORSRESPONSE"]._serialized_end = 1101
+    _globals["_MONITORSERVICE"]._serialized_start = 1104
+    _globals["_MONITORSERVICE"]._serialized_end = 1613
 # @@protoc_insertion_point(module_scope)

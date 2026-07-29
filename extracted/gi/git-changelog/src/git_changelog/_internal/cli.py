@@ -560,7 +560,7 @@ def parse_settings(args: list[str] | None = None) -> dict:
     return settings
 
 
-def build(
+def build(  # noqa: PLR0917
     repository: str,
     convention: str | CommitConvention,
     parse_refs: bool = False,  # noqa: FBT001,FBT002
@@ -636,7 +636,7 @@ def build(
     return changelog
 
 
-def render(
+def render(  # noqa: PLR0917
     changelog: Changelog,
     template: str,
     in_place: bool = False,  # noqa: FBT001,FBT002
@@ -762,7 +762,7 @@ def render(
     return rendered
 
 
-def build_and_render(
+def build_and_render(  # noqa: PLR0917
     repository: str,
     template: str,
     convention: str | CommitConvention,

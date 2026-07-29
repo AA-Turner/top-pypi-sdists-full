@@ -68,9 +68,9 @@ void sipwxPropertyGridPopulator::ProcessError(const ::wxString& msg)
         return;
     }
 
-    extern void sipVH__propgrid_67(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&);
+    extern void sipVH__propgrid_66(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&);
 
-    sipVH__propgrid_67(sipGILState, 0, sipPySelf, sipMeth, msg);
+    sipVH__propgrid_66(sipGILState, 0, sipPySelf, sipMeth, msg);
 }
 
 void sipwxPropertyGridPopulator::DoScanForChildren()
@@ -83,9 +83,9 @@ void sipwxPropertyGridPopulator::DoScanForChildren()
     if (!sipMeth)
         return;
 
-    extern void sipVH__propgrid_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern void sipVH__propgrid_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    sipVH__propgrid_3(sipGILState, 0, sipPySelf, sipMeth);
+    sipVH__propgrid_2(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
@@ -163,7 +163,7 @@ static PyObject *meth_wxPropertyGridPopulator_SetGrid(PyObject *sipSelf, PyObjec
 }
 
 
-PyDoc_STRVAR(doc_wxPropertyGridPopulator_Add, "Add(propClass, propLabel, propName, propValue, pChoices=None) -> PGProperty\n"
+PyDoc_STRVAR(doc_wxPropertyGridPopulator_Add, "Add(propClass, propLabel, propName, propValue, pChoices=nullptr) -> PGProperty\n"
 "\n"
 "Appends a new property under bottommost parent.");
 
@@ -181,7 +181,7 @@ static PyObject *meth_wxPropertyGridPopulator_Add(PyObject *sipSelf, PyObject *s
         int propNameState = 0;
         const ::wxString* propValue;
         int propValueState = 0;
-        ::wxPGChoices* pChoices = 0;
+        ::wxPGChoices* pChoices = nullptr;
         ::wxPropertyGridPopulator *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -259,7 +259,7 @@ static PyObject *meth_wxPropertyGridPopulator_AddChildren(PyObject *sipSelf, PyO
 }
 
 
-PyDoc_STRVAR(doc_wxPropertyGridPopulator_AddAttribute, "AddAttribute(name, type, value) -> bool\n"
+PyDoc_STRVAR(doc_wxPropertyGridPopulator_AddAttribute, "AddAttribute(name, type, value, flags=PGPropertyValuesFlags.DontRecurse) -> bool\n"
 "\n"
 "Adds attribute to the bottommost property.");
 
@@ -275,22 +275,24 @@ static PyObject *meth_wxPropertyGridPopulator_AddAttribute(PyObject *sipSelf, Py
         int typeState = 0;
         const ::wxString* value;
         int valueState = 0;
+        ::wxPGPropertyValuesFlags flags = wxPGPropertyValuesFlags::DontRecurse;
         ::wxPropertyGridPopulator *sipCpp;
 
         static const char *sipKwdList[] = {
             sipName_name,
             sipName_type,
             sipName_value,
+            sipName_flags,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1J1J1", &sipSelf, sipType_wxPropertyGridPopulator, &sipCpp, sipType_wxString, &name, &nameState, sipType_wxString, &type, &typeState, sipType_wxString, &value, &valueState))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1J1J1|E", &sipSelf, sipType_wxPropertyGridPopulator, &sipCpp, sipType_wxString, &name, &nameState, sipType_wxString, &type, &typeState, sipType_wxString, &value, &valueState, sipType_wxPGPropertyValuesFlags, &flags))
         {
             bool sipRes;
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->AddAttribute(*name, *type, *value);
+            sipRes = sipCpp->AddAttribute(*name, *type, *value, flags);
             Py_END_ALLOW_THREADS
             sipReleaseType(const_cast< ::wxString *>(name), sipType_wxString, nameState);
             sipReleaseType(const_cast< ::wxString *>(type), sipType_wxString, typeState);

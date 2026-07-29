@@ -903,6 +903,77 @@ static PyObject *meth_wxAuiPaneInfo_FloatingSize(PyObject *sipSelf, PyObject *si
 }
 
 
+PyDoc_STRVAR(doc_wxAuiPaneInfo_FloatingClientSize, "FloatingClientSize(size) -> AuiPaneInfo\n"
+"FloatingClientSize(x, y) -> AuiPaneInfo\n"
+"\n"
+"FloatingClientSize() sets the client size of the floating pane.\n"
+"");
+
+extern "C" {static PyObject *meth_wxAuiPaneInfo_FloatingClientSize(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAuiPaneInfo_FloatingClientSize(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxSize* size;
+        int sizeState = 0;
+        ::wxAuiPaneInfo *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_size,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxAuiPaneInfo, &sipCpp, sipType_wxSize, &size, &sizeState))
+        {
+            ::wxAuiPaneInfo*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = &sipCpp->FloatingClientSize(*size);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxSize *>(size), sipType_wxSize, sizeState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxAuiPaneInfo, SIP_NULLPTR);
+        }
+    }
+
+    {
+        int x;
+        int y;
+        ::wxAuiPaneInfo *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_x,
+            sipName_y,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bii", &sipSelf, sipType_wxAuiPaneInfo, &sipCpp, &x, &y))
+        {
+            ::wxAuiPaneInfo*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = &sipCpp->FloatingClientSize(x, y);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxAuiPaneInfo, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiPaneInfo, sipName_FloatingClientSize, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxAuiPaneInfo_Gripper, "Gripper(visible=True) -> AuiPaneInfo\n"
 "\n"
 "Gripper() indicates that a gripper should be drawn for the pane.");
@@ -1375,6 +1446,48 @@ static PyObject *meth_wxAuiPaneInfo_Icon(PyObject *sipSelf, PyObject *sipArgs, P
     }
 
     sipNoMethod(sipParseErr, sipName_AuiPaneInfo, sipName_Icon, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxAuiPaneInfo_IconMin, "IconMin(b) -> AuiPaneInfo\n"
+"\n"
+"IconMin() sets the icon shown when the pane is minimized.");
+
+extern "C" {static PyObject *meth_wxAuiPaneInfo_IconMin(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAuiPaneInfo_IconMin(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxBitmapBundle* b;
+        int bState = 0;
+        ::wxAuiPaneInfo *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_b,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxAuiPaneInfo, &sipCpp, sipType_wxBitmapBundle, &b, &bState))
+        {
+            ::wxAuiPaneInfo*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = &sipCpp->IconMin(*b);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxBitmapBundle *>(b), sipType_wxBitmapBundle, bState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxAuiPaneInfo, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiPaneInfo, sipName_IconMin, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -2992,6 +3105,7 @@ static PyMethodDef methods_wxAuiPaneInfo[] = {
     {sipName_Fixed, meth_wxAuiPaneInfo_Fixed, METH_VARARGS, doc_wxAuiPaneInfo_Fixed},
     {sipName_Float, meth_wxAuiPaneInfo_Float, METH_VARARGS, doc_wxAuiPaneInfo_Float},
     {sipName_Floatable, SIP_MLMETH_CAST(meth_wxAuiPaneInfo_Floatable), METH_VARARGS|METH_KEYWORDS, doc_wxAuiPaneInfo_Floatable},
+    {sipName_FloatingClientSize, SIP_MLMETH_CAST(meth_wxAuiPaneInfo_FloatingClientSize), METH_VARARGS|METH_KEYWORDS, doc_wxAuiPaneInfo_FloatingClientSize},
     {sipName_FloatingPosition, SIP_MLMETH_CAST(meth_wxAuiPaneInfo_FloatingPosition), METH_VARARGS|METH_KEYWORDS, doc_wxAuiPaneInfo_FloatingPosition},
     {sipName_FloatingSize, SIP_MLMETH_CAST(meth_wxAuiPaneInfo_FloatingSize), METH_VARARGS|METH_KEYWORDS, doc_wxAuiPaneInfo_FloatingSize},
     {sipName_Gripper, SIP_MLMETH_CAST(meth_wxAuiPaneInfo_Gripper), METH_VARARGS|METH_KEYWORDS, doc_wxAuiPaneInfo_Gripper},
@@ -3007,6 +3121,7 @@ static PyMethodDef methods_wxAuiPaneInfo[] = {
     {sipName_HasPinButton, meth_wxAuiPaneInfo_HasPinButton, METH_VARARGS, doc_wxAuiPaneInfo_HasPinButton},
     {sipName_Hide, meth_wxAuiPaneInfo_Hide, METH_VARARGS, doc_wxAuiPaneInfo_Hide},
     {sipName_Icon, SIP_MLMETH_CAST(meth_wxAuiPaneInfo_Icon), METH_VARARGS|METH_KEYWORDS, doc_wxAuiPaneInfo_Icon},
+    {sipName_IconMin, SIP_MLMETH_CAST(meth_wxAuiPaneInfo_IconMin), METH_VARARGS|METH_KEYWORDS, doc_wxAuiPaneInfo_IconMin},
     {sipName_IsBottomDockable, meth_wxAuiPaneInfo_IsBottomDockable, METH_VARARGS, doc_wxAuiPaneInfo_IsBottomDockable},
     {sipName_IsDockable, meth_wxAuiPaneInfo_IsDockable, METH_VARARGS, doc_wxAuiPaneInfo_IsDockable},
     {sipName_IsDocked, meth_wxAuiPaneInfo_IsDocked, METH_VARARGS, doc_wxAuiPaneInfo_IsDocked},
@@ -3055,7 +3170,7 @@ static PyObject *varget_wxAuiPaneInfo_best_size(void *sipSelf, PyObject *sipPySe
     ::wxSize*sipVal;
     ::wxAuiPaneInfo *sipCpp = reinterpret_cast< ::wxAuiPaneInfo *>(sipSelf);
 
-    sipPy = sipGetReference(sipPySelf, -10);
+    sipPy = sipGetReference(sipPySelf, -12);
 
     if (sipPy)
         return sipPy;
@@ -3066,8 +3181,8 @@ static PyObject *varget_wxAuiPaneInfo_best_size(void *sipSelf, PyObject *sipPySe
 
     if (sipPy)
     {
-        sipKeepReference(sipPy, -28, sipPySelf);
-        sipKeepReference(sipPySelf, -10, sipPy);
+        sipKeepReference(sipPy, -30, sipPySelf);
+        sipKeepReference(sipPySelf, -12, sipPy);
     }
 
     return sipPy;
@@ -3280,7 +3395,7 @@ static PyObject *varget_wxAuiPaneInfo_floating_pos(void *sipSelf, PyObject *sipP
     ::wxPoint*sipVal;
     ::wxAuiPaneInfo *sipCpp = reinterpret_cast< ::wxAuiPaneInfo *>(sipSelf);
 
-    sipPy = sipGetReference(sipPySelf, -11);
+    sipPy = sipGetReference(sipPySelf, -13);
 
     if (sipPy)
         return sipPy;
@@ -3291,8 +3406,8 @@ static PyObject *varget_wxAuiPaneInfo_floating_pos(void *sipSelf, PyObject *sipP
 
     if (sipPy)
     {
-        sipKeepReference(sipPy, -29, sipPySelf);
-        sipKeepReference(sipPySelf, -11, sipPy);
+        sipKeepReference(sipPy, -31, sipPySelf);
+        sipKeepReference(sipPySelf, -13, sipPy);
     }
 
     return sipPy;
@@ -3327,7 +3442,7 @@ static PyObject *varget_wxAuiPaneInfo_floating_size(void *sipSelf, PyObject *sip
     ::wxSize*sipVal;
     ::wxAuiPaneInfo *sipCpp = reinterpret_cast< ::wxAuiPaneInfo *>(sipSelf);
 
-    sipPy = sipGetReference(sipPySelf, -12);
+    sipPy = sipGetReference(sipPySelf, -14);
 
     if (sipPy)
         return sipPy;
@@ -3338,8 +3453,8 @@ static PyObject *varget_wxAuiPaneInfo_floating_size(void *sipSelf, PyObject *sip
 
     if (sipPy)
     {
-        sipKeepReference(sipPy, -30, sipPySelf);
-        sipKeepReference(sipPySelf, -12, sipPy);
+        sipKeepReference(sipPy, -32, sipPySelf);
+        sipKeepReference(sipPySelf, -14, sipPy);
     }
 
     return sipPy;
@@ -3404,7 +3519,7 @@ static PyObject *varget_wxAuiPaneInfo_icon(void *sipSelf, PyObject *sipPySelf, P
     ::wxBitmapBundle*sipVal;
     ::wxAuiPaneInfo *sipCpp = reinterpret_cast< ::wxAuiPaneInfo *>(sipSelf);
 
-    sipPy = sipGetReference(sipPySelf, -13);
+    sipPy = sipGetReference(sipPySelf, -15);
 
     if (sipPy)
         return sipPy;
@@ -3415,8 +3530,8 @@ static PyObject *varget_wxAuiPaneInfo_icon(void *sipSelf, PyObject *sipPySelf, P
 
     if (sipPy)
     {
-        sipKeepReference(sipPy, -31, sipPySelf);
-        sipKeepReference(sipPySelf, -13, sipPy);
+        sipKeepReference(sipPy, -33, sipPySelf);
+        sipKeepReference(sipPySelf, -15, sipPy);
     }
 
     return sipPy;
@@ -3451,7 +3566,7 @@ static PyObject *varget_wxAuiPaneInfo_max_size(void *sipSelf, PyObject *sipPySel
     ::wxSize*sipVal;
     ::wxAuiPaneInfo *sipCpp = reinterpret_cast< ::wxAuiPaneInfo *>(sipSelf);
 
-    sipPy = sipGetReference(sipPySelf, -14);
+    sipPy = sipGetReference(sipPySelf, -16);
 
     if (sipPy)
         return sipPy;
@@ -3462,8 +3577,8 @@ static PyObject *varget_wxAuiPaneInfo_max_size(void *sipSelf, PyObject *sipPySel
 
     if (sipPy)
     {
-        sipKeepReference(sipPy, -32, sipPySelf);
-        sipKeepReference(sipPySelf, -14, sipPy);
+        sipKeepReference(sipPy, -34, sipPySelf);
+        sipKeepReference(sipPySelf, -16, sipPy);
     }
 
     return sipPy;
@@ -3498,7 +3613,7 @@ static PyObject *varget_wxAuiPaneInfo_min_size(void *sipSelf, PyObject *sipPySel
     ::wxSize*sipVal;
     ::wxAuiPaneInfo *sipCpp = reinterpret_cast< ::wxAuiPaneInfo *>(sipSelf);
 
-    sipPy = sipGetReference(sipPySelf, -15);
+    sipPy = sipGetReference(sipPySelf, -17);
 
     if (sipPy)
         return sipPy;
@@ -3509,8 +3624,8 @@ static PyObject *varget_wxAuiPaneInfo_min_size(void *sipSelf, PyObject *sipPySel
 
     if (sipPy)
     {
-        sipKeepReference(sipPy, -33, sipPySelf);
-        sipKeepReference(sipPySelf, -15, sipPy);
+        sipKeepReference(sipPy, -35, sipPySelf);
+        sipKeepReference(sipPySelf, -17, sipPy);
     }
 
     return sipPy;
@@ -3578,7 +3693,7 @@ static PyObject *varget_wxAuiPaneInfo_rect(void *sipSelf, PyObject *sipPySelf, P
     ::wxRect*sipVal;
     ::wxAuiPaneInfo *sipCpp = reinterpret_cast< ::wxAuiPaneInfo *>(sipSelf);
 
-    sipPy = sipGetReference(sipPySelf, -16);
+    sipPy = sipGetReference(sipPySelf, -18);
 
     if (sipPy)
         return sipPy;
@@ -3589,8 +3704,8 @@ static PyObject *varget_wxAuiPaneInfo_rect(void *sipSelf, PyObject *sipPySelf, P
 
     if (sipPy)
     {
-        sipKeepReference(sipPy, -34, sipPySelf);
-        sipKeepReference(sipPySelf, -16, sipPy);
+        sipKeepReference(sipPy, -36, sipPySelf);
+        sipKeepReference(sipPySelf, -18, sipPy);
     }
 
     return sipPy;
@@ -3715,7 +3830,7 @@ sipClassTypeDef sipTypeDef__aui_wxAuiPaneInfo = {
     {
         sipNameNr_AuiPaneInfo,
         {0, 0, 1},
-        72, methods_wxAuiPaneInfo,
+        74, methods_wxAuiPaneInfo,
         0, SIP_NULLPTR,
         17, variables_wxAuiPaneInfo,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

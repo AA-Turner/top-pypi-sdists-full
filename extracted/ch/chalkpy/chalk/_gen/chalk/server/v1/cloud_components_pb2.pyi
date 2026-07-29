@@ -1,7 +1,8 @@
 from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.server.v1 import cloud_config_pb2 as _cloud_config_pb2
 from chalk._gen.chalk.server.v1 import cloud_credentials_pb2 as _cloud_credentials_pb2
-from chalk._gen.chalk.server.v1 import environment_pb2 as _environment_pb2
+from chalk._gen.chalk.server.v1 import cluster_class_pb2 as _cluster_class_pb2
 from chalk._gen.chalk.server.v1 import team_pb2 as _team_pb2
 from google.api import field_behavior_pb2 as _field_behavior_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
@@ -28,21 +29,12 @@ class CloudStorageRole(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     CLOUD_STORAGE_ROLE_MODEL_REGISTRY: _ClassVar[CloudStorageRole]
     CLOUD_STORAGE_ROLE_VOLUME: _ClassVar[CloudStorageRole]
 
-class ClusterClass(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
-    __slots__ = ()
-    CLUSTER_CLASS_UNSPECIFIED: _ClassVar[ClusterClass]
-    CLUSTER_CLASS_HOSTED: _ClassVar[ClusterClass]
-    CLUSTER_CLASS_SERVERLESS: _ClassVar[ClusterClass]
-
 CLOUD_STORAGE_ROLE_UNSPECIFIED: CloudStorageRole
 CLOUD_STORAGE_ROLE_DATASET: CloudStorageRole
 CLOUD_STORAGE_ROLE_PLAN_STAGES: CloudStorageRole
 CLOUD_STORAGE_ROLE_SOURCE_BUNDLE: CloudStorageRole
 CLOUD_STORAGE_ROLE_MODEL_REGISTRY: CloudStorageRole
 CLOUD_STORAGE_ROLE_VOLUME: CloudStorageRole
-CLUSTER_CLASS_UNSPECIFIED: ClusterClass
-CLUSTER_CLASS_HOSTED: ClusterClass
-CLUSTER_CLASS_SERVERLESS: ClusterClass
 
 class CloudComponentVpc(_message.Message):
     __slots__ = ("name", "config", "designator")
@@ -591,7 +583,7 @@ class CloudComponentCluster(_message.Message):
     dns_zone: str
     data_plane_redis: DataPlaneRedis
     dataplane_controller: DataplaneController
-    cluster_class: ClusterClass
+    cluster_class: _cluster_class_pb2.ClusterClass
     maintenance_window: MaintenanceWindow
     def __init__(
         self,
@@ -601,7 +593,7 @@ class CloudComponentCluster(_message.Message):
         dns_zone: _Optional[str] = ...,
         data_plane_redis: _Optional[_Union[DataPlaneRedis, _Mapping]] = ...,
         dataplane_controller: _Optional[_Union[DataplaneController, _Mapping]] = ...,
-        cluster_class: _Optional[_Union[ClusterClass, str]] = ...,
+        cluster_class: _Optional[_Union[_cluster_class_pb2.ClusterClass, str]] = ...,
         maintenance_window: _Optional[_Union[MaintenanceWindow, _Mapping]] = ...,
     ) -> None: ...
 
@@ -749,14 +741,14 @@ class ClusterDeploymentManifest(_message.Message):
     VPC_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     cluster: CloudComponentCluster
-    cloud_config: _environment_pb2.CloudConfig
+    cloud_config: _cloud_config_pb2.CloudConfig
     team: _team_pb2.Team
     vpc: CloudComponentVpc
     cluster_id: str
     def __init__(
         self,
         cluster: _Optional[_Union[CloudComponentCluster, _Mapping]] = ...,
-        cloud_config: _Optional[_Union[_environment_pb2.CloudConfig, _Mapping]] = ...,
+        cloud_config: _Optional[_Union[_cloud_config_pb2.CloudConfig, _Mapping]] = ...,
         team: _Optional[_Union[_team_pb2.Team, _Mapping]] = ...,
         vpc: _Optional[_Union[CloudComponentVpc, _Mapping]] = ...,
         cluster_id: _Optional[str] = ...,
@@ -769,13 +761,13 @@ class VpcDeploymentManifest(_message.Message):
     TEAM_FIELD_NUMBER: _ClassVar[int]
     VPC_ID_FIELD_NUMBER: _ClassVar[int]
     vpc: CloudComponentVpc
-    cloud_config: _environment_pb2.CloudConfig
+    cloud_config: _cloud_config_pb2.CloudConfig
     team: _team_pb2.Team
     vpc_id: str
     def __init__(
         self,
         vpc: _Optional[_Union[CloudComponentVpc, _Mapping]] = ...,
-        cloud_config: _Optional[_Union[_environment_pb2.CloudConfig, _Mapping]] = ...,
+        cloud_config: _Optional[_Union[_cloud_config_pb2.CloudConfig, _Mapping]] = ...,
         team: _Optional[_Union[_team_pb2.Team, _Mapping]] = ...,
         vpc_id: _Optional[str] = ...,
     ) -> None: ...

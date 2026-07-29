@@ -12,6 +12,8 @@ from ..input_helpers import (
 
 from .. import context
 
+import agilicus
+
 from agilicus import (
     create_or_update,
     LabelName,
@@ -628,3 +630,33 @@ def set_timeperiod_policy(
         to_dict=False,
     )
     return resp
+
+
+def get_token_create_details(ctx, scopes, org_id, **kwargs):
+    org_id = get_org_from_input_or_ctx(ctx, org_id=org_id)
+    if not org_id:
+        raise ValueError("org_id is required to evaluate token policy")
+
+    token = context.get_token(ctx)
+    apiclient = context.get_apiclient(ctx, token)
+
+    org = apiclient.org_api.get_org(org_id)
+
+    issuer_id = org.issuer_id
+    if not issuer_id:
+        raise ValueError(
+            "{org.organisation}: cannot evaluate token policy without an issuer"
+        )
+
+    scopes = [agilicus.TokenScope(scope) for scope in scopes or []]
+
+    eval_input = agilicus.TokenCreatePolicyEval(
+        input=agilicus.TokenCreatePolicyInput(
+            issuer_id=issuer_id,
+            token_info=agilicus.TokenCreatePolicyTokenInfo(
+                scopes=scopes,
+            ),
+        )
+    )
+
+    return apiclient.policy_api.get_token_create_details(eval_input)

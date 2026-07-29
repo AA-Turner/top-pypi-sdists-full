@@ -68,6 +68,29 @@ mod logging;
 pub(crate) mod printer;
 pub(crate) mod settings;
 
+/// Construct the shared HTTP client builder from the resolved global settings.
+pub(crate) fn base_client_builder<'a>(globals: &GlobalSettings) -> BaseClientBuilder<'a> {
+    let client_builder = BaseClientBuilder::new(
+        globals.network_settings.connectivity,
+        globals.network_settings.system_certs,
+        globals.network_settings.allow_insecure_host.clone(),
+        globals.preview,
+        globals.network_settings.read_timeout,
+        globals.network_settings.connect_timeout,
+        globals.network_settings.retries,
+    )
+    .cache_read_concurrency(globals.concurrency.cache_reads)
+    .http_proxy(globals.network_settings.http_proxy.clone())
+    .https_proxy(globals.network_settings.https_proxy.clone())
+    .no_proxy(globals.network_settings.no_proxy.clone());
+
+    if let Some(certificates) = &globals.network_settings.custom_certificates {
+        client_builder.custom_certificates(certificates.clone())
+    } else {
+        client_builder
+    }
+}
+
 /// Whether to initialize process-global state.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[doc(hidden)]
@@ -195,11 +218,10 @@ pub async fn run(cli: Cli, global_initialization: GlobalInitialization) -> Resul
             path
         }
     } else if let Some(run_command) = &parsed_run_command
-        && early_preview.is_enabled(PreviewFeature::TargetWorkspaceDiscovery)
         && let Some(dir) = run_command.script_dir()
     {
-        // When running a target with the preview flag enabled, discover the workspace starting
-        // from the target's directory rather than the current working directory.
+        // When running a target, discover the workspace starting from the target's directory
+        // rather than the current working directory.
         Cow::Owned(std::path::absolute(dir)?)
     } else {
         Cow::Borrowed(&*CWD)
@@ -215,31 +237,15 @@ pub async fn run(cli: Cli, global_initialization: GlobalInitialization) -> Resul
     if !skip_project_validation {
         if let Some(project_path) = cli.top_level.global_args.project.as_ref() {
             if !project_dir.exists() {
-                if early_preview.is_enabled(PreviewFeature::ProjectDirectoryMustExist) {
-                    bail!(
-                        "Project directory `{}` does not exist",
-                        project_path.user_display()
-                    );
-                }
-                warn_user_once!(
-                    "Project directory `{}` does not exist. \
-                    This will become an error in a future release. \
-                    Use `--preview-features project-directory-must-exist` to error on this now.",
+                bail!(
+                    "Project directory `{}` does not exist",
                     project_path.user_display()
                 );
             } else if !project_dir.is_dir() {
                 // `--project path/to/pyproject.toml` is resolved to its parent above,
                 // so this only triggers for other file types (see #18508).
-                if early_preview.is_enabled(PreviewFeature::ProjectDirectoryMustExist) {
-                    bail!(
-                        "Project path `{}` is not a directory",
-                        project_path.user_display()
-                    );
-                }
-                warn_user_once!(
-                    "Project path `{}` is not a directory. \
-                    This will become an error in a future release. \
-                    Use `--preview-features project-directory-must-exist` to error on this now.",
+                bail!(
+                    "Project path `{}` is not a directory",
                     project_path.user_display()
                 );
             }
@@ -478,11 +484,17 @@ pub async fn run(cli: Cli, global_initialization: GlobalInitialization) -> Resul
         .map(FilesystemOptions::from)
         .combine(filesystem);
 
+    let custom_certificate_file = match &*cli.command {
+        Commands::Pip(PipNamespace { cert, .. }) => cert.as_deref(),
+        _ => None,
+    };
+
     // Resolve the global settings.
     let globals = GlobalSettings::resolve(
         &cli.top_level.global_args,
         filesystem.as_ref(),
         &environment,
+        custom_certificate_file,
     )?;
 
     if global_initialization.needs_initialization() {
@@ -504,16 +516,12 @@ pub async fn run(cli: Cli, global_initialization: GlobalInitialization) -> Resul
         );
     }
 
-    // Adjust open file limits on Unix if the preview feature is enabled.
+    // Adjust open file limits on Unix.
     #[cfg(unix)]
-    if global_initialization.needs_initialization()
-        && globals.preview.is_enabled(PreviewFeature::AdjustUlimit)
-    {
+    if global_initialization.needs_initialization() {
         match uv_unix::adjust_open_file_limit() {
             Ok(_) | Err(uv_unix::OpenFileLimitError::AlreadySufficient { .. }) => {}
-            // TODO(zanieb): When moving out of preview, consider changing this to a log instead of
-            // a warning because it's okay if we fail here.
-            Err(err) => warn_user!("{err}"),
+            Err(err) => debug!("{err}"),
         }
     }
 
@@ -629,19 +637,7 @@ pub async fn run(cli: Cli, global_initialization: GlobalInitialization) -> Resul
     };
 
     // Configure the global network settings.
-    let client_builder = BaseClientBuilder::new(
-        globals.network_settings.connectivity,
-        globals.network_settings.system_certs,
-        globals.network_settings.allow_insecure_host.clone(),
-        globals.preview,
-        globals.network_settings.read_timeout,
-        globals.network_settings.connect_timeout,
-        globals.network_settings.retries,
-    )
-    .cache_read_concurrency(globals.concurrency.cache_reads)
-    .http_proxy(globals.network_settings.http_proxy.clone())
-    .https_proxy(globals.network_settings.https_proxy.clone())
-    .no_proxy(globals.network_settings.no_proxy.clone());
+    let client_builder = base_client_builder(&globals);
 
     match *cli.command {
         Commands::Auth(AuthNamespace {
@@ -723,6 +719,7 @@ pub async fn run(cli: Cli, global_initialization: GlobalInitialization) -> Resul
         ),
         Commands::Pip(PipNamespace {
             command: PipCommand::Compile(args),
+            ..
         }) => {
             args.compat_args.validate()?;
 
@@ -842,6 +839,7 @@ pub async fn run(cli: Cli, global_initialization: GlobalInitialization) -> Resul
         }
         Commands::Pip(PipNamespace {
             command: PipCommand::Sync(args),
+            ..
         }) => {
             args.compat_args.validate()?;
 
@@ -931,6 +929,7 @@ pub async fn run(cli: Cli, global_initialization: GlobalInitialization) -> Resul
         }
         Commands::Pip(PipNamespace {
             command: PipCommand::Install(args),
+            ..
         }) => {
             args.compat_args.validate()?;
 
@@ -1093,6 +1092,7 @@ pub async fn run(cli: Cli, global_initialization: GlobalInitialization) -> Resul
         }
         Commands::Pip(PipNamespace {
             command: PipCommand::Uninstall(args),
+            ..
         }) => {
             args.compat_args.validate()?;
 
@@ -1130,6 +1130,7 @@ pub async fn run(cli: Cli, global_initialization: GlobalInitialization) -> Resul
         }
         Commands::Pip(PipNamespace {
             command: PipCommand::Freeze(args),
+            ..
         }) => {
             // Resolve the settings from the command-line arguments and workspace configuration.
             let args = PipFreezeSettings::resolve(args, filesystem, environment)?;
@@ -1154,6 +1155,7 @@ pub async fn run(cli: Cli, global_initialization: GlobalInitialization) -> Resul
         }
         Commands::Pip(PipNamespace {
             command: PipCommand::List(args),
+            ..
         }) => {
             args.compat_args.validate()?;
 
@@ -1189,6 +1191,7 @@ pub async fn run(cli: Cli, global_initialization: GlobalInitialization) -> Resul
         }
         Commands::Pip(PipNamespace {
             command: PipCommand::Show(args),
+            ..
         }) => {
             // Resolve the settings from the command-line arguments and workspace configuration.
             let args = PipShowSettings::resolve(args, filesystem, environment)?;
@@ -1212,6 +1215,7 @@ pub async fn run(cli: Cli, global_initialization: GlobalInitialization) -> Resul
         }
         Commands::Pip(PipNamespace {
             command: PipCommand::Tree(args),
+            ..
         }) => {
             // Resolve the settings from the command-line arguments and workspace configuration.
             let args = PipTreeSettings::resolve(args, filesystem, environment)?;
@@ -1245,6 +1249,7 @@ pub async fn run(cli: Cli, global_initialization: GlobalInitialization) -> Resul
         }
         Commands::Pip(PipNamespace {
             command: PipCommand::Check(args),
+            ..
         }) => {
             // Resolve the settings from the command-line arguments and workspace configuration.
             let args = PipCheckSettings::resolve(args, filesystem, environment)?;
@@ -1265,6 +1270,7 @@ pub async fn run(cli: Cli, global_initialization: GlobalInitialization) -> Resul
         }
         Commands::Pip(PipNamespace {
             command: PipCommand::Debug(_),
+            ..
         }) => Err(anyhow!(
             "pip's `debug` is unsupported (consider using `uvx pip debug` instead)"
         )),
@@ -1390,10 +1396,8 @@ pub async fn run(cli: Cli, global_initialization: GlobalInitialization) -> Resul
                 args.no_clear,
                 if args.force {
                     uv_virtualenv::ClearNonVirtualenv::Allow
-                } else if globals.preview.is_enabled(PreviewFeature::VenvSafeClear) {
-                    uv_virtualenv::ClearNonVirtualenv::Error
                 } else {
-                    uv_virtualenv::ClearNonVirtualenv::Warn
+                    uv_virtualenv::ClearNonVirtualenv::Error
                 },
             );
 
@@ -2227,31 +2231,19 @@ async fn run_project(
     match *project_command {
         ProjectCommand::Init(args) => {
             // Resolve the settings from the command-line arguments and workspace configuration.
-            let args =
-                settings::InitSettings::resolve(args, filesystem, environment, globals.preview)?;
+            let args = settings::InitSettings::resolve(args, filesystem, environment)?;
             show_settings!(args);
 
-            // The `--project` arg is being deprecated for `init` with a warning now and an error in preview.
+            // The `--project` argument is not supported for `init`.
             if explicit_project {
-                if globals.preview.is_enabled(PreviewFeature::InitProjectFlag) {
-                    bail!(
-                        "The `--project` option cannot be used in `uv init`. {}",
-                        if args.path.is_some() {
-                            "Use `--directory` instead."
-                        } else {
-                            "Use `--directory` or a positional path instead."
-                        }
-                    )
-                }
-
-                warn_user!(
-                    "Use of the `--project` option in `uv init` is deprecated and will be removed in a future release. {}",
+                bail!(
+                    "The `--project` option cannot be used in `uv init`. {}",
                     if args.path.is_some() {
-                        "Since a positional path was provided, the `--project` option has no effect. Consider using `--directory` instead."
+                        "Use `--directory` instead."
                     } else {
-                        "Consider using `uv init <PATH>` instead."
+                        "Use `--directory` or a positional path instead."
                     }
-                );
+                )
             }
 
             // Initialize the cache.
@@ -2261,7 +2253,6 @@ async fn run_project(
                 project_dir,
                 args.path,
                 args.name,
-                args.package,
                 args.kind,
                 args.bare,
                 args.description,
@@ -2476,7 +2467,8 @@ async fn run_project(
 
             Box::pin(commands::upgrade(
                 project_dir,
-                args.package,
+                args.packages,
+                args.exclude,
                 args.install_mirrors,
                 args.settings,
                 client_builder.subcommand(vec!["upgrade".to_owned()]),

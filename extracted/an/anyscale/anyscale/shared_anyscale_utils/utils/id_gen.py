@@ -17,6 +17,7 @@ class IDTypes(Enum):
     clouds = "cld"
     cloud_resources = "cldrsrc"
     cloud_resources_gcp = "cldrsrcgcp"
+    connectors = "conn"
     permissions_projects = "ppr"
     permissions_sessions = "pse"
     permissions_snapshots = "psn"
@@ -135,6 +136,8 @@ class IDTypes(Enum):
     scheduler_event = "schevt"
     skills_versions = "sklv"
     skills_terms_acceptances = "sklta"
+    kuberay_crs = "kcr"
+    workload_specs = "wspec"
 
 
 _default_id_length: int = 26

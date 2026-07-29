@@ -16,18 +16,18 @@
         #include <wx/graphics.h>
         #include <wx/bitmap.h>
         #include <wx/gdicmn.h>
-        #include <wx/palette.h>
-        #include <wx/gdicmn.h>
-        #include <wx/colour.h>
         #include <wx/dc.h>
-        #include <wx/affinematrix2d.h>
+        #include <wx/palette.h>
+        #include <wx/colour.h>
         #include <wx/pen.h>
         #include "arrayholder.h"
         #include <wx/brush.h>
+        #include <wx/region.h>
+        #include <wx/gdicmn.h>
+        #include <wx/icon.h>
         #include <wx/font.h>
         #include <wx/dc.h>
-        #include <wx/region.h>
-        #include <wx/icon.h>
+        #include <wx/affinematrix2d.h>
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
@@ -183,7 +183,7 @@ static void *init_type_wxPostScriptDC(sipSimpleWrapper *sipSelf, PyObject *sipAr
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxPostScriptDC[] = {{101, 255, 1}};
+static sipEncodedTypeDef supers_wxPostScriptDC[] = {{105, 255, 1}};
 
 PyDoc_STRVAR(doc_wxPostScriptDC, "PostScriptDC() -> None\n"
 "PostScriptDC(printData) -> None\n"

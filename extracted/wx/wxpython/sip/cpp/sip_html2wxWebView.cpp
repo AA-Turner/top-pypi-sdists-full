@@ -10,27 +10,30 @@
 #include "sipAPI_html2.h"
         #include <wx/webview.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/gdicmn.h>
         #include <wx/validate.h>
         #include <wx/window.h>
         #include <wx/gdicmn.h>
-        #include <wx/versioninfo.h>
         #include <wx/webview.h>
+        #include <wx/webview.h>
+        #include <wx/datetime.h>
         #include <wx/stream.h>
         #include <wx/webview.h>
+        #include <wx/cmndata.h>
         #include <wx/dc.h>
+        #include <wx/event.h>
         #include <wx/event.h>
         #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -116,6 +119,15 @@
         }
         return result;
     }
+    wxAccessible* _wxWebView_CreateAccessible(wxWebView* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
     bool _wxWebView_MSWSetEmulationLevel(wxWebViewIE_EmulationLevel level)
     {
         #if wxUSE_WEBVIEW_IE && defined(__WXMSW__)
@@ -179,7 +191,7 @@ static PyObject *meth_wxWebView_RunScript(PyObject *sipSelf, PyObject *sipArgs, 
 }
 
 
-PyDoc_STRVAR(doc_wxWebView_RunScriptAsync, "RunScriptAsync(javascript, clientData=None) -> None\n"
+PyDoc_STRVAR(doc_wxWebView_RunScriptAsync, "RunScriptAsync(javascript, clientData=nullptr) -> None\n"
 "\n"
 "Runs the given JavaScript code asynchronously and returns the result\n"
 "via a wxEVT_WEBVIEW_SCRIPT_RESULT.");
@@ -192,7 +204,7 @@ static PyObject *meth_wxWebView_RunScriptAsync(PyObject *sipSelf, PyObject *sipA
     {
         const ::wxString* javascript;
         int javascriptState = 0;
-        void* clientData = 0;
+        void* clientData = nullptr;
         const ::wxWebView *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -741,34 +753,27 @@ static PyObject *meth_wxWebView_IsAccessToDevToolsEnabled(PyObject *sipSelf, PyO
 }
 
 
-PyDoc_STRVAR(doc_wxWebView_SetUserAgent, "SetUserAgent(userAgent) -> bool\n"
+PyDoc_STRVAR(doc_wxWebView_ShowDevTools, "ShowDevTools() -> bool\n"
 "\n"
-"Specify a custom user agent string for the web view.");
+"Show the dev tools window.");
 
-extern "C" {static PyObject *meth_wxWebView_SetUserAgent(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxWebView_SetUserAgent(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+extern "C" {static PyObject *meth_wxWebView_ShowDevTools(PyObject *, PyObject *);}
+static PyObject *meth_wxWebView_ShowDevTools(PyObject *sipSelf, PyObject *sipArgs)
 {
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        const ::wxString* userAgent;
-        int userAgentState = 0;
         ::wxWebView *sipCpp;
 
-        static const char *sipKwdList[] = {
-            sipName_userAgent,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxWebView, &sipCpp, sipType_wxString, &userAgent, &userAgentState))
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxWebView, &sipCpp))
         {
             bool sipRes;
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->SetUserAgent(*userAgent);
+            sipRes = sipCpp->ShowDevTools();
             Py_END_ALLOW_THREADS
-            sipReleaseType(const_cast< ::wxString *>(userAgent), sipType_wxString, userAgentState);
 
             if (PyErr_Occurred())
                 return 0;
@@ -777,18 +782,57 @@ static PyObject *meth_wxWebView_SetUserAgent(PyObject *sipSelf, PyObject *sipArg
         }
     }
 
-    sipNoMethod(sipParseErr, sipName_WebView, sipName_SetUserAgent, SIP_NULLPTR);
+    sipNoMethod(sipParseErr, sipName_WebView, sipName_ShowDevTools, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
 
 
-PyDoc_STRVAR(doc_wxWebView_GetUserAgent, "GetUserAgent() -> str\n"
+PyDoc_STRVAR(doc_wxWebView_EnableBrowserAcceleratorKeys, "EnableBrowserAcceleratorKeys(enable=True) -> None\n"
 "\n"
-"Returns the current user agent string for the web view.");
+"Enable or disable if browser accelerator keys are enabled.");
 
-extern "C" {static PyObject *meth_wxWebView_GetUserAgent(PyObject *, PyObject *);}
-static PyObject *meth_wxWebView_GetUserAgent(PyObject *sipSelf, PyObject *sipArgs)
+extern "C" {static PyObject *meth_wxWebView_EnableBrowserAcceleratorKeys(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxWebView_EnableBrowserAcceleratorKeys(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        bool enable = 1;
+        ::wxWebView *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_enable,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "B|b", &sipSelf, sipType_wxWebView, &sipCpp, &enable))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->EnableBrowserAcceleratorKeys(enable);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_WebView, sipName_EnableBrowserAcceleratorKeys, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxWebView_AreBrowserAcceleratorKeysEnabled, "AreBrowserAcceleratorKeysEnabled() -> bool\n"
+"\n"
+"Returns true if browser accelerator keys are enabled.");
+
+extern "C" {static PyObject *meth_wxWebView_AreBrowserAcceleratorKeysEnabled(PyObject *, PyObject *);}
+static PyObject *meth_wxWebView_AreBrowserAcceleratorKeysEnabled(PyObject *sipSelf, PyObject *sipArgs)
 {
     PyObject *sipParseErr = SIP_NULLPTR;
 
@@ -797,22 +841,22 @@ static PyObject *meth_wxWebView_GetUserAgent(PyObject *sipSelf, PyObject *sipArg
 
         if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxWebView, &sipCpp))
         {
-            ::wxString*sipRes;
+            bool sipRes;
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxString(sipCpp->GetUserAgent());
+            sipRes = sipCpp->AreBrowserAcceleratorKeysEnabled();
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
                 return 0;
 
-            return sipConvertFromNewType(sipRes, sipType_wxString, SIP_NULLPTR);
+            return PyBool_FromLong(sipRes);
         }
     }
 
-    sipNoMethod(sipParseErr, sipName_WebView, sipName_GetUserAgent, SIP_NULLPTR);
+    sipNoMethod(sipParseErr, sipName_WebView, sipName_AreBrowserAcceleratorKeysEnabled, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -1492,7 +1536,7 @@ static PyObject *meth_wxWebView_Find(PyObject *sipSelf, PyObject *sipArgs, PyObj
 
 PyDoc_STRVAR(doc_wxWebView_CanSetZoomType, "CanSetZoomType(type) -> bool\n"
 "\n"
-"Retrieve whether the current HTML engine supports a zoom type.");
+"Retrieve whether a zoom type is supported.");
 
 extern "C" {static PyObject *meth_wxWebView_CanSetZoomType(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxWebView_CanSetZoomType(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -2111,19 +2155,21 @@ static PyObject *meth_wxWebView_LoadURL(PyObject *sipSelf, PyObject *sipArgs, Py
 
 
 PyDoc_STRVAR(doc_wxWebView_Print, "Print() -> None\n"
+"Print(printData, flags=WEBVIEW_PRINT_HIDE_HEADER_FOOTER) -> None\n"
 "\n"
-"Opens a print dialog so that the user may print the currently\n"
-"displayed page.");
+"Opens a print dialog (with the backend's default settings) so that the\n"
+"user may print the currently displayed page.\n"
+"");
 
-extern "C" {static PyObject *meth_wxWebView_Print(PyObject *, PyObject *);}
-static PyObject *meth_wxWebView_Print(PyObject *sipSelf, PyObject *sipArgs)
+extern "C" {static PyObject *meth_wxWebView_Print(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxWebView_Print(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
 {
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
         ::wxWebView *sipCpp;
 
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxWebView, &sipCpp))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, SIP_NULLPTR, SIP_NULLPTR, "B", &sipSelf, sipType_wxWebView, &sipCpp))
         {
             PyErr_Clear();
 
@@ -2139,7 +2185,106 @@ static PyObject *meth_wxWebView_Print(PyObject *sipSelf, PyObject *sipArgs)
         }
     }
 
+    {
+        const ::wxPrintData* printData;
+        int flags = wxWEBVIEW_PRINT_HIDE_HEADER_FOOTER;
+        ::wxWebView *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_printData,
+            sipName_flags,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9|i", &sipSelf, sipType_wxWebView, &sipCpp, sipType_wxPrintData, &printData, &flags))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->Print(*printData, flags);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
     sipNoMethod(sipParseErr, sipName_WebView, sipName_Print, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxWebView_PrintToPDF, "PrintToPDF(filePath) -> bool\n"
+"PrintToPDF(filePath, printData) -> bool\n"
+"\n"
+"Saves the currently displayed page as a PDF file to filePath.\n"
+"");
+
+extern "C" {static PyObject *meth_wxWebView_PrintToPDF(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxWebView_PrintToPDF(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxString* filePath;
+        int filePathState = 0;
+        ::wxWebView *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_filePath,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxWebView, &sipCpp, sipType_wxString, &filePath, &filePathState))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->PrintToPDF(*filePath);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxString *>(filePath), sipType_wxString, filePathState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    {
+        const ::wxString* filePath;
+        int filePathState = 0;
+        const ::wxPrintData* printData;
+        ::wxWebView *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_filePath,
+            sipName_printData,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1J9", &sipSelf, sipType_wxWebView, &sipCpp, sipType_wxString, &filePath, &filePathState, sipType_wxPrintData, &printData))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->PrintToPDF(*filePath, *printData);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxString *>(filePath), sipType_wxString, filePathState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_WebView, sipName_PrintToPDF, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -2366,11 +2511,177 @@ static PyObject *meth_wxWebView_Stop(PyObject *sipSelf, PyObject *sipArgs)
 }
 
 
+PyDoc_STRVAR(doc_wxWebView_SetUserAgent, "SetUserAgent(userAgent) -> bool\n"
+"\n"
+"Specify a custom user agent string for the web view.");
+
+extern "C" {static PyObject *meth_wxWebView_SetUserAgent(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxWebView_SetUserAgent(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxString* userAgent;
+        int userAgentState = 0;
+        ::wxWebView *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_userAgent,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxWebView, &sipCpp, sipType_wxString, &userAgent, &userAgentState))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->SetUserAgent(*userAgent);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxString *>(userAgent), sipType_wxString, userAgentState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_WebView, sipName_SetUserAgent, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxWebView_GetUserAgent, "GetUserAgent() -> str\n"
+"\n"
+"Returns the current user agent string for the web view.");
+
+extern "C" {static PyObject *meth_wxWebView_GetUserAgent(PyObject *, PyObject *);}
+static PyObject *meth_wxWebView_GetUserAgent(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxWebView *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxWebView, &sipCpp))
+        {
+            ::wxString*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxString(sipCpp->GetUserAgent());
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxString, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_WebView, sipName_GetUserAgent, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxWebView_SetProxy, "SetProxy(proxy) -> bool\n"
+"\n"
+"Set the proxy to use for all requests.");
+
+extern "C" {static PyObject *meth_wxWebView_SetProxy(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxWebView_SetProxy(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxString* proxy;
+        int proxyState = 0;
+        ::wxWebView *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_proxy,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxWebView, &sipCpp, sipType_wxString, &proxy, &proxyState))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->SetProxy(*proxy);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxString *>(proxy), sipType_wxString, proxyState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_WebView, sipName_SetProxy, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxWebView_ClearBrowsingData, "ClearBrowsingData(types=WEBVIEW_BROWSING_DATA_ALL, since={}) -> bool\n"
+"\n"
+"Clears the browsing data of the web view.");
+
+extern "C" {static PyObject *meth_wxWebView_ClearBrowsingData(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxWebView_ClearBrowsingData(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int types = wxWEBVIEW_BROWSING_DATA_ALL;
+        ::wxDateTime sincedef = {};
+        ::wxDateTime* since = &sincedef;
+        int sinceState = 0;
+        ::wxWebView *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_types,
+            sipName_since,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "B|iJ1", &sipSelf, sipType_wxWebView, &sipCpp, &types, sipType_wxDateTime, &since, &sinceState))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->ClearBrowsingData(types, *since);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(since, sipType_wxDateTime, sinceState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_WebView, sipName_ClearBrowsingData, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxWebView_New, "New(backend=WebViewBackendDefault) -> WebView\n"
+"New(config) -> WebView\n"
 "New(parent, id=wx.ID_ANY, url=WebViewDefaultURLStr, pos=wx.DefaultPosition, size=wx.DefaultSize, backend=WebViewBackendDefault, style=0, name=WebViewNameStr) -> WebView\n"
 "\n"
 "Factory function to create a new wxWebView with two-step creation,\n"
 "wxWebView::Create should be called on the returned object.\n"
+"\n"
 "");
 
 extern "C" {static PyObject *meth_wxWebView_New(PyObject *, PyObject *, PyObject *);}
@@ -2397,6 +2708,30 @@ static PyObject *meth_wxWebView_New(PyObject *, PyObject *sipArgs, PyObject *sip
             sipRes = ::wxWebView::New(*backend);
             Py_END_ALLOW_THREADS
             sipReleaseType(const_cast< ::wxString *>(backend), sipType_wxString, backendState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxWebView, SIP_NULLPTR);
+        }
+    }
+
+    {
+        const ::wxWebViewConfiguration* config;
+
+        static const char *sipKwdList[] = {
+            sipName_config,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "J9", sipType_wxWebViewConfiguration, &config))
+        {
+            ::wxWebView*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = ::wxWebView::New(*config);
+            Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
                 return 0;
@@ -2536,48 +2871,6 @@ static PyObject *meth_wxWebView_IsBackendAvailable(PyObject *, PyObject *sipArgs
     }
 
     sipNoMethod(sipParseErr, sipName_WebView, sipName_IsBackendAvailable, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxWebView_GetBackendVersionInfo, "GetBackendVersionInfo(backend=WebViewBackendDefault) -> wx.VersionInfo\n"
-"\n"
-"Retrieve the version information about the backend implementation.");
-
-extern "C" {static PyObject *meth_wxWebView_GetBackendVersionInfo(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxWebView_GetBackendVersionInfo(PyObject *, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxString& backenddef = wxWebViewBackendDefault;
-        const ::wxString* backend = &backenddef;
-        int backendState = 0;
-
-        static const char *sipKwdList[] = {
-            sipName_backend,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "|J1", sipType_wxString, &backend, &backendState))
-        {
-            ::wxVersionInfo*sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxVersionInfo(::wxWebView::GetBackendVersionInfo(*backend));
-            Py_END_ALLOW_THREADS
-            sipReleaseType(const_cast< ::wxString *>(backend), sipType_wxString, backendState);
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromNewType(sipRes, sipType_wxVersionInfo, SIP_NULLPTR);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_WebView, sipName_GetBackendVersionInfo, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -3289,6 +3582,39 @@ static PyObject *meth_wxWebView_EnableVisibleFocus(PyObject *sipSelf, PyObject *
 }
 
 
+PyDoc_STRVAR(doc_wxWebView_CreateAccessible, "CreateAccessible() -> wx.Accessible");
+
+extern "C" {static PyObject *meth_wxWebView_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxWebView_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxWebView *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxWebView, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxWebView_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_WebView, sipName_CreateAccessible, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxWebView_GetClassDefaultAttributes, "GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes");
 
 extern "C" {static PyObject *meth_wxWebView_GetClassDefaultAttributes(PyObject *, PyObject *, PyObject *);}
@@ -3446,7 +3772,7 @@ static void dealloc_wxWebView(sipSimpleWrapper *sipSelf)
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxWebView[] = {{2, 0, 1}};
+static sipEncodedTypeDef supers_wxWebView[] = {{3, 0, 1}};
 
 
 static PyMethodDef methods_wxWebView[] = {
@@ -3456,6 +3782,7 @@ static PyMethodDef methods_wxWebView[] = {
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxWebView_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_AddChild},
     {sipName_AddScriptMessageHandler, SIP_MLMETH_CAST(meth_wxWebView_AddScriptMessageHandler), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_AddScriptMessageHandler},
     {sipName_AddUserScript, SIP_MLMETH_CAST(meth_wxWebView_AddUserScript), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_AddUserScript},
+    {sipName_AreBrowserAcceleratorKeysEnabled, meth_wxWebView_AreBrowserAcceleratorKeysEnabled, METH_VARARGS, doc_wxWebView_AreBrowserAcceleratorKeysEnabled},
     {sipName_CanCopy, meth_wxWebView_CanCopy, METH_VARARGS, doc_wxWebView_CanCopy},
     {sipName_CanCut, meth_wxWebView_CanCut, METH_VARARGS, doc_wxWebView_CanCut},
     {sipName_CanGoBack, meth_wxWebView_CanGoBack, METH_VARARGS, doc_wxWebView_CanGoBack},
@@ -3464,19 +3791,21 @@ static PyMethodDef methods_wxWebView[] = {
     {sipName_CanRedo, meth_wxWebView_CanRedo, METH_VARARGS, doc_wxWebView_CanRedo},
     {sipName_CanSetZoomType, SIP_MLMETH_CAST(meth_wxWebView_CanSetZoomType), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_CanSetZoomType},
     {sipName_CanUndo, meth_wxWebView_CanUndo, METH_VARARGS, doc_wxWebView_CanUndo},
+    {sipName_ClearBrowsingData, SIP_MLMETH_CAST(meth_wxWebView_ClearBrowsingData), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_ClearBrowsingData},
     {sipName_ClearHistory, meth_wxWebView_ClearHistory, METH_VARARGS, doc_wxWebView_ClearHistory},
     {sipName_ClearSelection, meth_wxWebView_ClearSelection, METH_VARARGS, doc_wxWebView_ClearSelection},
     {sipName_Copy, meth_wxWebView_Copy, METH_VARARGS, doc_wxWebView_Copy},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxWebView_Create), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_Create},
+    {sipName_CreateAccessible, meth_wxWebView_CreateAccessible, METH_VARARGS, doc_wxWebView_CreateAccessible},
     {sipName_Cut, meth_wxWebView_Cut, METH_VARARGS, doc_wxWebView_Cut},
     {sipName_DeleteSelection, meth_wxWebView_DeleteSelection, METH_VARARGS, doc_wxWebView_DeleteSelection},
     {sipName_Destroy, meth_wxWebView_Destroy, METH_VARARGS, doc_wxWebView_Destroy},
     {sipName_EnableAccessToDevTools, SIP_MLMETH_CAST(meth_wxWebView_EnableAccessToDevTools), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_EnableAccessToDevTools},
+    {sipName_EnableBrowserAcceleratorKeys, SIP_MLMETH_CAST(meth_wxWebView_EnableBrowserAcceleratorKeys), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_EnableBrowserAcceleratorKeys},
     {sipName_EnableContextMenu, SIP_MLMETH_CAST(meth_wxWebView_EnableContextMenu), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_EnableContextMenu},
     {sipName_EnableHistory, SIP_MLMETH_CAST(meth_wxWebView_EnableHistory), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_EnableHistory},
     {sipName_EnableVisibleFocus, SIP_MLMETH_CAST(meth_wxWebView_EnableVisibleFocus), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_EnableVisibleFocus},
     {sipName_Find, SIP_MLMETH_CAST(meth_wxWebView_Find), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_Find},
-    {sipName_GetBackendVersionInfo, SIP_MLMETH_CAST(meth_wxWebView_GetBackendVersionInfo), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_GetBackendVersionInfo},
     {sipName_GetBackwardHistory, meth_wxWebView_GetBackwardHistory, METH_VARARGS, doc_wxWebView_GetBackwardHistory},
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxWebView_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_GetClassDefaultAttributes},
     {sipName_GetClientAreaOrigin, meth_wxWebView_GetClientAreaOrigin, METH_VARARGS, doc_wxWebView_GetClientAreaOrigin},
@@ -3511,7 +3840,8 @@ static PyMethodDef methods_wxWebView[] = {
     {sipName_New, SIP_MLMETH_CAST(meth_wxWebView_New), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_New},
     {sipName_OnInternalIdle, meth_wxWebView_OnInternalIdle, METH_VARARGS, doc_wxWebView_OnInternalIdle},
     {sipName_Paste, meth_wxWebView_Paste, METH_VARARGS, doc_wxWebView_Paste},
-    {sipName_Print, meth_wxWebView_Print, METH_VARARGS, doc_wxWebView_Print},
+    {sipName_Print, SIP_MLMETH_CAST(meth_wxWebView_Print), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_Print},
+    {sipName_PrintToPDF, SIP_MLMETH_CAST(meth_wxWebView_PrintToPDF), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_PrintToPDF},
     {sipName_Redo, meth_wxWebView_Redo, METH_VARARGS, doc_wxWebView_Redo},
     {sipName_RegisterFactory, SIP_MLMETH_CAST(meth_wxWebView_RegisterFactory), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_RegisterFactory},
     {sipName_RegisterHandler, SIP_MLMETH_CAST(meth_wxWebView_RegisterHandler), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_RegisterHandler},
@@ -3525,12 +3855,14 @@ static PyMethodDef methods_wxWebView[] = {
     {sipName_SetCanFocus, SIP_MLMETH_CAST(meth_wxWebView_SetCanFocus), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_SetCanFocus},
     {sipName_SetEditable, SIP_MLMETH_CAST(meth_wxWebView_SetEditable), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_SetEditable},
     {sipName_SetPage, SIP_MLMETH_CAST(meth_wxWebView_SetPage), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_SetPage},
+    {sipName_SetProxy, SIP_MLMETH_CAST(meth_wxWebView_SetProxy), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_SetProxy},
     {sipName_SetUserAgent, SIP_MLMETH_CAST(meth_wxWebView_SetUserAgent), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_SetUserAgent},
     {sipName_SetValidator, SIP_MLMETH_CAST(meth_wxWebView_SetValidator), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_SetValidator},
     {sipName_SetZoom, SIP_MLMETH_CAST(meth_wxWebView_SetZoom), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_SetZoom},
     {sipName_SetZoomFactor, SIP_MLMETH_CAST(meth_wxWebView_SetZoomFactor), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_SetZoomFactor},
     {sipName_SetZoomType, SIP_MLMETH_CAST(meth_wxWebView_SetZoomType), METH_VARARGS|METH_KEYWORDS, doc_wxWebView_SetZoomType},
     {sipName_ShouldInheritColours, meth_wxWebView_ShouldInheritColours, METH_VARARGS, doc_wxWebView_ShouldInheritColours},
+    {sipName_ShowDevTools, meth_wxWebView_ShowDevTools, METH_VARARGS, doc_wxWebView_ShowDevTools},
     {sipName_Stop, meth_wxWebView_Stop, METH_VARARGS, doc_wxWebView_Stop},
     {sipName_TransferDataFromWindow, meth_wxWebView_TransferDataFromWindow, METH_VARARGS, doc_wxWebView_TransferDataFromWindow},
     {sipName_TransferDataToWindow, meth_wxWebView_TransferDataToWindow, METH_VARARGS, doc_wxWebView_TransferDataToWindow},
@@ -3539,22 +3871,22 @@ static PyMethodDef methods_wxWebView[] = {
 };
 
 sipVariableDef variables_wxWebView[] = {
-    {PropertyVariable, sipName_ZoomType, &methods_wxWebView[43], &methods_wxWebView[79], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ZoomFactor, &methods_wxWebView[42], &methods_wxWebView[78], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Zoom, &methods_wxWebView[41], &methods_wxWebView[77], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_UserAgent, &methods_wxWebView[39], &methods_wxWebView[75], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelectedText, &methods_wxWebView[38], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelectedSource, &methods_wxWebView[37], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_PageText, &methods_wxWebView[36], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_PageSource, &methods_wxWebView[35], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_NativeBackend, &methods_wxWebView[34], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ForwardHistory, &methods_wxWebView[32], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CurrentURL, &methods_wxWebView[31], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CurrentTitle, &methods_wxWebView[30], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_BackwardHistory, &methods_wxWebView[27], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ZoomType, &methods_wxWebView[46], &methods_wxWebView[84], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ZoomFactor, &methods_wxWebView[45], &methods_wxWebView[83], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Zoom, &methods_wxWebView[44], &methods_wxWebView[82], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_UserAgent, &methods_wxWebView[42], &methods_wxWebView[80], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelectedText, &methods_wxWebView[41], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelectedSource, &methods_wxWebView[40], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_PageText, &methods_wxWebView[39], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_PageSource, &methods_wxWebView[38], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_NativeBackend, &methods_wxWebView[37], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ForwardHistory, &methods_wxWebView[35], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CurrentURL, &methods_wxWebView[34], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CurrentTitle, &methods_wxWebView[33], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_BackwardHistory, &methods_wxWebView[30], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxWebView, "This control may be used to render web (HTML / CSS / javascript)\n"
+PyDoc_STRVAR(doc_wxWebView, "This control may be used to render web (HTML / CSS / JavaScript)\n"
 "documents.");
 
 
@@ -3571,7 +3903,7 @@ sipClassTypeDef sipTypeDef__html2_wxWebView = {
     {
         sipNameNr_WebView,
         {0, 0, 1},
-        86, methods_wxWebView,
+        92, methods_wxWebView,
         0, SIP_NULLPTR,
         13, variables_wxWebView,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

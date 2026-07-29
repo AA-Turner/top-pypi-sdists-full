@@ -98,6 +98,11 @@ tags:
     def _validate_name(self, name: Optional[str]):
         if name is not None and not isinstance(name, str):
             raise TypeError("'name' must be a string.")
+        # NOTE: the allowed-character check lives at the write boundary
+        # (WorkspaceSDK.create/update and the CLI create/update handlers), not
+        # here, because this constructor also hydrates configs the SDK reads
+        # back from the backend -- some of which predate the restriction and
+        # would otherwise be unreadable.
 
     image_uri: Optional[str] = field(
         default=None,

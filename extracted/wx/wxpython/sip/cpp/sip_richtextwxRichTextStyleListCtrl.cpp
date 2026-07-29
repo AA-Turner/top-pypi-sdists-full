@@ -13,6 +13,7 @@
         #include <wx/gdicmn.h>
         #include <wx/gdicmn.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/validate.h>
         #include <wx/richtext/richtextstyles.h>
@@ -22,15 +23,15 @@
         #include <wx/dc.h>
         #include <wx/event.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -46,6 +47,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
+    wxAccessible* _wxRichTextStyleListCtrl_CreateAccessible(wxRichTextStyleListCtrl* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxRichTextStyleListCtrl : public ::wxRichTextStyleListCtrl
@@ -73,7 +83,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -89,7 +98,6 @@ protected:
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
@@ -132,7 +140,7 @@ private:
     sipwxRichTextStyleListCtrl(const sipwxRichTextStyleListCtrl &);
     sipwxRichTextStyleListCtrl &operator = (const sipwxRichTextStyleListCtrl &);
 
-    char sipPyMethods[39];
+    char sipPyMethods[38];
 };
 
 sipwxRichTextStyleListCtrl::sipwxRichTextStyleListCtrl(::wxWindow*parent, ::wxWindowID id, const ::wxPoint& pos, const ::wxSize& size, long style): ::wxRichTextStyleListCtrl(parent, id, pos, size, style), sipPySelf(SIP_NULLPTR)
@@ -216,27 +224,12 @@ void sipwxRichTextStyleListCtrl::DoFreeze()
     sipVH__richtext_36(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxRichTextStyleListCtrl::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[4]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxRichTextStyleListCtrl::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__richtext_140(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__richtext_140(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 ::wxBorder sipwxRichTextStyleListCtrl::GetDefaultBorder() const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[5]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[4]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
 
     if (!sipMeth)
         return ::wxRichTextStyleListCtrl::GetDefaultBorder();
@@ -251,7 +244,7 @@ void sipwxRichTextStyleListCtrl::DoSetWindowVariant(::wxWindowVariant variant)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[6], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[5], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
 
     if (!sipMeth)
     {
@@ -269,7 +262,7 @@ void sipwxRichTextStyleListCtrl::DoMoveWindow(int x, int y, int width, int heigh
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[7], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[6], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
 
     if (!sipMeth)
     {
@@ -287,7 +280,7 @@ void sipwxRichTextStyleListCtrl::DoSetSizeHints(int minW, int minH, int maxW, in
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[8], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[7], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
 
     if (!sipMeth)
     {
@@ -305,7 +298,7 @@ void sipwxRichTextStyleListCtrl::DoSetClientSize(int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[9], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[8], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
 
     if (!sipMeth)
     {
@@ -323,7 +316,7 @@ void sipwxRichTextStyleListCtrl::DoSetSize(int x, int y, int width, int height, 
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[10], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[9], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
 
     if (!sipMeth)
     {
@@ -341,7 +334,7 @@ void sipwxRichTextStyleListCtrl::DoGetClientSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[11]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[10]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
 
     if (!sipMeth)
     {
@@ -359,7 +352,7 @@ void sipwxRichTextStyleListCtrl::DoGetSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[12]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[11]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
 
     if (!sipMeth)
     {
@@ -377,7 +370,7 @@ void sipwxRichTextStyleListCtrl::DoGetPosition(int*x, int*y) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[13]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[12]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
 
     if (!sipMeth)
     {
@@ -395,7 +388,7 @@ void sipwxRichTextStyleListCtrl::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[14], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[13], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
 
     if (!sipMeth)
     {
@@ -413,7 +406,7 @@ void sipwxRichTextStyleListCtrl::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[15], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[14], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
 
     if (!sipMeth)
         return ::wxRichTextStyleListCtrl::GetMainWindowOfCompositeControl();
@@ -428,7 +421,7 @@ void sipwxRichTextStyleListCtrl::OnInternalIdle()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[16], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[15], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
 
     if (!sipMeth)
     {
@@ -446,7 +439,7 @@ void sipwxRichTextStyleListCtrl::InitDialog()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[17], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[16], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
 
     if (!sipMeth)
     {
@@ -464,7 +457,7 @@ void sipwxRichTextStyleListCtrl::InheritAttributes()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[18], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[17], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
 
     if (!sipMeth)
     {
@@ -482,7 +475,7 @@ bool sipwxRichTextStyleListCtrl::Destroy()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[19], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[18], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
 
     if (!sipMeth)
         return ::wxRichTextStyleListCtrl::Destroy();
@@ -497,7 +490,7 @@ bool sipwxRichTextStyleListCtrl::Validate()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[20], &sipPySelf, SIP_NULLPTR, sipName_Validate);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[19], &sipPySelf, SIP_NULLPTR, sipName_Validate);
 
     if (!sipMeth)
         return ::wxRichTextStyleListCtrl::Validate();
@@ -512,7 +505,7 @@ bool sipwxRichTextStyleListCtrl::TransferDataToWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[21], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[20], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
 
     if (!sipMeth)
         return ::wxRichTextStyleListCtrl::TransferDataToWindow();
@@ -527,7 +520,7 @@ bool sipwxRichTextStyleListCtrl::TransferDataFromWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[22], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[21], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
 
     if (!sipMeth)
         return ::wxRichTextStyleListCtrl::TransferDataFromWindow();
@@ -542,7 +535,7 @@ void sipwxRichTextStyleListCtrl::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[22], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
 
     if (!sipMeth)
     {
@@ -560,7 +553,7 @@ void sipwxRichTextStyleListCtrl::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[24], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
 
     if (!sipMeth)
         return ::wxRichTextStyleListCtrl::GetValidator();
@@ -575,7 +568,7 @@ bool sipwxRichTextStyleListCtrl::ShouldInheritColours() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[25]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[24]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
 
     if (!sipMeth)
         return ::wxRichTextStyleListCtrl::ShouldInheritColours();
@@ -590,7 +583,7 @@ bool sipwxRichTextStyleListCtrl::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[26], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[25], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
 
     if (!sipMeth)
         return ::wxRichTextStyleListCtrl::HasTransparentBackground();
@@ -605,7 +598,7 @@ bool sipwxRichTextStyleListCtrl::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[27]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[26]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
 
     if (!sipMeth)
         return ::wxRichTextStyleListCtrl::GetClientAreaOrigin();
@@ -620,7 +613,7 @@ bool sipwxRichTextStyleListCtrl::InformFirstDirection(int direction, int size, i
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[28], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[27], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
 
     if (!sipMeth)
         return ::wxRichTextStyleListCtrl::InformFirstDirection(direction, size, availableOtherDir);
@@ -635,7 +628,7 @@ void sipwxRichTextStyleListCtrl::EnableVisibleFocus(bool enabled)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[29], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[28], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
 
     if (!sipMeth)
     {
@@ -653,7 +646,7 @@ void sipwxRichTextStyleListCtrl::SetCanFocus(bool canFocus)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[30], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[29], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
 
     if (!sipMeth)
     {
@@ -671,7 +664,7 @@ bool sipwxRichTextStyleListCtrl::AcceptsFocusRecursively() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[31]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[30]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
 
     if (!sipMeth)
         return ::wxRichTextStyleListCtrl::AcceptsFocusRecursively();
@@ -686,7 +679,7 @@ bool sipwxRichTextStyleListCtrl::AcceptsFocusFromKeyboard() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[32]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[31]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
 
     if (!sipMeth)
         return ::wxRichTextStyleListCtrl::AcceptsFocusFromKeyboard();
@@ -701,7 +694,7 @@ bool sipwxRichTextStyleListCtrl::AcceptsFocus() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[33]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[32]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
 
     if (!sipMeth)
         return ::wxRichTextStyleListCtrl::AcceptsFocus();
@@ -716,7 +709,7 @@ bool sipwxRichTextStyleListCtrl::TryAfter(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[33], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
 
     if (!sipMeth)
         return ::wxRichTextStyleListCtrl::TryAfter(event);
@@ -731,7 +724,7 @@ bool sipwxRichTextStyleListCtrl::TryBefore(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
 
     if (!sipMeth)
         return ::wxRichTextStyleListCtrl::TryBefore(event);
@@ -746,7 +739,7 @@ bool sipwxRichTextStyleListCtrl::ProcessEvent(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
 
     if (!sipMeth)
         return ::wxRichTextStyleListCtrl::ProcessEvent(event);
@@ -761,7 +754,7 @@ void sipwxRichTextStyleListCtrl::AddChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
 
     if (!sipMeth)
     {
@@ -779,7 +772,7 @@ void sipwxRichTextStyleListCtrl::RemoveChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
 
     if (!sipMeth)
     {
@@ -860,11 +853,6 @@ void sipwxRichTextStyleListCtrl::sipProtectVirt_DoSetWindowVariant(bool sipSelfW
 ::wxBorder sipwxRichTextStyleListCtrl::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxRichTextStyleListCtrl::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxRichTextStyleListCtrl::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxRichTextStyleListCtrl::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxRichTextStyleListCtrl::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -2516,40 +2504,6 @@ static PyObject *meth_wxRichTextStyleListCtrl_GetDefaultBorder(PyObject *sipSelf
 }
 
 
-PyDoc_STRVAR(doc_wxRichTextStyleListCtrl_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxRichTextStyleListCtrl_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxRichTextStyleListCtrl_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxRichTextStyleListCtrl *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRichTextStyleListCtrl, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_RichTextStyleListCtrl, sipName_GetDefaultBorderForControl, doc_wxRichTextStyleListCtrl_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxRichTextStyleListCtrl_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxRichTextStyleListCtrl_DoFreeze(PyObject *, PyObject *);}
@@ -2728,6 +2682,39 @@ static PyObject *meth_wxRichTextStyleListCtrl_TryAfter(PyObject *sipSelf, PyObje
 }
 
 
+PyDoc_STRVAR(doc_wxRichTextStyleListCtrl_CreateAccessible, "CreateAccessible() -> wx.Accessible");
+
+extern "C" {static PyObject *meth_wxRichTextStyleListCtrl_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxRichTextStyleListCtrl_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxRichTextStyleListCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRichTextStyleListCtrl, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxRichTextStyleListCtrl_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_RichTextStyleListCtrl, sipName_CreateAccessible, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxRichTextStyleListCtrl_GetClassDefaultAttributes, "GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes");
 
 extern "C" {static PyObject *meth_wxRichTextStyleListCtrl_GetClassDefaultAttributes(PyObject *, PyObject *, PyObject *);}
@@ -2901,7 +2888,7 @@ static void *init_type_wxRichTextStyleListCtrl(sipSimpleWrapper *sipSelf, PyObje
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxRichTextStyleListCtrl[] = {{15, 0, 1}};
+static sipEncodedTypeDef supers_wxRichTextStyleListCtrl[] = {{16, 0, 1}};
 
 
 static PyMethodDef methods_wxRichTextStyleListCtrl[] = {
@@ -2910,6 +2897,7 @@ static PyMethodDef methods_wxRichTextStyleListCtrl[] = {
     {sipName_AcceptsFocusRecursively, meth_wxRichTextStyleListCtrl_AcceptsFocusRecursively, METH_VARARGS, doc_wxRichTextStyleListCtrl_AcceptsFocusRecursively},
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxRichTextStyleListCtrl_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextStyleListCtrl_AddChild},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxRichTextStyleListCtrl_Create), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextStyleListCtrl_Create},
+    {sipName_CreateAccessible, meth_wxRichTextStyleListCtrl_CreateAccessible, METH_VARARGS, doc_wxRichTextStyleListCtrl_CreateAccessible},
     {sipName_Destroy, meth_wxRichTextStyleListCtrl_Destroy, METH_VARARGS, doc_wxRichTextStyleListCtrl_Destroy},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxRichTextStyleListCtrl_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextStyleListCtrl_DoEnable},
     {sipName_DoFreeze, meth_wxRichTextStyleListCtrl_DoFreeze, METH_VARARGS, doc_wxRichTextStyleListCtrl_DoFreeze},
@@ -2928,7 +2916,6 @@ static PyMethodDef methods_wxRichTextStyleListCtrl[] = {
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxRichTextStyleListCtrl_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextStyleListCtrl_GetClassDefaultAttributes},
     {sipName_GetClientAreaOrigin, meth_wxRichTextStyleListCtrl_GetClientAreaOrigin, METH_VARARGS, doc_wxRichTextStyleListCtrl_GetClientAreaOrigin},
     {sipName_GetDefaultBorder, meth_wxRichTextStyleListCtrl_GetDefaultBorder, METH_VARARGS, doc_wxRichTextStyleListCtrl_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxRichTextStyleListCtrl_GetDefaultBorderForControl, METH_VARARGS, doc_wxRichTextStyleListCtrl_GetDefaultBorderForControl},
     {sipName_GetMainWindowOfCompositeControl, meth_wxRichTextStyleListCtrl_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxRichTextStyleListCtrl_GetMainWindowOfCompositeControl},
     {sipName_GetRichTextCtrl, meth_wxRichTextStyleListCtrl_GetRichTextCtrl, METH_VARARGS, doc_wxRichTextStyleListCtrl_GetRichTextCtrl},
     {sipName_GetStyleChoice, meth_wxRichTextStyleListCtrl_GetStyleChoice, METH_VARARGS, doc_wxRichTextStyleListCtrl_GetStyleChoice},

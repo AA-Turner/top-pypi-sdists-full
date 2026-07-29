@@ -16,6 +16,7 @@ Usage::
         ListOrganizationRecommendationResourcesPaginator,
         ListOrganizationRecommendationsPaginator,
         ListRecommendationResourcesPaginator,
+        ListRecommendationsForResourcePaginator,
         ListRecommendationsPaginator,
         TrustedAdvisorPublicAPIClient,
     )
@@ -28,6 +29,7 @@ Usage::
     list_organization_recommendation_resources_paginator: ListOrganizationRecommendationResourcesPaginator = client.get_paginator("list_organization_recommendation_resources")
     list_organization_recommendations_paginator: ListOrganizationRecommendationsPaginator = client.get_paginator("list_organization_recommendations")
     list_recommendation_resources_paginator: ListRecommendationResourcesPaginator = client.get_paginator("list_recommendation_resources")
+    list_recommendations_for_resource_paginator: ListRecommendationsForResourcePaginator = client.get_paginator("list_recommendations_for_resource")
     list_recommendations_paginator: ListRecommendationsPaginator = client.get_paginator("list_recommendations")
     ```
 """
@@ -39,6 +41,7 @@ from .paginator import (
     ListOrganizationRecommendationResourcesPaginator,
     ListOrganizationRecommendationsPaginator,
     ListRecommendationResourcesPaginator,
+    ListRecommendationsForResourcePaginator,
     ListRecommendationsPaginator,
 )
 
@@ -51,6 +54,7 @@ __all__ = (
     "ListOrganizationRecommendationResourcesPaginator",
     "ListOrganizationRecommendationsPaginator",
     "ListRecommendationResourcesPaginator",
+    "ListRecommendationsForResourcePaginator",
     "ListRecommendationsPaginator",
     "TrustedAdvisorPublicAPIClient",
 )

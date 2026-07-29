@@ -71,7 +71,7 @@ public:
     */
     wxRibbonBarEvent(wxEventType command_type = wxEVT_NULL,
                      int win_id = 0,
-                     wxRibbonPage* page = NULL);
+                     wxRibbonPage* page = nullptr);
 
     /**
         Returns the page being changed to, or being clicked on.
@@ -111,6 +111,16 @@ public:
     bool shown;
 };
 
+/**
+    A vector of wxRibbonPageTabInfo.
+
+    This class is actually a legacy container (see @ref overview_container for
+    more details), but it can, and should be, handled as just a vector of
+    wxRibbonPageTabInfo objects in the application code.
+*/
+class wxRibbonPageTabInfoArray : public std::vector<wxRibbonPageTabInfoArray>
+{
+};
 
 
 /**
@@ -132,8 +142,8 @@ public:
     After all pages have been created, and all controls and panels placed on
     those pages, Realize() must be called.
 
-    @sa wxRibbonPage
-    @sa wxRibbonPanel
+    @see wxRibbonPage
+    @see wxRibbonPanel
 
     @beginStyleTable
     @style{wxRIBBON_BAR_DEFAULT_STYLE}
@@ -289,9 +299,18 @@ public:
     /**
         Get a page by index.
 
-        NULL will be returned if the given index is out of range.
+        @NULL will be returned if the given index is out of range.
     */
     wxRibbonPage* GetPage(int n);
+
+    /**
+        Get a page by window ID.
+
+        @NULL will be returned if no page with the ID is found.
+
+        @since 3.3.0
+    */
+    wxRibbonPage* GetPageById(wxWindowID id);
 
     /**
         Get the number of pages in this bar.
@@ -443,6 +462,32 @@ public:
     */
     wxRibbonDisplayMode GetDisplayMode() const;
 
+    /**
+        Returns whether the bar contains multiple pages.
+
+        The default implementation always returns @c true.
+    */
+    virtual bool HasMultiplePages() const;
+
+    /**
+        Hide the panels if its display mode is @c wxRIBBON_BAR_EXPANDED.
+
+        @since 2.9.5
+    */
+    void HideIfExpanded();
+
+    /**
+        Return the image list containing images of the given size, creating it
+        if necessary.
+
+        @param size The size of the images going into this image list.
+        @param initialCount The initial number of images to reserve for the
+            image list (this parameter is available since wxWidgets 3.3.2).
+        @return The existing (or newly created) image list.
+
+        @since 3.1.4
+    */
+    wxImageList* GetButtonImageList(wxSize size, int initialCount = 1);
 
     /**
         Perform initial layout and size calculations of the bar and its

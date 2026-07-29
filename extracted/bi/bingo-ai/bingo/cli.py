@@ -27,7 +27,6 @@ if sys.platform == "win32":
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
-from rich.text import Text
 
 from .config import BingoConfig
 from .lang.strings import get_strings, SUPPORTED_LANGS
@@ -45,6 +44,27 @@ BANNER_SMALL = r"""[#00ff41]
   ██╔══██╗██║██║╚██╗██║██║   ██║██║   ██║
   ██████╔╝██║██║ ╚████║╚██████╔╝╚██████╔╝
   ╚═════╝ ╚═╝╚═╝  ╚═══╝ ╚═════╝  ╚═════╝[/#00ff41]"""
+
+
+def _print_banner_v7(cfg: BingoConfig, s: dict) -> None:
+    """Print v7 engine banner."""
+    from . import __version__
+    console.print(BANNER_SMALL)
+    model_name = ""
+    mc = cfg.get_active_model_config()
+    if mc:
+        model_name = mc.display_name()
+    console.print(f"  [#546e7a]AI Terminal  ·  v{__version__}  ·  v7 Engine[/#546e7a]")
+    console.print()
+    console.print(Panel(
+        f"  [#00ff41]⚡ model[/]  : [#00e5ff]{model_name}[/]\n"
+        f"  [#00ff41]⚡ lang[/]   : [#00e5ff]{cfg.lang}[/]\n"
+        f"  [#00ff41]⚡ engine[/] : [#ce93d8]v7 executor-owned · zero-drift · zero-hallucination[/]",
+        border_style="#00ff41",
+        title="[#00ff41]⟪ BINGO ⟫[/]",
+        subtitle="[#546e7a]pentest AI terminal[/]",
+    ))
+    console.print()
 
 
 def _onboarding(cfg: BingoConfig) -> BingoConfig:
@@ -133,10 +153,7 @@ def _onboarding(cfg: BingoConfig) -> BingoConfig:
 
 def _run_scan_mode(target: str, cfg: BingoConfig, args: list[str], s: dict | None = None) -> None:
     """bingo scan <url> — 완전 자동 Red Team 모드 (인가 시스템 포함)"""
-    from rich.live import Live
-    from rich.spinner import Spinner
     from .core.authorization import create_auth_context
-    import os
 
     if s is None:
         s = get_strings(cfg.lang)
@@ -460,8 +477,6 @@ def _run_silent_mode(target: str, cfg: "BingoConfig", extra_args: list, s: dict)
     findings 존재 시 exit(1), 없으면 exit(0).
     """
     import json as _json
-    import time as _time_silent
-    from pathlib import Path as _Path_silent
     from .redteam.pipeline import RedTeamPipeline
 
     # 출력 디렉토리
@@ -667,11 +682,127 @@ def main() -> None:
             cfg = BingoConfig()
         cfg = _onboarding(cfg)
 
-    # ── 터미널 실행 ───────────────────────────────────────────────
+    # ── v7 엔진 실행 ─────────────────────────────────────────────
     s = get_strings(cfg.lang)
-    from .ui.terminal import BingoTerminal
-    app = BingoTerminal(cfg, s)
-    app.run()
+    from .engine.loop import AgentLoop
+    from pathlib import Path as _Path
+    from datetime import datetime as _dt
+    import re as _re
+
+    # 화면 초기화 후 배너 출력
+    os.system("cls" if os.name == "nt" else "clear")
+    _print_banner_v7(cfg, s)
+
+    _current_target = ""
+    _session_log_lines: list[str] = []
+
+    # prompt_toolkit 세션 (화살표 키 히스토리 + 슬래시 자동완성)
+    from prompt_toolkit import PromptSession
+    from prompt_toolkit.history import InMemoryHistory
+    from prompt_toolkit.completion import WordCompleter
+    _slash_commands = [
+        "/target", "/model", "/status", "/clear", "/session", "/help", "/exit",
+    ]
+    _slash_completer = WordCompleter(_slash_commands, sentence=True)
+    _pt_history = InMemoryHistory()
+    _pt_session = PromptSession(history=_pt_history, completer=_slash_completer)
+
+    while True:
+        try:
+            _prompt_label = f"┌─[bingo]─[{_current_target}]─▶ " if _current_target else "┌─[bingo]─▶ "
+            user_input = _pt_session.prompt(_prompt_label)
+        except (KeyboardInterrupt, EOFError):
+            console.print("\n[dim]Bye.[/]")
+            break
+        if not user_input.strip():
+            continue
+
+        _cmd = user_input.strip().lower()
+
+        # ── 슬래시 명령어 ──────────────────────────────────────
+        if _cmd in ("/exit", "/quit", "exit", "quit"):
+            break
+        if _cmd == "/help":
+            console.print("""[#00d4aa]Commands:[/]
+  /target <url>  — 타겟 설정/변경
+  /model         — 모델 설정
+  /status        — 현재 상태 표시
+  /clear         — 화면 초기화
+  /session       — 세션 로그 경로 표시
+  /exit          — 종료""")
+            continue
+        if _cmd == "/clear":
+            os.system("cls" if os.name == "nt" else "clear")
+            _print_banner_v7(cfg, s)
+            continue
+        if _cmd == "/status":
+            console.print(f"  [#00d4aa]target[/] : {_current_target or '(not set)'}")
+            mc = cfg.get_active_model_config()
+            _mn = mc.display_name() if mc else "(none)"
+            console.print(f"  [#00d4aa]model[/]  : {_mn}")
+            console.print(f"  [#00d4aa]lang[/]   : {cfg.lang}")
+            continue
+        if _cmd == "/session":
+            if _session_log_lines:
+                _sess_dir = _Path.home() / ".bingo" / "sessions"
+                _sess_dir.mkdir(parents=True, exist_ok=True)
+                _sess_path = _sess_dir / f"session_{_dt.now().strftime('%Y%m%d_%H%M%S')}.md"
+                _sess_path.write_text("\n".join(_session_log_lines), encoding="utf-8")
+                console.print(f"  [dim]Session saved: {_sess_path}[/]")
+            else:
+                console.print("  [dim]No session data yet.[/]")
+            continue
+        if _cmd.startswith("/target"):
+            _parts = user_input.strip().split(None, 1)
+            if len(_parts) > 1:
+                _current_target = _parts[1].strip()
+                console.print(f"  [#00e5ff]Target set: {_current_target}[/]")
+            else:
+                console.print("  [yellow]Usage: /target https://example.com[/]")
+            continue
+        if _cmd == "/model":
+            from .ui.terminal import BingoTerminal
+            _t = BingoTerminal.__new__(BingoTerminal)
+            _t.config = cfg
+            _t.console = console
+            _t.s = s
+            _t._cmd_model()
+            cfg = BingoConfig.load()
+            continue
+
+        # ── 타겟 추출 ─────────────────────────────────────────
+        _url_m = _re.search(r'https?://[^\s]+', user_input)
+        if _url_m:
+            _current_target = _url_m.group(0).rstrip(".,;")
+        if not _current_target:
+            console.print("[yellow]타겟을 설정하세요. 예: /target https://example.com 또는 URL 포함 메시지 입력[/]")
+            continue
+
+        # ── 에이전트 루프 실행 ─────────────────────────────────
+        _session_log_lines.append(f"## [{_dt.now().strftime('%H:%M:%S')}] User: {user_input}")
+        try:
+            loop = AgentLoop(target=_current_target, config=cfg, console=console)
+            loop.run(user_input)
+            _session_log_lines.append(f"  Findings: {len(loop.findings._findings)}")
+        except KeyboardInterrupt:
+            console.print("\n[yellow]중단됨[/]")
+        except Exception as e:
+            import traceback
+            from rich.text import Text
+            console.print(Text(f"Error: {e}", style="red"))
+            console.print(Text(traceback.format_exc()[-500:], style="dim"))
+            _session_log_lines.append(f"  Error: {e}")
+
+    # ── 세션 자동 저장 ────────────────────────────────────────
+    if _session_log_lines:
+        _sess_dir = _Path.home() / ".bingo" / "sessions"
+        _sess_dir.mkdir(parents=True, exist_ok=True)
+        _sess_path = _sess_dir / f"session_{_dt.now().strftime('%Y%m%d_%H%M%S')}.md"
+        _sess_path.write_text(
+            f"# Bingo Session — {_current_target or 'no target'}\n\n" + "\n".join(_session_log_lines),
+            encoding="utf-8",
+        )
+        console.print(f"\n[dim]📝 Session auto-saved: {_sess_path}[/]")
 
 
 if __name__ == "__main__":

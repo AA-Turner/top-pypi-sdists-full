@@ -650,7 +650,7 @@ static void *init_type_wxAuiManagerEvent(sipSimpleWrapper *sipSelf, PyObject *si
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxAuiManagerEvent[] = {{10, 0, 1}};
+static sipEncodedTypeDef supers_wxAuiManagerEvent[] = {{11, 0, 1}};
 
 
 static PyMethodDef methods_wxAuiManagerEvent[] = {

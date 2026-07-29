@@ -276,7 +276,7 @@ bool sipwxDataViewTreeStore::IsVirtualListModel() const
 }
 
 
-PyDoc_STRVAR(doc_wxDataViewTreeStore_AppendContainer, "AppendContainer(parent, text, icon=wx.BitmapBundle(), expanded=wx.BitmapBundle(), data=None) -> DataViewItem\n"
+PyDoc_STRVAR(doc_wxDataViewTreeStore_AppendContainer, "AppendContainer(parent, text, icon=wx.BitmapBundle(), expanded=wx.BitmapBundle(), data=nullptr) -> DataViewItem\n"
 "\n"
 "Append a container.");
 
@@ -295,7 +295,7 @@ static PyObject *meth_wxDataViewTreeStore_AppendContainer(PyObject *sipSelf, PyO
         const ::wxBitmapBundle& expandeddef = wxBitmapBundle();
         const ::wxBitmapBundle* expanded = &expandeddef;
         int expandedState = 0;
-        ::wxClientData* data = 0;
+        ::wxClientData* data = nullptr;
         int dataState = 0;
         ::wxDataViewTreeStore *sipCpp;
 
@@ -334,7 +334,7 @@ static PyObject *meth_wxDataViewTreeStore_AppendContainer(PyObject *sipSelf, PyO
 }
 
 
-PyDoc_STRVAR(doc_wxDataViewTreeStore_AppendItem, "AppendItem(parent, text, icon=wx.BitmapBundle(), data=None) -> DataViewItem\n"
+PyDoc_STRVAR(doc_wxDataViewTreeStore_AppendItem, "AppendItem(parent, text, icon=wx.BitmapBundle(), data=nullptr) -> DataViewItem\n"
 "\n"
 "Append an item.");
 
@@ -350,7 +350,7 @@ static PyObject *meth_wxDataViewTreeStore_AppendItem(PyObject *sipSelf, PyObject
         const ::wxBitmapBundle& icondef = wxBitmapBundle();
         const ::wxBitmapBundle* icon = &icondef;
         int iconState = 0;
-        ::wxClientData* data = 0;
+        ::wxClientData* data = nullptr;
         int dataState = 0;
         ::wxDataViewTreeStore *sipCpp;
 
@@ -741,7 +741,7 @@ static PyObject *meth_wxDataViewTreeStore_GetNthChild(PyObject *sipSelf, PyObjec
 }
 
 
-PyDoc_STRVAR(doc_wxDataViewTreeStore_InsertContainer, "InsertContainer(parent, previous, text, icon=wx.BitmapBundle(), expanded=wx.BitmapBundle(), data=None) -> DataViewItem\n"
+PyDoc_STRVAR(doc_wxDataViewTreeStore_InsertContainer, "InsertContainer(parent, previous, text, icon=wx.BitmapBundle(), expanded=wx.BitmapBundle(), data=nullptr) -> DataViewItem\n"
 "\n"
 "Inserts a container after previous.");
 
@@ -761,7 +761,7 @@ static PyObject *meth_wxDataViewTreeStore_InsertContainer(PyObject *sipSelf, PyO
         const ::wxBitmapBundle& expandeddef = wxBitmapBundle();
         const ::wxBitmapBundle* expanded = &expandeddef;
         int expandedState = 0;
-        ::wxClientData* data = 0;
+        ::wxClientData* data = nullptr;
         int dataState = 0;
         ::wxDataViewTreeStore *sipCpp;
 
@@ -801,7 +801,7 @@ static PyObject *meth_wxDataViewTreeStore_InsertContainer(PyObject *sipSelf, PyO
 }
 
 
-PyDoc_STRVAR(doc_wxDataViewTreeStore_InsertItem, "InsertItem(parent, previous, text, icon=wx.BitmapBundle(), data=None) -> DataViewItem\n"
+PyDoc_STRVAR(doc_wxDataViewTreeStore_InsertItem, "InsertItem(parent, previous, text, icon=wx.BitmapBundle(), data=nullptr) -> DataViewItem\n"
 "\n"
 "Inserts an item after previous.");
 
@@ -818,7 +818,7 @@ static PyObject *meth_wxDataViewTreeStore_InsertItem(PyObject *sipSelf, PyObject
         const ::wxBitmapBundle& icondef = wxBitmapBundle();
         const ::wxBitmapBundle* icon = &icondef;
         int iconState = 0;
-        ::wxClientData* data = 0;
+        ::wxClientData* data = nullptr;
         int dataState = 0;
         ::wxDataViewTreeStore *sipCpp;
 
@@ -856,7 +856,7 @@ static PyObject *meth_wxDataViewTreeStore_InsertItem(PyObject *sipSelf, PyObject
 }
 
 
-PyDoc_STRVAR(doc_wxDataViewTreeStore_PrependContainer, "PrependContainer(parent, text, icon=wx.BitmapBundle(), expanded=wx.BitmapBundle(), data=None) -> DataViewItem\n"
+PyDoc_STRVAR(doc_wxDataViewTreeStore_PrependContainer, "PrependContainer(parent, text, icon=wx.BitmapBundle(), expanded=wx.BitmapBundle(), data=nullptr) -> DataViewItem\n"
 "\n"
 "Inserts a container before the first child item or parent.");
 
@@ -875,7 +875,7 @@ static PyObject *meth_wxDataViewTreeStore_PrependContainer(PyObject *sipSelf, Py
         const ::wxBitmapBundle& expandeddef = wxBitmapBundle();
         const ::wxBitmapBundle* expanded = &expandeddef;
         int expandedState = 0;
-        ::wxClientData* data = 0;
+        ::wxClientData* data = nullptr;
         int dataState = 0;
         ::wxDataViewTreeStore *sipCpp;
 
@@ -914,7 +914,7 @@ static PyObject *meth_wxDataViewTreeStore_PrependContainer(PyObject *sipSelf, Py
 }
 
 
-PyDoc_STRVAR(doc_wxDataViewTreeStore_PrependItem, "PrependItem(parent, text, icon=wx.BitmapBundle(), data=None) -> DataViewItem\n"
+PyDoc_STRVAR(doc_wxDataViewTreeStore_PrependItem, "PrependItem(parent, text, icon=wx.BitmapBundle(), data=nullptr) -> DataViewItem\n"
 "\n"
 "Inserts an item before the first child item or parent.");
 
@@ -930,7 +930,7 @@ static PyObject *meth_wxDataViewTreeStore_PrependItem(PyObject *sipSelf, PyObjec
         const ::wxBitmapBundle& icondef = wxBitmapBundle();
         const ::wxBitmapBundle* icon = &icondef;
         int iconState = 0;
-        ::wxClientData* data = 0;
+        ::wxClientData* data = nullptr;
         int dataState = 0;
         ::wxDataViewTreeStore *sipCpp;
 

@@ -8,6 +8,8 @@
 // For compilers that support precompilation, includes "wx.h".
 #include "wx/wxprec.h"
 
+#if wxUSE_COLOURDLG
+
 #include "wx/qt/private/winevent.h"
 #include "wx/colordlg.h"
 
@@ -18,7 +20,20 @@ class wxQtColorDialog : public wxQtEventSignalHandler< QColorDialog, wxDialog >
 public:
     wxQtColorDialog( wxWindow *parent, wxDialog *handler)
         : wxQtEventSignalHandler<QColorDialog,wxDialog>(parent, handler)
-        { }
+    {
+        connect(this, &QColorDialog::currentColorChanged,
+                this, &wxQtColorDialog::currentColorChanged);
+    }
+
+private:
+    void currentColorChanged(const QColor& color)
+    {
+        wxColourDialogEvent event(wxEVT_COLOUR_CHANGED,
+                                  static_cast<wxColourDialog*>(GetHandler()),
+                                  wxQtConvertColour(color));
+
+        EmitEvent( event );
+    }
 };
 
 wxIMPLEMENT_DYNAMIC_CLASS(wxColourDialog,wxDialog)
@@ -55,3 +70,5 @@ QColorDialog *wxColourDialog::GetQColorDialog() const
 {
     return static_cast<QColorDialog *>(m_qtWindow);
 }
+
+#endif // wxUSE_COLOURDLG

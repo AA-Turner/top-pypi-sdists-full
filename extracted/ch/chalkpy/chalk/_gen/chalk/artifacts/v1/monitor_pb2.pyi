@@ -1,7 +1,9 @@
+from chalk._gen.chalk.artifacts.v1 import alert_channel_pb2 as _alert_channel_pb2
 from chalk._gen.chalk.artifacts.v1 import chart_pb2 as _chart_pb2
 from google.api import field_behavior_pb2 as _field_behavior_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import (
@@ -14,44 +16,20 @@ from typing import (
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
-class TriggerThreshold(_message.Message):
-    __slots__ = ("severity_kind", "threshold_kind", "threshold_value", "description")
-    SEVERITY_KIND_FIELD_NUMBER: _ClassVar[int]
-    THRESHOLD_KIND_FIELD_NUMBER: _ClassVar[int]
-    THRESHOLD_VALUE_FIELD_NUMBER: _ClassVar[int]
-    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    severity_kind: _chart_pb2.AlertSeverityKind
-    threshold_kind: _chart_pb2.ThresholdKind
-    threshold_value: float
-    description: str
-    def __init__(
-        self,
-        severity_kind: _Optional[_Union[_chart_pb2.AlertSeverityKind, str]] = ...,
-        threshold_kind: _Optional[_Union[_chart_pb2.ThresholdKind, str]] = ...,
-        threshold_value: _Optional[float] = ...,
-        description: _Optional[str] = ...,
-    ) -> None: ...
+class MonitorType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    MONITOR_TYPE_UNSPECIFIED: _ClassVar[MonitorType]
+    MONITOR_TYPE_CHART: _ClassVar[MonitorType]
+    MONITOR_TYPE_LOG: _ClassVar[MonitorType]
+    MONITOR_TYPE_HEALTHCHECK: _ClassVar[MonitorType]
 
-class TieredFrequencyTrigger(_message.Message):
-    __slots__ = ("trigger_thresholds",)
-    TRIGGER_THRESHOLDS_FIELD_NUMBER: _ClassVar[int]
-    trigger_thresholds: _containers.RepeatedCompositeFieldContainer[TriggerThreshold]
-    def __init__(self, trigger_thresholds: _Optional[_Iterable[_Union[TriggerThreshold, _Mapping]]] = ...) -> None: ...
-
-class BooleanTrigger(_message.Message):
-    __slots__ = ("severity_kind", "description")
-    SEVERITY_KIND_FIELD_NUMBER: _ClassVar[int]
-    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    severity_kind: _chart_pb2.AlertSeverityKind
-    description: str
-    def __init__(
-        self,
-        severity_kind: _Optional[_Union[_chart_pb2.AlertSeverityKind, str]] = ...,
-        description: _Optional[str] = ...,
-    ) -> None: ...
+MONITOR_TYPE_UNSPECIFIED: MonitorType
+MONITOR_TYPE_CHART: MonitorType
+MONITOR_TYPE_LOG: MonitorType
+MONITOR_TYPE_HEALTHCHECK: MonitorType
 
 class LogsMonitor(_message.Message):
-    __slots__ = ("query_string", "tags", "window_period", "trigger")
+    __slots__ = ("query_string", "tags", "window_period")
     class TagsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -63,52 +41,68 @@ class LogsMonitor(_message.Message):
     QUERY_STRING_FIELD_NUMBER: _ClassVar[int]
     TAGS_FIELD_NUMBER: _ClassVar[int]
     WINDOW_PERIOD_FIELD_NUMBER: _ClassVar[int]
-    TRIGGER_FIELD_NUMBER: _ClassVar[int]
     query_string: str
     tags: _containers.ScalarMap[str, str]
     window_period: str
-    trigger: TieredFrequencyTrigger
     def __init__(
         self,
         query_string: _Optional[str] = ...,
         tags: _Optional[_Mapping[str, str]] = ...,
         window_period: _Optional[str] = ...,
-        trigger: _Optional[_Union[TieredFrequencyTrigger, _Mapping]] = ...,
     ) -> None: ...
 
 class HealthcheckMonitor(_message.Message):
-    __slots__ = ("healthcheck_name", "trigger")
+    __slots__ = ("healthcheck_name",)
     HEALTHCHECK_NAME_FIELD_NUMBER: _ClassVar[int]
-    TRIGGER_FIELD_NUMBER: _ClassVar[int]
     healthcheck_name: str
-    trigger: BooleanTrigger
-    def __init__(
-        self, healthcheck_name: _Optional[str] = ..., trigger: _Optional[_Union[BooleanTrigger, _Mapping]] = ...
-    ) -> None: ...
+    def __init__(self, healthcheck_name: _Optional[str] = ...) -> None: ...
 
 class ChartMonitor(_message.Message):
-    __slots__ = ("chart_id", "series_name", "trigger")
-    CHART_ID_FIELD_NUMBER: _ClassVar[int]
-    SERIES_NAME_FIELD_NUMBER: _ClassVar[int]
-    TRIGGER_FIELD_NUMBER: _ClassVar[int]
-    chart_id: str
-    series_name: str
-    trigger: TieredFrequencyTrigger
+    __slots__ = ("series_mql", "formula_mql")
+    SERIES_MQL_FIELD_NUMBER: _ClassVar[int]
+    FORMULA_MQL_FIELD_NUMBER: _ClassVar[int]
+    series_mql: _containers.RepeatedScalarFieldContainer[str]
+    formula_mql: str
+    def __init__(self, series_mql: _Optional[_Iterable[str]] = ..., formula_mql: _Optional[str] = ...) -> None: ...
+
+class AlertChannel(_message.Message):
+    __slots__ = ("entity_kind", "entity_id", "entity_name")
+    ENTITY_KIND_FIELD_NUMBER: _ClassVar[int]
+    ENTITY_ID_FIELD_NUMBER: _ClassVar[int]
+    ENTITY_NAME_FIELD_NUMBER: _ClassVar[int]
+    entity_kind: _alert_channel_pb2.AlertChannelKind
+    entity_id: str
+    entity_name: str
     def __init__(
         self,
-        chart_id: _Optional[str] = ...,
-        series_name: _Optional[str] = ...,
-        trigger: _Optional[_Union[TieredFrequencyTrigger, _Mapping]] = ...,
+        entity_kind: _Optional[_Union[_alert_channel_pb2.AlertChannelKind, str]] = ...,
+        entity_id: _Optional[str] = ...,
+        entity_name: _Optional[str] = ...,
+    ) -> None: ...
+
+class Threshold(_message.Message):
+    __slots__ = ("threshold_kind", "threshold_value", "alert_channels")
+    THRESHOLD_KIND_FIELD_NUMBER: _ClassVar[int]
+    THRESHOLD_VALUE_FIELD_NUMBER: _ClassVar[int]
+    ALERT_CHANNELS_FIELD_NUMBER: _ClassVar[int]
+    threshold_kind: _chart_pb2.ThresholdKind
+    threshold_value: float
+    alert_channels: _containers.RepeatedCompositeFieldContainer[AlertChannel]
+    def __init__(
+        self,
+        threshold_kind: _Optional[_Union[_chart_pb2.ThresholdKind, str]] = ...,
+        threshold_value: _Optional[float] = ...,
+        alert_channels: _Optional[_Iterable[_Union[AlertChannel, _Mapping]]] = ...,
     ) -> None: ...
 
 class Monitor(_message.Message):
     __slots__ = (
         "id",
         "type",
-        "alert_owners",
-        "alert_channels",
         "name",
+        "description",
         "created_by",
+        "threshold",
         "chart_monitor",
         "healthcheck_monitor",
         "logs_monitor",
@@ -117,10 +111,10 @@ class Monitor(_message.Message):
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
-    ALERT_OWNERS_FIELD_NUMBER: _ClassVar[int]
-    ALERT_CHANNELS_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    THRESHOLD_FIELD_NUMBER: _ClassVar[int]
     CHART_MONITOR_FIELD_NUMBER: _ClassVar[int]
     HEALTHCHECK_MONITOR_FIELD_NUMBER: _ClassVar[int]
     LOGS_MONITOR_FIELD_NUMBER: _ClassVar[int]
@@ -128,10 +122,10 @@ class Monitor(_message.Message):
     UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
     id: str
     type: str
-    alert_owners: _containers.RepeatedScalarFieldContainer[str]
-    alert_channels: _containers.RepeatedScalarFieldContainer[str]
     name: str
+    description: str
     created_by: str
+    threshold: Threshold
     chart_monitor: ChartMonitor
     healthcheck_monitor: HealthcheckMonitor
     logs_monitor: LogsMonitor
@@ -141,10 +135,10 @@ class Monitor(_message.Message):
         self,
         id: _Optional[str] = ...,
         type: _Optional[str] = ...,
-        alert_owners: _Optional[_Iterable[str]] = ...,
-        alert_channels: _Optional[_Iterable[str]] = ...,
         name: _Optional[str] = ...,
+        description: _Optional[str] = ...,
         created_by: _Optional[str] = ...,
+        threshold: _Optional[_Union[Threshold, _Mapping]] = ...,
         chart_monitor: _Optional[_Union[ChartMonitor, _Mapping]] = ...,
         healthcheck_monitor: _Optional[_Union[HealthcheckMonitor, _Mapping]] = ...,
         logs_monitor: _Optional[_Union[LogsMonitor, _Mapping]] = ...,

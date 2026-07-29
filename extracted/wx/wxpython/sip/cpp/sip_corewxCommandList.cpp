@@ -117,9 +117,7 @@ static int slot_wxCommandList___contains__(PyObject *sipSelf, PyObject *sipArg)
         if (sipParseArgs(&sipParseErr, sipArg, "1J8", sipType_wxCommand, &obj))
         {
             int sipRes = 0;
-        wxCommandList::compatibility_iterator node;
-        node = sipCpp->Find((wxCommand*)obj);
-        sipRes = node != NULL;
+        sipRes = sipCpp->Member((wxCommand*)obj);
 
             return sipRes;
         }

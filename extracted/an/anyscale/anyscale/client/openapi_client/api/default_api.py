@@ -277,6 +277,120 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def add_service_secondary_auth_token_api_v2_services_v2_service_id_add_secondary_auth_token_post(self, service_id, **kwargs):  # noqa: E501
+        """Add Service Secondary Auth Token  # noqa: E501
+
+        Generate a secondary auth token for the service (token rotation).  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.add_service_secondary_auth_token_api_v2_services_v2_service_id_add_secondary_auth_token_post(service_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str service_id: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: Decoratedproductionservicev2ApimodelResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.add_service_secondary_auth_token_api_v2_services_v2_service_id_add_secondary_auth_token_post_with_http_info(service_id, **kwargs)  # noqa: E501
+
+    def add_service_secondary_auth_token_api_v2_services_v2_service_id_add_secondary_auth_token_post_with_http_info(self, service_id, **kwargs):  # noqa: E501
+        """Add Service Secondary Auth Token  # noqa: E501
+
+        Generate a secondary auth token for the service (token rotation).  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.add_service_secondary_auth_token_api_v2_services_v2_service_id_add_secondary_auth_token_post_with_http_info(service_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str service_id: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(Decoratedproductionservicev2ApimodelResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'service_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method add_service_secondary_auth_token_api_v2_services_v2_service_id_add_secondary_auth_token_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'service_id' is set
+        if self.api_client.client_side_validation and ('service_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['service_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `service_id` when calling `add_service_secondary_auth_token_api_v2_services_v2_service_id_add_secondary_auth_token_post`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'service_id' in local_var_params:
+            path_params['service_id'] = local_var_params['service_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/services-v2/{service_id}/add_secondary_auth_token', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='Decoratedproductionservicev2ApimodelResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def add_to_waitlist_api_v2_aioa_cloud_waitlist_post(self, create_aioa_cloud_waitlist, **kwargs):  # noqa: E501
         """Add To Waitlist  # noqa: E501
 
@@ -11118,6 +11232,125 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def delete_service_auth_token_api_v2_services_v2_service_id_delete_secondary_auth_token_post(self, service_id, **kwargs):  # noqa: E501
+        """Delete Service Auth Token  # noqa: E501
+
+        Delete the specified auth token for the service (token rotation).  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.delete_service_auth_token_api_v2_services_v2_service_id_delete_secondary_auth_token_post(service_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str service_id: (required)
+        :param str auth_token:
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: Decoratedproductionservicev2ApimodelResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.delete_service_auth_token_api_v2_services_v2_service_id_delete_secondary_auth_token_post_with_http_info(service_id, **kwargs)  # noqa: E501
+
+    def delete_service_auth_token_api_v2_services_v2_service_id_delete_secondary_auth_token_post_with_http_info(self, service_id, **kwargs):  # noqa: E501
+        """Delete Service Auth Token  # noqa: E501
+
+        Delete the specified auth token for the service (token rotation).  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.delete_service_auth_token_api_v2_services_v2_service_id_delete_secondary_auth_token_post_with_http_info(service_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str service_id: (required)
+        :param str auth_token:
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(Decoratedproductionservicev2ApimodelResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'service_id',
+            'auth_token'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method delete_service_auth_token_api_v2_services_v2_service_id_delete_secondary_auth_token_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'service_id' is set
+        if self.api_client.client_side_validation and ('service_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['service_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `service_id` when calling `delete_service_auth_token_api_v2_services_v2_service_id_delete_secondary_auth_token_post`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'service_id' in local_var_params:
+            path_params['service_id'] = local_var_params['service_id']  # noqa: E501
+
+        query_params = []
+        if 'auth_token' in local_var_params and local_var_params['auth_token'] is not None:  # noqa: E501
+            query_params.append(('auth_token', local_var_params['auth_token']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/services-v2/{service_id}/delete_secondary_auth_token', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='Decoratedproductionservicev2ApimodelResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def delete_template_api_v2_workspace_templates_template_id_delete(self, template_id, **kwargs):  # noqa: E501
         """Delete Template  # noqa: E501
 
@@ -17104,6 +17337,162 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def get_cloud_gpu_status_api_v2_clouds_cloud_id_gpu_status_get(self, cloud_id, **kwargs):  # noqa: E501
+        """Get Cloud Gpu Status  # noqa: E501
+
+        Cloud-wide GPU fleet snapshot, grouped by instance type or workload, with per-group and node-level rollups. Filterable by project, status, instance type, node, and GPU.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_cloud_gpu_status_api_v2_clouds_cloud_id_gpu_status_get(cloud_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param GpuGroupBy group_by: How to group the fleet.
+        :param str workload_type: Only include GPUs attributed to this workload type. Idle GPUs are excluded when set.
+        :param GpuState status: Only include GPUs in this derived state.
+        :param str project_id: Only include GPUs on clusters in this project.
+        :param str instance_type: Only include GPUs on nodes of this instance type.
+        :param str node_id: Only include GPUs on this node.
+        :param str gpu_uuid: Only include the GPU with this UUID.
+        :param float time: Unix timestamp to snapshot at. Defaults to now. Subject to the Prometheus lookback window: GPUs of a node terminated within the last ~5 minutes may still appear.
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: CloudgpustatusResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_cloud_gpu_status_api_v2_clouds_cloud_id_gpu_status_get_with_http_info(cloud_id, **kwargs)  # noqa: E501
+
+    def get_cloud_gpu_status_api_v2_clouds_cloud_id_gpu_status_get_with_http_info(self, cloud_id, **kwargs):  # noqa: E501
+        """Get Cloud Gpu Status  # noqa: E501
+
+        Cloud-wide GPU fleet snapshot, grouped by instance type or workload, with per-group and node-level rollups. Filterable by project, status, instance type, node, and GPU.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_cloud_gpu_status_api_v2_clouds_cloud_id_gpu_status_get_with_http_info(cloud_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param GpuGroupBy group_by: How to group the fleet.
+        :param str workload_type: Only include GPUs attributed to this workload type. Idle GPUs are excluded when set.
+        :param GpuState status: Only include GPUs in this derived state.
+        :param str project_id: Only include GPUs on clusters in this project.
+        :param str instance_type: Only include GPUs on nodes of this instance type.
+        :param str node_id: Only include GPUs on this node.
+        :param str gpu_uuid: Only include the GPU with this UUID.
+        :param float time: Unix timestamp to snapshot at. Defaults to now. Subject to the Prometheus lookback window: GPUs of a node terminated within the last ~5 minutes may still appear.
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(CloudgpustatusResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cloud_id',
+            'group_by',
+            'workload_type',
+            'status',
+            'project_id',
+            'instance_type',
+            'node_id',
+            'gpu_uuid',
+            'time'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_cloud_gpu_status_api_v2_clouds_cloud_id_gpu_status_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cloud_id' is set
+        if self.api_client.client_side_validation and ('cloud_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cloud_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cloud_id` when calling `get_cloud_gpu_status_api_v2_clouds_cloud_id_gpu_status_get`")  # noqa: E501
+
+        if self.api_client.client_side_validation and 'workload_type' in local_var_params and not re.search(r'^(job|service|workspace)$', local_var_params['workload_type']):  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `workload_type` when calling `get_cloud_gpu_status_api_v2_clouds_cloud_id_gpu_status_get`, must conform to the pattern `/^(job|service|workspace)$/`")  # noqa: E501
+        collection_formats = {}
+
+        path_params = {}
+        if 'cloud_id' in local_var_params:
+            path_params['cloud_id'] = local_var_params['cloud_id']  # noqa: E501
+
+        query_params = []
+        if 'group_by' in local_var_params and local_var_params['group_by'] is not None:  # noqa: E501
+            query_params.append(('group_by', local_var_params['group_by']))  # noqa: E501
+        if 'workload_type' in local_var_params and local_var_params['workload_type'] is not None:  # noqa: E501
+            query_params.append(('workload_type', local_var_params['workload_type']))  # noqa: E501
+        if 'status' in local_var_params and local_var_params['status'] is not None:  # noqa: E501
+            query_params.append(('status', local_var_params['status']))  # noqa: E501
+        if 'project_id' in local_var_params and local_var_params['project_id'] is not None:  # noqa: E501
+            query_params.append(('project_id', local_var_params['project_id']))  # noqa: E501
+        if 'instance_type' in local_var_params and local_var_params['instance_type'] is not None:  # noqa: E501
+            query_params.append(('instance_type', local_var_params['instance_type']))  # noqa: E501
+        if 'node_id' in local_var_params and local_var_params['node_id'] is not None:  # noqa: E501
+            query_params.append(('node_id', local_var_params['node_id']))  # noqa: E501
+        if 'gpu_uuid' in local_var_params and local_var_params['gpu_uuid'] is not None:  # noqa: E501
+            query_params.append(('gpu_uuid', local_var_params['gpu_uuid']))  # noqa: E501
+        if 'time' in local_var_params and local_var_params['time'] is not None:  # noqa: E501
+            query_params.append(('time', local_var_params['time']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/clouds/{cloud_id}/gpu-status', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='CloudgpustatusResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def get_cloud_overview_dashboard_api_v2_clouds_cloud_id_cloud_overview_dashboard_get(self, cloud_id, **kwargs):  # noqa: E501
         """Get Cloud Overview Dashboard  # noqa: E501
 
@@ -20852,6 +21241,134 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def get_gpu_api_v2_clusters_cluster_id_gpus_gpu_uuid_get(self, cluster_id, gpu_uuid, **kwargs):  # noqa: E501
+        """Get Gpu  # noqa: E501
+
+        Get DCGM telemetry and placement metadata for a single GPU.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_gpu_api_v2_clusters_cluster_id_gpus_gpu_uuid_get(cluster_id, gpu_uuid, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cluster_id: (required)
+        :param str gpu_uuid: (required)
+        :param float time: Unix timestamp to snapshot at. Defaults to now. Subject to the Prometheus lookback window: GPUs of a node terminated within the last ~5 minutes may still appear.
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: GpudetailResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_gpu_api_v2_clusters_cluster_id_gpus_gpu_uuid_get_with_http_info(cluster_id, gpu_uuid, **kwargs)  # noqa: E501
+
+    def get_gpu_api_v2_clusters_cluster_id_gpus_gpu_uuid_get_with_http_info(self, cluster_id, gpu_uuid, **kwargs):  # noqa: E501
+        """Get Gpu  # noqa: E501
+
+        Get DCGM telemetry and placement metadata for a single GPU.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_gpu_api_v2_clusters_cluster_id_gpus_gpu_uuid_get_with_http_info(cluster_id, gpu_uuid, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cluster_id: (required)
+        :param str gpu_uuid: (required)
+        :param float time: Unix timestamp to snapshot at. Defaults to now. Subject to the Prometheus lookback window: GPUs of a node terminated within the last ~5 minutes may still appear.
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(GpudetailResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cluster_id',
+            'gpu_uuid',
+            'time'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_gpu_api_v2_clusters_cluster_id_gpus_gpu_uuid_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cluster_id' is set
+        if self.api_client.client_side_validation and ('cluster_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cluster_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cluster_id` when calling `get_gpu_api_v2_clusters_cluster_id_gpus_gpu_uuid_get`")  # noqa: E501
+        # verify the required parameter 'gpu_uuid' is set
+        if self.api_client.client_side_validation and ('gpu_uuid' not in local_var_params or  # noqa: E501
+                                                        local_var_params['gpu_uuid'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `gpu_uuid` when calling `get_gpu_api_v2_clusters_cluster_id_gpus_gpu_uuid_get`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'cluster_id' in local_var_params:
+            path_params['cluster_id'] = local_var_params['cluster_id']  # noqa: E501
+        if 'gpu_uuid' in local_var_params:
+            path_params['gpu_uuid'] = local_var_params['gpu_uuid']  # noqa: E501
+
+        query_params = []
+        if 'time' in local_var_params and local_var_params['time'] is not None:  # noqa: E501
+            query_params.append(('time', local_var_params['time']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/clusters/{cluster_id}/gpus/{gpu_uuid}', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='GpudetailResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def get_instance_usage_budget_api_v2_instance_usage_budgets_instance_usage_budget_id_get(self, instance_usage_budget_id, **kwargs):  # noqa: E501
         """Get Instance Usage Budget  # noqa: E501
 
@@ -22640,7 +23157,7 @@ class DefaultApi(object):
     def get_log_files_api_v2_logs_get_log_files_post(self, **kwargs):  # noqa: E501
         """Get Log Files  # noqa: E501
 
-        API for downloading logs of a session.   This is a paginated api, which means that a single call to this will result in one page of results (log files).  The page size and next page token (in LogDownloadRequest) can be used to list all log files, either iteratively or in a single go.   Parameters  ---------- log_download_request: LogDownloadRequest      Parameters to filter logs and control download. This is read from the request body.   Returns  -------  Response[LogDownloadResult]      List of logs files, with their presigned URL and next page token if there are more results.   Raises  ------  HTTPException(400)      If the user is using a cloud provider (currently non-AWS) that does not support this feature.   HTTPException(403)      If the user does not have access to the session.   HTTPException(404)      If the session or cloud could not be found in the DB.   HTTPException(500)      If there are any other errors while downloading logs.    # noqa: E501
+        API for downloading logs of a session.   This is a paginated api, which means that a single call to this will result in one page of results (log files).  The page size and next page token (in LogDownloadRequest) can be used to list all log files, either iteratively or in a single go.   Parameters  ---------- log_download_request: LogDownloadRequest      Parameters to filter logs and control download. This is read from the request body.   Returns  -------  Response[LogDownloadResult]      List of logs files, with their presigned URL and next page token if there are more results.   Raises  ------  HTTPException(400)      If the user is using a cloud provider (currently non-AWS) that does not support this feature.   HTTPException(403)      If the user does not have access to the session.   HTTPException(404)      If the session or cloud could not be found in the DB.   HTTPException(500)      If there are any other errors while downloading logs.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_log_files_api_v2_logs_get_log_files_post(async_req=True)
@@ -22665,7 +23182,7 @@ class DefaultApi(object):
     def get_log_files_api_v2_logs_get_log_files_post_with_http_info(self, **kwargs):  # noqa: E501
         """Get Log Files  # noqa: E501
 
-        API for downloading logs of a session.   This is a paginated api, which means that a single call to this will result in one page of results (log files).  The page size and next page token (in LogDownloadRequest) can be used to list all log files, either iteratively or in a single go.   Parameters  ---------- log_download_request: LogDownloadRequest      Parameters to filter logs and control download. This is read from the request body.   Returns  -------  Response[LogDownloadResult]      List of logs files, with their presigned URL and next page token if there are more results.   Raises  ------  HTTPException(400)      If the user is using a cloud provider (currently non-AWS) that does not support this feature.   HTTPException(403)      If the user does not have access to the session.   HTTPException(404)      If the session or cloud could not be found in the DB.   HTTPException(500)      If there are any other errors while downloading logs.    # noqa: E501
+        API for downloading logs of a session.   This is a paginated api, which means that a single call to this will result in one page of results (log files).  The page size and next page token (in LogDownloadRequest) can be used to list all log files, either iteratively or in a single go.   Parameters  ---------- log_download_request: LogDownloadRequest      Parameters to filter logs and control download. This is read from the request body.   Returns  -------  Response[LogDownloadResult]      List of logs files, with their presigned URL and next page token if there are more results.   Raises  ------  HTTPException(400)      If the user is using a cloud provider (currently non-AWS) that does not support this feature.   HTTPException(403)      If the user does not have access to the session.   HTTPException(404)      If the session or cloud could not be found in the DB.   HTTPException(500)      If there are any other errors while downloading logs.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_log_files_api_v2_logs_get_log_files_post_with_http_info(async_req=True)
@@ -23809,6 +24326,134 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='ClusterdashboardnodeResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def get_node_gpus_api_v2_clusters_cluster_id_nodes_node_id_gpus_get(self, cluster_id, node_id, **kwargs):  # noqa: E501
+        """Get Node Gpus  # noqa: E501
+
+        Get DCGM telemetry for every GPU on a node.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_node_gpus_api_v2_clusters_cluster_id_nodes_node_id_gpus_get(cluster_id, node_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cluster_id: (required)
+        :param str node_id: (required)
+        :param float time: Unix timestamp to snapshot at. Defaults to now. Subject to the Prometheus lookback window: GPUs of a node terminated within the last ~5 minutes may still appear.
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: NodegpusresponseResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_node_gpus_api_v2_clusters_cluster_id_nodes_node_id_gpus_get_with_http_info(cluster_id, node_id, **kwargs)  # noqa: E501
+
+    def get_node_gpus_api_v2_clusters_cluster_id_nodes_node_id_gpus_get_with_http_info(self, cluster_id, node_id, **kwargs):  # noqa: E501
+        """Get Node Gpus  # noqa: E501
+
+        Get DCGM telemetry for every GPU on a node.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_node_gpus_api_v2_clusters_cluster_id_nodes_node_id_gpus_get_with_http_info(cluster_id, node_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cluster_id: (required)
+        :param str node_id: (required)
+        :param float time: Unix timestamp to snapshot at. Defaults to now. Subject to the Prometheus lookback window: GPUs of a node terminated within the last ~5 minutes may still appear.
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(NodegpusresponseResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cluster_id',
+            'node_id',
+            'time'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_node_gpus_api_v2_clusters_cluster_id_nodes_node_id_gpus_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cluster_id' is set
+        if self.api_client.client_side_validation and ('cluster_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cluster_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cluster_id` when calling `get_node_gpus_api_v2_clusters_cluster_id_nodes_node_id_gpus_get`")  # noqa: E501
+        # verify the required parameter 'node_id' is set
+        if self.api_client.client_side_validation and ('node_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['node_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `node_id` when calling `get_node_gpus_api_v2_clusters_cluster_id_nodes_node_id_gpus_get`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'cluster_id' in local_var_params:
+            path_params['cluster_id'] = local_var_params['cluster_id']  # noqa: E501
+        if 'node_id' in local_var_params:
+            path_params['node_id'] = local_var_params['node_id']  # noqa: E501
+
+        query_params = []
+        if 'time' in local_var_params and local_var_params['time'] is not None:  # noqa: E501
+            query_params.append(('time', local_var_params['time']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/clusters/{cluster_id}/nodes/{node_id}/gpus', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='NodegpusresponseResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -30770,6 +31415,148 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def get_workload_gpus_api_v2_gpus_get(self, entity_type, entity_id, **kwargs):  # noqa: E501
+        """Get Workload Gpus  # noqa: E501
+
+        Get DCGM telemetry for every GPU of a cluster, job, service, or workspace, paginated.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_workload_gpus_api_v2_gpus_get(entity_type, entity_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param GpuEntityType entity_type: The entity type to scope to. (required)
+        :param str entity_id: The entity ID to scope to. (required)
+        :param int count: Page size.
+        :param str paging_token: Token from a previous page. The snapshot is re-fetched per page; pass an explicit `time` for stable pagination.
+        :param float time: Unix timestamp to snapshot at. Defaults to now. Subject to the Prometheus lookback window: GPUs of a node terminated within the last ~5 minutes may still appear.
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: WorkloadgpusresultResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_workload_gpus_api_v2_gpus_get_with_http_info(entity_type, entity_id, **kwargs)  # noqa: E501
+
+    def get_workload_gpus_api_v2_gpus_get_with_http_info(self, entity_type, entity_id, **kwargs):  # noqa: E501
+        """Get Workload Gpus  # noqa: E501
+
+        Get DCGM telemetry for every GPU of a cluster, job, service, or workspace, paginated.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_workload_gpus_api_v2_gpus_get_with_http_info(entity_type, entity_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param GpuEntityType entity_type: The entity type to scope to. (required)
+        :param str entity_id: The entity ID to scope to. (required)
+        :param int count: Page size.
+        :param str paging_token: Token from a previous page. The snapshot is re-fetched per page; pass an explicit `time` for stable pagination.
+        :param float time: Unix timestamp to snapshot at. Defaults to now. Subject to the Prometheus lookback window: GPUs of a node terminated within the last ~5 minutes may still appear.
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(WorkloadgpusresultResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'entity_type',
+            'entity_id',
+            'count',
+            'paging_token',
+            'time'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_workload_gpus_api_v2_gpus_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'entity_type' is set
+        if self.api_client.client_side_validation and ('entity_type' not in local_var_params or  # noqa: E501
+                                                        local_var_params['entity_type'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `entity_type` when calling `get_workload_gpus_api_v2_gpus_get`")  # noqa: E501
+        # verify the required parameter 'entity_id' is set
+        if self.api_client.client_side_validation and ('entity_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['entity_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `entity_id` when calling `get_workload_gpus_api_v2_gpus_get`")  # noqa: E501
+
+        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] > 200:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `get_workload_gpus_api_v2_gpus_get`, must be a value less than or equal to `200`")  # noqa: E501
+        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] < 1:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `get_workload_gpus_api_v2_gpus_get`, must be a value greater than or equal to `1`")  # noqa: E501
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'entity_type' in local_var_params and local_var_params['entity_type'] is not None:  # noqa: E501
+            query_params.append(('entity_type', local_var_params['entity_type']))  # noqa: E501
+        if 'entity_id' in local_var_params and local_var_params['entity_id'] is not None:  # noqa: E501
+            query_params.append(('entity_id', local_var_params['entity_id']))  # noqa: E501
+        if 'count' in local_var_params and local_var_params['count'] is not None:  # noqa: E501
+            query_params.append(('count', local_var_params['count']))  # noqa: E501
+        if 'paging_token' in local_var_params and local_var_params['paging_token'] is not None:  # noqa: E501
+            query_params.append(('paging_token', local_var_params['paging_token']))  # noqa: E501
+        if 'time' in local_var_params and local_var_params['time'] is not None:  # noqa: E501
+            query_params.append(('time', local_var_params['time']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/gpus', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='WorkloadgpusresultResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def get_workos_authorize_url_api_v2_workos_authorize_get(self, **kwargs):  # noqa: E501
         """Get Workos Authorize Url  # noqa: E501
 
@@ -31982,7 +32769,7 @@ class DefaultApi(object):
     def handle_webhook_api_v2_metronome_webhooks_handle_webhook_post(self, create_metronome_webhook_notification, **kwargs):  # noqa: E501
         """Handle Webhook  # noqa: E501
 
-        Records a Metronome webhook notification and immediately returns.       # noqa: E501
+        Records a Metronome webhook notification and immediately returns.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.handle_webhook_api_v2_metronome_webhooks_handle_webhook_post(create_metronome_webhook_notification, async_req=True)
@@ -32007,7 +32794,7 @@ class DefaultApi(object):
     def handle_webhook_api_v2_metronome_webhooks_handle_webhook_post_with_http_info(self, create_metronome_webhook_notification, **kwargs):  # noqa: E501
         """Handle Webhook  # noqa: E501
 
-        Records a Metronome webhook notification and immediately returns.       # noqa: E501
+        Records a Metronome webhook notification and immediately returns.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.handle_webhook_api_v2_metronome_webhooks_handle_webhook_post_with_http_info(create_metronome_webhook_notification, async_req=True)
@@ -32100,7 +32887,7 @@ class DefaultApi(object):
     def health_check_api_v2_health_get(self, **kwargs):  # noqa: E501
         """Health Check  # noqa: E501
 
-        Health check router used to make sure the pod is ready to serve traffic.       # noqa: E501
+        Health check router used to make sure the pod is ready to serve traffic.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.health_check_api_v2_health_get(async_req=True)
@@ -32124,7 +32911,7 @@ class DefaultApi(object):
     def health_check_api_v2_health_get_with_http_info(self, **kwargs):  # noqa: E501
         """Health Check  # noqa: E501
 
-        Health check router used to make sure the pod is ready to serve traffic.       # noqa: E501
+        Health check router used to make sure the pod is ready to serve traffic.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.health_check_api_v2_health_get_with_http_info(async_req=True)
@@ -32313,6 +33100,124 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='AppconfigResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def import_workload_api_v2_kuberay_workloads_import_post(self, import_workload_request, **kwargs):  # noqa: E501
+        """Import Workload  # noqa: E501
+
+        Record an externally-created KubeRay CR as an observe-only workload. Idempotent on the CR's (cloud_resource, namespace, name). Called by KCP with a verified cloud_resource_id.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.import_workload_api_v2_kuberay_workloads_import_post(import_workload_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param ImportWorkloadRequest import_workload_request: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: ImportworkloadresponseResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.import_workload_api_v2_kuberay_workloads_import_post_with_http_info(import_workload_request, **kwargs)  # noqa: E501
+
+    def import_workload_api_v2_kuberay_workloads_import_post_with_http_info(self, import_workload_request, **kwargs):  # noqa: E501
+        """Import Workload  # noqa: E501
+
+        Record an externally-created KubeRay CR as an observe-only workload. Idempotent on the CR's (cloud_resource, namespace, name). Called by KCP with a verified cloud_resource_id.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.import_workload_api_v2_kuberay_workloads_import_post_with_http_info(import_workload_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param ImportWorkloadRequest import_workload_request: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(ImportworkloadresponseResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'import_workload_request'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method import_workload_api_v2_kuberay_workloads_import_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'import_workload_request' is set
+        if self.api_client.client_side_validation and ('import_workload_request' not in local_var_params or  # noqa: E501
+                                                        local_var_params['import_workload_request'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `import_workload_request` when calling `import_workload_api_v2_kuberay_workloads_import_post`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'import_workload_request' in local_var_params:
+            body_params = local_var_params['import_workload_request']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/kuberay/workloads/import', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='ImportworkloadresponseResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -34766,7 +35671,7 @@ class DefaultApi(object):
     def list_decorated_serve_deployments_api_v2_decorated_serve_deployments_get(self, **kwargs):  # noqa: E501
         """List Decorated Serve Deployments  # noqa: E501
 
-        List decorated serve deployments. Filter by cluster   # noqa: E501
+        List decorated serve deployments. Filter by cluster  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.list_decorated_serve_deployments_api_v2_decorated_serve_deployments_get(async_req=True)
@@ -34798,7 +35703,7 @@ class DefaultApi(object):
     def list_decorated_serve_deployments_api_v2_decorated_serve_deployments_get_with_http_info(self, **kwargs):  # noqa: E501
         """List Decorated Serve Deployments  # noqa: E501
 
-        List decorated serve deployments. Filter by cluster   # noqa: E501
+        List decorated serve deployments. Filter by cluster  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.list_decorated_serve_deployments_api_v2_decorated_serve_deployments_get_with_http_info(async_req=True)

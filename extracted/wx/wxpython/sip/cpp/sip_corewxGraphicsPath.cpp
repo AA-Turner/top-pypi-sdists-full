@@ -106,8 +106,8 @@ static PyObject *meth_wxGraphicsPath_AddArc(PyObject *sipSelf, PyObject *sipArgs
 PyDoc_STRVAR(doc_wxGraphicsPath_AddArcToPoint, "AddArcToPoint(x1, y1, x2, y2, r) -> None\n"
 "\n"
 "Adds an arc (of a circle with radius r) that is tangent to the line\n"
-"connecting current point and (x1, y1) and to the line connecting (x1,\n"
-"y1) and (x2, y2).");
+"connecting the current point and (x1, y1) and to the line connecting\n"
+"(x1, y1) and (x2, y2).");
 
 extern "C" {static PyObject *meth_wxGraphicsPath_AddArcToPoint(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPath_AddArcToPoint(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -198,7 +198,7 @@ static PyObject *meth_wxGraphicsPath_AddCircle(PyObject *sipSelf, PyObject *sipA
 PyDoc_STRVAR(doc_wxGraphicsPath_AddCurveToPoint, "AddCurveToPoint(cx1, cy1, cx2, cy2, x, y) -> None\n"
 "AddCurveToPoint(c1, c2, e) -> None\n"
 "\n"
-"Adds a cubic bezier curve from the current point, using two control\n"
+"Adds a cubic Bézier curve from the current point, using two control\n"
 "points and an end point.\n"
 "");
 
@@ -282,9 +282,11 @@ static PyObject *meth_wxGraphicsPath_AddCurveToPoint(PyObject *sipSelf, PyObject
 
 
 PyDoc_STRVAR(doc_wxGraphicsPath_AddEllipse, "AddEllipse(x, y, w, h) -> None\n"
+"AddEllipse(rect) -> None\n"
 "\n"
-"Appends an ellipse fitting into the passed in rectangle as a new\n"
-"closed subpath.");
+"Appends an ellipse fitting into the passed-in rectangle as a new\n"
+"closed subpath.\n"
+"");
 
 extern "C" {static PyObject *meth_wxGraphicsPath_AddEllipse(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPath_AddEllipse(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -312,6 +314,32 @@ static PyObject *meth_wxGraphicsPath_AddEllipse(PyObject *sipSelf, PyObject *sip
             Py_BEGIN_ALLOW_THREADS
             sipCpp->AddEllipse(x, y, w, h);
             Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    {
+        const ::wxRect2D* rect;
+        int rectState = 0;
+        ::wxGraphicsPath *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_rect,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxGraphicsPath, &sipCpp, sipType_wxRect2DDouble, &rect, &rectState))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->AddEllipse(*rect);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxRect2D *>(rect), sipType_wxRect2DDouble, rectState);
 
             if (PyErr_Occurred())
                 return 0;
@@ -436,9 +464,11 @@ static PyObject *meth_wxGraphicsPath_AddPath(PyObject *sipSelf, PyObject *sipArg
 
 
 PyDoc_STRVAR(doc_wxGraphicsPath_AddQuadCurveToPoint, "AddQuadCurveToPoint(cx, cy, x, y) -> None\n"
+"AddQuadCurveToPoint(cp, e) -> None\n"
 "\n"
-"Adds a quadratic bezier curve from the current point, using a control\n"
-"point and an end point.");
+"Adds a quadratic Bézier curve from the current point, using a control\n"
+"point and an end point.\n"
+"");
 
 extern "C" {static PyObject *meth_wxGraphicsPath_AddQuadCurveToPoint(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPath_AddQuadCurveToPoint(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -475,6 +505,36 @@ static PyObject *meth_wxGraphicsPath_AddQuadCurveToPoint(PyObject *sipSelf, PyOb
         }
     }
 
+    {
+        const ::wxPoint2D* cp;
+        int cpState = 0;
+        const ::wxPoint2D* e;
+        int eState = 0;
+        ::wxGraphicsPath *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_cp,
+            sipName_e,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1J1", &sipSelf, sipType_wxGraphicsPath, &sipCpp, sipType_wxPoint2DDouble, &cp, &cpState, sipType_wxPoint2DDouble, &e, &eState))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->AddQuadCurveToPoint(*cp, *e);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxPoint2D *>(cp), sipType_wxPoint2DDouble, cpState);
+            sipReleaseType(const_cast< ::wxPoint2D *>(e), sipType_wxPoint2DDouble, eState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
     sipNoMethod(sipParseErr, sipName_GraphicsPath, sipName_AddQuadCurveToPoint, SIP_NULLPTR);
 
     return SIP_NULLPTR;
@@ -482,8 +542,10 @@ static PyObject *meth_wxGraphicsPath_AddQuadCurveToPoint(PyObject *sipSelf, PyOb
 
 
 PyDoc_STRVAR(doc_wxGraphicsPath_AddRectangle, "AddRectangle(x, y, w, h) -> None\n"
+"AddRectangle(rect) -> None\n"
 "\n"
-"Appends a rectangle as a new closed subpath.");
+"Appends a rectangle as a new closed subpath.\n"
+"");
 
 extern "C" {static PyObject *meth_wxGraphicsPath_AddRectangle(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPath_AddRectangle(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -520,6 +582,32 @@ static PyObject *meth_wxGraphicsPath_AddRectangle(PyObject *sipSelf, PyObject *s
         }
     }
 
+    {
+        const ::wxRect2D* rect;
+        int rectState = 0;
+        ::wxGraphicsPath *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_rect,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxGraphicsPath, &sipCpp, sipType_wxRect2DDouble, &rect, &rectState))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->AddRectangle(*rect);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxRect2D *>(rect), sipType_wxRect2DDouble, rectState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
     sipNoMethod(sipParseErr, sipName_GraphicsPath, sipName_AddRectangle, SIP_NULLPTR);
 
     return SIP_NULLPTR;
@@ -527,8 +615,10 @@ static PyObject *meth_wxGraphicsPath_AddRectangle(PyObject *sipSelf, PyObject *s
 
 
 PyDoc_STRVAR(doc_wxGraphicsPath_AddRoundedRectangle, "AddRoundedRectangle(x, y, w, h, radius) -> None\n"
+"AddRoundedRectangle(rect, radius) -> None\n"
 "\n"
-"Appends a rounded rectangle as a new closed subpath.");
+"Appends a rounded rectangle as a new closed subpath.\n"
+"");
 
 extern "C" {static PyObject *meth_wxGraphicsPath_AddRoundedRectangle(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPath_AddRoundedRectangle(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -558,6 +648,34 @@ static PyObject *meth_wxGraphicsPath_AddRoundedRectangle(PyObject *sipSelf, PyOb
             Py_BEGIN_ALLOW_THREADS
             sipCpp->AddRoundedRectangle(x, y, w, h, radius);
             Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    {
+        const ::wxRect2D* rect;
+        int rectState = 0;
+        ::wxDouble radius;
+        ::wxGraphicsPath *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_rect,
+            sipName_radius,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1d", &sipSelf, sipType_wxGraphicsPath, &sipCpp, sipType_wxRect2DDouble, &rect, &rectState, &radius))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->AddRoundedRectangle(*rect, radius);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxRect2D *>(rect), sipType_wxRect2DDouble, rectState);
 
             if (PyErr_Occurred())
                 return 0;
@@ -762,7 +880,7 @@ static PyObject *meth_wxGraphicsPath_GetCurrentPoint(PyObject *sipSelf, PyObject
 PyDoc_STRVAR(doc_wxGraphicsPath_GetNativePath, "GetNativePath() -> Any\n"
 "\n"
 "Returns the native path (CGPathRef for Core Graphics, Path pointer for\n"
-"GDIPlus and a cairo_path_t pointer for cairo).");
+"GDI+ and a cairo_path_t pointer for Cairo).");
 
 extern "C" {static PyObject *meth_wxGraphicsPath_GetNativePath(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPath_GetNativePath(PyObject *sipSelf, PyObject *sipArgs)
@@ -910,7 +1028,8 @@ static PyObject *meth_wxGraphicsPath_Transform(PyObject *sipSelf, PyObject *sipA
 PyDoc_STRVAR(doc_wxGraphicsPath_UnGetNativePath, "UnGetNativePath(p) -> None\n"
 "\n"
 "Gives back the native path returned by GetNativePath() because there\n"
-"might be some deallocations necessary (e.g.");
+"might be some deallocations necessary (e.g., on Cairo, the native path\n"
+"returned by GetNativePath() is newly allocated each time).");
 
 extern "C" {static PyObject *meth_wxGraphicsPath_UnGetNativePath(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPath_UnGetNativePath(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1048,7 +1167,7 @@ static void *init_type_wxGraphicsPath(sipSimpleWrapper *, PyObject *sipArgs, PyO
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGraphicsPath[] = {{246, 255, 1}};
+static sipEncodedTypeDef supers_wxGraphicsPath[] = {{254, 255, 1}};
 
 
 static PyMethodDef methods_wxGraphicsPath[] = {

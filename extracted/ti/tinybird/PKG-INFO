@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 4.6.13
+Version: 4.6.14
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -51,12 +51,17 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+4.6.14
+********
+
+- `Changed` ``tb datasource append`` and ``tb datasource replace`` submit local CSV, NDJSON, and Parquet files through the v1 import endpoint by default. ``tb datasource append --events`` also submits its request body through v1. These asynchronous imports print the queued job ID; pass ``--wait`` to wait for completion. Remote URL imports continue to use their existing route.
 
 4.6.13
 ********
 
 - `Fixed` `tb deploy` and `tb build` now reject pipes that declare a parameter without a valid name (e.g. a numeric-literal cast like ``{{Float32(1682892000.0)}}``), instead of creating an unusable parameter.
 - `Added` ``tb datasource append`` and ``tb datasource replace`` support the experimental ``--experimental=use_v1`` option for local CSV, NDJSON, and Parquet files. It submits the import through the v1 endpoint and prints the queued job ID; pass ``--wait`` to wait for completion.
+- `Fixed` Forward builds branch with vendored files without incorrectly detecting drift.
 
 4.6.12
 ********

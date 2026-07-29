@@ -5,10 +5,12 @@ configure and manage the logging of the BEC.
 
 from __future__ import annotations
 
+import datetime
 import enum
 import json
 import os
 import sys
+import time
 import traceback
 from itertools import takewhile
 from typing import TYPE_CHECKING, Literal
@@ -45,8 +47,50 @@ class LogLevel(int, enum.Enum):
     CONSOLE_LOG_ERROR = 22
 
 
+class BECLoguruRotator:
+    """
+    Custom rotator for loguru that rotates logs based on size and time. We assume
+    that logs are rotated once per day. There is a timer that limits rotation checks
+    to once per 10 minutes, to avoid excessive checks.
+
+    Args:
+        size (int): Maximum size of the log file in bytes before rotation.
+        at (datetime.time): Time of day when the log file should be rotated.
+    """
+
+    def __init__(self, *, size: int, at: datetime.time):
+        now = datetime.datetime.now()
+        self._last_check = time.monotonic()
+        self._limiter = 600  # 10 minutes
+
+        self._size_limit = size
+        self._time_limit = now.replace(hour=at.hour, minute=at.minute, second=at.second)
+
+        if now >= self._time_limit:
+            # If current time is passed now, add one day to the time limit to ensure rotations
+            # happens at the next occurrence of the specified time.
+            self._time_limit += datetime.timedelta(days=1)
+
+    def should_rotate(self, message, file):
+        """Custom rotator function for loguru that rotates logs based on size and time."""
+        if time.monotonic() - self._last_check < self._limiter:
+            return False
+        file.seek(0, 2)
+        if file.tell() + len(message) > self._size_limit:
+            return True
+        excess = message.record["time"].timestamp() - self._time_limit.timestamp()
+        if excess >= 0:
+            elapsed_days = datetime.timedelta(seconds=excess).days
+            self._time_limit += datetime.timedelta(days=elapsed_days + 1)
+            return True
+        return False
+
+
 class BECLogger:
     """Logger for BEC."""
+
+    DEFAULT_MAX_FILE_SIZE_MB = 50
+    DEFAULT_MAX_FILES = 14
 
     LOG_FORMAT_STDERR = (
         "<green>{service_name} | {{time:YYYY-MM-DD HH:mm:ss}}</green> | {{name}} | <level>[{{level}}]</level> |"
@@ -86,6 +130,8 @@ class BECLogger:
         self._console_log = False
         self._configured = False
         self._disabled_modules = set()
+        self._file_max_size_mb = self.DEFAULT_MAX_FILE_SIZE_MB
+        self._file_max_files = self.DEFAULT_MAX_FILES
 
     def __new__(cls):
         if not hasattr(cls, "_logger") or cls._logger is None:
@@ -331,14 +377,18 @@ class BECLogger:
         if not self.service_name:
             return
         filename = os.path.join(self._base_path, f"{self.service_name}.log")
+        rotator = BECLoguruRotator(
+            size=self._file_max_size_mb * 1024 * 1024, at=datetime.time(8, 0, 0)
+        )
         self.logger.add(
             filename,
             level=level,
             format=self.formatting(),
             filter=self.filter(),
-            retention="3 days",
-            rotation="3 days",
+            retention=self._file_max_files,
+            rotation=rotator.should_rotate,
             opener=self._file_opener,
+            compression="gz",
         )
 
     def add_console_log(self):
@@ -363,15 +413,19 @@ class BECLogger:
         # define a level corresponding to console log - this is to be able to filter messages
         # (only those with this particular level will be recorded by the console logger,
         # while other loggers will ignore them)
+        rotator = BECLoguruRotator(
+            size=self._file_max_size_mb * 1024 * 1024, at=datetime.time(8, 0, 0)
+        )
 
         self.logger.add(
             filename,
             level=LogLevel.CONSOLE_LOG,
             format=self.get_format(LogLevel.CONSOLE_LOG).rstrip(),
             filter=self.filter(is_console=True),
-            retention="3 days",
-            rotation="3 days",
+            retention=self._file_max_files,
+            rotation=rotator.should_rotate,
             opener=self._file_opener,
+            compression="gz",
         )
         self._console_log = True
         self.add_console_redis_log()

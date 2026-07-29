@@ -66,9 +66,9 @@ sipwxMouseCaptureChangedEvent::~sipwxMouseCaptureChangedEvent()
     if (!sipMeth)
         return ::wxMouseCaptureChangedEvent::Clone();
 
-    extern ::wxEvent* sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEvent* sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxEventCategory sipwxMouseCaptureChangedEvent::GetEventCategory() const
@@ -81,16 +81,16 @@ sipwxMouseCaptureChangedEvent::~sipwxMouseCaptureChangedEvent()
     if (!sipMeth)
         return ::wxMouseCaptureChangedEvent::GetEventCategory();
 
-    extern ::wxEventCategory sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEventCategory sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
 PyDoc_STRVAR(doc_wxMouseCaptureChangedEvent_GetCapturedWindow, "GetCapturedWindow() -> Window\n"
 "\n"
-"Returns the window that gained the capture, or NULL if it was a non-\n"
-"wxWidgets window.");
+"Returns the window that gained the capture, or nullptr if it was a\n"
+"non-wxWidgets window.");
 
 extern "C" {static PyObject *meth_wxMouseCaptureChangedEvent_GetCapturedWindow(PyObject *, PyObject *);}
 static PyObject *meth_wxMouseCaptureChangedEvent_GetCapturedWindow(PyObject *sipSelf, PyObject *sipArgs)
@@ -209,7 +209,7 @@ static void *init_type_wxMouseCaptureChangedEvent(sipSimpleWrapper *sipSelf, PyO
 
     {
         ::wxWindowID windowId = 0;
-        ::wxWindow* gainedCapture = 0;
+        ::wxWindow* gainedCapture = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_windowId,
@@ -256,7 +256,7 @@ static void *init_type_wxMouseCaptureChangedEvent(sipSimpleWrapper *sipSelf, PyO
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxMouseCaptureChangedEvent[] = {{151, 255, 1}};
+static sipEncodedTypeDef supers_wxMouseCaptureChangedEvent[] = {{158, 255, 1}};
 
 
 static PyMethodDef methods_wxMouseCaptureChangedEvent[] = {
@@ -268,7 +268,7 @@ sipVariableDef variables_wxMouseCaptureChangedEvent[] = {
     {PropertyVariable, sipName_CapturedWindow, &methods_wxMouseCaptureChangedEvent[1], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxMouseCaptureChangedEvent, "MouseCaptureChangedEvent(windowId=0, gainedCapture=None) -> None\n"
+PyDoc_STRVAR(doc_wxMouseCaptureChangedEvent, "MouseCaptureChangedEvent(windowId=0, gainedCapture=nullptr) -> None\n"
 "\n"
 "A mouse capture changed event is sent to a window that loses its mouse\n"
 "capture.");

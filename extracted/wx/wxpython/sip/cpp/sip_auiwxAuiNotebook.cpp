@@ -13,24 +13,28 @@
         #include <wx/gdicmn.h>
         #include <wx/gdicmn.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/validate.h>
         #include <wx/font.h>
         #include <wx/bmpbndl.h>
+        #include <wx/aui/auibook.h>
+        #include <wx/aui/serializer.h>
+        #include <wx/aui/serializer.h>
         #include <wx/aui/auibook.h>
         #include <wx/bitmap.h>
         #include <wx/sizer.h>
         #include <wx/dc.h>
         #include <wx/event.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -46,6 +50,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/imaglist.h>
+    wxAccessible* _wxAuiNotebook_CreateAccessible(wxAuiNotebook* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxAuiNotebook : public ::wxAuiNotebook
@@ -73,7 +86,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -119,7 +131,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -148,7 +159,7 @@ private:
     sipwxAuiNotebook(const sipwxAuiNotebook &);
     sipwxAuiNotebook &operator = (const sipwxAuiNotebook &);
 
-    char sipPyMethods[55];
+    char sipPyMethods[54];
 };
 
 sipwxAuiNotebook::sipwxAuiNotebook(): ::wxAuiNotebook(), sipPySelf(SIP_NULLPTR)
@@ -727,27 +738,12 @@ void sipwxAuiNotebook::DoSetWindowVariant(::wxWindowVariant variant)
     return sipVH__aui_25(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxAuiNotebook::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxAuiNotebook::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__aui_25(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__aui_25(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 void sipwxAuiNotebook::DoFreeze()
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -765,7 +761,7 @@ void sipwxAuiNotebook::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -783,7 +779,7 @@ void sipwxAuiNotebook::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxAuiNotebook::DoGetBestSize();
@@ -798,7 +794,7 @@ void sipwxAuiNotebook::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxAuiNotebook::DoGetBestClientSize();
@@ -813,7 +809,7 @@ void sipwxAuiNotebook::SetImageList(::wxImageList*imageList)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[39], &sipPySelf, SIP_NULLPTR, sipName_SetImageList);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_SetImageList);
 
     if (!sipMeth)
     {
@@ -821,9 +817,9 @@ void sipwxAuiNotebook::SetImageList(::wxImageList*imageList)
         return;
     }
 
-    extern void sipVH__aui_59(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxImageList*);
+    extern void sipVH__aui_63(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxImageList*);
 
-    sipVH__aui_59(sipGILState, 0, sipPySelf, sipMeth, imageList);
+    sipVH__aui_63(sipGILState, 0, sipPySelf, sipMeth, imageList);
 }
 
 int sipwxAuiNotebook::GetPageImage(size_t nPage) const
@@ -831,14 +827,14 @@ int sipwxAuiNotebook::GetPageImage(size_t nPage) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[40]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetPageImage);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[39]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetPageImage);
 
     if (!sipMeth)
         return ::wxAuiNotebook::GetPageImage(nPage);
 
-    extern int sipVH__aui_55(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
+    extern int sipVH__aui_59(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
 
-    return sipVH__aui_55(sipGILState, 0, sipPySelf, sipMeth, nPage);
+    return sipVH__aui_59(sipGILState, 0, sipPySelf, sipMeth, nPage);
 }
 
 bool sipwxAuiNotebook::SetPageImage(size_t n, int imageId)
@@ -846,14 +842,14 @@ bool sipwxAuiNotebook::SetPageImage(size_t n, int imageId)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[41], &sipPySelf, SIP_NULLPTR, sipName_SetPageImage);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[40], &sipPySelf, SIP_NULLPTR, sipName_SetPageImage);
 
     if (!sipMeth)
         return ::wxAuiNotebook::SetPageImage(n, imageId);
 
-    extern bool sipVH__aui_58(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, int);
+    extern bool sipVH__aui_62(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, int);
 
-    return sipVH__aui_58(sipGILState, 0, sipPySelf, sipMeth, n, imageId);
+    return sipVH__aui_62(sipGILState, 0, sipPySelf, sipMeth, n, imageId);
 }
 
 ::wxString sipwxAuiNotebook::GetPageText(size_t page) const
@@ -861,14 +857,14 @@ bool sipwxAuiNotebook::SetPageImage(size_t n, int imageId)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[42]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetPageText);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[41]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetPageText);
 
     if (!sipMeth)
         return ::wxAuiNotebook::GetPageText(page);
 
-    extern ::wxString sipVH__aui_57(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
+    extern ::wxString sipVH__aui_61(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
 
-    return sipVH__aui_57(sipGILState, 0, sipPySelf, sipMeth, page);
+    return sipVH__aui_61(sipGILState, 0, sipPySelf, sipMeth, page);
 }
 
 bool sipwxAuiNotebook::SetPageText(size_t page, const ::wxString& text)
@@ -876,14 +872,14 @@ bool sipwxAuiNotebook::SetPageText(size_t page, const ::wxString& text)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[43], &sipPySelf, SIP_NULLPTR, sipName_SetPageText);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[42], &sipPySelf, SIP_NULLPTR, sipName_SetPageText);
 
     if (!sipMeth)
         return ::wxAuiNotebook::SetPageText(page, text);
 
-    extern bool sipVH__aui_56(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, const ::wxString&);
+    extern bool sipVH__aui_60(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, const ::wxString&);
 
-    return sipVH__aui_56(sipGILState, 0, sipPySelf, sipMeth, page, text);
+    return sipVH__aui_60(sipGILState, 0, sipPySelf, sipMeth, page, text);
 }
 
 int sipwxAuiNotebook::GetSelection() const
@@ -891,14 +887,14 @@ int sipwxAuiNotebook::GetSelection() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[44]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetSelection);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[43]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetSelection);
 
     if (!sipMeth)
         return ::wxAuiNotebook::GetSelection();
 
-    extern int sipVH__aui_43(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern int sipVH__aui_44(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__aui_43(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__aui_44(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 int sipwxAuiNotebook::SetSelection(size_t new_page)
@@ -906,14 +902,14 @@ int sipwxAuiNotebook::SetSelection(size_t new_page)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[45], &sipPySelf, SIP_NULLPTR, sipName_SetSelection);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[44], &sipPySelf, SIP_NULLPTR, sipName_SetSelection);
 
     if (!sipMeth)
         return ::wxAuiNotebook::SetSelection(new_page);
 
-    extern int sipVH__aui_55(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
+    extern int sipVH__aui_59(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
 
-    return sipVH__aui_55(sipGILState, 0, sipPySelf, sipMeth, new_page);
+    return sipVH__aui_59(sipGILState, 0, sipPySelf, sipMeth, new_page);
 }
 
 int sipwxAuiNotebook::ChangeSelection(size_t n)
@@ -921,14 +917,14 @@ int sipwxAuiNotebook::ChangeSelection(size_t n)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[46], &sipPySelf, SIP_NULLPTR, sipName_ChangeSelection);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[45], &sipPySelf, SIP_NULLPTR, sipName_ChangeSelection);
 
     if (!sipMeth)
         return ::wxAuiNotebook::ChangeSelection(n);
 
-    extern int sipVH__aui_55(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
+    extern int sipVH__aui_59(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
 
-    return sipVH__aui_55(sipGILState, 0, sipPySelf, sipMeth, n);
+    return sipVH__aui_59(sipGILState, 0, sipPySelf, sipMeth, n);
 }
 
 bool sipwxAuiNotebook::AddPage(::wxWindow*page, const ::wxString& text, bool select, int imageId)
@@ -936,14 +932,14 @@ bool sipwxAuiNotebook::AddPage(::wxWindow*page, const ::wxString& text, bool sel
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[47], &sipPySelf, SIP_NULLPTR, sipName_AddPage);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[46], &sipPySelf, SIP_NULLPTR, sipName_AddPage);
 
     if (!sipMeth)
         return ::wxAuiNotebook::AddPage(page, text, select, imageId);
 
-    extern bool sipVH__aui_54(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*, const ::wxString&, bool, int);
+    extern bool sipVH__aui_58(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*, const ::wxString&, bool, int);
 
-    return sipVH__aui_54(sipGILState, 0, sipPySelf, sipMeth, page, text, select, imageId);
+    return sipVH__aui_58(sipGILState, 0, sipPySelf, sipMeth, page, text, select, imageId);
 }
 
 bool sipwxAuiNotebook::DeleteAllPages()
@@ -951,7 +947,7 @@ bool sipwxAuiNotebook::DeleteAllPages()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[48], &sipPySelf, SIP_NULLPTR, sipName_DeleteAllPages);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[47], &sipPySelf, SIP_NULLPTR, sipName_DeleteAllPages);
 
     if (!sipMeth)
         return ::wxAuiNotebook::DeleteAllPages();
@@ -966,14 +962,14 @@ bool sipwxAuiNotebook::DeletePage(size_t page)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[49], &sipPySelf, SIP_NULLPTR, sipName_DeletePage);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[48], &sipPySelf, SIP_NULLPTR, sipName_DeletePage);
 
     if (!sipMeth)
         return ::wxAuiNotebook::DeletePage(page);
 
-    extern bool sipVH__aui_52(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
+    extern bool sipVH__aui_56(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
 
-    return sipVH__aui_52(sipGILState, 0, sipPySelf, sipMeth, page);
+    return sipVH__aui_56(sipGILState, 0, sipPySelf, sipMeth, page);
 }
 
 bool sipwxAuiNotebook::InsertPage(size_t index, ::wxWindow*page, const ::wxString& text, bool select, int imageId)
@@ -981,14 +977,14 @@ bool sipwxAuiNotebook::InsertPage(size_t index, ::wxWindow*page, const ::wxStrin
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[50], &sipPySelf, SIP_NULLPTR, sipName_InsertPage);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[49], &sipPySelf, SIP_NULLPTR, sipName_InsertPage);
 
     if (!sipMeth)
         return ::wxAuiNotebook::InsertPage(index, page, text, select, imageId);
 
-    extern bool sipVH__aui_53(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, ::wxWindow*, const ::wxString&, bool, int);
+    extern bool sipVH__aui_57(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, ::wxWindow*, const ::wxString&, bool, int);
 
-    return sipVH__aui_53(sipGILState, 0, sipPySelf, sipMeth, index, page, text, select, imageId);
+    return sipVH__aui_57(sipGILState, 0, sipPySelf, sipMeth, index, page, text, select, imageId);
 }
 
 bool sipwxAuiNotebook::RemovePage(size_t page)
@@ -996,14 +992,14 @@ bool sipwxAuiNotebook::RemovePage(size_t page)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[51], &sipPySelf, SIP_NULLPTR, sipName_RemovePage);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[50], &sipPySelf, SIP_NULLPTR, sipName_RemovePage);
 
     if (!sipMeth)
         return ::wxAuiNotebook::RemovePage(page);
 
-    extern bool sipVH__aui_52(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
+    extern bool sipVH__aui_56(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
 
-    return sipVH__aui_52(sipGILState, 0, sipPySelf, sipMeth, page);
+    return sipVH__aui_56(sipGILState, 0, sipPySelf, sipMeth, page);
 }
 
 size_t sipwxAuiNotebook::GetPageCount() const
@@ -1011,14 +1007,14 @@ size_t sipwxAuiNotebook::GetPageCount() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[52]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetPageCount);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[51]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetPageCount);
 
     if (!sipMeth)
         return ::wxAuiNotebook::GetPageCount();
 
-    extern size_t sipVH__aui_51(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern size_t sipVH__aui_55(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__aui_51(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__aui_55(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxAuiNotebook::SetPageSize(const ::wxSize& size)
@@ -1026,7 +1022,7 @@ void sipwxAuiNotebook::SetPageSize(const ::wxSize& size)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[53], &sipPySelf, SIP_NULLPTR, sipName_SetPageSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[52], &sipPySelf, SIP_NULLPTR, sipName_SetPageSize);
 
     if (!sipMeth)
     {
@@ -1034,9 +1030,9 @@ void sipwxAuiNotebook::SetPageSize(const ::wxSize& size)
         return;
     }
 
-    extern void sipVH__aui_50(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxSize&);
+    extern void sipVH__aui_54(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxSize&);
 
-    sipVH__aui_50(sipGILState, 0, sipPySelf, sipMeth, size);
+    sipVH__aui_54(sipGILState, 0, sipPySelf, sipMeth, size);
 }
 
 int sipwxAuiNotebook::HitTest(const ::wxPoint& pt, long*flags) const
@@ -1044,14 +1040,14 @@ int sipwxAuiNotebook::HitTest(const ::wxPoint& pt, long*flags) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[54]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_HitTest);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[53]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_HitTest);
 
     if (!sipMeth)
         return ::wxAuiNotebook::HitTest(pt, flags);
 
-    extern int sipVH__aui_49(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxPoint&, long*);
+    extern int sipVH__aui_53(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxPoint&, long*);
 
-    return sipVH__aui_49(sipGILState, 0, sipPySelf, sipMeth, pt, flags);
+    return sipVH__aui_53(sipGILState, 0, sipPySelf, sipMeth, pt, flags);
 }
 
 void sipwxAuiNotebook::sipProtect_SendDestroyEvent()
@@ -1122,11 +1118,6 @@ void sipwxAuiNotebook::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, ::w
 ::wxBorder sipwxAuiNotebook::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxAuiNotebook::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxAuiNotebook::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxAuiNotebook::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxAuiNotebook::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -1278,7 +1269,8 @@ static PyObject *meth_wxAuiNotebook_AddPage(PyObject *sipSelf, PyObject *sipArgs
 
 PyDoc_STRVAR(doc_wxAuiNotebook_AdvanceSelection, "AdvanceSelection(forward=True) -> None\n"
 "\n"
-"Sets the selection to the next or previous page.");
+"Sets the selection to the next or previous page in the same tab\n"
+"control.");
 
 extern "C" {static PyObject *meth_wxAuiNotebook_AdvanceSelection(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxAuiNotebook_AdvanceSelection(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1531,7 +1523,7 @@ static PyObject *meth_wxAuiNotebook_GetArtProvider(PyObject *sipSelf, PyObject *
 
 PyDoc_STRVAR(doc_wxAuiNotebook_GetCurrentPage, "GetCurrentPage() -> wx.Window\n"
 "\n"
-"Returns the currently selected page or NULL.");
+"Returns the currently selected page or nullptr.");
 
 extern "C" {static PyObject *meth_wxAuiNotebook_GetCurrentPage(PyObject *, PyObject *);}
 static PyObject *meth_wxAuiNotebook_GetCurrentPage(PyObject *sipSelf, PyObject *sipArgs)
@@ -1760,6 +1752,86 @@ static PyObject *meth_wxAuiNotebook_GetPageIndex(PyObject *sipSelf, PyObject *si
 }
 
 
+PyDoc_STRVAR(doc_wxAuiNotebook_GetPageKind, "GetPageKind(pageIdx) -> AuiTabKind\n"
+"\n"
+"Returns the tab kind for the page.");
+
+extern "C" {static PyObject *meth_wxAuiNotebook_GetPageKind(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAuiNotebook_GetPageKind(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        size_t pageIdx;
+        const ::wxAuiNotebook *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_pageIdx,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "B=", &sipSelf, sipType_wxAuiNotebook, &sipCpp, &pageIdx))
+        {
+            ::wxAuiTabKind sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetPageKind(pageIdx);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxAuiTabKind);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiNotebook, sipName_GetPageKind, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxAuiNotebook_GetPagePosition, "GetPagePosition(page) -> AuiNotebookPosition\n"
+"\n"
+"Returns the position of the page in the notebook.");
+
+extern "C" {static PyObject *meth_wxAuiNotebook_GetPagePosition(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAuiNotebook_GetPagePosition(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        size_t page;
+        const ::wxAuiNotebook *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_page,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "B=", &sipSelf, sipType_wxAuiNotebook, &sipCpp, &page))
+        {
+            ::wxAuiNotebookPosition*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxAuiNotebookPosition(sipCpp->GetPagePosition(page));
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAuiNotebookPosition, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiNotebook, sipName_GetPagePosition, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxAuiNotebook_GetPageText, "GetPageText(page) -> str\n"
 "\n"
 "Returns the tab label for the page.");
@@ -1912,7 +1984,7 @@ static PyObject *meth_wxAuiNotebook_GetTabCtrlHeight(PyObject *sipSelf, PyObject
 }
 
 
-PyDoc_STRVAR(doc_wxAuiNotebook_InsertPage, "InsertPage(page_idx, page, caption, select=False, bitmap=wx.BitmapBundle()) -> bool\n"
+PyDoc_STRVAR(doc_wxAuiNotebook_InsertPage, "InsertPage(index, page, text, select=False, bitmap=wx.BitmapBundle()) -> bool\n"
 "InsertPage(index, page, text, select, imageId) -> bool\n"
 "\n"
 "InsertPage() is similar to AddPage, but allows the ability to specify the insert location.\n"
@@ -1925,10 +1997,10 @@ static PyObject *meth_wxAuiNotebook_InsertPage(PyObject *sipSelf, PyObject *sipA
     bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
 
     {
-        size_t page_idx;
+        size_t index;
         ::wxWindow* page;
-        const ::wxString* caption;
-        int captionState = 0;
+        const ::wxString* text;
+        int textState = 0;
         bool select = 0;
         const ::wxBitmapBundle& bitmapdef = wxBitmapBundle();
         const ::wxBitmapBundle* bitmap = &bitmapdef;
@@ -1936,23 +2008,23 @@ static PyObject *meth_wxAuiNotebook_InsertPage(PyObject *sipSelf, PyObject *sipA
         ::wxAuiNotebook *sipCpp;
 
         static const char *sipKwdList[] = {
-            sipName_page_idx,
+            sipName_index,
             sipName_page,
-            sipName_caption,
+            sipName_text,
             sipName_select,
             sipName_bitmap,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "B=J8J1|bJ1", &sipSelf, sipType_wxAuiNotebook, &sipCpp, &page_idx, sipType_wxWindow, &page, sipType_wxString, &caption, &captionState, &select, sipType_wxBitmapBundle, &bitmap, &bitmapState))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "B=J8J1|bJ1", &sipSelf, sipType_wxAuiNotebook, &sipCpp, &index, sipType_wxWindow, &page, sipType_wxString, &text, &textState, &select, sipType_wxBitmapBundle, &bitmap, &bitmapState))
         {
             bool sipRes;
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->InsertPage(page_idx, page, *caption, select, *bitmap);
+            sipRes = sipCpp->InsertPage(index, page, *text, select, *bitmap);
             Py_END_ALLOW_THREADS
-            sipReleaseType(const_cast< ::wxString *>(caption), sipType_wxString, captionState);
+            sipReleaseType(const_cast< ::wxString *>(text), sipType_wxString, textState);
             sipReleaseType(const_cast< ::wxBitmapBundle *>(bitmap), sipType_wxBitmapBundle, bitmapState);
 
             if (PyErr_Occurred())
@@ -2003,6 +2075,49 @@ static PyObject *meth_wxAuiNotebook_InsertPage(PyObject *sipSelf, PyObject *sipA
 }
 
 
+PyDoc_STRVAR(doc_wxAuiNotebook_LoadLayout, "LoadLayout(name, deserializer) -> None\n"
+"\n"
+"Load the previously saved layout of the notebook.");
+
+extern "C" {static PyObject *meth_wxAuiNotebook_LoadLayout(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAuiNotebook_LoadLayout(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxString* name;
+        int nameState = 0;
+        ::wxAuiBookDeserializer* deserializer;
+        ::wxAuiNotebook *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_name,
+            sipName_deserializer,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1J9", &sipSelf, sipType_wxAuiNotebook, &sipCpp, sipType_wxString, &name, &nameState, sipType_wxAuiBookDeserializer, &deserializer))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->LoadLayout(*name, *deserializer);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxString *>(name), sipType_wxString, nameState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiNotebook, sipName_LoadLayout, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxAuiNotebook_RemovePage, "RemovePage(page) -> bool\n"
 "\n"
 "Removes a page, without deleting the window pointer.");
@@ -2039,6 +2154,49 @@ static PyObject *meth_wxAuiNotebook_RemovePage(PyObject *sipSelf, PyObject *sipA
     }
 
     sipNoMethod(sipParseErr, sipName_AuiNotebook, sipName_RemovePage, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxAuiNotebook_SaveLayout, "SaveLayout(name, serializer) -> None\n"
+"\n"
+"Save the layout of the notebook using the provided serializer.");
+
+extern "C" {static PyObject *meth_wxAuiNotebook_SaveLayout(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAuiNotebook_SaveLayout(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxString* name;
+        int nameState = 0;
+        ::wxAuiBookSerializer* serializer;
+        const ::wxAuiNotebook *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_name,
+            sipName_serializer,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1J9", &sipSelf, sipType_wxAuiNotebook, &sipCpp, sipType_wxString, &name, &nameState, sipType_wxAuiBookSerializer, &serializer))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SaveLayout(*name, *serializer);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxString *>(name), sipType_wxString, nameState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiNotebook, sipName_SaveLayout, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -2119,6 +2277,45 @@ static PyObject *meth_wxAuiNotebook_SetFont(PyObject *sipSelf, PyObject *sipArgs
     }
 
     sipNoMethod(sipParseErr, sipName_AuiNotebook, sipName_SetFont, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxAuiNotebook_SetManagerFlags, "SetManagerFlags(flags) -> None\n"
+"\n"
+"Sets the flags for the wxAuiManager used by wxAuiNotebook.");
+
+extern "C" {static PyObject *meth_wxAuiNotebook_SetManagerFlags(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAuiNotebook_SetManagerFlags(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        uint flags;
+        ::wxAuiNotebook *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_flags,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bu", &sipSelf, sipType_wxAuiNotebook, &sipCpp, &flags))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetManagerFlags(flags);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiNotebook, sipName_SetManagerFlags, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -2284,6 +2481,48 @@ static PyObject *meth_wxAuiNotebook_SetPageImage(PyObject *sipSelf, PyObject *si
     }
 
     sipNoMethod(sipParseErr, sipName_AuiNotebook, sipName_SetPageImage, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxAuiNotebook_SetPageKind, "SetPageKind(pageIdx, kind) -> bool\n"
+"\n"
+"Set the tab kind.");
+
+extern "C" {static PyObject *meth_wxAuiNotebook_SetPageKind(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAuiNotebook_SetPageKind(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        size_t pageIdx;
+        ::wxAuiTabKind kind;
+        ::wxAuiNotebook *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_pageIdx,
+            sipName_kind,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "B=E", &sipSelf, sipType_wxAuiNotebook, &sipCpp, &pageIdx, sipType_wxAuiTabKind, &kind))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->SetPageKind(pageIdx, kind);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiNotebook, sipName_SetPageKind, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -2617,6 +2856,40 @@ static PyObject *meth_wxAuiNotebook_ShowWindowMenu(PyObject *sipSelf, PyObject *
 }
 
 
+PyDoc_STRVAR(doc_wxAuiNotebook_UnsplitAll, "UnsplitAll() -> None\n"
+"\n"
+"Remove all split tab controls, leaving only the single one.");
+
+extern "C" {static PyObject *meth_wxAuiNotebook_UnsplitAll(PyObject *, PyObject *);}
+static PyObject *meth_wxAuiNotebook_UnsplitAll(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxAuiNotebook *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxAuiNotebook, &sipCpp))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->UnsplitAll();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiNotebook, sipName_UnsplitAll, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxAuiNotebook_GetPageImage, "GetPageImage(nPage) -> int\n"
 "\n"
 "Returns the image index for the given page.");
@@ -2730,6 +3003,41 @@ static PyObject *meth_wxAuiNotebook_GetActiveTabCtrl(PyObject *sipSelf, PyObject
     }
 
     sipNoMethod(sipParseErr, sipName_AuiNotebook, sipName_GetActiveTabCtrl, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxAuiNotebook_GetMainTabCtrl, "GetMainTabCtrl() -> AuiTabCtrl\n"
+"\n"
+"Returns the main tab control for this notebook.");
+
+extern "C" {static PyObject *meth_wxAuiNotebook_GetMainTabCtrl(PyObject *, PyObject *);}
+static PyObject *meth_wxAuiNotebook_GetMainTabCtrl(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxAuiNotebook *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxAuiNotebook, &sipCpp))
+        {
+            ::wxAuiTabCtrl*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetMainTabCtrl();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxAuiTabCtrl, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiNotebook, sipName_GetMainTabCtrl, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -3980,40 +4288,6 @@ static PyObject *meth_wxAuiNotebook_GetDefaultBorder(PyObject *sipSelf, PyObject
 }
 
 
-PyDoc_STRVAR(doc_wxAuiNotebook_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxAuiNotebook_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxAuiNotebook_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxAuiNotebook *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxAuiNotebook, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_AuiNotebook, sipName_GetDefaultBorderForControl, doc_wxAuiNotebook_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxAuiNotebook_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxAuiNotebook_DoFreeze(PyObject *, PyObject *);}
@@ -4187,6 +4461,39 @@ static PyObject *meth_wxAuiNotebook_TryAfter(PyObject *sipSelf, PyObject *sipArg
     }
 
     sipNoMethod(sipParseErr, sipName_AuiNotebook, sipName_TryAfter, doc_wxAuiNotebook_TryAfter);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxAuiNotebook_CreateAccessible, "CreateAccessible() -> wx.Accessible");
+
+extern "C" {static PyObject *meth_wxAuiNotebook_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxAuiNotebook_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxAuiNotebook *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxAuiNotebook, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxAuiNotebook_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiNotebook, sipName_CreateAccessible, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -4393,7 +4700,7 @@ static void *init_type_wxAuiNotebook(sipSimpleWrapper *sipSelf, PyObject *sipArg
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxAuiNotebook[] = {{3, 0, 1}};
+static sipEncodedTypeDef supers_wxAuiNotebook[] = {{4, 0, 1}};
 
 
 static PyMethodDef methods_wxAuiNotebook[] = {
@@ -4405,6 +4712,7 @@ static PyMethodDef methods_wxAuiNotebook[] = {
     {sipName_AdvanceSelection, SIP_MLMETH_CAST(meth_wxAuiNotebook_AdvanceSelection), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_AdvanceSelection},
     {sipName_ChangeSelection, SIP_MLMETH_CAST(meth_wxAuiNotebook_ChangeSelection), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_ChangeSelection},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxAuiNotebook_Create), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_Create},
+    {sipName_CreateAccessible, meth_wxAuiNotebook_CreateAccessible, METH_VARARGS, doc_wxAuiNotebook_CreateAccessible},
     {sipName_DeleteAllPages, meth_wxAuiNotebook_DeleteAllPages, METH_VARARGS, doc_wxAuiNotebook_DeleteAllPages},
     {sipName_DeletePage, SIP_MLMETH_CAST(meth_wxAuiNotebook_DeletePage), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_DeletePage},
     {sipName_Destroy, meth_wxAuiNotebook_Destroy, METH_VARARGS, doc_wxAuiNotebook_Destroy},
@@ -4429,14 +4737,16 @@ static PyMethodDef methods_wxAuiNotebook[] = {
     {sipName_GetClientAreaOrigin, meth_wxAuiNotebook_GetClientAreaOrigin, METH_VARARGS, doc_wxAuiNotebook_GetClientAreaOrigin},
     {sipName_GetCurrentPage, meth_wxAuiNotebook_GetCurrentPage, METH_VARARGS, doc_wxAuiNotebook_GetCurrentPage},
     {sipName_GetDefaultBorder, meth_wxAuiNotebook_GetDefaultBorder, METH_VARARGS, doc_wxAuiNotebook_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxAuiNotebook_GetDefaultBorderForControl, METH_VARARGS, doc_wxAuiNotebook_GetDefaultBorderForControl},
     {sipName_GetHeightForPageHeight, SIP_MLMETH_CAST(meth_wxAuiNotebook_GetHeightForPageHeight), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_GetHeightForPageHeight},
+    {sipName_GetMainTabCtrl, meth_wxAuiNotebook_GetMainTabCtrl, METH_VARARGS, doc_wxAuiNotebook_GetMainTabCtrl},
     {sipName_GetMainWindowOfCompositeControl, meth_wxAuiNotebook_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxAuiNotebook_GetMainWindowOfCompositeControl},
     {sipName_GetPage, SIP_MLMETH_CAST(meth_wxAuiNotebook_GetPage), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_GetPage},
     {sipName_GetPageBitmap, SIP_MLMETH_CAST(meth_wxAuiNotebook_GetPageBitmap), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_GetPageBitmap},
     {sipName_GetPageCount, meth_wxAuiNotebook_GetPageCount, METH_VARARGS, doc_wxAuiNotebook_GetPageCount},
     {sipName_GetPageImage, SIP_MLMETH_CAST(meth_wxAuiNotebook_GetPageImage), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_GetPageImage},
     {sipName_GetPageIndex, SIP_MLMETH_CAST(meth_wxAuiNotebook_GetPageIndex), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_GetPageIndex},
+    {sipName_GetPageKind, SIP_MLMETH_CAST(meth_wxAuiNotebook_GetPageKind), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_GetPageKind},
+    {sipName_GetPagePosition, SIP_MLMETH_CAST(meth_wxAuiNotebook_GetPagePosition), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_GetPagePosition},
     {sipName_GetPageText, SIP_MLMETH_CAST(meth_wxAuiNotebook_GetPageText), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_GetPageText},
     {sipName_GetPageToolTip, SIP_MLMETH_CAST(meth_wxAuiNotebook_GetPageToolTip), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_GetPageToolTip},
     {sipName_GetSelection, meth_wxAuiNotebook_GetSelection, METH_VARARGS, doc_wxAuiNotebook_GetSelection},
@@ -4449,18 +4759,22 @@ static PyMethodDef methods_wxAuiNotebook[] = {
     {sipName_InheritAttributes, meth_wxAuiNotebook_InheritAttributes, METH_VARARGS, doc_wxAuiNotebook_InheritAttributes},
     {sipName_InitDialog, meth_wxAuiNotebook_InitDialog, METH_VARARGS, doc_wxAuiNotebook_InitDialog},
     {sipName_InsertPage, SIP_MLMETH_CAST(meth_wxAuiNotebook_InsertPage), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_InsertPage},
+    {sipName_LoadLayout, SIP_MLMETH_CAST(meth_wxAuiNotebook_LoadLayout), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_LoadLayout},
     {sipName_OnInternalIdle, meth_wxAuiNotebook_OnInternalIdle, METH_VARARGS, doc_wxAuiNotebook_OnInternalIdle},
     {sipName_ProcessEvent, SIP_MLMETH_CAST(meth_wxAuiNotebook_ProcessEvent), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_ProcessEvent},
     {sipName_RemoveChild, SIP_MLMETH_CAST(meth_wxAuiNotebook_RemoveChild), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_RemoveChild},
     {sipName_RemovePage, SIP_MLMETH_CAST(meth_wxAuiNotebook_RemovePage), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_RemovePage},
+    {sipName_SaveLayout, SIP_MLMETH_CAST(meth_wxAuiNotebook_SaveLayout), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_SaveLayout},
     {sipName_SendDestroyEvent, meth_wxAuiNotebook_SendDestroyEvent, METH_VARARGS, SIP_NULLPTR},
     {sipName_SetArtProvider, SIP_MLMETH_CAST(meth_wxAuiNotebook_SetArtProvider), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_SetArtProvider},
     {sipName_SetCanFocus, SIP_MLMETH_CAST(meth_wxAuiNotebook_SetCanFocus), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_SetCanFocus},
     {sipName_SetFont, SIP_MLMETH_CAST(meth_wxAuiNotebook_SetFont), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_SetFont},
+    {sipName_SetManagerFlags, SIP_MLMETH_CAST(meth_wxAuiNotebook_SetManagerFlags), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_SetManagerFlags},
     {sipName_SetMeasuringFont, SIP_MLMETH_CAST(meth_wxAuiNotebook_SetMeasuringFont), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_SetMeasuringFont},
     {sipName_SetNormalFont, SIP_MLMETH_CAST(meth_wxAuiNotebook_SetNormalFont), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_SetNormalFont},
     {sipName_SetPageBitmap, SIP_MLMETH_CAST(meth_wxAuiNotebook_SetPageBitmap), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_SetPageBitmap},
     {sipName_SetPageImage, SIP_MLMETH_CAST(meth_wxAuiNotebook_SetPageImage), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_SetPageImage},
+    {sipName_SetPageKind, SIP_MLMETH_CAST(meth_wxAuiNotebook_SetPageKind), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_SetPageKind},
     {sipName_SetPageText, SIP_MLMETH_CAST(meth_wxAuiNotebook_SetPageText), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_SetPageText},
     {sipName_SetPageToolTip, SIP_MLMETH_CAST(meth_wxAuiNotebook_SetPageToolTip), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_SetPageToolTip},
     {sipName_SetSelectedFont, SIP_MLMETH_CAST(meth_wxAuiNotebook_SetSelectedFont), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_SetSelectedFont},
@@ -4475,16 +4789,18 @@ static PyMethodDef methods_wxAuiNotebook[] = {
     {sipName_TransferDataToWindow, meth_wxAuiNotebook_TransferDataToWindow, METH_VARARGS, doc_wxAuiNotebook_TransferDataToWindow},
     {sipName_TryAfter, SIP_MLMETH_CAST(meth_wxAuiNotebook_TryAfter), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_TryAfter},
     {sipName_TryBefore, SIP_MLMETH_CAST(meth_wxAuiNotebook_TryBefore), METH_VARARGS|METH_KEYWORDS, doc_wxAuiNotebook_TryBefore},
+    {sipName_UnsplitAll, meth_wxAuiNotebook_UnsplitAll, METH_VARARGS, doc_wxAuiNotebook_UnsplitAll},
     {sipName_Validate, meth_wxAuiNotebook_Validate, METH_VARARGS, doc_wxAuiNotebook_Validate}
 };
 
 sipVariableDef variables_wxAuiNotebook[] = {
-    {PropertyVariable, sipName_TabCtrlHeight, &methods_wxAuiNotebook[44], &methods_wxAuiNotebook[68], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Selection, &methods_wxAuiNotebook[42], &methods_wxAuiNotebook[67], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_PageCount, &methods_wxAuiNotebook[37], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CurrentPage, &methods_wxAuiNotebook[30], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ArtProvider, &methods_wxAuiNotebook[27], &methods_wxAuiNotebook[57], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ActiveTabCtrl, &methods_wxAuiNotebook[26], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TabCtrlHeight, &methods_wxAuiNotebook[47], &methods_wxAuiNotebook[75], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Selection, &methods_wxAuiNotebook[45], &methods_wxAuiNotebook[74], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_PageCount, &methods_wxAuiNotebook[38], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_MainTabCtrl, &methods_wxAuiNotebook[34], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CurrentPage, &methods_wxAuiNotebook[31], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ArtProvider, &methods_wxAuiNotebook[28], &methods_wxAuiNotebook[62], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ActiveTabCtrl, &methods_wxAuiNotebook[27], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxAuiNotebook, "AuiNotebook() -> None\n"
@@ -4507,9 +4823,9 @@ sipClassTypeDef sipTypeDef__aui_wxAuiNotebook = {
     {
         sipNameNr_AuiNotebook,
         {0, 0, 1},
-        79, methods_wxAuiNotebook,
+        87, methods_wxAuiNotebook,
         0, SIP_NULLPTR,
-        6, variables_wxAuiNotebook,
+        7, variables_wxAuiNotebook,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxAuiNotebook,

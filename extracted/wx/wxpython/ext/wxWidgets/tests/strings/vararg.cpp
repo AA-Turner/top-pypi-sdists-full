@@ -66,13 +66,10 @@ TEST_CASE("StringPrintf", "[wxString][Printf][vararg]")
     wxGCC_WARNING_RESTORE(write-strings)
     wxCLANG_WARNING_RESTORE(c++11-compat-deprecated-writable-strings)
 
-    // It's not clear why this test doesn't work without Unicode support, but
-    // it's not worth spending time on fixing it considering that Unicode-less
-    // build is deprecated anyhow, so just disable it there.
-#if defined(__cpp_lib_string_view) && wxUSE_UNICODE
+#ifdef __cpp_lib_string_view
     CHECK( wxString::Format("%s", std::string_view{"foobar", 3}) == "foo" );
     CHECK( wxString::Format("%s", std::string_view{"bar"}) == "bar" );
-#endif // __cpp_lib_string_view && wxUSE_UNICODE
+#endif // __cpp_lib_string_view
 }
 
 TEST_CASE("CharPrintf", "[wxString][Printf][vararg]")
@@ -125,7 +122,6 @@ TEST_CASE("SizetPrintf", "[wxString][Printf][vararg]")
                 == "size_t=0xA0" );
 }
 
-#if wxUSE_STD_STRING
 TEST_CASE("StdString", "[wxString][Printf][vararg]")
 {
     // test passing std::[w]string
@@ -140,9 +136,7 @@ TEST_CASE("StdString", "[wxString][Printf][vararg]")
     s.Printf("string %s(%i).", wc, 2);
     CHECK( s == "string widechar(2)." );
 }
-#endif // wxUSE_STD_STRING
 
-#if wxUSE_LONGLONG
 TEST_CASE("LongLongPrintf", "[wxString][Printf][vararg]")
 {
     const char * const llfmt = "%" wxLongLongFmtSpec "d";
@@ -152,7 +146,6 @@ TEST_CASE("LongLongPrintf", "[wxString][Printf][vararg]")
     wxLongLong ll = 1234567890;
     CHECK( wxString::Format(llfmt, ll) == "1234567890" );
 }
-#endif // wxUSE_LONGLONG
 
 TEST_CASE("Sscanf", "[wxSscanf][vararg]")
 {
@@ -199,24 +192,23 @@ TEST_CASE("ArgsValidation", "[wxString][vararg][error]")
 {
     int written;
     void *ptr = &written;
-    short int swritten;
+    short int swritten = 0;
+    wxUnusedVar(swritten); // We're not really going to use it.
 
     // these are valid:
     wxString::Format("a string(%s,%s), ptr %p, int %i",
                      wxString(), "foo", "char* as pointer", 1);
 
-#if __cplusplus >= 201103 || wxCHECK_VISUALC_VERSION(10)
     // Unfortunately we can't check the result as different standard libraries
     // implementations format it in different ways, so just check that it
     // compiles.
     wxString::Format("null pointer is %p", nullptr);
-#endif
 
     // Microsoft has helpfully disabled support for "%n" in their CRT by
     // default starting from VC8 and somehow even calling
     // _set_printf_count_output() doesn't help here, so don't use "%n" at all
     // with it.
-#if wxCHECK_VISUALC_VERSION(8)
+#if defined(__VISUALC__)
     #define wxNO_PRINTF_PERCENT_N
 #endif // VC8+
 
@@ -238,6 +230,7 @@ TEST_CASE("ArgsValidation", "[wxString][vararg][error]")
 #endif
 
     // but these are not:
+    WX_ASSERT_FAILS_WITH_ASSERT( wxString::Format("%d + %d = %d", 2, 2) );
     WX_ASSERT_FAILS_WITH_ASSERT( wxString::Format("%i", "foo") );
     WX_ASSERT_FAILS_WITH_ASSERT( wxString::Format("%s", (void*)&written) );
     WX_ASSERT_FAILS_WITH_ASSERT( wxString::Format("%d", ptr) );
@@ -247,15 +240,6 @@ TEST_CASE("ArgsValidation", "[wxString][vararg][error]")
     WX_ASSERT_FAILS_WITH_ASSERT( wxString::Format("foo%i%n", &written) );
     WX_ASSERT_FAILS_WITH_ASSERT( wxString::Format("foo%n", ptr) );
     WX_ASSERT_FAILS_WITH_ASSERT( wxString::Format("foo%i%n", 42, &swritten) );
-
-    // the following test (correctly) fails at compile-time with <type_traits>
-#if !defined(HAVE_TYPE_TRAITS) && !defined(HAVE_TR1_TYPE_TRAITS)
-    wxObject obj;
-    WX_ASSERT_FAILS_WITH_ASSERT( wxString::Format("%s", obj) );
-
-    wxObject& ref = obj;
-    WX_ASSERT_FAILS_WITH_ASSERT( wxString::Format("%s", ref) );
-#endif
 
     // %c should accept integers too
     wxString::Format("%c", 80);

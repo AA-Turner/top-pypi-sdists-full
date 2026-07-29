@@ -15,21 +15,22 @@
         #include <wx/gdicmn.h>
         #include <wx/validate.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/control.h>
         #include <wx/textctrl.h>
         #include <wx/dc.h>
         #include <wx/event.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -44,6 +45,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
+    wxAccessible* _wxColourPickerCtrl_CreateAccessible(wxColourPickerCtrl* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxColourPickerCtrl : public ::wxColourPickerCtrl
@@ -74,7 +84,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -120,7 +129,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -137,7 +145,7 @@ private:
     sipwxColourPickerCtrl(const sipwxColourPickerCtrl &);
     sipwxColourPickerCtrl &operator = (const sipwxColourPickerCtrl &);
 
-    char sipPyMethods[43];
+    char sipPyMethods[42];
 };
 
 sipwxColourPickerCtrl::sipwxColourPickerCtrl(): ::wxColourPickerCtrl(), sipPySelf(SIP_NULLPTR)
@@ -168,9 +176,9 @@ void sipwxColourPickerCtrl::RemoveChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 void sipwxColourPickerCtrl::AddChild(::wxWindowBase*child)
@@ -186,9 +194,9 @@ void sipwxColourPickerCtrl::AddChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 bool sipwxColourPickerCtrl::ProcessEvent(::wxEvent& event)
@@ -201,9 +209,9 @@ bool sipwxColourPickerCtrl::ProcessEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxColourPickerCtrl::ProcessEvent(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxColourPickerCtrl::TryBefore(::wxEvent& event)
@@ -216,9 +224,9 @@ bool sipwxColourPickerCtrl::TryBefore(::wxEvent& event)
     if (!sipMeth)
         return ::wxColourPickerCtrl::TryBefore(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxColourPickerCtrl::TryAfter(::wxEvent& event)
@@ -231,9 +239,9 @@ bool sipwxColourPickerCtrl::TryAfter(::wxEvent& event)
     if (!sipMeth)
         return ::wxColourPickerCtrl::TryAfter(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxColourPickerCtrl::AcceptsFocus() const
@@ -294,9 +302,9 @@ void sipwxColourPickerCtrl::SetCanFocus(bool canFocus)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, canFocus);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, canFocus);
 }
 
 void sipwxColourPickerCtrl::EnableVisibleFocus(bool enabled)
@@ -312,9 +320,9 @@ void sipwxColourPickerCtrl::EnableVisibleFocus(bool enabled)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enabled);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enabled);
 }
 
 bool sipwxColourPickerCtrl::InformFirstDirection(int direction, int size, int availableOtherDir)
@@ -327,9 +335,9 @@ bool sipwxColourPickerCtrl::InformFirstDirection(int direction, int size, int av
     if (!sipMeth)
         return ::wxColourPickerCtrl::InformFirstDirection(direction, size, availableOtherDir);
 
-    extern bool sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern bool sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
 
-    return sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
+    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
 }
 
 ::wxPoint sipwxColourPickerCtrl::GetClientAreaOrigin() const
@@ -342,9 +350,9 @@ bool sipwxColourPickerCtrl::InformFirstDirection(int direction, int size, int av
     if (!sipMeth)
         return ::wxColourPickerCtrl::GetClientAreaOrigin();
 
-    extern ::wxPoint sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPoint sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxColourPickerCtrl::HasTransparentBackground()
@@ -387,9 +395,9 @@ bool sipwxColourPickerCtrl::ShouldInheritColours() const
     if (!sipMeth)
         return ::wxColourPickerCtrl::GetValidator();
 
-    extern ::wxValidator* sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxValidator* sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxColourPickerCtrl::SetValidator(const ::wxValidator& validator)
@@ -405,9 +413,9 @@ void sipwxColourPickerCtrl::SetValidator(const ::wxValidator& validator)
         return;
     }
 
-    extern void sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
+    extern void sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
 
-    sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth, validator);
+    sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth, validator);
 }
 
 bool sipwxColourPickerCtrl::TransferDataFromWindow()
@@ -534,9 +542,9 @@ void sipwxColourPickerCtrl::OnInternalIdle()
     if (!sipMeth)
         return ::wxColourPickerCtrl::GetMainWindowOfCompositeControl();
 
-    extern ::wxWindow* sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxWindow* sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxColourPickerCtrl::DoEnable(bool enable)
@@ -552,9 +560,9 @@ void sipwxColourPickerCtrl::DoEnable(bool enable)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enable);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enable);
 }
 
 void sipwxColourPickerCtrl::DoGetPosition(int*x, int*y) const
@@ -570,9 +578,9 @@ void sipwxColourPickerCtrl::DoGetPosition(int*x, int*y) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, x, y);
 }
 
 void sipwxColourPickerCtrl::DoGetSize(int*width, int*height) const
@@ -588,9 +596,9 @@ void sipwxColourPickerCtrl::DoGetSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxColourPickerCtrl::DoGetClientSize(int*width, int*height) const
@@ -606,9 +614,9 @@ void sipwxColourPickerCtrl::DoGetClientSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxColourPickerCtrl::DoSetSize(int x, int y, int width, int height, int sizeFlags)
@@ -624,9 +632,9 @@ void sipwxColourPickerCtrl::DoSetSize(int x, int y, int width, int height, int s
         return;
     }
 
-    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
+    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
 
-    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
+    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
 }
 
 void sipwxColourPickerCtrl::DoSetClientSize(int width, int height)
@@ -642,9 +650,9 @@ void sipwxColourPickerCtrl::DoSetClientSize(int width, int height)
         return;
     }
 
-    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
+    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
 
-    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxColourPickerCtrl::DoSetSizeHints(int minW, int minH, int maxW, int maxH, int incW, int incH)
@@ -660,9 +668,9 @@ void sipwxColourPickerCtrl::DoSetSizeHints(int minW, int minH, int maxW, int max
         return;
     }
 
-    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
+    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
 
-    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
+    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
 }
 
 void sipwxColourPickerCtrl::DoMoveWindow(int x, int y, int width, int height)
@@ -678,9 +686,9 @@ void sipwxColourPickerCtrl::DoMoveWindow(int x, int y, int width, int height)
         return;
     }
 
-    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
+    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
 
-    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
+    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
 }
 
 void sipwxColourPickerCtrl::DoSetWindowVariant(::wxWindowVariant variant)
@@ -696,9 +704,9 @@ void sipwxColourPickerCtrl::DoSetWindowVariant(::wxWindowVariant variant)
         return;
     }
 
-    extern void sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
+    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
 
-    sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth, variant);
+    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, variant);
 }
 
 ::wxBorder sipwxColourPickerCtrl::GetDefaultBorder() const
@@ -711,24 +719,9 @@ void sipwxColourPickerCtrl::DoSetWindowVariant(::wxWindowVariant variant)
     if (!sipMeth)
         return ::wxColourPickerCtrl::GetDefaultBorder();
 
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxBorder sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
-}
-
-::wxBorder sipwxColourPickerCtrl::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxColourPickerCtrl::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxColourPickerCtrl::DoFreeze()
@@ -736,7 +729,7 @@ void sipwxColourPickerCtrl::DoFreeze()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -754,7 +747,7 @@ void sipwxColourPickerCtrl::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -772,7 +765,7 @@ void sipwxColourPickerCtrl::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxColourPickerCtrl::DoGetBestSize();
@@ -787,7 +780,7 @@ void sipwxColourPickerCtrl::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxColourPickerCtrl::DoGetBestClientSize();
@@ -802,7 +795,7 @@ void sipwxColourPickerCtrl::UpdatePickerFromTextCtrl()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[39], &sipPySelf, SIP_NULLPTR, sipName_UpdatePickerFromTextCtrl);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_UpdatePickerFromTextCtrl);
 
     if (!sipMeth)
     {
@@ -820,7 +813,7 @@ void sipwxColourPickerCtrl::UpdateTextCtrlFromPicker()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[40], &sipPySelf, SIP_NULLPTR, sipName_UpdateTextCtrlFromPicker);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[39], &sipPySelf, SIP_NULLPTR, sipName_UpdateTextCtrlFromPicker);
 
     if (!sipMeth)
     {
@@ -838,14 +831,14 @@ long sipwxColourPickerCtrl::GetTextCtrlStyle(long style) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[41]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetTextCtrlStyle);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[40]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetTextCtrlStyle);
 
     if (!sipMeth)
         return ::wxColourPickerCtrl::GetTextCtrlStyle(style);
 
-    extern long sipVH__core_180(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, long);
+    extern long sipVH__core_179(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, long);
 
-    return sipVH__core_180(sipGILState, 0, sipPySelf, sipMeth, style);
+    return sipVH__core_179(sipGILState, 0, sipPySelf, sipMeth, style);
 }
 
 long sipwxColourPickerCtrl::GetPickerStyle(long style) const
@@ -853,14 +846,14 @@ long sipwxColourPickerCtrl::GetPickerStyle(long style) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[42]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetPickerStyle);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[41]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetPickerStyle);
 
     if (!sipMeth)
         return ::wxColourPickerCtrl::GetPickerStyle(style);
 
-    extern long sipVH__core_180(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, long);
+    extern long sipVH__core_179(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, long);
 
-    return sipVH__core_180(sipGILState, 0, sipPySelf, sipMeth, style);
+    return sipVH__core_179(sipGILState, 0, sipPySelf, sipMeth, style);
 }
 
 void sipwxColourPickerCtrl::sipProtect_SendDestroyEvent()
@@ -946,11 +939,6 @@ void sipwxColourPickerCtrl::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg
 ::wxBorder sipwxColourPickerCtrl::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxColourPickerCtrl::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxColourPickerCtrl::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxColourPickerCtrl::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxColourPickerCtrl::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -2503,40 +2491,6 @@ static PyObject *meth_wxColourPickerCtrl_GetDefaultBorder(PyObject *sipSelf, PyO
 }
 
 
-PyDoc_STRVAR(doc_wxColourPickerCtrl_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxColourPickerCtrl_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxColourPickerCtrl_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxColourPickerCtrl *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxColourPickerCtrl, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_ColourPickerCtrl, sipName_GetDefaultBorderForControl, doc_wxColourPickerCtrl_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxColourPickerCtrl_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxColourPickerCtrl_DoFreeze(PyObject *, PyObject *);}
@@ -2710,6 +2664,39 @@ static PyObject *meth_wxColourPickerCtrl_TryAfter(PyObject *sipSelf, PyObject *s
     }
 
     sipNoMethod(sipParseErr, sipName_ColourPickerCtrl, sipName_TryAfter, doc_wxColourPickerCtrl_TryAfter);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxColourPickerCtrl_CreateAccessible, "CreateAccessible() -> Accessible");
+
+extern "C" {static PyObject *meth_wxColourPickerCtrl_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxColourPickerCtrl_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxColourPickerCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxColourPickerCtrl, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxColourPickerCtrl_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_ColourPickerCtrl, sipName_CreateAccessible, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -2967,7 +2954,7 @@ static void *init_type_wxColourPickerCtrl(sipSimpleWrapper *sipSelf, PyObject *s
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxColourPickerCtrl[] = {{418, 255, 1}};
+static sipEncodedTypeDef supers_wxColourPickerCtrl[] = {{426, 255, 1}};
 
 
 static PyMethodDef methods_wxColourPickerCtrl[] = {
@@ -2976,6 +2963,7 @@ static PyMethodDef methods_wxColourPickerCtrl[] = {
     {sipName_AcceptsFocusRecursively, meth_wxColourPickerCtrl_AcceptsFocusRecursively, METH_VARARGS, doc_wxColourPickerCtrl_AcceptsFocusRecursively},
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxColourPickerCtrl_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxColourPickerCtrl_AddChild},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxColourPickerCtrl_Create), METH_VARARGS|METH_KEYWORDS, doc_wxColourPickerCtrl_Create},
+    {sipName_CreateAccessible, meth_wxColourPickerCtrl_CreateAccessible, METH_VARARGS, doc_wxColourPickerCtrl_CreateAccessible},
     {sipName_Destroy, meth_wxColourPickerCtrl_Destroy, METH_VARARGS, doc_wxColourPickerCtrl_Destroy},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxColourPickerCtrl_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxColourPickerCtrl_DoEnable},
     {sipName_DoFreeze, meth_wxColourPickerCtrl_DoFreeze, METH_VARARGS, doc_wxColourPickerCtrl_DoFreeze},
@@ -2995,7 +2983,6 @@ static PyMethodDef methods_wxColourPickerCtrl[] = {
     {sipName_GetClientAreaOrigin, meth_wxColourPickerCtrl_GetClientAreaOrigin, METH_VARARGS, doc_wxColourPickerCtrl_GetClientAreaOrigin},
     {sipName_GetColour, meth_wxColourPickerCtrl_GetColour, METH_VARARGS, doc_wxColourPickerCtrl_GetColour},
     {sipName_GetDefaultBorder, meth_wxColourPickerCtrl_GetDefaultBorder, METH_VARARGS, doc_wxColourPickerCtrl_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxColourPickerCtrl_GetDefaultBorderForControl, METH_VARARGS, doc_wxColourPickerCtrl_GetDefaultBorderForControl},
     {sipName_GetMainWindowOfCompositeControl, meth_wxColourPickerCtrl_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxColourPickerCtrl_GetMainWindowOfCompositeControl},
     {sipName_GetPickerStyle, SIP_MLMETH_CAST(meth_wxColourPickerCtrl_GetPickerStyle), METH_VARARGS|METH_KEYWORDS, SIP_NULLPTR},
     {sipName_GetTextCtrlStyle, SIP_MLMETH_CAST(meth_wxColourPickerCtrl_GetTextCtrlStyle), METH_VARARGS|METH_KEYWORDS, SIP_NULLPTR},
@@ -3023,7 +3010,7 @@ static PyMethodDef methods_wxColourPickerCtrl[] = {
 };
 
 sipVariableDef variables_wxColourPickerCtrl[] = {
-    {PropertyVariable, sipName_Colour, &methods_wxColourPickerCtrl[22], &methods_wxColourPickerCtrl[39], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Colour, &methods_wxColourPickerCtrl[23], &methods_wxColourPickerCtrl[39], SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxColourPickerCtrl, "ColourPickerCtrl() -> None\n"

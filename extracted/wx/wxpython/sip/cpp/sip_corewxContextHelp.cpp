@@ -197,7 +197,7 @@ static void *init_type_wxContextHelp(sipSimpleWrapper *sipSelf, PyObject *sipArg
     sipwxContextHelp *sipCpp = SIP_NULLPTR;
 
     {
-        ::wxWindow* window = 0;
+        ::wxWindow* window = nullptr;
         bool doNow = 1;
 
         static const char *sipKwdList[] = {
@@ -247,7 +247,7 @@ static void *init_type_wxContextHelp(sipSimpleWrapper *sipSelf, PyObject *sipArg
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxContextHelp[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxContextHelp[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxContextHelp[] = {
@@ -255,7 +255,7 @@ static PyMethodDef methods_wxContextHelp[] = {
     {sipName_EndContextHelp, meth_wxContextHelp_EndContextHelp, METH_VARARGS, doc_wxContextHelp_EndContextHelp}
 };
 
-PyDoc_STRVAR(doc_wxContextHelp, "ContextHelp(window=None, doNow=True) -> None\n"
+PyDoc_STRVAR(doc_wxContextHelp, "ContextHelp(window=nullptr, doNow=True) -> None\n"
 "\n"
 "This class changes the cursor to a query and puts the application into\n"
 "a 'context-sensitive help mode'.");

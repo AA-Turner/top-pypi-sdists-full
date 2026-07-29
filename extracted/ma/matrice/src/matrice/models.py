@@ -9,6 +9,9 @@ from matrice_common.utils import handle_response
 
 from matrice.dataset import Dataset
 
+APPLICATION_JSON = "application/json"
+SET_MODEL_ID_MESSAGE = "Set Model Id for model object"
+
 
 class Model:
     """
@@ -138,10 +141,10 @@ class Model:
         >>>     print(f"Model name updated: {result}")
         """
         if self.model_id is None:
-            print("Set Model Id for model object")
+            print(SET_MODEL_ID_MESSAGE)
             sys.exit(0)
         path = f"/v1/model/{self.model_id}/update_modelTrain_name"
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         model_payload = {
             "modelTrainId": self.model_id,
             "name": name,
@@ -175,7 +178,7 @@ class Model:
         >>>     print(f"Model deleted: {result}")
         """
         if self.model_id is None:
-            print("Set Model Id for model object")
+            print(SET_MODEL_ID_MESSAGE)
             sys.exit(0)
         path = f"/v1/model/delete_model_train/{self.model_id}"
         resp = self.rpc.delete(path=path)
@@ -267,7 +270,7 @@ class Model:
             print("Model Id is required for this operation")
             sys.exit(0)
         path = "/v1/model/get_eval_result"
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         model_payload = {
             "_idDataset": dataset_id,
             "_idModel": self.model_id,
@@ -413,11 +416,11 @@ class Model:
         >>> )
         """
         if self.model_id is None:
-            print("Set Model Id for model object")
+            print(SET_MODEL_ID_MESSAGE)
             sys.exit(0)
         _, _, _ = self._get_model_train_by_id()
         path = "/v1/model/add_model_eval"
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         model_payload = {
             "_idModel": self.model_id,
             "_idProject": self.project_id,
@@ -469,7 +472,7 @@ class Model:
             print("Model id not set for this model. Cannot perform the operation for model without model id")
             sys.exit(0)
         path = "/v1/model/get_model_download_path"
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         model_payload = {
             "modelID": self.model_id,
             "modelType": "trained",
@@ -597,7 +600,7 @@ class Model:
                         metrics[split_type][metric_name] = []
                     metrics[split_type][metric_name].append(metric_value)
         sns.set(style="whitegrid")
-        fig, axs = plt.subplots(2, 1, figsize=(12, 18))
+        _, axs = plt.subplots(2, 1, figsize=(12, 18))
         for (
             split_type,
             split_metrics,
@@ -674,7 +677,7 @@ class Model:
         metrics_names = list(metrics_names)
         num_graphs = len(metrics_names)
         sns.set(style="whitegrid")
-        fig, axs = plt.subplots(num_graphs, 1, figsize=(12, 18))
+        _, axs = plt.subplots(num_graphs, 1, figsize=(12, 18))
         for (
             metric_index,
             metric_name,

@@ -11,9 +11,6 @@
 
 #if wxUSE_STC
 
-#if defined(WXUSINGDLL)
-
-
 #ifndef WX_PRECOMP
     #include "wx/app.h"
 #endif // WX_PRECOMP
@@ -109,7 +106,7 @@ TEST_CASE_METHOD(StcPopupWindowsTestCase,
 }
 
 // This test is used to verify that a call tip receives mouse clicks. However
-// the clicks do sent with the UI simulator do not seem to be received on 
+// the clicks do sent with the UI simulator do not seem to be received on
 // cocoa for some reason, so skip the test there for now.
 #if !defined(__WXOSX_COCOA__)
 TEST_CASE_METHOD(StcPopupWindowsTestCase,
@@ -163,8 +160,6 @@ TEST_CASE_METHOD(StcPopupWindowsTestCase,
 #endif // !defined(__WXOSX_COCOA__)
 
 #endif // defined(__WXOSX_COCOA__) || defined(__WXMSW__) || defined(__WXGTK__)
-
-#endif // WXUSINGDLL
 
 #endif // wxUSE_STC
 

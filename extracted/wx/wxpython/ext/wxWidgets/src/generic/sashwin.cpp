@@ -4,7 +4,6 @@
 //              sash on each edge, allowing it to be dragged. An event
 //              is generated when the sash is released.
 // Author:      Julian Smart
-// Modified by:
 // Created:     01/02/97
 // Copyright:   (c) Julian Smart
 // Licence:     wxWindows licence
@@ -39,6 +38,7 @@ wxIMPLEMENT_DYNAMIC_CLASS(wxSashEvent, wxCommandEvent);
 wxBEGIN_EVENT_TABLE(wxSashWindow, wxWindow)
     EVT_PAINT(wxSashWindow::OnPaint)
     EVT_SIZE(wxSashWindow::OnSize)
+    EVT_SYS_COLOUR_CHANGED(wxSashWindow::OnSysColourChanged)
     EVT_MOUSE_EVENTS(wxSashWindow::OnMouseEvent)
 #if defined( __WXMSW__ ) || defined( __WXMAC__)
     EVT_SET_CURSOR(wxSashWindow::OnSetCursor)
@@ -75,9 +75,8 @@ void wxSashWindow::Init()
     m_sashCursorWE = new wxCursor(wxCURSOR_SIZEWE);
     m_sashCursorNS = new wxCursor(wxCURSOR_SIZENS);
     m_mouseCaptured = false;
-    m_currentCursor = NULL;
+    m_currentCursor = nullptr;
 
-    // Eventually, we'll respond to colour change messages
     InitColours();
 }
 
@@ -115,8 +114,6 @@ void wxSashWindow::OnMouseEvent(wxMouseEvent& event)
                              !wxDynamicCast(parent, wxFrame))
               parent = parent->GetParent();
 
-            wxScreenDC::StartDrawingOnTop(parent);
-
             // We don't say we're dragging yet; we leave that
             // decision for the Dragging() branch, to ensure
             // the user has dragged a little bit.
@@ -150,7 +147,6 @@ void wxSashWindow::OnMouseEvent(wxMouseEvent& event)
             ReleaseMouse();
         m_mouseCaptured = false;
 
-        wxScreenDC::EndDrawingOnTop();
         m_dragMode = wxSASH_DRAG_NONE;
         m_draggingEdge = wxSASH_NONE;
     }
@@ -164,10 +160,6 @@ void wxSashWindow::OnMouseEvent(wxMouseEvent& event)
 
         // Erase old tracker
         DrawSashTracker(m_draggingEdge, m_oldX, m_oldY);
-
-        // End drawing on top (frees the window used for drawing
-        // over the screen)
-        wxScreenDC::EndDrawingOnTop();
 
         int w, h;
         GetSize(&w, &h);
@@ -310,7 +302,7 @@ void wxSashWindow::OnMouseEvent(wxMouseEvent& event)
         else
         {
             SetCursor(wxNullCursor);
-            m_currentCursor = NULL;
+            m_currentCursor = nullptr;
         }
     }
     else if ( event.Dragging() &&
@@ -365,6 +357,12 @@ void wxSashWindow::OnMouseEvent(wxMouseEvent& event)
 void wxSashWindow::OnSize(wxSizeEvent& WXUNUSED(event))
 {
     SizeWindows();
+}
+
+void wxSashWindow::OnSysColourChanged(wxSysColourChangedEvent& event)
+{
+    InitColours();
+    event.Skip();
 }
 
 wxSashEdgePosition wxSashWindow::SashHitTest(int x, int y, int WXUNUSED(tolerance))

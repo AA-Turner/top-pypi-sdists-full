@@ -65,9 +65,9 @@ bool sipwxPGEditorDialogAdapter::DoShowDialog(::wxPropertyGrid*propGrid, ::wxPGP
     if (!sipMeth)
         return 0;
 
-    extern bool sipVH__propgrid_35(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPropertyGrid*, ::wxPGProperty*);
+    extern bool sipVH__propgrid_34(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPropertyGrid*, ::wxPGProperty*);
 
-    return sipVH__propgrid_35(sipGILState, 0, sipPySelf, sipMeth, propGrid, property);
+    return sipVH__propgrid_34(sipGILState, 0, sipPySelf, sipMeth, propGrid, property);
 }
 
 
@@ -323,7 +323,7 @@ static void *init_type_wxPGEditorDialogAdapter(sipSimpleWrapper *sipSelf, PyObje
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxPGEditorDialogAdapter[] = {{20, 0, 1}};
+static sipEncodedTypeDef supers_wxPGEditorDialogAdapter[] = {{21, 0, 1}};
 
 
 static PyMethodDef methods_wxPGEditorDialogAdapter[] = {

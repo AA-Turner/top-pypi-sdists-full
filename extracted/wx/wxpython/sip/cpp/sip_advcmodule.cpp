@@ -19,6 +19,7 @@
         #include <wx/menu.h>
         #include <wx/bmpbndl.h>
         #include <wx/stream.h>
+        #include <wx/animate.h>
         #include <wx/animdecod.h>
         #include <wx/image.h>
         #include <wx/colour.h>
@@ -65,6 +66,7 @@
 
 /* Define the strings used by this module. */
 const char sipStrings__adv[] = {
+    'w', 'x', 'N', 'o', 't', 'i', 'f', 'i', 'c', 'a', 't', 'i', 'o', 'n', 'M', 'e', 's', 's', 'a', 'g', 'e', ':', ':', 'D', 'i', 's', 'm', 'i', 's', 's', 'a', 'l', 'R', 'e', 'a', 's', 'o', 'n', 0,
     'w', 'x', 'E', 'V', 'T', '_', 'N', 'O', 'T', 'I', 'F', 'I', 'C', 'A', 'T', 'I', 'O', 'N', '_', 'M', 'E', 'S', 'S', 'A', 'G', 'E', '_', 'D', 'I', 'S', 'M', 'I', 'S', 'S', 'E', 'D', 0,
     'w', 'x', 'E', 'V', 'T', '_', 'N', 'O', 'T', 'I', 'F', 'I', 'C', 'A', 'T', 'I', 'O', 'N', '_', 'M', 'E', 'S', 'S', 'A', 'G', 'E', '_', 'A', 'C', 'T', 'I', 'O', 'N', 0,
     'w', 'x', 'O', 'w', 'n', 'e', 'r', 'D', 'r', 'a', 'w', 'n', 'C', 'o', 'm', 'b', 'o', 'B', 'o', 'x', 'P', 'a', 'i', 'n', 't', 'i', 'n', 'g', 'F', 'l', 'a', 'g', 's', 0,
@@ -85,7 +87,6 @@ const char sipStrings__adv[] = {
     'w', 'x', 'E', 'V', 'T', '_', 'C', 'A', 'L', 'E', 'N', 'D', 'A', 'R', '_', 'Y', 'E', 'A', 'R', '_', 'C', 'H', 'A', 'N', 'G', 'E', 'D', 0,
     'w', 'x', 'E', 'V', 'T', '_', 'T', 'A', 'S', 'K', 'B', 'A', 'R', '_', 'B', 'A', 'L', 'L', 'O', 'O', 'N', '_', 'C', 'L', 'I', 'C', 'K', 0,
     'C', 'A', 'L', '_', 'S', 'H', 'O', 'W', '_', 'S', 'U', 'R', 'R', 'O', 'U', 'N', 'D', 'I', 'N', 'G', '_', 'W', 'E', 'E', 'K', 'S', 0,
-    'G', 'e', 't', 'D', 'e', 'f', 'a', 'u', 'l', 't', 'B', 'o', 'r', 'd', 'e', 'r', 'F', 'o', 'r', 'C', 'o', 'n', 't', 'r', 'o', 'l', 0,
     'w', 'x', 'E', 'V', 'T', '_', 'C', 'A', 'L', 'E', 'N', 'D', 'A', 'R', '_', 'D', 'A', 'Y', '_', 'C', 'H', 'A', 'N', 'G', 'E', 'D', 0,
     'w', 'x', 'E', 'V', 'T', '_', 'C', 'A', 'L', 'E', 'N', 'D', 'A', 'R', '_', 'S', 'E', 'L', '_', 'C', 'H', 'A', 'N', 'G', 'E', 'D', 0,
     'w', 'x', 'E', 'V', 'T', '_', 'T', 'A', 'S', 'K', 'B', 'A', 'R', '_', 'R', 'I', 'G', 'H', 'T', '_', 'D', 'C', 'L', 'I', 'C', 'K', 0,
@@ -101,6 +102,7 @@ const char sipStrings__adv[] = {
     'H', 'a', 's', 'T', 'r', 'a', 'n', 's', 'p', 'a', 'r', 'e', 'n', 't', 'B', 'a', 'c', 'k', 'g', 'r', 'o', 'u', 'n', 'd', 0,
     'P', 'R', 'O', 'P', 'S', 'H', 'E', 'E', 'T', '_', 'B', 'U', 'T', 'T', 'O', 'N', 'T', 'O', 'O', 'L', 'B', 'O', 'O', 'K', 0,
     'S', 'A', 'S', 'H', '_', 'S', 'T', 'A', 'T', 'U', 'S', '_', 'O', 'U', 'T', '_', 'O', 'F', '_', 'R', 'A', 'N', 'G', 'E', 0,
+    's', 't', 'd', ':', ':', 'v', 'e', 'c', 't', 'o', 'r', '<', 'w', 'x', 'A', 'n', 'i', 'm', 'a', 't', 'i', 'o', 'n', '>', 0,
     'w', 'x', 'E', 'V', 'T', '_', 'T', 'A', 'S', 'K', 'B', 'A', 'R', '_', 'R', 'I', 'G', 'H', 'T', '_', 'D', 'O', 'W', 'N', 0,
     'A', 'c', 'c', 'e', 'p', 't', 's', 'F', 'o', 'c', 'u', 's', 'R', 'e', 'c', 'u', 'r', 's', 'i', 'v', 'e', 'l', 'y', 0,
     'S', 'P', 'L', 'A', 'S', 'H', '_', 'C', 'E', 'N', 'T', 'R', 'E', '_', 'O', 'N', '_', 'P', 'A', 'R', 'E', 'N', 'T', 0,
@@ -161,6 +163,7 @@ const char sipStrings__adv[] = {
     'W', 'I', 'Z', 'A', 'R', 'D', '_', 'V', 'A', 'L', 'I', 'G', 'N', '_', 'C', 'E', 'N', 'T', 'R', 'E', 0,
     'w', 'x', 'C', 'a', 'l', 'e', 'n', 'd', 'a', 'r', 'D', 'a', 't', 'e', 'B', 'o', 'r', 'd', 'e', 'r', 0,
     'w', 'x', 'O', 'w', 'n', 'e', 'r', 'D', 'r', 'a', 'w', 'n', 'C', 'o', 'm', 'b', 'o', 'B', 'o', 'x', 0,
+    'A', 'N', 'I', 'M', 'A', 'T', 'I', 'O', 'N', '_', 'T', 'Y', 'P', 'E', '_', 'W', 'E', 'B', 'P', 0,
     'B', 'a', 'n', 'n', 'e', 'r', 'W', 'i', 'n', 'd', 'o', 'w', 'N', 'a', 'm', 'e', 'S', 't', 'r', 0,
     'C', 'A', 'L', '_', 'H', 'I', 'T', 'T', 'E', 'S', 'T', '_', 'N', 'O', 'W', 'H', 'E', 'R', 'E', 0,
     'C', 'A', 'L', '_', 'N', 'O', '_', 'M', 'O', 'N', 'T', 'H', '_', 'C', 'H', 'A', 'N', 'G', 'E', 0,
@@ -255,6 +258,7 @@ const char sipStrings__adv[] = {
     'a', 'v', 'a', 'i', 'l', 'a', 'b', 'l', 'e', 'O', 't', 'h', 'e', 'r', 'D', 'i', 'r', 0,
     'm', 'i', 'l', 'l', 'i', 's', 'e', 'c', 'o', 'n', 'd', 's', 'D', 'e', 'l', 'a', 'y', 0,
     'w', 'x', 'A', 'b', 'o', 'u', 't', 'D', 'i', 'a', 'l', 'o', 'g', 'I', 'n', 'f', 'o', 0,
+    'w', 'x', 'A', 'n', 'i', 'm', 'a', 't', 'i', 'o', 'n', 'B', 'u', 'n', 'd', 'l', 'e', 0,
     'w', 'x', 'E', 'V', 'T', '_', 'W', 'I', 'Z', 'A', 'R', 'D', '_', 'H', 'E', 'L', 'P', 0,
     'w', 'x', 'E', 'd', 'i', 't', 'a', 'b', 'l', 'e', 'L', 'i', 's', 't', 'B', 'o', 'x', 0,
     'w', 'x', 'L', 'a', 'y', 'o', 'u', 't', 'A', 'l', 'g', 'o', 'r', 'i', 't', 'h', 'm', 0,
@@ -268,6 +272,7 @@ const char sipStrings__adv[] = {
     'C', 'A', 'L', '_', 'H', 'I', 'T', 'T', 'E', 'S', 'T', '_', 'W', 'E', 'E', 'K', 0,
     'C', 'A', 'L', '_', 'M', 'O', 'N', 'D', 'A', 'Y', '_', 'F', 'I', 'R', 'S', 'T', 0,
     'C', 'A', 'L', '_', 'S', 'U', 'N', 'D', 'A', 'Y', '_', 'F', 'I', 'R', 'S', 'T', 0,
+    'C', 'r', 'e', 'a', 't', 'e', 'A', 'c', 'c', 'e', 's', 's', 'i', 'b', 'l', 'e', 0,
     'D', 'i', 's', 'p', 'l', 'a', 'y', 'T', 'e', 'x', 't', 'P', 'o', 'p', 'u', 'p', 0,
     'D', 'r', 'a', 'w', 'C', 'u', 'r', 'r', 'e', 'n', 't', 'F', 'r', 'a', 'm', 'e', 0,
     'E', 'L', '_', 'D', 'E', 'F', 'A', 'U', 'L', 'T', '_', 'S', 'T', 'Y', 'L', 'E', 0,
@@ -580,6 +585,7 @@ const char sipStrings__adv[] = {
     'S', 'e', 't', 'W', 'e', 'b', 'S', 'i', 't', 'e', 0,
     'S', 'e', 't', 'W', 'e', 'e', 'k', 'D', 'a', 'y', 0,
     'T', 'P', '_', 'D', 'E', 'F', 'A', 'U', 'L', 'T', 0,
+    'a', 'n', 'i', 'm', 'a', 't', 'i', 'o', 'n', 's', 0,
     'c', 'l', 'i', 'e', 'n', 't', 'D', 'a', 't', 'a', 0,
     'c', 'u', 'r', 'r', 'e', 'n', 't', 'T', 'i', 'p', 0,
     'd', 'e', 'v', 'e', 'l', 'o', 'p', 'e', 'r', 's', 0,
@@ -672,6 +678,7 @@ const char sipStrings__adv[] = {
     'S', 'e', 't', 'V', 'a', 'l', 'u', 'e', 0,
     'S', 'h', 'o', 'w', 'P', 'a', 'g', 'e', 0,
     'T', 'B', 'I', '_', 'D', 'O', 'C', 'K', 0,
+    'T', 'i', 'm', 'e', 'd', 'O', 'u', 't', 0,
     'T', 'r', 'y', 'A', 'f', 't', 'e', 'r', 0,
     'V', 'a', 'l', 'i', 'd', 'a', 't', 'e', 0,
     '_', '_', 'b', 'o', 'o', 'l', '_', '_', 0,
@@ -738,6 +745,7 @@ const char sipStrings__adv[] = {
     'S', 'e', 't', 'T', 'i', 'm', 'e', 0,
     'S', 'h', 'o', 'w', 'F', 'o', 'r', 0,
     'S', 'h', 'o', 'w', 'T', 'i', 'p', 0,
+    'U', 'n', 'k', 'n', 'o', 'w', 'n', 0,
     '_', '_', 'l', 'e', 'n', '_', '_', 0,
     'a', 'r', 't', 'i', 's', 't', 's', 0,
     'b', 'l', 'o', 'c', 'k', 'N', 'o', 0,
@@ -769,9 +777,11 @@ const char sipStrings__adv[] = {
     'x', 'o', 'f', 'f', 's', 'e', 't', 0,
     'y', 'o', 'f', 'f', 's', 'e', 't', 0,
     'A', 'p', 'p', 'e', 'n', 'd', 0,
+    'B', 'y', 'U', 's', 'e', 'r', 0,
     'C', 'a', 'n', 'C', 'u', 't', 0,
     'C', 'r', 'e', 'a', 't', 'e', 0,
     'D', 'o', 'T', 'h', 'a', 'w', 0,
+    'G', 'e', 't', 'A', 'l', 'l', 0,
     'G', 'e', 't', 'L', 'e', 'n', 0,
     'G', 'e', 't', 'T', 'i', 'p', 0,
     'G', 'e', 't', 'U', 'R', 'L', 0,
@@ -804,6 +814,8 @@ const char sipStrings__adv[] = {
     's', 't', 'r', 'i', 'n', 'g', 0,
     't', 'b', 'I', 'c', 'o', 'n', 0,
     'v', 'i', 'e', 'w', 'e', 'r', 0,
+    'w', 'i', 'n', 'd', 'o', 'w', 0,
+    'B', 'y', 'A', 'p', 'p', 0,
     'C', 'h', 'a', 'i', 'n', 0,
     'C', 'l', 'e', 'a', 'r', 0,
     'C', 'l', 'o', 'n', 'e', 0,
@@ -873,9 +885,9 @@ const char sipStrings__adv[] = {
     's', 'h', 'o', 'w', 0,
     's', 'i', 'z', 'e', 0,
     't', 'e', 'x', 't', 0,
-    't', 'i', 'm', 'e', 0,
     't', 'y', 'p', 'e', 0,
     'u', 'n', 'i', 't', 0,
+    'A', 'd', 'd', 0,
     'b', 'm', 'p', 0,
     'c', 'o', 'l', 0,
     'd', 'i', 'r', 0,
@@ -1858,9 +1870,9 @@ void sipVH__adv_37(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorH
     sipCallProcedureMethod(sipGILState, sipErrorHandler, sipPySelf, sipMethod, "N", new ::wxBitmapBundle(bmp), sipType_wxBitmapBundle, SIP_NULLPTR);
 }
 
-void sipVH__adv_36(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, const ::wxAnimation& anim)
+void sipVH__adv_36(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, const ::wxAnimationBundle& animations)
 {
-    sipCallProcedureMethod(sipGILState, sipErrorHandler, sipPySelf, sipMethod, "N", new ::wxAnimation(anim), sipType_wxAnimation, SIP_NULLPTR);
+    sipCallProcedureMethod(sipGILState, sipErrorHandler, sipPySelf, sipMethod, "N", new ::wxAnimationBundle(animations), sipType_wxAnimationBundle, SIP_NULLPTR);
 }
 
 bool sipVH__adv_35(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxInputStream& file, ::wxAnimationType animType)
@@ -2260,7 +2272,7 @@ static PyObject *func_CreateFileTipProvider(PyObject *, PyObject *sipArgs, PyObj
 }
 
 
-PyDoc_STRVAR(doc_GenericAboutBox, "GenericAboutBox(info, parent=None) -> None\n"
+PyDoc_STRVAR(doc_GenericAboutBox, "GenericAboutBox(info, parent=nullptr) -> None\n"
 "\n"
 "This function does the same thing as wxAboutBox() except that it\n"
 "always uses the generic wxWidgets version of the dialog instead of the\n"
@@ -2273,7 +2285,7 @@ static PyObject *func_GenericAboutBox(PyObject *, PyObject *sipArgs, PyObject *s
 
     {
         const ::wxAboutDialogInfo* info;
-        ::wxWindow* parent = 0;
+        ::wxWindow* parent = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_info,
@@ -2304,7 +2316,7 @@ static PyObject *func_GenericAboutBox(PyObject *, PyObject *sipArgs, PyObject *s
 }
 
 
-PyDoc_STRVAR(doc_AboutBox, "AboutBox(info, parent=None) -> None\n"
+PyDoc_STRVAR(doc_AboutBox, "AboutBox(info, parent=nullptr) -> None\n"
 "\n"
 "This function shows the standard about dialog containing the\n"
 "information specified in info.");
@@ -2316,7 +2328,7 @@ static PyObject *func_AboutBox(PyObject *, PyObject *sipArgs, PyObject *sipKwds)
 
     {
         const ::wxAboutDialogInfo* info;
-        ::wxWindow* parent = 0;
+        ::wxWindow* parent = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_info,
@@ -2352,6 +2364,7 @@ static sipEnumTypeDef enumTypes[] = {
     {{-1, SIP_NULLPTR, SIP_NULLPTR, SIP_TYPE_ENUM, sipNameNr_wxCalendarHitTestResult, SIP_NULLPTR, 0}, sipNameNr_CalendarHitTestResult, -1, SIP_NULLPTR},
     {{-1, SIP_NULLPTR, SIP_NULLPTR, SIP_TYPE_ENUM, sipNameNr_wxLayoutAlignment, SIP_NULLPTR, 0}, sipNameNr_LayoutAlignment, -1, SIP_NULLPTR},
     {{-1, SIP_NULLPTR, SIP_NULLPTR, SIP_TYPE_ENUM, sipNameNr_wxLayoutOrientation, SIP_NULLPTR, 0}, sipNameNr_LayoutOrientation, -1, SIP_NULLPTR},
+    {{-1, SIP_NULLPTR, SIP_NULLPTR, SIP_TYPE_SCOPED_ENUM, sipNameNr_wxNotificationMessage__DismissalReason, SIP_NULLPTR, 0}, sipNameNr_DismissalReason, 34, SIP_NULLPTR},
     {{-1, SIP_NULLPTR, SIP_NULLPTR, SIP_TYPE_ENUM, sipNameNr_wxOwnerDrawnComboBoxPaintingFlags, SIP_NULLPTR, 0}, sipNameNr_OwnerDrawnComboBoxPaintingFlags, -1, SIP_NULLPTR},
     {{-1, SIP_NULLPTR, SIP_NULLPTR, SIP_TYPE_ENUM, sipNameNr_wxPropertySheetDialogFlags, SIP_NULLPTR, 0}, sipNameNr_PropertySheetDialogFlags, -1, SIP_NULLPTR},
     {{-1, SIP_NULLPTR, SIP_NULLPTR, SIP_TYPE_ENUM, sipNameNr_wxSashDragStatus, SIP_NULLPTR, 0}, sipNameNr_SashDragStatus, -1, SIP_NULLPTR},
@@ -2362,59 +2375,60 @@ static sipEnumTypeDef enumTypes[] = {
 
 /* These are the enum members of all global enums. */
 static sipEnumMemberDef enummembers[] = {
-    {sipName_ANIMATION_TYPE_ANI, static_cast<int>(::wxANIMATION_TYPE_ANI), 8},
-    {sipName_ANIMATION_TYPE_ANY, static_cast<int>(::wxANIMATION_TYPE_ANY), 8},
-    {sipName_ANIMATION_TYPE_GIF, static_cast<int>(::wxANIMATION_TYPE_GIF), 8},
-    {sipName_ANIMATION_TYPE_INVALID, static_cast<int>(::wxANIMATION_TYPE_INVALID), 8},
-    {sipName_ANIM_DONOTREMOVE, static_cast<int>(::wxANIM_DONOTREMOVE), 7},
-    {sipName_ANIM_TOBACKGROUND, static_cast<int>(::wxANIM_TOBACKGROUND), 7},
-    {sipName_ANIM_TOPREVIOUS, static_cast<int>(::wxANIM_TOPREVIOUS), 7},
-    {sipName_ANIM_UNSPECIFIED, static_cast<int>(::wxANIM_UNSPECIFIED), 7},
-    {sipName_CAL_BORDER_NONE, static_cast<int>(::wxCAL_BORDER_NONE), 14},
-    {sipName_CAL_BORDER_ROUND, static_cast<int>(::wxCAL_BORDER_ROUND), 14},
-    {sipName_CAL_BORDER_SQUARE, static_cast<int>(::wxCAL_BORDER_SQUARE), 14},
-    {sipName_CAL_HITTEST_DAY, static_cast<int>(::wxCAL_HITTEST_DAY), 16},
-    {sipName_CAL_HITTEST_DECMONTH, static_cast<int>(::wxCAL_HITTEST_DECMONTH), 16},
-    {sipName_CAL_HITTEST_HEADER, static_cast<int>(::wxCAL_HITTEST_HEADER), 16},
-    {sipName_CAL_HITTEST_INCMONTH, static_cast<int>(::wxCAL_HITTEST_INCMONTH), 16},
-    {sipName_CAL_HITTEST_NOWHERE, static_cast<int>(::wxCAL_HITTEST_NOWHERE), 16},
-    {sipName_CAL_HITTEST_SURROUNDING_WEEK, static_cast<int>(::wxCAL_HITTEST_SURROUNDING_WEEK), 16},
-    {sipName_CAL_HITTEST_WEEK, static_cast<int>(::wxCAL_HITTEST_WEEK), 16},
-    {sipName_LAYOUT_BOTTOM, static_cast<int>(::wxLAYOUT_BOTTOM), 30},
-    {sipName_LAYOUT_HORIZONTAL, static_cast<int>(::wxLAYOUT_HORIZONTAL), 31},
-    {sipName_LAYOUT_LEFT, static_cast<int>(::wxLAYOUT_LEFT), 30},
-    {sipName_LAYOUT_NONE, static_cast<int>(::wxLAYOUT_NONE), 30},
-    {sipName_LAYOUT_RIGHT, static_cast<int>(::wxLAYOUT_RIGHT), 30},
-    {sipName_LAYOUT_TOP, static_cast<int>(::wxLAYOUT_TOP), 30},
-    {sipName_LAYOUT_VERTICAL, static_cast<int>(::wxLAYOUT_VERTICAL), 31},
-    {sipName_ODCB_PAINTING_CONTROL, static_cast<int>(::wxODCB_PAINTING_CONTROL), 34},
-    {sipName_ODCB_PAINTING_SELECTED, static_cast<int>(::wxODCB_PAINTING_SELECTED), 34},
-    {sipName_PROPSHEET_BUTTONTOOLBOOK, static_cast<int>(::wxPROPSHEET_BUTTONTOOLBOOK), 36},
-    {sipName_PROPSHEET_CHOICEBOOK, static_cast<int>(::wxPROPSHEET_CHOICEBOOK), 36},
-    {sipName_PROPSHEET_DEFAULT, static_cast<int>(::wxPROPSHEET_DEFAULT), 36},
-    {sipName_PROPSHEET_LISTBOOK, static_cast<int>(::wxPROPSHEET_LISTBOOK), 36},
-    {sipName_PROPSHEET_NOTEBOOK, static_cast<int>(::wxPROPSHEET_NOTEBOOK), 36},
-    {sipName_PROPSHEET_SHRINKTOFIT, static_cast<int>(::wxPROPSHEET_SHRINKTOFIT), 36},
-    {sipName_PROPSHEET_TOOLBOOK, static_cast<int>(::wxPROPSHEET_TOOLBOOK), 36},
-    {sipName_PROPSHEET_TREEBOOK, static_cast<int>(::wxPROPSHEET_TREEBOOK), 36},
-    {sipName_SASH_BOTTOM, static_cast<int>(::wxSASH_BOTTOM), 41},
-    {sipName_SASH_LEFT, static_cast<int>(::wxSASH_LEFT), 41},
-    {sipName_SASH_NONE, static_cast<int>(::wxSASH_NONE), 41},
-    {sipName_SASH_RIGHT, static_cast<int>(::wxSASH_RIGHT), 41},
-    {sipName_SASH_STATUS_OK, static_cast<int>(::wxSASH_STATUS_OK), 40},
-    {sipName_SASH_STATUS_OUT_OF_RANGE, static_cast<int>(::wxSASH_STATUS_OUT_OF_RANGE), 40},
-    {sipName_SASH_TOP, static_cast<int>(::wxSASH_TOP), 41},
-    {sipName_TBI_CUSTOM_STATUSITEM, static_cast<int>(::wxTBI_CUSTOM_STATUSITEM), 49},
-    {sipName_TBI_DEFAULT_TYPE, static_cast<int>(::wxTBI_DEFAULT_TYPE), 49},
-    {sipName_TBI_DOCK, static_cast<int>(::wxTBI_DOCK), 49},
-    {sipName_TipKind_Auto, static_cast<int>(::wxTipKind_Auto), 51},
-    {sipName_TipKind_Bottom, static_cast<int>(::wxTipKind_Bottom), 51},
-    {sipName_TipKind_BottomLeft, static_cast<int>(::wxTipKind_BottomLeft), 51},
-    {sipName_TipKind_BottomRight, static_cast<int>(::wxTipKind_BottomRight), 51},
-    {sipName_TipKind_None, static_cast<int>(::wxTipKind_None), 51},
-    {sipName_TipKind_Top, static_cast<int>(::wxTipKind_Top), 51},
-    {sipName_TipKind_TopLeft, static_cast<int>(::wxTipKind_TopLeft), 51},
-    {sipName_TipKind_TopRight, static_cast<int>(::wxTipKind_TopRight), 51},
+    {sipName_ANIMATION_TYPE_ANI, static_cast<int>(::wxANIMATION_TYPE_ANI), 10},
+    {sipName_ANIMATION_TYPE_ANY, static_cast<int>(::wxANIMATION_TYPE_ANY), 10},
+    {sipName_ANIMATION_TYPE_GIF, static_cast<int>(::wxANIMATION_TYPE_GIF), 10},
+    {sipName_ANIMATION_TYPE_INVALID, static_cast<int>(::wxANIMATION_TYPE_INVALID), 10},
+    {sipName_ANIMATION_TYPE_WEBP, static_cast<int>(::wxANIMATION_TYPE_WEBP), 10},
+    {sipName_ANIM_DONOTREMOVE, static_cast<int>(::wxANIM_DONOTREMOVE), 9},
+    {sipName_ANIM_TOBACKGROUND, static_cast<int>(::wxANIM_TOBACKGROUND), 9},
+    {sipName_ANIM_TOPREVIOUS, static_cast<int>(::wxANIM_TOPREVIOUS), 9},
+    {sipName_ANIM_UNSPECIFIED, static_cast<int>(::wxANIM_UNSPECIFIED), 9},
+    {sipName_CAL_BORDER_NONE, static_cast<int>(::wxCAL_BORDER_NONE), 16},
+    {sipName_CAL_BORDER_ROUND, static_cast<int>(::wxCAL_BORDER_ROUND), 16},
+    {sipName_CAL_BORDER_SQUARE, static_cast<int>(::wxCAL_BORDER_SQUARE), 16},
+    {sipName_CAL_HITTEST_DAY, static_cast<int>(::wxCAL_HITTEST_DAY), 18},
+    {sipName_CAL_HITTEST_DECMONTH, static_cast<int>(::wxCAL_HITTEST_DECMONTH), 18},
+    {sipName_CAL_HITTEST_HEADER, static_cast<int>(::wxCAL_HITTEST_HEADER), 18},
+    {sipName_CAL_HITTEST_INCMONTH, static_cast<int>(::wxCAL_HITTEST_INCMONTH), 18},
+    {sipName_CAL_HITTEST_NOWHERE, static_cast<int>(::wxCAL_HITTEST_NOWHERE), 18},
+    {sipName_CAL_HITTEST_SURROUNDING_WEEK, static_cast<int>(::wxCAL_HITTEST_SURROUNDING_WEEK), 18},
+    {sipName_CAL_HITTEST_WEEK, static_cast<int>(::wxCAL_HITTEST_WEEK), 18},
+    {sipName_LAYOUT_BOTTOM, static_cast<int>(::wxLAYOUT_BOTTOM), 32},
+    {sipName_LAYOUT_HORIZONTAL, static_cast<int>(::wxLAYOUT_HORIZONTAL), 33},
+    {sipName_LAYOUT_LEFT, static_cast<int>(::wxLAYOUT_LEFT), 32},
+    {sipName_LAYOUT_NONE, static_cast<int>(::wxLAYOUT_NONE), 32},
+    {sipName_LAYOUT_RIGHT, static_cast<int>(::wxLAYOUT_RIGHT), 32},
+    {sipName_LAYOUT_TOP, static_cast<int>(::wxLAYOUT_TOP), 32},
+    {sipName_LAYOUT_VERTICAL, static_cast<int>(::wxLAYOUT_VERTICAL), 33},
+    {sipName_ODCB_PAINTING_CONTROL, static_cast<int>(::wxODCB_PAINTING_CONTROL), 37},
+    {sipName_ODCB_PAINTING_SELECTED, static_cast<int>(::wxODCB_PAINTING_SELECTED), 37},
+    {sipName_PROPSHEET_BUTTONTOOLBOOK, static_cast<int>(::wxPROPSHEET_BUTTONTOOLBOOK), 39},
+    {sipName_PROPSHEET_CHOICEBOOK, static_cast<int>(::wxPROPSHEET_CHOICEBOOK), 39},
+    {sipName_PROPSHEET_DEFAULT, static_cast<int>(::wxPROPSHEET_DEFAULT), 39},
+    {sipName_PROPSHEET_LISTBOOK, static_cast<int>(::wxPROPSHEET_LISTBOOK), 39},
+    {sipName_PROPSHEET_NOTEBOOK, static_cast<int>(::wxPROPSHEET_NOTEBOOK), 39},
+    {sipName_PROPSHEET_SHRINKTOFIT, static_cast<int>(::wxPROPSHEET_SHRINKTOFIT), 39},
+    {sipName_PROPSHEET_TOOLBOOK, static_cast<int>(::wxPROPSHEET_TOOLBOOK), 39},
+    {sipName_PROPSHEET_TREEBOOK, static_cast<int>(::wxPROPSHEET_TREEBOOK), 39},
+    {sipName_SASH_BOTTOM, static_cast<int>(::wxSASH_BOTTOM), 44},
+    {sipName_SASH_LEFT, static_cast<int>(::wxSASH_LEFT), 44},
+    {sipName_SASH_NONE, static_cast<int>(::wxSASH_NONE), 44},
+    {sipName_SASH_RIGHT, static_cast<int>(::wxSASH_RIGHT), 44},
+    {sipName_SASH_STATUS_OK, static_cast<int>(::wxSASH_STATUS_OK), 43},
+    {sipName_SASH_STATUS_OUT_OF_RANGE, static_cast<int>(::wxSASH_STATUS_OUT_OF_RANGE), 43},
+    {sipName_SASH_TOP, static_cast<int>(::wxSASH_TOP), 44},
+    {sipName_TBI_CUSTOM_STATUSITEM, static_cast<int>(::wxTBI_CUSTOM_STATUSITEM), 52},
+    {sipName_TBI_DEFAULT_TYPE, static_cast<int>(::wxTBI_DEFAULT_TYPE), 52},
+    {sipName_TBI_DOCK, static_cast<int>(::wxTBI_DOCK), 52},
+    {sipName_TipKind_Auto, static_cast<int>(::wxTipKind_Auto), 54},
+    {sipName_TipKind_Bottom, static_cast<int>(::wxTipKind_Bottom), 54},
+    {sipName_TipKind_BottomLeft, static_cast<int>(::wxTipKind_BottomLeft), 54},
+    {sipName_TipKind_BottomRight, static_cast<int>(::wxTipKind_BottomRight), 54},
+    {sipName_TipKind_None, static_cast<int>(::wxTipKind_None), 54},
+    {sipName_TipKind_Top, static_cast<int>(::wxTipKind_Top), 54},
+    {sipName_TipKind_TopLeft, static_cast<int>(::wxTipKind_TopLeft), 54},
+    {sipName_TipKind_TopRight, static_cast<int>(::wxTipKind_TopRight), 54},
 };
 
 
@@ -2422,9 +2436,11 @@ static sipEnumMemberDef enummembers[] = {
  * This defines each type in this module.
  */
 sipTypeDef *sipExportedTypes__adv[] = {
+    &sipTypeDef__adv_std_vector_0100wxAnimation.mtd_base,
     &sipTypeDef__adv_wxANIDecoder.ctd_base,
     &sipTypeDef__adv_wxAboutDialogInfo.ctd_base,
     &sipTypeDef__adv_wxAnimation.ctd_base,
+    &sipTypeDef__adv_wxAnimationBundle.ctd_base,
     &sipTypeDef__adv_wxAnimationCtrl.ctd_base,
     &sipTypeDef__adv_wxAnimationDecoder.ctd_base,
     &sipTypeDef__adv_wxAnimationDecoderList.ctd_base,
@@ -2455,15 +2471,16 @@ sipTypeDef *sipExportedTypes__adv[] = {
     &enumTypes[4].etd_base,
     &enumTypes[5].etd_base,
     &sipTypeDef__adv_wxNotificationMessage.ctd_base,
-    &sipTypeDef__adv_wxOwnerDrawnComboBox.ctd_base,
     &enumTypes[6].etd_base,
-    &sipTypeDef__adv_wxPropertySheetDialog.ctd_base,
+    &sipTypeDef__adv_wxOwnerDrawnComboBox.ctd_base,
     &enumTypes[7].etd_base,
+    &sipTypeDef__adv_wxPropertySheetDialog.ctd_base,
+    &enumTypes[8].etd_base,
     &sipTypeDef__adv_wxPseudoDC.ctd_base,
     &sipTypeDef__adv_wxQueryLayoutInfoEvent.ctd_base,
     &sipTypeDef__adv_wxRichToolTip.ctd_base,
-    &enumTypes[8].etd_base,
     &enumTypes[9].etd_base,
+    &enumTypes[10].etd_base,
     &sipTypeDef__adv_wxSashEvent.ctd_base,
     &sipTypeDef__adv_wxSashLayoutWindow.ctd_base,
     &sipTypeDef__adv_wxSashWindow.ctd_base,
@@ -2471,9 +2488,9 @@ sipTypeDef *sipExportedTypes__adv[] = {
     &sipTypeDef__adv_wxSplashScreen.ctd_base,
     &sipTypeDef__adv_wxTaskBarIcon.ctd_base,
     &sipTypeDef__adv_wxTaskBarIconEvent.ctd_base,
-    &enumTypes[10].etd_base,
-    &sipTypeDef__adv_wxTimePickerCtrl.ctd_base,
     &enumTypes[11].etd_base,
+    &sipTypeDef__adv_wxTimePickerCtrl.ctd_base,
+    &enumTypes[12].etd_base,
     &sipTypeDef__adv_wxTipProvider.ctd_base,
     &sipTypeDef__adv_wxWizard.ctd_base,
     &sipTypeDef__adv_wxWizardEvent.ctd_base,
@@ -2484,6 +2501,7 @@ sipTypeDef *sipExportedTypes__adv[] = {
 
 /* This defines the types that this module needs to import from _core. */
 sipImportedTypeDef sipImportedTypes__adv__core[] = {
+    {"wxAccessible"},
     {"wxAnyButton"},
     {"wxArrayString"},
     {"wxBitmap"},
@@ -2671,10 +2689,10 @@ sipExportedModuleDef sipModuleAPI__adv = {
     sipStrings__adv,
     importsTable,
     SIP_NULLPTR,
-    57,
+    60,
     sipExportedTypes__adv,
     SIP_NULLPTR,
-    53,
+    54,
     enummembers,
     0,
     SIP_NULLPTR,

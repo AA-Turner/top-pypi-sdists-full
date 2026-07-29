@@ -12,21 +12,22 @@
         #include <wx/propgrid/propgrid.h>
         #include <wx/gdicmn.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/validate.h>
         #include <wx/window.h>
         #include <wx/gdicmn.h>
         #include <wx/bmpbndl.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -42,6 +43,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
+    wxAccessible* _wxPGMultiButton_CreateAccessible(wxPGMultiButton* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxPGMultiButton : public ::wxPGMultiButton
@@ -68,7 +78,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -114,7 +123,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -127,7 +135,7 @@ private:
     sipwxPGMultiButton(const sipwxPGMultiButton &);
     sipwxPGMultiButton &operator = (const sipwxPGMultiButton &);
 
-    char sipPyMethods[39];
+    char sipPyMethods[38];
 };
 
 sipwxPGMultiButton::sipwxPGMultiButton(::wxPropertyGrid*pg, const ::wxSize& sz): ::wxPGMultiButton(pg, sz), sipPySelf(SIP_NULLPTR)
@@ -153,9 +161,9 @@ void sipwxPGMultiButton::RemoveChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__propgrid_50(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__propgrid_49(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__propgrid_50(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__propgrid_49(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 void sipwxPGMultiButton::AddChild(::wxWindowBase*child)
@@ -171,9 +179,9 @@ void sipwxPGMultiButton::AddChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__propgrid_50(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__propgrid_49(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__propgrid_50(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__propgrid_49(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 bool sipwxPGMultiButton::ProcessEvent(::wxEvent& event)
@@ -186,9 +194,9 @@ bool sipwxPGMultiButton::ProcessEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxPGMultiButton::ProcessEvent(event);
 
-    extern bool sipVH__propgrid_49(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__propgrid_48(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__propgrid_49(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__propgrid_48(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxPGMultiButton::TryBefore(::wxEvent& event)
@@ -201,9 +209,9 @@ bool sipwxPGMultiButton::TryBefore(::wxEvent& event)
     if (!sipMeth)
         return ::wxPGMultiButton::TryBefore(event);
 
-    extern bool sipVH__propgrid_49(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__propgrid_48(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__propgrid_49(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__propgrid_48(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxPGMultiButton::TryAfter(::wxEvent& event)
@@ -216,9 +224,9 @@ bool sipwxPGMultiButton::TryAfter(::wxEvent& event)
     if (!sipMeth)
         return ::wxPGMultiButton::TryAfter(event);
 
-    extern bool sipVH__propgrid_49(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__propgrid_48(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__propgrid_49(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__propgrid_48(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxPGMultiButton::AcceptsFocus() const
@@ -231,9 +239,9 @@ bool sipwxPGMultiButton::AcceptsFocus() const
     if (!sipMeth)
         return ::wxPGMultiButton::AcceptsFocus();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPGMultiButton::AcceptsFocusFromKeyboard() const
@@ -246,9 +254,9 @@ bool sipwxPGMultiButton::AcceptsFocusFromKeyboard() const
     if (!sipMeth)
         return ::wxPGMultiButton::AcceptsFocusFromKeyboard();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPGMultiButton::AcceptsFocusRecursively() const
@@ -261,9 +269,9 @@ bool sipwxPGMultiButton::AcceptsFocusRecursively() const
     if (!sipMeth)
         return ::wxPGMultiButton::AcceptsFocusRecursively();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPGMultiButton::SetCanFocus(bool canFocus)
@@ -279,9 +287,9 @@ void sipwxPGMultiButton::SetCanFocus(bool canFocus)
         return;
     }
 
-    extern void sipVH__propgrid_44(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__propgrid_43(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__propgrid_44(sipGILState, 0, sipPySelf, sipMeth, canFocus);
+    sipVH__propgrid_43(sipGILState, 0, sipPySelf, sipMeth, canFocus);
 }
 
 void sipwxPGMultiButton::EnableVisibleFocus(bool enabled)
@@ -297,9 +305,9 @@ void sipwxPGMultiButton::EnableVisibleFocus(bool enabled)
         return;
     }
 
-    extern void sipVH__propgrid_44(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__propgrid_43(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__propgrid_44(sipGILState, 0, sipPySelf, sipMeth, enabled);
+    sipVH__propgrid_43(sipGILState, 0, sipPySelf, sipMeth, enabled);
 }
 
 bool sipwxPGMultiButton::InformFirstDirection(int direction, int size, int availableOtherDir)
@@ -312,9 +320,9 @@ bool sipwxPGMultiButton::InformFirstDirection(int direction, int size, int avail
     if (!sipMeth)
         return ::wxPGMultiButton::InformFirstDirection(direction, size, availableOtherDir);
 
-    extern bool sipVH__propgrid_48(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern bool sipVH__propgrid_47(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
 
-    return sipVH__propgrid_48(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
+    return sipVH__propgrid_47(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
 }
 
 ::wxPoint sipwxPGMultiButton::GetClientAreaOrigin() const
@@ -327,9 +335,9 @@ bool sipwxPGMultiButton::InformFirstDirection(int direction, int size, int avail
     if (!sipMeth)
         return ::wxPGMultiButton::GetClientAreaOrigin();
 
-    extern ::wxPoint sipVH__propgrid_47(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPoint sipVH__propgrid_46(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_47(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_46(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPGMultiButton::HasTransparentBackground()
@@ -342,9 +350,9 @@ bool sipwxPGMultiButton::HasTransparentBackground()
     if (!sipMeth)
         return ::wxPGMultiButton::HasTransparentBackground();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPGMultiButton::ShouldInheritColours() const
@@ -357,9 +365,9 @@ bool sipwxPGMultiButton::ShouldInheritColours() const
     if (!sipMeth)
         return ::wxPGMultiButton::ShouldInheritColours();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxValidator* sipwxPGMultiButton::GetValidator()
@@ -372,9 +380,9 @@ bool sipwxPGMultiButton::ShouldInheritColours() const
     if (!sipMeth)
         return ::wxPGMultiButton::GetValidator();
 
-    extern ::wxValidator* sipVH__propgrid_13(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxValidator* sipVH__propgrid_12(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_13(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_12(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPGMultiButton::SetValidator(const ::wxValidator& validator)
@@ -390,9 +398,9 @@ void sipwxPGMultiButton::SetValidator(const ::wxValidator& validator)
         return;
     }
 
-    extern void sipVH__propgrid_46(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
+    extern void sipVH__propgrid_45(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
 
-    sipVH__propgrid_46(sipGILState, 0, sipPySelf, sipMeth, validator);
+    sipVH__propgrid_45(sipGILState, 0, sipPySelf, sipMeth, validator);
 }
 
 bool sipwxPGMultiButton::TransferDataFromWindow()
@@ -405,9 +413,9 @@ bool sipwxPGMultiButton::TransferDataFromWindow()
     if (!sipMeth)
         return ::wxPGMultiButton::TransferDataFromWindow();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPGMultiButton::TransferDataToWindow()
@@ -420,9 +428,9 @@ bool sipwxPGMultiButton::TransferDataToWindow()
     if (!sipMeth)
         return ::wxPGMultiButton::TransferDataToWindow();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPGMultiButton::Validate()
@@ -435,9 +443,9 @@ bool sipwxPGMultiButton::Validate()
     if (!sipMeth)
         return ::wxPGMultiButton::Validate();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPGMultiButton::Destroy()
@@ -450,9 +458,9 @@ bool sipwxPGMultiButton::Destroy()
     if (!sipMeth)
         return ::wxPGMultiButton::Destroy();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPGMultiButton::InheritAttributes()
@@ -468,9 +476,9 @@ void sipwxPGMultiButton::InheritAttributes()
         return;
     }
 
-    extern void sipVH__propgrid_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern void sipVH__propgrid_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    sipVH__propgrid_3(sipGILState, 0, sipPySelf, sipMeth);
+    sipVH__propgrid_2(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPGMultiButton::InitDialog()
@@ -486,9 +494,9 @@ void sipwxPGMultiButton::InitDialog()
         return;
     }
 
-    extern void sipVH__propgrid_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern void sipVH__propgrid_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    sipVH__propgrid_3(sipGILState, 0, sipPySelf, sipMeth);
+    sipVH__propgrid_2(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPGMultiButton::OnInternalIdle()
@@ -504,9 +512,9 @@ void sipwxPGMultiButton::OnInternalIdle()
         return;
     }
 
-    extern void sipVH__propgrid_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern void sipVH__propgrid_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    sipVH__propgrid_3(sipGILState, 0, sipPySelf, sipMeth);
+    sipVH__propgrid_2(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxWindow* sipwxPGMultiButton::GetMainWindowOfCompositeControl()
@@ -519,9 +527,9 @@ void sipwxPGMultiButton::OnInternalIdle()
     if (!sipMeth)
         return ::wxPGMultiButton::GetMainWindowOfCompositeControl();
 
-    extern ::wxWindow* sipVH__propgrid_45(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxWindow* sipVH__propgrid_44(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_45(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_44(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPGMultiButton::DoEnable(bool enable)
@@ -537,9 +545,9 @@ void sipwxPGMultiButton::DoEnable(bool enable)
         return;
     }
 
-    extern void sipVH__propgrid_44(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__propgrid_43(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__propgrid_44(sipGILState, 0, sipPySelf, sipMeth, enable);
+    sipVH__propgrid_43(sipGILState, 0, sipPySelf, sipMeth, enable);
 }
 
 void sipwxPGMultiButton::DoGetPosition(int*x, int*y) const
@@ -555,9 +563,9 @@ void sipwxPGMultiButton::DoGetPosition(int*x, int*y) const
         return;
     }
 
-    extern void sipVH__propgrid_43(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__propgrid_42(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__propgrid_43(sipGILState, 0, sipPySelf, sipMeth, x, y);
+    sipVH__propgrid_42(sipGILState, 0, sipPySelf, sipMeth, x, y);
 }
 
 void sipwxPGMultiButton::DoGetSize(int*width, int*height) const
@@ -573,9 +581,9 @@ void sipwxPGMultiButton::DoGetSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__propgrid_43(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__propgrid_42(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__propgrid_43(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__propgrid_42(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxPGMultiButton::DoGetClientSize(int*width, int*height) const
@@ -591,9 +599,9 @@ void sipwxPGMultiButton::DoGetClientSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__propgrid_43(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__propgrid_42(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__propgrid_43(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__propgrid_42(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxPGMultiButton::DoSetSize(int x, int y, int width, int height, int sizeFlags)
@@ -609,9 +617,9 @@ void sipwxPGMultiButton::DoSetSize(int x, int y, int width, int height, int size
         return;
     }
 
-    extern void sipVH__propgrid_42(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
+    extern void sipVH__propgrid_41(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
 
-    sipVH__propgrid_42(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
+    sipVH__propgrid_41(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
 }
 
 void sipwxPGMultiButton::DoSetClientSize(int width, int height)
@@ -627,9 +635,9 @@ void sipwxPGMultiButton::DoSetClientSize(int width, int height)
         return;
     }
 
-    extern void sipVH__propgrid_41(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
+    extern void sipVH__propgrid_40(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
 
-    sipVH__propgrid_41(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__propgrid_40(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxPGMultiButton::DoSetSizeHints(int minW, int minH, int maxW, int maxH, int incW, int incH)
@@ -645,9 +653,9 @@ void sipwxPGMultiButton::DoSetSizeHints(int minW, int minH, int maxW, int maxH, 
         return;
     }
 
-    extern void sipVH__propgrid_40(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
+    extern void sipVH__propgrid_39(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
 
-    sipVH__propgrid_40(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
+    sipVH__propgrid_39(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
 }
 
 void sipwxPGMultiButton::DoMoveWindow(int x, int y, int width, int height)
@@ -663,9 +671,9 @@ void sipwxPGMultiButton::DoMoveWindow(int x, int y, int width, int height)
         return;
     }
 
-    extern void sipVH__propgrid_39(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
+    extern void sipVH__propgrid_38(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
 
-    sipVH__propgrid_39(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
+    sipVH__propgrid_38(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
 }
 
 void sipwxPGMultiButton::DoSetWindowVariant(::wxWindowVariant variant)
@@ -681,9 +689,9 @@ void sipwxPGMultiButton::DoSetWindowVariant(::wxWindowVariant variant)
         return;
     }
 
-    extern void sipVH__propgrid_38(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
+    extern void sipVH__propgrid_37(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
 
-    sipVH__propgrid_38(sipGILState, 0, sipPySelf, sipMeth, variant);
+    sipVH__propgrid_37(sipGILState, 0, sipPySelf, sipMeth, variant);
 }
 
 ::wxBorder sipwxPGMultiButton::GetDefaultBorder() const
@@ -696,24 +704,9 @@ void sipwxPGMultiButton::DoSetWindowVariant(::wxWindowVariant variant)
     if (!sipMeth)
         return ::wxPGMultiButton::GetDefaultBorder();
 
-    extern ::wxBorder sipVH__propgrid_37(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxBorder sipVH__propgrid_36(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_37(sipGILState, 0, sipPySelf, sipMeth);
-}
-
-::wxBorder sipwxPGMultiButton::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxPGMultiButton::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__propgrid_37(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__propgrid_37(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_36(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPGMultiButton::DoFreeze()
@@ -721,7 +714,7 @@ void sipwxPGMultiButton::DoFreeze()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -729,9 +722,9 @@ void sipwxPGMultiButton::DoFreeze()
         return;
     }
 
-    extern void sipVH__propgrid_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern void sipVH__propgrid_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    sipVH__propgrid_3(sipGILState, 0, sipPySelf, sipMeth);
+    sipVH__propgrid_2(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPGMultiButton::DoThaw()
@@ -739,7 +732,7 @@ void sipwxPGMultiButton::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -747,9 +740,9 @@ void sipwxPGMultiButton::DoThaw()
         return;
     }
 
-    extern void sipVH__propgrid_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern void sipVH__propgrid_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    sipVH__propgrid_3(sipGILState, 0, sipPySelf, sipMeth);
+    sipVH__propgrid_2(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxSize sipwxPGMultiButton::DoGetBestSize() const
@@ -757,14 +750,14 @@ void sipwxPGMultiButton::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxPGMultiButton::DoGetBestSize();
 
-    extern ::wxSize sipVH__propgrid_36(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxSize sipVH__propgrid_35(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_36(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_35(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxSize sipwxPGMultiButton::DoGetBestClientSize() const
@@ -772,14 +765,14 @@ void sipwxPGMultiButton::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxPGMultiButton::DoGetBestClientSize();
 
-    extern ::wxSize sipVH__propgrid_36(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxSize sipVH__propgrid_35(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_36(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_35(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPGMultiButton::sipProtect_SendDestroyEvent()
@@ -852,11 +845,6 @@ void sipwxPGMultiButton::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, :
     return (sipSelfWasArg ? ::wxPGMultiButton::GetDefaultBorder() : GetDefaultBorder());
 }
 
-::wxBorder sipwxPGMultiButton::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxPGMultiButton::GetDefaultBorderForControl() : GetDefaultBorderForControl());
-}
-
 void sipwxPGMultiButton::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
 {
     (sipSelfWasArg ? ::wxPGMultiButton::DoFreeze() : DoFreeze());
@@ -917,8 +905,8 @@ static PyObject *meth_wxPGMultiButton_SendDestroyEvent(PyObject *sipSelf, PyObje
 }
 
 
-PyDoc_STRVAR(doc_wxPGMultiButton_Add, "Add(label, id=-2) -> None\n"
-"Add(bitmap, id=-2) -> None\n"
+PyDoc_STRVAR(doc_wxPGMultiButton_Add, "Add(label, id=wx.ID_ANY) -> None\n"
+"Add(bitmap, id=wx.ID_ANY) -> None\n"
 "\n"
 "Adds new button, with given label.\n"
 "");
@@ -931,7 +919,7 @@ static PyObject *meth_wxPGMultiButton_Add(PyObject *sipSelf, PyObject *sipArgs, 
     {
         const ::wxString* label;
         int labelState = 0;
-        int id = -2;
+        int id = wxID_ANY;
         ::wxPGMultiButton *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -959,7 +947,7 @@ static PyObject *meth_wxPGMultiButton_Add(PyObject *sipSelf, PyObject *sipArgs, 
     {
         const ::wxBitmapBundle* bitmap;
         int bitmapState = 0;
-        int id = -2;
+        int id = wxID_ANY;
         ::wxPGMultiButton *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -2388,40 +2376,6 @@ static PyObject *meth_wxPGMultiButton_GetDefaultBorder(PyObject *sipSelf, PyObje
 }
 
 
-PyDoc_STRVAR(doc_wxPGMultiButton_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxPGMultiButton_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxPGMultiButton_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxPGMultiButton *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxPGMultiButton, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_PGMultiButton, sipName_GetDefaultBorderForControl, doc_wxPGMultiButton_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxPGMultiButton_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxPGMultiButton_DoFreeze(PyObject *, PyObject *);}
@@ -2600,6 +2554,39 @@ static PyObject *meth_wxPGMultiButton_TryAfter(PyObject *sipSelf, PyObject *sipA
 }
 
 
+PyDoc_STRVAR(doc_wxPGMultiButton_CreateAccessible, "CreateAccessible() -> wx.Accessible");
+
+extern "C" {static PyObject *meth_wxPGMultiButton_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxPGMultiButton_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxPGMultiButton *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxPGMultiButton, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxPGMultiButton_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_PGMultiButton, sipName_CreateAccessible, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxPGMultiButton_GetClassDefaultAttributes, "GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes");
 
 extern "C" {static PyObject *meth_wxPGMultiButton_GetClassDefaultAttributes(PyObject *, PyObject *, PyObject *);}
@@ -2726,7 +2713,7 @@ static void *init_type_wxPGMultiButton(sipSimpleWrapper *sipSelf, PyObject *sipA
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxPGMultiButton[] = {{39, 0, 1}};
+static sipEncodedTypeDef supers_wxPGMultiButton[] = {{41, 0, 1}};
 
 
 static PyMethodDef methods_wxPGMultiButton[] = {
@@ -2735,6 +2722,7 @@ static PyMethodDef methods_wxPGMultiButton[] = {
     {sipName_AcceptsFocusRecursively, meth_wxPGMultiButton_AcceptsFocusRecursively, METH_VARARGS, doc_wxPGMultiButton_AcceptsFocusRecursively},
     {sipName_Add, SIP_MLMETH_CAST(meth_wxPGMultiButton_Add), METH_VARARGS|METH_KEYWORDS, doc_wxPGMultiButton_Add},
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxPGMultiButton_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxPGMultiButton_AddChild},
+    {sipName_CreateAccessible, meth_wxPGMultiButton_CreateAccessible, METH_VARARGS, doc_wxPGMultiButton_CreateAccessible},
     {sipName_Destroy, meth_wxPGMultiButton_Destroy, METH_VARARGS, doc_wxPGMultiButton_Destroy},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxPGMultiButton_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxPGMultiButton_DoEnable},
     {sipName_DoFreeze, meth_wxPGMultiButton_DoFreeze, METH_VARARGS, doc_wxPGMultiButton_DoFreeze},
@@ -2757,7 +2745,6 @@ static PyMethodDef methods_wxPGMultiButton[] = {
     {sipName_GetClientAreaOrigin, meth_wxPGMultiButton_GetClientAreaOrigin, METH_VARARGS, doc_wxPGMultiButton_GetClientAreaOrigin},
     {sipName_GetCount, meth_wxPGMultiButton_GetCount, METH_VARARGS, doc_wxPGMultiButton_GetCount},
     {sipName_GetDefaultBorder, meth_wxPGMultiButton_GetDefaultBorder, METH_VARARGS, doc_wxPGMultiButton_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxPGMultiButton_GetDefaultBorderForControl, METH_VARARGS, doc_wxPGMultiButton_GetDefaultBorderForControl},
     {sipName_GetMainWindowOfCompositeControl, meth_wxPGMultiButton_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxPGMultiButton_GetMainWindowOfCompositeControl},
     {sipName_GetPrimarySize, meth_wxPGMultiButton_GetPrimarySize, METH_VARARGS, doc_wxPGMultiButton_GetPrimarySize},
     {sipName_GetValidator, meth_wxPGMultiButton_GetValidator, METH_VARARGS, doc_wxPGMultiButton_GetValidator},
@@ -2781,7 +2768,7 @@ static PyMethodDef methods_wxPGMultiButton[] = {
 
 sipVariableDef variables_wxPGMultiButton[] = {
     {PropertyVariable, sipName_PrimarySize, &methods_wxPGMultiButton[29], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Count, &methods_wxPGMultiButton[25], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Count, &methods_wxPGMultiButton[26], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxPGMultiButton, "PGMultiButton(pg, sz) -> None\n"

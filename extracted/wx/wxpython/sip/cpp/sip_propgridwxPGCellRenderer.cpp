@@ -29,7 +29,6 @@ public:
      * this class.
      */
 protected:
-    void DrawCaptionSelectionRect(::wxDC&, int, int, int, int) const SIP_OVERRIDE;
     ::wxSize GetImageSize(const ::wxPGProperty*, int, int) const SIP_OVERRIDE;
     bool Render(::wxDC&, const ::wxRect&, const ::wxPropertyGrid*, ::wxPGProperty*, int, int, int) const SIP_OVERRIDE;
 
@@ -40,7 +39,7 @@ private:
     sipwxPGCellRenderer(const sipwxPGCellRenderer &);
     sipwxPGCellRenderer &operator = (const sipwxPGCellRenderer &);
 
-    char sipPyMethods[3];
+    char sipPyMethods[2];
 };
 
 sipwxPGCellRenderer::sipwxPGCellRenderer(): ::wxPGCellRenderer(), sipPySelf(SIP_NULLPTR)
@@ -53,30 +52,12 @@ sipwxPGCellRenderer::~sipwxPGCellRenderer()
     sipInstanceDestroyedEx(&sipPySelf);
 }
 
-void sipwxPGCellRenderer::DrawCaptionSelectionRect(::wxDC& dc, int x, int y, int w, int h) const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[0]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DrawCaptionSelectionRect);
-
-    if (!sipMeth)
-    {
-        ::wxPGCellRenderer::DrawCaptionSelectionRect(dc, x, y, w, h);
-        return;
-    }
-
-    extern void sipVH__propgrid_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, int, int, int, int);
-
-    sipVH__propgrid_2(sipGILState, 0, sipPySelf, sipMeth, dc, x, y, w, h);
-}
-
 ::wxSize sipwxPGCellRenderer::GetImageSize(const ::wxPGProperty*property, int column, int item) const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[1]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetImageSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[0]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetImageSize);
 
     if (!sipMeth)
         return ::wxPGCellRenderer::GetImageSize(property, column, item);
@@ -91,7 +72,7 @@ bool sipwxPGCellRenderer::Render(::wxDC& dc, const ::wxRect& rect, const ::wxPro
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[2]), const_cast<sipSimpleWrapper **>(&sipPySelf), sipName_PGCellRenderer, sipName_Render);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[1]), const_cast<sipSimpleWrapper **>(&sipPySelf), sipName_PGCellRenderer, sipName_Render);
 
     if (!sipMeth)
         return 0;
@@ -208,54 +189,6 @@ static PyObject *meth_wxPGCellRenderer_GetImageSize(PyObject *sipSelf, PyObject 
 }
 
 
-PyDoc_STRVAR(doc_wxPGCellRenderer_DrawCaptionSelectionRect, "DrawCaptionSelectionRect(dc, x, y, w, h) -> None\n"
-"\n"
-"Paints property category selection rectangle.");
-
-extern "C" {static PyObject *meth_wxPGCellRenderer_DrawCaptionSelectionRect(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxPGCellRenderer_DrawCaptionSelectionRect(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        ::wxDC* dc;
-        int x;
-        int y;
-        int w;
-        int h;
-        const ::wxPGCellRenderer *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_dc,
-            sipName_x,
-            sipName_y,
-            sipName_w,
-            sipName_h,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9iiii", &sipSelf, sipType_wxPGCellRenderer, &sipCpp, sipType_wxDC, &dc, &x, &y, &w, &h))
-        {
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            (sipSelfWasArg ? sipCpp->::wxPGCellRenderer::DrawCaptionSelectionRect(*dc, x, y, w, h) : sipCpp->DrawCaptionSelectionRect(*dc, x, y, w, h));
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_PGCellRenderer, sipName_DrawCaptionSelectionRect, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxPGCellRenderer_DrawText, "DrawText(dc, rect, imageWidth, text) -> None\n"
 "\n"
 "Utility to draw vertically centered text.");
@@ -308,7 +241,7 @@ static PyObject *meth_wxPGCellRenderer_DrawText(PyObject *sipSelf, PyObject *sip
 PyDoc_STRVAR(doc_wxPGCellRenderer_DrawEditorValue, "DrawEditorValue(dc, rect, xOffset, text, property, editor) -> None\n"
 "\n"
 "Utility to draw editor's value, or vertically aligned text if editor\n"
-"is NULL.");
+"is nullptr.");
 
 extern "C" {static PyObject *meth_wxPGCellRenderer_DrawEditorValue(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxPGCellRenderer_DrawEditorValue(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -531,11 +464,10 @@ static void *init_type_wxPGCellRenderer(sipSimpleWrapper *sipSelf, PyObject *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxPGCellRenderer[] = {{24, 0, 1}};
+static sipEncodedTypeDef supers_wxPGCellRenderer[] = {{26, 0, 1}};
 
 
 static PyMethodDef methods_wxPGCellRenderer[] = {
-    {sipName_DrawCaptionSelectionRect, SIP_MLMETH_CAST(meth_wxPGCellRenderer_DrawCaptionSelectionRect), METH_VARARGS|METH_KEYWORDS, doc_wxPGCellRenderer_DrawCaptionSelectionRect},
     {sipName_DrawEditorValue, SIP_MLMETH_CAST(meth_wxPGCellRenderer_DrawEditorValue), METH_VARARGS|METH_KEYWORDS, doc_wxPGCellRenderer_DrawEditorValue},
     {sipName_DrawText, SIP_MLMETH_CAST(meth_wxPGCellRenderer_DrawText), METH_VARARGS|METH_KEYWORDS, doc_wxPGCellRenderer_DrawText},
     {sipName_GetImageSize, SIP_MLMETH_CAST(meth_wxPGCellRenderer_GetImageSize), METH_VARARGS|METH_KEYWORDS, doc_wxPGCellRenderer_GetImageSize},
@@ -572,7 +504,7 @@ sipClassTypeDef sipTypeDef__propgrid_wxPGCellRenderer = {
     {
         sipNameNr_PGCellRenderer,
         {0, 0, 1},
-        7, methods_wxPGCellRenderer,
+        6, methods_wxPGCellRenderer,
         7, enummembers_wxPGCellRenderer,
         0, SIP_NULLPTR,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

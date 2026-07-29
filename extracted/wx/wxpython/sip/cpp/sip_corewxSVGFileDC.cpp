@@ -9,25 +9,26 @@
 
 #include "sipAPI_core.h"
         #include <wx/dcsvg.h>
+        #include <wx/gdicmn.h>
+        #include <wx/graphics.h>
+        #include <wx/dcsvg.h>
         #include <wx/dcsvg.h>
         #include <wx/palette.h>
         #include <wx/colour.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/gdicmn.h>
-        #include <wx/graphics.h>
         #include <wx/bitmap.h>
         #include <wx/gdicmn.h>
-        #include <wx/gdicmn.h>
         #include <wx/dc.h>
-        #include <wx/affinematrix2d.h>
         #include <wx/pen.h>
         #include "arrayholder.h"
         #include <wx/brush.h>
+        #include <wx/region.h>
+        #include <wx/gdicmn.h>
+        #include <wx/icon.h>
         #include <wx/font.h>
         #include <wx/dc.h>
-        #include <wx/region.h>
-        #include <wx/icon.h>
+        #include <wx/affinematrix2d.h>
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
@@ -37,7 +38,15 @@ class sipwxSVGFileDC : public ::wxSVGFileDC
 {
 public:
     sipwxSVGFileDC(const ::wxString&, int, int, double, const ::wxString&);
-    ~sipwxSVGFileDC();
+    sipwxSVGFileDC(const ::wxSize, const ::wxString&, const ::wxString&, double);
+    virtual ~sipwxSVGFileDC();
+
+    /*
+     * There is a protected method for every virtual method visible from
+     * this class.
+     */
+protected:
+    ::wxGraphicsContext* GetGraphicsContext() const SIP_OVERRIDE;
 
 public:
     sipSimpleWrapper *sipPySelf;
@@ -45,15 +54,38 @@ public:
 private:
     sipwxSVGFileDC(const sipwxSVGFileDC &);
     sipwxSVGFileDC &operator = (const sipwxSVGFileDC &);
+
+    char sipPyMethods[1];
 };
 
 sipwxSVGFileDC::sipwxSVGFileDC(const ::wxString& filename, int width, int height, double dpi, const ::wxString& title): ::wxSVGFileDC(filename, width, height, dpi, title), sipPySelf(SIP_NULLPTR)
 {
+    memset(sipPyMethods, 0, sizeof (sipPyMethods));
+}
+
+sipwxSVGFileDC::sipwxSVGFileDC(const ::wxSize size, const ::wxString& filename, const ::wxString& title, double dpi): ::wxSVGFileDC(size, filename, title, dpi), sipPySelf(SIP_NULLPTR)
+{
+    memset(sipPyMethods, 0, sizeof (sipPyMethods));
 }
 
 sipwxSVGFileDC::~sipwxSVGFileDC()
 {
     sipInstanceDestroyedEx(&sipPySelf);
+}
+
+::wxGraphicsContext* sipwxSVGFileDC::GetGraphicsContext() const
+{
+    sip_gilstate_t sipGILState;
+    PyObject *sipMeth;
+
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[0]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetGraphicsContext);
+
+    if (!sipMeth)
+        return ::wxSVGFileDC::GetGraphicsContext();
+
+    extern ::wxGraphicsContext* sipVH__core_29(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+
+    return sipVH__core_29(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
@@ -597,6 +629,270 @@ static PyObject *meth_wxSVGFileDC_SetShapeRenderingMode(PyObject *sipSelf, PyObj
 }
 
 
+PyDoc_STRVAR(doc_wxSVGFileDC_BeginAccessibleGroup, "BeginAccessibleGroup(attributes, title=\"\", desc=\"\") -> None\n"
+"\n"
+"Opens an accessible group wrapping all subsequent drawing until the\n"
+"matching EndAccessibleGroup() call.");
+
+extern "C" {static PyObject *meth_wxSVGFileDC_BeginAccessibleGroup(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxSVGFileDC_BeginAccessibleGroup(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxSVGAttributes* attributes;
+        const ::wxString& titledef = wxString();
+        const ::wxString* title = &titledef;
+        int titleState = 0;
+        const ::wxString& descdef = wxString();
+        const ::wxString* desc = &descdef;
+        int descState = 0;
+        ::wxSVGFileDC *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_attributes,
+            sipName_title,
+            sipName_desc,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9|J1J1", &sipSelf, sipType_wxSVGFileDC, &sipCpp, sipType_wxSVGAttributes, &attributes, sipType_wxString, &title, &titleState, sipType_wxString, &desc, &descState))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->BeginAccessibleGroup(*attributes, *title, *desc);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxString *>(title), sipType_wxString, titleState);
+            sipReleaseType(const_cast< ::wxString *>(desc), sipType_wxString, descState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_SVGFileDC, sipName_BeginAccessibleGroup, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxSVGFileDC_EndAccessibleGroup, "EndAccessibleGroup() -> None\n"
+"\n"
+"Closes the accessible group opened by the most recent\n"
+"BeginAccessibleGroup() call.");
+
+extern "C" {static PyObject *meth_wxSVGFileDC_EndAccessibleGroup(PyObject *, PyObject *);}
+static PyObject *meth_wxSVGFileDC_EndAccessibleGroup(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxSVGFileDC *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxSVGFileDC, &sipCpp))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->EndAccessibleGroup();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_SVGFileDC, sipName_EndAccessibleGroup, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxSVGFileDC_BeginLayer, "BeginLayer(opacity) -> None\n"
+"\n"
+"Opens a new layer with the given opacity.");
+
+extern "C" {static PyObject *meth_wxSVGFileDC_BeginLayer(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxSVGFileDC_BeginLayer(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        double opacity;
+        ::wxSVGFileDC *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_opacity,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bd", &sipSelf, sipType_wxSVGFileDC, &sipCpp, &opacity))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->BeginLayer(opacity);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_SVGFileDC, sipName_BeginLayer, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxSVGFileDC_EndLayer, "EndLayer() -> None\n"
+"\n"
+"Closes the layer opened by the most recent BeginLayer() call.");
+
+extern "C" {static PyObject *meth_wxSVGFileDC_EndLayer(PyObject *, PyObject *);}
+static PyObject *meth_wxSVGFileDC_EndLayer(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxSVGFileDC *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxSVGFileDC, &sipCpp))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->EndLayer();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_SVGFileDC, sipName_EndLayer, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxSVGFileDC_GetSVGDocument, "GetSVGDocument() -> str\n"
+"\n"
+"Returns the SVG document as a string.");
+
+extern "C" {static PyObject *meth_wxSVGFileDC_GetSVGDocument(PyObject *, PyObject *);}
+static PyObject *meth_wxSVGFileDC_GetSVGDocument(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxSVGFileDC *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxSVGFileDC, &sipCpp))
+        {
+            ::wxString*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxString(sipCpp->GetSVGDocument());
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxString, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_SVGFileDC, sipName_GetSVGDocument, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxSVGFileDC_Save, "Save() -> bool\n"
+"\n"
+"Saves the SVG document to the file specified in the constructor.");
+
+extern "C" {static PyObject *meth_wxSVGFileDC_Save(PyObject *, PyObject *);}
+static PyObject *meth_wxSVGFileDC_Save(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxSVGFileDC *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxSVGFileDC, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->Save();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_SVGFileDC, sipName_Save, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxSVGFileDC_GetGraphicsContext, "GetGraphicsContext() -> GraphicsContext\n"
+"\n"
+"Returns the graphics context associated with this DC.");
+
+extern "C" {static PyObject *meth_wxSVGFileDC_GetGraphicsContext(PyObject *, PyObject *);}
+static PyObject *meth_wxSVGFileDC_GetGraphicsContext(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
+
+    {
+        const ::wxSVGFileDC *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxSVGFileDC, &sipCpp))
+        {
+            ::wxGraphicsContext*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = (sipSelfWasArg ? sipCpp->::wxSVGFileDC::GetGraphicsContext() : sipCpp->GetGraphicsContext());
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxGraphicsContext, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_SVGFileDC, sipName_GetGraphicsContext, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxSVGFileDC_DestroyClippingRegion, "DestroyClippingRegion() -> None\n"
 "\n"
 "Destroys the current clipping region so that none of the DC is\n"
@@ -687,7 +983,7 @@ static void *init_type_wxSVGFileDC(sipSimpleWrapper *sipSelf, PyObject *sipArgs,
         int filenameState = 0;
         int width = 320;
         int height = 240;
-        double dpi = 72;
+        double dpi = wxSVG_DEFAULT_DPI;
         const ::wxString& titledef = wxString();
         const ::wxString* title = &titledef;
         int titleState = 0;
@@ -724,24 +1020,74 @@ static void *init_type_wxSVGFileDC(sipSimpleWrapper *sipSelf, PyObject *sipArgs,
         }
     }
 
+    {
+        const ::wxSize* size;
+        int sizeState = 0;
+        const ::wxString& filenamedef = wxString();
+        const ::wxString* filename = &filenamedef;
+        int filenameState = 0;
+        const ::wxString& titledef = wxString();
+        const ::wxString* title = &titledef;
+        int titleState = 0;
+        double dpi = wxSVG_DEFAULT_DPI;
+
+        static const char *sipKwdList[] = {
+            sipName_size,
+            sipName_filename,
+            sipName_title,
+            sipName_dpi,
+        };
+
+        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, sipKwdList, sipUnused, "J1|J1J1d", sipType_wxSize, &size, &sizeState, sipType_wxString, &filename, &filenameState, sipType_wxString, &title, &titleState, &dpi))
+        {
+        if (!wxPyCheckForApp()) return NULL;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp = new sipwxSVGFileDC(*size, *filename, *title, dpi);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxSize *>(size), sipType_wxSize, sizeState);
+            sipReleaseType(const_cast< ::wxString *>(filename), sipType_wxString, filenameState);
+            sipReleaseType(const_cast< ::wxString *>(title), sipType_wxString, titleState);
+
+            if (PyErr_Occurred())
+            {
+                delete sipCpp;
+                return SIP_NULLPTR;
+            }
+
+            sipCpp->sipPySelf = sipSelf;
+
+            return sipCpp;
+        }
+    }
+
     return SIP_NULLPTR;
 }
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxSVGFileDC[] = {{101, 255, 1}};
+static sipEncodedTypeDef supers_wxSVGFileDC[] = {{105, 255, 1}};
 
 
 static PyMethodDef methods_wxSVGFileDC[] = {
+    {sipName_BeginAccessibleGroup, SIP_MLMETH_CAST(meth_wxSVGFileDC_BeginAccessibleGroup), METH_VARARGS|METH_KEYWORDS, doc_wxSVGFileDC_BeginAccessibleGroup},
+    {sipName_BeginLayer, SIP_MLMETH_CAST(meth_wxSVGFileDC_BeginLayer), METH_VARARGS|METH_KEYWORDS, doc_wxSVGFileDC_BeginLayer},
     {sipName_Clear, meth_wxSVGFileDC_Clear, METH_VARARGS, doc_wxSVGFileDC_Clear},
     {sipName_CrossHair, SIP_MLMETH_CAST(meth_wxSVGFileDC_CrossHair), METH_VARARGS|METH_KEYWORDS, doc_wxSVGFileDC_CrossHair},
     {sipName_DestroyClippingRegion, meth_wxSVGFileDC_DestroyClippingRegion, METH_VARARGS, doc_wxSVGFileDC_DestroyClippingRegion},
+    {sipName_EndAccessibleGroup, meth_wxSVGFileDC_EndAccessibleGroup, METH_VARARGS, doc_wxSVGFileDC_EndAccessibleGroup},
     {sipName_EndDoc, meth_wxSVGFileDC_EndDoc, METH_VARARGS, doc_wxSVGFileDC_EndDoc},
+    {sipName_EndLayer, meth_wxSVGFileDC_EndLayer, METH_VARARGS, doc_wxSVGFileDC_EndLayer},
     {sipName_EndPage, meth_wxSVGFileDC_EndPage, METH_VARARGS, doc_wxSVGFileDC_EndPage},
     {sipName_FloodFill, SIP_MLMETH_CAST(meth_wxSVGFileDC_FloodFill), METH_VARARGS|METH_KEYWORDS, doc_wxSVGFileDC_FloodFill},
     {sipName_GetDepth, meth_wxSVGFileDC_GetDepth, METH_VARARGS, doc_wxSVGFileDC_GetDepth},
+    {sipName_GetGraphicsContext, meth_wxSVGFileDC_GetGraphicsContext, METH_VARARGS, doc_wxSVGFileDC_GetGraphicsContext},
     {sipName_GetLogicalFunction, meth_wxSVGFileDC_GetLogicalFunction, METH_VARARGS, doc_wxSVGFileDC_GetLogicalFunction},
     {sipName_GetPixel, SIP_MLMETH_CAST(meth_wxSVGFileDC_GetPixel), METH_VARARGS|METH_KEYWORDS, doc_wxSVGFileDC_GetPixel},
+    {sipName_GetSVGDocument, meth_wxSVGFileDC_GetSVGDocument, METH_VARARGS, doc_wxSVGFileDC_GetSVGDocument},
+    {sipName_Save, meth_wxSVGFileDC_Save, METH_VARARGS, doc_wxSVGFileDC_Save},
     {sipName_SetBitmapHandler, SIP_MLMETH_CAST(meth_wxSVGFileDC_SetBitmapHandler), METH_VARARGS|METH_KEYWORDS, doc_wxSVGFileDC_SetBitmapHandler},
     {sipName_SetLogicalFunction, SIP_MLMETH_CAST(meth_wxSVGFileDC_SetLogicalFunction), METH_VARARGS|METH_KEYWORDS, doc_wxSVGFileDC_SetLogicalFunction},
     {sipName_SetPalette, SIP_MLMETH_CAST(meth_wxSVGFileDC_SetPalette), METH_VARARGS|METH_KEYWORDS, doc_wxSVGFileDC_SetPalette},
@@ -751,11 +1097,14 @@ static PyMethodDef methods_wxSVGFileDC[] = {
 };
 
 sipVariableDef variables_wxSVGFileDC[] = {
-    {PropertyVariable, sipName_LogicalFunction, &methods_wxSVGFileDC[7], &methods_wxSVGFileDC[10], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Depth, &methods_wxSVGFileDC[6], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SVGDocument, &methods_wxSVGFileDC[14], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_LogicalFunction, &methods_wxSVGFileDC[12], &methods_wxSVGFileDC[17], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_GraphicsContext, &methods_wxSVGFileDC[11], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Depth, &methods_wxSVGFileDC[10], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxSVGFileDC, "SVGFileDC(filename, width=320, height=240, dpi=72, title=\"\") -> None\n"
+PyDoc_STRVAR(doc_wxSVGFileDC, "SVGFileDC(filename, width=320, height=240, dpi=SVG_DEFAULT_DPI, title=\"\") -> None\n"
+"SVGFileDC(size, filename=\"\", title=\"\", dpi=SVG_DEFAULT_DPI) -> None\n"
 "\n"
 "A wxSVGFileDC is a device context onto which graphics and text can be\n"
 "drawn, and the output produced as a vector file, in SVG format.");
@@ -774,9 +1123,9 @@ sipClassTypeDef sipTypeDef__core_wxSVGFileDC = {
     {
         sipNameNr_SVGFileDC,
         {0, 0, 1},
-        15, methods_wxSVGFileDC,
+        22, methods_wxSVGFileDC,
         0, SIP_NULLPTR,
-        2, variables_wxSVGFileDC,
+        4, variables_wxSVGFileDC,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxSVGFileDC,

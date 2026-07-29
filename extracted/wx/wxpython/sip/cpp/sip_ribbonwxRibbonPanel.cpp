@@ -14,22 +14,24 @@
         #include <wx/gdicmn.h>
         #include <wx/gdicmn.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/validate.h>
         #include <wx/ribbon/art.h>
+        #include <wx/bmpbndl.h>
         #include <wx/ribbon/bar.h>
         #include <wx/dc.h>
         #include <wx/event.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -45,6 +47,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
+    wxAccessible* _wxRibbonPanel_CreateAccessible(wxRibbonPanel* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxRibbonPanel : public ::wxRibbonPanel
@@ -74,7 +85,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -120,7 +130,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -133,7 +142,7 @@ private:
     sipwxRibbonPanel(const sipwxRibbonPanel &);
     sipwxRibbonPanel &operator = (const sipwxRibbonPanel &);
 
-    char sipPyMethods[39];
+    char sipPyMethods[38];
 };
 
 sipwxRibbonPanel::sipwxRibbonPanel(): ::wxRibbonPanel(), sipPySelf(SIP_NULLPTR)
@@ -712,27 +721,12 @@ void sipwxRibbonPanel::DoSetWindowVariant(::wxWindowVariant variant)
     return sipVH__ribbon_16(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxRibbonPanel::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxRibbonPanel::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__ribbon_16(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__ribbon_16(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 void sipwxRibbonPanel::DoFreeze()
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -750,7 +744,7 @@ void sipwxRibbonPanel::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -768,7 +762,7 @@ void sipwxRibbonPanel::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxRibbonPanel::DoGetBestSize();
@@ -783,7 +777,7 @@ void sipwxRibbonPanel::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxRibbonPanel::DoGetBestClientSize();
@@ -871,11 +865,6 @@ void sipwxRibbonPanel::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, ::w
 ::wxBorder sipwxRibbonPanel::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxRibbonPanel::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxRibbonPanel::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxRibbonPanel::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxRibbonPanel::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -1114,17 +1103,53 @@ static PyObject *meth_wxRibbonPanel_GetMinimisedIcon(PyObject *sipSelf, PyObject
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = &sipCpp->GetMinimisedIcon();
+            sipRes = new ::wxBitmap(sipCpp->GetMinimisedIcon());
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
                 return 0;
 
-            return sipConvertFromType(sipRes, sipType_wxBitmap, SIP_NULLPTR);
+            return sipConvertFromNewType(sipRes, sipType_wxBitmap, SIP_NULLPTR);
         }
     }
 
     sipNoMethod(sipParseErr, sipName_RibbonPanel, sipName_GetMinimisedIcon, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxRibbonPanel_GetMinimisedIconBundle, "GetMinimisedIconBundle() -> wx.BitmapBundle\n"
+"\n"
+"Get the bitmap bundle defining the bitmap to be used in place of the\n"
+"panel children when it is minimised.");
+
+extern "C" {static PyObject *meth_wxRibbonPanel_GetMinimisedIconBundle(PyObject *, PyObject *);}
+static PyObject *meth_wxRibbonPanel_GetMinimisedIconBundle(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxRibbonPanel *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRibbonPanel, &sipCpp))
+        {
+            ::wxBitmapBundle*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxBitmapBundle(sipCpp->GetMinimisedIconBundle());
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxBitmapBundle, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_RibbonPanel, sipName_GetMinimisedIconBundle, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -2751,40 +2776,6 @@ static PyObject *meth_wxRibbonPanel_GetDefaultBorder(PyObject *sipSelf, PyObject
 }
 
 
-PyDoc_STRVAR(doc_wxRibbonPanel_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxRibbonPanel_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxRibbonPanel_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxRibbonPanel *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRibbonPanel, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_RibbonPanel, sipName_GetDefaultBorderForControl, doc_wxRibbonPanel_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxRibbonPanel_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxRibbonPanel_DoFreeze(PyObject *, PyObject *);}
@@ -2958,6 +2949,39 @@ static PyObject *meth_wxRibbonPanel_TryAfter(PyObject *sipSelf, PyObject *sipArg
     }
 
     sipNoMethod(sipParseErr, sipName_RibbonPanel, sipName_TryAfter, doc_wxRibbonPanel_TryAfter);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxRibbonPanel_CreateAccessible, "CreateAccessible() -> wx.Accessible");
+
+extern "C" {static PyObject *meth_wxRibbonPanel_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxRibbonPanel_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxRibbonPanel *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRibbonPanel, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxRibbonPanel_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_RibbonPanel, sipName_CreateAccessible, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -3154,6 +3178,7 @@ static PyMethodDef methods_wxRibbonPanel[] = {
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxRibbonPanel_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonPanel_AddChild},
     {sipName_CanAutoMinimise, meth_wxRibbonPanel_CanAutoMinimise, METH_VARARGS, doc_wxRibbonPanel_CanAutoMinimise},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxRibbonPanel_Create), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonPanel_Create},
+    {sipName_CreateAccessible, meth_wxRibbonPanel_CreateAccessible, METH_VARARGS, doc_wxRibbonPanel_CreateAccessible},
     {sipName_Destroy, meth_wxRibbonPanel_Destroy, METH_VARARGS, doc_wxRibbonPanel_Destroy},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxRibbonPanel_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonPanel_DoEnable},
     {sipName_DoFreeze, meth_wxRibbonPanel_DoFreeze, METH_VARARGS, doc_wxRibbonPanel_DoFreeze},
@@ -3174,11 +3199,11 @@ static PyMethodDef methods_wxRibbonPanel[] = {
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxRibbonPanel_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonPanel_GetClassDefaultAttributes},
     {sipName_GetClientAreaOrigin, meth_wxRibbonPanel_GetClientAreaOrigin, METH_VARARGS, doc_wxRibbonPanel_GetClientAreaOrigin},
     {sipName_GetDefaultBorder, meth_wxRibbonPanel_GetDefaultBorder, METH_VARARGS, doc_wxRibbonPanel_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxRibbonPanel_GetDefaultBorderForControl, METH_VARARGS, doc_wxRibbonPanel_GetDefaultBorderForControl},
     {sipName_GetExpandedDummy, meth_wxRibbonPanel_GetExpandedDummy, METH_VARARGS, doc_wxRibbonPanel_GetExpandedDummy},
     {sipName_GetExpandedPanel, meth_wxRibbonPanel_GetExpandedPanel, METH_VARARGS, doc_wxRibbonPanel_GetExpandedPanel},
     {sipName_GetMainWindowOfCompositeControl, meth_wxRibbonPanel_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxRibbonPanel_GetMainWindowOfCompositeControl},
     {sipName_GetMinimisedIcon, meth_wxRibbonPanel_GetMinimisedIcon, METH_VARARGS, doc_wxRibbonPanel_GetMinimisedIcon},
+    {sipName_GetMinimisedIconBundle, meth_wxRibbonPanel_GetMinimisedIconBundle, METH_VARARGS, doc_wxRibbonPanel_GetMinimisedIconBundle},
     {sipName_GetValidator, meth_wxRibbonPanel_GetValidator, METH_VARARGS, doc_wxRibbonPanel_GetValidator},
     {sipName_HasExtButton, meth_wxRibbonPanel_HasExtButton, METH_VARARGS, doc_wxRibbonPanel_HasExtButton},
     {sipName_HasTransparentBackground, meth_wxRibbonPanel_HasTransparentBackground, METH_VARARGS, doc_wxRibbonPanel_HasTransparentBackground},
@@ -3207,6 +3232,7 @@ static PyMethodDef methods_wxRibbonPanel[] = {
 };
 
 sipVariableDef variables_wxRibbonPanel[] = {
+    {PropertyVariable, sipName_MinimisedIconBundle, &methods_wxRibbonPanel[31], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_MinimisedIcon, &methods_wxRibbonPanel[30], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_ExpandedPanel, &methods_wxRibbonPanel[28], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_ExpandedDummy, &methods_wxRibbonPanel[27], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
@@ -3231,9 +3257,9 @@ sipClassTypeDef sipTypeDef__ribbon_wxRibbonPanel = {
     {
         sipNameNr_RibbonPanel,
         {0, 0, 1},
-        56, methods_wxRibbonPanel,
+        57, methods_wxRibbonPanel,
         0, SIP_NULLPTR,
-        3, variables_wxRibbonPanel,
+        4, variables_wxRibbonPanel,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxRibbonPanel,

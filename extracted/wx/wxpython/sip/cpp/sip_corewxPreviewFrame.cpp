@@ -14,6 +14,7 @@
         #include <wx/gdicmn.h>
         #include <wx/gdicmn.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/validate.h>
         #include <wx/event.h>
@@ -27,15 +28,15 @@
         #include <wx/region.h>
         #include <wx/graphics.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -50,6 +51,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
+    wxAccessible* _wxPreviewFrame_CreateAccessible(wxPreviewFrame* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxPreviewFrame : public ::wxPreviewFrame
@@ -76,7 +86,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -96,7 +105,6 @@ protected:
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
@@ -142,7 +150,7 @@ private:
     sipwxPreviewFrame(const sipwxPreviewFrame &);
     sipwxPreviewFrame &operator = (const sipwxPreviewFrame &);
 
-    char sipPyMethods[46];
+    char sipPyMethods[45];
 };
 
 sipwxPreviewFrame::sipwxPreviewFrame(::wxPrintPreview*preview, ::wxWindow*parent, const ::wxString& title, const ::wxPoint& pos, const ::wxSize& size, long style, const ::wxString& name): ::wxPreviewFrame(preview, parent, title, pos, size, style, name), sipPySelf(SIP_NULLPTR)
@@ -290,34 +298,19 @@ void sipwxPreviewFrame::DoFreeze()
     sipVH__core_57(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxPreviewFrame::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[8]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxPreviewFrame::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 ::wxBorder sipwxPreviewFrame::GetDefaultBorder() const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[9]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[8]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
 
     if (!sipMeth)
         return ::wxPreviewFrame::GetDefaultBorder();
 
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxBorder sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPreviewFrame::DoSetWindowVariant(::wxWindowVariant variant)
@@ -325,7 +318,7 @@ void sipwxPreviewFrame::DoSetWindowVariant(::wxWindowVariant variant)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[10], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[9], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
 
     if (!sipMeth)
     {
@@ -333,9 +326,9 @@ void sipwxPreviewFrame::DoSetWindowVariant(::wxWindowVariant variant)
         return;
     }
 
-    extern void sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
+    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
 
-    sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth, variant);
+    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, variant);
 }
 
 void sipwxPreviewFrame::DoMoveWindow(int x, int y, int width, int height)
@@ -343,7 +336,7 @@ void sipwxPreviewFrame::DoMoveWindow(int x, int y, int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[11], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[10], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
 
     if (!sipMeth)
     {
@@ -351,9 +344,9 @@ void sipwxPreviewFrame::DoMoveWindow(int x, int y, int width, int height)
         return;
     }
 
-    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
+    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
 
-    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
+    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
 }
 
 void sipwxPreviewFrame::DoSetSizeHints(int minW, int minH, int maxW, int maxH, int incW, int incH)
@@ -361,7 +354,7 @@ void sipwxPreviewFrame::DoSetSizeHints(int minW, int minH, int maxW, int maxH, i
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[12], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[11], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
 
     if (!sipMeth)
     {
@@ -369,9 +362,9 @@ void sipwxPreviewFrame::DoSetSizeHints(int minW, int minH, int maxW, int maxH, i
         return;
     }
 
-    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
+    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
 
-    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
+    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
 }
 
 void sipwxPreviewFrame::DoSetClientSize(int width, int height)
@@ -379,7 +372,7 @@ void sipwxPreviewFrame::DoSetClientSize(int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[13], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[12], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
 
     if (!sipMeth)
     {
@@ -387,9 +380,9 @@ void sipwxPreviewFrame::DoSetClientSize(int width, int height)
         return;
     }
 
-    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
+    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
 
-    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxPreviewFrame::DoSetSize(int x, int y, int width, int height, int sizeFlags)
@@ -397,7 +390,7 @@ void sipwxPreviewFrame::DoSetSize(int x, int y, int width, int height, int sizeF
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[14], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[13], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
 
     if (!sipMeth)
     {
@@ -405,9 +398,9 @@ void sipwxPreviewFrame::DoSetSize(int x, int y, int width, int height, int sizeF
         return;
     }
 
-    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
+    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
 
-    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
+    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
 }
 
 void sipwxPreviewFrame::DoGetClientSize(int*width, int*height) const
@@ -415,7 +408,7 @@ void sipwxPreviewFrame::DoGetClientSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[15]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[14]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
 
     if (!sipMeth)
     {
@@ -423,9 +416,9 @@ void sipwxPreviewFrame::DoGetClientSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxPreviewFrame::DoGetSize(int*width, int*height) const
@@ -433,7 +426,7 @@ void sipwxPreviewFrame::DoGetSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[16]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[15]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
 
     if (!sipMeth)
     {
@@ -441,9 +434,9 @@ void sipwxPreviewFrame::DoGetSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxPreviewFrame::DoGetPosition(int*x, int*y) const
@@ -451,7 +444,7 @@ void sipwxPreviewFrame::DoGetPosition(int*x, int*y) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[17]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[16]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
 
     if (!sipMeth)
     {
@@ -459,9 +452,9 @@ void sipwxPreviewFrame::DoGetPosition(int*x, int*y) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, x, y);
 }
 
 void sipwxPreviewFrame::DoEnable(bool enable)
@@ -469,7 +462,7 @@ void sipwxPreviewFrame::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[18], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[17], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
 
     if (!sipMeth)
     {
@@ -477,9 +470,9 @@ void sipwxPreviewFrame::DoEnable(bool enable)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enable);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enable);
 }
 
 ::wxWindow* sipwxPreviewFrame::GetMainWindowOfCompositeControl()
@@ -487,14 +480,14 @@ void sipwxPreviewFrame::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[19], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[18], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
 
     if (!sipMeth)
         return ::wxPreviewFrame::GetMainWindowOfCompositeControl();
 
-    extern ::wxWindow* sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxWindow* sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPreviewFrame::OnInternalIdle()
@@ -502,7 +495,7 @@ void sipwxPreviewFrame::OnInternalIdle()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[20], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[19], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
 
     if (!sipMeth)
     {
@@ -520,7 +513,7 @@ void sipwxPreviewFrame::InitDialog()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[21], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[20], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
 
     if (!sipMeth)
     {
@@ -538,7 +531,7 @@ void sipwxPreviewFrame::InheritAttributes()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[22], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[21], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
 
     if (!sipMeth)
     {
@@ -556,7 +549,7 @@ bool sipwxPreviewFrame::Destroy()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[22], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
 
     if (!sipMeth)
         return ::wxPreviewFrame::Destroy();
@@ -571,7 +564,7 @@ bool sipwxPreviewFrame::Validate()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[24], &sipPySelf, SIP_NULLPTR, sipName_Validate);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, SIP_NULLPTR, sipName_Validate);
 
     if (!sipMeth)
         return ::wxPreviewFrame::Validate();
@@ -586,7 +579,7 @@ bool sipwxPreviewFrame::TransferDataToWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[25], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[24], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
 
     if (!sipMeth)
         return ::wxPreviewFrame::TransferDataToWindow();
@@ -601,7 +594,7 @@ bool sipwxPreviewFrame::TransferDataFromWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[26], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[25], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
 
     if (!sipMeth)
         return ::wxPreviewFrame::TransferDataFromWindow();
@@ -616,7 +609,7 @@ void sipwxPreviewFrame::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[27], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[26], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
 
     if (!sipMeth)
     {
@@ -624,9 +617,9 @@ void sipwxPreviewFrame::SetValidator(const ::wxValidator& validator)
         return;
     }
 
-    extern void sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
+    extern void sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
 
-    sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth, validator);
+    sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth, validator);
 }
 
 ::wxValidator* sipwxPreviewFrame::GetValidator()
@@ -634,14 +627,14 @@ void sipwxPreviewFrame::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[28], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[27], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
 
     if (!sipMeth)
         return ::wxPreviewFrame::GetValidator();
 
-    extern ::wxValidator* sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxValidator* sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPreviewFrame::ShouldInheritColours() const
@@ -649,7 +642,7 @@ bool sipwxPreviewFrame::ShouldInheritColours() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[29]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[28]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
 
     if (!sipMeth)
         return ::wxPreviewFrame::ShouldInheritColours();
@@ -664,7 +657,7 @@ bool sipwxPreviewFrame::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[30], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[29], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
 
     if (!sipMeth)
         return ::wxPreviewFrame::HasTransparentBackground();
@@ -679,14 +672,14 @@ bool sipwxPreviewFrame::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[31]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[30]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
 
     if (!sipMeth)
         return ::wxPreviewFrame::GetClientAreaOrigin();
 
-    extern ::wxPoint sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPoint sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPreviewFrame::InformFirstDirection(int direction, int size, int availableOtherDir)
@@ -694,14 +687,14 @@ bool sipwxPreviewFrame::InformFirstDirection(int direction, int size, int availa
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[32], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[31], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
 
     if (!sipMeth)
         return ::wxPreviewFrame::InformFirstDirection(direction, size, availableOtherDir);
 
-    extern bool sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern bool sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
 
-    return sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
+    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
 }
 
 void sipwxPreviewFrame::EnableVisibleFocus(bool enabled)
@@ -709,7 +702,7 @@ void sipwxPreviewFrame::EnableVisibleFocus(bool enabled)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[33], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[32], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
 
     if (!sipMeth)
     {
@@ -717,9 +710,9 @@ void sipwxPreviewFrame::EnableVisibleFocus(bool enabled)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enabled);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enabled);
 }
 
 void sipwxPreviewFrame::SetCanFocus(bool canFocus)
@@ -727,7 +720,7 @@ void sipwxPreviewFrame::SetCanFocus(bool canFocus)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[33], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
 
     if (!sipMeth)
     {
@@ -735,9 +728,9 @@ void sipwxPreviewFrame::SetCanFocus(bool canFocus)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, canFocus);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, canFocus);
 }
 
 bool sipwxPreviewFrame::AcceptsFocusRecursively() const
@@ -745,7 +738,7 @@ bool sipwxPreviewFrame::AcceptsFocusRecursively() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[35]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
 
     if (!sipMeth)
         return ::wxPreviewFrame::AcceptsFocusRecursively();
@@ -760,7 +753,7 @@ bool sipwxPreviewFrame::AcceptsFocusFromKeyboard() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[35]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
 
     if (!sipMeth)
         return ::wxPreviewFrame::AcceptsFocusFromKeyboard();
@@ -775,7 +768,7 @@ bool sipwxPreviewFrame::AcceptsFocus() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
 
     if (!sipMeth)
         return ::wxPreviewFrame::AcceptsFocus();
@@ -790,14 +783,14 @@ bool sipwxPreviewFrame::TryAfter(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
 
     if (!sipMeth)
         return ::wxPreviewFrame::TryAfter(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxPreviewFrame::TryBefore(::wxEvent& event)
@@ -805,14 +798,14 @@ bool sipwxPreviewFrame::TryBefore(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[39], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
 
     if (!sipMeth)
         return ::wxPreviewFrame::TryBefore(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxPreviewFrame::ProcessEvent(::wxEvent& event)
@@ -820,14 +813,14 @@ bool sipwxPreviewFrame::ProcessEvent(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[40], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[39], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
 
     if (!sipMeth)
         return ::wxPreviewFrame::ProcessEvent(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 void sipwxPreviewFrame::AddChild(::wxWindowBase*child)
@@ -835,7 +828,7 @@ void sipwxPreviewFrame::AddChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[41], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[40], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
 
     if (!sipMeth)
     {
@@ -843,9 +836,9 @@ void sipwxPreviewFrame::AddChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 void sipwxPreviewFrame::RemoveChild(::wxWindowBase*child)
@@ -853,7 +846,7 @@ void sipwxPreviewFrame::RemoveChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[42], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[41], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
 
     if (!sipMeth)
     {
@@ -861,9 +854,9 @@ void sipwxPreviewFrame::RemoveChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 void sipwxPreviewFrame::DoGiveHelp(const ::wxString& text, bool show)
@@ -871,7 +864,7 @@ void sipwxPreviewFrame::DoGiveHelp(const ::wxString& text, bool show)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[43], &sipPySelf, SIP_NULLPTR, sipName_DoGiveHelp);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[42], &sipPySelf, SIP_NULLPTR, sipName_DoGiveHelp);
 
     if (!sipMeth)
     {
@@ -879,9 +872,9 @@ void sipwxPreviewFrame::DoGiveHelp(const ::wxString& text, bool show)
         return;
     }
 
-    extern void sipVH__core_193(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, bool);
+    extern void sipVH__core_192(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, bool);
 
-    sipVH__core_193(sipGILState, 0, sipPySelf, sipMeth, text, show);
+    sipVH__core_192(sipGILState, 0, sipPySelf, sipMeth, text, show);
 }
 
 ::wxStatusBar* sipwxPreviewFrame::OnCreateStatusBar(int number, long style, ::wxWindowID id, const ::wxString& name)
@@ -889,14 +882,14 @@ void sipwxPreviewFrame::DoGiveHelp(const ::wxString& text, bool show)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[44], &sipPySelf, SIP_NULLPTR, sipName_OnCreateStatusBar);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[43], &sipPySelf, SIP_NULLPTR, sipName_OnCreateStatusBar);
 
     if (!sipMeth)
         return ::wxPreviewFrame::OnCreateStatusBar(number, style, id, name);
 
-    extern ::wxStatusBar* sipVH__core_194(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, long, ::wxWindowID, const ::wxString&);
+    extern ::wxStatusBar* sipVH__core_193(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, long, ::wxWindowID, const ::wxString&);
 
-    return sipVH__core_194(sipGILState, 0, sipPySelf, sipMeth, number, style, id, name);
+    return sipVH__core_193(sipGILState, 0, sipPySelf, sipMeth, number, style, id, name);
 }
 
 ::wxToolBar* sipwxPreviewFrame::OnCreateToolBar(long style, ::wxWindowID id, const ::wxString& name)
@@ -904,14 +897,14 @@ void sipwxPreviewFrame::DoGiveHelp(const ::wxString& text, bool show)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[45], &sipPySelf, SIP_NULLPTR, sipName_OnCreateToolBar);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[44], &sipPySelf, SIP_NULLPTR, sipName_OnCreateToolBar);
 
     if (!sipMeth)
         return ::wxPreviewFrame::OnCreateToolBar(style, id, name);
 
-    extern ::wxToolBar* sipVH__core_195(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, long, ::wxWindowID, const ::wxString&);
+    extern ::wxToolBar* sipVH__core_194(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, long, ::wxWindowID, const ::wxString&);
 
-    return sipVH__core_195(sipGILState, 0, sipPySelf, sipMeth, style, id, name);
+    return sipVH__core_194(sipGILState, 0, sipPySelf, sipMeth, style, id, name);
 }
 
 void sipwxPreviewFrame::sipProtect_SendDestroyEvent()
@@ -982,11 +975,6 @@ void sipwxPreviewFrame::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, ::
 ::wxBorder sipwxPreviewFrame::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxPreviewFrame::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxPreviewFrame::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxPreviewFrame::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxPreviewFrame::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -2438,40 +2426,6 @@ static PyObject *meth_wxPreviewFrame_GetDefaultBorder(PyObject *sipSelf, PyObjec
 }
 
 
-PyDoc_STRVAR(doc_wxPreviewFrame_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxPreviewFrame_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxPreviewFrame_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxPreviewFrame *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxPreviewFrame, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_PreviewFrame, sipName_GetDefaultBorderForControl, doc_wxPreviewFrame_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxPreviewFrame_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxPreviewFrame_DoFreeze(PyObject *, PyObject *);}
@@ -2650,6 +2604,39 @@ static PyObject *meth_wxPreviewFrame_TryAfter(PyObject *sipSelf, PyObject *sipAr
 }
 
 
+PyDoc_STRVAR(doc_wxPreviewFrame_CreateAccessible, "CreateAccessible() -> Accessible");
+
+extern "C" {static PyObject *meth_wxPreviewFrame_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxPreviewFrame_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxPreviewFrame *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxPreviewFrame, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxPreviewFrame_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_PreviewFrame, sipName_CreateAccessible, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxPreviewFrame_GetClassDefaultAttributes, "GetClassDefaultAttributes(variant=WINDOW_VARIANT_NORMAL) -> VisualAttributes");
 
 extern "C" {static PyObject *meth_wxPreviewFrame_GetClassDefaultAttributes(PyObject *, PyObject *, PyObject *);}
@@ -2798,7 +2785,7 @@ static void *init_type_wxPreviewFrame(sipSimpleWrapper *sipSelf, PyObject *sipAr
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxPreviewFrame[] = {{220, 255, 1}};
+static sipEncodedTypeDef supers_wxPreviewFrame[] = {{228, 255, 1}};
 
 
 static PyMethodDef methods_wxPreviewFrame[] = {
@@ -2806,6 +2793,7 @@ static PyMethodDef methods_wxPreviewFrame[] = {
     {sipName_AcceptsFocusFromKeyboard, meth_wxPreviewFrame_AcceptsFocusFromKeyboard, METH_VARARGS, doc_wxPreviewFrame_AcceptsFocusFromKeyboard},
     {sipName_AcceptsFocusRecursively, meth_wxPreviewFrame_AcceptsFocusRecursively, METH_VARARGS, doc_wxPreviewFrame_AcceptsFocusRecursively},
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxPreviewFrame_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxPreviewFrame_AddChild},
+    {sipName_CreateAccessible, meth_wxPreviewFrame_CreateAccessible, METH_VARARGS, doc_wxPreviewFrame_CreateAccessible},
     {sipName_CreateCanvas, meth_wxPreviewFrame_CreateCanvas, METH_VARARGS, doc_wxPreviewFrame_CreateCanvas},
     {sipName_CreateControlBar, meth_wxPreviewFrame_CreateControlBar, METH_VARARGS, doc_wxPreviewFrame_CreateControlBar},
     {sipName_Destroy, meth_wxPreviewFrame_Destroy, METH_VARARGS, doc_wxPreviewFrame_Destroy},
@@ -2826,7 +2814,6 @@ static PyMethodDef methods_wxPreviewFrame[] = {
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxPreviewFrame_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxPreviewFrame_GetClassDefaultAttributes},
     {sipName_GetClientAreaOrigin, meth_wxPreviewFrame_GetClientAreaOrigin, METH_VARARGS, doc_wxPreviewFrame_GetClientAreaOrigin},
     {sipName_GetDefaultBorder, meth_wxPreviewFrame_GetDefaultBorder, METH_VARARGS, doc_wxPreviewFrame_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxPreviewFrame_GetDefaultBorderForControl, METH_VARARGS, doc_wxPreviewFrame_GetDefaultBorderForControl},
     {sipName_GetMainWindowOfCompositeControl, meth_wxPreviewFrame_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxPreviewFrame_GetMainWindowOfCompositeControl},
     {sipName_GetValidator, meth_wxPreviewFrame_GetValidator, METH_VARARGS, doc_wxPreviewFrame_GetValidator},
     {sipName_HasTransparentBackground, meth_wxPreviewFrame_HasTransparentBackground, METH_VARARGS, doc_wxPreviewFrame_HasTransparentBackground},

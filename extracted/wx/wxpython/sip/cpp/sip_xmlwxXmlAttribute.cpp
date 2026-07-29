@@ -83,7 +83,7 @@ static PyObject *meth_wxXmlAttribute_GetName(PyObject *sipSelf, PyObject *sipArg
 
 PyDoc_STRVAR(doc_wxXmlAttribute_GetNext, "GetNext() -> XmlAttribute\n"
 "\n"
-"Returns the sibling of this attribute or NULL if there are no\n"
+"Returns the sibling of this attribute or nullptr if there are no\n"
 "siblings.");
 
 extern "C" {static PyObject *meth_wxXmlAttribute_GetNext(PyObject *, PyObject *);}
@@ -360,7 +360,7 @@ static void *init_type_wxXmlAttribute(sipSimpleWrapper *sipSelf, PyObject *sipAr
         int nameState = 0;
         const ::wxString* value;
         int valueState = 0;
-        ::wxXmlAttribute* next = 0;
+        ::wxXmlAttribute* next = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_name,
@@ -425,7 +425,7 @@ sipVariableDef variables_wxXmlAttribute[] = {
 };
 
 PyDoc_STRVAR(doc_wxXmlAttribute, "XmlAttribute() -> None\n"
-"XmlAttribute(name, value, next=None) -> None\n"
+"XmlAttribute(name, value, next=nullptr) -> None\n"
 "\n"
 "Represents a node attribute.");
 

@@ -21,10 +21,14 @@ class LogFacetType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     LOG_FACET_TYPE_UNSPECIFIED: _ClassVar[LogFacetType]
     LOG_FACET_TYPE_LIST: _ClassVar[LogFacetType]
     LOG_FACET_TYPE_RANGE: _ClassVar[LogFacetType]
+    LOG_FACET_TYPE_TEXT: _ClassVar[LogFacetType]
+    LOG_FACET_TYPE_ID: _ClassVar[LogFacetType]
 
 LOG_FACET_TYPE_UNSPECIFIED: LogFacetType
 LOG_FACET_TYPE_LIST: LogFacetType
 LOG_FACET_TYPE_RANGE: LogFacetType
+LOG_FACET_TYPE_TEXT: LogFacetType
+LOG_FACET_TYPE_ID: LogFacetType
 
 class LogEntry(_message.Message):
     __slots__ = (
@@ -311,21 +315,27 @@ class StreamSearchAccessLogEntriesResponse(_message.Message):
     ) -> None: ...
 
 class SearchLogEntriesAggregatedRequest(_message.Message):
-    __slots__ = ("query", "start_time", "end_time", "window_period")
+    __slots__ = ("query", "start_time", "end_time", "window_period", "facets", "limit")
     QUERY_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
     WINDOW_PERIOD_FIELD_NUMBER: _ClassVar[int]
+    FACETS_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
     query: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     window_period: _duration_pb2.Duration
+    facets: _containers.RepeatedScalarFieldContainer[str]
+    limit: int
     def __init__(
         self,
         query: _Optional[str] = ...,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         window_period: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        facets: _Optional[_Iterable[str]] = ...,
+        limit: _Optional[int] = ...,
     ) -> None: ...
 
 class SearchLogEntriesAggregatedResponse(_message.Message):
@@ -341,18 +351,21 @@ class GetLogFacetsRequest(_message.Message):
     def __init__(self) -> None: ...
 
 class LogFacet(_message.Message):
-    __slots__ = ("path", "name", "facet_type")
+    __slots__ = ("path", "name", "facet_type", "groupable")
     PATH_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     FACET_TYPE_FIELD_NUMBER: _ClassVar[int]
+    GROUPABLE_FIELD_NUMBER: _ClassVar[int]
     path: str
     name: str
     facet_type: LogFacetType
+    groupable: bool
     def __init__(
         self,
         path: _Optional[str] = ...,
         name: _Optional[str] = ...,
         facet_type: _Optional[_Union[LogFacetType, str]] = ...,
+        groupable: bool = ...,
     ) -> None: ...
 
 class GetLogFacetsResponse(_message.Message):
@@ -362,17 +375,21 @@ class GetLogFacetsResponse(_message.Message):
     def __init__(self, facets: _Optional[_Iterable[_Union[LogFacet, _Mapping]]] = ...) -> None: ...
 
 class GetLogFacetValuesRequest(_message.Message):
-    __slots__ = ("path", "start_time", "end_time", "limit", "query")
+    __slots__ = ("path", "start_time", "end_time", "limit", "query", "include_synthetic_rows", "facets")
     PATH_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     QUERY_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_SYNTHETIC_ROWS_FIELD_NUMBER: _ClassVar[int]
+    FACETS_FIELD_NUMBER: _ClassVar[int]
     path: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     limit: int
     query: str
+    include_synthetic_rows: bool
+    facets: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         path: _Optional[str] = ...,
@@ -380,15 +397,21 @@ class GetLogFacetValuesRequest(_message.Message):
         end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         limit: _Optional[int] = ...,
         query: _Optional[str] = ...,
+        include_synthetic_rows: bool = ...,
+        facets: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class LogFacetValue(_message.Message):
-    __slots__ = ("value", "count")
+    __slots__ = ("value", "count", "values")
     VALUE_FIELD_NUMBER: _ClassVar[int]
     COUNT_FIELD_NUMBER: _ClassVar[int]
+    VALUES_FIELD_NUMBER: _ClassVar[int]
     value: str
     count: int
-    def __init__(self, value: _Optional[str] = ..., count: _Optional[int] = ...) -> None: ...
+    values: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self, value: _Optional[str] = ..., count: _Optional[int] = ..., values: _Optional[_Iterable[str]] = ...
+    ) -> None: ...
 
 class GetLogFacetValuesResponse(_message.Message):
     __slots__ = ("values",)
@@ -397,19 +420,32 @@ class GetLogFacetValuesResponse(_message.Message):
     def __init__(self, values: _Optional[_Iterable[_Union[LogFacetValue, _Mapping]]] = ...) -> None: ...
 
 class SearchAccessLogEntriesAggregatedRequest(_message.Message):
-    __slots__ = ("query", "start_time", "end_time", "window_period", "scaling_group_id", "container_id")
+    __slots__ = (
+        "query",
+        "start_time",
+        "end_time",
+        "window_period",
+        "scaling_group_id",
+        "container_id",
+        "facets",
+        "limit",
+    )
     QUERY_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
     WINDOW_PERIOD_FIELD_NUMBER: _ClassVar[int]
     SCALING_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
     CONTAINER_ID_FIELD_NUMBER: _ClassVar[int]
+    FACETS_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
     query: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     window_period: _duration_pb2.Duration
     scaling_group_id: str
     container_id: str
+    facets: _containers.RepeatedScalarFieldContainer[str]
+    limit: int
     def __init__(
         self,
         query: _Optional[str] = ...,
@@ -418,6 +454,8 @@ class SearchAccessLogEntriesAggregatedRequest(_message.Message):
         window_period: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
         scaling_group_id: _Optional[str] = ...,
         container_id: _Optional[str] = ...,
+        facets: _Optional[_Iterable[str]] = ...,
+        limit: _Optional[int] = ...,
     ) -> None: ...
 
 class SearchAccessLogEntriesAggregatedResponse(_message.Message):
@@ -439,7 +477,17 @@ class GetAccessLogFacetsResponse(_message.Message):
     def __init__(self, facets: _Optional[_Iterable[_Union[LogFacet, _Mapping]]] = ...) -> None: ...
 
 class GetAccessLogFacetValuesRequest(_message.Message):
-    __slots__ = ("path", "start_time", "end_time", "limit", "query", "scaling_group_id", "container_id")
+    __slots__ = (
+        "path",
+        "start_time",
+        "end_time",
+        "limit",
+        "query",
+        "scaling_group_id",
+        "container_id",
+        "include_synthetic_rows",
+        "facets",
+    )
     PATH_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -447,6 +495,8 @@ class GetAccessLogFacetValuesRequest(_message.Message):
     QUERY_FIELD_NUMBER: _ClassVar[int]
     SCALING_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
     CONTAINER_ID_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_SYNTHETIC_ROWS_FIELD_NUMBER: _ClassVar[int]
+    FACETS_FIELD_NUMBER: _ClassVar[int]
     path: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
@@ -454,6 +504,8 @@ class GetAccessLogFacetValuesRequest(_message.Message):
     query: str
     scaling_group_id: str
     container_id: str
+    include_synthetic_rows: bool
+    facets: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         path: _Optional[str] = ...,
@@ -463,6 +515,8 @@ class GetAccessLogFacetValuesRequest(_message.Message):
         query: _Optional[str] = ...,
         scaling_group_id: _Optional[str] = ...,
         container_id: _Optional[str] = ...,
+        include_synthetic_rows: bool = ...,
+        facets: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class GetAccessLogFacetValuesResponse(_message.Message):

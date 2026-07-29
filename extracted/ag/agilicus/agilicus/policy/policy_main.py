@@ -185,6 +185,14 @@ def cli_command_set_timeperiod_policy(ctx, **kwargs):
     output_entry(ctx, policies.set_timeperiod_policy(ctx, **kwargs).to_dict())
 
 
+@click.command(name="get-token-create-details")
+@click.option("--scopes", multiple=True)
+@click.option("--org-id", default=None)
+@click.pass_context
+def cli_command_get_token_create_details(ctx, **kwargs):
+    output_entry(ctx, policies.get_token_create_details(ctx, **kwargs).to_dict())
+
+
 all_funcs = [func for func in dir() if "cli_command_" in func]
 
 

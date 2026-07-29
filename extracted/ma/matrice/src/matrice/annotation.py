@@ -4,6 +4,8 @@ import sys
 
 from matrice_common.utils import handle_response
 
+APPLICATION_JSON = "application/json"
+
 
 class Annotation:
     """
@@ -70,7 +72,7 @@ class Annotation:
         self.annotation_name = annotation_name
         self.rpc = session.rpc
         assert annotation_id or annotation_name, "Either annotation_id or annotation_name must be provided"
-        annotation_by_name, err, msg = self._get_annotation_by_name()
+        annotation_by_name, _, _ = self._get_annotation_by_name()
         if self.annotation_id is None:
             if annotation_by_name is None:
                 raise ValueError(f"Annotation with name '{self.annotation_name}' not found.")
@@ -136,9 +138,9 @@ class Annotation:
         - `_get_annotation_by_id()` is called if `annotation_id` is set, retrieving details by ID.
         - `_get_annotation_by_name()` is used if `annotation_name` is set, fetching details by name.
         """
-        id = self.annotation_id
+        annotation_id = self.annotation_id
         name = self.annotation_name
-        if id:
+        if annotation_id:
             try:
                 return self._get_annotation_by_id()
             except Exception as e:
@@ -270,7 +272,7 @@ class Annotation:
             print("Dataset id not set for this dataset. Cannot perform the operation for dataset without dataset id")
             sys.exit(0)
         path = f"/v1/annotations/{self.annotation_id}"
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         body = {"title": annotation_title}
         resp = self.rpc.put(
             path=path,
@@ -536,7 +538,7 @@ class Annotation:
             "labelTime": label_time,
             "reviewTime": review_time,
         }
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         resp = self.rpc.put(
             path=path,
             headers=headers,
@@ -661,7 +663,7 @@ class Annotation:
             "labelTime": label_time,
             "reviewTime": review_time,
         }
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         resp = self.rpc.post(
             path=path,
             headers=headers,
@@ -727,7 +729,7 @@ class Annotation:
             "newVersionDescription": new_version_description,
             "datasetDesc": "",
         }
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         resp = self.rpc.post(
             path=path,
             headers=headers,
@@ -783,7 +785,7 @@ class Annotation:
             "_idAnnotation": self.annotation_id,
             "name": labelname,
         }
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         path = f"/v1/annotations/{self.annotation_id}/categories?projectId={self.project_id}"
         resp = self.rpc.post(
             path=path,

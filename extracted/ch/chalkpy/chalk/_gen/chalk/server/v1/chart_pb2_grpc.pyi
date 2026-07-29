@@ -28,12 +28,20 @@ from chalk._gen.chalk.server.v1.chart_pb2 import (
     GetMetricOptionsResponse,
     GetQueryMetricsRequest,
     GetQueryMetricsResponse,
+    GetRawMetricLabelNamesRequest,
+    GetRawMetricLabelNamesResponse,
+    GetRawMetricLabelValuesRequest,
+    GetRawMetricLabelValuesResponse,
     GetResolverMetricsRequest,
     GetResolverMetricsResponse,
     ListChartsRequest,
     ListChartsResponse,
     ListChartsWithCronAlertsRequest,
     ListChartsWithCronAlertsResponse,
+    ListRawMetricsRequest,
+    ListRawMetricsResponse,
+    QueryRawMetricsRequest,
+    QueryRawMetricsResponse,
     UpdateMetricConfigRequest,
     UpdateMetricConfigResponse,
 )
@@ -46,6 +54,28 @@ from grpc import (
 
 class ChartsServiceStub:
     def __init__(self, channel: Channel) -> None: ...
+    ListRawMetrics: UnaryUnaryMultiCallable[
+        ListRawMetricsRequest,
+        ListRawMetricsResponse,
+    ]
+    """ListRawMetrics, GetRawMetricLabelValues and QueryRawMetrics expose the raw
+    VictoriaMetrics series behind an environment's charts. They are gated on
+    PERMISSION_CHALK_ADMIN (granted implicitly to @chalk.ai agents) because VM
+    series names and labels are an internal implementation detail rather than a
+    stable customer-facing surface.
+    """
+    GetRawMetricLabelNames: UnaryUnaryMultiCallable[
+        GetRawMetricLabelNamesRequest,
+        GetRawMetricLabelNamesResponse,
+    ]
+    GetRawMetricLabelValues: UnaryUnaryMultiCallable[
+        GetRawMetricLabelValuesRequest,
+        GetRawMetricLabelValuesResponse,
+    ]
+    QueryRawMetrics: UnaryUnaryMultiCallable[
+        QueryRawMetricsRequest,
+        QueryRawMetricsResponse,
+    ]
     ListCharts: UnaryUnaryMultiCallable[
         ListChartsRequest,
         ListChartsResponse,
@@ -104,6 +134,36 @@ class ChartsServiceStub:
     ]
 
 class ChartsServiceServicer(metaclass=ABCMeta):
+    @abstractmethod
+    def ListRawMetrics(
+        self,
+        request: ListRawMetricsRequest,
+        context: ServicerContext,
+    ) -> ListRawMetricsResponse:
+        """ListRawMetrics, GetRawMetricLabelValues and QueryRawMetrics expose the raw
+        VictoriaMetrics series behind an environment's charts. They are gated on
+        PERMISSION_CHALK_ADMIN (granted implicitly to @chalk.ai agents) because VM
+        series names and labels are an internal implementation detail rather than a
+        stable customer-facing surface.
+        """
+    @abstractmethod
+    def GetRawMetricLabelNames(
+        self,
+        request: GetRawMetricLabelNamesRequest,
+        context: ServicerContext,
+    ) -> GetRawMetricLabelNamesResponse: ...
+    @abstractmethod
+    def GetRawMetricLabelValues(
+        self,
+        request: GetRawMetricLabelValuesRequest,
+        context: ServicerContext,
+    ) -> GetRawMetricLabelValuesResponse: ...
+    @abstractmethod
+    def QueryRawMetrics(
+        self,
+        request: QueryRawMetricsRequest,
+        context: ServicerContext,
+    ) -> QueryRawMetricsResponse: ...
     @abstractmethod
     def ListCharts(
         self,

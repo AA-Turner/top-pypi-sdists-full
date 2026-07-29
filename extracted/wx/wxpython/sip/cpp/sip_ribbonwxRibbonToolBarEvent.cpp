@@ -283,7 +283,7 @@ static void *init_type_wxRibbonToolBarEvent(sipSimpleWrapper *sipSelf, PyObject 
     {
         ::wxEventType command_type = wxEVT_NULL;
         int win_id = 0;
-        ::wxRibbonToolBar* bar = 0;
+        ::wxRibbonToolBar* bar = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_command_type,
@@ -331,7 +331,7 @@ static void *init_type_wxRibbonToolBarEvent(sipSimpleWrapper *sipSelf, PyObject 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxRibbonToolBarEvent[] = {{4, 0, 1}};
+static sipEncodedTypeDef supers_wxRibbonToolBarEvent[] = {{6, 0, 1}};
 
 
 static PyMethodDef methods_wxRibbonToolBarEvent[] = {
@@ -345,7 +345,7 @@ sipVariableDef variables_wxRibbonToolBarEvent[] = {
     {PropertyVariable, sipName_Bar, &methods_wxRibbonToolBarEvent[1], &methods_wxRibbonToolBarEvent[3], SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxRibbonToolBarEvent, "RibbonToolBarEvent(command_type=wx.wxEVT_NULL, win_id=0, bar=None) -> None");
+PyDoc_STRVAR(doc_wxRibbonToolBarEvent, "RibbonToolBarEvent(command_type=wx.wxEVT_NULL, win_id=0, bar=nullptr) -> None");
 
 
 sipClassTypeDef sipTypeDef__ribbon_wxRibbonToolBarEvent = {

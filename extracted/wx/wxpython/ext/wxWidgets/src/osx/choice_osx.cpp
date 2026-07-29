@@ -2,7 +2,6 @@
 // Name:        src/osx/choice_osx.cpp
 // Purpose:     wxChoice
 // Author:      Stefan Csomor
-// Modified by:
 // Created:     1998-01-01
 // Copyright:   (c) Stefan Csomor
 // Licence:     wxWindows licence
@@ -20,6 +19,8 @@
 #endif
 
 #include "wx/osx/private.h"
+#include "wx/osx/private/available.h"
+
 
 wxChoice::~wxChoice()
 {
@@ -41,7 +42,7 @@ bool wxChoice::Create(wxWindow *parent,
     const wxValidator& validator,
     const wxString& name )
 {
-    if ( !Create( parent, id, pos, size, 0, NULL, style, validator, name ) )
+    if ( !Create( parent, id, pos, size, 0, nullptr, style, validator, name ) )
         return false;
 
     Append( choices );
@@ -63,13 +64,13 @@ bool wxChoice::Create(wxWindow *parent,
     long style,
     const wxValidator& validator,
     const wxString& name )
-{    
+{
     DontCreatePeer();
-    
+
     if ( !wxChoiceBase::Create( parent, id, pos, size, style, validator, name ) )
         return false;
 
-    SetPeer(wxWidgetImpl::CreateChoice( this, parent, id, NULL, pos, size, style, GetExtraStyle() ));
+    SetPeer(wxWidgetImpl::CreateChoice( this, parent, id, nullptr, pos, size, style, GetExtraStyle() ));
 
     MacPostControlCreate( pos, size );
 
@@ -130,7 +131,7 @@ int wxChoice::DoInsertItems(const wxArrayStringsAdapter & items,
         if (text.empty())
             text = " ";  // menu items can't have empty labels
         dynamic_cast<wxChoiceWidgetImpl*>(GetPeer())->InsertItem( idx, i+1, text );
-        m_datas.Insert( NULL, idx );
+        m_datas.Insert( nullptr, idx );
         AssignNewItemClientData(idx, clientData, i, type);
     }
 
@@ -244,8 +245,13 @@ wxSize wxChoice::DoGetBestSize() const
     // computed by the base class method to account for the arrow.
     const int lbHeight = wxWindow::DoGetBestSize().y;
 
-    return wxSize(wxChoiceBase::DoGetBestSize().x + 4*GetCharWidth(),
-                  lbHeight);
+    int padding = 4 * GetCharWidth();
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_VERSION_26_0
+    if (WX_IS_MACOS_AVAILABLE(26, 0))
+        padding += 2 * GetCharWidth() - 1;
+#endif
+
+    return wxSize(wxChoiceBase::DoGetBestSize().x + padding, lbHeight);
 }
 
 #endif // wxUSE_CHOICE

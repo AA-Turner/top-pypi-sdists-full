@@ -1,3 +1,4 @@
+import datetime
 import json
 import os
 from pathlib import Path
@@ -6,7 +7,7 @@ from unittest import mock
 import pytest
 
 from bec_lib.bec_errors import ServiceConfigError
-from bec_lib.logger import BECLogger, LogLevel
+from bec_lib.logger import BECLogger, BECLoguruRotator, LogLevel
 from bec_lib.redis_connector import RedisConnector
 
 
@@ -48,6 +49,21 @@ def test_update_base_path_wrong_config(logger):
     assert logger._base_path is None
     with pytest.raises(ServiceConfigError):
         logger._update_base_path(config)
+
+
+def test_file_sink_uses_resolved_rotation_policy(logger, tmp_path):
+    logger.service_name = "DeviceServer"
+    logger._base_path = tmp_path
+    logger._file_max_size_mb = 75
+    logger._file_max_files = 3
+    rotator = BECLoguruRotator(
+        size=logger._file_max_size_mb * 1024 * 1024, at=datetime.time(8, 0, 0)
+    )
+
+    with mock.patch.object(logger.logger, "add") as add:
+        logger.add_file_log(LogLevel.INFO)
+
+    assert add.call_args.kwargs["rotation"].__func__ == rotator.should_rotate.__func__
 
 
 @pytest.mark.parametrize(

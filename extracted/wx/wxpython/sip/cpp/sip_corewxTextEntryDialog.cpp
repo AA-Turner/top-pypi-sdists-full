@@ -11,9 +11,10 @@
         #include <wx/textdlg.h>
         #include <wx/window.h>
         #include <wx/gdicmn.h>
-        #include <wx/window.h>
-        #include <wx/event.h>
         #include <wx/gdicmn.h>
+        #include <wx/window.h>
+        #include <wx/access.h>
+        #include <wx/event.h>
         #include <wx/validate.h>
         #include <wx/dialog.h>
         #include <wx/iconbndl.h>
@@ -25,14 +26,14 @@
         #include <wx/region.h>
         #include <wx/graphics.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -47,13 +48,22 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
+    wxAccessible* _wxTextEntryDialog_CreateAccessible(wxTextEntryDialog* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxTextEntryDialog : public ::wxTextEntryDialog
 {
 public:
     sipwxTextEntryDialog();
-    sipwxTextEntryDialog(::wxWindow*, const ::wxString&, const ::wxString&, const ::wxString&, long, const ::wxPoint&);
+    sipwxTextEntryDialog(::wxWindow*, const ::wxString&, const ::wxString&, const ::wxString&, long, const ::wxPoint&, const ::wxSize);
     virtual ~sipwxTextEntryDialog();
 
     /*
@@ -74,7 +84,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -91,7 +100,6 @@ protected:
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
@@ -135,7 +143,7 @@ private:
     sipwxTextEntryDialog(const sipwxTextEntryDialog &);
     sipwxTextEntryDialog &operator = (const sipwxTextEntryDialog &);
 
-    char sipPyMethods[41];
+    char sipPyMethods[40];
 };
 
 sipwxTextEntryDialog::sipwxTextEntryDialog(): ::wxTextEntryDialog(), sipPySelf(SIP_NULLPTR)
@@ -143,7 +151,7 @@ sipwxTextEntryDialog::sipwxTextEntryDialog(): ::wxTextEntryDialog(), sipPySelf(S
     memset(sipPyMethods, 0, sizeof (sipPyMethods));
 }
 
-sipwxTextEntryDialog::sipwxTextEntryDialog(::wxWindow*parent, const ::wxString& message, const ::wxString& caption, const ::wxString& value, long style, const ::wxPoint& pos): ::wxTextEntryDialog(parent, message, caption, value, style, pos), sipPySelf(SIP_NULLPTR)
+sipwxTextEntryDialog::sipwxTextEntryDialog(::wxWindow*parent, const ::wxString& message, const ::wxString& caption, const ::wxString& value, long style, const ::wxPoint& pos, const ::wxSize sz): ::wxTextEntryDialog(parent, message, caption, value, style, pos, sz), sipPySelf(SIP_NULLPTR)
 {
     memset(sipPyMethods, 0, sizeof (sipPyMethods));
 }
@@ -234,34 +242,19 @@ void sipwxTextEntryDialog::DoFreeze()
     sipVH__core_57(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxTextEntryDialog::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[5]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxTextEntryDialog::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 ::wxBorder sipwxTextEntryDialog::GetDefaultBorder() const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[6]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[5]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
 
     if (!sipMeth)
         return ::wxTextEntryDialog::GetDefaultBorder();
 
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxBorder sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxTextEntryDialog::DoSetWindowVariant(::wxWindowVariant variant)
@@ -269,7 +262,7 @@ void sipwxTextEntryDialog::DoSetWindowVariant(::wxWindowVariant variant)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[7], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[6], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
 
     if (!sipMeth)
     {
@@ -277,9 +270,9 @@ void sipwxTextEntryDialog::DoSetWindowVariant(::wxWindowVariant variant)
         return;
     }
 
-    extern void sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
+    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
 
-    sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth, variant);
+    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, variant);
 }
 
 void sipwxTextEntryDialog::DoMoveWindow(int x, int y, int width, int height)
@@ -287,7 +280,7 @@ void sipwxTextEntryDialog::DoMoveWindow(int x, int y, int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[8], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[7], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
 
     if (!sipMeth)
     {
@@ -295,9 +288,9 @@ void sipwxTextEntryDialog::DoMoveWindow(int x, int y, int width, int height)
         return;
     }
 
-    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
+    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
 
-    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
+    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
 }
 
 void sipwxTextEntryDialog::DoSetSizeHints(int minW, int minH, int maxW, int maxH, int incW, int incH)
@@ -305,7 +298,7 @@ void sipwxTextEntryDialog::DoSetSizeHints(int minW, int minH, int maxW, int maxH
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[9], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[8], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
 
     if (!sipMeth)
     {
@@ -313,9 +306,9 @@ void sipwxTextEntryDialog::DoSetSizeHints(int minW, int minH, int maxW, int maxH
         return;
     }
 
-    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
+    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
 
-    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
+    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
 }
 
 void sipwxTextEntryDialog::DoSetClientSize(int width, int height)
@@ -323,7 +316,7 @@ void sipwxTextEntryDialog::DoSetClientSize(int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[10], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[9], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
 
     if (!sipMeth)
     {
@@ -331,9 +324,9 @@ void sipwxTextEntryDialog::DoSetClientSize(int width, int height)
         return;
     }
 
-    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
+    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
 
-    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxTextEntryDialog::DoSetSize(int x, int y, int width, int height, int sizeFlags)
@@ -341,7 +334,7 @@ void sipwxTextEntryDialog::DoSetSize(int x, int y, int width, int height, int si
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[11], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[10], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
 
     if (!sipMeth)
     {
@@ -349,9 +342,9 @@ void sipwxTextEntryDialog::DoSetSize(int x, int y, int width, int height, int si
         return;
     }
 
-    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
+    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
 
-    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
+    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
 }
 
 void sipwxTextEntryDialog::DoGetClientSize(int*width, int*height) const
@@ -359,7 +352,7 @@ void sipwxTextEntryDialog::DoGetClientSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[12]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[11]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
 
     if (!sipMeth)
     {
@@ -367,9 +360,9 @@ void sipwxTextEntryDialog::DoGetClientSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxTextEntryDialog::DoGetSize(int*width, int*height) const
@@ -377,7 +370,7 @@ void sipwxTextEntryDialog::DoGetSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[13]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[12]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
 
     if (!sipMeth)
     {
@@ -385,9 +378,9 @@ void sipwxTextEntryDialog::DoGetSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxTextEntryDialog::DoGetPosition(int*x, int*y) const
@@ -395,7 +388,7 @@ void sipwxTextEntryDialog::DoGetPosition(int*x, int*y) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[14]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[13]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
 
     if (!sipMeth)
     {
@@ -403,9 +396,9 @@ void sipwxTextEntryDialog::DoGetPosition(int*x, int*y) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, x, y);
 }
 
 void sipwxTextEntryDialog::DoEnable(bool enable)
@@ -413,7 +406,7 @@ void sipwxTextEntryDialog::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[15], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[14], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
 
     if (!sipMeth)
     {
@@ -421,9 +414,9 @@ void sipwxTextEntryDialog::DoEnable(bool enable)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enable);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enable);
 }
 
 ::wxWindow* sipwxTextEntryDialog::GetMainWindowOfCompositeControl()
@@ -431,14 +424,14 @@ void sipwxTextEntryDialog::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[16], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[15], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
 
     if (!sipMeth)
         return ::wxTextEntryDialog::GetMainWindowOfCompositeControl();
 
-    extern ::wxWindow* sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxWindow* sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxTextEntryDialog::OnInternalIdle()
@@ -446,7 +439,7 @@ void sipwxTextEntryDialog::OnInternalIdle()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[17], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[16], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
 
     if (!sipMeth)
     {
@@ -464,7 +457,7 @@ void sipwxTextEntryDialog::InitDialog()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[18], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[17], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
 
     if (!sipMeth)
     {
@@ -482,7 +475,7 @@ void sipwxTextEntryDialog::InheritAttributes()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[19], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[18], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
 
     if (!sipMeth)
     {
@@ -500,7 +493,7 @@ bool sipwxTextEntryDialog::Destroy()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[20], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[19], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
 
     if (!sipMeth)
         return ::wxTextEntryDialog::Destroy();
@@ -515,7 +508,7 @@ bool sipwxTextEntryDialog::Validate()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[21], &sipPySelf, SIP_NULLPTR, sipName_Validate);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[20], &sipPySelf, SIP_NULLPTR, sipName_Validate);
 
     if (!sipMeth)
         return ::wxTextEntryDialog::Validate();
@@ -530,7 +523,7 @@ bool sipwxTextEntryDialog::TransferDataToWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[22], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[21], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
 
     if (!sipMeth)
         return ::wxTextEntryDialog::TransferDataToWindow();
@@ -545,7 +538,7 @@ bool sipwxTextEntryDialog::TransferDataFromWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[22], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
 
     if (!sipMeth)
         return ::wxTextEntryDialog::TransferDataFromWindow();
@@ -560,7 +553,7 @@ void sipwxTextEntryDialog::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[24], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
 
     if (!sipMeth)
     {
@@ -568,9 +561,9 @@ void sipwxTextEntryDialog::SetValidator(const ::wxValidator& validator)
         return;
     }
 
-    extern void sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
+    extern void sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
 
-    sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth, validator);
+    sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth, validator);
 }
 
 ::wxValidator* sipwxTextEntryDialog::GetValidator()
@@ -578,14 +571,14 @@ void sipwxTextEntryDialog::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[25], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[24], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
 
     if (!sipMeth)
         return ::wxTextEntryDialog::GetValidator();
 
-    extern ::wxValidator* sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxValidator* sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxTextEntryDialog::ShouldInheritColours() const
@@ -593,7 +586,7 @@ bool sipwxTextEntryDialog::ShouldInheritColours() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[26]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[25]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
 
     if (!sipMeth)
         return ::wxTextEntryDialog::ShouldInheritColours();
@@ -608,7 +601,7 @@ bool sipwxTextEntryDialog::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[27], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[26], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
 
     if (!sipMeth)
         return ::wxTextEntryDialog::HasTransparentBackground();
@@ -623,14 +616,14 @@ bool sipwxTextEntryDialog::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[28]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[27]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
 
     if (!sipMeth)
         return ::wxTextEntryDialog::GetClientAreaOrigin();
 
-    extern ::wxPoint sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPoint sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxTextEntryDialog::InformFirstDirection(int direction, int size, int availableOtherDir)
@@ -638,14 +631,14 @@ bool sipwxTextEntryDialog::InformFirstDirection(int direction, int size, int ava
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[29], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[28], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
 
     if (!sipMeth)
         return ::wxTextEntryDialog::InformFirstDirection(direction, size, availableOtherDir);
 
-    extern bool sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern bool sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
 
-    return sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
+    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
 }
 
 void sipwxTextEntryDialog::EnableVisibleFocus(bool enabled)
@@ -653,7 +646,7 @@ void sipwxTextEntryDialog::EnableVisibleFocus(bool enabled)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[30], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[29], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
 
     if (!sipMeth)
     {
@@ -661,9 +654,9 @@ void sipwxTextEntryDialog::EnableVisibleFocus(bool enabled)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enabled);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enabled);
 }
 
 void sipwxTextEntryDialog::SetCanFocus(bool canFocus)
@@ -671,7 +664,7 @@ void sipwxTextEntryDialog::SetCanFocus(bool canFocus)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[31], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[30], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
 
     if (!sipMeth)
     {
@@ -679,9 +672,9 @@ void sipwxTextEntryDialog::SetCanFocus(bool canFocus)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, canFocus);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, canFocus);
 }
 
 bool sipwxTextEntryDialog::AcceptsFocusRecursively() const
@@ -689,7 +682,7 @@ bool sipwxTextEntryDialog::AcceptsFocusRecursively() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[32]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[31]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
 
     if (!sipMeth)
         return ::wxTextEntryDialog::AcceptsFocusRecursively();
@@ -704,7 +697,7 @@ bool sipwxTextEntryDialog::AcceptsFocusFromKeyboard() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[33]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[32]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
 
     if (!sipMeth)
         return ::wxTextEntryDialog::AcceptsFocusFromKeyboard();
@@ -719,7 +712,7 @@ bool sipwxTextEntryDialog::AcceptsFocus() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[33]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
 
     if (!sipMeth)
         return ::wxTextEntryDialog::AcceptsFocus();
@@ -734,14 +727,14 @@ bool sipwxTextEntryDialog::TryAfter(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
 
     if (!sipMeth)
         return ::wxTextEntryDialog::TryAfter(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxTextEntryDialog::TryBefore(::wxEvent& event)
@@ -749,14 +742,14 @@ bool sipwxTextEntryDialog::TryBefore(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
 
     if (!sipMeth)
         return ::wxTextEntryDialog::TryBefore(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxTextEntryDialog::ProcessEvent(::wxEvent& event)
@@ -764,14 +757,14 @@ bool sipwxTextEntryDialog::ProcessEvent(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
 
     if (!sipMeth)
         return ::wxTextEntryDialog::ProcessEvent(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 void sipwxTextEntryDialog::AddChild(::wxWindowBase*child)
@@ -779,7 +772,7 @@ void sipwxTextEntryDialog::AddChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
 
     if (!sipMeth)
     {
@@ -787,9 +780,9 @@ void sipwxTextEntryDialog::AddChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 void sipwxTextEntryDialog::RemoveChild(::wxWindowBase*child)
@@ -797,7 +790,7 @@ void sipwxTextEntryDialog::RemoveChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[39], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
 
     if (!sipMeth)
     {
@@ -805,9 +798,9 @@ void sipwxTextEntryDialog::RemoveChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 ::wxWindow* sipwxTextEntryDialog::GetContentWindow() const
@@ -815,14 +808,14 @@ void sipwxTextEntryDialog::RemoveChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[40]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetContentWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[39]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetContentWindow);
 
     if (!sipMeth)
         return ::wxTextEntryDialog::GetContentWindow();
 
-    extern ::wxWindow* sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxWindow* sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxTextEntryDialog::sipProtect_SendDestroyEvent()
@@ -895,11 +888,6 @@ void sipwxTextEntryDialog::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg,
     return (sipSelfWasArg ? ::wxTextEntryDialog::GetDefaultBorder() : GetDefaultBorder());
 }
 
-::wxBorder sipwxTextEntryDialog::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxTextEntryDialog::GetDefaultBorderForControl() : GetDefaultBorderForControl());
-}
-
 void sipwxTextEntryDialog::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
 {
     (sipSelfWasArg ? ::wxTextEntryDialog::DoFreeze() : DoFreeze());
@@ -960,7 +948,7 @@ static PyObject *meth_wxTextEntryDialog_SendDestroyEvent(PyObject *sipSelf, PyOb
 }
 
 
-PyDoc_STRVAR(doc_wxTextEntryDialog_Create, "Create(parent, message, caption=GetTextFromUserPromptStr, value='', style=TextEntryDialogStyle, pos=DefaultPosition) -> bool");
+PyDoc_STRVAR(doc_wxTextEntryDialog_Create, "Create(parent, message, caption=GetTextFromUserPromptStr, value='', style=TextEntryDialogStyle, pos=DefaultPosition, sz=DefaultSize) -> bool");
 
 extern "C" {static PyObject *meth_wxTextEntryDialog_Create(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxTextEntryDialog_Create(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -981,6 +969,9 @@ static PyObject *meth_wxTextEntryDialog_Create(PyObject *sipSelf, PyObject *sipA
         const ::wxPoint& posdef = wxDefaultPosition;
         const ::wxPoint* pos = &posdef;
         int posState = 0;
+        const ::wxSize szdef = wxDefaultSize;
+        const ::wxSize* sz = &szdef;
+        int szState = 0;
         ::wxTextEntryDialog *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -990,16 +981,17 @@ static PyObject *meth_wxTextEntryDialog_Create(PyObject *sipSelf, PyObject *sipA
             sipName_value,
             sipName_style,
             sipName_pos,
+            sipName_sz,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8J1|J1J1lJ1", &sipSelf, sipType_wxTextEntryDialog, &sipCpp, sipType_wxWindow, &parent, sipType_wxString, &message, &messageState, sipType_wxString, &caption, &captionState, sipType_wxString, &value, &valueState, &style, sipType_wxPoint, &pos, &posState))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8J1|J1J1lJ1J1", &sipSelf, sipType_wxTextEntryDialog, &sipCpp, sipType_wxWindow, &parent, sipType_wxString, &message, &messageState, sipType_wxString, &caption, &captionState, sipType_wxString, &value, &valueState, &style, sipType_wxPoint, &pos, &posState, sipType_wxSize, &sz, &szState))
         {
             bool sipRes;
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->Create(parent, *message, *caption, *value, style, *pos);
+            sipRes = sipCpp->Create(parent, *message, *caption, *value, style, *pos, *sz);
             Py_END_ALLOW_THREADS
 
             sipTransferTo(sipSelf, SIP_NULLPTR);
@@ -1007,6 +999,7 @@ static PyObject *meth_wxTextEntryDialog_Create(PyObject *sipSelf, PyObject *sipA
             sipReleaseType(const_cast< ::wxString *>(caption), sipType_wxString, captionState);
             sipReleaseType(const_cast< ::wxString *>(value), sipType_wxString, valueState);
             sipReleaseType(const_cast< ::wxPoint *>(pos), sipType_wxPoint, posState);
+            sipReleaseType(const_cast< ::wxSize *>(sz), sipType_wxSize, szState);
 
             if (PyErr_Occurred())
                 return 0;
@@ -1133,6 +1126,47 @@ static PyObject *meth_wxTextEntryDialog_SetValue(PyObject *sipSelf, PyObject *si
     }
 
     sipNoMethod(sipParseErr, sipName_TextEntryDialog, sipName_SetValue, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxTextEntryDialog_SetHint, "SetHint(hint) -> None\n"
+"\n"
+"Sets the hint shown in the empty text control.");
+
+extern "C" {static PyObject *meth_wxTextEntryDialog_SetHint(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxTextEntryDialog_SetHint(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxString* hint;
+        int hintState = 0;
+        ::wxTextEntryDialog *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_hint,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxTextEntryDialog, &sipCpp, sipType_wxString, &hint, &hintState))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetHint(*hint);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxString *>(hint), sipType_wxString, hintState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_TextEntryDialog, sipName_SetHint, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -2412,40 +2446,6 @@ static PyObject *meth_wxTextEntryDialog_GetDefaultBorder(PyObject *sipSelf, PyOb
 }
 
 
-PyDoc_STRVAR(doc_wxTextEntryDialog_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxTextEntryDialog_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxTextEntryDialog_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxTextEntryDialog *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxTextEntryDialog, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_TextEntryDialog, sipName_GetDefaultBorderForControl, doc_wxTextEntryDialog_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxTextEntryDialog_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxTextEntryDialog_DoFreeze(PyObject *, PyObject *);}
@@ -2624,6 +2624,39 @@ static PyObject *meth_wxTextEntryDialog_TryAfter(PyObject *sipSelf, PyObject *si
 }
 
 
+PyDoc_STRVAR(doc_wxTextEntryDialog_CreateAccessible, "CreateAccessible() -> Accessible");
+
+extern "C" {static PyObject *meth_wxTextEntryDialog_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxTextEntryDialog_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxTextEntryDialog *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxTextEntryDialog, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxTextEntryDialog_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_TextEntryDialog, sipName_CreateAccessible, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxTextEntryDialog_GetClassDefaultAttributes, "GetClassDefaultAttributes(variant=WINDOW_VARIANT_NORMAL) -> VisualAttributes");
 
 extern "C" {static PyObject *meth_wxTextEntryDialog_GetClassDefaultAttributes(PyObject *, PyObject *, PyObject *);}
@@ -2763,6 +2796,9 @@ static void *init_type_wxTextEntryDialog(sipSimpleWrapper *sipSelf, PyObject *si
         const ::wxPoint& posdef = wxDefaultPosition;
         const ::wxPoint* pos = &posdef;
         int posState = 0;
+        const ::wxSize szdef = wxDefaultSize;
+        const ::wxSize* sz = &szdef;
+        int szState = 0;
 
         static const char *sipKwdList[] = {
             sipName_parent,
@@ -2771,16 +2807,17 @@ static void *init_type_wxTextEntryDialog(sipSimpleWrapper *sipSelf, PyObject *si
             sipName_value,
             sipName_style,
             sipName_pos,
+            sipName_sz,
         };
 
-        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, sipKwdList, sipUnused, "J8J1|J1J1lJ1", sipType_wxWindow, &parent, sipType_wxString, &message, &messageState, sipType_wxString, &caption, &captionState, sipType_wxString, &value, &valueState, &style, sipType_wxPoint, &pos, &posState))
+        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, sipKwdList, sipUnused, "J8J1|J1J1lJ1J1", sipType_wxWindow, &parent, sipType_wxString, &message, &messageState, sipType_wxString, &caption, &captionState, sipType_wxString, &value, &valueState, &style, sipType_wxPoint, &pos, &posState, sipType_wxSize, &sz, &szState))
         {
         if (!wxPyCheckForApp()) return NULL;
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipCpp = new sipwxTextEntryDialog(parent, *message, *caption, *value, style, *pos);
+            sipCpp = new sipwxTextEntryDialog(parent, *message, *caption, *value, style, *pos, *sz);
             Py_END_ALLOW_THREADS
 
             *sipOwner = Py_None;
@@ -2788,6 +2825,7 @@ static void *init_type_wxTextEntryDialog(sipSimpleWrapper *sipSelf, PyObject *si
             sipReleaseType(const_cast< ::wxString *>(caption), sipType_wxString, captionState);
             sipReleaseType(const_cast< ::wxString *>(value), sipType_wxString, valueState);
             sipReleaseType(const_cast< ::wxPoint *>(pos), sipType_wxPoint, posState);
+            sipReleaseType(const_cast< ::wxSize *>(sz), sipType_wxSize, szState);
 
             if (PyErr_Occurred())
             {
@@ -2806,7 +2844,7 @@ static void *init_type_wxTextEntryDialog(sipSimpleWrapper *sipSelf, PyObject *si
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxTextEntryDialog[] = {{131, 255, 1}};
+static sipEncodedTypeDef supers_wxTextEntryDialog[] = {{138, 255, 1}};
 
 
 static PyMethodDef methods_wxTextEntryDialog[] = {
@@ -2815,6 +2853,7 @@ static PyMethodDef methods_wxTextEntryDialog[] = {
     {sipName_AcceptsFocusRecursively, meth_wxTextEntryDialog_AcceptsFocusRecursively, METH_VARARGS, doc_wxTextEntryDialog_AcceptsFocusRecursively},
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxTextEntryDialog_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxTextEntryDialog_AddChild},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxTextEntryDialog_Create), METH_VARARGS|METH_KEYWORDS, doc_wxTextEntryDialog_Create},
+    {sipName_CreateAccessible, meth_wxTextEntryDialog_CreateAccessible, METH_VARARGS, doc_wxTextEntryDialog_CreateAccessible},
     {sipName_Destroy, meth_wxTextEntryDialog_Destroy, METH_VARARGS, doc_wxTextEntryDialog_Destroy},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxTextEntryDialog_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxTextEntryDialog_DoEnable},
     {sipName_DoFreeze, meth_wxTextEntryDialog_DoFreeze, METH_VARARGS, doc_wxTextEntryDialog_DoFreeze},
@@ -2834,7 +2873,6 @@ static PyMethodDef methods_wxTextEntryDialog[] = {
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxTextEntryDialog_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxTextEntryDialog_GetClassDefaultAttributes},
     {sipName_GetClientAreaOrigin, meth_wxTextEntryDialog_GetClientAreaOrigin, METH_VARARGS, doc_wxTextEntryDialog_GetClientAreaOrigin},
     {sipName_GetDefaultBorder, meth_wxTextEntryDialog_GetDefaultBorder, METH_VARARGS, doc_wxTextEntryDialog_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxTextEntryDialog_GetDefaultBorderForControl, METH_VARARGS, doc_wxTextEntryDialog_GetDefaultBorderForControl},
     {sipName_GetMainWindowOfCompositeControl, meth_wxTextEntryDialog_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxTextEntryDialog_GetMainWindowOfCompositeControl},
     {sipName_GetValidator, meth_wxTextEntryDialog_GetValidator, METH_VARARGS, doc_wxTextEntryDialog_GetValidator},
     {sipName_GetValue, meth_wxTextEntryDialog_GetValue, METH_VARARGS, doc_wxTextEntryDialog_GetValue},
@@ -2847,6 +2885,7 @@ static PyMethodDef methods_wxTextEntryDialog[] = {
     {sipName_RemoveChild, SIP_MLMETH_CAST(meth_wxTextEntryDialog_RemoveChild), METH_VARARGS|METH_KEYWORDS, doc_wxTextEntryDialog_RemoveChild},
     {sipName_SendDestroyEvent, meth_wxTextEntryDialog_SendDestroyEvent, METH_VARARGS, SIP_NULLPTR},
     {sipName_SetCanFocus, SIP_MLMETH_CAST(meth_wxTextEntryDialog_SetCanFocus), METH_VARARGS|METH_KEYWORDS, doc_wxTextEntryDialog_SetCanFocus},
+    {sipName_SetHint, SIP_MLMETH_CAST(meth_wxTextEntryDialog_SetHint), METH_VARARGS|METH_KEYWORDS, doc_wxTextEntryDialog_SetHint},
     {sipName_SetMaxLength, SIP_MLMETH_CAST(meth_wxTextEntryDialog_SetMaxLength), METH_VARARGS|METH_KEYWORDS, doc_wxTextEntryDialog_SetMaxLength},
     {sipName_SetValidator, SIP_MLMETH_CAST(meth_wxTextEntryDialog_SetValidator), METH_VARARGS|METH_KEYWORDS, doc_wxTextEntryDialog_SetValidator},
     {sipName_SetValue, SIP_MLMETH_CAST(meth_wxTextEntryDialog_SetValue), METH_VARARGS|METH_KEYWORDS, doc_wxTextEntryDialog_SetValue},
@@ -2860,11 +2899,11 @@ static PyMethodDef methods_wxTextEntryDialog[] = {
 };
 
 sipVariableDef variables_wxTextEntryDialog[] = {
-    {PropertyVariable, sipName_Value, &methods_wxTextEntryDialog[27], &methods_wxTextEntryDialog[39], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Value, &methods_wxTextEntryDialog[27], &methods_wxTextEntryDialog[40], SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxTextEntryDialog, "TextEntryDialog() -> None\n"
-"TextEntryDialog(parent, message, caption=GetTextFromUserPromptStr, value='', style=TextEntryDialogStyle, pos=DefaultPosition) -> None\n"
+"TextEntryDialog(parent, message, caption=GetTextFromUserPromptStr, value='', style=TextEntryDialogStyle, pos=DefaultPosition, sz=DefaultSize) -> None\n"
 "\n"
 "This class represents a dialog that requests a one-line text string\n"
 "from the user.");
@@ -2883,7 +2922,7 @@ sipClassTypeDef sipTypeDef__core_wxTextEntryDialog = {
     {
         sipNameNr_TextEntryDialog,
         {0, 0, 1},
-        47, methods_wxTextEntryDialog,
+        48, methods_wxTextEntryDialog,
         0, SIP_NULLPTR,
         1, variables_wxTextEntryDialog,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

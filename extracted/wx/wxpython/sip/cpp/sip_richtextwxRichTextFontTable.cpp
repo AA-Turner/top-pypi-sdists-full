@@ -395,7 +395,7 @@ static void *init_type_wxRichTextFontTable(sipSimpleWrapper *sipSelf, PyObject *
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxRichTextFontTable[] = {{42, 0, 1}};
+static sipEncodedTypeDef supers_wxRichTextFontTable[] = {{43, 0, 1}};
 
 
 /* Define this type's Python slots. */

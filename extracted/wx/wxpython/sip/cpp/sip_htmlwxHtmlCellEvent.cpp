@@ -412,7 +412,7 @@ static void *init_type_wxHtmlCellEvent(sipSimpleWrapper *sipSelf, PyObject *sipA
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxHtmlCellEvent[] = {{6, 0, 1}};
+static sipEncodedTypeDef supers_wxHtmlCellEvent[] = {{7, 0, 1}};
 
 
 static PyMethodDef methods_wxHtmlCellEvent[] = {

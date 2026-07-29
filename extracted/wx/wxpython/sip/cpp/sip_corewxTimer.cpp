@@ -96,9 +96,9 @@ bool sipwxTimer::Start(int milliseconds, bool oneShot)
     if (!sipMeth)
         return ::wxTimer::Start(milliseconds, oneShot);
 
-    extern bool sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, bool);
+    extern bool sipVH__core_123(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, bool);
 
-    return sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, milliseconds, oneShot);
+    return sipVH__core_123(sipGILState, 0, sipPySelf, sipMeth, milliseconds, oneShot);
 }
 
 void sipwxTimer::Notify()
@@ -129,9 +129,9 @@ bool sipwxTimer::ProcessEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxTimer::ProcessEvent(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxTimer::TryBefore(::wxEvent& event)
@@ -144,9 +144,9 @@ bool sipwxTimer::TryBefore(::wxEvent& event)
     if (!sipMeth)
         return ::wxTimer::TryBefore(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxTimer::TryAfter(::wxEvent& event)
@@ -159,9 +159,9 @@ bool sipwxTimer::TryAfter(::wxEvent& event)
     if (!sipMeth)
         return ::wxTimer::TryAfter(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxTimer::sipProtectVirt_TryBefore(bool sipSelfWasArg, ::wxEvent& event)
@@ -752,7 +752,7 @@ static void *init_type_wxTimer(sipSimpleWrapper *sipSelf, PyObject *sipArgs, PyO
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxTimer[] = {{158, 255, 1}};
+static sipEncodedTypeDef supers_wxTimer[] = {{165, 255, 1}};
 
 
 static PyMethodDef methods_wxTimer[] = {

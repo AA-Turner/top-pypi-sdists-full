@@ -418,7 +418,7 @@ static PyObject *meth_wxHtmlWindowInterface_HTMLCoordsToWindow(PyObject *sipSelf
 
 PyDoc_STRVAR(doc_wxHtmlWindowInterface_GetHTMLWindow, "GetHTMLWindow() -> wx.Window\n"
 "\n"
-"Returns the window used for rendering (may be NULL).");
+"Returns the window used for rendering (may be nullptr).");
 
 extern "C" {static PyObject *meth_wxHtmlWindowInterface_GetHTMLWindow(PyObject *, PyObject *);}
 static PyObject *meth_wxHtmlWindowInterface_GetHTMLWindow(PyObject *sipSelf, PyObject *sipArgs)

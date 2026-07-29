@@ -22,21 +22,12 @@
 #if wxUSE_ACCEL
 
 #ifndef WX_PRECOMP
-    #include "wx/list.h"
     #include "wx/event.h"
 #endif // WX_PRECOMP
 
 #include "wx/accel.h"
 
 #include <ctype.h>
-
-// ----------------------------------------------------------------------------
-// wxAccelList: a list of wxAcceleratorEntries
-// ----------------------------------------------------------------------------
-
-WX_DECLARE_LIST(wxAcceleratorEntry, wxAccelList);
-#include "wx/listimpl.cpp"
-WX_DEFINE_LIST(wxAccelList)
 
 // ----------------------------------------------------------------------------
 // wxAccelRefData: the data used by wxAcceleratorTable
@@ -55,12 +46,7 @@ public:
     {
     }
 
-    virtual ~wxAccelRefData()
-    {
-        WX_CLEAR_LIST(wxAccelList, m_accels);
-    }
-
-    wxAccelList m_accels;
+    std::vector<wxAcceleratorEntry> m_accels;
 };
 
 // macro which can be used to access wxAccelRefData from wxAcceleratorTable
@@ -83,6 +69,14 @@ wxAcceleratorTable::wxAcceleratorTable()
 
 wxAcceleratorTable::wxAcceleratorTable(int n, const wxAcceleratorEntry entries[])
 {
+    if ( n == 0 )
+    {
+        // This is valid but useless.
+        return;
+    }
+
+    wxCHECK_RET( n > 0, "Invalid number of accelerator entries" );
+
     m_refData = new wxAccelRefData;
 
     for ( int i = 0; i < n; i++ )
@@ -93,19 +87,15 @@ wxAcceleratorTable::wxAcceleratorTable(int n, const wxAcceleratorEntry entries[]
         if ( wxIsascii(keycode) )
             keycode = wxToupper(keycode);
 
-        M_ACCELDATA->m_accels.Append(new wxAcceleratorEntry(entry.GetFlags(),
-                                                            keycode,
-                                                            entry.GetCommand()));
+        M_ACCELDATA->m_accels.emplace_back(entry.GetFlags(),
+                                           keycode,
+                                           entry.GetCommand());
     }
-}
-
-wxAcceleratorTable::~wxAcceleratorTable()
-{
 }
 
 bool wxAcceleratorTable::IsOk() const
 {
-    return m_refData != NULL;
+    return m_refData != nullptr;
 }
 
 // ----------------------------------------------------------------------------
@@ -121,31 +111,37 @@ void wxAcceleratorTable::Add(const wxAcceleratorEntry& entry)
         m_refData = new wxAccelRefData;
     }
 
-    M_ACCELDATA->m_accels.Append(new wxAcceleratorEntry(entry));
+    M_ACCELDATA->m_accels.emplace_back(entry);
 }
 
 void wxAcceleratorTable::Remove(const wxAcceleratorEntry& entry)
 {
     AllocExclusive();
 
-    wxAccelList::compatibility_iterator node = M_ACCELDATA->m_accels.GetFirst();
-    while ( node )
-    {
-        const wxAcceleratorEntry *entryCur = node->GetData();
+    auto& accels = M_ACCELDATA->m_accels;
 
+    int n = 0;
+    for ( const auto& entryCur : accels )
+    {
         // given entry contains only the information of the accelerator key
         // because it was set that way during creation so do not use the
         // comparison operator which also checks the command field
-        if ((entryCur->GetKeyCode() == entry.GetKeyCode()) &&
-            (entryCur->GetFlags() == entry.GetFlags()))
+        if ((entryCur.GetKeyCode() == entry.GetKeyCode()) &&
+            (entryCur.GetFlags() == entry.GetFlags()))
         {
-            delete node->GetData();
-            M_ACCELDATA->m_accels.Erase(node);
+            accels.erase(accels.begin() + n);
+
+            if ( accels.empty() )
+            {
+                // wxAcceleratorEntry without any entries shouldn't be "ok", so
+                // free the associated data to make it so
+                UnRef();
+            }
 
             return;
         }
 
-        node = node->GetNext();
+        ++n;
     }
 
     wxFAIL_MSG(wxT("deleting inexistent accel from wxAcceleratorTable"));
@@ -161,39 +157,34 @@ wxAcceleratorTable::GetEntry(const wxKeyEvent& event) const
     if ( !IsOk() )
     {
         // not an error, the accel table is just empty
-        return NULL;
+        return nullptr;
     }
 
-    wxAccelList::compatibility_iterator node = M_ACCELDATA->m_accels.GetFirst();
-    while ( node )
+    for ( const auto& entry : M_ACCELDATA->m_accels )
     {
-        const wxAcceleratorEntry *entry = node->GetData();
-
         // is the key the same?
-        if ( event.m_keyCode == entry->GetKeyCode() )
+        if ( event.m_keyCode == entry.GetKeyCode() )
         {
-            int flags = entry->GetFlags();
+            int flags = entry.GetFlags();
 
             // now check flags
             if ( (((flags & wxACCEL_CTRL) != 0) == event.ControlDown()) &&
                  (((flags & wxACCEL_SHIFT) != 0) == event.ShiftDown()) &&
                  (((flags & wxACCEL_ALT) != 0) == event.AltDown()) )
             {
-                return entry;
+                return &entry;
             }
         }
-
-        node = node->GetNext();
     }
 
-    return NULL;
+    return nullptr;
 }
 
 wxMenuItem *wxAcceleratorTable::GetMenuItem(const wxKeyEvent& event) const
 {
     const wxAcceleratorEntry *entry = GetEntry(event);
 
-    return entry ? entry->GetMenuItem() : NULL;
+    return entry ? entry->GetMenuItem() : nullptr;
 }
 
 int wxAcceleratorTable::GetCommand(const wxKeyEvent& event) const

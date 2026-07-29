@@ -57,7 +57,7 @@ public:
             The menu item associated with this accelerator.
     */
     wxAcceleratorEntry(int flags = 0, int keyCode = 0, int cmd = 0,
-                       wxMenuItem *item = NULL);
+                       wxMenuItem *item = nullptr);
 
     /**
         Copy ctor.
@@ -97,7 +97,7 @@ public:
         @param item
             The menu item associated with this accelerator.
     */
-    void Set(int flags, int keyCode, int cmd, wxMenuItem *item = NULL);
+    void Set(int flags, int keyCode, int cmd, wxMenuItem *item = nullptr);
 
     /**
         Returns @true if this object is correctly initialized.
@@ -200,7 +200,8 @@ public:
         Initializes the accelerator table from an array of wxAcceleratorEntry.
 
         @param n
-            Number of accelerator entries.
+            Number of accelerator entries. If this parameter is 0, invalid
+            accelerator table is created, i.e. IsOk() will return @false.
         @param entries
             The array of entries.
 
@@ -222,12 +223,6 @@ public:
             Name of a Windows accelerator.
     */
     wxAcceleratorTable(const wxString& resource);
-
-    /**
-        Destroys the wxAcceleratorTable object.
-        See @ref overview_refcount_destruct for more info.
-    */
-    virtual ~wxAcceleratorTable();
 
     /**
         Returns @true if the accelerator table is valid.

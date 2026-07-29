@@ -13,6 +13,7 @@
         #include <wx/gdicmn.h>
         #include <wx/gdicmn.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/validate.h>
         #include <wx/bitmap.h>
@@ -21,15 +22,15 @@
         #include <wx/dc.h>
         #include <wx/event.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -45,6 +46,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
+    wxAccessible* _wxRibbonGallery_CreateAccessible(wxRibbonGallery* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxRibbonGallery : public ::wxRibbonGallery
@@ -74,7 +84,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -120,7 +129,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -133,7 +141,7 @@ private:
     sipwxRibbonGallery(const sipwxRibbonGallery &);
     sipwxRibbonGallery &operator = (const sipwxRibbonGallery &);
 
-    char sipPyMethods[39];
+    char sipPyMethods[38];
 };
 
 sipwxRibbonGallery::sipwxRibbonGallery(): ::wxRibbonGallery(), sipPySelf(SIP_NULLPTR)
@@ -712,27 +720,12 @@ void sipwxRibbonGallery::DoSetWindowVariant(::wxWindowVariant variant)
     return sipVH__ribbon_16(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxRibbonGallery::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxRibbonGallery::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__ribbon_16(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__ribbon_16(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 void sipwxRibbonGallery::DoFreeze()
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -750,7 +743,7 @@ void sipwxRibbonGallery::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -768,7 +761,7 @@ void sipwxRibbonGallery::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxRibbonGallery::DoGetBestSize();
@@ -783,7 +776,7 @@ void sipwxRibbonGallery::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxRibbonGallery::DoGetBestClientSize();
@@ -871,11 +864,6 @@ void sipwxRibbonGallery::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, :
 ::wxBorder sipwxRibbonGallery::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxRibbonGallery::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxRibbonGallery::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxRibbonGallery::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxRibbonGallery::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -1391,7 +1379,7 @@ static PyObject *meth_wxRibbonGallery_GetItemClientData(PyObject *sipSelf, PyObj
 PyDoc_STRVAR(doc_wxRibbonGallery_SetSelection, "SetSelection(item) -> None\n"
 "\n"
 "Set the selection to the given item, or removes the selection if item\n"
-"== NULL.");
+"== nullptr.");
 
 extern "C" {static PyObject *meth_wxRibbonGallery_SetSelection(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRibbonGallery_SetSelection(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1430,7 +1418,7 @@ static PyObject *meth_wxRibbonGallery_SetSelection(PyObject *sipSelf, PyObject *
 
 PyDoc_STRVAR(doc_wxRibbonGallery_GetSelection, "GetSelection() -> RibbonGalleryItem\n"
 "\n"
-"Get the currently selected item, or NULL if there is none.");
+"Get the currently selected item, or nullptr if there is none.");
 
 extern "C" {static PyObject *meth_wxRibbonGallery_GetSelection(PyObject *, PyObject *);}
 static PyObject *meth_wxRibbonGallery_GetSelection(PyObject *sipSelf, PyObject *sipArgs)
@@ -1465,7 +1453,7 @@ static PyObject *meth_wxRibbonGallery_GetSelection(PyObject *sipSelf, PyObject *
 
 PyDoc_STRVAR(doc_wxRibbonGallery_GetHoveredItem, "GetHoveredItem() -> RibbonGalleryItem\n"
 "\n"
-"Get the currently hovered item, or NULL if there is none.");
+"Get the currently hovered item, or nullptr if there is none.");
 
 extern "C" {static PyObject *meth_wxRibbonGallery_GetHoveredItem(PyObject *, PyObject *);}
 static PyObject *meth_wxRibbonGallery_GetHoveredItem(PyObject *sipSelf, PyObject *sipArgs)
@@ -1500,7 +1488,7 @@ static PyObject *meth_wxRibbonGallery_GetHoveredItem(PyObject *sipSelf, PyObject
 
 PyDoc_STRVAR(doc_wxRibbonGallery_GetActiveItem, "GetActiveItem() -> RibbonGalleryItem\n"
 "\n"
-"Get the currently active item, or NULL if there is none.");
+"Get the currently active item, or nullptr if there is none.");
 
 extern "C" {static PyObject *meth_wxRibbonGallery_GetActiveItem(PyObject *, PyObject *);}
 static PyObject *meth_wxRibbonGallery_GetActiveItem(PyObject *sipSelf, PyObject *sipArgs)
@@ -2995,40 +2983,6 @@ static PyObject *meth_wxRibbonGallery_GetDefaultBorder(PyObject *sipSelf, PyObje
 }
 
 
-PyDoc_STRVAR(doc_wxRibbonGallery_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxRibbonGallery_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxRibbonGallery_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxRibbonGallery *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRibbonGallery, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_RibbonGallery, sipName_GetDefaultBorderForControl, doc_wxRibbonGallery_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxRibbonGallery_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxRibbonGallery_DoFreeze(PyObject *, PyObject *);}
@@ -3202,6 +3156,39 @@ static PyObject *meth_wxRibbonGallery_TryAfter(PyObject *sipSelf, PyObject *sipA
     }
 
     sipNoMethod(sipParseErr, sipName_RibbonGallery, sipName_TryAfter, doc_wxRibbonGallery_TryAfter);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxRibbonGallery_CreateAccessible, "CreateAccessible() -> wx.Accessible");
+
+extern "C" {static PyObject *meth_wxRibbonGallery_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxRibbonGallery_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxRibbonGallery *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRibbonGallery, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxRibbonGallery_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_RibbonGallery, sipName_CreateAccessible, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -3391,6 +3378,7 @@ static PyMethodDef methods_wxRibbonGallery[] = {
     {sipName_Append, SIP_MLMETH_CAST(meth_wxRibbonGallery_Append), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonGallery_Append},
     {sipName_Clear, meth_wxRibbonGallery_Clear, METH_VARARGS, doc_wxRibbonGallery_Clear},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxRibbonGallery_Create), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonGallery_Create},
+    {sipName_CreateAccessible, meth_wxRibbonGallery_CreateAccessible, METH_VARARGS, doc_wxRibbonGallery_CreateAccessible},
     {sipName_Destroy, meth_wxRibbonGallery_Destroy, METH_VARARGS, doc_wxRibbonGallery_Destroy},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxRibbonGallery_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonGallery_DoEnable},
     {sipName_DoFreeze, meth_wxRibbonGallery_DoFreeze, METH_VARARGS, doc_wxRibbonGallery_DoFreeze},
@@ -3414,7 +3402,6 @@ static PyMethodDef methods_wxRibbonGallery[] = {
     {sipName_GetClientAreaOrigin, meth_wxRibbonGallery_GetClientAreaOrigin, METH_VARARGS, doc_wxRibbonGallery_GetClientAreaOrigin},
     {sipName_GetCount, meth_wxRibbonGallery_GetCount, METH_VARARGS, doc_wxRibbonGallery_GetCount},
     {sipName_GetDefaultBorder, meth_wxRibbonGallery_GetDefaultBorder, METH_VARARGS, doc_wxRibbonGallery_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxRibbonGallery_GetDefaultBorderForControl, METH_VARARGS, doc_wxRibbonGallery_GetDefaultBorderForControl},
     {sipName_GetDownButtonState, meth_wxRibbonGallery_GetDownButtonState, METH_VARARGS, doc_wxRibbonGallery_GetDownButtonState},
     {sipName_GetExtensionButtonState, meth_wxRibbonGallery_GetExtensionButtonState, METH_VARARGS, doc_wxRibbonGallery_GetExtensionButtonState},
     {sipName_GetHoveredItem, meth_wxRibbonGallery_GetHoveredItem, METH_VARARGS, doc_wxRibbonGallery_GetHoveredItem},
@@ -3454,8 +3441,8 @@ sipVariableDef variables_wxRibbonGallery[] = {
     {PropertyVariable, sipName_HoveredItem, &methods_wxRibbonGallery[33], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_ExtensionButtonState, &methods_wxRibbonGallery[32], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_DownButtonState, &methods_wxRibbonGallery[31], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Count, &methods_wxRibbonGallery[28], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ActiveItem, &methods_wxRibbonGallery[25], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Count, &methods_wxRibbonGallery[29], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ActiveItem, &methods_wxRibbonGallery[26], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxRibbonGallery, "RibbonGallery() -> None\n"

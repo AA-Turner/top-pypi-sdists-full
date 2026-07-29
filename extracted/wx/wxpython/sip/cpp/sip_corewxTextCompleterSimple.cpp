@@ -57,9 +57,9 @@ void sipwxTextCompleterSimple::GetCompletions(const ::wxString& prefix, ::wxArra
     if (!sipMeth)
         return;
 
-    extern void sipVH__core_163(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, ::wxArrayString&);
+    extern void sipVH__core_162(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, ::wxArrayString&);
 
-    sipVH__core_163(sipGILState, 0, sipPySelf, sipMeth, prefix, res);
+    sipVH__core_162(sipGILState, 0, sipPySelf, sipMeth, prefix, res);
 }
 
 bool sipwxTextCompleterSimple::Start(const ::wxString& prefix)
@@ -299,7 +299,7 @@ static void *init_type_wxTextCompleterSimple(sipSimpleWrapper *sipSelf, PyObject
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxTextCompleterSimple[] = {{574, 255, 1}};
+static sipEncodedTypeDef supers_wxTextCompleterSimple[] = {{591, 255, 1}};
 
 
 static PyMethodDef methods_wxTextCompleterSimple[] = {

@@ -1679,7 +1679,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         project = project_model.name if project_model else None
         compute_config = self.get_compute_config(model.compute_config_id)
         cloud_id = compute_config.config.cloud_id if compute_config else None
-        cloud_model = self.get_cloud(cloud_id=cloud_id)
+        cloud_model = self.get_cloud(cloud_id=cloud_id) if cloud_id else None
         cloud = cloud_model.name if cloud_model else None
         existing_service = self.get_service(model.name, project=project, cloud=cloud)
         if existing_service is not None:
@@ -1723,7 +1723,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         project = project_model.name if project_model else None
         compute_config = self.get_compute_config(version.compute_config_id)
         cloud_id = compute_config.config.cloud_id if compute_config else None
-        cloud_model = self.get_cloud(cloud_id=cloud_id)
+        cloud_model = self.get_cloud(cloud_id=cloud_id) if cloud_id else None
         cloud = cloud_model.name if cloud_model else None
         existing_service = self.get_service(version.name, project=project, cloud=cloud)
         if existing_service is not None:
@@ -1803,6 +1803,49 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
     def delete_service(self, service_id: str):
         self._deleted_services[service_id] = self._services.pop(service_id)
+
+    def add_service_secondary_auth_token(
+        self, service_id: str
+    ) -> DecoratedProductionServiceV2APIModel:
+        service = self._services[service_id]
+        # Mirrors the DAO's collision guard: only one secondary token may
+        # exist at a time.
+        if service.secondary_auth_token is not None:
+            raise ValueError(
+                f"Service {service.name!r} already has a secondary auth token. "
+                "Remove it with `anyscale service token delete` before adding a new one."
+            )
+        secondary_auth_token = f"fake-secondary-auth-token-{uuid.uuid4()!s}"
+        # Never let the two slots collide (mirrors the DAO's collision guard).
+        while secondary_auth_token == service.auth_token:
+            secondary_auth_token = f"fake-secondary-auth-token-{uuid.uuid4()!s}"
+        service.secondary_auth_token = secondary_auth_token
+        return service
+
+    def delete_service_auth_token(
+        self, service_id: str, auth_token: Optional[str] = None
+    ) -> DecoratedProductionServiceV2APIModel:
+        service = self._services[service_id]
+        current_auth_token = service.auth_token
+        current_secondary_auth_token = service.secondary_auth_token
+
+        # No token specified, or the primary was named: promote the secondary
+        # to primary and clear the secondary slot.
+        if auth_token is None or auth_token == current_auth_token:
+            if current_secondary_auth_token is None:
+                raise ValueError(
+                    f"No secondary auth token is set for service {service_id}."
+                )
+            service.auth_token = current_secondary_auth_token
+            service.secondary_auth_token = None
+        elif auth_token == current_secondary_auth_token:
+            service.secondary_auth_token = None
+        else:
+            raise ValueError(
+                "The provided auth token does not match the service's primary or "
+                "secondary auth token."
+            )
+        return service
 
     def submit_job(self, model: CreateInternalProductionJob) -> InternalProductionJob:
         self._submitted_job = model
@@ -2107,6 +2150,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         workspace_model = (
             self._workspaces.get(workspace_id, None) if workspace_id else None
         )
+        assert workspace_model is not None
         compute_config = self.get_compute_config(workspace_model.compute_config_id)
         assert compute_config is not None
         return Mock(

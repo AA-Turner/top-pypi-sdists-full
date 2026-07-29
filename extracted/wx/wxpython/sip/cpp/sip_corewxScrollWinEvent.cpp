@@ -65,9 +65,9 @@ sipwxScrollWinEvent::~sipwxScrollWinEvent()
     if (!sipMeth)
         return ::wxScrollWinEvent::Clone();
 
-    extern ::wxEvent* sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEvent* sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxEventCategory sipwxScrollWinEvent::GetEventCategory() const
@@ -80,9 +80,9 @@ sipwxScrollWinEvent::~sipwxScrollWinEvent()
     if (!sipMeth)
         return ::wxScrollWinEvent::GetEventCategory();
 
-    extern ::wxEventCategory sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEventCategory sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
@@ -153,6 +153,42 @@ static PyObject *meth_wxScrollWinEvent_GetPosition(PyObject *sipSelf, PyObject *
     }
 
     sipNoMethod(sipParseErr, sipName_ScrollWinEvent, sipName_GetPosition, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxScrollWinEvent_GetPixelOffset, "GetPixelOffset() -> int\n"
+"\n"
+"Offset of the scroll position from the nearest position expressed in\n"
+"scroll units.");
+
+extern "C" {static PyObject *meth_wxScrollWinEvent_GetPixelOffset(PyObject *, PyObject *);}
+static PyObject *meth_wxScrollWinEvent_GetPixelOffset(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxScrollWinEvent *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxScrollWinEvent, &sipCpp))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetPixelOffset();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_ScrollWinEvent, sipName_GetPixelOffset, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -367,20 +403,21 @@ static void *init_type_wxScrollWinEvent(sipSimpleWrapper *sipSelf, PyObject *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxScrollWinEvent[] = {{151, 255, 1}};
+static sipEncodedTypeDef supers_wxScrollWinEvent[] = {{158, 255, 1}};
 
 
 static PyMethodDef methods_wxScrollWinEvent[] = {
     {sipName_Clone, meth_wxScrollWinEvent_Clone, METH_VARARGS, doc_wxScrollWinEvent_Clone},
     {sipName_GetOrientation, meth_wxScrollWinEvent_GetOrientation, METH_VARARGS, doc_wxScrollWinEvent_GetOrientation},
+    {sipName_GetPixelOffset, meth_wxScrollWinEvent_GetPixelOffset, METH_VARARGS, doc_wxScrollWinEvent_GetPixelOffset},
     {sipName_GetPosition, meth_wxScrollWinEvent_GetPosition, METH_VARARGS, doc_wxScrollWinEvent_GetPosition},
     {sipName_SetOrientation, SIP_MLMETH_CAST(meth_wxScrollWinEvent_SetOrientation), METH_VARARGS|METH_KEYWORDS, doc_wxScrollWinEvent_SetOrientation},
     {sipName_SetPosition, SIP_MLMETH_CAST(meth_wxScrollWinEvent_SetPosition), METH_VARARGS|METH_KEYWORDS, doc_wxScrollWinEvent_SetPosition}
 };
 
 sipVariableDef variables_wxScrollWinEvent[] = {
-    {PropertyVariable, sipName_Position, &methods_wxScrollWinEvent[2], &methods_wxScrollWinEvent[4], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Orientation, &methods_wxScrollWinEvent[1], &methods_wxScrollWinEvent[3], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Position, &methods_wxScrollWinEvent[3], &methods_wxScrollWinEvent[5], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Orientation, &methods_wxScrollWinEvent[1], &methods_wxScrollWinEvent[4], SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxScrollWinEvent, "ScrollWinEvent(commandType=wxEVT_NULL, pos=0, orientation=0) -> None\n"
@@ -402,7 +439,7 @@ sipClassTypeDef sipTypeDef__core_wxScrollWinEvent = {
     {
         sipNameNr_ScrollWinEvent,
         {0, 0, 1},
-        5, methods_wxScrollWinEvent,
+        6, methods_wxScrollWinEvent,
         0, SIP_NULLPTR,
         2, variables_wxScrollWinEvent,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

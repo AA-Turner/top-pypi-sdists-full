@@ -2,7 +2,6 @@
 // Name:        src/generic/dcpsg.cpp
 // Purpose:     Generic wxPostScriptDC implementation
 // Author:      Julian Smart, Robert Roebling, Markus Holzhem
-// Modified by:
 // Created:     04/01/98
 // Copyright:   (c) Julian Smart
 // Licence:     wxWindows licence
@@ -290,7 +289,7 @@ wxPostScriptDCImpl::wxPostScriptDCImpl( wxPrinterDC *owner, const wxPrintData& d
 
 void wxPostScriptDCImpl::Init()
 {
-    m_pstream = NULL;
+    m_pstream = nullptr;
 
     m_currentRed = 0;
     m_currentGreen = 0;
@@ -311,7 +310,7 @@ wxPostScriptDCImpl::~wxPostScriptDCImpl ()
     if (m_pstream)
     {
         fclose( m_pstream );
-        m_pstream = NULL;
+        m_pstream = nullptr;
     }
 }
 
@@ -420,7 +419,8 @@ void wxPostScriptDCImpl::DoDrawLine (wxCoord x1, wxCoord y1, wxCoord x2, wxCoord
     buffer.Replace( ",", "." );
     PsPrint( buffer );
 
-    CalcBoundingBox( x1, y1, x2, y2 );
+    if ( AreAutomaticBoundingBoxUpdatesEnabled() )
+        CalcBoundingBox( x1, y1, x2, y2 );
 }
 
 void wxPostScriptDCImpl::DoDrawArc (wxCoord x1, wxCoord y1, wxCoord x2, wxCoord y2, wxCoord xc, wxCoord yc)
@@ -499,7 +499,8 @@ void wxPostScriptDCImpl::DoDrawArc (wxCoord x1, wxCoord y1, wxCoord x2, wxCoord 
         PsPrint( "stroke\n" );
     }
 
-    CalcBoundingBox( xc-i_radius, yc-i_radius, xc+i_radius, yc+i_radius );
+    if ( AreAutomaticBoundingBoxUpdatesEnabled() )
+        CalcBoundingBox( xc-i_radius, yc-i_radius, xc+i_radius, yc+i_radius );
 }
 
 void wxPostScriptDCImpl::DoDrawEllipticArc(wxCoord x,wxCoord y,wxCoord w,wxCoord h,double sa,double ea)
@@ -534,7 +535,8 @@ void wxPostScriptDCImpl::DoDrawEllipticArc(wxCoord x,wxCoord y,wxCoord w,wxCoord
         buffer.Replace( ",", "." );
         PsPrint( buffer );
 
-        CalcBoundingBox( wxPoint(x, y), wxSize(w, h) );
+        if ( AreAutomaticBoundingBoxUpdatesEnabled() )
+            CalcBoundingBox( wxPoint(x, y), wxSize(w, h) );
     }
 
     if ( m_pen.IsNonTransparent() )
@@ -550,7 +552,8 @@ void wxPostScriptDCImpl::DoDrawEllipticArc(wxCoord x,wxCoord y,wxCoord w,wxCoord
         buffer.Replace( ",", "." );
         PsPrint( buffer );
 
-        CalcBoundingBox( wxPoint(x, y), wxSize(w, h) );
+        if ( AreAutomaticBoundingBoxUpdatesEnabled() )
+            CalcBoundingBox( wxPoint(x, y), wxSize(w, h) );
     }
 }
 
@@ -573,7 +576,8 @@ void wxPostScriptDCImpl::DoDrawPoint (wxCoord x, wxCoord y)
     buffer.Replace( ",", "." );
     PsPrint( buffer );
 
-    CalcBoundingBox( x, y );
+    if ( AreAutomaticBoundingBoxUpdatesEnabled() )
+        CalcBoundingBox( x, y );
 }
 
 void wxPostScriptDCImpl::DoDrawPolygon (int n, const wxPoint points[], wxCoord xoffset, wxCoord yoffset, wxPolygonFillMode fillStyle)
@@ -596,7 +600,8 @@ void wxPostScriptDCImpl::DoDrawPolygon (int n, const wxPoint points[], wxCoord x
         buffer.Replace( ",", "." );
         PsPrint( buffer );
 
-        CalcBoundingBox( points[0].x + xoffset, points[0].y + yoffset );
+        if ( AreAutomaticBoundingBoxUpdatesEnabled() )
+            CalcBoundingBox( points[0].x + xoffset, points[0].y + yoffset );
 
         for (int i = 1; i < n; i++)
         {
@@ -607,7 +612,8 @@ void wxPostScriptDCImpl::DoDrawPolygon (int n, const wxPoint points[], wxCoord x
             buffer.Replace( ",", "." );
             PsPrint( buffer );
 
-            CalcBoundingBox( points[i].x + xoffset, points[i].y + yoffset);
+            if ( AreAutomaticBoundingBoxUpdatesEnabled() )
+                CalcBoundingBox( points[i].x + xoffset, points[i].y + yoffset);
         }
 
         PsPrint( (fillStyle == wxODDEVEN_RULE ? "eofill\n" : "fill\n") );
@@ -627,7 +633,8 @@ void wxPostScriptDCImpl::DoDrawPolygon (int n, const wxPoint points[], wxCoord x
         buffer.Replace( ",", "." );
         PsPrint( buffer );
 
-        CalcBoundingBox( points[0].x + xoffset, points[0].y + yoffset );
+        if ( AreAutomaticBoundingBoxUpdatesEnabled() )
+            CalcBoundingBox( points[0].x + xoffset, points[0].y + yoffset );
 
         for (int i = 1; i < n; i++)
         {
@@ -638,7 +645,8 @@ void wxPostScriptDCImpl::DoDrawPolygon (int n, const wxPoint points[], wxCoord x
             buffer.Replace( ",", "." );
             PsPrint( buffer );
 
-            CalcBoundingBox( points[i].x + xoffset, points[i].y + yoffset);
+            if ( AreAutomaticBoundingBoxUpdatesEnabled() )
+                CalcBoundingBox( points[i].x + xoffset, points[i].y + yoffset);
         }
 
         PsPrint( "closepath\n" );
@@ -669,7 +677,8 @@ void wxPostScriptDCImpl::DoDrawPolyPolygon (int n, const int count[], const wxPo
             buffer.Replace( ",", "." );
             PsPrint( buffer );
 
-            CalcBoundingBox( points[ofs].x + xoffset, points[ofs].y + yoffset );
+            if ( AreAutomaticBoundingBoxUpdatesEnabled() )
+                CalcBoundingBox( points[ofs].x + xoffset, points[ofs].y + yoffset );
 
             for (int j = 1; j < count[i]; j++)
             {
@@ -680,7 +689,8 @@ void wxPostScriptDCImpl::DoDrawPolyPolygon (int n, const int count[], const wxPo
                 buffer.Replace( ",", "." );
                 PsPrint( buffer );
 
-                CalcBoundingBox( points[ofs+j].x + xoffset, points[ofs+j].y + yoffset);
+                if ( AreAutomaticBoundingBoxUpdatesEnabled() )
+                    CalcBoundingBox( points[ofs+j].x + xoffset, points[ofs+j].y + yoffset);
             }
         }
         PsPrint( (fillStyle == wxODDEVEN_RULE ? "eofill\n" : "fill\n") );
@@ -703,7 +713,8 @@ void wxPostScriptDCImpl::DoDrawPolyPolygon (int n, const int count[], const wxPo
             buffer.Replace( ",", "." );
             PsPrint( buffer );
 
-            CalcBoundingBox( points[ofs].x + xoffset, points[ofs].y + yoffset );
+            if ( AreAutomaticBoundingBoxUpdatesEnabled() )
+                CalcBoundingBox( points[ofs].x + xoffset, points[ofs].y + yoffset );
 
             for (int j = 1; j < count[i]; j++)
             {
@@ -714,7 +725,8 @@ void wxPostScriptDCImpl::DoDrawPolyPolygon (int n, const int count[], const wxPo
                 buffer.Replace( ",", "." );
                 PsPrint( buffer );
 
-                CalcBoundingBox( points[ofs+j].x + xoffset, points[ofs+j].y + yoffset);
+                if ( AreAutomaticBoundingBoxUpdatesEnabled() )
+                    CalcBoundingBox( points[ofs+j].x + xoffset, points[ofs+j].y + yoffset);
             }
         }
         PsPrint( "closepath\n" );
@@ -734,8 +746,11 @@ void wxPostScriptDCImpl::DoDrawLines (int n, const wxPoint points[], wxCoord xof
     SetPen (m_pen);
 
     int i;
-    for ( i =0; i<n ; i++ )
-        CalcBoundingBox( points[i].x+xoffset, points[i].y+yoffset );
+    if ( AreAutomaticBoundingBoxUpdatesEnabled() )
+    {
+        for ( i =0; i<n ; i++ )
+            CalcBoundingBox( points[i].x+xoffset, points[i].y+yoffset );
+    }
 
     wxString buffer;
     buffer.Printf( "newpath\n"
@@ -783,7 +798,8 @@ void wxPostScriptDCImpl::DoDrawRectangle (wxCoord x, wxCoord y, wxCoord width, w
         buffer.Replace( ",", "." );
         PsPrint( buffer );
 
-        CalcBoundingBox( wxPoint(x, y), wxSize(width, height) );
+        if ( AreAutomaticBoundingBoxUpdatesEnabled() )
+            CalcBoundingBox( wxPoint(x, y), wxSize(width, height) );
     }
 
     if ( m_pen.IsNonTransparent() )
@@ -805,7 +821,8 @@ void wxPostScriptDCImpl::DoDrawRectangle (wxCoord x, wxCoord y, wxCoord width, w
         buffer.Replace( ",", "." );
         PsPrint( buffer );
 
-        CalcBoundingBox( wxPoint(x, y), wxSize(width, height) );
+        if ( AreAutomaticBoundingBoxUpdatesEnabled() )
+            CalcBoundingBox( wxPoint(x, y), wxSize(width, height) );
     }
 }
 
@@ -854,7 +871,8 @@ void wxPostScriptDCImpl::DoDrawRoundedRectangle (wxCoord x, wxCoord y, wxCoord w
         buffer.Replace( ",", "." );
         PsPrint( buffer );
 
-        CalcBoundingBox( wxPoint(x, y), wxSize(width, height) );
+        if ( AreAutomaticBoundingBoxUpdatesEnabled() )
+            CalcBoundingBox( wxPoint(x, y), wxSize(width, height) );
     }
 
     if ( m_pen.IsNonTransparent() )
@@ -885,7 +903,8 @@ void wxPostScriptDCImpl::DoDrawRoundedRectangle (wxCoord x, wxCoord y, wxCoord w
         buffer.Replace( ",", "." );
         PsPrint( buffer );
 
-        CalcBoundingBox( wxPoint(x, y), wxSize(width, height) );
+        if ( AreAutomaticBoundingBoxUpdatesEnabled() )
+            CalcBoundingBox( wxPoint(x, y), wxSize(width, height) );
     }
 }
 
@@ -909,7 +928,8 @@ void wxPostScriptDCImpl::DoDrawEllipse (wxCoord x, wxCoord y, wxCoord width, wxC
         buffer.Replace( ",", "." );
         PsPrint( buffer );
 
-        CalcBoundingBox( x - width, y - height, x + width, y + height );
+        if ( AreAutomaticBoundingBoxUpdatesEnabled() )
+            CalcBoundingBox( x - width, y - height, x + width, y + height );
     }
 
     if ( m_pen.IsNonTransparent() )
@@ -925,7 +945,8 @@ void wxPostScriptDCImpl::DoDrawEllipse (wxCoord x, wxCoord y, wxCoord width, wxC
         buffer.Replace( ",", "." );
         PsPrint( buffer );
 
-        CalcBoundingBox( x - width, y - height, x + width, y + height );
+        if ( AreAutomaticBoundingBoxUpdatesEnabled() )
+            CalcBoundingBox( x - width, y - height, x + width, y + height );
     }
 }
 
@@ -1210,7 +1231,7 @@ void wxPostScriptDCImpl::SetPen( const wxPen& pen )
                 PsPrint( buffer );
             }
             PsPrint ("] 0 setdash\n");
-            psdash = 0;
+            psdash = nullptr;
         }
         break;
         case wxPENSTYLE_SOLID:
@@ -1350,7 +1371,7 @@ void wxPostScriptDCImpl::DoDrawText( const wxString& text, wxCoord x, wxCoord y 
     SetPSFont();
 
     wxCoord text_descent;
-    GetOwner()->GetTextExtent(text, NULL, NULL, &text_descent);
+    GetOwner()->GetTextExtent(text, nullptr, nullptr, &text_descent);
     int size = m_font.GetPointSize();
 
 //    wxCoord by = y + (wxCoord)floor( double(size) * 2.0 / 3.0 ); // approximate baseline
@@ -1365,7 +1386,8 @@ void wxPostScriptDCImpl::DoDrawText( const wxString& text, wxCoord x, wxCoord y 
 
     DrawAnyText(textbuf, text_descent, size);
 
-    CalcBoundingBox(wxPoint(x, y), GetOwner()->GetMultiLineTextExtent(text));
+    if ( AreAutomaticBoundingBoxUpdatesEnabled() )
+        CalcBoundingBox(wxPoint(x, y), GetOwner()->GetMultiLineTextExtent(text));
 }
 
 void wxPostScriptDCImpl::DoDrawRotatedText( const wxString& text, wxCoord x, wxCoord y, double angle )
@@ -1386,7 +1408,7 @@ void wxPostScriptDCImpl::DoDrawRotatedText( const wxString& text, wxCoord x, wxC
 
     // Calculate bottom-left coordinates of the rotated text
     wxCoord text_descent;
-    GetOwner()->GetTextExtent(text, NULL, NULL, &text_descent);
+    GetOwner()->GetTextExtent(text, nullptr, nullptr, &text_descent);
     int size = m_font.GetPointSize();
     double rad = wxDegToRad(angle);
     wxCoord bx = wxRound(x + (size - text_descent) * sin(rad));
@@ -1407,14 +1429,17 @@ void wxPostScriptDCImpl::DoDrawRotatedText( const wxString& text, wxCoord x, wxC
     buffer.Replace( ",", "." );
     PsPrint( buffer );
 
-    wxCoord w, h;
-    GetOwner()->GetMultiLineTextExtent(text, &w, &h);
-    // "upper left" and "upper right"
-    CalcBoundingBox(x, y, x + wxCoord(w*cos(rad)), y - wxCoord(w*sin(rad)));
-    // "bottom left" and "bottom right"
-    x += (wxCoord)(h*sin(rad));
-    y += (wxCoord)(h*cos(rad));
-    CalcBoundingBox(x, y, x + wxCoord(w*cos(rad)), y - wxCoord(w*sin(rad)));
+    if ( AreAutomaticBoundingBoxUpdatesEnabled() )
+    {
+        wxCoord w, h;
+        GetOwner()->GetMultiLineTextExtent(text, &w, &h);
+        // "upper left" and "upper right"
+        CalcBoundingBox(x, y, x + wxCoord(w*cos(rad)), y - wxCoord(w*sin(rad)));
+        // "bottom left" and "bottom right"
+        x += (wxCoord)(h*sin(rad));
+        y += (wxCoord)(h*cos(rad));
+        CalcBoundingBox(x, y, x + wxCoord(w*cos(rad)), y - wxCoord(w*sin(rad)));
+    }
 }
 
 void wxPostScriptDCImpl::SetBackground (const wxBrush& brush)
@@ -1431,7 +1456,7 @@ void wxPostScriptDCImpl::SetLogicalFunction(wxRasterOperationMode WXUNUSED(funct
 void wxPostScriptDCImpl::DoDrawSpline( const wxPointList *points )
 {
     wxCHECK_RET( m_ok, wxT("invalid postscript dc") );
-    wxCHECK_RET(points, "NULL pointer to spline points?");
+    wxCHECK_RET(points, "null pointer to spline points?");
     wxCHECK_RET(points->size() >= 2, "incomplete list of spline points?");
 
     SetPen( m_pen );
@@ -1454,8 +1479,11 @@ void wxPostScriptDCImpl::DoDrawSpline( const wxPointList *points )
     buffer.Replace( ",", "." );
     PsPrint( buffer );
 
-    CalcBoundingBox( (wxCoord)p1.m_x, (wxCoord)p1.m_y );
-    CalcBoundingBox( (wxCoord)p3.m_x, (wxCoord)p3.m_y );
+    if ( AreAutomaticBoundingBoxUpdatesEnabled() )
+    {
+        CalcBoundingBox( (wxCoord)p1.m_x, (wxCoord)p1.m_y );
+        CalcBoundingBox( (wxCoord)p3.m_x, (wxCoord)p3.m_y );
+    }
 
     while ( itPt != points->end() )
     {
@@ -1477,8 +1505,11 @@ void wxPostScriptDCImpl::DoDrawSpline( const wxPointList *points )
         buffer.Replace( ",", "." );
         PsPrint( buffer );
 
-        CalcBoundingBox( (wxCoord)p0.m_x, (wxCoord)p0.m_y );
-        CalcBoundingBox( (wxCoord)p3.m_x, (wxCoord)p3.m_y );
+        if ( AreAutomaticBoundingBoxUpdatesEnabled() )
+        {
+            CalcBoundingBox( (wxCoord)p0.m_x, (wxCoord)p0.m_y );
+            CalcBoundingBox( (wxCoord)p3.m_x, (wxCoord)p3.m_y );
+        }
     }
 
     /*
@@ -1492,7 +1523,8 @@ void wxPostScriptDCImpl::DoDrawSpline( const wxPointList *points )
     buffer.Replace( ",", "." );
     PsPrint( buffer );
 
-    CalcBoundingBox((wxCoord)p2.m_x, (wxCoord)p2.m_y);
+    if ( AreAutomaticBoundingBoxUpdatesEnabled() )
+        CalcBoundingBox((wxCoord)p2.m_x, (wxCoord)p2.m_y);
 }
 #endif // wxUSE_SPLINES
 
@@ -1709,7 +1741,7 @@ void wxPostScriptDCImpl::EndDoc ()
 
     if ( m_pstream ) {
         fclose( m_pstream );
-        m_pstream = NULL;
+        m_pstream = nullptr;
     }
 
     // Reset the list of fonts for which PS font registration code was generated.
@@ -1974,7 +2006,7 @@ void wxPostScriptDCImpl::DoGetTextExtent(const wxString& string,
     /
     /  example:
     /
-    /    wxPostScriptDC dc(NULL, true);
+    /    wxPostScriptDC dc(nullptr, true);
     /    if (dc.IsOk()){
     /      wxSetAFMPath("d:\\wxw161\\afm\\");
     /      dc.StartDoc("Test");
@@ -2053,7 +2085,7 @@ void wxPostScriptDCImpl::DoGetTextExtent(const wxString& string,
             }
         }
 
-        FILE *afmFile = NULL;
+        FILE *afmFile = nullptr;
 
         // Get the directory of the AFM files
         wxString afmName;
@@ -2107,7 +2139,7 @@ void wxPostScriptDCImpl::DoGetTextExtent(const wxString& string,
            /
            /  when the font has changed, we read in the right AFM file and store the
            /  character widths in an array, which is processed below (see point 3.). */
-        if (afmFile==NULL)
+        if (afmFile==nullptr)
         {
             wxLogDebug( wxT("GetTextExtent: can't open AFM file '%s'"), afmName );
             wxLogDebug( wxT("               using approximate values"));
@@ -2126,12 +2158,12 @@ void wxPostScriptDCImpl::DoGetTextExtent(const wxString& string,
             char line[256];
             int ascii,cWidth;
             /* read in the file and parse it */
-            while(fgets(line,sizeof(line),afmFile)!=NULL)
+            while(fgets(line,sizeof(line),afmFile)!=nullptr)
             {
                 /* A.) check for descender definition */
                 if (strncmp(line,"Descender",9)==0)
                 {
-                    if ((sscanf(line,"%s%d",descString,&lastDescender)!=2) ||
+                    if ((sscanf(line,"%19s%d",descString,&lastDescender)!=2) ||
                             (strcmp(descString,"Descender")!=0))
                     {
                         wxLogDebug( wxT("AFM-file '%s': line '%s' has error (bad descender)"), afmName,line );
@@ -2140,7 +2172,7 @@ void wxPostScriptDCImpl::DoGetTextExtent(const wxString& string,
                 /* JC 1.) check for UnderlinePosition */
                 else if(strncmp(line,"UnderlinePosition",17)==0)
                 {
-                    if ((sscanf(line,"%s%lf",upString,&UnderlinePosition)!=2) ||
+                    if ((sscanf(line,"%29s%lf",upString,&UnderlinePosition)!=2) ||
                             (strcmp(upString,"UnderlinePosition")!=0))
                     {
                         wxLogDebug( wxT("AFM-file '%s': line '%s' has error (bad UnderlinePosition)"), afmName, line );
@@ -2149,7 +2181,7 @@ void wxPostScriptDCImpl::DoGetTextExtent(const wxString& string,
                 /* JC 2.) check for UnderlineThickness */
                 else if(strncmp(line,"UnderlineThickness",18)==0)
                 {
-                    if ((sscanf(line,"%s%lf",utString,&UnderlineThickness)!=2) ||
+                    if ((sscanf(line,"%29s%lf",utString,&UnderlineThickness)!=2) ||
                             (strcmp(utString,"UnderlineThickness")!=0))
                     {
                         wxLogDebug( wxT("AFM-file '%s': line '%s' has error (bad UnderlineThickness)"), afmName, line );
@@ -2158,7 +2190,7 @@ void wxPostScriptDCImpl::DoGetTextExtent(const wxString& string,
                 /* JC 3.) check for EncodingScheme */
                 else if(strncmp(line,"EncodingScheme",14)==0)
                 {
-                    if ((sscanf(line,"%s%s",utString,encString)!=2) ||
+                    if ((sscanf(line,"%29s%49s",utString,encString)!=2) ||
                             (strcmp(utString,"EncodingScheme")!=0))
                     {
                         wxLogDebug( wxT("AFM-file '%s': line '%s' has error (bad EncodingScheme)"), afmName, line );
@@ -2172,7 +2204,7 @@ void wxPostScriptDCImpl::DoGetTextExtent(const wxString& string,
                 /* B.) check for char-width */
                 else if(strncmp(line,"C ",2)==0)
                 {
-                    if (sscanf(line,"%s%d%s%s%d",cString,&ascii,semiString,WXString,&cWidth)!=5)
+                    if (sscanf(line,"%9s%d%9s%9s%d",cString,&ascii,semiString,WXString,&cWidth)!=5)
                     {
                         wxLogDebug(wxT("AFM-file '%s': line '%s' has an error (bad character width)"),afmName,line);
                     }

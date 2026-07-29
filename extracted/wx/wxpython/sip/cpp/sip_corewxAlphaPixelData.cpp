@@ -333,7 +333,7 @@ static void *init_type_wxAlphaPixelData(sipSimpleWrapper *sipSelf, PyObject *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxAlphaPixelData[] = {{419, 255, 1}};
+static sipEncodedTypeDef supers_wxAlphaPixelData[] = {{427, 255, 1}};
 
 
 /* Define this type's Python slots. */

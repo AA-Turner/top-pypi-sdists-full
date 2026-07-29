@@ -18,6 +18,7 @@ from ggshield.core.client import (
     create_client,
     create_client_from_config,
     create_session,
+    safe_response_json,
 )
 from ggshield.core.config import Config, InstanceConfig
 from ggshield.core.errors import APIKeyCheckError, UnexpectedError
@@ -31,6 +32,7 @@ DEFAULT_SCOPES = [
     SCAN_SCOPE,
     "honeytokens:check",
     "endpoints:send",
+    "ai-discover:send",
 ]
 
 # Sentinel `redirect_uri` value used by the out-of-band (browser-less) OAuth
@@ -363,7 +365,7 @@ class OAuthClient:
         ).get(endpoint="token")
         if not response.ok:
             raise OAuthError("The created token is invalid.")
-        return response.json()
+        return safe_response_json(response)
 
     def _save_token(self, api_token_data: Dict[str, Any]) -> None:
         """
@@ -447,8 +449,12 @@ class OAuthClient:
         """
         Output the login success message
         """
-        assert self.instance_config.account is not None
-        expire_at = self.instance_config.account.expire_at
+        account = self.instance_config.account
+        if account is None:
+            # Reached only if the flow ended without saving a token; surface a
+            # clean error instead of a bare AssertionError.
+            raise UnexpectedError("Login failed: no token was saved.")
+        expire_at = account.expire_at
 
         if expire_at is not None:
             str_date = get_pretty_date(expire_at)
@@ -533,8 +539,17 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         try:
             self.oauth_client.process_callback(callback_url)
-        except OAuthError as error:
+        except (OAuthError, UnexpectedError) as error:
+            # UnexpectedError is raised e.g. when the token endpoint returns a
+            # non-JSON response. It must be caught here too: an exception that
+            # escapes this handler thread is swallowed by socketserver, leaving
+            # the main thread to mistake the callback for a success.
             self._handle_error(error.message)
+        except Exception as error:
+            # Catch-all for the same reason: any exception escaping this handler
+            # thread (e.g. a network error or a KeyError on a malformed body) is
+            # swallowed by socketserver and would be misread as a success.
+            self._handle_error(str(error))
         else:
             self._redirect(
                 urljoin(self.oauth_client.dashboard_url, "authenticated"),

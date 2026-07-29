@@ -101,7 +101,7 @@ from anyscale.utils.workspace_notification import WorkspaceNotification
 # Maybe just make it part of the release process to update it, or fetch the
 # default builds and get the latest one. The best thing to do is probably
 # to populate this in the backend.
-DEFAULT_RAY_VERSION = "2.56.0"  # RAY_RELEASE_UPDATE: update to latest version
+DEFAULT_RAY_VERSION = "2.56.1"  # RAY_RELEASE_UPDATE: update to latest version
 DEFAULT_PYTHON_VERSION = "py311"
 RUNTIME_ENV_PACKAGE_FORMAT = "pkg_{content_hash}.zip"
 
@@ -707,6 +707,20 @@ class AnyscaleClientInterface(ABC):
     @abstractmethod
     def delete_service(self, service_id: str) -> None:
         """Mark the service to be deleted asynchronously."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def add_service_secondary_auth_token(
+        self, service_id: str
+    ) -> DecoratedProductionServiceV2APIModel:
+        """Generate a secondary bearer token for token rotation."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def delete_service_auth_token(
+        self, service_id: str, auth_token: Optional[str] = None
+    ) -> DecoratedProductionServiceV2APIModel:
+        """Delete the specified bearer token for token rotation."""
         raise NotImplementedError
 
     @abstractmethod

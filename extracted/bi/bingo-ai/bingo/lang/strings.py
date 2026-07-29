@@ -8205,9 +8205,9 @@ _STRINGS.update({
         "en": "💉 SQLi injection point confirmed — calling sqli_autoexploit immediately",
     },
     "real_ip_in_html": {
-        "ko": "🔍 HTML 소스에서 실제 IP 발견 → curl --resolve 자동 적용",
-        "zh": "🔍 在HTML源码中发现真实IP → 自动应用 curl --resolve",
-        "en": "🔍 Real IP found in HTML source → applying curl --resolve automatically",
+        "ko": "🔍 HTML 소스에서 실제 IP 발견 (네트워크 도구 전용)",
+        "zh": "🔍 在HTML源码中发现真实IP (仅用于网络工具)",
+        "en": "🔍 Real IP found in HTML source (for network tools only)",
     },
     "sqli_loop_wasted": {
         "ko": "⚠ 주입점 확인 후 추가 탐색 감지 — sqli_autoexploit 으로 전환 필요",

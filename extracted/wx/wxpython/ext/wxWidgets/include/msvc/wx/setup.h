@@ -2,7 +2,6 @@
 // Name:        msvc/wx/setup.h
 // Purpose:     wrapper around the real wx/setup.h for Visual C++
 // Author:      Vadim Zeitlin
-// Modified by:
 // Created:     2004-12-12
 // Copyright:   (c) 2004 Vadim Zeitlin <vadim@wxwidgets.org>
 // Licence:     wxWindows licence
@@ -19,24 +18,19 @@
 #include "wx/version.h"
 #include "wx/cpp.h"
 
+#ifndef _UNICODE
+    #error "wxWidgets requires Unicode."
+#endif
+
 // notice that wxSUFFIX_DEBUG is a string but wxSUFFIX itself must be an
 // identifier as string concatenation is not done inside #include where we
 // need it
 #ifdef _DEBUG
     #define wxSUFFIX_DEBUG "d"
-    #ifdef _UNICODE
-        #define wxSUFFIX ud
-    #else // !_UNICODE
-        #define wxSUFFIX d
-    #endif // _UNICODE/!_UNICODE
+    #define wxSUFFIX ud
 #else
     #define wxSUFFIX_DEBUG ""
-    #ifdef _UNICODE
-        #define wxSUFFIX u
-    #else // !_UNICODE
-        // don't define wxSUFFIX at all as preprocessor operations don't work
-        // with empty values so we need to check for this case specially below
-    #endif // _UNICODE/!_UNICODE
+    #define wxSUFFIX u
 #endif
 
 // compiler-specific prefix: by default it's always just "vc" for compatibility
@@ -54,20 +48,8 @@
 #ifdef wxMSVC_VERSION
     #define wxCOMPILER_PREFIX wxCONCAT(vc, wxMSVC_VERSION)
 #elif defined(wxMSVC_VERSION_AUTO) || defined(wxMSVC_VERSION_ABI_COMPAT)
-    #if _MSC_VER == 1300
-        #define wxCOMPILER_PREFIX vc70
-    #elif _MSC_VER == 1310
-        #define wxCOMPILER_PREFIX vc71
-    #elif _MSC_VER == 1400
-        #define wxCOMPILER_PREFIX vc80
-    #elif _MSC_VER == 1500
-        #define wxCOMPILER_PREFIX vc90
-    #elif _MSC_VER == 1600
-        #define wxCOMPILER_PREFIX vc100
-    #elif _MSC_VER == 1700
-        #define wxCOMPILER_PREFIX vc110
-    #elif _MSC_VER == 1800
-        #define wxCOMPILER_PREFIX vc120
+    #if _MSC_VER < 1900
+        #error "Unsupported MSVC compiler version, 2015 or later is required."
     #elif _MSC_VER >= 1900 && _MSC_VER < 2000
         #ifdef wxMSVC_VERSION_ABI_COMPAT
             #define wxCOMPILER_PREFIX vc14x
@@ -78,8 +60,10 @@
                 #define wxCOMPILER_PREFIX vc141
             #elif _MSC_VER >= 1920 && _MSC_VER < 1930
                 #define wxCOMPILER_PREFIX vc142
-            #elif _MSC_VER >= 1930 && _MSC_VER < 2000
+            #elif _MSC_VER >= 1930 && _MSC_VER < 1950
                 #define wxCOMPILER_PREFIX vc143
+            #elif _MSC_VER >= 1950 && _MSC_VER < 2000
+                #define wxCOMPILER_PREFIX vc145
             #else
                 #error "Unknown MSVC 14.x compiler version, please report to wx-dev."
             #endif
@@ -94,6 +78,8 @@
 // architecture-specific part: not used (again, for compatibility), for x86
 #if defined(_M_X64)
     #define wxARCH_SUFFIX _x64
+#elif defined(_M_ARM)
+    #define wxARCH_SUFFIX _arm
 #elif defined(_M_ARM64)
     #define wxARCH_SUFFIX _arm64
 #elif defined(_M_IA64)
@@ -127,11 +113,7 @@
     #endif
 #endif // wxTOOLKIT_PREFIX
 
-#ifdef wxSUFFIX
-    #define wxTOOLKIT_FULL wxCONCAT(wxTOOLKIT_PREFIX, wxSUFFIX)
-#else // suffix is empty
-    #define wxTOOLKIT_FULL wxTOOLKIT_PREFIX
-#endif
+#define wxTOOLKIT_FULL wxCONCAT(wxTOOLKIT_PREFIX, wxSUFFIX)
 
 // the real setup.h header file we need is in the build-specific directory,
 // construct the path to it
@@ -144,11 +126,7 @@
 
 // the library names depend on the build, these macro builds the correct
 // library name for the given base name
-#ifdef wxSUFFIX
-    #define wxSUFFIX_STR wxSTRINGIZE(wxSUFFIX)
-#else // suffix is empty
-    #define wxSUFFIX_STR ""
-#endif
+#define wxSUFFIX_STR wxSTRINGIZE(wxSUFFIX)
 #define wxSHORT_VERSION_STRING \
     wxSTRINGIZE(wxMAJOR_VERSION) wxSTRINGIZE(wxMINOR_VERSION)
 
@@ -209,8 +187,12 @@
         #if wxUSE_LIBTIFF && !defined(wxNO_TIFF_LIB)
             #pragma comment(lib, wx3RD_PARTY_LIB_NAME("tiff"))
         #endif
+        #if wxUSE_LIBWEBP && !defined(wxNO_WEBP_LIB)
+            #pragma comment(lib, wx3RD_PARTY_LIB_NAME("webp"))
+        #endif
         #if wxUSE_STC && !defined(wxNO_STC_LIB)
             #pragma comment(lib, wx3RD_PARTY_LIB_NAME("scintilla"))
+            #pragma comment(lib, wx3RD_PARTY_LIB_NAME("lexilla"))
         #endif
     #endif // !defined(WXUSINGDLL)
 
@@ -264,6 +246,8 @@
     #pragma comment(lib, "kernel32")
     #pragma comment(lib, "user32")
     #pragma comment(lib, "gdi32")
+    #pragma comment(lib, "gdiplus")
+    #pragma comment(lib, "msimg32")
     #pragma comment(lib, "comdlg32")
     #pragma comment(lib, "winspool")
     #pragma comment(lib, "winmm")

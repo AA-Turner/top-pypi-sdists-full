@@ -91,9 +91,9 @@ bool sipwxDataObject::SetData(const ::wxDataFormat& format, size_t len, const vo
     if (!sipMeth)
         return ::wxDataObject::SetData(format, len, buf);
 
-    extern bool sipVH__core_70(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxDataFormat&, size_t, const void*);
+    extern bool sipVH__core_69(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxDataFormat&, size_t, const void*);
 
-    return sipVH__core_70(sipGILState, 0, sipPySelf, sipMeth, format, len, buf);
+    return sipVH__core_69(sipGILState, 0, sipPySelf, sipMeth, format, len, buf);
 }
 
 ::wxDataFormat sipwxDataObject::GetPreferredFormat(::wxDataObject::Direction dir) const
@@ -106,9 +106,9 @@ bool sipwxDataObject::SetData(const ::wxDataFormat& format, size_t len, const vo
     if (!sipMeth)
         return ::wxDataFormat();
 
-    extern ::wxDataFormat sipVH__core_69(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject::Direction);
+    extern ::wxDataFormat sipVH__core_68(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject::Direction);
 
-    return sipVH__core_69(sipGILState, 0, sipPySelf, sipMeth, dir);
+    return sipVH__core_68(sipGILState, 0, sipPySelf, sipMeth, dir);
 }
 
 size_t sipwxDataObject::GetFormatCount(::wxDataObject::Direction dir) const
@@ -121,9 +121,9 @@ size_t sipwxDataObject::GetFormatCount(::wxDataObject::Direction dir) const
     if (!sipMeth)
         return 0;
 
-    extern size_t sipVH__core_68(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject::Direction);
+    extern size_t sipVH__core_67(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject::Direction);
 
-    return sipVH__core_68(sipGILState, 0, sipPySelf, sipMeth, dir);
+    return sipVH__core_67(sipGILState, 0, sipPySelf, sipMeth, dir);
 }
 
 size_t sipwxDataObject::GetDataSize(const ::wxDataFormat& format) const
@@ -136,9 +136,9 @@ size_t sipwxDataObject::GetDataSize(const ::wxDataFormat& format) const
     if (!sipMeth)
         return 0;
 
-    extern size_t sipVH__core_67(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxDataFormat&);
+    extern size_t sipVH__core_66(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxDataFormat&);
 
-    return sipVH__core_67(sipGILState, 0, sipPySelf, sipMeth, format);
+    return sipVH__core_66(sipGILState, 0, sipPySelf, sipMeth, format);
 }
 
 bool sipwxDataObject::GetDataHere(const ::wxDataFormat& format, void*buf) const
@@ -151,9 +151,9 @@ bool sipwxDataObject::GetDataHere(const ::wxDataFormat& format, void*buf) const
     if (!sipMeth)
         return 0;
 
-    extern bool sipVH__core_66(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxDataFormat&, void*);
+    extern bool sipVH__core_65(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxDataFormat&, void*);
 
-    return sipVH__core_66(sipGILState, 0, sipPySelf, sipMeth, format, buf);
+    return sipVH__core_65(sipGILState, 0, sipPySelf, sipMeth, format, buf);
 }
 
 void sipwxDataObject::GetAllFormats(::wxDataFormat*formats, ::wxDataObject::Direction dir) const
@@ -166,9 +166,9 @@ void sipwxDataObject::GetAllFormats(::wxDataFormat*formats, ::wxDataObject::Dire
     if (!sipMeth)
         return;
 
-    extern void sipVH__core_65(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataFormat*, ::wxDataObject::Direction);
+    extern void sipVH__core_64(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataFormat*, ::wxDataObject::Direction);
 
-    sipVH__core_65(sipGILState, 0, sipPySelf, sipMeth, formats, dir);
+    sipVH__core_64(sipGILState, 0, sipPySelf, sipMeth, formats, dir);
 }
 
 
@@ -606,9 +606,9 @@ static PyMethodDef methods_wxDataObject[] = {
 };
 
 static sipEnumMemberDef enummembers_wxDataObject[] = {
-    {sipName_Both, static_cast<int>(::wxDataObject::Both), 115},
-    {sipName_Get, static_cast<int>(::wxDataObject::Get), 115},
-    {sipName_Set, static_cast<int>(::wxDataObject::Set), 115},
+    {sipName_Both, static_cast<int>(::wxDataObject::Both), 120},
+    {sipName_Get, static_cast<int>(::wxDataObject::Get), 120},
+    {sipName_Set, static_cast<int>(::wxDataObject::Set), 120},
 };
 
 sipVariableDef variables_wxDataObject[] = {

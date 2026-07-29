@@ -531,7 +531,15 @@ def add_auth_policy(ctx, issuer_id, default_action, supported_mfa_methods, **kwa
     return apiclient.issuers_api.create_policy(model).to_dict()
 
 
-def update_auth_policy(ctx, policy_id, supported_mfa_methods=None, name=None, **kwargs):
+def update_auth_policy(
+    ctx,
+    policy_id,
+    supported_mfa_methods=None,
+    name=None,
+    token_lifetime_scopes=None,
+    token_lifetime_default=None,
+    **kwargs,
+):
     apiclient = context.get_apiclient_from_ctx(ctx)
     update_org_from_input_or_ctx(kwargs, ctx, **kwargs)
     policy = _get_auth_policy(apiclient, policy_id, kwargs["org_id"])
@@ -541,7 +549,55 @@ def update_auth_policy(ctx, policy_id, supported_mfa_methods=None, name=None, **
     if name is not None:
         policy.spec.name = name
 
+    token_policy = policy.spec.token_policy or agilicus.TokenPolicy(
+        token_lifetime_policy=agilicus.TokenLifetimePolicy(
+            global_default_maximum=agilicus.ISO8601Duration("P7D"),
+            scope_class_defaults=[],
+        )
+    )
+
+    if token_lifetime_default is not None:
+        token_policy.token_lifetime_policy.global_default_maximum = (
+            agilicus.ISO8601Duration(token_lifetime_default)
+        )
+    if token_lifetime_scopes is not None:
+        _update_lifetime_scopes(
+            token_policy.token_lifetime_policy, token_lifetime_scopes
+        )
+
+    policy.spec.token_policy = token_policy
+
     return apiclient.issuers_api.replace_policy(policy_id, policy).to_dict()
+
+
+def _update_lifetime_scopes(policy, to_update: list[tuple[str, str]]):
+    to_remove = set()
+    to_add_or_replace = {}
+    for t in to_update:
+        if t[1] == "":
+            to_remove.add(t[0])
+        else:
+            to_add_or_replace[t[0]] = agilicus.ScopeClassLifetimePolicy(
+                scope_class=t[0], maximum_lifetime=agilicus.ISO8601Duration(t[1])
+            )
+    new_items = []
+
+    # Update or remove any existing
+    for existing in policy.scope_class_defaults:
+        if existing.scope_class in to_remove:
+            continue
+
+        modified = to_add_or_replace.pop(existing.scope_class, None)
+        if not modified:
+            new_items.append(existing)
+        else:
+            new_items.append(modified)
+
+    # Now add any which are new
+    for item in to_add_or_replace.values():
+        new_items.append(item)
+
+    policy.scope_class_defaults = new_items
 
 
 def set_auth_policy(ctx, issuer_id, policy, org_id, **kwargs):

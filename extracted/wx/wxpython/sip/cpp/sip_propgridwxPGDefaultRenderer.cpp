@@ -31,7 +31,6 @@ public:
 protected:
     bool Render(::wxDC&, const ::wxRect&, const ::wxPropertyGrid*, ::wxPGProperty*, int, int, int) const SIP_OVERRIDE;
     ::wxSize GetImageSize(const ::wxPGProperty*, int, int) const SIP_OVERRIDE;
-    void DrawCaptionSelectionRect(::wxDC&, int, int, int, int) const SIP_OVERRIDE;
 
 public:
     sipSimpleWrapper *sipPySelf;
@@ -40,7 +39,7 @@ private:
     sipwxPGDefaultRenderer(const sipwxPGDefaultRenderer &);
     sipwxPGDefaultRenderer &operator = (const sipwxPGDefaultRenderer &);
 
-    char sipPyMethods[3];
+    char sipPyMethods[2];
 };
 
 sipwxPGDefaultRenderer::sipwxPGDefaultRenderer(): ::wxPGDefaultRenderer(), sipPySelf(SIP_NULLPTR)
@@ -81,24 +80,6 @@ bool sipwxPGDefaultRenderer::Render(::wxDC& dc, const ::wxRect& rect, const ::wx
     extern ::wxSize sipVH__propgrid_1(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxPGProperty*, int, int);
 
     return sipVH__propgrid_1(sipGILState, 0, sipPySelf, sipMeth, property, column, item);
-}
-
-void sipwxPGDefaultRenderer::DrawCaptionSelectionRect(::wxDC& dc, int x, int y, int w, int h) const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[2]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DrawCaptionSelectionRect);
-
-    if (!sipMeth)
-    {
-        ::wxPGDefaultRenderer::DrawCaptionSelectionRect(dc, x, y, w, h);
-        return;
-    }
-
-    extern void sipVH__propgrid_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, int, int, int, int);
-
-    sipVH__propgrid_2(sipGILState, 0, sipPySelf, sipMeth, dc, x, y, w, h);
 }
 
 

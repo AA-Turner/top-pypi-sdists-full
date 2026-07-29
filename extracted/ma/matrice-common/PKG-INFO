@@ -1,0 +1,449 @@
+Metadata-Version: 2.4
+Name: matrice_common
+Version: 0.3.0
+Summary: Common server utilities for Matrice.ai services
+Author-email: "Matrice.ai" <dipendra@matrice.ai>
+License: MIT
+Keywords: matrice,common,utilities,mypyc,compiled
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: MacOS
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Typing :: Typed
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: LICENSE.txt
+Provides-Extra: runtime
+Requires-Dist: httpx==0.28.1; extra == "runtime"
+Requires-Dist: requests==2.33.1; extra == "runtime"
+Requires-Dist: Pillow==12.3.0; extra == "runtime"
+Requires-Dist: python-dateutil==2.9.0.post0; extra == "runtime"
+Requires-Dist: kafka-python==2.3.1; extra == "runtime"
+Requires-Dist: msgpack==1.2.1; extra == "runtime"
+Requires-Dist: python-dotenv==1.2.2; extra == "runtime"
+Provides-Extra: dev
+Requires-Dist: pytest==9.0.3; extra == "dev"
+Requires-Dist: pytest-cov==6.0.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21; extra == "dev"
+Requires-Dist: pytest-timeout>=2.3; extra == "dev"
+Requires-Dist: pytest-xdist>=3.5; extra == "dev"
+Requires-Dist: fakeredis>=2.20; extra == "dev"
+Requires-Dist: respx>=0.20; extra == "dev"
+Requires-Dist: ruff==0.11.12; extra == "dev"
+Requires-Dist: bandit[toml]==1.9.4; extra == "dev"
+Requires-Dist: mypy==1.13.0; extra == "dev"
+Requires-Dist: pre-commit==4.2.0; extra == "dev"
+Requires-Dist: pip-audit==2.7.3; extra == "dev"
+Requires-Dist: safety==3.2.11; extra == "dev"
+Requires-Dist: redis>=4.0; extra == "dev"
+Requires-Dist: confluent-kafka>=1.9; extra == "dev"
+Requires-Dist: aiokafka>=0.8; extra == "dev"
+Requires-Dist: kafka-python==2.3.1; extra == "dev"
+Requires-Dist: python-dateutil==2.9.0.post0; extra == "dev"
+Requires-Dist: numpy==2.4.4; extra == "dev"
+Requires-Dist: aiohttp==3.14.1; extra == "dev"
+Requires-Dist: opencv-python-headless==4.13.0.92; extra == "dev"
+Dynamic: license-file
+Dynamic: requires-python
+
+# Matrice Common Library
+
+[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE.txt)
+[![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Tests](https://img.shields.io/badge/tests-passing-brightgreen)](tests/)
+
+**matrice_common** is a high-performance Python package providing reusable utilities for Matrice.ai services. It offers production-ready components for authentication, API communication, streaming, and more.
+
+## 🚀 Quick Start
+
+### Installation
+
+```bash
+pip install --index-url https://test.pypi.org/simple/ matrice_common
+```
+
+### Basic Usage
+
+```python
+from matrice_common.rpc import RPC
+from matrice_common.session import create_session
+
+# Initialize RPC client
+rpc = RPC(
+    access_key="your_access_key",
+    secret_key="your_secret_key"  # pragma: allowlist secret
+)
+
+# Make API requests
+response = rpc.get("/v1/endpoint")
+data = rpc.post("/v1/resource", payload={"key": "value"})
+
+# Create a session
+session = create_session(
+    access_key="your_access_key",
+    secret_key="your_secret_key"  # pragma: allowlist secret
+)
+
+# Create a project
+project = session.create_classification_project(
+    name="My Project",
+    description="AI classification project"
+)
+```
+
+## ✨ Key Features
+
+### 🔐 **Authentication & Security**
+- Token-based authentication with automatic refresh
+- Secure credential management
+- Environment-based configuration (prod/staging/dev)
+
+### 🌐 **RPC Client**
+- Synchronous and asynchronous HTTP methods
+- Automatic token management
+- Built-in error handling and retry logic
+- Type-safe API interactions
+
+### 📊 **Streaming**
+- **Unified Interface**: Single API for Kafka and Redis streaming
+- **Async Support**: Full async/await compatibility
+- **Metrics & Monitoring**: Built-in performance tracking
+- **Auto-Reconnection**: Resilient connection handling
+
+### 🔧 **Utilities**
+- Comprehensive error logging (Sentry + Kafka)
+- Error deduplication
+- Automatic dependency installation
+- Caching decorators
+- Type hints throughout
+
+### 📦 **Session Management**
+- Project lifecycle management
+
+## 📖 Documentation
+
+Comprehensive documentation is available in [DOCUMENTATION.md](DOCUMENTATION.md), including:
+
+- **[Installation Guide](DOCUMENTATION.md#installation)** - Setup and requirements
+- **[Authentication](DOCUMENTATION.md#authentication)** - Token management and security
+- **[RPC Client](DOCUMENTATION.md#rpc-client)** - API communication
+- **[Session Management](DOCUMENTATION.md#session-management)** - Project lifecycle
+- **[Streaming](DOCUMENTATION.md#streaming)** - Kafka and Redis streaming
+- **[Frame Optimization](DOCUMENTATION.md#frame-optimization)** - Intelligent transmission
+- **[Error Handling](DOCUMENTATION.md#error-handling)** - Logging and monitoring
+- **[Utilities](DOCUMENTATION.md#utilities)** - Helper functions
+- **[API Reference](DOCUMENTATION.md#api-reference)** - Complete API docs
+- **[Testing](DOCUMENTATION.md#testing)** - Test suite information
+- **[Examples](DOCUMENTATION.md#examples)** - Code examples
+
+## 💡 Examples
+
+### Async API Calls
+
+```python
+import asyncio
+from matrice_common.rpc import RPC
+
+async def fetch_data():
+    rpc = RPC(access_key="...", secret_key="...")
+
+    # Concurrent requests
+    results = await asyncio.gather(
+        rpc.get_async("/v1/users"),
+        rpc.get_async("/v1/projects"),
+        rpc.get_async("/v1/datasets")
+    )
+
+    return results
+
+asyncio.run(fetch_data())
+```
+
+### Streaming with Kafka
+
+```python
+from matrice_common.stream.matrice_stream import MatriceStream, StreamType
+
+# Create stream
+stream = MatriceStream(
+    stream_type=StreamType.KAFKA,
+    access_key="...",
+    secret_key="..."
+)
+
+# Setup and use
+stream.setup(topic_or_stream_name="my-topic")
+stream.add_message({"data": "value", "timestamp": "2025-01-01T12:00:00Z"})
+
+# Receive messages
+message = stream.get_message(timeout=30)
+if message:
+    print(f"Received: {message}")
+
+stream.close()
+```
+
+### Error Handling
+
+```python
+from matrice_common.utils import log_errors, AppError, ErrorType, get_deduplication_config
+
+# Configure deduplication (or use environment variables)
+# export MATRICE_ERROR_DEDUPLICATION_ENABLED=true
+# export MATRICE_ERROR_CACHE_TTL_SECONDS=1800  # 30 minutes
+
+# Use service_name to properly track errors per service
+@log_errors(service_name="my_service", raise_exception=False)
+def process_data(data):
+    """Automatically logs errors to Sentry and Kafka with deduplication."""
+    if not data:
+        raise ValueError("Data cannot be empty")
+
+    # Process data
+    return result
+
+# Errors are automatically logged and deduplicated
+result = process_data(my_data)
+
+# Check deduplication config
+print(get_deduplication_config())
+# Output: {'enabled': True, 'ttl_seconds': 900, 'max_cache_size': 1000, 'current_cache_size': 0}
+```
+
+## 🧪 Testing
+
+The library includes a comprehensive test suite with high coverage.
+
+### Running Tests
+
+```bash
+# Install development dependencies
+pip install -r requirements-dev.txt
+
+# Run all tests
+pytest
+
+# Run with coverage report
+pytest --cov=src/matrice_common --cov-report=html
+
+# Run specific test module
+pytest tests/unit/test_rpc.py -v
+
+# Run with verbose output
+pytest -v --tb=short
+```
+
+### Test Coverage
+
+- **token_auth.py**: 100% coverage
+- **utils.py**: 52% coverage
+- **rpc.py**: Comprehensive unit tests
+- Integration tests for all major workflows
+
+View detailed coverage:
+```bash
+pytest --cov --cov-report=html
+open htmlcov/index.html  # View in browser
+```
+
+## 🏗️ Project Structure
+
+```
+py_common/
+├── src/matrice_common/      # Source code
+│   ├── rpc.py               # RPC client
+│   ├── token_auth.py        # Authentication
+│   ├── utils.py             # Utilities and error handling
+│   ├── session.py           # Session management
+│   ├── stream/              # Streaming modules
+│   │   ├── matrice_stream.py
+│   │   ├── kafka_stream.py
+│   │   └── redis_stream.py
+│   └── optimize/            # Frame optimization
+│       ├── cache_manager.py
+│       ├── frame_comparators.py
+│       ├── frame_difference.py
+│       └── transmission.py
+├── tests/                   # Test suite
+│   ├── conftest.py         # Test fixtures
+│   ├── unit/               # Unit tests
+│   └── integration/        # Integration tests
+├── DOCUMENTATION.md        # Comprehensive documentation
+├── README.md              # This file
+├── setup.py               # Package setup
+├── pyproject.toml         # Project configuration
+├── pytest.ini             # Pytest configuration
+└── requirements-dev.txt   # Development dependencies
+```
+
+## 🔧 Development
+
+### Setup Development Environment
+
+```bash
+# Clone repository
+git clone <repository-url>
+cd py_common
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install development dependencies
+pip install -r requirements-dev.txt
+
+# Install package in editable mode
+pip install -e .
+```
+
+### Code Quality
+
+```bash
+# Format code
+black src/
+
+# Lint code
+flake8 src/
+
+# Type checking
+mypy src/
+```
+
+### Building the Package
+
+```bash
+# Build package
+python setup.py bdist_wheel sdist
+
+# Build with PyArmor obfuscation (optional)
+python setup.py build
+
+# Skip obfuscation
+SKIP_PYARMOR_OBFUSCATION=true python setup.py bdist_wheel
+```
+
+## 🌍 Environment Variables
+
+### Core Configuration
+
+| Variable | Description | Required | Default |
+|----------|-------------|----------|---------|
+| `MATRICE_ACCESS_KEY_ID` | API access key | Yes | - |
+| `MATRICE_SECRET_ACCESS_KEY` | API secret key | Yes | - |
+| `ENV` | Environment (prod/staging/dev) | No | prod |
+| `MATRICE_ACTION_ID` | Current action ID | No | - |
+| `MATRICE_SESSION_ID` | Current session ID | No | - |
+| `SKIP_PYARMOR_OBFUSCATION` | Skip code obfuscation | No | false |
+
+### Error Logging & Deduplication
+
+| Variable | Description | Required | Default |
+|----------|-------------|----------|---------|
+| `MATRICE_ERROR_DEDUPLICATION_ENABLED` | Enable error deduplication | No | true |
+| `MATRICE_ERROR_CACHE_TTL_SECONDS` | Deduplication time window (seconds) | No | 900 (15 min) |
+| `MATRICE_ERROR_CACHE_MAX_SIZE` | Max unique errors to track | No | 1000 |
+
+### Setting Environment Variables
+
+```bash
+# Linux/Mac
+export MATRICE_ACCESS_KEY_ID="your_access_key"
+export MATRICE_SECRET_ACCESS_KEY="your_secret_key"  # pragma: allowlist secret
+export ENV="staging"
+
+# Windows PowerShell
+$env:MATRICE_ACCESS_KEY_ID="your_access_key"
+$env:MATRICE_SECRET_ACCESS_KEY="your_secret_key" <!-- pragma: allowlist secret -->
+$env:ENV="staging"
+
+# Python
+import os
+os.environ['MATRICE_ACCESS_KEY_ID'] = 'your_access_key'
+os.environ['MATRICE_SECRET_ACCESS_KEY'] = 'your_secret_key' <!-- pragma: allowlist secret -->
+```
+
+## 📊 Module Overview
+
+### Core Modules
+
+| Module | Purpose | Key Features |
+|--------|---------|--------------|
+| **rpc.py** | API Communication | Sync/Async HTTP, auto-auth, retry logic |
+| **token_auth.py** | Authentication | Token management, auto-refresh |
+| **utils.py** | Utilities | Error logging, caching, helpers |
+| **session.py** | Session Management | Project lifecycle, CRUD operations |
+
+### Streaming Modules
+
+| Module | Purpose | Backend |
+|--------|---------|---------|
+| **matrice_stream.py** | Unified Streaming | Kafka/Redis |
+| **kafka_stream.py** | Kafka Streaming | Apache Kafka |
+| **redis_stream.py** | Redis Streaming | Redis Streams |
+
+### Optimization
+
+| Module | Purpose | Features |
+|--------|---------|----------|
+| **frame_comparators.py** | Frame Comparison | SSIM, perceptual hashing |
+| **frame_difference.py** | Difference Detection | Change detection |
+| **transmission.py** | Optimized Transfer | Smart transmission |
+
+## 🤝 Contributing
+
+We welcome contributions! Please follow these guidelines:
+
+1. **Fork the repository**
+2. **Create a feature branch**: `git checkout -b feature/my-feature`
+3. **Write tests** for new functionality
+4. **Ensure tests pass**: `pytest`
+5. **Format code**: `black src/`
+6. **Submit pull request**
+
+### Contribution Guidelines
+
+- Maintain test coverage above 80%
+- Follow PEP 8 style guide
+- Add type hints to all functions
+- Write clear docstrings (Google style)
+- Update documentation for new features
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.txt) file for details.
+
+## 🙏 Acknowledgments
+
+- Built for Matrice.ai services
+- Uses industry-standard libraries (requests, aiohttp, Kafka, Redis)
+- Inspired by modern Python best practices
+
+## 📞 Support
+
+- **Documentation**: [DOCUMENTATION.md](DOCUMENTATION.md)
+- **Issues**: [GitHub Issues](https://github.com/matrice-ai/py_common/issues)
+- **Email**: support@matrice.ai
+
+## 🗺️ Roadmap
+
+- [ ] Additional streaming backends (RabbitMQ, NATS)
+- [ ] GraphQL support
+- [ ] WebSocket streaming
+- [ ] Real-time metrics dashboard
+- [ ] CLI tool for common operations
+
+---
+
+**Made with ❤️ by the Matrice.ai Team**
+
+*Last Updated: 2025-01-30 | Version: 0.0.2*

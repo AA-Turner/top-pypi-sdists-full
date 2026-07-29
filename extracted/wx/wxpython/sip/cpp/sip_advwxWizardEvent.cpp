@@ -298,7 +298,7 @@ static void *init_type_wxWizardEvent(sipSimpleWrapper *sipSelf, PyObject *sipArg
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxWizardEvent[] = {{39, 0, 1}};
+static sipEncodedTypeDef supers_wxWizardEvent[] = {{40, 0, 1}};
 
 
 static PyMethodDef methods_wxWizardEvent[] = {

@@ -10,7 +10,7 @@ import pytest
 import vcr
 import yaml
 from click.testing import CliRunner, Result
-from pyfakefs.fake_filesystem import FakeFilesystem
+from pyfakefs.fake_filesystem import FakeFilesystem, set_uid
 from pygitguardian import GGClient
 from pygitguardian.models import ScanResult, SecretIncident
 from requests.utils import DEFAULT_CA_BUNDLE_PATH, extract_zipped_paths
@@ -723,8 +723,11 @@ def no_api_key(monkeypatch):
     monkeypatch.delenv("GITGUARDIAN_API_KEY", raising=False)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture()
 def cache() -> Cache:
+    # Function-scoped so it is built after _isolate_cache_path has redirected
+    # CACHE_PATH into the test's tmp_path (a session cache would write the
+    # shared .cache_ggshield into the CWD).
     c = Cache()
     c.purge()
     return c
@@ -732,6 +735,10 @@ def cache() -> Cache:
 
 @pytest.fixture()
 def cli_runner():
+    # Some tests set `mix_stderr = False` on this runner to keep stdout/stderr
+    # separate on click < 8.2 (the Python 3.9 leg). click >= 8.2 always separates
+    # them and ignores the attribute, so those assignments — and the `stderr_bytes`
+    # guard in assert_invoke_exited_with — can be dropped once Python 3.9 support is.
     return CliRunner()
 
 
@@ -773,6 +780,8 @@ def write_yaml(filename: Union[str, Path], data: Any):
 
 
 def assert_invoke_exited_with(result: Result, exit_code: int):
+    # `stderr_bytes` is None only on click < 8.2's default merged runner (Python 3.9),
+    # where `result.stderr` would raise; drop this guard once 3.9 support is dropped.
     msg = f"""
     Expected code {exit_code}, got {result.exit_code}.
 
@@ -794,6 +803,10 @@ def make_fake_path_inaccessible(fs: FakeFilesystem, path: Union[str, Path]):
     Make `path` inaccessible inside `fs`. This is useful to test IO permission errors.
     """
 
+    # pyfakefs skips permission checks for the root user, and maps a Windows
+    # admin (what GitHub CI runners are) to uid 0 — so without a non-root uid
+    # the chmod below is ignored on Windows and the file stays accessible.
+    set_uid(1)
     # `force_unix_mode` is required for Windows.
     # See <https://pytest-pyfakefs.readthedocs.io/en/latest/usage.html#set-file-as-inaccessible-under-windows>
     fs.chmod(path, 0o0000, force_unix_mode=True)
@@ -820,6 +833,18 @@ def clear_cache():
     _get_git_path.cache_clear()
     _git_rev_parse_absolute.cache_clear()
     read_git_file.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def _isolate_cache_path(monkeypatch, tmp_path):
+    """Point the secrets cache into the test's tmp_path.
+
+    Without this, ``Cache()`` writes ``.cache_ggshield`` relative to the CWD,
+    which all xdist workers share, leading to interleaved/corrupted JSON.
+    """
+    monkeypatch.setattr(
+        "ggshield.core.cache.CACHE_PATH", str(tmp_path / ".cache_ggshield")
+    )
 
 
 @pytest.fixture(autouse=True)

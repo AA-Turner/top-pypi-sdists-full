@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from anyscale._private.anyscale_client import AnyscaleClientInterface
 from anyscale._private.models.model_base import ResultIterator
@@ -30,6 +30,10 @@ from anyscale.service.commands import (
     _TAGS_REMOVE_EXAMPLE,
     _TERMINATE_ARG_DOCSTRINGS,
     _TERMINATE_EXAMPLE,
+    _TOKEN_ADD_ARG_DOCSTRINGS,
+    _TOKEN_ADD_EXAMPLE,
+    _TOKEN_DELETE_ARG_DOCSTRINGS,
+    _TOKEN_DELETE_EXAMPLE,
     _WAIT_ARG_DOCSTRINGS,
     _WAIT_EXAMPLE,
     add_tags as add_tags,
@@ -42,6 +46,8 @@ from anyscale.service.commands import (
     rollback as rollback,
     status as status,
     terminate as terminate,
+    token_add as token_add,
+    token_delete as token_delete,
     wait as wait,
 )
 from anyscale.service.models import (
@@ -328,4 +334,42 @@ class ServiceSDK:
         """List tags for a service."""
         return self._private_sdk.list_tags(
             id=id, name=name, cloud=cloud, project=project
+        )
+
+    @sdk_docs(
+        doc_py_example=_TOKEN_ADD_EXAMPLE, arg_docstrings=_TOKEN_ADD_ARG_DOCSTRINGS,
+    )
+    def token_add(  # noqa: F811
+        self,
+        name: Optional[str] = None,
+        service_id: Optional[str] = None,
+        *,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+    ) -> Tuple[str, Optional[str]]:
+        """Add a secondary auth token for service token rotation."""
+        return self._private_sdk.token_add(
+            name=name, service_id=service_id, cloud=cloud, project=project
+        )
+
+    @sdk_docs(
+        doc_py_example=_TOKEN_DELETE_EXAMPLE,
+        arg_docstrings=_TOKEN_DELETE_ARG_DOCSTRINGS,
+    )
+    def token_delete(  # noqa: F811
+        self,
+        name: Optional[str] = None,
+        service_id: Optional[str] = None,
+        *,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+        auth_token: Optional[str] = None,
+    ) -> Tuple[str, Optional[str]]:
+        """Delete a service auth token for token rotation."""
+        return self._private_sdk.token_delete(
+            name=name,
+            service_id=service_id,
+            cloud=cloud,
+            project=project,
+            auth_token=auth_token,
         )

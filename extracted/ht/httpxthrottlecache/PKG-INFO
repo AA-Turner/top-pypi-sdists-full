@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: httpxthrottlecache
-Version: 0.5.0
+Version: 0.6.0
 Summary: Rate Limiting and Caching HTTPX Client
 Project-URL: Homepage, https://github.com/paultiq/httpxthrottlecache
 Project-URL: Repository, https://github.com/paultiq/httpxthrottlecache
@@ -17,8 +17,11 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.10
 Requires-Dist: aiofiles>=24.1.0
 Requires-Dist: filelock>=3.18.0
-Requires-Dist: httpx2>=2.3.0
 Requires-Dist: pyrate-limiter>=4.0.0
+Provides-Extra: httpx
+Requires-Dist: httpx==0.28.1; extra == 'httpx'
+Provides-Extra: httpx2
+Requires-Dist: httpx2>=2.3.0; extra == 'httpx2'
 Description-Content-Type: text/markdown
 
 HTTPX Wrapper with Rate Limiting and Caching Transports.
@@ -30,6 +33,28 @@ HTTPX Wrapper with Rate Limiting and Caching Transports.
 [![Tests](https://github.com/paultiq/httpxthrottlecache/actions/workflows/test.yml/badge.svg)](https://github.com/paultiq/httpxthrottlecache/actions/workflows/test.yml)
 [![Coverage badge](https://github.com/paultiq/httpxthrottlecache/raw/python-coverage-comment-action-data/badge.svg)](https://github.com/paultiq/httpxthrottlecache/tree/python-coverage-comment-action-data)
 
+
+# Installation
+
+httpxthrottlecache does not depend on an HTTP client directly. Install it with one of two extras, which selects the client:
+
+```sh
+pip install 'httpxthrottlecache[httpx2]'  # recommended
+```
+
+or
+
+```sh
+pip install 'httpxthrottlecache[httpx]'
+```
+
+[httpx2](https://pypi.org/project/httpx2/) is a maintained fork of httpx and is the recommended option. The `httpx` extra pins httpx 0.28.1, the final release of the original, no-longer-maintained package.
+
+Upgrading from an earlier version: httpx2 is no longer installed automatically, so install one of the extras above.
+
+If both libraries are installed, httpx2 is used. `httpxthrottlecache.HTTPX_IMPL` reports which one is active.
+
+For development, set up the environment with `uv sync --extra httpx2`.
 
 # Introduction
 

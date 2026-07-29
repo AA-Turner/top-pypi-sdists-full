@@ -19,6 +19,8 @@
         #include <wx/colour.h>
         #include <wx/graphics.h>
         #include <wx/graphics.h>
+        #include <wx/geometry.h>
+        #include <wx/geometry.h>
         #include <wx/graphics.h>
         #include <wx/icon.h>
         #include <wx/pen.h>
@@ -557,9 +559,11 @@ static PyObject *meth_wxGraphicsContext_ResetClip(PyObject *sipSelf, PyObject *s
 
 PyDoc_STRVAR(doc_wxGraphicsContext_Clip, "Clip(region) -> None\n"
 "Clip(x, y, w, h) -> None\n"
+"Clip(rect) -> None\n"
 "\n"
 "Sets the clipping region to the intersection of the given region and\n"
 "the previously set clipping region.\n"
+"\n"
 "");
 
 extern "C" {static PyObject *meth_wxGraphicsContext_Clip(PyObject *, PyObject *, PyObject *);}
@@ -621,40 +625,69 @@ static PyObject *meth_wxGraphicsContext_Clip(PyObject *sipSelf, PyObject *sipArg
         }
     }
 
+    {
+        const ::wxRect2D* rect;
+        int rectState = 0;
+        ::wxGraphicsContext *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_rect,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxGraphicsContext, &sipCpp, sipType_wxRect2DDouble, &rect, &rectState))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->Clip(*rect);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxRect2D *>(rect), sipType_wxRect2DDouble, rectState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
     sipNoMethod(sipParseErr, sipName_GraphicsContext, sipName_Clip, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsContext_GetClipBox, "GetClipBox(x, y, w, h) -> None\n"
+PyDoc_STRVAR(doc_wxGraphicsContext_GetClipBox, "GetClipBox() -> Rect2D\n"
 "\n"
-"Returns bounding box of the current clipping region.");
+"This is an overloaded member function, provided for convenience. It\n"
+"differs from the above function only in what argument(s) it accepts.");
 
-extern "C" {static PyObject *meth_wxGraphicsContext_GetClipBox(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxGraphicsContext_GetClipBox(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+extern "C" {static PyObject *meth_wxGraphicsContext_GetClipBox(PyObject *, PyObject *);}
+static PyObject *meth_wxGraphicsContext_GetClipBox(PyObject *sipSelf, PyObject *sipArgs)
 {
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        ::wxDouble x;
-        ::wxDouble y;
-        ::wxDouble w;
-        ::wxDouble h;
         ::wxGraphicsContext *sipCpp;
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, SIP_NULLPTR, SIP_NULLPTR, "B", &sipSelf, sipType_wxGraphicsContext, &sipCpp))
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxGraphicsContext, &sipCpp))
         {
+            ::wxRect2D*sipRes;
+        if (sipCpp->IsNull()) {
+            wxPyErr_SetString(PyExc_ValueError, "The GraphicsContext is not valid (likely an uninitialized or null instance)");
+            return NULL;
+        }
+
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipCpp->GetClipBox(&x, &y, &w, &h);
+            sipRes = new ::wxRect2D(sipCpp->GetClipBox());
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
                 return 0;
 
-            return sipBuildResult(0, "(dddd)", x, y, w, h);
+            return sipConvertFromNewType(sipRes, sipType_wxRect2DDouble, SIP_NULLPTR);
         }
     }
 
@@ -667,7 +700,7 @@ static PyObject *meth_wxGraphicsContext_GetClipBox(PyObject *sipSelf, PyObject *
 PyDoc_STRVAR(doc_wxGraphicsContext_CreateMatrix, "CreateMatrix(a=1.0, b=0.0, c=0.0, d=1.0, tx=0.0, ty=0.0) -> GraphicsMatrix\n"
 "CreateMatrix(mat) -> GraphicsMatrix\n"
 "\n"
-"Creates a native affine transformation matrix from the passed in\n"
+"Creates a native affine transformation matrix from the passed-in\n"
 "values.\n"
 "");
 
@@ -744,7 +777,7 @@ static PyObject *meth_wxGraphicsContext_CreateMatrix(PyObject *sipSelf, PyObject
 
 PyDoc_STRVAR(doc_wxGraphicsContext_ConcatTransform, "ConcatTransform(matrix) -> None\n"
 "\n"
-"Concatenates the passed in transform with the current transform of\n"
+"Concatenates the passed-in transform with the current transform of\n"
 "this context.");
 
 extern "C" {static PyObject *meth_wxGraphicsContext_ConcatTransform(PyObject *, PyObject *, PyObject *);}
@@ -862,7 +895,7 @@ static PyObject *meth_wxGraphicsContext_Rotate(PyObject *sipSelf, PyObject *sipA
 
 PyDoc_STRVAR(doc_wxGraphicsContext_Scale, "Scale(xScale, yScale) -> None\n"
 "\n"
-"Scales the current transformation matrix.");
+"Scales (i.e., shrinks or grows) the current transformation matrix.");
 
 extern "C" {static PyObject *meth_wxGraphicsContext_Scale(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsContext_Scale(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -945,8 +978,10 @@ static PyObject *meth_wxGraphicsContext_SetTransform(PyObject *sipSelf, PyObject
 
 
 PyDoc_STRVAR(doc_wxGraphicsContext_Translate, "Translate(dx, dy) -> None\n"
+"Translate(pt) -> None\n"
 "\n"
-"Translates the current transformation matrix.");
+"Translates (i.e., moves) the current transformation matrix.\n"
+"");
 
 extern "C" {static PyObject *meth_wxGraphicsContext_Translate(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsContext_Translate(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -970,6 +1005,32 @@ static PyObject *meth_wxGraphicsContext_Translate(PyObject *sipSelf, PyObject *s
             Py_BEGIN_ALLOW_THREADS
             sipCpp->Translate(dx, dy);
             Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    {
+        const ::wxPoint2D* pt;
+        int ptState = 0;
+        ::wxGraphicsContext *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_pt,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxGraphicsContext, &sipCpp, sipType_wxPoint2DDouble, &pt, &ptState))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->Translate(*pt);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxPoint2D *>(pt), sipType_wxPoint2DDouble, ptState);
 
             if (PyErr_Occurred())
                 return 0;
@@ -1418,8 +1479,10 @@ static PyObject *meth_wxGraphicsContext_SetPen(PyObject *sipSelf, PyObject *sipA
 
 PyDoc_STRVAR(doc_wxGraphicsContext_DrawBitmap, "DrawBitmap(bmp, x, y, w, h) -> None\n"
 "DrawBitmap(bmp, x, y, w, h) -> None\n"
+"DrawBitmap(bmp, rect) -> None\n"
 "\n"
 "Draws the bitmap.\n"
+"\n"
 "");
 
 extern "C" {static PyObject *meth_wxGraphicsContext_DrawBitmap(PyObject *, PyObject *, PyObject *);}
@@ -1491,6 +1554,34 @@ static PyObject *meth_wxGraphicsContext_DrawBitmap(PyObject *sipSelf, PyObject *
         }
     }
 
+    {
+        const ::wxGraphicsBitmap* bmp;
+        const ::wxRect2D* rect;
+        int rectState = 0;
+        ::wxGraphicsContext *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_bmp,
+            sipName_rect,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J1", &sipSelf, sipType_wxGraphicsContext, &sipCpp, sipType_wxGraphicsBitmap, &bmp, sipType_wxRect2DDouble, &rect, &rectState))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->DrawBitmap(*bmp, *rect);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxRect2D *>(rect), sipType_wxRect2DDouble, rectState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
     sipNoMethod(sipParseErr, sipName_GraphicsContext, sipName_DrawBitmap, SIP_NULLPTR);
 
     return SIP_NULLPTR;
@@ -1498,8 +1589,10 @@ static PyObject *meth_wxGraphicsContext_DrawBitmap(PyObject *sipSelf, PyObject *
 
 
 PyDoc_STRVAR(doc_wxGraphicsContext_DrawEllipse, "DrawEllipse(x, y, w, h) -> None\n"
+"DrawEllipse(rect) -> None\n"
 "\n"
-"Draws an ellipse.");
+"Draws an ellipse.\n"
+"");
 
 extern "C" {static PyObject *meth_wxGraphicsContext_DrawEllipse(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsContext_DrawEllipse(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1536,6 +1629,32 @@ static PyObject *meth_wxGraphicsContext_DrawEllipse(PyObject *sipSelf, PyObject 
         }
     }
 
+    {
+        const ::wxRect2D* rect;
+        int rectState = 0;
+        ::wxGraphicsContext *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_rect,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxGraphicsContext, &sipCpp, sipType_wxRect2DDouble, &rect, &rectState))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->DrawEllipse(*rect);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxRect2D *>(rect), sipType_wxRect2DDouble, rectState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
     sipNoMethod(sipParseErr, sipName_GraphicsContext, sipName_DrawEllipse, SIP_NULLPTR);
 
     return SIP_NULLPTR;
@@ -1543,8 +1662,10 @@ static PyObject *meth_wxGraphicsContext_DrawEllipse(PyObject *sipSelf, PyObject 
 
 
 PyDoc_STRVAR(doc_wxGraphicsContext_DrawIcon, "DrawIcon(icon, x, y, w, h) -> None\n"
+"DrawIcon(icon, rect) -> None\n"
 "\n"
-"Draws the icon.");
+"Draws the icon.\n"
+"");
 
 extern "C" {static PyObject *meth_wxGraphicsContext_DrawIcon(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsContext_DrawIcon(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1574,6 +1695,34 @@ static PyObject *meth_wxGraphicsContext_DrawIcon(PyObject *sipSelf, PyObject *si
             Py_BEGIN_ALLOW_THREADS
             sipCpp->DrawIcon(*icon, x, y, w, h);
             Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    {
+        const ::wxIcon* icon;
+        const ::wxRect2D* rect;
+        int rectState = 0;
+        ::wxGraphicsContext *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_icon,
+            sipName_rect,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J1", &sipSelf, sipType_wxGraphicsContext, &sipCpp, sipType_wxIcon, &icon, sipType_wxRect2DDouble, &rect, &rectState))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->DrawIcon(*icon, *rect);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxRect2D *>(rect), sipType_wxRect2DDouble, rectState);
 
             if (PyErr_Occurred())
                 return 0;
@@ -1673,8 +1822,10 @@ static PyObject *meth_wxGraphicsContext_DrawPath(PyObject *sipSelf, PyObject *si
 
 
 PyDoc_STRVAR(doc_wxGraphicsContext_DrawRectangle, "DrawRectangle(x, y, w, h) -> None\n"
+"DrawRectangle(rect) -> None\n"
 "\n"
-"Draws a rectangle.");
+"Draws a rectangle.\n"
+"");
 
 extern "C" {static PyObject *meth_wxGraphicsContext_DrawRectangle(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsContext_DrawRectangle(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1711,6 +1862,32 @@ static PyObject *meth_wxGraphicsContext_DrawRectangle(PyObject *sipSelf, PyObjec
         }
     }
 
+    {
+        const ::wxRect2D* rect;
+        int rectState = 0;
+        ::wxGraphicsContext *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_rect,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxGraphicsContext, &sipCpp, sipType_wxRect2DDouble, &rect, &rectState))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->DrawRectangle(*rect);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxRect2D *>(rect), sipType_wxRect2DDouble, rectState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
     sipNoMethod(sipParseErr, sipName_GraphicsContext, sipName_DrawRectangle, SIP_NULLPTR);
 
     return SIP_NULLPTR;
@@ -1718,8 +1895,10 @@ static PyObject *meth_wxGraphicsContext_DrawRectangle(PyObject *sipSelf, PyObjec
 
 
 PyDoc_STRVAR(doc_wxGraphicsContext_DrawRoundedRectangle, "DrawRoundedRectangle(x, y, w, h, radius) -> None\n"
+"DrawRoundedRectangle(rect, radius) -> None\n"
 "\n"
-"Draws a rounded rectangle.");
+"Draws a rounded rectangle.\n"
+"");
 
 extern "C" {static PyObject *meth_wxGraphicsContext_DrawRoundedRectangle(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsContext_DrawRoundedRectangle(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1758,6 +1937,34 @@ static PyObject *meth_wxGraphicsContext_DrawRoundedRectangle(PyObject *sipSelf, 
         }
     }
 
+    {
+        const ::wxRect2D* rect;
+        int rectState = 0;
+        ::wxDouble radius;
+        ::wxGraphicsContext *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_rect,
+            sipName_radius,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1d", &sipSelf, sipType_wxGraphicsContext, &sipCpp, sipType_wxRect2DDouble, &rect, &rectState, &radius))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->DrawRoundedRectangle(*rect, radius);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxRect2D *>(rect), sipType_wxRect2DDouble, rectState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
     sipNoMethod(sipParseErr, sipName_GraphicsContext, sipName_DrawRoundedRectangle, SIP_NULLPTR);
 
     return SIP_NULLPTR;
@@ -1765,11 +1972,13 @@ static PyObject *meth_wxGraphicsContext_DrawRoundedRectangle(PyObject *sipSelf, 
 
 
 PyDoc_STRVAR(doc_wxGraphicsContext_DrawText, "DrawText(str, x, y) -> None\n"
+"DrawText(str, pt) -> None\n"
 "DrawText(str, x, y, angle) -> None\n"
 "DrawText(str, x, y, backgroundBrush) -> None\n"
 "DrawText(str, x, y, angle, backgroundBrush) -> None\n"
 "\n"
 "Draws text at the defined position.\n"
+"\n"
 "\n"
 "\n"
 "");
@@ -1800,6 +2009,36 @@ static PyObject *meth_wxGraphicsContext_DrawText(PyObject *sipSelf, PyObject *si
             sipCpp->DrawText(*str, x, y);
             Py_END_ALLOW_THREADS
             sipReleaseType(const_cast< ::wxString *>(str), sipType_wxString, strState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    {
+        const ::wxString* str;
+        int strState = 0;
+        const ::wxPoint2D* pt;
+        int ptState = 0;
+        ::wxGraphicsContext *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_str,
+            sipName_pt,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1J1", &sipSelf, sipType_wxGraphicsContext, &sipCpp, sipType_wxString, &str, &strState, sipType_wxPoint2DDouble, &pt, &ptState))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->DrawText(*str, *pt);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxString *>(str), sipType_wxString, strState);
+            sipReleaseType(const_cast< ::wxPoint2D *>(pt), sipType_wxPoint2DDouble, ptState);
 
             if (PyErr_Occurred())
                 return 0;
@@ -1913,6 +2152,79 @@ static PyObject *meth_wxGraphicsContext_DrawText(PyObject *sipSelf, PyObject *si
 }
 
 
+PyDoc_STRVAR(doc_wxGraphicsContext_ClearRectangle, "ClearRectangle(x, y, w, h) -> None\n"
+"ClearRectangle(rect) -> None\n"
+"\n"
+"Paints a transparent rectangle (only useful for bitmaps or windows).\n"
+"");
+
+extern "C" {static PyObject *meth_wxGraphicsContext_ClearRectangle(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxGraphicsContext_ClearRectangle(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxDouble x;
+        ::wxDouble y;
+        ::wxDouble w;
+        ::wxDouble h;
+        ::wxGraphicsContext *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_x,
+            sipName_y,
+            sipName_w,
+            sipName_h,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bdddd", &sipSelf, sipType_wxGraphicsContext, &sipCpp, &x, &y, &w, &h))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->ClearRectangle(x, y, w, h);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    {
+        const ::wxRect2D* rect;
+        int rectState = 0;
+        ::wxGraphicsContext *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_rect,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxGraphicsContext, &sipCpp, sipType_wxRect2DDouble, &rect, &rectState))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->ClearRectangle(*rect);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxRect2D *>(rect), sipType_wxRect2DDouble, rectState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_GraphicsContext, sipName_ClearRectangle, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxGraphicsContext_CreatePath, "CreatePath() -> GraphicsPath\n"
 "\n"
 "Creates a native graphics path which is initially empty.");
@@ -1990,8 +2302,10 @@ static PyObject *meth_wxGraphicsContext_FillPath(PyObject *sipSelf, PyObject *si
 
 
 PyDoc_STRVAR(doc_wxGraphicsContext_StrokeLine, "StrokeLine(x1, y1, x2, y2) -> None\n"
+"StrokeLine(pt1, pt2) -> None\n"
 "\n"
-"Strokes a single line.");
+"Strokes a single line.\n"
+"");
 
 extern "C" {static PyObject *meth_wxGraphicsContext_StrokeLine(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsContext_StrokeLine(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -2019,6 +2333,36 @@ static PyObject *meth_wxGraphicsContext_StrokeLine(PyObject *sipSelf, PyObject *
             Py_BEGIN_ALLOW_THREADS
             sipCpp->StrokeLine(x1, y1, x2, y2);
             Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    {
+        const ::wxPoint2D* pt1;
+        int pt1State = 0;
+        const ::wxPoint2D* pt2;
+        int pt2State = 0;
+        ::wxGraphicsContext *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_pt1,
+            sipName_pt2,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1J1", &sipSelf, sipType_wxGraphicsContext, &sipCpp, sipType_wxPoint2DDouble, &pt1, &pt1State, sipType_wxPoint2DDouble, &pt2, &pt2State))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->StrokeLine(*pt1, *pt2);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxPoint2D *>(pt1), sipType_wxPoint2DDouble, pt1State);
+            sipReleaseType(const_cast< ::wxPoint2D *>(pt2), sipType_wxPoint2DDouble, pt2State);
 
             if (PyErr_Occurred())
                 return 0;
@@ -2399,8 +2743,8 @@ static PyObject *meth_wxGraphicsContext_GetTextExtent(PyObject *sipSelf, PyObjec
 
 PyDoc_STRVAR(doc_wxGraphicsContext_StartDoc, "StartDoc(message) -> bool\n"
 "\n"
-"Begin a new document (relevant only for printing / pdf etc.) If there\n"
-"is a progress dialog, message will be shown.");
+"Begin a new document (relevant only for printing / pdf / etc.) If\n"
+"there is a progress dialog, message will be shown.");
 
 extern "C" {static PyObject *meth_wxGraphicsContext_StartDoc(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsContext_StartDoc(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -2442,7 +2786,7 @@ static PyObject *meth_wxGraphicsContext_StartDoc(PyObject *sipSelf, PyObject *si
 
 PyDoc_STRVAR(doc_wxGraphicsContext_EndDoc, "EndDoc() -> None\n"
 "\n"
-"Done with that document (relevant only for printing / pdf etc.)");
+"Done with that document (relevant only for printing / pdf / etc.)");
 
 extern "C" {static PyObject *meth_wxGraphicsContext_EndDoc(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsContext_EndDoc(PyObject *sipSelf, PyObject *sipArgs)
@@ -2518,7 +2862,7 @@ static PyObject *meth_wxGraphicsContext_StartPage(PyObject *sipSelf, PyObject *s
 
 PyDoc_STRVAR(doc_wxGraphicsContext_EndPage, "EndPage() -> None\n"
 "\n"
-"Ends the current page (relevant only for printing / pdf etc.)");
+"Ends the current page (relevant only for printing / pdf / etc.)");
 
 extern "C" {static PyObject *meth_wxGraphicsContext_EndPage(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsContext_EndPage(PyObject *sipSelf, PyObject *sipArgs)
@@ -2680,7 +3024,8 @@ static PyObject *meth_wxGraphicsContext_CreateSubBitmap(PyObject *sipSelf, PyObj
 
 PyDoc_STRVAR(doc_wxGraphicsContext_BeginLayer, "BeginLayer(opacity) -> None\n"
 "\n"
-"All rendering will be done into a fully transparent temporary context.");
+"All rendering will be done into a fully transparent, temporary\n"
+"context.");
 
 extern "C" {static PyObject *meth_wxGraphicsContext_BeginLayer(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsContext_BeginLayer(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -2861,7 +3206,7 @@ static PyObject *meth_wxGraphicsContext_Flush(PyObject *sipSelf, PyObject *sipAr
 PyDoc_STRVAR(doc_wxGraphicsContext_GetNativeContext, "GetNativeContext() -> Any\n"
 "\n"
 "Returns the native context (CGContextRef for Core Graphics, Graphics\n"
-"pointer for GDIPlus and cairo_t pointer for cairo).");
+"pointer for GDI+ and cairo_t pointer for Cairo).");
 
 extern "C" {static PyObject *meth_wxGraphicsContext_GetNativeContext(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsContext_GetNativeContext(PyObject *sipSelf, PyObject *sipArgs)
@@ -2900,7 +3245,7 @@ static PyObject *meth_wxGraphicsContext_GetNativeContext(PyObject *sipSelf, PyOb
 
 PyDoc_STRVAR(doc_wxGraphicsContext_SetAntialiasMode, "SetAntialiasMode(antialias) -> bool\n"
 "\n"
-"Sets the antialiasing mode, returns true if it supported.");
+"Sets the antialiasing mode; returns true if it supported.");
 
 extern "C" {static PyObject *meth_wxGraphicsContext_SetAntialiasMode(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsContext_SetAntialiasMode(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -2983,7 +3328,7 @@ static PyObject *meth_wxGraphicsContext_GetAntialiasMode(PyObject *sipSelf, PyOb
 
 PyDoc_STRVAR(doc_wxGraphicsContext_SetInterpolationQuality, "SetInterpolationQuality(interpolation) -> bool\n"
 "\n"
-"Sets the interpolation quality, returns true if it is supported.");
+"Sets the interpolation quality; returns true if it is supported.");
 
 extern "C" {static PyObject *meth_wxGraphicsContext_SetInterpolationQuality(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsContext_SetInterpolationQuality(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -3220,7 +3565,7 @@ static PyObject *meth_wxGraphicsContext_GetDPI(PyObject *sipSelf, PyObject *sipA
 
 PyDoc_STRVAR(doc_wxGraphicsContext_GetWindow, "GetWindow() -> Window\n"
 "\n"
-"Returns the associated window if any.");
+"Returns the associated window, if any.");
 
 extern "C" {static PyObject *meth_wxGraphicsContext_GetWindow(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsContext_GetWindow(PyObject *sipSelf, PyObject *sipArgs)
@@ -3684,11 +4029,12 @@ static void dealloc_wxGraphicsContext(sipSimpleWrapper *sipSelf)
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGraphicsContext[] = {{246, 255, 1}};
+static sipEncodedTypeDef supers_wxGraphicsContext[] = {{254, 255, 1}};
 
 
 static PyMethodDef methods_wxGraphicsContext[] = {
     {sipName_BeginLayer, SIP_MLMETH_CAST(meth_wxGraphicsContext_BeginLayer), METH_VARARGS|METH_KEYWORDS, doc_wxGraphicsContext_BeginLayer},
+    {sipName_ClearRectangle, SIP_MLMETH_CAST(meth_wxGraphicsContext_ClearRectangle), METH_VARARGS|METH_KEYWORDS, doc_wxGraphicsContext_ClearRectangle},
     {sipName_Clip, SIP_MLMETH_CAST(meth_wxGraphicsContext_Clip), METH_VARARGS|METH_KEYWORDS, doc_wxGraphicsContext_Clip},
     {sipName_ConcatTransform, SIP_MLMETH_CAST(meth_wxGraphicsContext_ConcatTransform), METH_VARARGS|METH_KEYWORDS, doc_wxGraphicsContext_ConcatTransform},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxGraphicsContext_Create), METH_VARARGS|METH_KEYWORDS, doc_wxGraphicsContext_Create},
@@ -3722,7 +4068,7 @@ static PyMethodDef methods_wxGraphicsContext[] = {
     {sipName_Flush, meth_wxGraphicsContext_Flush, METH_VARARGS, doc_wxGraphicsContext_Flush},
     {sipName_FromDIP, SIP_MLMETH_CAST(meth_wxGraphicsContext_FromDIP), METH_VARARGS|METH_KEYWORDS, doc_wxGraphicsContext_FromDIP},
     {sipName_GetAntialiasMode, meth_wxGraphicsContext_GetAntialiasMode, METH_VARARGS, doc_wxGraphicsContext_GetAntialiasMode},
-    {sipName_GetClipBox, SIP_MLMETH_CAST(meth_wxGraphicsContext_GetClipBox), METH_VARARGS|METH_KEYWORDS, doc_wxGraphicsContext_GetClipBox},
+    {sipName_GetClipBox, meth_wxGraphicsContext_GetClipBox, METH_VARARGS, doc_wxGraphicsContext_GetClipBox},
     {sipName_GetCompositionMode, meth_wxGraphicsContext_GetCompositionMode, METH_VARARGS, doc_wxGraphicsContext_GetCompositionMode},
     {sipName_GetDPI, SIP_MLMETH_CAST(meth_wxGraphicsContext_GetDPI), METH_VARARGS|METH_KEYWORDS, doc_wxGraphicsContext_GetDPI},
     {sipName_GetFullTextExtent, SIP_MLMETH_CAST(meth_wxGraphicsContext_GetFullTextExtent), METH_VARARGS|METH_KEYWORDS, doc_wxGraphicsContext_GetFullTextExtent},
@@ -3758,13 +4104,14 @@ static PyMethodDef methods_wxGraphicsContext[] = {
 };
 
 sipVariableDef variables_wxGraphicsContext[] = {
-    {PropertyVariable, sipName_Window, &methods_wxGraphicsContext[44], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Transform, &methods_wxGraphicsContext[43], &methods_wxGraphicsContext[57], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_TextExtent, &methods_wxGraphicsContext[42], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_NativeContext, &methods_wxGraphicsContext[39], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_InterpolationQuality, &methods_wxGraphicsContext[38], &methods_wxGraphicsContext[55], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CompositionMode, &methods_wxGraphicsContext[35], &methods_wxGraphicsContext[53], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_AntialiasMode, &methods_wxGraphicsContext[33], &methods_wxGraphicsContext[51], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Window, &methods_wxGraphicsContext[45], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Transform, &methods_wxGraphicsContext[44], &methods_wxGraphicsContext[58], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TextExtent, &methods_wxGraphicsContext[43], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_NativeContext, &methods_wxGraphicsContext[40], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_InterpolationQuality, &methods_wxGraphicsContext[39], &methods_wxGraphicsContext[56], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CompositionMode, &methods_wxGraphicsContext[36], &methods_wxGraphicsContext[54], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ClipBox, &methods_wxGraphicsContext[35], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_AntialiasMode, &methods_wxGraphicsContext[34], &methods_wxGraphicsContext[52], SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxGraphicsContext, "A wxGraphicsContext instance is the object that is drawn upon.");
@@ -3783,9 +4130,9 @@ sipClassTypeDef sipTypeDef__core_wxGraphicsContext = {
     {
         sipNameNr_GraphicsContext,
         {0, 0, 1},
-        67, methods_wxGraphicsContext,
+        68, methods_wxGraphicsContext,
         0, SIP_NULLPTR,
-        7, variables_wxGraphicsContext,
+        8, variables_wxGraphicsContext,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxGraphicsContext,

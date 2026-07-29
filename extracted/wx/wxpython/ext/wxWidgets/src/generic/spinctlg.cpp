@@ -2,7 +2,6 @@
 // Name:        src/generic/spinctlg.cpp
 // Purpose:     implements wxSpinCtrl as a composite control
 // Author:      Vadim Zeitlin
-// Modified by:
 // Created:     29.01.01
 // Copyright:   (c) 2001 Vadim Zeitlin <zeitlin@dptmaths.ens-cachan.fr>
 // Licence:     wxWindows licence
@@ -50,11 +49,15 @@ wxIMPLEMENT_DYNAMIC_CLASS(wxSpinDoubleEvent, wxNotifyEvent);
 // ----------------------------------------------------------------------------
 
 // The margin between the text control and the spin: the value here is the same
-// as the margin between the spin button and its "buddy" text control in wxMSW
-// so the generic control looks similarly to the native one there, we might
-// need to use different value for the other platforms (and maybe even
-// determine it dynamically?).
+// as the margin between the spin button and its "buddy" text control in wxMSW,
+// and the commonly used spacing on macOS, so the generic control looks
+// similarly to the native one there, we might need to use different value for
+// other platforms (and maybe even determine it dynamically?).
+#ifdef __WXOSX__
+static const wxCoord MARGIN = 4;
+#else
 static const wxCoord MARGIN = 1;
+#endif
 
 #define SPINCTRLBUT_MAX 32000 // large to avoid wrap around trouble
 
@@ -87,9 +90,9 @@ public:
     {
         // MSW sends extra kill focus event on destroy
         if (m_spin)
-            m_spin->m_textCtrl = NULL;
+            m_spin->m_textCtrl = nullptr;
 
-        m_spin = NULL;
+        m_spin = nullptr;
     }
 
     void OnChar( wxKeyEvent &event )
@@ -115,7 +118,7 @@ public:
         event.Skip();
     }
 
-    virtual wxSize DoGetBestSize() const wxOVERRIDE
+    virtual wxSize DoGetBestSize() const override
     {
         wxString minVal = m_spin->DoValueToText(m_spin->m_min);
         wxString maxVal = m_spin->DoValueToText(m_spin->m_max);
@@ -200,8 +203,8 @@ void wxSpinCtrlGenericBase::Init()
 
     m_spin_value    = 0;
 
-    m_textCtrl = NULL;
-    m_spinButton  = NULL;
+    m_textCtrl = nullptr;
+    m_spinButton  = nullptr;
 }
 
 bool wxSpinCtrlGenericBase::Create(wxWindow *parent,
@@ -244,6 +247,10 @@ bool wxSpinCtrlGenericBase::Create(wxWindow *parent,
             m_value = AdjustAndSnap(d);
     }
 
+#ifdef __WXOSX__
+    MacClipsToBounds(false);
+#endif
+
     m_textCtrl   = new wxSpinCtrlTextGeneric(this, DoValueToText(m_value), style);
     m_spinButton = new wxSpinCtrlButtonGeneric(this, styleWithoutBorder);
 
@@ -274,10 +281,10 @@ wxSpinCtrlGenericBase::~wxSpinCtrlGenericBase()
     if (m_textCtrl)
     {
         // null this since MSW sends KILL_FOCUS on deletion, see ~wxSpinCtrlTextGeneric
-        wxDynamicCast(m_textCtrl, wxSpinCtrlTextGeneric)->m_spin = NULL;
+        wxDynamicCast(m_textCtrl, wxSpinCtrlTextGeneric)->m_spin = nullptr;
 
         wxSpinCtrlTextGeneric *text = (wxSpinCtrlTextGeneric*)m_textCtrl;
-        m_textCtrl = NULL;
+        m_textCtrl = nullptr;
         delete text;
     }
 
@@ -573,7 +580,7 @@ double wxSpinCtrlGenericBase::AdjustAndSnap(double val) const
         val = m_min;
     if ( val > m_max )
         val = m_max;
-    
+
     if ( m_snap_to_ticks && (m_increment != 0) )
     {
         double snap_value = val / m_increment;

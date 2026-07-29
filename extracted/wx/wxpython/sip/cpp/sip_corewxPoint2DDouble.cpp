@@ -17,30 +17,33 @@
     }
 
 
-PyDoc_STRVAR(doc_wxPoint2DDouble_GetFloor, "GetFloor() -> Tuple[int, int]");
+PyDoc_STRVAR(doc_wxPoint2DDouble_GetFloor, "GetFloor() -> Point\n"
+"\n"
+"This is an overloaded member function, provided for convenience. It\n"
+"differs from the above function only in what argument(s) it accepts.");
 
-extern "C" {static PyObject *meth_wxPoint2DDouble_GetFloor(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxPoint2DDouble_GetFloor(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+extern "C" {static PyObject *meth_wxPoint2DDouble_GetFloor(PyObject *, PyObject *);}
+static PyObject *meth_wxPoint2DDouble_GetFloor(PyObject *sipSelf, PyObject *sipArgs)
 {
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        ::wxInt32 x;
-        ::wxInt32 y;
         const ::wxPoint2DDouble *sipCpp;
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, SIP_NULLPTR, SIP_NULLPTR, "B", &sipSelf, sipType_wxPoint2DDouble, &sipCpp))
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxPoint2DDouble, &sipCpp))
         {
+            ::wxPoint*sipRes;
+
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipCpp->GetFloor(&x, &y);
+            sipRes = new ::wxPoint(sipCpp->GetFloor());
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
                 return 0;
 
-            return sipBuildResult(0, "(ii)", x, y);
+            return sipConvertFromNewType(sipRes, sipType_wxPoint, SIP_NULLPTR);
         }
     }
 
@@ -50,30 +53,33 @@ static PyObject *meth_wxPoint2DDouble_GetFloor(PyObject *sipSelf, PyObject *sipA
 }
 
 
-PyDoc_STRVAR(doc_wxPoint2DDouble_GetRounded, "GetRounded() -> Tuple[int, int]");
+PyDoc_STRVAR(doc_wxPoint2DDouble_GetRounded, "GetRounded() -> Point\n"
+"\n"
+"This is an overloaded member function, provided for convenience. It\n"
+"differs from the above function only in what argument(s) it accepts.");
 
-extern "C" {static PyObject *meth_wxPoint2DDouble_GetRounded(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxPoint2DDouble_GetRounded(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+extern "C" {static PyObject *meth_wxPoint2DDouble_GetRounded(PyObject *, PyObject *);}
+static PyObject *meth_wxPoint2DDouble_GetRounded(PyObject *sipSelf, PyObject *sipArgs)
 {
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        ::wxInt32 x;
-        ::wxInt32 y;
         const ::wxPoint2DDouble *sipCpp;
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, SIP_NULLPTR, SIP_NULLPTR, "B", &sipSelf, sipType_wxPoint2DDouble, &sipCpp))
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxPoint2DDouble, &sipCpp))
         {
+            ::wxPoint*sipRes;
+
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipCpp->GetRounded(&x, &y);
+            sipRes = new ::wxPoint(sipCpp->GetRounded());
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
                 return 0;
 
-            return sipBuildResult(0, "(ii)", x, y);
+            return sipConvertFromNewType(sipRes, sipType_wxPoint, SIP_NULLPTR);
         }
     }
 
@@ -83,7 +89,11 @@ static PyObject *meth_wxPoint2DDouble_GetRounded(PyObject *sipSelf, PyObject *si
 }
 
 
-PyDoc_STRVAR(doc_wxPoint2DDouble_GetVectorLength, "GetVectorLength() -> float");
+PyDoc_STRVAR(doc_wxPoint2DDouble_GetVectorLength, "GetVectorLength() -> float\n"
+"\n"
+"Returns the hypotenuse, where the X and Y coordinates of the point\n"
+"represent the lengths of the base and height sides of a right\n"
+"triangle.");
 
 extern "C" {static PyObject *meth_wxPoint2DDouble_GetVectorLength(PyObject *, PyObject *);}
 static PyObject *meth_wxPoint2DDouble_GetVectorLength(PyObject *sipSelf, PyObject *sipArgs)
@@ -116,40 +126,11 @@ static PyObject *meth_wxPoint2DDouble_GetVectorLength(PyObject *sipSelf, PyObjec
 }
 
 
-PyDoc_STRVAR(doc_wxPoint2DDouble_GetVectorAngle, "GetVectorAngle() -> float");
-
-extern "C" {static PyObject *meth_wxPoint2DDouble_GetVectorAngle(PyObject *, PyObject *);}
-static PyObject *meth_wxPoint2DDouble_GetVectorAngle(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxPoint2DDouble *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxPoint2DDouble, &sipCpp))
-        {
-            ::wxDouble sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->GetVectorAngle();
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return PyFloat_FromDouble(sipRes);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_Point2D, sipName_GetVectorAngle, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxPoint2DDouble_SetVectorLength, "SetVectorLength(length) -> None");
+PyDoc_STRVAR(doc_wxPoint2DDouble_SetVectorLength, "SetVectorLength(length) -> None\n"
+"\n"
+"Sets the vector length to length, preserving the right angle and\n"
+"altering the X and Y values (which represent the base and height sides\n"
+"of a right triangle).");
 
 extern "C" {static PyObject *meth_wxPoint2DDouble_SetVectorLength(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxPoint2DDouble_SetVectorLength(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -186,7 +167,46 @@ static PyObject *meth_wxPoint2DDouble_SetVectorLength(PyObject *sipSelf, PyObjec
 }
 
 
-PyDoc_STRVAR(doc_wxPoint2DDouble_SetVectorAngle, "SetVectorAngle(degrees) -> None");
+PyDoc_STRVAR(doc_wxPoint2DDouble_GetVectorAngle, "GetVectorAngle() -> float\n"
+"\n"
+"Returns the principal value of the arc tangent of the Y and X values,\n"
+"expressed in degrees.");
+
+extern "C" {static PyObject *meth_wxPoint2DDouble_GetVectorAngle(PyObject *, PyObject *);}
+static PyObject *meth_wxPoint2DDouble_GetVectorAngle(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxPoint2DDouble *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxPoint2DDouble, &sipCpp))
+        {
+            ::wxDouble sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetVectorAngle();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyFloat_FromDouble(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Point2D, sipName_GetVectorAngle, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxPoint2DDouble_SetVectorAngle, "SetVectorAngle(degrees) -> None\n"
+"\n"
+"Repositions the X and Y coordinates based on the provided angle's\n"
+"degrees.");
 
 extern "C" {static PyObject *meth_wxPoint2DDouble_SetVectorAngle(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxPoint2DDouble_SetVectorAngle(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -223,7 +243,11 @@ static PyObject *meth_wxPoint2DDouble_SetVectorAngle(PyObject *sipSelf, PyObject
 }
 
 
-PyDoc_STRVAR(doc_wxPoint2DDouble_Normalize, "Normalize() -> None");
+PyDoc_STRVAR(doc_wxPoint2DDouble_Normalize, "Normalize() -> None\n"
+"\n"
+"Sets the vector length to 1.0, preserving the right angle and altering\n"
+"the X and Y values (which represent the base and height sides of a\n"
+"right triangle).");
 
 extern "C" {static PyObject *meth_wxPoint2DDouble_Normalize(PyObject *, PyObject *);}
 static PyObject *meth_wxPoint2DDouble_Normalize(PyObject *sipSelf, PyObject *sipArgs)
@@ -255,7 +279,9 @@ static PyObject *meth_wxPoint2DDouble_Normalize(PyObject *sipSelf, PyObject *sip
 }
 
 
-PyDoc_STRVAR(doc_wxPoint2DDouble_GetDistance, "GetDistance(pt) -> float");
+PyDoc_STRVAR(doc_wxPoint2DDouble_GetDistance, "GetDistance(pt) -> float\n"
+"\n"
+"Returns the distance between this point and pt.");
 
 extern "C" {static PyObject *meth_wxPoint2DDouble_GetDistance(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxPoint2DDouble_GetDistance(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -295,7 +321,9 @@ static PyObject *meth_wxPoint2DDouble_GetDistance(PyObject *sipSelf, PyObject *s
 }
 
 
-PyDoc_STRVAR(doc_wxPoint2DDouble_GetDistanceSquare, "GetDistanceSquare(pt) -> float");
+PyDoc_STRVAR(doc_wxPoint2DDouble_GetDistanceSquare, "GetDistanceSquare(pt) -> float\n"
+"\n"
+"Returns the squared distance between this point and pt.");
 
 extern "C" {static PyObject *meth_wxPoint2DDouble_GetDistanceSquare(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxPoint2DDouble_GetDistanceSquare(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -335,7 +363,10 @@ static PyObject *meth_wxPoint2DDouble_GetDistanceSquare(PyObject *sipSelf, PyObj
 }
 
 
-PyDoc_STRVAR(doc_wxPoint2DDouble_GetDotProduct, "GetDotProduct(vec) -> float");
+PyDoc_STRVAR(doc_wxPoint2DDouble_GetDotProduct, "GetDotProduct(vec) -> float\n"
+"\n"
+"Returns the dot (i.e., scalar) product, where the products of the X\n"
+"and Y values of this point and are added.");
 
 extern "C" {static PyObject *meth_wxPoint2DDouble_GetDotProduct(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxPoint2DDouble_GetDotProduct(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -375,7 +406,10 @@ static PyObject *meth_wxPoint2DDouble_GetDotProduct(PyObject *sipSelf, PyObject 
 }
 
 
-PyDoc_STRVAR(doc_wxPoint2DDouble_GetCrossProduct, "GetCrossProduct(vec) -> float");
+PyDoc_STRVAR(doc_wxPoint2DDouble_GetCrossProduct, "GetCrossProduct(vec) -> float\n"
+"\n"
+"Returns the cross product, where the products of the Y values of this\n"
+"point and are subtracted from the X products.");
 
 extern "C" {static PyObject *meth_wxPoint2DDouble_GetCrossProduct(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxPoint2DDouble_GetCrossProduct(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -525,104 +559,6 @@ static PyObject *slot_wxPoint2DDouble___eq__(PyObject *sipSelf, PyObject *sipArg
     Py_XDECREF(sipParseErr);
 
     return sipPySlotExtend(&sipModuleAPI__core, eq_slot, sipType_wxPoint2DDouble, sipSelf, sipArg);
-}
-
-
-extern "C" {static PyObject *slot_wxPoint2DDouble___itruediv__(PyObject *, PyObject *);}
-static PyObject *slot_wxPoint2DDouble___itruediv__(PyObject *sipSelf, PyObject *sipArg)
-{
-    if (!PyObject_TypeCheck(sipSelf, sipTypeAsPyTypeObject(sipType_wxPoint2DDouble)))
-    {
-        Py_INCREF(Py_NotImplemented);
-        return Py_NotImplemented;
-    }
-
-    ::wxPoint2DDouble *sipCpp = reinterpret_cast< ::wxPoint2DDouble *>(sipGetCppPtr((sipSimpleWrapper *)sipSelf, sipType_wxPoint2DDouble));
-
-    if (!sipCpp)
-        return SIP_NULLPTR;
-
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxPoint2DDouble* pt;
-        int ptState = 0;
-
-        if (sipParseArgs(&sipParseErr, sipArg, "1J1", sipType_wxPoint2DDouble, &pt, &ptState))
-        {
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->::wxPoint2DDouble::operator/=(*pt);
-            Py_END_ALLOW_THREADS
-            sipReleaseType(const_cast< ::wxPoint2DDouble *>(pt), sipType_wxPoint2DDouble, ptState);
-
-            if (PyErr_Occurred())
-                return 0;
-
-            Py_INCREF(sipSelf);
-            return sipSelf;
-        }
-    }
-
-    Py_XDECREF(sipParseErr);
-
-    if (sipParseErr == Py_None)
-        return SIP_NULLPTR;
-
-    PyErr_Clear();
-
-    Py_INCREF(Py_NotImplemented);
-    return Py_NotImplemented;
-}
-
-
-extern "C" {static PyObject *slot_wxPoint2DDouble___imul__(PyObject *, PyObject *);}
-static PyObject *slot_wxPoint2DDouble___imul__(PyObject *sipSelf, PyObject *sipArg)
-{
-    if (!PyObject_TypeCheck(sipSelf, sipTypeAsPyTypeObject(sipType_wxPoint2DDouble)))
-    {
-        Py_INCREF(Py_NotImplemented);
-        return Py_NotImplemented;
-    }
-
-    ::wxPoint2DDouble *sipCpp = reinterpret_cast< ::wxPoint2DDouble *>(sipGetCppPtr((sipSimpleWrapper *)sipSelf, sipType_wxPoint2DDouble));
-
-    if (!sipCpp)
-        return SIP_NULLPTR;
-
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxPoint2DDouble* pt;
-        int ptState = 0;
-
-        if (sipParseArgs(&sipParseErr, sipArg, "1J1", sipType_wxPoint2DDouble, &pt, &ptState))
-        {
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->::wxPoint2DDouble::operator*=(*pt);
-            Py_END_ALLOW_THREADS
-            sipReleaseType(const_cast< ::wxPoint2DDouble *>(pt), sipType_wxPoint2DDouble, ptState);
-
-            if (PyErr_Occurred())
-                return 0;
-
-            Py_INCREF(sipSelf);
-            return sipSelf;
-        }
-    }
-
-    Py_XDECREF(sipParseErr);
-
-    if (sipParseErr == Py_None)
-        return SIP_NULLPTR;
-
-    PyErr_Clear();
-
-    Py_INCREF(Py_NotImplemented);
-    return Py_NotImplemented;
 }
 
 
@@ -951,8 +887,6 @@ static int convertTo_wxPoint2DDouble(PyObject *sipPy, void **sipCppPtrV, int *si
 static sipPySlotDef slots_wxPoint2DDouble[] = {
     {(void *)slot_wxPoint2DDouble___ne__, ne_slot},
     {(void *)slot_wxPoint2DDouble___eq__, eq_slot},
-    {(void *)slot_wxPoint2DDouble___itruediv__, itruediv_slot},
-    {(void *)slot_wxPoint2DDouble___imul__, imul_slot},
     {(void *)slot_wxPoint2DDouble___isub__, isub_slot},
     {(void *)slot_wxPoint2DDouble___iadd__, iadd_slot},
     {(void *)slot_wxPoint2DDouble___neg__, neg_slot},
@@ -966,8 +900,8 @@ static PyMethodDef methods_wxPoint2DDouble[] = {
     {sipName_GetDistance, SIP_MLMETH_CAST(meth_wxPoint2DDouble_GetDistance), METH_VARARGS|METH_KEYWORDS, doc_wxPoint2DDouble_GetDistance},
     {sipName_GetDistanceSquare, SIP_MLMETH_CAST(meth_wxPoint2DDouble_GetDistanceSquare), METH_VARARGS|METH_KEYWORDS, doc_wxPoint2DDouble_GetDistanceSquare},
     {sipName_GetDotProduct, SIP_MLMETH_CAST(meth_wxPoint2DDouble_GetDotProduct), METH_VARARGS|METH_KEYWORDS, doc_wxPoint2DDouble_GetDotProduct},
-    {sipName_GetFloor, SIP_MLMETH_CAST(meth_wxPoint2DDouble_GetFloor), METH_VARARGS|METH_KEYWORDS, doc_wxPoint2DDouble_GetFloor},
-    {sipName_GetRounded, SIP_MLMETH_CAST(meth_wxPoint2DDouble_GetRounded), METH_VARARGS|METH_KEYWORDS, doc_wxPoint2DDouble_GetRounded},
+    {sipName_GetFloor, meth_wxPoint2DDouble_GetFloor, METH_VARARGS, doc_wxPoint2DDouble_GetFloor},
+    {sipName_GetRounded, meth_wxPoint2DDouble_GetRounded, METH_VARARGS, doc_wxPoint2DDouble_GetRounded},
     {sipName_GetVectorAngle, meth_wxPoint2DDouble_GetVectorAngle, METH_VARARGS, doc_wxPoint2DDouble_GetVectorAngle},
     {sipName_GetVectorLength, meth_wxPoint2DDouble_GetVectorLength, METH_VARARGS, doc_wxPoint2DDouble_GetVectorLength},
     {sipName_Normalize, meth_wxPoint2DDouble_Normalize, METH_VARARGS, doc_wxPoint2DDouble_Normalize},
@@ -1036,6 +970,8 @@ static int varset_wxPoint2DDouble_m_y(void *sipSelf, PyObject *sipPy, PyObject *
 sipVariableDef variables_wxPoint2DDouble[] = {
     {PropertyVariable, sipName_VectorLength, &methods_wxPoint2DDouble[8], &methods_wxPoint2DDouble[11], SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_VectorAngle, &methods_wxPoint2DDouble[7], &methods_wxPoint2DDouble[10], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Rounded, &methods_wxPoint2DDouble[6], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Floor, &methods_wxPoint2DDouble[5], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {InstanceVariable, sipName_x, (PyMethodDef *)varget_wxPoint2DDouble_m_x, (PyMethodDef *)varset_wxPoint2DDouble_m_x, SIP_NULLPTR, SIP_NULLPTR},
     {InstanceVariable, sipName_y, (PyMethodDef *)varget_wxPoint2DDouble_m_y, (PyMethodDef *)varset_wxPoint2DDouble_m_y, SIP_NULLPTR, SIP_NULLPTR},
 };
@@ -1043,7 +979,10 @@ sipVariableDef variables_wxPoint2DDouble[] = {
 PyDoc_STRVAR(doc_wxPoint2DDouble, "Point2DDouble() -> None\n"
 "Point2DDouble(x, y) -> None\n"
 "Point2DDouble(pt) -> None\n"
-"Point2DDouble(pt) -> None");
+"Point2DDouble(pt) -> None\n"
+"\n"
+"wxPoint2DDouble represents a point in a 2D (Cartesian) coordinate\n"
+"system, with additional vector operations available.");
 
 
 sipClassTypeDef sipTypeDef__core_wxPoint2DDouble = {
@@ -1061,7 +1000,7 @@ sipClassTypeDef sipTypeDef__core_wxPoint2DDouble = {
         {0, 0, 1},
         12, methods_wxPoint2DDouble,
         0, SIP_NULLPTR,
-        4, variables_wxPoint2DDouble,
+        6, variables_wxPoint2DDouble,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxPoint2DDouble,

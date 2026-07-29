@@ -594,7 +594,7 @@ static void *init_type_wxGridCellAttrProvider(sipSimpleWrapper *sipSelf, PyObjec
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGridCellAttrProvider[] = {{3, 0, 1}};
+static sipEncodedTypeDef supers_wxGridCellAttrProvider[] = {{4, 0, 1}};
 
 
 static PyMethodDef methods_wxGridCellAttrProvider[] = {

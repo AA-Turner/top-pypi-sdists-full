@@ -829,7 +829,7 @@ static PyObject *meth_wxExtHelpController_SetFrameParameters(PyObject *sipSelf, 
 }
 
 
-PyDoc_STRVAR(doc_wxExtHelpController_GetFrameParameters, "GetFrameParameters(size=None, pos=None, newFrameEachTime=None) -> wx.Frame\n"
+PyDoc_STRVAR(doc_wxExtHelpController_GetFrameParameters, "GetFrameParameters(size=nullptr, pos=nullptr, newFrameEachTime=nullptr) -> wx.Frame\n"
 "\n"
 "Obtains the latest settings used by the help frame and the help frame.");
 
@@ -840,9 +840,9 @@ static PyObject *meth_wxExtHelpController_GetFrameParameters(PyObject *sipSelf, 
     bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
 
     {
-        ::wxSize* size = 0;
+        ::wxSize* size = nullptr;
         int sizeState = 0;
-        ::wxPoint* pos = 0;
+        ::wxPoint* pos = nullptr;
         int posState = 0;
         bool newFrameEachTime;
         ::wxExtHelpController *sipCpp;
@@ -943,7 +943,7 @@ static void *init_type_wxExtHelpController(sipSimpleWrapper *sipSelf, PyObject *
     sipwxExtHelpController *sipCpp = SIP_NULLPTR;
 
     {
-        ::wxWindow* parentWindow = 0;
+        ::wxWindow* parentWindow = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_parentWindow,
@@ -974,7 +974,7 @@ static void *init_type_wxExtHelpController(sipSimpleWrapper *sipSelf, PyObject *
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxExtHelpController[] = {{27, 0, 1}};
+static sipEncodedTypeDef supers_wxExtHelpController[] = {{28, 0, 1}};
 
 
 static PyMethodDef methods_wxExtHelpController[] = {
@@ -996,7 +996,7 @@ sipVariableDef variables_wxExtHelpController[] = {
     {PropertyVariable, sipName_FrameParameters, &methods_wxExtHelpController[4], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxExtHelpController, "ExtHelpController(parentWindow=None) -> None\n"
+PyDoc_STRVAR(doc_wxExtHelpController, "ExtHelpController(parentWindow=nullptr) -> None\n"
 "\n"
 "This class implements help via an external browser.");
 

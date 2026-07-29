@@ -13,6 +13,7 @@ from eveuniverse.models import (
     EveDogmaEffect,
     EveGroup,
     EveRegion,
+    EveSolarSystem,
     EveType,
     EveTypeDogmaEffect,
 )
@@ -22,6 +23,8 @@ from eveuniverse.tests.testdata.factories_2 import (
     EveCategoryFactory,
     EveDogmaAttributeFactory,
     EveDogmaEffectFactory,
+    EveGroupFactory,
+    EveTypeFactory,
     make_esi_url,
 )
 
@@ -856,3 +859,209 @@ class TestDetermineEnabledSections(TestCase):
         self.assertSetEqual(
             result, {EveType.Section.DOGMAS, EveType.Section.TYPE_MATERIALS}
         )
+
+
+class TestEveUniverseEntityModelQuerySet_FilterEnabledSections(TestCase):
+    def test_should_match_one_section_with_enum(self):
+        # given
+        self.maxDiff = None
+        EveTypeFactory(id=101)
+        et_2 = EveTypeFactory(id=102, enabled_sections=1)  # dogmas
+        EveTypeFactory(id=103, enabled_sections=4)  # market groups
+        et_4 = EveTypeFactory(id=104, enabled_sections=5)  # dogmas & market groups
+        EveTypeFactory(id=105, enabled_sections=8)  # type materials
+
+        # when
+        got = EveType.objects.filter_enabled_sections([EveType.Section.DOGMAS])
+
+        # then
+        self.assertCountEqual(got, [et_2, et_4])
+
+    def test_should_match_one_section_with_string(self):
+        # given
+        self.maxDiff = None
+        EveTypeFactory(id=101)
+        et_2 = EveTypeFactory(id=102, enabled_sections=1)  # dogmas
+        EveTypeFactory(id=103, enabled_sections=4)  # market groups
+        et_4 = EveTypeFactory(id=104, enabled_sections=5)  # dogmas & market groups
+        EveTypeFactory(id=105, enabled_sections=8)  # type materials
+
+        # when
+        got = EveType.objects.filter_enabled_sections(["dogmas"])
+
+        # then
+        self.assertCountEqual(got, [et_2, et_4])
+
+    def test_should_ignore_invalid_sections(self):
+        # given
+        self.maxDiff = None
+        EveTypeFactory(id=101)
+        et_2 = EveTypeFactory(id=102, enabled_sections=1)  # dogmas
+        EveTypeFactory(id=103, enabled_sections=4)  # market groups
+        et_4 = EveTypeFactory(id=104, enabled_sections=5)  # dogmas & market groups
+        EveTypeFactory(id=105, enabled_sections=8)  # type materials
+
+        # when
+        got = EveType.objects.filter_enabled_sections(["dogmas", "invalid"])
+
+        # then
+        self.assertCountEqual(got, [et_2, et_4])
+
+    def test_should_match_all_sections(self):
+        # given
+        self.maxDiff = None
+        EveTypeFactory(id=101)
+        et_2 = EveTypeFactory(id=102, enabled_sections=5)  # dogmas & market groups
+        EveTypeFactory(id=103, enabled_sections=4)  # market groups
+        et_4 = EveTypeFactory(
+            id=104, enabled_sections=13
+        )  # dogmas & market groups & type materials
+        EveTypeFactory(id=105, enabled_sections=8)  # type materials
+        EveTypeFactory(id=106, enabled_sections=12)  # type materials + market groups
+
+        # when
+        got = EveType.objects.filter_enabled_sections(
+            [EveType.Section.DOGMAS, EveType.Section.MARKET_GROUPS]
+        )
+
+        # then
+        self.assertCountEqual(got, [et_2, et_4])
+
+    def test_should_match_all_no_sections_provided(self):
+        # given
+        self.maxDiff = None
+        et_1 = EveTypeFactory(id=101)
+        et_2 = EveTypeFactory(id=102, enabled_sections=1)  # dogmas
+        et_4 = EveTypeFactory(id=104, enabled_sections=5)  # dogmas & market groups
+
+        # when
+        got = EveType.objects.filter_enabled_sections([])
+
+        # then
+        self.assertCountEqual(got, [et_1, et_2, et_4])
+
+    def test_should_match_all_when_section_not_supported(self):
+        # given
+        eg = EveGroupFactory()
+
+        # when
+        got = EveGroup.objects.filter_enabled_sections([EveType.Section.DOGMAS])
+
+        # then
+        self.assertCountEqual(got, [eg])
+
+
+class TestEveUniverseEntityModel_EnabledSectionsSet(TestCase):
+    def test_should_return_as_values(self):
+        # given
+        cases = [
+            (0, set()),
+            (1, {EveType.Section.DOGMAS}),
+            (2, {EveType.Section.GRAPHICS}),
+            (3, {EveType.Section.DOGMAS, EveType.Section.GRAPHICS}),
+        ]
+        for raw_value, want in cases:
+            # given
+            et = EveTypeFactory(enabled_sections=raw_value)
+
+            # when
+            got = et.enabled_sections_set
+
+            # then
+            msg = f"raw value: {raw_value}"
+            self.assertSetEqual(got, want, msg=msg)
+
+    def test_should_return_empty_when_property_does_not_exist(self):
+        eg = EveGroupFactory()
+        self.assertSetEqual(eg.enabled_sections_set, set())
+
+
+class TestEveUniverseEntityModel_AddEnabledSections(TestCase):
+    def test_should_set_correctly(self):
+        cases = [
+            (
+                "one from scratch",
+                0,
+                {EveType.Section.DOGMAS},
+                {EveType.Section.DOGMAS},
+                True,
+            ),
+            (
+                "multiple from scratch",
+                0,
+                {EveType.Section.DOGMAS, EveType.Section.GRAPHICS},
+                {EveType.Section.DOGMAS, EveType.Section.GRAPHICS},
+                True,
+            ),
+            (
+                "add one",
+                1,
+                {EveType.Section.GRAPHICS},
+                {EveType.Section.GRAPHICS, EveType.Section.DOGMAS},
+                True,
+            ),
+            (
+                "add multiple with existing",
+                1,
+                {EveType.Section.GRAPHICS, EveType.Section.DOGMAS},
+                {EveType.Section.GRAPHICS, EveType.Section.DOGMAS},
+                True,
+            ),
+            (
+                "add multiple new",
+                1,
+                {EveType.Section.GRAPHICS, EveType.Section.MARKET_GROUPS},
+                {
+                    EveType.Section.GRAPHICS,
+                    EveType.Section.DOGMAS,
+                    EveType.Section.MARKET_GROUPS,
+                },
+                True,
+            ),
+            (
+                "ignores invalid values",
+                0,
+                {EveType.Section.GRAPHICS, EveSolarSystem.Section.PLANETS},
+                {EveType.Section.GRAPHICS},
+                True,
+            ),
+            (
+                "no values provided",
+                1,
+                set(),
+                {EveType.Section.DOGMAS},
+                False,
+            ),
+            (
+                "not changed",
+                1,
+                {EveType.Section.DOGMAS},
+                {EveType.Section.DOGMAS},
+                False,
+            ),
+        ]
+        for name, raw_value, enabled_sections, want_value, want_updated in cases:
+            # given
+            et = EveTypeFactory(enabled_sections=raw_value)
+
+            # when
+            got_updated = et.add_enabled_sections(enabled_sections)
+
+            # then
+            et.refresh_from_db()
+            got_value = et.enabled_sections_set
+            self.assertSetEqual(got_value, want_value, msg=name)
+            self.assertEqual(got_updated, want_updated, msg=name)
+
+    def test_should_do_nothing_when_field_does_not_exist(self):
+        # given
+        et = EveCategoryFactory()
+
+        # when
+        got_updated = et.add_enabled_sections({EveType.Section.GRAPHICS})
+
+        # then
+        self.assertFalse(got_updated)
+        et.refresh_from_db()
+        got_value = et.enabled_sections_set
+        self.assertSetEqual(got_value, set())

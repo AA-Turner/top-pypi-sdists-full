@@ -14,6 +14,7 @@
         #include <wx/xml/xml.h>
         #include <wx/xml/xml.h>
         #include <wx/stream.h>
+        #include <wx/xml/xml.h>
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
@@ -24,8 +25,8 @@ class sipwxXmlDocument : public ::wxXmlDocument
 public:
     sipwxXmlDocument();
     sipwxXmlDocument(const ::wxXmlDocument&);
-    sipwxXmlDocument(const ::wxString&, const ::wxString&);
-    sipwxXmlDocument(::wxInputStream&, const ::wxString&);
+    sipwxXmlDocument(const ::wxString&);
+    sipwxXmlDocument(::wxInputStream&);
     virtual ~sipwxXmlDocument();
 
     /*
@@ -35,8 +36,6 @@ public:
 protected:
     bool Save(::wxOutputStream&, int) const SIP_OVERRIDE;
     bool Save(const ::wxString&, int) const SIP_OVERRIDE;
-    bool Load(::wxInputStream&, const ::wxString&, int) SIP_OVERRIDE;
-    bool Load(const ::wxString&, const ::wxString&, int) SIP_OVERRIDE;
 
 public:
     sipSimpleWrapper *sipPySelf;
@@ -45,7 +44,7 @@ private:
     sipwxXmlDocument(const sipwxXmlDocument &);
     sipwxXmlDocument &operator = (const sipwxXmlDocument &);
 
-    char sipPyMethods[4];
+    char sipPyMethods[2];
 };
 
 sipwxXmlDocument::sipwxXmlDocument(): ::wxXmlDocument(), sipPySelf(SIP_NULLPTR)
@@ -58,12 +57,12 @@ sipwxXmlDocument::sipwxXmlDocument(const ::wxXmlDocument& doc): ::wxXmlDocument(
     memset(sipPyMethods, 0, sizeof (sipPyMethods));
 }
 
-sipwxXmlDocument::sipwxXmlDocument(const ::wxString& filename, const ::wxString& encoding): ::wxXmlDocument(filename, encoding), sipPySelf(SIP_NULLPTR)
+sipwxXmlDocument::sipwxXmlDocument(const ::wxString& filename): ::wxXmlDocument(filename), sipPySelf(SIP_NULLPTR)
 {
     memset(sipPyMethods, 0, sizeof (sipPyMethods));
 }
 
-sipwxXmlDocument::sipwxXmlDocument(::wxInputStream& stream, const ::wxString& encoding): ::wxXmlDocument(stream, encoding), sipPySelf(SIP_NULLPTR)
+sipwxXmlDocument::sipwxXmlDocument(::wxInputStream& stream): ::wxXmlDocument(stream), sipPySelf(SIP_NULLPTR)
 {
     memset(sipPyMethods, 0, sizeof (sipPyMethods));
 }
@@ -83,9 +82,9 @@ bool sipwxXmlDocument::Save(::wxOutputStream& stream, int indentstep) const
     if (!sipMeth)
         return ::wxXmlDocument::Save(stream, indentstep);
 
-    extern bool sipVH__xml_9(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxOutputStream&, int);
+    extern bool sipVH__xml_7(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxOutputStream&, int);
 
-    return sipVH__xml_9(sipGILState, 0, sipPySelf, sipMeth, stream, indentstep);
+    return sipVH__xml_7(sipGILState, 0, sipPySelf, sipMeth, stream, indentstep);
 }
 
 bool sipwxXmlDocument::Save(const ::wxString& filename, int indentstep) const
@@ -98,39 +97,9 @@ bool sipwxXmlDocument::Save(const ::wxString& filename, int indentstep) const
     if (!sipMeth)
         return ::wxXmlDocument::Save(filename, indentstep);
 
-    extern bool sipVH__xml_8(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, int);
+    extern bool sipVH__xml_6(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, int);
 
-    return sipVH__xml_8(sipGILState, 0, sipPySelf, sipMeth, filename, indentstep);
-}
-
-bool sipwxXmlDocument::Load(::wxInputStream& stream, const ::wxString& encoding, int flags)
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[2], &sipPySelf, SIP_NULLPTR, sipName_Load);
-
-    if (!sipMeth)
-        return ::wxXmlDocument::Load(stream, encoding, flags);
-
-    extern bool sipVH__xml_7(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxInputStream&, const ::wxString&, int);
-
-    return sipVH__xml_7(sipGILState, 0, sipPySelf, sipMeth, stream, encoding, flags);
-}
-
-bool sipwxXmlDocument::Load(const ::wxString& filename, const ::wxString& encoding, int flags)
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[3], &sipPySelf, SIP_NULLPTR, sipName_Load);
-
-    if (!sipMeth)
-        return ::wxXmlDocument::Load(filename, encoding, flags);
-
-    extern bool sipVH__xml_6(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, const ::wxString&, int);
-
-    return sipVH__xml_6(sipGILState, 0, sipPySelf, sipMeth, filename, encoding, flags);
+    return sipVH__xml_6(sipGILState, 0, sipPySelf, sipMeth, filename, indentstep);
 }
 
 
@@ -524,8 +493,8 @@ static PyObject *meth_wxXmlDocument_IsOk(PyObject *sipSelf, PyObject *sipArgs)
 }
 
 
-PyDoc_STRVAR(doc_wxXmlDocument_Load, "Load(filename, encoding=\"UTF-8\", flags=XMLDOC_NONE) -> bool\n"
-"Load(stream, encoding=\"UTF-8\", flags=XMLDOC_NONE) -> bool\n"
+PyDoc_STRVAR(doc_wxXmlDocument_Load, "Load(filename, flags=XMLDOC_NONE, err=nullptr) -> bool\n"
+"Load(stream, flags=XMLDOC_NONE, err=nullptr) -> bool\n"
 "\n"
 "Parses filename as an xml document and loads its data.\n"
 "");
@@ -534,34 +503,30 @@ extern "C" {static PyObject *meth_wxXmlDocument_Load(PyObject *, PyObject *, PyO
 static PyObject *meth_wxXmlDocument_Load(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
 {
     PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
 
     {
         const ::wxString* filename;
         int filenameState = 0;
-        const ::wxString& encodingdef = "UTF-8";
-        const ::wxString* encoding = &encodingdef;
-        int encodingState = 0;
         int flags = wxXMLDOC_NONE;
+        ::wxXmlParseError* err = nullptr;
         ::wxXmlDocument *sipCpp;
 
         static const char *sipKwdList[] = {
             sipName_filename,
-            sipName_encoding,
             sipName_flags,
+            sipName_err,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|J1i", &sipSelf, sipType_wxXmlDocument, &sipCpp, sipType_wxString, &filename, &filenameState, sipType_wxString, &encoding, &encodingState, &flags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|iJ8", &sipSelf, sipType_wxXmlDocument, &sipCpp, sipType_wxString, &filename, &filenameState, &flags, sipType_wxXmlParseError, &err))
         {
             bool sipRes;
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = (sipSelfWasArg ? sipCpp->::wxXmlDocument::Load(*filename, *encoding, flags) : sipCpp->Load(*filename, *encoding, flags));
+            sipRes = sipCpp->Load(*filename, flags, err);
             Py_END_ALLOW_THREADS
             sipReleaseType(const_cast< ::wxString *>(filename), sipType_wxString, filenameState);
-            sipReleaseType(const_cast< ::wxString *>(encoding), sipType_wxString, encodingState);
 
             if (PyErr_Occurred())
                 return 0;
@@ -573,29 +538,26 @@ static PyObject *meth_wxXmlDocument_Load(PyObject *sipSelf, PyObject *sipArgs, P
     {
         ::wxInputStream* stream;
         int streamState = 0;
-        const ::wxString& encodingdef = "UTF-8";
-        const ::wxString* encoding = &encodingdef;
-        int encodingState = 0;
         int flags = wxXMLDOC_NONE;
+        ::wxXmlParseError* err = nullptr;
         ::wxXmlDocument *sipCpp;
 
         static const char *sipKwdList[] = {
             sipName_stream,
-            sipName_encoding,
             sipName_flags,
+            sipName_err,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|J1i", &sipSelf, sipType_wxXmlDocument, &sipCpp, sipType_wxInputStream, &stream, &streamState, sipType_wxString, &encoding, &encodingState, &flags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|iJ8", &sipSelf, sipType_wxXmlDocument, &sipCpp, sipType_wxInputStream, &stream, &streamState, &flags, sipType_wxXmlParseError, &err))
         {
             bool sipRes;
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = (sipSelfWasArg ? sipCpp->::wxXmlDocument::Load(*stream, *encoding, flags) : sipCpp->Load(*stream, *encoding, flags));
+            sipRes = sipCpp->Load(*stream, flags, err);
             Py_END_ALLOW_THREADS
             sipReleaseType(stream, sipType_wxInputStream, streamState);
-            sipReleaseType(const_cast< ::wxString *>(encoding), sipType_wxString, encodingState);
 
             if (PyErr_Occurred())
                 return 0;
@@ -1087,24 +1049,19 @@ static void *init_type_wxXmlDocument(sipSimpleWrapper *sipSelf, PyObject *sipArg
     {
         const ::wxString* filename;
         int filenameState = 0;
-        const ::wxString& encodingdef = "UTF-8";
-        const ::wxString* encoding = &encodingdef;
-        int encodingState = 0;
 
         static const char *sipKwdList[] = {
             sipName_filename,
-            sipName_encoding,
         };
 
-        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, sipKwdList, sipUnused, "J1|J1", sipType_wxString, &filename, &filenameState, sipType_wxString, &encoding, &encodingState))
+        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, sipKwdList, sipUnused, "J1", sipType_wxString, &filename, &filenameState))
         {
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipCpp = new sipwxXmlDocument(*filename, *encoding);
+            sipCpp = new sipwxXmlDocument(*filename);
             Py_END_ALLOW_THREADS
             sipReleaseType(const_cast< ::wxString *>(filename), sipType_wxString, filenameState);
-            sipReleaseType(const_cast< ::wxString *>(encoding), sipType_wxString, encodingState);
 
             if (PyErr_Occurred())
             {
@@ -1121,24 +1078,19 @@ static void *init_type_wxXmlDocument(sipSimpleWrapper *sipSelf, PyObject *sipArg
     {
         ::wxInputStream* stream;
         int streamState = 0;
-        const ::wxString& encodingdef = "UTF-8";
-        const ::wxString* encoding = &encodingdef;
-        int encodingState = 0;
 
         static const char *sipKwdList[] = {
             sipName_stream,
-            sipName_encoding,
         };
 
-        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, sipKwdList, sipUnused, "J1|J1", sipType_wxInputStream, &stream, &streamState, sipType_wxString, &encoding, &encodingState))
+        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, sipKwdList, sipUnused, "J1", sipType_wxInputStream, &stream, &streamState))
         {
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipCpp = new sipwxXmlDocument(*stream, *encoding);
+            sipCpp = new sipwxXmlDocument(*stream);
             Py_END_ALLOW_THREADS
             sipReleaseType(stream, sipType_wxInputStream, streamState);
-            sipReleaseType(const_cast< ::wxString *>(encoding), sipType_wxString, encodingState);
 
             if (PyErr_Occurred())
             {
@@ -1195,8 +1147,8 @@ sipVariableDef variables_wxXmlDocument[] = {
 
 PyDoc_STRVAR(doc_wxXmlDocument, "XmlDocument() -> None\n"
 "XmlDocument(doc) -> None\n"
-"XmlDocument(filename, encoding=\"UTF-8\") -> None\n"
-"XmlDocument(stream, encoding=\"UTF-8\") -> None\n"
+"XmlDocument(filename) -> None\n"
+"XmlDocument(stream) -> None\n"
 "\n"
 "This class holds XML data/document as parsed by XML parser in the root\n"
 "node.");

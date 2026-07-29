@@ -15,7 +15,9 @@
         #include <wx/graphics.h>
 
 
-PyDoc_STRVAR(doc_wxGraphicsPenInfo_Colour, "Colour(col) -> GraphicsPenInfo");
+PyDoc_STRVAR(doc_wxGraphicsPenInfo_Colour, "Colour(col) -> GraphicsPenInfo\n"
+"\n"
+"Sets the colour for the pen.");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_Colour(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPenInfo_Colour(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -55,7 +57,9 @@ static PyObject *meth_wxGraphicsPenInfo_Colour(PyObject *sipSelf, PyObject *sipA
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsPenInfo_Width, "Width(width) -> GraphicsPenInfo");
+PyDoc_STRVAR(doc_wxGraphicsPenInfo_Width, "Width(width) -> GraphicsPenInfo\n"
+"\n"
+"Sets the line width for the pen.");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_Width(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPenInfo_Width(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -93,7 +97,9 @@ static PyObject *meth_wxGraphicsPenInfo_Width(PyObject *sipSelf, PyObject *sipAr
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsPenInfo_Style, "Style(style) -> GraphicsPenInfo");
+PyDoc_STRVAR(doc_wxGraphicsPenInfo_Style, "Style(style) -> GraphicsPenInfo\n"
+"\n"
+"Sets the style for the pen.");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_Style(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPenInfo_Style(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -131,7 +137,9 @@ static PyObject *meth_wxGraphicsPenInfo_Style(PyObject *sipSelf, PyObject *sipAr
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsPenInfo_Stipple, "Stipple(stipple) -> GraphicsPenInfo");
+PyDoc_STRVAR(doc_wxGraphicsPenInfo_Stipple, "Stipple(stipple) -> GraphicsPenInfo\n"
+"\n"
+"Sets the bitmap used for stippling.");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_Stipple(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPenInfo_Stipple(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -169,7 +177,10 @@ static PyObject *meth_wxGraphicsPenInfo_Stipple(PyObject *sipSelf, PyObject *sip
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsPenInfo_Join, "Join(join) -> GraphicsPenInfo");
+PyDoc_STRVAR(doc_wxGraphicsPenInfo_Join, "Join(join) -> GraphicsPenInfo\n"
+"\n"
+"Sets the join for the pen, which is the appearance of where two lines\n"
+"meet or overlap.");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_Join(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPenInfo_Join(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -207,7 +218,9 @@ static PyObject *meth_wxGraphicsPenInfo_Join(PyObject *sipSelf, PyObject *sipArg
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsPenInfo_Cap, "Cap(cap) -> GraphicsPenInfo");
+PyDoc_STRVAR(doc_wxGraphicsPenInfo_Cap, "Cap(cap) -> GraphicsPenInfo\n"
+"\n"
+"Sets the cap (i.e., the end point) for the pen.");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_Cap(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPenInfo_Cap(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -247,6 +260,8 @@ static PyObject *meth_wxGraphicsPenInfo_Cap(PyObject *sipSelf, PyObject *sipArgs
 
 PyDoc_STRVAR(doc_wxGraphicsPenInfo_LinearGradient, "LinearGradient(x1, y1, x2, y2, c1, c2, matrix=NullGraphicsMatrix) -> GraphicsPenInfo\n"
 "LinearGradient(x1, y1, x2, y2, stops, matrix=NullGraphicsMatrix) -> GraphicsPenInfo\n"
+"\n"
+"Applies a linear gradient to the pen.\n"
 "");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_LinearGradient(PyObject *, PyObject *, PyObject *);}
@@ -340,6 +355,8 @@ static PyObject *meth_wxGraphicsPenInfo_LinearGradient(PyObject *sipSelf, PyObje
 
 PyDoc_STRVAR(doc_wxGraphicsPenInfo_RadialGradient, "RadialGradient(startX, startY, endX, endY, radius, oColor, cColor, matrix=NullGraphicsMatrix) -> GraphicsPenInfo\n"
 "RadialGradient(startX, startY, endX, endY, radius, stops, matrix=NullGraphicsMatrix) -> GraphicsPenInfo\n"
+"\n"
+"Applies a radial (i.e., circular) gradient to the pen.\n"
 "");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_RadialGradient(PyObject *, PyObject *, PyObject *);}
@@ -435,7 +452,9 @@ static PyObject *meth_wxGraphicsPenInfo_RadialGradient(PyObject *sipSelf, PyObje
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetColour, "GetColour() -> Colour");
+PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetColour, "GetColour() -> Colour\n"
+"\n"
+"Returns the pen's colour.");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_GetColour(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPenInfo_GetColour(PyObject *sipSelf, PyObject *sipArgs)
@@ -468,7 +487,9 @@ static PyObject *meth_wxGraphicsPenInfo_GetColour(PyObject *sipSelf, PyObject *s
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetStipple, "GetStipple() -> Bitmap");
+PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetStipple, "GetStipple() -> Bitmap\n"
+"\n"
+"Returns the pen's stipple bitmap.");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_GetStipple(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPenInfo_GetStipple(PyObject *sipSelf, PyObject *sipArgs)
@@ -501,7 +522,9 @@ static PyObject *meth_wxGraphicsPenInfo_GetStipple(PyObject *sipSelf, PyObject *
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetStyle, "GetStyle() -> PenStyle");
+PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetStyle, "GetStyle() -> PenStyle\n"
+"\n"
+"Returns the pen's style.");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_GetStyle(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPenInfo_GetStyle(PyObject *sipSelf, PyObject *sipArgs)
@@ -534,7 +557,9 @@ static PyObject *meth_wxGraphicsPenInfo_GetStyle(PyObject *sipSelf, PyObject *si
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetJoin, "GetJoin() -> PenJoin");
+PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetJoin, "GetJoin() -> PenJoin\n"
+"\n"
+"Returns the pen's joining method.");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_GetJoin(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPenInfo_GetJoin(PyObject *sipSelf, PyObject *sipArgs)
@@ -567,7 +592,9 @@ static PyObject *meth_wxGraphicsPenInfo_GetJoin(PyObject *sipSelf, PyObject *sip
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetCap, "GetCap() -> PenCap");
+PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetCap, "GetCap() -> PenCap\n"
+"\n"
+"Returns the pen's cap (i.e., end-point style).");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_GetCap(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPenInfo_GetCap(PyObject *sipSelf, PyObject *sipArgs)
@@ -600,7 +627,9 @@ static PyObject *meth_wxGraphicsPenInfo_GetCap(PyObject *sipSelf, PyObject *sipA
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsPenInfo_IsTransparent, "IsTransparent() -> bool");
+PyDoc_STRVAR(doc_wxGraphicsPenInfo_IsTransparent, "IsTransparent() -> bool\n"
+"\n"
+"Returns whether the pen is transparent.");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_IsTransparent(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPenInfo_IsTransparent(PyObject *sipSelf, PyObject *sipArgs)
@@ -633,7 +662,9 @@ static PyObject *meth_wxGraphicsPenInfo_IsTransparent(PyObject *sipSelf, PyObjec
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetWidth, "GetWidth() -> float");
+PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetWidth, "GetWidth() -> float\n"
+"\n"
+"Returns the pen's line width.");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_GetWidth(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPenInfo_GetWidth(PyObject *sipSelf, PyObject *sipArgs)
@@ -666,7 +697,9 @@ static PyObject *meth_wxGraphicsPenInfo_GetWidth(PyObject *sipSelf, PyObject *si
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetGradientType, "GetGradientType() -> GradientType");
+PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetGradientType, "GetGradientType() -> GradientType\n"
+"\n"
+"Returns the pen's gradient type.");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_GetGradientType(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPenInfo_GetGradientType(PyObject *sipSelf, PyObject *sipArgs)
@@ -699,7 +732,9 @@ static PyObject *meth_wxGraphicsPenInfo_GetGradientType(PyObject *sipSelf, PyObj
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetX1, "GetX1() -> float");
+PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetX1, "GetX1() -> float\n"
+"\n"
+"Returns the x coordinate of the starting point (if using a gradient).");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_GetX1(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPenInfo_GetX1(PyObject *sipSelf, PyObject *sipArgs)
@@ -732,7 +767,9 @@ static PyObject *meth_wxGraphicsPenInfo_GetX1(PyObject *sipSelf, PyObject *sipAr
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetY1, "GetY1() -> float");
+PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetY1, "GetY1() -> float\n"
+"\n"
+"Returns the y coordinate of the starting point (if using a gradient).");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_GetY1(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPenInfo_GetY1(PyObject *sipSelf, PyObject *sipArgs)
@@ -765,7 +802,9 @@ static PyObject *meth_wxGraphicsPenInfo_GetY1(PyObject *sipSelf, PyObject *sipAr
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetX2, "GetX2() -> float");
+PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetX2, "GetX2() -> float\n"
+"\n"
+"Returns the x coordinate of the ending point (if using a gradient).");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_GetX2(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPenInfo_GetX2(PyObject *sipSelf, PyObject *sipArgs)
@@ -798,7 +837,9 @@ static PyObject *meth_wxGraphicsPenInfo_GetX2(PyObject *sipSelf, PyObject *sipAr
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetY2, "GetY2() -> float");
+PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetY2, "GetY2() -> float\n"
+"\n"
+"Returns the y coordinate of the ending point (if using a gradient).");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_GetY2(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPenInfo_GetY2(PyObject *sipSelf, PyObject *sipArgs)
@@ -831,7 +872,9 @@ static PyObject *meth_wxGraphicsPenInfo_GetY2(PyObject *sipSelf, PyObject *sipAr
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetStartX, "GetStartX() -> float");
+PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetStartX, "GetStartX() -> float\n"
+"\n"
+"Returns the x coordinate of the starting point (if using a gradient).");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_GetStartX(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPenInfo_GetStartX(PyObject *sipSelf, PyObject *sipArgs)
@@ -864,7 +907,9 @@ static PyObject *meth_wxGraphicsPenInfo_GetStartX(PyObject *sipSelf, PyObject *s
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetStartY, "GetStartY() -> float");
+PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetStartY, "GetStartY() -> float\n"
+"\n"
+"Returns the y coordinate of the starting point (if using a gradient).");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_GetStartY(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPenInfo_GetStartY(PyObject *sipSelf, PyObject *sipArgs)
@@ -897,7 +942,9 @@ static PyObject *meth_wxGraphicsPenInfo_GetStartY(PyObject *sipSelf, PyObject *s
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetEndX, "GetEndX() -> float");
+PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetEndX, "GetEndX() -> float\n"
+"\n"
+"Returns the x coordinate of the ending point (if using a gradient).");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_GetEndX(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPenInfo_GetEndX(PyObject *sipSelf, PyObject *sipArgs)
@@ -930,7 +977,9 @@ static PyObject *meth_wxGraphicsPenInfo_GetEndX(PyObject *sipSelf, PyObject *sip
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetEndY, "GetEndY() -> float");
+PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetEndY, "GetEndY() -> float\n"
+"\n"
+"Returns the y coordinate of the ending point (if using a gradient).");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_GetEndY(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPenInfo_GetEndY(PyObject *sipSelf, PyObject *sipArgs)
@@ -963,7 +1012,9 @@ static PyObject *meth_wxGraphicsPenInfo_GetEndY(PyObject *sipSelf, PyObject *sip
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetRadius, "GetRadius() -> float");
+PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetRadius, "GetRadius() -> float\n"
+"\n"
+"Returns the radius of the radial gradient.");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_GetRadius(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPenInfo_GetRadius(PyObject *sipSelf, PyObject *sipArgs)
@@ -996,7 +1047,9 @@ static PyObject *meth_wxGraphicsPenInfo_GetRadius(PyObject *sipSelf, PyObject *s
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetStops, "GetStops() -> GraphicsGradientStops");
+PyDoc_STRVAR(doc_wxGraphicsPenInfo_GetStops, "GetStops() -> GraphicsGradientStops\n"
+"\n"
+"Returns the stops of the gradient.");
 
 extern "C" {static PyObject *meth_wxGraphicsPenInfo_GetStops(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsPenInfo_GetStops(PyObject *sipSelf, PyObject *sipArgs)
@@ -1178,7 +1231,7 @@ sipVariableDef variables_wxGraphicsPenInfo[] = {
 
 PyDoc_STRVAR(doc_wxGraphicsPenInfo, "GraphicsPenInfo(colour=Colour(), width=1.0, style=PENSTYLE_SOLID) -> None\n"
 "\n"
-"This class is a helper used for wxGraphicsPen creation using named\n"
+"This class is a helper used for wxGraphicsPen creation using the named\n"
 "parameter idiom: it allows specifying various wxGraphicsPen attributes\n"
 "using the chained calls to its clearly named methods instead of\n"
 "passing them in the fixed order to wxGraphicsPen constructors.");

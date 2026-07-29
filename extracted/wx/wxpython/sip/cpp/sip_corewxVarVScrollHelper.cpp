@@ -87,9 +87,9 @@ sipwxVarVScrollHelper::~sipwxVarVScrollHelper()
     if (!sipMeth)
         return 0;
 
-    extern ::wxCoord sipVH__core_145(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
+    extern ::wxCoord sipVH__core_144(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
 
-    return sipVH__core_145(sipGILState, 0, sipPySelf, sipMeth, row);
+    return sipVH__core_144(sipGILState, 0, sipPySelf, sipMeth, row);
 }
 
 ::wxCoord sipwxVarVScrollHelper::EstimateTotalHeight() const
@@ -102,9 +102,9 @@ sipwxVarVScrollHelper::~sipwxVarVScrollHelper()
     if (!sipMeth)
         return ::wxVarVScrollHelper::EstimateTotalHeight();
 
-    extern ::wxCoord sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxCoord sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxVarVScrollHelper::OnGetRowsHeightHint(size_t rowMin, size_t rowMax) const
@@ -120,9 +120,9 @@ void sipwxVarVScrollHelper::OnGetRowsHeightHint(size_t rowMin, size_t rowMax) co
         return;
     }
 
-    extern void sipVH__core_144(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, size_t);
+    extern void sipVH__core_143(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, size_t);
 
-    sipVH__core_144(sipGILState, 0, sipPySelf, sipMeth, rowMin, rowMax);
+    sipVH__core_143(sipGILState, 0, sipPySelf, sipMeth, rowMin, rowMax);
 }
 
 bool sipwxVarVScrollHelper::ScrollRows(int rows)
@@ -135,9 +135,9 @@ bool sipwxVarVScrollHelper::ScrollRows(int rows)
     if (!sipMeth)
         return ::wxVarVScrollHelper::ScrollRows(rows);
 
-    extern bool sipVH__core_147(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern bool sipVH__core_146(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    return sipVH__core_147(sipGILState, 0, sipPySelf, sipMeth, rows);
+    return sipVH__core_146(sipGILState, 0, sipPySelf, sipMeth, rows);
 }
 
 bool sipwxVarVScrollHelper::ScrollRowPages(int pages)
@@ -150,9 +150,9 @@ bool sipwxVarVScrollHelper::ScrollRowPages(int pages)
     if (!sipMeth)
         return ::wxVarVScrollHelper::ScrollRowPages(pages);
 
-    extern bool sipVH__core_147(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern bool sipVH__core_146(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    return sipVH__core_147(sipGILState, 0, sipPySelf, sipMeth, pages);
+    return sipVH__core_146(sipGILState, 0, sipPySelf, sipMeth, pages);
 }
 
 void sipwxVarVScrollHelper::RefreshRows(size_t from_, size_t to_)
@@ -168,9 +168,9 @@ void sipwxVarVScrollHelper::RefreshRows(size_t from_, size_t to_)
         return;
     }
 
-    extern void sipVH__core_144(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, size_t);
+    extern void sipVH__core_143(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, size_t);
 
-    sipVH__core_144(sipGILState, 0, sipPySelf, sipMeth, from_, to_);
+    sipVH__core_143(sipGILState, 0, sipPySelf, sipMeth, from_, to_);
 }
 
 void sipwxVarVScrollHelper::RefreshRow(size_t row)
@@ -186,9 +186,9 @@ void sipwxVarVScrollHelper::RefreshRow(size_t row)
         return;
     }
 
-    extern void sipVH__core_146(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
+    extern void sipVH__core_145(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
 
-    sipVH__core_146(sipGILState, 0, sipPySelf, sipMeth, row);
+    sipVH__core_145(sipGILState, 0, sipPySelf, sipMeth, row);
 }
 
 int sipwxVarVScrollHelper::GetNonOrientationTargetSize() const
@@ -201,9 +201,9 @@ int sipwxVarVScrollHelper::GetNonOrientationTargetSize() const
     if (!sipMeth)
         return ::wxVarVScrollHelper::GetNonOrientationTargetSize();
 
-    extern int sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern int sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxOrientation sipwxVarVScrollHelper::GetOrientation() const
@@ -216,9 +216,9 @@ int sipwxVarVScrollHelper::GetNonOrientationTargetSize() const
     if (!sipMeth)
         return ::wxVarVScrollHelper::GetOrientation();
 
-    extern ::wxOrientation sipVH__core_143(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxOrientation sipVH__core_142(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_143(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_142(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 int sipwxVarVScrollHelper::GetOrientationTargetSize() const
@@ -231,9 +231,9 @@ int sipwxVarVScrollHelper::GetOrientationTargetSize() const
     if (!sipMeth)
         return ::wxVarVScrollHelper::GetOrientationTargetSize();
 
-    extern int sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern int sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxVarVScrollHelper::OnGetUnitsSizeHint(size_t unitMin, size_t unitMax) const
@@ -249,9 +249,9 @@ void sipwxVarVScrollHelper::OnGetUnitsSizeHint(size_t unitMin, size_t unitMax) c
         return;
     }
 
-    extern void sipVH__core_144(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, size_t);
+    extern void sipVH__core_143(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, size_t);
 
-    sipVH__core_144(sipGILState, 0, sipPySelf, sipMeth, unitMin, unitMax);
+    sipVH__core_143(sipGILState, 0, sipPySelf, sipMeth, unitMin, unitMax);
 }
 
 ::wxCoord sipwxVarVScrollHelper::EstimateTotalSize() const
@@ -264,9 +264,9 @@ void sipwxVarVScrollHelper::OnGetUnitsSizeHint(size_t unitMin, size_t unitMax) c
     if (!sipMeth)
         return ::wxVarVScrollHelper::EstimateTotalSize();
 
-    extern ::wxCoord sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxCoord sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxCoord sipwxVarVScrollHelper::OnGetUnitSize(size_t unit) const
@@ -279,9 +279,9 @@ void sipwxVarVScrollHelper::OnGetUnitsSizeHint(size_t unitMin, size_t unitMax) c
     if (!sipMeth)
         return ::wxVarVScrollHelper::OnGetUnitSize(unit);
 
-    extern ::wxCoord sipVH__core_145(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
+    extern ::wxCoord sipVH__core_144(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
 
-    return sipVH__core_145(sipGILState, 0, sipPySelf, sipMeth, unit);
+    return sipVH__core_144(sipGILState, 0, sipPySelf, sipMeth, unit);
 }
 
 void sipwxVarVScrollHelper::sipProtectVirt_OnGetRowsHeightHint(bool sipSelfWasArg, size_t rowMin, size_t rowMax) const
@@ -1168,7 +1168,7 @@ static void *init_type_wxVarVScrollHelper(sipSimpleWrapper *sipSelf, PyObject *s
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxVarVScrollHelper[] = {{622, 255, 1}};
+static sipEncodedTypeDef supers_wxVarVScrollHelper[] = {{644, 255, 1}};
 
 
 static PyMethodDef methods_wxVarVScrollHelper[] = {

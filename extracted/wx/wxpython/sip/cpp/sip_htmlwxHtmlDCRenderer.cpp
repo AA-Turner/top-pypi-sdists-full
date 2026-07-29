@@ -531,7 +531,7 @@ static void *init_type_wxHtmlDCRenderer(sipSimpleWrapper *, PyObject *sipArgs, P
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxHtmlDCRenderer[] = {{25, 0, 1}};
+static sipEncodedTypeDef supers_wxHtmlDCRenderer[] = {{26, 0, 1}};
 
 
 static PyMethodDef methods_wxHtmlDCRenderer[] = {

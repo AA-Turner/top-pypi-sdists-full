@@ -35,8 +35,10 @@
 #endif // wxUSE_GRAPHICS_CONTEXT
 
 #include "wx/dynlib.h"
-#include "wx/scopedptr.h"
 #include "wx/msw/missing.h"
+#include "wx/msw/private/darkmode.h"
+
+#include <memory>
 
 // ============================================================================
 // wxNonOwnedWindow implementation
@@ -44,7 +46,7 @@
 
 bool wxNonOwnedWindow::DoClearShape()
 {
-    if (::SetWindowRgn(GetHwnd(), NULL, TRUE) == 0)
+    if (::SetWindowRgn(GetHwnd(), nullptr, TRUE) == 0)
     {
         wxLogLastError(wxT("SetWindowRgn"));
         return false;
@@ -57,10 +59,10 @@ bool wxNonOwnedWindow::DoSetRegionShape(const wxRegion& region)
 {
     // Windows takes ownership of the region, so
     // we'll have to make a copy of the region to give to it.
-    DWORD noBytes = ::GetRegionData(GetHrgnOf(region), 0, NULL);
+    DWORD noBytes = ::GetRegionData(GetHrgnOf(region), 0, nullptr);
     RGNDATA *rgnData = (RGNDATA*) new char[noBytes];
     ::GetRegionData(GetHrgnOf(region), noBytes, rgnData);
-    HRGN hrgn = ::ExtCreateRegion(NULL, noBytes, rgnData);
+    HRGN hrgn = ::ExtCreateRegion(nullptr, noBytes, rgnData);
     delete[] (char*) rgnData;
 
     // SetWindowRgn expects the region to be in coordinates
@@ -91,7 +93,7 @@ public:
     {
         // Create the region corresponding to this path and set it as windows
         // shape.
-        wxScopedPtr<wxGraphicsContext> context(wxGraphicsContext::Create(win));
+        std::unique_ptr<wxGraphicsContext> context(wxGraphicsContext::Create(win));
         Region gr(static_cast<GraphicsPath*>(m_path.GetNativePath()));
         win->SetShape(
             wxRegion(
@@ -117,7 +119,7 @@ private:
         event.Skip();
 
         wxPaintDC dc(m_win);
-        wxScopedPtr<wxGraphicsContext> context(wxGraphicsContext::Create(dc));
+        std::unique_ptr<wxGraphicsContext> context(wxGraphicsContext::Create(dc));
         context->SetPen(wxPen(*wxLIGHT_GREY, 2));
         context->StrokePath(m_path);
     }
@@ -141,7 +143,7 @@ bool wxNonOwnedWindow::DoSetPathShape(const wxGraphicsPath& path)
 wxNonOwnedWindow::wxNonOwnedWindow()
 {
 #if wxUSE_GRAPHICS_CONTEXT
-    m_shapeImpl = NULL;
+    m_shapeImpl = nullptr;
 #endif // wxUSE_GRAPHICS_CONTEXT
 
     m_activeDPI = wxDefaultSize;
@@ -182,12 +184,11 @@ static bool IsPerMonitorDPIAware(HWND hwnd)
 
     // Determine if 'Per Monitor v2' DPI awareness is enabled in the
     // applications manifest.
-#if wxUSE_DYNLIB_CLASS
     #define WXDPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 ((WXDPI_AWARENESS_CONTEXT)-4)
     typedef WXDPI_AWARENESS_CONTEXT(WINAPI * GetWindowDpiAwarenessContext_t)(HWND hwnd);
     typedef BOOL(WINAPI * AreDpiAwarenessContextsEqual_t)(WXDPI_AWARENESS_CONTEXT dpiContextA, WXDPI_AWARENESS_CONTEXT dpiContextB);
-    static GetWindowDpiAwarenessContext_t s_pfnGetWindowDpiAwarenessContext = NULL;
-    static AreDpiAwarenessContextsEqual_t s_pfnAreDpiAwarenessContextsEqual = NULL;
+    static GetWindowDpiAwarenessContext_t s_pfnGetWindowDpiAwarenessContext = nullptr;
+    static AreDpiAwarenessContextsEqual_t s_pfnAreDpiAwarenessContextsEqual = nullptr;
     static bool s_initDone = false;
 
     if ( !s_initDone )
@@ -207,7 +208,6 @@ static bool IsPerMonitorDPIAware(HWND hwnd)
             dpiAware = true;
         }
     }
-#endif // wxUSE_DYNLIB_CLASS
 
     return dpiAware;
 }
@@ -227,6 +227,14 @@ bool wxNonOwnedWindow::IsThisEnabled() const
     // using default ctor but before calling Create().
     return m_hWnd ? !(::GetWindowLong(GetHwnd(), GWL_STYLE) & WS_DISABLED)
                   : m_isEnabled;
+}
+
+void wxNonOwnedWindow::MSWSetDarkOrLightMode(SetMode setmode)
+{
+    wxNonOwnedWindowBase::MSWSetDarkOrLightMode(setmode);
+
+    // Update non-client area
+    wxMSWDarkMode::ConfigureTLW(GetHwnd());
 }
 
 WXLRESULT wxNonOwnedWindow::MSWWindowProc(WXUINT message, WXWPARAM wParam, WXLPARAM lParam)
@@ -255,6 +263,14 @@ WXLRESULT wxNonOwnedWindow::MSWWindowProc(WXUINT message, WXWPARAM wParam, WXLPA
                                                    HIWORD(wParam)),
                                             wxRectFromRECT(*prcNewWindow));
             }
+            break;
+
+        case WM_SHOWWINDOW:
+            // Default handling of this message in Windows restores the TLW
+            // even if it had been hidden before, and we don't want this to
+            // happen, so suppress the default behaviour and simply ignore it.
+            if ( lParam == SW_PARENTOPENING && !IsShown() )
+                processed = true;
             break;
     }
 
@@ -302,16 +318,26 @@ bool wxNonOwnedWindow::HandleDPIChange(const wxSize& newDPI, const wxRect& newRe
         wxRect actualNewRect = newRect;
         if ( wxSizer* sizer = GetSizer() )
         {
-            const wxSize minSize = ClientToWindowSize(sizer->GetMinSize());
+            const wxSize minSize = sizer->ComputeFittingWindowSize(this);
             wxSize diff = minSize - newRect.GetSize();
-            diff.IncTo(wxSize(0, 0));
+
+            // We don't want to shrink the window as if the user had increased
+            // it beyond its minimum size, we should not make it smaller again
+            // just because the DPI has changed, but if the window is not
+            // resizeable, then we do want to make it exactly of its minimum
+            // size because the user couldn't resize it and making it bigger
+            // than needed would just show unnecessary extra empty space.
+            if ( HasFlag(wxRESIZE_BORDER) )
+            {
+                diff.IncTo(wxSize(0, 0));
+            }
 
             // Use wxRect::Inflate() to ensure that the center of the bigger
             // rectangle is at the same position as the center of the proposed
             // one, to prevent moving the window back to the old display from
             // which it might have been just moved to this one, as doing this
             // would result in an infinite stream of WM_DPICHANGED messages.
-            actualNewRect.Inflate(diff);
+            actualNewRect.Inflate(diff / 2);
         }
 
         SetSize(actualNewRect);

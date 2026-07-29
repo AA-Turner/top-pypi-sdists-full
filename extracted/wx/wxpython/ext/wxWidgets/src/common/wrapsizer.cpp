@@ -72,7 +72,6 @@ wxWrapSizer::wxWrapSizer(int orient, int flags)
              m_dirInform(0),
              m_availSize(-1),
              m_availableOtherDir(0),
-             m_lastUsed(true),
              m_minSizeMinor(0),
              m_maxSizeMajor(0),
              m_minItemMajor(INT_MAX),
@@ -112,7 +111,7 @@ void wxWrapSizer::ClearRows()
         if ( propChanger )
         {
             // this deletes propChanger and so restores the old proportion
-            item->SetUserData(NULL);
+            item->SetUserData(nullptr);
         }
     }
 }
@@ -127,24 +126,6 @@ wxSizer *wxWrapSizer::GetRowSizer(size_t n)
     m_rows.Add(sizer, wxSizerFlags().Expand());
     return sizer;
 }
-
-bool wxWrapSizer::InformFirstDirection(int direction,
-                                       int size,
-                                       int availableOtherDir)
-{
-    if ( !direction )
-        return false;
-
-    // Store the values for later use
-    m_availSize = size;
-    m_availableOtherDir = availableOtherDir +
-                            (direction == wxHORIZONTAL ? m_calculatedMinSize.y
-                                                       : m_calculatedMinSize.x);
-    m_dirInform = direction;
-    m_lastUsed = false;
-    return true;
-}
-
 
 void wxWrapSizer::AdjustLastRowItemProp(size_t n, wxSizerItem *itemLast)
 {
@@ -161,48 +142,64 @@ void wxWrapSizer::AdjustLastRowItemProp(size_t n, wxSizerItem *itemLast)
     item->SetUserData(new wxPropChanger(*this, *itemLast));
 }
 
+wxSize
+wxWrapSizer::CalcMinSizeFromKnownDirection(int direction,
+                                           int size,
+                                           int availableOtherDir)
+{
+    if ( m_children.empty() )
+        return wxDefaultSize;
+
+    // Store the parameters for use in CalcMin() later.
+    m_availSize = size;
+    if ( availableOtherDir == -1 )
+    {
+        m_availableOtherDir = -1;
+    }
+    else
+    {
+        m_availableOtherDir = availableOtherDir +
+                                (direction == wxHORIZONTAL ? m_calculatedMinSize.y
+                                                           : m_calculatedMinSize.x);
+    }
+
+    m_dirInform = direction;
+
+    // We're called to find a min size that uses one dimension maximally and
+    // the other direction minimally.
+    //
+    // There are two different algorithms for doing it, depending on whether
+    // the first reported size component is the opposite as our own orientation
+    // (the simpler case) or the same one (more complicated).
+    if ( m_dirInform == m_orient )
+        CalcMinFromMajor(m_availSize);
+    else
+        CalcMinFromMinor(m_availSize);
+
+    return m_calculatedMinSize;
+}
+
 wxSize wxWrapSizer::CalcMin()
 {
     if ( m_children.empty() )
         return wxSize();
 
-    // We come here to calculate min size in two different situations:
-    // 1 - Immediately after InformFirstDirection, then we find a min size that
-    //     uses one dimension maximally and the other direction minimally.
-    // 2 - Ordinary case, get a sensible min size value using the current line
-    //     layout, trying to maintain the possibility to re-arrange lines by
-    //     sizing
+    // We're called to get a sensible min size value using the current line
+    // layout, trying to maintain the possibility to re-arrange lines by sizing
 
-    if ( !m_lastUsed )
+    if ( m_availSize > 0 )
     {
-        // Case 1 above: InformFirstDirection() has just been called
-        m_lastUsed = true;
-
-        // There are two different algorithms for finding a useful min size for
-        // a wrap sizer, depending on whether the first reported size component
-        // is the opposite as our own orientation (the simpler case) or the same
-        // one (more complicated).
+        wxSize szAvail;    // Keep track of boundary so we don't overflow
         if ( m_dirInform == m_orient )
-            CalcMinFromMajor(m_availSize);
+            szAvail = SizeFromMajorMinor(m_availSize, m_availableOtherDir);
         else
-            CalcMinFromMinor(m_availSize);
-    }
-    else // Case 2 above: not immediately after InformFirstDirection()
-    {
-        if ( m_availSize > 0 )
-        {
-            wxSize szAvail;    // Keep track of boundary so we don't overflow
-            if ( m_dirInform == m_orient )
-                szAvail = SizeFromMajorMinor(m_availSize, m_availableOtherDir);
-            else
-                szAvail = SizeFromMajorMinor(m_availableOtherDir, m_availSize);
+            szAvail = SizeFromMajorMinor(m_availableOtherDir, m_availSize);
 
-            CalcMinFittingSize(szAvail);
-        }
-        else // Initial calculation, before we have size available to us
-        {
-            CalcMaxSingleItemSize();
-        }
+        CalcMinFittingSize(szAvail);
+    }
+    else // Initial calculation, before we have size available to us
+    {
+        CalcMaxSingleItemSize();
     }
 
     return m_calculatedMinSize;
@@ -328,7 +325,7 @@ void wxWrapSizer::CalcMinFromMajor(int totMajor)
 // Helper struct for CalcMinFromMinor
 struct wxWrapLine
 {
-    wxWrapLine() : m_first(NULL), m_width(0) { }
+    wxWrapLine() : m_first(nullptr), m_width(0) { }
     wxSizerItem *m_first;
     int m_width;        // Width of line
 };
@@ -507,8 +504,8 @@ void wxWrapSizer::RepositionChildren(const wxSize& WXUNUSED(minSize))
     size_t nRow = 0;
     wxSizer *sizer = GetRowSizer(nRow);
 
-    wxSizerItem *itemLast = NULL,   // last item processed in this row
-                *itemSpace = NULL;  // spacer which we delayed adding
+    wxSizerItem *itemLast = nullptr,   // last item processed in this row
+                *itemSpace = nullptr;  // spacer which we delayed adding
 
     // Now put our child items into child sizers instead
     for ( wxSizerItemList::iterator i = m_children.begin();
@@ -546,7 +543,7 @@ void wxWrapSizer::RepositionChildren(const wxSize& WXUNUSED(minSize))
             sizer = GetRowSizer(++nRow);
 
             itemLast =
-            itemSpace = NULL;
+            itemSpace = nullptr;
         }
 
         // Only remove first/last spaces if that flag is set
@@ -571,7 +568,7 @@ void wxWrapSizer::RepositionChildren(const wxSize& WXUNUSED(minSize))
             // to a conflict with the current containing sizer.
             wxWindow * const win = item->GetWindow();
             if ( win )
-                win->SetContainingSizer(NULL);
+                win->SetContainingSizer(nullptr);
 
             // Notice that we reuse a pointer to our own sizer item here, so we
             // must remember to remove it by calling ClearRows() to avoid
@@ -582,12 +579,12 @@ void wxWrapSizer::RepositionChildren(const wxSize& WXUNUSED(minSize))
             // which is wrong. Set it to point to us.
             if ( win )
             {
-                win->SetContainingSizer(NULL);
+                win->SetContainingSizer(nullptr);
                 win->SetContainingSizer(this);
             }
 
             itemLast = item;
-            itemSpace = NULL;
+            itemSpace = nullptr;
         }
     }
 

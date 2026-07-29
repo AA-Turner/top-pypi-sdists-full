@@ -354,7 +354,7 @@ static void *init_type_wxLogInterposerTemp(sipSimpleWrapper *sipSelf, PyObject *
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxLogInterposerTemp[] = {{332, 255, 1}};
+static sipEncodedTypeDef supers_wxLogInterposerTemp[] = {{339, 255, 1}};
 
 
 static PyMethodDef methods_wxLogInterposerTemp[] = {

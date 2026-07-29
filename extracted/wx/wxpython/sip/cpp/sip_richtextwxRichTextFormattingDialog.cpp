@@ -13,6 +13,7 @@
         #include <wx/gdicmn.h>
         #include <wx/gdicmn.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/validate.h>
         #include <wx/colourdata.h>
@@ -21,6 +22,7 @@
         #include <wx/textctrl.h>
         #include <wx/richtext/richtextstyles.h>
         #include <wx/imaglist.h>
+        #include <wx/richtext/richtextbuffer.h>
         #include <wx/richtext/richtextctrl.h>
         #include <wx/richtext/richtextbuffer.h>
         #include <wx/bookctrl.h>
@@ -34,14 +36,14 @@
         #include <wx/region.h>
         #include <wx/graphics.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -56,6 +58,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
+    wxAccessible* _wxRichTextFormattingDialog_CreateAccessible(wxRichTextFormattingDialog* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxRichTextFormattingDialog : public ::wxRichTextFormattingDialog
@@ -83,7 +94,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -130,7 +140,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -148,7 +157,7 @@ private:
     sipwxRichTextFormattingDialog(const sipwxRichTextFormattingDialog &);
     sipwxRichTextFormattingDialog &operator = (const sipwxRichTextFormattingDialog &);
 
-    char sipPyMethods[45];
+    char sipPyMethods[44];
 };
 
 sipwxRichTextFormattingDialog::sipwxRichTextFormattingDialog(): ::wxRichTextFormattingDialog(), sipPySelf(SIP_NULLPTR)
@@ -742,27 +751,12 @@ void sipwxRichTextFormattingDialog::DoSetWindowVariant(::wxWindowVariant variant
     return sipVH__richtext_140(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxRichTextFormattingDialog::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[35]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxRichTextFormattingDialog::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__richtext_140(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__richtext_140(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 void sipwxRichTextFormattingDialog::DoFreeze()
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -780,7 +774,7 @@ void sipwxRichTextFormattingDialog::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -798,7 +792,7 @@ void sipwxRichTextFormattingDialog::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxRichTextFormattingDialog::DoGetBestSize();
@@ -813,7 +807,7 @@ void sipwxRichTextFormattingDialog::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[39]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxRichTextFormattingDialog::DoGetBestClientSize();
@@ -828,7 +822,7 @@ bool sipwxRichTextFormattingDialog::ShouldPreventAppExit() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[40]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldPreventAppExit);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[39]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldPreventAppExit);
 
     if (!sipMeth)
         return ::wxRichTextFormattingDialog::ShouldPreventAppExit();
@@ -843,7 +837,7 @@ void sipwxRichTextFormattingDialog::AddBookCtrl(::wxSizer*sizer)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[41], &sipPySelf, SIP_NULLPTR, sipName_AddBookCtrl);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[40], &sipPySelf, SIP_NULLPTR, sipName_AddBookCtrl);
 
     if (!sipMeth)
     {
@@ -861,7 +855,7 @@ void sipwxRichTextFormattingDialog::AddBookCtrl(::wxSizer*sizer)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[42], &sipPySelf, SIP_NULLPTR, sipName_CreateBookCtrl);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[41], &sipPySelf, SIP_NULLPTR, sipName_CreateBookCtrl);
 
     if (!sipMeth)
         return ::wxRichTextFormattingDialog::CreateBookCtrl();
@@ -876,7 +870,7 @@ void sipwxRichTextFormattingDialog::CreateButtons(int flags)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[43], &sipPySelf, SIP_NULLPTR, sipName_CreateButtons);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[42], &sipPySelf, SIP_NULLPTR, sipName_CreateButtons);
 
     if (!sipMeth)
     {
@@ -894,7 +888,7 @@ void sipwxRichTextFormattingDialog::LayoutDialog(int centreFlags)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[44], &sipPySelf, SIP_NULLPTR, sipName_LayoutDialog);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[43], &sipPySelf, SIP_NULLPTR, sipName_LayoutDialog);
 
     if (!sipMeth)
     {
@@ -977,11 +971,6 @@ void sipwxRichTextFormattingDialog::sipProtectVirt_DoSetWindowVariant(bool sipSe
     return (sipSelfWasArg ? ::wxRichTextFormattingDialog::GetDefaultBorder() : GetDefaultBorder());
 }
 
-::wxBorder sipwxRichTextFormattingDialog::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxRichTextFormattingDialog::GetDefaultBorderForControl() : GetDefaultBorderForControl());
-}
-
 void sipwxRichTextFormattingDialog::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
 {
     (sipSelfWasArg ? ::wxRichTextFormattingDialog::DoFreeze() : DoFreeze());
@@ -1043,9 +1032,11 @@ static PyObject *meth_wxRichTextFormattingDialog_SendDestroyEvent(PyObject *sipS
 
 
 PyDoc_STRVAR(doc_wxRichTextFormattingDialog_ApplyStyle, "ApplyStyle(ctrl, range, flags=RICHTEXT_SETSTYLE_WITH_UNDO|RICHTEXT_SETSTYLE_OPTIMIZE) -> bool\n"
+"ApplyStyle(ctrl, flags=RICHTEXT_SETSTYLE_WITH_UNDO) -> bool\n"
 "\n"
 "Apply attributes to the given range, only changing attributes that\n"
-"need to be changed.");
+"need to be changed.\n"
+"");
 
 extern "C" {static PyObject *meth_wxRichTextFormattingDialog_ApplyStyle(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRichTextFormattingDialog_ApplyStyle(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1075,6 +1066,33 @@ static PyObject *meth_wxRichTextFormattingDialog_ApplyStyle(PyObject *sipSelf, P
             sipRes = sipCpp->ApplyStyle(ctrl, *range, flags);
             Py_END_ALLOW_THREADS
             sipReleaseType(const_cast< ::wxRichTextRange *>(range), sipType_wxRichTextRange, rangeState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    {
+        ::wxRichTextCtrl* ctrl;
+        int flags = wxRICHTEXT_SETSTYLE_WITH_UNDO;
+        ::wxRichTextFormattingDialog *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_ctrl,
+            sipName_flags,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8|i", &sipSelf, sipType_wxRichTextFormattingDialog, &sipCpp, sipType_wxRichTextCtrl, &ctrl, &flags))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->ApplyStyle(ctrl, flags);
+            Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
                 return 0;
@@ -1446,6 +1464,82 @@ static PyObject *meth_wxRichTextFormattingDialog_GetOptions(PyObject *sipSelf, P
     }
 
     sipNoMethod(sipParseErr, sipName_RichTextFormattingDialog, sipName_GetOptions, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxRichTextFormattingDialog_SetObject, "SetObject(obj) -> None\n"
+"\n"
+"If editing the attributes for a particular object, such as an image,\n"
+"set the object so the code can initialize attributes such as size\n"
+"correctly.");
+
+extern "C" {static PyObject *meth_wxRichTextFormattingDialog_SetObject(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxRichTextFormattingDialog_SetObject(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxRichTextObject* obj;
+        ::wxRichTextFormattingDialog *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_obj,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8", &sipSelf, sipType_wxRichTextFormattingDialog, &sipCpp, sipType_wxRichTextObject, &obj))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetObject(obj);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_RichTextFormattingDialog, sipName_SetObject, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxRichTextFormattingDialog_GetObject, "GetObject() -> RichTextObject\n"
+"\n"
+"Returns the object of which the attributes are to edited (if any).");
+
+extern "C" {static PyObject *meth_wxRichTextFormattingDialog_GetObject(PyObject *, PyObject *);}
+static PyObject *meth_wxRichTextFormattingDialog_GetObject(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxRichTextFormattingDialog *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRichTextFormattingDialog, &sipCpp))
+        {
+            ::wxRichTextObject*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetObject();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxRichTextObject, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_RichTextFormattingDialog, sipName_GetObject, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -3261,40 +3355,6 @@ static PyObject *meth_wxRichTextFormattingDialog_GetDefaultBorder(PyObject *sipS
 }
 
 
-PyDoc_STRVAR(doc_wxRichTextFormattingDialog_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxRichTextFormattingDialog_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxRichTextFormattingDialog_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxRichTextFormattingDialog *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRichTextFormattingDialog, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_RichTextFormattingDialog, sipName_GetDefaultBorderForControl, doc_wxRichTextFormattingDialog_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxRichTextFormattingDialog_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxRichTextFormattingDialog_DoFreeze(PyObject *, PyObject *);}
@@ -3468,6 +3528,39 @@ static PyObject *meth_wxRichTextFormattingDialog_TryAfter(PyObject *sipSelf, PyO
     }
 
     sipNoMethod(sipParseErr, sipName_RichTextFormattingDialog, sipName_TryAfter, doc_wxRichTextFormattingDialog_TryAfter);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxRichTextFormattingDialog_CreateAccessible, "CreateAccessible() -> wx.Accessible");
+
+extern "C" {static PyObject *meth_wxRichTextFormattingDialog_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxRichTextFormattingDialog_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxRichTextFormattingDialog *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRichTextFormattingDialog, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxRichTextFormattingDialog_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_RichTextFormattingDialog, sipName_CreateAccessible, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -3665,6 +3758,7 @@ static PyMethodDef methods_wxRichTextFormattingDialog[] = {
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxRichTextFormattingDialog_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextFormattingDialog_AddChild},
     {sipName_ApplyStyle, SIP_MLMETH_CAST(meth_wxRichTextFormattingDialog_ApplyStyle), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextFormattingDialog_ApplyStyle},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxRichTextFormattingDialog_Create), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextFormattingDialog_Create},
+    {sipName_CreateAccessible, meth_wxRichTextFormattingDialog_CreateAccessible, METH_VARARGS, doc_wxRichTextFormattingDialog_CreateAccessible},
     {sipName_Destroy, meth_wxRichTextFormattingDialog_Destroy, METH_VARARGS, doc_wxRichTextFormattingDialog_Destroy},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxRichTextFormattingDialog_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextFormattingDialog_DoEnable},
     {sipName_DoFreeze, meth_wxRichTextFormattingDialog_DoFreeze, METH_VARARGS, doc_wxRichTextFormattingDialog_DoFreeze},
@@ -3685,7 +3779,6 @@ static PyMethodDef methods_wxRichTextFormattingDialog[] = {
     {sipName_GetClientAreaOrigin, meth_wxRichTextFormattingDialog_GetClientAreaOrigin, METH_VARARGS, doc_wxRichTextFormattingDialog_GetClientAreaOrigin},
     {sipName_GetColourData, meth_wxRichTextFormattingDialog_GetColourData, METH_VARARGS, doc_wxRichTextFormattingDialog_GetColourData},
     {sipName_GetDefaultBorder, meth_wxRichTextFormattingDialog_GetDefaultBorder, METH_VARARGS, doc_wxRichTextFormattingDialog_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxRichTextFormattingDialog_GetDefaultBorderForControl, METH_VARARGS, doc_wxRichTextFormattingDialog_GetDefaultBorderForControl},
     {sipName_GetDialog, SIP_MLMETH_CAST(meth_wxRichTextFormattingDialog_GetDialog), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextFormattingDialog_GetDialog},
     {sipName_GetDialogAttributes, SIP_MLMETH_CAST(meth_wxRichTextFormattingDialog_GetDialogAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextFormattingDialog_GetDialogAttributes},
     {sipName_GetDialogStyleDefinition, SIP_MLMETH_CAST(meth_wxRichTextFormattingDialog_GetDialogStyleDefinition), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextFormattingDialog_GetDialogStyleDefinition},
@@ -3693,6 +3786,7 @@ static PyMethodDef methods_wxRichTextFormattingDialog[] = {
     {sipName_GetImageList, meth_wxRichTextFormattingDialog_GetImageList, METH_VARARGS, doc_wxRichTextFormattingDialog_GetImageList},
     {sipName_GetLastPage, meth_wxRichTextFormattingDialog_GetLastPage, METH_VARARGS, doc_wxRichTextFormattingDialog_GetLastPage},
     {sipName_GetMainWindowOfCompositeControl, meth_wxRichTextFormattingDialog_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxRichTextFormattingDialog_GetMainWindowOfCompositeControl},
+    {sipName_GetObject, meth_wxRichTextFormattingDialog_GetObject, METH_VARARGS, doc_wxRichTextFormattingDialog_GetObject},
     {sipName_GetOptions, meth_wxRichTextFormattingDialog_GetOptions, METH_VARARGS, doc_wxRichTextFormattingDialog_GetOptions},
     {sipName_GetRestoreLastPage, meth_wxRichTextFormattingDialog_GetRestoreLastPage, METH_VARARGS, doc_wxRichTextFormattingDialog_GetRestoreLastPage},
     {sipName_GetStyle, SIP_MLMETH_CAST(meth_wxRichTextFormattingDialog_GetStyle), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextFormattingDialog_GetStyle},
@@ -3714,6 +3808,7 @@ static PyMethodDef methods_wxRichTextFormattingDialog[] = {
     {sipName_SetFormattingDialogFactory, SIP_MLMETH_CAST(meth_wxRichTextFormattingDialog_SetFormattingDialogFactory), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextFormattingDialog_SetFormattingDialogFactory},
     {sipName_SetImageList, SIP_MLMETH_CAST(meth_wxRichTextFormattingDialog_SetImageList), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextFormattingDialog_SetImageList},
     {sipName_SetLastPage, SIP_MLMETH_CAST(meth_wxRichTextFormattingDialog_SetLastPage), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextFormattingDialog_SetLastPage},
+    {sipName_SetObject, SIP_MLMETH_CAST(meth_wxRichTextFormattingDialog_SetObject), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextFormattingDialog_SetObject},
     {sipName_SetOptions, SIP_MLMETH_CAST(meth_wxRichTextFormattingDialog_SetOptions), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextFormattingDialog_SetOptions},
     {sipName_SetRestoreLastPage, SIP_MLMETH_CAST(meth_wxRichTextFormattingDialog_SetRestoreLastPage), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextFormattingDialog_SetRestoreLastPage},
     {sipName_SetStyle, SIP_MLMETH_CAST(meth_wxRichTextFormattingDialog_SetStyle), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextFormattingDialog_SetStyle},
@@ -3733,11 +3828,12 @@ static sipEnumMemberDef enummembers_wxRichTextFormattingDialog[] = {
 };
 
 sipVariableDef variables_wxRichTextFormattingDialog[] = {
-    {PropertyVariable, sipName_StyleSheet, &methods_wxRichTextFormattingDialog[38], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_StyleDefinition, &methods_wxRichTextFormattingDialog[37], &methods_wxRichTextFormattingDialog[58], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Options, &methods_wxRichTextFormattingDialog[34], &methods_wxRichTextFormattingDialog[55], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ImageList, &methods_wxRichTextFormattingDialog[31], &methods_wxRichTextFormattingDialog[53], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Attributes, &methods_wxRichTextFormattingDialog[21], &methods_wxRichTextFormattingDialog[49], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_StyleSheet, &methods_wxRichTextFormattingDialog[39], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_StyleDefinition, &methods_wxRichTextFormattingDialog[38], &methods_wxRichTextFormattingDialog[60], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Options, &methods_wxRichTextFormattingDialog[35], &methods_wxRichTextFormattingDialog[57], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Object, &methods_wxRichTextFormattingDialog[34], &methods_wxRichTextFormattingDialog[56], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ImageList, &methods_wxRichTextFormattingDialog[31], &methods_wxRichTextFormattingDialog[54], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Attributes, &methods_wxRichTextFormattingDialog[22], &methods_wxRichTextFormattingDialog[50], SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxRichTextFormattingDialog, "RichTextFormattingDialog() -> None\n"
@@ -3760,9 +3856,9 @@ sipClassTypeDef sipTypeDef__richtext_wxRichTextFormattingDialog = {
     {
         sipNameNr_RichTextFormattingDialog,
         {0, 0, 1},
-        67, methods_wxRichTextFormattingDialog,
+        69, methods_wxRichTextFormattingDialog,
         1, enummembers_wxRichTextFormattingDialog,
-        5, variables_wxRichTextFormattingDialog,
+        6, variables_wxRichTextFormattingDialog,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxRichTextFormattingDialog,

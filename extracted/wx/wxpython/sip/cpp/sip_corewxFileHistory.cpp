@@ -74,9 +74,9 @@ void sipwxFileHistory::UseMenu(::wxMenu*menu)
         return;
     }
 
-    extern void sipVH__core_238(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxMenu*);
+    extern void sipVH__core_237(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxMenu*);
 
-    sipVH__core_238(sipGILState, 0, sipPySelf, sipMeth, menu);
+    sipVH__core_237(sipGILState, 0, sipPySelf, sipMeth, menu);
 }
 
 void sipwxFileHistory::Save(::wxConfigBase& config)
@@ -92,9 +92,9 @@ void sipwxFileHistory::Save(::wxConfigBase& config)
         return;
     }
 
-    extern void sipVH__core_240(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxConfigBase&);
+    extern void sipVH__core_239(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxConfigBase&);
 
-    sipVH__core_240(sipGILState, 0, sipPySelf, sipMeth, config);
+    sipVH__core_239(sipGILState, 0, sipPySelf, sipMeth, config);
 }
 
 void sipwxFileHistory::RemoveMenu(::wxMenu*menu)
@@ -110,9 +110,9 @@ void sipwxFileHistory::RemoveMenu(::wxMenu*menu)
         return;
     }
 
-    extern void sipVH__core_238(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxMenu*);
+    extern void sipVH__core_237(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxMenu*);
 
-    sipVH__core_238(sipGILState, 0, sipPySelf, sipMeth, menu);
+    sipVH__core_237(sipGILState, 0, sipPySelf, sipMeth, menu);
 }
 
 void sipwxFileHistory::RemoveFileFromHistory(size_t i)
@@ -128,9 +128,9 @@ void sipwxFileHistory::RemoveFileFromHistory(size_t i)
         return;
     }
 
-    extern void sipVH__core_146(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
+    extern void sipVH__core_145(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
 
-    sipVH__core_146(sipGILState, 0, sipPySelf, sipMeth, i);
+    sipVH__core_145(sipGILState, 0, sipPySelf, sipMeth, i);
 }
 
 void sipwxFileHistory::Load(const ::wxConfigBase& config)
@@ -146,9 +146,9 @@ void sipwxFileHistory::Load(const ::wxConfigBase& config)
         return;
     }
 
-    extern void sipVH__core_239(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxConfigBase&);
+    extern void sipVH__core_238(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxConfigBase&);
 
-    sipVH__core_239(sipGILState, 0, sipPySelf, sipMeth, config);
+    sipVH__core_238(sipGILState, 0, sipPySelf, sipMeth, config);
 }
 
 int sipwxFileHistory::GetMaxFiles() const
@@ -161,9 +161,9 @@ int sipwxFileHistory::GetMaxFiles() const
     if (!sipMeth)
         return ::wxFileHistory::GetMaxFiles();
 
-    extern int sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern int sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxString sipwxFileHistory::GetHistoryFile(size_t index) const
@@ -176,9 +176,9 @@ int sipwxFileHistory::GetMaxFiles() const
     if (!sipMeth)
         return ::wxFileHistory::GetHistoryFile(index);
 
-    extern ::wxString sipVH__core_157(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
+    extern ::wxString sipVH__core_156(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
 
-    return sipVH__core_157(sipGILState, 0, sipPySelf, sipMeth, index);
+    return sipVH__core_156(sipGILState, 0, sipPySelf, sipMeth, index);
 }
 
 size_t sipwxFileHistory::GetCount() const
@@ -191,9 +191,9 @@ size_t sipwxFileHistory::GetCount() const
     if (!sipMeth)
         return ::wxFileHistory::GetCount();
 
-    extern size_t sipVH__core_74(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern size_t sipVH__core_73(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_74(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_73(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxFileHistory::AddFilesToMenu(::wxMenu*menu)
@@ -209,9 +209,9 @@ void sipwxFileHistory::AddFilesToMenu(::wxMenu*menu)
         return;
     }
 
-    extern void sipVH__core_238(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxMenu*);
+    extern void sipVH__core_237(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxMenu*);
 
-    sipVH__core_238(sipGILState, 0, sipPySelf, sipMeth, menu);
+    sipVH__core_237(sipGILState, 0, sipPySelf, sipMeth, menu);
 }
 
 void sipwxFileHistory::AddFilesToMenu()
@@ -951,7 +951,7 @@ static void *init_type_wxFileHistory(sipSimpleWrapper *sipSelf, PyObject *sipArg
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxFileHistory[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxFileHistory[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxFileHistory[] = {

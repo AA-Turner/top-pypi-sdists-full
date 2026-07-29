@@ -287,9 +287,6 @@ class FeedbackManager:
         "Error selecting organization '{organization_index}'. Select a valid index or 0 to cancel"
     )
     error_organization_creation = error_message("Error creating organization: {error}")
-    warning_none_organization = warning_message(
-        "Tinybird is now based on organizations. Please, go to the UI ({ui_host}) to follow the migration process. \nYour workspace will be created any way."
-    )
     error_while_fetching_orgs = error_message("Error while fetching organizations: {error}")
     error_deleted_include = error_message(
         "Related include file {include_file} was deleted and it's used in {filename}. Delete or remove dependency from {filename}."

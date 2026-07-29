@@ -133,7 +133,7 @@ static PyObject *varget_wxAuiNotebookPage_bitmap(void *sipSelf, PyObject *sipPyS
     ::wxBitmapBundle*sipVal;
     ::wxAuiNotebookPage *sipCpp = reinterpret_cast< ::wxAuiNotebookPage *>(sipSelf);
 
-    sipPy = sipGetReference(sipPySelf, -4);
+    sipPy = sipGetReference(sipPySelf, -6);
 
     if (sipPy)
         return sipPy;
@@ -144,8 +144,8 @@ static PyObject *varget_wxAuiNotebookPage_bitmap(void *sipSelf, PyObject *sipPyS
 
     if (sipPy)
     {
-        sipKeepReference(sipPy, -24, sipPySelf);
-        sipKeepReference(sipPySelf, -4, sipPy);
+        sipKeepReference(sipPy, -26, sipPySelf);
+        sipKeepReference(sipPySelf, -6, sipPy);
     }
 
     return sipPy;
@@ -213,7 +213,7 @@ static PyObject *varget_wxAuiNotebookPage_rect(void *sipSelf, PyObject *sipPySel
     ::wxRect*sipVal;
     ::wxAuiNotebookPage *sipCpp = reinterpret_cast< ::wxAuiNotebookPage *>(sipSelf);
 
-    sipPy = sipGetReference(sipPySelf, -5);
+    sipPy = sipGetReference(sipPySelf, -7);
 
     if (sipPy)
         return sipPy;
@@ -224,8 +224,8 @@ static PyObject *varget_wxAuiNotebookPage_rect(void *sipSelf, PyObject *sipPySel
 
     if (sipPy)
     {
-        sipKeepReference(sipPy, -25, sipPySelf);
-        sipKeepReference(sipPySelf, -5, sipPy);
+        sipKeepReference(sipPy, -27, sipPySelf);
+        sipKeepReference(sipPySelf, -7, sipPy);
     }
 
     return sipPy;
@@ -324,8 +324,7 @@ sipVariableDef variables_wxAuiNotebookPage[] = {
     {InstanceVariable, sipName_window, (PyMethodDef *)varget_wxAuiNotebookPage_window, (PyMethodDef *)varset_wxAuiNotebookPage_window, SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxAuiNotebookPage, "A simple class which holds information about the notebook's pages and\n"
-"their state.");
+PyDoc_STRVAR(doc_wxAuiNotebookPage, "Holds information about a page in wxAuiNotebook.");
 
 
 sipClassTypeDef sipTypeDef__aui_wxAuiNotebookPage = {

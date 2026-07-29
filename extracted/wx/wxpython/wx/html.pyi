@@ -386,7 +386,7 @@ class HtmlCell(wx.Object):
         Find(condition, param) -> HtmlCell
         
         Returns pointer to itself if this cell matches condition (or if any of
-        the cells following in the list matches), NULL otherwise.
+        the cells following in the list matches), nullptr otherwise.
         """
 
     def FindCellByPos(self, x: int, y: int, flags: int=HTML_FIND_EXACT) -> HtmlCell:
@@ -430,7 +430,8 @@ class HtmlCell(wx.Object):
         """
         GetLink(x=0, y=0) -> HtmlLinkInfo
         
-        Returns hypertext link if associated with this cell or NULL otherwise.
+        Returns hypertext link if associated with this cell or nullptr
+        otherwise.
         """
 
     def GetMouseCursor(self, window: HtmlWindowInterface) -> wx.Cursor:
@@ -483,6 +484,13 @@ class HtmlCell(wx.Object):
         GetWidth() -> int
         
         Returns width of the cell (m_Width member).
+        """
+
+    def HasId(self) -> bool:
+        """
+        HasId() -> bool
+        
+        Returns true if this cell has a non-empty ID.
         """
 
     def Layout(self, w: int) -> None:
@@ -1271,7 +1279,7 @@ class HtmlWindowInterface:
         """
         GetHTMLWindow() -> wx.Window
         
-        Returns the window used for rendering (may be NULL).
+        Returns the window used for rendering (may be nullptr).
         """
 
     def GetHTMLBackgroundColour(self) -> wx.Colour:
@@ -1574,9 +1582,9 @@ class HtmlWindow(wx.ScrolledWindow, HtmlWindowInterface):
         """
 
     @staticmethod
-    def GetDefaultHTMLCursor(type: HTMLCursor) -> wx.Cursor:
+    def GetDefaultHTMLCursor(type: HTMLCursor, window: wx.Window=nullptr) -> wx.Cursor:
         """
-        GetDefaultHTMLCursor(type) -> wx.Cursor
+        GetDefaultHTMLCursor(type, window=nullptr) -> wx.Cursor
         
         Retrieves the default cursor for a given HTMLCursor type.
         """
@@ -1587,6 +1595,11 @@ class HtmlWindow(wx.ScrolledWindow, HtmlWindowInterface):
         SetDefaultHTMLCursor(type, cursor) -> None
         
         Sets the default cursor for a given HTMLCursor type.
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
         """
 
     @staticmethod
@@ -1833,7 +1846,7 @@ class HtmlDCRenderer(wx.Object):
 
 class HtmlEasyPrinting(wx.Object):
     """
-    HtmlEasyPrinting(name="Printing", parentWindow=None) -> None
+    HtmlEasyPrinting(name="Printing", parentWindow=nullptr) -> None
     
     This class provides very simple interface to printing architecture.
     """
@@ -1847,9 +1860,9 @@ class HtmlEasyPrinting(wx.Object):
     Prompt_Once = _PromptMode.Prompt_Once
     Prompt_Always = _PromptMode.Prompt_Always
 
-    def __init__(self, name: str="Printing", parentWindow: Optional[wx.Window]=None) -> None:
+    def __init__(self, name: str="Printing", parentWindow: wx.Window=nullptr) -> None:
         """
-        HtmlEasyPrinting(name="Printing", parentWindow=None) -> None
+        HtmlEasyPrinting(name="Printing", parentWindow=nullptr) -> None
         
         This class provides very simple interface to printing architecture.
         """
@@ -2094,15 +2107,15 @@ class HtmlWinTagHandler(HtmlTagHandler):
 
 class HtmlWinParser(HtmlParser):
     """
-    HtmlWinParser(wndIface=None) -> None
+    HtmlWinParser(wndIface=nullptr) -> None
     
     This class is derived from wxHtmlParser and its main goal is to parse
     HTML input so that it can be displayed in wxHtmlWindow.
     """
 
-    def __init__(self, wndIface: Optional[HtmlWindowInterface]=None) -> None:
+    def __init__(self, wndIface: HtmlWindowInterface=nullptr) -> None:
         """
-        HtmlWinParser(wndIface=None) -> None
+        HtmlWinParser(wndIface=nullptr) -> None
         
         This class is derived from wxHtmlParser and its main goal is to parse
         HTML input so that it can be displayed in wxHtmlWindow.
@@ -2610,21 +2623,21 @@ HF_DEFAULT_STYLE: int
 
 class HtmlHelpFrame(wx.Frame):
     """
-    HtmlHelpFrame(data=None) -> None
-    HtmlHelpFrame(parent, id=wx.ID_ANY, title='', style=HF_DEFAULT_STYLE, data=None, config=None, rootpath='') -> None
+    HtmlHelpFrame(data=nullptr) -> None
+    HtmlHelpFrame(parent, id=wx.ID_ANY, title='', style=HF_DEFAULT_STYLE, data=nullptr, config=nullptr, rootpath='') -> None
     
     This class is used by wxHtmlHelpController to display help.
     """
 
     @overload
-    def __init__(self, parent: Optional[wx.Window], id: int=wx.ID_ANY, title: str='', style: int=HF_DEFAULT_STYLE, data: Optional[HtmlHelpData]=None, config: Optional[wx.ConfigBase]=None, rootpath: str='') -> None:
+    def __init__(self, parent: Optional[wx.Window], id: int=wx.ID_ANY, title: str='', style: int=HF_DEFAULT_STYLE, data: HtmlHelpData=nullptr, config: wx.ConfigBase=nullptr, rootpath: str='') -> None:
         ...
 
     @overload
-    def __init__(self, data: Optional[HtmlHelpData]=None) -> None:
+    def __init__(self, data: HtmlHelpData=nullptr) -> None:
         """
-        HtmlHelpFrame(data=None) -> None
-        HtmlHelpFrame(parent, id=wx.ID_ANY, title='', style=HF_DEFAULT_STYLE, data=None, config=None, rootpath='') -> None
+        HtmlHelpFrame(data=nullptr) -> None
+        HtmlHelpFrame(parent, id=wx.ID_ANY, title='', style=HF_DEFAULT_STYLE, data=nullptr, config=nullptr, rootpath='') -> None
         
         This class is used by wxHtmlHelpController to display help.
         """
@@ -2637,9 +2650,9 @@ class HtmlHelpFrame(wx.Frame):
         window's toolbar.
         """
 
-    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, title: str='', style: int=HF_DEFAULT_STYLE, config: Optional[wx.ConfigBase]=None, rootpath: str='') -> bool:
+    def Create(self, parent: wx.Window, id: int=wx.ID_ANY, title: str='', style: int=HF_DEFAULT_STYLE, config: wx.ConfigBase=nullptr, rootpath: str='') -> bool:
         """
-        Create(parent, id=wx.ID_ANY, title='', style=HF_DEFAULT_STYLE, config=None, rootpath='') -> bool
+        Create(parent, id=wx.ID_ANY, title='', style=HF_DEFAULT_STYLE, config=nullptr, rootpath='') -> bool
         
         Creates the frame.
         """
@@ -2665,6 +2678,11 @@ class HtmlHelpFrame(wx.Frame):
         Sets the frame's title format.
         """
 
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
@@ -2681,21 +2699,21 @@ class HtmlHelpFrame(wx.Frame):
 
 class HtmlHelpDialog(wx.Dialog):
     """
-    HtmlHelpDialog(data=None) -> None
-    HtmlHelpDialog(parent, id=wx.ID_ANY, title='', style=HF_DEFAULT_STYLE, data=None) -> None
+    HtmlHelpDialog(data=nullptr) -> None
+    HtmlHelpDialog(parent, id=wx.ID_ANY, title='', style=HF_DEFAULT_STYLE, data=nullptr) -> None
     
     This class is used by wxHtmlHelpController to display help.
     """
 
     @overload
-    def __init__(self, parent: Optional[wx.Window], id: int=wx.ID_ANY, title: str='', style: int=HF_DEFAULT_STYLE, data: Optional[HtmlHelpData]=None) -> None:
+    def __init__(self, parent: Optional[wx.Window], id: int=wx.ID_ANY, title: str='', style: int=HF_DEFAULT_STYLE, data: HtmlHelpData=nullptr) -> None:
         ...
 
     @overload
-    def __init__(self, data: Optional[HtmlHelpData]=None) -> None:
+    def __init__(self, data: HtmlHelpData=nullptr) -> None:
         """
-        HtmlHelpDialog(data=None) -> None
-        HtmlHelpDialog(parent, id=wx.ID_ANY, title='', style=HF_DEFAULT_STYLE, data=None) -> None
+        HtmlHelpDialog(data=nullptr) -> None
+        HtmlHelpDialog(parent, id=wx.ID_ANY, title='', style=HF_DEFAULT_STYLE, data=nullptr) -> None
         
         This class is used by wxHtmlHelpController to display help.
         """
@@ -2734,6 +2752,11 @@ class HtmlHelpDialog(wx.Dialog):
         SetTitleFormat(format) -> None
         
         Sets the dialog's title format.
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
         """
 
     @staticmethod
@@ -2804,8 +2827,8 @@ ID_HTML_COUNTINFO = _enum_26.ID_HTML_COUNTINFO
 
 class HtmlHelpWindow(wx.Window):
     """
-    HtmlHelpWindow(data=None) -> None
-    HtmlHelpWindow(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=wx.TAB_TRAVERSAL|wx.BORDER_NONE, helpStyle=HF_DEFAULT_STYLE, data=None) -> None
+    HtmlHelpWindow(data=nullptr) -> None
+    HtmlHelpWindow(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=wx.TAB_TRAVERSAL|wx.BORDER_NONE, helpStyle=HF_DEFAULT_STYLE, data=nullptr) -> None
     
     This class is used by wxHtmlHelpController to display help within a
     frame or dialog, but you can use it yourself to create an embedded
@@ -2813,14 +2836,14 @@ class HtmlHelpWindow(wx.Window):
     """
 
     @overload
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=wx.TAB_TRAVERSAL|wx.BORDER_NONE, helpStyle: int=HF_DEFAULT_STYLE, data: Optional[HtmlHelpData]=None) -> None:
+    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=wx.TAB_TRAVERSAL|wx.BORDER_NONE, helpStyle: int=HF_DEFAULT_STYLE, data: HtmlHelpData=nullptr) -> None:
         ...
 
     @overload
-    def __init__(self, data: Optional[HtmlHelpData]=None) -> None:
+    def __init__(self, data: HtmlHelpData=nullptr) -> None:
         """
-        HtmlHelpWindow(data=None) -> None
-        HtmlHelpWindow(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=wx.TAB_TRAVERSAL|wx.BORDER_NONE, helpStyle=HF_DEFAULT_STYLE, data=None) -> None
+        HtmlHelpWindow(data=nullptr) -> None
+        HtmlHelpWindow(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=wx.TAB_TRAVERSAL|wx.BORDER_NONE, helpStyle=HF_DEFAULT_STYLE, data=nullptr) -> None
         
         This class is used by wxHtmlHelpController to display help within a
         frame or dialog, but you can use it yourself to create an embedded
@@ -2914,6 +2937,11 @@ class HtmlHelpWindow(wx.Window):
         SetController(controller) -> None
         """
 
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
@@ -2966,7 +2994,7 @@ HF_MODAL: int
 
 class HtmlHelpController(wx.HelpControllerBase):
     """
-    HtmlHelpController(style=HF_DEFAULT_STYLE, parentWindow=None) -> None
+    HtmlHelpController(style=HF_DEFAULT_STYLE, parentWindow=nullptr) -> None
     HtmlHelpController(parentWindow, style=HF_DEFAULT_STYLE) -> None
     
     This help controller provides an easy way of displaying HTML help in
@@ -2978,9 +3006,9 @@ class HtmlHelpController(wx.HelpControllerBase):
         ...
 
     @overload
-    def __init__(self, style: int=HF_DEFAULT_STYLE, parentWindow: Optional[wx.Window]=None) -> None:
+    def __init__(self, style: int=HF_DEFAULT_STYLE, parentWindow: wx.Window=nullptr) -> None:
         """
-        HtmlHelpController(style=HF_DEFAULT_STYLE, parentWindow=None) -> None
+        HtmlHelpController(style=HF_DEFAULT_STYLE, parentWindow=nullptr) -> None
         HtmlHelpController(parentWindow, style=HF_DEFAULT_STYLE) -> None
         
         This help controller provides an easy way of displaying HTML help in
@@ -3198,6 +3226,11 @@ class HtmlListBox(wx.VListBox):
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
+        """
     @property
     def FileSystem(self) -> wx.FileSystem: ...
 
@@ -3273,6 +3306,11 @@ class SimpleHtmlListBox(HtmlListBox, wx.ItemContainer):
         Create(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, choices=[], style=HLB_DEFAULT_STYLE, validator=wx.DefaultValidator, name=SimpleHtmlListBoxNameStr) -> bool
         
         Creates the HTML listbox for two-step construction.
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
         """
 
     @staticmethod

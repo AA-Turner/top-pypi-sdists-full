@@ -419,7 +419,7 @@ static PyObject *meth_wxHtmlCell_DrawInvisible(PyObject *sipSelf, PyObject *sipA
 PyDoc_STRVAR(doc_wxHtmlCell_Find, "Find(condition, param) -> HtmlCell\n"
 "\n"
 "Returns pointer to itself if this cell matches condition (or if any of\n"
-"the cells following in the list matches), NULL otherwise.");
+"the cells following in the list matches), nullptr otherwise.");
 
 extern "C" {static PyObject *meth_wxHtmlCell_Find(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxHtmlCell_Find(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -650,7 +650,8 @@ static PyObject *meth_wxHtmlCell_GetId(PyObject *sipSelf, PyObject *sipArgs)
 
 PyDoc_STRVAR(doc_wxHtmlCell_GetLink, "GetLink(x=0, y=0) -> HtmlLinkInfo\n"
 "\n"
-"Returns hypertext link if associated with this cell or NULL otherwise.");
+"Returns hypertext link if associated with this cell or nullptr\n"
+"otherwise.");
 
 extern "C" {static PyObject *meth_wxHtmlCell_GetLink(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxHtmlCell_GetLink(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -950,6 +951,41 @@ static PyObject *meth_wxHtmlCell_GetWidth(PyObject *sipSelf, PyObject *sipArgs)
     }
 
     sipNoMethod(sipParseErr, sipName_HtmlCell, sipName_GetWidth, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxHtmlCell_HasId, "HasId() -> bool\n"
+"\n"
+"Returns true if this cell has a non-empty ID.");
+
+extern "C" {static PyObject *meth_wxHtmlCell_HasId(PyObject *, PyObject *);}
+static PyObject *meth_wxHtmlCell_HasId(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxHtmlCell *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxHtmlCell, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->HasId();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_HtmlCell, sipName_HasId, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -1392,7 +1428,7 @@ static void *init_type_wxHtmlCell(sipSimpleWrapper *sipSelf, PyObject *sipArgs, 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxHtmlCell[] = {{25, 0, 1}};
+static sipEncodedTypeDef supers_wxHtmlCell[] = {{26, 0, 1}};
 
 
 static PyMethodDef methods_wxHtmlCell[] = {
@@ -1416,6 +1452,7 @@ static PyMethodDef methods_wxHtmlCell[] = {
     {sipName_GetPosY, meth_wxHtmlCell_GetPosY, METH_VARARGS, doc_wxHtmlCell_GetPosY},
     {sipName_GetRootCell, meth_wxHtmlCell_GetRootCell, METH_VARARGS, SIP_NULLPTR},
     {sipName_GetWidth, meth_wxHtmlCell_GetWidth, METH_VARARGS, doc_wxHtmlCell_GetWidth},
+    {sipName_HasId, meth_wxHtmlCell_HasId, METH_VARARGS, doc_wxHtmlCell_HasId},
     {sipName_Layout, SIP_MLMETH_CAST(meth_wxHtmlCell_Layout), METH_VARARGS|METH_KEYWORDS, doc_wxHtmlCell_Layout},
     {sipName_ProcessMouseClick, SIP_MLMETH_CAST(meth_wxHtmlCell_ProcessMouseClick), METH_VARARGS|METH_KEYWORDS, doc_wxHtmlCell_ProcessMouseClick},
     {sipName_SetId, SIP_MLMETH_CAST(meth_wxHtmlCell_SetId), METH_VARARGS|METH_KEYWORDS, doc_wxHtmlCell_SetId},
@@ -1430,10 +1467,10 @@ sipVariableDef variables_wxHtmlCell[] = {
     {PropertyVariable, sipName_RootCell, &methods_wxHtmlCell[18], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_PosY, &methods_wxHtmlCell[17], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_PosX, &methods_wxHtmlCell[16], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Parent, &methods_wxHtmlCell[15], &methods_wxHtmlCell[25], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Next, &methods_wxHtmlCell[14], &methods_wxHtmlCell[24], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Link, &methods_wxHtmlCell[11], &methods_wxHtmlCell[23], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Id, &methods_wxHtmlCell[10], &methods_wxHtmlCell[22], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Parent, &methods_wxHtmlCell[15], &methods_wxHtmlCell[26], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Next, &methods_wxHtmlCell[14], &methods_wxHtmlCell[25], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Link, &methods_wxHtmlCell[11], &methods_wxHtmlCell[24], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Id, &methods_wxHtmlCell[10], &methods_wxHtmlCell[23], SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_Height, &methods_wxHtmlCell[9], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_FirstChild, &methods_wxHtmlCell[8], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_Descent, &methods_wxHtmlCell[7], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
@@ -1458,7 +1495,7 @@ sipClassTypeDef sipTypeDef__html_wxHtmlCell = {
     {
         sipNameNr_HtmlCell,
         {0, 0, 1},
-        27, methods_wxHtmlCell,
+        28, methods_wxHtmlCell,
         0, SIP_NULLPTR,
         12, variables_wxHtmlCell,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

@@ -41,114 +41,111 @@ import wx
 #-- end-_propgrid --#
 #-- begin-propgriddefs --#
 
-PG_LABEL = "@!"
-PG_LABEL_STRING = PG_LABEL
-PG_NULL_BITMAP = wx.NullBitmap
-PG_COLOUR_BLACK = wx.BLACK
-PG_DEFAULT_IMAGE_SIZE = wx.Size(-1, -1)
-PG_INVALID_VALUE: int
-PG_BASE_OCT: int
-PG_BASE_DEC: int
-PG_BASE_HEX: int
-PG_BASE_HEXL: int
-PG_PREFIX_NONE: int
-PG_PREFIX_0x: int
-PG_PREFIX_DOLLAR_SIGN: int
+class _PGPropertyValuesFlags(IntFlag):
+    DontRecurse = auto()
+    KeepStructure = auto()
+    Recurse = auto()
+    IncAttributes = auto()
+    RecurseStarts = auto()
+    Force = auto()
+    SortTopLevelOnly = auto()
+PGPropertyValuesFlags: TypeAlias = Union[_PGPropertyValuesFlags, int]
+DontRecurse = _PGPropertyValuesFlags.DontRecurse
+KeepStructure = _PGPropertyValuesFlags.KeepStructure
+Recurse = _PGPropertyValuesFlags.Recurse
+IncAttributes = _PGPropertyValuesFlags.IncAttributes
+RecurseStarts = _PGPropertyValuesFlags.RecurseStarts
+Force = _PGPropertyValuesFlags.Force
+SortTopLevelOnly = _PGPropertyValuesFlags.SortTopLevelOnly
 
-class _PG_GETPROPERTYVALUES_FLAGS(IntEnum):
-    PG_DONT_RECURSE = auto()
-    PG_KEEP_STRUCTURE = auto()
-    PG_RECURSE = auto()
-    PG_INC_ATTRIBUTES = auto()
-    PG_RECURSE_STARTS = auto()
-    PG_FORCE = auto()
-    PG_SORT_TOP_LEVEL_ONLY = auto()
-PG_GETPROPERTYVALUES_FLAGS: TypeAlias = Union[_PG_GETPROPERTYVALUES_FLAGS, int]
-PG_DONT_RECURSE = _PG_GETPROPERTYVALUES_FLAGS.PG_DONT_RECURSE
-PG_KEEP_STRUCTURE = _PG_GETPROPERTYVALUES_FLAGS.PG_KEEP_STRUCTURE
-PG_RECURSE = _PG_GETPROPERTYVALUES_FLAGS.PG_RECURSE
-PG_INC_ATTRIBUTES = _PG_GETPROPERTYVALUES_FLAGS.PG_INC_ATTRIBUTES
-PG_RECURSE_STARTS = _PG_GETPROPERTYVALUES_FLAGS.PG_RECURSE_STARTS
-PG_FORCE = _PG_GETPROPERTYVALUES_FLAGS.PG_FORCE
-PG_SORT_TOP_LEVEL_ONLY = _PG_GETPROPERTYVALUES_FLAGS.PG_SORT_TOP_LEVEL_ONLY
+class _PGPropValFormatFlags(IntFlag):
+    Null = auto()
+    FullValue = auto()
+    ReportError = auto()
+    PropertySpecific = auto()
+    EditableValue = auto()
+    CompositeFragment = auto()
+    UneditableCompositeFragment = auto()
+    ValueIsCurrent = auto()
+    ProgrammaticValue = auto()
+PGPropValFormatFlags: TypeAlias = Union[_PGPropValFormatFlags, int]
+Null = _PGPropValFormatFlags.Null
+FullValue = _PGPropValFormatFlags.FullValue
+ReportError = _PGPropValFormatFlags.ReportError
+PropertySpecific = _PGPropValFormatFlags.PropertySpecific
+EditableValue = _PGPropValFormatFlags.EditableValue
+CompositeFragment = _PGPropValFormatFlags.CompositeFragment
+UneditableCompositeFragment = _PGPropValFormatFlags.UneditableCompositeFragment
+ValueIsCurrent = _PGPropValFormatFlags.ValueIsCurrent
+ProgrammaticValue = _PGPropValFormatFlags.ProgrammaticValue
 
-class _PG_MISC_ARG_FLAGS(IntEnum):
-    PG_FULL_VALUE = auto()
-    PG_REPORT_ERROR = auto()
-    PG_PROPERTY_SPECIFIC = auto()
-    PG_EDITABLE_VALUE = auto()
-    PG_COMPOSITE_FRAGMENT = auto()
-    PG_UNEDITABLE_COMPOSITE_FRAGMENT = auto()
-    PG_VALUE_IS_CURRENT = auto()
-    PG_PROGRAMMATIC_VALUE = auto()
-PG_MISC_ARG_FLAGS: TypeAlias = Union[_PG_MISC_ARG_FLAGS, int]
-PG_FULL_VALUE = _PG_MISC_ARG_FLAGS.PG_FULL_VALUE
-PG_REPORT_ERROR = _PG_MISC_ARG_FLAGS.PG_REPORT_ERROR
-PG_PROPERTY_SPECIFIC = _PG_MISC_ARG_FLAGS.PG_PROPERTY_SPECIFIC
-PG_EDITABLE_VALUE = _PG_MISC_ARG_FLAGS.PG_EDITABLE_VALUE
-PG_COMPOSITE_FRAGMENT = _PG_MISC_ARG_FLAGS.PG_COMPOSITE_FRAGMENT
-PG_UNEDITABLE_COMPOSITE_FRAGMENT = _PG_MISC_ARG_FLAGS.PG_UNEDITABLE_COMPOSITE_FRAGMENT
-PG_VALUE_IS_CURRENT = _PG_MISC_ARG_FLAGS.PG_VALUE_IS_CURRENT
-PG_PROGRAMMATIC_VALUE = _PG_MISC_ARG_FLAGS.PG_PROGRAMMATIC_VALUE
-
-class _PG_SETVALUE_FLAGS(IntEnum):
-    PG_SETVAL_REFRESH_EDITOR = auto()
-    PG_SETVAL_AGGREGATED = auto()
-    PG_SETVAL_FROM_PARENT = auto()
-    PG_SETVAL_BY_USER = auto()
-PG_SETVALUE_FLAGS: TypeAlias = Union[_PG_SETVALUE_FLAGS, int]
-PG_SETVAL_REFRESH_EDITOR = _PG_SETVALUE_FLAGS.PG_SETVAL_REFRESH_EDITOR
-PG_SETVAL_AGGREGATED = _PG_SETVALUE_FLAGS.PG_SETVAL_AGGREGATED
-PG_SETVAL_FROM_PARENT = _PG_SETVALUE_FLAGS.PG_SETVAL_FROM_PARENT
-PG_SETVAL_BY_USER = _PG_SETVALUE_FLAGS.PG_SETVAL_BY_USER
+class _PGSetValueFlags(IntFlag):
+    RefreshEditor = auto()
+    Aggregated = auto()
+    FromParent = auto()
+    ByUser = auto()
+PGSetValueFlags: TypeAlias = Union[_PGSetValueFlags, int]
+RefreshEditor = _PGSetValueFlags.RefreshEditor
+Aggregated = _PGSetValueFlags.Aggregated
+FromParent = _PGSetValueFlags.FromParent
+ByUser = _PGSetValueFlags.ByUser
+PG_INVALID_VALUE: constexprint
+PG_BASE_OCT: constexprlong
+PG_BASE_DEC: constexprlong
+PG_BASE_HEX: constexprlong
+PG_BASE_HEXL: constexprlong
+PG_PREFIX_NONE: constexprlong
+PG_PREFIX_0x: constexprlong
+PG_PREFIX_DOLLAR_SIGN: constexprlong
 #-- end-propgriddefs --#
 #-- begin-propgridproperty --#
-PG_PROP_MAX: int
-PG_PROP_PARENTAL_FLAGS: int
-PG_STRING_STORED_FLAGS: int
 
-class _PGPropertyFlags(IntFlag):
-    PG_PROP_MODIFIED = auto()
-    PG_PROP_DISABLED = auto()
-    PG_PROP_HIDDEN = auto()
-    PG_PROP_CUSTOMIMAGE = auto()
-    PG_PROP_NOEDITOR = auto()
-    PG_PROP_COLLAPSED = auto()
-    PG_PROP_INVALID_VALUE = auto()
-    PG_PROP_WAS_MODIFIED = auto()
-    PG_PROP_AGGREGATE = auto()
-    PG_PROP_CHILDREN_ARE_COPIES = auto()
-    PG_PROP_PROPERTY = auto()
-    PG_PROP_CATEGORY = auto()
-    PG_PROP_MISC_PARENT = auto()
-    PG_PROP_READONLY = auto()
-    PG_PROP_COMPOSED_VALUE = auto()
-    PG_PROP_USES_COMMON_VALUE = auto()
-    PG_PROP_AUTO_UNSPECIFIED = auto()
-    PG_PROP_CLASS_SPECIFIC_1 = auto()
-    PG_PROP_CLASS_SPECIFIC_2 = auto()
-    PG_PROP_BEING_DELETED = auto()
-PGPropertyFlags: TypeAlias = Union[_PGPropertyFlags, int]
-PG_PROP_MODIFIED = _PGPropertyFlags.PG_PROP_MODIFIED
-PG_PROP_DISABLED = _PGPropertyFlags.PG_PROP_DISABLED
-PG_PROP_HIDDEN = _PGPropertyFlags.PG_PROP_HIDDEN
-PG_PROP_CUSTOMIMAGE = _PGPropertyFlags.PG_PROP_CUSTOMIMAGE
-PG_PROP_NOEDITOR = _PGPropertyFlags.PG_PROP_NOEDITOR
-PG_PROP_COLLAPSED = _PGPropertyFlags.PG_PROP_COLLAPSED
-PG_PROP_INVALID_VALUE = _PGPropertyFlags.PG_PROP_INVALID_VALUE
-PG_PROP_WAS_MODIFIED = _PGPropertyFlags.PG_PROP_WAS_MODIFIED
-PG_PROP_AGGREGATE = _PGPropertyFlags.PG_PROP_AGGREGATE
-PG_PROP_CHILDREN_ARE_COPIES = _PGPropertyFlags.PG_PROP_CHILDREN_ARE_COPIES
-PG_PROP_PROPERTY = _PGPropertyFlags.PG_PROP_PROPERTY
-PG_PROP_CATEGORY = _PGPropertyFlags.PG_PROP_CATEGORY
-PG_PROP_MISC_PARENT = _PGPropertyFlags.PG_PROP_MISC_PARENT
-PG_PROP_READONLY = _PGPropertyFlags.PG_PROP_READONLY
-PG_PROP_COMPOSED_VALUE = _PGPropertyFlags.PG_PROP_COMPOSED_VALUE
-PG_PROP_USES_COMMON_VALUE = _PGPropertyFlags.PG_PROP_USES_COMMON_VALUE
-PG_PROP_AUTO_UNSPECIFIED = _PGPropertyFlags.PG_PROP_AUTO_UNSPECIFIED
-PG_PROP_CLASS_SPECIFIC_1 = _PGPropertyFlags.PG_PROP_CLASS_SPECIFIC_1
-PG_PROP_CLASS_SPECIFIC_2 = _PGPropertyFlags.PG_PROP_CLASS_SPECIFIC_2
-PG_PROP_BEING_DELETED = _PGPropertyFlags.PG_PROP_BEING_DELETED
+class _PGFlags(IntFlag):
+    Null = auto()
+    Modified = auto()
+    Disabled = auto()
+    Hidden = auto()
+    CustomImage = auto()
+    NoEditor = auto()
+    Collapsed = auto()
+    InvalidValue = auto()
+    WasModified = auto()
+    Aggregate = auto()
+    ChildrenAreCopies = auto()
+    Property = auto()
+    Category = auto()
+    MiscParent = auto()
+    ReadOnly = auto()
+    ComposedValue = auto()
+    UsesCommonValue = auto()
+    BeingDeleted = auto()
+    ShowFullFileName = auto()
+    Max = auto()
+    ParentalFlags = auto()
+    StringStoredFlags = auto()
+PGFlags: TypeAlias = Union[_PGFlags, int]
+Null = _PGFlags.Null
+Modified = _PGFlags.Modified
+Disabled = _PGFlags.Disabled
+Hidden = _PGFlags.Hidden
+CustomImage = _PGFlags.CustomImage
+NoEditor = _PGFlags.NoEditor
+Collapsed = _PGFlags.Collapsed
+InvalidValue = _PGFlags.InvalidValue
+WasModified = _PGFlags.WasModified
+Aggregate = _PGFlags.Aggregate
+ChildrenAreCopies = _PGFlags.ChildrenAreCopies
+Property = _PGFlags.Property
+Category = _PGFlags.Category
+MiscParent = _PGFlags.MiscParent
+ReadOnly = _PGFlags.ReadOnly
+ComposedValue = _PGFlags.ComposedValue
+UsesCommonValue = _PGFlags.UsesCommonValue
+BeingDeleted = _PGFlags.BeingDeleted
+ShowFullFileName = _PGFlags.ShowFullFileName
+Max = _PGFlags.Max
+ParentalFlags = _PGFlags.ParentalFlags
+StringStoredFlags = _PGFlags.StringStoredFlags
 
 class PGPaintData:
     """
@@ -168,7 +165,7 @@ class PGCellRenderer(wx.RefCounter):
     Base class for wxPropertyGrid cell renderers.
     """
 
-    class _enum_40(IntEnum):
+    class _enum_41(IntEnum):
         Selected = auto()
         ChoicePopup = auto()
         Control = auto()
@@ -176,13 +173,13 @@ class PGCellRenderer(wx.RefCounter):
         DontUseCellFgCol = auto()
         DontUseCellBgCol = auto()
         DontUseCellColours = auto()
-    Selected = _enum_40.Selected
-    ChoicePopup = _enum_40.ChoicePopup
-    Control = _enum_40.Control
-    Disabled = _enum_40.Disabled
-    DontUseCellFgCol = _enum_40.DontUseCellFgCol
-    DontUseCellBgCol = _enum_40.DontUseCellBgCol
-    DontUseCellColours = _enum_40.DontUseCellColours
+    Selected = _enum_41.Selected
+    ChoicePopup = _enum_41.ChoicePopup
+    Control = _enum_41.Control
+    Disabled = _enum_41.Disabled
+    DontUseCellFgCol = _enum_41.DontUseCellFgCol
+    DontUseCellBgCol = _enum_41.DontUseCellBgCol
+    DontUseCellColours = _enum_41.DontUseCellColours
 
     def __init__(self) -> None:
         """
@@ -205,13 +202,6 @@ class PGCellRenderer(wx.RefCounter):
         Returns size of the image in front of the editable area.
         """
 
-    def DrawCaptionSelectionRect(self, dc: wx.DC, x: int, y: int, w: int, h: int) -> None:
-        """
-        DrawCaptionSelectionRect(dc, x, y, w, h) -> None
-        
-        Paints property category selection rectangle.
-        """
-
     def DrawText(self, dc: wx.DC, rect: wx.Rect, imageWidth: int, text: str) -> None:
         """
         DrawText(dc, rect, imageWidth, text) -> None
@@ -224,7 +214,7 @@ class PGCellRenderer(wx.RefCounter):
         DrawEditorValue(dc, rect, xOffset, text, property, editor) -> None
         
         Utility to draw editor's value, or vertically aligned text if editor
-        is NULL.
+        is nullptr.
         """
 
     def PreDrawCell(self, dc: wx.DC, rect: wx.Rect, propGrid: PropertyGrid, cell: PGCell, flags: int) -> int:
@@ -500,38 +490,38 @@ class PGProperty(wx.Object):
         Implement this function in derived class to check the value.
         """
 
-    def StringToValue(self, text: str, argFlags: int=0) -> Tuple[bool, PGVariant]:
+    def StringToValue(self, text: str, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]:
         """
-        StringToValue(text, argFlags=0) -> Tuple[bool, PGVariant]
+        StringToValue(text, flags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]
         
         Converts text into wxVariant value appropriate for this property.
         """
 
-    def IntToValue(self, number: int, argFlags: int=0) -> Tuple[bool, PGVariant]:
+    def IntToValue(self, number: int, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]:
         """
-        IntToValue(number, argFlags=0) -> Tuple[bool, PGVariant]
+        IntToValue(number, flags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]
         
         Converts integer (possibly a choice selection) into wxVariant value
         appropriate for this property.
         """
 
-    def ValueToString(self, value: PGVariant, argFlags: int=0) -> str:
+    def ValueToString(self, value: PGVariant, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> str:
         """
-        ValueToString(value, argFlags=0) -> str
+        ValueToString(value, flags=PGPropValFormatFlags.Null) -> str
         
         Converts property value into a text representation.
         """
 
-    def SetValueFromString(self, text: str, flags: int=PG_PROGRAMMATIC_VALUE) -> bool:
+    def SetValueFromString(self, text: str, flags: PGPropValFormatFlags=PGPropValFormatFlags.ProgrammaticValue) -> bool:
         """
-        SetValueFromString(text, flags=PG_PROGRAMMATIC_VALUE) -> bool
+        SetValueFromString(text, flags=PGPropValFormatFlags.ProgrammaticValue) -> bool
         
         Converts string to a value, and if successful, calls SetValue() on it.
         """
 
-    def SetValueFromInt(self, value: int, flags: int=0) -> bool:
+    def SetValueFromInt(self, value: int, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> bool:
         """
-        SetValueFromInt(value, flags=0) -> bool
+        SetValueFromInt(value, flags=PGPropValFormatFlags.Null) -> bool
         
         Converts integer to a value, and if successful, calls SetValue() on
         it.
@@ -570,7 +560,7 @@ class PGProperty(wx.Object):
         DoGetValidator() -> wx.Validator
         
         Returns pointer to the wxValidator that should be used with the editor
-        of this property (NULL for no validator).
+        of this property (nullptr for no validator).
         """
 
     def OnCustomPaint(self, dc: wx.DC, rect: wx.Rect, paintdata: PGPaintData) -> None:
@@ -664,9 +654,9 @@ class PGProperty(wx.Object):
         Use this member function to add independent (i.e.
         """
 
-    def AreAllChildrenSpecified(self, pendingList: Optional[PGVariant]=None) -> bool:
+    def AreAllChildrenSpecified(self, pendingList: PGVariant=nullptr) -> bool:
         """
-        AreAllChildrenSpecified(pendingList=None) -> bool
+        AreAllChildrenSpecified(pendingList=nullptr) -> bool
         
         Determines, recursively, if all children are not unspecified.
         """
@@ -680,7 +670,7 @@ class PGProperty(wx.Object):
         values of a font).
         """
 
-    def ChangeFlag(self, flag: PGPropertyFlags, set: bool) -> None:
+    def ChangeFlag(self, flag: PGFlags, set: bool) -> None:
         """
         ChangeFlag(flag, set) -> None
         
@@ -808,6 +798,13 @@ class PGProperty(wx.Object):
         Returns number of child properties.
         """
 
+    def HasAnyChild(self) -> bool:
+        """
+        HasAnyChild() -> bool
+        
+        Checks if there is any child property.
+        """
+
     def GetChildrenHeight(self, lh: int, iMax: int=-1) -> int:
         """
         GetChildrenHeight(lh, iMax=-1) -> int
@@ -900,7 +897,7 @@ class PGProperty(wx.Object):
         Returns property's help or description text.
         """
 
-    def GetFlagsAsString(self, flagsMask: FlagType) -> str:
+    def GetFlagsAsString(self, flagsMask: PGFlags) -> str:
         """
         GetFlagsAsString(flagsMask) -> str
         
@@ -954,7 +951,7 @@ class PGProperty(wx.Object):
         """
         GetPropertyByName(name) -> PGProperty
         
-        Returns (direct) child property with given name (or NULL if not
+        Returns (direct) child property with given name (or nullptr if not
         found).
         """
 
@@ -979,9 +976,9 @@ class PGProperty(wx.Object):
         Returns bitmap that appears next to value text.
         """
 
-    def GetValueAsString(self, argFlags: int=0) -> str:
+    def GetValueAsString(self, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> str:
         """
-        GetValueAsString(argFlags=0) -> str
+        GetValueAsString(flags=PGPropValFormatFlags.Null) -> str
         
         Returns text representation of property's value.
         """
@@ -1014,14 +1011,14 @@ class PGProperty(wx.Object):
         Returns property at given virtual y coordinate.
         """
 
-    def HasFlag(self, flag: PGPropertyFlags) -> bool:
+    def HasFlag(self, flag: PGFlags) -> bool:
         """
         HasFlag(flag) -> bool
         
         Returns true if property has given flag set.
         """
 
-    def HasFlagsExact(self, flags: FlagType) -> bool:
+    def HasFlagsExact(self, flags: PGFlags) -> bool:
         """
         HasFlagsExact(flags) -> bool
         
@@ -1035,9 +1032,9 @@ class PGProperty(wx.Object):
         Returns true if property has even one visible child.
         """
 
-    def Hide(self, hide: bool, flags: int=PG_RECURSE) -> bool:
+    def Hide(self, hide: bool, flags: PGPropertyValuesFlags=PGPropertyValuesFlags.Recurse) -> bool:
         """
-        Hide(hide, flags=PG_RECURSE) -> bool
+        Hide(hide, flags=PGPropertyValuesFlags.Recurse) -> bool
         
         Hides or reveals the property.
         """
@@ -1169,9 +1166,9 @@ class PGProperty(wx.Object):
         modifying the value of the editor control (usually by clearing it).
         """
 
-    def SetBackgroundColour(self, colour: wx.Colour, flags: int=PG_RECURSE) -> None:
+    def SetBackgroundColour(self, colour: wx.Colour, flags: PGPropertyValuesFlags=PGPropertyValuesFlags.Recurse) -> None:
         """
-        SetBackgroundColour(colour, flags=PG_RECURSE) -> None
+        SetBackgroundColour(colour, flags=PGPropertyValuesFlags.Recurse) -> None
         
         Sets property's background colour.
         """
@@ -1243,7 +1240,7 @@ class PGProperty(wx.Object):
         Sets flags from a '|' delimited string.
         """
 
-    def SetFlagRecursively(self, flag: PGPropertyFlags, set: bool) -> None:
+    def SetFlagRecursively(self, flag: PGFlags, set: bool) -> None:
         """
         SetFlagRecursively(flag, set) -> None
         
@@ -1269,7 +1266,8 @@ class PGProperty(wx.Object):
         """
         SetMaxLength(maxLen) -> bool
         
-        Set maximum length of the text the user can enter in the text editor.
+        Set maximum length of the text the user can enter in the text editor
+        associated with property.
         """
 
     def SetModifiedStatus(self, modified: bool) -> None:
@@ -1286,23 +1284,23 @@ class PGProperty(wx.Object):
         Sets new (base) name for property.
         """
 
-    def SetParentalType(self, flag: int) -> None:
+    def SetParentalType(self, flag: PGFlags) -> None:
         """
         SetParentalType(flag) -> None
         
         Changes what sort of parent this property is for its children.
         """
 
-    def SetTextColour(self, colour: wx.Colour, flags: int=PG_RECURSE) -> None:
+    def SetTextColour(self, colour: wx.Colour, flags: PGPropertyValuesFlags=PGPropertyValuesFlags.Recurse) -> None:
         """
-        SetTextColour(colour, flags=PG_RECURSE) -> None
+        SetTextColour(colour, flags=PGPropertyValuesFlags.Recurse) -> None
         
         Sets property's text colour.
         """
 
-    def SetDefaultColours(self, flags: int=PG_RECURSE) -> None:
+    def SetDefaultColours(self, flags: PGPropertyValuesFlags=PGPropertyValuesFlags.Recurse) -> None:
         """
-        SetDefaultColours(flags=PG_RECURSE) -> None
+        SetDefaultColours(flags=PGPropertyValuesFlags.Recurse) -> None
         
         Sets property's default text and background colours.
         """
@@ -1314,9 +1312,9 @@ class PGProperty(wx.Object):
         Sets wxValidator for a property.
         """
 
-    def SetValue(self, value: PGVariant, pList: Optional[PGVariant]=None, flags: int=PG_SETVAL_REFRESH_EDITOR) -> None:
+    def SetValue(self, value: PGVariant, pList: PGVariant=nullptr, flags: PGSetValueFlags=PGSetValueFlags.RefreshEditor) -> None:
         """
-        SetValue(value, pList=None, flags=PG_SETVAL_REFRESH_EDITOR) -> None
+        SetValue(value, pList=nullptr, flags=PGSetValueFlags.RefreshEditor) -> None
         
         Call this to set value of the property.
         """
@@ -1421,16 +1419,16 @@ class PropertyCategory(PGProperty):
         GetTextExtent(wnd, font) -> int
         """
 
-    def ValueToString(self, value: PGVariant, argFlags: int) -> str:
+    def ValueToString(self, value: PGVariant, flags: PGPropValFormatFlags) -> str:
         """
-        ValueToString(value, argFlags) -> str
+        ValueToString(value, flags) -> str
         
         Converts property value into a text representation.
         """
 
-    def GetValueAsString(self, argFlags: int=0) -> str:
+    def GetValueAsString(self, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> str:
         """
-        GetValueAsString(argFlags=0) -> str
+        GetValueAsString(flags=PGPropValFormatFlags.Null) -> str
         
         Returns text representation of property's value.
         """
@@ -1653,9 +1651,9 @@ class PGChoices:
         Returns array of values matching the given strings.
         """
 
-    def GetIndicesForStrings(self, strings: List[str], unmatched: Optional[List[str]]=None) -> List[int]:
+    def GetIndicesForStrings(self, strings: List[str], unmatched: List[str]=nullptr) -> List[int]:
         """
-        GetIndicesForStrings(strings, unmatched=None) -> List[int]
+        GetIndicesForStrings(strings, unmatched=nullptr) -> List[int]
         
         Returns array of indices matching given strings.
         """
@@ -1812,14 +1810,14 @@ PGChoicesEmptyData                = None
 
 class PGWindowList:
     """
-    PGWindowList(primary, secondary=None) -> None
+    PGWindowList(primary, secondary=nullptr) -> None
     
     Contains a list of editor windows returned by CreateControls.
     """
 
-    def __init__(self, primary: wx.Window, secondary: Optional[wx.Window]=None) -> None:
+    def __init__(self, primary: wx.Window, secondary: wx.Window=nullptr) -> None:
         """
-        PGWindowList(primary, secondary=None) -> None
+        PGWindowList(primary, secondary=nullptr) -> None
         
         Contains a list of editor windows returned by CreateControls.
         """
@@ -2382,14 +2380,14 @@ class PGMultiButton(wx.Window):
         """
 
     @overload
-    def Add(self, bitmap: wx.BitmapBundle, id: int=-2) -> None:
+    def Add(self, bitmap: wx.BitmapBundle, id: int=wx.ID_ANY) -> None:
         ...
 
     @overload
-    def Add(self, label: str, id: int=-2) -> None:
+    def Add(self, label: str, id: int=wx.ID_ANY) -> None:
         """
-        Add(label, id=-2) -> None
-        Add(bitmap, id=-2) -> None
+        Add(label, id=wx.ID_ANY) -> None
+        Add(bitmap, id=wx.ID_ANY) -> None
         
         Adds new button, with given label.
         """
@@ -2429,6 +2427,11 @@ class PGMultiButton(wx.Window):
         
         Returns size of primary editor control, as appropriately reduced by
         number of buttons present.
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
         """
 
     @staticmethod
@@ -2490,6 +2493,38 @@ PG_ITERATE_ALL = _PG_ITERATOR_FLAGS.PG_ITERATE_ALL
 PG_ITERATE_NORMAL = _PG_ITERATOR_FLAGS.PG_ITERATE_NORMAL
 PG_ITERATE_DEFAULT = _PG_ITERATOR_FLAGS.PG_ITERATE_DEFAULT
 
+class _PGSelectPropertyFlags(IntFlag):
+    Null = auto()
+    Focus = auto()
+    Force = auto()
+    Nonvisible = auto()
+    NoValidate = auto()
+    Deleting = auto()
+    SetUnspec = auto()
+    DialogVal = auto()
+    DontSendEvent = auto()
+    NoRefresh = auto()
+PGSelectPropertyFlags: TypeAlias = Union[_PGSelectPropertyFlags, int]
+Null = _PGSelectPropertyFlags.Null
+Focus = _PGSelectPropertyFlags.Focus
+Force = _PGSelectPropertyFlags.Force
+Nonvisible = _PGSelectPropertyFlags.Nonvisible
+NoValidate = _PGSelectPropertyFlags.NoValidate
+Deleting = _PGSelectPropertyFlags.Deleting
+SetUnspec = _PGSelectPropertyFlags.SetUnspec
+DialogVal = _PGSelectPropertyFlags.DialogVal
+DontSendEvent = _PGSelectPropertyFlags.DontSendEvent
+NoRefresh = _PGSelectPropertyFlags.NoRefresh
+
+class _PGSplitterPositionFlags(IntFlag):
+    Null = auto()
+    Refresh = auto()
+    AllPages = auto()
+PGSplitterPositionFlags: TypeAlias = Union[_PGSplitterPositionFlags, int]
+Null = _PGSplitterPositionFlags.Null
+Refresh = _PGSplitterPositionFlags.Refresh
+AllPages = _PGSplitterPositionFlags.AllPages
+
 class PropertyGridHitTestResult:
     """
     PropertyGridHitTestResult() -> None
@@ -2541,17 +2576,8 @@ class PropertyGridHitTestResult:
 
 class PropertyGridIteratorBase:
     """
-    PropertyGridIteratorBase() -> None
-    
     Base for wxPropertyGridIterator classes.
     """
-
-    def __init__(self) -> None:
-        """
-        PropertyGridIteratorBase() -> None
-        
-        Base for wxPropertyGridIterator classes.
-        """
 
     def Assign(self, it: PropertyGridIteratorBase) -> None:
         """
@@ -2609,13 +2635,13 @@ class PropertyGridIteratorBase:
 class PropertyGridIterator(PropertyGridIteratorBase):
     """
     PropertyGridIterator() -> None
-    PropertyGridIterator(state, flags=PG_ITERATE_DEFAULT, property=None, dir=1) -> None
+    PropertyGridIterator(state, flags=PG_ITERATE_DEFAULT, property=nullptr, dir=1) -> None
     PropertyGridIterator(state, flags, startPos, dir=0) -> None
     PropertyGridIterator(it) -> None
     """
 
     @overload
-    def __init__(self, state: PropertyGridPageState, flags: int=PG_ITERATE_DEFAULT, property: Optional[PGProperty]=None, dir: int=1) -> None:
+    def __init__(self, state: PropertyGridPageState, flags: int=PG_ITERATE_DEFAULT, property: PGProperty=nullptr, dir: int=1) -> None:
         ...
 
     @overload
@@ -2630,7 +2656,7 @@ class PropertyGridIterator(PropertyGridIteratorBase):
     def __init__(self) -> None:
         """
         PropertyGridIterator() -> None
-        PropertyGridIterator(state, flags=PG_ITERATE_DEFAULT, property=None, dir=1) -> None
+        PropertyGridIterator(state, flags=PG_ITERATE_DEFAULT, property=nullptr, dir=1) -> None
         PropertyGridIterator(state, flags, startPos, dir=0) -> None
         PropertyGridIterator(it) -> None
         """
@@ -2717,9 +2743,9 @@ class PropertyGridPageState:
         insertion.
         """
 
-    def DoSetSplitterPosition(self, pos: int, splitterColumn: int=0, flags: int=0) -> None:
+    def DoSetSplitter(self, pos: int, splitterColumn: int=0, flags: PGSplitterPositionFlags=PGSplitterPositionFlags.Null) -> None:
         """
-        DoSetSplitterPosition(pos, splitterColumn=0, flags=0) -> None
+        DoSetSplitter(pos, splitterColumn=0, flags=PGSplitterPositionFlags.Null) -> None
         
         This needs to be overridden in grid used the manager so that splitter
         changes can be propagated to other pages.
@@ -2845,6 +2871,23 @@ class PropertyGridPageState:
 
 #-- end-propgridpagestate --#
 #-- begin-propgridiface --#
+
+class _PG_PROPERTYVALUES_FLAGS(IntEnum):
+    PG_DONT_RECURSE = auto()
+    PG_KEEP_STRUCTURE = auto()
+    PG_RECURSE = auto()
+    PG_INC_ATTRIBUTES = auto()
+    PG_RECURSE_STARTS = auto()
+    PG_FORCE = auto()
+    PG_SORT_TOP_LEVEL_ONLY = auto()
+PG_PROPERTYVALUES_FLAGS: TypeAlias = Union[_PG_PROPERTYVALUES_FLAGS, int]
+PG_DONT_RECURSE = _PG_PROPERTYVALUES_FLAGS.PG_DONT_RECURSE
+PG_KEEP_STRUCTURE = _PG_PROPERTYVALUES_FLAGS.PG_KEEP_STRUCTURE
+PG_RECURSE = _PG_PROPERTYVALUES_FLAGS.PG_RECURSE
+PG_INC_ATTRIBUTES = _PG_PROPERTYVALUES_FLAGS.PG_INC_ATTRIBUTES
+PG_RECURSE_STARTS = _PG_PROPERTYVALUES_FLAGS.PG_RECURSE_STARTS
+PG_FORCE = _PG_PROPERTYVALUES_FLAGS.PG_FORCE
+PG_SORT_TOP_LEVEL_ONLY = _PG_PROPERTYVALUES_FLAGS.PG_SORT_TOP_LEVEL_ONLY
 
 class PGPropArgCls:
     """
@@ -3059,9 +3102,9 @@ class PropertyGridInterface:
         ...
 
     @overload
-    def GetIterator(self, flags: int=PG_ITERATE_DEFAULT, firstProp: Optional[PGProperty]=None) -> PropertyGridIterator:
+    def GetIterator(self, flags: int=PG_ITERATE_DEFAULT, firstProp: PGProperty=nullptr) -> PropertyGridIterator:
         """
-        GetIterator(flags=PG_ITERATE_DEFAULT, firstProp=None) -> PropertyGridIterator
+        GetIterator(flags=PG_ITERATE_DEFAULT, firstProp=nullptr) -> PropertyGridIterator
         GetIterator(flags, startPos) -> PropertyGridIterator
         
         Returns iterator class instance.
@@ -3081,7 +3124,7 @@ class PropertyGridInterface:
         Returns pointer to a property with given name (case-sensitive).
         """
 
-    def GetPropertiesWithFlag(self, targetArr: List[PGProperty], flags: PGProperty.FlagType, inverse: bool=False, iterFlags: int=PG_ITERATE_PROPERTIES|PG_ITERATE_HIDDEN|PG_ITERATE_CATEGORIES) -> None:
+    def GetPropertiesWithFlag(self, targetArr: List[PGProperty], flags: PGFlags, inverse: bool=False, iterFlags: int=PG_ITERATE_PROPERTIES|PG_ITERATE_HIDDEN|PG_ITERATE_CATEGORIES) -> None:
         """
         GetPropertiesWithFlag(targetArr, flags, inverse=False, iterFlags=PG_ITERATE_PROPERTIES|PG_ITERATE_HIDDEN|PG_ITERATE_CATEGORIES) -> None
         
@@ -3154,7 +3197,7 @@ class PropertyGridInterface:
         """
         GetPropertyImage(id) -> wx.Bitmap
         
-        Returns property's custom value image (NULL of none).
+        Returns property's custom value image (nullptr of none).
         """
 
     def GetPropertyLabel(self, id: Union[PGPropArgCls, str, _None]) -> str:
@@ -3204,7 +3247,7 @@ class PropertyGridInterface:
         """
         GetPropertyValueAsArrayInt(id) -> List[int]
         
-        Return's property's value as wxArrayInt.
+        Returns property's value as wxArrayInt.
         """
 
     def GetPropertyValueAsArrayString(self, id: Union[PGPropArgCls, str, _None]) -> List[str]:
@@ -3225,7 +3268,7 @@ class PropertyGridInterface:
         """
         GetPropertyValueAsDateTime(id) -> wx.DateTime
         
-        Return's property's value as wxDateTime.
+        Returns property's value as wxDateTime.
         """
 
     def GetPropertyValueAsDouble(self, id: Union[PGPropArgCls, str, _None]) -> float:
@@ -3300,9 +3343,9 @@ class PropertyGridInterface:
         containers.
         """
 
-    def HideProperty(self, id: Union[PGPropArgCls, str, _None], hide: bool=True, flags: int=PG_RECURSE) -> bool:
+    def HideProperty(self, id: Union[PGPropArgCls, str, _None], hide: bool=True, flags: PGPropertyValuesFlags=PGPropertyValuesFlags.Recurse) -> bool:
         """
-        HideProperty(id, hide=True, flags=PG_RECURSE) -> bool
+        HideProperty(id, hide=True, flags=PGPropertyValuesFlags.Recurse) -> bool
         
         Hides or reveals a property.
         """
@@ -3378,9 +3421,9 @@ class PropertyGridInterface:
         of a property, if it is not the sole mean to edit the value.
         """
 
-    def RefreshGrid(self, state: Optional[PropertyGridPageState]=None) -> None:
+    def RefreshGrid(self, state: PropertyGridPageState=nullptr) -> None:
         """
-        RefreshGrid(state=None) -> None
+        RefreshGrid(state=nullptr) -> None
         
         If state is shown in its grid, refresh it now.
         """
@@ -3421,9 +3464,9 @@ class PropertyGridInterface:
         Set proportion of an auto-stretchable column.
         """
 
-    def SetPropertyAttribute(self, id: Union[PGPropArgCls, str, _None], attrName: str, value: PGVariant, argFlags: int=0) -> None:
+    def SetPropertyAttribute(self, id: Union[PGPropArgCls, str, _None], attrName: str, value: PGVariant, flags: PGPropertyValuesFlags=PGPropertyValuesFlags.DontRecurse) -> None:
         """
-        SetPropertyAttribute(id, attrName, value, argFlags=0) -> None
+        SetPropertyAttribute(id, attrName, value, flags=PGPropertyValuesFlags.DontRecurse) -> None
         
         Sets an attribute for this property.
         """
@@ -3435,23 +3478,23 @@ class PropertyGridInterface:
         Sets property attribute for all applicable properties.
         """
 
-    def SetPropertyBackgroundColour(self, id: Union[PGPropArgCls, str, _None], colour: wx.Colour, flags: int=PG_RECURSE) -> None:
+    def SetPropertyBackgroundColour(self, id: Union[PGPropArgCls, str, _None], colour: wx.Colour, flags: PGPropertyValuesFlags=PGPropertyValuesFlags.Recurse) -> None:
         """
-        SetPropertyBackgroundColour(id, colour, flags=PG_RECURSE) -> None
+        SetPropertyBackgroundColour(id, colour, flags=PGPropertyValuesFlags.Recurse) -> None
         
         Sets background colour of given property.
         """
 
-    def SetPropertyCell(self, id: Union[PGPropArgCls, str, _None], column: int, text: str='', bitmap: wx.BitmapBundle=wx.BitmapBundle(), fgCol: wx.Colour=wx.NullColour, bgCol: wx.Colour=wx.NullColour) -> None:
+    def SetPropertyCell(self, id: Union[PGPropArgCls, str, _None], column: int, text: str="", bitmap: wx.BitmapBundle=wx.BitmapBundle(), fgCol: wx.Colour=wx.NullColour, bgCol: wx.Colour=wx.NullColour) -> None:
         """
-        SetPropertyCell(id, column, text='', bitmap=wx.BitmapBundle(), fgCol=wx.NullColour, bgCol=wx.NullColour) -> None
+        SetPropertyCell(id, column, text="", bitmap=wx.BitmapBundle(), fgCol=wx.NullColour, bgCol=wx.NullColour) -> None
         
         Sets text, bitmap, and colours for given column's cell.
         """
 
-    def SetPropertyColoursToDefault(self, id: Union[PGPropArgCls, str, _None], flags: int=PG_DONT_RECURSE) -> None:
+    def SetPropertyColoursToDefault(self, id: Union[PGPropArgCls, str, _None], flags: PGPropertyValuesFlags=PGPropertyValuesFlags.DontRecurse) -> None:
         """
-        SetPropertyColoursToDefault(id, flags=PG_DONT_RECURSE) -> None
+        SetPropertyColoursToDefault(id, flags=PGPropertyValuesFlags.DontRecurse) -> None
         
         Resets text and background colours of given property.
         """
@@ -3483,9 +3526,9 @@ class PropertyGridInterface:
         Sets name of a property.
         """
 
-    def SetPropertyReadOnly(self, id: Union[PGPropArgCls, str, _None], set: bool=True, flags: int=PG_RECURSE) -> None:
+    def SetPropertyReadOnly(self, id: Union[PGPropArgCls, str, _None], set: bool=True, flags: PGPropertyValuesFlags=PGPropertyValuesFlags.Recurse) -> None:
         """
-        SetPropertyReadOnly(id, set=True, flags=PG_RECURSE) -> None
+        SetPropertyReadOnly(id, set=True, flags=PGPropertyValuesFlags.Recurse) -> None
         
         Sets property (and, recursively, its children) to have read-only
         value.
@@ -3519,9 +3562,9 @@ class PropertyGridInterface:
         Sets maximum length of text in property text editor.
         """
 
-    def SetPropertyTextColour(self, id: Union[PGPropArgCls, str, _None], colour: wx.Colour, flags: int=PG_RECURSE) -> None:
+    def SetPropertyTextColour(self, id: Union[PGPropArgCls, str, _None], colour: wx.Colour, flags: PGPropertyValuesFlags=PGPropertyValuesFlags.Recurse) -> None:
         """
-        SetPropertyTextColour(id, colour, flags=PG_RECURSE) -> None
+        SetPropertyTextColour(id, colour, flags=PGPropertyValuesFlags.Recurse) -> None
         
         Sets text colour of given property.
         """
@@ -3595,7 +3638,7 @@ class PropertyGridInterface:
         Sets value (wxVariant&) of a property.
         """
 
-    def SetValidationFailureBehavior(self, vfbFlags: int) -> None:
+    def SetValidationFailureBehavior(self, vfbFlags: PGVFBFlags) -> None:
         """
         SetValidationFailureBehavior(vfbFlags) -> None
         
@@ -3603,16 +3646,16 @@ class PropertyGridInterface:
         property.
         """
 
-    def Sort(self, flags: int=0) -> None:
+    def Sort(self, flags: PGPropertyValuesFlags=PGPropertyValuesFlags.DontRecurse) -> None:
         """
-        Sort(flags=0) -> None
+        Sort(flags=PGPropertyValuesFlags.DontRecurse) -> None
         
         Sorts all properties recursively.
         """
 
-    def SortChildren(self, id: Union[PGPropArgCls, str, _None], flags: int=0) -> None:
+    def SortChildren(self, id: Union[PGPropArgCls, str, _None], flags: PGPropertyValuesFlags=PGPropertyValuesFlags.DontRecurse) -> None:
         """
-        SortChildren(id, flags=0) -> None
+        SortChildren(id, flags=PGPropertyValuesFlags.DontRecurse) -> None
         
         Sorts children of a property.
         """
@@ -3650,7 +3693,7 @@ class PropertyGridInterface:
         """
         SetBoolChoices(trueChoice, falseChoice) -> None
         
-        Sets strings listed in the choice dropdown of a wxBoolProperty.
+        Sets strings listed in the choice drop-down of a wxBoolProperty.
         """
 
     @staticmethod
@@ -3799,8 +3842,6 @@ PropertyGridInterface.GetValues = PropertyGridInterface.GetPropertyValues
 PropertyGridInterface.SetValues = PropertyGridInterface.SetPropertyValues
 #-- end-propgridiface --#
 #-- begin-propgrid --#
-PG_DEFAULT_STYLE: int
-PGMAN_DEFAULT_STYLE: int
 
 class _PG_WINDOW_STYLES(IntEnum):
     PG_AUTO_SORT = auto()
@@ -3868,43 +3909,45 @@ PG_EX_WINDOW_PG_STYLE_MASK = _PG_EX_WINDOW_STYLES.PG_EX_WINDOW_PG_STYLE_MASK
 PG_EX_WINDOW_PGMAN_STYLE_MASK = _PG_EX_WINDOW_STYLES.PG_EX_WINDOW_PGMAN_STYLE_MASK
 PG_EX_WINDOW_STYLE_MASK = _PG_EX_WINDOW_STYLES.PG_EX_WINDOW_STYLE_MASK
 
-class _PG_VALIDATION_FAILURE_BEHAVIOR_FLAGS(IntEnum):
-    PG_VFB_STAY_IN_PROPERTY = auto()
-    PG_VFB_BEEP = auto()
-    PG_VFB_MARK_CELL = auto()
-    PG_VFB_SHOW_MESSAGE = auto()
-    PG_VFB_SHOW_MESSAGEBOX = auto()
-    PG_VFB_SHOW_MESSAGE_ON_STATUSBAR = auto()
-    PG_VFB_DEFAULT = auto()
-PG_VALIDATION_FAILURE_BEHAVIOR_FLAGS: TypeAlias = Union[_PG_VALIDATION_FAILURE_BEHAVIOR_FLAGS, int]
-PG_VFB_STAY_IN_PROPERTY = _PG_VALIDATION_FAILURE_BEHAVIOR_FLAGS.PG_VFB_STAY_IN_PROPERTY
-PG_VFB_BEEP = _PG_VALIDATION_FAILURE_BEHAVIOR_FLAGS.PG_VFB_BEEP
-PG_VFB_MARK_CELL = _PG_VALIDATION_FAILURE_BEHAVIOR_FLAGS.PG_VFB_MARK_CELL
-PG_VFB_SHOW_MESSAGE = _PG_VALIDATION_FAILURE_BEHAVIOR_FLAGS.PG_VFB_SHOW_MESSAGE
-PG_VFB_SHOW_MESSAGEBOX = _PG_VALIDATION_FAILURE_BEHAVIOR_FLAGS.PG_VFB_SHOW_MESSAGEBOX
-PG_VFB_SHOW_MESSAGE_ON_STATUSBAR = _PG_VALIDATION_FAILURE_BEHAVIOR_FLAGS.PG_VFB_SHOW_MESSAGE_ON_STATUSBAR
-PG_VFB_DEFAULT = _PG_VALIDATION_FAILURE_BEHAVIOR_FLAGS.PG_VFB_DEFAULT
+class _PGVFBFlags(IntFlag):
+    Null = auto()
+    StayInProperty = auto()
+    Beep = auto()
+    MarkCell = auto()
+    ShowMessage = auto()
+    ShowMessageBox = auto()
+    ShowMessageOnStatusBar = auto()
+    Default = auto()
+    Undefined = auto()
+PGVFBFlags: TypeAlias = Union[_PGVFBFlags, int]
+Null = _PGVFBFlags.Null
+StayInProperty = _PGVFBFlags.StayInProperty
+Beep = _PGVFBFlags.Beep
+MarkCell = _PGVFBFlags.MarkCell
+ShowMessage = _PGVFBFlags.ShowMessage
+ShowMessageBox = _PGVFBFlags.ShowMessageBox
+ShowMessageOnStatusBar = _PGVFBFlags.ShowMessageOnStatusBar
+Default = _PGVFBFlags.Default
+Undefined = _PGVFBFlags.Undefined
 
-class _PG_KEYBOARD_ACTIONS(IntEnum):
-    PG_ACTION_INVALID = auto()
-    PG_ACTION_NEXT_PROPERTY = auto()
-    PG_ACTION_PREV_PROPERTY = auto()
-    PG_ACTION_EXPAND_PROPERTY = auto()
-    PG_ACTION_COLLAPSE_PROPERTY = auto()
-    PG_ACTION_CANCEL_EDIT = auto()
-    PG_ACTION_EDIT = auto()
-    PG_ACTION_PRESS_BUTTON = auto()
-    PG_ACTION_MAX = auto()
-PG_KEYBOARD_ACTIONS: TypeAlias = Union[_PG_KEYBOARD_ACTIONS, int]
-PG_ACTION_INVALID = _PG_KEYBOARD_ACTIONS.PG_ACTION_INVALID
-PG_ACTION_NEXT_PROPERTY = _PG_KEYBOARD_ACTIONS.PG_ACTION_NEXT_PROPERTY
-PG_ACTION_PREV_PROPERTY = _PG_KEYBOARD_ACTIONS.PG_ACTION_PREV_PROPERTY
-PG_ACTION_EXPAND_PROPERTY = _PG_KEYBOARD_ACTIONS.PG_ACTION_EXPAND_PROPERTY
-PG_ACTION_COLLAPSE_PROPERTY = _PG_KEYBOARD_ACTIONS.PG_ACTION_COLLAPSE_PROPERTY
-PG_ACTION_CANCEL_EDIT = _PG_KEYBOARD_ACTIONS.PG_ACTION_CANCEL_EDIT
-PG_ACTION_EDIT = _PG_KEYBOARD_ACTIONS.PG_ACTION_EDIT
-PG_ACTION_PRESS_BUTTON = _PG_KEYBOARD_ACTIONS.PG_ACTION_PRESS_BUTTON
-PG_ACTION_MAX = _PG_KEYBOARD_ACTIONS.PG_ACTION_MAX
+class _PGKeyboardAction(IntEnum):
+    Invalid = auto()
+    NextProperty = auto()
+    PrevProperty = auto()
+    ExpandProperty = auto()
+    CollapseProperty = auto()
+    CancelEdit = auto()
+    Edit = auto()
+    PressButton = auto()
+PGKeyboardAction: TypeAlias = Union[_PGKeyboardAction, int]
+Invalid = _PGKeyboardAction.Invalid
+NextProperty = _PGKeyboardAction.NextProperty
+PrevProperty = _PGKeyboardAction.PrevProperty
+ExpandProperty = _PGKeyboardAction.ExpandProperty
+CollapseProperty = _PGKeyboardAction.CollapseProperty
+CancelEdit = _PGKeyboardAction.CancelEdit
+Edit = _PGKeyboardAction.Edit
+PressButton = _PGKeyboardAction.PressButton
 wxEVT_PG_SELECTED: int
 wxEVT_PG_CHANGING: int
 wxEVT_PG_CHANGED: int
@@ -3926,9 +3969,9 @@ class PGValidationInfo:
     actually perform validation.
     """
 
-    def GetFailureBehavior(self) -> int:
+    def GetFailureBehavior(self) -> PGVFBFlags:
         """
-        GetFailureBehavior() -> int
+        GetFailureBehavior() -> PGVFBFlags
         """
 
     def GetFailureMessage(self) -> str:
@@ -3945,7 +3988,7 @@ class PGValidationInfo:
         Returns reference to pending value.
         """
 
-    def SetFailureBehavior(self, failureBehavior: int) -> None:
+    def SetFailureBehavior(self, failureBehavior: PGVFBFlags) -> None:
         """
         SetFailureBehavior(failureBehavior) -> None
         
@@ -3959,9 +4002,9 @@ class PGValidationInfo:
         Set current failure message.
         """
     @property
-    def FailureBehavior(self) -> int: ...
+    def FailureBehavior(self) -> PGVFBFlags: ...
     @FailureBehavior.setter
-    def FailureBehavior(self, value: int, /) -> None: ...
+    def FailureBehavior(self, value: PGVFBFlags, /) -> None: ...
     @property
     def FailureMessage(self) -> str: ...
     @FailureMessage.setter
@@ -4084,7 +4127,7 @@ class PropertyGrid(wx.Control, PropertyGridInterface):
         called in wxPGEditor::OnEvent().
         """
 
-    def AddActionTrigger(self, action: int, keycode: int, modifiers: int=0) -> None:
+    def AddActionTrigger(self, action: PGKeyboardAction, keycode: int, modifiers: int=0) -> None:
         """
         AddActionTrigger(action, keycode, modifiers=0) -> None
         
@@ -4127,16 +4170,16 @@ class PropertyGrid(wx.Control, PropertyGridInterface):
         Deletes all properties.
         """
 
-    def ClearActionTriggers(self, action: int) -> None:
+    def ClearActionTriggers(self, action: PGKeyboardAction) -> None:
         """
         ClearActionTriggers(action) -> None
         
         Clears action triggers for given action.
         """
 
-    def CommitChangesFromEditor(self, flags: Uint32=0) -> bool:
+    def CommitChangesFromEditor(self, flags: PGSelectPropertyFlags=PGSelectPropertyFlags.Null) -> bool:
         """
-        CommitChangesFromEditor(flags=0) -> bool
+        CommitChangesFromEditor(flags=PGSelectPropertyFlags.Null) -> bool
         
         Forces updating the value of property from the editor control.
         """
@@ -4152,7 +4195,7 @@ class PropertyGrid(wx.Control, PropertyGridInterface):
         """
         DedicateKey(keycode) -> None
         
-        Dedicates a specific keycode to wxPropertyGrid.
+        Dedicates a specific key code to wxPropertyGrid.
         """
 
     def EnableCategories(self, enable: bool) -> bool:
@@ -4189,7 +4232,7 @@ class PropertyGrid(wx.Control, PropertyGridInterface):
         """
         GetLabelEditor() -> wx.TextCtrl
         
-        Returns currently active label editor, NULL if none.
+        Returns currently active label editor, nullptr if none.
         """
 
     def GetPanel(self) -> wx.Window:
@@ -4277,9 +4320,9 @@ class PropertyGrid(wx.Control, PropertyGridInterface):
         Returns rectangle of custom paint image.
         """
 
-    def GetImageSize(self, property: Optional[PGProperty]=None, item: int=-1) -> wx.Size:
+    def GetImageSize(self, property: PGProperty=nullptr, item: int=-1) -> wx.Size:
         """
-        GetImageSize(property=None, item=-1) -> wx.Size
+        GetImageSize(property=nullptr, item=-1) -> wx.Size
         
         Returns size of the custom paint image in front of property.
         """
@@ -4375,9 +4418,9 @@ class PropertyGrid(wx.Control, PropertyGridInterface):
         Returns current appearance of unspecified value cells.
         """
 
-    def GetUnspecifiedValueText(self, argFlags: int=0) -> str:
+    def GetUnspecifiedValueText(self, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> str:
         """
-        GetUnspecifiedValueText(argFlags=0) -> str
+        GetUnspecifiedValueText(flags=PGPropValFormatFlags.Null) -> str
         
         Returns (visual) text representation of the unspecified property
         value.
@@ -4612,7 +4655,7 @@ class PropertyGrid(wx.Control, PropertyGridInterface):
         SetupTextCtrlValue(text) -> None
         
         Must be called in wxPGEditor::CreateControls() if primary editor
-        window is wxTextCtrl, just before textctrl is created.
+        window is wxTextCtrl, just before the text control is created.
         """
 
     def UnfocusEditor(self) -> bool:
@@ -4714,6 +4757,13 @@ class PropertyGrid(wx.Control, PropertyGridInterface):
         scrolled image.
         """
 
+    def DoPrepareReadOnlyDC(self, dc: DC) -> None:
+        """
+        DoPrepareReadOnlyDC(dc) -> None
+        
+        Call this function to adjust any device context used with this window.
+        """
+
     def EnableScrolling(self, xScrolling: bool, yScrolling: bool) -> None:
         """
         EnableScrolling(xScrolling, yScrolling) -> None
@@ -4743,11 +4793,12 @@ class PropertyGrid(wx.Control, PropertyGridInterface):
         Get the position at which the visible portion of the window starts.
         """
 
-    def IsRetained(self) -> bool:
+    def GetViewStartPixels(self) -> Tuple[int, int]:
         """
-        IsRetained() -> bool
+        GetViewStartPixels() -> Tuple[int, int]
         
-        Motif only: true if the window has a backing bitmap.
+        Get the position at which the visible portion of the window starts in
+        pixels.
         """
 
     def OnDraw(self, dc: DC) -> None:
@@ -4763,8 +4814,14 @@ class PropertyGrid(wx.Control, PropertyGridInterface):
         """
         PrepareDC(dc) -> None
         
-        This function is for backwards compatibility only and simply calls
-        DoPrepareDC() now.
+        This function is overridden to call DoPrepareDC().
+        """
+
+    def PrepareReadOnlyDC(self, dc: ReadOnlyDC) -> None:
+        """
+        PrepareReadOnlyDC(dc) -> None
+        
+        This function is overridden to call DoPrepareReadOnlyDC().
         """
 
     @overload
@@ -4778,6 +4835,21 @@ class PropertyGrid(wx.Control, PropertyGridInterface):
         Scroll(pt) -> None
         
         Scrolls a window so the view start is at the given point.
+        """
+
+    def EnableAutoscrollWithoutCapture(self) -> None:
+        """
+        EnableAutoscrollWithoutCapture() -> None
+        
+        Set this window to autoscroll even if it has not captured the mouse
+        (assuming the mouse cursor is in its autoscroll zone).
+        """
+
+    def DisableAutoscrollWithoutCapture(self) -> None:
+        """
+        DisableAutoscrollWithoutCapture() -> None
+        
+        Undo EnableAutoscrollWithoutCapture().
         """
 
     def SetScrollRate(self, xstep: int, ystep: int) -> None:
@@ -4832,9 +4904,26 @@ class PropertyGrid(wx.Control, PropertyGridInterface):
         GetScrollLines(orient) -> int
         """
 
+    def EnableAutoScrollInside(self, insideWidth: int) -> None:
+        """
+        EnableAutoScrollInside(insideWidth) -> None
+        
+        Set the width of the autoscroll zone inside the window rectangle.
+        """
+
+    def DisableAutoScrollOutside(self) -> None:
+        """
+        DisableAutoScrollOutside() -> None
+        
+        By default, autoscrolling is triggered when the mouse is anywhere
+        outside of the window.
+        """
+
     def SetScale(self, xs: float, ys: float) -> None:
         """
         SetScale(xs, ys) -> None
+        
+        Set the scaling factor for the window.
         """
 
     def GetScaleX(self) -> float:
@@ -4875,6 +4964,11 @@ class PropertyGrid(wx.Control, PropertyGridInterface):
         auto scroll events - note that unlike StopAutoScrolling() it doesn't
         stop the timer, so it will be called repeatedly and will typically
         return different values depending on the current mouse position.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
     @property
     def CaptionBackgroundColour(self) -> wx.Colour: ...
@@ -5020,7 +5114,7 @@ class PropertyGridEvent(wx.CommandEvent):
         """
         CanVeto() -> bool
         
-        Returns true if you can veto the action that the event is signaling.
+        Returns true if you can veto the action that the event is signalling.
         """
 
     def GetColumn(self) -> int:
@@ -5045,9 +5139,9 @@ class PropertyGridEvent(wx.CommandEvent):
         Returns property associated with this event.
         """
 
-    def GetValidationFailureBehavior(self) -> int:
+    def GetValidationFailureBehavior(self) -> PGVFBFlags:
         """
-        GetValidationFailureBehavior() -> int
+        GetValidationFailureBehavior() -> PGVFBFlags
         
         Returns current validation failure flags.
         """
@@ -5087,7 +5181,7 @@ class PropertyGridEvent(wx.CommandEvent):
         Changes the property associated with this event.
         """
 
-    def SetValidationFailureBehavior(self, flags: int) -> None:
+    def SetValidationFailureBehavior(self, flags: PGVFBFlags) -> None:
         """
         SetValidationFailureBehavior(flags) -> None
         
@@ -5106,7 +5200,7 @@ class PropertyGridEvent(wx.CommandEvent):
         Veto(veto=True) -> None
         
         Call this from your event handler to veto action that the event is
-        signaling.
+        signalling.
         """
 
     def WasVetoed(self) -> bool:
@@ -5128,9 +5222,9 @@ class PropertyGridEvent(wx.CommandEvent):
     @property
     def PropertyValue(self) -> PGVariant: ...
     @property
-    def ValidationFailureBehavior(self) -> int: ...
+    def ValidationFailureBehavior(self) -> PGVFBFlags: ...
     @ValidationFailureBehavior.setter
-    def ValidationFailureBehavior(self, value: int, /) -> None: ...
+    def ValidationFailureBehavior(self, value: PGVFBFlags, /) -> None: ...
     @property
     def Value(self) -> PGVariant: ...
 # end of class PropertyGridEvent
@@ -5160,9 +5254,9 @@ class PropertyGridPopulator:
         SetGrid(pg) -> None
         """
 
-    def Add(self, propClass: str, propLabel: str, propName: str, propValue: str, pChoices: Optional[PGChoices]=None) -> PGProperty:
+    def Add(self, propClass: str, propLabel: str, propName: str, propValue: str, pChoices: PGChoices=nullptr) -> PGProperty:
         """
-        Add(propClass, propLabel, propName, propValue, pChoices=None) -> PGProperty
+        Add(propClass, propLabel, propName, propValue, pChoices=nullptr) -> PGProperty
         
         Appends a new property under bottommost parent.
         """
@@ -5175,9 +5269,9 @@ class PropertyGridPopulator:
         parent), and starts scanning/adding children for it.
         """
 
-    def AddAttribute(self, name: str, type: str, value: str) -> bool:
+    def AddAttribute(self, name: str, type: str, value: str, flags: PGPropertyValuesFlags=PGPropertyValuesFlags.DontRecurse) -> bool:
         """
-        AddAttribute(name, type, value) -> bool
+        AddAttribute(name, type, value, flags=PGPropertyValuesFlags.DontRecurse) -> bool
         
         Adds attribute to the bottommost property.
         """
@@ -5231,6 +5325,8 @@ class PropertyGridPopulator:
     def State(self, value: PropertyGridPageState, /) -> None: ...
 # end of class PropertyGridPopulator
 
+PG_DEFAULT_STYLE: constexprlong
+PGMAN_DEFAULT_STYLE: constexprlong
 
 EVT_PG_CHANGED = wx.PyEventBinder( wxEVT_PG_CHANGED, 1 )
 EVT_PG_CHANGING = wx.PyEventBinder( wxEVT_PG_CHANGING, 1 )
@@ -5248,22 +5344,16 @@ EVT_PG_COL_DRAGGING = wx.PyEventBinder( wxEVT_PG_COL_DRAGGING, 1 )
 EVT_PG_COL_END_DRAG = wx.PyEventBinder( wxEVT_PG_COL_END_DRAG, 1 )
 #-- end-propgrid --#
 #-- begin-propgridprops --#
-PG_PROP_PASSWORD: int
-PG_PROP_STATIC_CHOICES: int
-PG_PROP_SHOW_FULL_FILENAME: int
-PG_PROP_ACTIVE_BTN: int
-PG_PROP_USE_CHECKBOX: int
-PG_PROP_USE_DCC: int
 AEDIALOG_STYLE: int
 
-class _PGNumericValidationConstants(IntEnum):
-    PG_PROPERTY_VALIDATION_ERROR_MESSAGE = auto()
-    PG_PROPERTY_VALIDATION_SATURATE = auto()
-    PG_PROPERTY_VALIDATION_WRAP = auto()
-PGNumericValidationConstants: TypeAlias = Union[_PGNumericValidationConstants, int]
-PG_PROPERTY_VALIDATION_ERROR_MESSAGE = _PGNumericValidationConstants.PG_PROPERTY_VALIDATION_ERROR_MESSAGE
-PG_PROPERTY_VALIDATION_SATURATE = _PGNumericValidationConstants.PG_PROPERTY_VALIDATION_SATURATE
-PG_PROPERTY_VALIDATION_WRAP = _PGNumericValidationConstants.PG_PROPERTY_VALIDATION_WRAP
+class _PGNumericValidationMode(IntEnum):
+    ErrorMessage = auto()
+    Saturate = auto()
+    Wrap = auto()
+PGNumericValidationMode: TypeAlias = Union[_PGNumericValidationMode, int]
+ErrorMessage = _PGNumericValidationMode.ErrorMessage
+Saturate = _PGNumericValidationMode.Saturate
+Wrap = _PGNumericValidationMode.Wrap
 
 class PGInDialogValidator:
     """
@@ -5288,28 +5378,28 @@ class PGInDialogValidator:
 
 class StringProperty(PGProperty):
     """
-    StringProperty(label=PG_LABEL, name=PG_LABEL, value='') -> None
+    StringProperty(label=PG_LABEL, name=PG_LABEL, value="") -> None
     
     Basic property with string value.
     """
 
-    def __init__(self, label: str=PG_LABEL, name: str=PG_LABEL, value: str='') -> None:
+    def __init__(self, label: str=PG_LABEL, name: str=PG_LABEL, value: str="") -> None:
         """
-        StringProperty(label=PG_LABEL, name=PG_LABEL, value='') -> None
+        StringProperty(label=PG_LABEL, name=PG_LABEL, value="") -> None
         
         Basic property with string value.
         """
 
-    def ValueToString(self, value: PGVariant, argFlags: int=0) -> str:
+    def ValueToString(self, value: PGVariant, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> str:
         """
-        ValueToString(value, argFlags=0) -> str
+        ValueToString(value, flags=PGPropValFormatFlags.Null) -> str
         
         Converts property value into a text representation.
         """
 
-    def StringToValue(self, text: str, argFlags: int=0) -> Tuple[bool, PGVariant]:
+    def StringToValue(self, text: str, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]:
         """
-        StringToValue(text, argFlags=0) -> Tuple[bool, PGVariant]
+        StringToValue(text, flags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]
         
         Converts text into wxVariant value appropriate for this property.
         """
@@ -5422,16 +5512,16 @@ class IntProperty(NumericProperty):
         Basic property with integer value.
         """
 
-    def ValueToString(self, value: PGVariant, argFlags: int=0) -> str:
+    def ValueToString(self, value: PGVariant, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> str:
         """
-        ValueToString(value, argFlags=0) -> str
+        ValueToString(value, flags=PGPropValFormatFlags.Null) -> str
         
         Converts property value into a text representation.
         """
 
-    def StringToValue(self, text: str, argFlags: int=0) -> Tuple[bool, PGVariant]:
+    def StringToValue(self, text: str, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]:
         """
-        StringToValue(text, argFlags=0) -> Tuple[bool, PGVariant]
+        StringToValue(text, flags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]
         
         Converts text into wxVariant value appropriate for this property.
         """
@@ -5443,9 +5533,9 @@ class IntProperty(NumericProperty):
         Implement this function in derived class to check the value.
         """
 
-    def IntToValue(self, number: int, argFlags: int=0) -> Tuple[bool, PGVariant]:
+    def IntToValue(self, number: int, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]:
         """
-        IntToValue(number, argFlags=0) -> Tuple[bool, PGVariant]
+        IntToValue(number, flags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]
         
         Converts integer (possibly a choice selection) into wxVariant value
         appropriate for this property.
@@ -5456,7 +5546,7 @@ class IntProperty(NumericProperty):
         DoGetValidator() -> wx.Validator
         
         Returns pointer to the wxValidator that should be used with the editor
-        of this property (NULL for no validator).
+        of this property (nullptr for no validator).
         """
 
     def AddSpinStepValue(self, stepScale: int) -> PGVariant:
@@ -5496,16 +5586,16 @@ class UIntProperty(NumericProperty):
         Basic property with unsigned integer value.
         """
 
-    def ValueToString(self, value: PGVariant, argFlags: int=0) -> str:
+    def ValueToString(self, value: PGVariant, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> str:
         """
-        ValueToString(value, argFlags=0) -> str
+        ValueToString(value, flags=PGPropValFormatFlags.Null) -> str
         
         Converts property value into a text representation.
         """
 
-    def StringToValue(self, text: str, argFlags: int=0) -> Tuple[bool, PGVariant]:
+    def StringToValue(self, text: str, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]:
         """
-        StringToValue(text, argFlags=0) -> Tuple[bool, PGVariant]
+        StringToValue(text, flags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]
         
         Converts text into wxVariant value appropriate for this property.
         """
@@ -5530,12 +5620,12 @@ class UIntProperty(NumericProperty):
         DoGetValidator() -> wx.Validator
         
         Returns pointer to the wxValidator that should be used with the editor
-        of this property (NULL for no validator).
+        of this property (nullptr for no validator).
         """
 
-    def IntToValue(self, number: int, argFlags: int=0) -> Tuple[bool, PGVariant]:
+    def IntToValue(self, number: int, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]:
         """
-        IntToValue(number, argFlags=0) -> Tuple[bool, PGVariant]
+        IntToValue(number, flags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]
         
         Converts integer (possibly a choice selection) into wxVariant value
         appropriate for this property.
@@ -5565,16 +5655,16 @@ class FloatProperty(NumericProperty):
         Basic property with double-precision floating point value.
         """
 
-    def ValueToString(self, value: PGVariant, argFlags: int=0) -> str:
+    def ValueToString(self, value: PGVariant, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> str:
         """
-        ValueToString(value, argFlags=0) -> str
+        ValueToString(value, flags=PGPropValFormatFlags.Null) -> str
         
         Converts property value into a text representation.
         """
 
-    def StringToValue(self, text: str, argFlags: int=0) -> Tuple[bool, PGVariant]:
+    def StringToValue(self, text: str, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]:
         """
-        StringToValue(text, argFlags=0) -> Tuple[bool, PGVariant]
+        StringToValue(text, flags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]
         
         Converts text into wxVariant value appropriate for this property.
         """
@@ -5599,7 +5689,7 @@ class FloatProperty(NumericProperty):
         DoGetValidator() -> wx.Validator
         
         Returns pointer to the wxValidator that should be used with the editor
-        of this property (NULL for no validator).
+        of this property (nullptr for no validator).
         """
 
     def AddSpinStepValue(self, stepScale: int) -> PGVariant:
@@ -5632,23 +5722,23 @@ class BoolProperty(PGProperty):
         Basic property with boolean value.
         """
 
-    def ValueToString(self, value: PGVariant, argFlags: int=0) -> str:
+    def ValueToString(self, value: PGVariant, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> str:
         """
-        ValueToString(value, argFlags=0) -> str
+        ValueToString(value, flags=PGPropValFormatFlags.Null) -> str
         
         Converts property value into a text representation.
         """
 
-    def StringToValue(self, text: str, argFlags: int=0) -> Tuple[bool, PGVariant]:
+    def StringToValue(self, text: str, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]:
         """
-        StringToValue(text, argFlags=0) -> Tuple[bool, PGVariant]
+        StringToValue(text, flags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]
         
         Converts text into wxVariant value appropriate for this property.
         """
 
-    def IntToValue(self, number: int, argFlags: int=0) -> Tuple[bool, PGVariant]:
+    def IntToValue(self, number: int, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]:
         """
-        IntToValue(number, argFlags=0) -> Tuple[bool, PGVariant]
+        IntToValue(number, flags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]
         
         Converts integer (possibly a choice selection) into wxVariant value
         appropriate for this property.
@@ -5697,16 +5787,16 @@ class EnumProperty(PGProperty):
         This virtual function is called after m_value has been set.
         """
 
-    def ValueToString(self, value: PGVariant, argFlags: int=0) -> str:
+    def ValueToString(self, value: PGVariant, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> str:
         """
-        ValueToString(value, argFlags=0) -> str
+        ValueToString(value, flags=PGPropValFormatFlags.Null) -> str
         
         Converts property value into a text representation.
         """
 
-    def StringToValue(self, text: str, argFlags: int=0) -> Tuple[bool, PGVariant]:
+    def StringToValue(self, text: str, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]:
         """
-        StringToValue(text, argFlags=0) -> Tuple[bool, PGVariant]
+        StringToValue(text, flags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]
         
         Converts text into wxVariant value appropriate for this property.
         """
@@ -5718,12 +5808,12 @@ class EnumProperty(PGProperty):
         Implement this function in derived class to check the value.
         """
 
-    def IntToValue(self, number: int, argFlags: int=0) -> Tuple[bool, PGVariant]:
+    def IntToValue(self, number: int, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]:
         """
-        IntToValue(number, argFlags=0) -> Tuple[bool, PGVariant]
+        IntToValue(number, flags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]
         
-        Converts integer (possibly a choice selection) into wxVariant value
-        appropriate for this property.
+        If wxPGPropValFormatFlags::FullValue is not set in flags, then the
+        value is interpreted as index to choices list.
         """
 
     def GetIndexForValue(self, value: int) -> int:
@@ -5746,23 +5836,44 @@ class EnumProperty(PGProperty):
 
 class EditEnumProperty(EnumProperty):
     """
-    EditEnumProperty(label=PG_LABEL, name=PG_LABEL, labels=[], values=[], value='') -> None
-    EditEnumProperty(label, name, choices, value='') -> None
+    EditEnumProperty(label=PG_LABEL, name=PG_LABEL, labels=[], values=[], value="") -> None
+    EditEnumProperty(label, name, choices, value="") -> None
     
     wxEnumProperty with wxString value and writable combo box editor.
     """
 
     @overload
-    def __init__(self, label: str, name: str, choices: PGChoices, value: str='') -> None:
+    def __init__(self, label: str, name: str, choices: PGChoices, value: str="") -> None:
         ...
 
     @overload
-    def __init__(self, label: str=PG_LABEL, name: str=PG_LABEL, labels: List[str]=[], values: List[int]=[], value: str='') -> None:
+    def __init__(self, label: str=PG_LABEL, name: str=PG_LABEL, labels: List[str]=[], values: List[int]=[], value: str="") -> None:
         """
-        EditEnumProperty(label=PG_LABEL, name=PG_LABEL, labels=[], values=[], value='') -> None
-        EditEnumProperty(label, name, choices, value='') -> None
+        EditEnumProperty(label=PG_LABEL, name=PG_LABEL, labels=[], values=[], value="") -> None
+        EditEnumProperty(label, name, choices, value="") -> None
         
         wxEnumProperty with wxString value and writable combo box editor.
+        """
+
+    def OnSetValue(self) -> None:
+        """
+        OnSetValue() -> None
+        
+        This virtual function is called after m_value has been set.
+        """
+
+    def StringToValue(self, text: str, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]:
+        """
+        StringToValue(text, flags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]
+        
+        Converts text into wxVariant value appropriate for this property.
+        """
+
+    def ValidateValue(self, value: PGVariant, validationInfo: PGValidationInfo) -> bool:
+        """
+        ValidateValue(value, validationInfo) -> bool
+        
+        Implement this function in derived class to check the value.
         """
 # end of class EditEnumProperty
 
@@ -5795,16 +5906,16 @@ class FlagsProperty(PGProperty):
         This virtual function is called after m_value has been set.
         """
 
-    def ValueToString(self, value: PGVariant, argFlags: int=0) -> str:
+    def ValueToString(self, value: PGVariant, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> str:
         """
-        ValueToString(value, argFlags=0) -> str
+        ValueToString(value, flags=PGPropValFormatFlags.Null) -> str
         
         Converts property value into a text representation.
         """
 
-    def StringToValue(self, text: str, argFlags: int) -> Tuple[bool, PGVariant]:
+    def StringToValue(self, text: str, flags: PGPropValFormatFlags) -> Tuple[bool, PGVariant]:
         """
-        StringToValue(text, argFlags) -> Tuple[bool, PGVariant]
+        StringToValue(text, flags) -> Tuple[bool, PGVariant]
         
         Converts text into wxVariant value appropriate for this property.
         """
@@ -5896,15 +6007,15 @@ class EditorDialogProperty(PGProperty):
 
 class FileProperty(EditorDialogProperty):
     """
-    FileProperty(label=PG_LABEL, name=PG_LABEL, value='') -> None
+    FileProperty(label=PG_LABEL, name=PG_LABEL, value="") -> None
     
     Like wxLongStringProperty, but the button triggers file selector
     instead.
     """
 
-    def __init__(self, label: str=PG_LABEL, name: str=PG_LABEL, value: str='') -> None:
+    def __init__(self, label: str=PG_LABEL, name: str=PG_LABEL, value: str="") -> None:
         """
-        FileProperty(label=PG_LABEL, name=PG_LABEL, value='') -> None
+        FileProperty(label=PG_LABEL, name=PG_LABEL, value="") -> None
         
         Like wxLongStringProperty, but the button triggers file selector
         instead.
@@ -5917,16 +6028,16 @@ class FileProperty(EditorDialogProperty):
         This virtual function is called after m_value has been set.
         """
 
-    def ValueToString(self, value: PGVariant, argFlags: int=0) -> str:
+    def ValueToString(self, value: PGVariant, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> str:
         """
-        ValueToString(value, argFlags=0) -> str
+        ValueToString(value, flags=PGPropValFormatFlags.Null) -> str
         
         Converts property value into a text representation.
         """
 
-    def StringToValue(self, text: str, argFlags: int=0) -> Tuple[bool, PGVariant]:
+    def StringToValue(self, text: str, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]:
         """
-        StringToValue(text, argFlags=0) -> Tuple[bool, PGVariant]
+        StringToValue(text, flags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]
         
         Converts text into wxVariant value appropriate for this property.
         """
@@ -5944,7 +6055,7 @@ class FileProperty(EditorDialogProperty):
         DoGetValidator() -> wx.Validator
         
         Returns pointer to the wxValidator that should be used with the editor
-        of this property (NULL for no validator).
+        of this property (nullptr for no validator).
         """
 
     def GetFileName(self) -> str:
@@ -5973,30 +6084,30 @@ class FileProperty(EditorDialogProperty):
 
 class LongStringProperty(EditorDialogProperty):
     """
-    LongStringProperty(label=PG_LABEL, name=PG_LABEL, value='') -> None
+    LongStringProperty(label=PG_LABEL, name=PG_LABEL, value="") -> None
     
     Like wxStringProperty, but has a button that triggers a small text
     editor dialog.
     """
 
-    def __init__(self, label: str=PG_LABEL, name: str=PG_LABEL, value: str='') -> None:
+    def __init__(self, label: str=PG_LABEL, name: str=PG_LABEL, value: str="") -> None:
         """
-        LongStringProperty(label=PG_LABEL, name=PG_LABEL, value='') -> None
+        LongStringProperty(label=PG_LABEL, name=PG_LABEL, value="") -> None
         
         Like wxStringProperty, but has a button that triggers a small text
         editor dialog.
         """
 
-    def ValueToString(self, value: PGVariant, argFlags: int=0) -> str:
+    def ValueToString(self, value: PGVariant, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> str:
         """
-        ValueToString(value, argFlags=0) -> str
+        ValueToString(value, flags=PGPropValFormatFlags.Null) -> str
         
         Converts property value into a text representation.
         """
 
-    def StringToValue(self, text: str, argFlags: int=0) -> Tuple[bool, PGVariant]:
+    def StringToValue(self, text: str, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]:
         """
-        StringToValue(text, argFlags=0) -> Tuple[bool, PGVariant]
+        StringToValue(text, flags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]
         
         Converts text into wxVariant value appropriate for this property.
         """
@@ -6012,30 +6123,30 @@ class LongStringProperty(EditorDialogProperty):
 
 class DirProperty(EditorDialogProperty):
     """
-    DirProperty(label=PG_LABEL, name=PG_LABEL, value='') -> None
+    DirProperty(label=PG_LABEL, name=PG_LABEL, value="") -> None
     
     Like wxLongStringProperty, but the button triggers directory selector
     instead.
     """
 
-    def __init__(self, label: str=PG_LABEL, name: str=PG_LABEL, value: str='') -> None:
+    def __init__(self, label: str=PG_LABEL, name: str=PG_LABEL, value: str="") -> None:
         """
-        DirProperty(label=PG_LABEL, name=PG_LABEL, value='') -> None
+        DirProperty(label=PG_LABEL, name=PG_LABEL, value="") -> None
         
         Like wxLongStringProperty, but the button triggers directory selector
         instead.
         """
 
-    def ValueToString(self, value: PGVariant, argFlags: int=0) -> str:
+    def ValueToString(self, value: PGVariant, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> str:
         """
-        ValueToString(value, argFlags=0) -> str
+        ValueToString(value, flags=PGPropValFormatFlags.Null) -> str
         
         Converts property value into a text representation.
         """
 
-    def StringToValue(self, text: str, argFlags: int=0) -> Tuple[bool, PGVariant]:
+    def StringToValue(self, text: str, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]:
         """
-        StringToValue(text, argFlags=0) -> Tuple[bool, PGVariant]
+        StringToValue(text, flags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]
         
         Converts text into wxVariant value appropriate for this property.
         """
@@ -6045,7 +6156,7 @@ class DirProperty(EditorDialogProperty):
         DoGetValidator() -> wx.Validator
         
         Returns pointer to the wxValidator that should be used with the editor
-        of this property (NULL for no validator).
+        of this property (nullptr for no validator).
         """
 
     def DisplayEditorDialog(self, pg: PropertyGrid, value: PGVariant) -> Tuple[bool, PGVariant]:
@@ -6085,16 +6196,16 @@ class ArrayStringProperty(EditorDialogProperty):
         This virtual function is called after m_value has been set.
         """
 
-    def ValueToString(self, value: PGVariant, argFlags: int=0) -> str:
+    def ValueToString(self, value: PGVariant, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> str:
         """
-        ValueToString(value, argFlags=0) -> str
+        ValueToString(value, flags=PGPropValFormatFlags.Null) -> str
         
         Converts property value into a text representation.
         """
 
-    def StringToValue(self, text: str, argFlags: int=0) -> Tuple[bool, PGVariant]:
+    def StringToValue(self, text: str, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]:
         """
-        StringToValue(text, argFlags=0) -> Tuple[bool, PGVariant]
+        StringToValue(text, flags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]
         
         Converts text into wxVariant value appropriate for this property.
         """
@@ -6352,10 +6463,6 @@ class PGArrayStringEditorDialog(PGArrayEditorDialog):
 
 #-- end-propgridprops --#
 #-- begin-propgridadvprops --#
-PG_COLOUR_WEB_BASE: int
-PG_COLOUR_CUSTOM: int
-PG_COLOUR_UNSPECIFIED: int
-PG_PROP_TRANSLATE_CUSTOM: int
 
 class ColourPropertyValue(wx.Object):
     """
@@ -6430,9 +6537,9 @@ class FontProperty(EditorDialogProperty):
         This virtual function is called after m_value has been set.
         """
 
-    def ValueToString(self, value: PGVariant, argFlags: int=0) -> str:
+    def ValueToString(self, value: PGVariant, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> str:
         """
-        ValueToString(value, argFlags=0) -> str
+        ValueToString(value, flags=PGPropValFormatFlags.Null) -> str
         
         Converts property value into a text representation.
         """
@@ -6481,17 +6588,17 @@ class SystemColourProperty(EnumProperty):
         This virtual function is called after m_value has been set.
         """
 
-    def IntToValue(self, number: int, argFlags: int=0) -> Tuple[bool, PGVariant]:
+    def IntToValue(self, number: int, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]:
         """
-        IntToValue(number, argFlags=0) -> Tuple[bool, PGVariant]
+        IntToValue(number, flags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]
         
-        Converts integer (possibly a choice selection) into wxVariant value
-        appropriate for this property.
+        If wxPGPropValFormatFlags::FullValue is not set in flags, then the
+        value is interpreted as index to choices list.
         """
 
-    def ColourToString(self, col: wx.Colour, index: int, argFlags: int=0) -> str:
+    def ColourToString(self, col: wx.Colour, index: int, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> str:
         """
-        ColourToString(col, index, argFlags=0) -> str
+        ColourToString(col, index, flags=PGPropValFormatFlags.Null) -> str
         
         Override in derived class to customize how colours are printed as
         strings.
@@ -6505,16 +6612,16 @@ class SystemColourProperty(EnumProperty):
         last).
         """
 
-    def ValueToString(self, value: PGVariant, argFlags: int=0) -> str:
+    def ValueToString(self, value: PGVariant, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> str:
         """
-        ValueToString(value, argFlags=0) -> str
+        ValueToString(value, flags=PGPropValFormatFlags.Null) -> str
         
         Converts property value into a text representation.
         """
 
-    def StringToValue(self, text: str, argFlags: int=0) -> Tuple[bool, PGVariant]:
+    def StringToValue(self, text: str, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]:
         """
-        StringToValue(text, argFlags=0) -> Tuple[bool, PGVariant]
+        StringToValue(text, flags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]
         
         Converts text into wxVariant value appropriate for this property.
         """
@@ -6553,6 +6660,8 @@ class SystemColourProperty(EnumProperty):
     def QueryColourFromUser(self, variant: PGVariant) -> bool:
         """
         QueryColourFromUser(variant) -> bool
+        
+        Helper function to show the colour dialog.
         """
 
     def GetColour(self, index: int) -> wx.Colour:
@@ -6562,9 +6671,9 @@ class SystemColourProperty(EnumProperty):
         Default is to use wxSystemSettings::GetColour(index).
         """
 
-    def GetVal(self, pVariant: Optional[PGVariant]=None) -> ColourPropertyValue:
+    def GetVal(self, pVariant: PGVariant=nullptr) -> ColourPropertyValue:
         """
-        GetVal(pVariant=None) -> ColourPropertyValue
+        GetVal(pVariant=nullptr) -> ColourPropertyValue
         """
     @property
     def CustomColourIndex(self) -> int: ...
@@ -6587,9 +6696,9 @@ class ColourProperty(SystemColourProperty):
         Allows to select a colour from the list or with colour dialog.
         """
 
-    def ValueToString(self, value: PGVariant, argFlags: int=0) -> str:
+    def ValueToString(self, value: PGVariant, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> str:
         """
-        ValueToString(value, argFlags=0) -> str
+        ValueToString(value, flags=PGPropValFormatFlags.Null) -> str
         
         Converts property value into a text representation.
         """
@@ -6617,6 +6726,13 @@ class CursorProperty(EnumProperty):
         Property representing wxCursor.
         """
 
+    def ValueToString(self, value: PGVariant, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> str:
+        """
+        ValueToString(value, flags=PGPropValFormatFlags.Null) -> str
+        
+        Converts property value into a text representation.
+        """
+
     def OnMeasureImage(self, item: int) -> wx.Size:
         """
         OnMeasureImage(item) -> wx.Size
@@ -6637,14 +6753,14 @@ class CursorProperty(EnumProperty):
 
 class ImageFileProperty(FileProperty):
     """
-    ImageFileProperty(label=PG_LABEL, name=PG_LABEL, value='') -> None
+    ImageFileProperty(label=PG_LABEL, name=PG_LABEL, value="") -> None
     
     Property representing image file(name).
     """
 
-    def __init__(self, label: str=PG_LABEL, name: str=PG_LABEL, value: str='') -> None:
+    def __init__(self, label: str=PG_LABEL, name: str=PG_LABEL, value: str="") -> None:
         """
-        ImageFileProperty(label=PG_LABEL, name=PG_LABEL, value='') -> None
+        ImageFileProperty(label=PG_LABEL, name=PG_LABEL, value="") -> None
         
         Property representing image file(name).
         """
@@ -6708,16 +6824,16 @@ class MultiChoiceProperty(EditorDialogProperty):
         This virtual function is called after m_value has been set.
         """
 
-    def ValueToString(self, value: PGVariant, argFlags: int=0) -> str:
+    def ValueToString(self, value: PGVariant, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> str:
         """
-        ValueToString(value, argFlags=0) -> str
+        ValueToString(value, flags=PGPropValFormatFlags.Null) -> str
         
         Converts property value into a text representation.
         """
 
-    def StringToValue(self, text: str, argFlags: int=0) -> Tuple[bool, PGVariant]:
+    def StringToValue(self, text: str, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]:
         """
-        StringToValue(text, argFlags=0) -> Tuple[bool, PGVariant]
+        StringToValue(text, flags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]
         
         Converts text into wxVariant value appropriate for this property.
         """
@@ -6759,16 +6875,16 @@ class DateProperty(PGProperty):
         This virtual function is called after m_value has been set.
         """
 
-    def ValueToString(self, value: PGVariant, argFlags: int=0) -> str:
+    def ValueToString(self, value: PGVariant, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> str:
         """
-        ValueToString(value, argFlags=0) -> str
+        ValueToString(value, flags=PGPropValFormatFlags.Null) -> str
         
         Converts property value into a text representation.
         """
 
-    def StringToValue(self, text: str, argFlags: int=0) -> Tuple[bool, PGVariant]:
+    def StringToValue(self, text: str, flags: PGPropValFormatFlags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]:
         """
-        StringToValue(text, argFlags=0) -> Tuple[bool, PGVariant]
+        StringToValue(text, flags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]
         
         Converts text into wxVariant value appropriate for this property.
         """
@@ -6851,6 +6967,9 @@ class PGSpinCtrlEditor(PGTextCtrlEditor):
 def PGGetDefaultImageWildcard() -> str:    """
     PGGetDefaultImageWildcard() -> str
     """
+PG_COLOUR_WEB_BASE: constexprwxUint32
+PG_COLOUR_CUSTOM: constexprwxUint32
+PG_COLOUR_UNSPECIFIED: constexprwxUint32
 PGEditor_SpinCtrl: PGEditor
 PGEditor_DatePickerCtrl: PGEditor
 
@@ -7021,9 +7140,9 @@ class PropertyGridManager(wx.Panel, PropertyGridInterface):
         selection, a help text box, and a header.
         """
 
-    def AddPage(self, label: str='', bmp: wx.BitmapBundle=wx.BitmapBundle(), pageObj: Optional[PropertyGridPage]=None) -> PropertyGridPage:
+    def AddPage(self, label: str="", bmp: wx.BitmapBundle=wx.BitmapBundle(), pageObj: PropertyGridPage=nullptr) -> PropertyGridPage:
         """
-        AddPage(label='', bmp=wx.BitmapBundle(), pageObj=None) -> PropertyGridPage
+        AddPage(label="", bmp=wx.BitmapBundle(), pageObj=nullptr) -> PropertyGridPage
         
         Creates new property page.
         """
@@ -7042,9 +7161,9 @@ class PropertyGridManager(wx.Panel, PropertyGridInterface):
         Deletes all properties on given page.
         """
 
-    def CommitChangesFromEditor(self, flags: Uint32=0) -> bool:
+    def CommitChangesFromEditor(self, flags: PGSelectPropertyFlags=PGSelectPropertyFlags.Null) -> bool:
         """
-        CommitChangesFromEditor(flags=0) -> bool
+        CommitChangesFromEditor(flags=PGSelectPropertyFlags.Null) -> bool
         
         Forces updating the value of property from the editor control.
         """
@@ -7133,7 +7252,7 @@ class PropertyGridManager(wx.Panel, PropertyGridInterface):
         """
         GetPageByState(pstate) -> int
         
-        Returns index for a relevant propertygrid state.
+        Returns index for a relevant property grid state.
         """
 
     def GetPageCount(self) -> int:
@@ -7186,9 +7305,9 @@ class PropertyGridManager(wx.Panel, PropertyGridInterface):
         wxPropertyGridManager (if any).
         """
 
-    def InsertPage(self, index: int, label: str, bmp: wx.BitmapBundle=wx.BitmapBundle(), pageObj: Optional[PropertyGridPage]=None) -> PropertyGridPage:
+    def InsertPage(self, index: int, label: str, bmp: wx.BitmapBundle=wx.BitmapBundle(), pageObj: PropertyGridPage=nullptr) -> PropertyGridPage:
         """
-        InsertPage(index, label, bmp=wx.BitmapBundle(), pageObj=None) -> PropertyGridPage
+        InsertPage(index, label, bmp=wx.BitmapBundle(), pageObj=nullptr) -> PropertyGridPage
         
         Creates new property page.
         """

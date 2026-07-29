@@ -2,7 +2,6 @@
 // Name:        src/osx/checklst.cpp
 // Purpose:     implementation of wxCheckListBox class
 // Author:      Stefan Csomor
-// Modified by:
 // Created:     1998-01-01
 // Copyright:   (c) Stefan Csomor
 // Licence:     wxWindows licence
@@ -55,8 +54,8 @@ bool wxCheckListBox::Create(
    long style,
    const wxValidator& validator,
    const wxString& name )
-{    
-    
+{
+
     wxASSERT_MSG( !(style & wxLB_MULTIPLE) || !(style & wxLB_EXTENDED),
                   wxT("only one of listbox selection modes can be specified") );
 

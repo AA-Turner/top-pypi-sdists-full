@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 from typing import Optional
 
@@ -9,7 +10,19 @@ import anyscale
 from anyscale._private.anyscale_client import AnyscaleClient
 from anyscale.cli_logger import BlockLogger
 from anyscale.commands import command_examples
+from anyscale.commands.doc_metadata import (
+    command_metadata,
+    CommandExample,
+    ReleaseStatus,
+)
+from anyscale.commands.output_format import (
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    OutputFormat,
+    print_output,
+)
 from anyscale.commands.util import AnyscaleCommand
+from anyscale.user_group.models import UserGroup
 
 
 log = BlockLogger()
@@ -20,10 +33,33 @@ def user_group_cli() -> None:
     pass
 
 
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="List user groups in the organization.",
+            command="anyscale user-group list",
+            output_raw=command_examples.USER_GROUP_LIST_EXAMPLE,
+            output_instance=lambda: [
+                UserGroup(
+                    id="ug_abc123",
+                    name="data-team",
+                    org_id="org_abc123",
+                    created_at=datetime(2024, 9, 11),
+                    updated_at=datetime(2024, 9, 11),
+                )
+            ],
+        ),
+    ],
+    output_schema=UserGroup,
+)
 @user_group_cli.command(
     name="list",
+    short_help="List user groups in the organization.",
     cls=AnyscaleCommand,
-    example=command_examples.USER_GROUP_LIST_EXAMPLE,
     is_beta=True,
 )
 @click.option(
@@ -32,7 +68,17 @@ def user_group_cli() -> None:
     type=int,
     help="Maximum number of user groups to return.",
 )
-def list_user_groups(max_items: int) -> None:
+@click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
+def list_user_groups(max_items: int, output_format: str) -> None:
     """
     List user groups in the organization.
     """
@@ -40,6 +86,10 @@ def list_user_groups(max_items: int) -> None:
         user_groups = anyscale.user_group.list(max_items=max_items)
     except ValueError as e:
         log.error(str(e))
+        return
+
+    if output_format != OutputFormat.TEXT.value:
+        print_output(user_groups, output_format)
         return
 
     if not user_groups:
@@ -52,16 +102,47 @@ def list_user_groups(max_items: int) -> None:
     rprint(table)
 
 
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Get a user group by ID.",
+            command="anyscale user-group get --id ug_abc123",
+            output_raw=command_examples.USER_GROUP_GET_EXAMPLE,
+            output_instance=lambda: UserGroup(
+                id="ug_abc123",
+                name="data-team",
+                org_id="org_abc123",
+                created_at=datetime(2024, 9, 11),
+                updated_at=datetime(2024, 9, 11),
+            ),
+        ),
+    ],
+    output_schema=UserGroup,
+)
 @user_group_cli.command(
     name="get",
+    short_help="Get a specific user group by ID.",
     cls=AnyscaleCommand,
-    example=command_examples.USER_GROUP_GET_EXAMPLE,
     is_beta=True,
 )
 @click.option(
     "--id", required=True, type=str, help="The ID of the user group to retrieve.",
 )
-def get_user_group(id: str) -> None:  # noqa: A002
+@click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
+def get_user_group(id: str, output_format: str) -> None:  # noqa: A002
     """
     Get a specific user group by ID.
     """
@@ -69,6 +150,10 @@ def get_user_group(id: str) -> None:  # noqa: A002
         user_group = anyscale.user_group.get(id=id)
     except ValueError as e:
         log.error(f"Failed to get user group: {e}")
+        return
+
+    if output_format != OutputFormat.TEXT.value:
+        print_output(user_group, output_format)
         return
 
     details = [
@@ -87,10 +172,26 @@ def membership_cli() -> None:
     pass
 
 
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="List all user groups with their members.",
+            command="anyscale user-group membership list",
+            output_raw=command_examples.USER_GROUP_MEMBERSHIP_LIST_EXAMPLE,
+            output_instance={
+                "Engineering": ["alice@example.com", "charlie@example.com"],
+                "Data Science": ["bob@example.com"],
+            },
+        ),
+    ],
+)
 @membership_cli.command(
     name="list",
+    short_help="List all user groups with their members.",
     cls=AnyscaleCommand,
-    example=command_examples.USER_GROUP_MEMBERSHIP_LIST_EXAMPLE,
     is_beta=True,
 )
 @click.option(
@@ -100,7 +201,16 @@ def membership_cli() -> None:
     default=None,
     help="Write JSON output to a file instead of stdout.",
 )
-def list_memberships(output: Optional[str]) -> None:
+@click.option(
+    "--output-format",
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result. Ignored when --output is provided.",
+)
+def list_memberships(output: Optional[str], output_format: str) -> None:
     """
     List all user groups with their members.
 
@@ -129,6 +239,8 @@ def list_memberships(output: Optional[str]) -> None:
             with open(output, "w") as f:
                 f.write(json_output)
             log.info(f"Results written to {output}")
+        elif output_format != OutputFormat.TEXT.value:
+            print_output(simple_output, output_format)
         else:
             print(json_output)
     except click.ClickException:

@@ -14,23 +14,25 @@
         #include <wx/gdicmn.h>
         #include <wx/gdicmn.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/validate.h>
         #include <wx/bmpbndl.h>
+        #include <wx/animate.h>
         #include <wx/stream.h>
         #include <wx/bitmap.h>
         #include <wx/dc.h>
         #include <wx/event.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -46,6 +48,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
+    wxAccessible* _wxAnimationCtrl_CreateAccessible(wxAnimationCtrl* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxAnimationCtrl : public ::wxAnimationCtrl
@@ -72,7 +83,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -86,7 +96,7 @@ public:
 protected:
     void Stop() SIP_OVERRIDE;
     void SetInactiveBitmap(const ::wxBitmapBundle&) SIP_OVERRIDE;
-    void SetAnimation(const ::wxAnimation&) SIP_OVERRIDE;
+    void SetAnimation(const ::wxAnimationBundle&) SIP_OVERRIDE;
     bool Play() SIP_OVERRIDE;
     bool Load(::wxInputStream&, ::wxAnimationType) SIP_OVERRIDE;
     bool LoadFile(const ::wxString&, ::wxAnimationType) SIP_OVERRIDE;
@@ -95,7 +105,6 @@ protected:
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
@@ -138,7 +147,7 @@ private:
     sipwxAnimationCtrl(const sipwxAnimationCtrl &);
     sipwxAnimationCtrl &operator = (const sipwxAnimationCtrl &);
 
-    char sipPyMethods[46];
+    char sipPyMethods[45];
 };
 
 sipwxAnimationCtrl::sipwxAnimationCtrl(::wxWindow*parent, ::wxWindowID id, const ::wxAnimation& anim, const ::wxPoint& pos, const ::wxSize& size, long style, const ::wxString& name): ::wxAnimationCtrl(parent, id, anim, pos, size, style, name), sipPySelf(SIP_NULLPTR)
@@ -187,7 +196,7 @@ void sipwxAnimationCtrl::SetInactiveBitmap(const ::wxBitmapBundle& bmp)
     sipVH__adv_37(sipGILState, 0, sipPySelf, sipMeth, bmp);
 }
 
-void sipwxAnimationCtrl::SetAnimation(const ::wxAnimation& anim)
+void sipwxAnimationCtrl::SetAnimation(const ::wxAnimationBundle& animations)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -196,13 +205,13 @@ void sipwxAnimationCtrl::SetAnimation(const ::wxAnimation& anim)
 
     if (!sipMeth)
     {
-        ::wxAnimationCtrl::SetAnimation(anim);
+        ::wxAnimationCtrl::SetAnimation(animations);
         return;
     }
 
-    extern void sipVH__adv_36(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxAnimation&);
+    extern void sipVH__adv_36(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxAnimationBundle&);
 
-    sipVH__adv_36(sipGILState, 0, sipPySelf, sipMeth, anim);
+    sipVH__adv_36(sipGILState, 0, sipPySelf, sipMeth, animations);
 }
 
 bool sipwxAnimationCtrl::Play()
@@ -331,27 +340,12 @@ void sipwxAnimationCtrl::DoFreeze()
     sipVH__adv_4(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxAnimationCtrl::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[11]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxAnimationCtrl::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__adv_25(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__adv_25(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 ::wxBorder sipwxAnimationCtrl::GetDefaultBorder() const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[12]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[11]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
 
     if (!sipMeth)
         return ::wxAnimationCtrl::GetDefaultBorder();
@@ -366,7 +360,7 @@ void sipwxAnimationCtrl::DoSetWindowVariant(::wxWindowVariant variant)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[13], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[12], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
 
     if (!sipMeth)
     {
@@ -384,7 +378,7 @@ void sipwxAnimationCtrl::DoMoveWindow(int x, int y, int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[14], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[13], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
 
     if (!sipMeth)
     {
@@ -402,7 +396,7 @@ void sipwxAnimationCtrl::DoSetSizeHints(int minW, int minH, int maxW, int maxH, 
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[15], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[14], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
 
     if (!sipMeth)
     {
@@ -420,7 +414,7 @@ void sipwxAnimationCtrl::DoSetClientSize(int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[16], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[15], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
 
     if (!sipMeth)
     {
@@ -438,7 +432,7 @@ void sipwxAnimationCtrl::DoSetSize(int x, int y, int width, int height, int size
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[17], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[16], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
 
     if (!sipMeth)
     {
@@ -456,7 +450,7 @@ void sipwxAnimationCtrl::DoGetClientSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[18]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[17]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
 
     if (!sipMeth)
     {
@@ -474,7 +468,7 @@ void sipwxAnimationCtrl::DoGetSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[19]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[18]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
 
     if (!sipMeth)
     {
@@ -492,7 +486,7 @@ void sipwxAnimationCtrl::DoGetPosition(int*x, int*y) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[20]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[19]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
 
     if (!sipMeth)
     {
@@ -510,7 +504,7 @@ void sipwxAnimationCtrl::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[21], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[20], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
 
     if (!sipMeth)
     {
@@ -528,7 +522,7 @@ void sipwxAnimationCtrl::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[22], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[21], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
 
     if (!sipMeth)
         return ::wxAnimationCtrl::GetMainWindowOfCompositeControl();
@@ -543,7 +537,7 @@ void sipwxAnimationCtrl::OnInternalIdle()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[22], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
 
     if (!sipMeth)
     {
@@ -561,7 +555,7 @@ void sipwxAnimationCtrl::InitDialog()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[24], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
 
     if (!sipMeth)
     {
@@ -579,7 +573,7 @@ void sipwxAnimationCtrl::InheritAttributes()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[25], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[24], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
 
     if (!sipMeth)
     {
@@ -597,7 +591,7 @@ bool sipwxAnimationCtrl::Destroy()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[26], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[25], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
 
     if (!sipMeth)
         return ::wxAnimationCtrl::Destroy();
@@ -612,7 +606,7 @@ bool sipwxAnimationCtrl::Validate()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[27], &sipPySelf, SIP_NULLPTR, sipName_Validate);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[26], &sipPySelf, SIP_NULLPTR, sipName_Validate);
 
     if (!sipMeth)
         return ::wxAnimationCtrl::Validate();
@@ -627,7 +621,7 @@ bool sipwxAnimationCtrl::TransferDataToWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[28], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[27], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
 
     if (!sipMeth)
         return ::wxAnimationCtrl::TransferDataToWindow();
@@ -642,7 +636,7 @@ bool sipwxAnimationCtrl::TransferDataFromWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[29], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[28], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
 
     if (!sipMeth)
         return ::wxAnimationCtrl::TransferDataFromWindow();
@@ -657,7 +651,7 @@ void sipwxAnimationCtrl::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[30], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[29], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
 
     if (!sipMeth)
     {
@@ -675,7 +669,7 @@ void sipwxAnimationCtrl::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[31], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[30], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
 
     if (!sipMeth)
         return ::wxAnimationCtrl::GetValidator();
@@ -690,7 +684,7 @@ bool sipwxAnimationCtrl::ShouldInheritColours() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[32]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[31]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
 
     if (!sipMeth)
         return ::wxAnimationCtrl::ShouldInheritColours();
@@ -705,7 +699,7 @@ bool sipwxAnimationCtrl::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[33], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[32], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
 
     if (!sipMeth)
         return ::wxAnimationCtrl::HasTransparentBackground();
@@ -720,7 +714,7 @@ bool sipwxAnimationCtrl::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[33]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
 
     if (!sipMeth)
         return ::wxAnimationCtrl::GetClientAreaOrigin();
@@ -735,7 +729,7 @@ bool sipwxAnimationCtrl::InformFirstDirection(int direction, int size, int avail
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
 
     if (!sipMeth)
         return ::wxAnimationCtrl::InformFirstDirection(direction, size, availableOtherDir);
@@ -750,7 +744,7 @@ void sipwxAnimationCtrl::EnableVisibleFocus(bool enabled)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
 
     if (!sipMeth)
     {
@@ -768,7 +762,7 @@ void sipwxAnimationCtrl::SetCanFocus(bool canFocus)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
 
     if (!sipMeth)
     {
@@ -786,7 +780,7 @@ bool sipwxAnimationCtrl::AcceptsFocusRecursively() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
 
     if (!sipMeth)
         return ::wxAnimationCtrl::AcceptsFocusRecursively();
@@ -801,7 +795,7 @@ bool sipwxAnimationCtrl::AcceptsFocusFromKeyboard() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[39]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
 
     if (!sipMeth)
         return ::wxAnimationCtrl::AcceptsFocusFromKeyboard();
@@ -816,7 +810,7 @@ bool sipwxAnimationCtrl::AcceptsFocus() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[40]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[39]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
 
     if (!sipMeth)
         return ::wxAnimationCtrl::AcceptsFocus();
@@ -831,7 +825,7 @@ bool sipwxAnimationCtrl::TryAfter(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[41], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[40], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
 
     if (!sipMeth)
         return ::wxAnimationCtrl::TryAfter(event);
@@ -846,7 +840,7 @@ bool sipwxAnimationCtrl::TryBefore(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[42], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[41], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
 
     if (!sipMeth)
         return ::wxAnimationCtrl::TryBefore(event);
@@ -861,7 +855,7 @@ bool sipwxAnimationCtrl::ProcessEvent(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[43], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[42], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
 
     if (!sipMeth)
         return ::wxAnimationCtrl::ProcessEvent(event);
@@ -876,7 +870,7 @@ void sipwxAnimationCtrl::AddChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[44], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[43], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
 
     if (!sipMeth)
     {
@@ -894,7 +888,7 @@ void sipwxAnimationCtrl::RemoveChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[45], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[44], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
 
     if (!sipMeth)
     {
@@ -975,11 +969,6 @@ void sipwxAnimationCtrl::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, :
 ::wxBorder sipwxAnimationCtrl::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxAnimationCtrl::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxAnimationCtrl::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxAnimationCtrl::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxAnimationCtrl::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -1378,7 +1367,7 @@ static PyObject *meth_wxAnimationCtrl_Play(PyObject *sipSelf, PyObject *sipArgs)
 }
 
 
-PyDoc_STRVAR(doc_wxAnimationCtrl_SetAnimation, "SetAnimation(anim) -> None\n"
+PyDoc_STRVAR(doc_wxAnimationCtrl_SetAnimation, "SetAnimation(animations) -> None\n"
 "\n"
 "Sets the animation to play in this control.");
 
@@ -1389,19 +1378,19 @@ static PyObject *meth_wxAnimationCtrl_SetAnimation(PyObject *sipSelf, PyObject *
     bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
 
     {
-        const ::wxAnimation* anim;
+        const ::wxAnimationBundle* animations;
         ::wxAnimationCtrl *sipCpp;
 
         static const char *sipKwdList[] = {
-            sipName_anim,
+            sipName_animations,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9", &sipSelf, sipType_wxAnimationCtrl, &sipCpp, sipType_wxAnimation, &anim))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9", &sipSelf, sipType_wxAnimationCtrl, &sipCpp, sipType_wxAnimationBundle, &animations))
         {
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            (sipSelfWasArg ? sipCpp->::wxAnimationCtrl::SetAnimation(*anim) : sipCpp->SetAnimation(*anim));
+            (sipSelfWasArg ? sipCpp->::wxAnimationCtrl::SetAnimation(*animations) : sipCpp->SetAnimation(*animations));
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
@@ -2732,40 +2721,6 @@ static PyObject *meth_wxAnimationCtrl_GetDefaultBorder(PyObject *sipSelf, PyObje
 }
 
 
-PyDoc_STRVAR(doc_wxAnimationCtrl_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxAnimationCtrl_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxAnimationCtrl_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxAnimationCtrl *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxAnimationCtrl, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_AnimationCtrl, sipName_GetDefaultBorderForControl, doc_wxAnimationCtrl_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxAnimationCtrl_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxAnimationCtrl_DoFreeze(PyObject *, PyObject *);}
@@ -2944,6 +2899,39 @@ static PyObject *meth_wxAnimationCtrl_TryAfter(PyObject *sipSelf, PyObject *sipA
 }
 
 
+PyDoc_STRVAR(doc_wxAnimationCtrl_CreateAccessible, "CreateAccessible() -> wx.Accessible");
+
+extern "C" {static PyObject *meth_wxAnimationCtrl_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxAnimationCtrl_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxAnimationCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxAnimationCtrl, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxAnimationCtrl_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AnimationCtrl, sipName_CreateAccessible, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxAnimationCtrl_GetClassDefaultAttributes, "GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes");
 
 extern "C" {static PyObject *meth_wxAnimationCtrl_GetClassDefaultAttributes(PyObject *, PyObject *, PyObject *);}
@@ -3088,7 +3076,7 @@ static void *init_type_wxAnimationCtrl(sipSimpleWrapper *sipSelf, PyObject *sipA
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxAnimationCtrl[] = {{15, 0, 1}};
+static sipEncodedTypeDef supers_wxAnimationCtrl[] = {{16, 0, 1}};
 
 
 static PyMethodDef methods_wxAnimationCtrl[] = {
@@ -3097,6 +3085,7 @@ static PyMethodDef methods_wxAnimationCtrl[] = {
     {sipName_AcceptsFocusRecursively, meth_wxAnimationCtrl_AcceptsFocusRecursively, METH_VARARGS, doc_wxAnimationCtrl_AcceptsFocusRecursively},
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxAnimationCtrl_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxAnimationCtrl_AddChild},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxAnimationCtrl_Create), METH_VARARGS|METH_KEYWORDS, doc_wxAnimationCtrl_Create},
+    {sipName_CreateAccessible, meth_wxAnimationCtrl_CreateAccessible, METH_VARARGS, doc_wxAnimationCtrl_CreateAccessible},
     {sipName_CreateAnimation, meth_wxAnimationCtrl_CreateAnimation, METH_VARARGS, doc_wxAnimationCtrl_CreateAnimation},
     {sipName_CreateCompatibleAnimation, meth_wxAnimationCtrl_CreateCompatibleAnimation, METH_VARARGS, doc_wxAnimationCtrl_CreateCompatibleAnimation},
     {sipName_Destroy, meth_wxAnimationCtrl_Destroy, METH_VARARGS, doc_wxAnimationCtrl_Destroy},
@@ -3118,7 +3107,6 @@ static PyMethodDef methods_wxAnimationCtrl[] = {
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxAnimationCtrl_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxAnimationCtrl_GetClassDefaultAttributes},
     {sipName_GetClientAreaOrigin, meth_wxAnimationCtrl_GetClientAreaOrigin, METH_VARARGS, doc_wxAnimationCtrl_GetClientAreaOrigin},
     {sipName_GetDefaultBorder, meth_wxAnimationCtrl_GetDefaultBorder, METH_VARARGS, doc_wxAnimationCtrl_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxAnimationCtrl_GetDefaultBorderForControl, METH_VARARGS, doc_wxAnimationCtrl_GetDefaultBorderForControl},
     {sipName_GetInactiveBitmap, meth_wxAnimationCtrl_GetInactiveBitmap, METH_VARARGS, doc_wxAnimationCtrl_GetInactiveBitmap},
     {sipName_GetMainWindowOfCompositeControl, meth_wxAnimationCtrl_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxAnimationCtrl_GetMainWindowOfCompositeControl},
     {sipName_GetValidator, meth_wxAnimationCtrl_GetValidator, METH_VARARGS, doc_wxAnimationCtrl_GetValidator},
@@ -3149,7 +3137,7 @@ static PyMethodDef methods_wxAnimationCtrl[] = {
 
 sipVariableDef variables_wxAnimationCtrl[] = {
     {PropertyVariable, sipName_InactiveBitmap, &methods_wxAnimationCtrl[27], &methods_wxAnimationCtrl[44], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Animation, &methods_wxAnimationCtrl[22], &methods_wxAnimationCtrl[42], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Animation, &methods_wxAnimationCtrl[23], &methods_wxAnimationCtrl[42], SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxAnimationCtrl, "AnimationCtrl(parent, id=wx.ID_ANY, anim=NullAnimation, pos=wx.DefaultPosition, size=wx.DefaultSize, style=AC_DEFAULT_STYLE, name=AnimationCtrlNameStr) -> None\n"

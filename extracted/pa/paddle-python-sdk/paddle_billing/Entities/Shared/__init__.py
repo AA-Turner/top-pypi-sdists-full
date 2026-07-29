@@ -1,4 +1,7 @@
 from paddle_billing.Entities.Shared.Action import Action
+from paddle_billing.Entities.Shared.ActionSource import ActionSource
+from paddle_billing.Entities.Shared.Actor import Actor
+from paddle_billing.Entities.Shared.ActorType import ActorType
 from paddle_billing.Entities.Shared.AddressPreview import AddressPreview
 from paddle_billing.Entities.Shared.AdjustmentActionType import AdjustmentActionType
 from paddle_billing.Entities.Shared.AdjustmentItemTotals import AdjustmentItemTotals
@@ -40,6 +43,7 @@ from paddle_billing.Entities.Shared.SouthKoreaLocalCardType import SouthKoreaLoc
 from paddle_billing.Entities.Shared.PayoutTotalsAdjustment import PayoutTotalsAdjustment
 from paddle_billing.Entities.Shared.Paypal import Paypal
 from paddle_billing.Entities.Shared.PriceQuantity import PriceQuantity
+from paddle_billing.Entities.Shared.PriceTrialPeriod import PriceTrialPeriod
 from paddle_billing.Entities.Shared.Proration import Proration
 from paddle_billing.Entities.Shared.SavedPaymentMethodOrigin import SavedPaymentMethodOrigin
 from paddle_billing.Entities.Shared.SavedPaymentMethodType import SavedPaymentMethodType

@@ -31,6 +31,7 @@ from anyscale.skills.errors import (  # noqa: F401
 )
 from anyscale.skills.models import (  # noqa: F401
     CatalogEntry,
+    ConfigDir,
     InstalledMetadata,
     Platform,
     PlatformInstallInfo,

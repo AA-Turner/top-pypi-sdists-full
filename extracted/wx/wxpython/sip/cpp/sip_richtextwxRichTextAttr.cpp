@@ -96,7 +96,7 @@ static PyObject *meth_wxRichTextAttr_EqPartial(PyObject *sipSelf, PyObject *sipA
 }
 
 
-PyDoc_STRVAR(doc_wxRichTextAttr_Apply, "Apply(style, compareWith=None) -> bool\n"
+PyDoc_STRVAR(doc_wxRichTextAttr_Apply, "Apply(style, compareWith=nullptr) -> bool\n"
 "\n"
 "Merges the given attributes.");
 
@@ -107,7 +107,7 @@ static PyObject *meth_wxRichTextAttr_Apply(PyObject *sipSelf, PyObject *sipArgs,
 
     {
         const ::wxRichTextAttr* style;
-        const ::wxRichTextAttr* compareWith = 0;
+        const ::wxRichTextAttr* compareWith = nullptr;
         ::wxRichTextAttr *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -549,7 +549,7 @@ static void *init_type_wxRichTextAttr(sipSimpleWrapper *, PyObject *sipArgs, PyO
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxRichTextAttr[] = {{59, 0, 1}};
+static sipEncodedTypeDef supers_wxRichTextAttr[] = {{61, 0, 1}};
 
 
 /* Define this type's Python slots. */

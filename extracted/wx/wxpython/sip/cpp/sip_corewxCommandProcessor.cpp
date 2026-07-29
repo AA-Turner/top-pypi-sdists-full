@@ -88,9 +88,9 @@ void sipwxCommandProcessor::Store(::wxCommand*command)
         return;
     }
 
-    extern void sipVH__core_242(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxCommand*);
+    extern void sipVH__core_241(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxCommand*);
 
-    sipVH__core_242(sipGILState, 0, sipPySelf, sipMeth, command);
+    sipVH__core_241(sipGILState, 0, sipPySelf, sipMeth, command);
 }
 
 bool sipwxCommandProcessor::Submit(::wxCommand*command, bool storeIt)
@@ -103,9 +103,9 @@ bool sipwxCommandProcessor::Submit(::wxCommand*command, bool storeIt)
     if (!sipMeth)
         return ::wxCommandProcessor::Submit(command, storeIt);
 
-    extern bool sipVH__core_241(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxCommand*, bool);
+    extern bool sipVH__core_240(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxCommand*, bool);
 
-    return sipVH__core_241(sipGILState, 0, sipPySelf, sipMeth, command, storeIt);
+    return sipVH__core_240(sipGILState, 0, sipPySelf, sipMeth, command, storeIt);
 }
 
 void sipwxCommandProcessor::SetMenuStrings()
@@ -300,7 +300,7 @@ static PyObject *meth_wxCommandProcessor_CanRedo(PyObject *sipSelf, PyObject *si
 PyDoc_STRVAR(doc_wxCommandProcessor_ClearCommands, "ClearCommands() -> None\n"
 "\n"
 "Deletes all commands in the list and sets the current command pointer\n"
-"to NULL.");
+"to nullptr.");
 
 extern "C" {static PyObject *meth_wxCommandProcessor_ClearCommands(PyObject *, PyObject *);}
 static PyObject *meth_wxCommandProcessor_ClearCommands(PyObject *sipSelf, PyObject *sipArgs)
@@ -1130,7 +1130,7 @@ static void *init_type_wxCommandProcessor(sipSimpleWrapper *sipSelf, PyObject *s
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxCommandProcessor[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxCommandProcessor[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxCommandProcessor[] = {

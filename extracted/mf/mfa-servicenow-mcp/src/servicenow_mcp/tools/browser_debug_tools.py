@@ -31,6 +31,14 @@ Running JavaScript is graded in two, because "read a value off the page" and
 ``act_in_debug_window`` action ``eval``  arbitrary source, and therefore
     confirm='approve' AND confirm_eval='approve'.
 
+Running SERVER-side code is graded above both, because a click on Run in
+Background Scripts is not a click a person's ACLs constrain — see
+browser/server_scripts.py. Reaching those pages costs nothing; pulling the
+trigger on one costs confirm_script_exec='approve'. That gate is enforced twice:
+here, against the verb a step names, before the browser is touched — and in
+actions.py against the window's live URL, which is the only place a click that
+navigates onto Background Scripts mid-batch can be caught.
+
 Impersonation is a step, not a tool, for the same reason: testing "what does
 this user see" is never one call. It changes the whole window's session — which
 every MCP session and the person watching the screen share — so both tools
@@ -49,6 +57,7 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 from ..auth.auth_manager import AuthManager
+from ..browser import server_scripts
 from ..browser._launch_lock import LaunchBusy
 from ..browser._offload import PlaywrightUnavailable
 from ..browser.actions import EVAL_ACTION, MAX_ACTIONS, act, normalize
@@ -62,16 +71,11 @@ from ..browser.launch_budget import LaunchBudgetExceeded, budget_status
 from ..browser.login import auto_login
 from ..browser.login import describe as describe_login
 from ..browser.login import saved_credentials
-from ..browser.mfa_trust import harvest_from_profile as harvest_trust_from_profile
-from ..browser.mfa_trust import read_store as read_trust
-from ..browser.mfa_trust import seed_profile as seed_trust_profile
-from ..browser.mfa_trust import store_path as mfa_store_path
-from ..browser.mfa_trust import write_store as write_trust
 from ..browser.reaper import reap_idle_windows
 from ..browser.report import compact
+from ..browser.server_scripts import ServerScriptBlocked
 from ..browser.session import api_username, describe_window_user
 from ..browser.window import (
-    _cache_root,
     ensure_window,
     find_window,
     window_artifacts_dir,
@@ -177,6 +181,10 @@ class ActInDebugWindowParams(BaseModel):
     confirm_eval: Optional[str] = Field(
         default=None, description="Required ('approve') when any step is action='eval'."
     )
+    confirm_script_exec: Optional[str] = Field(
+        default=None,
+        description="Required ('approve') to run a server-side script (Background/Fix/ATF).",
+    )
     discard_unsaved_input: bool = Field(
         default=False,
         description="Allow impersonate/end_impersonation to reload a form holding input.",
@@ -206,6 +214,10 @@ class InspectDebugWindowParams(BaseModel):
         default=None,
         description="A JS expression to read from the page. Statements need act's eval.",
     )
+    confirm_script_exec: Optional[str] = Field(
+        default=None,
+        description="Required ('approve') when evaluate posts to a server-script endpoint.",
+    )
 
 
 def _resolve_url(config: ServerConfig, url: Optional[str]) -> str:
@@ -230,30 +242,6 @@ def _window_account(config: ServerConfig, auth_manager: AuthManager, state: Any)
     if marker and marker.get("original"):
         return str(marker["original"])
     return (saved_credentials(config) or ("", ""))[0]
-
-
-def _login_profile_dir(auth_manager: AuthManager, config: ServerConfig) -> str:
-    """The auth layer's Chromium profile — the one that has already been through MFA.
-
-    Read through the frozen class's own helpers rather than rebuilt here, so a
-    change to how it keys profiles cannot silently point this at the wrong one.
-    Returns '' when the profile cannot be located, which every caller treats as
-    "no shortcut available" rather than as an error.
-    """
-    browser_config = getattr(getattr(config, "auth", None), "browser", None)
-    resolver = getattr(auth_manager, "_resolve_user_data_dir", None)
-    if callable(resolver) and browser_config is not None:
-        try:
-            return str(resolver(browser_config))
-        except Exception as exc:  # noqa: BLE001 - fall through to the default
-            logger.debug("Could not resolve the login profile dir: %s", exc)
-    default = getattr(auth_manager, "_get_default_user_data_dir", None)
-    if callable(default):
-        try:
-            return str(default())
-        except Exception as exc:  # noqa: BLE001
-            logger.debug("Could not read the default login profile dir: %s", exc)
-    return ""
 
 
 def _window_identity(state: Any, config: ServerConfig) -> Dict[str, Any]:
@@ -335,62 +323,41 @@ def open_debug_window(
         except (NoPageFound, RuntimeError, TimeoutError) as exc:
             return {**result, "success": False, "error": str(exc)}
         if not moved.get("navigated"):
-            basis = moved.get("input_basis")
-            # new_tab is offered FIRST: it keeps the input and gets the page
-            # open, where discarding trades one for the other.
-            hint = (
-                "Fields hold input. Use new_tab=true to open this alongside without "
-                "touching them, or discard_unsaved_input=true to navigate anyway."
-            )
-            if basis == "guessed":
-                hint += (
-                    " Note: no keystroke was actually observed — these fields merely "
-                    "differ from their HTML defaults, which a widget initializing "
-                    "itself also does. Likely a false alarm."
-                )
+            # Only reachable now when a real keystroke was observed — a guess
+            # opens a new tab instead of refusing (see capture.navigate).
             return {
                 **result,
                 "navigated": False,
                 "url": moved.get("url"),
                 "blocked_by_unsaved_input": moved.get("blocked_by_unsaved_input"),
-                "input_basis": basis,
-                "hint": hint,
+                "input_basis": moved.get("input_basis"),
+                "hint": (
+                    "Someone typed in these fields. Use new_tab=true to open this "
+                    "alongside without touching them, or discard_unsaved_input=true "
+                    "to navigate anyway."
+                ),
             }
         result["url"] = moved.get("url")
         if moved.get("new_tab"):
             result["new_tab"] = True
             result["tabs"] = moved.get("tabs")
+        if moved.get("kept_input"):
+            # Said, not silent: a tab appeared that the caller did not ask for,
+            # and the reason is fields that merely look edited.
+            result["opened_beside"] = (
+                f"Opened in a new tab rather than disturbing {len(moved['kept_input'])} "
+                "field(s) that look filled in. No keystroke was observed in them, so "
+                "this is probably a widget's own defaults — pass discard_unsaved_input="
+                "true to reuse the tab instead."
+            )
     elif target_url:
         result["url"] = target_url
-
-    # One MFA challenge per account per machine, not one per Chromium profile.
-    # Resolved before arming so the cookie is already in the shared store when
-    # the login below needs it. See browser/mfa_trust.py.
-    # Keyed by the LOGIN account, never by whoever the window is impersonating:
-    # the device trust belongs to the person who answered the challenge.
-    trust_path = mfa_store_path(
-        _cache_root(auth_manager),
-        str(config.instance_url or ""),
-        (saved_credentials(config) or ("", ""))[0],
-    )
-    trust_cookie = read_trust(trust_path)
-    if trust_cookie is None:
-        # Nothing shared yet: ask the login profile, which has very likely been
-        # challenged already. Read-only, headless, skipped if it is in use.
-        harvested = harvest_trust_from_profile(
-            _login_profile_dir(auth_manager, config),
-            state.instance_host,
-            executable_path=state.executable_path,
-        )
-        if write_trust(trust_path, harvested):
-            trust_cookie = harvested
 
     # Arm the collector NOW, not on the first inspect. Otherwise the submit
     # that caused the bug happens before anything is watching it.
     try:
-        armed = arm(state, profile=profile, account=account, trust_path=trust_path)
+        armed = arm(state, profile=profile, account=account)
         result["recording"] = bool(armed.get("armed"))
-        armed_trust_updated = bool(armed.get("trust_updated"))
         if not armed.get("armed"):
             result["recording_note"] = (
                 f"Not recording yet ({armed.get('reason')}). Open a page in the window; "
@@ -399,28 +366,14 @@ def open_debug_window(
     except (PlaywrightUnavailable, RuntimeError, TimeoutError, OSError) as exc:
         logger.info("Could not arm the debug collector yet: %s", exc)
         result["recording"] = False
-        armed_trust_updated = False
 
     # Sign the window in with what the server already knows, once per window.
     # Runs after arming so the login round-trip is itself recorded, and after
     # navigation so the form it looks at is the one on the target page.
-    # A challenge answered in the WINDOW does not reach the login profile on
-    # its own — two profiles, two jars. Closed here, and only when the shared
-    # value actually changed, so this costs a headless launch about once per
-    # remembered-browser lifetime rather than once per open.
-    if armed_trust_updated:
-        seed_trust_profile(
-            _login_profile_dir(auth_manager, config),
-            read_trust(trust_path),
-            executable_path=state.executable_path,
-        )
-        trust_cookie = read_trust(trust_path)
-
     login = auto_login(
         state,
         credentials=saved_credentials(config),
         marker_path=window_login_path(auth_manager),
-        trust_cookie=trust_cookie,
     )
     if login.get("status") not in (None, "no_credentials", "no_login_form", "no_page"):
         result["auto_login"] = login.get("status")
@@ -474,6 +427,18 @@ def inspect_debug_window(
         }
     if params.screenshot == "element" and not params.selector:
         return {"success": False, "error": "screenshot='element' requires a selector."}
+
+    # `fetch('/sys.scripts.do', {method:'POST'})` is an expression, so the read
+    # tool can run a background script without ever loading its page. Same
+    # approval as the act path — one gate, whichever door it comes through.
+    if params.evaluate and not server_scripts.approved(params.confirm_script_exec):
+        surface = server_scripts.surface_in_source(params.evaluate)
+        if surface:
+            return {
+                "success": False,
+                "error": server_scripts.rejection(surface),
+                "script_exec_surface": surface,
+            }
 
     state = find_window(auth_manager)
     if state is None:
@@ -596,6 +561,30 @@ def act_in_debug_window(
             "eval_steps": eval_steps,
         }
 
+    # A click on Run in Background Scripts is not the same request as a click on
+    # Save, and until now it cost the same. Caught here by the verb the step
+    # names — which is the half that works when the run is invoked from a list
+    # view and no script-runner page is ever loaded. The other half, the live
+    # URL, is checked in actions.py where the URL is real.
+    allow_server_script = server_scripts.approved(params.confirm_script_exec)
+    if not allow_server_script:
+        script_steps: List[int] = []
+        surface = ""
+        for step in _numbered(steps):
+            hit = server_scripts.surface_for_step(step)
+            if not hit and step["action"] == EVAL_ACTION:
+                # An eval never loads the page: it posts to it.
+                hit = server_scripts.surface_in_source(step["value"])
+            if hit:
+                script_steps.append(step["step"])
+                surface = surface or hit
+        if script_steps:
+            return {
+                "success": False,
+                "error": server_scripts.rejection(surface, steps=script_steps),
+                "script_exec_steps": script_steps,
+            }
+
     state = find_window(auth_manager)
     if state is None:
         return {
@@ -634,7 +623,17 @@ def act_in_debug_window(
                 "login_user": (saved_credentials(config) or ("", ""))[0],
                 "allow_discard": params.discard_unsaved_input,
             },
+            allow_server_script=allow_server_script,
         )
+    except ServerScriptBlocked as exc:
+        # The window was already sitting on a script runner, so nothing ran —
+        # not even the fill that would have typed the script in.
+        return {
+            "success": False,
+            "window_open": True,
+            "error": str(exc),
+            "script_exec_surface": exc.surface,
+        }
     except (NoPageFound, PlaywrightUnavailable) as exc:
         return {"success": False, "window_open": True, "error": str(exc)}
     except (RuntimeError, TimeoutError, ValueError, OSError) as exc:

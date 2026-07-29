@@ -15,12 +15,12 @@ _sym_db = _symbol_database.Default()
 
 from chalk._gen.chalk.auth.v1 import audit_pb2 as chalk_dot_auth_dot_v1_dot_audit__pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
-from chalk._gen.chalk.server.v1 import environment_pb2 as chalk_dot_server_dot_v1_dot_environment__pb2
+from chalk._gen.chalk.server.v1 import cloud_config_pb2 as chalk_dot_server_dot_v1_dot_cloud__config__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\'chalk/server/v1/cloud_credentials.proto\x12\x0f\x63halk.server.v1\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a!chalk/server/v1/environment.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\x1d\n\x1bListCloudCredentialsRequest"k\n\x1cListCloudCredentialsResponse\x12K\n\x0b\x63redentials\x18\x01 \x03(\x0b\x32).chalk.server.v1.CloudCredentialsResponseR\x0b\x63redentials"\x93\x02\n\x18\x43loudCredentialsResponse\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n\x07team_id\x18\x02 \x01(\tR\x06teamId\x12\x12\n\x04name\x18\x03 \x01(\tR\x04name\x12\x12\n\x04kind\x18\x04 \x01(\tR\x04kind\x12\x30\n\x04spec\x18\x05 \x01(\x0b\x32\x1c.chalk.server.v1.CloudConfigR\x04spec\x12\x39\n\ncreated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x39\n\nupdated_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt"w\n\x17\x43loudCredentialsRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n\x04kind\x18\x02 \x01(\tR\x04kind\x12\x34\n\x06\x63onfig\x18\x03 \x01(\x0b\x32\x1c.chalk.server.v1.CloudConfigR\x06\x63onfig"k\n\x1d\x43reateCloudCredentialsRequest\x12J\n\x0b\x63redentials\x18\x01 \x01(\x0b\x32(.chalk.server.v1.CloudCredentialsRequestR\x0b\x63redentials"m\n\x1e\x43reateCloudCredentialsResponse\x12K\n\x0b\x63redentials\x18\x01 \x01(\x0b\x32).chalk.server.v1.CloudCredentialsResponseR\x0b\x63redentials",\n\x1aGetCloudCredentialsRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"j\n\x1bGetCloudCredentialsResponse\x12K\n\x0b\x63redentials\x18\x01 \x01(\x0b\x32).chalk.server.v1.CloudCredentialsResponseR\x0b\x63redentials"{\n\x1dUpdateCloudCredentialsRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12J\n\x0b\x63redentials\x18\x02 \x01(\x0b\x32(.chalk.server.v1.CloudCredentialsRequestR\x0b\x63redentials"m\n\x1eUpdateCloudCredentialsResponse\x12K\n\x0b\x63redentials\x18\x01 \x01(\x0b\x32).chalk.server.v1.CloudCredentialsResponseR\x0b\x63redentials"/\n\x1d\x44\x65leteCloudCredentialsRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id" \n\x1e\x44\x65leteCloudCredentialsResponse"\x82\x01\n\x1bTestCloudCredentialsRequest\x12\x10\n\x02id\x18\x01 \x01(\tH\x00R\x02id\x12\x42\n\x06\x63onfig\x18\x02 \x01(\x0b\x32(.chalk.server.v1.CloudCredentialsRequestH\x00R\x06\x63onfigB\r\n\x0b\x63redentials"h\n\x1cTestCloudCredentialsResponse\x12\x18\n\x07success\x18\x01 \x01(\x08R\x07success\x12\x18\n\x07message\x18\x02 \x01(\tR\x07message\x12\x14\n\x05\x65rror\x18\x03 \x01(\tR\x05\x65rror2\xfa\x06\n\x1e\x43loudAccountCredentialsService\x12{\n\x14ListCloudCredentials\x12,.chalk.server.v1.ListCloudCredentialsRequest\x1a-.chalk.server.v1.ListCloudCredentialsResponse"\x06\x90\x02\x01\x80}\x02\x12x\n\x13GetCloudCredentials\x12+.chalk.server.v1.GetCloudCredentialsRequest\x1a,.chalk.server.v1.GetCloudCredentialsResponse"\x06\x90\x02\x01\x80}\x02\x12\x9f\x01\n\x16\x43reateCloudCredentials\x12..chalk.server.v1.CreateCloudCredentialsRequest\x1a/.chalk.server.v1.CreateCloudCredentialsResponse"$\x80}\x1a\x8a\xd3\x0e\x1d\x08\x02\x12\x19\x43reated cloud credentials\x12\x9f\x01\n\x16UpdateCloudCredentials\x12..chalk.server.v1.UpdateCloudCredentialsRequest\x1a/.chalk.server.v1.UpdateCloudCredentialsResponse"$\x80}\x1a\x8a\xd3\x0e\x1d\x08\x02\x12\x19Updated cloud credentials\x12\x9f\x01\n\x16\x44\x65leteCloudCredentials\x12..chalk.server.v1.DeleteCloudCredentialsRequest\x1a/.chalk.server.v1.DeleteCloudCredentialsResponse"$\x80}\x1a\x8a\xd3\x0e\x1d\x08\x02\x12\x19\x44\x65leted cloud credentials\x12{\n\x14TestCloudCredentials\x12,.chalk.server.v1.TestCloudCredentialsRequest\x1a-.chalk.server.v1.TestCloudCredentialsResponse"\x06\x90\x02\x01\x80}\x02\x42\x9e\x01\n\x13\x63om.chalk.server.v1B\x15\x43loudCredentialsProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n\'chalk/server/v1/cloud_credentials.proto\x12\x0f\x63halk.server.v1\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a"chalk/server/v1/cloud_config.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\x1d\n\x1bListCloudCredentialsRequest"k\n\x1cListCloudCredentialsResponse\x12K\n\x0b\x63redentials\x18\x01 \x03(\x0b\x32).chalk.server.v1.CloudCredentialsResponseR\x0b\x63redentials"\x93\x02\n\x18\x43loudCredentialsResponse\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n\x07team_id\x18\x02 \x01(\tR\x06teamId\x12\x12\n\x04name\x18\x03 \x01(\tR\x04name\x12\x12\n\x04kind\x18\x04 \x01(\tR\x04kind\x12\x30\n\x04spec\x18\x05 \x01(\x0b\x32\x1c.chalk.server.v1.CloudConfigR\x04spec\x12\x39\n\ncreated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x39\n\nupdated_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt"w\n\x17\x43loudCredentialsRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n\x04kind\x18\x02 \x01(\tR\x04kind\x12\x34\n\x06\x63onfig\x18\x03 \x01(\x0b\x32\x1c.chalk.server.v1.CloudConfigR\x06\x63onfig"k\n\x1d\x43reateCloudCredentialsRequest\x12J\n\x0b\x63redentials\x18\x01 \x01(\x0b\x32(.chalk.server.v1.CloudCredentialsRequestR\x0b\x63redentials"m\n\x1e\x43reateCloudCredentialsResponse\x12K\n\x0b\x63redentials\x18\x01 \x01(\x0b\x32).chalk.server.v1.CloudCredentialsResponseR\x0b\x63redentials",\n\x1aGetCloudCredentialsRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"j\n\x1bGetCloudCredentialsResponse\x12K\n\x0b\x63redentials\x18\x01 \x01(\x0b\x32).chalk.server.v1.CloudCredentialsResponseR\x0b\x63redentials"{\n\x1dUpdateCloudCredentialsRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12J\n\x0b\x63redentials\x18\x02 \x01(\x0b\x32(.chalk.server.v1.CloudCredentialsRequestR\x0b\x63redentials"m\n\x1eUpdateCloudCredentialsResponse\x12K\n\x0b\x63redentials\x18\x01 \x01(\x0b\x32).chalk.server.v1.CloudCredentialsResponseR\x0b\x63redentials"/\n\x1d\x44\x65leteCloudCredentialsRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id" \n\x1e\x44\x65leteCloudCredentialsResponse"\x82\x01\n\x1bTestCloudCredentialsRequest\x12\x10\n\x02id\x18\x01 \x01(\tH\x00R\x02id\x12\x42\n\x06\x63onfig\x18\x02 \x01(\x0b\x32(.chalk.server.v1.CloudCredentialsRequestH\x00R\x06\x63onfigB\r\n\x0b\x63redentials"h\n\x1cTestCloudCredentialsResponse\x12\x18\n\x07success\x18\x01 \x01(\x08R\x07success\x12\x18\n\x07message\x18\x02 \x01(\tR\x07message\x12\x14\n\x05\x65rror\x18\x03 \x01(\tR\x05\x65rror2\xfa\x06\n\x1e\x43loudAccountCredentialsService\x12{\n\x14ListCloudCredentials\x12,.chalk.server.v1.ListCloudCredentialsRequest\x1a-.chalk.server.v1.ListCloudCredentialsResponse"\x06\x90\x02\x01\x80}\x02\x12x\n\x13GetCloudCredentials\x12+.chalk.server.v1.GetCloudCredentialsRequest\x1a,.chalk.server.v1.GetCloudCredentialsResponse"\x06\x90\x02\x01\x80}\x02\x12\x9f\x01\n\x16\x43reateCloudCredentials\x12..chalk.server.v1.CreateCloudCredentialsRequest\x1a/.chalk.server.v1.CreateCloudCredentialsResponse"$\x80}\x1a\x8a\xd3\x0e\x1d\x08\x02\x12\x19\x43reated cloud credentials\x12\x9f\x01\n\x16UpdateCloudCredentials\x12..chalk.server.v1.UpdateCloudCredentialsRequest\x1a/.chalk.server.v1.UpdateCloudCredentialsResponse"$\x80}\x1a\x8a\xd3\x0e\x1d\x08\x02\x12\x19Updated cloud credentials\x12\x9f\x01\n\x16\x44\x65leteCloudCredentials\x12..chalk.server.v1.DeleteCloudCredentialsRequest\x1a/.chalk.server.v1.DeleteCloudCredentialsResponse"$\x80}\x1a\x8a\xd3\x0e\x1d\x08\x02\x12\x19\x44\x65leted cloud credentials\x12{\n\x14TestCloudCredentials\x12,.chalk.server.v1.TestCloudCredentialsRequest\x1a-.chalk.server.v1.TestCloudCredentialsResponse"\x06\x90\x02\x01\x80}\x02\x42\x9e\x01\n\x13\x63om.chalk.server.v1B\x15\x43loudCredentialsProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -55,34 +55,34 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_CLOUDACCOUNTCREDENTIALSSERVICE"].methods_by_name[
         "TestCloudCredentials"
     ]._serialized_options = b"\220\002\001\200}\002"
-    _globals["_LISTCLOUDCREDENTIALSREQUEST"]._serialized_start = 188
-    _globals["_LISTCLOUDCREDENTIALSREQUEST"]._serialized_end = 217
-    _globals["_LISTCLOUDCREDENTIALSRESPONSE"]._serialized_start = 219
-    _globals["_LISTCLOUDCREDENTIALSRESPONSE"]._serialized_end = 326
-    _globals["_CLOUDCREDENTIALSRESPONSE"]._serialized_start = 329
-    _globals["_CLOUDCREDENTIALSRESPONSE"]._serialized_end = 604
-    _globals["_CLOUDCREDENTIALSREQUEST"]._serialized_start = 606
-    _globals["_CLOUDCREDENTIALSREQUEST"]._serialized_end = 725
-    _globals["_CREATECLOUDCREDENTIALSREQUEST"]._serialized_start = 727
-    _globals["_CREATECLOUDCREDENTIALSREQUEST"]._serialized_end = 834
-    _globals["_CREATECLOUDCREDENTIALSRESPONSE"]._serialized_start = 836
-    _globals["_CREATECLOUDCREDENTIALSRESPONSE"]._serialized_end = 945
-    _globals["_GETCLOUDCREDENTIALSREQUEST"]._serialized_start = 947
-    _globals["_GETCLOUDCREDENTIALSREQUEST"]._serialized_end = 991
-    _globals["_GETCLOUDCREDENTIALSRESPONSE"]._serialized_start = 993
-    _globals["_GETCLOUDCREDENTIALSRESPONSE"]._serialized_end = 1099
-    _globals["_UPDATECLOUDCREDENTIALSREQUEST"]._serialized_start = 1101
-    _globals["_UPDATECLOUDCREDENTIALSREQUEST"]._serialized_end = 1224
-    _globals["_UPDATECLOUDCREDENTIALSRESPONSE"]._serialized_start = 1226
-    _globals["_UPDATECLOUDCREDENTIALSRESPONSE"]._serialized_end = 1335
-    _globals["_DELETECLOUDCREDENTIALSREQUEST"]._serialized_start = 1337
-    _globals["_DELETECLOUDCREDENTIALSREQUEST"]._serialized_end = 1384
-    _globals["_DELETECLOUDCREDENTIALSRESPONSE"]._serialized_start = 1386
-    _globals["_DELETECLOUDCREDENTIALSRESPONSE"]._serialized_end = 1418
-    _globals["_TESTCLOUDCREDENTIALSREQUEST"]._serialized_start = 1421
-    _globals["_TESTCLOUDCREDENTIALSREQUEST"]._serialized_end = 1551
-    _globals["_TESTCLOUDCREDENTIALSRESPONSE"]._serialized_start = 1553
-    _globals["_TESTCLOUDCREDENTIALSRESPONSE"]._serialized_end = 1657
-    _globals["_CLOUDACCOUNTCREDENTIALSSERVICE"]._serialized_start = 1660
-    _globals["_CLOUDACCOUNTCREDENTIALSSERVICE"]._serialized_end = 2550
+    _globals["_LISTCLOUDCREDENTIALSREQUEST"]._serialized_start = 189
+    _globals["_LISTCLOUDCREDENTIALSREQUEST"]._serialized_end = 218
+    _globals["_LISTCLOUDCREDENTIALSRESPONSE"]._serialized_start = 220
+    _globals["_LISTCLOUDCREDENTIALSRESPONSE"]._serialized_end = 327
+    _globals["_CLOUDCREDENTIALSRESPONSE"]._serialized_start = 330
+    _globals["_CLOUDCREDENTIALSRESPONSE"]._serialized_end = 605
+    _globals["_CLOUDCREDENTIALSREQUEST"]._serialized_start = 607
+    _globals["_CLOUDCREDENTIALSREQUEST"]._serialized_end = 726
+    _globals["_CREATECLOUDCREDENTIALSREQUEST"]._serialized_start = 728
+    _globals["_CREATECLOUDCREDENTIALSREQUEST"]._serialized_end = 835
+    _globals["_CREATECLOUDCREDENTIALSRESPONSE"]._serialized_start = 837
+    _globals["_CREATECLOUDCREDENTIALSRESPONSE"]._serialized_end = 946
+    _globals["_GETCLOUDCREDENTIALSREQUEST"]._serialized_start = 948
+    _globals["_GETCLOUDCREDENTIALSREQUEST"]._serialized_end = 992
+    _globals["_GETCLOUDCREDENTIALSRESPONSE"]._serialized_start = 994
+    _globals["_GETCLOUDCREDENTIALSRESPONSE"]._serialized_end = 1100
+    _globals["_UPDATECLOUDCREDENTIALSREQUEST"]._serialized_start = 1102
+    _globals["_UPDATECLOUDCREDENTIALSREQUEST"]._serialized_end = 1225
+    _globals["_UPDATECLOUDCREDENTIALSRESPONSE"]._serialized_start = 1227
+    _globals["_UPDATECLOUDCREDENTIALSRESPONSE"]._serialized_end = 1336
+    _globals["_DELETECLOUDCREDENTIALSREQUEST"]._serialized_start = 1338
+    _globals["_DELETECLOUDCREDENTIALSREQUEST"]._serialized_end = 1385
+    _globals["_DELETECLOUDCREDENTIALSRESPONSE"]._serialized_start = 1387
+    _globals["_DELETECLOUDCREDENTIALSRESPONSE"]._serialized_end = 1419
+    _globals["_TESTCLOUDCREDENTIALSREQUEST"]._serialized_start = 1422
+    _globals["_TESTCLOUDCREDENTIALSREQUEST"]._serialized_end = 1552
+    _globals["_TESTCLOUDCREDENTIALSRESPONSE"]._serialized_start = 1554
+    _globals["_TESTCLOUDCREDENTIALSRESPONSE"]._serialized_end = 1658
+    _globals["_CLOUDACCOUNTCREDENTIALSSERVICE"]._serialized_start = 1661
+    _globals["_CLOUDACCOUNTCREDENTIALSSERVICE"]._serialized_end = 2551
 # @@protoc_insertion_point(module_scope)

@@ -61,6 +61,13 @@ STC_EOL_LF: int
 STC_CP_UTF8: int
 STC_IME_WINDOWED: int
 STC_IME_INLINE: int
+STC_ALPHA_TRANSPARENT: int
+STC_ALPHA_OPAQUE: int
+STC_ALPHA_NOALPHA: int
+STC_CURSORNORMAL: int
+STC_CURSORARROW: int
+STC_CURSORWAIT: int
+STC_CURSORREVERSEARROW: int
 STC_MARKER_MAX: int
 STC_MARK_CIRCLE: int
 STC_MARK_ROUNDRECT: int
@@ -94,6 +101,7 @@ STC_MARK_AVAILABLE: int
 STC_MARK_UNDERLINE: int
 STC_MARK_RGBAIMAGE: int
 STC_MARK_BOOKMARK: int
+STC_MARK_VERTICALBOOKMARK: int
 STC_MARK_CHARACTER: int
 STC_MARKNUM_FOLDEREND: int
 STC_MARKNUM_FOLDEROPENMID: int
@@ -171,10 +179,16 @@ STC_INDIC_FULLBOX: int
 STC_INDIC_TEXTFORE: int
 STC_INDIC_POINT: int
 STC_INDIC_POINTCHARACTER: int
+STC_INDIC_GRADIENT: int
+STC_INDIC_GRADIENTCENTRE: int
+STC_INDIC_CONTAINER: int
 STC_INDIC_IME: int
 STC_INDIC_IME_MAX: int
 STC_INDIC_MAX: int
-STC_INDIC_CONTAINER: int
+STC_INDICATOR_CONTAINER: int
+STC_INDICATOR_IME: int
+STC_INDICATOR_IME_MAX: int
+STC_INDICATOR_MAX: int
 STC_INDICVALUEBIT: int
 STC_INDICVALUEMASK: int
 STC_INDICFLAG_VALUEFORE: int
@@ -187,6 +201,8 @@ STC_PRINT_INVERTLIGHT: int
 STC_PRINT_BLACKONWHITE: int
 STC_PRINT_COLOURONWHITE: int
 STC_PRINT_COLOURONWHITEDEFAULTBG: int
+STC_PRINT_SCREENCOLOURS: int
+STC_FIND_NONE: int
 STC_FIND_WHOLEWORD: int
 STC_FIND_MATCHCASE: int
 STC_FIND_WORDSTART: int
@@ -230,6 +246,7 @@ STC_WRAPVISUALFLAGLOC_START_BY_TEXT: int
 STC_WRAPINDENT_FIXED: int
 STC_WRAPINDENT_SAME: int
 STC_WRAPINDENT_INDENT: int
+STC_WRAPINDENT_DEEPINDENT: int
 STC_CACHE_NONE: int
 STC_CACHE_CARET: int
 STC_CACHE_PAGE: int
@@ -244,6 +261,8 @@ STC_EFF_QUALITY_ANTIALIASED: int
 STC_EFF_QUALITY_LCD_OPTIMIZED: int
 STC_MULTIPASTE_ONCE: int
 STC_MULTIPASTE_EACH: int
+STC_ACCESSIBILITY_DISABLED: int
+STC_ACCESSIBILITY_ENABLED: int
 STC_EDGE_NONE: int
 STC_EDGE_LINE: int
 STC_EDGE_BACKGROUND: int
@@ -251,15 +270,14 @@ STC_EDGE_MULTILINE: int
 STC_POPUP_NEVER: int
 STC_POPUP_ALL: int
 STC_POPUP_TEXT: int
+STC_DOCUMENTOPTION_DEFAULT: int
+STC_DOCUMENTOPTION_STYLES_NONE: int
+STC_DOCUMENTOPTION_TEXT_LARGE: int
 STC_STATUS_OK: int
 STC_STATUS_FAILURE: int
 STC_STATUS_BADALLOC: int
 STC_STATUS_WARN_START: int
 STC_STATUS_WARN_REGEX: int
-STC_CURSORNORMAL: int
-STC_CURSORARROW: int
-STC_CURSORWAIT: int
-STC_CURSORREVERSEARROW: int
 STC_VISIBLE_SLOP: int
 STC_VISIBLE_STRICT: int
 STC_CARET_SLOP: int
@@ -280,18 +298,20 @@ STC_ORDER_CUSTOM: int
 STC_CARETSTICKY_OFF: int
 STC_CARETSTICKY_ON: int
 STC_CARETSTICKY_WHITESPACE: int
-STC_ALPHA_TRANSPARENT: int
-STC_ALPHA_OPAQUE: int
-STC_ALPHA_NOALPHA: int
 STC_CARETSTYLE_INVISIBLE: int
 STC_CARETSTYLE_LINE: int
 STC_CARETSTYLE_BLOCK: int
+STC_CARETSTYLE_OVERSTRIKE_BAR: int
+STC_CARETSTYLE_OVERSTRIKE_BLOCK: int
+STC_CARETSTYLE_INS_MASK: int
+STC_CARETSTYLE_BLOCK_AFTER: int
 STC_MARGINOPTION_NONE: int
 STC_MARGINOPTION_SUBLINESELECT: int
 STC_ANNOTATION_HIDDEN: int
 STC_ANNOTATION_STANDARD: int
 STC_ANNOTATION_BOXED: int
 STC_ANNOTATION_INDENTED: int
+STC_UNDO_NONE: int
 STC_UNDO_MAY_COALESCE: int
 STC_VS_NONE: int
 STC_VS_RECTANGULARSELECTION: int
@@ -301,10 +321,14 @@ STC_TECHNOLOGY_DEFAULT: int
 STC_TECHNOLOGY_DIRECTWRITE: int
 STC_LINE_END_TYPE_DEFAULT: int
 STC_LINE_END_TYPE_UNICODE: int
+STC_EOLANNOTATION_HIDDEN: int
+STC_EOLANNOTATION_STANDARD: int
+STC_EOLANNOTATION_BOXED: int
 STC_KEYWORDSET_MAX: int
 STC_TYPE_BOOLEAN: int
 STC_TYPE_INTEGER: int
 STC_TYPE_STRING: int
+STC_MOD_NONE: int
 STC_MOD_INSERTTEXT: int
 STC_MOD_DELETETEXT: int
 STC_MOD_CHANGESTYLE: int
@@ -327,6 +351,7 @@ STC_MOD_CONTAINER: int
 STC_MOD_LEXERSTATE: int
 STC_MOD_INSERTCHECK: int
 STC_MOD_CHANGETABSTOPS: int
+STC_MOD_CHANGEEOLANNOTATION: int
 STC_MODEVENTMASKALL: int
 STC_UPDATE_CONTENT: int
 STC_UPDATE_SELECTION: int
@@ -363,6 +388,9 @@ STC_AC_DOUBLECLICK: int
 STC_AC_TAB: int
 STC_AC_NEWLINE: int
 STC_AC_COMMAND: int
+STC_CHARACTERSOURCE_DIRECT_INPUT: int
+STC_CHARACTERSOURCE_TENTATIVE_INPUT: int
+STC_CHARACTERSOURCE_IME_RESULT: int
 STC_LEX_CONTAINER: int
 STC_LEX_NULL: int
 STC_LEX_PYTHON: int
@@ -483,6 +511,26 @@ STC_LEX_IHEX: int
 STC_LEX_TEHEX: int
 STC_LEX_JSON: int
 STC_LEX_EDIFACT: int
+STC_LEX_INDENT: int
+STC_LEX_MAXIMA: int
+STC_LEX_STATA: int
+STC_LEX_SAS: int
+STC_LEX_NIM: int
+STC_LEX_CIL: int
+STC_LEX_X12: int
+STC_LEX_DATAFLEX: int
+STC_LEX_HOLLYWOOD: int
+STC_LEX_RAKU: int
+STC_LEX_FSHARP: int
+STC_LEX_JULIA: int
+STC_LEX_ASCIIDOC: int
+STC_LEX_GDSCRIPT: int
+STC_LEX_TOML: int
+STC_LEX_TROFF: int
+STC_LEX_DART: int
+STC_LEX_ZIG: int
+STC_LEX_NIX: int
+STC_LEX_SINEX: int
 STC_LEX_AUTOMATIC: int
 STC_P_DEFAULT: int
 STC_P_COMMENTLINE: int
@@ -500,6 +548,11 @@ STC_P_COMMENTBLOCK: int
 STC_P_STRINGEOL: int
 STC_P_WORD2: int
 STC_P_DECORATOR: int
+STC_P_FSTRING: int
+STC_P_FCHARACTER: int
+STC_P_FTRIPLE: int
+STC_P_FTRIPLEDOUBLE: int
+STC_P_ATTRIBUTE: int
 STC_C_DEFAULT: int
 STC_C_COMMENT: int
 STC_C_COMMENTLINE: int
@@ -528,6 +581,19 @@ STC_C_PREPROCESSORCOMMENTDOC: int
 STC_C_USERLITERAL: int
 STC_C_TASKMARKER: int
 STC_C_ESCAPESEQUENCE: int
+STC_COBOL_DEFAULT: int
+STC_COBOL_COMMENT: int
+STC_COBOL_COMMENTLINE: int
+STC_COBOL_COMMENTDOC: int
+STC_COBOL_NUMBER: int
+STC_COBOL_WORD: int
+STC_COBOL_STRING: int
+STC_COBOL_CHARACTER: int
+STC_COBOL_WORD3: int
+STC_COBOL_PREPROCESSOR: int
+STC_COBOL_OPERATOR: int
+STC_COBOL_IDENTIFIER: int
+STC_COBOL_WORD2: int
 STC_D_DEFAULT: int
 STC_D_COMMENT: int
 STC_D_COMMENTLINE: int
@@ -618,6 +684,7 @@ STC_HJ_SINGLESTRING: int
 STC_HJ_SYMBOLS: int
 STC_HJ_STRINGEOL: int
 STC_HJ_REGEX: int
+STC_HJ_TEMPLATELITERAL: int
 STC_HJA_START: int
 STC_HJA_DEFAULT: int
 STC_HJA_COMMENT: int
@@ -631,6 +698,7 @@ STC_HJA_SINGLESTRING: int
 STC_HJA_SYMBOLS: int
 STC_HJA_STRINGEOL: int
 STC_HJA_REGEX: int
+STC_HJA_TEMPLATELITERAL: int
 STC_HB_START: int
 STC_HB_DEFAULT: int
 STC_HB_COMMENTLINE: int
@@ -762,6 +830,10 @@ STC_RB_WORD_DEMOTED: int
 STC_RB_STDIN: int
 STC_RB_STDOUT: int
 STC_RB_STDERR: int
+STC_RB_STRING_W: int
+STC_RB_STRING_I: int
+STC_RB_STRING_QI: int
+STC_RB_STRING_QS: int
 STC_RB_UPPER_BOUND: int
 STC_B_DEFAULT: int
 STC_B_COMMENT: int
@@ -851,6 +923,8 @@ STC_ERR_VALUE: int
 STC_ERR_GCC_INCLUDED_FROM: int
 STC_ERR_ESCSEQ: int
 STC_ERR_ESCSEQ_UNKNOWN: int
+STC_ERR_GCC_EXCERPT: int
+STC_ERR_BASH: int
 STC_ERR_ES_BLACK: int
 STC_ERR_ES_RED: int
 STC_ERR_ES_GREEN: int
@@ -875,6 +949,7 @@ STC_BAT_HIDE: int
 STC_BAT_COMMAND: int
 STC_BAT_IDENTIFIER: int
 STC_BAT_OPERATOR: int
+STC_BAT_AFTER_LABEL: int
 STC_TCMD_DEFAULT: int
 STC_TCMD_COMMENT: int
 STC_TCMD_WORD: int
@@ -901,6 +976,10 @@ STC_DIFF_POSITION: int
 STC_DIFF_DELETED: int
 STC_DIFF_ADDED: int
 STC_DIFF_CHANGED: int
+STC_DIFF_PATCH_ADD: int
+STC_DIFF_PATCH_DELETE: int
+STC_DIFF_REMOVED_PATCH_ADD: int
+STC_DIFF_REMOVED_PATCH_DELETE: int
 STC_CONF_DEFAULT: int
 STC_CONF_COMMENT: int
 STC_CONF_NUMBER: int
@@ -1016,6 +1095,14 @@ STC_MATLAB_STRING: int
 STC_MATLAB_OPERATOR: int
 STC_MATLAB_IDENTIFIER: int
 STC_MATLAB_DOUBLEQUOTESTRING: int
+STC_MAXIMA_OPERATOR: int
+STC_MAXIMA_COMMANDENDING: int
+STC_MAXIMA_COMMENT: int
+STC_MAXIMA_NUMBER: int
+STC_MAXIMA_STRING: int
+STC_MAXIMA_COMMAND: int
+STC_MAXIMA_VARIABLE: int
+STC_MAXIMA_UNKNOWN: int
 STC_SCRIPTOL_DEFAULT: int
 STC_SCRIPTOL_WHITE: int
 STC_SCRIPTOL_COMMENTLINE: int
@@ -1085,7 +1172,7 @@ STC_CSS_PSEUDOELEMENT: int
 STC_CSS_EXTENDED_IDENTIFIER: int
 STC_CSS_EXTENDED_PSEUDOCLASS: int
 STC_CSS_EXTENDED_PSEUDOELEMENT: int
-STC_CSS_MEDIA: int
+STC_CSS_GROUP_RULE: int
 STC_CSS_VARIABLE: int
 STC_POV_DEFAULT: int
 STC_POV_COMMENT: int
@@ -1253,6 +1340,28 @@ STC_ERLANG_BIFS: int
 STC_ERLANG_MODULES: int
 STC_ERLANG_MODULES_ATT: int
 STC_ERLANG_UNKNOWN: int
+STC_JULIA_DEFAULT: int
+STC_JULIA_COMMENT: int
+STC_JULIA_NUMBER: int
+STC_JULIA_KEYWORD1: int
+STC_JULIA_KEYWORD2: int
+STC_JULIA_KEYWORD3: int
+STC_JULIA_CHAR: int
+STC_JULIA_OPERATOR: int
+STC_JULIA_BRACKET: int
+STC_JULIA_IDENTIFIER: int
+STC_JULIA_STRING: int
+STC_JULIA_SYMBOL: int
+STC_JULIA_MACRO: int
+STC_JULIA_STRINGINTERP: int
+STC_JULIA_DOCSTRING: int
+STC_JULIA_STRINGLITERAL: int
+STC_JULIA_COMMAND: int
+STC_JULIA_COMMANDLITERAL: int
+STC_JULIA_TYPEANNOT: int
+STC_JULIA_LEXERROR: int
+STC_JULIA_KEYWORD4: int
+STC_JULIA_TYPEOPERATOR: int
 STC_MSSQL_DEFAULT: int
 STC_MSSQL_COMMENT: int
 STC_MSSQL_LINE_COMMENT: int
@@ -1691,6 +1800,10 @@ STC_R_OPERATOR: int
 STC_R_IDENTIFIER: int
 STC_R_INFIX: int
 STC_R_INFIXEOL: int
+STC_R_BACKTICKS: int
+STC_R_RAWSTRING: int
+STC_R_RAWSTRING2: int
+STC_R_ESCAPESEQUENCE: int
 STC_MAGIK_DEFAULT: int
 STC_MAGIK_COMMENT: int
 STC_MAGIK_HYPER_COMMENT: int
@@ -2007,16 +2120,18 @@ STC_VISUALPROLOG_VARIABLE: int
 STC_VISUALPROLOG_ANONYMOUS: int
 STC_VISUALPROLOG_NUMBER: int
 STC_VISUALPROLOG_OPERATOR: int
-STC_VISUALPROLOG_CHARACTER: int
-STC_VISUALPROLOG_CHARACTER_TOO_MANY: int
-STC_VISUALPROLOG_CHARACTER_ESCAPE_ERROR: int
-STC_VISUALPROLOG_STRING: int
+STC_VISUALPROLOG_UNUSED1: int
+STC_VISUALPROLOG_UNUSED2: int
+STC_VISUALPROLOG_UNUSED3: int
+STC_VISUALPROLOG_STRING_QUOTE: int
 STC_VISUALPROLOG_STRING_ESCAPE: int
 STC_VISUALPROLOG_STRING_ESCAPE_ERROR: int
-STC_VISUALPROLOG_STRING_EOL_OPEN: int
-STC_VISUALPROLOG_STRING_VERBATIM: int
-STC_VISUALPROLOG_STRING_VERBATIM_SPECIAL: int
-STC_VISUALPROLOG_STRING_VERBATIM_EOL: int
+STC_VISUALPROLOG_UNUSED4: int
+STC_VISUALPROLOG_STRING: int
+STC_VISUALPROLOG_UNUSED5: int
+STC_VISUALPROLOG_STRING_EOL: int
+STC_VISUALPROLOG_EMBEDDED: int
+STC_VISUALPROLOG_PLACEHOLDER: int
 STC_STTXT_DEFAULT: int
 STC_STTXT_COMMENT: int
 STC_STTXT_COMMENTLINE: int
@@ -2073,6 +2188,8 @@ STC_RUST_LEXERROR: int
 STC_RUST_BYTESTRING: int
 STC_RUST_BYTESTRINGR: int
 STC_RUST_BYTECHARACTER: int
+STC_RUST_CSTRING: int
+STC_RUST_CSTRINGR: int
 STC_DMAP_DEFAULT: int
 STC_DMAP_COMMENT: int
 STC_DMAP_NUMBER: int
@@ -2156,10 +2273,305 @@ STC_EDI_SEP_RELEASE: int
 STC_EDI_UNA: int
 STC_EDI_UNH: int
 STC_EDI_BADSEGMENT: int
-STC_INDIC0_MASK: int
-STC_INDIC1_MASK: int
-STC_INDIC2_MASK: int
-STC_INDICS_MASK: int
+STC_STATA_DEFAULT: int
+STC_STATA_COMMENT: int
+STC_STATA_COMMENTLINE: int
+STC_STATA_COMMENTBLOCK: int
+STC_STATA_NUMBER: int
+STC_STATA_OPERATOR: int
+STC_STATA_IDENTIFIER: int
+STC_STATA_STRING: int
+STC_STATA_TYPE: int
+STC_STATA_WORD: int
+STC_STATA_GLOBAL_MACRO: int
+STC_STATA_MACRO: int
+STC_SAS_DEFAULT: int
+STC_SAS_COMMENT: int
+STC_SAS_COMMENTLINE: int
+STC_SAS_COMMENTBLOCK: int
+STC_SAS_NUMBER: int
+STC_SAS_OPERATOR: int
+STC_SAS_IDENTIFIER: int
+STC_SAS_STRING: int
+STC_SAS_TYPE: int
+STC_SAS_WORD: int
+STC_SAS_GLOBAL_MACRO: int
+STC_SAS_MACRO: int
+STC_SAS_MACRO_KEYWORD: int
+STC_SAS_BLOCK_KEYWORD: int
+STC_SAS_MACRO_FUNCTION: int
+STC_SAS_STATEMENT: int
+STC_NIM_DEFAULT: int
+STC_NIM_COMMENT: int
+STC_NIM_COMMENTDOC: int
+STC_NIM_COMMENTLINE: int
+STC_NIM_COMMENTLINEDOC: int
+STC_NIM_NUMBER: int
+STC_NIM_STRING: int
+STC_NIM_CHARACTER: int
+STC_NIM_WORD: int
+STC_NIM_TRIPLE: int
+STC_NIM_TRIPLEDOUBLE: int
+STC_NIM_BACKTICKS: int
+STC_NIM_FUNCNAME: int
+STC_NIM_STRINGEOL: int
+STC_NIM_NUMERROR: int
+STC_NIM_OPERATOR: int
+STC_NIM_IDENTIFIER: int
+STC_CIL_DEFAULT: int
+STC_CIL_COMMENT: int
+STC_CIL_COMMENTLINE: int
+STC_CIL_WORD: int
+STC_CIL_WORD2: int
+STC_CIL_WORD3: int
+STC_CIL_STRING: int
+STC_CIL_LABEL: int
+STC_CIL_OPERATOR: int
+STC_CIL_IDENTIFIER: int
+STC_CIL_STRINGEOL: int
+STC_X12_DEFAULT: int
+STC_X12_BAD: int
+STC_X12_ENVELOPE: int
+STC_X12_FUNCTIONGROUP: int
+STC_X12_TRANSACTIONSET: int
+STC_X12_SEGMENTHEADER: int
+STC_X12_SEGMENTEND: int
+STC_X12_SEP_ELEMENT: int
+STC_X12_SEP_SUBELEMENT: int
+STC_DF_DEFAULT: int
+STC_DF_IDENTIFIER: int
+STC_DF_METATAG: int
+STC_DF_IMAGE: int
+STC_DF_COMMENTLINE: int
+STC_DF_PREPROCESSOR: int
+STC_DF_PREPROCESSOR2: int
+STC_DF_NUMBER: int
+STC_DF_HEXNUMBER: int
+STC_DF_WORD: int
+STC_DF_STRING: int
+STC_DF_STRINGEOL: int
+STC_DF_SCOPEWORD: int
+STC_DF_OPERATOR: int
+STC_DF_ICODE: int
+STC_HOLLYWOOD_DEFAULT: int
+STC_HOLLYWOOD_COMMENT: int
+STC_HOLLYWOOD_COMMENTBLOCK: int
+STC_HOLLYWOOD_NUMBER: int
+STC_HOLLYWOOD_KEYWORD: int
+STC_HOLLYWOOD_STDAPI: int
+STC_HOLLYWOOD_PLUGINAPI: int
+STC_HOLLYWOOD_PLUGINMETHOD: int
+STC_HOLLYWOOD_STRING: int
+STC_HOLLYWOOD_STRINGBLOCK: int
+STC_HOLLYWOOD_PREPROCESSOR: int
+STC_HOLLYWOOD_OPERATOR: int
+STC_HOLLYWOOD_IDENTIFIER: int
+STC_HOLLYWOOD_CONSTANT: int
+STC_HOLLYWOOD_HEXNUMBER: int
+STC_RAKU_DEFAULT: int
+STC_RAKU_ERROR: int
+STC_RAKU_COMMENTLINE: int
+STC_RAKU_COMMENTEMBED: int
+STC_RAKU_POD: int
+STC_RAKU_CHARACTER: int
+STC_RAKU_HEREDOC_Q: int
+STC_RAKU_HEREDOC_QQ: int
+STC_RAKU_STRING: int
+STC_RAKU_STRING_Q: int
+STC_RAKU_STRING_QQ: int
+STC_RAKU_STRING_Q_LANG: int
+STC_RAKU_STRING_VAR: int
+STC_RAKU_REGEX: int
+STC_RAKU_REGEX_VAR: int
+STC_RAKU_ADVERB: int
+STC_RAKU_NUMBER: int
+STC_RAKU_PREPROCESSOR: int
+STC_RAKU_OPERATOR: int
+STC_RAKU_WORD: int
+STC_RAKU_FUNCTION: int
+STC_RAKU_IDENTIFIER: int
+STC_RAKU_TYPEDEF: int
+STC_RAKU_MU: int
+STC_RAKU_POSITIONAL: int
+STC_RAKU_ASSOCIATIVE: int
+STC_RAKU_CALLABLE: int
+STC_RAKU_GRAMMAR: int
+STC_RAKU_CLASS: int
+STC_FSHARP_DEFAULT: int
+STC_FSHARP_KEYWORD: int
+STC_FSHARP_KEYWORD2: int
+STC_FSHARP_KEYWORD3: int
+STC_FSHARP_KEYWORD4: int
+STC_FSHARP_KEYWORD5: int
+STC_FSHARP_IDENTIFIER: int
+STC_FSHARP_QUOT_IDENTIFIER: int
+STC_FSHARP_COMMENT: int
+STC_FSHARP_COMMENTLINE: int
+STC_FSHARP_PREPROCESSOR: int
+STC_FSHARP_LINENUM: int
+STC_FSHARP_OPERATOR: int
+STC_FSHARP_NUMBER: int
+STC_FSHARP_CHARACTER: int
+STC_FSHARP_STRING: int
+STC_FSHARP_VERBATIM: int
+STC_FSHARP_QUOTATION: int
+STC_FSHARP_ATTRIBUTE: int
+STC_FSHARP_FORMAT_SPEC: int
+STC_ASCIIDOC_DEFAULT: int
+STC_ASCIIDOC_STRONG1: int
+STC_ASCIIDOC_STRONG2: int
+STC_ASCIIDOC_EM1: int
+STC_ASCIIDOC_EM2: int
+STC_ASCIIDOC_HEADER1: int
+STC_ASCIIDOC_HEADER2: int
+STC_ASCIIDOC_HEADER3: int
+STC_ASCIIDOC_HEADER4: int
+STC_ASCIIDOC_HEADER5: int
+STC_ASCIIDOC_HEADER6: int
+STC_ASCIIDOC_ULIST_ITEM: int
+STC_ASCIIDOC_OLIST_ITEM: int
+STC_ASCIIDOC_BLOCKQUOTE: int
+STC_ASCIIDOC_LINK: int
+STC_ASCIIDOC_CODEBK: int
+STC_ASCIIDOC_PASSBK: int
+STC_ASCIIDOC_COMMENT: int
+STC_ASCIIDOC_COMMENTBK: int
+STC_ASCIIDOC_LITERAL: int
+STC_ASCIIDOC_LITERALBK: int
+STC_ASCIIDOC_ATTRIB: int
+STC_ASCIIDOC_ATTRIBVAL: int
+STC_ASCIIDOC_MACRO: int
+STC_GD_DEFAULT: int
+STC_GD_COMMENTLINE: int
+STC_GD_NUMBER: int
+STC_GD_STRING: int
+STC_GD_CHARACTER: int
+STC_GD_WORD: int
+STC_GD_TRIPLE: int
+STC_GD_TRIPLEDOUBLE: int
+STC_GD_CLASSNAME: int
+STC_GD_FUNCNAME: int
+STC_GD_OPERATOR: int
+STC_GD_IDENTIFIER: int
+STC_GD_COMMENTBLOCK: int
+STC_GD_STRINGEOL: int
+STC_GD_WORD2: int
+STC_GD_ANNOTATION: int
+STC_GD_NODEPATH: int
+STC_TOML_DEFAULT: int
+STC_TOML_COMMENT: int
+STC_TOML_IDENTIFIER: int
+STC_TOML_KEYWORD: int
+STC_TOML_NUMBER: int
+STC_TOML_TABLE: int
+STC_TOML_KEY: int
+STC_TOML_ERROR: int
+STC_TOML_OPERATOR: int
+STC_TOML_STRING_SQ: int
+STC_TOML_STRING_DQ: int
+STC_TOML_TRIPLE_STRING_SQ: int
+STC_TOML_TRIPLE_STRING_DQ: int
+STC_TOML_ESCAPECHAR: int
+STC_TOML_DATETIME: int
+STC_TOML_STRINGEOL: int
+STC_TROFF_DEFAULT: int
+STC_TROFF_REQUEST: int
+STC_TROFF_COMMAND: int
+STC_TROFF_NUMBER: int
+STC_TROFF_OPERATOR: int
+STC_TROFF_STRING: int
+STC_TROFF_COMMENT: int
+STC_TROFF_IGNORE: int
+STC_TROFF_ESCAPE_STRING: int
+STC_TROFF_ESCAPE_MACRO: int
+STC_TROFF_ESCAPE_FONT: int
+STC_TROFF_ESCAPE_NUMBER: int
+STC_TROFF_ESCAPE_COLOUR: int
+STC_TROFF_ESCAPE_GLYPH: int
+STC_TROFF_ESCAPE_ENV: int
+STC_TROFF_ESCAPE_SUPPRESSION: int
+STC_TROFF_ESCAPE_SIZE: int
+STC_TROFF_ESCAPE_TRANSPARENT: int
+STC_TROFF_ESCAPE_ISVALID: int
+STC_TROFF_ESCAPE_DRAW: int
+STC_TROFF_ESCAPE_MOVE: int
+STC_TROFF_ESCAPE_HEIGHT: int
+STC_TROFF_ESCAPE_OVERSTRIKE: int
+STC_TROFF_ESCAPE_SLANT: int
+STC_TROFF_ESCAPE_WIDTH: int
+STC_TROFF_ESCAPE_VSPACING: int
+STC_TROFF_ESCAPE_DEVICE: int
+STC_TROFF_ESCAPE_NOMOVE: int
+STC_DART_DEFAULT: int
+STC_DART_COMMENTLINE: int
+STC_DART_COMMENTLINEDOC: int
+STC_DART_COMMENTBLOCK: int
+STC_DART_COMMENTBLOCKDOC: int
+STC_DART_STRING_SQ: int
+STC_DART_STRING_DQ: int
+STC_DART_TRIPLE_STRING_SQ: int
+STC_DART_TRIPLE_STRING_DQ: int
+STC_DART_RAWSTRING_SQ: int
+STC_DART_RAWSTRING_DQ: int
+STC_DART_TRIPLE_RAWSTRING_SQ: int
+STC_DART_TRIPLE_RAWSTRING_DQ: int
+STC_DART_ESCAPECHAR: int
+STC_DART_IDENTIFIER: int
+STC_DART_IDENTIFIER_STRING: int
+STC_DART_OPERATOR: int
+STC_DART_OPERATOR_STRING: int
+STC_DART_SYMBOL_IDENTIFIER: int
+STC_DART_SYMBOL_OPERATOR: int
+STC_DART_NUMBER: int
+STC_DART_KEY: int
+STC_DART_METADATA: int
+STC_DART_KW_PRIMARY: int
+STC_DART_KW_SECONDARY: int
+STC_DART_KW_TERTIARY: int
+STC_DART_KW_TYPE: int
+STC_DART_STRINGEOL: int
+STC_ZIG_DEFAULT: int
+STC_ZIG_COMMENTLINE: int
+STC_ZIG_COMMENTLINEDOC: int
+STC_ZIG_COMMENTLINETOP: int
+STC_ZIG_NUMBER: int
+STC_ZIG_OPERATOR: int
+STC_ZIG_CHARACTER: int
+STC_ZIG_STRING: int
+STC_ZIG_MULTISTRING: int
+STC_ZIG_ESCAPECHAR: int
+STC_ZIG_IDENTIFIER: int
+STC_ZIG_FUNCTION: int
+STC_ZIG_BUILTIN_FUNCTION: int
+STC_ZIG_KW_PRIMARY: int
+STC_ZIG_KW_SECONDARY: int
+STC_ZIG_KW_TERTIARY: int
+STC_ZIG_KW_TYPE: int
+STC_ZIG_IDENTIFIER_STRING: int
+STC_ZIG_STRINGEOL: int
+STC_NIX_DEFAULT: int
+STC_NIX_COMMENTLINE: int
+STC_NIX_COMMENTBLOCK: int
+STC_NIX_STRING: int
+STC_NIX_STRING_MULTILINE: int
+STC_NIX_ESCAPECHAR: int
+STC_NIX_IDENTIFIER: int
+STC_NIX_OPERATOR: int
+STC_NIX_OPERATOR_STRING: int
+STC_NIX_NUMBER: int
+STC_NIX_KEY: int
+STC_NIX_PATH: int
+STC_NIX_KEYWORD1: int
+STC_NIX_KEYWORD2: int
+STC_NIX_KEYWORD3: int
+STC_NIX_KEYWORD4: int
+STC_NIX_STRINGEOL: int
+STC_SINEX_DEFAULT: int
+STC_SINEX_COMMENTLINE: int
+STC_SINEX_BLOCK_START: int
+STC_SINEX_BLOCK_END: int
+STC_SINEX_DATE: int
+STC_SINEX_NUMBER: int
 STC_CMD_REDO: int
 STC_CMD_SELECTALL: int
 STC_CMD_UNDO: int
@@ -2265,7 +2677,6 @@ wxEVT_STC_CHARADDED: int
 wxEVT_STC_SAVEPOINTREACHED: int
 wxEVT_STC_SAVEPOINTLEFT: int
 wxEVT_STC_ROMODIFYATTEMPT: int
-wxEVT_STC_KEY: int
 wxEVT_STC_DOUBLECLICK: int
 wxEVT_STC_UPDATEUI: int
 wxEVT_STC_MODIFIED: int
@@ -2274,7 +2685,6 @@ wxEVT_STC_MARGINCLICK: int
 wxEVT_STC_NEEDSHOWN: int
 wxEVT_STC_PAINTED: int
 wxEVT_STC_USERLISTSELECTION: int
-wxEVT_STC_URIDROPPED: int
 wxEVT_STC_DWELLSTART: int
 wxEVT_STC_DWELLEND: int
 wxEVT_STC_START_DRAG: int
@@ -2945,7 +3355,8 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         """
         HideSelection(hide) -> None
         
-        Draw the selection in normal style or with selection highlighted.
+        Draw the selection either highlighted or in normal (non-highlighted)
+        style.
         """
 
     def PointFromPosition(self, pos: int) -> Point:
@@ -3226,9 +3637,9 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Clear selections to a single empty stream selection.
         """
 
-    def AddSelection(self, caret: int, anchor: int) -> int:
+    def AddSelection(self, caret: int, anchor: int) -> None:
         """
-        AddSelection(caret, anchor) -> int
+        AddSelection(caret, anchor) -> None
         
         Add a selection.
         """
@@ -3413,7 +3824,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         """
         SetRectangularSelectionModifier(modifier) -> None
         
-        On GTK+, allow selecting the modifier key to use for mouse-based
+        On GTK, allow selecting the modifier key to use for mouse-based
         rectangular selection.
         """
 
@@ -4568,7 +4979,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         """
         GetMarginCount() -> int
         
-        How many margins are there?.
+        Returns the count of margins.
         """
 
     def SetMarginLeft(self, pixelWidth: int) -> None:
@@ -4776,6 +5187,20 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Get the start of the range of style numbers used for annotations.
         """
 
+    def MarkerHandleFromLine(self, line: int, which: int) -> int:
+        """
+        MarkerHandleFromLine(line, which) -> int
+        
+        Retrieve marker handles of a line.
+        """
+
+    def MarkerNumberFromLine(self, line: int, which: int) -> int:
+        """
+        MarkerNumberFromLine(line, which) -> int
+        
+        Retrieve marker number of a marker handle.
+        """
+
     def GetBufferedDraw(self) -> bool:
         """
         GetBufferedDraw() -> bool
@@ -4789,6 +5214,20 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         
         If drawing is buffered then each line of text is drawn into a bitmap
         buffer before drawing it to the screen to avoid flicker.
+        """
+
+    def SetTabMinimumWidth(self, pixels: int) -> None:
+        """
+        SetTabMinimumWidth(pixels) -> None
+        
+        Set the minimum visual width of a tab.
+        """
+
+    def GetTabMinimumWidth(self) -> int:
+        """
+        GetTabMinimumWidth() -> int
+        
+        Get the minimum visual width of a tab.
         """
 
     def SetCodePage(self, codePage: int) -> None:
@@ -4810,7 +5249,42 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         """
         SetIMEInteraction(imeInteraction) -> None
         
-        Choose to display the IME in a winow or inline.
+        Choose to display the IME in a window or inline.
+        """
+
+    def SetCharacterCategoryOptimization(self, countCharacters: int) -> None:
+        """
+        SetCharacterCategoryOptimization(countCharacters) -> None
+        
+        Set the number of characters to have directly indexed categories.
+        """
+
+    def GetCharacterCategoryOptimization(self) -> int:
+        """
+        GetCharacterCategoryOptimization() -> int
+        
+        Get the number of characters to have directly indexed categories.
+        """
+
+    def GetCaretLineFrame(self) -> int:
+        """
+        GetCaretLineFrame() -> int
+        
+        Retrieve the caret line frame width.
+        """
+
+    def SetCaretLineFrame(self, width: int) -> None:
+        """
+        SetCaretLineFrame(width) -> None
+        
+        Display the caret line framed.
+        """
+
+    def CountCodeUnits(self, start: int, end: int) -> int:
+        """
+        CountCodeUnits(start, end) -> int
+        
+        Count code units between two positions.
         """
 
     def GetCodePage(self) -> int:
@@ -4821,27 +5295,60 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         characters.
         """
 
+    def SetTargetStartVirtualSpace(self, space: int) -> None:
+        """
+        SetTargetStartVirtualSpace(space) -> None
+        
+        Sets the virtual space of the target start.
+        """
+
+    def GetTargetStartVirtualSpace(self) -> int:
+        """
+        GetTargetStartVirtualSpace() -> int
+        
+        Get the virtual space of the target start.
+        """
+
+    def SetTargetEndVirtualSpace(self, space: int) -> None:
+        """
+        SetTargetEndVirtualSpace(space) -> None
+        
+        Sets the virtual space of the target end.
+        """
+
+    def GetTargetEndVirtualSpace(self) -> int:
+        """
+        GetTargetEndVirtualSpace() -> int
+        
+        Get the virtual space of the target end.
+        """
+
+    def FoldDisplayTextGetStyle(self) -> int:
+        """
+        FoldDisplayTextGetStyle() -> int
+        
+        Get the style of fold display text.
+        """
+
+    def SetDefaultFoldDisplayText(self, text: str) -> None:
+        """
+        SetDefaultFoldDisplayText(text) -> None
+        
+        Set the default fold display text.
+        """
+
+    def GetDefaultFoldDisplayText(self) -> str:
+        """
+        GetDefaultFoldDisplayText() -> str
+        
+        Get the default fold display text.
+        """
+
     def SetLayoutCache(self, cacheMode: int) -> None:
         """
         SetLayoutCache(cacheMode) -> None
         
         Sets the degree of caching of layout information.
-        """
-
-    def GetTwoPhaseDraw(self) -> bool:
-        """
-        GetTwoPhaseDraw() -> bool
-        
-        Is drawing done in two phases with backgrounds drawn before
-        foregrounds?
-        """
-
-    def SetTwoPhaseDraw(self, twoPhase: bool) -> None:
-        """
-        SetTwoPhaseDraw(twoPhase) -> None
-        
-        In twoPhaseDraw mode, drawing is performed in two phases, first the
-        background and then the foreground.
         """
 
     def GetPhasesDraw(self) -> int:
@@ -4873,6 +5380,63 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Retrieve the quality level for text.
         """
 
+    def SetAccessibility(self, accessibility: int) -> None:
+        """
+        SetAccessibility(accessibility) -> None
+        
+        Enable or disable accessibility.
+        """
+
+    def GetAccessibility(self) -> int:
+        """
+        GetAccessibility() -> int
+        
+        Report accessibility status.
+        """
+
+    def LineReverse(self) -> None:
+        """
+        LineReverse() -> None
+        
+        Reverse order of selected lines.
+        """
+
+    def BraceMatchNext(self, pos: int, startPos: int) -> int:
+        """
+        BraceMatchNext(pos, startPos) -> int
+        
+        Similar to BraceMatch, but matching starts at the explicit start
+        position.
+        """
+
+    def GetMultiEdgeColumn(self, which: int) -> int:
+        """
+        GetMultiEdgeColumn(which) -> int
+        
+        Get multi edge positions.
+        """
+
+    def GetDocumentOptions(self) -> int:
+        """
+        GetDocumentOptions() -> int
+        
+        Get which document options are set.
+        """
+
+    def SetCommandEvents(self, commandEvents: bool) -> None:
+        """
+        SetCommandEvents(commandEvents) -> None
+        
+        Set whether command events are sent to the container.
+        """
+
+    def GetCommandEvents(self) -> bool:
+        """
+        GetCommandEvents() -> bool
+        
+        Get whether command events are sent to the container.
+        """
+
     def SetSTCFocus(self, focus: bool) -> None:
         """
         SetSTCFocus(focus) -> None
@@ -4887,6 +5451,36 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Get internal focus flag.
         """
 
+    def PositionRelativeCodeUnits(self, pos: int, relative: int) -> int:
+        """
+        PositionRelativeCodeUnits(pos, relative) -> int
+        
+        Given a valid document position, return a position that differs in a
+        number of UTF-16 code units.
+        """
+
+    def GetMoveExtendsSelection(self) -> bool:
+        """
+        GetMoveExtendsSelection() -> bool
+        
+        Get whether or not regular caret moves will extend or reduce the
+        selection.
+        """
+
+    def GetSelectionNStartVirtualSpace(self, selection: int) -> int:
+        """
+        GetSelectionNStartVirtualSpace(selection) -> int
+        
+        Returns the virtual space at the start of the selection.
+        """
+
+    def GetSelectionNEndVirtualSpace(self, selection: int) -> int:
+        """
+        GetSelectionNEndVirtualSpace(selection) -> int
+        
+        Returns the virtual space at the end of the selection.
+        """
+
     def SetTechnology(self, technology: int) -> None:
         """
         SetTechnology(technology) -> None
@@ -4899,6 +5493,123 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         GetTechnology() -> int
         
         Get the tech.
+        """
+
+    def EOLAnnotationSetText(self, line: int, text: str) -> None:
+        """
+        EOLAnnotationSetText(line, text) -> None
+        
+        Set the end of line annotation text for a line.
+        """
+
+    def EOLAnnotationGetText(self, line: int) -> str:
+        """
+        EOLAnnotationGetText(line) -> str
+        
+        Get the end of line annotation text for a line.
+        """
+
+    def EOLAnnotationSetStyle(self, line: int, style: int) -> None:
+        """
+        EOLAnnotationSetStyle(line, style) -> None
+        
+        Set the style number for the end of line annotations for a line.
+        """
+
+    def EOLAnnotationGetStyle(self, line: int) -> int:
+        """
+        EOLAnnotationGetStyle(line) -> int
+        
+        Get the style number for the end of line annotations for a line.
+        """
+
+    def EOLAnnotationClearAll(self) -> None:
+        """
+        EOLAnnotationClearAll() -> None
+        
+        Clear the end of annotations from all lines.
+        """
+
+    def EOLAnnotationSetVisible(self, visible: int) -> None:
+        """
+        EOLAnnotationSetVisible(visible) -> None
+        
+        Set the visibility for the end of line annotations for a view.
+        """
+
+    def EOLAnnotationGetVisible(self) -> int:
+        """
+        EOLAnnotationGetVisible() -> int
+        
+        Get the visibility for the end of line annotations for a view.
+        """
+
+    def EOLAnnotationSetStyleOffset(self, style: int) -> None:
+        """
+        EOLAnnotationSetStyleOffset(style) -> None
+        
+        Get the start of the range of style numbers used for end of line
+        annotations.
+        """
+
+    def EOLAnnotationGetStyleOffset(self) -> int:
+        """
+        EOLAnnotationGetStyleOffset() -> int
+        
+        Get the start of the range of style numbers used for end of line
+        annotations.
+        """
+
+    def GetNamedStyles(self) -> int:
+        """
+        GetNamedStyles() -> int
+        
+        Retrieve the number of named styles for the lexer.
+        """
+
+    def NameOfStyle(self, style: int) -> str:
+        """
+        NameOfStyle(style) -> str
+        
+        Retrieve the name of a style.
+        """
+
+    def TagsOfStyle(self, style: int) -> str:
+        """
+        TagsOfStyle(style) -> str
+        
+        Retrieve a ' ' separated list of style tags like "literal quoted
+        string".
+        """
+
+    def DescriptionOfStyle(self, style: int) -> str:
+        """
+        DescriptionOfStyle(style) -> str
+        
+        Retrieve a description of a style.
+        """
+
+    def SetILexer(self, ilexer: Any) -> None:
+        """
+        SetILexer(ilexer) -> None
+        
+        Set the lexer from an ILexer*.
+        """
+
+    def GetTwoPhaseDraw(self) -> bool:
+        """
+        GetTwoPhaseDraw() -> bool
+        
+        Is drawing done in two phases with backgrounds drawn before
+        foregrounds?
+        """
+
+    def SetTwoPhaseDraw(self, twoPhase: bool) -> None:
+        """
+        SetTwoPhaseDraw(twoPhase) -> None
+        
+        In twoPhaseDraw mode, drawing is performed in two phases, first the
+        background and then the foreground.
         """
 
     def BraceHighlight(self, posA: int, posB: int) -> None:
@@ -5350,14 +6061,14 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         """
         IndicatorFillRange(start, lengthFill) -> None
         
-        Turn an indicator on over a range.
+        Turn a indicator on over a range.
         """
 
     def IndicatorClearRange(self, start: int, lengthClear: int) -> None:
         """
         IndicatorClearRange(start, lengthClear) -> None
         
-        Turn an indicator off over a range.
+        Turn a indicator off over a range.
         """
 
     def IndicatorAllOnFor(self, pos: int) -> int:
@@ -5420,7 +6131,7 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         """
         AutoCompShow(lengthEntered, itemList) -> None
         
-        Display an auto-completion list.
+        Display a auto-completion list.
         """
 
     def AutoCompCancel(self) -> None:
@@ -7266,6 +7977,13 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Returns the line number of the line with the caret.
         """
 
+    def GetDisplayLineCount(self) -> int:
+        """
+        GetDisplayLineCount() -> int
+        
+        Returns the total number of display lines.
+        """
+
     def StyleSetSpec(self, styleNum: int, spec: str) -> None:
         """
         StyleSetSpec(styleNum, spec) -> None
@@ -7413,14 +8131,14 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         """
         SetUseAntiAliasing(useAA) -> None
         
-        Specify whether anti-aliased fonts should be used.
+        Specify whether anti-aliasing should be used when rendering text.
         """
 
     def GetUseAntiAliasing(self) -> bool:
         """
         GetUseAntiAliasing() -> bool
         
-        Returns the current UseAntiAliasing setting.
+        Returns whether anti-aliasing is enabled by font quality setting.
         """
 
     def AnnotationClearLine(self, line: int) -> None:
@@ -7715,6 +8433,20 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Finds the row and column of the character at the specified point.
         """
 
+    def SetMirrorCtrl(self, mirrorCtrl: StyledTextCtrl) -> None:
+        """
+        SetMirrorCtrl(mirrorCtrl) -> None
+        
+        Specify a control to synchronize with this control.
+        """
+
+    def SetCustomDrawn(self, customDrawn: bool) -> None:
+        """
+        SetCustomDrawn(customDrawn) -> None
+        
+        Indicate that custom drawing is done on top of this control.
+        """
+
     @staticmethod
     def GetLibraryVersionInfo() -> VersionInfo:
         """
@@ -7866,6 +8598,38 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         Returns the style currently used for the new text.
         """
 
+    def IsRTFSupported(self) -> bool:
+        """
+        IsRTFSupported() -> bool
+        
+        Returns true if text controls support reading and writing RTF (Rich
+        Text Format).
+        """
+
+    def GetRTFValue(self) -> str:
+        """
+        GetRTFValue() -> str
+        
+        Returns the content of a multiline text control as RTF (Rich Text
+        Formatted) text.
+        """
+
+    def SetRTFValue(self, val: str) -> None:
+        """
+        SetRTFValue(val) -> None
+        
+        Sets the content of a multiline text control from an RTF (Rich Text
+        Formatted) buffer.
+        """
+
+    def SearchText(self, search: TextSearch) -> TextSearchResult:
+        """
+        SearchText(search) -> TextSearchResult
+        
+        Searches for a string in the control, using the provided search
+        options.
+        """
+
     def PositionToCoords(self, pos: int) -> Point:
         """
         PositionToCoords(pos) -> Point
@@ -7878,6 +8642,11 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         SetModified(modified) -> None
         
         Marks the control as being modified by the user or not.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     def write(self, text: str) -> None:
@@ -7893,6 +8662,10 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
         
         NOP, for file-like compatibility.
         """
+    @property
+    def Accessibility(self) -> int: ...
+    @Accessibility.setter
+    def Accessibility(self, value: int, /) -> None: ...
     @property
     def AdditionalCaretForeground(self) -> Colour: ...
     @AdditionalCaretForeground.setter
@@ -7944,6 +8717,10 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
     @CaretLineBackground.setter
     def CaretLineBackground(self, value: Colour, /) -> None: ...
     @property
+    def CaretLineFrame(self) -> int: ...
+    @CaretLineFrame.setter
+    def CaretLineFrame(self, value: int, /) -> None: ...
+    @property
     def CaretLineVisible(self) -> bool: ...
     @CaretLineVisible.setter
     def CaretLineVisible(self, value: bool, /) -> None: ...
@@ -7968,11 +8745,19 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
     @CaretWidth.setter
     def CaretWidth(self, value: int, /) -> None: ...
     @property
+    def CharacterCategoryOptimization(self) -> int: ...
+    @CharacterCategoryOptimization.setter
+    def CharacterCategoryOptimization(self, value: int, /) -> None: ...
+    @property
     def CharacterPointer(self) -> Any: ...
     @property
     def CodePage(self) -> int: ...
     @CodePage.setter
     def CodePage(self, value: int, /) -> None: ...
+    @property
+    def CommandEvents(self) -> bool: ...
+    @CommandEvents.setter
+    def CommandEvents(self, value: bool, /) -> None: ...
     @property
     def ControlCharSymbol(self) -> int: ...
     @ControlCharSymbol.setter
@@ -7988,6 +8773,10 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
     @CurrentPos.setter
     def CurrentPos(self, value: int, /) -> None: ...
     @property
+    def DefaultFoldDisplayText(self) -> str: ...
+    @DefaultFoldDisplayText.setter
+    def DefaultFoldDisplayText(self, value: str, /) -> None: ...
+    @property
     def DefaultStyle(self) -> TextAttr: ...
     @DefaultStyle.setter
     def DefaultStyle(self, value: TextAttr, /) -> None: ...
@@ -7996,9 +8785,13 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
     @property
     def DirectPointer(self) -> Any: ...
     @property
+    def DisplayLineCount(self) -> int: ...
+    @property
     def DocPointer(self) -> Any: ...
     @DocPointer.setter
     def DocPointer(self, value: Any, /) -> None: ...
+    @property
+    def DocumentOptions(self) -> int: ...
     @property
     def EOLMode(self) -> int: ...
     @EOLMode.setter
@@ -8168,6 +8961,8 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
     @MouseWheelCaptures.setter
     def MouseWheelCaptures(self, value: bool, /) -> None: ...
     @property
+    def MoveExtendsSelection(self) -> bool: ...
+    @property
     def MultiPaste(self) -> int: ...
     @MultiPaste.setter
     def MultiPaste(self, value: int, /) -> None: ...
@@ -8175,6 +8970,8 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
     def MultipleSelection(self) -> bool: ...
     @MultipleSelection.setter
     def MultipleSelection(self, value: bool, /) -> None: ...
+    @property
+    def NamedStyles(self) -> int: ...
     @property
     def NumberOfLines(self) -> int: ...
     @property
@@ -8209,6 +9006,10 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
     def PunctuationChars(self) -> str: ...
     @PunctuationChars.setter
     def PunctuationChars(self, value: str, /) -> None: ...
+    @property
+    def RTFValue(self) -> str: ...
+    @RTFValue.setter
+    def RTFValue(self, value: str, /) -> None: ...
     @property
     def RangePointer(self) -> Any: ...
     @property
@@ -8306,6 +9107,10 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
     @TabIndents.setter
     def TabIndents(self, value: bool, /) -> None: ...
     @property
+    def TabMinimumWidth(self) -> int: ...
+    @TabMinimumWidth.setter
+    def TabMinimumWidth(self, value: int, /) -> None: ...
+    @property
     def TabWidth(self) -> int: ...
     @TabWidth.setter
     def TabWidth(self, value: int, /) -> None: ...
@@ -8314,9 +9119,17 @@ class StyledTextCtrl(wx.wx.Control, wx.wx.TextEntry):
     @TargetEnd.setter
     def TargetEnd(self, value: int, /) -> None: ...
     @property
+    def TargetEndVirtualSpace(self) -> int: ...
+    @TargetEndVirtualSpace.setter
+    def TargetEndVirtualSpace(self, value: int, /) -> None: ...
+    @property
     def TargetStart(self) -> int: ...
     @TargetStart.setter
     def TargetStart(self, value: int, /) -> None: ...
+    @property
+    def TargetStartVirtualSpace(self) -> int: ...
+    @TargetStartVirtualSpace.setter
+    def TargetStartVirtualSpace(self, value: int, /) -> None: ...
     @property
     def TargetText(self) -> str: ...
     @property
@@ -8901,7 +9714,6 @@ EVT_STC_CHARADDED = wx.PyEventBinder( wxEVT_STC_CHARADDED, 1 )
 EVT_STC_SAVEPOINTREACHED = wx.PyEventBinder( wxEVT_STC_SAVEPOINTREACHED, 1 )
 EVT_STC_SAVEPOINTLEFT = wx.PyEventBinder( wxEVT_STC_SAVEPOINTLEFT, 1 )
 EVT_STC_ROMODIFYATTEMPT = wx.PyEventBinder( wxEVT_STC_ROMODIFYATTEMPT, 1 )
-EVT_STC_KEY = wx.PyEventBinder( wxEVT_STC_KEY, 1 )
 EVT_STC_DOUBLECLICK = wx.PyEventBinder( wxEVT_STC_DOUBLECLICK, 1 )
 EVT_STC_UPDATEUI = wx.PyEventBinder( wxEVT_STC_UPDATEUI, 1 )
 EVT_STC_MODIFIED = wx.PyEventBinder( wxEVT_STC_MODIFIED, 1 )
@@ -8910,7 +9722,6 @@ EVT_STC_MARGINCLICK = wx.PyEventBinder( wxEVT_STC_MARGINCLICK, 1 )
 EVT_STC_NEEDSHOWN = wx.PyEventBinder( wxEVT_STC_NEEDSHOWN, 1 )
 EVT_STC_PAINTED = wx.PyEventBinder( wxEVT_STC_PAINTED, 1 )
 EVT_STC_USERLISTSELECTION = wx.PyEventBinder( wxEVT_STC_USERLISTSELECTION, 1 )
-EVT_STC_URIDROPPED = wx.PyEventBinder( wxEVT_STC_URIDROPPED, 1 )
 EVT_STC_DWELLSTART = wx.PyEventBinder( wxEVT_STC_DWELLSTART, 1 )
 EVT_STC_DWELLEND = wx.PyEventBinder( wxEVT_STC_DWELLEND, 1 )
 EVT_STC_START_DRAG = wx.PyEventBinder( wxEVT_STC_START_DRAG, 1 )

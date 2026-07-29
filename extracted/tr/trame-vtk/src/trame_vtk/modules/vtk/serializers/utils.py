@@ -1,6 +1,8 @@
 import base64
 import hashlib
 
+from vtkmodules.util import numpy_support
+
 
 def rgb_float_to_hex(r, g, b):
     return f"#{int(r * 255):02x}{int(g * 255):02x}{int(b * 255):02x}"
@@ -42,6 +44,19 @@ javascript_mapping = {
     "LL": "BigUint64Array",
 }
 
+numpy_to_js = {
+    "int8": "Int8Array",
+    "uint8": "Uint8Array",
+    "int16": "Int16Array",
+    "uint16": "Uint16Array",
+    "int32": "Int32Array",
+    "uint32": "Uint32Array",
+    "int64": "BigInt64Array",
+    "uint64": "BigUint64Array",
+    "float32": "Float32Array",
+    "float64": "Float64Array",
+}
+
 
 def base64_encode(x):
     return base64.b64encode(x).decode("utf-8")
@@ -54,7 +69,11 @@ def hash_data_array(data_array):
 
 
 def get_js_array_type(data_array):
-    return javascript_mapping[array_types_mapping[data_array.GetDataType()]]
+    np_type = str(numpy_support.vtk_to_numpy(data_array).dtype)
+    if "int64" in np_type:
+        # (u)int64 don't work well in JS so always convert to 32 bits
+        np_type = np_type.replace("64", "32")
+    return numpy_to_js[np_type]
 
 
 def wrap_id(id_str):

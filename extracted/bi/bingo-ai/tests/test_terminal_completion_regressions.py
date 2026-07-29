@@ -990,7 +990,6 @@ def test_report_fallback_is_written_without_model(tmp_path: Path, monkeypatch) -
     obj.history = []
     obj._session_tables = []
     obj._session_credentials = []
-    obj._session_fresh = True
     obj._findings_exporter = _Findings()
     obj._get_system_message = lambda _skill: SimpleNamespace(role="system", content="")
     obj._render_hacker_report = lambda *_args: None

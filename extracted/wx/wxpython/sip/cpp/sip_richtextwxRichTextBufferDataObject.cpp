@@ -583,7 +583,7 @@ static void *init_type_wxRichTextBufferDataObject(sipSimpleWrapper *sipSelf, PyO
     sipwxRichTextBufferDataObject *sipCpp = SIP_NULLPTR;
 
     {
-        ::wxRichTextBuffer* richTextBuffer = 0;
+        ::wxRichTextBuffer* richTextBuffer = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_richTextBuffer,
@@ -614,7 +614,7 @@ static void *init_type_wxRichTextBufferDataObject(sipSimpleWrapper *sipSelf, PyO
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxRichTextBufferDataObject[] = {{21, 0, 1}};
+static sipEncodedTypeDef supers_wxRichTextBufferDataObject[] = {{22, 0, 1}};
 
 
 static PyMethodDef methods_wxRichTextBufferDataObject[] = {
@@ -631,7 +631,7 @@ sipVariableDef variables_wxRichTextBufferDataObject[] = {
     {PropertyVariable, sipName_DataSize, &methods_wxRichTextBufferDataObject[1], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxRichTextBufferDataObject, "RichTextBufferDataObject(richTextBuffer=None) -> None\n"
+PyDoc_STRVAR(doc_wxRichTextBufferDataObject, "RichTextBufferDataObject(richTextBuffer=nullptr) -> None\n"
 "\n"
 "Implements a rich text data object for clipboard transfer.");
 

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-MCP Everything Server - Conformance Test Server
+"""MCP Everything Server - Conformance Test Server
 
 Server implementing all MCP features for conformance testing based on Conformance Server Specification.
 """
@@ -9,27 +8,44 @@ import asyncio
 import base64
 import json
 import logging
+from typing import Annotated, Any
 
 import click
-from mcp.server.fastmcp import Context, FastMCP
-from mcp.server.fastmcp.prompts.base import UserMessage
-from mcp.server.session import ServerSession
+from mcp.server import ServerRequestContext
+from mcp.server.mcpserver import Context, MCPServer, RequestStateSecurity
+from mcp.server.mcpserver.prompts.base import Prompt, UserMessage
 from mcp.server.streamable_http import EventCallback, EventMessage, EventStore
+from mcp.shared.exceptions import MCPError
 from mcp.types import (
+    MISSING_REQUIRED_CLIENT_CAPABILITY,
     AudioContent,
     Completion,
     CompletionArgument,
     CompletionContext,
+    CreateMessageRequest,
+    CreateMessageRequestParams,
+    CreateMessageResult,
+    ElicitRequest,
+    ElicitRequestFormParams,
+    ElicitResult,
     EmbeddedResource,
+    EmptyResult,
     ImageContent,
+    InputRequest,
+    InputRequiredResult,
     JSONRPCMessage,
+    ListRootsRequest,
+    ListRootsResult,
     PromptReference,
     ResourceTemplateReference,
     SamplingMessage,
+    SetLevelRequestParams,
+    SubscribeRequestParams,
     TextContent,
     TextResourceContents,
+    UnsubscribeRequestParams,
 )
-from pydantic import AnyUrl, BaseModel, Field
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -81,10 +97,13 @@ watched_resource_content = "Watched resource content"
 # Create event store for SSE resumability (SEP-1699)
 event_store = InMemoryEventStore()
 
-mcp = FastMCP(
+# Fixed fixture key (RequestStateSecurity requires at least 32 bytes); a real deployment would load a shared secret.
+_REQUEST_STATE_KEY = b"everything-server-fixture-request-state-key"
+
+mcp = MCPServer(
     name="mcp-conformance-test-server",
-    event_store=event_store,
-    retry_interval=100,  # 100ms retry interval for SSE polling
+    version="0.1.0",
+    request_state_security=RequestStateSecurity(keys=[_REQUEST_STATE_KEY]),
 )
 
 
@@ -98,13 +117,13 @@ def test_simple_text() -> str:
 @mcp.tool()
 def test_image_content() -> list[ImageContent]:
     """Tests image content response"""
-    return [ImageContent(type="image", data=TEST_IMAGE_BASE64, mimeType="image/png")]
+    return [ImageContent(type="image", data=TEST_IMAGE_BASE64, mime_type="image/png")]
 
 
 @mcp.tool()
 def test_audio_content() -> list[AudioContent]:
     """Tests audio content response"""
-    return [AudioContent(type="audio", data=TEST_AUDIO_BASE64, mimeType="audio/wav")]
+    return [AudioContent(type="audio", data=TEST_AUDIO_BASE64, mime_type="audio/wav")]
 
 
 @mcp.tool()
@@ -114,8 +133,8 @@ def test_embedded_resource() -> list[EmbeddedResource]:
         EmbeddedResource(
             type="resource",
             resource=TextResourceContents(
-                uri=AnyUrl("test://embedded-resource"),
-                mimeType="text/plain",
+                uri="test://embedded-resource",
+                mime_type="text/plain",
                 text="This is an embedded resource content.",
             ),
         )
@@ -127,12 +146,12 @@ def test_multiple_content_types() -> list[TextContent | ImageContent | EmbeddedR
     """Tests response with multiple content types (text, image, resource)"""
     return [
         TextContent(type="text", text="Multiple content types test:"),
-        ImageContent(type="image", data=TEST_IMAGE_BASE64, mimeType="image/png"),
+        ImageContent(type="image", data=TEST_IMAGE_BASE64, mime_type="image/png"),
         EmbeddedResource(
             type="resource",
             resource=TextResourceContents(
-                uri=AnyUrl("test://mixed-content-resource"),
-                mimeType="application/json",
+                uri="test://mixed-content-resource",
+                mime_type="application/json",
                 text='{"test": "data", "value": 123}',
             ),
         ),
@@ -140,20 +159,20 @@ def test_multiple_content_types() -> list[TextContent | ImageContent | EmbeddedR
 
 
 @mcp.tool()
-async def test_tool_with_logging(ctx: Context[ServerSession, None]) -> str:
+async def test_tool_with_logging(ctx: Context) -> str:
     """Tests tool that emits log messages during execution"""
-    await ctx.info("Tool execution started")
+    await ctx.info("Tool execution started")  # pyright: ignore[reportDeprecated]
     await asyncio.sleep(0.05)
 
-    await ctx.info("Tool processing data")
+    await ctx.info("Tool processing data")  # pyright: ignore[reportDeprecated]
     await asyncio.sleep(0.05)
 
-    await ctx.info("Tool execution completed")
+    await ctx.info("Tool execution completed")  # pyright: ignore[reportDeprecated]
     return "Tool with logging executed successfully"
 
 
 @mcp.tool()
-async def test_tool_with_progress(ctx: Context[ServerSession, None]) -> str:
+async def test_tool_with_progress(ctx: Context) -> str:
     """Tests tool that reports progress notifications"""
     await ctx.report_progress(progress=0, total=100, message="Completed step 0 of 100")
     await asyncio.sleep(0.05)
@@ -164,18 +183,22 @@ async def test_tool_with_progress(ctx: Context[ServerSession, None]) -> str:
     await ctx.report_progress(progress=100, total=100, message="Completed step 100 of 100")
 
     # Return progress token as string
-    progress_token = ctx.request_context.meta.progressToken if ctx.request_context and ctx.request_context.meta else 0
+    progress_token = (
+        ctx.request_context.meta.get("progress_token") if ctx.request_context and ctx.request_context.meta else 0
+    )
     return str(progress_token)
 
 
 @mcp.tool()
-async def test_sampling(prompt: str, ctx: Context[ServerSession, None]) -> str:
+async def test_sampling(prompt: str, ctx: Context) -> str:
     """Tests server-initiated sampling (LLM completion request)"""
     try:
-        # Request sampling from client
-        result = await ctx.session.create_message(
+        # Request sampling from client. Without related_request_id the request goes
+        # to the standalone GET stream and is silently dropped if it is not open yet.
+        result = await ctx.session.create_message(  # pyright: ignore[reportDeprecated]
             messages=[SamplingMessage(role="user", content=TextContent(type="text", text=prompt))],
             max_tokens=100,
+            related_request_id=ctx.request_id,
         )
 
         # Since we're not passing tools param, result.content is single content
@@ -194,7 +217,7 @@ class UserResponse(BaseModel):
 
 
 @mcp.tool()
-async def test_elicitation(message: str, ctx: Context[ServerSession, None]) -> str:
+async def test_elicitation(message: str, ctx: Context) -> str:
     """Tests server-initiated elicitation (user input request)"""
     try:
         # Request user input from client
@@ -226,7 +249,7 @@ class SEP1034DefaultsSchema(BaseModel):
 
 
 @mcp.tool()
-async def test_elicitation_sep1034_defaults(ctx: Context[ServerSession, None]) -> str:
+async def test_elicitation_sep1034_defaults(ctx: Context) -> str:
     """Tests elicitation with default values for all primitive types (SEP-1034)"""
     try:
         # Request user input with defaults for all primitive types
@@ -285,7 +308,7 @@ class EnumSchemasTestSchema(BaseModel):
 
 
 @mcp.tool()
-async def test_elicitation_sep1330_enums(ctx: Context[ServerSession, None]) -> str:
+async def test_elicitation_sep1330_enums(ctx: Context) -> str:
     """Tests elicitation with enum schema variations per SEP-1330"""
     try:
         result = await ctx.elicit(
@@ -309,16 +332,288 @@ def test_error_handling() -> str:
 
 
 @mcp.tool()
-async def test_reconnection(ctx: Context[ServerSession, None]) -> str:
+def test_x_mcp_header(
+    region: Annotated[
+        str,
+        Field(
+            description="Mirrored into the Mcp-Param-Region header",
+            json_schema_extra={"x-mcp-header": "Region"},
+        ),
+    ] = "<none>",
+) -> str:
+    """Tests SEP-2243 Mcp-Param-* server-side validation.
+
+    Arms the http-custom-header-server-validation conformance scenario, which
+    skips when no tool with an `x-mcp-header` annotation is found.
+    """
+    return f"region={region}"
+
+
+@mcp.tool()
+async def test_missing_capability(ctx: Context) -> str:
+    """Tests that a handler-raised MISSING_REQUIRED_CLIENT_CAPABILITY surfaces as a top-level JSON-RPC error.
+
+    Requires the client to declare the ``sampling`` capability. When absent, raises
+    `MCPError` (which the tool dispatch re-raises rather than wrapping in
+    ``CallToolResult.isError``) so the conformance harness observes a protocol-level
+    error response with ``data.requiredCapabilities``.
+    """
+    capabilities = ctx.session.client_capabilities
+    sampling_declared = capabilities is not None and capabilities.sampling is not None
+    if not sampling_declared:
+        raise MCPError(
+            code=MISSING_REQUIRED_CLIENT_CAPABILITY,
+            message="This tool requires the client 'sampling' capability",
+            data={"requiredCapabilities": {"sampling": {}}},
+        )
+    return "Client declared sampling capability; proceeding."
+
+
+# SEP-2322 InputRequiredResult fixtures (multi-round-trip / ephemeral workflow)
+
+NAME_SCHEMA = {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}
+
+
+def _name_elicitation(message: str = "What is your name?") -> ElicitRequest:
+    return ElicitRequest(params=ElicitRequestFormParams(message=message, requested_schema=NAME_SCHEMA))
+
+
+@mcp.tool()
+async def test_input_required_result_elicitation(ctx: Context) -> str | InputRequiredResult:
+    """Tests InputRequiredResult with a single elicitation request"""
+    responses = ctx.input_responses
+    if responses and "user_name" in responses:
+        answer = responses["user_name"]
+        name = answer.content.get("name", "stranger") if isinstance(answer, ElicitResult) and answer.content else "?"
+        return f"Hello, {name}!"
+    return InputRequiredResult(input_requests={"user_name": _name_elicitation()})
+
+
+@mcp.tool()
+async def test_input_required_result_sampling(ctx: Context) -> str | InputRequiredResult:
+    """Tests InputRequiredResult with a single sampling request"""
+    responses = ctx.input_responses
+    if responses and "capital_question" in responses:
+        answer = responses["capital_question"]
+        text = answer.content.text if isinstance(answer, CreateMessageResult) and answer.content.type == "text" else "?"
+        return f"Model said: {text}"
+    return InputRequiredResult(
+        input_requests={
+            "capital_question": CreateMessageRequest(
+                params=CreateMessageRequestParams(
+                    messages=[
+                        SamplingMessage(
+                            role="user", content=TextContent(type="text", text="What is the capital of France?")
+                        )
+                    ],
+                    max_tokens=100,
+                )
+            )
+        }
+    )
+
+
+@mcp.tool()
+async def test_input_required_result_list_roots(ctx: Context) -> str | InputRequiredResult:
+    """Tests InputRequiredResult with a single roots/list request"""
+    responses = ctx.input_responses
+    if responses and "client_roots" in responses:
+        answer = responses["client_roots"]
+        count = len(answer.roots) if isinstance(answer, ListRootsResult) else 0
+        return f"Client exposed {count} root(s)."
+    return InputRequiredResult(input_requests={"client_roots": ListRootsRequest()})
+
+
+@mcp.tool()
+async def test_input_required_result_request_state(ctx: Context) -> str | InputRequiredResult:
+    """Tests requestState round-tripping in the InputRequiredResult flow"""
+    responses = ctx.input_responses
+    if responses and "confirm" in responses and ctx.request_state == "request-state-nonce":
+        return "state-ok: confirmation received"
+    confirm = ElicitRequest(
+        params=ElicitRequestFormParams(
+            message="Please confirm",
+            requested_schema={"type": "object", "properties": {"ok": {"type": "boolean"}}, "required": ["ok"]},
+        )
+    )
+    return InputRequiredResult(input_requests={"confirm": confirm}, request_state="request-state-nonce")
+
+
+@mcp.tool()
+async def test_input_required_result_multiple_inputs(ctx: Context) -> str | InputRequiredResult:
+    """Tests InputRequiredResult carrying elicitation, sampling and roots requests together"""
+    responses = ctx.input_responses
+    if responses and {"user_name", "greeting", "client_roots"} <= responses.keys():
+        return "All inputs received."
+    return InputRequiredResult(
+        input_requests={
+            "user_name": _name_elicitation(),
+            "greeting": CreateMessageRequest(
+                params=CreateMessageRequestParams(
+                    messages=[
+                        SamplingMessage(role="user", content=TextContent(type="text", text="Generate a greeting"))
+                    ],
+                    max_tokens=50,
+                )
+            ),
+            "client_roots": ListRootsRequest(),
+        },
+        request_state="multiple-inputs",
+    )
+
+
+@mcp.tool()
+async def test_input_required_result_multi_round(ctx: Context) -> str | InputRequiredResult:
+    """Tests a three-round InputRequiredResult flow with evolving requestState"""
+    state = json.loads(ctx.request_state) if ctx.request_state else {"round": 0}
+    responses = ctx.input_responses or {}
+
+    if state["round"] == 0:
+        return InputRequiredResult(
+            input_requests={"step1": _name_elicitation("Step 1: What is your name?")},
+            request_state=json.dumps({"round": 1}),
+        )
+
+    if state["round"] == 1 and "step1" in responses:
+        step1 = responses["step1"]
+        name = step1.content.get("name") if isinstance(step1, ElicitResult) and step1.content else None
+        color_schema = {"type": "object", "properties": {"color": {"type": "string"}}, "required": ["color"]}
+        return InputRequiredResult(
+            input_requests={
+                "step2": ElicitRequest(
+                    params=ElicitRequestFormParams(
+                        message="Step 2: What is your favorite color?", requested_schema=color_schema
+                    )
+                )
+            },
+            request_state=json.dumps({"round": 2, "name": name}),
+        )
+
+    if state["round"] == 2 and "step2" in responses:
+        step2 = responses["step2"]
+        color = step2.content.get("color") if isinstance(step2, ElicitResult) and step2.content else None
+        return f"{state.get('name')} likes {color}."
+
+    # Missing or out-of-order response: re-request from the start.
+    return InputRequiredResult(
+        input_requests={"step1": _name_elicitation("Step 1: What is your name?")},
+        request_state=json.dumps({"round": 1}),
+    )
+
+
+@mcp.tool()
+async def test_input_required_result_tampered_state(ctx: Context) -> str | InputRequiredResult:
+    """Tests that the server rejects a tampered requestState echo.
+
+    The handler stays plaintext; tamper rejection happens in the SDK's request-state boundary.
+    """
+    if ctx.request_state is None:
+        confirm = ElicitRequest(
+            params=ElicitRequestFormParams(
+                message="Please confirm",
+                requested_schema={"type": "object", "properties": {"ok": {"type": "boolean"}}, "required": ["ok"]},
+            )
+        )
+        return InputRequiredResult(input_requests={"confirm": confirm}, request_state="round-1")
+    return f"state-ok: {ctx.request_state}"
+
+
+@mcp.tool()
+async def test_input_required_result_capabilities(ctx: Context) -> InputRequiredResult:
+    """Tests that inputRequests only include methods the client declared support for"""
+    caps = ctx.client_capabilities
+    requests: dict[str, InputRequest] = {}
+    if caps is None or caps.sampling is not None:
+        requests["sample"] = CreateMessageRequest(
+            params=CreateMessageRequestParams(
+                messages=[SamplingMessage(role="user", content=TextContent(type="text", text="Say hello"))],
+                max_tokens=50,
+            )
+        )
+    if caps is None or caps.elicitation is not None:
+        requests["ask"] = _name_elicitation()
+    return InputRequiredResult(input_requests=requests, request_state="capability-gated")
+
+
+# SEP-1613 / SEP-2106 JSON Schema 2020-12 fixture: a tool whose inputSchema carries
+# the full set of 2020-12 keywords the conformance scenario asserts on.
+
+JSON_SCHEMA_2020_12_INPUT_SCHEMA: dict[str, Any] = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "$defs": {
+        "address": {
+            "$anchor": "addressDef",
+            "type": "object",
+            "properties": {"street": {"type": "string"}, "city": {"type": "string"}},
+        }
+    },
+    "properties": {
+        "name": {"type": "string"},
+        "address": {"$ref": "#/$defs/address"},
+        "contactMethod": {"type": "string", "enum": ["phone", "email"]},
+        "phone": {"type": "string"},
+        "email": {"type": "string"},
+    },
+    "allOf": [{"anyOf": [{"required": ["phone"]}, {"required": ["email"]}]}],
+    "if": {"properties": {"contactMethod": {"const": "phone"}}, "required": ["contactMethod"]},
+    "then": {"required": ["phone"]},
+    "else": {"required": ["email"]},
+    "additionalProperties": False,
+}
+
+
+@mcp.tool(name="json_schema_2020_12_tool")
+def json_schema_2020_12_tool() -> str:
+    """Tests JSON Schema 2020-12 keyword preservation in tools/list (inputSchema installed below)."""
+    return "json_schema_2020_12_tool"
+
+
+# TODO(felix): replace with a public input_schema= override once MCPServer.tool() grows one.
+mcp._tool_manager._tools["json_schema_2020_12_tool"].parameters = (  # pyright: ignore[reportPrivateUsage]
+    JSON_SCHEMA_2020_12_INPUT_SCHEMA
+)
+
+
+@mcp.tool()
+async def test_reconnection(ctx: Context) -> str:
     """Tests SSE polling by closing stream mid-call (SEP-1699)"""
-    await ctx.info("Before disconnect")
+    await ctx.info("Before disconnect")  # pyright: ignore[reportDeprecated]
 
     await ctx.close_sse_stream()
 
     await asyncio.sleep(0.2)  # Wait for client to reconnect
 
-    await ctx.info("After reconnect")
+    await ctx.info("After reconnect")  # pyright: ignore[reportDeprecated]
     return "Reconnection test completed"
+
+
+def _dynamic_tool() -> str:
+    """A tool registered and removed by test_trigger_tool_change."""
+    return "dynamic"
+
+
+def _dynamic_prompt() -> str:
+    """A prompt registered and removed by test_trigger_prompt_change."""
+    return "dynamic"
+
+
+@mcp.tool()
+async def test_trigger_tool_change(ctx: Context) -> str:
+    """Mutates the tool list and announces it to subscriptions/listen streams (SEP-2575)"""
+    mcp.add_tool(_dynamic_tool, name="test_dynamic_tool")
+    mcp.remove_tool("test_dynamic_tool")
+    await ctx.notify_tools_changed()
+    return "tool list changed"
+
+
+@mcp.tool()
+async def test_trigger_prompt_change(ctx: Context) -> str:
+    """Mutates the prompt list and announces it to subscriptions/listen streams (SEP-2575)"""
+    mcp.add_prompt(Prompt.from_function(_dynamic_prompt, name="test_dynamic_prompt", description="dynamic"))
+    mcp.remove_prompt("test_dynamic_prompt")
+    await ctx.notify_prompts_changed()
+    return "prompt list changed"
 
 
 # Resources
@@ -372,8 +667,8 @@ def test_prompt_with_embedded_resource(resourceUri: str) -> list[UserMessage]:
             content=EmbeddedResource(
                 type="resource",
                 resource=TextResourceContents(
-                    uri=AnyUrl(resourceUri),
-                    mimeType="text/plain",
+                    uri=resourceUri,
+                    mime_type="text/plain",
                     text="Embedded resource content for testing.",
                 ),
             ),
@@ -386,36 +681,67 @@ def test_prompt_with_embedded_resource(resourceUri: str) -> list[UserMessage]:
 def test_prompt_with_image() -> list[UserMessage]:
     """A prompt that includes image content"""
     return [
-        UserMessage(role="user", content=ImageContent(type="image", data=TEST_IMAGE_BASE64, mimeType="image/png")),
+        UserMessage(role="user", content=ImageContent(type="image", data=TEST_IMAGE_BASE64, mime_type="image/png")),
         UserMessage(role="user", content=TextContent(type="text", text="Please analyze the image above.")),
     ]
 
 
+@mcp.prompt()
+async def test_input_required_result_prompt(ctx: Context) -> list[UserMessage] | InputRequiredResult:
+    """Tests InputRequiredResult from prompts/get (SEP-2322 non-tool request)"""
+    responses = ctx.input_responses
+    if responses and "user_context" in responses:
+        answer = responses["user_context"]
+        text = answer.content.get("context", "?") if isinstance(answer, ElicitResult) and answer.content else "?"
+        return [UserMessage(role="user", content=TextContent(type="text", text=f"Use the following context: {text}"))]
+    return InputRequiredResult(
+        input_requests={
+            "user_context": ElicitRequest(
+                params=ElicitRequestFormParams(
+                    message="What context should the prompt use?",
+                    requested_schema={
+                        "type": "object",
+                        "properties": {"context": {"type": "string"}},
+                        "required": ["context"],
+                    },
+                )
+            )
+        }
+    )
+
+
 # Custom request handlers
-# TODO(felix): Add public APIs to FastMCP for subscribe_resource, unsubscribe_resource,
-# and set_logging_level to avoid accessing protected _mcp_server attribute.
-@mcp._mcp_server.set_logging_level()  # pyright: ignore[reportPrivateUsage]
-async def handle_set_logging_level(level: str) -> None:
+# TODO(felix): Add public APIs to MCPServer for subscribe_resource, unsubscribe_resource,
+# and set_logging_level to avoid accessing protected _lowlevel_server attribute.
+async def handle_set_logging_level(ctx: ServerRequestContext, params: SetLevelRequestParams) -> EmptyResult:
     """Handle logging level changes"""
-    logger.info(f"Log level set to: {level}")
-    # In a real implementation, you would adjust the logging level here
-    # For conformance testing, we just acknowledge the request
+    logger.info(f"Log level set to: {params.level}")
+    return EmptyResult()
 
 
-async def handle_subscribe(uri: AnyUrl) -> None:
+async def handle_subscribe(ctx: ServerRequestContext, params: SubscribeRequestParams) -> EmptyResult:
     """Handle resource subscription"""
-    resource_subscriptions.add(str(uri))
-    logger.info(f"Subscribed to resource: {uri}")
+    resource_subscriptions.add(str(params.uri))
+    logger.info(f"Subscribed to resource: {params.uri}")
+    return EmptyResult()
 
 
-async def handle_unsubscribe(uri: AnyUrl) -> None:
+async def handle_unsubscribe(ctx: ServerRequestContext, params: UnsubscribeRequestParams) -> EmptyResult:
     """Handle resource unsubscription"""
-    resource_subscriptions.discard(str(uri))
-    logger.info(f"Unsubscribed from resource: {uri}")
+    resource_subscriptions.discard(str(params.uri))
+    logger.info(f"Unsubscribed from resource: {params.uri}")
+    return EmptyResult()
 
 
-mcp._mcp_server.subscribe_resource()(handle_subscribe)  # pyright: ignore[reportPrivateUsage]
-mcp._mcp_server.unsubscribe_resource()(handle_unsubscribe)  # pyright: ignore[reportPrivateUsage]
+mcp._lowlevel_server.add_request_handler(  # pyright: ignore[reportPrivateUsage]
+    "logging/setLevel", SetLevelRequestParams, handle_set_logging_level
+)
+mcp._lowlevel_server.add_request_handler(  # pyright: ignore[reportPrivateUsage]
+    "resources/subscribe", SubscribeRequestParams, handle_subscribe
+)
+mcp._lowlevel_server.add_request_handler(  # pyright: ignore[reportPrivateUsage]
+    "resources/unsubscribe", UnsubscribeRequestParams, handle_unsubscribe
+)
 
 
 @mcp.completion()
@@ -427,7 +753,7 @@ async def _handle_completion(
     """Handle completion requests"""
     # Basic completion support - returns empty array for conformance
     # Real implementations would provide contextual suggestions
-    return Completion(values=[], total=0, hasMore=False)
+    return Completion(values=[], total=0, has_more=False)
 
 
 # CLI
@@ -448,8 +774,12 @@ def main(port: int, log_level: str) -> int:
     logger.info(f"Starting MCP Everything Server on port {port}")
     logger.info(f"Endpoint will be: http://localhost:{port}/mcp")
 
-    mcp.settings.port = port
-    mcp.run(transport="streamable-http")
+    mcp.run(
+        transport="streamable-http",
+        port=port,
+        event_store=event_store,
+        retry_interval=100,  # 100ms retry interval for SSE polling
+    )
 
     return 0
 

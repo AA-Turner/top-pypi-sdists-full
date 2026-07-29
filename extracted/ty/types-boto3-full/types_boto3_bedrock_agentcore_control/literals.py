@@ -151,6 +151,7 @@ __all__ = (
     "SecretSourceTypeType",
     "ServerProtocolType",
     "ServiceName",
+    "SigningAlgorithmType",
     "StatusType",
     "SynchronizationTypeType",
     "TargetProtocolTypeType",
@@ -181,7 +182,7 @@ BrowserStatusType = Literal[
 ]
 ClaimMatchOperatorTypeType = Literal["CONTAINS", "CONTAINS_ANY", "EQUALS"]
 ClientAuthenticationMethodTypeType = Literal[
-    "AWS_IAM_ID_TOKEN_JWT", "CLIENT_SECRET_BASIC", "CLIENT_SECRET_POST"
+    "AWS_IAM_ID_TOKEN_JWT", "CLIENT_SECRET_BASIC", "CLIENT_SECRET_POST", "PRIVATE_KEY_JWT"
 ]
 ClusteringFrequencyType = Literal["DAILY", "MONTHLY", "WEEKLY"]
 CodeInterpreterNetworkModeType = Literal["PUBLIC", "SANDBOX", "VPC"]
@@ -388,6 +389,7 @@ SchemaTypeType = Literal["array", "boolean", "integer", "number", "object", "str
 SearchTypeType = Literal["SEMANTIC"]
 SecretSourceTypeType = Literal["EXTERNAL", "MANAGED"]
 ServerProtocolType = Literal["A2A", "AGUI", "HTTP", "MCP"]
+SigningAlgorithmType = Literal["ES256", "PS256", "RS256"]
 StatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
 ]

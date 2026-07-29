@@ -1,5 +1,4 @@
-"""
-Before running, specify running MCP RS server URL.
+"""Before running, specify running MCP RS server URL.
 To spin up RS server locally, see
     examples/servers/simple-auth/README.md
 
@@ -10,11 +9,11 @@ cd to the `examples/snippets` directory and run:
 import asyncio
 from urllib.parse import parse_qs, urlparse
 
-import httpx
+import httpx2
 from pydantic import AnyUrl
 
 from mcp import ClientSession
-from mcp.client.auth import OAuthClientProvider, TokenStorage
+from mcp.client.auth import AuthorizationCodeResult, OAuthClientProvider, TokenStorage
 from mcp.client.streamable_http import streamable_http_client
 from mcp.shared.auth import OAuthClientInformationFull, OAuthClientMetadata, OAuthToken
 
@@ -47,10 +46,14 @@ async def handle_redirect(auth_url: str) -> None:
     print(f"Visit: {auth_url}")
 
 
-async def handle_callback() -> tuple[str, str | None]:
+async def handle_callback() -> AuthorizationCodeResult:
     callback_url = input("Paste callback URL: ")
     params = parse_qs(urlparse(callback_url).query)
-    return params["code"][0], params.get("state", [None])[0]
+    return AuthorizationCodeResult(
+        code=params["code"][0],
+        state=params.get("state", [None])[0],
+        iss=params.get("iss", [None])[0],
+    )
 
 
 async def main():
@@ -69,8 +72,8 @@ async def main():
         callback_handler=handle_callback,
     )
 
-    async with httpx.AsyncClient(auth=oauth_auth, follow_redirects=True) as custom_client:
-        async with streamable_http_client("http://localhost:8001/mcp", http_client=custom_client) as (read, write, _):
+    async with httpx2.AsyncClient(auth=oauth_auth, follow_redirects=True) as custom_client:
+        async with streamable_http_client("http://localhost:8001/mcp", http_client=custom_client) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
 

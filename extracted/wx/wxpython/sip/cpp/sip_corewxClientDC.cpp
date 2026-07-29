@@ -16,18 +16,18 @@
         #include <wx/graphics.h>
         #include <wx/bitmap.h>
         #include <wx/gdicmn.h>
-        #include <wx/palette.h>
-        #include <wx/gdicmn.h>
-        #include <wx/colour.h>
         #include <wx/dc.h>
-        #include <wx/affinematrix2d.h>
+        #include <wx/palette.h>
+        #include <wx/colour.h>
         #include <wx/pen.h>
         #include "arrayholder.h"
         #include <wx/brush.h>
+        #include <wx/region.h>
+        #include <wx/gdicmn.h>
+        #include <wx/icon.h>
         #include <wx/font.h>
         #include <wx/dc.h>
-        #include <wx/region.h>
-        #include <wx/icon.h>
+        #include <wx/affinematrix2d.h>
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
@@ -54,6 +54,45 @@ sipwxClientDC::sipwxClientDC(::wxWindow*window): ::wxClientDC(window), sipPySelf
 sipwxClientDC::~sipwxClientDC()
 {
     sipInstanceDestroyedEx(&sipPySelf);
+}
+
+
+PyDoc_STRVAR(doc_wxClientDC_CanBeUsedForDrawing, "CanBeUsedForDrawing(window) -> bool\n"
+"\n"
+"Return true if drawing on wxClientDC actually works.");
+
+extern "C" {static PyObject *meth_wxClientDC_CanBeUsedForDrawing(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxClientDC_CanBeUsedForDrawing(PyObject *, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxWindow* window;
+
+        static const char *sipKwdList[] = {
+            sipName_window,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "J8", sipType_wxWindow, &window))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = ::wxClientDC::CanBeUsedForDrawing(window);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_ClientDC, sipName_CanBeUsedForDrawing, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
 }
 
 
@@ -141,12 +180,16 @@ static void *init_type_wxClientDC(sipSimpleWrapper *sipSelf, PyObject *sipArgs, 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxClientDC[] = {{635, 255, 1}};
+static sipEncodedTypeDef supers_wxClientDC[] = {{659, 255, 1}};
+
+
+static PyMethodDef methods_wxClientDC[] = {
+    {sipName_CanBeUsedForDrawing, SIP_MLMETH_CAST(meth_wxClientDC_CanBeUsedForDrawing), METH_VARARGS|METH_KEYWORDS, doc_wxClientDC_CanBeUsedForDrawing}
+};
 
 PyDoc_STRVAR(doc_wxClientDC, "ClientDC(window) -> None\n"
 "\n"
-"wxClientDC is primarily useful for obtaining information about the\n"
-"window from outside EVT_PAINT() handler.");
+"Deprecated class for drawing on the client area of a window.");
 
 
 sipClassTypeDef sipTypeDef__core_wxClientDC = {
@@ -162,7 +205,7 @@ sipClassTypeDef sipTypeDef__core_wxClientDC = {
     {
         sipNameNr_ClientDC,
         {0, 0, 1},
-        0, SIP_NULLPTR,
+        1, methods_wxClientDC,
         0, SIP_NULLPTR,
         0, SIP_NULLPTR,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

@@ -449,7 +449,6 @@ MINIMIZE_BOX: int
 MAXIMIZE_BOX: int
 TINY_CAPTION: int
 RESIZE_BORDER: int
-WARN_UNUSED: int
 
 class _GeometryCentre(IntEnum):
     CENTRE = auto()
@@ -1140,6 +1139,7 @@ class _KeyCode(IntEnum):
     WXK_LAUNCH_D = auto()
     WXK_LAUNCH_E = auto()
     WXK_LAUNCH_F = auto()
+    WXK_NUMPAD_CENTER = auto()
 KeyCode: TypeAlias = Union[_KeyCode, int]
 WXK_NONE = _KeyCode.WXK_NONE
 WXK_CONTROL_A = _KeyCode.WXK_CONTROL_A
@@ -1325,6 +1325,7 @@ WXK_LAUNCH_C = _KeyCode.WXK_LAUNCH_C
 WXK_LAUNCH_D = _KeyCode.WXK_LAUNCH_D
 WXK_LAUNCH_E = _KeyCode.WXK_LAUNCH_E
 WXK_LAUNCH_F = _KeyCode.WXK_LAUNCH_F
+WXK_NUMPAD_CENTER = _KeyCode.WXK_NUMPAD_CENTER
 
 class _KeyModifier(IntEnum):
     MOD_NONE = auto()
@@ -1824,14 +1825,14 @@ class ClassInfo:
         """
         GetBaseClassName1() -> str
         
-        Returns the name of the first base class (NULL if none).
+        Returns the name of the first base class (nullptr if none).
         """
 
     def GetBaseClassName2(self) -> str:
         """
         GetBaseClassName2() -> str
         
-        Returns the name of the second base class (NULL if none).
+        Returns the name of the second base class (nullptr if none).
         """
 
     def GetClassName(self) -> str:
@@ -1984,6 +1985,75 @@ class DateTime:
     
     wxDateTime class represents an absolute moment in time.
     """
+
+    class NameForm:
+        """
+        NameForm(flags=DateTime.NameFlags.Name_Full) -> None
+        
+        Class representing a name form.
+        """
+
+        def __init__(self, flags: DateTime.NameFlags=DateTime.NameFlags.Name_Full) -> None:
+            """
+            NameForm(flags=DateTime.NameFlags.Name_Full) -> None
+            
+            Class representing a name form.
+            """
+
+        def Full(self) -> NameForm:
+            """
+            Full() -> NameForm
+            
+            Set the flag for full month or weekday names.
+            """
+
+        def Abbr(self) -> NameForm:
+            """
+            Abbr() -> NameForm
+            
+            Set the flag for abbreviated month or weekday names.
+            """
+
+        def Shortest(self) -> NameForm:
+            """
+            Shortest() -> NameForm
+            
+            Set the flag for shortest month or weekday names.
+            """
+
+        def Formatting(self) -> NameForm:
+            """
+            Formatting() -> NameForm
+            
+            Set the context for date formatting.
+            """
+
+        def Standalone(self) -> NameForm:
+            """
+            Standalone() -> NameForm
+            
+            Set the context for standalone use.
+            """
+
+        def GetFlags(self) -> NameFlags:
+            """
+            GetFlags() -> NameFlags
+            
+            Return the flags describing the requested name length.
+            """
+
+        def GetContext(self) -> NameContext:
+            """
+            GetContext() -> NameContext
+            
+            Return the context of name usage.
+            """
+        @property
+        def Context(self) -> NameContext: ...
+        @property
+        def Flags(self) -> NameFlags: ...
+    # end of class NameForm
+
 
     class TimeZone:
         """
@@ -2262,9 +2332,18 @@ class DateTime:
     class _NameFlags(IntFlag):
         Name_Full = auto()
         Name_Abbr = auto()
+        Name_Shortest = auto()
     NameFlags: TypeAlias = Union[_NameFlags, int]
     Name_Full = _NameFlags.Name_Full
     Name_Abbr = _NameFlags.Name_Abbr
+    Name_Shortest = _NameFlags.Name_Shortest
+
+    class _NameContext(IntEnum):
+        Context_Formatting = auto()
+        Context_Standalone = auto()
+    NameContext: TypeAlias = Union[_NameContext, int]
+    Context_Formatting = _NameContext.Context_Formatting
+    Context_Standalone = _NameContext.Context_Standalone
 
     class _WeekFlags(IntFlag):
         Default_First = auto()
@@ -3018,27 +3097,28 @@ class DateTime:
         """
 
     @staticmethod
-    def GetEnglishMonthName(month: DateTime.Month, flags: NameFlags=Name_Full) -> str:
+    def GetEnglishMonthName(month: DateTime.Month, form: NameForm={}) -> str:
         """
-        GetEnglishMonthName(month, flags=Name_Full) -> str
+        GetEnglishMonthName(month, form={}) -> str
         
         Return the standard English name of the given month.
         """
 
     @staticmethod
-    def GetEnglishWeekDayName(weekday: DateTime.WeekDay, flags: NameFlags=Name_Full) -> str:
+    def GetEnglishWeekDayName(weekday: DateTime.WeekDay, form: NameFlags={}) -> str:
         """
-        GetEnglishWeekDayName(weekday, flags=Name_Full) -> str
+        GetEnglishWeekDayName(weekday, form={}) -> str
         
         Return the standard English name of the given week day.
         """
 
     @staticmethod
-    def GetMonthName(month: DateTime.Month, flags: NameFlags=Name_Full) -> str:
+    def GetMonthName(month: DateTime.Month, form: NameFlags={}) -> str:
         """
-        GetMonthName(month, flags=Name_Full) -> str
+        GetMonthName(month, form={}) -> str
         
-        Gets the full (default) or abbreviated name of the given month.
+        Gets the full (default), abbreviated or shortest name of the given
+        month.
         """
 
     @staticmethod
@@ -3058,11 +3138,12 @@ class DateTime:
         """
 
     @staticmethod
-    def GetWeekDayName(weekday: DateTime.WeekDay, flags: NameFlags=Name_Full) -> str:
+    def GetWeekDayName(weekday: DateTime.WeekDay, form: NameForm={}) -> str:
         """
-        GetWeekDayName(weekday, flags=Name_Full) -> str
+        GetWeekDayName(weekday, form={}) -> str
         
-        Gets the full (default) or abbreviated name of the given week day.
+        Gets the full (default), abbreviated or shortest name of the given
+        week day.
         """
 
     @staticmethod
@@ -4452,13 +4533,14 @@ class PlatformInformation:
 
 class LinuxDistributionInfo:
     """
-    A structure containing information about a Linux distribution as
-    returned by the lsb_release utility.
+    A structure containing information about a Linux distribution.
     """
     Id: str
     Release: str
     CodeName: str
     Description: str
+    ParentName: str
+    ParentCodeName: str
 
     def __eq__(self, ldi: LinuxDistributionInfo) -> bool:
         """
@@ -4477,8 +4559,8 @@ class PlatformId:
 # end of class PlatformId
 
 
-def IsRunningUnderWine() -> bool:    """
-    IsRunningUnderWine() -> bool
+def IsRunningUnderWine(ver: VersionInfo=nullptr) -> bool:    """
+    IsRunningUnderWine(ver=nullptr) -> bool
     
     Returns true only for MSW programs running under Wine.
     """
@@ -4661,11 +4743,26 @@ class Display:
         Returns display resolution in pixels per inch.
         """
 
+    def GetRawPPI(self) -> Size:
+        """
+        GetRawPPI() -> Size
+        
+        Returns raw display resolution in pixels per inch, i.e. without
+        applying any scaling.
+        """
+
     def GetScaleFactor(self) -> float:
         """
         GetScaleFactor() -> float
         
         Returns scaling factor used by this display.
+        """
+
+    def IsConnected(self) -> bool:
+        """
+        IsConnected() -> bool
+        
+        Returns true if the display has not been unplugged yet.
         """
 
     def IsPrimary(self) -> bool:
@@ -4690,6 +4787,16 @@ class Display:
         
         Returns the index of the display on which the given point lies, or
         wxNOT_FOUND if the point is not on any connected display.
+        """
+
+    @staticmethod
+    def GetFromRect(rect: Rect) -> int:
+        """
+        GetFromRect(rect) -> int
+        
+        Returns the index of the display with biggest intersection with the
+        given rectangle or wxNOT_FOUND if the rectangle doesn't intersect any
+        display.
         """
 
     @staticmethod
@@ -4847,7 +4954,8 @@ class _Language(IntEnum):
     LANGUAGE_CENTRAL_ATLAS_TAMAZIGHT_TIFINAGH = auto()
     LANGUAGE_CENTRAL_ATLAS_TAMAZIGHT_TIFINAGH_MOROCCO = auto()
     LANGUAGE_CENTRAL_KURDISH = auto()
-    LANGUAGE_CENTRAL_KURDISH_IRAQ = auto()
+    LANGUAGE_CENTRAL_KURDISH_ARABIC = auto()
+    LANGUAGE_CENTRAL_KURDISH_ARABIC_IRAQ = auto()
     LANGUAGE_CHAKMA = auto()
     LANGUAGE_CHAKMA_CHAKMA = auto()
     LANGUAGE_CHAKMA_CHAKMA_BANGLADESH = auto()
@@ -4885,10 +4993,11 @@ class _Language(IntEnum):
     LANGUAGE_DANISH = auto()
     LANGUAGE_DANISH_DENMARK = auto()
     LANGUAGE_DANISH_GREENLAND = auto()
-    LANGUAGE_DARI = auto()
-    LANGUAGE_DARI_AFGHANISTAN = auto()
     LANGUAGE_DIVEHI = auto()
     LANGUAGE_DIVEHI_MALDIVES = auto()
+    LANGUAGE_DOGRI = auto()
+    LANGUAGE_DOGRI_DEVANAGARI = auto()
+    LANGUAGE_DOGRI_DEVANAGARI_INDIA = auto()
     LANGUAGE_DUALA = auto()
     LANGUAGE_DUALA_CAMEROON = auto()
     LANGUAGE_DUTCH = auto()
@@ -5025,7 +5134,6 @@ class _Language(IntEnum):
     LANGUAGE_FAEROESE = auto()
     LANGUAGE_FAEROESE_DENMARK = auto()
     LANGUAGE_FAEROESE_FAROE_ISLANDS = auto()
-    LANGUAGE_FARSI = auto()
     LANGUAGE_FIJI = auto()
     LANGUAGE_FILIPINO = auto()
     LANGUAGE_FILIPINO_PHILIPPINES = auto()
@@ -5084,6 +5192,19 @@ class _Language(IntEnum):
     LANGUAGE_FRIULIAN = auto()
     LANGUAGE_FRIULIAN_ITALY = auto()
     LANGUAGE_FULAH = auto()
+    LANGUAGE_FULAH_ADLAM = auto()
+    LANGUAGE_FULAH_ADLAM_BURKINA_FASO = auto()
+    LANGUAGE_FULAH_ADLAM_CAMEROON = auto()
+    LANGUAGE_FULAH_ADLAM_GAMBIA = auto()
+    LANGUAGE_FULAH_ADLAM_GHANA = auto()
+    LANGUAGE_FULAH_ADLAM_GUINEA = auto()
+    LANGUAGE_FULAH_ADLAM_GUINEA_BISSAU = auto()
+    LANGUAGE_FULAH_ADLAM_LIBERIA = auto()
+    LANGUAGE_FULAH_ADLAM_MAURITANIA = auto()
+    LANGUAGE_FULAH_ADLAM_NIGER = auto()
+    LANGUAGE_FULAH_ADLAM_NIGERIA = auto()
+    LANGUAGE_FULAH_ADLAM_SENEGAL = auto()
+    LANGUAGE_FULAH_ADLAM_SIERRA_LEONE = auto()
     LANGUAGE_FULAH_LATIN = auto()
     LANGUAGE_FULAH_LATIN_BURKINA_FASO = auto()
     LANGUAGE_FULAH_LATIN_CAMEROON = auto()
@@ -5114,7 +5235,6 @@ class _Language(IntEnum):
     LANGUAGE_GREEK = auto()
     LANGUAGE_GREEK_CYPRUS = auto()
     LANGUAGE_GREEK_GREECE = auto()
-    LANGUAGE_GREENLANDIC = auto()
     LANGUAGE_GUARANI = auto()
     LANGUAGE_GUARANI_PARAGUAY = auto()
     LANGUAGE_GUJARATI = auto()
@@ -5153,6 +5273,7 @@ class _Language(IntEnum):
     LANGUAGE_INUPIAK = auto()
     LANGUAGE_IRISH = auto()
     LANGUAGE_IRISH_IRELAND = auto()
+    LANGUAGE_IRISH_UNITED_KINGDOM = auto()
     LANGUAGE_ITALIAN = auto()
     LANGUAGE_ITALIAN_ITALY = auto()
     LANGUAGE_ITALIAN_SAN_MARINO = auto()
@@ -5161,9 +5282,10 @@ class _Language(IntEnum):
     LANGUAGE_JAPANESE = auto()
     LANGUAGE_JAPANESE_JAPAN = auto()
     LANGUAGE_JAVANESE = auto()
-    LANGUAGE_JAVANESE_INDONESIA = auto()
     LANGUAGE_JAVANESE_JAVANESE = auto()
     LANGUAGE_JAVANESE_JAVANESE_INDONESIA = auto()
+    LANGUAGE_JAVANESE_LATIN = auto()
+    LANGUAGE_JAVANESE_LATIN_INDONESIA = auto()
     LANGUAGE_JOLA_FONYI = auto()
     LANGUAGE_JOLA_FONYI_SENEGAL = auto()
     LANGUAGE_KABUVERDIANU = auto()
@@ -5173,6 +5295,7 @@ class _Language(IntEnum):
     LANGUAGE_KAKO = auto()
     LANGUAGE_KAKO_CAMEROON = auto()
     LANGUAGE_KALAALLISUT = auto()
+    LANGUAGE_KALAALLISUT_GREENLAND = auto()
     LANGUAGE_KALENJIN = auto()
     LANGUAGE_KALENJIN_KENYA = auto()
     LANGUAGE_KAMBA = auto()
@@ -5181,20 +5304,20 @@ class _Language(IntEnum):
     LANGUAGE_KANNADA_INDIA = auto()
     LANGUAGE_KANURI = auto()
     LANGUAGE_KANURI_LATIN = auto()
-    LANGUAGE_KANURI_NIGERIA = auto()
+    LANGUAGE_KANURI_LATIN_NIGERIA = auto()
     LANGUAGE_KASHMIRI = auto()
+    LANGUAGE_KASHMIRI_ARABIC = auto()
+    LANGUAGE_KASHMIRI_ARABIC_INDIA = auto()
     LANGUAGE_KASHMIRI_DEVANAGARI = auto()
     LANGUAGE_KASHMIRI_DEVANAGARI_INDIA = auto()
     LANGUAGE_KASHMIRI_INDIA = auto()
-    LANGUAGE_KASHMIRI_PERSO_ARABIC = auto()
-    LANGUAGE_KASHMIRI_PERSO_ARABIC_INDIA = auto()
     LANGUAGE_KAZAKH = auto()
     LANGUAGE_KAZAKH_KAZAKHSTAN = auto()
     LANGUAGE_KHMER = auto()
     LANGUAGE_KHMER_CAMBODIA = auto()
     LANGUAGE_KICHE = auto()
-    LANGUAGE_KICHE_GUATEMALA = auto()
     LANGUAGE_KICHE_LATIN = auto()
+    LANGUAGE_KICHE_LATIN_GUATEMALA = auto()
     LANGUAGE_KIKUYU = auto()
     LANGUAGE_KIKUYU_KENYA = auto()
     LANGUAGE_KINYARWANDA = auto()
@@ -5213,7 +5336,7 @@ class _Language(IntEnum):
     LANGUAGE_KOYRA_CHIINI = auto()
     LANGUAGE_KOYRA_CHIINI_MALI = auto()
     LANGUAGE_KURDISH = auto()
-    LANGUAGE_KURDISH_PERSO_ARABIC_IRAN = auto()
+    LANGUAGE_KURDISH_ARABIC_IRAN = auto()
     LANGUAGE_KWASIO = auto()
     LANGUAGE_KWASIO_CAMEROON = auto()
     LANGUAGE_LAKOTA = auto()
@@ -5223,6 +5346,7 @@ class _Language(IntEnum):
     LANGUAGE_LAOTHIAN = auto()
     LANGUAGE_LAOTHIAN_LAOS = auto()
     LANGUAGE_LATIN = auto()
+    LANGUAGE_LATIN_VATICAN_CITY = auto()
     LANGUAGE_LATIN_WORLD = auto()
     LANGUAGE_LATVIAN = auto()
     LANGUAGE_LATVIAN_LATVIA = auto()
@@ -5250,6 +5374,8 @@ class _Language(IntEnum):
     LANGUAGE_MACEDONIAN_NORTH_MACEDONIA = auto()
     LANGUAGE_MACHAME = auto()
     LANGUAGE_MACHAME_TANZANIA = auto()
+    LANGUAGE_MAITHILI = auto()
+    LANGUAGE_MAITHILI_INDIA = auto()
     LANGUAGE_MAKHUWA_MEETTO = auto()
     LANGUAGE_MAKHUWA_MEETTO_MOZAMBIQUE = auto()
     LANGUAGE_MAKONDE = auto()
@@ -5260,11 +5386,13 @@ class _Language(IntEnum):
     LANGUAGE_MALAYALAM = auto()
     LANGUAGE_MALAYALAM_INDIA = auto()
     LANGUAGE_MALAY_BRUNEI = auto()
+    LANGUAGE_MALAY_INDONESIA = auto()
     LANGUAGE_MALAY_MALAYSIA = auto()
     LANGUAGE_MALAY_SINGAPORE = auto()
     LANGUAGE_MALTESE = auto()
     LANGUAGE_MALTESE_MALTA = auto()
     LANGUAGE_MANIPURI = auto()
+    LANGUAGE_MANIPURI_BENGALI = auto()
     LANGUAGE_MANIPURI_INDIA = auto()
     LANGUAGE_MANX = auto()
     LANGUAGE_MANX_ISLE_OF_MAN = auto()
@@ -5306,6 +5434,9 @@ class _Language(IntEnum):
     LANGUAGE_NGIEMBOON_CAMEROON = auto()
     LANGUAGE_NGOMBA = auto()
     LANGUAGE_NGOMBA_CAMEROON = auto()
+    LANGUAGE_NIGERIAN_PIDGIN = auto()
+    LANGUAGE_NIGERIAN_PIDGIN_LATIN = auto()
+    LANGUAGE_NIGERIAN_PIDGIN_LATIN_NIGERIA = auto()
     LANGUAGE_NKO = auto()
     LANGUAGE_NKO_GUINEA = auto()
     LANGUAGE_NORTHERN_LURI = auto()
@@ -5338,6 +5469,8 @@ class _Language(IntEnum):
     LANGUAGE_PASHTO = auto()
     LANGUAGE_PASHTO_AFGHANISTAN = auto()
     LANGUAGE_PASHTO_PAKISTAN = auto()
+    LANGUAGE_PERSIAN = auto()
+    LANGUAGE_PERSIAN_AFGHANISTAN = auto()
     LANGUAGE_PERSIAN_IRAN = auto()
     LANGUAGE_POLISH = auto()
     LANGUAGE_POLISH_POLAND = auto()
@@ -5409,6 +5542,9 @@ class _Language(IntEnum):
     LANGUAGE_SANGU_TANZANIA = auto()
     LANGUAGE_SANSKRIT = auto()
     LANGUAGE_SANSKRIT_INDIA = auto()
+    LANGUAGE_SANTALI = auto()
+    LANGUAGE_SANTALI_OL_CHIKI = auto()
+    LANGUAGE_SANTALI_OL_CHIKI_INDIA = auto()
     LANGUAGE_SCOTS_GAELIC = auto()
     LANGUAGE_SCOTS_GAELIC_UK = auto()
     LANGUAGE_SENA = auto()
@@ -5496,6 +5632,8 @@ class _Language(IntEnum):
     LANGUAGE_STANDARD_MOROCCAN_TAMAZIGHT_TIFINAGH = auto()
     LANGUAGE_STANDARD_MOROCCAN_TAMAZIGHT_TIFINAGH_MOROCCO = auto()
     LANGUAGE_SUNDANESE = auto()
+    LANGUAGE_SUNDANESE_LATIN = auto()
+    LANGUAGE_SUNDANESE_LATIN_INDONESIA = auto()
     LANGUAGE_SWAHILI = auto()
     LANGUAGE_SWAHILI_CONGO_DRC = auto()
     LANGUAGE_SWAHILI_KENYA = auto()
@@ -5516,6 +5654,7 @@ class _Language(IntEnum):
     LANGUAGE_TACHELHIT_TIFINAGH = auto()
     LANGUAGE_TACHELHIT_TIFINAGH_MOROCCO = auto()
     LANGUAGE_TAGALOG = auto()
+    LANGUAGE_TAGALOG_PHILIPPINES = auto()
     LANGUAGE_TAITA = auto()
     LANGUAGE_TAITA_KENYA = auto()
     LANGUAGE_TAJIK = auto()
@@ -5551,7 +5690,7 @@ class _Language(IntEnum):
     LANGUAGE_TSONGA_SOUTH_AFRICA = auto()
     LANGUAGE_TURKISH = auto()
     LANGUAGE_TURKISH_CYPRUS = auto()
-    LANGUAGE_TURKISH_TURKEY = auto()
+    LANGUAGE_TURKISH_TURKIYE = auto()
     LANGUAGE_TURKMEN = auto()
     LANGUAGE_TURKMEN_TURKMENISTAN = auto()
     LANGUAGE_TWI = auto()
@@ -5565,12 +5704,12 @@ class _Language(IntEnum):
     LANGUAGE_URDU_INDIA = auto()
     LANGUAGE_URDU_PAKISTAN = auto()
     LANGUAGE_UZBEK = auto()
+    LANGUAGE_UZBEK_ARABIC = auto()
+    LANGUAGE_UZBEK_ARABIC_AFGHANISTAN = auto()
     LANGUAGE_UZBEK_CYRILLIC = auto()
     LANGUAGE_UZBEK_CYRILLIC_UZBEKISTAN = auto()
     LANGUAGE_UZBEK_LATIN = auto()
     LANGUAGE_UZBEK_LATIN_UZBEKISTAN = auto()
-    LANGUAGE_UZBEK_PERSO_ARABIC = auto()
-    LANGUAGE_UZBEK_PERSO_ARABIC_AFGHANISTAN = auto()
     LANGUAGE_VAI = auto()
     LANGUAGE_VAI_LATIN = auto()
     LANGUAGE_VAI_LATIN_LIBERIA = auto()
@@ -5617,15 +5756,27 @@ class _Language(IntEnum):
     LANGUAGE_BENGALI_BANGLADESH = auto()
     LANGUAGE_BENGALI_INDIA = auto()
     LANGUAGE_BHUTANI = auto()
+    LANGUAGE_CAMBODIAN = auto()
+    LANGUAGE_CHINESE_MACAU = auto()
     LANGUAGE_CHINESE_SIMPLIFIED = auto()
     LANGUAGE_CHINESE_TRADITIONAL = auto()
-    LANGUAGE_CHINESE_MACAU = auto()
+    LANGUAGE_DARI = auto()
+    LANGUAGE_DARI_AFGHANISTAN = auto()
+    LANGUAGE_FARSI = auto()
+    LANGUAGE_GREENLANDIC = auto()
+    LANGUAGE_KANURI_NIGERIA = auto()
+    LANGUAGE_KASHMIRI_PERSO_ARABIC = auto()
+    LANGUAGE_KASHMIRI_PERSO_ARABIC_INDIA = auto()
     LANGUAGE_KERNEWEK = auto()
+    LANGUAGE_KICHE_GUATEMALA = auto()
+    LANGUAGE_KURDISH_PERSO_ARABIC_IRAN = auto()
     LANGUAGE_MALAY_BRUNEI_DARUSSALAM = auto()
     LANGUAGE_ORIYA = auto()
     LANGUAGE_ORIYA_INDIA = auto()
     LANGUAGE_SPANISH_MODERN = auto()
-    LANGUAGE_CAMBODIAN = auto()
+    LANGUAGE_TURKISH_TURKEY = auto()
+    LANGUAGE_UZBEK_PERSO_ARABIC = auto()
+    LANGUAGE_UZBEK_PERSO_ARABIC_AFGHANISTAN = auto()
 Language: TypeAlias = Union[_Language, int]
 LANGUAGE_DEFAULT = _Language.LANGUAGE_DEFAULT
 LANGUAGE_UNKNOWN = _Language.LANGUAGE_UNKNOWN
@@ -5744,7 +5895,8 @@ LANGUAGE_CENTRAL_ATLAS_TAMAZIGHT_LATIN_MOROCCO = _Language.LANGUAGE_CENTRAL_ATLA
 LANGUAGE_CENTRAL_ATLAS_TAMAZIGHT_TIFINAGH = _Language.LANGUAGE_CENTRAL_ATLAS_TAMAZIGHT_TIFINAGH
 LANGUAGE_CENTRAL_ATLAS_TAMAZIGHT_TIFINAGH_MOROCCO = _Language.LANGUAGE_CENTRAL_ATLAS_TAMAZIGHT_TIFINAGH_MOROCCO
 LANGUAGE_CENTRAL_KURDISH = _Language.LANGUAGE_CENTRAL_KURDISH
-LANGUAGE_CENTRAL_KURDISH_IRAQ = _Language.LANGUAGE_CENTRAL_KURDISH_IRAQ
+LANGUAGE_CENTRAL_KURDISH_ARABIC = _Language.LANGUAGE_CENTRAL_KURDISH_ARABIC
+LANGUAGE_CENTRAL_KURDISH_ARABIC_IRAQ = _Language.LANGUAGE_CENTRAL_KURDISH_ARABIC_IRAQ
 LANGUAGE_CHAKMA = _Language.LANGUAGE_CHAKMA
 LANGUAGE_CHAKMA_CHAKMA = _Language.LANGUAGE_CHAKMA_CHAKMA
 LANGUAGE_CHAKMA_CHAKMA_BANGLADESH = _Language.LANGUAGE_CHAKMA_CHAKMA_BANGLADESH
@@ -5782,10 +5934,11 @@ LANGUAGE_CZECH_CZECHIA = _Language.LANGUAGE_CZECH_CZECHIA
 LANGUAGE_DANISH = _Language.LANGUAGE_DANISH
 LANGUAGE_DANISH_DENMARK = _Language.LANGUAGE_DANISH_DENMARK
 LANGUAGE_DANISH_GREENLAND = _Language.LANGUAGE_DANISH_GREENLAND
-LANGUAGE_DARI = _Language.LANGUAGE_DARI
-LANGUAGE_DARI_AFGHANISTAN = _Language.LANGUAGE_DARI_AFGHANISTAN
 LANGUAGE_DIVEHI = _Language.LANGUAGE_DIVEHI
 LANGUAGE_DIVEHI_MALDIVES = _Language.LANGUAGE_DIVEHI_MALDIVES
+LANGUAGE_DOGRI = _Language.LANGUAGE_DOGRI
+LANGUAGE_DOGRI_DEVANAGARI = _Language.LANGUAGE_DOGRI_DEVANAGARI
+LANGUAGE_DOGRI_DEVANAGARI_INDIA = _Language.LANGUAGE_DOGRI_DEVANAGARI_INDIA
 LANGUAGE_DUALA = _Language.LANGUAGE_DUALA
 LANGUAGE_DUALA_CAMEROON = _Language.LANGUAGE_DUALA_CAMEROON
 LANGUAGE_DUTCH = _Language.LANGUAGE_DUTCH
@@ -5922,7 +6075,6 @@ LANGUAGE_EWONDO_CAMEROON = _Language.LANGUAGE_EWONDO_CAMEROON
 LANGUAGE_FAEROESE = _Language.LANGUAGE_FAEROESE
 LANGUAGE_FAEROESE_DENMARK = _Language.LANGUAGE_FAEROESE_DENMARK
 LANGUAGE_FAEROESE_FAROE_ISLANDS = _Language.LANGUAGE_FAEROESE_FAROE_ISLANDS
-LANGUAGE_FARSI = _Language.LANGUAGE_FARSI
 LANGUAGE_FIJI = _Language.LANGUAGE_FIJI
 LANGUAGE_FILIPINO = _Language.LANGUAGE_FILIPINO
 LANGUAGE_FILIPINO_PHILIPPINES = _Language.LANGUAGE_FILIPINO_PHILIPPINES
@@ -5981,6 +6133,19 @@ LANGUAGE_FRISIAN_NETHERLANDS = _Language.LANGUAGE_FRISIAN_NETHERLANDS
 LANGUAGE_FRIULIAN = _Language.LANGUAGE_FRIULIAN
 LANGUAGE_FRIULIAN_ITALY = _Language.LANGUAGE_FRIULIAN_ITALY
 LANGUAGE_FULAH = _Language.LANGUAGE_FULAH
+LANGUAGE_FULAH_ADLAM = _Language.LANGUAGE_FULAH_ADLAM
+LANGUAGE_FULAH_ADLAM_BURKINA_FASO = _Language.LANGUAGE_FULAH_ADLAM_BURKINA_FASO
+LANGUAGE_FULAH_ADLAM_CAMEROON = _Language.LANGUAGE_FULAH_ADLAM_CAMEROON
+LANGUAGE_FULAH_ADLAM_GAMBIA = _Language.LANGUAGE_FULAH_ADLAM_GAMBIA
+LANGUAGE_FULAH_ADLAM_GHANA = _Language.LANGUAGE_FULAH_ADLAM_GHANA
+LANGUAGE_FULAH_ADLAM_GUINEA = _Language.LANGUAGE_FULAH_ADLAM_GUINEA
+LANGUAGE_FULAH_ADLAM_GUINEA_BISSAU = _Language.LANGUAGE_FULAH_ADLAM_GUINEA_BISSAU
+LANGUAGE_FULAH_ADLAM_LIBERIA = _Language.LANGUAGE_FULAH_ADLAM_LIBERIA
+LANGUAGE_FULAH_ADLAM_MAURITANIA = _Language.LANGUAGE_FULAH_ADLAM_MAURITANIA
+LANGUAGE_FULAH_ADLAM_NIGER = _Language.LANGUAGE_FULAH_ADLAM_NIGER
+LANGUAGE_FULAH_ADLAM_NIGERIA = _Language.LANGUAGE_FULAH_ADLAM_NIGERIA
+LANGUAGE_FULAH_ADLAM_SENEGAL = _Language.LANGUAGE_FULAH_ADLAM_SENEGAL
+LANGUAGE_FULAH_ADLAM_SIERRA_LEONE = _Language.LANGUAGE_FULAH_ADLAM_SIERRA_LEONE
 LANGUAGE_FULAH_LATIN = _Language.LANGUAGE_FULAH_LATIN
 LANGUAGE_FULAH_LATIN_BURKINA_FASO = _Language.LANGUAGE_FULAH_LATIN_BURKINA_FASO
 LANGUAGE_FULAH_LATIN_CAMEROON = _Language.LANGUAGE_FULAH_LATIN_CAMEROON
@@ -6011,7 +6176,6 @@ LANGUAGE_GERMAN_SWISS = _Language.LANGUAGE_GERMAN_SWISS
 LANGUAGE_GREEK = _Language.LANGUAGE_GREEK
 LANGUAGE_GREEK_CYPRUS = _Language.LANGUAGE_GREEK_CYPRUS
 LANGUAGE_GREEK_GREECE = _Language.LANGUAGE_GREEK_GREECE
-LANGUAGE_GREENLANDIC = _Language.LANGUAGE_GREENLANDIC
 LANGUAGE_GUARANI = _Language.LANGUAGE_GUARANI
 LANGUAGE_GUARANI_PARAGUAY = _Language.LANGUAGE_GUARANI_PARAGUAY
 LANGUAGE_GUJARATI = _Language.LANGUAGE_GUJARATI
@@ -6050,6 +6214,7 @@ LANGUAGE_INUKTITUT_SYLLABICS_CANADA = _Language.LANGUAGE_INUKTITUT_SYLLABICS_CAN
 LANGUAGE_INUPIAK = _Language.LANGUAGE_INUPIAK
 LANGUAGE_IRISH = _Language.LANGUAGE_IRISH
 LANGUAGE_IRISH_IRELAND = _Language.LANGUAGE_IRISH_IRELAND
+LANGUAGE_IRISH_UNITED_KINGDOM = _Language.LANGUAGE_IRISH_UNITED_KINGDOM
 LANGUAGE_ITALIAN = _Language.LANGUAGE_ITALIAN
 LANGUAGE_ITALIAN_ITALY = _Language.LANGUAGE_ITALIAN_ITALY
 LANGUAGE_ITALIAN_SAN_MARINO = _Language.LANGUAGE_ITALIAN_SAN_MARINO
@@ -6058,9 +6223,10 @@ LANGUAGE_ITALIAN_VATICAN_CITY = _Language.LANGUAGE_ITALIAN_VATICAN_CITY
 LANGUAGE_JAPANESE = _Language.LANGUAGE_JAPANESE
 LANGUAGE_JAPANESE_JAPAN = _Language.LANGUAGE_JAPANESE_JAPAN
 LANGUAGE_JAVANESE = _Language.LANGUAGE_JAVANESE
-LANGUAGE_JAVANESE_INDONESIA = _Language.LANGUAGE_JAVANESE_INDONESIA
 LANGUAGE_JAVANESE_JAVANESE = _Language.LANGUAGE_JAVANESE_JAVANESE
 LANGUAGE_JAVANESE_JAVANESE_INDONESIA = _Language.LANGUAGE_JAVANESE_JAVANESE_INDONESIA
+LANGUAGE_JAVANESE_LATIN = _Language.LANGUAGE_JAVANESE_LATIN
+LANGUAGE_JAVANESE_LATIN_INDONESIA = _Language.LANGUAGE_JAVANESE_LATIN_INDONESIA
 LANGUAGE_JOLA_FONYI = _Language.LANGUAGE_JOLA_FONYI
 LANGUAGE_JOLA_FONYI_SENEGAL = _Language.LANGUAGE_JOLA_FONYI_SENEGAL
 LANGUAGE_KABUVERDIANU = _Language.LANGUAGE_KABUVERDIANU
@@ -6070,6 +6236,7 @@ LANGUAGE_KABYLE_ALGERIA = _Language.LANGUAGE_KABYLE_ALGERIA
 LANGUAGE_KAKO = _Language.LANGUAGE_KAKO
 LANGUAGE_KAKO_CAMEROON = _Language.LANGUAGE_KAKO_CAMEROON
 LANGUAGE_KALAALLISUT = _Language.LANGUAGE_KALAALLISUT
+LANGUAGE_KALAALLISUT_GREENLAND = _Language.LANGUAGE_KALAALLISUT_GREENLAND
 LANGUAGE_KALENJIN = _Language.LANGUAGE_KALENJIN
 LANGUAGE_KALENJIN_KENYA = _Language.LANGUAGE_KALENJIN_KENYA
 LANGUAGE_KAMBA = _Language.LANGUAGE_KAMBA
@@ -6078,20 +6245,20 @@ LANGUAGE_KANNADA = _Language.LANGUAGE_KANNADA
 LANGUAGE_KANNADA_INDIA = _Language.LANGUAGE_KANNADA_INDIA
 LANGUAGE_KANURI = _Language.LANGUAGE_KANURI
 LANGUAGE_KANURI_LATIN = _Language.LANGUAGE_KANURI_LATIN
-LANGUAGE_KANURI_NIGERIA = _Language.LANGUAGE_KANURI_NIGERIA
+LANGUAGE_KANURI_LATIN_NIGERIA = _Language.LANGUAGE_KANURI_LATIN_NIGERIA
 LANGUAGE_KASHMIRI = _Language.LANGUAGE_KASHMIRI
+LANGUAGE_KASHMIRI_ARABIC = _Language.LANGUAGE_KASHMIRI_ARABIC
+LANGUAGE_KASHMIRI_ARABIC_INDIA = _Language.LANGUAGE_KASHMIRI_ARABIC_INDIA
 LANGUAGE_KASHMIRI_DEVANAGARI = _Language.LANGUAGE_KASHMIRI_DEVANAGARI
 LANGUAGE_KASHMIRI_DEVANAGARI_INDIA = _Language.LANGUAGE_KASHMIRI_DEVANAGARI_INDIA
 LANGUAGE_KASHMIRI_INDIA = _Language.LANGUAGE_KASHMIRI_INDIA
-LANGUAGE_KASHMIRI_PERSO_ARABIC = _Language.LANGUAGE_KASHMIRI_PERSO_ARABIC
-LANGUAGE_KASHMIRI_PERSO_ARABIC_INDIA = _Language.LANGUAGE_KASHMIRI_PERSO_ARABIC_INDIA
 LANGUAGE_KAZAKH = _Language.LANGUAGE_KAZAKH
 LANGUAGE_KAZAKH_KAZAKHSTAN = _Language.LANGUAGE_KAZAKH_KAZAKHSTAN
 LANGUAGE_KHMER = _Language.LANGUAGE_KHMER
 LANGUAGE_KHMER_CAMBODIA = _Language.LANGUAGE_KHMER_CAMBODIA
 LANGUAGE_KICHE = _Language.LANGUAGE_KICHE
-LANGUAGE_KICHE_GUATEMALA = _Language.LANGUAGE_KICHE_GUATEMALA
 LANGUAGE_KICHE_LATIN = _Language.LANGUAGE_KICHE_LATIN
+LANGUAGE_KICHE_LATIN_GUATEMALA = _Language.LANGUAGE_KICHE_LATIN_GUATEMALA
 LANGUAGE_KIKUYU = _Language.LANGUAGE_KIKUYU
 LANGUAGE_KIKUYU_KENYA = _Language.LANGUAGE_KIKUYU_KENYA
 LANGUAGE_KINYARWANDA = _Language.LANGUAGE_KINYARWANDA
@@ -6110,7 +6277,7 @@ LANGUAGE_KOYRABORO_SENNI_MALI = _Language.LANGUAGE_KOYRABORO_SENNI_MALI
 LANGUAGE_KOYRA_CHIINI = _Language.LANGUAGE_KOYRA_CHIINI
 LANGUAGE_KOYRA_CHIINI_MALI = _Language.LANGUAGE_KOYRA_CHIINI_MALI
 LANGUAGE_KURDISH = _Language.LANGUAGE_KURDISH
-LANGUAGE_KURDISH_PERSO_ARABIC_IRAN = _Language.LANGUAGE_KURDISH_PERSO_ARABIC_IRAN
+LANGUAGE_KURDISH_ARABIC_IRAN = _Language.LANGUAGE_KURDISH_ARABIC_IRAN
 LANGUAGE_KWASIO = _Language.LANGUAGE_KWASIO
 LANGUAGE_KWASIO_CAMEROON = _Language.LANGUAGE_KWASIO_CAMEROON
 LANGUAGE_LAKOTA = _Language.LANGUAGE_LAKOTA
@@ -6120,6 +6287,7 @@ LANGUAGE_LANGI_TANZANIA = _Language.LANGUAGE_LANGI_TANZANIA
 LANGUAGE_LAOTHIAN = _Language.LANGUAGE_LAOTHIAN
 LANGUAGE_LAOTHIAN_LAOS = _Language.LANGUAGE_LAOTHIAN_LAOS
 LANGUAGE_LATIN = _Language.LANGUAGE_LATIN
+LANGUAGE_LATIN_VATICAN_CITY = _Language.LANGUAGE_LATIN_VATICAN_CITY
 LANGUAGE_LATIN_WORLD = _Language.LANGUAGE_LATIN_WORLD
 LANGUAGE_LATVIAN = _Language.LANGUAGE_LATVIAN
 LANGUAGE_LATVIAN_LATVIA = _Language.LANGUAGE_LATVIAN_LATVIA
@@ -6147,6 +6315,8 @@ LANGUAGE_MACEDONIAN = _Language.LANGUAGE_MACEDONIAN
 LANGUAGE_MACEDONIAN_NORTH_MACEDONIA = _Language.LANGUAGE_MACEDONIAN_NORTH_MACEDONIA
 LANGUAGE_MACHAME = _Language.LANGUAGE_MACHAME
 LANGUAGE_MACHAME_TANZANIA = _Language.LANGUAGE_MACHAME_TANZANIA
+LANGUAGE_MAITHILI = _Language.LANGUAGE_MAITHILI
+LANGUAGE_MAITHILI_INDIA = _Language.LANGUAGE_MAITHILI_INDIA
 LANGUAGE_MAKHUWA_MEETTO = _Language.LANGUAGE_MAKHUWA_MEETTO
 LANGUAGE_MAKHUWA_MEETTO_MOZAMBIQUE = _Language.LANGUAGE_MAKHUWA_MEETTO_MOZAMBIQUE
 LANGUAGE_MAKONDE = _Language.LANGUAGE_MAKONDE
@@ -6157,11 +6327,13 @@ LANGUAGE_MALAY = _Language.LANGUAGE_MALAY
 LANGUAGE_MALAYALAM = _Language.LANGUAGE_MALAYALAM
 LANGUAGE_MALAYALAM_INDIA = _Language.LANGUAGE_MALAYALAM_INDIA
 LANGUAGE_MALAY_BRUNEI = _Language.LANGUAGE_MALAY_BRUNEI
+LANGUAGE_MALAY_INDONESIA = _Language.LANGUAGE_MALAY_INDONESIA
 LANGUAGE_MALAY_MALAYSIA = _Language.LANGUAGE_MALAY_MALAYSIA
 LANGUAGE_MALAY_SINGAPORE = _Language.LANGUAGE_MALAY_SINGAPORE
 LANGUAGE_MALTESE = _Language.LANGUAGE_MALTESE
 LANGUAGE_MALTESE_MALTA = _Language.LANGUAGE_MALTESE_MALTA
 LANGUAGE_MANIPURI = _Language.LANGUAGE_MANIPURI
+LANGUAGE_MANIPURI_BENGALI = _Language.LANGUAGE_MANIPURI_BENGALI
 LANGUAGE_MANIPURI_INDIA = _Language.LANGUAGE_MANIPURI_INDIA
 LANGUAGE_MANX = _Language.LANGUAGE_MANX
 LANGUAGE_MANX_ISLE_OF_MAN = _Language.LANGUAGE_MANX_ISLE_OF_MAN
@@ -6203,6 +6375,9 @@ LANGUAGE_NGIEMBOON = _Language.LANGUAGE_NGIEMBOON
 LANGUAGE_NGIEMBOON_CAMEROON = _Language.LANGUAGE_NGIEMBOON_CAMEROON
 LANGUAGE_NGOMBA = _Language.LANGUAGE_NGOMBA
 LANGUAGE_NGOMBA_CAMEROON = _Language.LANGUAGE_NGOMBA_CAMEROON
+LANGUAGE_NIGERIAN_PIDGIN = _Language.LANGUAGE_NIGERIAN_PIDGIN
+LANGUAGE_NIGERIAN_PIDGIN_LATIN = _Language.LANGUAGE_NIGERIAN_PIDGIN_LATIN
+LANGUAGE_NIGERIAN_PIDGIN_LATIN_NIGERIA = _Language.LANGUAGE_NIGERIAN_PIDGIN_LATIN_NIGERIA
 LANGUAGE_NKO = _Language.LANGUAGE_NKO
 LANGUAGE_NKO_GUINEA = _Language.LANGUAGE_NKO_GUINEA
 LANGUAGE_NORTHERN_LURI = _Language.LANGUAGE_NORTHERN_LURI
@@ -6235,6 +6410,8 @@ LANGUAGE_PAPIAMENTO_CARIBBEAN = _Language.LANGUAGE_PAPIAMENTO_CARIBBEAN
 LANGUAGE_PASHTO = _Language.LANGUAGE_PASHTO
 LANGUAGE_PASHTO_AFGHANISTAN = _Language.LANGUAGE_PASHTO_AFGHANISTAN
 LANGUAGE_PASHTO_PAKISTAN = _Language.LANGUAGE_PASHTO_PAKISTAN
+LANGUAGE_PERSIAN = _Language.LANGUAGE_PERSIAN
+LANGUAGE_PERSIAN_AFGHANISTAN = _Language.LANGUAGE_PERSIAN_AFGHANISTAN
 LANGUAGE_PERSIAN_IRAN = _Language.LANGUAGE_PERSIAN_IRAN
 LANGUAGE_POLISH = _Language.LANGUAGE_POLISH
 LANGUAGE_POLISH_POLAND = _Language.LANGUAGE_POLISH_POLAND
@@ -6306,6 +6483,9 @@ LANGUAGE_SANGU = _Language.LANGUAGE_SANGU
 LANGUAGE_SANGU_TANZANIA = _Language.LANGUAGE_SANGU_TANZANIA
 LANGUAGE_SANSKRIT = _Language.LANGUAGE_SANSKRIT
 LANGUAGE_SANSKRIT_INDIA = _Language.LANGUAGE_SANSKRIT_INDIA
+LANGUAGE_SANTALI = _Language.LANGUAGE_SANTALI
+LANGUAGE_SANTALI_OL_CHIKI = _Language.LANGUAGE_SANTALI_OL_CHIKI
+LANGUAGE_SANTALI_OL_CHIKI_INDIA = _Language.LANGUAGE_SANTALI_OL_CHIKI_INDIA
 LANGUAGE_SCOTS_GAELIC = _Language.LANGUAGE_SCOTS_GAELIC
 LANGUAGE_SCOTS_GAELIC_UK = _Language.LANGUAGE_SCOTS_GAELIC_UK
 LANGUAGE_SENA = _Language.LANGUAGE_SENA
@@ -6393,6 +6573,8 @@ LANGUAGE_STANDARD_MOROCCAN_TAMAZIGHT = _Language.LANGUAGE_STANDARD_MOROCCAN_TAMA
 LANGUAGE_STANDARD_MOROCCAN_TAMAZIGHT_TIFINAGH = _Language.LANGUAGE_STANDARD_MOROCCAN_TAMAZIGHT_TIFINAGH
 LANGUAGE_STANDARD_MOROCCAN_TAMAZIGHT_TIFINAGH_MOROCCO = _Language.LANGUAGE_STANDARD_MOROCCAN_TAMAZIGHT_TIFINAGH_MOROCCO
 LANGUAGE_SUNDANESE = _Language.LANGUAGE_SUNDANESE
+LANGUAGE_SUNDANESE_LATIN = _Language.LANGUAGE_SUNDANESE_LATIN
+LANGUAGE_SUNDANESE_LATIN_INDONESIA = _Language.LANGUAGE_SUNDANESE_LATIN_INDONESIA
 LANGUAGE_SWAHILI = _Language.LANGUAGE_SWAHILI
 LANGUAGE_SWAHILI_CONGO_DRC = _Language.LANGUAGE_SWAHILI_CONGO_DRC
 LANGUAGE_SWAHILI_KENYA = _Language.LANGUAGE_SWAHILI_KENYA
@@ -6413,6 +6595,7 @@ LANGUAGE_TACHELHIT_LATIN_MOROCCO = _Language.LANGUAGE_TACHELHIT_LATIN_MOROCCO
 LANGUAGE_TACHELHIT_TIFINAGH = _Language.LANGUAGE_TACHELHIT_TIFINAGH
 LANGUAGE_TACHELHIT_TIFINAGH_MOROCCO = _Language.LANGUAGE_TACHELHIT_TIFINAGH_MOROCCO
 LANGUAGE_TAGALOG = _Language.LANGUAGE_TAGALOG
+LANGUAGE_TAGALOG_PHILIPPINES = _Language.LANGUAGE_TAGALOG_PHILIPPINES
 LANGUAGE_TAITA = _Language.LANGUAGE_TAITA
 LANGUAGE_TAITA_KENYA = _Language.LANGUAGE_TAITA_KENYA
 LANGUAGE_TAJIK = _Language.LANGUAGE_TAJIK
@@ -6448,7 +6631,7 @@ LANGUAGE_TSONGA = _Language.LANGUAGE_TSONGA
 LANGUAGE_TSONGA_SOUTH_AFRICA = _Language.LANGUAGE_TSONGA_SOUTH_AFRICA
 LANGUAGE_TURKISH = _Language.LANGUAGE_TURKISH
 LANGUAGE_TURKISH_CYPRUS = _Language.LANGUAGE_TURKISH_CYPRUS
-LANGUAGE_TURKISH_TURKEY = _Language.LANGUAGE_TURKISH_TURKEY
+LANGUAGE_TURKISH_TURKIYE = _Language.LANGUAGE_TURKISH_TURKIYE
 LANGUAGE_TURKMEN = _Language.LANGUAGE_TURKMEN
 LANGUAGE_TURKMEN_TURKMENISTAN = _Language.LANGUAGE_TURKMEN_TURKMENISTAN
 LANGUAGE_TWI = _Language.LANGUAGE_TWI
@@ -6462,12 +6645,12 @@ LANGUAGE_URDU = _Language.LANGUAGE_URDU
 LANGUAGE_URDU_INDIA = _Language.LANGUAGE_URDU_INDIA
 LANGUAGE_URDU_PAKISTAN = _Language.LANGUAGE_URDU_PAKISTAN
 LANGUAGE_UZBEK = _Language.LANGUAGE_UZBEK
+LANGUAGE_UZBEK_ARABIC = _Language.LANGUAGE_UZBEK_ARABIC
+LANGUAGE_UZBEK_ARABIC_AFGHANISTAN = _Language.LANGUAGE_UZBEK_ARABIC_AFGHANISTAN
 LANGUAGE_UZBEK_CYRILLIC = _Language.LANGUAGE_UZBEK_CYRILLIC
 LANGUAGE_UZBEK_CYRILLIC_UZBEKISTAN = _Language.LANGUAGE_UZBEK_CYRILLIC_UZBEKISTAN
 LANGUAGE_UZBEK_LATIN = _Language.LANGUAGE_UZBEK_LATIN
 LANGUAGE_UZBEK_LATIN_UZBEKISTAN = _Language.LANGUAGE_UZBEK_LATIN_UZBEKISTAN
-LANGUAGE_UZBEK_PERSO_ARABIC = _Language.LANGUAGE_UZBEK_PERSO_ARABIC
-LANGUAGE_UZBEK_PERSO_ARABIC_AFGHANISTAN = _Language.LANGUAGE_UZBEK_PERSO_ARABIC_AFGHANISTAN
 LANGUAGE_VAI = _Language.LANGUAGE_VAI
 LANGUAGE_VAI_LATIN = _Language.LANGUAGE_VAI_LATIN
 LANGUAGE_VAI_LATIN_LIBERIA = _Language.LANGUAGE_VAI_LATIN_LIBERIA
@@ -6514,15 +6697,27 @@ LANGUAGE_BENGALI = _Language.LANGUAGE_BENGALI
 LANGUAGE_BENGALI_BANGLADESH = _Language.LANGUAGE_BENGALI_BANGLADESH
 LANGUAGE_BENGALI_INDIA = _Language.LANGUAGE_BENGALI_INDIA
 LANGUAGE_BHUTANI = _Language.LANGUAGE_BHUTANI
+LANGUAGE_CAMBODIAN = _Language.LANGUAGE_CAMBODIAN
+LANGUAGE_CHINESE_MACAU = _Language.LANGUAGE_CHINESE_MACAU
 LANGUAGE_CHINESE_SIMPLIFIED = _Language.LANGUAGE_CHINESE_SIMPLIFIED
 LANGUAGE_CHINESE_TRADITIONAL = _Language.LANGUAGE_CHINESE_TRADITIONAL
-LANGUAGE_CHINESE_MACAU = _Language.LANGUAGE_CHINESE_MACAU
+LANGUAGE_DARI = _Language.LANGUAGE_DARI
+LANGUAGE_DARI_AFGHANISTAN = _Language.LANGUAGE_DARI_AFGHANISTAN
+LANGUAGE_FARSI = _Language.LANGUAGE_FARSI
+LANGUAGE_GREENLANDIC = _Language.LANGUAGE_GREENLANDIC
+LANGUAGE_KANURI_NIGERIA = _Language.LANGUAGE_KANURI_NIGERIA
+LANGUAGE_KASHMIRI_PERSO_ARABIC = _Language.LANGUAGE_KASHMIRI_PERSO_ARABIC
+LANGUAGE_KASHMIRI_PERSO_ARABIC_INDIA = _Language.LANGUAGE_KASHMIRI_PERSO_ARABIC_INDIA
 LANGUAGE_KERNEWEK = _Language.LANGUAGE_KERNEWEK
+LANGUAGE_KICHE_GUATEMALA = _Language.LANGUAGE_KICHE_GUATEMALA
+LANGUAGE_KURDISH_PERSO_ARABIC_IRAN = _Language.LANGUAGE_KURDISH_PERSO_ARABIC_IRAN
 LANGUAGE_MALAY_BRUNEI_DARUSSALAM = _Language.LANGUAGE_MALAY_BRUNEI_DARUSSALAM
 LANGUAGE_ORIYA = _Language.LANGUAGE_ORIYA
 LANGUAGE_ORIYA_INDIA = _Language.LANGUAGE_ORIYA_INDIA
 LANGUAGE_SPANISH_MODERN = _Language.LANGUAGE_SPANISH_MODERN
-LANGUAGE_CAMBODIAN = _Language.LANGUAGE_CAMBODIAN
+LANGUAGE_TURKISH_TURKEY = _Language.LANGUAGE_TURKISH_TURKEY
+LANGUAGE_UZBEK_PERSO_ARABIC = _Language.LANGUAGE_UZBEK_PERSO_ARABIC
+LANGUAGE_UZBEK_PERSO_ARABIC_AFGHANISTAN = _Language.LANGUAGE_UZBEK_PERSO_ARABIC_AFGHANISTAN
 
 class _LayoutDirection(IntEnum):
     Layout_Default = auto()
@@ -6796,7 +6991,7 @@ class Locale:
         GetLanguageInfo(lang) -> LanguageInfo
         
         Returns a pointer to wxLanguageInfo structure containing information
-        about the given language or NULL if this language is unknown.
+        about the given language or nullptr if this language is unknown.
         """
 
     @staticmethod
@@ -6891,7 +7086,7 @@ class Locale:
 def GetLocale() -> Locale:    """
     GetLocale() -> Locale
     
-    Get the current locale object (note that it may be NULL!)
+    Get the current locale object (note that it may be nullptr!)
     """
 
 #----------------------------------------------------------------------------
@@ -7026,7 +7221,7 @@ class Translations:
         """
         Get() -> Translations
         
-        Returns current translations object, may return NULL.
+        Returns current translations object, may return nullptr.
         """
 
     @staticmethod
@@ -7741,6 +7936,14 @@ class PrintDialogData(Object):
         Enables or disables the "Selection" radio button.
         """
 
+    def EnableCurrentPage(self, flag: bool) -> None:
+        """
+        EnableCurrentPage(flag) -> None
+        
+        Allows or disallows selecting printing the "Current Page" in the
+        dialog.
+        """
+
     def GetAllPages(self) -> bool:
         """
         GetAllPages() -> bool
@@ -7805,6 +8008,20 @@ class PrintDialogData(Object):
         (where "selection" is a concept specific to the application).
         """
 
+    def GetCurrentPage(self) -> bool:
+        """
+        GetCurrentPage() -> bool
+        
+        Returns true if the user requested that the current page be printed.
+        """
+
+    def GetSpecifiedPages(self) -> bool:
+        """
+        GetSpecifiedPages() -> bool
+        
+        Returns true if the user requested printing only the specified pages.
+        """
+
     def GetToPage(self) -> int:
         """
         GetToPage() -> int
@@ -7817,6 +8034,13 @@ class PrintDialogData(Object):
         IsOk() -> bool
         
         Returns true if the print data is valid for using in print dialogs.
+        """
+
+    def SetAllPages(self, flag: bool=True) -> None:
+        """
+        SetAllPages(flag=True) -> None
+        
+        Selects the "All pages" radio button.
         """
 
     def SetCollate(self, flag: bool) -> None:
@@ -7869,11 +8093,19 @@ class PrintDialogData(Object):
         Sets the "Print to file" checkbox to true or false.
         """
 
-    def SetSelection(self, flag: bool) -> None:
+    def SetSelection(self, flag: bool=True) -> None:
         """
-        SetSelection(flag) -> None
+        SetSelection(flag=True) -> None
         
         Selects the "Selection" radio button.
+        """
+
+    def SetCurrentPage(self, flag: bool=True) -> None:
+        """
+        SetCurrentPage(flag=True) -> None
+        
+        Selects the "Current Page" radio button when the dialog is initially
+        shown.
         """
 
     def SetToPage(self, page: int) -> None:
@@ -7881,6 +8113,27 @@ class PrintDialogData(Object):
         SetToPage(page) -> None
         
         Sets the "print to" page number.
+        """
+
+    def SetMaxPageRanges(self, maxRanges: int) -> None:
+        """
+        SetMaxPageRanges(maxRanges) -> None
+        
+        Sets the maximum number of page ranges that the user can specify.
+        """
+
+    def GetMaxPageRanges(self) -> int:
+        """
+        GetMaxPageRanges() -> int
+        
+        Returns the maximum number of page ranges that the user can specify.
+        """
+
+    def GetPageRanges(self) -> PrintPageRanges:
+        """
+        GetPageRanges() -> PrintPageRanges
+        
+        Returns the page ranges to print.
         """
 
     def __nonzero__(self) -> bool:
@@ -7894,10 +8147,16 @@ class PrintDialogData(Object):
         """
     @property
     def AllPages(self) -> bool: ...
+    @AllPages.setter
+    def AllPages(self, value: bool, /) -> None: ...
     @property
     def Collate(self) -> bool: ...
     @Collate.setter
     def Collate(self, value: bool, /) -> None: ...
+    @property
+    def CurrentPage(self) -> bool: ...
+    @CurrentPage.setter
+    def CurrentPage(self, value: bool, /) -> None: ...
     @property
     def FromPage(self) -> int: ...
     @FromPage.setter
@@ -7907,6 +8166,10 @@ class PrintDialogData(Object):
     @MaxPage.setter
     def MaxPage(self, value: int, /) -> None: ...
     @property
+    def MaxPageRanges(self) -> int: ...
+    @MaxPageRanges.setter
+    def MaxPageRanges(self, value: int, /) -> None: ...
+    @property
     def MinPage(self) -> int: ...
     @MinPage.setter
     def MinPage(self, value: int, /) -> None: ...
@@ -7914,6 +8177,8 @@ class PrintDialogData(Object):
     def NoCopies(self) -> int: ...
     @NoCopies.setter
     def NoCopies(self, value: int, /) -> None: ...
+    @property
+    def PageRanges(self) -> PrintPageRanges: ...
     @property
     def PrintData(self) -> PrintData: ...
     @PrintData.setter
@@ -7927,10 +8192,53 @@ class PrintDialogData(Object):
     @Selection.setter
     def Selection(self, value: bool, /) -> None: ...
     @property
+    def SpecifiedPages(self) -> bool: ...
+    @property
     def ToPage(self) -> int: ...
     @ToPage.setter
     def ToPage(self, value: int, /) -> None: ...
 # end of class PrintDialogData
+
+
+class PrintPageRange:
+    """
+    PrintPageRange() -> None
+    PrintPageRange(_from, to) -> None
+    
+    This class represents a range of pages to be printed.
+    """
+
+    @overload
+    def __init__(self, _from: int, to: int) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        PrintPageRange() -> None
+        PrintPageRange(_from, to) -> None
+        
+        This class represents a range of pages to be printed.
+        """
+    fromPage: int
+    toPage: int
+
+    def IsValid(self) -> bool:
+        """
+        IsValid() -> bool
+        
+        Return true if both components are initialized correctly.
+        """
+
+    def GetNumberOfPages(self) -> int:
+        """
+        GetNumberOfPages() -> int
+        
+        Return the number of pages in this range if it is valid.
+        """
+    @property
+    def NumberOfPages(self) -> int: ...
+# end of class PrintPageRange
 
 #-- end-cmndata --#
 #-- begin-gdicmn --#
@@ -7957,6 +8265,7 @@ class _BitmapType(IntEnum):
     BITMAP_TYPE_IFF = auto()
     BITMAP_TYPE_TGA = auto()
     BITMAP_TYPE_MACCURSOR = auto()
+    BITMAP_TYPE_WEBP = auto()
     BITMAP_TYPE_ANY = auto()
 BitmapType: TypeAlias = Union[_BitmapType, int]
 BITMAP_TYPE_INVALID = _BitmapType.BITMAP_TYPE_INVALID
@@ -7980,6 +8289,7 @@ BITMAP_TYPE_ANI = _BitmapType.BITMAP_TYPE_ANI
 BITMAP_TYPE_IFF = _BitmapType.BITMAP_TYPE_IFF
 BITMAP_TYPE_TGA = _BitmapType.BITMAP_TYPE_TGA
 BITMAP_TYPE_MACCURSOR = _BitmapType.BITMAP_TYPE_MACCURSOR
+BITMAP_TYPE_WEBP = _BitmapType.BITMAP_TYPE_WEBP
 BITMAP_TYPE_ANY = _BitmapType.BITMAP_TYPE_ANY
 
 class _PolygonFillMode(IntEnum):
@@ -8138,6 +8448,24 @@ class Point:
         """
     x: int
     y: int
+
+    @staticmethod
+    def Round(pt: Union[RealPoint, _TwoFloats]) -> Point:
+        """
+        Round(pt) -> Point
+        
+        Creates a wxPoint by rounding the coordinates of the given
+        wxRealPoint.
+        """
+
+    @staticmethod
+    def Truncate(pt: Union[RealPoint, _TwoFloats]) -> Point:
+        """
+        Truncate(pt) -> Point
+        
+        Creates a wxPoint by truncating the coordinates of the given
+        wxRealPoint.
+        """
 
     def __eq__(self, other: Union[Point, _TwoInts]) -> bool:
         """
@@ -8319,6 +8647,21 @@ class Size:
         
         Increments this object so that both of its dimensions are not less
         than the corresponding dimensions of the size.
+        """
+
+    def IsAtLeast(self, size: Union[Size, _TwoInts]) -> bool:
+        """
+        IsAtLeast(size) -> bool
+        
+        Returns true if this size is at least as big as the other one in both
+        directions.
+        """
+
+    def IsEmpty(self) -> bool:
+        """
+        IsEmpty() -> bool
+        
+        Returns true if either of the size object components is 0 or -1/.
         """
 
     def IsFullySpecified(self) -> bool:
@@ -8726,6 +9069,13 @@ class Rect:
         equal to 0 and false otherwise.
         """
 
+    def MakeCenteredIn(self, r: Union[Rect, _FourInts], dir: int=BOTH) -> None:
+        """
+        MakeCenteredIn(r, dir=BOTH) -> None
+        
+        Center this rectangle inside the given rectangle r.
+        """
+
     def SetHeight(self, height: int) -> None:
         """
         SetHeight(height) -> None
@@ -9113,6 +9463,13 @@ class ColourDatabase:
     predefined set of named colours.
     """
 
+    class _Scheme(IntEnum):
+        CSS = auto()
+        Traditional = auto()
+    Scheme: TypeAlias = Union[_Scheme, int]
+    CSS = _Scheme.CSS
+    Traditional = _Scheme.Traditional
+
     def __init__(self) -> None:
         """
         ColourDatabase() -> None
@@ -9142,10 +9499,26 @@ class ColourDatabase:
         Finds a colour name given the colour.
         """
 
+    def GetAllNames(self) -> VectorwxString:
+        """
+        GetAllNames() -> VectorwxString
+        
+        List all known colours by name.
+        """
+
+    def UseScheme(self, scheme: Scheme) -> None:
+        """
+        UseScheme(scheme) -> None
+        
+        Select the colour scheme to use.
+        """
+
     def FindColour(self, colour):
         """
         
         """
+    @property
+    def AllNames(self) -> VectorwxString: ...
 # end of class ColourDatabase
 
 
@@ -9162,10 +9535,10 @@ def DisplayDepth() -> int:    """
     display).
     """
 
-def SetCursor(cursor: Cursor) -> None:    """
-    SetCursor(cursor) -> None
+def SetCursor(cursors: CursorBundle) -> None:    """
+    SetCursor(cursors) -> None
     
-    Globally sets the cursor; only has an effect on Windows, Mac and GTK+.
+    Globally sets the cursor.
     """
 
 def ClientDisplayRect() -> Tuple[int, int, int, int]:    """
@@ -9258,6 +9631,9 @@ class Point2D:
     Point2DDouble(x, y) -> None
     Point2DDouble(pt) -> None
     Point2DDouble(pt) -> None
+    
+    wxPoint2DDouble represents a point in a 2D (Cartesian) coordinate
+    system, with additional vector operations available.
     """
 
     @overload
@@ -9279,63 +9655,9 @@ class Point2D:
         Point2DDouble(x, y) -> None
         Point2DDouble(pt) -> None
         Point2DDouble(pt) -> None
-        """
-    m_x: float
-    m_y: float
-
-    def GetFloor(self) -> Tuple[int, int]:
-        """
-        GetFloor() -> Tuple[int, int]
-        """
-
-    def GetRounded(self) -> Tuple[int, int]:
-        """
-        GetRounded() -> Tuple[int, int]
-        """
-
-    def GetVectorLength(self) -> float:
-        """
-        GetVectorLength() -> float
-        """
-
-    def GetVectorAngle(self) -> float:
-        """
-        GetVectorAngle() -> float
-        """
-
-    def SetVectorLength(self, length: float) -> None:
-        """
-        SetVectorLength(length) -> None
-        """
-
-    def SetVectorAngle(self, degrees: float) -> None:
-        """
-        SetVectorAngle(degrees) -> None
-        """
-
-    def Normalize(self) -> None:
-        """
-        Normalize() -> None
-        """
-
-    def GetDistance(self, pt: Point2DDouble) -> float:
-        """
-        GetDistance(pt) -> float
-        """
-
-    def GetDistanceSquare(self, pt: Point2DDouble) -> float:
-        """
-        GetDistanceSquare(pt) -> float
-        """
-
-    def GetDotProduct(self, vec: Point2DDouble) -> float:
-        """
-        GetDotProduct(vec) -> float
-        """
-
-    def GetCrossProduct(self, vec: Point2DDouble) -> float:
-        """
-        GetCrossProduct(vec) -> float
+        
+        wxPoint2DDouble represents a point in a 2D (Cartesian) coordinate
+        system, with additional vector operations available.
         """
 
     def __sub__(self) -> Point2DDouble:
@@ -9350,20 +9672,103 @@ class Point2D:
         """
         """
 
-    def __imul__(self, pt: Point2DDouble) -> Point2DDouble:
-        """
-        """
-
-    def __idiv__(self, pt: Point2DDouble) -> Point2DDouble:
-        """
-        """
-
     def __eq__(self, pt: Point2DDouble) -> bool:
         """
         """
 
     def __ne__(self, pt: Point2DDouble) -> bool:
         """
+        """
+    m_x: float
+    m_y: float
+
+    def GetFloor(self) -> Point:
+        """
+        GetFloor() -> Point
+        
+        This is an overloaded member function, provided for convenience. It
+        differs from the above function only in what argument(s) it accepts.
+        """
+
+    def GetRounded(self) -> Point:
+        """
+        GetRounded() -> Point
+        
+        This is an overloaded member function, provided for convenience. It
+        differs from the above function only in what argument(s) it accepts.
+        """
+
+    def GetVectorLength(self) -> float:
+        """
+        GetVectorLength() -> float
+        
+        Returns the hypotenuse, where the X and Y coordinates of the point
+        represent the lengths of the base and height sides of a right
+        triangle.
+        """
+
+    def SetVectorLength(self, length: float) -> None:
+        """
+        SetVectorLength(length) -> None
+        
+        Sets the vector length to length, preserving the right angle and
+        altering the X and Y values (which represent the base and height sides
+        of a right triangle).
+        """
+
+    def GetVectorAngle(self) -> float:
+        """
+        GetVectorAngle() -> float
+        
+        Returns the principal value of the arc tangent of the Y and X values,
+        expressed in degrees.
+        """
+
+    def SetVectorAngle(self, degrees: float) -> None:
+        """
+        SetVectorAngle(degrees) -> None
+        
+        Repositions the X and Y coordinates based on the provided angle's
+        degrees.
+        """
+
+    def Normalize(self) -> None:
+        """
+        Normalize() -> None
+        
+        Sets the vector length to 1.0, preserving the right angle and altering
+        the X and Y values (which represent the base and height sides of a
+        right triangle).
+        """
+
+    def GetDistance(self, pt: Point2DDouble) -> float:
+        """
+        GetDistance(pt) -> float
+        
+        Returns the distance between this point and pt.
+        """
+
+    def GetDistanceSquare(self, pt: Point2DDouble) -> float:
+        """
+        GetDistanceSquare(pt) -> float
+        
+        Returns the squared distance between this point and pt.
+        """
+
+    def GetDotProduct(self, vec: Point2DDouble) -> float:
+        """
+        GetDotProduct(vec) -> float
+        
+        Returns the dot (i.e., scalar) product, where the products of the X
+        and Y values of this point and are added.
+        """
+
+    def GetCrossProduct(self, vec: Point2DDouble) -> float:
+        """
+        GetCrossProduct(vec) -> float
+        
+        Returns the cross product, where the products of the Y values of this
+        point and are subtracted from the X products.
         """
 
     def Get(self) -> Any:
@@ -9425,7 +9830,11 @@ class Point2D:
         """
 
     __safe_for_unpickling__ = True
+    @property
+    def Floor(self) -> Point: ...
     IM = property(GetIM)
+    @property
+    def Rounded(self) -> Point: ...
     @property
     def VectorAngle(self) -> float: ...
     @VectorAngle.setter
@@ -9440,18 +9849,76 @@ class Point2D:
 class Rect2D:
     """
     Rect2DDouble() -> None
-    Rect2DDouble(x, y, w, h) -> None
+    Rect2DDouble(x, y, width, height) -> None
+    Rect2DDouble(rect) -> None
+    
+    wxRect2DDouble is an axis-aligned rectangle; each side of the rect is
+    parallel to the X or Y axis.
     """
 
     @overload
-    def __init__(self, x: float, y: float, w: float, h: float) -> None:
+    def __init__(self, x: float, y: float, width: float, height: float) -> None:
+        ...
+
+    @overload
+    def __init__(self, rect: Rect) -> None:
         ...
 
     @overload
     def __init__(self) -> None:
         """
         Rect2DDouble() -> None
-        Rect2DDouble(x, y, w, h) -> None
+        Rect2DDouble(x, y, width, height) -> None
+        Rect2DDouble(rect) -> None
+        
+        wxRect2DDouble is an axis-aligned rectangle; each side of the rect is
+        parallel to the X or Y axis.
+        """
+
+    @overload
+    def Inflate(self, d: float) -> Rect2DDouble:
+        ...
+
+    @overload
+    def Inflate(self, dx: float, dy: float) -> Rect2DDouble:
+        ...
+
+    @overload
+    def Inflate(self, d: Size) -> Rect2DDouble:
+        """
+        Inflate(d) -> Rect2DDouble
+        Inflate(d) -> Rect2DDouble
+        Inflate(dx, dy) -> Rect2DDouble
+        
+        This is an overloaded member function, provided for convenience. It
+        differs from the above function only in what argument(s) it accepts.
+        """
+
+    @overload
+    def Deflate(self, d: float) -> Rect2DDouble:
+        ...
+
+    @overload
+    def Deflate(self, dx: float, dy: float) -> Rect2DDouble:
+        ...
+
+    @overload
+    def Deflate(self, d: Size) -> Rect2DDouble:
+        """
+        Deflate(d) -> Rect2DDouble
+        Deflate(d) -> Rect2DDouble
+        Deflate(dx, dy) -> Rect2DDouble
+        
+        This is an overloaded member function, provided for convenience. It
+        differs from the above function only in what argument(s) it accepts.
+        """
+
+    def __eq__(self, rect: Rect2DDouble) -> bool:
+        """
+        """
+
+    def __ne__(self, rect: Rect2DDouble) -> bool:
+        """
         """
     m_x: float
     m_y: float
@@ -9461,156 +9928,259 @@ class Rect2D:
     def GetPosition(self) -> Point2DDouble:
         """
         GetPosition() -> Point2DDouble
+        
+        Returns the position.
         """
 
     def GetSize(self) -> Size:
         """
         GetSize() -> Size
+        
+        Returns the size.
+        """
+
+    def GetX(self) -> float:
+        """
+        GetX() -> float
+        
+        Returns the left position of the rectangle.
+        """
+
+    def GetY(self) -> float:
+        """
+        GetY() -> float
+        
+        Returns the top position of the rect.
+        """
+
+    def GetWidth(self) -> float:
+        """
+        GetWidth() -> float
+        
+        Returns the width.
+        """
+
+    def SetWidth(self, w: float) -> None:
+        """
+        SetWidth(w) -> None
+        
+        Sets the width.
+        """
+
+    def GetHeight(self) -> float:
+        """
+        GetHeight() -> float
+        
+        Returns the height.
+        """
+
+    def SetHeight(self, h: float) -> None:
+        """
+        SetHeight(h) -> None
+        
+        Sets the height.
         """
 
     def GetLeft(self) -> float:
         """
         GetLeft() -> float
+        
+        Returns the left point of the rectangle (the same as GetX()).
         """
 
     def SetLeft(self, n: float) -> None:
         """
         SetLeft(n) -> None
+        
+        Set the left side of the rectangle.
         """
 
     def MoveLeftTo(self, n: float) -> None:
         """
         MoveLeftTo(n) -> None
+        
+        Sets the left position, which may adjust the width of the rectangle.
         """
 
     def GetTop(self) -> float:
         """
         GetTop() -> float
+        
+        Returns the top point of the rectangle (the same as GetY()).
         """
 
     def SetTop(self, n: float) -> None:
         """
         SetTop(n) -> None
+        
+        Set the top edge of the rectangle.
         """
 
     def MoveTopTo(self, n: float) -> None:
         """
         MoveTopTo(n) -> None
+        
+        Set the top edge of the rectangle, preserving the height.
         """
 
     def GetBottom(self) -> float:
         """
         GetBottom() -> float
+        
+        Returns the bottom point of the rectangle.
         """
 
     def SetBottom(self, n: float) -> None:
         """
         SetBottom(n) -> None
+        
+        Set the bottom edge of the rectangle.
         """
 
     def MoveBottomTo(self, n: float) -> None:
         """
         MoveBottomTo(n) -> None
+        
+        Set the bottom edge of the rectangle, preserving the height.
         """
 
     def GetRight(self) -> float:
         """
         GetRight() -> float
+        
+        Returns the right point of the rectangle.
         """
 
     def SetRight(self, n: float) -> None:
         """
         SetRight(n) -> None
+        
+        Set the right side of the rectangle.
         """
 
     def MoveRightTo(self, n: float) -> None:
         """
         MoveRightTo(n) -> None
+        
+        Set the right side of the rectangle, preserving the width.
         """
 
     def GetLeftTop(self) -> Point2DDouble:
         """
         GetLeftTop() -> Point2DDouble
+        
+        Returns the position of the top left corner of the rectangle, same as
+        GetPosition().
         """
 
     def SetLeftTop(self, pt: Point2DDouble) -> None:
         """
         SetLeftTop(pt) -> None
+        
+        Set the top-left point of the rectangle.
         """
 
     def MoveLeftTopTo(self, pt: Point2DDouble) -> None:
         """
         MoveLeftTopTo(pt) -> None
+        
+        Set the top-left point of the rectangle, while preserving the width
+        and height of the rectangle.
         """
 
     def GetLeftBottom(self) -> Point2DDouble:
         """
         GetLeftBottom() -> Point2DDouble
+        
+        Returns the position of the bottom left corner.
         """
 
     def SetLeftBottom(self, pt: Point2DDouble) -> None:
         """
         SetLeftBottom(pt) -> None
+        
+        Set the bottom-left point of the rectangle.
         """
 
     def MoveLeftBottomTo(self, pt: Point2DDouble) -> None:
         """
         MoveLeftBottomTo(pt) -> None
+        
+        Set the bottom-left point of the rectangle, while preserving the width
+        and height of the rectangle.
         """
 
     def GetRightTop(self) -> Point2DDouble:
         """
         GetRightTop() -> Point2DDouble
+        
+        Returns the position of the top right corner.
         """
 
     def SetRightTop(self, pt: Point2DDouble) -> None:
         """
         SetRightTop(pt) -> None
+        
+        Set the top-right point of the rectangle.
         """
 
     def MoveRightTopTo(self, pt: Point2DDouble) -> None:
         """
         MoveRightTopTo(pt) -> None
+        
+        Set the top-right point of the rectangle, while preserving the width
+        and height of the rectangle.
         """
 
     def GetRightBottom(self) -> Point2DDouble:
         """
         GetRightBottom() -> Point2DDouble
+        
+        Returns the position of the bottom right corner.
         """
 
     def SetRightBottom(self, pt: Point2DDouble) -> None:
         """
         SetRightBottom(pt) -> None
+        
+        Set the bottom-right point of the rectangle.
         """
 
     def MoveRightBottomTo(self, pt: Point2DDouble) -> None:
         """
         MoveRightBottomTo(pt) -> None
+        
+        Set the bottom-right point of the rectangle, while preserving the
+        width and height of the rectangle.
         """
 
     def GetCentre(self) -> Point2DDouble:
         """
         GetCentre() -> Point2DDouble
+        
+        Returns the centre point of the rectangle.
         """
 
     def SetCentre(self, pt: Point2DDouble) -> None:
         """
         SetCentre(pt) -> None
+        
+        Recenters (i.e., moves) the rectangle to the given point.
         """
 
     def MoveCentreTo(self, pt: Point2DDouble) -> None:
         """
         MoveCentreTo(pt) -> None
+        
+        An alias for MoveCentreTo().
         """
 
     def GetOutCode(self, pt: Point2DDouble) -> OutCode:
         """
         GetOutCode(pt) -> OutCode
-        """
-
-    def GetOutcode(self, pt: Point2DDouble) -> OutCode:
-        """
-        GetOutcode(pt) -> OutCode
+        
+        Returns the relative location of a point to the rectangle (e.g.,
+        inside or to the left of it).
         """
 
     @overload
@@ -9622,16 +10192,24 @@ class Rect2D:
         """
         Contains(pt) -> bool
         Contains(rect) -> bool
+        
+        Returns true if the given point is inside the rectangle (or on its
+        boundary) and false otherwise.
         """
 
     def IsEmpty(self) -> bool:
         """
         IsEmpty() -> bool
+        
+        Returns true if this rectangle has a width or height less than or
+        equal to 0 and false otherwise.
         """
 
     def HaveEqualSize(self, rect: Rect2DDouble) -> bool:
         """
         HaveEqualSize(rect) -> bool
+        
+        Returns true if another rectangle has the same width and height.
         """
 
     @overload
@@ -9643,16 +10221,30 @@ class Rect2D:
         """
         Inset(x, y) -> None
         Inset(left, top, right, bottom) -> None
+        
+        Offsets the rectangle by x and y, but maintains the bottom right
+        corner.
         """
 
+    @overload
+    def Offset(self, dx: float, dy: float) -> None:
+        ...
+
+    @overload
     def Offset(self, pt: Point2DDouble) -> None:
         """
         Offset(pt) -> None
+        Offset(dx, dy) -> None
+        
+        Moves the rectangle by the specified offset.
         """
 
     def ConstrainTo(self, rect: Rect2DDouble) -> None:
         """
         ConstrainTo(rect) -> None
+        
+        Resizes the rectangle to fit within the dimensions of another
+        rectangle.
         """
 
     def Interpolate(self, widthfactor: int, heightfactor: int) -> Point2DDouble:
@@ -9670,16 +10262,23 @@ class Rect2D:
         """
         Intersect(otherRect) -> None
         Intersect(src1, src2, dest) -> None
+        
+        Constrains the rectangle to the intersection of another rectangle.
         """
 
     def CreateIntersection(self, otherRect: Rect2DDouble) -> Rect2DDouble:
         """
         CreateIntersection(otherRect) -> Rect2DDouble
+        
+        Returns the intersecting rectangle of this rectangle with another one.
         """
 
     def Intersects(self, rect: Rect2DDouble) -> bool:
         """
         Intersects(rect) -> bool
+        
+        Returns true if this rectangle has a non-empty intersection with the
+        rectangle rect and false otherwise.
         """
 
     @overload
@@ -9697,11 +10296,15 @@ class Rect2D:
         Union(otherRect) -> None
         Union(pt) -> None
         Union(src1, src2, dest) -> None
+        
+        Expands the rectangle to the union with another rectangle.
         """
 
     def CreateUnion(self, otherRect: Rect2DDouble) -> Rect2DDouble:
         """
         CreateUnion(otherRect) -> Rect2DDouble
+        
+        Returns the union of this rectangle with another one.
         """
 
     @overload
@@ -9715,12 +10318,11 @@ class Rect2D:
         Scale(num, denum) -> None
         """
 
-    def __eq__(self, rect: Rect2DDouble) -> bool:
+    def ToRect(self) -> Rect:
         """
-        """
-
-    def __ne__(self, rect: Rect2DDouble) -> bool:
-        """
+        ToRect() -> Rect
+        
+        Returns the rectangle as a wxRect.
         """
 
     def Get(self) -> Any:
@@ -9790,6 +10392,10 @@ class Rect2D:
     def Centre(self) -> Point2DDouble: ...
     @Centre.setter
     def Centre(self, value: Point2DDouble, /) -> None: ...
+    @property
+    def Height(self) -> float: ...
+    @Height.setter
+    def Height(self, value: float, /) -> None: ...
     IM = property(GetIM)
     @property
     def Left(self) -> float: ...
@@ -9823,6 +10429,14 @@ class Rect2D:
     def Top(self) -> float: ...
     @Top.setter
     def Top(self, value: float, /) -> None: ...
+    @property
+    def Width(self) -> float: ...
+    @Width.setter
+    def Width(self, value: float, /) -> None: ...
+    @property
+    def X(self) -> float: ...
+    @property
+    def Y(self) -> float: ...
 # end of class Rect2D
 
 
@@ -10471,6 +11085,29 @@ class Colour(Object):
         Returns true if the color can be described using RGB values, i.e.
         """
 
+    def IsTransparent(self) -> bool:
+        """
+        IsTransparent() -> bool
+        
+        Returns true if the color is completely transparent (i.e., no
+        opacity).
+        """
+
+    def IsOpaque(self) -> bool:
+        """
+        IsOpaque() -> bool
+        
+        Returns true if the color is completely opaque (i.e., full opacity).
+        """
+
+    def IsTranslucent(self) -> bool:
+        """
+        IsTranslucent() -> bool
+        
+        Returns true if the color has some translucency (not fully opaque, but
+        not transparent either).
+        """
+
     def __ne__(self, colour: Union[Colour, wx.Colour, _ThreeInts, _FourInts, str, _None]) -> bool:
         """
         """
@@ -10780,7 +11417,7 @@ class InputStream(StreamBase):
         """
         LastRead() -> int
         
-        Returns the last number of bytes read.
+        Returns the last number of bytes read by the last input operation.
         """
 
     def Peek(self) -> str:
@@ -11071,8 +11708,8 @@ class FileSystem(Object):
         """
         OpenFile(location, flags=FS_READ) -> FSFile
         
-        Opens the file and returns a pointer to a wxFSFile object or NULL if
-        failed.
+        Opens the file and returns a pointer to a wxFSFile object or nullptr
+        if failed.
         """
 
     @staticmethod
@@ -11231,7 +11868,7 @@ class FileSystemHandler(Object):
         """
         OpenFile(fs, location) -> FSFile
         
-        Opens the file and returns wxFSFile pointer or NULL if failed.
+        Opens the file and returns wxFSFile pointer or nullptr if failed.
         """
 
     @staticmethod
@@ -11417,6 +12054,7 @@ class _ImageResizeQuality(IntEnum):
     IMAGE_QUALITY_BICUBIC = auto()
     IMAGE_QUALITY_BOX_AVERAGE = auto()
     IMAGE_QUALITY_NORMAL = auto()
+    IMAGE_QUALITY_FAST = auto()
     IMAGE_QUALITY_HIGH = auto()
 ImageResizeQuality: TypeAlias = Union[_ImageResizeQuality, int]
 IMAGE_QUALITY_NEAREST = _ImageResizeQuality.IMAGE_QUALITY_NEAREST
@@ -11424,6 +12062,7 @@ IMAGE_QUALITY_BILINEAR = _ImageResizeQuality.IMAGE_QUALITY_BILINEAR
 IMAGE_QUALITY_BICUBIC = _ImageResizeQuality.IMAGE_QUALITY_BICUBIC
 IMAGE_QUALITY_BOX_AVERAGE = _ImageResizeQuality.IMAGE_QUALITY_BOX_AVERAGE
 IMAGE_QUALITY_NORMAL = _ImageResizeQuality.IMAGE_QUALITY_NORMAL
+IMAGE_QUALITY_FAST = _ImageResizeQuality.IMAGE_QUALITY_FAST
 IMAGE_QUALITY_HIGH = _ImageResizeQuality.IMAGE_QUALITY_HIGH
 
 class _ImageAlphaBlendMode(IntEnum):
@@ -11689,9 +12328,15 @@ class Image(Object):
         Replaces the colour specified by r1,g1,b1 by the colour r2,g2,b2.
         """
 
+    @overload
+    def Rescale(self, size: Size, quality: ImageResizeQuality=IMAGE_QUALITY_NORMAL) -> Image:
+        ...
+
+    @overload
     def Rescale(self, width: int, height: int, quality: ImageResizeQuality=IMAGE_QUALITY_NORMAL) -> Image:
         """
         Rescale(width, height, quality=IMAGE_QUALITY_NORMAL) -> Image
+        Rescale(size, quality=IMAGE_QUALITY_NORMAL) -> Image
         
         Changes the size of the image in-place by scaling it: after a call to
         this function,the image will have the given width and height.
@@ -11705,9 +12350,9 @@ class Image(Object):
         either a border with the given colour or cropping as necessary.
         """
 
-    def Rotate(self, angle: float, rotationCentre: Point, interpolating: bool=True, offsetAfterRotation: Optional[Point]=None) -> Image:
+    def Rotate(self, angle: float, rotationCentre: Point, interpolating: bool=True, offsetAfterRotation: Point=nullptr) -> Image:
         """
-        Rotate(angle, rotationCentre, interpolating=True, offsetAfterRotation=None) -> Image
+        Rotate(angle, rotationCentre, interpolating=True, offsetAfterRotation=nullptr) -> Image
         
         Rotates the image about the given point, by angle radians.
         """
@@ -11758,9 +12403,15 @@ class Image(Object):
         pixel in the image.
         """
 
+    @overload
+    def Scale(self, size: Size, quality: ImageResizeQuality=IMAGE_QUALITY_NORMAL) -> Image:
+        ...
+
+    @overload
     def Scale(self, width: int, height: int, quality: ImageResizeQuality=IMAGE_QUALITY_NORMAL) -> Image:
         """
         Scale(width, height, quality=IMAGE_QUALITY_NORMAL) -> Image
+        Scale(size, quality=IMAGE_QUALITY_NORMAL) -> Image
         
         Returns a scaled version of the image.
         """
@@ -12081,6 +12732,14 @@ class Image(Object):
         SetData(data, new_width, new_height) -> None
         
         Sets the image data without performing checks.
+        """
+
+    def SetDataRGBA(self, data: int) -> None:
+        """
+        SetDataRGBA(data) -> None
+        
+        Sets the (non-premultiplied) RGBA image data without performing
+        checks.
         """
 
     def SetLoadFlags(self, flags: int) -> None:
@@ -12434,14 +13093,21 @@ class ImageHistogram:
 class ImageHandler(Object):
     """
     ImageHandler() -> None
+    ImageHandler(name, ext, type, mime) -> None
     
     This is the base class for implementing image file loading/saving, and
     image creation from data.
     """
 
+    @overload
+    def __init__(self, name: str, ext: str, type: BitmapType, mime: str) -> None:
+        ...
+
+    @overload
     def __init__(self) -> None:
         """
         ImageHandler() -> None
+        ImageHandler(name, ext, type, mime) -> None
         
         This is the base class for implementing image file loading/saving, and
         image creation from data.
@@ -12651,7 +13317,7 @@ class GIFHandler(ImageHandler):
         Saves an image in the output stream.
         """
 
-    def SaveAnimation(self, images: ImageArray, stream: OutputStream, verbose: bool=True, delayMilliSecs: int=1000) -> bool:
+    def SaveAnimation(self, images: std.vectorwxImage, stream: OutputStream, verbose: bool=True, delayMilliSecs: int=1000) -> bool:
         """
         SaveAnimation(images, stream, verbose=True, delayMilliSecs=1000) -> bool
         
@@ -13036,11 +13702,14 @@ IMAGE_OPTION_PNG_COMPRESSION_LEVEL = "PngZL"
 IMAGE_OPTION_PNG_COMPRESSION_MEM_LEVEL = "PngZM"
 IMAGE_OPTION_PNG_COMPRESSION_STRATEGY = "PngZS"
 IMAGE_OPTION_PNG_COMPRESSION_BUFFER_SIZE = "PngZB"
+IMAGE_OPTION_PNG_DESCRIPTION = "PngDescription"
 IMAGE_OPTION_TIFF_BITSPERSAMPLE = "BitsPerSample"
 IMAGE_OPTION_TIFF_SAMPLESPERPIXEL = "SamplesPerPixel"
 IMAGE_OPTION_TIFF_COMPRESSION = "Compression"
 IMAGE_OPTION_TIFF_PHOTOMETRIC = "Photometric"
 IMAGE_OPTION_TIFF_IMAGEDESCRIPTOR = "ImageDescriptor"
+IMAGE_OPTION_WEBP_QUALITY = "WebPQuality"
+IMAGE_OPTION_WEBP_FORMAT = "WebPFormat"
 IMAGE_OPTION_TIFF_BITSPERSAMPLE = "BitsPerSample"
 IMAGE_OPTION_TIFF_SAMPLESPERPIXEL = "SamplesPerPixel"
 IMAGE_OPTION_TIFF_COMPRESSION = "Compression"
@@ -13054,6 +13723,7 @@ IMAGE_OPTION_PNG_COMPRESSION_LEVEL = "PngZL"
 IMAGE_OPTION_PNG_COMPRESSION_MEM_LEVEL = "PngZM"
 IMAGE_OPTION_PNG_COMPRESSION_STRATEGY = "PngZS"
 IMAGE_OPTION_PNG_COMPRESSION_BUFFER_SIZE = "PngZB"
+IMAGE_OPTION_PNG_DESCRIPTION = "PngDescription"
 #-- end-image --#
 #-- begin-gdiobj --#
 
@@ -13213,6 +13883,20 @@ class Bitmap(GDIObject):
         scale factor to use.
         """
 
+    @overload
+    def CreateWithLogicalSize(self, width: int, height: int, scale: float, depth: int=BITMAP_SCREEN_DEPTH) -> bool:
+        ...
+
+    @overload
+    def CreateWithLogicalSize(self, size: Size, scale: float, depth: int=BITMAP_SCREEN_DEPTH) -> bool:
+        """
+        CreateWithLogicalSize(size, scale, depth=BITMAP_SCREEN_DEPTH) -> bool
+        CreateWithLogicalSize(width, height, scale, depth=BITMAP_SCREEN_DEPTH) -> bool
+        
+        Create a bitmap specifying its size in logical pixels and the scale
+        factor to use.
+        """
+
     def CreateScaled(self, width: int, height: int, depth: int, logicalScale: float) -> bool:
         """
         CreateScaled(width, height, depth, logicalScale) -> bool
@@ -13356,21 +14040,11 @@ class Bitmap(GDIObject):
         Remove alpha channel from the bitmap.
         """
 
-    def SaveFile(self, name: str, type: BitmapType, palette: Optional[Palette]=None) -> bool:
+    def SaveFile(self, name: str, type: BitmapType, palette: Palette=nullptr) -> bool:
         """
-        SaveFile(name, type, palette=None) -> bool
+        SaveFile(name, type, palette=nullptr) -> bool
         
         Saves a bitmap in the named file.
-        """
-
-    def SetDepth(self, depth: int) -> None:
-        """
-        SetDepth(depth) -> None
-        """
-
-    def SetHeight(self, height: int) -> None:
-        """
-        SetHeight(height) -> None
         """
 
     def SetScaleFactor(self, scale: float) -> None:
@@ -13392,11 +14066,6 @@ class Bitmap(GDIObject):
         SetPalette(palette) -> None
         
         Sets the associated palette.
-        """
-
-    def SetWidth(self, width: int) -> None:
-        """
-        SetWidth(width) -> None
         """
 
     def UseAlpha(self, use: bool=True) -> None:
@@ -13452,14 +14121,6 @@ class Bitmap(GDIObject):
         SetHandle(handle) -> None
         
         MSW-only method to set the windows handle for the bitmap.
-        """
-
-    def SetSize(self, size: Size) -> None:
-        """
-        SetSize(size) -> None
-        
-        Set the bitmap size (does not alter the existing native bitmap data or
-        image size).
         """
 
     def CopyFromBuffer(self, data: PyBuffer, format: BitmapBufferFormat=BitmapBufferFormat_RGB, stride: int=-1) -> None:
@@ -13580,16 +14241,12 @@ class Bitmap(GDIObject):
     def DIPSize(self) -> Size: ...
     @property
     def Depth(self) -> int: ...
-    @Depth.setter
-    def Depth(self, value: int, /) -> None: ...
     @property
     def Handle(self) -> int: ...
     @Handle.setter
     def Handle(self, value: int, /) -> None: ...
     @property
     def Height(self) -> int: ...
-    @Height.setter
-    def Height(self, value: int, /) -> None: ...
     @property
     def LogicalHeight(self) -> float: ...
     @property
@@ -13616,12 +14273,8 @@ class Bitmap(GDIObject):
     def ScaledWidth(self) -> float: ...
     @property
     def Size(self) -> Size: ...
-    @Size.setter
-    def Size(self, value: Size, /) -> None: ...
     @property
     def Width(self) -> int: ...
-    @Width.setter
-    def Width(self, value: int, /) -> None: ...
 # end of class Bitmap
 
 
@@ -14121,21 +14774,6 @@ class Icon(GDIObject):
         Loads an icon from a file or resource.
         """
 
-    def SetDepth(self, depth: int) -> None:
-        """
-        SetDepth(depth) -> None
-        """
-
-    def SetHeight(self, height: int) -> None:
-        """
-        SetHeight(height) -> None
-        """
-
-    def SetWidth(self, width: int) -> None:
-        """
-        SetWidth(width) -> None
-        """
-
     def __nonzero__(self) -> bool:
         """
         __nonzero__() -> bool
@@ -14157,16 +14795,12 @@ class Icon(GDIObject):
         """
     @property
     def Depth(self) -> int: ...
-    @Depth.setter
-    def Depth(self, value: int, /) -> None: ...
     @property
     def Handle(self) -> int: ...
     @Handle.setter
     def Handle(self, value: int, /) -> None: ...
     @property
     def Height(self) -> int: ...
-    @Height.setter
-    def Height(self, value: int, /) -> None: ...
     @property
     def LogicalHeight(self) -> float: ...
     @property
@@ -14179,8 +14813,6 @@ class Icon(GDIObject):
     def Size(self) -> Size: ...
     @property
     def Width(self) -> int: ...
-    @Width.setter
-    def Width(self, value: int, /) -> None: ...
 # end of class Icon
 
 NullIcon: Icon
@@ -14566,7 +15198,7 @@ class _FontEncoding(IntEnum):
     FONTENCODING_MACMONGOLIAN = auto()
     FONTENCODING_MACETHIOPIC = auto()
     FONTENCODING_MACCENTRALEUR = auto()
-    FONTENCODING_MACVIATNAMESE = auto()
+    FONTENCODING_MACVIETNAMESE = auto()
     FONTENCODING_MACARABICEXT = auto()
     FONTENCODING_MACSYMBOL = auto()
     FONTENCODING_MACDINGBATS = auto()
@@ -14670,7 +15302,7 @@ FONTENCODING_MACTIBETAN = _FontEncoding.FONTENCODING_MACTIBETAN
 FONTENCODING_MACMONGOLIAN = _FontEncoding.FONTENCODING_MACMONGOLIAN
 FONTENCODING_MACETHIOPIC = _FontEncoding.FONTENCODING_MACETHIOPIC
 FONTENCODING_MACCENTRALEUR = _FontEncoding.FONTENCODING_MACCENTRALEUR
-FONTENCODING_MACVIATNAMESE = _FontEncoding.FONTENCODING_MACVIATNAMESE
+FONTENCODING_MACVIETNAMESE = _FontEncoding.FONTENCODING_MACVIETNAMESE
 FONTENCODING_MACARABICEXT = _FontEncoding.FONTENCODING_MACARABICEXT
 FONTENCODING_MACSYMBOL = _FontEncoding.FONTENCODING_MACSYMBOL
 FONTENCODING_MACDINGBATS = _FontEncoding.FONTENCODING_MACDINGBATS
@@ -15660,8 +16292,6 @@ class _PenStyle(IntEnum):
     PENSTYLE_DOT_DASH = auto()
     PENSTYLE_USER_DASH = auto()
     PENSTYLE_TRANSPARENT = auto()
-    PENSTYLE_STIPPLE_MASK_OPAQUE = auto()
-    PENSTYLE_STIPPLE_MASK = auto()
     PENSTYLE_STIPPLE = auto()
     PENSTYLE_BDIAGONAL_HATCH = auto()
     PENSTYLE_CROSSDIAG_HATCH = auto()
@@ -15680,8 +16310,6 @@ PENSTYLE_SHORT_DASH = _PenStyle.PENSTYLE_SHORT_DASH
 PENSTYLE_DOT_DASH = _PenStyle.PENSTYLE_DOT_DASH
 PENSTYLE_USER_DASH = _PenStyle.PENSTYLE_USER_DASH
 PENSTYLE_TRANSPARENT = _PenStyle.PENSTYLE_TRANSPARENT
-PENSTYLE_STIPPLE_MASK_OPAQUE = _PenStyle.PENSTYLE_STIPPLE_MASK_OPAQUE
-PENSTYLE_STIPPLE_MASK = _PenStyle.PENSTYLE_STIPPLE_MASK
 PENSTYLE_STIPPLE = _PenStyle.PENSTYLE_STIPPLE
 PENSTYLE_BDIAGONAL_HATCH = _PenStyle.PENSTYLE_BDIAGONAL_HATCH
 PENSTYLE_CROSSDIAG_HATCH = _PenStyle.PENSTYLE_CROSSDIAG_HATCH
@@ -15746,31 +16374,44 @@ class PenInfo:
     def Colour(self, col: Colour) -> PenInfo:
         """
         Colour(col) -> PenInfo
+        
+        Sets the colour for the pen.
         """
 
     def Width(self, width: int) -> PenInfo:
         """
         Width(width) -> PenInfo
+        
+        Sets the line width for the pen.
         """
 
     def Style(self, style: PenStyle) -> PenInfo:
         """
         Style(style) -> PenInfo
+        
+        Sets the style for the pen.
         """
 
     def Stipple(self, stipple: Bitmap) -> PenInfo:
         """
         Stipple(stipple) -> PenInfo
+        
+        Sets the bitmap used for stippling.
         """
 
     def Join(self, join: PenJoin) -> PenInfo:
         """
         Join(join) -> PenInfo
+        
+        Sets the join for the pen, which is the appearance of where two lines
+        meet or overlap.
         """
 
     def Cap(self, cap: PenCap) -> PenInfo:
         """
         Cap(cap) -> PenInfo
+        
+        Sets the cap (i.e., the end point) for the pen.
         """
 
     def Quality(self, quality: PenQuality) -> PenInfo:
@@ -15797,41 +16438,57 @@ class PenInfo:
     def GetColour(self) -> Colour:
         """
         GetColour() -> Colour
+        
+        Returns the pen's colour.
         """
 
     def GetStipple(self) -> Bitmap:
         """
         GetStipple() -> Bitmap
+        
+        Returns the pen's stipple bitmap.
         """
 
     def GetStyle(self) -> PenStyle:
         """
         GetStyle() -> PenStyle
+        
+        Returns the pen's style.
         """
 
     def GetJoin(self) -> PenJoin:
         """
         GetJoin() -> PenJoin
+        
+        Returns the pen's joining method.
         """
 
     def GetCap(self) -> PenCap:
         """
         GetCap() -> PenCap
+        
+        Returns the pen's cap (i.e., end-point style).
         """
 
     def GetQuality(self) -> PenQuality:
         """
         GetQuality() -> PenQuality
+        
+        Returns the pen's quality.
         """
 
     def IsTransparent(self) -> bool:
         """
         IsTransparent() -> bool
+        
+        Returns whether the pen is transparent.
         """
 
     def GetWidth(self) -> int:
         """
         GetWidth() -> int
+        
+        Returns the pen's line width.
         """
 # end of class PenInfo
 
@@ -15843,7 +16500,7 @@ class Pen(GDIObject):
     Pen(colour, width=1, style=PENSTYLE_SOLID) -> None
     Pen(pen) -> None
     
-    A pen is a drawing tool for drawing outlines.
+    A pen is a tool for drawing outlines.
     """
 
     @overload
@@ -15866,7 +16523,7 @@ class Pen(GDIObject):
         Pen(colour, width=1, style=PENSTYLE_SOLID) -> None
         Pen(pen) -> None
         
-        A pen is a drawing tool for drawing outlines.
+        A pen is a tool for drawing outlines.
         """
 
     @overload
@@ -15887,7 +16544,7 @@ class Pen(GDIObject):
         GetCap() -> PenCap
         
         Returns the pen cap style, which may be one of wxCAP_ROUND,
-        wxCAP_PROJECTING and wxCAP_BUTT.
+        wxCAP_PROJECTING or wxCAP_BUTT.
         """
 
     def GetQuality(self) -> PenQuality:
@@ -15916,7 +16573,7 @@ class Pen(GDIObject):
         GetJoin() -> PenJoin
         
         Returns the pen join style, which may be one of wxJOIN_BEVEL,
-        wxJOIN_ROUND and wxJOIN_MITER.
+        wxJOIN_ROUND or wxJOIN_MITER.
         """
 
     def GetStipple(self) -> Bitmap:
@@ -15966,7 +16623,7 @@ class Pen(GDIObject):
         SetCap(capStyle) -> None
         
         Sets the pen cap style, which may be one of wxCAP_ROUND,
-        wxCAP_PROJECTING and wxCAP_BUTT.
+        wxCAP_PROJECTING or wxCAP_BUTT.
         """
 
     def SetQuality(self, quality: PenQuality) -> None:
@@ -15989,7 +16646,7 @@ class Pen(GDIObject):
         SetJoin(join_style) -> None
         
         Sets the pen join style, which may be one of wxJOIN_BEVEL,
-        wxJOIN_ROUND and wxJOIN_MITER.
+        wxJOIN_ROUND or wxJOIN_MITER.
         """
 
     def SetStipple(self, stipple: Bitmap) -> None:
@@ -16080,8 +16737,8 @@ class PenList:
         """
         FindOrCreatePen(colour, width=1, style=PENSTYLE_SOLID) -> Pen
         
-        Finds a pen with the specified attributes and returns it, else creates
-        a new pen, adds it to the pen list, and returns it.
+        Finds a pen with the specified attributes and returns it; otherwise,
+        creates a new pen, adds it to the pen list, and returns it.
         """
 # end of class PenList
 
@@ -16339,18 +16996,32 @@ wx.VERTICAL_HATCH      = int(wx.BRUSHSTYLE_VERTICAL_HATCH)
 class Cursor(GDIObject):
     """
     Cursor() -> None
+    Cursor(bitmap, hotSpotX=0, hotSpotY=0) -> None
+    Cursor(bitmap, hotSpot) -> None
     Cursor(cursorName, type=BITMAP_TYPE_ANY, hotSpotX=0, hotSpotY=0) -> None
+    Cursor(name, type, hotSpot) -> None
     Cursor(cursorId) -> None
     Cursor(image) -> None
     Cursor(cursor) -> None
     
-    A cursor is a small bitmap usually used for denoting where the mouse
-    pointer is, with a picture that might indicate the interpretation of a
-    mouse click.
+    A cursor is a small bitmap used for denoting where the mouse pointer
+    is, with a picture that indicates the point of a mouse click.
     """
 
     @overload
+    def __init__(self, bitmap: Bitmap, hotSpotX: int=0, hotSpotY: int=0) -> None:
+        ...
+
+    @overload
+    def __init__(self, bitmap: Bitmap, hotSpot: Point) -> None:
+        ...
+
+    @overload
     def __init__(self, cursorName: str, type: BitmapType=BITMAP_TYPE_ANY, hotSpotX: int=0, hotSpotY: int=0) -> None:
+        ...
+
+    @overload
+    def __init__(self, name: str, type: BitmapType, hotSpot: Point) -> None:
         ...
 
     @overload
@@ -16369,14 +17040,16 @@ class Cursor(GDIObject):
     def __init__(self) -> None:
         """
         Cursor() -> None
+        Cursor(bitmap, hotSpotX=0, hotSpotY=0) -> None
+        Cursor(bitmap, hotSpot) -> None
         Cursor(cursorName, type=BITMAP_TYPE_ANY, hotSpotX=0, hotSpotY=0) -> None
+        Cursor(name, type, hotSpot) -> None
         Cursor(cursorId) -> None
         Cursor(image) -> None
         Cursor(cursor) -> None
         
-        A cursor is a small bitmap usually used for denoting where the mouse
-        pointer is, with a picture that might indicate the interpretation of a
-        mouse click.
+        A cursor is a small bitmap used for denoting where the mouse pointer
+        is, with a picture that indicates the point of a mouse click.
         """
 
     def IsOk(self) -> bool:
@@ -16430,6 +17103,80 @@ class Cursor(GDIObject):
     @property
     def HotSpot(self) -> Point: ...
 # end of class Cursor
+
+
+class CursorBundle:
+    """
+    CursorBundle() -> None
+    CursorBundle(bitmaps, hotSpot) -> None
+    CursorBundle(bitmaps, hotSpotX=0, hotSpotY=0) -> None
+    CursorBundle(other) -> None
+    
+    A cursor bundle is a set of different versions of the same cursor at
+    different sizes.
+    """
+
+    @overload
+    def __init__(self, bitmaps: BitmapBundle, hotSpot: Point) -> None:
+        ...
+
+    @overload
+    def __init__(self, bitmaps: BitmapBundle, hotSpotX: int=0, hotSpotY: int=0) -> None:
+        ...
+
+    @overload
+    def __init__(self, other: CursorBundle) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        CursorBundle() -> None
+        CursorBundle(bitmaps, hotSpot) -> None
+        CursorBundle(bitmaps, hotSpotX=0, hotSpotY=0) -> None
+        CursorBundle(other) -> None
+        
+        A cursor bundle is a set of different versions of the same cursor at
+        different sizes.
+        """
+
+    def IsOk(self) -> bool:
+        """
+        IsOk() -> bool
+        
+        Check if cursor bundle is non-empty.
+        """
+
+    def Clear(self) -> None:
+        """
+        Clear() -> None
+        
+        Clear the bundle contents.
+        """
+
+    def GetCursorFor(self, window: Window) -> Cursor:
+        """
+        GetCursorFor(window) -> Cursor
+        
+        Get the cursor of the size suitable for the given window.
+        """
+
+    def GetCursorForMainWindow(self) -> Cursor:
+        """
+        GetCursorForMainWindow() -> Cursor
+        
+        Get the cursor of the default size.
+        """
+
+    def IsSameAs(self, other: CursorBundle) -> bool:
+        """
+        IsSameAs(other) -> bool
+        
+        Check if two objects refer to the same bundle.
+        """
+    @property
+    def CursorForMainWindow(self) -> Cursor: ...
+# end of class CursorBundle
 
 NullCursor: Cursor
 
@@ -16904,139 +17651,11 @@ class FontMetrics:
 # end of class FontMetrics
 
 
-class DC(Object):
+class DC(ReadOnlyDC):
     """
     A wxDC is a "device context" onto which graphics and text can be
     drawn.
     """
-
-    def DeviceToLogicalX(self, x: int) -> int:
-        """
-        DeviceToLogicalX(x) -> int
-        
-        Convert device X coordinate to logical coordinate, using the current
-        mapping mode, user scale factor, device origin and axis orientation.
-        """
-
-    def DeviceToLogicalXRel(self, x: int) -> int:
-        """
-        DeviceToLogicalXRel(x) -> int
-        
-        Convert device X coordinate to relative logical coordinate, using the
-        current mapping mode and user scale factor but ignoring the axis
-        orientation.
-        """
-
-    def DeviceToLogicalY(self, y: int) -> int:
-        """
-        DeviceToLogicalY(y) -> int
-        
-        Converts device Y coordinate to logical coordinate, using the current
-        mapping mode, user scale factor, device origin and axis orientation.
-        """
-
-    def DeviceToLogicalYRel(self, y: int) -> int:
-        """
-        DeviceToLogicalYRel(y) -> int
-        
-        Convert device Y coordinate to relative logical coordinate, using the
-        current mapping mode and user scale factor but ignoring the axis
-        orientation.
-        """
-
-    def LogicalToDeviceX(self, x: int) -> int:
-        """
-        LogicalToDeviceX(x) -> int
-        
-        Converts logical X coordinate to device coordinate, using the current
-        mapping mode, user scale factor, device origin and axis orientation.
-        """
-
-    def LogicalToDeviceXRel(self, x: int) -> int:
-        """
-        LogicalToDeviceXRel(x) -> int
-        
-        Converts logical X coordinate to relative device coordinate, using the
-        current mapping mode and user scale factor but ignoring the axis
-        orientation.
-        """
-
-    def LogicalToDeviceY(self, y: int) -> int:
-        """
-        LogicalToDeviceY(y) -> int
-        
-        Converts logical Y coordinate to device coordinate, using the current
-        mapping mode, user scale factor, device origin and axis orientation.
-        """
-
-    def LogicalToDeviceYRel(self, y: int) -> int:
-        """
-        LogicalToDeviceYRel(y) -> int
-        
-        Converts logical Y coordinate to relative device coordinate, using the
-        current mapping mode and user scale factor but ignoring the axis
-        orientation.
-        """
-
-    @overload
-    def DeviceToLogical(self, pt: Point) -> Point:
-        ...
-
-    @overload
-    def DeviceToLogical(self, x: int, y: int) -> Point:
-        """
-        DeviceToLogical(x, y) -> Point
-        DeviceToLogical(pt) -> Point
-        
-        Converts device (x, y) coordinates to logical coordinates taking into
-        account all applied transformations like the current mapping mode,
-        scale factors, device origin, axes orientation, affine transformation.
-        """
-
-    @overload
-    def DeviceToLogicalRel(self, dim: Size) -> Size:
-        ...
-
-    @overload
-    def DeviceToLogicalRel(self, x: int, y: int) -> Size:
-        """
-        DeviceToLogicalRel(x, y) -> Size
-        DeviceToLogicalRel(dim) -> Size
-        
-        Converts device x, y coordinates to relative logical coordinates
-        taking into account all applied transformations like the current
-        mapping mode, scale factors, affine transformation.
-        """
-
-    @overload
-    def LogicalToDevice(self, pt: Point) -> Point:
-        ...
-
-    @overload
-    def LogicalToDevice(self, x: int, y: int) -> Point:
-        """
-        LogicalToDevice(x, y) -> Point
-        LogicalToDevice(pt) -> Point
-        
-        Converts logical (x, y) coordinates to device coordinates taking into
-        account all applied transformations like the current mapping mode,
-        scale factors, device origin, axes orientation, affine transformation.
-        """
-
-    @overload
-    def LogicalToDeviceRel(self, dim: Size) -> Size:
-        ...
-
-    @overload
-    def LogicalToDeviceRel(self, x: int, y: int) -> Size:
-        """
-        LogicalToDeviceRel(x, y) -> Size
-        LogicalToDeviceRel(dim) -> Size
-        
-        Converts logical x, y coordinates to relative device coordinates
-        taking into account all applied transformations like the current
-        mapping mode, scale factors, affine transformation.
-        """
 
     def Clear(self) -> None:
         """
@@ -17372,69 +17991,12 @@ class DC(Object):
         Sets the clipping region for this device context.
         """
 
-    def GetCharHeight(self) -> int:
-        """
-        GetCharHeight() -> int
-        
-        Gets the character height of the currently set font.
-        """
-
-    def GetCharWidth(self) -> int:
-        """
-        GetCharWidth() -> int
-        
-        Gets the average character width of the currently set font.
-        """
-
-    def GetFontMetrics(self) -> FontMetrics:
-        """
-        GetFontMetrics() -> FontMetrics
-        
-        Returns the various font characteristics.
-        """
-
-    def GetFullMultiLineTextExtent(self, string: str, font: Optional[Font]=None) -> Tuple[int, int, int]:
-        """
-        GetFullMultiLineTextExtent(string, font=None) -> Tuple[int, int, int]
-        
-        Gets the dimensions of the string as it would be drawn.
-        """
-
-    def GetPartialTextExtents(self, text: str) -> List[int]:
-        """
-        GetPartialTextExtents(text) -> List[int]
-        
-        Fills the widths array with the widths from the beginning of text to
-        the corresponding character of text.
-        """
-
-    def GetFullTextExtent(self, string: str, font: Optional[Font]=None) -> Tuple[int, int, int, int]:
-        """
-        GetFullTextExtent(string, font=None) -> Tuple[int, int, int, int]
-        
-        Gets the dimensions of the string as it would be drawn.
-        """
-
     def GetBackgroundMode(self) -> int:
         """
         GetBackgroundMode() -> int
         
         Returns the current background mode: wxBRUSHSTYLE_SOLID or
         wxBRUSHSTYLE_TRANSPARENT.
-        """
-
-    def GetFont(self) -> Font:
-        """
-        GetFont() -> Font
-        
-        Gets the current font.
-        """
-
-    def GetLayoutDirection(self) -> LayoutDirection:
-        """
-        GetLayoutDirection() -> LayoutDirection
-        
-        Gets the current layout direction of the device context.
         """
 
     def GetTextBackground(self) -> Colour:
@@ -17458,13 +18020,6 @@ class DC(Object):
         Change the current background mode.
         """
 
-    def SetFont(self, font: Font) -> None:
-        """
-        SetFont(font) -> None
-        
-        Sets the current font for the DC.
-        """
-
     def SetTextBackground(self, colour: Colour) -> None:
         """
         SetTextBackground(colour) -> None
@@ -17479,11 +18034,18 @@ class DC(Object):
         Sets the current text foreground colour for the DC.
         """
 
-    def SetLayoutDirection(self, dir: LayoutDirection) -> None:
+    def DisableAutomaticBoundingBoxUpdates(self) -> None:
         """
-        SetLayoutDirection(dir) -> None
+        DisableAutomaticBoundingBoxUpdates() -> None
         
-        Sets the current layout direction for the device context.
+        Disable automatic bounding box updates.
+        """
+
+    def AreAutomaticBoundingBoxUpdatesEnabled(self) -> bool:
+        """
+        AreAutomaticBoundingBoxUpdatesEnabled() -> bool
+        
+        Check if automatic bounding box updates are performed.
         """
 
     def CalcBoundingBox(self, x: int, y: int) -> None:
@@ -17614,97 +18176,11 @@ class DC(Object):
         Sets the current pen for the DC.
         """
 
-    def CanUseTransformMatrix(self) -> bool:
-        """
-        CanUseTransformMatrix() -> bool
-        
-        Check if the use of transformation matrix is supported by the current
-        system.
-        """
-
-    def SetTransformMatrix(self, matrix: AffineMatrix2D) -> bool:
-        """
-        SetTransformMatrix(matrix) -> bool
-        
-        Set the transformation matrix.
-        """
-
-    def GetTransformMatrix(self) -> AffineMatrix2D:
-        """
-        GetTransformMatrix() -> AffineMatrix2D
-        
-        Return the transformation matrix used by this device context.
-        """
-
-    def ResetTransformMatrix(self) -> None:
-        """
-        ResetTransformMatrix() -> None
-        
-        Revert the transformation matrix to identity matrix.
-        """
-
-    def CanDrawBitmap(self) -> bool:
-        """
-        CanDrawBitmap() -> bool
-        
-        Does the DC support drawing bitmaps?
-        """
-
-    def CanGetTextExtent(self) -> bool:
-        """
-        CanGetTextExtent() -> bool
-        
-        Does the DC support calculating the size required to draw text?
-        """
-
-    def GetLogicalOrigin(self) -> Tuple[int, int]:
-        """
-        GetLogicalOrigin() -> Tuple[int, int]
-        
-        Return the coordinates of the logical point (0, 0).
-        """
-
-    def CopyAttributes(self, dc: DC) -> None:
-        """
-        CopyAttributes(dc) -> None
-        
-        Copy attributes from another DC.
-        """
-
-    def GetContentScaleFactor(self) -> float:
-        """
-        GetContentScaleFactor() -> float
-        
-        Returns the factor used for converting logical pixels to physical
-        ones.
-        """
-
-    def GetDepth(self) -> int:
-        """
-        GetDepth() -> int
-        
-        Returns the depth (number of bits/pixel) of this DC.
-        """
-
-    def GetDeviceOrigin(self) -> Point:
-        """
-        GetDeviceOrigin() -> Point
-        
-        Returns the current device origin.
-        """
-
     def GetLogicalFunction(self) -> RasterOperationMode:
         """
         GetLogicalFunction() -> RasterOperationMode
         
         Gets the current logical function.
-        """
-
-    def GetMapMode(self) -> MappingMode:
-        """
-        GetMapMode() -> MappingMode
-        
-        Gets the current mapping mode for the device context.
         """
 
     def GetPixel(self, x: int, y: int) -> Colour:
@@ -17725,110 +18201,11 @@ class DC(Object):
         in wxGTK.
         """
 
-    def GetPPI(self) -> Size:
-        """
-        GetPPI() -> Size
-        
-        Returns the resolution of the device in pixels per inch.
-        """
-
-    @overload
-    def FromDIP(self, pt: Point) -> Point:
-        ...
-
-    @overload
-    def FromDIP(self, d: int) -> int:
-        ...
-
-    @overload
-    def FromDIP(self, sz: Size) -> Size:
-        """
-        FromDIP(sz) -> Size
-        FromDIP(pt) -> Point
-        FromDIP(d) -> int
-        
-        Convert DPI-independent pixel values to the value in pixels
-        appropriate for the DC.
-        """
-
-    @overload
-    def ToDIP(self, pt: Point) -> Point:
-        ...
-
-    @overload
-    def ToDIP(self, d: int) -> int:
-        ...
-
-    @overload
-    def ToDIP(self, sz: Size) -> Size:
-        """
-        ToDIP(sz) -> Size
-        ToDIP(pt) -> Point
-        ToDIP(d) -> int
-        
-        Convert pixel values of the current DC to DPI-independent pixel
-        values.
-        """
-
-    def GetSize(self) -> Size:
-        """
-        GetSize() -> Size
-        
-        This is an overloaded member function, provided for convenience. It
-        differs from the above function only in what argument(s) it accepts.
-        """
-
-    def GetSizeMM(self) -> Size:
-        """
-        GetSizeMM() -> Size
-        
-        This is an overloaded member function, provided for convenience. It
-        differs from the above function only in what argument(s) it accepts.
-        """
-
-    def GetUserScale(self) -> Tuple[float, float]:
-        """
-        GetUserScale() -> Tuple[float, float]
-        
-        Gets the current user scale factor.
-        """
-
-    def IsOk(self) -> bool:
-        """
-        IsOk() -> bool
-        
-        Returns true if the DC is ok to use.
-        """
-
-    def SetAxisOrientation(self, xLeftRight: bool, yBottomUp: bool) -> None:
-        """
-        SetAxisOrientation(xLeftRight, yBottomUp) -> None
-        
-        Sets the x and y axis orientation (i.e. the direction from lowest to
-        highest values on the axis).
-        """
-
-    def SetDeviceOrigin(self, x: int, y: int) -> None:
-        """
-        SetDeviceOrigin(x, y) -> None
-        
-        Sets the device origin (i.e. the origin in pixels after scaling has
-        been applied).
-        """
-
     def SetLogicalFunction(self, function: RasterOperationMode) -> None:
         """
         SetLogicalFunction(function) -> None
         
         Sets the current logical function for the device context.
-        """
-
-    def SetMapMode(self, mode: MappingMode) -> None:
-        """
-        SetMapMode(mode) -> None
-        
-        The mapping mode of the device context defines the unit of measurement
-        used to convert logical units to device units.
         """
 
     def SetPalette(self, palette: Palette) -> None:
@@ -17839,12 +18216,11 @@ class DC(Object):
         window or bitmap associated with the DC.
         """
 
-    def SetUserScale(self, xScale: float, yScale: float) -> None:
+    def CopyAttributes(self, dc: DC) -> None:
         """
-        SetUserScale(xScale, yScale) -> None
+        CopyAttributes(dc) -> None
         
-        Sets the user scaling factor, useful for applications which require
-        'zooming'.
+        Copy attributes from another DC.
         """
 
     def GetHandle(self) -> UIntPtr:
@@ -17856,34 +18232,12 @@ class DC(Object):
         way.
         """
 
-    def GetAsBitmap(self, subrect: Optional[Rect]=None) -> Bitmap:
+    def GetAsBitmap(self, subrect: Rect=nullptr) -> Bitmap:
         """
-        GetAsBitmap(subrect=None) -> Bitmap
+        GetAsBitmap(subrect=nullptr) -> Bitmap
         
         If supported by the platform and the type of DC, fetch the contents of
         the DC, or a subset of it, as a bitmap.
-        """
-
-    def SetLogicalScale(self, x: float, y: float) -> None:
-        """
-        SetLogicalScale(x, y) -> None
-        
-        Set the scale to use for translating wxDC coordinates to the physical
-        pixels.
-        """
-
-    def GetLogicalScale(self) -> Tuple[float, float]:
-        """
-        GetLogicalScale() -> Tuple[float, float]
-        
-        Return the scale set by the last call to SetLogicalScale().
-        """
-
-    def SetLogicalOrigin(self, x: int, y: int) -> None:
-        """
-        SetLogicalOrigin(x, y) -> None
-        
-        Change the offset used for translating wxDC coordinates.
         """
 
     def GetGraphicsContext(self) -> GraphicsContext:
@@ -18133,25 +18487,7 @@ class DC(Object):
     def Brush(self, value: Brush, /) -> None: ...
     @property
     def CGContext(self) -> UIntPtr: ...
-    @property
-    def CharHeight(self) -> int: ...
-    @property
-    def CharWidth(self) -> int: ...
     ClippingRect = property(GetClippingRect)
-    @property
-    def ContentScaleFactor(self) -> float: ...
-    @property
-    def Depth(self) -> int: ...
-    @property
-    def DeviceOrigin(self) -> int: ...
-    @DeviceOrigin.setter
-    def DeviceOrigin(self, value: int, /) -> None: ...
-    @property
-    def Font(self) -> Font: ...
-    @Font.setter
-    def Font(self, value: Font, /) -> None: ...
-    @property
-    def FontMetrics(self) -> FontMetrics: ...
     @property
     def GdkDrawable(self) -> UIntPtr: ...
     @property
@@ -18163,21 +18499,11 @@ class DC(Object):
     @property
     def Handle(self) -> UIntPtr: ...
     @property
-    def LayoutDirection(self) -> LayoutDirection: ...
-    @LayoutDirection.setter
-    def LayoutDirection(self, value: LayoutDirection, /) -> None: ...
-    @property
     def LogicalFunction(self) -> RasterOperationMode: ...
     @LogicalFunction.setter
     def LogicalFunction(self, value: RasterOperationMode, /) -> None: ...
     @property
-    def MapMode(self) -> MappingMode: ...
-    @MapMode.setter
-    def MapMode(self, value: MappingMode, /) -> None: ...
-    @property
-    def MultiLineTextExtent(self) -> Tuple[int, int, int]: ...
-    @property
-    def PPI(self) -> Size: ...
+    def MultiLineTextExtent(self) -> Size: ...
     @property
     def Pen(self) -> Pen: ...
     @Pen.setter
@@ -18185,24 +18511,464 @@ class DC(Object):
     @property
     def Pixel(self) -> Colour: ...
     @property
-    def Size(self) -> Size: ...
-    @property
-    def SizeMM(self) -> Size: ...
-    @property
     def TextBackground(self) -> Colour: ...
     @TextBackground.setter
     def TextBackground(self, value: Colour, /) -> None: ...
     @property
-    def TextExtent(self) -> Tuple[int, int, int, int]: ...
+    def TextExtent(self) -> Size: ...
     @property
     def TextForeground(self) -> Colour: ...
     @TextForeground.setter
     def TextForeground(self, value: Colour, /) -> None: ...
+# end of class DC
+
+
+class ReadOnlyDC(Object):
+    """
+    Base class for device context not providing any drawing functions.
+    """
+
+    def CanDrawBitmap(self) -> bool:
+        """
+        CanDrawBitmap() -> bool
+        
+        Does the DC support drawing bitmaps?
+        """
+
+    def CanGetTextExtent(self) -> bool:
+        """
+        CanGetTextExtent() -> bool
+        
+        Does the DC support calculating the size required to draw text?
+        """
+
+    def DeviceToLogicalX(self, x: int) -> int:
+        """
+        DeviceToLogicalX(x) -> int
+        
+        Convert device X coordinate to logical coordinate, using the current
+        mapping mode, user scale factor, device origin and axis orientation.
+        """
+
+    def DeviceToLogicalXRel(self, x: int) -> int:
+        """
+        DeviceToLogicalXRel(x) -> int
+        
+        Convert device X coordinate to relative logical coordinate, using the
+        current mapping mode and user scale factor but ignoring the axis
+        orientation.
+        """
+
+    def DeviceToLogicalY(self, y: int) -> int:
+        """
+        DeviceToLogicalY(y) -> int
+        
+        Converts device Y coordinate to logical coordinate, using the current
+        mapping mode, user scale factor, device origin and axis orientation.
+        """
+
+    def DeviceToLogicalYRel(self, y: int) -> int:
+        """
+        DeviceToLogicalYRel(y) -> int
+        
+        Convert device Y coordinate to relative logical coordinate, using the
+        current mapping mode and user scale factor but ignoring the axis
+        orientation.
+        """
+
+    def LogicalToDeviceX(self, x: int) -> int:
+        """
+        LogicalToDeviceX(x) -> int
+        
+        Converts logical X coordinate to device coordinate, using the current
+        mapping mode, user scale factor, device origin and axis orientation.
+        """
+
+    def LogicalToDeviceXRel(self, x: int) -> int:
+        """
+        LogicalToDeviceXRel(x) -> int
+        
+        Converts logical X coordinate to relative device coordinate, using the
+        current mapping mode and user scale factor but ignoring the axis
+        orientation.
+        """
+
+    def LogicalToDeviceY(self, y: int) -> int:
+        """
+        LogicalToDeviceY(y) -> int
+        
+        Converts logical Y coordinate to device coordinate, using the current
+        mapping mode, user scale factor, device origin and axis orientation.
+        """
+
+    def LogicalToDeviceYRel(self, y: int) -> int:
+        """
+        LogicalToDeviceYRel(y) -> int
+        
+        Converts logical Y coordinate to relative device coordinate, using the
+        current mapping mode and user scale factor but ignoring the axis
+        orientation.
+        """
+
+    @overload
+    def DeviceToLogical(self, pt: Point) -> Point:
+        ...
+
+    @overload
+    def DeviceToLogical(self, x: int, y: int) -> Point:
+        """
+        DeviceToLogical(x, y) -> Point
+        DeviceToLogical(pt) -> Point
+        
+        Converts device (x, y) coordinates to logical coordinates taking into
+        account all applied transformations like the current mapping mode,
+        scale factors, device origin, axes orientation, affine transformation.
+        """
+
+    @overload
+    def DeviceToLogicalRel(self, dim: Size) -> Size:
+        ...
+
+    @overload
+    def DeviceToLogicalRel(self, x: int, y: int) -> Size:
+        """
+        DeviceToLogicalRel(x, y) -> Size
+        DeviceToLogicalRel(dim) -> Size
+        
+        Converts device x, y coordinates to relative logical coordinates
+        taking into account all applied transformations like the current
+        mapping mode, scale factors, affine transformation.
+        """
+
+    @overload
+    def LogicalToDevice(self, pt: Point) -> Point:
+        ...
+
+    @overload
+    def LogicalToDevice(self, x: int, y: int) -> Point:
+        """
+        LogicalToDevice(x, y) -> Point
+        LogicalToDevice(pt) -> Point
+        
+        Converts logical (x, y) coordinates to device coordinates taking into
+        account all applied transformations like the current mapping mode,
+        scale factors, device origin, axes orientation, affine transformation.
+        """
+
+    @overload
+    def LogicalToDeviceRel(self, dim: Size) -> Size:
+        ...
+
+    @overload
+    def LogicalToDeviceRel(self, x: int, y: int) -> Size:
+        """
+        LogicalToDeviceRel(x, y) -> Size
+        LogicalToDeviceRel(dim) -> Size
+        
+        Converts logical x, y coordinates to relative device coordinates
+        taking into account all applied transformations like the current
+        mapping mode, scale factors, affine transformation.
+        """
+
+    def SetAxisOrientation(self, xLeftRight: bool, yBottomUp: bool) -> None:
+        """
+        SetAxisOrientation(xLeftRight, yBottomUp) -> None
+        
+        Sets the x and y axis orientation (i.e. the direction from lowest to
+        highest values on the axis).
+        """
+
+    def SetDeviceOrigin(self, x: int, y: int) -> None:
+        """
+        SetDeviceOrigin(x, y) -> None
+        
+        Sets the device origin (i.e. the origin in pixels after scaling has
+        been applied).
+        """
+
+    def SetMapMode(self, mode: MappingMode) -> None:
+        """
+        SetMapMode(mode) -> None
+        
+        The mapping mode of the device context defines the unit of measurement
+        used to convert logical units to device units.
+        """
+
+    def SetUserScale(self, xScale: float, yScale: float) -> None:
+        """
+        SetUserScale(xScale, yScale) -> None
+        
+        Sets the user scaling factor, useful for applications which require
+        'zooming'.
+        """
+
+    def SetLogicalScale(self, x: float, y: float) -> None:
+        """
+        SetLogicalScale(x, y) -> None
+        
+        Set the scale to use for translating wxDC coordinates to the physical
+        pixels.
+        """
+
+    def GetLogicalScale(self) -> Tuple[float, float]:
+        """
+        GetLogicalScale() -> Tuple[float, float]
+        
+        Return the scale set by the last call to SetLogicalScale().
+        """
+
+    def SetLogicalOrigin(self, x: int, y: int) -> None:
+        """
+        SetLogicalOrigin(x, y) -> None
+        
+        Change the offset used for translating wxDC coordinates.
+        """
+
+    def GetLogicalOrigin(self) -> Tuple[int, int]:
+        """
+        GetLogicalOrigin() -> Tuple[int, int]
+        
+        Return the coordinates of the logical point (0, 0).
+        """
+
+    def CanUseTransformMatrix(self) -> bool:
+        """
+        CanUseTransformMatrix() -> bool
+        
+        Check if the use of transformation matrix is supported by the current
+        system.
+        """
+
+    def SetTransformMatrix(self, matrix: AffineMatrix2D) -> bool:
+        """
+        SetTransformMatrix(matrix) -> bool
+        
+        Set the transformation matrix.
+        """
+
+    def GetTransformMatrix(self) -> AffineMatrix2D:
+        """
+        GetTransformMatrix() -> AffineMatrix2D
+        
+        Return the transformation matrix used by this device context.
+        """
+
+    def ResetTransformMatrix(self) -> None:
+        """
+        ResetTransformMatrix() -> None
+        
+        Revert the transformation matrix to identity matrix.
+        """
+
+    def GetCharHeight(self) -> int:
+        """
+        GetCharHeight() -> int
+        
+        Gets the character height of the currently set font.
+        """
+
+    def GetCharWidth(self) -> int:
+        """
+        GetCharWidth() -> int
+        
+        Gets the average character width of the currently set font.
+        """
+
+    def GetFontMetrics(self) -> FontMetrics:
+        """
+        GetFontMetrics() -> FontMetrics
+        
+        Returns the various font characteristics.
+        """
+
+    def GetFullMultiLineTextExtent(self, string: str, font: Font=nullptr) -> Tuple[int, int, int]:
+        """
+        GetFullMultiLineTextExtent(string, font=nullptr) -> Tuple[int, int, int]
+        
+        Gets the dimensions of the string as it would be drawn.
+        """
+
+    def GetPartialTextExtents(self, text: str) -> List[int]:
+        """
+        GetPartialTextExtents(text) -> List[int]
+        
+        Fills the widths array with the widths from the beginning of text to
+        the corresponding character of text.
+        """
+
+    def GetFullTextExtent(self, string: str, font: Font=nullptr) -> Tuple[int, int, int, int]:
+        """
+        GetFullTextExtent(string, font=nullptr) -> Tuple[int, int, int, int]
+        
+        Gets the dimensions of the string as it would be drawn.
+        """
+
+    def IsOk(self) -> bool:
+        """
+        IsOk() -> bool
+        
+        Returns true if the DC is ok to use.
+        """
+
+    def GetContentScaleFactor(self) -> float:
+        """
+        GetContentScaleFactor() -> float
+        
+        Returns the factor used for converting logical pixels to physical
+        ones.
+        """
+
+    def GetDepth(self) -> int:
+        """
+        GetDepth() -> int
+        
+        Returns the depth (number of bits/pixel) of this DC.
+        """
+
+    def GetDeviceOrigin(self) -> Point:
+        """
+        GetDeviceOrigin() -> Point
+        
+        Returns the current device origin.
+        """
+
+    def GetMapMode(self) -> MappingMode:
+        """
+        GetMapMode() -> MappingMode
+        
+        Gets the current mapping mode for the device context.
+        """
+
+    def GetPPI(self) -> Size:
+        """
+        GetPPI() -> Size
+        
+        Returns the resolution of the device in pixels per inch.
+        """
+
+    @overload
+    def FromDIP(self, pt: Point) -> Point:
+        ...
+
+    @overload
+    def FromDIP(self, d: int) -> int:
+        ...
+
+    @overload
+    def FromDIP(self, sz: Size) -> Size:
+        """
+        FromDIP(sz) -> Size
+        FromDIP(pt) -> Point
+        FromDIP(d) -> int
+        
+        Convert DPI-independent pixel values to the value in pixels
+        appropriate for the DC.
+        """
+
+    @overload
+    def ToDIP(self, pt: Point) -> Point:
+        ...
+
+    @overload
+    def ToDIP(self, d: int) -> int:
+        ...
+
+    @overload
+    def ToDIP(self, sz: Size) -> Size:
+        """
+        ToDIP(sz) -> Size
+        ToDIP(pt) -> Point
+        ToDIP(d) -> int
+        
+        Convert pixel values of the current DC to DPI-independent pixel
+        values.
+        """
+
+    def GetSize(self) -> Size:
+        """
+        GetSize() -> Size
+        
+        This is an overloaded member function, provided for convenience. It
+        differs from the above function only in what argument(s) it accepts.
+        """
+
+    def GetSizeMM(self) -> Size:
+        """
+        GetSizeMM() -> Size
+        
+        This is an overloaded member function, provided for convenience. It
+        differs from the above function only in what argument(s) it accepts.
+        """
+
+    def GetUserScale(self) -> Tuple[float, float]:
+        """
+        GetUserScale() -> Tuple[float, float]
+        
+        Gets the current user scale factor.
+        """
+
+    def GetFont(self) -> Font:
+        """
+        GetFont() -> Font
+        
+        Gets the current font.
+        """
+
+    def GetLayoutDirection(self) -> LayoutDirection:
+        """
+        GetLayoutDirection() -> LayoutDirection
+        
+        Gets the current layout direction of the device context.
+        """
+
+    def SetFont(self, font: Font) -> None:
+        """
+        SetFont(font) -> None
+        
+        Sets the current font for the DC.
+        """
+
+    def SetLayoutDirection(self, dir: LayoutDirection) -> None:
+        """
+        SetLayoutDirection(dir) -> None
+        
+        Sets the current layout direction for the device context.
+        """
+    @property
+    def CharHeight(self) -> int: ...
+    @property
+    def CharWidth(self) -> int: ...
+    @property
+    def ContentScaleFactor(self) -> float: ...
+    @property
+    def Depth(self) -> int: ...
+    @property
+    def DeviceOrigin(self) -> Point: ...
+    @property
+    def Font(self) -> Font: ...
+    @Font.setter
+    def Font(self, value: Font, /) -> None: ...
+    @property
+    def FontMetrics(self) -> FontMetrics: ...
+    @property
+    def LayoutDirection(self) -> LayoutDirection: ...
+    @LayoutDirection.setter
+    def LayoutDirection(self, value: LayoutDirection, /) -> None: ...
+    @property
+    def MapMode(self) -> MappingMode: ...
+    @MapMode.setter
+    def MapMode(self, value: MappingMode, /) -> None: ...
+    @property
+    def PPI(self) -> Size: ...
+    @property
+    def Size(self) -> Size: ...
+    @property
+    def SizeMM(self) -> Size: ...
     @property
     def TransformMatrix(self) -> AffineMatrix2D: ...
     @TransformMatrix.setter
     def TransformMatrix(self, value: AffineMatrix2D, /) -> None: ...
-# end of class DC
+# end of class ReadOnlyDC
 
 
 class DCClipper:
@@ -18463,16 +19229,14 @@ class WindowDC(DC):
     """
     WindowDC(window) -> None
     
-    A wxWindowDC must be constructed if an application wishes to paint on
-    the whole area of a window (client and decorations).
+    Deprecated class for drawing on the entire window.
     """
 
     def __init__(self, window: Window) -> None:
         """
         WindowDC(window) -> None
         
-        A wxWindowDC must be constructed if an application wishes to paint on
-        the whole area of a window (client and decorations).
+        Deprecated class for drawing on the entire window.
         """
 # end of class WindowDC
 
@@ -18481,16 +19245,22 @@ class ClientDC(WindowDC):
     """
     ClientDC(window) -> None
     
-    wxClientDC is primarily useful for obtaining information about the
-    window from outside EVT_PAINT() handler.
+    Deprecated class for drawing on the client area of a window.
     """
 
     def __init__(self, window: Window) -> None:
         """
         ClientDC(window) -> None
         
-        wxClientDC is primarily useful for obtaining information about the
-        window from outside EVT_PAINT() handler.
+        Deprecated class for drawing on the client area of a window.
+        """
+
+    @staticmethod
+    def CanBeUsedForDrawing(window: Window) -> bool:
+        """
+        CanBeUsedForDrawing(window) -> bool
+        
+        Return true if drawing on wxClientDC actually works.
         """
 # end of class ClientDC
 
@@ -18704,14 +19474,14 @@ class ScreenDC(DC):
     """
     ScreenDC() -> None
     
-    A wxScreenDC can be used to paint on the screen.
+    Deprecated class for drawing on the screen.
     """
 
     def __init__(self) -> None:
         """
         ScreenDC() -> None
         
-        A wxScreenDC can be used to paint on the screen.
+        Deprecated class for drawing on the screen.
         """
 
     @staticmethod
@@ -18724,7 +19494,7 @@ class ScreenDC(DC):
 
     @overload
     @staticmethod
-    def StartDrawingOnTop(rect: Optional[Rect]=None) -> bool:
+    def StartDrawingOnTop(rect: Rect=nullptr) -> bool:
         ...
 
     @overload
@@ -18732,7 +19502,7 @@ class ScreenDC(DC):
     def StartDrawingOnTop(window: Window) -> bool:
         """
         StartDrawingOnTop(window) -> bool
-        StartDrawingOnTop(rect=None) -> bool
+        StartDrawingOnTop(rect=nullptr) -> bool
         
         Use this in conjunction with EndDrawingOnTop() to ensure that drawing
         to the screen occurs on top of existing windows.
@@ -18901,15 +19671,22 @@ SVG_SHAPE_RENDERING_OPTIMISE_SPEED = _SVGShapeRenderingMode.SVG_SHAPE_RENDERING_
 
 class SVGFileDC(DC):
     """
-    SVGFileDC(filename, width=320, height=240, dpi=72, title="") -> None
+    SVGFileDC(filename, width=320, height=240, dpi=SVG_DEFAULT_DPI, title="") -> None
+    SVGFileDC(size, filename="", title="", dpi=SVG_DEFAULT_DPI) -> None
     
     A wxSVGFileDC is a device context onto which graphics and text can be
     drawn, and the output produced as a vector file, in SVG format.
     """
 
-    def __init__(self, filename: str, width: int=320, height: int=240, dpi: float=72, title: str="") -> None:
+    @overload
+    def __init__(self, size: Size, filename: str="", title: str="", dpi: float=SVG_DEFAULT_DPI) -> None:
+        ...
+
+    @overload
+    def __init__(self, filename: str, width: int=320, height: int=240, dpi: float=SVG_DEFAULT_DPI, title: str="") -> None:
         """
-        SVGFileDC(filename, width=320, height=240, dpi=72, title="") -> None
+        SVGFileDC(filename, width=320, height=240, dpi=SVG_DEFAULT_DPI, title="") -> None
+        SVGFileDC(size, filename="", title="", dpi=SVG_DEFAULT_DPI) -> None
         
         A wxSVGFileDC is a device context onto which graphics and text can be
         drawn, and the output produced as a vector file, in SVG format.
@@ -19014,6 +19791,57 @@ class SVGFileDC(DC):
         Set the shape rendering mode of the generated SVG.
         """
 
+    def BeginAccessibleGroup(self, attributes: SVGAttributes, title: str="", desc: str="") -> None:
+        """
+        BeginAccessibleGroup(attributes, title="", desc="") -> None
+        
+        Opens an accessible group wrapping all subsequent drawing until the
+        matching EndAccessibleGroup() call.
+        """
+
+    def EndAccessibleGroup(self) -> None:
+        """
+        EndAccessibleGroup() -> None
+        
+        Closes the accessible group opened by the most recent
+        BeginAccessibleGroup() call.
+        """
+
+    def BeginLayer(self, opacity: float) -> None:
+        """
+        BeginLayer(opacity) -> None
+        
+        Opens a new layer with the given opacity.
+        """
+
+    def EndLayer(self) -> None:
+        """
+        EndLayer() -> None
+        
+        Closes the layer opened by the most recent BeginLayer() call.
+        """
+
+    def GetSVGDocument(self) -> str:
+        """
+        GetSVGDocument() -> str
+        
+        Returns the SVG document as a string.
+        """
+
+    def Save(self) -> bool:
+        """
+        Save() -> bool
+        
+        Saves the SVG document to the file specified in the constructor.
+        """
+
+    def GetGraphicsContext(self) -> GraphicsContext:
+        """
+        GetGraphicsContext() -> GraphicsContext
+        
+        Returns the graphics context associated with this DC.
+        """
+
     def DestroyClippingRegion(self) -> None:
         """
         DestroyClippingRegion() -> None
@@ -19024,9 +19852,13 @@ class SVGFileDC(DC):
     @property
     def Depth(self) -> int: ...
     @property
+    def GraphicsContext(self) -> GraphicsContext: ...
+    @property
     def LogicalFunction(self) -> RasterOperationMode: ...
     @LogicalFunction.setter
     def LogicalFunction(self, value: RasterOperationMode, /) -> None: ...
+    @property
+    def SVGDocument(self) -> str: ...
 # end of class SVGFileDC
 
 
@@ -19082,6 +19914,184 @@ class SVGBitmapFileHandler(SVGBitmapHandler):
         """
 # end of class SVGBitmapFileHandler
 
+
+class SVGAttributes:
+    """
+    SVGAttributes() -> None
+    
+    Helper class for building a set of SVG and ARIA attributes to attach
+    to an accessible group in the output of wxSVGFileDC.
+    """
+
+    def __init__(self) -> None:
+        """
+        SVGAttributes() -> None
+        
+        Helper class for building a set of SVG and ARIA attributes to attach
+        to an accessible group in the output of wxSVGFileDC.
+        """
+
+    def Role(self, role: str) -> SVGAttributes:
+        """
+        Role(role) -> SVGAttributes
+        
+        Sets the role attribute, which classifies the element for assistive
+        technology.
+        """
+
+    def GetRole(self) -> str:
+        """
+        GetRole() -> str
+        
+        Returns the role attribute.
+        """
+
+    def AriaLabel(self, label: str) -> SVGAttributes:
+        """
+        AriaLabel(label) -> SVGAttributes
+        
+        Sets the aria-label attribute: a short accessible name read aloud by
+        screen readers.
+        """
+
+    def GetAriaLabel(self) -> str:
+        """
+        GetAriaLabel() -> str
+        
+        Returns the aria-label attribute.
+        """
+
+    def AriaLabelledBy(self, id: str) -> SVGAttributes:
+        """
+        AriaLabelledBy(id) -> SVGAttributes
+        
+        Sets the aria-labelledby attribute: instead of supplying a name
+        inline, points at the id of another element whose text content
+        provides the accessible name.
+        """
+
+    def GetAriaLabelledBy(self) -> str:
+        """
+        GetAriaLabelledBy() -> str
+        
+        Returns the aria-labelledby attribute.
+        """
+
+    def AriaDescribedBy(self, id: str) -> SVGAttributes:
+        """
+        AriaDescribedBy(id) -> SVGAttributes
+        
+        Sets the aria-describedby attribute: points at the id of another
+        element whose text content provides a longer description, announced
+        after the accessible name.
+        """
+
+    def GetAriaDescribedBy(self) -> str:
+        """
+        GetAriaDescribedBy() -> str
+        
+        Returns the aria-describedby attribute.
+        """
+
+    def AriaHidden(self, hidden: bool=True) -> SVGAttributes:
+        """
+        AriaHidden(hidden=True) -> SVGAttributes
+        
+        Sets the aria-hidden attribute.
+        """
+
+    def IsAriaHidden(self) -> bool:
+        """
+        IsAriaHidden() -> bool
+        
+        Returns true if the aria-hidden attribute is set to "true".
+        """
+
+    def AriaDetails(self, id: str) -> SVGAttributes:
+        """
+        AriaDetails(id) -> SVGAttributes
+        
+        Sets the aria-details attribute: points at the id of another element
+        containing extended information about this one (e.g., a data table
+        describing a chart).
+        """
+
+    def GetAriaDetails(self) -> str:
+        """
+        GetAriaDetails() -> str
+        
+        Returns the aria-details attribute.
+        """
+
+    def AriaRoleDescription(self, desc: str) -> SVGAttributes:
+        """
+        AriaRoleDescription(desc) -> SVGAttributes
+        
+        Sets the aria-roledescription attribute: a human-readable, optionally
+        localized phrase that replaces the default spoken role (for example
+        "pie chart" instead of "graphic").
+        """
+
+    def GetAriaRoleDescription(self) -> str:
+        """
+        GetAriaRoleDescription() -> str
+        
+        Returns the aria-roledescription attribute.
+        """
+
+    def Id(self, id: str) -> SVGAttributes:
+        """
+        Id(id) -> SVGAttributes
+        
+        Sets the id attribute, giving the element a unique identifier other
+        attributes (such as aria-labelledby) or stylesheets can reference.
+        """
+
+    def GetId(self) -> str:
+        """
+        GetId() -> str
+        
+        Returns the id attribute.
+        """
+
+    def Class(self, classname: str) -> SVGAttributes:
+        """
+        Class(classname) -> SVGAttributes
+        
+        Sets the class attribute, used to associate the element with one or
+        more CSS classes for styling the SVG output.
+        """
+
+    def GetClass(self) -> str:
+        """
+        GetClass() -> str
+        
+        Returns the class attribute.
+        """
+
+    def Add(self, name: str, value: str) -> SVGAttributes:
+        """
+        Add(name, value) -> SVGAttributes
+        
+        Adds or updates an arbitrary attribute.
+        """
+
+    def GetAttribute(self, name: str) -> str:
+        """
+        GetAttribute(name) -> str
+        
+        Returns the value of the attribute with the given name.
+        """
+
+    def IsEmpty(self) -> bool:
+        """
+        IsEmpty() -> bool
+        
+        Returns true if no attributes have been set.
+        """
+# end of class SVGAttributes
+
+SVG_DEFAULT_DPI: constexprdouble
 #-- end-dcsvg --#
 #-- begin-metafile --#
 
@@ -19224,8 +20234,8 @@ class GraphicsObject(Object):
         """
         GetRenderer() -> GraphicsRenderer
         
-        Returns the renderer that was used to create this instance, or NULL if
-        it has not been initialized yet.
+        Returns the renderer that was used to create this instance, or nullptr
+        if it has not been initialized yet.
         """
 
     def IsNull(self) -> bool:
@@ -19270,7 +20280,7 @@ class GraphicsBitmap(GraphicsObject):
         """
         ConvertToImage() -> Image
         
-        Return the contents of this bitmap as wxImage.
+        Return the contents of this bitmap as a wxImage.
         """
 
     def GetNativeBitmap(self) -> Any:
@@ -19302,7 +20312,7 @@ class GraphicsPenInfo:
     """
     GraphicsPenInfo(colour=Colour(), width=1.0, style=PENSTYLE_SOLID) -> None
     
-    This class is a helper used for wxGraphicsPen creation using named
+    This class is a helper used for wxGraphicsPen creation using the named
     parameter idiom: it allows specifying various wxGraphicsPen attributes
     using the chained calls to its clearly named methods instead of
     passing them in the fixed order to wxGraphicsPen constructors.
@@ -19312,7 +20322,7 @@ class GraphicsPenInfo:
         """
         GraphicsPenInfo(colour=Colour(), width=1.0, style=PENSTYLE_SOLID) -> None
         
-        This class is a helper used for wxGraphicsPen creation using named
+        This class is a helper used for wxGraphicsPen creation using the named
         parameter idiom: it allows specifying various wxGraphicsPen attributes
         using the chained calls to its clearly named methods instead of
         passing them in the fixed order to wxGraphicsPen constructors.
@@ -19321,31 +20331,44 @@ class GraphicsPenInfo:
     def Colour(self, col: Colour) -> GraphicsPenInfo:
         """
         Colour(col) -> GraphicsPenInfo
+        
+        Sets the colour for the pen.
         """
 
     def Width(self, width: float) -> GraphicsPenInfo:
         """
         Width(width) -> GraphicsPenInfo
+        
+        Sets the line width for the pen.
         """
 
     def Style(self, style: PenStyle) -> GraphicsPenInfo:
         """
         Style(style) -> GraphicsPenInfo
+        
+        Sets the style for the pen.
         """
 
     def Stipple(self, stipple: Bitmap) -> GraphicsPenInfo:
         """
         Stipple(stipple) -> GraphicsPenInfo
+        
+        Sets the bitmap used for stippling.
         """
 
     def Join(self, join: PenJoin) -> GraphicsPenInfo:
         """
         Join(join) -> GraphicsPenInfo
+        
+        Sets the join for the pen, which is the appearance of where two lines
+        meet or overlap.
         """
 
     def Cap(self, cap: PenCap) -> GraphicsPenInfo:
         """
         Cap(cap) -> GraphicsPenInfo
+        
+        Sets the cap (i.e., the end point) for the pen.
         """
 
     @overload
@@ -19357,6 +20380,8 @@ class GraphicsPenInfo:
         """
         LinearGradient(x1, y1, x2, y2, c1, c2, matrix=NullGraphicsMatrix) -> GraphicsPenInfo
         LinearGradient(x1, y1, x2, y2, stops, matrix=NullGraphicsMatrix) -> GraphicsPenInfo
+        
+        Applies a linear gradient to the pen.
         """
 
     @overload
@@ -19368,96 +20393,134 @@ class GraphicsPenInfo:
         """
         RadialGradient(startX, startY, endX, endY, radius, oColor, cColor, matrix=NullGraphicsMatrix) -> GraphicsPenInfo
         RadialGradient(startX, startY, endX, endY, radius, stops, matrix=NullGraphicsMatrix) -> GraphicsPenInfo
+        
+        Applies a radial (i.e., circular) gradient to the pen.
         """
 
     def GetColour(self) -> Colour:
         """
         GetColour() -> Colour
+        
+        Returns the pen's colour.
         """
 
     def GetStipple(self) -> Bitmap:
         """
         GetStipple() -> Bitmap
+        
+        Returns the pen's stipple bitmap.
         """
 
     def GetStyle(self) -> PenStyle:
         """
         GetStyle() -> PenStyle
+        
+        Returns the pen's style.
         """
 
     def GetJoin(self) -> PenJoin:
         """
         GetJoin() -> PenJoin
+        
+        Returns the pen's joining method.
         """
 
     def GetCap(self) -> PenCap:
         """
         GetCap() -> PenCap
+        
+        Returns the pen's cap (i.e., end-point style).
         """
 
     def IsTransparent(self) -> bool:
         """
         IsTransparent() -> bool
+        
+        Returns whether the pen is transparent.
         """
 
     def GetWidth(self) -> float:
         """
         GetWidth() -> float
+        
+        Returns the pen's line width.
         """
 
     def GetGradientType(self) -> GradientType:
         """
         GetGradientType() -> GradientType
+        
+        Returns the pen's gradient type.
         """
 
     def GetX1(self) -> float:
         """
         GetX1() -> float
+        
+        Returns the x coordinate of the starting point (if using a gradient).
         """
 
     def GetY1(self) -> float:
         """
         GetY1() -> float
+        
+        Returns the y coordinate of the starting point (if using a gradient).
         """
 
     def GetX2(self) -> float:
         """
         GetX2() -> float
+        
+        Returns the x coordinate of the ending point (if using a gradient).
         """
 
     def GetY2(self) -> float:
         """
         GetY2() -> float
+        
+        Returns the y coordinate of the ending point (if using a gradient).
         """
 
     def GetStartX(self) -> float:
         """
         GetStartX() -> float
+        
+        Returns the x coordinate of the starting point (if using a gradient).
         """
 
     def GetStartY(self) -> float:
         """
         GetStartY() -> float
+        
+        Returns the y coordinate of the starting point (if using a gradient).
         """
 
     def GetEndX(self) -> float:
         """
         GetEndX() -> float
+        
+        Returns the x coordinate of the ending point (if using a gradient).
         """
 
     def GetEndY(self) -> float:
         """
         GetEndY() -> float
+        
+        Returns the y coordinate of the ending point (if using a gradient).
         """
 
     def GetRadius(self) -> float:
         """
         GetRadius() -> float
+        
+        Returns the radius of the radial gradient.
         """
 
     def GetStops(self) -> GraphicsGradientStops:
         """
         GetStops() -> GraphicsGradientStops
+        
+        Returns the stops of the gradient.
         """
     @property
     def EndX(self) -> float: ...
@@ -19583,20 +20646,26 @@ class GraphicsContext(GraphicsObject):
         ...
 
     @overload
+    def Clip(self, rect: Rect2D) -> None:
+        ...
+
+    @overload
     def Clip(self, region: Region) -> None:
         """
         Clip(region) -> None
         Clip(x, y, w, h) -> None
+        Clip(rect) -> None
         
         Sets the clipping region to the intersection of the given region and
         the previously set clipping region.
         """
 
-    def GetClipBox(self, x: float, y: float, w: float, h: float) -> None:
+    def GetClipBox(self) -> Rect2D:
         """
-        GetClipBox(x, y, w, h) -> None
+        GetClipBox() -> Rect2D
         
-        Returns bounding box of the current clipping region.
+        This is an overloaded member function, provided for convenience. It
+        differs from the above function only in what argument(s) it accepts.
         """
 
     @overload
@@ -19609,7 +20678,7 @@ class GraphicsContext(GraphicsObject):
         CreateMatrix(a=1.0, b=0.0, c=0.0, d=1.0, tx=0.0, ty=0.0) -> GraphicsMatrix
         CreateMatrix(mat) -> GraphicsMatrix
         
-        Creates a native affine transformation matrix from the passed in
+        Creates a native affine transformation matrix from the passed-in
         values.
         """
 
@@ -19617,7 +20686,7 @@ class GraphicsContext(GraphicsObject):
         """
         ConcatTransform(matrix) -> None
         
-        Concatenates the passed in transform with the current transform of
+        Concatenates the passed-in transform with the current transform of
         this context.
         """
 
@@ -19639,7 +20708,7 @@ class GraphicsContext(GraphicsObject):
         """
         Scale(xScale, yScale) -> None
         
-        Scales the current transformation matrix.
+        Scales (i.e., shrinks or grows) the current transformation matrix.
         """
 
     def SetTransform(self, matrix: GraphicsMatrix) -> None:
@@ -19649,11 +20718,17 @@ class GraphicsContext(GraphicsObject):
         Sets the current transformation matrix of this context.
         """
 
+    @overload
+    def Translate(self, pt: Point2D) -> None:
+        ...
+
+    @overload
     def Translate(self, dx: float, dy: float) -> None:
         """
         Translate(dx, dy) -> None
+        Translate(pt) -> None
         
-        Translates the current transformation matrix.
+        Translates (i.e., moves) the current transformation matrix.
         """
 
     def CreateBrush(self, brush: Brush) -> GraphicsBrush:
@@ -19733,24 +20808,41 @@ class GraphicsContext(GraphicsObject):
         ...
 
     @overload
+    def DrawBitmap(self, bmp: GraphicsBitmap, rect: Rect2D) -> None:
+        ...
+
+    @overload
     def DrawBitmap(self, bmp: GraphicsBitmap, x: float, y: float, w: float, h: float) -> None:
         """
         DrawBitmap(bmp, x, y, w, h) -> None
         DrawBitmap(bmp, x, y, w, h) -> None
+        DrawBitmap(bmp, rect) -> None
         
         Draws the bitmap.
         """
 
+    @overload
+    def DrawEllipse(self, rect: Rect2D) -> None:
+        ...
+
+    @overload
     def DrawEllipse(self, x: float, y: float, w: float, h: float) -> None:
         """
         DrawEllipse(x, y, w, h) -> None
+        DrawEllipse(rect) -> None
         
         Draws an ellipse.
         """
 
+    @overload
+    def DrawIcon(self, icon: Icon, rect: Rect2D) -> None:
+        ...
+
+    @overload
     def DrawIcon(self, icon: Icon, x: float, y: float, w: float, h: float) -> None:
         """
         DrawIcon(icon, x, y, w, h) -> None
+        DrawIcon(icon, rect) -> None
         
         Draws the icon.
         """
@@ -19769,19 +20861,35 @@ class GraphicsContext(GraphicsObject):
         Draws the path by first filling and then stroking.
         """
 
+    @overload
+    def DrawRectangle(self, rect: Rect2D) -> None:
+        ...
+
+    @overload
     def DrawRectangle(self, x: float, y: float, w: float, h: float) -> None:
         """
         DrawRectangle(x, y, w, h) -> None
+        DrawRectangle(rect) -> None
         
         Draws a rectangle.
         """
 
+    @overload
+    def DrawRoundedRectangle(self, rect: Rect2D, radius: float) -> None:
+        ...
+
+    @overload
     def DrawRoundedRectangle(self, x: float, y: float, w: float, h: float, radius: float) -> None:
         """
         DrawRoundedRectangle(x, y, w, h, radius) -> None
+        DrawRoundedRectangle(rect, radius) -> None
         
         Draws a rounded rectangle.
         """
+
+    @overload
+    def DrawText(self, str: str, pt: Point2D) -> None:
+        ...
 
     @overload
     def DrawText(self, str: str, x: float, y: float, angle: float) -> None:
@@ -19799,11 +20907,25 @@ class GraphicsContext(GraphicsObject):
     def DrawText(self, str: str, x: float, y: float) -> None:
         """
         DrawText(str, x, y) -> None
+        DrawText(str, pt) -> None
         DrawText(str, x, y, angle) -> None
         DrawText(str, x, y, backgroundBrush) -> None
         DrawText(str, x, y, angle, backgroundBrush) -> None
         
         Draws text at the defined position.
+        """
+
+    @overload
+    def ClearRectangle(self, rect: Rect2D) -> None:
+        ...
+
+    @overload
+    def ClearRectangle(self, x: float, y: float, w: float, h: float) -> None:
+        """
+        ClearRectangle(x, y, w, h) -> None
+        ClearRectangle(rect) -> None
+        
+        Paints a transparent rectangle (only useful for bitmaps or windows).
         """
 
     def CreatePath(self) -> GraphicsPath:
@@ -19820,9 +20942,15 @@ class GraphicsContext(GraphicsObject):
         Fills the path with the current brush.
         """
 
+    @overload
+    def StrokeLine(self, pt1: Point2D, pt2: Point2D) -> None:
+        ...
+
+    @overload
     def StrokeLine(self, x1: float, y1: float, x2: float, y2: float) -> None:
         """
         StrokeLine(x1, y1, x2, y2) -> None
+        StrokeLine(pt1, pt2) -> None
         
         Strokes a single line.
         """
@@ -19892,15 +21020,15 @@ class GraphicsContext(GraphicsObject):
         """
         StartDoc(message) -> bool
         
-        Begin a new document (relevant only for printing / pdf etc.) If there
-        is a progress dialog, message will be shown.
+        Begin a new document (relevant only for printing / pdf / etc.) If
+        there is a progress dialog, message will be shown.
         """
 
     def EndDoc(self) -> None:
         """
         EndDoc() -> None
         
-        Done with that document (relevant only for printing / pdf etc.)
+        Done with that document (relevant only for printing / pdf / etc.)
         """
 
     def StartPage(self, width: float=0, height: float=0) -> None:
@@ -19915,7 +21043,7 @@ class GraphicsContext(GraphicsObject):
         """
         EndPage() -> None
         
-        Ends the current page (relevant only for printing / pdf etc.)
+        Ends the current page (relevant only for printing / pdf / etc.)
         """
 
     def CreateBitmap(self, bitmap: Bitmap) -> GraphicsBitmap:
@@ -19943,7 +21071,8 @@ class GraphicsContext(GraphicsObject):
         """
         BeginLayer(opacity) -> None
         
-        All rendering will be done into a fully transparent temporary context.
+        All rendering will be done into a fully transparent, temporary
+        context.
         """
 
     def EndLayer(self) -> None:
@@ -19984,14 +21113,14 @@ class GraphicsContext(GraphicsObject):
         GetNativeContext() -> Any
         
         Returns the native context (CGContextRef for Core Graphics, Graphics
-        pointer for GDIPlus and cairo_t pointer for cairo).
+        pointer for GDI+ and cairo_t pointer for Cairo).
         """
 
     def SetAntialiasMode(self, antialias: AntialiasMode) -> bool:
         """
         SetAntialiasMode(antialias) -> bool
         
-        Sets the antialiasing mode, returns true if it supported.
+        Sets the antialiasing mode; returns true if it supported.
         """
 
     def GetAntialiasMode(self) -> AntialiasMode:
@@ -20005,7 +21134,7 @@ class GraphicsContext(GraphicsObject):
         """
         SetInterpolationQuality(interpolation) -> bool
         
-        Sets the interpolation quality, returns true if it is supported.
+        Sets the interpolation quality; returns true if it is supported.
         """
 
     def GetInterpolationQuality(self) -> InterpolationQuality:
@@ -20048,7 +21177,7 @@ class GraphicsContext(GraphicsObject):
         """
         GetWindow() -> Window
         
-        Returns the associated window if any.
+        Returns the associated window, if any.
         """
 
     def ShouldOffset(self) -> bool:
@@ -20133,6 +21262,8 @@ class GraphicsContext(GraphicsObject):
     def AntialiasMode(self) -> AntialiasMode: ...
     @AntialiasMode.setter
     def AntialiasMode(self, value: AntialiasMode, /) -> None: ...
+    @property
+    def ClipBox(self) -> Rect2D: ...
     @property
     def CompositionMode(self) -> CompositionMode: ...
     @CompositionMode.setter
@@ -20240,15 +21371,11 @@ class GraphicsGradientStops:
     def Item(self, n: int) -> GraphicsGradientStop:
         """
         Item(n) -> GraphicsGradientStop
-        
-        Returns the stop at the given index.
         """
 
     def GetCount(self) -> int:
         """
         GetCount() -> int
-        
-        Returns the number of stops.
         """
 
     def SetStartColour(self, col: Colour) -> None:
@@ -20261,8 +21388,6 @@ class GraphicsGradientStops:
     def GetStartColour(self) -> Colour:
         """
         GetStartColour() -> Colour
-        
-        Returns the start colour.
         """
 
     def SetEndColour(self, col: Colour) -> None:
@@ -20275,8 +21400,6 @@ class GraphicsGradientStops:
     def GetEndColour(self) -> Colour:
         """
         GetEndColour() -> Colour
-        
-        Returns the end colour.
         """
 
     def __len__(self) -> Py_ssize_t:
@@ -20373,7 +21496,8 @@ class GraphicsMatrix(GraphicsObject):
         """
         TransformDistance(dx, dy) -> Tuple[float, float]
         
-        Applies this matrix to a distance (ie.
+        Applies this matrix to a distance (i.e., performs all transforms
+        except translations).
         """
 
     def TransformPoint(self, x: float, y: float) -> Tuple[float, float]:
@@ -20383,9 +21507,15 @@ class GraphicsMatrix(GraphicsObject):
         Applies this matrix to a point.
         """
 
+    @overload
+    def Translate(self, pt: Point2D) -> None:
+        ...
+
+    @overload
     def Translate(self, dx: float, dy: float) -> None:
         """
         Translate(dx, dy) -> None
+        Translate(pt) -> None
         
         Translates this matrix.
         """
@@ -20417,8 +21547,8 @@ class GraphicsPath(GraphicsObject):
         AddArcToPoint(x1, y1, x2, y2, r) -> None
         
         Adds an arc (of a circle with radius r) that is tangent to the line
-        connecting current point and (x1, y1) and to the line connecting (x1,
-        y1) and (x2, y2).
+        connecting the current point and (x1, y1) and to the line connecting
+        (x1, y1) and (x2, y2).
         """
 
     def AddCircle(self, x: float, y: float, r: float) -> None:
@@ -20438,15 +21568,21 @@ class GraphicsPath(GraphicsObject):
         AddCurveToPoint(cx1, cy1, cx2, cy2, x, y) -> None
         AddCurveToPoint(c1, c2, e) -> None
         
-        Adds a cubic bezier curve from the current point, using two control
+        Adds a cubic Bézier curve from the current point, using two control
         points and an end point.
         """
 
+    @overload
+    def AddEllipse(self, rect: Rect2D) -> None:
+        ...
+
+    @overload
     def AddEllipse(self, x: float, y: float, w: float, h: float) -> None:
         """
         AddEllipse(x, y, w, h) -> None
+        AddEllipse(rect) -> None
         
-        Appends an ellipse fitting into the passed in rectangle as a new
+        Appends an ellipse fitting into the passed-in rectangle as a new
         closed subpath.
         """
 
@@ -20470,24 +21606,42 @@ class GraphicsPath(GraphicsObject):
         Adds another path onto the current path.
         """
 
+    @overload
+    def AddQuadCurveToPoint(self, cp: Point2D, e: Point2D) -> None:
+        ...
+
+    @overload
     def AddQuadCurveToPoint(self, cx: float, cy: float, x: float, y: float) -> None:
         """
         AddQuadCurveToPoint(cx, cy, x, y) -> None
+        AddQuadCurveToPoint(cp, e) -> None
         
-        Adds a quadratic bezier curve from the current point, using a control
+        Adds a quadratic Bézier curve from the current point, using a control
         point and an end point.
         """
 
+    @overload
+    def AddRectangle(self, rect: Rect2D) -> None:
+        ...
+
+    @overload
     def AddRectangle(self, x: float, y: float, w: float, h: float) -> None:
         """
         AddRectangle(x, y, w, h) -> None
+        AddRectangle(rect) -> None
         
         Appends a rectangle as a new closed subpath.
         """
 
+    @overload
+    def AddRoundedRectangle(self, rect: Rect2D, radius: float) -> None:
+        ...
+
+    @overload
     def AddRoundedRectangle(self, x: float, y: float, w: float, h: float, radius: float) -> None:
         """
         AddRoundedRectangle(x, y, w, h, radius) -> None
+        AddRoundedRectangle(rect, radius) -> None
         
         Appends a rounded rectangle as a new closed subpath.
         """
@@ -20530,7 +21684,7 @@ class GraphicsPath(GraphicsObject):
         GetNativePath() -> Any
         
         Returns the native path (CGPathRef for Core Graphics, Path pointer for
-        GDIPlus and a cairo_path_t pointer for cairo).
+        GDI+ and a cairo_path_t pointer for Cairo).
         """
 
     @overload
@@ -20558,7 +21712,8 @@ class GraphicsPath(GraphicsObject):
         UnGetNativePath(p) -> None
         
         Gives back the native path returned by GetNativePath() because there
-        might be some deallocations necessary (e.g.
+        might be some deallocations necessary (e.g., on Cairo, the native path
+        returned by GetNativePath() is newly allocated each time).
         """
     @property
     def Box(self) -> Rect2D: ...
@@ -20738,9 +21893,9 @@ class GraphicsRenderer(Object):
         Returns the name of the technology used by the renderer.
         """
 
-    def GetVersion(self, major: int, minor: Optional[int]=None, micro: Optional[int]=None) -> None:
+    def GetVersion(self, major: int, minor: int=nullptr, micro: int=nullptr) -> None:
         """
-        GetVersion(major, minor=None, micro=None) -> None
+        GetVersion(major, minor=nullptr, micro=nullptr) -> None
         
         Returns the version major, minor and micro/build of the technology
         used by the renderer.
@@ -20759,7 +21914,7 @@ class GraphicsRenderer(Object):
         """
         GetCairoRenderer() -> GraphicsRenderer
         
-        Returns Cairo renderer.
+        Returns the Cairo renderer.
         """
 
     @staticmethod
@@ -20957,7 +22112,7 @@ class Overlay:
     Overlay() -> None
     
     Creates an overlay over an existing window, allowing for manipulations
-    like rubberbanding, etc.
+    like rubber-banding, etc.
     """
 
     def __init__(self) -> None:
@@ -20965,7 +22120,7 @@ class Overlay:
         Overlay() -> None
         
         Creates an overlay over an existing window, allowing for manipulations
-        like rubberbanding, etc.
+        like rubber-banding, etc.
         """
 
     def Reset(self) -> None:
@@ -20973,6 +22128,13 @@ class Overlay:
         Reset() -> None
         
         Clears the overlay without restoring the former state.
+        """
+
+    def SetOpacity(self, alpha: int) -> None:
+        """
+        SetOpacity(alpha) -> None
+        
+        Sets or unsets constant opacity of the overlay window.
         """
 # end of class Overlay
 
@@ -21090,7 +22252,7 @@ NullPalette: Palette
 #-- end-palette --#
 #-- begin-renderer --#
 
-class _enum_43(IntEnum):
+class _enum_44(IntEnum):
     CONTROL_NONE = auto()
     CONTROL_DISABLED = auto()
     CONTROL_FOCUSED = auto()
@@ -21107,22 +22269,22 @@ class _enum_43(IntEnum):
     CONTROL_CHECKED = auto()
     CONTROL_CHECKABLE = auto()
     CONTROL_UNDETERMINED = auto()
-CONTROL_NONE = _enum_43.CONTROL_NONE
-CONTROL_DISABLED = _enum_43.CONTROL_DISABLED
-CONTROL_FOCUSED = _enum_43.CONTROL_FOCUSED
-CONTROL_PRESSED = _enum_43.CONTROL_PRESSED
-CONTROL_SPECIAL = _enum_43.CONTROL_SPECIAL
-CONTROL_ISDEFAULT = _enum_43.CONTROL_ISDEFAULT
-CONTROL_ISSUBMENU = _enum_43.CONTROL_ISSUBMENU
-CONTROL_EXPANDED = _enum_43.CONTROL_EXPANDED
-CONTROL_SIZEGRIP = _enum_43.CONTROL_SIZEGRIP
-CONTROL_FLAT = _enum_43.CONTROL_FLAT
-CONTROL_CELL = _enum_43.CONTROL_CELL
-CONTROL_CURRENT = _enum_43.CONTROL_CURRENT
-CONTROL_SELECTED = _enum_43.CONTROL_SELECTED
-CONTROL_CHECKED = _enum_43.CONTROL_CHECKED
-CONTROL_CHECKABLE = _enum_43.CONTROL_CHECKABLE
-CONTROL_UNDETERMINED = _enum_43.CONTROL_UNDETERMINED
+CONTROL_NONE = _enum_44.CONTROL_NONE
+CONTROL_DISABLED = _enum_44.CONTROL_DISABLED
+CONTROL_FOCUSED = _enum_44.CONTROL_FOCUSED
+CONTROL_PRESSED = _enum_44.CONTROL_PRESSED
+CONTROL_SPECIAL = _enum_44.CONTROL_SPECIAL
+CONTROL_ISDEFAULT = _enum_44.CONTROL_ISDEFAULT
+CONTROL_ISSUBMENU = _enum_44.CONTROL_ISSUBMENU
+CONTROL_EXPANDED = _enum_44.CONTROL_EXPANDED
+CONTROL_SIZEGRIP = _enum_44.CONTROL_SIZEGRIP
+CONTROL_FLAT = _enum_44.CONTROL_FLAT
+CONTROL_CELL = _enum_44.CONTROL_CELL
+CONTROL_CURRENT = _enum_44.CONTROL_CURRENT
+CONTROL_SELECTED = _enum_44.CONTROL_SELECTED
+CONTROL_CHECKED = _enum_44.CONTROL_CHECKED
+CONTROL_CHECKABLE = _enum_44.CONTROL_CHECKABLE
+CONTROL_UNDETERMINED = _enum_44.CONTROL_UNDETERMINED
 
 class _TitleBarButton(IntEnum):
     TITLEBAR_BUTTON_CLOSE = auto()
@@ -21235,16 +22397,16 @@ class RendererNative:
         Draw a progress bar in the specified rectangle.
         """
 
-    def DrawHeaderButton(self, win: Window, dc: DC, rect: Rect, flags: int=0, sortArrow: HeaderSortIconType=HDR_SORT_ICON_NONE, params: Optional[HeaderButtonParams]=None) -> int:
+    def DrawHeaderButton(self, win: Window, dc: DC, rect: Rect, flags: int=0, sortArrow: HeaderSortIconType=HDR_SORT_ICON_NONE, params: HeaderButtonParams=nullptr) -> int:
         """
-        DrawHeaderButton(win, dc, rect, flags=0, sortArrow=HDR_SORT_ICON_NONE, params=None) -> int
+        DrawHeaderButton(win, dc, rect, flags=0, sortArrow=HDR_SORT_ICON_NONE, params=nullptr) -> int
         
         Draw the header control button (used, for example, by wxListCtrl).
         """
 
-    def DrawHeaderButtonContents(self, win: Window, dc: DC, rect: Rect, flags: int=0, sortArrow: HeaderSortIconType=HDR_SORT_ICON_NONE, params: Optional[HeaderButtonParams]=None) -> int:
+    def DrawHeaderButtonContents(self, win: Window, dc: DC, rect: Rect, flags: int=0, sortArrow: HeaderSortIconType=HDR_SORT_ICON_NONE, params: HeaderButtonParams=nullptr) -> int:
         """
-        DrawHeaderButtonContents(win, dc, rect, flags=0, sortArrow=HDR_SORT_ICON_NONE, params=None) -> int
+        DrawHeaderButtonContents(win, dc, rect, flags=0, sortArrow=HDR_SORT_ICON_NONE, params=nullptr) -> int
         
         Draw the contents of a header control button (label, sort arrows,
         etc.).
@@ -21278,7 +22440,7 @@ class RendererNative:
         Draw a collapse button.
         """
 
-    def GetCollapseButtonSize(self, win: Window, dc: DC) -> Size:
+    def GetCollapseButtonSize(self, win: Window, dc: ReadOnlyDC) -> Size:
         """
         GetCollapseButtonSize(win, dc) -> Size
         
@@ -21433,7 +22595,7 @@ class RendererNative:
         """
         Load(name) -> RendererNative
         
-        Load the renderer from the specified DLL, the returned pointer must be deleted by caller if not NULL when it is not used any more.
+        Load the renderer from the specified DLL, the returned pointer must be deleted by caller if not nullptr when it is not used any more.
         """
 
     @staticmethod
@@ -21441,7 +22603,7 @@ class RendererNative:
         """
         Set(renderer) -> RendererNative
         
-        Set the renderer to use, passing NULL reverts to using the default renderer (the global renderer must always exist).
+        Set the renderer to use, passing nullptr reverts to using the default renderer (the global renderer must always exist).
         """
     @property
     def Version(self) -> RendererVersion: ...
@@ -21475,16 +22637,16 @@ class DelegateRendererNative(RendererNative):
         all of them.
         """
 
-    def DrawHeaderButton(self, win: Window, dc: DC, rect: Rect, flags: int=0, sortArrow: HeaderSortIconType=HDR_SORT_ICON_NONE, params: Optional[HeaderButtonParams]=None) -> int:
+    def DrawHeaderButton(self, win: Window, dc: DC, rect: Rect, flags: int=0, sortArrow: HeaderSortIconType=HDR_SORT_ICON_NONE, params: HeaderButtonParams=nullptr) -> int:
         """
-        DrawHeaderButton(win, dc, rect, flags=0, sortArrow=HDR_SORT_ICON_NONE, params=None) -> int
+        DrawHeaderButton(win, dc, rect, flags=0, sortArrow=HDR_SORT_ICON_NONE, params=nullptr) -> int
         
         Draw the header control button (used, for example, by wxListCtrl).
         """
 
-    def DrawHeaderButtonContents(self, win: Window, dc: DC, rect: Rect, flags: int=0, sortArrow: HeaderSortIconType=HDR_SORT_ICON_NONE, params: Optional[HeaderButtonParams]=None) -> int:
+    def DrawHeaderButtonContents(self, win: Window, dc: DC, rect: Rect, flags: int=0, sortArrow: HeaderSortIconType=HDR_SORT_ICON_NONE, params: HeaderButtonParams=nullptr) -> int:
         """
-        DrawHeaderButtonContents(win, dc, rect, flags=0, sortArrow=HDR_SORT_ICON_NONE, params=None) -> int
+        DrawHeaderButtonContents(win, dc, rect, flags=0, sortArrow=HDR_SORT_ICON_NONE, params=nullptr) -> int
         
         Draw the contents of a header control button (label, sort arrows,
         etc.).
@@ -22253,16 +23415,16 @@ ACC_SEL_REMOVESELECTION = _AccSelectionFlags.ACC_SEL_REMOVESELECTION
 
 class Accessible(Object):
     """
-    Accessible(win=None) -> None
+    Accessible(win=nullptr) -> None
     
     The wxAccessible class allows wxWidgets applications, and wxWidgets
     itself, to return extended information about user interface elements
     to client applications such as screen readers.
     """
 
-    def __init__(self, win: Optional[Window]=None) -> None:
+    def __init__(self, win: Window=nullptr) -> None:
         """
-        Accessible(win=None) -> None
+        Accessible(win=nullptr) -> None
         
         The wxAccessible class allows wxWidgets applications, and wxWidgets
         itself, to return extended information about user interface elements
@@ -22345,7 +23507,7 @@ class Accessible(Object):
         """
         GetParent() -> Tuple[AccStatus, Accessible]
         
-        Returns the parent of this object, or NULL.
+        Returns the parent of this object, or nullptr.
         """
 
     def GetRole(self, childId: int) -> Tuple[AccStatus, AccRole]:
@@ -22448,7 +23610,7 @@ ACCEL_CMD = _AcceleratorEntryFlags.ACCEL_CMD
 
 class AcceleratorEntry:
     """
-    AcceleratorEntry(flags=0, keyCode=0, cmd=0, item=None) -> None
+    AcceleratorEntry(flags=0, keyCode=0, cmd=0, item=nullptr) -> None
     AcceleratorEntry(entry) -> None
     
     An object used by an application wishing to create an accelerator
@@ -22460,9 +23622,9 @@ class AcceleratorEntry:
         ...
 
     @overload
-    def __init__(self, flags: int=0, keyCode: int=0, cmd: int=0, item: Optional[MenuItem]=None) -> None:
+    def __init__(self, flags: int=0, keyCode: int=0, cmd: int=0, item: MenuItem=nullptr) -> None:
         """
-        AcceleratorEntry(flags=0, keyCode=0, cmd=0, item=None) -> None
+        AcceleratorEntry(flags=0, keyCode=0, cmd=0, item=nullptr) -> None
         AcceleratorEntry(entry) -> None
         
         An object used by an application wishing to create an accelerator
@@ -22497,9 +23659,9 @@ class AcceleratorEntry:
         Returns the menu item associated with this accelerator entry.
         """
 
-    def Set(self, flags: int, keyCode: int, cmd: int, item: Optional[MenuItem]=None) -> None:
+    def Set(self, flags: int, keyCode: int, cmd: int, item: MenuItem=nullptr) -> None:
         """
-        Set(flags, keyCode, cmd, item=None) -> None
+        Set(flags, keyCode, cmd, item=nullptr) -> None
         
         Sets the accelerator entry parameters.
         """
@@ -22675,7 +23837,7 @@ class Log:
         """
         GetActiveTarget() -> Log
         
-        Returns the pointer to the active log target (may be NULL).
+        Returns the pointer to the active log target (may be nullptr).
         """
 
     @staticmethod
@@ -22929,7 +24091,6 @@ class LogRecordInfo:
     line: int
     func: str
     timestampMS: LongLong_t
-    timestamp: int
 # end of class LogRecordInfo
 
 
@@ -22964,7 +24125,7 @@ class LogChain(Log):
         GetOldLog() -> Log
         
         Returns the pointer to the previously active log target (which may be
-        NULL).
+        nullptr).
         """
 
     def IsPassingMessages(self) -> bool:
@@ -22987,7 +24148,7 @@ class LogChain(Log):
         """
         SetLog(logger) -> None
         
-        Sets another log target to use (may be NULL).
+        Sets another log target to use (may be nullptr).
         """
     @property
     def OldLog(self) -> Log: ...
@@ -23120,6 +24281,13 @@ class LogBuffer(Log):
         presumably not interested in collecting them for later).
         """
 
+    def Clear(self) -> None:
+        """
+        Clear() -> None
+        
+        Clear all the messages in the buffer.
+        """
+
     def Flush(self) -> None:
         """
         Flush() -> None
@@ -23177,13 +24345,6 @@ class LogFormatter:
         Format(level, msg, info) -> str
         
         This function creates the full log message string.
-        """
-
-    def FormatTime(self, time: int) -> str:
-        """
-        FormatTime(time) -> str
-        
-        This function formats the time stamp part of the log message.
         """
 # end of class LogFormatter
 
@@ -23244,8 +24405,7 @@ def LogVerbose(message: str) -> None:    """
 def LogWarning(message: str) -> None:    """
     LogWarning(message) -> None
     
-    For warnings - they are also normally shown to the user, but don't
-    interrupt the program work.
+    The function to use for warning messages.
     """
 
 def LogFatalError(message: str) -> None:    """
@@ -23264,7 +24424,7 @@ def LogError(message: str) -> None:    """
 def LogDebug(message: str) -> None:    """
     LogDebug(message) -> None
     
-    The right functions for debug output.
+    The function to use for debugging output.
     """
 
 @overload
@@ -23754,8 +24914,6 @@ class TextDataObject(DataObjectSimple):
     def GetTextLength(self) -> int:
         """
         GetTextLength() -> int
-        
-        Returns the data size.
         """
 
     def GetFormatCount(self, dir: DataObject.Direction=DataObject.Get) -> int:
@@ -23763,8 +24921,8 @@ class TextDataObject(DataObjectSimple):
         GetFormatCount(dir=DataObject.Get) -> int
         
         Returns 2 under wxMac and wxGTK, where text data coming from the
-        clipboard may be provided as ANSI (wxDF_TEXT) or as Unicode text
-        (wxDF_UNICODETEXT, but only when wxUSE_UNICODE==1).
+        clipboard may be provided as (wxDF_TEXT), in ANSI (wxGTK) or UTF8
+        (wxMac), or as Unicode text (wxDF_UNICODETEXT).
         """
 
     def GetFormat(self) -> DataFormat:
@@ -24049,21 +25207,21 @@ def IsDragResultOk(res: DragResult) -> bool:    """
 
 class DropSource:
     """
-    DropSource(win=None) -> None
-    DropSource(data, win=None) -> None
+    DropSource(win=nullptr) -> None
+    DropSource(data, win=nullptr) -> None
     
     This class represents a source for a drag and drop operation.
     """
 
     @overload
-    def __init__(self, data: DataObject, win: Optional[Window]=None) -> None:
+    def __init__(self, data: DataObject, win: Window=nullptr) -> None:
         ...
 
     @overload
-    def __init__(self, win: Optional[Window]=None) -> None:
+    def __init__(self, win: Window=nullptr) -> None:
         """
-        DropSource(win=None) -> None
-        DropSource(data, win=None) -> None
+        DropSource(win=nullptr) -> None
+        DropSource(data, win=nullptr) -> None
         
         This class represents a source for a drag and drop operation.
         """
@@ -24091,7 +25249,7 @@ class DropSource:
         operation by overriding this function.
         """
 
-    def SetCursor(self, res: DragResult, cursor: Cursor) -> None:
+    def SetCursor(self, res: DragResult, cursor: CursorBundle) -> None:
         """
         SetCursor(res, cursor) -> None
         
@@ -24118,14 +25276,14 @@ class DropSource:
 
 class DropTarget:
     """
-    DropTarget(data=None) -> None
+    DropTarget(data=nullptr) -> None
     
     This class represents a target for a drag and drop operation.
     """
 
-    def __init__(self, data: Optional[DataObject]=None) -> None:
+    def __init__(self, data: DataObject=nullptr) -> None:
         """
-        DropTarget(data=None) -> None
+        DropTarget(data=nullptr) -> None
         
         This class represents a target for a drag and drop operation.
         """
@@ -24429,11 +25587,15 @@ class _enum_10(IntEnum):
     CONFIG_USE_RELATIVE_PATH = auto()
     CONFIG_USE_NO_ESCAPE_CHARACTERS = auto()
     CONFIG_USE_SUBDIR = auto()
+    CONFIG_USE_XDG = auto()
+    CONFIG_USE_HOME = auto()
 CONFIG_USE_LOCAL_FILE = _enum_10.CONFIG_USE_LOCAL_FILE
 CONFIG_USE_GLOBAL_FILE = _enum_10.CONFIG_USE_GLOBAL_FILE
 CONFIG_USE_RELATIVE_PATH = _enum_10.CONFIG_USE_RELATIVE_PATH
 CONFIG_USE_NO_ESCAPE_CHARACTERS = _enum_10.CONFIG_USE_NO_ESCAPE_CHARACTERS
 CONFIG_USE_SUBDIR = _enum_10.CONFIG_USE_SUBDIR
+CONFIG_USE_XDG = _enum_10.CONFIG_USE_XDG
+CONFIG_USE_HOME = _enum_10.CONFIG_USE_HOME
 
 class ConfigBase(Object):
     """
@@ -24707,7 +25869,7 @@ class ConfigBase(Object):
         DontCreateOnDemand() -> None
         
         Calling this function will prevent Get() from automatically creating a
-        new config object if the current one is NULL.
+        new config object if the current one is nullptr.
         """
 
     @staticmethod
@@ -24723,7 +25885,7 @@ class ConfigBase(Object):
         """
         Set(pConfig) -> ConfigBase
         
-        Sets the config object as the current one, returns the pointer to the previous current object (both the parameter and returned value may be NULL).
+        Sets the config object as the current one, returns the pointer to the previous current object (both the parameter and returned value may be nullptr).
         """
 
     def _cpp_ReadInt(self, key: str, defaultVal: int=0) -> int:
@@ -24786,6 +25948,16 @@ class FileConfig(ConfigBase):
     wxFileConfig implements wxConfigBase interface for storing and
     retrieving configuration information using plain text files.
     """
+
+    class MigrationResult:
+        """
+        Contains return value of MigrateLocalFile().
+        """
+        oldPath: str
+        newPath: str
+        error: str
+    # end of class MigrationResult
+
 
     @overload
     def __init__(self, _is: InputStream) -> None:
@@ -24924,6 +26096,14 @@ class FileConfig(ConfigBase):
     def GetLocalFileName(szFile: str, style: int=0) -> str:
         """
         GetLocalFileName(szFile, style=0) -> str
+        """
+
+    @staticmethod
+    def MigrateLocalFile(name: str, newStyle: int, oldStyle: int=CONFIG_USE_HOME) -> MigrationResult:
+        """
+        MigrateLocalFile(name, newStyle, oldStyle=CONFIG_USE_HOME) -> MigrationResult
+        
+        Move the existing configuration file to a new location.
         """
     @property
     def NumberOfEntries(self) -> int: ...
@@ -25690,6 +26870,13 @@ JOY_BUTTON2 = _enum_15.JOY_BUTTON2
 JOY_BUTTON3 = _enum_15.JOY_BUTTON3
 JOY_BUTTON4 = _enum_15.JOY_BUTTON4
 
+class _SysMetric(IntEnum):
+    Other = auto()
+    CursorSize = auto()
+SysMetric: TypeAlias = Union[_SysMetric, int]
+Other = _SysMetric.Other
+CursorSize = _SysMetric.CursorSize
+
 class _UpdateUIMode(IntEnum):
     UPDATE_UI_PROCESS_ALL = auto()
     UPDATE_UI_PROCESS_SPECIFIED = auto()
@@ -25781,6 +26968,10 @@ wxEVT_SCROLLWIN_PAGEUP: int
 wxEVT_SCROLLWIN_PAGEDOWN: int
 wxEVT_SCROLLWIN_THUMBTRACK: int
 wxEVT_SCROLLWIN_THUMBRELEASE: int
+wxEVT_TOUCH_BEGIN: int
+wxEVT_TOUCH_MOVE: int
+wxEVT_TOUCH_END: int
+wxEVT_TOUCH_CANCEL: int
 wxEVT_GESTURE_PAN: int
 wxEVT_GESTURE_ZOOM: int
 wxEVT_GESTURE_ROTATE: int
@@ -25810,6 +27001,7 @@ wxEVT_MENU_CLOSE: int
 wxEVT_MENU_HIGHLIGHT: int
 wxEVT_CONTEXT_MENU: int
 wxEVT_SYS_COLOUR_CHANGED: int
+wxEVT_SYS_METRIC_CHANGED: int
 wxEVT_DISPLAY_CHANGED: int
 wxEVT_DPI_CHANGED: int
 wxEVT_QUERY_NEW_PALETTE: int
@@ -25980,7 +27172,7 @@ class EvtHandler(Object, Trackable):
         IsUnlinked() -> bool
         
         Returns true if the next and the previous handler pointers of this
-        event handler instance are NULL.
+        event handler instance are nullptr.
         """
 
     @staticmethod
@@ -26478,16 +27670,16 @@ class ActivateEvent(Event):
 
 class ChildFocusEvent(CommandEvent):
     """
-    ChildFocusEvent(win=None) -> None
+    ChildFocusEvent(win=nullptr) -> None
     
     A child focus event is sent to a (parent-)window when one of its child
     windows gains focus, so that the window could restore the focus back
     to its corresponding child if it loses it now and regains later.
     """
 
-    def __init__(self, win: Optional[Window]=None) -> None:
+    def __init__(self, win: Window=nullptr) -> None:
         """
-        ChildFocusEvent(win=None) -> None
+        ChildFocusEvent(win=nullptr) -> None
         
         A child focus event is sent to a (parent-)window when one of its child
         windows gains focus, so that the window could restore the focus back
@@ -26668,9 +27860,20 @@ class DPIChangedEvent(Event):
         Returns the new DPI.
         """
 
+    @overload
+    def Scale(self, pt: Point) -> Point:
+        ...
+
+    @overload
+    def Scale(self, rect: Rect) -> Rect:
+        ...
+
+    @overload
     def Scale(self, sz: Size) -> Size:
         """
         Scale(sz) -> Size
+        Scale(pt) -> Point
+        Scale(rect) -> Rect
         
         Rescale a value in pixels to match the new DPI.
         """
@@ -26697,15 +27900,15 @@ class DPIChangedEvent(Event):
 
 class DropFilesEvent(Event):
     """
-    DropFilesEvent(id=0, files=None) -> None
+    DropFilesEvent(id=0, files=nullptr) -> None
     
     This class is used for drop files events, that is, when files have
     been dropped onto the window.
     """
 
-    def __init__(self, id: EventType=0, files: Optional[str]=None) -> None:
+    def __init__(self, id: EventType=0, files: str=nullptr) -> None:
         """
-        DropFilesEvent(id=0, files=None) -> None
+        DropFilesEvent(id=0, files=nullptr) -> None
         
         This class is used for drop files events, that is, when files have
         been dropped onto the window.
@@ -26742,15 +27945,15 @@ class DropFilesEvent(Event):
 
 class EraseEvent(Event):
     """
-    EraseEvent(id=0, dc=None) -> None
+    EraseEvent(id=0, dc=nullptr) -> None
     
     An erase event is sent when a window's background needs to be
     repainted.
     """
 
-    def __init__(self, id: int=0, dc: Optional[DC]=None) -> None:
+    def __init__(self, id: int=0, dc: DC=nullptr) -> None:
         """
-        EraseEvent(id=0, dc=None) -> None
+        EraseEvent(id=0, dc=nullptr) -> None
         
         An erase event is sent when a window's background needs to be
         repainted.
@@ -27256,14 +28459,14 @@ class FullScreenEvent(Event):
 
 class MenuEvent(Event):
     """
-    MenuEvent(type=wxEVT_NULL, id=0, menu=None) -> None
+    MenuEvent(type=wxEVT_NULL, id=0, menu=nullptr) -> None
     
     This class is used for a variety of menu-related events.
     """
 
-    def __init__(self, type: EventType=wxEVT_NULL, id: int=0, menu: Optional[Menu]=None) -> None:
+    def __init__(self, type: EventType=wxEVT_NULL, id: int=0, menu: Menu=nullptr) -> None:
         """
-        MenuEvent(type=wxEVT_NULL, id=0, menu=None) -> None
+        MenuEvent(type=wxEVT_NULL, id=0, menu=nullptr) -> None
         
         This class is used for a variety of menu-related events.
         """
@@ -27299,15 +28502,15 @@ class MenuEvent(Event):
 
 class MouseCaptureChangedEvent(Event):
     """
-    MouseCaptureChangedEvent(windowId=0, gainedCapture=None) -> None
+    MouseCaptureChangedEvent(windowId=0, gainedCapture=nullptr) -> None
     
     A mouse capture changed event is sent to a window that loses its mouse
     capture.
     """
 
-    def __init__(self, windowId: int=0, gainedCapture: Optional[Window]=None) -> None:
+    def __init__(self, windowId: int=0, gainedCapture: Window=nullptr) -> None:
         """
-        MouseCaptureChangedEvent(windowId=0, gainedCapture=None) -> None
+        MouseCaptureChangedEvent(windowId=0, gainedCapture=nullptr) -> None
         
         A mouse capture changed event is sent to a window that loses its mouse
         capture.
@@ -27317,8 +28520,8 @@ class MouseCaptureChangedEvent(Event):
         """
         GetCapturedWindow() -> Window
         
-        Returns the window that gained the capture, or NULL if it was a non-
-        wxWidgets window.
+        Returns the window that gained the capture, or nullptr if it was a
+        non-wxWidgets window.
         """
     @property
     def CapturedWindow(self) -> Window: ...
@@ -27549,6 +28752,13 @@ class MouseEvent(Event, MouseState):
         the mouse wheel instead of line scrolling.
         """
 
+    def IsSynthesized(self) -> bool:
+        """
+        IsSynthesized() -> bool
+        
+        Returns true if the event was synthesized from a touch event.
+        """
+
     def Leaving(self) -> bool:
         """
         Leaving() -> bool
@@ -27772,7 +28982,7 @@ class NavigationKeyEvent(Event):
         """
         GetCurrentFocus() -> Window
         
-        Returns the child that has the focus, or NULL.
+        Returns the child that has the focus, or nullptr.
         """
 
     def GetDirection(self) -> bool:
@@ -28028,6 +29238,14 @@ class ScrollWinEvent(Event):
         events.
         """
 
+    def GetPixelOffset(self) -> int:
+        """
+        GetPixelOffset() -> int
+        
+        Offset of the scroll position from the nearest position expressed in
+        scroll units.
+        """
+
     def SetOrientation(self, orient: int) -> None:
         """
         SetOrientation(orient) -> None
@@ -28069,6 +29287,13 @@ class SetCursorEvent(Event):
         GetCursor() -> Cursor
         
         Returns a reference to the cursor specified by this event.
+        """
+
+    def GetPosition(self) -> Point:
+        """
+        GetPosition() -> Point
+        
+        Returns the mouse position for which the cursor is requested.
         """
 
     def GetX(self) -> int:
@@ -28235,6 +29460,13 @@ class UpdateUIEvent(CommandEvent):
         Check or uncheck the UI element.
         """
 
+    def Set3StateValue(self, check: CheckBoxState) -> None:
+        """
+        Set3StateValue(check) -> None
+        
+        For wxCheckBox with wxCHK_3STATE: Set the UI element state.
+        """
+
     def Enable(self, enable: bool) -> None:
         """
         Enable(enable) -> None
@@ -28247,6 +29479,13 @@ class UpdateUIEvent(CommandEvent):
         GetChecked() -> bool
         
         Returns true if the UI element should be checked.
+        """
+
+    def Get3StateValue(self) -> CheckBoxState:
+        """
+        Get3StateValue() -> CheckBoxState
+        
+        Return the state a wxCheckBox with wxCHK_3STATE should display.
         """
 
     def GetEnabled(self) -> bool:
@@ -28263,11 +29502,19 @@ class UpdateUIEvent(CommandEvent):
         Returns true if the UI element can be checked.
         """
 
+    def Is3State(self) -> bool:
+        """
+        Is3State() -> bool
+        
+        Returns true if the UI element supports wxCheckboxState.
+        """
+
     def GetSetChecked(self) -> bool:
         """
         GetSetChecked() -> bool
         
-        Returns true if the application has called Check().
+        Returns true if the application has called Check() or
+        SetSet3StateValue().
         """
 
     def GetSetEnabled(self) -> bool:
@@ -28391,15 +29638,15 @@ class UpdateUIEvent(CommandEvent):
 
 class WindowCreateEvent(CommandEvent):
     """
-    WindowCreateEvent(win=None) -> None
+    WindowCreateEvent(win=nullptr) -> None
     
     This event is sent just after the actual window associated with a
     wxWindow object has been created.
     """
 
-    def __init__(self, win: Optional[Window]=None) -> None:
+    def __init__(self, win: Window=nullptr) -> None:
         """
-        WindowCreateEvent(win=None) -> None
+        WindowCreateEvent(win=nullptr) -> None
         
         This event is sent just after the actual window associated with a
         wxWindow object has been created.
@@ -28418,15 +29665,15 @@ class WindowCreateEvent(CommandEvent):
 
 class WindowDestroyEvent(CommandEvent):
     """
-    WindowDestroyEvent(win=None) -> None
+    WindowDestroyEvent(win=nullptr) -> None
     
     This event is sent as early as possible during the window destruction
     process.
     """
 
-    def __init__(self, win: Optional[Window]=None) -> None:
+    def __init__(self, win: Window=nullptr) -> None:
         """
-        WindowDestroyEvent(win=None) -> None
+        WindowDestroyEvent(win=nullptr) -> None
         
         This event is sent as early as possible during the window destruction
         process.
@@ -29226,17 +30473,17 @@ FLEX_GROWMODE_ALL = _FlexSizerGrowMode.FLEX_GROWMODE_ALL
 class SizerItem(Object):
     """
     SizerItem(window, flags) -> None
-    SizerItem(window, proportion=0, flag=0, border=0, userData=None) -> None
+    SizerItem(window, proportion=0, flag=0, border=0, userData=nullptr) -> None
     SizerItem(sizer, flags) -> None
-    SizerItem(sizer, proportion=0, flag=0, border=0, userData=None) -> None
-    SizerItem(width, height, proportion=0, flag=0, border=0, userData=None) -> None
+    SizerItem(sizer, proportion=0, flag=0, border=0, userData=nullptr) -> None
+    SizerItem(width, height, proportion=0, flag=0, border=0, userData=nullptr) -> None
     
     The wxSizerItem class is used to track the position, size and other
     attributes of each item managed by a wxSizer.
     """
 
     @overload
-    def __init__(self, window: Window, proportion: int=0, flag: int=0, border: int=0, userData: Optional[PyUserData]=None) -> None:
+    def __init__(self, window: Window, proportion: int=0, flag: int=0, border: int=0, userData: PyUserData=nullptr) -> None:
         ...
 
     @overload
@@ -29244,21 +30491,21 @@ class SizerItem(Object):
         ...
 
     @overload
-    def __init__(self, sizer: Sizer, proportion: int=0, flag: int=0, border: int=0, userData: Optional[PyUserData]=None) -> None:
+    def __init__(self, sizer: Sizer, proportion: int=0, flag: int=0, border: int=0, userData: PyUserData=nullptr) -> None:
         ...
 
     @overload
-    def __init__(self, width: int, height: int, proportion: int=0, flag: int=0, border: int=0, userData: Optional[PyUserData]=None) -> None:
+    def __init__(self, width: int, height: int, proportion: int=0, flag: int=0, border: int=0, userData: PyUserData=nullptr) -> None:
         ...
 
     @overload
     def __init__(self, window: Window, flags: SizerFlags) -> None:
         """
         SizerItem(window, flags) -> None
-        SizerItem(window, proportion=0, flag=0, border=0, userData=None) -> None
+        SizerItem(window, proportion=0, flag=0, border=0, userData=nullptr) -> None
         SizerItem(sizer, flags) -> None
-        SizerItem(sizer, proportion=0, flag=0, border=0, userData=None) -> None
-        SizerItem(width, height, proportion=0, flag=0, border=0, userData=None) -> None
+        SizerItem(sizer, proportion=0, flag=0, border=0, userData=nullptr) -> None
+        SizerItem(width, height, proportion=0, flag=0, border=0, userData=nullptr) -> None
         
         The wxSizerItem class is used to track the position, size and other
         attributes of each item managed by a wxSizer.
@@ -29824,7 +31071,7 @@ class Sizer(Object):
         """
 
     @overload
-    def Add(self, window: Window, proportion: int=0, flag: int=0, border: int=0, userData: Optional[PyUserData]=None) -> SizerItem:
+    def Add(self, window: Window, proportion: int=0, flag: int=0, border: int=0, userData: PyUserData=nullptr) -> SizerItem:
         ...
 
     @overload
@@ -29832,11 +31079,11 @@ class Sizer(Object):
         ...
 
     @overload
-    def Add(self, sizer: Sizer, proportion: int=0, flag: int=0, border: int=0, userData: Optional[PyUserData]=None) -> SizerItem:
+    def Add(self, sizer: Sizer, proportion: int=0, flag: int=0, border: int=0, userData: PyUserData=nullptr) -> SizerItem:
         ...
 
     @overload
-    def Add(self, width: int, height: int, proportion: int=0, flag: int=0, border: int=0, userData: Optional[PyUserData]=None) -> SizerItem:
+    def Add(self, width: int, height: int, proportion: int=0, flag: int=0, border: int=0, userData: PyUserData=nullptr) -> SizerItem:
         ...
 
     @overload
@@ -29859,10 +31106,10 @@ class Sizer(Object):
     def Add(self, window: Window, flags: SizerFlags) -> SizerItem:
         """
         Add(window, flags) -> SizerItem
-        Add(window, proportion=0, flag=0, border=0, userData=None) -> SizerItem
+        Add(window, proportion=0, flag=0, border=0, userData=nullptr) -> SizerItem
         Add(sizer, flags) -> SizerItem
-        Add(sizer, proportion=0, flag=0, border=0, userData=None) -> SizerItem
-        Add(width, height, proportion=0, flag=0, border=0, userData=None) -> SizerItem
+        Add(sizer, proportion=0, flag=0, border=0, userData=nullptr) -> SizerItem
+        Add(width, height, proportion=0, flag=0, border=0, userData=nullptr) -> SizerItem
         Add(width, height, flags) -> SizerItem
         Add(item) -> SizerItem
         Add(size, proportion=0, flag=0, border=0, Transfer=None) -> SizerItem
@@ -29892,6 +31139,14 @@ class Sizer(Object):
         
         This method is abstract and has to be overwritten by any derived
         class.
+        """
+
+    def CalcMinSizeFromKnownDirection(self, direction: int, size: int, availableOtherDir: int) -> Size:
+        """
+        CalcMinSizeFromKnownDirection(direction, size, availableOtherDir) -> Size
+        
+        May be overridden by sizers whose minimal size depends on the layout
+        direction.
         """
 
     def Clear(self, delete_windows: bool=False) -> None:
@@ -29935,6 +31190,13 @@ class Sizer(Object):
         Detach the child window from the sizer without destroying it.
         """
 
+    def DetachItem(self, index: int) -> SizerItem:
+        """
+        DetachItem(index) -> SizerItem
+        
+        Detach the item at position index without destroying it.
+        """
+
     def Fit(self, window: Window) -> Size:
         """
         Fit(window) -> Size
@@ -29956,15 +31218,14 @@ class Sizer(Object):
         """
         InformFirstDirection(direction, size, availableOtherDir) -> bool
         
-        Inform sizer about the first direction that has been decided (by
-        parent item).
+        Compatibility function called by CalcMinSizeFromKnownDirection().
         """
 
     def GetContainingWindow(self) -> Window:
         """
         GetContainingWindow() -> Window
         
-        Returns the window this sizer is used in or NULL if none.
+        Returns the window this sizer is used in or nullptr if none.
         """
 
     def SetContainingWindow(self, window: Window) -> None:
@@ -30046,7 +31307,7 @@ class Sizer(Object):
         """
 
     @overload
-    def Insert(self, index: int, window: Window, proportion: int=0, flag: int=0, border: int=0, userData: Optional[PyUserData]=None) -> SizerItem:
+    def Insert(self, index: int, window: Window, proportion: int=0, flag: int=0, border: int=0, userData: PyUserData=nullptr) -> SizerItem:
         ...
 
     @overload
@@ -30054,11 +31315,11 @@ class Sizer(Object):
         ...
 
     @overload
-    def Insert(self, index: int, sizer: Sizer, proportion: int=0, flag: int=0, border: int=0, userData: Optional[PyUserData]=None) -> SizerItem:
+    def Insert(self, index: int, sizer: Sizer, proportion: int=0, flag: int=0, border: int=0, userData: PyUserData=nullptr) -> SizerItem:
         ...
 
     @overload
-    def Insert(self, index: int, width: int, height: int, proportion: int=0, flag: int=0, border: int=0, userData: Optional[PyUserData]=None) -> SizerItem:
+    def Insert(self, index: int, width: int, height: int, proportion: int=0, flag: int=0, border: int=0, userData: PyUserData=nullptr) -> SizerItem:
         ...
 
     @overload
@@ -30081,10 +31342,10 @@ class Sizer(Object):
     def Insert(self, index: int, window: Window, flags: SizerFlags) -> SizerItem:
         """
         Insert(index, window, flags) -> SizerItem
-        Insert(index, window, proportion=0, flag=0, border=0, userData=None) -> SizerItem
+        Insert(index, window, proportion=0, flag=0, border=0, userData=nullptr) -> SizerItem
         Insert(index, sizer, flags) -> SizerItem
-        Insert(index, sizer, proportion=0, flag=0, border=0, userData=None) -> SizerItem
-        Insert(index, width, height, proportion=0, flag=0, border=0, userData=None) -> SizerItem
+        Insert(index, sizer, proportion=0, flag=0, border=0, userData=nullptr) -> SizerItem
+        Insert(index, width, height, proportion=0, flag=0, border=0, userData=nullptr) -> SizerItem
         Insert(index, width, height, flags) -> SizerItem
         Insert(index, item) -> SizerItem
         Insert(index, size, proportion=0, flag=0, border=0, Transfer=None) -> SizerItem
@@ -30142,7 +31403,7 @@ class Sizer(Object):
         """
 
     @overload
-    def Prepend(self, window: Window, proportion: int=0, flag: int=0, border: int=0, userData: Optional[PyUserData]=None) -> SizerItem:
+    def Prepend(self, window: Window, proportion: int=0, flag: int=0, border: int=0, userData: PyUserData=nullptr) -> SizerItem:
         ...
 
     @overload
@@ -30150,11 +31411,11 @@ class Sizer(Object):
         ...
 
     @overload
-    def Prepend(self, sizer: Sizer, proportion: int=0, flag: int=0, border: int=0, userData: Optional[PyUserData]=None) -> SizerItem:
+    def Prepend(self, sizer: Sizer, proportion: int=0, flag: int=0, border: int=0, userData: PyUserData=nullptr) -> SizerItem:
         ...
 
     @overload
-    def Prepend(self, width: int, height: int, proportion: int=0, flag: int=0, border: int=0, userData: Optional[PyUserData]=None) -> SizerItem:
+    def Prepend(self, width: int, height: int, proportion: int=0, flag: int=0, border: int=0, userData: PyUserData=nullptr) -> SizerItem:
         ...
 
     @overload
@@ -30177,10 +31438,10 @@ class Sizer(Object):
     def Prepend(self, window: Window, flags: SizerFlags) -> SizerItem:
         """
         Prepend(window, flags) -> SizerItem
-        Prepend(window, proportion=0, flag=0, border=0, userData=None) -> SizerItem
+        Prepend(window, proportion=0, flag=0, border=0, userData=nullptr) -> SizerItem
         Prepend(sizer, flags) -> SizerItem
-        Prepend(sizer, proportion=0, flag=0, border=0, userData=None) -> SizerItem
-        Prepend(width, height, proportion=0, flag=0, border=0, userData=None) -> SizerItem
+        Prepend(sizer, proportion=0, flag=0, border=0, userData=nullptr) -> SizerItem
+        Prepend(width, height, proportion=0, flag=0, border=0, userData=nullptr) -> SizerItem
         Prepend(width, height, flags) -> SizerItem
         Prepend(item) -> SizerItem
         Prepend(size, proportion=0, flag=0, border=0, Transfer=None) -> SizerItem
@@ -30817,6 +32078,41 @@ class StdDialogButtonSizer(BoxSizer):
         make them match the platform or toolkit's interface guidelines.
         """
 
+    def GetAffirmativeButton(self) -> Button:
+        """
+        GetAffirmativeButton() -> Button
+        
+        Returns the affirmative button for the sizer.
+        """
+
+    def GetApplyButton(self) -> Button:
+        """
+        GetApplyButton() -> Button
+        
+        Returns the apply button for the sizer.
+        """
+
+    def GetNegativeButton(self) -> Button:
+        """
+        GetNegativeButton() -> Button
+        
+        Returns the negative button for the sizer.
+        """
+
+    def GetCancelButton(self) -> Button:
+        """
+        GetCancelButton() -> Button
+        
+        Returns the cancel button for the sizer.
+        """
+
+    def GetHelpButton(self) -> Button:
+        """
+        GetHelpButton() -> Button
+        
+        Returns the help button for the sizer.
+        """
+
     def SetAffirmativeButton(self, button: Button) -> None:
         """
         SetAffirmativeButton(button) -> None
@@ -30851,6 +32147,22 @@ class StdDialogButtonSizer(BoxSizer):
         
         Implements the calculation of a box sizer's minimal.
         """
+    @property
+    def AffirmativeButton(self) -> Button: ...
+    @AffirmativeButton.setter
+    def AffirmativeButton(self, value: Button, /) -> None: ...
+    @property
+    def ApplyButton(self) -> Button: ...
+    @property
+    def CancelButton(self) -> Button: ...
+    @CancelButton.setter
+    def CancelButton(self, value: Button, /) -> None: ...
+    @property
+    def HelpButton(self) -> Button: ...
+    @property
+    def NegativeButton(self) -> Button: ...
+    @NegativeButton.setter
+    def NegativeButton(self, value: Button, /) -> None: ...
 # end of class StdDialogButtonSizer
 
 
@@ -31144,28 +32456,28 @@ class GBSpan:
 
 class GBSizerItem(SizerItem):
     """
-    GBSizerItem(width, height, pos, span=DefaultSpan, flag=0, border=0, userData=None) -> None
-    GBSizerItem(window, pos, span=DefaultSpan, flag=0, border=0, userData=None) -> None
-    GBSizerItem(sizer, pos, span=DefaultSpan, flag=0, border=0, userData=None) -> None
+    GBSizerItem(width, height, pos, span=DefaultSpan, flag=0, border=0, userData=nullptr) -> None
+    GBSizerItem(window, pos, span=DefaultSpan, flag=0, border=0, userData=nullptr) -> None
+    GBSizerItem(sizer, pos, span=DefaultSpan, flag=0, border=0, userData=nullptr) -> None
     
     The wxGBSizerItem class is used by the wxGridBagSizer for tracking the
     items in the sizer.
     """
 
     @overload
-    def __init__(self, window: Window, pos: Union[GBPosition, _TwoInts], span: Union[GBSpan, _TwoInts]=DefaultSpan, flag: int=0, border: int=0, userData: Optional[PyUserData]=None) -> None:
+    def __init__(self, window: Window, pos: Union[GBPosition, _TwoInts], span: Union[GBSpan, _TwoInts]=DefaultSpan, flag: int=0, border: int=0, userData: PyUserData=nullptr) -> None:
         ...
 
     @overload
-    def __init__(self, sizer: Sizer, pos: Union[GBPosition, _TwoInts], span: Union[GBSpan, _TwoInts]=DefaultSpan, flag: int=0, border: int=0, userData: Optional[PyUserData]=None) -> None:
+    def __init__(self, sizer: Sizer, pos: Union[GBPosition, _TwoInts], span: Union[GBSpan, _TwoInts]=DefaultSpan, flag: int=0, border: int=0, userData: PyUserData=nullptr) -> None:
         ...
 
     @overload
-    def __init__(self, width: int, height: int, pos: Union[GBPosition, _TwoInts], span: Union[GBSpan, _TwoInts]=DefaultSpan, flag: int=0, border: int=0, userData: Optional[PyUserData]=None) -> None:
+    def __init__(self, width: int, height: int, pos: Union[GBPosition, _TwoInts], span: Union[GBSpan, _TwoInts]=DefaultSpan, flag: int=0, border: int=0, userData: PyUserData=nullptr) -> None:
         """
-        GBSizerItem(width, height, pos, span=DefaultSpan, flag=0, border=0, userData=None) -> None
-        GBSizerItem(window, pos, span=DefaultSpan, flag=0, border=0, userData=None) -> None
-        GBSizerItem(sizer, pos, span=DefaultSpan, flag=0, border=0, userData=None) -> None
+        GBSizerItem(width, height, pos, span=DefaultSpan, flag=0, border=0, userData=nullptr) -> None
+        GBSizerItem(window, pos, span=DefaultSpan, flag=0, border=0, userData=nullptr) -> None
+        GBSizerItem(sizer, pos, span=DefaultSpan, flag=0, border=0, userData=nullptr) -> None
         
         The wxGBSizerItem class is used by the wxGridBagSizer for tracking the
         items in the sizer.
@@ -31268,7 +32580,7 @@ class GridBagSizer(FlexGridSizer):
         """
 
     @overload
-    def Add(self, sizer: Sizer, pos: Union[GBPosition, _TwoInts], span: Union[GBSpan, _TwoInts]=DefaultSpan, flag: int=0, border: int=0, userData: Optional[PyUserData]=None) -> SizerItem:
+    def Add(self, sizer: Sizer, pos: Union[GBPosition, _TwoInts], span: Union[GBSpan, _TwoInts]=DefaultSpan, flag: int=0, border: int=0, userData: PyUserData=nullptr) -> SizerItem:
         ...
 
     @overload
@@ -31276,7 +32588,7 @@ class GridBagSizer(FlexGridSizer):
         ...
 
     @overload
-    def Add(self, width: int, height: int, pos: Union[GBPosition, _TwoInts], span: Union[GBSpan, _TwoInts]=DefaultSpan, flag: int=0, border: int=0, userData: Optional[PyUserData]=None) -> SizerItem:
+    def Add(self, width: int, height: int, pos: Union[GBPosition, _TwoInts], span: Union[GBSpan, _TwoInts]=DefaultSpan, flag: int=0, border: int=0, userData: PyUserData=nullptr) -> SizerItem:
         ...
 
     @overload
@@ -31284,26 +32596,26 @@ class GridBagSizer(FlexGridSizer):
         ...
 
     @overload
-    def Add(self, window: Window, pos: Union[GBPosition, _TwoInts], span: Union[GBSpan, _TwoInts]=DefaultSpan, flag: int=0, border: int=0, userData: Optional[PyUserData]=None) -> SizerItem:
+    def Add(self, window: Window, pos: Union[GBPosition, _TwoInts], span: Union[GBSpan, _TwoInts]=DefaultSpan, flag: int=0, border: int=0, userData: PyUserData=nullptr) -> SizerItem:
         """
-        Add(window, pos, span=DefaultSpan, flag=0, border=0, userData=None) -> SizerItem
-        Add(sizer, pos, span=DefaultSpan, flag=0, border=0, userData=None) -> SizerItem
+        Add(window, pos, span=DefaultSpan, flag=0, border=0, userData=nullptr) -> SizerItem
+        Add(sizer, pos, span=DefaultSpan, flag=0, border=0, userData=nullptr) -> SizerItem
         Add(item) -> SizerItem
-        Add(width, height, pos, span=DefaultSpan, flag=0, border=0, userData=None) -> SizerItem
+        Add(width, height, pos, span=DefaultSpan, flag=0, border=0, userData=nullptr) -> SizerItem
         Add(size, pos, span=DefaultSpan, flag=0, border=0, Transfer=None) -> SizerItem
         
         Adds the given item to the given position.
         """
 
     @overload
-    def CheckForIntersection(self, pos: Union[GBPosition, _TwoInts], span: Union[GBSpan, _TwoInts], excludeItem: Optional[GBSizerItem]=None) -> bool:
+    def CheckForIntersection(self, pos: Union[GBPosition, _TwoInts], span: Union[GBSpan, _TwoInts], excludeItem: GBSizerItem=nullptr) -> bool:
         ...
 
     @overload
-    def CheckForIntersection(self, item: GBSizerItem, excludeItem: Optional[GBSizerItem]=None) -> bool:
+    def CheckForIntersection(self, item: GBSizerItem, excludeItem: GBSizerItem=nullptr) -> bool:
         """
-        CheckForIntersection(item, excludeItem=None) -> bool
-        CheckForIntersection(pos, span, excludeItem=None) -> bool
+        CheckForIntersection(item, excludeItem=nullptr) -> bool
+        CheckForIntersection(pos, span, excludeItem=nullptr) -> bool
         
         Look at all items and see if any intersect (or would overlap) the
         given item.
@@ -31319,8 +32631,8 @@ class GridBagSizer(FlexGridSizer):
         FindItem(window) -> GBSizerItem
         FindItem(sizer) -> GBSizerItem
         
-        Find the sizer item for the given window or subsizer, returns NULL if
-        not found.
+        Find the sizer item for the given window or subsizer, returns nullptr
+        if not found.
         """
 
     @overload
@@ -31407,7 +32719,7 @@ class GridBagSizer(FlexGridSizer):
         """
         FindItemAtPoint(pt) -> GBSizerItem
         
-        Return the sizer item located at the point given in pt, or NULL if
+        Return the sizer item located at the point given in pt, or nullptr if
         there is no item at that point.
         """
 
@@ -31415,8 +32727,8 @@ class GridBagSizer(FlexGridSizer):
         """
         FindItemAtPosition(pos) -> GBSizerItem
         
-        Return the sizer item for the given grid cell, or NULL if there is no
-        item at that position.
+        Return the sizer item for the given grid cell, or nullptr if there is
+        no item at that position.
         """
 
     def FindItemWithData(self, userData: Object) -> GBSizerItem:
@@ -31424,7 +32736,7 @@ class GridBagSizer(FlexGridSizer):
         FindItemWithData(userData) -> GBSizerItem
         
         Return the sizer item that has a matching user data (it only compares
-        pointer values) or NULL if not found.
+        pointer values) or nullptr if not found.
         """
 
     def GetCellSize(self, row: int, col: int) -> Size:
@@ -31475,13 +32787,13 @@ del namedtuple
 #-- end-gbsizer --#
 #-- begin-wrapsizer --#
 
-class _enum_59(IntEnum):
+class _enum_62(IntEnum):
     EXTEND_LAST_ON_EACH_LINE = auto()
     REMOVE_LEADING_SPACES = auto()
     WRAPSIZER_DEFAULT_FLAGS = auto()
-EXTEND_LAST_ON_EACH_LINE = _enum_59.EXTEND_LAST_ON_EACH_LINE
-REMOVE_LEADING_SPACES = _enum_59.REMOVE_LEADING_SPACES
-WRAPSIZER_DEFAULT_FLAGS = _enum_59.WRAPSIZER_DEFAULT_FLAGS
+EXTEND_LAST_ON_EACH_LINE = _enum_62.EXTEND_LAST_ON_EACH_LINE
+REMOVE_LEADING_SPACES = _enum_62.REMOVE_LEADING_SPACES
+WRAPSIZER_DEFAULT_FLAGS = _enum_62.WRAPSIZER_DEFAULT_FLAGS
 
 class WrapSizer(BoxSizer):
     """
@@ -31550,6 +32862,7 @@ class StandardPaths:
 
     class _Dir(IntEnum):
         Dir_Cache = auto()
+        Dir_Config = auto()
         Dir_Documents = auto()
         Dir_Desktop = auto()
         Dir_Downloads = auto()
@@ -31558,6 +32871,7 @@ class StandardPaths:
         Dir_Videos = auto()
     Dir: TypeAlias = Union[_Dir, int]
     Dir_Cache = _Dir.Dir_Cache
+    Dir_Config = _Dir.Dir_Config
     Dir_Documents = _Dir.Dir_Documents
     Dir_Desktop = _Dir.Dir_Desktop
     Dir_Downloads = _Dir.Dir_Downloads
@@ -31578,6 +32892,13 @@ class StandardPaths:
     ConfigFileConv: TypeAlias = Union[_ConfigFileConv, int]
     ConfigFileConv_Dot = _ConfigFileConv.ConfigFileConv_Dot
     ConfigFileConv_Ext = _ConfigFileConv.ConfigFileConv_Ext
+
+    def AppendAppInfo(self, dir: str) -> str:
+        """
+        AppendAppInfo(dir) -> str
+        
+        Append application and/or vendor name to the given directory.
+        """
 
     def GetAppDocumentsDir(self) -> str:
         """
@@ -31672,7 +32993,7 @@ class StandardPaths:
         """
         GetUserDataDir() -> str
         
-        Return the directory for the user-dependent application data files:
+        Return the directory for the user-dependent application data files.
         """
 
     def GetUserDir(self, userDir: Dir) -> str:
@@ -31688,6 +33009,13 @@ class StandardPaths:
         
         Return the directory for user data files which shouldn't be shared
         with the other machines.
+        """
+
+    def GetSharedLibrariesDir(self) -> str:
+        """
+        GetSharedLibrariesDir() -> str
+        
+        Return OS specific directory where project shared libraries are.
         """
 
     def SetInstallPrefix(self, prefix: str) -> None:
@@ -31764,6 +33092,8 @@ class StandardPaths:
     def PluginsDir(self) -> str: ...
     @property
     def ResourcesDir(self) -> str: ...
+    @property
+    def SharedLibrariesDir(self) -> str: ...
     @property
     def TempDir(self) -> str: ...
     @property
@@ -32098,16 +33428,6 @@ class AppTraits:
         
         Shows a message box with the given text and title if possible.
         """
-
-    def GetAssertStackTrace(self) -> str:
-        """
-        GetAssertStackTrace() -> str
-        
-        Helper function mostly useful for derived classes ShowAssertDialog()
-        implementation.
-        """
-    @property
-    def AssertStackTrace(self) -> str: ...
     @property
     def DesktopEnvironment(self) -> str: ...
     @property
@@ -32121,8 +33441,7 @@ class AppTraits:
 
 class AppConsole(EvtHandler, EventFilter):
     """
-    This class is essential for writing console-only or hybrid apps
-    without having to define wxUSE_GUI=0.
+    This class us used instead of wxApp for console applications.
     """
 
     def MainLoop(self) -> int:
@@ -32253,8 +33572,16 @@ class AppConsole(EvtHandler, EventFilter):
         """
         OnRun() -> int
         
-        This virtual function is where the execution of a program written in
-        wxWidgets starts.
+        Virtual function executing the application's main event loop.
+        """
+
+    @staticmethod
+    def CallOnUnhandledException() -> None:
+        """
+        CallOnUnhandledException() -> None
+        
+        Call OnUnhandledException() on the current wxTheApp object if it
+        exists.
         """
 
     def GetAppDisplayName(self) -> str:
@@ -32381,6 +33708,14 @@ class AppConsole(EvtHandler, EventFilter):
         Returns true if the main event loop is currently running, i.e. if the
         application is inside OnRun().
         """
+
+    @staticmethod
+    def SetFatalErrorExitCode(code: int) -> None:
+        """
+        SetFatalErrorExitCode(code) -> None
+        
+        Allows to set a custom process exit code if a fatal error happens.
+        """
     @property
     def AppDisplayName(self) -> str: ...
     @AppDisplayName.setter
@@ -32423,6 +33758,24 @@ class PyApp(AppConsole):
     
     The wxApp class represents the application itself when wxUSE_GUI=1.
     """
+
+    class _Appearance(IntEnum):
+        System = auto()
+        Light = auto()
+        Dark = auto()
+    Appearance: TypeAlias = Union[_Appearance, int]
+    System = _Appearance.System
+    Light = _Appearance.Light
+    Dark = _Appearance.Dark
+
+    class _AppearanceResult(IntEnum):
+        Failure = auto()
+        Ok = auto()
+        CannotChange = auto()
+    AppearanceResult: TypeAlias = Union[_AppearanceResult, int]
+    Failure = _AppearanceResult.Failure
+    Ok = _AppearanceResult.Ok
+    CannotChange = _AppearanceResult.CannotChange
 
     def __init__(self) -> None:
         """
@@ -32486,6 +33839,13 @@ class PyApp(AppConsole):
         OSXEnableAutomaticTabbing(enable) -> None
         
         Enable the automatic tabbing features of macOS.
+        """
+
+    def MSWEnableDarkMode(self, flags: int=0, settings: DarkModeSettings=nullptr) -> bool:
+        """
+        MSWEnableDarkMode(flags=0, settings=nullptr) -> bool
+        
+        Enable experimental dark mode support for MSW applications.
         """
 
     @staticmethod
@@ -32565,6 +33925,14 @@ class PyApp(AppConsole):
         
         Works like SafeYield() with onlyIfNeeded == true except that it allows
         the caller to specify a mask of events to be processed.
+        """
+
+    def SetAppearance(self, appearance: Appearance) -> AppearanceResult:
+        """
+        SetAppearance(appearance) -> AppearanceResult
+        
+        Request using either system default or explicitly light or dark theme
+        for the application.
         """
 
     def SetDisplayMode(self, info: VideoMode) -> bool:
@@ -32713,8 +34081,8 @@ def Yield() -> bool:    """
     Calls wxAppConsole::Yield if there is an existing application object.
     """
 
-def SafeYield(win: Optional[Window]=None, onlyIfNeeded: bool=False) -> bool:    """
-    SafeYield(win=None, onlyIfNeeded=False) -> bool
+def SafeYield(win: Window=nullptr, onlyIfNeeded: bool=False) -> bool:    """
+    SafeYield(win=nullptr, onlyIfNeeded=False) -> bool
     
     Calls wxApp::SafeYield.
     """
@@ -33117,7 +34485,7 @@ SHOW_EFFECT_BLEND = _ShowEffect.SHOW_EFFECT_BLEND
 SHOW_EFFECT_EXPAND = _ShowEffect.SHOW_EFFECT_EXPAND
 SHOW_EFFECT_MAX = _ShowEffect.SHOW_EFFECT_MAX
 
-class _enum_56(IntEnum):
+class _enum_59(IntEnum):
     TOUCH_NONE = auto()
     TOUCH_VERTICAL_PAN_GESTURE = auto()
     TOUCH_HORIZONTAL_PAN_GESTURE = auto()
@@ -33126,18 +34494,20 @@ class _enum_56(IntEnum):
     TOUCH_ROTATE_GESTURE = auto()
     TOUCH_PRESS_GESTURES = auto()
     TOUCH_ALL_GESTURES = auto()
-TOUCH_NONE = _enum_56.TOUCH_NONE
-TOUCH_VERTICAL_PAN_GESTURE = _enum_56.TOUCH_VERTICAL_PAN_GESTURE
-TOUCH_HORIZONTAL_PAN_GESTURE = _enum_56.TOUCH_HORIZONTAL_PAN_GESTURE
-TOUCH_PAN_GESTURES = _enum_56.TOUCH_PAN_GESTURES
-TOUCH_ZOOM_GESTURE = _enum_56.TOUCH_ZOOM_GESTURE
-TOUCH_ROTATE_GESTURE = _enum_56.TOUCH_ROTATE_GESTURE
-TOUCH_PRESS_GESTURES = _enum_56.TOUCH_PRESS_GESTURES
-TOUCH_ALL_GESTURES = _enum_56.TOUCH_ALL_GESTURES
+    TOUCH_RAW_EVENTS = auto()
+TOUCH_NONE = _enum_59.TOUCH_NONE
+TOUCH_VERTICAL_PAN_GESTURE = _enum_59.TOUCH_VERTICAL_PAN_GESTURE
+TOUCH_HORIZONTAL_PAN_GESTURE = _enum_59.TOUCH_HORIZONTAL_PAN_GESTURE
+TOUCH_PAN_GESTURES = _enum_59.TOUCH_PAN_GESTURES
+TOUCH_ZOOM_GESTURE = _enum_59.TOUCH_ZOOM_GESTURE
+TOUCH_ROTATE_GESTURE = _enum_59.TOUCH_ROTATE_GESTURE
+TOUCH_PRESS_GESTURES = _enum_59.TOUCH_PRESS_GESTURES
+TOUCH_ALL_GESTURES = _enum_59.TOUCH_ALL_GESTURES
+TOUCH_RAW_EVENTS = _enum_59.TOUCH_RAW_EVENTS
 
-class _enum_57(IntEnum):
+class _enum_60(IntEnum):
     SEND_EVENT_POST = auto()
-SEND_EVENT_POST = _enum_57.SEND_EVENT_POST
+SEND_EVENT_POST = _enum_60.SEND_EVENT_POST
 
 class _WindowVariant(IntEnum):
     WINDOW_VARIANT_NORMAL = auto()
@@ -33359,7 +34729,7 @@ class Window(WindowBase):
         """
         GetGrandParent() -> Window
         
-        Returns the grandparent of a window, or NULL if there isn't one.
+        Returns the grandparent of a window, or nullptr if there isn't one.
         """
 
     def GetNextSibling(self) -> Window:
@@ -33367,14 +34737,14 @@ class Window(WindowBase):
         GetNextSibling() -> Window
         
         Returns the next window after this one among the parent's children or
-        NULL if this window is the last child.
+        nullptr if this window is the last child.
         """
 
     def GetParent(self) -> Window:
         """
         GetParent() -> Window
         
-        Returns the parent of the window, or NULL if there is no parent.
+        Returns the parent of the window, or nullptr if there is no parent.
         """
 
     def GetPrevSibling(self) -> Window:
@@ -33382,7 +34752,7 @@ class Window(WindowBase):
         GetPrevSibling() -> Window
         
         Returns the previous window before this one among the parent's
-        children or  NULL if this window is the first child.
+        children or  nullptr if this window is the first child.
         """
 
     def IsDescendant(self, win: Window) -> bool:
@@ -33467,9 +34837,9 @@ class Window(WindowBase):
         positive) or up.
         """
 
-    def ScrollWindow(self, dx: int, dy: int, rect: Optional[Rect]=None) -> None:
+    def ScrollWindow(self, dx: int, dy: int, rect: Rect=nullptr) -> None:
         """
-        ScrollWindow(dx, dy, rect=None) -> None
+        ScrollWindow(dx, dy, rect=nullptr) -> None
         
         Physically scrolls the pixels in the window and move child windows
         accordingly.
@@ -33753,6 +35123,14 @@ class Window(WindowBase):
         result.
         """
 
+    def GetMinSizeFromKnownDirection(self, direction: int, size: int, availableOtherDir: int) -> Size:
+        """
+        GetMinSizeFromKnownDirection(direction, size, availableOtherDir) -> Size
+        
+        May be overridden if the control minimal size depends on the layout
+        direction.
+        """
+
     def GetMaxClientSize(self) -> Size:
         """
         GetMaxClientSize() -> Size
@@ -33862,8 +35240,7 @@ class Window(WindowBase):
         """
         InformFirstDirection(direction, size, availableOtherDir) -> bool
         
-        wxSizer and friends use this to give a chance to a component to recalc
-        its min size once one of the final size components is known.
+        Compatibility function called by GetMinSizeFromKnownDirection().
         """
 
     def InvalidateBestSize(self) -> None:
@@ -34255,9 +35632,9 @@ class Window(WindowBase):
         Returns the foreground colour of the window.
         """
 
-    def GetFullTextExtent(self, string: str, font: Optional[Font]=None) -> Tuple[int, int, int, int]:
+    def GetFullTextExtent(self, string: str, font: Font=nullptr) -> Tuple[int, int, int, int]:
         """
-        GetFullTextExtent(string, font=None) -> Tuple[int, int, int, int]
+        GetFullTextExtent(string, font=nullptr) -> Tuple[int, int, int, int]
         
         Gets the dimensions of the string as it would be drawn on the window
         with the currently selected font.
@@ -34295,9 +35672,9 @@ class Window(WindowBase):
         background.
         """
 
-    def Refresh(self, eraseBackground: bool=True, rect: Optional[Rect]=None) -> None:
+    def Refresh(self, eraseBackground: bool=True, rect: Rect=nullptr) -> None:
         """
-        Refresh(eraseBackground=True, rect=None) -> None
+        Refresh(eraseBackground=True, rect=nullptr) -> None
         
         Causes this window, and all of its children recursively, to be
         repainted.
@@ -34333,9 +35710,9 @@ class Window(WindowBase):
         Sets the background style of the window.
         """
 
-    def IsTransparentBackgroundSupported(self, reason: Optional[str]=None) -> bool:
+    def IsTransparentBackgroundSupported(self, reason: str=nullptr) -> bool:
         """
-        IsTransparentBackgroundSupported(reason=None) -> bool
+        IsTransparentBackgroundSupported(reason=nullptr) -> bool
         
         Checks whether using transparent background might work.
         """
@@ -34743,6 +36120,13 @@ class Window(WindowBase):
         effect if possible.
         """
 
+    def GetHelpIdAtPoint(self, pt: Point) -> int:
+        """
+        GetHelpIdAtPoint(pt) -> int
+        
+        Get the ID to be used for help events generated at the given point.
+        """
+
     def GetHelpText(self) -> str:
         """
         GetHelpText() -> str
@@ -34771,7 +36155,7 @@ class Window(WindowBase):
         """
         GetToolTip() -> ToolTip
         
-        Get the associated tooltip or NULL if none.
+        Get the associated tooltip or nullptr if none.
         """
 
     def GetToolTipText(self) -> str:
@@ -35016,7 +36400,7 @@ class Window(WindowBase):
         """
         GetDropTarget() -> DropTarget
         
-        Returns the associated drop target, which may be NULL.
+        Returns the associated drop target, which may be nullptr.
         """
 
     def SetDropTarget(self, target: DropTarget) -> None:
@@ -35038,7 +36422,7 @@ class Window(WindowBase):
         GetContainingSizer() -> Sizer
         
         Returns the sizer of which this window is a member, if any, otherwise
-        NULL.
+        nullptr.
         """
 
     def GetSizer(self) -> Sizer:
@@ -35046,7 +36430,7 @@ class Window(WindowBase):
         GetSizer() -> Sizer
         
         Returns the sizer associated with the window by a previous call to
-        SetSizer(), or NULL.
+        SetSizer(), or nullptr.
         """
 
     def SetSizer(self, sizer: Sizer, deleteOld: bool=True) -> None:
@@ -35068,8 +36452,8 @@ class Window(WindowBase):
         """
         GetConstraints() -> LayoutConstraints
         
-        Returns a pointer to the window's layout constraints, or NULL if there
-        are none.
+        Returns a pointer to the window's layout constraints, or nullptr if
+        there are none.
         """
 
     def SetConstraints(self, constraints: LayoutConstraints) -> None:
@@ -35123,6 +36507,13 @@ class Window(WindowBase):
         Return the cursor associated with this window.
         """
 
+    def GetCursorBundle(self) -> CursorBundle:
+        """
+        GetCursorBundle() -> CursorBundle
+        
+        Returns the cursor bundle associated with this window.
+        """
+
     def HasCapture(self) -> bool:
         """
         HasCapture() -> bool
@@ -35149,6 +36540,13 @@ class Window(WindowBase):
         SetCursor(cursor) -> bool
         
         Sets the window's cursor.
+        """
+
+    def SetCursorBundle(self, cursors: CursorBundle) -> bool:
+        """
+        SetCursorBundle(cursors) -> bool
+        
+        Sets a collection of cursors to be used by the window.
         """
 
     def WarpPointer(self, x: int, y: int) -> None:
@@ -35309,6 +36707,13 @@ class Window(WindowBase):
         UpdateWindowUI(flags=UPDATE_UI_NONE) -> None
         
         This function sends one or more wxUpdateUIEvent to the window.
+        """
+
+    def DoPrepareUpdateWindowUI(self, event: UpdateUIEvent) -> None:
+        """
+        DoPrepareUpdateWindowUI(event) -> None
+        
+        When UpdateWindowUI() runs, it creates instances of wxUpdateUIEvent.
         """
 
     @staticmethod
@@ -35750,14 +37155,14 @@ def GetActiveWindow() -> Window:    """
     GetActiveWindow() -> Window
     
     Gets the currently active window (implemented for MSW and GTK only
-    currently, always returns NULL in the other ports).
+    currently, always returns nullptr in the other ports).
     """
 
 def GetTopLevelParent(window: Window) -> Window:    """
     GetTopLevelParent(window) -> Window
     
     Returns the first top level parent of the given window, or in other
-    words, the frame or dialog containing it, or NULL.
+    words, the frame or dialog containing it, or nullptr.
     """
 
 def DumpWindow(window: Window) -> str:    """
@@ -36008,6 +37413,11 @@ class Panel(Window):
         panel even if there are child windows in the panel.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -36022,14 +37432,14 @@ PyPanel = wx.deprecated(Panel, 'Use Panel instead.')
 
 class MenuItem(Object):
     """
-    MenuItem(parentMenu=None, id=ID_SEPARATOR, text='', helpString='', kind=ITEM_NORMAL, subMenu=None) -> None
+    MenuItem(parentMenu=nullptr, id=ID_SEPARATOR, text='', helpString='', kind=ITEM_NORMAL, subMenu=nullptr) -> None
     
     A menu item represents an item in a menu.
     """
 
-    def __init__(self, parentMenu: Optional[Menu]=None, id: int=ID_SEPARATOR, text: str='', helpString: str='', kind: ItemKind=ITEM_NORMAL, subMenu: Optional[Menu]=None) -> None:
+    def __init__(self, parentMenu: Menu=nullptr, id: int=ID_SEPARATOR, text: str='', helpString: str='', kind: ItemKind=ITEM_NORMAL, subMenu: Menu=nullptr) -> None:
         """
-        MenuItem(parentMenu=None, id=ID_SEPARATOR, text='', helpString='', kind=ITEM_NORMAL, subMenu=None) -> None
+        MenuItem(parentMenu=nullptr, id=ID_SEPARATOR, text='', helpString='', kind=ITEM_NORMAL, subMenu=nullptr) -> None
         
         A menu item represents an item in a menu.
         """
@@ -36054,9 +37464,15 @@ class MenuItem(Object):
         Returns the item bitmap.
         """
 
+    @overload
+    def GetBitmapBundle(self, checked: bool) -> BitmapBundle:
+        ...
+
+    @overload
     def GetBitmapBundle(self) -> BitmapBundle:
         """
         GetBitmapBundle() -> BitmapBundle
+        GetBitmapBundle(checked) -> BitmapBundle
         
         Returns the bitmap bundle containing the bitmap used for this item.
         """
@@ -36066,6 +37482,13 @@ class MenuItem(Object):
         GetDisabledBitmap() -> Bitmap
         
         Returns the bitmap used for disabled items.
+        """
+
+    def GetDisabledBitmapBundle(self) -> BitmapBundle:
+        """
+        GetDisabledBitmapBundle() -> BitmapBundle
+        
+        Returns the bitmap bundle used for disabled items.
         """
 
     def GetFont(self) -> Font:
@@ -36125,7 +37548,7 @@ class MenuItem(Object):
         """
         GetMenu() -> Menu
         
-        Returns the menu this menu item is in, or NULL if this menu item is
+        Returns the menu this menu item is in, or nullptr if this menu item is
         not attached.
         """
 
@@ -36133,7 +37556,7 @@ class MenuItem(Object):
         """
         GetSubMenu() -> Menu
         
-        Returns the submenu associated with the menu item, or NULL if there
+        Returns the submenu associated with the menu item, or nullptr if there
         isn't one.
         """
 
@@ -36148,7 +37571,7 @@ class MenuItem(Object):
         """
         GetAccel() -> AcceleratorEntry
         
-        Get our accelerator or NULL (caller must delete the pointer)
+        Get our accelerator or nullptr (caller must delete the pointer)
         """
 
     def IsCheck(self) -> bool:
@@ -36344,6 +37767,8 @@ class MenuItem(Object):
     def DisabledBitmap(self) -> BitmapBundle: ...
     @DisabledBitmap.setter
     def DisabledBitmap(self, value: BitmapBundle, /) -> None: ...
+    @property
+    def DisabledBitmapBundle(self) -> BitmapBundle: ...
     @property
     def Font(self) -> Font: ...
     @Font.setter
@@ -36710,9 +38135,9 @@ class Menu(EvtHandler):
         Sets the title of the menu.
         """
 
-    def UpdateUI(self, source: Optional[EvtHandler]=None) -> None:
+    def UpdateUI(self, source: EvtHandler=nullptr) -> None:
         """
-        UpdateUI(source=None) -> None
+        UpdateUI(source=nullptr) -> None
         
         Update the state of all menu items, recursively, by generating
         wxEVT_UPDATE_UI events for them.
@@ -36970,9 +38395,9 @@ class MenuBar(Window):
         Determines whether an item is enabled.
         """
 
-    def Refresh(self, eraseBackground: bool=True, rect: Optional[Rect]=None) -> None:
+    def Refresh(self, eraseBackground: bool=True, rect: Rect=nullptr) -> None:
         """
-        Refresh(eraseBackground=True, rect=None) -> None
+        Refresh(eraseBackground=True, rect=nullptr) -> None
         
         Redraw the menu bar.
         """
@@ -37170,6 +38595,13 @@ class Scrolled:
         scrolled image.
         """
 
+    def DoPrepareReadOnlyDC(self, dc: DC) -> None:
+        """
+        DoPrepareReadOnlyDC(dc) -> None
+        
+        Call this function to adjust any device context used with this window.
+        """
+
     def EnableScrolling(self, xScrolling: bool, yScrolling: bool) -> None:
         """
         EnableScrolling(xScrolling, yScrolling) -> None
@@ -37199,11 +38631,12 @@ class Scrolled:
         Get the position at which the visible portion of the window starts.
         """
 
-    def IsRetained(self) -> bool:
+    def GetViewStartPixels(self) -> Tuple[int, int]:
         """
-        IsRetained() -> bool
+        GetViewStartPixels() -> Tuple[int, int]
         
-        Motif only: true if the window has a backing bitmap.
+        Get the position at which the visible portion of the window starts in
+        pixels.
         """
 
     def OnDraw(self, dc: DC) -> None:
@@ -37219,8 +38652,14 @@ class Scrolled:
         """
         PrepareDC(dc) -> None
         
-        This function is for backwards compatibility only and simply calls
-        DoPrepareDC() now.
+        This function is overridden to call DoPrepareDC().
+        """
+
+    def PrepareReadOnlyDC(self, dc: ReadOnlyDC) -> None:
+        """
+        PrepareReadOnlyDC(dc) -> None
+        
+        This function is overridden to call DoPrepareReadOnlyDC().
         """
 
     @overload
@@ -37234,6 +38673,21 @@ class Scrolled:
         Scroll(pt) -> None
         
         Scrolls a window so the view start is at the given point.
+        """
+
+    def EnableAutoscrollWithoutCapture(self) -> None:
+        """
+        EnableAutoscrollWithoutCapture() -> None
+        
+        Set this window to autoscroll even if it has not captured the mouse
+        (assuming the mouse cursor is in its autoscroll zone).
+        """
+
+    def DisableAutoscrollWithoutCapture(self) -> None:
+        """
+        DisableAutoscrollWithoutCapture() -> None
+        
+        Undo EnableAutoscrollWithoutCapture().
         """
 
     def SetScrollRate(self, xstep: int, ystep: int) -> None:
@@ -37288,9 +38742,26 @@ class Scrolled:
         GetScrollLines(orient) -> int
         """
 
+    def EnableAutoScrollInside(self, insideWidth: int) -> None:
+        """
+        EnableAutoScrollInside(insideWidth) -> None
+        
+        Set the width of the autoscroll zone inside the window rectangle.
+        """
+
+    def DisableAutoScrollOutside(self) -> None:
+        """
+        DisableAutoScrollOutside() -> None
+        
+        By default, autoscrolling is triggered when the mouse is anywhere
+        outside of the window.
+        """
+
     def SetScale(self, xs: float, ys: float) -> None:
         """
         SetScale(xs, ys) -> None
+        
+        Set the scaling factor for the window.
         """
 
     def GetScaleX(self) -> float:
@@ -37331,6 +38802,11 @@ class Scrolled:
         auto scroll events - note that unlike StopAutoScrolling() it doesn't
         stop the timer, so it will be called repeatedly and will typically
         return different values depending on the current mouse position.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -37404,6 +38880,11 @@ class ScrolledWindow(Window, Scrolled):
         
         In contrast to SetFocus() this will set the focus to the panel even if
         there are child windows in the panel. This is only rarely needed.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -37986,59 +39467,6 @@ class VarHVScrollHelper(VarVScrollHelper, VarHScrollHelper):
         
         Set the number of rows and columns the target window will contain.
         """
-    @property
-    def RowColumnCount(self) -> int: ...
-    @RowColumnCount.setter
-    def RowColumnCount(self, value: int, /) -> None: ...
-    @property
-    def VisibleBegin(self) -> Position: ...
-    @property
-    def VisibleEnd(self) -> Position: ...
-# end of class VarHVScrollHelper
-
-
-class VScrolledWindow(Panel, VarVScrollHelper):
-    """
-    VScrolledWindow() -> None
-    VScrolledWindow(parent, id=ID_ANY, pos=DefaultPosition, size=DefaultSize, style=0, name=PanelNameStr) -> None
-    
-    In the name of this class, "V" may stand for "variable" because it can
-    be used for scrolling rows of variable heights; "virtual", because it
-    is not necessary to know the heights of all rows in advance  only
-    those which are shown on the screen need to be measured; or even
-    "vertical", because this class only supports scrolling vertically.
-    """
-
-    @overload
-    def __init__(self, parent: Window, id: int=ID_ANY, pos: Point=DefaultPosition, size: Size=DefaultSize, style: int=0, name: str=PanelNameStr) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """
-        VScrolledWindow() -> None
-        VScrolledWindow(parent, id=ID_ANY, pos=DefaultPosition, size=DefaultSize, style=0, name=PanelNameStr) -> None
-        
-        In the name of this class, "V" may stand for "variable" because it can
-        be used for scrolling rows of variable heights; "virtual", because it
-        is not necessary to know the heights of all rows in advance  only
-        those which are shown on the screen need to be measured; or even
-        "vertical", because this class only supports scrolling vertically.
-        """
-
-    def Create(self, parent: Window, id: int=ID_ANY, pos: Point=DefaultPosition, size: Size=DefaultSize, style: int=0, name: str=PanelNameStr) -> bool:
-        """
-        Create(parent, id=ID_ANY, pos=DefaultPosition, size=DefaultSize, style=0, name=PanelNameStr) -> bool
-        
-        Same as the non-default constructor, but returns a status code: true
-        if ok, false if the window couldn't be created.
-        """
-
-    @staticmethod
-    def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
-        """
-        GetClassDefaultAttributes(variant=WINDOW_VARIANT_NORMAL) -> VisualAttributes
-        """
 
     def HitTest(self, *args):
         """
@@ -38115,7 +39543,15 @@ class VScrolledWindow(Panel, VarVScrollHelper):
     def LineCount(self) -> int: ...
     @LineCount.setter
     def LineCount(self, value: int, /) -> None: ...
-# end of class VScrolledWindow
+    @property
+    def RowColumnCount(self) -> int: ...
+    @RowColumnCount.setter
+    def RowColumnCount(self, value: int, /) -> None: ...
+    @property
+    def VisibleBegin(self) -> Position: ...
+    @property
+    def VisibleEnd(self) -> Position: ...
+# end of class VarHVScrollHelper
 
 
 class HScrolledWindow(Panel, VarHScrollHelper):
@@ -38147,6 +39583,11 @@ class HScrolledWindow(Panel, VarHScrollHelper):
         
         Same as the non-default constructor, but returns a status code: true
         if ok, false if the window couldn't be created.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -38188,12 +39629,106 @@ class HVScrolledWindow(Panel, VarHVScrollHelper):
         if ok, false if the window couldn't be created.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
         GetClassDefaultAttributes(variant=WINDOW_VARIANT_NORMAL) -> VisualAttributes
         """
 # end of class HVScrolledWindow
+
+
+class VScrolled(VarVScrollHelper):
+    """
+    VScrolled() -> None
+    VScrolled(parent, id=ID_ANY, pos=DefaultPosition, size=DefaultSize, style=0, name=PanelNameStr) -> None
+    
+    In the name of this class, "V" may stand for "variable" because it can
+    be used for scrolling rows of variable heights; "virtual", because it
+    is not necessary to know the heights of all rows in advance  only
+    those which are shown on the screen need to be measured; or even
+    "vertical", because this class only supports scrolling vertically.
+    """
+
+    @overload
+    def __init__(self, parent: Window, id: int=ID_ANY, pos: Point=DefaultPosition, size: Size=DefaultSize, style: int=0, name: str=PanelNameStr) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        VScrolled() -> None
+        VScrolled(parent, id=ID_ANY, pos=DefaultPosition, size=DefaultSize, style=0, name=PanelNameStr) -> None
+        
+        In the name of this class, "V" may stand for "variable" because it can
+        be used for scrolling rows of variable heights; "virtual", because it
+        is not necessary to know the heights of all rows in advance  only
+        those which are shown on the screen need to be measured; or even
+        "vertical", because this class only supports scrolling vertically.
+        """
+
+    def Create(self, parent: Window, id: int=ID_ANY, pos: Point=DefaultPosition, size: Size=DefaultSize, style: int=0, name: str=PanelNameStr) -> bool:
+        """
+        Create(parent, id=ID_ANY, pos=DefaultPosition, size=DefaultSize, style=0, name=PanelNameStr) -> bool
+        
+        Same as the non-default constructor, but returns a status code: true
+        if ok, false if the window couldn't be created.
+        """
+# end of class VScrolled
+
+class VScrolledCanvas(Window, VScrolled):
+    """
+    The :ref:`VScrolledCanvas` class is a combination of the :ref:`Window` and
+    :ref:`VScrolled` classes, and manages scrolling for its client area,
+    transforming the coordinates according to the scrollbar positions,
+    and setting the scroll positions, thumb sizes and ranges according to
+    the area in view.
+    """
+
+class VScrolledWindow(Window, VScrolled):
+    """
+    VScrolledWindow() -> None
+    VScrolledWindow(parent, id=ID_ANY, pos=DefaultPosition, size=DefaultSize, style=ScrolledWindowStyle, name=PanelNameStr) -> None
+    
+    VScrolled window derived from wxPanel.
+    """
+
+    @overload
+    def __init__(self, parent: Window, id: int=ID_ANY, pos: Point=DefaultPosition, size: Size=DefaultSize, style: int=ScrolledWindowStyle, name: str=PanelNameStr) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        VScrolledWindow() -> None
+        VScrolledWindow(parent, id=ID_ANY, pos=DefaultPosition, size=DefaultSize, style=ScrolledWindowStyle, name=PanelNameStr) -> None
+        
+        VScrolled window derived from wxPanel.
+        """
+
+    def SetFocusIgnoringChildren(self) -> None:
+        """
+        SetFocusIgnoringChildren() -> None
+        
+        In contrast to SetFocus() this will set the focus to the panel even if
+        there are child windows in the panel. This is only rarely needed.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
+    @staticmethod
+    def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
+        """
+        GetClassDefaultAttributes(variant=WINDOW_VARIANT_NORMAL) -> VisualAttributes
+        """
+# end of class VScrolledWindow
 
 #-- end-vscroll --#
 #-- begin-control --#
@@ -38313,12 +39848,17 @@ class Control(Window):
         """
 
     @staticmethod
-    def Ellipsize(label: str, dc: DC, mode: EllipsizeMode, maxWidth: int, flags: int=ELLIPSIZE_FLAGS_DEFAULT) -> str:
+    def Ellipsize(label: str, dc: ReadOnlyDC, mode: EllipsizeMode, maxWidth: int, flags: int=ELLIPSIZE_FLAGS_DEFAULT) -> str:
         """
         Ellipsize(label, dc, mode, maxWidth, flags=ELLIPSIZE_FLAGS_DEFAULT) -> str
         
         Replaces parts of the label string with ellipsis, if needed, so that
         it fits into maxWidth pixels if possible.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -38534,6 +40074,15 @@ class ItemContainer(ItemContainerImmutable):
         Deletes an item from the control.
         """
 
+    def IsSorted(self) -> bool:
+        """
+        IsSorted() -> bool
+        
+        The control may maintain its items in a sorted order in which case
+        items are automatically inserted at the right position when they are
+        inserted or appended.
+        """
+
     def DetachClientObject(self, n: int) -> ClientData:
         """
         DetachClientObject(n) -> ClientData
@@ -38686,6 +40235,11 @@ class StaticBitmap(Control):
         Returns the scale mode currently used in the control.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -38783,6 +40337,11 @@ class GenericStaticBitmap(Control):
         Returns the scale mode currently used in the control.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -38801,6 +40360,7 @@ class GenericStaticBitmap(Control):
 #-- end-statbmp --#
 #-- begin-stattext --#
 ST_NO_AUTORESIZE: int
+ST_WRAP: int
 ST_ELLIPSIZE_START: int
 ST_ELLIPSIZE_MIDDLE: int
 ST_ELLIPSIZE_END: int
@@ -38859,6 +40419,11 @@ class StaticText(Control):
         words boundaries so it might not be the case if words are too long).
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -38905,6 +40470,11 @@ class StaticBox(Control):
         Enable(enable=True) -> bool
         
         Enables or disables the box without affecting its label window, if any.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -39032,11 +40602,19 @@ class StatusBar(Control):
         text to the string passed as argument.
         """
 
-    def SetFieldsCount(self, number: int=1, widths: Optional[List[int]]=None) -> None:
+    def SetFieldsCount(self, number: int=1, widths: List[int]=nullptr) -> None:
         """
-        SetFieldsCount(number=1, widths=None) -> None
+        SetFieldsCount(number=1, widths=nullptr) -> None
         
         Sets the number of fields, and optionally the field widths.
+        """
+
+    def AddFieldControl(self, i: int, win: Window) -> bool:
+        """
+        AddFieldControl(i, win) -> bool
+        
+        Add a control (child of the wxStatusBar) to be shown at the specified
+        field position in the status bar.
         """
 
     def SetMinHeight(self, height: int) -> None:
@@ -39051,7 +40629,7 @@ class StatusBar(Control):
         SetStatusStyles(styles) -> None
         
         Sets the styles of the fields in the status line which can make fields
-        appear flat or raised instead of the standard sunken 3D border.
+        appear flat or raised instead of the default appearance.
         """
 
     def SetStatusText(self, text: str, i: int=0) -> None:
@@ -39066,6 +40644,11 @@ class StatusBar(Control):
         SetStatusWidths(widths) -> None
         
         Sets the widths of the fields in the status line.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -39234,6 +40817,11 @@ class Choice(Control, ItemContainer):
         SetString(n, string) -> None
         
         Sets the label for the given item.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -39496,11 +41084,16 @@ class Button(AnyButton):
         """
 
     @staticmethod
-    def GetDefaultSize(win: Optional[Window]=None) -> Size:
+    def GetDefaultSize(win: Window=nullptr) -> Size:
         """
-        GetDefaultSize(win=None) -> Size
+        GetDefaultSize(win=nullptr) -> Size
         
         Returns the default size for the buttons.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -39564,6 +41157,11 @@ class BitmapButton(Button):
         Helper function creating a standard-looking "Close" button.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -39581,9 +41179,9 @@ class WithImages:
     A mixin class to be used with other classes that use a wxImageList.
     """
 
-    class _enum_58(IntEnum):
+    class _enum_61(IntEnum):
         NO_IMAGE = auto()
-    NO_IMAGE = _enum_58.NO_IMAGE
+    NO_IMAGE = _enum_61.NO_IMAGE
 
     def __init__(self) -> None:
         """
@@ -39632,7 +41230,7 @@ class WithImages:
         """
         GetImageList() -> ImageList
         
-        Returns the associated image list, may be NULL.
+        Returns the associated image list, may be nullptr.
         """
 
     def GetUpdatedImageListFor(self, win: Window) -> ImageList:
@@ -39739,7 +41337,7 @@ class BookCtrlBase(Control, WithImages):
         """
         GetCurrentPage() -> Window
         
-        Returns the currently selected page or NULL.
+        Returns the currently selected page or nullptr.
         """
 
     def SetSelection(self, page: int) -> int:
@@ -39805,7 +41403,9 @@ class BookCtrlBase(Control, WithImages):
         """
         RemovePage(page) -> bool
         
-        Deletes the specified page, without deleting the associated window.
+        Deletes the specified page, without deleting the associated window The
+        window will be hidden, though, so you may need to call Show() after
+        e.g.
         """
 
     def GetPageCount(self) -> int:
@@ -39929,17 +41529,17 @@ NB_FIXEDWIDTH: int
 NB_MULTILINE: int
 NB_NOPAGETHEME: int
 
-class _enum_37(IntEnum):
+class _enum_38(IntEnum):
     NB_HITTEST_NOWHERE = auto()
     NB_HITTEST_ONICON = auto()
     NB_HITTEST_ONLABEL = auto()
     NB_HITTEST_ONITEM = auto()
     NB_HITTEST_ONPAGE = auto()
-NB_HITTEST_NOWHERE = _enum_37.NB_HITTEST_NOWHERE
-NB_HITTEST_ONICON = _enum_37.NB_HITTEST_ONICON
-NB_HITTEST_ONLABEL = _enum_37.NB_HITTEST_ONLABEL
-NB_HITTEST_ONITEM = _enum_37.NB_HITTEST_ONITEM
-NB_HITTEST_ONPAGE = _enum_37.NB_HITTEST_ONPAGE
+NB_HITTEST_NOWHERE = _enum_38.NB_HITTEST_NOWHERE
+NB_HITTEST_ONICON = _enum_38.NB_HITTEST_ONICON
+NB_HITTEST_ONLABEL = _enum_38.NB_HITTEST_ONLABEL
+NB_HITTEST_ONITEM = _enum_38.NB_HITTEST_ONITEM
+NB_HITTEST_ONPAGE = _enum_38.NB_HITTEST_ONPAGE
 wxEVT_NOTEBOOK_PAGE_CHANGED: int
 wxEVT_NOTEBOOK_PAGE_CHANGING: int
 NotebookNameStr: str
@@ -39995,6 +41595,21 @@ class Notebook(BookCtrlBase):
         SetPadding(padding) -> None
         
         Sets the amount of space around each page's icon and label, in pixels.
+        """
+
+    def GetTabOrientation(self) -> Direction:
+        """
+        GetTabOrientation() -> Direction
+        
+        This is a convenience function mapping wxBK_TOP etc styles to one of
+        the wxDirection enum elements.
+        """
+
+    def GetTabRect(self, page: int) -> Rect:
+        """
+        GetTabRect(page) -> Rect
+        
+        Return the rectangle of the given page tab in window coordinates.
         """
 
     def GetPageImage(self, nPage: int) -> int:
@@ -40056,6 +41671,11 @@ class Notebook(BookCtrlBase):
         Inserts a new page at the specified position.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -40067,6 +41687,8 @@ class Notebook(BookCtrlBase):
     def Selection(self) -> int: ...
     @Selection.setter
     def Selection(self, value: int, /) -> None: ...
+    @property
+    def TabOrientation(self) -> Direction: ...
     @property
     def ThemeBackgroundColour(self) -> Colour: ...
 # end of class Notebook
@@ -40110,13 +41732,13 @@ SplitMode: TypeAlias = Union[_SplitMode, int]
 SPLIT_HORIZONTAL = _SplitMode.SPLIT_HORIZONTAL
 SPLIT_VERTICAL = _SplitMode.SPLIT_VERTICAL
 
-class _enum_47(IntEnum):
+class _enum_48(IntEnum):
     SPLIT_DRAG_NONE = auto()
     SPLIT_DRAG_DRAGGING = auto()
     SPLIT_DRAG_LEFT_DOWN = auto()
-SPLIT_DRAG_NONE = _enum_47.SPLIT_DRAG_NONE
-SPLIT_DRAG_DRAGGING = _enum_47.SPLIT_DRAG_DRAGGING
-SPLIT_DRAG_LEFT_DOWN = _enum_47.SPLIT_DRAG_LEFT_DOWN
+SPLIT_DRAG_NONE = _enum_48.SPLIT_DRAG_NONE
+SPLIT_DRAG_DRAGGING = _enum_48.SPLIT_DRAG_DRAGGING
+SPLIT_DRAG_LEFT_DOWN = _enum_48.SPLIT_DRAG_LEFT_DOWN
 wxEVT_SPLITTER_SASH_POS_CHANGED: int
 wxEVT_SPLITTER_SASH_POS_CHANGING: int
 wxEVT_SPLITTER_SASH_POS_RESIZE: int
@@ -40287,9 +41909,9 @@ class SplitterWindow(Window):
         Initializes the left and right panes of the splitter window.
         """
 
-    def Unsplit(self, toRemove: Optional[Window]=None) -> bool:
+    def Unsplit(self, toRemove: Window=nullptr) -> bool:
         """
-        Unsplit(toRemove=None) -> bool
+        Unsplit(toRemove=nullptr) -> bool
         
         Unsplits the window.
         """
@@ -40302,6 +41924,25 @@ class SplitterWindow(Window):
         immediately.
         """
 
+    def GetLastSplitPosition(self) -> Point:
+        """
+        GetLastSplitPosition() -> Point
+        
+        Get the last sash position before the splitter was unsplit.
+        """
+
+    def SetLastSplitPosition(self, pos: Point) -> None:
+        """
+        SetLastSplitPosition(pos) -> None
+        
+        Sets the last sash position.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -40309,6 +41950,10 @@ class SplitterWindow(Window):
         """
     @property
     def DefaultSashSize(self) -> int: ...
+    @property
+    def LastSplitPosition(self) -> Point: ...
+    @LastSplitPosition.setter
+    def LastSplitPosition(self, value: Point, /) -> None: ...
     @property
     def MinimumPaneSize(self) -> int: ...
     @MinimumPaneSize.setter
@@ -40340,14 +41985,14 @@ class SplitterWindow(Window):
 
 class SplitterEvent(NotifyEvent):
     """
-    SplitterEvent(eventType=wxEVT_NULL, splitter=None) -> None
+    SplitterEvent(eventType=wxEVT_NULL, splitter=nullptr) -> None
     
     This class represents the events generated by a splitter control.
     """
 
-    def __init__(self, eventType: EventType=wxEVT_NULL, splitter: Optional[SplitterWindow]=None) -> None:
+    def __init__(self, eventType: EventType=wxEVT_NULL, splitter: SplitterWindow=nullptr) -> None:
         """
-        SplitterEvent(eventType=wxEVT_NULL, splitter=None) -> None
+        SplitterEvent(eventType=wxEVT_NULL, splitter=nullptr) -> None
         
         This class represents the events generated by a splitter control.
         """
@@ -40500,6 +42145,11 @@ class CollapsiblePane(Control):
         Returns true if the pane window is currently shown.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -40599,6 +42249,11 @@ class StaticLine(Control):
         
         This static function returns the size which will be given to the
         smaller dimension of the static line, i.e.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -41023,7 +42678,15 @@ TE_CHARWRAP: int
 TE_WORDWRAP: int
 TE_BESTWRAP: int
 TE_RICH2: int
-TEXT_TYPE_ANY: int
+
+class _TextCtrlFileType(IntEnum):
+    TEXT_TYPE_ANY = auto()
+    TEXT_TYPE_PLAIN = auto()
+    TEXT_TYPE_RTF = auto()
+TextCtrlFileType: TypeAlias = Union[_TextCtrlFileType, int]
+TEXT_TYPE_ANY = _TextCtrlFileType.TEXT_TYPE_ANY
+TEXT_TYPE_PLAIN = _TextCtrlFileType.TEXT_TYPE_PLAIN
+TEXT_TYPE_RTF = _TextCtrlFileType.TEXT_TYPE_RTF
 
 class _TextAttrAlignment(IntEnum):
     TEXT_ALIGNMENT_DEFAULT = auto()
@@ -41984,9 +43647,9 @@ class TextAttr:
         Sets the URL for the content.
         """
 
-    def Apply(self, style: TextAttr, compareWith: Optional[TextAttr]=None) -> bool:
+    def Apply(self, style: TextAttr, compareWith: TextAttr=nullptr) -> bool:
         """
-        Apply(style, compareWith=None) -> bool
+        Apply(style, compareWith=nullptr) -> bool
         
         Applies the attributes in style to the original object, but not those
         attributes from style that are the same as those in compareWith (if
@@ -42261,6 +43924,38 @@ class TextCtrl(Control, TextEntry):
         Returns the style at this position in the text control.
         """
 
+    def IsRTFSupported(self) -> bool:
+        """
+        IsRTFSupported() -> bool
+        
+        Returns true if text controls support reading and writing RTF (Rich
+        Text Format).
+        """
+
+    def GetRTFValue(self) -> str:
+        """
+        GetRTFValue() -> str
+        
+        Returns the content of a multiline text control as RTF (Rich Text
+        Formatted) text.
+        """
+
+    def SetRTFValue(self, val: str) -> None:
+        """
+        SetRTFValue(val) -> None
+        
+        Sets the content of a multiline text control from an RTF (Rich Text
+        Formatted) buffer.
+        """
+
+    def SearchText(self, search: TextSearch) -> TextSearchResult:
+        """
+        SearchText(search) -> TextSearchResult
+        
+        Searches for a string in the control, using the provided search
+        options.
+        """
+
     def HitTestPos(self, pt: Point) -> Tuple[TextCtrlHitTestResult, int]:
         """
         HitTestPos(pt) -> Tuple[TextCtrlHitTestResult, int]
@@ -42368,18 +44063,15 @@ class TextCtrl(Control, TextEntry):
         Converts the given zero based column and line number to a position.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
         GetClassDefaultAttributes(variant=WINDOW_VARIANT_NORMAL) -> VisualAttributes
-        """
-
-    def MacCheckSpelling(self, check: bool) -> None:
-        """
-        MacCheckSpelling(check) -> None
-        
-        Turn on the native spell checking for the text widget on
-        OSX.  Ignored on other platforms.
         """
 
     def ShowNativeCaret(self, show: bool=True) -> bool:
@@ -42417,6 +44109,10 @@ class TextCtrl(Control, TextEntry):
     def DefaultStyle(self, value: TextAttr, /) -> None: ...
     @property
     def NumberOfLines(self) -> int: ...
+    @property
+    def RTFValue(self) -> str: ...
+    @RTFValue.setter
+    def RTFValue(self, value: str, /) -> None: ...
 # end of class TextCtrl
 
 
@@ -42465,6 +44161,79 @@ class TextUrlEvent(CommandEvent):
     @property
     def URLStart(self) -> int: ...
 # end of class TextUrlEvent
+
+
+class TextSearch:
+    """
+    TextSearch(text) -> None
+    
+    Search options for wxTextCtrl::SearchText().
+    """
+
+    class _Direction(IntEnum):
+        Down = auto()
+        Up = auto()
+    Direction: TypeAlias = Union[_Direction, int]
+    Down = _Direction.Down
+    Up = _Direction.Up
+
+    def __init__(self, text: str) -> None:
+        """
+        TextSearch(text) -> None
+        
+        Search options for wxTextCtrl::SearchText().
+        """
+    m_searchValue: str
+    m_startingPosition: int
+    m_matchCase: bool
+    m_wholeWord: bool
+    m_direction: Direction
+
+    def SearchValue(self, value: str) -> TextSearch:
+        """
+        SearchValue(value) -> TextSearch
+        
+        The string to search for.
+        """
+
+    def MatchCase(self, matchCase: bool=True) -> TextSearch:
+        """
+        MatchCase(matchCase=True) -> TextSearch
+        
+        Whether the search should match case (i.e., be case sensitive).
+        """
+
+    def MatchWholeWord(self, matchWholeWord: bool=True) -> TextSearch:
+        """
+        MatchWholeWord(matchWholeWord=True) -> TextSearch
+        
+        Whether the search should match the whole word.
+        """
+
+    def SearchDirection(self, direction: TextSearch.Direction) -> TextSearch:
+        """
+        SearchDirection(direction) -> TextSearch
+        
+        Whether the search should go up or down in the text control.
+        """
+
+    def Start(self, startPosition: int) -> TextSearch:
+        """
+        Start(startPosition) -> TextSearch
+        
+        Where the search should start from.
+        """
+# end of class TextSearch
+
+
+class TextSearchResult:
+    """
+    Result from wxTextCtrl::SearchText(), specifying the range of the
+    found text.
+    """
+    m_start: int
+    m_end: int
+# end of class TextSearchResult
 
 
 EVT_TEXT        = wx.PyEventBinder( wxEVT_TEXT, 1)
@@ -42634,6 +44403,11 @@ class ComboBox(Control, ItemContainer, TextEntry):
         Returns the number of items in the control.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -42763,6 +44537,11 @@ class CheckBox(Control):
     @ThreeStateValue.setter
     def ThreeStateValue(self, value: CheckBoxState, /) -> None: ...
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -42800,6 +44579,13 @@ class ListBox(Control, ItemContainer):
         Create(parent, id=ID_ANY, pos=DefaultPosition, size=DefaultSize, choices=[], style=0, validator=DefaultValidator, name=ListBoxNameStr) -> bool
         
         Creates the listbox for two-step construction.
+        """
+
+    def HasMultipleSelection(self) -> bool:
+        """
+        HasMultipleSelection() -> bool
+        
+        return true if the listbox allows multiple selection
         """
 
     def Deselect(self, n: int) -> None:
@@ -42971,6 +44757,11 @@ class ListBox(Control, ItemContainer):
         Only valid on MSW and if the ``wx.LB_OWNERDRAW`` flag is set.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -43040,6 +44831,11 @@ class CheckListBox(ListBox):
         GetSelections() -> List[int]
         
         Returns a list of the indices of the currently selected items.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -43176,6 +44972,11 @@ class Gauge(Control):
         SetValue(pos) -> None
         
         Sets the position of the gauge.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -43850,6 +45651,11 @@ class HeaderCtrl(Control):
         Helper function to manipulate the array of column indices.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -43884,7 +45690,8 @@ class HeaderCtrl(Control):
         UpdateColumnsOrder(order) -> None
         
         Method called when the columns order is changed in the customization
-        dialog.
+        dialog or when the EVT_HEADER_END_REORDER event is not handled after
+        dragging a single column.
         """
 
     def UpdateColumnWidthToFit(self, idx: int, widthTitle: int) -> bool:
@@ -43945,6 +45752,13 @@ class HeaderCtrlSimple(HeaderCtrl):
         Append the column to the end of the control.
         """
 
+    def DeleteAllColumns(self) -> None:
+        """
+        DeleteAllColumns() -> None
+        
+        Delete all columns.
+        """
+
     def DeleteColumn(self, idx: int) -> None:
         """
         DeleteColumn(idx) -> None
@@ -43966,9 +45780,9 @@ class HeaderCtrlSimple(HeaderCtrl):
         Hide the column with the given index.
         """
 
-    def ShowSortIndicator(self, idx: int, sortOrder: bool=True) -> None:
+    def ShowSortIndicator(self, idx: int, ascending: bool=True) -> None:
         """
-        ShowSortIndicator(idx, sortOrder=True) -> None
+        ShowSortIndicator(idx, ascending=True) -> None
         
         Update the column sort indicator.
         """
@@ -43978,6 +45792,11 @@ class HeaderCtrlSimple(HeaderCtrl):
         RemoveSortIndicator() -> None
         
         Remove the sort indicator from the column being used as sort key.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -44133,8 +45952,8 @@ class SearchCtrl(Control):
         """
         GetMenu() -> Menu
         
-        Returns a pointer to the search control's menu object or NULL if there
-        is no menu attached.
+        Returns a pointer to the search control's menu object or nullptr if
+        there is no menu attached.
         """
 
     def IsSearchButtonVisible(self) -> bool:
@@ -44546,6 +46365,11 @@ class SearchCtrl(Control):
     @Value.setter
     def Value(self, value: str, /) -> None: ...
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -44640,7 +46464,8 @@ class RadioBox(Control, ItemContainerImmutable):
         """
         GetItemToolTip(item) -> ToolTip
         
-        Returns the tooltip associated with the specified item if any or NULL.
+        Returns the tooltip associated with the specified item if any or
+        nullptr.
         """
 
     def GetRowCount(self) -> int:
@@ -44736,6 +46561,11 @@ class RadioBox(Control, ItemContainerImmutable):
         Set the text of the n'th item in the radio box.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -44829,6 +46659,11 @@ class RadioButton(Control):
         GetNextInGroup() -> RadioButton
         
         Returns the next radio button in the same group.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -45050,6 +46885,11 @@ class Slider(Control):
         
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -45185,6 +47025,11 @@ class SpinButton(Control):
     def SetMax(self, maxVal):
         """
         
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -45383,6 +47228,11 @@ class SpinCtrl(Control):
         
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -45417,21 +47267,21 @@ class SpinCtrl(Control):
 class SpinCtrlDouble(Control):
     """
     SpinCtrlDouble() -> None
-    SpinCtrlDouble(parent, id=-1, value='', pos=DefaultPosition, size=DefaultSize, style=SP_ARROW_KEYS, min=0, max=100, initial=0, inc=1, name=T("wxSpinCtrlDouble")) -> None
+    SpinCtrlDouble(parent, id=-1, value='', pos=DefaultPosition, size=DefaultSize, style=SP_ARROW_KEYS, min=0, max=100, initial=0, inc=1, name="wxSpinCtrlDouble") -> None
     
     wxSpinCtrlDouble combines wxTextCtrl and wxSpinButton in one control
     and displays a real number.
     """
 
     @overload
-    def __init__(self, parent: Window, id: int=-1, value: str='', pos: Point=DefaultPosition, size: Size=DefaultSize, style: int=SP_ARROW_KEYS, min: float=0, max: float=100, initial: float=0, inc: float=1, name: str=T("wxSpinCtrlDouble")) -> None:
+    def __init__(self, parent: Window, id: int=-1, value: str='', pos: Point=DefaultPosition, size: Size=DefaultSize, style: int=SP_ARROW_KEYS, min: float=0, max: float=100, initial: float=0, inc: float=1, name: str="wxSpinCtrlDouble") -> None:
         ...
 
     @overload
     def __init__(self) -> None:
         """
         SpinCtrlDouble() -> None
-        SpinCtrlDouble(parent, id=-1, value='', pos=DefaultPosition, size=DefaultSize, style=SP_ARROW_KEYS, min=0, max=100, initial=0, inc=1, name=T("wxSpinCtrlDouble")) -> None
+        SpinCtrlDouble(parent, id=-1, value='', pos=DefaultPosition, size=DefaultSize, style=SP_ARROW_KEYS, min=0, max=100, initial=0, inc=1, name="wxSpinCtrlDouble") -> None
         
         wxSpinCtrlDouble combines wxTextCtrl and wxSpinButton in one control
         and displays a real number.
@@ -45533,6 +47383,11 @@ class SpinCtrlDouble(Control):
     def SetMax(self, maxVal):
         """
         
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -45661,6 +47516,11 @@ class ToggleButton(AnyButton):
         Sets the toggle button to the given state.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -45715,6 +47575,11 @@ class BitmapToggleButton(ToggleButton):
         SetValue(state) -> None
         
         Sets the toggle button to the given state.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -45816,6 +47681,11 @@ class ScrollBar(Control):
         Returns true for scrollbars that have the vertical style set.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -45845,7 +47715,7 @@ TOOL_STYLE_BUTTON = _ToolBarToolStyle.TOOL_STYLE_BUTTON
 TOOL_STYLE_SEPARATOR = _ToolBarToolStyle.TOOL_STYLE_SEPARATOR
 TOOL_STYLE_CONTROL = _ToolBarToolStyle.TOOL_STYLE_CONTROL
 
-class _enum_49(IntEnum):
+class _enum_50(IntEnum):
     TB_HORIZONTAL = auto()
     TB_TOP = auto()
     TB_VERTICAL = auto()
@@ -45862,26 +47732,26 @@ class _enum_49(IntEnum):
     TB_BOTTOM = auto()
     TB_RIGHT = auto()
     TB_DEFAULT_STYLE = auto()
-TB_HORIZONTAL = _enum_49.TB_HORIZONTAL
-TB_TOP = _enum_49.TB_TOP
-TB_VERTICAL = _enum_49.TB_VERTICAL
-TB_LEFT = _enum_49.TB_LEFT
-TB_FLAT = _enum_49.TB_FLAT
-TB_DOCKABLE = _enum_49.TB_DOCKABLE
-TB_NOICONS = _enum_49.TB_NOICONS
-TB_TEXT = _enum_49.TB_TEXT
-TB_NODIVIDER = _enum_49.TB_NODIVIDER
-TB_NOALIGN = _enum_49.TB_NOALIGN
-TB_HORZ_LAYOUT = _enum_49.TB_HORZ_LAYOUT
-TB_HORZ_TEXT = _enum_49.TB_HORZ_TEXT
-TB_NO_TOOLTIPS = _enum_49.TB_NO_TOOLTIPS
-TB_BOTTOM = _enum_49.TB_BOTTOM
-TB_RIGHT = _enum_49.TB_RIGHT
-TB_DEFAULT_STYLE = _enum_49.TB_DEFAULT_STYLE
+TB_HORIZONTAL = _enum_50.TB_HORIZONTAL
+TB_TOP = _enum_50.TB_TOP
+TB_VERTICAL = _enum_50.TB_VERTICAL
+TB_LEFT = _enum_50.TB_LEFT
+TB_FLAT = _enum_50.TB_FLAT
+TB_DOCKABLE = _enum_50.TB_DOCKABLE
+TB_NOICONS = _enum_50.TB_NOICONS
+TB_TEXT = _enum_50.TB_TEXT
+TB_NODIVIDER = _enum_50.TB_NODIVIDER
+TB_NOALIGN = _enum_50.TB_NOALIGN
+TB_HORZ_LAYOUT = _enum_50.TB_HORZ_LAYOUT
+TB_HORZ_TEXT = _enum_50.TB_HORZ_TEXT
+TB_NO_TOOLTIPS = _enum_50.TB_NO_TOOLTIPS
+TB_BOTTOM = _enum_50.TB_BOTTOM
+TB_RIGHT = _enum_50.TB_RIGHT
+TB_DEFAULT_STYLE = _enum_50.TB_DEFAULT_STYLE
 
 class ToolBarToolBase(Object):
     """
-    ToolBarToolBase(tbar=None, toolid=ID_SEPARATOR, label='', bmpNormal=NullBitmap, bmpDisabled=NullBitmap, kind=ITEM_NORMAL, clientData=None, shortHelpString='', longHelpString='') -> None
+    ToolBarToolBase(tbar=nullptr, toolid=ID_SEPARATOR, label='', bmpNormal=NullBitmap, bmpDisabled=NullBitmap, kind=ITEM_NORMAL, clientData=nullptr, shortHelpString='', longHelpString='') -> None
     ToolBarToolBase(tbar, control, label) -> None
     
     A toolbar tool represents one item on the toolbar.
@@ -45892,9 +47762,9 @@ class ToolBarToolBase(Object):
         ...
 
     @overload
-    def __init__(self, tbar: Optional[ToolBar]=None, toolid: int=ID_SEPARATOR, label: str='', bmpNormal: BitmapBundle=NullBitmap, bmpDisabled: BitmapBundle=NullBitmap, kind: ItemKind=ITEM_NORMAL, clientData: Optional[PyUserData]=None, shortHelpString: str='', longHelpString: str='') -> None:
+    def __init__(self, tbar: ToolBar=nullptr, toolid: int=ID_SEPARATOR, label: str='', bmpNormal: BitmapBundle=NullBitmap, bmpDisabled: BitmapBundle=NullBitmap, kind: ItemKind=ITEM_NORMAL, clientData: PyUserData=nullptr, shortHelpString: str='', longHelpString: str='') -> None:
         """
-        ToolBarToolBase(tbar=None, toolid=ID_SEPARATOR, label='', bmpNormal=NullBitmap, bmpDisabled=NullBitmap, kind=ITEM_NORMAL, clientData=None, shortHelpString='', longHelpString='') -> None
+        ToolBarToolBase(tbar=nullptr, toolid=ID_SEPARATOR, label='', bmpNormal=NullBitmap, bmpDisabled=NullBitmap, kind=ITEM_NORMAL, clientData=nullptr, shortHelpString='', longHelpString='') -> None
         ToolBarToolBase(tbar, control, label) -> None
         
         A toolbar tool represents one item on the toolbar.
@@ -46167,7 +48037,7 @@ class ToolBar(Control):
         ...
 
     @overload
-    def AddTool(self, toolId: int, label: str, bitmap: BitmapBundle, bmpDisabled: BitmapBundle, kind: ItemKind=ITEM_NORMAL, shortHelp: str='', longHelp: str='', clientData: Optional[PyUserData]=None) -> ToolBarToolBase:
+    def AddTool(self, toolId: int, label: str, bitmap: BitmapBundle, bmpDisabled: BitmapBundle, kind: ItemKind=ITEM_NORMAL, shortHelp: str='', longHelp: str='', clientData: PyUserData=nullptr) -> ToolBarToolBase:
         ...
 
     @overload
@@ -46175,7 +48045,7 @@ class ToolBar(Control):
         """
         AddTool(tool) -> ToolBarToolBase
         AddTool(toolId, label, bitmap, shortHelp='', kind=ITEM_NORMAL) -> ToolBarToolBase
-        AddTool(toolId, label, bitmap, bmpDisabled, kind=ITEM_NORMAL, shortHelp='', longHelp='', clientData=None) -> ToolBarToolBase
+        AddTool(toolId, label, bitmap, bmpDisabled, kind=ITEM_NORMAL, shortHelp='', longHelp='', clientData=nullptr) -> ToolBarToolBase
         
         Adds a tool to the toolbar.
         """
@@ -46185,9 +48055,9 @@ class ToolBar(Control):
         ...
 
     @overload
-    def InsertTool(self, pos: int, toolId: int, label: str, bitmap: BitmapBundle, bmpDisabled: BitmapBundle=NullBitmap, kind: ItemKind=ITEM_NORMAL, shortHelp: str='', longHelp: str='', clientData: Optional[PyUserData]=None) -> ToolBarToolBase:
+    def InsertTool(self, pos: int, toolId: int, label: str, bitmap: BitmapBundle, bmpDisabled: BitmapBundle=NullBitmap, kind: ItemKind=ITEM_NORMAL, shortHelp: str='', longHelp: str='', clientData: PyUserData=nullptr) -> ToolBarToolBase:
         """
-        InsertTool(pos, toolId, label, bitmap, bmpDisabled=NullBitmap, kind=ITEM_NORMAL, shortHelp='', longHelp='', clientData=None) -> ToolBarToolBase
+        InsertTool(pos, toolId, label, bitmap, bmpDisabled=NullBitmap, kind=ITEM_NORMAL, shortHelp='', longHelp='', clientData=nullptr) -> ToolBarToolBase
         InsertTool(pos, tool) -> ToolBarToolBase
         
         Inserts the tool with the specified attributes into the toolbar at the
@@ -46207,9 +48077,9 @@ class ToolBar(Control):
         Set the values to be used as margins for the toolbar.
         """
 
-    def AddCheckTool(self, toolId: int, label: str, bitmap1: BitmapBundle, bmpDisabled: BitmapBundle=NullBitmap, shortHelp: str='', longHelp: str='', clientData: Optional[PyUserData]=None) -> ToolBarToolBase:
+    def AddCheckTool(self, toolId: int, label: str, bitmap1: BitmapBundle, bmpDisabled: BitmapBundle=NullBitmap, shortHelp: str='', longHelp: str='', clientData: PyUserData=nullptr) -> ToolBarToolBase:
         """
-        AddCheckTool(toolId, label, bitmap1, bmpDisabled=NullBitmap, shortHelp='', longHelp='', clientData=None) -> ToolBarToolBase
+        AddCheckTool(toolId, label, bitmap1, bmpDisabled=NullBitmap, shortHelp='', longHelp='', clientData=nullptr) -> ToolBarToolBase
         
         Adds a new check (or toggle) tool to the toolbar.
         """
@@ -46221,9 +48091,9 @@ class ToolBar(Control):
         Adds any control to the toolbar, typically e.g. a wxComboBox.
         """
 
-    def AddRadioTool(self, toolId: int, label: str, bitmap1: BitmapBundle, bmpDisabled: BitmapBundle=NullBitmap, shortHelp: str='', longHelp: str='', clientData: Optional[PyUserData]=None) -> ToolBarToolBase:
+    def AddRadioTool(self, toolId: int, label: str, bitmap1: BitmapBundle, bmpDisabled: BitmapBundle=NullBitmap, shortHelp: str='', longHelp: str='', clientData: PyUserData=nullptr) -> ToolBarToolBase:
         """
-        AddRadioTool(toolId, label, bitmap1, bmpDisabled=NullBitmap, shortHelp='', longHelp='', clientData=None) -> ToolBarToolBase
+        AddRadioTool(toolId, label, bitmap1, bmpDisabled=NullBitmap, shortHelp='', longHelp='', clientData=nullptr) -> ToolBarToolBase
         
         Adds a new radio tool to the toolbar.
         """
@@ -46275,7 +48145,7 @@ class ToolBar(Control):
         """
         FindById(id) -> ToolBarToolBase
         
-        Returns a pointer to the tool identified by id or NULL if no
+        Returns a pointer to the tool identified by id or nullptr if no
         corresponding tool is found.
         """
 
@@ -46283,7 +48153,7 @@ class ToolBar(Control):
         """
         FindControl(id) -> Control
         
-        Returns a pointer to the control identified by id or NULL if no
+        Returns a pointer to the control identified by id or nullptr if no
         corresponding control is found.
         """
 
@@ -46500,9 +48370,9 @@ class ToolBar(Control):
         ...
 
     @overload
-    def CreateTool(self, toolId: int, label: str, bmpNormal: BitmapBundle, bmpDisabled: BitmapBundle=NullBitmap, kind: ItemKind=ITEM_NORMAL, clientData: Optional[PyUserData]=None, shortHelp: str='', longHelp: str='') -> ToolBarToolBase:
+    def CreateTool(self, toolId: int, label: str, bmpNormal: BitmapBundle, bmpDisabled: BitmapBundle=NullBitmap, kind: ItemKind=ITEM_NORMAL, clientData: PyUserData=nullptr, shortHelp: str='', longHelp: str='') -> ToolBarToolBase:
         """
-        CreateTool(toolId, label, bmpNormal, bmpDisabled=NullBitmap, kind=ITEM_NORMAL, clientData=None, shortHelp='', longHelp='') -> ToolBarToolBase
+        CreateTool(toolId, label, bmpNormal, bmpDisabled=NullBitmap, kind=ITEM_NORMAL, clientData=nullptr, shortHelp='', longHelp='') -> ToolBarToolBase
         CreateTool(control, label) -> ToolBarToolBase
         
         Factory function to create a new toolbar tool.
@@ -46513,6 +48383,11 @@ class ToolBar(Control):
         CreateSeparator() -> ToolBarToolBase
         
         Factory function to create a new separator toolbar tool.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -46565,24 +48440,28 @@ class ToolBar(Control):
 #-- end-toolbar --#
 #-- begin-infobar --#
 
+class _enum_32(IntEnum):
+    INFOBAR_CHECKBOX = auto()
+INFOBAR_CHECKBOX = _enum_32.INFOBAR_CHECKBOX
+
 class InfoBar(Control):
     """
     InfoBar() -> None
-    InfoBar(parent, winid=ID_ANY) -> None
+    InfoBar(parent, winid=ID_ANY, style=0) -> None
     
     An info bar is a transient window shown at top or bottom of its parent
     window to display non-critical information to the user.
     """
 
     @overload
-    def __init__(self, parent: Window, winid: int=ID_ANY) -> None:
+    def __init__(self, parent: Window, winid: int=ID_ANY, style: int=0) -> None:
         ...
 
     @overload
     def __init__(self) -> None:
         """
         InfoBar() -> None
-        InfoBar(parent, winid=ID_ANY) -> None
+        InfoBar(parent, winid=ID_ANY, style=0) -> None
         
         An info bar is a transient window shown at top or bottom of its parent
         window to display non-critical information to the user.
@@ -46623,6 +48502,22 @@ class InfoBar(Control):
         Return the effect animation duration currently used.
         """
 
+    def IsCheckBoxChecked(self) -> bool:
+        """
+        IsCheckBoxChecked() -> bool
+        
+        Return whether the checkbox was checked at the time of the window
+        being closed.
+        """
+
+    def ShowCheckBox(self, checkBoxText: str, checked: bool) -> None:
+        """
+        ShowCheckBox(checkBoxText, checked) -> None
+        
+        Sets whether the checkbox should be shown, its label, and whether it
+        is checked by default.
+        """
+
     def SetFont(self, font: Font) -> bool:
         """
         SetFont(font) -> bool
@@ -46630,9 +48525,9 @@ class InfoBar(Control):
         Overridden base class methods changes the font of the text message.
         """
 
-    def Create(self, parent: Window, winid: int=ID_ANY) -> bool:
+    def Create(self, parent: Window, winid: int=ID_ANY, style: int=0) -> bool:
         """
-        Create(parent, winid=ID_ANY) -> bool
+        Create(parent, winid=ID_ANY, style=0) -> bool
         
         Create the info bar window.
         """
@@ -46684,6 +48579,11 @@ class InfoBar(Control):
         HasButtonId(btnid) -> bool
         
         Returns whether a button with the given ID is currently shown.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -46747,27 +48647,27 @@ LIST_HITTEST_TORIGHT: int
 LIST_HITTEST_ONITEM: int
 LIST_GETSUBITEMRECT_WHOLEITEM: int
 
-class _enum_32(IntEnum):
+class _enum_33(IntEnum):
     LIST_NEXT_ABOVE = auto()
     LIST_NEXT_ALL = auto()
     LIST_NEXT_BELOW = auto()
     LIST_NEXT_LEFT = auto()
     LIST_NEXT_RIGHT = auto()
-LIST_NEXT_ABOVE = _enum_32.LIST_NEXT_ABOVE
-LIST_NEXT_ALL = _enum_32.LIST_NEXT_ALL
-LIST_NEXT_BELOW = _enum_32.LIST_NEXT_BELOW
-LIST_NEXT_LEFT = _enum_32.LIST_NEXT_LEFT
-LIST_NEXT_RIGHT = _enum_32.LIST_NEXT_RIGHT
+LIST_NEXT_ABOVE = _enum_33.LIST_NEXT_ABOVE
+LIST_NEXT_ALL = _enum_33.LIST_NEXT_ALL
+LIST_NEXT_BELOW = _enum_33.LIST_NEXT_BELOW
+LIST_NEXT_LEFT = _enum_33.LIST_NEXT_LEFT
+LIST_NEXT_RIGHT = _enum_33.LIST_NEXT_RIGHT
 
-class _enum_33(IntEnum):
+class _enum_34(IntEnum):
     LIST_ALIGN_DEFAULT = auto()
     LIST_ALIGN_LEFT = auto()
     LIST_ALIGN_TOP = auto()
     LIST_ALIGN_SNAP_TO_GRID = auto()
-LIST_ALIGN_DEFAULT = _enum_33.LIST_ALIGN_DEFAULT
-LIST_ALIGN_LEFT = _enum_33.LIST_ALIGN_LEFT
-LIST_ALIGN_TOP = _enum_33.LIST_ALIGN_TOP
-LIST_ALIGN_SNAP_TO_GRID = _enum_33.LIST_ALIGN_SNAP_TO_GRID
+LIST_ALIGN_DEFAULT = _enum_34.LIST_ALIGN_DEFAULT
+LIST_ALIGN_LEFT = _enum_34.LIST_ALIGN_LEFT
+LIST_ALIGN_TOP = _enum_34.LIST_ALIGN_TOP
+LIST_ALIGN_SNAP_TO_GRID = _enum_34.LIST_ALIGN_SNAP_TO_GRID
 
 class _ListColumnFormat(IntEnum):
     LIST_FORMAT_LEFT = auto()
@@ -46780,29 +48680,29 @@ LIST_FORMAT_RIGHT = _ListColumnFormat.LIST_FORMAT_RIGHT
 LIST_FORMAT_CENTRE = _ListColumnFormat.LIST_FORMAT_CENTRE
 LIST_FORMAT_CENTER = _ListColumnFormat.LIST_FORMAT_CENTER
 
-class _enum_34(IntEnum):
+class _enum_35(IntEnum):
     LIST_AUTOSIZE = auto()
     LIST_AUTOSIZE_USEHEADER = auto()
-LIST_AUTOSIZE = _enum_34.LIST_AUTOSIZE
-LIST_AUTOSIZE_USEHEADER = _enum_34.LIST_AUTOSIZE_USEHEADER
+LIST_AUTOSIZE = _enum_35.LIST_AUTOSIZE
+LIST_AUTOSIZE_USEHEADER = _enum_35.LIST_AUTOSIZE_USEHEADER
 
-class _enum_35(IntEnum):
+class _enum_36(IntEnum):
     LIST_RECT_BOUNDS = auto()
     LIST_RECT_ICON = auto()
     LIST_RECT_LABEL = auto()
-LIST_RECT_BOUNDS = _enum_35.LIST_RECT_BOUNDS
-LIST_RECT_ICON = _enum_35.LIST_RECT_ICON
-LIST_RECT_LABEL = _enum_35.LIST_RECT_LABEL
+LIST_RECT_BOUNDS = _enum_36.LIST_RECT_BOUNDS
+LIST_RECT_ICON = _enum_36.LIST_RECT_ICON
+LIST_RECT_LABEL = _enum_36.LIST_RECT_LABEL
 
-class _enum_36(IntEnum):
+class _enum_37(IntEnum):
     LIST_FIND_UP = auto()
     LIST_FIND_DOWN = auto()
     LIST_FIND_LEFT = auto()
     LIST_FIND_RIGHT = auto()
-LIST_FIND_UP = _enum_36.LIST_FIND_UP
-LIST_FIND_DOWN = _enum_36.LIST_FIND_DOWN
-LIST_FIND_LEFT = _enum_36.LIST_FIND_LEFT
-LIST_FIND_RIGHT = _enum_36.LIST_FIND_RIGHT
+LIST_FIND_UP = _enum_37.LIST_FIND_UP
+LIST_FIND_DOWN = _enum_37.LIST_FIND_DOWN
+LIST_FIND_LEFT = _enum_37.LIST_FIND_LEFT
+LIST_FIND_RIGHT = _enum_37.LIST_FIND_RIGHT
 wxEVT_LIST_BEGIN_DRAG: int
 wxEVT_LIST_BEGIN_RDRAG: int
 wxEVT_LIST_BEGIN_LABEL_EDIT: int
@@ -47877,6 +49777,11 @@ class ListCtrl(Control):
         the direction is descending.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -48142,6 +50047,11 @@ class ListView(ListCtrl):
         SetColumnImage(col, image) -> None
         
         Sets the column image for the specified column.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -48489,11 +50399,15 @@ class TreeItemId:
     def GetID(self) -> Any:
         """
         GetID() -> Any
+        
+        Returns the ID as an opaque void pointer.
         """
 
     def Unset(self) -> None:
         """
         Unset() -> None
+        
+        Makes this item invalid.
         """
 
     def __nonzero__(self) -> bool:
@@ -48549,16 +50463,16 @@ class TreeCtrl(Control, WithImages):
         may be expanded to show further items.
         """
 
-    def AddRoot(self, text: str, image: int=-1, selImage: int=-1, data: Optional[TreeItemData]=None) -> TreeItemId:
+    def AddRoot(self, text: str, image: int=-1, selImage: int=-1, data: TreeItemData=nullptr) -> TreeItemId:
         """
-        AddRoot(text, image=-1, selImage=-1, data=None) -> TreeItemId
+        AddRoot(text, image=-1, selImage=-1, data=nullptr) -> TreeItemId
         
         Adds the root node to the tree, returning the new item.
         """
 
-    def AppendItem(self, parent: TreeItemId, text: str, image: int=-1, selImage: int=-1, data: Optional[TreeItemData]=None) -> TreeItemId:
+    def AppendItem(self, parent: TreeItemId, text: str, image: int=-1, selImage: int=-1, data: TreeItemData=nullptr) -> TreeItemId:
         """
-        AppendItem(parent, text, image=-1, selImage=-1, data=None) -> TreeItemId
+        AppendItem(parent, text, image=-1, selImage=-1, data=nullptr) -> TreeItemId
         
         Appends an item to the end of the branch identified by parent, return
         a new item id.
@@ -48750,7 +50664,8 @@ class TreeCtrl(Control, WithImages):
         """
         GetIndent() -> int
         
-        Returns the current tree control indentation.
+        Returns the current tree control indentation in DPI independent
+        pixels.
         """
 
     def GetSpacing(self) -> int:
@@ -48893,12 +50808,26 @@ class TreeCtrl(Control, WithImages):
         can be called only if the control has the wx.TR_MULTIPLE style.
         """
 
+    def GetStateImageCount(self) -> int:
+        """
+        GetStateImageCount() -> int
+        
+        Returns the number of state images used by the control.
+        """
+
     def GetStateImageList(self) -> ImageList:
         """
         GetStateImageList() -> ImageList
         
         Returns the state image list (from which application-defined state
         images are taken).
+        """
+
+    def HasStateImages(self) -> bool:
+        """
+        HasStateImages() -> bool
+        
+        Returns true if the control uses any state images.
         """
 
     def HitTest(self, point: Point, flags: int) -> TreeItemId:
@@ -48910,14 +50839,14 @@ class TreeCtrl(Control, WithImages):
         """
 
     @overload
-    def InsertItem(self, parent: TreeItemId, pos: int, text: str, image: int=-1, selImage: int=-1, data: Optional[TreeItemData]=None) -> TreeItemId:
+    def InsertItem(self, parent: TreeItemId, pos: int, text: str, image: int=-1, selImage: int=-1, data: TreeItemData=nullptr) -> TreeItemId:
         ...
 
     @overload
-    def InsertItem(self, parent: TreeItemId, previous: TreeItemId, text: str, image: int=-1, selImage: int=-1, data: Optional[TreeItemData]=None) -> TreeItemId:
+    def InsertItem(self, parent: TreeItemId, previous: TreeItemId, text: str, image: int=-1, selImage: int=-1, data: TreeItemData=nullptr) -> TreeItemId:
         """
-        InsertItem(parent, previous, text, image=-1, selImage=-1, data=None) -> TreeItemId
-        InsertItem(parent, pos, text, image=-1, selImage=-1, data=None) -> TreeItemId
+        InsertItem(parent, previous, text, image=-1, selImage=-1, data=nullptr) -> TreeItemId
+        InsertItem(parent, pos, text, image=-1, selImage=-1, data=nullptr) -> TreeItemId
         
         Inserts an item after a given one (previous).
         """
@@ -48974,9 +50903,9 @@ class TreeCtrl(Control, WithImages):
         of the items in the tree control.
         """
 
-    def PrependItem(self, parent: TreeItemId, text: str, image: int=-1, selImage: int=-1, data: Optional[TreeItemData]=None) -> TreeItemId:
+    def PrependItem(self, parent: TreeItemId, text: str, image: int=-1, selImage: int=-1, data: TreeItemData=nullptr) -> TreeItemId:
         """
-        PrependItem(parent, text, image=-1, selImage=-1, data=None) -> TreeItemId
+        PrependItem(parent, text, image=-1, selImage=-1, data=nullptr) -> TreeItemId
         
         Appends an item as the first child of parent, return a new item id.
         """
@@ -48999,7 +50928,8 @@ class TreeCtrl(Control, WithImages):
         """
         SetIndent(indent) -> None
         
-        Sets the indentation for the tree control.
+        Sets the indentation for the tree control, in DIP (DPI independent
+        pixels).
         """
 
     def SetSpacing(self, spacing: int) -> None:
@@ -49100,6 +51030,13 @@ class TreeCtrl(Control, WithImages):
         are taken).
         """
 
+    def SetStateImages(self, images: VectorwxBitmapBundle) -> None:
+        """
+        SetStateImages(images) -> None
+        
+        Sets the images to use for the application-defined item states.
+        """
+
     def SetWindowStyle(self, styles: int) -> None:
         """
         SetWindowStyle(styles) -> None
@@ -49158,6 +51095,11 @@ class TreeCtrl(Control, WithImages):
         Select all the immediate children of the given parent.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -49206,6 +51148,8 @@ class TreeCtrl(Control, WithImages):
     def Spacing(self) -> int: ...
     @Spacing.setter
     def Spacing(self, value: int, /) -> None: ...
+    @property
+    def StateImageCount(self) -> int: ...
     @property
     def StateImageList(self) -> ImageList: ...
     @StateImageList.setter
@@ -49422,9 +51366,9 @@ class PickerBase(Control):
         """
         GetTextCtrl() -> TextCtrl
         
-        Returns a pointer to the text control handled by this window or NULL
-        if the wxPB_USE_TEXTCTRL style was not specified when this control was
-        created.
+        Returns a pointer to the text control handled by this window or
+        nullptr if the wxPB_USE_TEXTCTRL style was not specified when this
+        control was created.
         """
 
     def GetPickerCtrl(self) -> Control:
@@ -49498,16 +51442,6 @@ class PickerBase(Control):
         Sets the proportion value of the text control.
         """
 
-    def SetTextCtrl(self, text: TextCtrl) -> None:
-        """
-        SetTextCtrl(text) -> None
-        """
-
-    def SetPickerCtrl(self, picker: Control) -> None:
-        """
-        SetPickerCtrl(picker) -> None
-        """
-
     def UpdatePickerFromTextCtrl(self) -> None:
         """
         UpdatePickerFromTextCtrl() -> None
@@ -49523,16 +51457,12 @@ class PickerBase(Control):
     def InternalMargin(self, value: int, /) -> None: ...
     @property
     def PickerCtrl(self) -> Control: ...
-    @PickerCtrl.setter
-    def PickerCtrl(self, value: Control, /) -> None: ...
     @property
     def PickerCtrlProportion(self) -> int: ...
     @PickerCtrlProportion.setter
     def PickerCtrlProportion(self, value: int, /) -> None: ...
     @property
     def TextCtrl(self) -> TextCtrl: ...
-    @TextCtrl.setter
-    def TextCtrl(self, value: TextCtrl, /) -> None: ...
     @property
     def TextCtrlProportion(self) -> int: ...
     @TextCtrlProportion.setter
@@ -49603,6 +51533,11 @@ class ColourPickerCtrl(PickerBase):
         GetColour() -> Colour
         
         Returns the currently selected colour.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -49714,6 +51649,11 @@ class FilePickerCtrl(PickerBase):
         Sets the absolute path of the currently selected file.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -49777,6 +51717,11 @@ class DirPickerCtrl(PickerBase):
         SetPath(dirname) -> None
         
         Sets the absolute path of the currently selected directory.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -49919,6 +51864,11 @@ class FontPickerCtrl(PickerBase):
         SetSelectedFont(font) -> None
         
         Sets the currently selected font.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -50294,6 +52244,11 @@ class FileCtrl(Control):
         Sets whether hidden files and folders are shown or not.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -50458,9 +52413,9 @@ class ComboPopup:
         Utility function that hides the popup.
         """
 
-    def FindItem(self, item: str, trueItem: Optional[str]=None) -> bool:
+    def FindItem(self, item: str, trueItem: str=nullptr) -> bool:
         """
-        FindItem(item, trueItem=None) -> bool
+        FindItem(item, trueItem=nullptr) -> bool
         
         Implement to customize matching of value string to an item container
         entry.
@@ -51019,6 +52974,11 @@ class ComboCtrl(Control, TextEntry):
         Returns features supported by wxComboCtrl.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -51143,6 +53103,11 @@ class Choicebook(BookCtrlBase):
         Returns the wxChoice associated with the control.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -51211,6 +53176,11 @@ class Listbook(BookCtrlBase):
         GetListView() -> ListView
         
         Returns the wxListView associated with the control.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -51284,6 +53254,11 @@ class Toolbook(BookCtrlBase):
         EnablePage(page, enable) -> bool
         
         Enables or disables the specified page.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -51411,6 +53386,11 @@ class Treebook(BookCtrlBase):
         Returns true if the page represented by pageId is expanded.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -51508,6 +53488,11 @@ class Simplebook(BookCtrlBase):
         Add a new page and show it immediately.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -51519,7 +53504,7 @@ class Simplebook(BookCtrlBase):
 #-- begin-vlbox --#
 VListBoxNameStr: str
 
-class VListBox(VScrolledWindow):
+class VListBox(VScrolledCanvas):
     """
     VListBox() -> None
     VListBox(parent, id=ID_ANY, pos=DefaultPosition, size=DefaultSize, style=0, name=VListBoxNameStr) -> None
@@ -51661,6 +53646,21 @@ class VListBox(VScrolledWindow):
         Returns true if this item is the current one, false otherwise.
         """
 
+    def GetCurrent(self) -> int:
+        """
+        GetCurrent() -> int
+        
+        Get the current item or wxNOT_FOUND if there is no current item.
+        """
+
+    def SetCurrent(self, current: int) -> None:
+        """
+        SetCurrent(current) -> None
+        
+        Set the specified item as the current item, if it is wxNOT_FOUND the
+        current item is unset.
+        """
+
     def IsSelected(self, item: int) -> bool:
         """
         IsSelected(item) -> bool
@@ -51719,11 +53719,20 @@ class VListBox(VScrolledWindow):
         Toggles the state of the specified item, i.e. selects it if it was unselected and deselects it if it was selected.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
         GetClassDefaultAttributes(variant=WINDOW_VARIANT_NORMAL) -> VisualAttributes
         """
+    @property
+    def Current(self) -> int: ...
+    @Current.setter
+    def Current(self, value: int, /) -> None: ...
     @property
     def ItemCount(self) -> int: ...
     @ItemCount.setter
@@ -51829,6 +53838,11 @@ class ActivityIndicator(Control):
         Returns true if the control is currently showing activity.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -51882,6 +53896,11 @@ class CollapsibleHeaderCtrl(Control):
         Returns true if the control is collapsed.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -51919,11 +53938,11 @@ class NonOwnedWindow(Window):
 #-- begin-toplevel --#
 DEFAULT_FRAME_STYLE: int
 
-class _enum_50(IntEnum):
+class _enum_51(IntEnum):
     USER_ATTENTION_INFO = auto()
     USER_ATTENTION_ERROR = auto()
-USER_ATTENTION_INFO = _enum_50.USER_ATTENTION_INFO
-USER_ATTENTION_ERROR = _enum_50.USER_ATTENTION_ERROR
+USER_ATTENTION_INFO = _enum_51.USER_ATTENTION_INFO
+USER_ATTENTION_ERROR = _enum_51.USER_ATTENTION_ERROR
 
 class _ContentProtection(IntEnum):
     CONTENT_PROTECTION_NONE = auto()
@@ -51932,19 +53951,28 @@ ContentProtection: TypeAlias = Union[_ContentProtection, int]
 CONTENT_PROTECTION_NONE = _ContentProtection.CONTENT_PROTECTION_NONE
 CONTENT_PROTECTION_ENABLED = _ContentProtection.CONTENT_PROTECTION_ENABLED
 
-class _enum_51(IntEnum):
+class _enum_52(IntEnum):
     FULLSCREEN_NOMENUBAR = auto()
     FULLSCREEN_NOTOOLBAR = auto()
     FULLSCREEN_NOSTATUSBAR = auto()
     FULLSCREEN_NOBORDER = auto()
     FULLSCREEN_NOCAPTION = auto()
     FULLSCREEN_ALL = auto()
-FULLSCREEN_NOMENUBAR = _enum_51.FULLSCREEN_NOMENUBAR
-FULLSCREEN_NOTOOLBAR = _enum_51.FULLSCREEN_NOTOOLBAR
-FULLSCREEN_NOSTATUSBAR = _enum_51.FULLSCREEN_NOSTATUSBAR
-FULLSCREEN_NOBORDER = _enum_51.FULLSCREEN_NOBORDER
-FULLSCREEN_NOCAPTION = _enum_51.FULLSCREEN_NOCAPTION
-FULLSCREEN_ALL = _enum_51.FULLSCREEN_ALL
+FULLSCREEN_NOMENUBAR = _enum_52.FULLSCREEN_NOMENUBAR
+FULLSCREEN_NOTOOLBAR = _enum_52.FULLSCREEN_NOTOOLBAR
+FULLSCREEN_NOSTATUSBAR = _enum_52.FULLSCREEN_NOSTATUSBAR
+FULLSCREEN_NOBORDER = _enum_52.FULLSCREEN_NOBORDER
+FULLSCREEN_NOCAPTION = _enum_52.FULLSCREEN_NOCAPTION
+FULLSCREEN_ALL = _enum_52.FULLSCREEN_ALL
+
+class _WindowMode(IntEnum):
+    Normal = auto()
+    WindowModal = auto()
+    AppModal = auto()
+WindowMode: TypeAlias = Union[_WindowMode, int]
+Normal = _WindowMode.Normal
+WindowModal = _WindowMode.WindowModal
+AppModal = _WindowMode.AppModal
 FrameNameStr: str
 
 class TopLevelWindow(NonOwnedWindow):
@@ -51955,11 +53983,11 @@ class TopLevelWindow(NonOwnedWindow):
     wxTopLevelWindow is a common base class for wxDialog and wxFrame.
     """
 
-    class GeometrySerializer:
+    class GeometryStore:
         """
         Class used with SaveGeometry() and RestoreToGeometry().
         """
-    # end of class GeometrySerializer
+    # end of class GeometryStore
 
 
     @overload
@@ -52033,7 +54061,7 @@ class TopLevelWindow(NonOwnedWindow):
         GetDefaultItem() -> Window
         
         Returns a pointer to the button which is the default for this window,
-        or NULL.
+        or nullptr.
         """
 
     def GetIcon(self) -> Icon:
@@ -52049,6 +54077,13 @@ class TopLevelWindow(NonOwnedWindow):
         
         Returns all icons associated with the window, there will be none of
         them if neither SetIcon() nor SetIcons() had been called before.
+        """
+
+    def GetLabel(self) -> str:
+        """
+        GetLabel() -> str
+        
+        Get the window title.
         """
 
     def GetTitle(self) -> str:
@@ -52133,14 +54168,14 @@ class TopLevelWindow(NonOwnedWindow):
         Restore a previously iconized or maximized window to its normal state.
         """
 
-    def RestoreToGeometry(self, ser: GeometrySerializer) -> bool:
+    def RestoreToGeometry(self, ser: GeometryStore) -> bool:
         """
         RestoreToGeometry(ser) -> bool
         
         Restores the window to the previously saved geometry.
         """
 
-    def SaveGeometry(self, ser: GeometrySerializer) -> bool:
+    def SaveGeometry(self, ser: GeometryStore) -> bool:
         """
         SaveGeometry(ser) -> bool
         
@@ -52205,6 +54240,13 @@ class TopLevelWindow(NonOwnedWindow):
         
         Allows specification of minimum and maximum window sizes, and window
         size increments.
+        """
+
+    def SetLabel(self, title: str) -> None:
+        """
+        SetLabel(title) -> None
+        
+        Sets the window title.
         """
 
     def SetTitle(self, title: str) -> None:
@@ -52341,6 +54383,11 @@ class TopLevelWindow(NonOwnedWindow):
     def MacMetalAppearance(self) -> bool: ...
     @MacMetalAppearance.setter
     def MacMetalAppearance(self, value: bool, /) -> None: ...
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
 
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
@@ -52682,6 +54729,11 @@ class Dialog(TopLevelWindow):
         returning the old adapter.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -52869,6 +54921,11 @@ class DirDialog(Dialog):
         wxID_CANCEL otherwise.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -52887,8 +54944,8 @@ class DirDialog(Dialog):
 # end of class DirDialog
 
 
-def DirSelector(message: str=DirSelectorPromptStr, default_path: str='', style: int=0, pos: Point=DefaultPosition, parent: Optional[Window]=None) -> str:    """
-    DirSelector(message=DirSelectorPromptStr, default_path='', style=0, pos=DefaultPosition, parent=None) -> str
+def DirSelector(message: str=DirSelectorPromptStr, defaultPath: str='', style: int=DD_DEFAULT_STYLE, pos: Point=DefaultPosition, parent: Window=nullptr) -> str:    """
+    DirSelector(message=DirSelectorPromptStr, defaultPath='', style=DD_DEFAULT_STYLE, pos=DefaultPosition, parent=nullptr) -> str
     
     Pops up a directory selector dialog.
     """
@@ -53107,6 +55164,11 @@ class GenericDirCtrl(Control):
         UnselectAll() -> None
         
         Removes the selection from all currently selected items.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -53367,6 +55429,11 @@ class FileDialog(Dialog):
         wxID_CANCEL otherwise.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -53409,27 +55476,27 @@ class FileDialog(Dialog):
 # end of class FileDialog
 
 
-def FileSelector(message: str, default_path: str='', default_filename: str='', default_extension: str='', wildcard: str=FileSelectorDefaultWildcardStr, flags: int=0, parent: Optional[Window]=None, x: int=DefaultCoord, y: int=DefaultCoord) -> str:    """
-    FileSelector(message, default_path='', default_filename='', default_extension='', wildcard=FileSelectorDefaultWildcardStr, flags=0, parent=None, x=DefaultCoord, y=DefaultCoord) -> str
+def FileSelector(message: str, default_path: str='', default_filename: str='', default_extension: str='', wildcard: str=FileSelectorDefaultWildcardStr, flags: int=0, parent: Window=nullptr, x: int=DefaultCoord, y: int=DefaultCoord) -> str:    """
+    FileSelector(message, default_path='', default_filename='', default_extension='', wildcard=FileSelectorDefaultWildcardStr, flags=0, parent=nullptr, x=DefaultCoord, y=DefaultCoord) -> str
     
     Pops up a file selector box.
     """
 
-def FileSelectorEx(message: str=FileSelectorPromptStr, default_path: str='', default_filename: str='', indexDefaultExtension: Optional[int]=None, wildcard: str=FileSelectorDefaultWildcardStr, flags: int=0, parent: Optional[Window]=None, x: int=DefaultCoord, y: int=DefaultCoord) -> str:    """
-    FileSelectorEx(message=FileSelectorPromptStr, default_path='', default_filename='', indexDefaultExtension=None, wildcard=FileSelectorDefaultWildcardStr, flags=0, parent=None, x=DefaultCoord, y=DefaultCoord) -> str
+def FileSelectorEx(message: str=FileSelectorPromptStr, default_path: str='', default_filename: str='', indexDefaultExtension: int=nullptr, wildcard: str=FileSelectorDefaultWildcardStr, flags: int=0, parent: Window=nullptr, x: int=DefaultCoord, y: int=DefaultCoord) -> str:    """
+    FileSelectorEx(message=FileSelectorPromptStr, default_path='', default_filename='', indexDefaultExtension=nullptr, wildcard=FileSelectorDefaultWildcardStr, flags=0, parent=nullptr, x=DefaultCoord, y=DefaultCoord) -> str
     
     An extended version of wxFileSelector()
     """
 
-def LoadFileSelector(what: str, extension: str, default_name: str='', parent: Optional[Window]=None) -> str:    """
-    LoadFileSelector(what, extension, default_name='', parent=None) -> str
+def LoadFileSelector(what: str, extension: str, default_name: str='', parent: Window=nullptr) -> str:    """
+    LoadFileSelector(what, extension, default_name='', parent=nullptr) -> str
     
     Shows a file dialog asking the user for a file name for opening a
     file.
     """
 
-def SaveFileSelector(what: str, extension: str, default_name: str='', parent: Optional[Window]=None) -> str:    """
-    SaveFileSelector(what, extension, default_name='', parent=None) -> str
+def SaveFileSelector(what: str, extension: str, default_name: str='', parent: Window=nullptr) -> str:    """
+    SaveFileSelector(what, extension, default_name='', parent=nullptr) -> str
     
     Shows a file dialog asking the user for a file name for saving a file.
     """
@@ -53743,6 +55810,13 @@ class Frame(TopLevelWindow):
         Returns the origin of the frame client area (in client coordinates).
         """
 
+    def SetWindowModality(self, modality: WindowMode) -> None:
+        """
+        SetWindowModality(modality) -> None
+        
+        Set the frame modality.
+        """
+
     def GetMenuBar(self) -> MenuBar:
         """
         GetMenuBar() -> MenuBar
@@ -53864,6 +55938,11 @@ class Frame(TopLevelWindow):
     def ToolBar(self) -> ToolBar: ...
     @ToolBar.setter
     def ToolBar(self, value: ToolBar, /) -> None: ...
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
 
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
@@ -54006,6 +56085,11 @@ class MessageDialog(Dialog):
         GetEffectiveIcon() -> int
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -54042,8 +56126,8 @@ class MessageDialog(Dialog):
 # end of class MessageDialog
 
 
-def MessageBox(message: str, caption: str=MessageBoxCaptionStr, style: int=OK|CENTRE, parent: Optional[Window]=None, x: int=DefaultCoord, y: int=DefaultCoord) -> int:    """
-    MessageBox(message, caption=MessageBoxCaptionStr, style=OK|CENTRE, parent=None, x=DefaultCoord, y=DefaultCoord) -> int
+def MessageBox(message: str, caption: str=MessageBoxCaptionStr, style: int=OK|CENTRE, parent: Window=nullptr, x: int=DefaultCoord, y: int=DefaultCoord) -> int:    """
+    MessageBox(message, caption=MessageBoxCaptionStr, style=OK|CENTRE, parent=nullptr, x=DefaultCoord, y=DefaultCoord) -> int
     
     Show a general purpose message dialog.
     """
@@ -54176,6 +56260,11 @@ class GenericMessageDialog(Dialog):
     def GetEffectiveIcon(self) -> int:
         """
         GetEffectiveIcon() -> int
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -54317,6 +56406,11 @@ class RichMessageDialog(GenericMessageDialog):
         wxID_NO.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -54349,15 +56443,15 @@ PD_CAN_SKIP: int
 
 class GenericProgressDialog(Dialog):
     """
-    GenericProgressDialog(title, message, maximum=100, parent=None, style=PD_AUTO_HIDE|PD_APP_MODAL) -> None
+    GenericProgressDialog(title, message, maximum=100, parent=nullptr, style=PD_AUTO_HIDE|PD_APP_MODAL) -> None
     
     This class represents a dialog that shows a short message and a
     progress bar.
     """
 
-    def __init__(self, title: str, message: str, maximum: int=100, parent: Optional[Window]=None, style: int=PD_AUTO_HIDE|PD_APP_MODAL) -> None:
+    def __init__(self, title: str, message: str, maximum: int=100, parent: Optional[Window]=nullptr, style: int=PD_AUTO_HIDE|PD_APP_MODAL) -> None:
         """
-        GenericProgressDialog(title, message, maximum=100, parent=None, style=PD_AUTO_HIDE|PD_APP_MODAL) -> None
+        GenericProgressDialog(title, message, maximum=100, parent=nullptr, style=PD_AUTO_HIDE|PD_APP_MODAL) -> None
         
         This class represents a dialog that shows a short message and a
         progress bar.
@@ -54432,6 +56526,11 @@ class GenericProgressDialog(Dialog):
         Updates the dialog, setting the progress bar to the new value and updating the message if new one is specified.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -54450,16 +56549,16 @@ class GenericProgressDialog(Dialog):
 
 class ProgressDialog(GenericProgressDialog):
     """
-    ProgressDialog(title, message, maximum=100, parent=None, style=PD_APP_MODAL|PD_AUTO_HIDE) -> None
+    ProgressDialog(title, message, maximum=100, parent=nullptr, style=PD_APP_MODAL|PD_AUTO_HIDE) -> None
     
     If supported by the platform this class will provide the platform's
     native progress dialog, else it will simply be the
     wxGenericProgressDialog.
     """
 
-    def __init__(self, title: str, message: str, maximum: int=100, parent: Optional[Window]=None, style: int=PD_APP_MODAL|PD_AUTO_HIDE) -> None:
+    def __init__(self, title: str, message: str, maximum: int=100, parent: Optional[Window]=nullptr, style: int=PD_APP_MODAL|PD_AUTO_HIDE) -> None:
         """
-        ProgressDialog(title, message, maximum=100, parent=None, style=PD_APP_MODAL|PD_AUTO_HIDE) -> None
+        ProgressDialog(title, message, maximum=100, parent=nullptr, style=PD_APP_MODAL|PD_AUTO_HIDE) -> None
         
         If supported by the platform this class will provide the platform's
         native progress dialog, else it will simply be the
@@ -54535,6 +56634,11 @@ class ProgressDialog(GenericProgressDialog):
         Updates the dialog, setting the progress bar to the new value and updating the message if new one is specified.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -54592,6 +56696,11 @@ class PopupWindow(NonOwnedWindow):
         entirely visible.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -54623,9 +56732,9 @@ class PopupTransientWindow(PopupWindow):
         mouse outside it or if it loses focus in any other way.
         """
 
-    def Popup(self, focus: Optional[Window]=None) -> None:
+    def Popup(self, focus: Window=nullptr) -> None:
         """
-        Popup(focus=None) -> None
+        Popup(focus=nullptr) -> None
         
         Popup the window (this will show it too).
         """
@@ -54642,6 +56751,11 @@ class PopupTransientWindow(PopupWindow):
         ProcessLeftDown(event) -> bool
         
         Called when a mouse is pressed while the popup is shown.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -54664,16 +56778,30 @@ class PopupTransientWindow(PopupWindow):
 
 class TipWindow(Window):
     """
+    TipWindow() -> None
     TipWindow(parent, text, maxLength=100) -> None
     
     Shows simple text in a popup tip window on creation.
     """
 
+    @overload
     def __init__(self, parent: Window, text: str, maxLength: int=100) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
+        TipWindow() -> None
         TipWindow(parent, text, maxLength=100) -> None
         
         Shows simple text in a popup tip window on creation.
+        """
+
+    def Create(self, parent: Window, text: str, maxLength: int=100, windowPtr: TipWindow=nullptr, rectBounds: Rect=nullptr) -> bool:
+        """
+        Create(parent, text, maxLength=100, windowPtr=nullptr, rectBounds=nullptr) -> bool
+        
+        Construct the actual window object.
         """
 
     def SetBoundingRect(self, rectBound: Rect) -> None:
@@ -54683,6 +56811,11 @@ class TipWindow(Window):
         By default, the tip window disappears when the user clicks the mouse
         or presses a keyboard key or if it loses focus in any other way - for
         example because the user switched to another application window.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -54806,21 +56939,21 @@ class ColourData(Object):
 
 class ColourDialog(Dialog):
     """
-    ColourDialog(parent, data=None) -> None
+    ColourDialog(parent, data=nullptr) -> None
     
     This class represents the colour chooser dialog.
     """
 
-    def __init__(self, parent: Optional[Window], data: Optional[ColourData]=None) -> None:
+    def __init__(self, parent: Optional[Window], data: ColourData=nullptr) -> None:
         """
-        ColourDialog(parent, data=None) -> None
+        ColourDialog(parent, data=nullptr) -> None
         
         This class represents the colour chooser dialog.
         """
 
-    def Create(self, parent: Window, data: Optional[ColourData]=None) -> bool:
+    def Create(self, parent: Window, data: ColourData=nullptr) -> bool:
         """
-        Create(parent, data=None) -> bool
+        Create(parent, data=nullptr) -> bool
         
         Same as wxColourDialog().
         """
@@ -54838,6 +56971,11 @@ class ColourDialog(Dialog):
         
         Shows the dialog, returning wxID_OK if the user pressed OK, and
         wxID_CANCEL otherwise.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -54891,8 +57029,8 @@ class ColourDialogEvent(CommandEvent):
 # end of class ColourDialogEvent
 
 
-def GetColourFromUser(parent: Window, colInit: Colour, caption: str='', data: Optional[ColourData]=None) -> Colour:    """
-    GetColourFromUser(parent, colInit, caption='', data=None) -> Colour
+def GetColourFromUser(parent: Window=nullptr, colInit: Colour=NullColour, caption: str='', data: ColourData=nullptr) -> Colour:    """
+    GetColourFromUser(parent=nullptr, colInit=NullColour, caption='', data=nullptr) -> Colour
     
     Shows the colour selection dialog and returns the colour selected by
     user or invalid colour (use wxColour::IsOk() to test whether a colour
@@ -54902,8 +57040,6 @@ def GetColourFromUser(parent: Window, colInit: Colour, caption: str='', data: Op
 EVT_COLOUR_CHANGED = PyEventBinder(wxEVT_COLOUR_CHANGED, 1)
 #-- end-colordlg --#
 #-- begin-choicdlg --#
-CHOICE_WIDTH: int
-CHOICE_HEIGHT: int
 CHOICEDLG_STYLE: int
 
 class MultiChoiceDialog(Dialog):
@@ -54948,6 +57084,11 @@ class MultiChoiceDialog(Dialog):
         ShowModal() -> int
         
         Shows the dialog, returning either wxID_OK or wxID_CANCEL.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -55006,6 +57147,11 @@ class SingleChoiceDialog(Dialog):
         Shows the dialog, returning either wxID_OK or wxID_CANCEL.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -55021,18 +57167,18 @@ class SingleChoiceDialog(Dialog):
 
 
 @overload
-def GetSingleChoice(message: str, caption: str, n: int, choices: str, parent: Optional[Window]=None, x: int=DefaultCoord, y: int=DefaultCoord, centre: bool=True, width: int=CHOICE_WIDTH, height: int=CHOICE_HEIGHT, initialSelection: int=0) -> str:    ...
+def GetSingleChoice(message: str, caption: str, n: int, choices: str, parent: Window=nullptr, x: int=DefaultCoord, y: int=DefaultCoord, centre: bool=True, width: int=CHOICE_WIDTH, height: int=CHOICE_HEIGHT, initialSelection: int=0) -> str:    ...
 
 @overload
-def GetSingleChoice(message: str, caption: str, choices: List[str], initialSelection: int, parent: Optional[Window]=None) -> str:    ...
+def GetSingleChoice(message: str, caption: str, choices: List[str], initialSelection: int, parent: Window=nullptr) -> str:    ...
 
 @overload
-def GetSingleChoice(message: str, caption: str, n: int, choices: str, initialSelection: int, parent: Optional[Window]=None) -> str:    ...
+def GetSingleChoice(message: str, caption: str, n: int, choices: str, initialSelection: int, parent: Window=nullptr) -> str:    ...
 
 @overload
-def GetSingleChoice(message: str, caption: str, aChoices: List[str], parent: Optional[Window]=None, x: int=DefaultCoord, y: int=DefaultCoord, centre: bool=True, width: int=CHOICE_WIDTH, height: int=CHOICE_HEIGHT, initialSelection: int=0) -> str:    """
-    GetSingleChoice(message, caption, aChoices, parent=None, x=DefaultCoord, y=DefaultCoord, centre=True, width=CHOICE_WIDTH, height=CHOICE_HEIGHT, initialSelection=0) -> str
-    GetSingleChoice(message, caption, choices, initialSelection, parent=None) -> str
+def GetSingleChoice(message: str, caption: str, aChoices: List[str], parent: Window=nullptr, x: int=DefaultCoord, y: int=DefaultCoord, centre: bool=True, width: int=CHOICE_WIDTH, height: int=CHOICE_HEIGHT, initialSelection: int=0) -> str:    """
+    GetSingleChoice(message, caption, aChoices, parent=nullptr, x=DefaultCoord, y=DefaultCoord, centre=True, width=CHOICE_WIDTH, height=CHOICE_HEIGHT, initialSelection=0) -> str
+    GetSingleChoice(message, caption, choices, initialSelection, parent=nullptr) -> str
     
     Pops up a dialog box containing a message, OK/Cancel buttons and a
     single-selection listbox.
@@ -55228,6 +57374,11 @@ class FindReplaceDialog(Dialog):
         Get the wxFindReplaceData object used by this dialog.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -55275,6 +57426,11 @@ class MDIClientWindow(Window):
         
         Called by wxMDIParentFrame immediately after creating the client
         window.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -55395,6 +57551,11 @@ class MDIParentFrame(Frame):
         Returns whether the MDI implementation is tab-based.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -55474,6 +57635,11 @@ class MDIChildFrame(MDIChildFrameBase):
         Restore() -> None
         
         Restores this MDI child frame (unmaximizes).
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -55688,6 +57854,11 @@ class FontDialog(Dialog):
         wxID_CANCEL otherwise.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -55698,8 +57869,8 @@ class FontDialog(Dialog):
 # end of class FontDialog
 
 
-def GetFontFromUser(parent: Window, fontInit: Font, caption: str='') -> Font:    """
-    GetFontFromUser(parent, fontInit, caption='') -> Font
+def GetFontFromUser(parent: Window=nullptr, fontInit: Font=NullFont, caption: str='') -> Font:    """
+    GetFontFromUser(parent=nullptr, fontInit=NullFont, caption='') -> Font
     
     Shows the font selection dialog and returns the font selected by user
     or invalid font (use wxFont::IsOk() to test whether a font is valid)
@@ -55776,6 +57947,11 @@ class RearrangeList(CheckListBox):
         Move the currently selected item one position below.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -55822,6 +57998,11 @@ class RearrangeCtrl(Panel):
         GetList() -> RearrangeList
         
         Return the listbox which is the main part of this control.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -55885,6 +58066,11 @@ class RearrangeDialog(Dialog):
         by the user.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -55927,6 +58113,11 @@ class MiniFrame(Frame):
         Used in two-step frame construction.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -55943,29 +58134,29 @@ GetPasswordFromUserPromptStr: str
 class TextEntryDialog(Dialog):
     """
     TextEntryDialog() -> None
-    TextEntryDialog(parent, message, caption=GetTextFromUserPromptStr, value='', style=TextEntryDialogStyle, pos=DefaultPosition) -> None
+    TextEntryDialog(parent, message, caption=GetTextFromUserPromptStr, value='', style=TextEntryDialogStyle, pos=DefaultPosition, sz=DefaultSize) -> None
     
     This class represents a dialog that requests a one-line text string
     from the user.
     """
 
     @overload
-    def __init__(self, parent: Optional[Window], message: str, caption: str=GetTextFromUserPromptStr, value: str='', style: int=TextEntryDialogStyle, pos: Point=DefaultPosition) -> None:
+    def __init__(self, parent: Optional[Window], message: str, caption: str=GetTextFromUserPromptStr, value: str='', style: int=TextEntryDialogStyle, pos: Point=DefaultPosition, sz: Size=DefaultSize) -> None:
         ...
 
     @overload
     def __init__(self) -> None:
         """
         TextEntryDialog() -> None
-        TextEntryDialog(parent, message, caption=GetTextFromUserPromptStr, value='', style=TextEntryDialogStyle, pos=DefaultPosition) -> None
+        TextEntryDialog(parent, message, caption=GetTextFromUserPromptStr, value='', style=TextEntryDialogStyle, pos=DefaultPosition, sz=DefaultSize) -> None
         
         This class represents a dialog that requests a one-line text string
         from the user.
         """
 
-    def Create(self, parent: Window, message: str, caption: str=GetTextFromUserPromptStr, value: str='', style: int=TextEntryDialogStyle, pos: Point=DefaultPosition) -> bool:
+    def Create(self, parent: Window, message: str, caption: str=GetTextFromUserPromptStr, value: str='', style: int=TextEntryDialogStyle, pos: Point=DefaultPosition, sz: Size=DefaultSize) -> bool:
         """
-        Create(parent, message, caption=GetTextFromUserPromptStr, value='', style=TextEntryDialogStyle, pos=DefaultPosition) -> bool
+        Create(parent, message, caption=GetTextFromUserPromptStr, value='', style=TextEntryDialogStyle, pos=DefaultPosition, sz=DefaultSize) -> bool
         """
 
     def GetValue(self) -> str:
@@ -55991,6 +58182,13 @@ class TextEntryDialog(Dialog):
         Sets the default text value.
         """
 
+    def SetHint(self, hint: str) -> None:
+        """
+        SetHint(hint) -> None
+        
+        Sets the hint shown in the empty text control.
+        """
+
     def ForceUpper(self) -> None:
         """
         ForceUpper() -> None
@@ -56005,6 +58203,11 @@ class TextEntryDialog(Dialog):
         
         Shows the dialog, returning wxID_OK if the user pressed OK, and
         wxID_CANCEL otherwise.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -56035,6 +58238,11 @@ class PasswordEntryDialog(TextEntryDialog):
         string from the user.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -56043,15 +58251,15 @@ class PasswordEntryDialog(TextEntryDialog):
 # end of class PasswordEntryDialog
 
 
-def GetTextFromUser(message: str, caption: str=GetTextFromUserPromptStr, default_value: str='', parent: Optional[Window]=None, x: int=DefaultCoord, y: int=DefaultCoord, centre: bool=True) -> str:    """
-    GetTextFromUser(message, caption=GetTextFromUserPromptStr, default_value='', parent=None, x=DefaultCoord, y=DefaultCoord, centre=True) -> str
+def GetTextFromUser(message: str, caption: str=GetTextFromUserPromptStr, default_value: str='', parent: Window=nullptr, x: int=DefaultCoord, y: int=DefaultCoord, centre: bool=True) -> str:    """
+    GetTextFromUser(message, caption=GetTextFromUserPromptStr, default_value='', parent=nullptr, x=DefaultCoord, y=DefaultCoord, centre=True) -> str
     
     Pop up a dialog box with title set to caption, message, and a
     default_value.
     """
 
-def GetPasswordFromUser(message: str, caption: str=GetPasswordFromUserPromptStr, default_value: str='', parent: Optional[Window]=None, x: int=DefaultCoord, y: int=DefaultCoord, centre: bool=True) -> str:    """
-    GetPasswordFromUser(message, caption=GetPasswordFromUserPromptStr, default_value='', parent=None, x=DefaultCoord, y=DefaultCoord, centre=True) -> str
+def GetPasswordFromUser(message: str, caption: str=GetPasswordFromUserPromptStr, default_value: str='', parent: Window=nullptr, x: int=DefaultCoord, y: int=DefaultCoord, centre: bool=True) -> str:    """
+    GetPasswordFromUser(message, caption=GetPasswordFromUserPromptStr, default_value='', parent=nullptr, x=DefaultCoord, y=DefaultCoord, centre=True) -> str
     
     Similar to wxGetTextFromUser() but the text entered in the dialog is
     not shown on screen but replaced with stars.
@@ -56095,6 +58303,11 @@ class NumberEntryDialog(Dialog):
         OK, or the original value if the user has pressed Cancel.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -56105,8 +58318,8 @@ class NumberEntryDialog(Dialog):
 # end of class NumberEntryDialog
 
 
-def GetNumberFromUser(message: str, prompt: str, caption: str, value: int, min: int=0, max: int=100, parent: Optional[Window]=None, pos: Point=DefaultPosition) -> int:    """
-    GetNumberFromUser(message, prompt, caption, value, min=0, max=100, parent=None, pos=DefaultPosition) -> int
+def GetNumberFromUser(message: str, prompt: str, caption: str, value: int, min: int=0, max: int=100, parent: Window=nullptr, pos: Point=DefaultPosition) -> int:    """
+    GetNumberFromUser(message, prompt, caption, value, min=0, max=100, parent=nullptr, pos=DefaultPosition) -> int
     
     Shows a dialog asking the user for numeric input.
     """
@@ -56141,6 +58354,13 @@ class _PowerResourceKind(IntEnum):
 PowerResourceKind: TypeAlias = Union[_PowerResourceKind, int]
 POWER_RESOURCE_SCREEN = _PowerResourceKind.POWER_RESOURCE_SCREEN
 POWER_RESOURCE_SYSTEM = _PowerResourceKind.POWER_RESOURCE_SYSTEM
+
+class _PowerBlockKind(IntEnum):
+    POWER_PREVENT = auto()
+    POWER_DELAY = auto()
+PowerBlockKind: TypeAlias = Union[_PowerBlockKind, int]
+POWER_PREVENT = _PowerBlockKind.POWER_PREVENT
+POWER_DELAY = _PowerBlockKind.POWER_DELAY
 wxEVT_POWER_SUSPENDING: int
 wxEVT_POWER_SUSPENDED: int
 wxEVT_POWER_SUSPEND_CANCEL: int
@@ -56192,9 +58412,9 @@ class PowerResource:
     """
 
     @staticmethod
-    def Acquire(kind: PowerResourceKind, reason: str="") -> bool:
+    def Acquire(kind: PowerResourceKind, reason: str="", blockKind: PowerBlockKind=POWER_PREVENT) -> bool:
         """
-        Acquire(kind, reason="") -> bool
+        Acquire(kind, reason="", blockKind=POWER_PREVENT) -> bool
         
         Acquire a power resource for the application.
         """
@@ -56211,14 +58431,14 @@ class PowerResource:
 
 class PowerResourceBlocker:
     """
-    PowerResourceBlocker(kind, reason="") -> None
+    PowerResourceBlocker(kind, reason="", blockKind=POWER_PREVENT) -> None
     
     Helper RAII class ensuring that power resources are released.
     """
 
-    def __init__(self, kind: PowerResourceKind, reason: str="") -> None:
+    def __init__(self, kind: PowerResourceKind, reason: str="", blockKind: PowerBlockKind=POWER_PREVENT) -> None:
         """
-        PowerResourceBlocker(kind, reason="") -> None
+        PowerResourceBlocker(kind, reason="", blockKind=POWER_PREVENT) -> None
         
         Helper RAII class ensuring that power resources are released.
         """
@@ -56315,19 +58535,19 @@ SHUTDOWN_POWEROFF = _ShutdownFlags.SHUTDOWN_POWEROFF
 SHUTDOWN_REBOOT = _ShutdownFlags.SHUTDOWN_REBOOT
 SHUTDOWN_LOGOFF = _ShutdownFlags.SHUTDOWN_LOGOFF
 
-class _enum_54(IntEnum):
+class _enum_55(IntEnum):
     Strip_Mnemonics = auto()
     Strip_Accel = auto()
     Strip_CJKMnemonics = auto()
     Strip_All = auto()
     Strip_Menu = auto()
-Strip_Mnemonics = _enum_54.Strip_Mnemonics
-Strip_Accel = _enum_54.Strip_Accel
-Strip_CJKMnemonics = _enum_54.Strip_CJKMnemonics
-Strip_All = _enum_54.Strip_All
-Strip_Menu = _enum_54.Strip_Menu
+Strip_Mnemonics = _enum_55.Strip_Mnemonics
+Strip_Accel = _enum_55.Strip_Accel
+Strip_CJKMnemonics = _enum_55.Strip_CJKMnemonics
+Strip_All = _enum_55.Strip_All
+Strip_Menu = _enum_55.Strip_Menu
 
-class _enum_55(IntEnum):
+class _enum_56(IntEnum):
     EXEC_ASYNC = auto()
     EXEC_SYNC = auto()
     EXEC_SHOW_CONSOLE = auto()
@@ -56336,35 +58556,21 @@ class _enum_55(IntEnum):
     EXEC_NOEVENTS = auto()
     EXEC_HIDE_CONSOLE = auto()
     EXEC_BLOCK = auto()
-EXEC_ASYNC = _enum_55.EXEC_ASYNC
-EXEC_SYNC = _enum_55.EXEC_SYNC
-EXEC_SHOW_CONSOLE = _enum_55.EXEC_SHOW_CONSOLE
-EXEC_MAKE_GROUP_LEADER = _enum_55.EXEC_MAKE_GROUP_LEADER
-EXEC_NODISABLE = _enum_55.EXEC_NODISABLE
-EXEC_NOEVENTS = _enum_55.EXEC_NOEVENTS
-EXEC_HIDE_CONSOLE = _enum_55.EXEC_HIDE_CONSOLE
-EXEC_BLOCK = _enum_55.EXEC_BLOCK
+EXEC_ASYNC = _enum_56.EXEC_ASYNC
+EXEC_SYNC = _enum_56.EXEC_SYNC
+EXEC_SHOW_CONSOLE = _enum_56.EXEC_SHOW_CONSOLE
+EXEC_MAKE_GROUP_LEADER = _enum_56.EXEC_MAKE_GROUP_LEADER
+EXEC_NODISABLE = _enum_56.EXEC_NODISABLE
+EXEC_NOEVENTS = _enum_56.EXEC_NOEVENTS
+EXEC_HIDE_CONSOLE = _enum_56.EXEC_HIDE_CONSOLE
+EXEC_BLOCK = _enum_56.EXEC_BLOCK
 
-def BeginBusyCursor(cursor: Cursor=HOURGLASS_CURSOR) -> None:    """
-    BeginBusyCursor(cursor=HOURGLASS_CURSOR) -> None
-    
-    Changes the cursor to the given cursor for all windows in the
-    application.
-    """
-
-def EndBusyCursor() -> None:    """
-    EndBusyCursor() -> None
-    
-    Changes the cursor back to the original cursor, for all windows in the
-    application.
-    """
-
-def IsBusy() -> bool:    """
-    IsBusy() -> bool
-    
-    Returns true if between two wxBeginBusyCursor() and wxEndBusyCursor()
-    calls.
-    """
+class _VersionContext(IntEnum):
+    RunTime = auto()
+    BuildTime = auto()
+VersionContext: TypeAlias = Union[_VersionContext, int]
+RunTime = _VersionContext.RunTime
+BuildTime = _VersionContext.BuildTime
 
 def Bell() -> None:    """
     Bell() -> None
@@ -56384,6 +58590,18 @@ def GetLibraryVersionInfo() -> VersionInfo:    """
     GetLibraryVersionInfo() -> VersionInfo
     
     Get wxWidgets version information.
+    """
+
+@overload
+def Getenv(s: str) -> str:    ...
+
+@overload
+def Getenv(s: str) -> str:    ...
+
+@overload
+def Getenv(ws: wchar_t) -> wchar_t:    """
+    Getenv(ws) -> wchar_t
+    Getenv(s) -> str
     """
 
 def SecureZeroMemory(p: Any, n: int) -> None:    """
@@ -56436,15 +58654,15 @@ def FindWindowAtPoint(pt: Point) -> Window:    """
     FindWindowAtPoint(pt) -> Window
     
     Find the deepest window at the given mouse position in screen
-    coordinates, returning the window if found, or NULL if not.
+    coordinates, returning the window if found, or nullptr if not.
     """
 
-def FindWindowByLabel(label: str, parent: Optional[Window]=None) -> Window:    """
-    FindWindowByLabel(label, parent=None) -> Window
+def FindWindowByLabel(label: str, parent: Window=nullptr) -> Window:    """
+    FindWindowByLabel(label, parent=nullptr) -> Window
     """
 
-def FindWindowByName(name: str, parent: Optional[Window]=None) -> Window:    """
-    FindWindowByName(name, parent=None) -> Window
+def FindWindowByName(name: str, parent: Window=nullptr) -> Window:    """
+    FindWindowByName(name, parent=nullptr) -> Window
     """
 
 def FindMenuItemId(frame: Frame, menuString: str, itemString: str) -> int:    """
@@ -56527,7 +58745,7 @@ def GetUserId() -> str:    """
 def GetUserName() -> str:    """
     GetUserName() -> str
     
-    This function returns the full user name (something like "Mr. John
+    This function returns the full user name (something like "John
     Smith").
     """
 
@@ -56538,8 +58756,8 @@ def GetOsDescription() -> str:    """
     in a user-readable form.
     """
 
-def GetOsVersion(micro: Optional[int]=None) -> Tuple[OperatingSystemId, int, int]:    """
-    GetOsVersion(micro=None) -> Tuple[OperatingSystemId, int, int]
+def GetOsVersion(micro: int=nullptr) -> Tuple[OperatingSystemId, int, int]:    """
+    GetOsVersion(micro=nullptr) -> Tuple[OperatingSystemId, int, int]
     
     Gets the version and the operating system ID for currently running OS.
     """
@@ -56578,8 +58796,8 @@ def GetNativeCpuArchitectureName() -> str:    """
     be different.
     """
 
-def Execute(command: str, flags: int=EXEC_ASYNC, callback: Optional[Process]=None, env: Optional[ExecuteEnv]=None) -> int:    """
-    Execute(command, flags=EXEC_ASYNC, callback=None, env=None) -> int
+def Execute(command: str, flags: int=EXEC_ASYNC, callback: Process=nullptr, env: ExecuteEnv=nullptr) -> int:    """
+    Execute(command, flags=EXEC_ASYNC, callback=nullptr, env=nullptr) -> int
     
     Executes another program in Unix or Windows.
     """
@@ -56591,8 +58809,8 @@ def GetProcessId() -> int:    """
     system.
     """
 
-def Kill(pid: int, sig: Signal=SIGTERM, rc: Optional[KillError]=None, flags: int=KILL_NOCHILDREN) -> int:    """
-    Kill(pid, sig=SIGTERM, rc=None, flags=KILL_NOCHILDREN) -> int
+def Kill(pid: int, sig: Signal=SIGTERM, rc: KillError=nullptr, flags: int=KILL_NOCHILDREN) -> int:    """
+    Kill(pid, sig=SIGTERM, rc=nullptr, flags=KILL_NOCHILDREN) -> int
     
     Equivalent to the Unix kill function: send the given signal sig to the
     process with PID pid.
@@ -56661,10 +58879,16 @@ def HexToDec(buf: str) -> int:    """
     Convert 2-character hexadecimal string to decimal integer.
     """
 
+def MSWIsOnSecureScreen() -> bool:    """
+    MSWIsOnSecureScreen() -> bool
+    
+    Check if the current desktop is the secure desktop.
+    """
+
 class WindowDisabler:
     """
     WindowDisabler(disable=True) -> None
-    WindowDisabler(winToSkip, winToSkip2=None) -> None
+    WindowDisabler(winToSkip, winToSkip2=nullptr) -> None
     
     This class disables all top level windows of the application (maybe
     with the exception of one of them) in its constructor and enables them
@@ -56672,14 +58896,14 @@ class WindowDisabler:
     """
 
     @overload
-    def __init__(self, winToSkip: Window, winToSkip2: Optional[Window]=None) -> None:
+    def __init__(self, winToSkip: Window, winToSkip2: Window=nullptr) -> None:
         ...
 
     @overload
     def __init__(self, disable: bool=True) -> None:
         """
         WindowDisabler(disable=True) -> None
-        WindowDisabler(winToSkip, winToSkip2=None) -> None
+        WindowDisabler(winToSkip, winToSkip2=nullptr) -> None
         
         This class disables all top level windows of the application (maybe
         with the exception of one of them) in its constructor and enables them
@@ -56701,14 +58925,21 @@ class WindowDisabler:
 class BusyCursor:
     """
     BusyCursor(cursor=HOURGLASS_CURSOR) -> None
+    BusyCursor(cursors) -> None
     
     This class makes it easy to tell your user that the program is
     temporarily busy.
     """
 
+    @overload
+    def __init__(self, cursors: CursorBundle) -> None:
+        ...
+
+    @overload
     def __init__(self, cursor: Cursor=HOURGLASS_CURSOR) -> None:
         """
         BusyCursor(cursor=HOURGLASS_CURSOR) -> None
+        BusyCursor(cursors) -> None
         
         This class makes it easy to tell your user that the program is
         temporarily busy.
@@ -56738,6 +58969,20 @@ class VersionInfo:
         VersionInfo(name="", major=0, minor=0, micro=0, revision=0, description="", copyright="") -> None
         
         wxVersionInfo contains version information.
+        """
+
+    def AtLeast(self, major: int, minor: int=0, micro: int=0) -> bool:
+        """
+        AtLeast(major, minor=0, micro=0) -> bool
+        
+        Return true if the version is at least equal to the given one.
+        """
+
+    def IsOk(self) -> bool:
+        """
+        IsOk() -> bool
+        
+        Return true if there is actually at least some version information.
         """
 
     def GetName(self) -> str:
@@ -56780,6 +59025,13 @@ class VersionInfo:
         ToString() -> str
         
         Get the string representation of this version object.
+        """
+
+    def GetNumericVersionString(self) -> str:
+        """
+        GetNumericVersionString() -> str
+        
+        Get the string representation of only numeric version components.
         """
 
     def GetVersionString(self) -> str:
@@ -56829,18 +59081,46 @@ class VersionInfo:
     @property
     def Name(self) -> str: ...
     @property
+    def NumericVersionString(self) -> str: ...
+    @property
     def Revision(self) -> int: ...
     @property
     def VersionString(self) -> str: ...
 # end of class VersionInfo
 
+
+@overload
+def BeginBusyCursor(cursors: CursorBundle) -> None:    ...
+
+@overload
+def BeginBusyCursor(cursor: Cursor=HOURGLASS_CURSOR) -> None:    """
+    BeginBusyCursor(cursor=HOURGLASS_CURSOR) -> None
+    BeginBusyCursor(cursors) -> None
+    
+    Changes the cursor to the given cursor for all windows in the
+    application.
+    """
+
+def EndBusyCursor() -> None:    """
+    EndBusyCursor() -> None
+    
+    Changes the cursor back to the original cursor, for all windows in the
+    application.
+    """
+
+def IsBusy() -> bool:    """
+    IsBusy() -> bool
+    
+    Returns true if between two wxBeginBusyCursor() and wxEndBusyCursor()
+    calls.
+    """
 #-- end-utils --#
 #-- begin-process --#
 wxEVT_END_PROCESS: int
 
 class Process(EvtHandler):
     """
-    Process(parent=None, id=-1) -> None
+    Process(parent=nullptr, id=-1) -> None
     Process(flags) -> None
     
     The objects of this class are used in conjunction with the wxExecute()
@@ -56852,9 +59132,9 @@ class Process(EvtHandler):
         ...
 
     @overload
-    def __init__(self, parent: Optional[EvtHandler]=None, id: int=-1) -> None:
+    def __init__(self, parent: EvtHandler=nullptr, id: int=-1) -> None:
         """
-        Process(parent=None, id=-1) -> None
+        Process(parent=nullptr, id=-1) -> None
         Process(flags) -> None
         
         The objects of this class are used in conjunction with the wxExecute()
@@ -57201,15 +59481,15 @@ HELP_SEARCH_ALL = _HelpSearchMode.HELP_SEARCH_ALL
 
 class HelpControllerBase(Object):
     """
-    HelpControllerBase(parentWindow=None) -> None
+    HelpControllerBase(parentWindow=nullptr) -> None
     
     This is the abstract base class a family of classes by which
     applications may invoke a help viewer to provide on-line help.
     """
 
-    def __init__(self, parentWindow: Optional[Window]=None) -> None:
+    def __init__(self, parentWindow: Window=nullptr) -> None:
         """
-        HelpControllerBase(parentWindow=None) -> None
+        HelpControllerBase(parentWindow=nullptr) -> None
         
         This is the abstract base class a family of classes by which
         applications may invoke a help viewer to provide on-line help.
@@ -57374,7 +59654,7 @@ class HelpProvider:
         """
         GetHelp(window) -> str
         
-        This version associates the given text with all windows with this id.
+        Get the help string for the given window.
         """
 
     def RemoveHelp(self, window: WindowBase) -> None:
@@ -57430,15 +59710,15 @@ class SimpleHelpProvider(HelpProvider):
 
 class HelpControllerHelpProvider(SimpleHelpProvider):
     """
-    HelpControllerHelpProvider(hc=None) -> None
+    HelpControllerHelpProvider(hc=nullptr) -> None
     
     wxHelpControllerHelpProvider is an implementation of wxHelpProvider
     which supports both context identifiers and plain text help strings.
     """
 
-    def __init__(self, hc: Optional[HelpControllerBase]=None) -> None:
+    def __init__(self, hc: HelpControllerBase=nullptr) -> None:
         """
-        HelpControllerHelpProvider(hc=None) -> None
+        HelpControllerHelpProvider(hc=nullptr) -> None
         
         wxHelpControllerHelpProvider is an implementation of wxHelpProvider
         which supports both context identifiers and plain text help strings.
@@ -57466,15 +59746,15 @@ class HelpControllerHelpProvider(SimpleHelpProvider):
 
 class ContextHelp(Object):
     """
-    ContextHelp(window=None, doNow=True) -> None
+    ContextHelp(window=nullptr, doNow=True) -> None
     
     This class changes the cursor to a query and puts the application into
     a 'context-sensitive help mode'.
     """
 
-    def __init__(self, window: Optional[Window]=None, doNow: bool=True) -> None:
+    def __init__(self, window: Window=nullptr, doNow: bool=True) -> None:
         """
-        ContextHelp(window=None, doNow=True) -> None
+        ContextHelp(window=nullptr, doNow=True) -> None
         
         This class changes the cursor to a query and puts the application into
         a 'context-sensitive help mode'.
@@ -57510,6 +59790,11 @@ class ContextHelpButton(BitmapButton):
         
         Instances of this class may be used to add a question mark button that
         when pressed, puts the application into context-help mode.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -57571,6 +59856,8 @@ class _SystemColour(IntEnum):
     SYS_COLOUR_MENUBAR = auto()
     SYS_COLOUR_LISTBOXTEXT = auto()
     SYS_COLOUR_LISTBOXHIGHLIGHTTEXT = auto()
+    SYS_COLOUR_GRIDLINES = auto()
+    SYS_COLOUR_LISTBOXHIGHLIGHT = auto()
     SYS_COLOUR_BACKGROUND = auto()
     SYS_COLOUR_3DFACE = auto()
     SYS_COLOUR_3DSHADOW = auto()
@@ -57612,6 +59899,8 @@ SYS_COLOUR_MENUHILIGHT = _SystemColour.SYS_COLOUR_MENUHILIGHT
 SYS_COLOUR_MENUBAR = _SystemColour.SYS_COLOUR_MENUBAR
 SYS_COLOUR_LISTBOXTEXT = _SystemColour.SYS_COLOUR_LISTBOXTEXT
 SYS_COLOUR_LISTBOXHIGHLIGHTTEXT = _SystemColour.SYS_COLOUR_LISTBOXHIGHLIGHTTEXT
+SYS_COLOUR_GRIDLINES = _SystemColour.SYS_COLOUR_GRIDLINES
+SYS_COLOUR_LISTBOXHIGHLIGHT = _SystemColour.SYS_COLOUR_LISTBOXHIGHLIGHT
 SYS_COLOUR_BACKGROUND = _SystemColour.SYS_COLOUR_BACKGROUND
 SYS_COLOUR_3DFACE = _SystemColour.SYS_COLOUR_3DFACE
 SYS_COLOUR_3DSHADOW = _SystemColour.SYS_COLOUR_3DSHADOW
@@ -57626,6 +59915,7 @@ class _SystemMetric(IntEnum):
     SYS_BORDER_Y = auto()
     SYS_CURSOR_X = auto()
     SYS_CURSOR_Y = auto()
+    SYS_CURSOR_SIZE = auto()
     SYS_DCLICK_X = auto()
     SYS_DCLICK_Y = auto()
     SYS_DRAG_X = auto()
@@ -57668,6 +59958,7 @@ SYS_BORDER_X = _SystemMetric.SYS_BORDER_X
 SYS_BORDER_Y = _SystemMetric.SYS_BORDER_Y
 SYS_CURSOR_X = _SystemMetric.SYS_CURSOR_X
 SYS_CURSOR_Y = _SystemMetric.SYS_CURSOR_Y
+SYS_CURSOR_SIZE = _SystemMetric.SYS_CURSOR_SIZE
 SYS_DCLICK_X = _SystemMetric.SYS_DCLICK_X
 SYS_DCLICK_Y = _SystemMetric.SYS_DCLICK_Y
 SYS_DRAG_X = _SystemMetric.SYS_DRAG_X
@@ -57760,9 +60051,9 @@ class SystemSettings:
         """
 
     @staticmethod
-    def GetMetric(index: SystemMetric, win: Optional[Window]=None) -> int:
+    def GetMetric(index: SystemMetric, win: Window=nullptr) -> int:
         """
-        GetMetric(index, win=None) -> int
+        GetMetric(index, win=nullptr) -> int
         
         Returns the value of a system metric, or -1 if the metric is not
         supported on the current system.
@@ -57808,6 +60099,14 @@ class SystemAppearance:
     Provides information about the current system appearance.
     """
 
+    def AreAppsDark(self) -> bool:
+        """
+        AreAppsDark() -> bool
+        
+        Return true if the applications on this system use dark theme by
+        default.
+        """
+
     def GetName(self) -> str:
         """
         GetName() -> str
@@ -57821,6 +60120,13 @@ class SystemAppearance:
         
         Return true if the current system there is explicitly recognized as
         being a dark theme or if the default window background is dark.
+        """
+
+    def IsSystemDark(self) -> bool:
+        """
+        IsSystemDark() -> bool
+        
+        Return true if the system UI uses dark theme.
         """
 
     def IsUsingDarkBackground(self) -> bool:
@@ -57969,6 +60275,8 @@ ART_FIND_AND_REPLACE: str
 ART_FULL_SCREEN: str
 ART_EDIT: str
 ART_WX_LOGO: str
+ART_STOP: str
+ART_REFRESH: str
 
 class ArtProvider(Object):
     """
@@ -58018,9 +60326,9 @@ class ArtProvider(Object):
         """
 
     @staticmethod
-    def GetNativeSizeHint(client: ArtClient, win: Optional[Window]=None) -> Size:
+    def GetNativeSizeHint(client: ArtClient, win: Window=nullptr) -> Size:
         """
-        GetNativeSizeHint(client, win=None) -> Size
+        GetNativeSizeHint(client, win=nullptr) -> Size
         
         Returns native icon size for use specified by client hint.
         """
@@ -58034,9 +60342,9 @@ class ArtProvider(Object):
         """
 
     @staticmethod
-    def GetSizeHint(client: ArtClient, win: Optional[Window]=None) -> Size:
+    def GetSizeHint(client: ArtClient, win: Window=nullptr) -> Size:
         """
-        GetSizeHint(client, win=None) -> Size
+        GetSizeHint(client, win=nullptr) -> Size
         
         Returns a suitable size hint for the given wxArtClient.
         """
@@ -58191,9 +60499,9 @@ class DragImage(Object):
         ...
 
     @overload
-    def BeginDrag(self, hotspot: Point, window: Window, fullScreen: bool=False, rect: Optional[Rect]=None) -> bool:
+    def BeginDrag(self, hotspot: Point, window: Window, fullScreen: bool=False, rect: Rect=nullptr) -> bool:
         """
-        BeginDrag(hotspot, window, fullScreen=False, rect=None) -> bool
+        BeginDrag(hotspot, window, fullScreen=False, rect=nullptr) -> bool
         BeginDrag(hotspot, window, boundingWindow) -> bool
         
         Start dragging the image, in a window or full screen.
@@ -58281,9 +60589,9 @@ class GenericDragImage(Object):
         ...
 
     @overload
-    def BeginDrag(self, hotspot: Point, window: Window, fullScreen: bool=False, rect: Optional[Rect]=None) -> bool:
+    def BeginDrag(self, hotspot: Point, window: Window, fullScreen: bool=False, rect: Rect=nullptr) -> bool:
         """
-        BeginDrag(hotspot, window, fullScreen=False, rect=None) -> bool
+        BeginDrag(hotspot, window, fullScreen=False, rect=nullptr) -> bool
         BeginDrag(hotspot, window, boundingWindow) -> bool
         
         Start dragging the image, in a window or full screen.
@@ -58425,6 +60733,11 @@ class PreviewControlBar(Panel):
         Sets the zoom control.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -58460,6 +60773,11 @@ class PreviewCanvas(ScrolledWindow):
         OnPaint(event) -> None
         
         Calls wxPrintPreview::PaintPage() to refresh the canvas.
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod
@@ -58524,6 +60842,11 @@ class PreviewFrame(Frame):
         with the print preview object.
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -58534,7 +60857,7 @@ class PreviewFrame(Frame):
 
 class PrintPreview(Object):
     """
-    PrintPreview(printout, printoutForPrinting=None, data=None) -> None
+    PrintPreview(printout, printoutForPrinting=nullptr, data=nullptr) -> None
     PrintPreview(printout, printoutForPrinting, data) -> None
     
     Objects of this class manage the print preview process.
@@ -58545,9 +60868,9 @@ class PrintPreview(Object):
         ...
 
     @overload
-    def __init__(self, printout: Printout, printoutForPrinting: Optional[Printout]=None, data: Optional[PrintDialogData]=None) -> None:
+    def __init__(self, printout: Printout, printoutForPrinting: Printout=nullptr, data: PrintDialogData=nullptr) -> None:
         """
-        PrintPreview(printout, printoutForPrinting=None, data=None) -> None
+        PrintPreview(printout, printoutForPrinting=nullptr, data=nullptr) -> None
         PrintPreview(printout, printoutForPrinting, data) -> None
         
         Objects of this class manage the print preview process.
@@ -58602,7 +60925,7 @@ class PrintPreview(Object):
         GetPrintoutForPrinting() -> Printout
         
         Gets the printout object to be used for printing from within the
-        preview interface, or NULL if none exists.
+        preview interface, or nullptr if none exists.
         """
 
     def GetZoom(self) -> int:
@@ -58720,15 +61043,15 @@ class PrintPreview(Object):
 
 class Printer(Object):
     """
-    Printer(data=None) -> None
+    Printer(data=nullptr) -> None
     
     This class represents the Windows or PostScript printer, and is the
     vehicle through which printing may be launched by an application.
     """
 
-    def __init__(self, data: Optional[PrintDialogData]=None) -> None:
+    def __init__(self, data: PrintDialogData=nullptr) -> None:
         """
-        Printer(data=None) -> None
+        Printer(data=nullptr) -> None
         
         This class represents the Windows or PostScript printer, and is the
         vehicle through which printing may be launched by an application.
@@ -58895,8 +61218,7 @@ class Printout(Object):
         GetPageInfo() -> Tuple[int, int, int, int]
         
         Called by the framework to obtain information from the application
-        about minimum and maximum page values that the user can select, and
-        the required page range to be printed.
+        about minimum and maximum page numbers to print.
         """
 
     def GetPageSizeMM(self) -> Tuple[int, int]:
@@ -59082,6 +61404,11 @@ class PrintAbortDialog(Dialog):
         SetProgress(currentPage, totalPages, currentCopy, totalCopies) -> None
         """
 
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: WindowVariant=WINDOW_VARIANT_NORMAL) -> VisualAttributes:
         """
@@ -59102,7 +61429,7 @@ PyPrintout = wx.deprecated(Printout, 'Use Printout instead.')
 
 class PrintDialog(Object):
     """
-    PrintDialog(parent, data=None) -> None
+    PrintDialog(parent, data=nullptr) -> None
     PrintDialog(parent, data) -> None
     
     This class represents the print and print setup common dialogs.
@@ -59113,9 +61440,9 @@ class PrintDialog(Object):
         ...
 
     @overload
-    def __init__(self, parent: Window, data: Optional[PrintDialogData]=None) -> None:
+    def __init__(self, parent: Window, data: PrintDialogData=nullptr) -> None:
         """
-        PrintDialog(parent, data=None) -> None
+        PrintDialog(parent, data=nullptr) -> None
         PrintDialog(parent, data) -> None
         
         This class represents the print and print setup common dialogs.
@@ -59160,14 +61487,14 @@ class PrintDialog(Object):
 
 class PageSetupDialog(Object):
     """
-    PageSetupDialog(parent, data=None) -> None
+    PageSetupDialog(parent, data=nullptr) -> None
     
     This class represents the page setup common dialog.
     """
 
-    def __init__(self, parent: Window, data: Optional[PageSetupDialogData]=None) -> None:
+    def __init__(self, parent: Window, data: PageSetupDialogData=nullptr) -> None:
         """
-        PageSetupDialog(parent, data=None) -> None
+        PageSetupDialog(parent, data=nullptr) -> None
         
         This class represents the page setup common dialog.
         """
@@ -59399,7 +61726,6 @@ class FileTypeInfo:
     """
     FileTypeInfo() -> None
     FileTypeInfo(mimeType) -> None
-    FileTypeInfo(mimeType, openCmd, printCmd, description, extension) -> None
     FileTypeInfo(sArray) -> None
     
     Container of information about wxFileType.
@@ -59407,10 +61733,6 @@ class FileTypeInfo:
 
     @overload
     def __init__(self, mimeType: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, mimeType: str, openCmd: str, printCmd: str, description: str, extension: str) -> None:
         ...
 
     @overload
@@ -59422,7 +61744,6 @@ class FileTypeInfo:
         """
         FileTypeInfo() -> None
         FileTypeInfo(mimeType) -> None
-        FileTypeInfo(mimeType, openCmd, printCmd, description, extension) -> None
         FileTypeInfo(sArray) -> None
         
         Container of information about wxFileType.
@@ -59593,7 +61914,8 @@ class MimeTypesManager:
         GetFileTypeFromExtension(extension) -> FileType
         
         Gather information about the files with given extension and return the
-        corresponding wxFileType object or NULL if the extension is unknown.
+        corresponding wxFileType object or nullptr if the extension is
+        unknown.
         """
 
     def GetFileTypeFromMimeType(self, mimeType: str) -> FileType:
@@ -59601,7 +61923,8 @@ class MimeTypesManager:
         GetFileTypeFromMimeType(mimeType) -> FileType
         
         Gather information about the files with given MIME type and return the
-        corresponding wxFileType object or NULL if the MIME type is unknown.
+        corresponding wxFileType object or nullptr if the MIME type is
+        unknown.
         """
 
     def Associate(self, ftInfo: FileTypeInfo) -> FileType:
@@ -59633,7 +61956,7 @@ class MimeTypesManager:
         
         This function returns true if either the given mimeType is exactly the
         same as wildcard or if it has the same category and the subtype of
-        wildcard is '*'.
+        wildcard is "*".
         """
 # end of class MimeTypesManager
 
@@ -59644,21 +61967,21 @@ TheMimeTypesManager: MimeTypesManager
 class BusyInfo:
     """
     BusyInfo(flags) -> None
-    BusyInfo(msg, parent=None) -> None
+    BusyInfo(msg, parent=nullptr) -> None
     
     This class makes it easy to tell your user that the program is
     temporarily busy.
     """
 
     @overload
-    def __init__(self, msg: str, parent: Optional[Window]=None) -> None:
+    def __init__(self, msg: str, parent: Window=nullptr) -> None:
         ...
 
     @overload
     def __init__(self, flags: BusyInfoFlags) -> None:
         """
         BusyInfo(flags) -> None
-        BusyInfo(msg, parent=None) -> None
+        BusyInfo(msg, parent=nullptr) -> None
         
         This class makes it easy to tell your user that the program is
         temporarily busy.
@@ -59712,7 +62035,7 @@ class BusyInfoFlags:
         Sets the parent for wxBusyInfo.
         """
 
-    def Icon(self, icon: Icon) -> BusyInfoFlags:
+    def Icon(self, icon: BitmapBundle) -> BusyInfoFlags:
         """
         Icon(icon) -> BusyInfoFlags
         
@@ -60138,7 +62461,7 @@ class FontMapper:
         """
         Set(mapper) -> FontMapper
         
-        Set the current font mapper object and return previous one (may be NULL).
+        Set the current font mapper object and return previous one (may be nullptr).
         """
 # end of class FontMapper
 
@@ -60488,7 +62811,7 @@ class CommandProcessor(Object):
         ClearCommands() -> None
         
         Deletes all commands in the list and sets the current command pointer
-        to NULL.
+        to nullptr.
         """
 
     def GetCommands(self) -> CommandList:
@@ -61050,6 +63373,14 @@ class ModalDialogHook:
         Unregister this hook.
         """
 
+    @staticmethod
+    def GetOpenCount() -> int:
+        """
+        GetOpenCount() -> int
+        
+        Return the number of currently open modal dialogs.
+        """
+
     def Enter(self, dialog: Dialog) -> int:
         """
         Enter(dialog) -> int
@@ -61189,9 +63520,73 @@ STOCK_WITH_ACCELERATOR = _StockLabelQueryFlag.STOCK_WITH_ACCELERATOR
 STOCK_WITHOUT_ELLIPSIS = _StockLabelQueryFlag.STOCK_WITHOUT_ELLIPSIS
 STOCK_FOR_BUTTON = _StockLabelQueryFlag.STOCK_FOR_BUTTON
 
+class _StockHelpStringClient(IntEnum):
+    STOCK_MENU = auto()
+StockHelpStringClient: TypeAlias = Union[_StockHelpStringClient, int]
+STOCK_MENU = _StockHelpStringClient.STOCK_MENU
+
 def GetStockLabel(id: int, flags: int=STOCK_WITH_MNEMONIC) -> str:    """
     GetStockLabel(id, flags=STOCK_WITH_MNEMONIC) -> str
     
     Returns label that should be used for given id element.
     """
+
+def GetStockHelpString(id: int, client: StockHelpStringClient=STOCK_MENU) -> str:    """
+    GetStockHelpString(id, client=STOCK_MENU) -> str
+    
+    Return help string associated with given stock id and client.
+    """
 #-- end-stockitem --#
+#-- begin-darkmode --#
+
+class _MenuColour(IntEnum):
+    StandardFg = auto()
+    StandardBg = auto()
+    DisabledFg = auto()
+    HotBg = auto()
+MenuColour: TypeAlias = Union[_MenuColour, int]
+StandardFg = _MenuColour.StandardFg
+StandardBg = _MenuColour.StandardBg
+DisabledFg = _MenuColour.DisabledFg
+HotBg = _MenuColour.HotBg
+
+class DarkModeSettings:
+    """
+    DarkModeSettings() -> None
+    
+    Allows to customize some of the settings used in MSW dark mode.
+    """
+
+    def __init__(self) -> None:
+        """
+        DarkModeSettings() -> None
+        
+        Allows to customize some of the settings used in MSW dark mode.
+        """
+
+    def GetColour(self, index: SystemColour) -> Colour:
+        """
+        GetColour(index) -> Colour
+        
+        Get the colour to use for the given system colour when dark mode is
+        on.
+        """
+
+    def GetMenuColour(self, which: MenuColour) -> Colour:
+        """
+        GetMenuColour(which) -> Colour
+        
+        Get the colour to use for the menu bar in the given state.
+        """
+
+    def GetBorderPen(self) -> Pen:
+        """
+        GetBorderPen() -> Pen
+        
+        Get the pen to use for drawing wxStaticBox border in dark mode.
+        """
+    @property
+    def BorderPen(self) -> Pen: ...
+# end of class DarkModeSettings
+
+#-- end-darkmode --#

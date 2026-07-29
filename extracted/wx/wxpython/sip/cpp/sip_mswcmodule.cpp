@@ -20,7 +20,6 @@
 /* Define the strings used by this module. */
 const char sipStrings__msw[] = {
     'G', 'e', 't', 'M', 'a', 'i', 'n', 'W', 'i', 'n', 'd', 'o', 'w', 'O', 'f', 'C', 'o', 'm', 'p', 'o', 's', 'i', 't', 'e', 'C', 'o', 'n', 't', 'r', 'o', 'l', 0,
-    'G', 'e', 't', 'D', 'e', 'f', 'a', 'u', 'l', 't', 'B', 'o', 'r', 'd', 'e', 'r', 'F', 'o', 'r', 'C', 'o', 'n', 't', 'r', 'o', 'l', 0,
     'A', 'c', 'c', 'e', 'p', 't', 's', 'F', 'o', 'c', 'u', 's', 'F', 'r', 'o', 'm', 'K', 'e', 'y', 'b', 'o', 'a', 'r', 'd', 0,
     'H', 'a', 's', 'T', 'r', 'a', 'n', 's', 'p', 'a', 'r', 'e', 'n', 't', 'B', 'a', 'c', 'k', 'g', 'r', 'o', 'u', 'n', 'd', 0,
     'A', 'c', 'c', 'e', 'p', 't', 's', 'F', 'o', 'c', 'u', 's', 'R', 'e', 'c', 'u', 'r', 's', 'i', 'v', 'e', 'l', 'y', 0,
@@ -127,7 +126,6 @@ const char sipStrings__msw[] = {
     's', 'h', 'o', 'w', 0,
     's', 'i', 'z', 'e', 0,
     't', 'e', 'x', 't', 0,
-    't', 'i', 'm', 'e', 0,
     'u', 'n', 'i', 't', 0,
     'i', 'd', 'x', 0,
     'm', 's', 'g', 0,

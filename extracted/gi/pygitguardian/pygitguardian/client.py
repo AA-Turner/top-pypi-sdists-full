@@ -20,6 +20,7 @@ from .config import (
     MAXIMUM_PAYLOAD_SIZE,
 )
 from .models import (
+    AgentActivityResponse,
     AIDiscovery,
     APITokensResponse,
     CreateInvitation,
@@ -63,6 +64,7 @@ from .models import (
     UpdateMember,
     UpdateTeam,
     UpdateTeamSource,
+    UserInfo,
 )
 from .models_utils import CursorPaginatedResponse
 
@@ -423,7 +425,7 @@ class GGClient:
             result = Detail("The request timed out.")
             result.status_code = 504
         else:
-            if resp.ok:
+            if is_ok(resp):
                 result = APITokensResponse.from_dict(resp.json())
             else:
                 result = load_detail(resp)
@@ -739,7 +741,7 @@ class GGClient:
             result = Detail("The request timed out.")
             result.status_code = 504
         else:
-            if resp.ok:
+            if is_ok(resp):
                 result = HoneytokenWithContextResponse.from_dict(resp.json())
             else:
                 result = load_detail(resp)
@@ -1205,7 +1207,7 @@ class GGClient:
         extra_headers: Optional[Dict[str, str]] = None,
     ) -> Union[Detail, AIDiscovery]:
         response = self.post(
-            endpoint="nhi/ai/discovery",
+            endpoint="agent-activity/discovery",
             data=ai_discovery.to_dict(),
             extra_headers=extra_headers,
         )
@@ -1225,7 +1227,7 @@ class GGClient:
         extra_headers: Optional[Dict[str, str]] = None,
     ) -> Union[Detail, MCPActivityResponse]:
         response = self.post(
-            endpoint="nhi/ai/mcp-activity",
+            endpoint="agent-activity/mcp-activity",
             data=activity.to_dict(),
             extra_headers=extra_headers,
         )
@@ -1245,7 +1247,7 @@ class GGClient:
         extra_headers: Optional[Dict[str, str]] = None,
     ) -> Union[Detail, MCPActivityBulkResponse]:
         response = self.post(
-            endpoint="nhi/ai/mcp-activity/bulk",
+            endpoint="agent-activity/mcp-activity/bulk",
             data={"activities": [a.to_dict() for a in activities]},
             extra_headers=extra_headers,
         )
@@ -1253,6 +1255,41 @@ class GGClient:
         obj: Union[Detail, MCPActivityBulkResponse]
         if is_ok(response):
             obj = MCPActivityBulkResponse.from_dict(response.json())
+        else:
+            obj = load_detail(response)
+
+        obj.status_code = response.status_code
+        return obj
+
+    def send_agent_activity(
+        self,
+        events: List[Dict[str, Any]],
+        user: UserInfo,
+        extra_headers: Optional[Dict[str, str]] = None,
+    ) -> Union[Detail, AgentActivityResponse]:
+        """Ship AI-agent activity records to GitGuardian.
+
+        Each entry in events is an opaque record dict (one raw transcript line
+        or database row, serialised by the caller). The content is sent
+        verbatim: GitGuardian scans it and strips secrets server-side before
+        storing it. Records are kept opaque here — no client-side schema is
+        imposed on them on purpose — and land in the staging table.
+
+        user is the reporting machine/user (a serialised UserInfo); the server
+        stores its machine_id with each record so activity can be attributed
+        and correlated with the machine inventory.
+        """
+        data: Dict[str, Any] = {"events": events}
+        data["user"] = user.to_dict()
+        response = self.post(
+            endpoint="agent-activity/activity",
+            data=data,
+            extra_headers=extra_headers,
+        )
+
+        obj: Union[Detail, AgentActivityResponse]
+        if is_ok(response):
+            obj = AgentActivityResponse.from_dict(response.json())
         else:
             obj = load_detail(response)
 

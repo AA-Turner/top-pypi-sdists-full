@@ -162,7 +162,7 @@ static void *init_type_wxPGWindowList(sipSimpleWrapper *sipSelf, PyObject *sipAr
 
     {
         ::wxWindow* primary;
-        ::wxWindow* secondary = 0;
+        ::wxWindow* secondary = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_primary,
@@ -215,7 +215,7 @@ sipVariableDef variables_wxPGWindowList[] = {
     {PropertyVariable, sipName_Primary, &methods_wxPGWindowList[0], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxPGWindowList, "PGWindowList(primary, secondary=None) -> None\n"
+PyDoc_STRVAR(doc_wxPGWindowList, "PGWindowList(primary, secondary=nullptr) -> None\n"
 "\n"
 "Contains a list of editor windows returned by CreateControls.");
 

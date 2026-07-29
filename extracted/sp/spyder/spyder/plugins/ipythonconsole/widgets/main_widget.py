@@ -1056,7 +1056,21 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):  # noqa: PLR090
                 else:
                     # Must ask the kernel. Will not work if the kernel was set
                     # to another backend and is not now inline
-                    interactive_backend = sw.get_mpl_interactive_backend()
+                    try:
+                        interactive_backend = sw.get_mpl_interactive_backend()
+                    except TimeoutError:
+                        # Show error message when it's not possible to get the
+                        # backend
+                        # Fixes spyder-ide/spyder#26173
+                        QMessageBox.critical(
+                            self,
+                            _('Error'),
+                            _(
+                                "It was not possible to detect the current "
+                                "Matplotlib backend in the kernel, so the one "
+                                "you selected can't be set."
+                            )
+                        )
 
                 if (
                     # There was an error getting the interactive backend in
@@ -1716,8 +1730,13 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):  # noqa: PLR090
         self.tabwidget.setCurrentIndex(index)
         if self.dockwidget and give_focus:
             self.sig_switch_to_plugin_requested.emit()
-        self.activateWindow()
-        client.get_control().setFocus()
+        # Only give focus when necessary to prevent the main window from
+        # stealing focus at startup.
+        # Fixes spyder-ide/spyder#24231.
+        if give_focus:
+            self.activateWindow()
+            client.get_control().setFocus()
+
         self.update_tabs_text()
 
         # Register client
@@ -2056,7 +2075,7 @@ class IPythonConsoleWidget(PluginMainWidget, CachedKernelMixin):  # noqa: PLR090
         client.hostname = hostname
 
         # Adding a new tab for the client
-        self.add_tab(client, name=client.get_name())
+        self.add_tab(client, name=client.get_name(), give_focus=give_focus)
 
         # Set elapsed time, if possible
         if master_client is not None:

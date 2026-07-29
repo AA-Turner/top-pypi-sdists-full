@@ -581,7 +581,7 @@ static PyObject *meth_wxTranslations_GetHeaderValue(PyObject *sipSelf, PyObject 
 
 PyDoc_STRVAR(doc_wxTranslations_Get, "Get() -> Translations\n"
 "\n"
-"Returns current translations object, may return NULL.");
+"Returns current translations object, may return nullptr.");
 
 extern "C" {static PyObject *meth_wxTranslations_Get(PyObject *, PyObject *);}
 static PyObject *meth_wxTranslations_Get(PyObject *, PyObject *sipArgs)

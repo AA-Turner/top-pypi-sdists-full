@@ -26,6 +26,11 @@ class OfflineQueryMetadataServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryResponse.FromString,
         )
+        self.GetOfflineQueryRequestBody = channel.unary_unary(
+            "/chalk.server.v1.OfflineQueryMetadataService/GetOfflineQueryRequestBody",
+            request_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryRequestBodyRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryRequestBodyResponse.FromString,
+        )
         self.ListOfflineQueryShards = channel.unary_unary(
             "/chalk.server.v1.OfflineQueryMetadataService/ListOfflineQueryShards",
             request_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.ListOfflineQueryShardsRequest.SerializeToString,
@@ -45,6 +50,21 @@ class OfflineQueryMetadataServiceStub(object):
             "/chalk.server.v1.OfflineQueryMetadataService/GetOfflineQueryProfileSummary",
             request_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryProfileSummaryRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryProfileSummaryResponse.FromString,
+        )
+        self.GetOfflineQueryUtilizationSummaries = channel.unary_unary(
+            "/chalk.server.v1.OfflineQueryMetadataService/GetOfflineQueryUtilizationSummaries",
+            request_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryUtilizationSummariesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryUtilizationSummariesResponse.FromString,
+        )
+        self.GetResourceGroupUtilizationTimeseries = channel.unary_unary(
+            "/chalk.server.v1.OfflineQueryMetadataService/GetResourceGroupUtilizationTimeseries",
+            request_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetResourceGroupUtilizationTimeseriesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetResourceGroupUtilizationTimeseriesResponse.FromString,
+        )
+        self.GetResourceGroupJobTimeseries = channel.unary_unary(
+            "/chalk.server.v1.OfflineQueryMetadataService/GetResourceGroupJobTimeseries",
+            request_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetResourceGroupJobTimeseriesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetResourceGroupJobTimeseriesResponse.FromString,
         )
         self.ListOfflineQueryShardPerformanceSummaries = channel.unary_unary(
             "/chalk.server.v1.OfflineQueryMetadataService/ListOfflineQueryShardPerformanceSummaries",
@@ -103,6 +123,12 @@ class OfflineQueryMetadataServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetOfflineQueryRequestBody(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def ListOfflineQueryShards(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -122,6 +148,24 @@ class OfflineQueryMetadataServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def GetOfflineQueryProfileSummary(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetOfflineQueryUtilizationSummaries(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetResourceGroupUtilizationTimeseries(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetResourceGroupJobTimeseries(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -188,6 +232,11 @@ def add_OfflineQueryMetadataServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryResponse.SerializeToString,
         ),
+        "GetOfflineQueryRequestBody": grpc.unary_unary_rpc_method_handler(
+            servicer.GetOfflineQueryRequestBody,
+            request_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryRequestBodyRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryRequestBodyResponse.SerializeToString,
+        ),
         "ListOfflineQueryShards": grpc.unary_unary_rpc_method_handler(
             servicer.ListOfflineQueryShards,
             request_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.ListOfflineQueryShardsRequest.FromString,
@@ -207,6 +256,21 @@ def add_OfflineQueryMetadataServiceServicer_to_server(servicer, server):
             servicer.GetOfflineQueryProfileSummary,
             request_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryProfileSummaryRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryProfileSummaryResponse.SerializeToString,
+        ),
+        "GetOfflineQueryUtilizationSummaries": grpc.unary_unary_rpc_method_handler(
+            servicer.GetOfflineQueryUtilizationSummaries,
+            request_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryUtilizationSummariesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryUtilizationSummariesResponse.SerializeToString,
+        ),
+        "GetResourceGroupUtilizationTimeseries": grpc.unary_unary_rpc_method_handler(
+            servicer.GetResourceGroupUtilizationTimeseries,
+            request_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetResourceGroupUtilizationTimeseriesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetResourceGroupUtilizationTimeseriesResponse.SerializeToString,
+        ),
+        "GetResourceGroupJobTimeseries": grpc.unary_unary_rpc_method_handler(
+            servicer.GetResourceGroupJobTimeseries,
+            request_deserializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetResourceGroupJobTimeseriesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetResourceGroupJobTimeseriesResponse.SerializeToString,
         ),
         "ListOfflineQueryShardPerformanceSummaries": grpc.unary_unary_rpc_method_handler(
             servicer.ListOfflineQueryShardPerformanceSummaries,
@@ -307,6 +371,35 @@ class OfflineQueryMetadataService(object):
             "/chalk.server.v1.OfflineQueryMetadataService/GetOfflineQuery",
             chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetOfflineQueryRequestBody(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.OfflineQueryMetadataService/GetOfflineQueryRequestBody",
+            chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryRequestBodyRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryRequestBodyResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -423,6 +516,93 @@ class OfflineQueryMetadataService(object):
             "/chalk.server.v1.OfflineQueryMetadataService/GetOfflineQueryProfileSummary",
             chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryProfileSummaryRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryProfileSummaryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetOfflineQueryUtilizationSummaries(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.OfflineQueryMetadataService/GetOfflineQueryUtilizationSummaries",
+            chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryUtilizationSummariesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetOfflineQueryUtilizationSummariesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetResourceGroupUtilizationTimeseries(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.OfflineQueryMetadataService/GetResourceGroupUtilizationTimeseries",
+            chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetResourceGroupUtilizationTimeseriesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetResourceGroupUtilizationTimeseriesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetResourceGroupJobTimeseries(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.OfflineQueryMetadataService/GetResourceGroupJobTimeseries",
+            chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetResourceGroupJobTimeseriesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_offline__queries__pb2.GetResourceGroupJobTimeseriesResponse.FromString,
             options,
             channel_credentials,
             insecure,

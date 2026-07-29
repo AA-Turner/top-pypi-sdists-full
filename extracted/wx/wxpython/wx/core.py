@@ -322,6 +322,10 @@ if os.path.exists(_localedir):
 del os
 #----------------------------------------------------------------------------
 
+def _PrintPageRanges___repr__(self):
+    return "PrintPageRanges: " + repr(list(self))
+PrintPageRanges.__repr__ = _PrintPageRanges___repr__
+del _PrintPageRanges___repr__
 def _Point_GetIM(self):
     """
     Returns an immutable representation of the ``wx.Point`` object, based on ``namedtuple``.
@@ -836,10 +840,6 @@ def ImageFromBuffer(width, height, dataBuffer, alphaBuffer=None):
     img._alpha = alphaBuffer
     return img
 
-def _ImageArray___repr__(self):
-    return "ImageArray: " + repr(list(self))
-ImageArray.__repr__ = _ImageArray___repr__
-del _ImageArray___repr__
 IMAGE_OPTION_QUALITY = "quality"
 IMAGE_OPTION_FILENAME = "FileName"
 IMAGE_OPTION_RESOLUTION = "Resolution"
@@ -864,11 +864,14 @@ IMAGE_OPTION_PNG_COMPRESSION_LEVEL = "PngZL"
 IMAGE_OPTION_PNG_COMPRESSION_MEM_LEVEL = "PngZM"
 IMAGE_OPTION_PNG_COMPRESSION_STRATEGY = "PngZS"
 IMAGE_OPTION_PNG_COMPRESSION_BUFFER_SIZE = "PngZB"
+IMAGE_OPTION_PNG_DESCRIPTION = "PngDescription"
 IMAGE_OPTION_TIFF_BITSPERSAMPLE = "BitsPerSample"
 IMAGE_OPTION_TIFF_SAMPLESPERPIXEL = "SamplesPerPixel"
 IMAGE_OPTION_TIFF_COMPRESSION = "Compression"
 IMAGE_OPTION_TIFF_PHOTOMETRIC = "Photometric"
 IMAGE_OPTION_TIFF_IMAGEDESCRIPTOR = "ImageDescriptor"
+IMAGE_OPTION_WEBP_QUALITY = "WebPQuality"
+IMAGE_OPTION_WEBP_FORMAT = "WebPFormat"
 IMAGE_OPTION_TIFF_BITSPERSAMPLE = "BitsPerSample"
 IMAGE_OPTION_TIFF_SAMPLESPERPIXEL = "SamplesPerPixel"
 IMAGE_OPTION_TIFF_COMPRESSION = "Compression"
@@ -882,6 +885,7 @@ IMAGE_OPTION_PNG_COMPRESSION_LEVEL = "PngZL"
 IMAGE_OPTION_PNG_COMPRESSION_MEM_LEVEL = "PngZM"
 IMAGE_OPTION_PNG_COMPRESSION_STRATEGY = "PngZS"
 IMAGE_OPTION_PNG_COMPRESSION_BUFFER_SIZE = "PngZB"
+IMAGE_OPTION_PNG_DESCRIPTION = "PngDescription"
 
 @wx.deprecatedMsg("Use :meth:`wx.Bitmap.FromBuffer` or :meth:`wx.Bitmap.FromBufferAndAlpha` instead.")
 def BitmapFromBuffer(width, height, dataBuffer, alphaBuffer=None):
@@ -2535,7 +2539,7 @@ MenuList.__repr__ = _MenuList___repr__
 del _MenuList___repr__
 PyScrolledWindow = wx.deprecated(ScrolledWindow, 'Use ScrolledWindow instead.')
 
-def _VScrolledWindow_HitTest(self, *args):
+def _VarHVScrollHelper_HitTest(self, *args):
     """
     Deprecated compatibility helper.
     """
@@ -2545,8 +2549,8 @@ def _VScrolledWindow_HitTest(self, *args):
     else:
         pt = args[0]
         return self.VirtualHitTest(pt[1])
-VScrolledWindow.HitTest = wx.deprecated(_VScrolledWindow_HitTest, "Use VirtualHitTest instead.")
-del _VScrolledWindow_HitTest
+VarHVScrollHelper.HitTest = wx.deprecated(_VarHVScrollHelper_HitTest, "Use VirtualHitTest instead.")
+del _VarHVScrollHelper_HitTest
 PyControl = wx.deprecated(Control, 'Use Control instead.')
 
 def _ItemContainer_GetClientObject(self, n):

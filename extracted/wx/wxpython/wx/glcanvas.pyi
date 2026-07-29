@@ -277,8 +277,7 @@ class GLAttributes(GLAttribsBase):
         """
         Defaults() -> GLAttributes
         
-        wxWidgets defaults: RGBA, Z-depth 16 bits, double buffering, 1 sample
-        buffer, 4 samplers.
+        wxWidgets defaults: RGBA, Z-depth 16 bits, double buffering.
         """
 
     def EndList(self) -> None:
@@ -411,15 +410,15 @@ class GLContextAttrs(GLAttribsBase):
 
 class GLContext(Object):
     """
-    GLContext(win, other=None, ctxAttrs=None) -> None
+    GLContext(win, other=nullptr, ctxAttrs=nullptr) -> None
     
     An instance of a wxGLContext represents the state of an OpenGL state
     machine and the connection between OpenGL and the system.
     """
 
-    def __init__(self, win: GLCanvas, other: Optional[GLContext]=None, ctxAttrs: Optional[GLContextAttrs]=None) -> None:
+    def __init__(self, win: GLCanvas, other: GLContext=nullptr, ctxAttrs: GLContextAttrs=nullptr) -> None:
         """
-        GLContext(win, other=None, ctxAttrs=None) -> None
+        GLContext(win, other=nullptr, ctxAttrs=nullptr) -> None
         
         An instance of a wxGLContext represents the state of an OpenGL state
         machine and the connection between OpenGL and the system.
@@ -440,35 +439,59 @@ class GLContext(Object):
         Makes the OpenGL state that is represented by this rendering context
         current with the wxGLCanvas win.
         """
+
+    @staticmethod
+    def ClearCurrent() -> None:
+        """
+        ClearCurrent() -> None
+        
+        Clears any currently set context.
+        """
 # end of class GLContext
 
 
 class GLCanvas(Window):
     """
+    GLCanvas() -> None
     GLCanvas(parent, dispAttrs, id=ID_ANY, pos=DefaultPosition, size=DefaultSize, style=0, name=GLCanvasName, palette=NullPalette) -> None
     GLCanvas(parent, id=wx.ID_ANY, attribList=None, pos=wx.DefaultPosition, size=wx.DefaultSize, style=0, name='GLCanvas', palette=wx.NullPalette)
     
     wxGLCanvas is a class for displaying OpenGL graphics.
     """
 
+    class _SwapInterval(IntEnum):
+        NotSet = auto()
+        Set = auto()
+        NonAdaptive = auto()
+    SwapInterval: TypeAlias = Union[_SwapInterval, int]
+    NotSet = _SwapInterval.NotSet
+    Set = _SwapInterval.Set
+    NonAdaptive = _SwapInterval.NonAdaptive
+
+    @overload
+    def __init__(self, parent: Window, dispAttrs: GLAttributes, id: int=ID_ANY, pos: Point=DefaultPosition, size: Size=DefaultSize, style: int=0, name: str=GLCanvasName, palette: Palette=NullPalette) -> None:
+        ...
+
     @overload
     def __init__(self, TransferThis: Windowparent, id: int=ID_ANY, attribList: Optional[List[int]]=None, pos: Point=DefaultPosition, size: Size=DefaultSize, style: int=0, name: str="GLCanvas", palette: Palette=NullPalette) -> None:
         ...
 
     @overload
-    def __init__(self, parent: Window, dispAttrs: GLAttributes, id: int=ID_ANY, pos: Point=DefaultPosition, size: Size=DefaultSize, style: int=0, name: str=GLCanvasName, palette: Palette=NullPalette) -> None:
+    def __init__(self) -> None:
         """
+        GLCanvas() -> None
         GLCanvas(parent, dispAttrs, id=ID_ANY, pos=DefaultPosition, size=DefaultSize, style=0, name=GLCanvasName, palette=NullPalette) -> None
         GLCanvas(parent, id=wx.ID_ANY, attribList=None, pos=wx.DefaultPosition, size=wx.DefaultSize, style=0, name='GLCanvas', palette=wx.NullPalette)
         
         wxGLCanvas is a class for displaying OpenGL graphics.
         """
+    DefaultSwapInterval: constexprint
 
-    def CreateSurface(self) -> bool:
+    def GetSwapInterval(self) -> int:
         """
-        CreateSurface() -> bool
+        GetSwapInterval() -> int
         
-        Re-creates EGLSurface.
+        Return the current swap interval.
         """
 
     def SetColour(self, colour: str) -> bool:
@@ -487,6 +510,13 @@ class GLCanvas(Window):
         context context current, i.e.
         """
 
+    def SetSwapInterval(self, interval: int) -> SwapInterval:
+        """
+        SetSwapInterval(interval) -> SwapInterval
+        
+        Set swap interval to the specified value.
+        """
+
     def SwapBuffers(self) -> bool:
         """
         SwapBuffers() -> bool
@@ -494,6 +524,14 @@ class GLCanvas(Window):
         Swaps the double-buffer of this window, making the back-buffer the
         front-buffer and vice versa, so that the output of the previous OpenGL
         commands is displayed on the window.
+        """
+
+    @staticmethod
+    def GetGLXVersion() -> int:
+        """
+        GetGLXVersion() -> int
+        
+        Return the version of GLX being used or 0 if not using GLX.
         """
 
     @overload
@@ -517,6 +555,21 @@ class GLCanvas(Window):
         IsExtensionSupported(extension) -> bool
         
         Returns true if the extension with given name is supported.
+        """
+
+    @staticmethod
+    def PreferGLX() -> None:
+        """
+        PreferGLX() -> None
+        
+        Prefer using GLX over other OpenGL implementations on Unix-like
+        systems where multiple implementations are available (such as GLX and
+        EGL).
+        """
+
+    def CreateAccessible(self) -> Accessible:
+        """
+        CreateAccessible() -> Accessible
         """
 
     @staticmethod

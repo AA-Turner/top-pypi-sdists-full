@@ -79,18 +79,20 @@ static void *init_type_wxPowerResourceBlocker(sipSimpleWrapper *, PyObject *sipA
         const ::wxString& reasondef = wxString();
         const ::wxString* reason = &reasondef;
         int reasonState = 0;
+        ::wxPowerBlockKind blockKind = wxPOWER_PREVENT;
 
         static const char *sipKwdList[] = {
             sipName_kind,
             sipName_reason,
+            sipName_blockKind,
         };
 
-        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, sipKwdList, sipUnused, "E|J1", sipType_wxPowerResourceKind, &kind, sipType_wxString, &reason, &reasonState))
+        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, sipKwdList, sipUnused, "E|J1E", sipType_wxPowerResourceKind, &kind, sipType_wxString, &reason, &reasonState, sipType_wxPowerBlockKind, &blockKind))
         {
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipCpp = new ::wxPowerResourceBlocker(kind, *reason);
+            sipCpp = new ::wxPowerResourceBlocker(kind, *reason, blockKind);
             Py_END_ALLOW_THREADS
             sipReleaseType(const_cast< ::wxString *>(reason), sipType_wxString, reasonState);
 
@@ -112,7 +114,7 @@ static PyMethodDef methods_wxPowerResourceBlocker[] = {
     {sipName_IsInEffect, meth_wxPowerResourceBlocker_IsInEffect, METH_VARARGS, doc_wxPowerResourceBlocker_IsInEffect}
 };
 
-PyDoc_STRVAR(doc_wxPowerResourceBlocker, "PowerResourceBlocker(kind, reason=\"\") -> None\n"
+PyDoc_STRVAR(doc_wxPowerResourceBlocker, "PowerResourceBlocker(kind, reason=\"\", blockKind=POWER_PREVENT) -> None\n"
 "\n"
 "Helper RAII class ensuring that power resources are released.");
 

@@ -19,9 +19,10 @@
         #include <wx/gdicmn.h>
         #include <wx/window.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
@@ -90,7 +91,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_TryBefore(bool, ::wxEvent&);
@@ -139,7 +139,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -152,7 +151,7 @@ private:
     sipwxMenuBar(const sipwxMenuBar &);
     sipwxMenuBar &operator = (const sipwxMenuBar &);
 
-    char sipPyMethods[39];
+    char sipPyMethods[38];
 };
 
 sipwxMenuBar::sipwxMenuBar(long style): ::wxMenuBar(style), sipPySelf(SIP_NULLPTR)
@@ -178,9 +177,9 @@ void sipwxMenuBar::RemoveChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 void sipwxMenuBar::AddChild(::wxWindowBase*child)
@@ -196,9 +195,9 @@ void sipwxMenuBar::AddChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 bool sipwxMenuBar::ProcessEvent(::wxEvent& event)
@@ -211,9 +210,9 @@ bool sipwxMenuBar::ProcessEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxMenuBar::ProcessEvent(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxMenuBar::TryBefore(::wxEvent& event)
@@ -226,9 +225,9 @@ bool sipwxMenuBar::TryBefore(::wxEvent& event)
     if (!sipMeth)
         return ::wxMenuBar::TryBefore(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxMenuBar::TryAfter(::wxEvent& event)
@@ -241,9 +240,9 @@ bool sipwxMenuBar::TryAfter(::wxEvent& event)
     if (!sipMeth)
         return ::wxMenuBar::TryAfter(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxMenuBar::AcceptsFocus() const
@@ -304,9 +303,9 @@ void sipwxMenuBar::SetCanFocus(bool canFocus)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, canFocus);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, canFocus);
 }
 
 void sipwxMenuBar::EnableVisibleFocus(bool enable)
@@ -322,9 +321,9 @@ void sipwxMenuBar::EnableVisibleFocus(bool enable)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enable);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enable);
 }
 
 bool sipwxMenuBar::InformFirstDirection(int direction, int size, int availableOtherDir)
@@ -337,9 +336,9 @@ bool sipwxMenuBar::InformFirstDirection(int direction, int size, int availableOt
     if (!sipMeth)
         return ::wxMenuBar::InformFirstDirection(direction, size, availableOtherDir);
 
-    extern bool sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern bool sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
 
-    return sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
+    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
 }
 
 ::wxPoint sipwxMenuBar::GetClientAreaOrigin() const
@@ -352,9 +351,9 @@ bool sipwxMenuBar::InformFirstDirection(int direction, int size, int availableOt
     if (!sipMeth)
         return ::wxMenuBar::GetClientAreaOrigin();
 
-    extern ::wxPoint sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPoint sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxMenuBar::HasTransparentBackground()
@@ -397,9 +396,9 @@ bool sipwxMenuBar::ShouldInheritColours() const
     if (!sipMeth)
         return ::wxMenuBar::GetValidator();
 
-    extern ::wxValidator* sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxValidator* sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxMenuBar::SetValidator(const ::wxValidator& validator)
@@ -415,9 +414,9 @@ void sipwxMenuBar::SetValidator(const ::wxValidator& validator)
         return;
     }
 
-    extern void sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
+    extern void sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
 
-    sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth, validator);
+    sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth, validator);
 }
 
 bool sipwxMenuBar::TransferDataFromWindow()
@@ -544,9 +543,9 @@ void sipwxMenuBar::OnInternalIdle()
     if (!sipMeth)
         return ::wxMenuBar::GetMainWindowOfCompositeControl();
 
-    extern ::wxWindow* sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxWindow* sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxMenuBar::DoEnable(bool enable)
@@ -562,9 +561,9 @@ void sipwxMenuBar::DoEnable(bool enable)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enable);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enable);
 }
 
 void sipwxMenuBar::DoGetPosition(int*x, int*y) const
@@ -580,9 +579,9 @@ void sipwxMenuBar::DoGetPosition(int*x, int*y) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, x, y);
 }
 
 void sipwxMenuBar::DoGetSize(int*width, int*height) const
@@ -598,9 +597,9 @@ void sipwxMenuBar::DoGetSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxMenuBar::DoGetClientSize(int*width, int*height) const
@@ -616,9 +615,9 @@ void sipwxMenuBar::DoGetClientSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxMenuBar::DoSetSize(int x, int y, int width, int height, int sizeFlags)
@@ -634,9 +633,9 @@ void sipwxMenuBar::DoSetSize(int x, int y, int width, int height, int sizeFlags)
         return;
     }
 
-    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
+    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
 
-    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
+    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
 }
 
 void sipwxMenuBar::DoSetClientSize(int width, int height)
@@ -652,9 +651,9 @@ void sipwxMenuBar::DoSetClientSize(int width, int height)
         return;
     }
 
-    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
+    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
 
-    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxMenuBar::DoSetSizeHints(int minW, int minH, int maxW, int maxH, int incW, int incH)
@@ -670,9 +669,9 @@ void sipwxMenuBar::DoSetSizeHints(int minW, int minH, int maxW, int maxH, int in
         return;
     }
 
-    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
+    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
 
-    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
+    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
 }
 
 void sipwxMenuBar::DoMoveWindow(int x, int y, int width, int height)
@@ -688,9 +687,9 @@ void sipwxMenuBar::DoMoveWindow(int x, int y, int width, int height)
         return;
     }
 
-    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
+    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
 
-    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
+    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
 }
 
 void sipwxMenuBar::DoSetWindowVariant(::wxWindowVariant variant)
@@ -706,9 +705,9 @@ void sipwxMenuBar::DoSetWindowVariant(::wxWindowVariant variant)
         return;
     }
 
-    extern void sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
+    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
 
-    sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth, variant);
+    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, variant);
 }
 
 ::wxBorder sipwxMenuBar::GetDefaultBorder() const
@@ -721,24 +720,9 @@ void sipwxMenuBar::DoSetWindowVariant(::wxWindowVariant variant)
     if (!sipMeth)
         return ::wxMenuBar::GetDefaultBorder();
 
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxBorder sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
-}
-
-::wxBorder sipwxMenuBar::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxMenuBar::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxMenuBar::DoFreeze()
@@ -746,7 +730,7 @@ void sipwxMenuBar::DoFreeze()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -764,7 +748,7 @@ void sipwxMenuBar::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -782,7 +766,7 @@ void sipwxMenuBar::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxMenuBar::DoGetBestSize();
@@ -797,7 +781,7 @@ void sipwxMenuBar::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxMenuBar::DoGetBestClientSize();
@@ -855,11 +839,6 @@ void sipwxMenuBar::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, ::wxWin
 ::wxBorder sipwxMenuBar::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxWindow::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxMenuBar::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxWindow::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxMenuBar::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -1288,40 +1267,6 @@ static PyObject *meth_wxMenuBar_GetDefaultBorder(PyObject *sipSelf, PyObject *si
     }
 
     sipNoMethod(sipParseErr, sipName_MenuBar, sipName_GetDefaultBorder, doc_wxMenuBar_GetDefaultBorder);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxMenuBar_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxMenuBar_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxMenuBar_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxMenuBar *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxMenuBar, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_MenuBar, sipName_GetDefaultBorderForControl, doc_wxMenuBar_GetDefaultBorderForControl);
 
     return SIP_NULLPTR;
 }
@@ -2321,7 +2266,7 @@ static PyObject *meth_wxMenuBar_IsEnabled(PyObject *sipSelf, PyObject *sipArgs, 
 }
 
 
-PyDoc_STRVAR(doc_wxMenuBar_Refresh, "Refresh(eraseBackground=True, rect=None) -> None\n"
+PyDoc_STRVAR(doc_wxMenuBar_Refresh, "Refresh(eraseBackground=True, rect=nullptr) -> None\n"
 "\n"
 "Redraw the menu bar.");
 
@@ -2332,7 +2277,7 @@ static PyObject *meth_wxMenuBar_Refresh(PyObject *sipSelf, PyObject *sipArgs, Py
 
     {
         bool eraseBackground = 1;
-        const ::wxRect* rect = 0;
+        const ::wxRect* rect = nullptr;
         int rectState = 0;
         ::wxMenuBar *sipCpp;
 
@@ -2964,7 +2909,7 @@ static void *init_type_wxMenuBar(sipSimpleWrapper *sipSelf, PyObject *sipArgs, P
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxMenuBar[] = {{631, 255, 1}};
+static sipEncodedTypeDef supers_wxMenuBar[] = {{655, 255, 1}};
 
 
 static PyMethodDef methods_wxMenuBar[] = {
@@ -2992,7 +2937,6 @@ static PyMethodDef methods_wxMenuBar[] = {
     {sipName_FindMenu, SIP_MLMETH_CAST(meth_wxMenuBar_FindMenu), METH_VARARGS|METH_KEYWORDS, doc_wxMenuBar_FindMenu},
     {sipName_FindMenuItem, SIP_MLMETH_CAST(meth_wxMenuBar_FindMenuItem), METH_VARARGS|METH_KEYWORDS, doc_wxMenuBar_FindMenuItem},
     {sipName_GetDefaultBorder, meth_wxMenuBar_GetDefaultBorder, METH_VARARGS, SIP_NULLPTR},
-    {sipName_GetDefaultBorderForControl, meth_wxMenuBar_GetDefaultBorderForControl, METH_VARARGS, SIP_NULLPTR},
     {sipName_GetFrame, meth_wxMenuBar_GetFrame, METH_VARARGS, doc_wxMenuBar_GetFrame},
     {sipName_GetHelpString, SIP_MLMETH_CAST(meth_wxMenuBar_GetHelpString), METH_VARARGS|METH_KEYWORDS, doc_wxMenuBar_GetHelpString},
     {sipName_GetLabel, SIP_MLMETH_CAST(meth_wxMenuBar_GetLabel), METH_VARARGS|METH_KEYWORDS, doc_wxMenuBar_GetLabel},
@@ -3038,7 +2982,7 @@ sipClassTypeDef sipTypeDef__core_wxMenuBar = {
     {
         sipNameNr_MenuBar,
         {0, 0, 1},
-        50, methods_wxMenuBar,
+        49, methods_wxMenuBar,
         0, SIP_NULLPTR,
         0, SIP_NULLPTR,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

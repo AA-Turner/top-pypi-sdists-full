@@ -85,7 +85,7 @@ sipClassTypeDef sipTypeDef__core_wxWindow_ChildrenRepositioningGuard = {
     },
     {
         sipNameNr_ChildrenRepositioningGuard,
-        {631, 255, 0},
+        {655, 255, 0},
         0, SIP_NULLPTR,
         0, SIP_NULLPTR,
         0, SIP_NULLPTR,

@@ -13,7 +13,7 @@
         #include <wx/dataobj.h>
         #include <wx/icon.h>
         #include <wx/cursor.h>
-    void _wxDropSource_SetCursor(wxDropSource* self, wxDragResult res, const wxCursor *cursor)
+    void _wxDropSource_SetCursor(wxDropSource* self, wxDragResult res, const wxCursorBundle *cursor)
     {
         #ifdef __WXGTK__
             wxPyRaiseNotImplementedMsg("Cursors not supported, use SetIcon on wxGTK instead.");
@@ -81,9 +81,9 @@ bool sipwxDropSource::GiveFeedback(::wxDragResult effect)
     if (!sipMeth)
         return ::wxDropSource::GiveFeedback(effect);
 
-    extern bool sipVH__core_88(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDragResult);
+    extern bool sipVH__core_87(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDragResult);
 
-    return sipVH__core_88(sipGILState, 0, sipPySelf, sipMeth, effect);
+    return sipVH__core_87(sipGILState, 0, sipPySelf, sipMeth, effect);
 }
 
 ::wxDragResult sipwxDropSource::DoDragDrop(int flags)
@@ -96,9 +96,9 @@ bool sipwxDropSource::GiveFeedback(::wxDragResult effect)
     if (!sipMeth)
         return ::wxDropSource::DoDragDrop(flags);
 
-    extern ::wxDragResult sipVH__core_87(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern ::wxDragResult sipVH__core_86(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    return sipVH__core_87(sipGILState, 0, sipPySelf, sipMeth, flags);
+    return sipVH__core_86(sipGILState, 0, sipPySelf, sipMeth, flags);
 }
 
 
@@ -232,7 +232,7 @@ static PyObject *meth_wxDropSource_SetCursor(PyObject *sipSelf, PyObject *sipArg
 
     {
         ::wxDragResult res;
-        const ::wxCursor* cursor;
+        const ::wxCursorBundle* cursor;
         ::wxDropSource *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -240,7 +240,7 @@ static PyObject *meth_wxDropSource_SetCursor(PyObject *sipSelf, PyObject *sipArg
             sipName_cursor,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BEJ9", &sipSelf, sipType_wxDropSource, &sipCpp, sipType_wxDragResult, &res, sipType_wxCursor, &cursor))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BEJ9", &sipSelf, sipType_wxDropSource, &sipCpp, sipType_wxDragResult, &res, sipType_wxCursorBundle, &cursor))
         {
             int sipIsErr = 0;
         PyErr_Clear();
@@ -392,7 +392,7 @@ static void *init_type_wxDropSource(sipSimpleWrapper *sipSelf, PyObject *sipArgs
     sipwxDropSource *sipCpp = SIP_NULLPTR;
 
     {
-        ::wxWindow* win = 0;
+        ::wxWindow* win = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_win,
@@ -420,7 +420,7 @@ static void *init_type_wxDropSource(sipSimpleWrapper *sipSelf, PyObject *sipArgs
 
     {
         ::wxDataObject* data;
-        ::wxWindow* win = 0;
+        ::wxWindow* win = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_data,
@@ -464,8 +464,8 @@ sipVariableDef variables_wxDropSource[] = {
     {PropertyVariable, sipName_DataObject, &methods_wxDropSource[1], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxDropSource, "DropSource(win=None) -> None\n"
-"DropSource(data, win=None) -> None\n"
+PyDoc_STRVAR(doc_wxDropSource, "DropSource(win=nullptr) -> None\n"
+"DropSource(data, win=nullptr) -> None\n"
 "\n"
 "This class represents a source for a drag and drop operation.");
 

@@ -1,11 +1,6 @@
 import anyio
 import pytest
-
-from mcp.server.lowlevel import NotificationOptions, Server
-from mcp.server.models import InitializationOptions
-from mcp.shared.message import SessionMessage
-from mcp.types import (
-    LATEST_PROTOCOL_VERSION,
+from mcp_types import (
     ClientCapabilities,
     Implementation,
     InitializeRequestParams,
@@ -15,6 +10,11 @@ from mcp.types import (
     JSONRPCResponse,
     NotificationParams,
 )
+from mcp_types.version import LATEST_HANDSHAKE_VERSION
+
+from mcp.server.lowlevel import NotificationOptions, Server
+from mcp.server.models import InitializationOptions
+from mcp.shared.message import SessionMessage
 
 
 @pytest.mark.anyio
@@ -59,14 +59,14 @@ async def test_request_id_match() -> None:
             id="init-1",
             method="initialize",
             params=InitializeRequestParams(
-                protocolVersion=LATEST_PROTOCOL_VERSION,
+                protocol_version=LATEST_HANDSHAKE_VERSION,
                 capabilities=ClientCapabilities(),
-                clientInfo=Implementation(name="test-client", version="1.0.0"),
+                client_info=Implementation(name="test-client", version="1.0.0"),
             ).model_dump(by_alias=True, exclude_none=True),
             jsonrpc="2.0",
         )
 
-        await client_writer.send(SessionMessage(JSONRPCMessage(root=init_req)))
+        await client_writer.send(SessionMessage(init_req))
         response = await server_reader.receive()  # Get init response but don't need to check it
 
         # Send initialized notification
@@ -75,12 +75,12 @@ async def test_request_id_match() -> None:
             params=NotificationParams().model_dump(by_alias=True, exclude_none=True),
             jsonrpc="2.0",
         )
-        await client_writer.send(SessionMessage(JSONRPCMessage(root=initialized_notification)))
+        await client_writer.send(SessionMessage(initialized_notification))
 
         # Send ping request with custom ID
         ping_request = JSONRPCRequest(id=custom_request_id, method="ping", params={}, jsonrpc="2.0")
 
-        await client_writer.send(SessionMessage(JSONRPCMessage(root=ping_request)))
+        await client_writer.send(SessionMessage(ping_request))
 
         # Read response
         response = await server_reader.receive()
@@ -88,8 +88,8 @@ async def test_request_id_match() -> None:
         # Verify response ID matches request ID
         assert isinstance(response, SessionMessage)
         assert isinstance(response.message, JSONRPCMessage)
-        assert isinstance(response.message.root, JSONRPCResponse)
-        assert response.message.root.id == custom_request_id, "Response ID should match request ID"
+        assert isinstance(response.message, JSONRPCResponse)
+        assert response.message.id == custom_request_id, "Response ID should match request ID"
 
         # Cancel server task
         tg.cancel_scope.cancel()

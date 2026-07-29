@@ -224,7 +224,7 @@ sipClassTypeDef sipTypeDef__core_wxImage_HSVValue = {
     },
     {
         sipNameNr_HSVValue,
-        {278, 255, 0},
+        {286, 255, 0},
         0, SIP_NULLPTR,
         0, SIP_NULLPTR,
         3, variables_wxImage_HSVValue,

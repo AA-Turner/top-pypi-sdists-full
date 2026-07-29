@@ -38,10 +38,7 @@ CLEANUP_DELAY_SECONDS: Any = ...  # From server
 DEFAULT_EXTERNAL_PORT: Any = ...  # From server
 DEFAULT_SHUTDOWN_THRESHOLD_MINUTES: Any = ...  # From server
 FINAL_CLEANUP_DELAY_SECONDS: Any = ...  # From server
-HEARTBEAT_INTERVAL_SECONDS: Any = ...  # From server
 IP_FETCH_TIMEOUT_SECONDS: Any = ...  # From server
-MAX_DEPLOYMENT_CHECK_FAILURES_BEFORE_SHUTDOWN: Any = ...  # From server
-MAX_HEARTBEAT_FAILURES_BEFORE_SHUTDOWN: Any = ...  # From server
 MAX_IP_FETCH_ATTEMPTS: Any = ...  # From server
 MIN_SHUTDOWN_THRESHOLD_MINUTES: Any = ...  # From server
 SHUTDOWN_CHECK_INTERVAL_SECONDS: Any = ...  # From server
@@ -361,30 +358,15 @@ class MatriceDeployServerUtils:
         """
         ...
 
-    def heartbeat_checker(self) -> Any:
-        """
-        Background thread to periodically send heartbeat.
-        """
-        ...
-
     def ip(self) -> Any:
         """
         Get the external IP address with caching and retry logic.
         """
         ...
 
-    def is_instance_running(self) -> Any:
-        """
-        Check if deployment instance is running.
-        
-                Returns:
-                    bool: True if instance is running, False otherwise
-        """
-        ...
-
     def run_background_checkers(self) -> Any:
         """
-        Start the shutdown checker and heartbeat checker threads as daemons.
+        Start the shutdown checker thread.
         """
         ...
 
@@ -396,7 +378,17 @@ class MatriceDeployServerUtils:
 
     def shutdown_checker(self) -> Any:
         """
-        Background thread to periodically check for idle shutdown condition and deployment status.
+        Background thread to periodically check for the idle shutdown condition.
+        
+                Only the idle check (``trigger_shutdown_if_needed``, which honours
+                ``autoShutdown``) can end the process here. The former backend liveness
+                probe (``GET /v1/inference/get_deployment_without_auth_key/{id}``) and its
+                ``MAX_DEPLOYMENT_CHECK_FAILURES_BEFORE_SHUTDOWN`` counter were removed:
+                app deployments carry an empty ``runningInstances`` list on the BE, so the
+                probe reported "not running" for a perfectly healthy deployment and killed
+                it after 10 minutes. Liveness is reported over the
+                ``app_deployment_heartbeat`` Kafka topic instead, and the BE's own
+                ``CheckStoppedInstances`` skips app deployments outright.
         """
         ...
 

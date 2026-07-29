@@ -9,6 +9,8 @@ import time
 import requests
 from matrice_common.utils import handle_response
 
+APPLICATION_JSON = "application/json"
+
 
 def list_public_model_families(
     session,
@@ -317,7 +319,7 @@ def check_family_exists_by_name(session, family_name):
     """
     path = f"/v1/model_store/check_family_exists_by_name?familyName={family_name}"
     resp = session.rpc.get(path=path)
-    data, error, message = handle_response(
+    data, error, _ = handle_response(
         resp,
         "Successfully checked model family existence",
         "An error occurred while checking model family existence",
@@ -361,7 +363,7 @@ def fetch_supported_runtimes_metrics(
         "modelInputs": model_inputs,
         "modelOutputs": model_outputs,
     }
-    headers = {"Content-Type": "application/json"}
+    headers = {"Content-Type": APPLICATION_JSON}
     resp = session.rpc.post(
         path=path,
         headers=headers,
@@ -372,8 +374,6 @@ def fetch_supported_runtimes_metrics(
         "Successfully fetched supported runtimes and metrics",
         "An error occurred while fetching supported runtimes and metrics",
     )
-    if error:
-        return data, error, message
     return data, error, message
 
 
@@ -452,13 +452,13 @@ def get_automl_config(
         "searchType": tuning_type,
     }
     path = f"/v1/model_store/get_recommended_models/v2?projectId={project_id}"
-    headers = {"Content-Type": "application/json"}
+    headers = {"Content-Type": APPLICATION_JSON}
     resp = session.rpc.post(
         path=path,
         headers=headers,
         payload=payload,
     )
-    data, error, message = handle_response(
+    data, error, _ = handle_response(
         resp,
         "Successfully fetched recommended models",
         "An error occurred while fetching recommended models",
@@ -584,7 +584,7 @@ class ModelArch:
         self.model_family_name = model_family_name
         self.model_key = model_key
         self.model_arch_id = model_arch_id
-        model_arch, error, message = self._get_model_arch()
+        model_arch, error, _ = self._get_model_arch()
         if not error:
             self.model_arch_id = model_arch.get("_id", self.model_arch_id)
             self.model_name = model_arch.get("modelName")
@@ -593,7 +593,7 @@ class ModelArch:
             self.params_millions = model_arch.get("paramsInMillion")
             self.model_family_name = model_arch.get("modelFamilyName")
             self.input_size = model_arch.get("inputSize")
-            model_train_config, error, message = self.get_train_action_config()
+            model_train_config, error, _ = self.get_train_action_config()
             try:
                 if not error:
                     self.default_model_config = {
@@ -704,13 +704,13 @@ class ModelArch:
             "_idModelArch": self.model_arch_id,
         }
         path = f"/v1/model_store/get_model_params/v2?projectId={self.project_id}&accountNumber={self.account_number}"
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         resp = self.rpc.post(
             path=path,
             headers=headers,
             payload=payload,
         )
-        data, error, message = handle_response(
+        data, error, _ = handle_response(
             resp,
             "Successfully fetched model parameters",
             "An error occurred while fetching model parameters",
@@ -753,7 +753,7 @@ class ModelArch:
         >>> export_config = model_arch.get_export_config("ONNX")
         >>> print(f"Export config: {export_config}")
         """
-        model_export_config, error, message = self.get_export_action_config(export_format)
+        model_export_config, error, _ = self.get_export_action_config(export_format)
         if error:
             return None
         return {param["keyName"]: param["defaultValue"] for param in model_export_config["actionConfig"]}
@@ -906,7 +906,7 @@ class ModelFamily:
         )
         self.model_family_id = model_family_id
         self.model_family_name = model_family_name
-        family_data, error, message = self.get_model_family_details()
+        family_data, error, _ = self.get_model_family_details()
         if error:
             print(f"Error: {error}")
             return
@@ -1148,7 +1148,7 @@ class BYOM:
         model_family_info = self._load_config(model_family_info)
         model_family_info["accountNumber"] = self.account_number
         path = "/v1/model_store/add_model_family"
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         resp = self.rpc.post(
             path=path,
             headers=headers,
@@ -1190,7 +1190,7 @@ class BYOM:
         model_family_id = self._get_model_faimly_id(model_family_name)
         model_store_payload["accountNumber"] = self.account_number
         path = f"/v1/model_store/update_model_family/{model_family_id}"
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         resp = self.rpc.put(
             path=path,
             headers=headers,
@@ -1279,7 +1279,7 @@ class BYOM:
             "actionType": "model_train",
             "actionConfigs": action_config["actionConfig"],
         }
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         resp = self.rpc.post(
             path=path,
             headers=headers,
@@ -1328,7 +1328,7 @@ class BYOM:
             "actionType": "model_export",
             "actionConfigs": action_config["actionConfig"],
         }
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         resp = self.rpc.post(
             path=path,
             headers=headers,
@@ -1398,7 +1398,7 @@ class BYOM:
         path = f"/v1/model_store/model_family_repo/{model_family_name}"
         resp = self.rpc.put(
             path=path,
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": APPLICATION_JSON},
             payload=payload,
         )
         return handle_response(
@@ -1417,10 +1417,8 @@ class BYOM:
                 data=file,
                 timeout=30,
             )
-        if response.status_code == 200:
-            pass
-        else:
-            raise Exception(f"Upload failed with status code: {response.status_code}")
+        if response.status_code != 200:
+            raise RuntimeError(f"Upload failed with status code: {response.status_code}")
         payload = {
             "cloudPath": presigned_url.split("?")[0],
             "modelFamilyId": model_family_id,
@@ -1428,7 +1426,7 @@ class BYOM:
         path = "/v1/model_store/update_user_requirements_download_path"
         resp = self.rpc.put(
             path=path,
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": APPLICATION_JSON},
             payload=payload,
         )
         return handle_response(
@@ -1447,10 +1445,8 @@ class BYOM:
                 data=file,
                 timeout=30,
             )
-        if response.status_code == 200:
-            pass
-        else:
-            raise Exception(f"Upload failed with status code: {response.status_code}")
+        if response.status_code != 200:
+            raise RuntimeError(f"Upload failed with status code: {response.status_code}")
         payload = {
             "cloudPath": presigned_url.split("?")[0],
             "modelFamilyId": model_family_id,
@@ -1458,7 +1454,7 @@ class BYOM:
         path = "/v1/model_store/update_user_docker_download_path"
         resp = self.rpc.put(
             path=path,
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": APPLICATION_JSON},
             payload=payload,
         )
         return handle_response(
@@ -1477,10 +1473,8 @@ class BYOM:
                 data=file,
                 timeout=30,
             )
-        if response.status_code == 200:
-            pass
-        else:
-            raise Exception(f"Upload failed with status code: {response.status_code}")
+        if response.status_code != 200:
+            raise RuntimeError(f"Upload failed with status code: {response.status_code}")
         payload = {
             "imageName": os.path.basename(code_zip_path),
             "cloudPath": presigned_url.split("?")[0],
@@ -1493,7 +1487,7 @@ class BYOM:
         path = "/v1/model_store/add_model_image"
         resp = self.rpc.post(
             path=path,
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": APPLICATION_JSON},
             payload=payload,
         )
         return handle_response(
@@ -1512,11 +1506,11 @@ class BYOM:
         if response.status_code == 200:
             return download_path
         else:
-            raise Exception(f"Download failed with status code: {response.status_code}")
+            raise RuntimeError(f"Download failed with status code: {response.status_code}")
 
     def wait_for_codebase_upload(self, model_family_name, delay=120):
         while True:
-            resp, error, message = self.get_model_family_codebase_details(model_family_name)
+            resp, error, _ = self.get_model_family_codebase_details(model_family_name)
             if error:
                 print(f"Error checking status: {error}")
                 return False
@@ -1618,7 +1612,7 @@ class BYOM:
                 model_action["exportFormat"] = export_format
             payload["modelActions"].append(model_action)
         path = "/v1/model_store/add_model_family_testcases"
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         resp = self.rpc.post(
             path=path,
             headers=headers,

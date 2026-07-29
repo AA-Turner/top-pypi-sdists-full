@@ -221,9 +221,7 @@ class TestEvePlanet(TestCaseWithClearCache):
         self.assertEqual(obj.position_z, position["z"])
         self.assertEqual(obj.eve_type, et)
         self.assertEqual(obj.eve_solar_system, solar_system)
-
-        self.assertFalse(obj.enabled_sections.asteroid_belts)
-        self.assertFalse(obj.enabled_sections.moons)
+        self.assertSetEqual(obj.enabled_sections_set, set())
 
     @patch(MODELS_PATH + ".EVEUNIVERSE_LOAD_ASTEROID_BELTS", False)
     @patch(MODELS_PATH + ".EVEUNIVERSE_LOAD_MOONS", True)
@@ -292,8 +290,7 @@ class TestEvePlanet(TestCaseWithClearCache):
         self.assertEqual(obj.eve_solar_system, solar_system)
         self.assertTrue(EveMoon.objects.filter(id=moon_id).exists())
 
-        self.assertFalse(obj.enabled_sections.asteroid_belts)
-        self.assertTrue(obj.enabled_sections.moons)
+        self.assertSetEqual(obj.enabled_sections_set, {EvePlanet.Section.MOONS})
 
     @patch(MODELS_PATH + ".EVEUNIVERSE_LOAD_ASTEROID_BELTS", True)
     @patch(MODELS_PATH + ".EVEUNIVERSE_LOAD_MOONS", True)
@@ -376,10 +373,12 @@ class TestEvePlanet(TestCaseWithClearCache):
         self.assertEqual(obj.eve_type, et)
         self.assertEqual(obj.eve_solar_system, solar_system)
 
-        self.assertTrue(obj.enabled_sections.asteroid_belts)
-        self.assertTrue(EveAsteroidBelt.objects.filter(id=belt_id).exists())
+        self.assertSetEqual(
+            obj.enabled_sections_set,
+            {EvePlanet.Section.ASTEROID_BELTS, EvePlanet.Section.MOONS},
+        )
 
-        self.assertTrue(obj.enabled_sections.moons)
+        self.assertTrue(EveAsteroidBelt.objects.filter(id=belt_id).exists())
         self.assertTrue(EveMoon.objects.filter(id=moon_id).exists())
 
     @patch(MODELS_PATH + ".EVEUNIVERSE_LOAD_ASTEROID_BELTS", False)

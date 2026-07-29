@@ -8,8 +8,25 @@ import yaml
 import anyscale
 from anyscale.cli_logger import BlockLogger
 from anyscale.commands import command_examples
+from anyscale.commands.doc_metadata import (
+    command_metadata,
+    CommandExample,
+    ReleaseStatus,
+)
+from anyscale.commands.output_format import (
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    OutputFormat,
+    print_output,
+)
 from anyscale.commands.util import AnyscaleCommand
-from anyscale.policy.models import PolicyBinding, PolicyConfig
+from anyscale.policy.models import (
+    Policy,
+    PolicyBinding,
+    PolicyConfig,
+    PolicySyncStatus,
+    ResourcePolicy,
+)
 
 
 log = BlockLogger()
@@ -20,10 +37,22 @@ def policy_cli() -> None:
     pass
 
 
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Set the policy of a cloud from a YAML config file.",
+            command="anyscale policy set --resource-type cloud --resource-id cld_abc123 -f policy.yaml",
+            output_raw=command_examples.POLICY_SET_EXAMPLE,
+        ),
+    ],
+)
 @policy_cli.command(
     name="set",
+    short_help="Set user group permission policy for a resource.",
     cls=AnyscaleCommand,
-    example=command_examples.POLICY_SET_EXAMPLE,
     is_beta=True,
 )
 @click.option(
@@ -127,10 +156,30 @@ def set_policy(
     log.info(f"Policy for {resource_type} {display_id} has been updated.")
 
 
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Get the policy of a cloud.",
+            command="anyscale policy get --resource-type cloud --resource-id cld_abc123",
+            output_raw=command_examples.POLICY_GET_EXAMPLE,
+            output_instance=lambda: Policy(
+                bindings=[
+                    PolicyBinding(role_name="collaborator", principals=["ug_abc123"])
+                ],
+                sync_status=PolicySyncStatus.success,
+            ),
+        ),
+    ],
+    output_schema=Policy,
+)
 @policy_cli.command(
     name="get",
+    short_help="Get user group permission policy for a resource.",
     cls=AnyscaleCommand,
-    example=command_examples.POLICY_GET_EXAMPLE,
     is_beta=True,
 )
 @click.option(
@@ -146,7 +195,19 @@ def set_policy(
     type=str,
     help="Resource ID (e.g., cld_abc123, prj_xyz789). Required for 'cloud' and 'project' types, not allowed for 'organization'.",
 )
-def get_policy(resource_type: str, resource_id: Optional[str],) -> None:
+@click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
+def get_policy(
+    resource_type: str, resource_id: Optional[str], output_format: str,
+) -> None:
     """
     Get user group permission policy for a resource.
 
@@ -176,6 +237,10 @@ def get_policy(resource_type: str, resource_id: Optional[str],) -> None:
         log.error(f"Failed to get policy: {e}")
         return
 
+    if output_format != OutputFormat.TEXT.value:
+        print_output(policy, output_format)
+        return
+
     if not policy.bindings:
         log.info(f"No policy bindings found for {resource_type} {display_id}.")
         return
@@ -195,10 +260,36 @@ def get_policy(resource_type: str, resource_id: Optional[str],) -> None:
     rprint(table)
 
 
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="List the policies of all clouds with bindings configured.",
+            command="anyscale policy list --resource-type cloud",
+            output_raw=command_examples.POLICY_LIST_EXAMPLE,
+            output_instance=lambda: [
+                ResourcePolicy(
+                    resource_id="cld_abc123",
+                    resource_type="cloud",
+                    bindings=[
+                        PolicyBinding(
+                            role_name="collaborator", principals=["ug_abc123"]
+                        )
+                    ],
+                    sync_status=PolicySyncStatus.success,
+                )
+            ],
+        ),
+    ],
+    output_schema=ResourcePolicy,
+)
 @policy_cli.command(
     name="list",
+    short_help="List permission policies for all resources of a specific type.",
     cls=AnyscaleCommand,
-    example=command_examples.POLICY_LIST_EXAMPLE,
     is_beta=True,
 )
 @click.option(
@@ -207,7 +298,17 @@ def get_policy(resource_type: str, resource_id: Optional[str],) -> None:
     type=click.Choice(["cloud", "project"], case_sensitive=False),
     help="Resource type to list policies for ('cloud' or 'project').",
 )
-def list_policies(resource_type: str,) -> None:
+@click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
+def list_policies(resource_type: str, output_format: str) -> None:
     """
     List permission policies for all resources of a specific type.
 
@@ -217,6 +318,10 @@ def list_policies(resource_type: str,) -> None:
         policies = anyscale.policy.list(resource_type=resource_type)
     except ValueError as e:
         log.error(f"Failed to list policies: {e}")
+        return
+
+    if output_format != OutputFormat.TEXT.value:
+        print_output([p for p in policies if p.bindings], output_format)
         return
 
     if not policies:

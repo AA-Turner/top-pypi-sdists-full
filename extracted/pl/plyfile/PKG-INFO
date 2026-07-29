@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: plyfile
-Version: 1.1.4
+Version: 1.1.5
 Summary: PLY file reader/writer
 Keywords: ply,numpy
 Author-Email: Darsh Ranjan <dranjan@berkeley.edu>

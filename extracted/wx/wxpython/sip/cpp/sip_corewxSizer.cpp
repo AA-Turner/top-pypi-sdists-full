@@ -110,9 +110,9 @@ void sipwxSizer::RepositionChildren(const ::wxSize& minSize)
         return;
     }
 
-    extern void sipVH__core_106(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxSize&);
+    extern void sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxSize&);
 
-    sipVH__core_106(sipGILState, 0, sipPySelf, sipMeth, minSize);
+    sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, minSize);
 }
 
 bool sipwxSizer::InformFirstDirection(int direction, int size, int availableOtherDir)
@@ -125,9 +125,9 @@ bool sipwxSizer::InformFirstDirection(int direction, int size, int availableOthe
     if (!sipMeth)
         return ::wxSizer::InformFirstDirection(direction, size, availableOtherDir);
 
-    extern bool sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern bool sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
 
-    return sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
+    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
 }
 
 ::wxSize sipwxSizer::CalcMin()
@@ -381,10 +381,10 @@ static PyObject *meth_wxSizer_SetItemMinSize(PyObject *sipSelf, PyObject *sipArg
 
 
 PyDoc_STRVAR(doc_wxSizer_Add, "Add(window, flags) -> SizerItem\n"
-"Add(window, proportion=0, flag=0, border=0, userData=None) -> SizerItem\n"
+"Add(window, proportion=0, flag=0, border=0, userData=nullptr) -> SizerItem\n"
 "Add(sizer, flags) -> SizerItem\n"
-"Add(sizer, proportion=0, flag=0, border=0, userData=None) -> SizerItem\n"
-"Add(width, height, proportion=0, flag=0, border=0, userData=None) -> SizerItem\n"
+"Add(sizer, proportion=0, flag=0, border=0, userData=nullptr) -> SizerItem\n"
+"Add(width, height, proportion=0, flag=0, border=0, userData=nullptr) -> SizerItem\n"
 "Add(width, height, flags) -> SizerItem\n"
 "Add(item) -> SizerItem\n"
 "Add(size, proportion=0, flag=0, border=0, Transfer=None) -> SizerItem\n"
@@ -437,7 +437,7 @@ static PyObject *meth_wxSizer_Add(PyObject *sipSelf, PyObject *sipArgs, PyObject
         int proportion = 0;
         int flag = 0;
         int border = 0;
-        ::wxPyUserData* userData = 0;
+        ::wxPyUserData* userData = nullptr;
         int userDataState = 0;
         ::wxSizer *sipCpp;
 
@@ -499,7 +499,7 @@ static PyObject *meth_wxSizer_Add(PyObject *sipSelf, PyObject *sipArgs, PyObject
         int proportion = 0;
         int flag = 0;
         int border = 0;
-        ::wxPyUserData* userData = 0;
+        ::wxPyUserData* userData = nullptr;
         int userDataState = 0;
         ::wxSizer *sipCpp;
 
@@ -535,7 +535,7 @@ static PyObject *meth_wxSizer_Add(PyObject *sipSelf, PyObject *sipArgs, PyObject
         int proportion = 0;
         int flag = 0;
         int border = 0;
-        ::wxPyUserData* userData = 0;
+        ::wxPyUserData* userData = nullptr;
         int userDataState = 0;
         ::wxSizer *sipCpp;
 
@@ -816,6 +816,51 @@ static PyObject *meth_wxSizer_CalcMin(PyObject *sipSelf, PyObject *sipArgs)
 }
 
 
+PyDoc_STRVAR(doc_wxSizer_CalcMinSizeFromKnownDirection, "CalcMinSizeFromKnownDirection(direction, size, availableOtherDir) -> Size\n"
+"\n"
+"May be overridden by sizers whose minimal size depends on the layout\n"
+"direction.");
+
+extern "C" {static PyObject *meth_wxSizer_CalcMinSizeFromKnownDirection(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxSizer_CalcMinSizeFromKnownDirection(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int direction;
+        int size;
+        int availableOtherDir;
+        ::wxSizer *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_direction,
+            sipName_size,
+            sipName_availableOtherDir,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Biii", &sipSelf, sipType_wxSizer, &sipCpp, &direction, &size, &availableOtherDir))
+        {
+            ::wxSize*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxSize(sipCpp->CalcMinSizeFromKnownDirection(direction, size, availableOtherDir));
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxSize, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Sizer, sipName_CalcMinSizeFromKnownDirection, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxSizer_Clear, "Clear(delete_windows=False) -> None\n"
 "\n"
 "Detaches all children from the sizer.");
@@ -1031,6 +1076,46 @@ static PyObject *meth_wxSizer_Detach(PyObject *sipSelf, PyObject *sipArgs, PyObj
 }
 
 
+PyDoc_STRVAR(doc_wxSizer_DetachItem, "DetachItem(index) -> SizerItem\n"
+"\n"
+"Detach the item at position index without destroying it.");
+
+extern "C" {static PyObject *meth_wxSizer_DetachItem(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxSizer_DetachItem(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        size_t index;
+        ::wxSizer *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_index,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "B=", &sipSelf, sipType_wxSizer, &sipCpp, &index))
+        {
+            ::wxSizerItem*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->DetachItem(index);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxSizerItem, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Sizer, sipName_DetachItem, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxSizer_Fit, "Fit(window) -> Size\n"
 "\n"
 "Tell the sizer to resize the window so that its client area matches\n"
@@ -1115,8 +1200,7 @@ static PyObject *meth_wxSizer_FitInside(PyObject *sipSelf, PyObject *sipArgs, Py
 
 PyDoc_STRVAR(doc_wxSizer_InformFirstDirection, "InformFirstDirection(direction, size, availableOtherDir) -> bool\n"
 "\n"
-"Inform sizer about the first direction that has been decided (by\n"
-"parent item).");
+"Compatibility function called by CalcMinSizeFromKnownDirection().");
 
 extern "C" {static PyObject *meth_wxSizer_InformFirstDirection(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxSizer_InformFirstDirection(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1161,7 +1245,7 @@ static PyObject *meth_wxSizer_InformFirstDirection(PyObject *sipSelf, PyObject *
 
 PyDoc_STRVAR(doc_wxSizer_GetContainingWindow, "GetContainingWindow() -> Window\n"
 "\n"
-"Returns the window this sizer is used in or NULL if none.");
+"Returns the window this sizer is used in or nullptr if none.");
 
 extern "C" {static PyObject *meth_wxSizer_GetContainingWindow(PyObject *, PyObject *);}
 static PyObject *meth_wxSizer_GetContainingWindow(PyObject *sipSelf, PyObject *sipArgs)
@@ -1612,10 +1696,10 @@ static PyObject *meth_wxSizer_Hide(PyObject *sipSelf, PyObject *sipArgs, PyObjec
 
 
 PyDoc_STRVAR(doc_wxSizer_Insert, "Insert(index, window, flags) -> SizerItem\n"
-"Insert(index, window, proportion=0, flag=0, border=0, userData=None) -> SizerItem\n"
+"Insert(index, window, proportion=0, flag=0, border=0, userData=nullptr) -> SizerItem\n"
 "Insert(index, sizer, flags) -> SizerItem\n"
-"Insert(index, sizer, proportion=0, flag=0, border=0, userData=None) -> SizerItem\n"
-"Insert(index, width, height, proportion=0, flag=0, border=0, userData=None) -> SizerItem\n"
+"Insert(index, sizer, proportion=0, flag=0, border=0, userData=nullptr) -> SizerItem\n"
+"Insert(index, width, height, proportion=0, flag=0, border=0, userData=nullptr) -> SizerItem\n"
 "Insert(index, width, height, flags) -> SizerItem\n"
 "Insert(index, item) -> SizerItem\n"
 "Insert(index, size, proportion=0, flag=0, border=0, Transfer=None) -> SizerItem\n"
@@ -1671,7 +1755,7 @@ static PyObject *meth_wxSizer_Insert(PyObject *sipSelf, PyObject *sipArgs, PyObj
         int proportion = 0;
         int flag = 0;
         int border = 0;
-        ::wxPyUserData* userData = 0;
+        ::wxPyUserData* userData = nullptr;
         int userDataState = 0;
         ::wxSizer *sipCpp;
 
@@ -1737,7 +1821,7 @@ static PyObject *meth_wxSizer_Insert(PyObject *sipSelf, PyObject *sipArgs, PyObj
         int proportion = 0;
         int flag = 0;
         int border = 0;
-        ::wxPyUserData* userData = 0;
+        ::wxPyUserData* userData = nullptr;
         int userDataState = 0;
         ::wxSizer *sipCpp;
 
@@ -1775,7 +1859,7 @@ static PyObject *meth_wxSizer_Insert(PyObject *sipSelf, PyObject *sipArgs, PyObj
         int proportion = 0;
         int flag = 0;
         int border = 0;
-        ::wxPyUserData* userData = 0;
+        ::wxPyUserData* userData = nullptr;
         int userDataState = 0;
         ::wxSizer *sipCpp;
 
@@ -2191,10 +2275,10 @@ static PyObject *meth_wxSizer_Layout(PyObject *sipSelf, PyObject *sipArgs)
 
 
 PyDoc_STRVAR(doc_wxSizer_Prepend, "Prepend(window, flags) -> SizerItem\n"
-"Prepend(window, proportion=0, flag=0, border=0, userData=None) -> SizerItem\n"
+"Prepend(window, proportion=0, flag=0, border=0, userData=nullptr) -> SizerItem\n"
 "Prepend(sizer, flags) -> SizerItem\n"
-"Prepend(sizer, proportion=0, flag=0, border=0, userData=None) -> SizerItem\n"
-"Prepend(width, height, proportion=0, flag=0, border=0, userData=None) -> SizerItem\n"
+"Prepend(sizer, proportion=0, flag=0, border=0, userData=nullptr) -> SizerItem\n"
+"Prepend(width, height, proportion=0, flag=0, border=0, userData=nullptr) -> SizerItem\n"
 "Prepend(width, height, flags) -> SizerItem\n"
 "Prepend(item) -> SizerItem\n"
 "Prepend(size, proportion=0, flag=0, border=0, Transfer=None) -> SizerItem\n"
@@ -2248,7 +2332,7 @@ static PyObject *meth_wxSizer_Prepend(PyObject *sipSelf, PyObject *sipArgs, PyOb
         int proportion = 0;
         int flag = 0;
         int border = 0;
-        ::wxPyUserData* userData = 0;
+        ::wxPyUserData* userData = nullptr;
         int userDataState = 0;
         ::wxSizer *sipCpp;
 
@@ -2310,7 +2394,7 @@ static PyObject *meth_wxSizer_Prepend(PyObject *sipSelf, PyObject *sipArgs, PyOb
         int proportion = 0;
         int flag = 0;
         int border = 0;
-        ::wxPyUserData* userData = 0;
+        ::wxPyUserData* userData = nullptr;
         int userDataState = 0;
         ::wxSizer *sipCpp;
 
@@ -2346,7 +2430,7 @@ static PyObject *meth_wxSizer_Prepend(PyObject *sipSelf, PyObject *sipArgs, PyOb
         int proportion = 0;
         int flag = 0;
         int border = 0;
-        ::wxPyUserData* userData = 0;
+        ::wxPyUserData* userData = nullptr;
         int userDataState = 0;
         ::wxSizer *sipCpp;
 
@@ -3238,7 +3322,7 @@ static void *init_type_wxSizer(sipSimpleWrapper *sipSelf, PyObject *sipArgs, PyO
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxSizer[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxSizer[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxSizer[] = {
@@ -3246,10 +3330,12 @@ static PyMethodDef methods_wxSizer[] = {
     {sipName_AddSpacer, SIP_MLMETH_CAST(meth_wxSizer_AddSpacer), METH_VARARGS|METH_KEYWORDS, doc_wxSizer_AddSpacer},
     {sipName_AddStretchSpacer, SIP_MLMETH_CAST(meth_wxSizer_AddStretchSpacer), METH_VARARGS|METH_KEYWORDS, doc_wxSizer_AddStretchSpacer},
     {sipName_CalcMin, meth_wxSizer_CalcMin, METH_VARARGS, doc_wxSizer_CalcMin},
+    {sipName_CalcMinSizeFromKnownDirection, SIP_MLMETH_CAST(meth_wxSizer_CalcMinSizeFromKnownDirection), METH_VARARGS|METH_KEYWORDS, doc_wxSizer_CalcMinSizeFromKnownDirection},
     {sipName_Clear, SIP_MLMETH_CAST(meth_wxSizer_Clear), METH_VARARGS|METH_KEYWORDS, doc_wxSizer_Clear},
     {sipName_ComputeFittingClientSize, SIP_MLMETH_CAST(meth_wxSizer_ComputeFittingClientSize), METH_VARARGS|METH_KEYWORDS, doc_wxSizer_ComputeFittingClientSize},
     {sipName_ComputeFittingWindowSize, SIP_MLMETH_CAST(meth_wxSizer_ComputeFittingWindowSize), METH_VARARGS|METH_KEYWORDS, doc_wxSizer_ComputeFittingWindowSize},
     {sipName_Detach, SIP_MLMETH_CAST(meth_wxSizer_Detach), METH_VARARGS|METH_KEYWORDS, doc_wxSizer_Detach},
+    {sipName_DetachItem, SIP_MLMETH_CAST(meth_wxSizer_DetachItem), METH_VARARGS|METH_KEYWORDS, doc_wxSizer_DetachItem},
     {sipName_Fit, SIP_MLMETH_CAST(meth_wxSizer_Fit), METH_VARARGS|METH_KEYWORDS, doc_wxSizer_Fit},
     {sipName_FitInside, SIP_MLMETH_CAST(meth_wxSizer_FitInside), METH_VARARGS|METH_KEYWORDS, doc_wxSizer_FitInside},
     {sipName_GetChildren, meth_wxSizer_GetChildren, METH_VARARGS, doc_wxSizer_GetChildren},
@@ -3285,12 +3371,12 @@ static PyMethodDef methods_wxSizer[] = {
 };
 
 sipVariableDef variables_wxSizer[] = {
-    {PropertyVariable, sipName_Size, &methods_wxSizer[17], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Position, &methods_wxSizer[16], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_MinSize, &methods_wxSizer[15], &methods_wxSizer[36], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ItemCount, &methods_wxSizer[14], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ContainingWindow, &methods_wxSizer[11], &methods_wxSizer[33], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Children, &methods_wxSizer[10], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Size, &methods_wxSizer[19], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Position, &methods_wxSizer[18], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_MinSize, &methods_wxSizer[17], &methods_wxSizer[38], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ItemCount, &methods_wxSizer[16], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ContainingWindow, &methods_wxSizer[13], &methods_wxSizer[35], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Children, &methods_wxSizer[12], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxSizer, "Sizer() -> None\n"
@@ -3312,7 +3398,7 @@ sipClassTypeDef sipTypeDef__core_wxSizer = {
     {
         sipNameNr_Sizer,
         {0, 0, 1},
-        40, methods_wxSizer,
+        42, methods_wxSizer,
         0, SIP_NULLPTR,
         6, variables_wxSizer,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

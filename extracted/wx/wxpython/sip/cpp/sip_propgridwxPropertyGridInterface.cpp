@@ -756,7 +756,7 @@ static PyObject *meth_wxPropertyGridInterface_GetFirstChild(PyObject *sipSelf, P
 }
 
 
-PyDoc_STRVAR(doc_wxPropertyGridInterface_GetIterator, "GetIterator(flags=PG_ITERATE_DEFAULT, firstProp=None) -> PropertyGridIterator\n"
+PyDoc_STRVAR(doc_wxPropertyGridInterface_GetIterator, "GetIterator(flags=PG_ITERATE_DEFAULT, firstProp=nullptr) -> PropertyGridIterator\n"
 "GetIterator(flags, startPos) -> PropertyGridIterator\n"
 "\n"
 "Returns iterator class instance.\n"
@@ -769,7 +769,7 @@ static PyObject *meth_wxPropertyGridInterface_GetIterator(PyObject *sipSelf, PyO
 
     {
         int flags = wxPG_ITERATE_DEFAULT;
-        ::wxPGProperty* firstProp = 0;
+        ::wxPGProperty* firstProp = nullptr;
         ::wxPropertyGridInterface *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -920,7 +920,7 @@ static PyObject *meth_wxPropertyGridInterface_GetPropertiesWithFlag(PyObject *si
 
     {
         ::wxArrayPGProperty* targetArr;
-        ::wxPGProperty::FlagType flags;
+        ::wxPGFlags flags;
         bool inverse = 0;
         int iterFlags = wxPG_ITERATE_PROPERTIES|wxPG_ITERATE_HIDDEN|wxPG_ITERATE_CATEGORIES;
         const ::wxPropertyGridInterface *sipCpp;
@@ -932,7 +932,7 @@ static PyObject *meth_wxPropertyGridInterface_GetPropertiesWithFlag(PyObject *si
             sipName_iterFlags,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8u|bi", &sipSelf, sipType_wxPropertyGridInterface, &sipCpp, sipType_wxArrayPGProperty, &targetArr, &flags, &inverse, &iterFlags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8E|bi", &sipSelf, sipType_wxPropertyGridInterface, &sipCpp, sipType_wxArrayPGProperty, &targetArr, sipType_wxPGFlags, &flags, &inverse, &iterFlags))
         {
             PyErr_Clear();
 
@@ -1329,7 +1329,7 @@ static PyObject *meth_wxPropertyGridInterface_GetPropertyHelpString(PyObject *si
 
 PyDoc_STRVAR(doc_wxPropertyGridInterface_GetPropertyImage, "GetPropertyImage(id) -> wx.Bitmap\n"
 "\n"
-"Returns property's custom value image (NULL of none).");
+"Returns property's custom value image (nullptr of none).");
 
 extern "C" {static PyObject *meth_wxPropertyGridInterface_GetPropertyImage(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxPropertyGridInterface_GetPropertyImage(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1622,7 +1622,7 @@ static PyObject *meth_wxPropertyGridInterface_GetPropertyValue(PyObject *sipSelf
 
 PyDoc_STRVAR(doc_wxPropertyGridInterface_GetPropertyValueAsArrayInt, "GetPropertyValueAsArrayInt(id) -> List[int]\n"
 "\n"
-"Return's property's value as wxArrayInt.");
+"Returns property's value as wxArrayInt.");
 
 extern "C" {static PyObject *meth_wxPropertyGridInterface_GetPropertyValueAsArrayInt(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxPropertyGridInterface_GetPropertyValueAsArrayInt(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1748,7 +1748,7 @@ static PyObject *meth_wxPropertyGridInterface_GetPropertyValueAsBool(PyObject *s
 
 PyDoc_STRVAR(doc_wxPropertyGridInterface_GetPropertyValueAsDateTime, "GetPropertyValueAsDateTime(id) -> wx.DateTime\n"
 "\n"
-"Return's property's value as wxDateTime.");
+"Returns property's value as wxDateTime.");
 
 extern "C" {static PyObject *meth_wxPropertyGridInterface_GetPropertyValueAsDateTime(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxPropertyGridInterface_GetPropertyValueAsDateTime(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -2195,7 +2195,7 @@ static PyObject *meth_wxPropertyGridInterface_GetVIterator(PyObject *sipSelf, Py
 }
 
 
-PyDoc_STRVAR(doc_wxPropertyGridInterface_HideProperty, "HideProperty(id, hide=True, flags=PG_RECURSE) -> bool\n"
+PyDoc_STRVAR(doc_wxPropertyGridInterface_HideProperty, "HideProperty(id, hide=True, flags=PGPropertyValuesFlags.Recurse) -> bool\n"
 "\n"
 "Hides or reveals a property.");
 
@@ -2208,7 +2208,7 @@ static PyObject *meth_wxPropertyGridInterface_HideProperty(PyObject *sipSelf, Py
         const ::wxPGPropArgCls* id;
         int idState = 0;
         bool hide = 1;
-        int flags = wxPG_RECURSE;
+        ::wxPGPropertyValuesFlags flags = wxPGPropertyValuesFlags::Recurse;
         ::wxPropertyGridInterface *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -2217,7 +2217,7 @@ static PyObject *meth_wxPropertyGridInterface_HideProperty(PyObject *sipSelf, Py
             sipName_flags,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|bi", &sipSelf, sipType_wxPropertyGridInterface, &sipCpp, sipType_wxPGPropArgCls, &id, &idState, &hide, &flags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|bE", &sipSelf, sipType_wxPropertyGridInterface, &sipCpp, sipType_wxPGPropArgCls, &id, &idState, &hide, sipType_wxPGPropertyValuesFlags, &flags))
         {
             bool sipRes;
 
@@ -2657,7 +2657,7 @@ static PyObject *meth_wxPropertyGridInterface_LimitPropertyEditing(PyObject *sip
 }
 
 
-PyDoc_STRVAR(doc_wxPropertyGridInterface_RefreshGrid, "RefreshGrid(state=None) -> None\n"
+PyDoc_STRVAR(doc_wxPropertyGridInterface_RefreshGrid, "RefreshGrid(state=nullptr) -> None\n"
 "\n"
 "If state is shown in its grid, refresh it now.");
 
@@ -2668,7 +2668,7 @@ static PyObject *meth_wxPropertyGridInterface_RefreshGrid(PyObject *sipSelf, PyO
     bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
 
     {
-        ::wxPropertyGridPageState* state = 0;
+        ::wxPropertyGridPageState* state = nullptr;
         ::wxPropertyGridInterface *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -2910,7 +2910,7 @@ static PyObject *meth_wxPropertyGridInterface_SetColumnProportion(PyObject *sipS
 }
 
 
-PyDoc_STRVAR(doc_wxPropertyGridInterface_SetPropertyAttribute, "SetPropertyAttribute(id, attrName, value, argFlags=0) -> None\n"
+PyDoc_STRVAR(doc_wxPropertyGridInterface_SetPropertyAttribute, "SetPropertyAttribute(id, attrName, value, flags=PGPropertyValuesFlags.DontRecurse) -> None\n"
 "\n"
 "Sets an attribute for this property.");
 
@@ -2926,22 +2926,22 @@ static PyObject *meth_wxPropertyGridInterface_SetPropertyAttribute(PyObject *sip
         int attrNameState = 0;
         ::wxPGVariant* value;
         int valueState = 0;
-        long argFlags = 0;
+        ::wxPGPropertyValuesFlags flags = wxPGPropertyValuesFlags::DontRecurse;
         ::wxPropertyGridInterface *sipCpp;
 
         static const char *sipKwdList[] = {
             sipName_id,
             sipName_attrName,
             sipName_value,
-            sipName_argFlags,
+            sipName_flags,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1J1J1|l", &sipSelf, sipType_wxPropertyGridInterface, &sipCpp, sipType_wxPGPropArgCls, &id, &idState, sipType_wxString, &attrName, &attrNameState, sipType_wxPGVariant, &value, &valueState, &argFlags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1J1J1|E", &sipSelf, sipType_wxPropertyGridInterface, &sipCpp, sipType_wxPGPropArgCls, &id, &idState, sipType_wxString, &attrName, &attrNameState, sipType_wxPGVariant, &value, &valueState, sipType_wxPGPropertyValuesFlags, &flags))
         {
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipCpp->SetPropertyAttribute(*id, *attrName, *value, argFlags);
+            sipCpp->SetPropertyAttribute(*id, *attrName, *value, flags);
             Py_END_ALLOW_THREADS
             sipReleaseType(const_cast< ::wxPGPropArgCls *>(id), sipType_wxPGPropArgCls, idState);
             sipReleaseType(const_cast< ::wxString *>(attrName), sipType_wxString, attrNameState);
@@ -3006,7 +3006,7 @@ static PyObject *meth_wxPropertyGridInterface_SetPropertyAttributeAll(PyObject *
 }
 
 
-PyDoc_STRVAR(doc_wxPropertyGridInterface_SetPropertyBackgroundColour, "SetPropertyBackgroundColour(id, colour, flags=PG_RECURSE) -> None\n"
+PyDoc_STRVAR(doc_wxPropertyGridInterface_SetPropertyBackgroundColour, "SetPropertyBackgroundColour(id, colour, flags=PGPropertyValuesFlags.Recurse) -> None\n"
 "\n"
 "Sets background colour of given property.");
 
@@ -3020,7 +3020,7 @@ static PyObject *meth_wxPropertyGridInterface_SetPropertyBackgroundColour(PyObje
         int idState = 0;
         const ::wxColour* colour;
         int colourState = 0;
-        int flags = wxPG_RECURSE;
+        ::wxPGPropertyValuesFlags flags = wxPGPropertyValuesFlags::Recurse;
         ::wxPropertyGridInterface *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -3029,7 +3029,7 @@ static PyObject *meth_wxPropertyGridInterface_SetPropertyBackgroundColour(PyObje
             sipName_flags,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1J1|i", &sipSelf, sipType_wxPropertyGridInterface, &sipCpp, sipType_wxPGPropArgCls, &id, &idState, sipType_wxColour, &colour, &colourState, &flags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1J1|E", &sipSelf, sipType_wxPropertyGridInterface, &sipCpp, sipType_wxPGPropArgCls, &id, &idState, sipType_wxColour, &colour, &colourState, sipType_wxPGPropertyValuesFlags, &flags))
         {
             PyErr_Clear();
 
@@ -3053,7 +3053,7 @@ static PyObject *meth_wxPropertyGridInterface_SetPropertyBackgroundColour(PyObje
 }
 
 
-PyDoc_STRVAR(doc_wxPropertyGridInterface_SetPropertyCell, "SetPropertyCell(id, column, text='', bitmap=wx.BitmapBundle(), fgCol=wx.NullColour, bgCol=wx.NullColour) -> None\n"
+PyDoc_STRVAR(doc_wxPropertyGridInterface_SetPropertyCell, "SetPropertyCell(id, column, text=\"\", bitmap=wx.BitmapBundle(), fgCol=wx.NullColour, bgCol=wx.NullColour) -> None\n"
 "\n"
 "Sets text, bitmap, and colours for given column's cell.");
 
@@ -3066,7 +3066,7 @@ static PyObject *meth_wxPropertyGridInterface_SetPropertyCell(PyObject *sipSelf,
         const ::wxPGPropArgCls* id;
         int idState = 0;
         int column;
-        const ::wxString& textdef = wxEmptyString;
+        const ::wxString& textdef = wxString();
         const ::wxString* text = &textdef;
         int textState = 0;
         const ::wxBitmapBundle& bitmapdef = wxBitmapBundle();
@@ -3116,7 +3116,7 @@ static PyObject *meth_wxPropertyGridInterface_SetPropertyCell(PyObject *sipSelf,
 }
 
 
-PyDoc_STRVAR(doc_wxPropertyGridInterface_SetPropertyColoursToDefault, "SetPropertyColoursToDefault(id, flags=PG_DONT_RECURSE) -> None\n"
+PyDoc_STRVAR(doc_wxPropertyGridInterface_SetPropertyColoursToDefault, "SetPropertyColoursToDefault(id, flags=PGPropertyValuesFlags.DontRecurse) -> None\n"
 "\n"
 "Resets text and background colours of given property.");
 
@@ -3128,7 +3128,7 @@ static PyObject *meth_wxPropertyGridInterface_SetPropertyColoursToDefault(PyObje
     {
         const ::wxPGPropArgCls* id;
         int idState = 0;
-        int flags = wxPG_DONT_RECURSE;
+        ::wxPGPropertyValuesFlags flags = wxPGPropertyValuesFlags::DontRecurse;
         ::wxPropertyGridInterface *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -3136,7 +3136,7 @@ static PyObject *meth_wxPropertyGridInterface_SetPropertyColoursToDefault(PyObje
             sipName_flags,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|i", &sipSelf, sipType_wxPropertyGridInterface, &sipCpp, sipType_wxPGPropArgCls, &id, &idState, &flags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|E", &sipSelf, sipType_wxPropertyGridInterface, &sipCpp, sipType_wxPGPropArgCls, &id, &idState, sipType_wxPGPropertyValuesFlags, &flags))
         {
             PyErr_Clear();
 
@@ -3324,7 +3324,7 @@ static PyObject *meth_wxPropertyGridInterface_SetPropertyName(PyObject *sipSelf,
 }
 
 
-PyDoc_STRVAR(doc_wxPropertyGridInterface_SetPropertyReadOnly, "SetPropertyReadOnly(id, set=True, flags=PG_RECURSE) -> None\n"
+PyDoc_STRVAR(doc_wxPropertyGridInterface_SetPropertyReadOnly, "SetPropertyReadOnly(id, set=True, flags=PGPropertyValuesFlags.Recurse) -> None\n"
 "\n"
 "Sets property (and, recursively, its children) to have read-only\n"
 "value.");
@@ -3338,7 +3338,7 @@ static PyObject *meth_wxPropertyGridInterface_SetPropertyReadOnly(PyObject *sipS
         const ::wxPGPropArgCls* id;
         int idState = 0;
         bool set = 1;
-        int flags = wxPG_RECURSE;
+        ::wxPGPropertyValuesFlags flags = wxPGPropertyValuesFlags::Recurse;
         ::wxPropertyGridInterface *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -3347,7 +3347,7 @@ static PyObject *meth_wxPropertyGridInterface_SetPropertyReadOnly(PyObject *sipS
             sipName_flags,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|bi", &sipSelf, sipType_wxPropertyGridInterface, &sipCpp, sipType_wxPGPropArgCls, &id, &idState, &set, &flags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|bE", &sipSelf, sipType_wxPropertyGridInterface, &sipCpp, sipType_wxPGPropArgCls, &id, &idState, &set, sipType_wxPGPropertyValuesFlags, &flags))
         {
             PyErr_Clear();
 
@@ -3468,7 +3468,7 @@ static PyObject *meth_wxPropertyGridInterface_SetPropertyImage(PyObject *sipSelf
     {
         const ::wxPGPropArgCls* id;
         int idState = 0;
-        ::wxBitmapBundle* bmp;
+        const ::wxBitmapBundle* bmp;
         int bmpState = 0;
         ::wxPropertyGridInterface *sipCpp;
 
@@ -3485,7 +3485,7 @@ static PyObject *meth_wxPropertyGridInterface_SetPropertyImage(PyObject *sipSelf
             sipCpp->SetPropertyImage(*id, *bmp);
             Py_END_ALLOW_THREADS
             sipReleaseType(const_cast< ::wxPGPropArgCls *>(id), sipType_wxPGPropArgCls, idState);
-            sipReleaseType(bmp, sipType_wxBitmapBundle, bmpState);
+            sipReleaseType(const_cast< ::wxBitmapBundle *>(bmp), sipType_wxBitmapBundle, bmpState);
 
             if (PyErr_Occurred())
                 return 0;
@@ -3545,7 +3545,7 @@ static PyObject *meth_wxPropertyGridInterface_SetPropertyMaxLength(PyObject *sip
 }
 
 
-PyDoc_STRVAR(doc_wxPropertyGridInterface_SetPropertyTextColour, "SetPropertyTextColour(id, colour, flags=PG_RECURSE) -> None\n"
+PyDoc_STRVAR(doc_wxPropertyGridInterface_SetPropertyTextColour, "SetPropertyTextColour(id, colour, flags=PGPropertyValuesFlags.Recurse) -> None\n"
 "\n"
 "Sets text colour of given property.");
 
@@ -3559,7 +3559,7 @@ static PyObject *meth_wxPropertyGridInterface_SetPropertyTextColour(PyObject *si
         int idState = 0;
         const ::wxColour* colour;
         int colourState = 0;
-        int flags = wxPG_RECURSE;
+        ::wxPGPropertyValuesFlags flags = wxPGPropertyValuesFlags::Recurse;
         ::wxPropertyGridInterface *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -3568,7 +3568,7 @@ static PyObject *meth_wxPropertyGridInterface_SetPropertyTextColour(PyObject *si
             sipName_flags,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1J1|i", &sipSelf, sipType_wxPropertyGridInterface, &sipCpp, sipType_wxPGPropArgCls, &id, &idState, sipType_wxColour, &colour, &colourState, &flags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1J1|E", &sipSelf, sipType_wxPropertyGridInterface, &sipCpp, sipType_wxPGPropArgCls, &id, &idState, sipType_wxColour, &colour, &colourState, sipType_wxPGPropertyValuesFlags, &flags))
         {
             PyErr_Clear();
 
@@ -4029,14 +4029,14 @@ static PyObject *meth_wxPropertyGridInterface_SetValidationFailureBehavior(PyObj
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        int vfbFlags;
+        ::wxPGVFBFlags vfbFlags;
         ::wxPropertyGridInterface *sipCpp;
 
         static const char *sipKwdList[] = {
             sipName_vfbFlags,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxPropertyGridInterface, &sipCpp, &vfbFlags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BE", &sipSelf, sipType_wxPropertyGridInterface, &sipCpp, sipType_wxPGVFBFlags, &vfbFlags))
         {
             PyErr_Clear();
 
@@ -4058,7 +4058,7 @@ static PyObject *meth_wxPropertyGridInterface_SetValidationFailureBehavior(PyObj
 }
 
 
-PyDoc_STRVAR(doc_wxPropertyGridInterface_Sort, "Sort(flags=0) -> None\n"
+PyDoc_STRVAR(doc_wxPropertyGridInterface_Sort, "Sort(flags=PGPropertyValuesFlags.DontRecurse) -> None\n"
 "\n"
 "Sorts all properties recursively.");
 
@@ -4068,14 +4068,14 @@ static PyObject *meth_wxPropertyGridInterface_Sort(PyObject *sipSelf, PyObject *
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        int flags = 0;
+        ::wxPGPropertyValuesFlags flags = wxPGPropertyValuesFlags::DontRecurse;
         ::wxPropertyGridInterface *sipCpp;
 
         static const char *sipKwdList[] = {
             sipName_flags,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "B|i", &sipSelf, sipType_wxPropertyGridInterface, &sipCpp, &flags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "B|E", &sipSelf, sipType_wxPropertyGridInterface, &sipCpp, sipType_wxPGPropertyValuesFlags, &flags))
         {
             PyErr_Clear();
 
@@ -4097,7 +4097,7 @@ static PyObject *meth_wxPropertyGridInterface_Sort(PyObject *sipSelf, PyObject *
 }
 
 
-PyDoc_STRVAR(doc_wxPropertyGridInterface_SortChildren, "SortChildren(id, flags=0) -> None\n"
+PyDoc_STRVAR(doc_wxPropertyGridInterface_SortChildren, "SortChildren(id, flags=PGPropertyValuesFlags.DontRecurse) -> None\n"
 "\n"
 "Sorts children of a property.");
 
@@ -4109,7 +4109,7 @@ static PyObject *meth_wxPropertyGridInterface_SortChildren(PyObject *sipSelf, Py
     {
         const ::wxPGPropArgCls* id;
         int idState = 0;
-        int flags = 0;
+        ::wxPGPropertyValuesFlags flags = wxPGPropertyValuesFlags::DontRecurse;
         ::wxPropertyGridInterface *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -4117,7 +4117,7 @@ static PyObject *meth_wxPropertyGridInterface_SortChildren(PyObject *sipSelf, Py
             sipName_flags,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|i", &sipSelf, sipType_wxPropertyGridInterface, &sipCpp, sipType_wxPGPropArgCls, &id, &idState, &flags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|E", &sipSelf, sipType_wxPropertyGridInterface, &sipCpp, sipType_wxPGPropArgCls, &id, &idState, sipType_wxPGPropertyValuesFlags, &flags))
         {
             PyErr_Clear();
 
@@ -4292,7 +4292,7 @@ static PyObject *meth_wxPropertyGridInterface_RegisterAdditionalEditors(PyObject
 
 PyDoc_STRVAR(doc_wxPropertyGridInterface_SetBoolChoices, "SetBoolChoices(trueChoice, falseChoice) -> None\n"
 "\n"
-"Sets strings listed in the choice dropdown of a wxBoolProperty.");
+"Sets strings listed in the choice drop-down of a wxBoolProperty.");
 
 extern "C" {static PyObject *meth_wxPropertyGridInterface_SetBoolChoices(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxPropertyGridInterface_SetBoolChoices(PyObject *, PyObject *sipArgs, PyObject *sipKwds)
@@ -4495,13 +4495,13 @@ static PyMethodDef methods_wxPropertyGridInterface[] = {
 };
 
 static sipEnumMemberDef enummembers_wxPropertyGridInterface[] = {
-    {sipName_AllStates, static_cast<int>(::wxPropertyGridInterface::AllStates), 67},
-    {sipName_DescBoxState, static_cast<int>(::wxPropertyGridInterface::DescBoxState), 67},
-    {sipName_ExpandedState, static_cast<int>(::wxPropertyGridInterface::ExpandedState), 67},
-    {sipName_PageState, static_cast<int>(::wxPropertyGridInterface::PageState), 67},
-    {sipName_ScrollPosState, static_cast<int>(::wxPropertyGridInterface::ScrollPosState), 67},
-    {sipName_SelectionState, static_cast<int>(::wxPropertyGridInterface::SelectionState), 67},
-    {sipName_SplitterPosState, static_cast<int>(::wxPropertyGridInterface::SplitterPosState), 67},
+    {sipName_AllStates, static_cast<int>(::wxPropertyGridInterface::AllStates), 70},
+    {sipName_DescBoxState, static_cast<int>(::wxPropertyGridInterface::DescBoxState), 70},
+    {sipName_ExpandedState, static_cast<int>(::wxPropertyGridInterface::ExpandedState), 70},
+    {sipName_PageState, static_cast<int>(::wxPropertyGridInterface::PageState), 70},
+    {sipName_ScrollPosState, static_cast<int>(::wxPropertyGridInterface::ScrollPosState), 70},
+    {sipName_SelectionState, static_cast<int>(::wxPropertyGridInterface::SelectionState), 70},
+    {sipName_SplitterPosState, static_cast<int>(::wxPropertyGridInterface::SplitterPosState), 70},
 };
 
 PyDoc_STRVAR(doc_wxPropertyGridInterface, "Most of the shared property manipulation interface shared by\n"

@@ -37,6 +37,7 @@ public:
      * this class.
      */
 protected:
+    void SetErrorExitCode(int) SIP_OVERRIDE;
     int OnRun() SIP_OVERRIDE;
     bool OnInit() SIP_OVERRIDE;
     int OnExit() SIP_OVERRIDE;
@@ -58,7 +59,7 @@ private:
     sipwxAppConsole(const sipwxAppConsole &);
     sipwxAppConsole &operator = (const sipwxAppConsole &);
 
-    char sipPyMethods[13];
+    char sipPyMethods[14];
 };
 
 sipwxAppConsole::sipwxAppConsole(): ::wxAppConsole(), sipPySelf(SIP_NULLPTR)
@@ -71,19 +72,37 @@ sipwxAppConsole::~sipwxAppConsole()
     sipInstanceDestroyedEx(&sipPySelf);
 }
 
+void sipwxAppConsole::SetErrorExitCode(int code)
+{
+    sip_gilstate_t sipGILState;
+    PyObject *sipMeth;
+
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[0], &sipPySelf, SIP_NULLPTR, sipName_SetErrorExitCode);
+
+    if (!sipMeth)
+    {
+        ::wxAppConsole::SetErrorExitCode(code);
+        return;
+    }
+
+    extern void sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+
+    sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth, code);
+}
+
 int sipwxAppConsole::OnRun()
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[0], &sipPySelf, SIP_NULLPTR, sipName_OnRun);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[1], &sipPySelf, SIP_NULLPTR, sipName_OnRun);
 
     if (!sipMeth)
         return ::wxAppConsole::OnRun();
 
-    extern int sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern int sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxAppConsole::OnInit()
@@ -91,7 +110,7 @@ bool sipwxAppConsole::OnInit()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[1], &sipPySelf, SIP_NULLPTR, sipName_OnInit);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[2], &sipPySelf, SIP_NULLPTR, sipName_OnInit);
 
     if (!sipMeth)
         return ::wxAppConsole::OnInit();
@@ -106,14 +125,14 @@ int sipwxAppConsole::OnExit()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[2], &sipPySelf, SIP_NULLPTR, sipName_OnExit);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[3], &sipPySelf, SIP_NULLPTR, sipName_OnExit);
 
     if (!sipMeth)
         return ::wxAppConsole::OnExit();
 
-    extern int sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern int sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxAppConsole::OnEventLoopExit(::wxEventLoopBase*loop)
@@ -121,7 +140,7 @@ void sipwxAppConsole::OnEventLoopExit(::wxEventLoopBase*loop)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[3], &sipPySelf, SIP_NULLPTR, sipName_OnEventLoopExit);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[4], &sipPySelf, SIP_NULLPTR, sipName_OnEventLoopExit);
 
     if (!sipMeth)
     {
@@ -129,9 +148,9 @@ void sipwxAppConsole::OnEventLoopExit(::wxEventLoopBase*loop)
         return;
     }
 
-    extern void sipVH__core_122(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEventLoopBase*);
+    extern void sipVH__core_121(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEventLoopBase*);
 
-    sipVH__core_122(sipGILState, 0, sipPySelf, sipMeth, loop);
+    sipVH__core_121(sipGILState, 0, sipPySelf, sipMeth, loop);
 }
 
 void sipwxAppConsole::OnEventLoopEnter(::wxEventLoopBase*loop)
@@ -139,7 +158,7 @@ void sipwxAppConsole::OnEventLoopEnter(::wxEventLoopBase*loop)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[4], &sipPySelf, SIP_NULLPTR, sipName_OnEventLoopEnter);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[5], &sipPySelf, SIP_NULLPTR, sipName_OnEventLoopEnter);
 
     if (!sipMeth)
     {
@@ -147,9 +166,9 @@ void sipwxAppConsole::OnEventLoopEnter(::wxEventLoopBase*loop)
         return;
     }
 
-    extern void sipVH__core_122(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEventLoopBase*);
+    extern void sipVH__core_121(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEventLoopBase*);
 
-    sipVH__core_122(sipGILState, 0, sipPySelf, sipMeth, loop);
+    sipVH__core_121(sipGILState, 0, sipPySelf, sipMeth, loop);
 }
 
 void sipwxAppConsole::ProcessPendingEvents()
@@ -157,7 +176,7 @@ void sipwxAppConsole::ProcessPendingEvents()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[5], &sipPySelf, SIP_NULLPTR, sipName_ProcessPendingEvents);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[6], &sipPySelf, SIP_NULLPTR, sipName_ProcessPendingEvents);
 
     if (!sipMeth)
     {
@@ -175,7 +194,7 @@ bool sipwxAppConsole::UsesEventLoop() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[6]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_UsesEventLoop);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[7]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_UsesEventLoop);
 
     if (!sipMeth)
         return ::wxAppConsole::UsesEventLoop();
@@ -190,7 +209,7 @@ void sipwxAppConsole::ExitMainLoop()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[7], &sipPySelf, SIP_NULLPTR, sipName_ExitMainLoop);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[8], &sipPySelf, SIP_NULLPTR, sipName_ExitMainLoop);
 
     if (!sipMeth)
     {
@@ -208,14 +227,14 @@ int sipwxAppConsole::MainLoop()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[8], &sipPySelf, SIP_NULLPTR, sipName_MainLoop);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[9], &sipPySelf, SIP_NULLPTR, sipName_MainLoop);
 
     if (!sipMeth)
         return ::wxAppConsole::MainLoop();
 
-    extern int sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern int sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 int sipwxAppConsole::FilterEvent(::wxEvent& event)
@@ -223,14 +242,14 @@ int sipwxAppConsole::FilterEvent(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[9], &sipPySelf, SIP_NULLPTR, sipName_FilterEvent);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[10], &sipPySelf, SIP_NULLPTR, sipName_FilterEvent);
 
     if (!sipMeth)
         return ::wxAppConsole::FilterEvent(event);
 
-    extern int sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern int sipVH__core_110(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_110(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxAppConsole::ProcessEvent(::wxEvent& event)
@@ -238,14 +257,14 @@ bool sipwxAppConsole::ProcessEvent(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[10], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[11], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
 
     if (!sipMeth)
         return ::wxAppConsole::ProcessEvent(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxAppConsole::TryBefore(::wxEvent& event)
@@ -253,14 +272,14 @@ bool sipwxAppConsole::TryBefore(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[11], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[12], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
 
     if (!sipMeth)
         return ::wxAppConsole::TryBefore(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxAppConsole::TryAfter(::wxEvent& event)
@@ -268,14 +287,14 @@ bool sipwxAppConsole::TryAfter(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[12], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[13], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
 
     if (!sipMeth)
         return ::wxAppConsole::TryAfter(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxAppConsole::sipProtectVirt_TryBefore(bool sipSelfWasArg, ::wxEvent& event)
@@ -972,8 +991,7 @@ static PyObject *meth_wxAppConsole_OnInit(PyObject *sipSelf, PyObject *sipArgs)
 
 PyDoc_STRVAR(doc_wxAppConsole_OnRun, "OnRun() -> int\n"
 "\n"
-"This virtual function is where the execution of a program written in\n"
-"wxWidgets starts.");
+"Virtual function executing the application's main event loop.");
 
 extern "C" {static PyObject *meth_wxAppConsole_OnRun(PyObject *, PyObject *);}
 static PyObject *meth_wxAppConsole_OnRun(PyObject *sipSelf, PyObject *sipArgs)
@@ -1002,6 +1020,39 @@ static PyObject *meth_wxAppConsole_OnRun(PyObject *sipSelf, PyObject *sipArgs)
     }
 
     sipNoMethod(sipParseErr, sipName_AppConsole, sipName_OnRun, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxAppConsole_CallOnUnhandledException, "CallOnUnhandledException() -> None\n"
+"\n"
+"Call OnUnhandledException() on the current wxTheApp object if it\n"
+"exists.");
+
+extern "C" {static PyObject *meth_wxAppConsole_CallOnUnhandledException(PyObject *, PyObject *);}
+static PyObject *meth_wxAppConsole_CallOnUnhandledException(PyObject *, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        if (sipParseArgs(&sipParseErr, sipArgs, ""))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            ::wxAppConsole::CallOnUnhandledException();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AppConsole, sipName_CallOnUnhandledException, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -1505,6 +1556,7 @@ extern "C" {static PyObject *meth_wxAppConsole_SetErrorExitCode(PyObject *, PyOb
 static PyObject *meth_wxAppConsole_SetErrorExitCode(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
 {
     PyObject *sipParseErr = SIP_NULLPTR;
+    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
 
     {
         int code;
@@ -1519,7 +1571,7 @@ static PyObject *meth_wxAppConsole_SetErrorExitCode(PyObject *sipSelf, PyObject 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipCpp->SetErrorExitCode(code);
+            (sipSelfWasArg ? sipCpp->::wxAppConsole::SetErrorExitCode(code) : sipCpp->SetErrorExitCode(code));
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
@@ -1642,6 +1694,44 @@ static PyObject *meth_wxAppConsole_IsMainLoopRunning(PyObject *, PyObject *sipAr
 }
 
 
+PyDoc_STRVAR(doc_wxAppConsole_SetFatalErrorExitCode, "SetFatalErrorExitCode(code) -> None\n"
+"\n"
+"Allows to set a custom process exit code if a fatal error happens.");
+
+extern "C" {static PyObject *meth_wxAppConsole_SetFatalErrorExitCode(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAppConsole_SetFatalErrorExitCode(PyObject *, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int code;
+
+        static const char *sipKwdList[] = {
+            sipName_code,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "i", &code))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            ::wxAppConsole::SetFatalErrorExitCode(code);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AppConsole, sipName_SetFatalErrorExitCode, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 /* Cast a pointer to a type somewhere in its inheritance hierarchy. */
 extern "C" {static void *cast_wxAppConsole(void *, const sipTypeDef *);}
 static void *cast_wxAppConsole(void *sipCppV, const sipTypeDef *targetType)
@@ -1727,10 +1817,11 @@ static void *init_type_wxAppConsole(sipSimpleWrapper *sipSelf, PyObject *sipArgs
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxAppConsole[] = {{158, 255, 0}, {154, 255, 1}};
+static sipEncodedTypeDef supers_wxAppConsole[] = {{165, 255, 0}, {161, 255, 1}};
 
 
 static PyMethodDef methods_wxAppConsole[] = {
+    {sipName_CallOnUnhandledException, meth_wxAppConsole_CallOnUnhandledException, METH_VARARGS, doc_wxAppConsole_CallOnUnhandledException},
     {sipName_DeletePendingEvents, meth_wxAppConsole_DeletePendingEvents, METH_VARARGS, doc_wxAppConsole_DeletePendingEvents},
     {sipName_ExitMainLoop, meth_wxAppConsole_ExitMainLoop, METH_VARARGS, doc_wxAppConsole_ExitMainLoop},
     {sipName_FilterEvent, SIP_MLMETH_CAST(meth_wxAppConsole_FilterEvent), METH_VARARGS|METH_KEYWORDS, doc_wxAppConsole_FilterEvent},
@@ -1759,6 +1850,7 @@ static PyMethodDef methods_wxAppConsole[] = {
     {sipName_SetCLocale, meth_wxAppConsole_SetCLocale, METH_VARARGS, doc_wxAppConsole_SetCLocale},
     {sipName_SetClassName, SIP_MLMETH_CAST(meth_wxAppConsole_SetClassName), METH_VARARGS|METH_KEYWORDS, doc_wxAppConsole_SetClassName},
     {sipName_SetErrorExitCode, SIP_MLMETH_CAST(meth_wxAppConsole_SetErrorExitCode), METH_VARARGS|METH_KEYWORDS, doc_wxAppConsole_SetErrorExitCode},
+    {sipName_SetFatalErrorExitCode, SIP_MLMETH_CAST(meth_wxAppConsole_SetFatalErrorExitCode), METH_VARARGS|METH_KEYWORDS, doc_wxAppConsole_SetFatalErrorExitCode},
     {sipName_SetInstance, SIP_MLMETH_CAST(meth_wxAppConsole_SetInstance), METH_VARARGS|METH_KEYWORDS, doc_wxAppConsole_SetInstance},
     {sipName_SetVendorDisplayName, SIP_MLMETH_CAST(meth_wxAppConsole_SetVendorDisplayName), METH_VARARGS|METH_KEYWORDS, doc_wxAppConsole_SetVendorDisplayName},
     {sipName_SetVendorName, SIP_MLMETH_CAST(meth_wxAppConsole_SetVendorName), METH_VARARGS|METH_KEYWORDS, doc_wxAppConsole_SetVendorName},
@@ -1770,16 +1862,15 @@ static PyMethodDef methods_wxAppConsole[] = {
 };
 
 sipVariableDef variables_wxAppConsole[] = {
-    {PropertyVariable, sipName_Traits, &methods_wxAppConsole[8], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_VendorName, &methods_wxAppConsole[10], &methods_wxAppConsole[30], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_VendorDisplayName, &methods_wxAppConsole[9], &methods_wxAppConsole[29], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ClassName, &methods_wxAppConsole[5], &methods_wxAppConsole[26], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_AppName, &methods_wxAppConsole[4], &methods_wxAppConsole[24], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_AppDisplayName, &methods_wxAppConsole[3], &methods_wxAppConsole[23], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Traits, &methods_wxAppConsole[9], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_VendorName, &methods_wxAppConsole[11], &methods_wxAppConsole[32], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_VendorDisplayName, &methods_wxAppConsole[10], &methods_wxAppConsole[31], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ClassName, &methods_wxAppConsole[6], &methods_wxAppConsole[27], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_AppName, &methods_wxAppConsole[5], &methods_wxAppConsole[25], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_AppDisplayName, &methods_wxAppConsole[4], &methods_wxAppConsole[24], SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxAppConsole, "This class is essential for writing console-only or hybrid apps\n"
-"without having to define wxUSE_GUI=0.");
+PyDoc_STRVAR(doc_wxAppConsole, "This class us used instead of wxApp for console applications.");
 
 
 sipClassTypeDef sipTypeDef__core_wxAppConsole = {
@@ -1795,7 +1886,7 @@ sipClassTypeDef sipTypeDef__core_wxAppConsole = {
     {
         sipNameNr_AppConsole,
         {0, 0, 1},
-        36, methods_wxAppConsole,
+        38, methods_wxAppConsole,
         0, SIP_NULLPTR,
         6, variables_wxAppConsole,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

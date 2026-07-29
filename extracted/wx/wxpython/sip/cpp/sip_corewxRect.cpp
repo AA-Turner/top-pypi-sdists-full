@@ -1139,6 +1139,49 @@ static PyObject *meth_wxRect_IsEmpty(PyObject *sipSelf, PyObject *sipArgs)
 }
 
 
+PyDoc_STRVAR(doc_wxRect_MakeCenteredIn, "MakeCenteredIn(r, dir=BOTH) -> None\n"
+"\n"
+"Center this rectangle inside the given rectangle r.");
+
+extern "C" {static PyObject *meth_wxRect_MakeCenteredIn(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxRect_MakeCenteredIn(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxRect* r;
+        int rState = 0;
+        int dir = wxBOTH;
+        ::wxRect *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_r,
+            sipName_dir,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|i", &sipSelf, sipType_wxRect, &sipCpp, sipType_wxRect, &r, &rState, &dir))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->MakeCenteredIn(*r, dir);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxRect *>(r), sipType_wxRect, rState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Rect, sipName_MakeCenteredIn, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxRect_SetHeight, "SetHeight(height) -> None\n"
 "\n"
 "Sets the height.");
@@ -2271,6 +2314,7 @@ static PyMethodDef methods_wxRect[] = {
     {sipName_Intersect, SIP_MLMETH_CAST(meth_wxRect_Intersect), METH_VARARGS|METH_KEYWORDS, doc_wxRect_Intersect},
     {sipName_Intersects, SIP_MLMETH_CAST(meth_wxRect_Intersects), METH_VARARGS|METH_KEYWORDS, doc_wxRect_Intersects},
     {sipName_IsEmpty, meth_wxRect_IsEmpty, METH_VARARGS, doc_wxRect_IsEmpty},
+    {sipName_MakeCenteredIn, SIP_MLMETH_CAST(meth_wxRect_MakeCenteredIn), METH_VARARGS|METH_KEYWORDS, doc_wxRect_MakeCenteredIn},
     {sipName_Offset, SIP_MLMETH_CAST(meth_wxRect_Offset), METH_VARARGS|METH_KEYWORDS, doc_wxRect_Offset},
     {sipName_SetBottom, SIP_MLMETH_CAST(meth_wxRect_SetBottom), METH_VARARGS|METH_KEYWORDS, doc_wxRect_SetBottom},
     {sipName_SetBottomLeft, SIP_MLMETH_CAST(meth_wxRect_SetBottomLeft), METH_VARARGS|METH_KEYWORDS, doc_wxRect_SetBottomLeft},
@@ -2406,28 +2450,28 @@ static int varset_wxRect_y(void *sipSelf, PyObject *sipPy, PyObject *)
 }
 
 sipVariableDef variables_wxRect[] = {
-    {PropertyVariable, sipName_topRight, &methods_wxRect[15], &methods_wxRect[34], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_topLeft, &methods_wxRect[14], &methods_wxRect[33], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_bottomRight, &methods_wxRect[7], &methods_wxRect[26], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_bottomLeft, &methods_wxRect[6], &methods_wxRect[25], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_bottom, &methods_wxRect[5], &methods_wxRect[24], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_right, &methods_wxRect[11], &methods_wxRect[30], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_top, &methods_wxRect[13], &methods_wxRect[32], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_left, &methods_wxRect[9], &methods_wxRect[28], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Y, &methods_wxRect[18], &methods_wxRect[37], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_X, &methods_wxRect[17], &methods_wxRect[36], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Width, &methods_wxRect[16], &methods_wxRect[35], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_TopRight, &methods_wxRect[15], &methods_wxRect[34], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_TopLeft, &methods_wxRect[14], &methods_wxRect[33], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Top, &methods_wxRect[13], &methods_wxRect[32], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Size, &methods_wxRect[12], &methods_wxRect[31], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Right, &methods_wxRect[11], &methods_wxRect[30], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Position, &methods_wxRect[10], &methods_wxRect[29], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Left, &methods_wxRect[9], &methods_wxRect[28], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Height, &methods_wxRect[8], &methods_wxRect[27], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_BottomRight, &methods_wxRect[7], &methods_wxRect[26], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_BottomLeft, &methods_wxRect[6], &methods_wxRect[25], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Bottom, &methods_wxRect[5], &methods_wxRect[24], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_topRight, &methods_wxRect[15], &methods_wxRect[35], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_topLeft, &methods_wxRect[14], &methods_wxRect[34], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_bottomRight, &methods_wxRect[7], &methods_wxRect[27], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_bottomLeft, &methods_wxRect[6], &methods_wxRect[26], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_bottom, &methods_wxRect[5], &methods_wxRect[25], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_right, &methods_wxRect[11], &methods_wxRect[31], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_top, &methods_wxRect[13], &methods_wxRect[33], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_left, &methods_wxRect[9], &methods_wxRect[29], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Y, &methods_wxRect[18], &methods_wxRect[38], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_X, &methods_wxRect[17], &methods_wxRect[37], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Width, &methods_wxRect[16], &methods_wxRect[36], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TopRight, &methods_wxRect[15], &methods_wxRect[35], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TopLeft, &methods_wxRect[14], &methods_wxRect[34], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Top, &methods_wxRect[13], &methods_wxRect[33], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Size, &methods_wxRect[12], &methods_wxRect[32], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Right, &methods_wxRect[11], &methods_wxRect[31], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Position, &methods_wxRect[10], &methods_wxRect[30], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Left, &methods_wxRect[9], &methods_wxRect[29], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Height, &methods_wxRect[8], &methods_wxRect[28], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_BottomRight, &methods_wxRect[7], &methods_wxRect[27], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_BottomLeft, &methods_wxRect[6], &methods_wxRect[26], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Bottom, &methods_wxRect[5], &methods_wxRect[25], SIP_NULLPTR, SIP_NULLPTR},
     {InstanceVariable, sipName_height, (PyMethodDef *)varget_wxRect_height, (PyMethodDef *)varset_wxRect_height, SIP_NULLPTR, SIP_NULLPTR},
     {InstanceVariable, sipName_width, (PyMethodDef *)varget_wxRect_width, (PyMethodDef *)varset_wxRect_width, SIP_NULLPTR, SIP_NULLPTR},
     {InstanceVariable, sipName_x, (PyMethodDef *)varget_wxRect_x, (PyMethodDef *)varset_wxRect_x, SIP_NULLPTR, SIP_NULLPTR},
@@ -2456,7 +2500,7 @@ sipClassTypeDef sipTypeDef__core_wxRect = {
     {
         sipNameNr_Rect,
         {0, 0, 1},
-        39, methods_wxRect,
+        40, methods_wxRect,
         0, SIP_NULLPTR,
         26, variables_wxRect,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

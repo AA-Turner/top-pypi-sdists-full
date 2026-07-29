@@ -299,7 +299,7 @@ static void *init_type_wxHyperlinkEvent(sipSimpleWrapper *sipSelf, PyObject *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxHyperlinkEvent[] = {{14, 0, 1}};
+static sipEncodedTypeDef supers_wxHyperlinkEvent[] = {{15, 0, 1}};
 
 
 static PyMethodDef methods_wxHyperlinkEvent[] = {

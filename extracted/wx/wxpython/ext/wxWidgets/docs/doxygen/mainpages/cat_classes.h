@@ -62,7 +62,7 @@ Other layout classes:
 @section page_class_cat_managedwnd Managed Windows
 
 There are several types of window that are directly controlled by the window
-manager (such as MS Windows, or the Motif Window Manager). Frames and dialogs
+manager (such as MS Windows, or the X11 Window Manager). Frames and dialogs
 are similar in wxWidgets, but only dialogs may be modal.
 
 Related Overviews: @ref overview_cmndlg
@@ -136,7 +136,7 @@ Controls that are not static can have wxValidator associated with them.
 @li wxStaticBox: A static, or group box for visually grouping related controls
 @li wxScrollBar: Scrollbar control
 @li wxSearchCtrl: A text input control used to initiate a search
-@li wxSpinButton: A spin or `up-down' control
+@li wxSpinButton: A spin or 'up-down' control
 @li wxSpinCtrl: A spin control - i.e. spin button and text control displaying
     an integer
 @li wxSpinCtrlDouble: A spin control - i.e. spin button and text control displaying
@@ -149,6 +149,8 @@ Controls that are not static can have wxValidator associated with them.
 @li wxStaticBitmap: A control to display a bitmap
 @li wxStyledTextCtrl: A wxWidgets implementation of the Scintilla source code
     editing component for plain text editing.
+@li wxStyledTextCtrlMiniMap: A minimap which can be used together with
+    wxStyledTextCtrl.
 @li wxSlider: A slider that can be dragged by the user
 @li wxVListBox: A listbox supporting variable height rows
 
@@ -292,11 +294,13 @@ Related Overviews: @ref overview_dc
 @li wxBufferedPaintDC: A helper device context for double buffered drawing
     inside @b OnPaint().
 @li wxClientDC: A device context to access the client area outside
-    @b OnPaint() events
+    @b OnPaint() events (doesn't work on many modern systems, deprecated).
 @li wxPaintDC: A device context to access the client area inside @b OnPaint()
     events
-@li wxWindowDC: A device context to access the non-client area
-@li wxScreenDC: A device context to access the entire screen
+@li wxWindowDC: A device context to access the non-client area (Windows-only,
+    deprecated).
+@li wxScreenDC: A device context to access the entire screen (doesn't work on
+    many modern systems, deprecated).
 @li wxDC: The device context base class
 @li wxMemoryDC: A device context for drawing into bitmaps
 @li wxMetafileDC: A device context for drawing into metafiles
@@ -826,4 +830,3 @@ Related overview: @ref overview_ipc
 @li wxSingleInstanceChecker: Check that only single program instance is running
 
 */
-

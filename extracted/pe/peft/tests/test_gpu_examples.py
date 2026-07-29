@@ -19,6 +19,7 @@ import re
 import socket
 import tempfile
 import unittest
+import warnings
 from collections import Counter, defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
@@ -68,6 +69,8 @@ from peft import (
     AdaLoraConfig,
     ArrowConfig,
     EvaConfig,
+    FrodConfig,
+    HiraConfig,
     LoftQConfig,
     LoraConfig,
     PeftModel,
@@ -99,7 +102,6 @@ from peft.tuners.lora import LoraLayer
 from peft.tuners.tuners_utils import BaseTunerLayer
 from peft.utils import SAFETENSORS_WEIGHTS_NAME, infer_device
 from peft.utils.hotswap import hotswap_adapter, prepare_model_for_compiled_hotswap
-from peft.utils.loftq_utils import NFQuantizer
 from peft.utils.other import fsdp_auto_wrap_policy
 from tests.testing_utils import hub_online_once
 
@@ -131,6 +133,42 @@ if device == "cpu":
 
 # A full testing suite that tests all the necessary features on GPU. The tests should
 # rely on the example scripts to test the features.
+
+
+class FrodRuntimeOffloadMLP(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.relu = torch.nn.ReLU()
+        self.lin0 = torch.nn.Linear(10, 20)
+        self.lin1 = torch.nn.Linear(20, 20)
+        self.lin2 = torch.nn.Linear(20, 20)
+        self.lin3 = torch.nn.Linear(20, 2)
+
+    def forward(self, inputs):
+        hidden = self.lin0(inputs)
+        hidden = self.relu(hidden)
+        hidden = self.lin1(hidden)
+        hidden = self.relu(hidden)
+        hidden = self.lin2(hidden)
+        hidden = self.relu(hidden)
+        return self.lin3(hidden)
+
+
+@pytest.mark.single_gpu_tests
+def test_frod_runtime_offload_keeps_base_weight_on_cpu_after_accelerator_move():
+    config = FrodConfig(target_modules=["lin1", "lin2"], runtime_offload_base_weight=True)
+    peft_model = get_peft_model(FrodRuntimeOffloadMLP(), config).to(torch_device)
+    lin1 = peft_model.base_model.model.lin1
+
+    assert lin1.get_base_layer().weight.device.type == "cpu"
+    assert lin1.frod_U["default"].device.type == torch_device
+    assert lin1.frod_lambda_l["default"].device.type == torch_device
+
+    inputs = torch.randn(5, 10, device=torch_device)
+    output = peft_model(inputs)
+
+    assert output.device.type == torch_device
+    assert lin1.get_base_layer().weight.device.type == "cpu"
 
 
 @dataclass
@@ -340,8 +378,8 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
 
             model = prepare_model_for_kbit_training(model)
 
-            setattr(model, "model_parallel", True)
-            setattr(model, "is_parallelizable", True)
+            model.model_parallel = True
+            model.is_parallelizable = True
 
             config = LoraConfig(
                 r=16,
@@ -551,8 +589,8 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
             tokenizer = AutoTokenizer.from_pretrained(self.causal_lm_model_id)
             model = prepare_model_for_kbit_training(model)
 
-            setattr(model, "model_parallel", True)
-            setattr(model, "is_parallelizable", True)
+            model.model_parallel = True
+            model.is_parallelizable = True
 
             config = LoraConfig(
                 r=16,
@@ -961,8 +999,8 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
 
             model = prepare_model_for_kbit_training(model)
 
-            setattr(model, "model_parallel", True)
-            setattr(model, "is_parallelizable", True)
+            model.model_parallel = True
+            model.is_parallelizable = True
 
             config = LoraConfig(
                 r=16,
@@ -1079,8 +1117,8 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
 
             model = prepare_model_for_kbit_training(model)
 
-            setattr(model, "model_parallel", True)
-            setattr(model, "is_parallelizable", True)
+            model.model_parallel = True
+            model.is_parallelizable = True
 
             config = LoraConfig(
                 r=16,
@@ -1435,8 +1473,8 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
 
             model = prepare_model_for_kbit_training(model)
 
-            setattr(model, "model_parallel", True)
-            setattr(model, "is_parallelizable", True)
+            model.model_parallel = True
+            model.is_parallelizable = True
 
             config = VeraConfig(
                 r=16,
@@ -1495,8 +1533,8 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
 
             model = prepare_model_for_kbit_training(model)
 
-            setattr(model, "model_parallel", True)
-            setattr(model, "is_parallelizable", True)
+            model.model_parallel = True
+            model.is_parallelizable = True
 
             config = PveraConfig(
                 r=16,
@@ -1555,8 +1593,8 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
 
             model = prepare_model_for_kbit_training(model)
 
-            setattr(model, "model_parallel", True)
-            setattr(model, "is_parallelizable", True)
+            model.model_parallel = True
+            model.is_parallelizable = True
 
             config = VeraConfig(
                 r=16,
@@ -1615,8 +1653,8 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
 
             model = prepare_model_for_kbit_training(model)
 
-            setattr(model, "model_parallel", True)
-            setattr(model, "is_parallelizable", True)
+            model.model_parallel = True
+            model.is_parallelizable = True
 
             config = PveraConfig(
                 r=16,
@@ -1783,8 +1821,8 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
 
             model = prepare_model_for_kbit_training(model)
 
-            setattr(model, "model_parallel", True)
-            setattr(model, "is_parallelizable", True)
+            model.model_parallel = True
+            model.is_parallelizable = True
 
             config = RandLoraConfig(
                 r=16,
@@ -1843,8 +1881,8 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
 
             model = prepare_model_for_kbit_training(model)
 
-            setattr(model, "model_parallel", True)
-            setattr(model, "is_parallelizable", True)
+            model.model_parallel = True
+            model.is_parallelizable = True
 
             config = RandLoraConfig(
                 r=16,
@@ -2007,8 +2045,8 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
 
             model = prepare_model_for_kbit_training(model)
 
-            setattr(model, "model_parallel", True)
-            setattr(model, "is_parallelizable", True)
+            model.model_parallel = True
+            model.is_parallelizable = True
 
             config = RoadConfig(
                 variant="road_1",
@@ -2065,8 +2103,8 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
 
             model = prepare_model_for_kbit_training(model)
 
-            setattr(model, "model_parallel", True)
-            setattr(model, "is_parallelizable", True)
+            model.model_parallel = True
+            model.is_parallelizable = True
 
             config = RoadConfig(
                 variant="road_1",
@@ -2197,13 +2235,125 @@ class PeftBnbGPUExampleTests(unittest.TestCase):
             # sanity check: assert loss is not None
             assert trainer.state.log_history[-1]["train_loss"] is not None
 
+    @pytest.mark.single_gpu_tests
+    def test_causal_lm_training_hira(self):
+        r"""
+        Test the CausalLM training on a single GPU device. This test is a converted version of
+        https://github.com/huggingface/peft/blob/main/examples/int8_training/Finetune_opt_bnb_peft.ipynb where we train
+        `opt-6.7b` on `english_quotes` dataset in few steps. The test would simply fail if the adapters are not set
+        correctly.
+        """
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            model = AutoModelForCausalLM.from_pretrained(
+                self.causal_lm_model_id,
+                quantization_config=BitsAndBytesConfig(load_in_8bit=True),
+                device_map="auto",
+            )
+
+            tokenizer = AutoTokenizer.from_pretrained(self.causal_lm_model_id)
+            model = prepare_model_for_kbit_training(model)
+
+            config = HiraConfig(
+                r=16,
+                target_modules=["q_proj", "v_proj"],
+                hira_dropout=0.05,
+                task_type="CAUSAL_LM",
+            )
+
+            model = get_peft_model(model, config)
+
+            data = load_dataset_english_quotes()
+            data = data.map(lambda samples: tokenizer(samples["quote"]), batched=True)
+
+            trainer = Trainer(
+                model=model,
+                train_dataset=data["train"],
+                args=TrainingArguments(
+                    per_device_train_batch_size=4,
+                    gradient_accumulation_steps=4,
+                    warmup_steps=2,
+                    max_steps=3,
+                    learning_rate=2e-4,
+                    fp16=True,
+                    logging_steps=1,
+                    output_dir=tmp_dir,
+                ),
+                data_collator=DataCollatorForLanguageModeling(tokenizer, mlm=False),
+            )
+            model.config.use_cache = False
+            trainer.train()
+
+            model.cpu().save_pretrained(tmp_dir)
+
+            assert "adapter_config.json" in os.listdir(tmp_dir)
+            assert SAFETENSORS_WEIGHTS_NAME in os.listdir(tmp_dir)
+
+            # assert loss is not None
+            assert trainer.state.log_history[-1]["train_loss"] is not None
+
+    @pytest.mark.single_gpu_tests
+    def test_causal_lm_training_4bit_hira(self):
+        r"""
+        Test the CausalLM training on a single GPU device. This test is a converted version of
+        https://github.com/huggingface/peft/blob/main/examples/int8_training/Finetune_opt_bnb_peft.ipynb where we train
+        `opt-6.7b` on `english_quotes` dataset in few steps using 4bit base model. The test would simply fail if the
+        adapters are not set correctly.
+        """
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            model = AutoModelForCausalLM.from_pretrained(
+                self.causal_lm_model_id,
+                quantization_config=BitsAndBytesConfig(load_in_4bit=True),
+                device_map="auto",
+            )
+
+            tokenizer = AutoTokenizer.from_pretrained(self.causal_lm_model_id)
+            model = prepare_model_for_kbit_training(model)
+
+            config = HiraConfig(
+                r=16,
+                target_modules=["q_proj", "v_proj"],
+                hira_dropout=0.05,
+                task_type="CAUSAL_LM",
+            )
+
+            model = get_peft_model(model, config)
+
+            data = load_dataset_english_quotes()
+            data = data.map(lambda samples: tokenizer(samples["quote"]), batched=True)
+
+            trainer = Trainer(
+                model=model,
+                train_dataset=data["train"],
+                args=TrainingArguments(
+                    per_device_train_batch_size=4,
+                    gradient_accumulation_steps=4,
+                    warmup_steps=2,
+                    max_steps=3,
+                    learning_rate=2e-4,
+                    fp16=True,
+                    logging_steps=1,
+                    output_dir=tmp_dir,
+                ),
+                data_collator=DataCollatorForLanguageModeling(tokenizer, mlm=False),
+            )
+            model.config.use_cache = False
+            trainer.train()
+
+            model.cpu().save_pretrained(tmp_dir)
+
+            assert "adapter_config.json" in os.listdir(tmp_dir)
+            assert SAFETENSORS_WEIGHTS_NAME in os.listdir(tmp_dir)
+
+            # assert loss is not None
+            assert trainer.state.log_history[-1]["train_loss"] is not None
+
 
 @require_non_cpu
 @require_gptqmodel
 @require_optimum
 class PeftGPTQGPUTests(unittest.TestCase):
     r"""
-    GPTQ + peft tests
+    GPT-QModel + PEFT tests
     """
 
     def setUp(self):
@@ -2452,8 +2602,8 @@ class PeftGPTQGPUTests(unittest.TestCase):
 
             model = prepare_model_for_kbit_training(model)
 
-            setattr(model, "model_parallel", True)
-            setattr(model, "is_parallelizable", True)
+            model.model_parallel = True
+            model.is_parallelizable = True
 
             config = LoraConfig(
                 r=16,
@@ -2629,8 +2779,31 @@ class TestOffloadSave:
         assert torch.allclose(post_unload_merge_olayer, pre_merge_olayer)
 
 
+def quantize_dequantize_weight(weight, num_bits):
+    """Round-trip a weight through bitsandbytes quantization to induce a realistic quantization error.
+
+    Uses the same quantization as loftq_init from peft.utils.loftq_utils, i.e. nf4 for 4 bits and int8 vectorwise for 8
+    bits.
+    """
+    import bitsandbytes as bnb
+
+    if num_bits == 4:
+        qweight, quant_state = bnb.functional.quantize_4bit(weight, quant_type="nf4")
+        dequantized_weight = bnb.functional.dequantize_4bit(qweight, quant_state)
+    elif num_bits == 8:
+        # Int8Params quantizes when being moved from CPU to the accelerator
+        int8_weight = bnb.nn.Int8Params(weight.to("cpu"), requires_grad=False)
+        # Int8Params it needs to be moved to a device via .to() for the quantization to happen.
+        int8_weight = int8_weight.to(weight.device)
+        dequantized_weight = bnb.functional.int8_vectorwise_dequant(int8_weight.data, int8_weight.SCB)
+    else:
+        raise ValueError("Only 4 and 8 bit quantization is supported")
+    return dequantized_weight.to(dtype=weight.dtype)
+
+
 @pytest.mark.skipif(not (torch.cuda.is_available() or is_xpu_available()), reason="test requires a GPU or XPU")
 @pytest.mark.single_gpu_tests
+@require_bitsandbytes
 class TestPiSSA:
     r"""
     Tests for PiSSA to ensure that it reduces the quantization error compared to normal LoRA quantization.
@@ -2641,13 +2814,11 @@ class TestPiSSA:
     # conservative value to prevent flakiness, in practice most gains are > 1.5
     error_factor = 1.03
 
-    def quantize_model(self, model, num_bits=4, device="cuda"):
+    def quantize_model(self, model, num_bits=4):
         # Quantize the `weight.data` of the linear layer in the model to `num_bits` and store it with full precision.
-        quantizer = NFQuantizer(num_bits=num_bits, device=device, method="normal", block_size=64)
         for name, module in model.named_modules():
             if isinstance(module, (torch.nn.Linear, Conv1D)) and "lm_head" not in name:
-                quantized_weight, max_abs, shape = quantizer.quantize_block(module.weight.data.to(device))
-                module.weight.data = quantizer.dequantize_block(quantized_weight, max_abs, shape)
+                module.weight.data = quantize_dequantize_weight(module.weight.data, num_bits=num_bits)
         return model
 
     def nuclear_norm(self, base_model, quantized_model):
@@ -2677,7 +2848,7 @@ class TestPiSSA:
         target_modules = "all-linear" if task_type != TaskType.SEQ_2_SEQ_LM else ["o", "k", "wi", "q", "v"]
         lora_config = LoraConfig(task_type=task_type, target_modules=target_modules)
 
-        qlora_model = self.quantize_model(cls.from_pretrained(model_id).eval().to(device), bits, device)
+        qlora_model = self.quantize_model(cls.from_pretrained(model_id).eval().to(device), bits)
         qlora_model = get_peft_model(
             qlora_model,
             lora_config,
@@ -2708,9 +2879,7 @@ class TestPiSSA:
         clear_device_cache(garbage_collection=True)
 
         # now load quantized model and apply PiSSA-initialized weights on top
-        qpissa_model = self.quantize_model(
-            cls.from_pretrained(tmp_path / "residual_model").eval().to(device), bits, device
-        )
+        qpissa_model = self.quantize_model(cls.from_pretrained(tmp_path / "residual_model").eval().to(device), bits)
         qpissa_model = PeftModel.from_pretrained(qpissa_model, tmp_path / "pissa_model")
         qpissa_model = qpissa_model.merge_and_unload()
         qpissa_error = self.nuclear_norm(base_model, qpissa_model)
@@ -2756,7 +2925,6 @@ class TestPiSSA:
         # see 2104
         self.get_errors(bits=8, device=device, model_id="gpt2", tmp_path=tmp_path)
 
-    @require_bitsandbytes
     def test_lora_pissa_conversion_same_output_after_loading_with_quantization(self, tmp_path):
         # A copy of the test `test_lora_pissa_conversion_same_output_after_loading` in peft/tests/test_initialization.py,
         # that would fail if bitsandbytes quantization is used because Quant(W_res) + AB !=Quant(W) + \Delta(AB).
@@ -2844,6 +3012,7 @@ class TestPiSSA:
 
 @pytest.mark.skipif(not (torch.cuda.is_available() or is_xpu_available()), reason="test requires a GPU or XPU")
 @pytest.mark.single_gpu_tests
+@require_bitsandbytes
 class TestOLoRA:
     r"""
     Tests for OLoRA to ensure that it reduces the quantization error compared to normal LoRA quantization.
@@ -2854,13 +3023,11 @@ class TestOLoRA:
     # conservative value to prevent flakiness, in practice most gains are > 1.5
     error_factor = 1.2
 
-    def quantize_model(self, model, num_bits=4, device="cuda"):
+    def quantize_model(self, model, num_bits=4):
         # Quantize the `weight.data` of the linear layer in the model to `num_bits` and store it with full precision.
-        quantizer = NFQuantizer(num_bits=num_bits, device=device, method="normal", block_size=64)
         for name, module in model.named_modules():
             if isinstance(module, torch.nn.Linear) and "lm_head" not in name:
-                quantized_weight, max_abs, shape = quantizer.quantize_block(module.weight.data.to(device))
-                module.weight.data = quantizer.dequantize_block(quantized_weight, max_abs, shape)
+                module.weight.data = quantize_dequantize_weight(module.weight.data, num_bits=num_bits)
         return model
 
     def nuclear_norm(self, base_model, quantized_model):
@@ -2890,7 +3057,7 @@ class TestOLoRA:
         target_modules = "all-linear" if task_type != TaskType.SEQ_2_SEQ_LM else ["o", "k", "wi", "q", "v"]
         lora_config = LoraConfig(task_type=task_type, target_modules=target_modules)
 
-        qlora_model = self.quantize_model(cls.from_pretrained(model_id).eval().to(device), bits, device)
+        qlora_model = self.quantize_model(cls.from_pretrained(model_id).eval().to(device), bits)
         qlora_model = get_peft_model(
             qlora_model,
             lora_config,
@@ -2920,9 +3087,7 @@ class TestOLoRA:
         clear_device_cache(garbage_collection=True)
 
         # now load quantized model and apply OLoRA-initialized weights on top
-        qolora_model = self.quantize_model(
-            cls.from_pretrained(tmp_path / "residual_model").eval().to(device), bits, device
-        )
+        qolora_model = self.quantize_model(cls.from_pretrained(tmp_path / "residual_model").eval().to(device), bits)
         qolora_model = PeftModel.from_pretrained(qolora_model, tmp_path / "olora_model")
         qolora_model = qolora_model.merge_and_unload()
         qolora_error = self.nuclear_norm(base_model, qolora_model)
@@ -4046,13 +4211,13 @@ class PeftAwqGPUTests(unittest.TestCase):
                 quantization_config=self.quantization_config,
             )
 
-            assert set(model.hf_device_map.values()) == set(range(device_count))
-            assert {p.device.index for p in model.parameters()} == set(range(device_count))
+            assert set(model.hf_device_map.values()) == {0, 1}
+            assert {p.device.index for p in model.parameters()} == {0, 1}
 
             model = prepare_model_for_kbit_training(model)
 
-            setattr(model, "model_parallel", True)
-            setattr(model, "is_parallelizable", True)
+            model.model_parallel = True
+            model.is_parallelizable = True
 
             config = LoraConfig(
                 r=16,
@@ -4121,12 +4286,6 @@ class PeftEetqGPUTests(unittest.TestCase):
         assert torch.isfinite(output.logits).all()
         model.train(training)
 
-    @pytest.mark.xfail(
-        reason="EETQ is not yet supported by Transformers v5",
-        condition=is_transformers_ge_v5,
-        strict=True,
-        raises=NotImplementedError,
-    )
     @pytest.mark.single_gpu_tests
     def test_causal_lm_training_eetq(self):
         r"""
@@ -4138,9 +4297,12 @@ class PeftEetqGPUTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             quantization_config = EetqConfig("int8")
 
-            model = AutoModelForCausalLM.from_pretrained(
-                self.causal_lm_model_id, device_map="auto", quantization_config=quantization_config
-            )
+            try:
+                model = AutoModelForCausalLM.from_pretrained(
+                    self.causal_lm_model_id, device_map="auto", quantization_config=quantization_config
+                )
+            except FileNotFoundError:
+                pytest.skip("There is no kernel for EETQ on this architecture, skipping this test.")
 
             model = prepare_model_for_kbit_training(model)
 
@@ -4182,12 +4344,6 @@ class PeftEetqGPUTests(unittest.TestCase):
             # assert loss is not None
             assert trainer.state.log_history[-1]["train_loss"] is not None
 
-    @pytest.mark.xfail(
-        reason="EETQ is not yet supported by Transformers v5",
-        condition=is_transformers_ge_v5,
-        strict=True,
-        raises=NotImplementedError,
-    )
     @pytest.mark.multi_gpu_tests
     @require_torch_multi_gpu
     def test_causal_lm_training_multi_gpu_eetq(self):
@@ -4211,8 +4367,8 @@ class PeftEetqGPUTests(unittest.TestCase):
 
             model = prepare_model_for_kbit_training(model)
 
-            setattr(model, "model_parallel", True)
-            setattr(model, "is_parallelizable", True)
+            model.model_parallel = True
+            model.is_parallelizable = True
 
             config = LoraConfig(
                 r=16,
@@ -4675,6 +4831,49 @@ class TestPeftTorchao:
         with pytest.raises(NotImplementedError, match=msg):
             model.merge_adapter()
 
+    @pytest.mark.single_gpu_tests
+    def test_torchao_lora_warns_when_base_not_quantized_via_transformers(self):
+        # Manually quantizing the base model with torchao.quantize_ leaves PEFT without
+        # `get_apply_tensor_subclass`, so the LoRA torchao linear emits a warning at init
+        # to flag that merge()/unmerge() will not work. When the base model is loaded via
+        # `TorchAoConfig`, PEFT recovers the requantization subclass and no warning fires.
+        from torchao.quantization import Int8WeightOnlyConfig, quantize_
+        from transformers import TorchAoConfig
+
+        device = 0
+        lora_config = LoraConfig(
+            r=8,
+            lora_alpha=16,
+            target_modules=["q_proj", "v_proj"],
+            lora_dropout=0.05,
+            bias="none",
+            task_type="CAUSAL_LM",
+        )
+
+        # Path 1: manual quantize_ -> warning expected, and merge() must raise.
+        model = AutoModelForCausalLM.from_pretrained(self.causal_lm_model_id, device_map=device)
+        quantize_(model, Int8WeightOnlyConfig())
+        with pytest.warns(UserWarning, match="get_apply_tensor_subclass"):
+            peft_model = get_peft_model(model, lora_config)
+        merge_msg = re.escape(
+            "was instantiated without `get_apply_tensor_subclass`, which is "
+            "required to re-quantize the base layer after merging."
+        )
+        with pytest.raises(ValueError, match=merge_msg):
+            peft_model.merge_adapter()
+        del peft_model, model
+        clear_device_cache(garbage_collection=True)
+
+        # Path 2: TorchAoConfig -> no such warning.
+        quantization_config = TorchAoConfig(quant_type=Int8WeightOnlyConfig())
+        model = AutoModelForCausalLM.from_pretrained(
+            self.causal_lm_model_id, device_map=device, quantization_config=quantization_config
+        )
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            get_peft_model(model, lora_config)
+        assert not any("get_apply_tensor_subclass" in str(w.message) for w in caught)
+
 
 PRECISIONS = [(torch.float32), (torch.float16), (torch.bfloat16)]
 
@@ -4729,7 +4928,7 @@ class TestAutoCast(unittest.TestCase):
     device = infer_device()
 
     # This test makes sure, that Lora dtypes are consistent with the types
-    # infered by torch.autocast under tested PRECISIONS
+    # inferred by torch.autocast under tested PRECISIONS
     @parameterized.expand(PRECISIONS)
     def test_simple_model(self, *args, **kwargs):
         self._test_model(SimpleModel(), *args, **kwargs)
@@ -4844,8 +5043,9 @@ class TestBOFT:
     @pytest.mark.single_gpu_tests
     def test_boft_half_linear(self):
         # Check that we can use BoFT with model loaded in half precision
+        config = boft.config.BOFTConfig(boft_n_butterfly_factor=2)
         layer = torch.nn.Linear(160, 160).to(self.device)
-        layer = boft.layer.Linear(layer, "layer", boft_n_butterfly_factor=2).to(dtype=torch.bfloat16)
+        layer = boft.layer.Linear(layer, "layer", config=config).to(dtype=torch.bfloat16)
         x = torch.randn(160, 160, device=self.device, dtype=torch.bfloat16)
         layer(x)  # does not raise
 
@@ -4853,7 +5053,8 @@ class TestBOFT:
     @pytest.mark.single_gpu_tests
     def test_boft_half_conv(self):
         conv = torch.nn.Conv2d(1, 1, 4).to(self.device)
-        conv = boft.layer.Conv2d(conv, "conv", boft_n_butterfly_factor=2).to(dtype=torch.bfloat16)
+        config = boft.config.BOFTConfig(boft_n_butterfly_factor=2)
+        conv = boft.layer.Conv2d(conv, "conv", config=config).to(dtype=torch.bfloat16)
         x = torch.randn(1, 160, 160, device=self.device, dtype=torch.bfloat16)
         conv(x)  # does not raise
 
@@ -5084,7 +5285,7 @@ class TestEvaInitializationGPU:
             model = AutoModelForCausalLM.from_pretrained(
                 model_id,
                 quantization_config=bnb_config,
-                attn_implementation="eager",  # gpt2 doesnt support flash attention
+                attn_implementation="eager",  # gpt2 doesn't support flash attention
             )
             model.transformer.h = model.transformer.h[:2]  # truncate to 2 layers
             model = prepare_model_for_kbit_training(model)
@@ -5154,7 +5355,7 @@ class TestEvaInitializationGPU:
                 )
 
         mean_cosine_similarities = {k: torch.tensor(v).mean() for k, v in cos_sims.items()}
-        for layer_name, mean_cosine_similarity in mean_cosine_similarities.items():
+        for mean_cosine_similarity in mean_cosine_similarities.values():
             assert mean_cosine_similarity > self.COSINE_SIMILARITY_THRESHOLD, (
                 f"Mean absolute cosine similarity {mean_cosine_similarity:.4f} "
                 f"is not greater than {self.COSINE_SIMILARITY_THRESHOLD}"
@@ -5284,6 +5485,29 @@ class TestEvaInitializationGPU:
         peft_model = PeftModel.from_pretrained(model, tmp_path, torch_device=self.DEVICE, low_cpu_mem_usage=True)
         peft_model(**{k: v.to(self.DEVICE) for k, v in next(iter(dataloader)).items()})
 
+    @pytest.mark.parametrize("use_label_mask", [True, False])
+    def test_eva_label_mask(self, model, dataset, peft_config, use_label_mask):
+        """
+        Tests that label masking works correctly in get_eva_state_dict (see PR #3234).
+        """
+
+        def add_labels(x):
+            return {
+                "labels": torch.where(
+                    x["attention_mask"].bool(),
+                    torch.ones_like(x["attention_mask"]),
+                    -100 * torch.ones_like(x["attention_mask"]),
+                )
+            }
+
+        dataset_with_labels = dataset.map(add_labels)
+        dataset_with_labels.set_format(type="torch")
+        dataloader = self.get_dataloader(dataset_with_labels)
+        modified_peft_config = deepcopy(peft_config)
+        modified_peft_config.eva_config = EvaConfig(rho=2, use_label_mask=use_label_mask)
+        sd = get_eva_state_dict(deepcopy(model), dataloader, modified_peft_config, show_progress_bar=False)
+        assert len(sd) > 0
+
     def test_eva_initialization_with_invalid_dataloader(self, model, peft_config):
         """Test that appropriate error is raised when dataloader is empty."""
         empty_dataset = Dataset.from_dict({"text": []})
@@ -5399,7 +5623,7 @@ class TestPrefixTuning:
     @require_torch_multi_accelerator
     def test_prefix_tuning_multiple_devices_encoder_decoder_model(self):
         # See issue 2134
-        model_id = "peft-internal-testing/tiny-random-T5Model"
+        model_id = "peft-internal-testing/tiny-random-t5"
         tokenizer = AutoTokenizer.from_pretrained(model_id, padding="left")
         inputs = tokenizer(["A list of colors: red, blue"], return_tensors="pt").to(self.device)
         device_map = {
@@ -5497,8 +5721,8 @@ class TestHotSwapping:
     def reset_dynamo_cache(self):
         # It is critical that the dynamo cache is reset for each test. Otherwise, if the test re-uses the same model,
         # there will be recompilation errors, as torch caches the model when run in the same process.
-        yield
         torch._dynamo.reset()
+        yield
 
     #######
     # LLM #
@@ -5582,6 +5806,97 @@ class TestHotSwapping:
         with torch._dynamo.config.patch(error_on_recompile=True):
             with pytest.raises(torch._dynamo.exc.RecompileError):  # raise an error on recompilation
                 self.check_hotswap(do_hotswap=False, ranks=ranks, alpha_scalings=ranks)
+
+    @pytest.mark.parametrize("do_compile", [False, True])
+    def test_hotswap_lora_target_parameters(self, do_compile, tmp_path):
+        # Test that hotswapping works with target_parameters. In this test, there is no need to call
+        # prepare_model_for_compiled_hotswap, as we use the same LoRA shapes. Due to (re-)compilation, the test is
+        # relatively slow.
+        atol, rtol = 1e-6, 1e-6
+        model_id = "trl-internal-testing/tiny-GptOssForCausalLM"
+        inputs = torch.arange(10).view(1, -1).to(self.torch_device)
+
+        def strong_init(model):
+            # increase the scale of the LoRA weights so that the difference between adapters is more pronounced, making the test more robust
+            for name, param in model.named_parameters():
+                if "lora_" in name:
+                    param.data *= 10.0
+
+        with hub_online_once(model_id):
+            model = AutoModelForCausalLM.from_pretrained(model_id).to(self.torch_device)
+            with torch.inference_mode():
+                output_base = model(inputs).logits
+
+            # create adapter 0
+            config = LoraConfig(
+                target_parameters=[
+                    "mlp.experts.down_proj",
+                    "mlp.experts.gate_up_proj",
+                ],
+                init_lora_weights=False,
+            )
+            torch.manual_seed(0)
+            model = get_peft_model(model, config)
+            strong_init(model)
+            # Note: For compilation, use eager backend, as the parameter targeting, which uses nn.utils.parametrize,
+            # leads to recompiles/graph breaks, which can significantly affect the outputs, even if weights are correctly
+            # loaded.
+            model = torch.compile(model, backend="eager")
+            with torch.inference_mode():
+                torch.manual_seed(0)
+                output0 = model(inputs).logits
+
+            # sanity check: outputs differ
+            assert not torch.allclose(output_base, output0, atol=1e-3, rtol=1e-3)
+
+            model.save_pretrained(tmp_path / "adapter0")
+            del model
+
+            # create adapter 1
+            model = AutoModelForCausalLM.from_pretrained(model_id).to(self.torch_device)
+            torch.manual_seed(1)
+            model = get_peft_model(model, config)
+            strong_init(model)
+            model = torch.compile(model, backend="eager")
+            model.eval()
+            with torch.inference_mode():
+                torch.manual_seed(0)
+                output1 = model(inputs).logits
+            model.save_pretrained(tmp_path / "adapter1")
+
+            # sanity check: they're not the same
+            assert not torch.allclose(output0, output1, atol=1e-3, rtol=1e-3)
+
+            del model
+
+            # load adapter 0
+            model = AutoModelForCausalLM.from_pretrained(model_id).to(self.torch_device)
+            model = PeftModel.from_pretrained(model, tmp_path / "adapter0")
+            model = torch.compile(model, backend="eager")
+            with torch.inference_mode():
+                torch.manual_seed(0)
+                output_loaded0 = model(inputs).logits
+
+            # sanity check: same output after loading for adapter 0
+            assert torch.allclose(output0, output_loaded0, atol=atol, rtol=rtol)
+
+            # hotswap with adapter 1
+            hotswap_adapter(model, tmp_path / "adapter1", adapter_name="default")
+            with torch.inference_mode():
+                torch.manual_seed(0)
+                output_loaded1 = model(inputs).logits
+
+            # real check: model now behaves like adapter 1
+            assert torch.allclose(output1, output_loaded1, atol=atol, rtol=rtol)
+
+            # hotswap back to adapter 0
+            hotswap_adapter(model, tmp_path / "adapter0", adapter_name="default")
+            with torch.inference_mode():
+                torch.manual_seed(0)
+                output_loaded_back0 = model(inputs).logits
+
+            # real check: model now behaves again like adapter 0
+            assert torch.allclose(output0, output_loaded_back0, atol=atol, rtol=rtol)
 
     ###################
     # DIFFUSION MODEL #
@@ -6458,7 +6773,7 @@ def _test_save_unsharded_weights(rank, world_size, port, tmp_dir_reference, tmp_
     Flow:
       1. Rank 0: create a plain (non-TP) PEFT model, save it as the reference.
       2. All ranks: load the TP base model, load the reference PEFT weights (shards on load), then save again.
-      3. Rank 0: compare the re-saved state dict against the original reference — they must match exactly.
+      3. Rank 0: compare the re-saved state dict against the original reference, they must match exactly.
     """
     if rank == 0:
         plain_model = AutoModelForCausalLM.from_pretrained(TINY_MODEL_ID)
@@ -6566,7 +6881,7 @@ def _test_load_adapter_save(rank, world_size, port, tmp_dir_reference, tmp_dir_t
     Flow:
       1. Rank 0: create a plain (non-TP) model, load adapter from config, save state dict as reference.
       2. All ranks: load TP base model, load adapter from config, save state dict via get_peft_model_state_dict.
-      3. Rank 0: compare re-saved state dict against the reference — keys and values must match.
+      3. Rank 0: compare re-saved state dict against the reference, keys and values must match.
     """
     if rank == 0:
         plain_model = AutoModelForCausalLM.from_pretrained(TINY_MODEL_ID)
@@ -6652,3 +6967,37 @@ class TestLoraTensorParallel:
         tmp_dir_reference = tmp_path / "reference"
         tmp_dir_tp = tmp_path / "tp"
         self._spawn(_test_load_adapter_save, tmp_dir_reference, tmp_dir_tp, port_offset=6)
+
+
+@pytest.mark.single_gpu_tests
+@require_bitsandbytes
+def test_kappatune_with_4bit_model():
+    """Test that KappaTune works with 4-bit quantized models on GPU."""
+    import torch
+    from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+
+    from peft.helpers import find_kappa_target_modules
+
+    # Use a very small model for faster testing
+    quantization_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_compute_dtype=torch.float16,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_use_double_quant=True,
+    )
+
+    model = AutoModelForCausalLM.from_pretrained(
+        "hf-internal-testing/tiny-random-LlamaForCausalLM",
+        quantization_config=quantization_config,
+        device_map="cuda",
+        torch_dtype=torch.float16,
+    )
+
+    # Run KappaTune
+    targets = find_kappa_target_modules(model, top_p=0.3)
+
+    # Basic assertions
+    assert isinstance(targets, dict)
+    assert "target_modules" in targets
+    assert isinstance(targets["target_modules"], list)
+    assert len(targets["target_modules"]) > 0, "Should return at least some target modules"

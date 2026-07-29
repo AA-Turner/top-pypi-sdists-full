@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cyscale
-Version: 0.5.0
+Version: 0.5.1
 Summary: Cython SCALE Codec Library
 Author-email: BD Himes <b@latent.to>
 License-Expression: Apache-2.0

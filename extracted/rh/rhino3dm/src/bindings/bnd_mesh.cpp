@@ -362,9 +362,102 @@ BND_DICT BND_Mesh::ToThreejsJSONRotate(bool rotateToYUp) const
 
   emscripten::val rc(emscripten::val::object());
   rc.set("data", data);
-  
+
   return rc;
 }
+
+// RH3DM-191: zero-copy alternative to ToThreejsJSON. Fills contiguous buffers and returns one
+// JS typed array per attribute via a single bulk copy each (Float32Array/Uint32Array
+// constructed from emscripten::typed_memory_view), avoiding the per-element val.set() boundary
+// crossings that dominate parse time for large meshes. The typed-array constructor copies out
+// of the WASM heap, so the local std::vector buffers can be freed when this returns.
+BND_DICT BND_Mesh::ToThreejsBuffers(bool rotateToYUp) const
+{
+  ON_Mesh* pMesh = m_mesh;
+  ON_Mesh tempMesh;
+  if (rotateToYUp)
+  {
+    tempMesh = *m_mesh;
+    ON_Xform rotation(1);
+    rotation.RotationZYX(0.0, 0.0, -ON_PI / 2.0);
+    tempMesh.Transform(rotation);
+    pMesh = &tempMesh;
+  }
+
+  // triangulated face indices (split quads into two triangles), matching ToThreejsJSONRotate
+  std::vector<uint32_t> indices;
+  indices.reserve((size_t)pMesh->m_F.Count() * 6);
+  for (int i = 0; i < pMesh->m_F.Count(); i++)
+  {
+    const ON_MeshFace& face = pMesh->m_F[i];
+    indices.push_back((uint32_t)face.vi[0]);
+    indices.push_back((uint32_t)face.vi[1]);
+    indices.push_back((uint32_t)face.vi[2]);
+    if (face.vi[2] != face.vi[3])
+    {
+      indices.push_back((uint32_t)face.vi[2]);
+      indices.push_back((uint32_t)face.vi[3]);
+      indices.push_back((uint32_t)face.vi[0]);
+    }
+  }
+
+  const int vcount = pMesh->m_V.Count();
+  std::vector<float> positions((size_t)vcount * 3);
+  for (int i = 0; i < vcount; i++)
+  {
+    positions[i * 3] = pMesh->m_V[i].x;
+    positions[i * 3 + 1] = pMesh->m_V[i].y;
+    positions[i * 3 + 2] = pMesh->m_V[i].z;
+  }
+
+  if (pMesh->m_N.Count() == 0)
+    pMesh->ComputeVertexNormals();
+  const int ncount = pMesh->m_N.Count();
+  std::vector<float> normals((size_t)ncount * 3);
+  for (int i = 0; i < ncount; i++)
+  {
+    normals[i * 3] = pMesh->m_N[i].x;
+    normals[i * 3 + 1] = pMesh->m_N[i].y;
+    normals[i * 3 + 2] = pMesh->m_N[i].z;
+  }
+
+  emscripten::val Float32Array = emscripten::val::global("Float32Array");
+  emscripten::val Uint32Array = emscripten::val::global("Uint32Array");
+
+  emscripten::val rc(emscripten::val::object());
+  rc.set("position", Float32Array.new_(emscripten::typed_memory_view(positions.size(), positions.data())));
+  rc.set("normal", Float32Array.new_(emscripten::typed_memory_view(normals.size(), normals.data())));
+  rc.set("index", Uint32Array.new_(emscripten::typed_memory_view(indices.size(), indices.data())));
+  rc.set("vertexCount", vcount);
+
+  if (pMesh->HasTextureCoordinates())
+  {
+    const int tcount = pMesh->m_T.Count();
+    std::vector<float> uvs((size_t)tcount * 2);
+    for (int i = 0; i < tcount; i++)
+    {
+      uvs[i * 2] = pMesh->m_T[i].x;
+      uvs[i * 2 + 1] = pMesh->m_T[i].y;
+    }
+    rc.set("uv", Float32Array.new_(emscripten::typed_memory_view(uvs.size(), uvs.data())));
+  }
+
+  if (pMesh->HasVertexColors())
+  {
+    const int ccount = pMesh->m_C.Count();
+    std::vector<float> colors((size_t)ccount * 3);
+    for (int i = 0; i < ccount; i++)
+    {
+      colors[i * 3] = pMesh->m_C[i].Red() / 255.0f;
+      colors[i * 3 + 1] = pMesh->m_C[i].Green() / 255.0f;
+      colors[i * 3 + 2] = pMesh->m_C[i].Blue() / 255.0f;
+    }
+    rc.set("color", Float32Array.new_(emscripten::typed_memory_view(colors.size(), colors.data())));
+  }
+
+  return rc;
+}
+
 BND_DICT BND_Mesh::ToThreejsJSONMerged(BND_TUPLE meshes, bool rotateYUp)
 {
   int length = meshes["length"].as<int>();
@@ -985,7 +1078,55 @@ bool BND_CachedTextureCoordinates::Contains(double x, double y, double z) const
 BND_CachedTextureCoordinates BND_Mesh::GetCachedTextureCoordinates( BND_UUID mappingId )
 {
   const ON_TextureCoordinates* tc = m_mesh->CachedTextureCoordinates( Binding_to_ON_UUID(mappingId) );
+  if (nullptr == tc)
+  {
+    ON_TextureCoordinates empty;
+    return BND_CachedTextureCoordinates(empty);
+  }
   return BND_CachedTextureCoordinates(*tc);
+}
+
+// Finds the object's texture mapping ref in the model. Mirrors the ONX_Model
+// helper in librhino3dm_native/on_mesh.cpp so the Py/JS bindings can resolve
+// mappings the same way the .NET layer does. (RH3DM-170)
+static const ON_MappingRef* GetMappingRefForObject(const ONX_Model& model, const ON_UUID& objectId, const ON_UUID& renderPluginId)
+{
+  ON_ModelComponentReference ref = model.ComponentFromId(ON_ModelComponent::Type::ModelGeometry, objectId);
+  if (ref.IsEmpty())
+    return nullptr;
+
+  const ON_ModelGeometryComponent* component_ptr = ON_ModelGeometryComponent::FromModelComponentRef(ref, &ON_ModelGeometryComponent::Unset);
+  if (nullptr == component_ptr)
+    return nullptr;
+
+  const ON_3dmObjectAttributes* attributes = component_ptr->Attributes(nullptr);
+  if (nullptr == attributes)
+    return nullptr;
+
+  return attributes->m_rendering_attributes.MappingRef(renderPluginId);
+}
+
+bool BND_Mesh::SetCachedTextureCoordinatesFromMaterial(const BND_ONXModel& file, BND_UUID objectId, const BND_Material& material)
+{
+  if (nullptr == m_mesh || !file.m_model || nullptr == material.m_material)
+    return false;
+
+  // MappingRef can be null; that is normal when the object has no texture mappings.
+  const ON_MappingRef* pMR = GetMappingRefForObject(*file.m_model, Binding_to_ON_UUID(objectId), ON_nil_uuid);
+  return m_mesh->SetCachedTextureCoordinatesFromMaterial(*file.m_model, *material.m_material, pMR);
+}
+
+BND_CachedTextureCoordinates* BND_Mesh::GetCachedTextureCoordinatesFromTexture(const BND_ONXModel& file, BND_UUID objectId, const BND_Texture& texture)
+{
+  if (nullptr == m_mesh || !file.m_model || nullptr == texture.m_texture)
+    return nullptr;
+
+  const ON_MappingRef* pMR = GetMappingRefForObject(*file.m_model, Binding_to_ON_UUID(objectId), ON_nil_uuid);
+  const ON_TextureCoordinates* tc = m_mesh->GetCachedTextureCoordinates(*file.m_model, *texture.m_texture, pMR);
+  if (nullptr == tc)
+    return nullptr;
+
+  return new BND_CachedTextureCoordinates(*tc);
 }
 
 void BND_Mesh::SetCachedTextureCoordinates(class BND_TextureMapping* tm, class BND_Transform* xf)
@@ -1137,6 +1278,8 @@ void initMeshBindings(rh3dmpymodule& m)
     .def("SetTextureCoordinates", &BND_Mesh::SetTextureCoordinates, py::arg("tm"), py::arg("xf"), py::arg("lazy"))
     .def("SetCachedTextureCoordinates", &BND_Mesh::SetCachedTextureCoordinates, py::arg("tm"), py::arg("xf"))
     .def("GetCachedTextureCoordinates", &BND_Mesh::GetCachedTextureCoordinates, py::arg("id"))
+    .def("SetCachedTextureCoordinatesFromMaterial", &BND_Mesh::SetCachedTextureCoordinatesFromMaterial, py::arg("file"), py::arg("objectId"), py::arg("material"))
+    .def("GetCachedTextureCoordinatesFromTexture", &BND_Mesh::GetCachedTextureCoordinatesFromTexture, py::arg("file"), py::arg("objectId"), py::arg("texture"))
     .def("Compact", &BND_Mesh::Compact)
     .def("Append", &BND_Mesh::Append, py::arg("other"))
     .def("CreatePartitions", &BND_Mesh::CreatePartitions, py::arg("maximumVertexCount"), py::arg("maximumTriangleCount"))
@@ -1288,12 +1431,15 @@ void initMeshBindings(void*)
     .function("setTextureCoordinates", &BND_Mesh::SetTextureCoordinates, allow_raw_pointers())
     .function("setCachedTextureCoordinates", &BND_Mesh::SetCachedTextureCoordinates, allow_raw_pointers())
     .function("getCachedTextureCoordinates", &BND_Mesh::GetCachedTextureCoordinates)
+    .function("setCachedTextureCoordinatesFromMaterial", &BND_Mesh::SetCachedTextureCoordinatesFromMaterial, allow_raw_pointers())
+    .function("getCachedTextureCoordinatesFromTexture", &BND_Mesh::GetCachedTextureCoordinatesFromTexture, allow_raw_pointers())
     .function("compact", &BND_Mesh::Compact)
     .function("append", &BND_Mesh::Append)
     .function("createPartitions", &BND_Mesh::CreatePartitions)
     .property("partitionCount", &BND_Mesh::PartitionCount)
     .function("toThreejsJSON", &BND_Mesh::ToThreejsJSON)
     .function("toThreejsJSONRotate", &BND_Mesh::ToThreejsJSONRotate)
+    .function("toThreejsBuffers", &BND_Mesh::ToThreejsBuffers)
     .class_function("createFromThreejsJSON", &BND_Mesh::CreateFromThreejsJSON, allow_raw_pointers())
     ;
 }

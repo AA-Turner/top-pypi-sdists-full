@@ -37,14 +37,14 @@ if (${RHINO3DM_PY})
   endif()
 endif()
 
-message("NODE=${NODE}")
-if( NODE ) 
-    message("NODE evaluates to True")
+if (NODE)
+  message("NODE=${NODE}")
+  message("NODE evaluates to True")
 endif()
 
-message("MODULE=${MODULE}")
-if( MODULE ) 
-    message("MODULE evaluates to True")
+if (MODULE)
+  message("MODULE=${MODULE}")
+  message("MODULE evaluates to True")
 endif()
 
 # Add draco add_library
@@ -76,13 +76,43 @@ if(${RHINO3DM_JS})
   else()
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Oz")
   endif()
-  if(NODE)
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s MEMORY64=1")
+  # WASM64 (wasm memory64) is its own build dimension, independent of NODE.
+  # It produces a 64-bit-memory binary that breaks the 4GB limit. Chrome ships
+  # memory64 unflagged and Node supports it; Firefox/Safari are still gated, so
+  # the default build stays wasm32 and WASM64 is opt-in.
+  if(WASM64)
+    message("WASM64 (memory64) build")
+    # -sMEMORY64 is a codegen/target flag (wasm32 -> wasm64): it must be applied
+    # at compile time to C sources (zlib, uuid) as well as C++, and to the draco
+    # sub-build (see script/setup.py), or the objects link as mixed
+    # wasm32/wasm64 and fail. (It also reaches the link line via CXX flags.)
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -sMEMORY64=1")
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -sMEMORY64=1")
   endif()
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s MODULARIZE=1 -s EXPORT_NAME=rhino3dm  -s ALLOW_MEMORY_GROWTH=1 --bind")
+  # The remaining -s settings and -lembind are link-only; keep them out of the
+  # compile flags so every object doesn't emit a "linker setting ignored during
+  # compilation" / "linker input unused" warning.
+  set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -sMODULARIZE=1 -sEXPORT_NAME=rhino3dm -sALLOW_MEMORY_GROWTH=1 -lembind")
   if(MODULE)
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s EXPORT_ES6=1")
+    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -sEXPORT_ES6=1")
   endif()
+endif()
+
+if (${RHINO3DM_PY})
+  # Set default symbol visibility to hidden to prevent conflicts with other libraries
+  if(NOT MSVC)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden")
+  endif()
+endif()
+
+if(MSVC)
+  # Faster MSVC builds: parallelize the solution over projects (/MP), and each
+  # project over files via the multi-tool task scheduler; use incremental linking.
+  add_compile_options("/MP")
+  set (CMAKE_VS_GLOBALS "${CMAKE_VS_GLOBALS};UseMultiToolTask=true;EnforceProcessCountAcrossBuilds=true")
+  add_compile_options("/openmp")     # OpenNURBS can use OpenMP; no need to force the single-threaded variant
+  add_link_options("/INCREMENTAL")
 endif()
 
 add_definitions(-D_GNU_SOURCE)
@@ -90,17 +120,18 @@ add_definitions(-DON_COMPILING_OPENNURBS)
 add_definitions(-DOPENNURBS_FREETYPE_INC_)
 add_definitions(-DMY_ZCALLOC -DZ_PREFIX)
 add_definitions(-DOPENNURBS_ZLIB_LIB_DIR)
+# RH3DM-179: we link zlib via CMake, not the MSVC #pragma comment(lib,...) path, so tell
+# opennurbs to skip that pragma block (otherwise OPENNURBS_ZLIB_LIB_DIR being valueless
+# yields a malformed string -> MSVC C4081). The native librhino3dm_native build already
+# defines this; mirror it here for the JS/Python build.
+add_definitions(-DON_CMAKE_BUILD)
 add_definitions(-DUNICODE)
 add_definitions(-DON_INCLUDE_DRACO)
 if(${RHINO3DM_JS})
-  # temporary until we adjust opennurbs to be emscripten aware
-  if(NODE)
-    add_definitions(-DON_64BIT_RUNTIME)
-  else()
-    add_definitions(-DON_32BIT_RUNTIME)
-  endif()
-  add_definitions(-DON_LITTLE_ENDIAN)
-  add_definitions(-DON_RUNTIME_WASM)
+  # opennurbs (>= 8.32) is emscripten-aware: it auto-defines ON_RUNTIME_WASM,
+  # ON_LITTLE_ENDIAN, and selects ON_64BIT_RUNTIME / ON_32BIT_RUNTIME from the
+  # actual wasm pointer size. So a WASM64 build only needs -sMEMORY64=1 (set
+  # above) and opennurbs derives the 64-bit runtime itself. No manual defines.
 
   set(CMAKE_EXECUTABLE_SUFFIX ".js")
 
@@ -122,11 +153,27 @@ if (${RHINO3DM_PY})
       pybind11_add_module(_rhino3dm ${bindings_SRC} ${opennurbs_SRC} ${zlib_SRC} ${uuid_SRC})
       target_link_libraries(_rhino3dm PRIVATE pybind11::module)
     endif()
+    # Hide all symbols by default to prevent conflicts with other libraries (e.g., OpenVDB's zlib)
+    set_target_properties(_rhino3dm PROPERTIES
+      CXX_VISIBILITY_PRESET hidden
+      C_VISIBILITY_PRESET hidden
+      VISIBILITY_INLINES_HIDDEN ON
+    )
     #pybind11_add_module(_rhino3dm ${bindings_SRC} ${opennurbs_SRC} ${zlib_SRC} ${uuid_SRC})
     #target_link_libraries(_rhino3dm -luuid)
   else()
     add_library(zlib_static STATIC ${zlib_SRC})
+    set_target_properties(zlib_static PROPERTIES 
+      CXX_VISIBILITY_PRESET hidden
+      C_VISIBILITY_PRESET hidden
+      VISIBILITY_INLINES_HIDDEN ON
+    )
     add_library(opennurbs_static STATIC ${opennurbs_SRC})
+    set_target_properties(opennurbs_static PROPERTIES
+      CXX_VISIBILITY_PRESET hidden
+      C_VISIBILITY_PRESET hidden
+      VISIBILITY_INLINES_HIDDEN ON
+    )
     if(PYTHON_BINDING_LIB STREQUAL "NANOBIND")
       #need to build nanobind to link it?
       nanobind_build_library(nanobind)
@@ -139,6 +186,12 @@ if (${RHINO3DM_PY})
     
     target_link_libraries(_rhino3dm PRIVATE zlib_static)
     target_link_libraries(_rhino3dm PRIVATE opennurbs_static)
+    # Hide all symbols by default to prevent conflicts with other libraries
+    set_target_properties(_rhino3dm PROPERTIES
+      CXX_VISIBILITY_PRESET hidden
+      C_VISIBILITY_PRESET hidden
+      VISIBILITY_INLINES_HIDDEN ON
+    )
   endif()
 
   add_subdirectory(lib/draco)
@@ -146,6 +199,17 @@ if (${RHINO3DM_PY})
     target_link_libraries(_rhino3dm PRIVATE debug lib/draco/Debug/draco)
     target_link_libraries(_rhino3dm PRIVATE optimized ${CMAKE_BINARY_DIR}/draco_static/Release/draco.lib)
   else()
-    target_link_libraries(_rhino3dm PRIVATE ${CMAKE_BINARY_DIR}/draco_static/libdraco.a)
+    target_link_libraries(_rhino3dm PRIVATE draco_static)
+  endif()
+endif()
+
+if (MSVC)
+  # Build the rhino3dm code with warnings on. TODO: raise to /W4 (and eventually
+  # /WX) once OpenNURBS builds clean at that level.
+  if (TARGET _rhino3dm)
+    target_compile_options(_rhino3dm PRIVATE "/W3")
+  endif()
+  if (TARGET opennurbs_static)
+    target_compile_options(opennurbs_static PRIVATE "/W3")
   endif()
 endif()

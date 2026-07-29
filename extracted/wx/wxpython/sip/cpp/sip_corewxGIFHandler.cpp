@@ -10,8 +10,9 @@
 #include "sipAPI_core.h"
         #include <wx/imaggif.h>
         #include <wx/stream.h>
-        #include <wx/stream.h>
+    #include <vector>
         #include <wx/image.h>
+        #include <wx/stream.h>
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
@@ -281,7 +282,8 @@ static PyObject *meth_wxGIFHandler_SaveAnimation(PyObject *sipSelf, PyObject *si
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        const ::wxImageArray* images;
+        const std::vector< ::wxImage>* images;
+        int imagesState = 0;
         ::wxOutputStream* stream;
         int streamState = 0;
         bool verbose = 1;
@@ -295,7 +297,7 @@ static PyObject *meth_wxGIFHandler_SaveAnimation(PyObject *sipSelf, PyObject *si
             sipName_delayMilliSecs,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J0|bi", &sipSelf, sipType_wxGIFHandler, &sipCpp, sipType_wxImageArray, &images, sipType_wxOutputStream, &stream, &streamState, &verbose, &delayMilliSecs))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1J0|bi", &sipSelf, sipType_wxGIFHandler, &sipCpp, sipType_std_vector_0100wxImage, &images, &imagesState, sipType_wxOutputStream, &stream, &streamState, &verbose, &delayMilliSecs))
         {
             bool sipRes;
 
@@ -304,6 +306,7 @@ static PyObject *meth_wxGIFHandler_SaveAnimation(PyObject *sipSelf, PyObject *si
             Py_BEGIN_ALLOW_THREADS
             sipRes = sipCpp->SaveAnimation(*images, stream, verbose, delayMilliSecs);
             Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast<std::vector< ::wxImage> *>(images), sipType_std_vector_0100wxImage, imagesState);
             sipReleaseType(stream, sipType_wxOutputStream, streamState);
 
             if (PyErr_Occurred())
@@ -453,7 +456,7 @@ static void *init_type_wxGIFHandler(sipSimpleWrapper *sipSelf, PyObject *sipArgs
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGIFHandler[] = {{284, 255, 1}};
+static sipEncodedTypeDef supers_wxGIFHandler[] = {{291, 255, 1}};
 
 
 static PyMethodDef methods_wxGIFHandler[] = {

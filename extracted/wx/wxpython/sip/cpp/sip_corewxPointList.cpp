@@ -118,9 +118,7 @@ static int slot_wxPointList___contains__(PyObject *sipSelf, PyObject *sipArg)
         if (sipParseArgs(&sipParseErr, sipArg, "1J0", sipType_wxPoint, &obj, &objState))
         {
             int sipRes = 0;
-        wxPointList::compatibility_iterator node;
-        node = sipCpp->Find((wxPoint*)obj);
-        sipRes = node != NULL;
+        sipRes = sipCpp->Member((wxPoint*)obj);
             sipReleaseType(const_cast< ::wxPoint *>(obj), sipType_wxPoint, objState);
 
             return sipRes;

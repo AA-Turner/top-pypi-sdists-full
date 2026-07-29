@@ -103,6 +103,8 @@ wxEVT_GRID_ROW_SIZE: int
 wxEVT_GRID_ROW_AUTO_SIZE: int
 wxEVT_GRID_COL_SIZE: int
 wxEVT_GRID_COL_AUTO_SIZE: int
+wxEVT_GRID_ROW_LABEL_SIZE: int
+wxEVT_GRID_COL_LABEL_SIZE: int
 wxEVT_GRID_RANGE_SELECTING: int
 wxEVT_GRID_RANGE_SELECTED: int
 wxEVT_GRID_CELL_CHANGING: int
@@ -171,6 +173,13 @@ class GridCellCoords:
         Set(row, col) -> None
         
         Set the row and column of the coordinate.
+        """
+
+    def IsFullySpecified(self) -> bool:
+        """
+        IsFullySpecified() -> bool
+        
+        Returns true if neither the row nor column are invalid (-1).
         """
 
     def __eq__(self, other: Union[GridCellCoords, wx._TwoInts]) -> bool:
@@ -344,7 +353,7 @@ class GridBlockCoords:
         """
         Canonicalize() -> GridBlockCoords
         
-        Return the canonicalized block where top left coordinates is less then
+        Return the canonicalized block where top left coordinates is less than
         bottom right coordinates.
         """
 
@@ -947,9 +956,9 @@ class GridCellEditor(wx.SharedClientDataContainer, wx.RefCounter):
         Size and position the edit control.
         """
 
-    def Show(self, show: bool, attr: Optional[GridCellAttr]=None) -> None:
+    def Show(self, show: bool, attr: GridCellAttr=nullptr) -> None:
         """
-        Show(show, attr=None) -> None
+        Show(show, attr=nullptr) -> None
         
         Show or hide the edit control, use the specified attributes to set colours/fonts for it.
         """
@@ -1459,7 +1468,7 @@ class GridFitMode:
 
 class GridCellAttr(wx.SharedClientDataContainer, wx.RefCounter):
     """
-    GridCellAttr(attrDefault=None) -> None
+    GridCellAttr(attrDefault=nullptr) -> None
     GridCellAttr(colText, colBack, font, hAlign, vAlign) -> None
     
     This class can be used to alter the cells' appearance in the grid by
@@ -1486,9 +1495,9 @@ class GridCellAttr(wx.SharedClientDataContainer, wx.RefCounter):
         ...
 
     @overload
-    def __init__(self, attrDefault: Optional[GridCellAttr]=None) -> None:
+    def __init__(self, attrDefault: GridCellAttr=nullptr) -> None:
         """
-        GridCellAttr(attrDefault=None) -> None
+        GridCellAttr(attrDefault=nullptr) -> None
         GridCellAttr(colText, colBack, font, hAlign, vAlign) -> None
         
         This class can be used to alter the cells' appearance in the grid by
@@ -2660,11 +2669,17 @@ class Grid(wx.ScrolledCanvas):
         Assigns a pointer to a custom grid table to be used by the grid.
         """
 
+    @overload
+    def ProcessTableMessage(self, table: GridTableBase, id: int, comInt1: int=-1, comInt2: int=-1) -> bool:
+        ...
+
+    @overload
     def ProcessTableMessage(self, msg: GridTableMessage) -> bool:
         """
         ProcessTableMessage(msg) -> bool
+        ProcessTableMessage(table, id, comInt1=-1, comInt2=-1) -> bool
         
-        Receive and handle a message from the table.
+        Reacts to a message notifying about a change to the grid shape.
         """
 
     def EnableGridLines(self, enable: bool=True) -> None:
@@ -3675,6 +3690,22 @@ class Grid(wx.ScrolledCanvas):
         mouse.
         """
 
+    def CanDragRowLabelSize(self) -> bool:
+        """
+        CanDragRowLabelSize() -> bool
+        
+        Returns true if the row labels can be resized by dragging with the
+        mouse.
+        """
+
+    def CanDragColLabelSize(self) -> bool:
+        """
+        CanDragColLabelSize() -> bool
+        
+        Returns true if the column labels can be resized by dragging with the
+        mouse.
+        """
+
     def CanHideColumns(self) -> bool:
         """
         CanHideColumns() -> bool
@@ -3732,11 +3763,32 @@ class Grid(wx.ScrolledCanvas):
         Disables row sizing by dragging with the mouse.
         """
 
+    def DisableDragRowLabelSize(self) -> None:
+        """
+        DisableDragRowLabelSize() -> None
+        
+        Disables row label sizing by dragging with the mouse.
+        """
+
+    def DisableDragColLabelSize(self) -> None:
+        """
+        DisableDragColLabelSize() -> None
+        
+        Disables column label sizing by dragging with the mouse.
+        """
+
     def DisableHidingColumns(self) -> None:
         """
         DisableHidingColumns() -> None
         
         Disables column hiding from the header popup menu.
+        """
+
+    def EnableColResize(self, col: int) -> None:
+        """
+        EnableColResize(col) -> None
+        
+        Enable interactively resizing a column if it was previously forbidden.
         """
 
     def EnableDragCell(self, enable: bool=True) -> None:
@@ -3782,11 +3834,32 @@ class Grid(wx.ScrolledCanvas):
         Enables or disables row sizing by dragging with the mouse.
         """
 
+    def EnableDragRowLabelSize(self, enable: bool=True) -> None:
+        """
+        EnableDragRowLabelSize(enable=True) -> None
+        
+        Enables or disables row label sizing by dragging with the mouse.
+        """
+
+    def EnableDragColLabelSize(self, enable: bool=True) -> None:
+        """
+        EnableDragColLabelSize(enable=True) -> None
+        
+        Enables or disables col label sizing by dragging with the mouse.
+        """
+
     def EnableHidingColumns(self, enable: bool=True) -> bool:
         """
         EnableHidingColumns(enable=True) -> bool
         
         Enables or disables column hiding from the header popup menu.
+        """
+
+    def EnableRowResize(self, row: int) -> None:
+        """
+        EnableRowResize(row) -> None
+        
+        Enable interactively resizing a row if it was previously forbidden.
         """
 
     def GetColAt(self, colPos: int) -> int:
@@ -3996,6 +4069,13 @@ class Grid(wx.ScrolledCanvas):
         Deselects all cells that are currently selected.
         """
 
+    def CopySelection(self) -> bool:
+        """
+        CopySelection() -> bool
+        
+        Copies all cells that are currently selected.
+        """
+
     def DeselectRow(self, row: int) -> None:
         """
         DeselectRow(row) -> None
@@ -4171,6 +4251,22 @@ class Grid(wx.ScrolledCanvas):
         Set the selection behaviour of the grid.
         """
 
+    def UsesOverlaySelection(self) -> bool:
+        """
+        UsesOverlaySelection() -> bool
+        
+        Return true if overlay selection can be used
+        (wxUSE_GRAPHICS_CONTEXT=1) and DisableOverlaySelection() hadn't been
+        called, false otherwise.
+        """
+
+    def DisableOverlaySelection(self) -> None:
+        """
+        DisableOverlaySelection() -> None
+        
+        Disable overlay selection if it is enabled.
+        """
+
     def GetScrollLineX(self) -> int:
         """
         GetScrollLineX() -> int
@@ -4241,9 +4337,9 @@ class Grid(wx.ScrolledCanvas):
         Sets the number of pixels per vertical scroll increment.
         """
 
-    def BlockToDeviceRect(self, topLeft: Union[GridCellCoords, wx._TwoInts], bottomRight: Union[GridCellCoords, wx._TwoInts], gridWindow: Optional[GridWindow]=None) -> wx.Rect:
+    def BlockToDeviceRect(self, topLeft: Union[GridCellCoords, wx._TwoInts], bottomRight: Union[GridCellCoords, wx._TwoInts], gridWindow: GridWindow=nullptr) -> wx.Rect:
         """
-        BlockToDeviceRect(topLeft, bottomRight, gridWindow=None) -> wx.Rect
+        BlockToDeviceRect(topLeft, bottomRight, gridWindow=nullptr) -> wx.Rect
         
         Convert grid cell coordinates to grid window pixel coordinates.
         """
@@ -4324,9 +4420,9 @@ class Grid(wx.ScrolledCanvas):
         account the grid window type.
         """
 
-    def XToCol(self, x: int, clipToMinMax: bool=False, gridWindow: Optional[GridWindow]=None) -> int:
+    def XToCol(self, x: int, clipToMinMax: bool=False, gridWindow: GridWindow=nullptr) -> int:
         """
-        XToCol(x, clipToMinMax=False, gridWindow=None) -> int
+        XToCol(x, clipToMinMax=False, gridWindow=nullptr) -> int
         
         Returns the column at the given pixel position depending on the
         window.
@@ -4341,14 +4437,14 @@ class Grid(wx.ScrolledCanvas):
         """
 
     @overload
-    def XYToCell(self, pos: wx.Point, gridWindow: Optional[GridWindow]=None) -> GridCellCoords:
+    def XYToCell(self, pos: wx.Point, gridWindow: GridWindow=nullptr) -> GridCellCoords:
         ...
 
     @overload
-    def XYToCell(self, x: int, y: int, gridWindow: Optional[GridWindow]=None) -> GridCellCoords:
+    def XYToCell(self, x: int, y: int, gridWindow: GridWindow=nullptr) -> GridCellCoords:
         """
-        XYToCell(x, y, gridWindow=None) -> GridCellCoords
-        XYToCell(pos, gridWindow=None) -> GridCellCoords
+        XYToCell(x, y, gridWindow=nullptr) -> GridCellCoords
+        XYToCell(pos, gridWindow=nullptr) -> GridCellCoords
         
         Translates logical pixel coordinates to the grid cell coordinates.
         """
@@ -4361,9 +4457,9 @@ class Grid(wx.ScrolledCanvas):
         position.
         """
 
-    def YToRow(self, y: int, clipToMinMax: bool=False, gridWindow: Optional[GridWindow]=None) -> int:
+    def YToRow(self, y: int, clipToMinMax: bool=False, gridWindow: GridWindow=nullptr) -> int:
         """
-        YToRow(y, clipToMinMax=False, gridWindow=None) -> int
+        YToRow(y, clipToMinMax=False, gridWindow=nullptr) -> int
         
         Returns the grid row that corresponds to the logical y coordinate.
         """
@@ -4606,23 +4702,23 @@ class Grid(wx.ScrolledCanvas):
         Sets the cell attributes for all cells in the specified row.
         """
 
-    def CalcRowLabelsExposed(self, reg: wx.Region, gridWindow: Optional[GridWindow]=None) -> List[int]:
+    def CalcRowLabelsExposed(self, reg: wx.Region, gridWindow: GridWindow=nullptr) -> List[int]:
         """
-        CalcRowLabelsExposed(reg, gridWindow=None) -> List[int]
+        CalcRowLabelsExposed(reg, gridWindow=nullptr) -> List[int]
         
         Returns an array of row labels within the given region.
         """
 
-    def CalcColLabelsExposed(self, reg: wx.Region, gridWindow: Optional[GridWindow]=None) -> List[int]:
+    def CalcColLabelsExposed(self, reg: wx.Region, gridWindow: GridWindow=nullptr) -> List[int]:
         """
-        CalcColLabelsExposed(reg, gridWindow=None) -> List[int]
+        CalcColLabelsExposed(reg, gridWindow=nullptr) -> List[int]
         
         Returns an array of column labels within the given region.
         """
 
-    def CalcCellsExposed(self, reg: wx.Region, gridWindow: Optional[GridWindow]=None) -> GridCellCoordsArray:
+    def CalcCellsExposed(self, reg: wx.Region, gridWindow: GridWindow=nullptr) -> GridCellCoordsArray:
         """
-        CalcCellsExposed(reg, gridWindow=None) -> GridCellCoordsArray
+        CalcCellsExposed(reg, gridWindow=nullptr) -> GridCellCoordsArray
         
         Returns an array of (visible) cells within the given region.
         """
@@ -4690,6 +4786,20 @@ class Grid(wx.ScrolledCanvas):
         GetFrozenColGridWindow() -> wx.Window
         
         Return the columns grid window containing column frozen cells.
+        """
+
+    def GetFrozenRowLabelWindow(self) -> wx.Window:
+        """
+        GetFrozenRowLabelWindow() -> wx.Window
+        
+        Return the row labels window containing frozen cells.
+        """
+
+    def GetFrozenColLabelWindow(self) -> wx.Window:
+        """
+        GetFrozenColLabelWindow() -> wx.Window
+        
+        Return the column labels window containing frozen cells.
         """
 
     def GetGridRowLabelWindow(self) -> wx.Window:
@@ -4762,10 +4872,17 @@ class Grid(wx.ScrolledCanvas):
         ...
 
     @overload
+    def DrawTextRectangle(self, dc: wx.DC, text: str, rect: wx.Rect, attr: GridCellAttr, defaultHAlign: int=wx.ALIGN_INVALID, defaultVAlign: int=wx.ALIGN_INVALID) -> None:
+        ...
+
+    @overload
     def DrawTextRectangle(self, dc: wx.DC, text: str, rect: wx.Rect, horizontalAlignment: int=wx.ALIGN_LEFT, verticalAlignment: int=wx.ALIGN_TOP, textOrientation: int=wx.HORIZONTAL) -> None:
         """
         DrawTextRectangle(dc, text, rect, horizontalAlignment=wx.ALIGN_LEFT, verticalAlignment=wx.ALIGN_TOP, textOrientation=wx.HORIZONTAL) -> None
         DrawTextRectangle(dc, lines, rect, horizontalAlignment=wx.ALIGN_LEFT, verticalAlignment=wx.ALIGN_TOP, textOrientation=wx.HORIZONTAL) -> None
+        DrawTextRectangle(dc, text, rect, attr, defaultHAlign=wx.ALIGN_INVALID, defaultVAlign=wx.ALIGN_INVALID) -> None
+        
+        Draw the given text inside the specified rectangle.
         """
 
     def GetCellHighlightColour(self) -> wx.Colour:
@@ -4806,6 +4923,11 @@ class Grid(wx.ScrolledCanvas):
     def SetGridFrozenBorderPenWidth(self, width: int) -> None:
         """
         SetGridFrozenBorderPenWidth(width) -> None
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
         """
 
     @staticmethod
@@ -4910,9 +5032,13 @@ class Grid(wx.ScrolledCanvas):
     @property
     def FrozenColGridWindow(self) -> wx.Window: ...
     @property
+    def FrozenColLabelWindow(self) -> wx.Window: ...
+    @property
     def FrozenCornerGridWindow(self) -> wx.Window: ...
     @property
     def FrozenRowGridWindow(self) -> wx.Window: ...
+    @property
+    def FrozenRowLabelWindow(self) -> wx.Window: ...
     @property
     def GridColHeader(self) -> wx.HeaderCtrl: ...
     @property
@@ -5049,16 +5175,16 @@ class Grid(wx.ScrolledCanvas):
 
 class GridUpdateLocker:
     """
-    GridUpdateLocker(grid=None) -> None
+    GridUpdateLocker(grid=nullptr) -> None
     
     This small class can be used to prevent wxGrid from redrawing during
     its lifetime by calling wxGrid::BeginBatch() in its constructor and
     wxGrid::EndBatch() in its destructor.
     """
 
-    def __init__(self, grid: Optional[Grid]=None) -> None:
+    def __init__(self, grid: Grid=nullptr) -> None:
         """
-        GridUpdateLocker(grid=None) -> None
+        GridUpdateLocker(grid=nullptr) -> None
         
         This small class can be used to prevent wxGrid from redrawing during
         its lifetime by calling wxGrid::BeginBatch() in its constructor and
@@ -5141,6 +5267,20 @@ class GridEvent(wx.NotifyEvent):
         Row at which the event occurred.
         """
 
+    def GetNewRow(self) -> int:
+        """
+        GetNewRow() -> int
+        
+        Target row for wxEVT_GRID_ROW_MOVE.
+        """
+
+    def GetNewCol(self) -> int:
+        """
+        GetNewCol() -> int
+        
+        Target column for wxEVT_GRID_COL_MOVE.
+        """
+
     def MetaDown(self) -> bool:
         """
         MetaDown() -> bool
@@ -5164,6 +5304,10 @@ class GridEvent(wx.NotifyEvent):
         """
     @property
     def Col(self) -> int: ...
+    @property
+    def NewCol(self) -> int: ...
+    @property
+    def NewRow(self) -> int: ...
     @property
     def Position(self) -> wx.Point: ...
     @property

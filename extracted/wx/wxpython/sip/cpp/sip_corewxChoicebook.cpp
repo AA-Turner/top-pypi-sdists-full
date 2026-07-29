@@ -13,6 +13,7 @@
         #include <wx/gdicmn.h>
         #include <wx/gdicmn.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/validate.h>
         #include <wx/choice.h>
@@ -20,14 +21,14 @@
         #include <wx/dc.h>
         #include <wx/event.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -48,6 +49,15 @@
     wxChoice* _wxChoicebook_GetChoiceCtrl(wxChoicebook* self)
     {
         return(self->GetChoiceCtrl());
+    }
+    wxAccessible* _wxChoicebook_CreateAccessible(wxChoicebook* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
     }
 
 
@@ -76,7 +86,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -122,7 +131,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -151,7 +159,7 @@ private:
     sipwxChoicebook(const sipwxChoicebook &);
     sipwxChoicebook &operator = (const sipwxChoicebook &);
 
-    char sipPyMethods[55];
+    char sipPyMethods[54];
 };
 
 sipwxChoicebook::sipwxChoicebook(): ::wxChoicebook(), sipPySelf(SIP_NULLPTR)
@@ -182,9 +190,9 @@ void sipwxChoicebook::RemoveChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 void sipwxChoicebook::AddChild(::wxWindowBase*child)
@@ -200,9 +208,9 @@ void sipwxChoicebook::AddChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 bool sipwxChoicebook::ProcessEvent(::wxEvent& event)
@@ -215,9 +223,9 @@ bool sipwxChoicebook::ProcessEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxChoicebook::ProcessEvent(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxChoicebook::TryBefore(::wxEvent& event)
@@ -230,9 +238,9 @@ bool sipwxChoicebook::TryBefore(::wxEvent& event)
     if (!sipMeth)
         return ::wxChoicebook::TryBefore(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxChoicebook::TryAfter(::wxEvent& event)
@@ -245,9 +253,9 @@ bool sipwxChoicebook::TryAfter(::wxEvent& event)
     if (!sipMeth)
         return ::wxChoicebook::TryAfter(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxChoicebook::AcceptsFocus() const
@@ -308,9 +316,9 @@ void sipwxChoicebook::SetCanFocus(bool canFocus)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, canFocus);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, canFocus);
 }
 
 void sipwxChoicebook::EnableVisibleFocus(bool enabled)
@@ -326,9 +334,9 @@ void sipwxChoicebook::EnableVisibleFocus(bool enabled)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enabled);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enabled);
 }
 
 bool sipwxChoicebook::InformFirstDirection(int direction, int size, int availableOtherDir)
@@ -341,9 +349,9 @@ bool sipwxChoicebook::InformFirstDirection(int direction, int size, int availabl
     if (!sipMeth)
         return ::wxChoicebook::InformFirstDirection(direction, size, availableOtherDir);
 
-    extern bool sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern bool sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
 
-    return sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
+    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
 }
 
 ::wxPoint sipwxChoicebook::GetClientAreaOrigin() const
@@ -356,9 +364,9 @@ bool sipwxChoicebook::InformFirstDirection(int direction, int size, int availabl
     if (!sipMeth)
         return ::wxChoicebook::GetClientAreaOrigin();
 
-    extern ::wxPoint sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPoint sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxChoicebook::HasTransparentBackground()
@@ -401,9 +409,9 @@ bool sipwxChoicebook::ShouldInheritColours() const
     if (!sipMeth)
         return ::wxChoicebook::GetValidator();
 
-    extern ::wxValidator* sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxValidator* sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxChoicebook::SetValidator(const ::wxValidator& validator)
@@ -419,9 +427,9 @@ void sipwxChoicebook::SetValidator(const ::wxValidator& validator)
         return;
     }
 
-    extern void sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
+    extern void sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
 
-    sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth, validator);
+    sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth, validator);
 }
 
 bool sipwxChoicebook::TransferDataFromWindow()
@@ -548,9 +556,9 @@ void sipwxChoicebook::OnInternalIdle()
     if (!sipMeth)
         return ::wxChoicebook::GetMainWindowOfCompositeControl();
 
-    extern ::wxWindow* sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxWindow* sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxChoicebook::DoEnable(bool enable)
@@ -566,9 +574,9 @@ void sipwxChoicebook::DoEnable(bool enable)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enable);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enable);
 }
 
 void sipwxChoicebook::DoGetPosition(int*x, int*y) const
@@ -584,9 +592,9 @@ void sipwxChoicebook::DoGetPosition(int*x, int*y) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, x, y);
 }
 
 void sipwxChoicebook::DoGetSize(int*width, int*height) const
@@ -602,9 +610,9 @@ void sipwxChoicebook::DoGetSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxChoicebook::DoGetClientSize(int*width, int*height) const
@@ -620,9 +628,9 @@ void sipwxChoicebook::DoGetClientSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxChoicebook::DoSetSize(int x, int y, int width, int height, int sizeFlags)
@@ -638,9 +646,9 @@ void sipwxChoicebook::DoSetSize(int x, int y, int width, int height, int sizeFla
         return;
     }
 
-    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
+    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
 
-    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
+    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
 }
 
 void sipwxChoicebook::DoSetClientSize(int width, int height)
@@ -656,9 +664,9 @@ void sipwxChoicebook::DoSetClientSize(int width, int height)
         return;
     }
 
-    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
+    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
 
-    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxChoicebook::DoSetSizeHints(int minW, int minH, int maxW, int maxH, int incW, int incH)
@@ -674,9 +682,9 @@ void sipwxChoicebook::DoSetSizeHints(int minW, int minH, int maxW, int maxH, int
         return;
     }
 
-    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
+    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
 
-    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
+    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
 }
 
 void sipwxChoicebook::DoMoveWindow(int x, int y, int width, int height)
@@ -692,9 +700,9 @@ void sipwxChoicebook::DoMoveWindow(int x, int y, int width, int height)
         return;
     }
 
-    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
+    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
 
-    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
+    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
 }
 
 void sipwxChoicebook::DoSetWindowVariant(::wxWindowVariant variant)
@@ -710,9 +718,9 @@ void sipwxChoicebook::DoSetWindowVariant(::wxWindowVariant variant)
         return;
     }
 
-    extern void sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
+    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
 
-    sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth, variant);
+    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, variant);
 }
 
 ::wxBorder sipwxChoicebook::GetDefaultBorder() const
@@ -725,24 +733,9 @@ void sipwxChoicebook::DoSetWindowVariant(::wxWindowVariant variant)
     if (!sipMeth)
         return ::wxChoicebook::GetDefaultBorder();
 
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxBorder sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
-}
-
-::wxBorder sipwxChoicebook::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxChoicebook::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxChoicebook::DoFreeze()
@@ -750,7 +743,7 @@ void sipwxChoicebook::DoFreeze()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -768,7 +761,7 @@ void sipwxChoicebook::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -786,7 +779,7 @@ void sipwxChoicebook::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxChoicebook::DoGetBestSize();
@@ -801,7 +794,7 @@ void sipwxChoicebook::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxChoicebook::DoGetBestClientSize();
@@ -816,7 +809,7 @@ void sipwxChoicebook::SetImageList(::wxImageList*imageList)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[39], &sipPySelf, SIP_NULLPTR, sipName_SetImageList);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_SetImageList);
 
     if (!sipMeth)
     {
@@ -824,9 +817,9 @@ void sipwxChoicebook::SetImageList(::wxImageList*imageList)
         return;
     }
 
-    extern void sipVH__core_155(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxImageList*);
+    extern void sipVH__core_154(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxImageList*);
 
-    sipVH__core_155(sipGILState, 0, sipPySelf, sipMeth, imageList);
+    sipVH__core_154(sipGILState, 0, sipPySelf, sipMeth, imageList);
 }
 
 int sipwxChoicebook::GetPageImage(size_t nPage) const
@@ -834,14 +827,14 @@ int sipwxChoicebook::GetPageImage(size_t nPage) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[40]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetPageImage);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[39]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetPageImage);
 
     if (!sipMeth)
         return ::wxChoicebook::GetPageImage(nPage);
 
-    extern int sipVH__core_145(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
+    extern int sipVH__core_144(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
 
-    return sipVH__core_145(sipGILState, 0, sipPySelf, sipMeth, nPage);
+    return sipVH__core_144(sipGILState, 0, sipPySelf, sipMeth, nPage);
 }
 
 bool sipwxChoicebook::SetPageImage(size_t page, int image)
@@ -849,14 +842,14 @@ bool sipwxChoicebook::SetPageImage(size_t page, int image)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[41], &sipPySelf, SIP_NULLPTR, sipName_SetPageImage);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[40], &sipPySelf, SIP_NULLPTR, sipName_SetPageImage);
 
     if (!sipMeth)
         return ::wxChoicebook::SetPageImage(page, image);
 
-    extern bool sipVH__core_156(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, int);
+    extern bool sipVH__core_155(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, int);
 
-    return sipVH__core_156(sipGILState, 0, sipPySelf, sipMeth, page, image);
+    return sipVH__core_155(sipGILState, 0, sipPySelf, sipMeth, page, image);
 }
 
 ::wxString sipwxChoicebook::GetPageText(size_t nPage) const
@@ -864,14 +857,14 @@ bool sipwxChoicebook::SetPageImage(size_t page, int image)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[42]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetPageText);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[41]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetPageText);
 
     if (!sipMeth)
         return ::wxChoicebook::GetPageText(nPage);
 
-    extern ::wxString sipVH__core_157(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
+    extern ::wxString sipVH__core_156(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
 
-    return sipVH__core_157(sipGILState, 0, sipPySelf, sipMeth, nPage);
+    return sipVH__core_156(sipGILState, 0, sipPySelf, sipMeth, nPage);
 }
 
 bool sipwxChoicebook::SetPageText(size_t page, const ::wxString& text)
@@ -879,14 +872,14 @@ bool sipwxChoicebook::SetPageText(size_t page, const ::wxString& text)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[43], &sipPySelf, SIP_NULLPTR, sipName_SetPageText);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[42], &sipPySelf, SIP_NULLPTR, sipName_SetPageText);
 
     if (!sipMeth)
         return ::wxChoicebook::SetPageText(page, text);
 
-    extern bool sipVH__core_158(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, const ::wxString&);
+    extern bool sipVH__core_157(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, const ::wxString&);
 
-    return sipVH__core_158(sipGILState, 0, sipPySelf, sipMeth, page, text);
+    return sipVH__core_157(sipGILState, 0, sipPySelf, sipMeth, page, text);
 }
 
 int sipwxChoicebook::GetSelection() const
@@ -894,14 +887,14 @@ int sipwxChoicebook::GetSelection() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[44]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetSelection);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[43]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetSelection);
 
     if (!sipMeth)
         return ::wxChoicebook::GetSelection();
 
-    extern int sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern int sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 int sipwxChoicebook::SetSelection(size_t page)
@@ -909,14 +902,14 @@ int sipwxChoicebook::SetSelection(size_t page)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[45], &sipPySelf, SIP_NULLPTR, sipName_SetSelection);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[44], &sipPySelf, SIP_NULLPTR, sipName_SetSelection);
 
     if (!sipMeth)
         return ::wxChoicebook::SetSelection(page);
 
-    extern int sipVH__core_145(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
+    extern int sipVH__core_144(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
 
-    return sipVH__core_145(sipGILState, 0, sipPySelf, sipMeth, page);
+    return sipVH__core_144(sipGILState, 0, sipPySelf, sipMeth, page);
 }
 
 int sipwxChoicebook::ChangeSelection(size_t page)
@@ -924,14 +917,14 @@ int sipwxChoicebook::ChangeSelection(size_t page)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[46], &sipPySelf, SIP_NULLPTR, sipName_ChangeSelection);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[45], &sipPySelf, SIP_NULLPTR, sipName_ChangeSelection);
 
     if (!sipMeth)
         return ::wxChoicebook::ChangeSelection(page);
 
-    extern int sipVH__core_145(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
+    extern int sipVH__core_144(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
 
-    return sipVH__core_145(sipGILState, 0, sipPySelf, sipMeth, page);
+    return sipVH__core_144(sipGILState, 0, sipPySelf, sipMeth, page);
 }
 
 bool sipwxChoicebook::AddPage(::wxWindow*page, const ::wxString& text, bool select, int imageId)
@@ -939,14 +932,14 @@ bool sipwxChoicebook::AddPage(::wxWindow*page, const ::wxString& text, bool sele
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[47], &sipPySelf, SIP_NULLPTR, sipName_AddPage);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[46], &sipPySelf, SIP_NULLPTR, sipName_AddPage);
 
     if (!sipMeth)
         return ::wxChoicebook::AddPage(page, text, select, imageId);
 
-    extern bool sipVH__core_159(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*, const ::wxString&, bool, int);
+    extern bool sipVH__core_158(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*, const ::wxString&, bool, int);
 
-    return sipVH__core_159(sipGILState, 0, sipPySelf, sipMeth, page, text, select, imageId);
+    return sipVH__core_158(sipGILState, 0, sipPySelf, sipMeth, page, text, select, imageId);
 }
 
 bool sipwxChoicebook::DeleteAllPages()
@@ -954,7 +947,7 @@ bool sipwxChoicebook::DeleteAllPages()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[48], &sipPySelf, SIP_NULLPTR, sipName_DeleteAllPages);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[47], &sipPySelf, SIP_NULLPTR, sipName_DeleteAllPages);
 
     if (!sipMeth)
         return ::wxChoicebook::DeleteAllPages();
@@ -969,14 +962,14 @@ bool sipwxChoicebook::DeletePage(size_t page)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[49], &sipPySelf, SIP_NULLPTR, sipName_DeletePage);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[48], &sipPySelf, SIP_NULLPTR, sipName_DeletePage);
 
     if (!sipMeth)
         return ::wxChoicebook::DeletePage(page);
 
-    extern bool sipVH__core_160(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
+    extern bool sipVH__core_159(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
 
-    return sipVH__core_160(sipGILState, 0, sipPySelf, sipMeth, page);
+    return sipVH__core_159(sipGILState, 0, sipPySelf, sipMeth, page);
 }
 
 bool sipwxChoicebook::InsertPage(size_t index, ::wxWindow*page, const ::wxString& text, bool select, int imageId)
@@ -984,14 +977,14 @@ bool sipwxChoicebook::InsertPage(size_t index, ::wxWindow*page, const ::wxString
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[50], &sipPySelf, SIP_NULLPTR, sipName_InsertPage);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[49], &sipPySelf, SIP_NULLPTR, sipName_InsertPage);
 
     if (!sipMeth)
         return ::wxChoicebook::InsertPage(index, page, text, select, imageId);
 
-    extern bool sipVH__core_161(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, ::wxWindow*, const ::wxString&, bool, int);
+    extern bool sipVH__core_160(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, ::wxWindow*, const ::wxString&, bool, int);
 
-    return sipVH__core_161(sipGILState, 0, sipPySelf, sipMeth, index, page, text, select, imageId);
+    return sipVH__core_160(sipGILState, 0, sipPySelf, sipMeth, index, page, text, select, imageId);
 }
 
 bool sipwxChoicebook::RemovePage(size_t page)
@@ -999,14 +992,14 @@ bool sipwxChoicebook::RemovePage(size_t page)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[51], &sipPySelf, SIP_NULLPTR, sipName_RemovePage);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[50], &sipPySelf, SIP_NULLPTR, sipName_RemovePage);
 
     if (!sipMeth)
         return ::wxChoicebook::RemovePage(page);
 
-    extern bool sipVH__core_160(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
+    extern bool sipVH__core_159(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
 
-    return sipVH__core_160(sipGILState, 0, sipPySelf, sipMeth, page);
+    return sipVH__core_159(sipGILState, 0, sipPySelf, sipMeth, page);
 }
 
 size_t sipwxChoicebook::GetPageCount() const
@@ -1014,14 +1007,14 @@ size_t sipwxChoicebook::GetPageCount() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[52]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetPageCount);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[51]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetPageCount);
 
     if (!sipMeth)
         return ::wxChoicebook::GetPageCount();
 
-    extern size_t sipVH__core_74(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern size_t sipVH__core_73(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_74(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_73(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxChoicebook::SetPageSize(const ::wxSize& size)
@@ -1029,7 +1022,7 @@ void sipwxChoicebook::SetPageSize(const ::wxSize& size)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[53], &sipPySelf, SIP_NULLPTR, sipName_SetPageSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[52], &sipPySelf, SIP_NULLPTR, sipName_SetPageSize);
 
     if (!sipMeth)
     {
@@ -1037,9 +1030,9 @@ void sipwxChoicebook::SetPageSize(const ::wxSize& size)
         return;
     }
 
-    extern void sipVH__core_106(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxSize&);
+    extern void sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxSize&);
 
-    sipVH__core_106(sipGILState, 0, sipPySelf, sipMeth, size);
+    sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, size);
 }
 
 int sipwxChoicebook::HitTest(const ::wxPoint& pt, long*flags) const
@@ -1047,14 +1040,14 @@ int sipwxChoicebook::HitTest(const ::wxPoint& pt, long*flags) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[54]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_HitTest);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[53]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_HitTest);
 
     if (!sipMeth)
         return ::wxChoicebook::HitTest(pt, flags);
 
-    extern int sipVH__core_162(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxPoint&, long*);
+    extern int sipVH__core_161(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxPoint&, long*);
 
-    return sipVH__core_162(sipGILState, 0, sipPySelf, sipMeth, pt, flags);
+    return sipVH__core_161(sipGILState, 0, sipPySelf, sipMeth, pt, flags);
 }
 
 void sipwxChoicebook::sipProtect_SendDestroyEvent()
@@ -1125,11 +1118,6 @@ void sipwxChoicebook::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, ::wx
 ::wxBorder sipwxChoicebook::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxChoicebook::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxChoicebook::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxChoicebook::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxChoicebook::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -2517,40 +2505,6 @@ static PyObject *meth_wxChoicebook_GetDefaultBorder(PyObject *sipSelf, PyObject 
 }
 
 
-PyDoc_STRVAR(doc_wxChoicebook_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxChoicebook_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxChoicebook_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxChoicebook *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxChoicebook, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_Choicebook, sipName_GetDefaultBorderForControl, doc_wxChoicebook_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxChoicebook_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxChoicebook_DoFreeze(PyObject *, PyObject *);}
@@ -2724,6 +2678,39 @@ static PyObject *meth_wxChoicebook_TryAfter(PyObject *sipSelf, PyObject *sipArgs
     }
 
     sipNoMethod(sipParseErr, sipName_Choicebook, sipName_TryAfter, doc_wxChoicebook_TryAfter);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxChoicebook_CreateAccessible, "CreateAccessible() -> Accessible");
+
+extern "C" {static PyObject *meth_wxChoicebook_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxChoicebook_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxChoicebook *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxChoicebook, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxChoicebook_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Choicebook, sipName_CreateAccessible, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -3292,7 +3279,7 @@ static void *init_type_wxChoicebook(sipSimpleWrapper *sipSelf, PyObject *sipArgs
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxChoicebook[] = {{41, 255, 1}};
+static sipEncodedTypeDef supers_wxChoicebook[] = {{43, 255, 1}};
 
 
 static PyMethodDef methods_wxChoicebook[] = {
@@ -3302,6 +3289,7 @@ static PyMethodDef methods_wxChoicebook[] = {
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxChoicebook_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxChoicebook_AddChild},
     {sipName_ChangeSelection, SIP_MLMETH_CAST(meth_wxChoicebook_ChangeSelection), METH_VARARGS|METH_KEYWORDS, doc_wxChoicebook_ChangeSelection},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxChoicebook_Create), METH_VARARGS|METH_KEYWORDS, doc_wxChoicebook_Create},
+    {sipName_CreateAccessible, meth_wxChoicebook_CreateAccessible, METH_VARARGS, doc_wxChoicebook_CreateAccessible},
     {sipName_DeleteAllPages, meth_wxChoicebook_DeleteAllPages, METH_VARARGS, doc_wxChoicebook_DeleteAllPages},
     {sipName_Destroy, meth_wxChoicebook_Destroy, METH_VARARGS, doc_wxChoicebook_Destroy},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxChoicebook_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxChoicebook_DoEnable},
@@ -3322,7 +3310,6 @@ static PyMethodDef methods_wxChoicebook[] = {
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxChoicebook_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxChoicebook_GetClassDefaultAttributes},
     {sipName_GetClientAreaOrigin, meth_wxChoicebook_GetClientAreaOrigin, METH_VARARGS, doc_wxChoicebook_GetClientAreaOrigin},
     {sipName_GetDefaultBorder, meth_wxChoicebook_GetDefaultBorder, METH_VARARGS, doc_wxChoicebook_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxChoicebook_GetDefaultBorderForControl, METH_VARARGS, doc_wxChoicebook_GetDefaultBorderForControl},
     {sipName_GetMainWindowOfCompositeControl, meth_wxChoicebook_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxChoicebook_GetMainWindowOfCompositeControl},
     {sipName_GetPageImage, SIP_MLMETH_CAST(meth_wxChoicebook_GetPageImage), METH_VARARGS|METH_KEYWORDS, doc_wxChoicebook_GetPageImage},
     {sipName_GetPageText, SIP_MLMETH_CAST(meth_wxChoicebook_GetPageText), METH_VARARGS|METH_KEYWORDS, doc_wxChoicebook_GetPageText},
@@ -3352,7 +3339,7 @@ static PyMethodDef methods_wxChoicebook[] = {
 };
 
 sipVariableDef variables_wxChoicebook[] = {
-    {PropertyVariable, sipName_ChoiceCtrl, &methods_wxChoicebook[22], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ChoiceCtrl, &methods_wxChoicebook[23], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxChoicebook, "Choicebook() -> None\n"

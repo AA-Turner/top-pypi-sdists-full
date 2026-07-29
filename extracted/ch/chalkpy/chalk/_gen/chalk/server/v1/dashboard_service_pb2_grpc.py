@@ -40,6 +40,16 @@ class DashboardServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.DeleteDashboardRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.DeleteDashboardResponse.FromString,
         )
+        self.ExportDashboard = channel.unary_unary(
+            "/chalk.server.v1.DashboardService/ExportDashboard",
+            request_serializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.ExportDashboardRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.ExportDashboardResponse.FromString,
+        )
+        self.ImportDashboard = channel.unary_unary(
+            "/chalk.server.v1.DashboardService/ImportDashboard",
+            request_serializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.ImportDashboardRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.ImportDashboardResponse.FromString,
+        )
 
 
 class DashboardServiceServicer(object):
@@ -75,6 +85,18 @@ class DashboardServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ExportDashboard(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ImportDashboard(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_DashboardServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -102,6 +124,16 @@ def add_DashboardServiceServicer_to_server(servicer, server):
             servicer.DeleteDashboard,
             request_deserializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.DeleteDashboardRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.DeleteDashboardResponse.SerializeToString,
+        ),
+        "ExportDashboard": grpc.unary_unary_rpc_method_handler(
+            servicer.ExportDashboard,
+            request_deserializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.ExportDashboardRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.ExportDashboardResponse.SerializeToString,
+        ),
+        "ImportDashboard": grpc.unary_unary_rpc_method_handler(
+            servicer.ImportDashboard,
+            request_deserializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.ImportDashboardRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_dashboard__service__pb2.ImportDashboardResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.DashboardService", rpc_method_handlers)
@@ -247,6 +279,64 @@ class DashboardService(object):
             "/chalk.server.v1.DashboardService/DeleteDashboard",
             chalk_dot_server_dot_v1_dot_dashboard__service__pb2.DeleteDashboardRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_dashboard__service__pb2.DeleteDashboardResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ExportDashboard(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DashboardService/ExportDashboard",
+            chalk_dot_server_dot_v1_dot_dashboard__service__pb2.ExportDashboardRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_dashboard__service__pb2.ExportDashboardResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ImportDashboard(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DashboardService/ImportDashboard",
+            chalk_dot_server_dot_v1_dot_dashboard__service__pb2.ImportDashboardRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_dashboard__service__pb2.ImportDashboardResponse.FromString,
             options,
             channel_credentials,
             insecure,

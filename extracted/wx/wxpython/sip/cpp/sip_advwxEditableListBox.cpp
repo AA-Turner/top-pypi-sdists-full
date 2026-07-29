@@ -12,21 +12,22 @@
         #include <wx/window.h>
         #include <wx/gdicmn.h>
         #include <wx/gdicmn.h>
-        #include <wx/bmpbuttn.h>
-        #include <wx/listctrl.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/validate.h>
+        #include <wx/bmpbuttn.h>
+        #include <wx/listctrl.h>
+        #include <wx/event.h>
         #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -72,6 +73,15 @@
     {
         return self->GetEditButton();
     }
+    wxAccessible* _wxEditableListBox_CreateAccessible(wxEditableListBox* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxEditableListBox : public ::wxEditableListBox
@@ -99,7 +109,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -115,7 +124,6 @@ protected:
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
@@ -158,7 +166,7 @@ private:
     sipwxEditableListBox(const sipwxEditableListBox &);
     sipwxEditableListBox &operator = (const sipwxEditableListBox &);
 
-    char sipPyMethods[39];
+    char sipPyMethods[38];
 };
 
 sipwxEditableListBox::sipwxEditableListBox(): ::wxEditableListBox(), sipPySelf(SIP_NULLPTR)
@@ -242,27 +250,12 @@ void sipwxEditableListBox::DoFreeze()
     sipVH__adv_4(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxEditableListBox::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[4]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxEditableListBox::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__adv_25(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__adv_25(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 ::wxBorder sipwxEditableListBox::GetDefaultBorder() const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[5]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[4]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
 
     if (!sipMeth)
         return ::wxEditableListBox::GetDefaultBorder();
@@ -277,7 +270,7 @@ void sipwxEditableListBox::DoSetWindowVariant(::wxWindowVariant variant)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[6], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[5], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
 
     if (!sipMeth)
     {
@@ -295,7 +288,7 @@ void sipwxEditableListBox::DoMoveWindow(int x, int y, int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[7], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[6], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
 
     if (!sipMeth)
     {
@@ -313,7 +306,7 @@ void sipwxEditableListBox::DoSetSizeHints(int minW, int minH, int maxW, int maxH
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[8], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[7], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
 
     if (!sipMeth)
     {
@@ -331,7 +324,7 @@ void sipwxEditableListBox::DoSetClientSize(int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[9], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[8], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
 
     if (!sipMeth)
     {
@@ -349,7 +342,7 @@ void sipwxEditableListBox::DoSetSize(int x, int y, int width, int height, int si
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[10], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[9], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
 
     if (!sipMeth)
     {
@@ -367,7 +360,7 @@ void sipwxEditableListBox::DoGetClientSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[11]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[10]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
 
     if (!sipMeth)
     {
@@ -385,7 +378,7 @@ void sipwxEditableListBox::DoGetSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[12]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[11]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
 
     if (!sipMeth)
     {
@@ -403,7 +396,7 @@ void sipwxEditableListBox::DoGetPosition(int*x, int*y) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[13]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[12]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
 
     if (!sipMeth)
     {
@@ -421,7 +414,7 @@ void sipwxEditableListBox::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[14], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[13], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
 
     if (!sipMeth)
     {
@@ -439,7 +432,7 @@ void sipwxEditableListBox::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[15], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[14], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
 
     if (!sipMeth)
         return ::wxEditableListBox::GetMainWindowOfCompositeControl();
@@ -454,7 +447,7 @@ void sipwxEditableListBox::OnInternalIdle()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[16], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[15], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
 
     if (!sipMeth)
     {
@@ -472,7 +465,7 @@ void sipwxEditableListBox::InitDialog()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[17], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[16], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
 
     if (!sipMeth)
     {
@@ -490,7 +483,7 @@ void sipwxEditableListBox::InheritAttributes()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[18], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[17], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
 
     if (!sipMeth)
     {
@@ -508,7 +501,7 @@ bool sipwxEditableListBox::Destroy()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[19], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[18], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
 
     if (!sipMeth)
         return ::wxEditableListBox::Destroy();
@@ -523,7 +516,7 @@ bool sipwxEditableListBox::Validate()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[20], &sipPySelf, SIP_NULLPTR, sipName_Validate);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[19], &sipPySelf, SIP_NULLPTR, sipName_Validate);
 
     if (!sipMeth)
         return ::wxEditableListBox::Validate();
@@ -538,7 +531,7 @@ bool sipwxEditableListBox::TransferDataToWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[21], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[20], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
 
     if (!sipMeth)
         return ::wxEditableListBox::TransferDataToWindow();
@@ -553,7 +546,7 @@ bool sipwxEditableListBox::TransferDataFromWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[22], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[21], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
 
     if (!sipMeth)
         return ::wxEditableListBox::TransferDataFromWindow();
@@ -568,7 +561,7 @@ void sipwxEditableListBox::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[22], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
 
     if (!sipMeth)
     {
@@ -586,7 +579,7 @@ void sipwxEditableListBox::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[24], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
 
     if (!sipMeth)
         return ::wxEditableListBox::GetValidator();
@@ -601,7 +594,7 @@ bool sipwxEditableListBox::ShouldInheritColours() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[25]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[24]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
 
     if (!sipMeth)
         return ::wxEditableListBox::ShouldInheritColours();
@@ -616,7 +609,7 @@ bool sipwxEditableListBox::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[26], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[25], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
 
     if (!sipMeth)
         return ::wxEditableListBox::HasTransparentBackground();
@@ -631,7 +624,7 @@ bool sipwxEditableListBox::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[27]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[26]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
 
     if (!sipMeth)
         return ::wxEditableListBox::GetClientAreaOrigin();
@@ -646,7 +639,7 @@ bool sipwxEditableListBox::InformFirstDirection(int direction, int size, int ava
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[28], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[27], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
 
     if (!sipMeth)
         return ::wxEditableListBox::InformFirstDirection(direction, size, availableOtherDir);
@@ -661,7 +654,7 @@ void sipwxEditableListBox::EnableVisibleFocus(bool enabled)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[29], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[28], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
 
     if (!sipMeth)
     {
@@ -679,7 +672,7 @@ void sipwxEditableListBox::SetCanFocus(bool canFocus)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[30], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[29], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
 
     if (!sipMeth)
     {
@@ -697,7 +690,7 @@ bool sipwxEditableListBox::AcceptsFocusRecursively() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[31]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[30]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
 
     if (!sipMeth)
         return ::wxEditableListBox::AcceptsFocusRecursively();
@@ -712,7 +705,7 @@ bool sipwxEditableListBox::AcceptsFocusFromKeyboard() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[32]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[31]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
 
     if (!sipMeth)
         return ::wxEditableListBox::AcceptsFocusFromKeyboard();
@@ -727,7 +720,7 @@ bool sipwxEditableListBox::AcceptsFocus() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[33]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[32]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
 
     if (!sipMeth)
         return ::wxEditableListBox::AcceptsFocus();
@@ -742,7 +735,7 @@ bool sipwxEditableListBox::TryAfter(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[33], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
 
     if (!sipMeth)
         return ::wxEditableListBox::TryAfter(event);
@@ -757,7 +750,7 @@ bool sipwxEditableListBox::TryBefore(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
 
     if (!sipMeth)
         return ::wxEditableListBox::TryBefore(event);
@@ -772,7 +765,7 @@ bool sipwxEditableListBox::ProcessEvent(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
 
     if (!sipMeth)
         return ::wxEditableListBox::ProcessEvent(event);
@@ -787,7 +780,7 @@ void sipwxEditableListBox::AddChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
 
     if (!sipMeth)
     {
@@ -805,7 +798,7 @@ void sipwxEditableListBox::RemoveChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
 
     if (!sipMeth)
     {
@@ -886,11 +879,6 @@ void sipwxEditableListBox::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg,
 ::wxBorder sipwxEditableListBox::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxEditableListBox::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxEditableListBox::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxEditableListBox::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxEditableListBox::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -1094,6 +1082,348 @@ static PyObject *meth_wxEditableListBox_GetStrings(PyObject *sipSelf, PyObject *
     }
 
     sipNoMethod(sipParseErr, sipName_EditableListBox, sipName_GetStrings, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxEditableListBox_GetListCtrl, "GetListCtrl() -> wx.ListCtrl\n"
+"GetListCtrl() -> wx.ListCtrl\n"
+"\n"
+"Returns the internal list control used by the editable list box.\n"
+"");
+
+extern "C" {static PyObject *meth_wxEditableListBox_GetListCtrl(PyObject *, PyObject *);}
+static PyObject *meth_wxEditableListBox_GetListCtrl(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxEditableListBox *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxEditableListBox, &sipCpp))
+        {
+            ::wxListCtrl*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetListCtrl();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxListCtrl, SIP_NULLPTR);
+        }
+    }
+
+    {
+        ::wxEditableListBox *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxEditableListBox, &sipCpp))
+        {
+            ::wxListCtrl*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxEditableListBox_GetListCtrl(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxListCtrl, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_EditableListBox, sipName_GetListCtrl, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxEditableListBox_GetDelButton, "GetDelButton() -> wx.BitmapButton\n"
+"GetDelButton() -> wx.BitmapButton\n"
+"\n"
+"Returns the button used to delete the selected item from the list.\n"
+"");
+
+extern "C" {static PyObject *meth_wxEditableListBox_GetDelButton(PyObject *, PyObject *);}
+static PyObject *meth_wxEditableListBox_GetDelButton(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxEditableListBox *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxEditableListBox, &sipCpp))
+        {
+            ::wxBitmapButton*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetDelButton();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxBitmapButton, SIP_NULLPTR);
+        }
+    }
+
+    {
+        ::wxEditableListBox *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxEditableListBox, &sipCpp))
+        {
+            ::wxBitmapButton*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxEditableListBox_GetDelButton(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxBitmapButton, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_EditableListBox, sipName_GetDelButton, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxEditableListBox_GetNewButton, "GetNewButton() -> wx.BitmapButton\n"
+"GetNewButton() -> wx.BitmapButton\n"
+"\n"
+"Returns the button used to add a new item to the list.\n"
+"");
+
+extern "C" {static PyObject *meth_wxEditableListBox_GetNewButton(PyObject *, PyObject *);}
+static PyObject *meth_wxEditableListBox_GetNewButton(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxEditableListBox *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxEditableListBox, &sipCpp))
+        {
+            ::wxBitmapButton*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetNewButton();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxBitmapButton, SIP_NULLPTR);
+        }
+    }
+
+    {
+        ::wxEditableListBox *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxEditableListBox, &sipCpp))
+        {
+            ::wxBitmapButton*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxEditableListBox_GetNewButton(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxBitmapButton, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_EditableListBox, sipName_GetNewButton, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxEditableListBox_GetUpButton, "GetUpButton() -> wx.BitmapButton\n"
+"GetUpButton() -> wx.BitmapButton\n"
+"\n"
+"Returns the button used to move the selected item up in the list.\n"
+"");
+
+extern "C" {static PyObject *meth_wxEditableListBox_GetUpButton(PyObject *, PyObject *);}
+static PyObject *meth_wxEditableListBox_GetUpButton(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxEditableListBox *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxEditableListBox, &sipCpp))
+        {
+            ::wxBitmapButton*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetUpButton();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxBitmapButton, SIP_NULLPTR);
+        }
+    }
+
+    {
+        ::wxEditableListBox *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxEditableListBox, &sipCpp))
+        {
+            ::wxBitmapButton*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxEditableListBox_GetUpButton(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxBitmapButton, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_EditableListBox, sipName_GetUpButton, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxEditableListBox_GetDownButton, "GetDownButton() -> wx.BitmapButton\n"
+"GetDownButton() -> wx.BitmapButton\n"
+"\n"
+"Returns the button used to move the selected item down in the list.\n"
+"");
+
+extern "C" {static PyObject *meth_wxEditableListBox_GetDownButton(PyObject *, PyObject *);}
+static PyObject *meth_wxEditableListBox_GetDownButton(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxEditableListBox *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxEditableListBox, &sipCpp))
+        {
+            ::wxBitmapButton*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetDownButton();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxBitmapButton, SIP_NULLPTR);
+        }
+    }
+
+    {
+        ::wxEditableListBox *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxEditableListBox, &sipCpp))
+        {
+            ::wxBitmapButton*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxEditableListBox_GetDownButton(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxBitmapButton, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_EditableListBox, sipName_GetDownButton, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxEditableListBox_GetEditButton, "GetEditButton() -> wx.BitmapButton\n"
+"GetEditButton() -> wx.BitmapButton\n"
+"\n"
+"Returns the button used to edit the label of the selected item.\n"
+"");
+
+extern "C" {static PyObject *meth_wxEditableListBox_GetEditButton(PyObject *, PyObject *);}
+static PyObject *meth_wxEditableListBox_GetEditButton(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxEditableListBox *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxEditableListBox, &sipCpp))
+        {
+            ::wxBitmapButton*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetEditButton();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxBitmapButton, SIP_NULLPTR);
+        }
+    }
+
+    {
+        ::wxEditableListBox *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxEditableListBox, &sipCpp))
+        {
+            ::wxBitmapButton*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxEditableListBox_GetEditButton(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxBitmapButton, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_EditableListBox, sipName_GetEditButton, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -2302,40 +2632,6 @@ static PyObject *meth_wxEditableListBox_GetDefaultBorder(PyObject *sipSelf, PyOb
 }
 
 
-PyDoc_STRVAR(doc_wxEditableListBox_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxEditableListBox_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxEditableListBox_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxEditableListBox *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxEditableListBox, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_EditableListBox, sipName_GetDefaultBorderForControl, doc_wxEditableListBox_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxEditableListBox_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxEditableListBox_DoFreeze(PyObject *, PyObject *);}
@@ -2514,6 +2810,39 @@ static PyObject *meth_wxEditableListBox_TryAfter(PyObject *sipSelf, PyObject *si
 }
 
 
+PyDoc_STRVAR(doc_wxEditableListBox_CreateAccessible, "CreateAccessible() -> wx.Accessible");
+
+extern "C" {static PyObject *meth_wxEditableListBox_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxEditableListBox_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxEditableListBox *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxEditableListBox, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxEditableListBox_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_EditableListBox, sipName_CreateAccessible, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxEditableListBox_GetClassDefaultAttributes, "GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes");
 
 extern "C" {static PyObject *meth_wxEditableListBox_GetClassDefaultAttributes(PyObject *, PyObject *, PyObject *);}
@@ -2547,216 +2876,6 @@ static PyObject *meth_wxEditableListBox_GetClassDefaultAttributes(PyObject *, Py
     }
 
     sipNoMethod(sipParseErr, sipName_EditableListBox, sipName_GetClassDefaultAttributes, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxEditableListBox_GetListCtrl, "GetListCtrl() -> wx.ListCtrl\n"
-"\n"
-"Returns a reference to the listctrl used in the EditableListBox.");
-
-extern "C" {static PyObject *meth_wxEditableListBox_GetListCtrl(PyObject *, PyObject *);}
-static PyObject *meth_wxEditableListBox_GetListCtrl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        ::wxEditableListBox *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxEditableListBox, &sipCpp))
-        {
-            ::wxListCtrl*sipRes = 0;
-            int sipIsErr = 0;
-        PyErr_Clear();
-        Py_BEGIN_ALLOW_THREADS
-        sipRes = _wxEditableListBox_GetListCtrl(sipCpp);
-        Py_END_ALLOW_THREADS
-        if (PyErr_Occurred()) sipIsErr = 1;
-
-            if (sipIsErr)
-                return 0;
-
-            return sipConvertFromType(sipRes, sipType_wxListCtrl, SIP_NULLPTR);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_EditableListBox, sipName_GetListCtrl, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxEditableListBox_GetDelButton, "GetDelButton() -> wx.BitmapButton\n"
-"\n"
-"Returns a reference to the delete button used in the EditableListBox.");
-
-extern "C" {static PyObject *meth_wxEditableListBox_GetDelButton(PyObject *, PyObject *);}
-static PyObject *meth_wxEditableListBox_GetDelButton(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        ::wxEditableListBox *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxEditableListBox, &sipCpp))
-        {
-            ::wxBitmapButton*sipRes = 0;
-            int sipIsErr = 0;
-        PyErr_Clear();
-        Py_BEGIN_ALLOW_THREADS
-        sipRes = _wxEditableListBox_GetDelButton(sipCpp);
-        Py_END_ALLOW_THREADS
-        if (PyErr_Occurred()) sipIsErr = 1;
-
-            if (sipIsErr)
-                return 0;
-
-            return sipConvertFromType(sipRes, sipType_wxBitmapButton, SIP_NULLPTR);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_EditableListBox, sipName_GetDelButton, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxEditableListBox_GetNewButton, "GetNewButton() -> wx.BitmapButton\n"
-"\n"
-"Returns a reference to the new button used in the EditableListBox.");
-
-extern "C" {static PyObject *meth_wxEditableListBox_GetNewButton(PyObject *, PyObject *);}
-static PyObject *meth_wxEditableListBox_GetNewButton(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        ::wxEditableListBox *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxEditableListBox, &sipCpp))
-        {
-            ::wxBitmapButton*sipRes = 0;
-            int sipIsErr = 0;
-        PyErr_Clear();
-        Py_BEGIN_ALLOW_THREADS
-        sipRes = _wxEditableListBox_GetNewButton(sipCpp);
-        Py_END_ALLOW_THREADS
-        if (PyErr_Occurred()) sipIsErr = 1;
-
-            if (sipIsErr)
-                return 0;
-
-            return sipConvertFromType(sipRes, sipType_wxBitmapButton, SIP_NULLPTR);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_EditableListBox, sipName_GetNewButton, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxEditableListBox_GetUpButton, "GetUpButton() -> wx.BitmapButton\n"
-"\n"
-"Returns a reference to the up button used in the EditableListBox.");
-
-extern "C" {static PyObject *meth_wxEditableListBox_GetUpButton(PyObject *, PyObject *);}
-static PyObject *meth_wxEditableListBox_GetUpButton(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        ::wxEditableListBox *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxEditableListBox, &sipCpp))
-        {
-            ::wxBitmapButton*sipRes = 0;
-            int sipIsErr = 0;
-        PyErr_Clear();
-        Py_BEGIN_ALLOW_THREADS
-        sipRes = _wxEditableListBox_GetUpButton(sipCpp);
-        Py_END_ALLOW_THREADS
-        if (PyErr_Occurred()) sipIsErr = 1;
-
-            if (sipIsErr)
-                return 0;
-
-            return sipConvertFromType(sipRes, sipType_wxBitmapButton, SIP_NULLPTR);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_EditableListBox, sipName_GetUpButton, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxEditableListBox_GetDownButton, "GetDownButton() -> wx.BitmapButton\n"
-"\n"
-"Returns a reference to the down button used in the EditableListBox.");
-
-extern "C" {static PyObject *meth_wxEditableListBox_GetDownButton(PyObject *, PyObject *);}
-static PyObject *meth_wxEditableListBox_GetDownButton(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        ::wxEditableListBox *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxEditableListBox, &sipCpp))
-        {
-            ::wxBitmapButton*sipRes = 0;
-            int sipIsErr = 0;
-        PyErr_Clear();
-        Py_BEGIN_ALLOW_THREADS
-        sipRes = _wxEditableListBox_GetDownButton(sipCpp);
-        Py_END_ALLOW_THREADS
-        if (PyErr_Occurred()) sipIsErr = 1;
-
-            if (sipIsErr)
-                return 0;
-
-            return sipConvertFromType(sipRes, sipType_wxBitmapButton, SIP_NULLPTR);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_EditableListBox, sipName_GetDownButton, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxEditableListBox_GetEditButton, "GetEditButton() -> wx.BitmapButton\n"
-"\n"
-"Returns a reference to the edit button used in the EditableListBox.");
-
-extern "C" {static PyObject *meth_wxEditableListBox_GetEditButton(PyObject *, PyObject *);}
-static PyObject *meth_wxEditableListBox_GetEditButton(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        ::wxEditableListBox *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxEditableListBox, &sipCpp))
-        {
-            ::wxBitmapButton*sipRes = 0;
-            int sipIsErr = 0;
-        PyErr_Clear();
-        Py_BEGIN_ALLOW_THREADS
-        sipRes = _wxEditableListBox_GetEditButton(sipCpp);
-        Py_END_ALLOW_THREADS
-        if (PyErr_Occurred()) sipIsErr = 1;
-
-            if (sipIsErr)
-                return 0;
-
-            return sipConvertFromType(sipRes, sipType_wxBitmapButton, SIP_NULLPTR);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_EditableListBox, sipName_GetEditButton, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -2907,7 +3026,7 @@ static void *init_type_wxEditableListBox(sipSimpleWrapper *sipSelf, PyObject *si
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxEditableListBox[] = {{41, 0, 1}};
+static sipEncodedTypeDef supers_wxEditableListBox[] = {{42, 0, 1}};
 
 
 static PyMethodDef methods_wxEditableListBox[] = {
@@ -2916,6 +3035,7 @@ static PyMethodDef methods_wxEditableListBox[] = {
     {sipName_AcceptsFocusRecursively, meth_wxEditableListBox_AcceptsFocusRecursively, METH_VARARGS, doc_wxEditableListBox_AcceptsFocusRecursively},
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxEditableListBox_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxEditableListBox_AddChild},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxEditableListBox_Create), METH_VARARGS|METH_KEYWORDS, doc_wxEditableListBox_Create},
+    {sipName_CreateAccessible, meth_wxEditableListBox_CreateAccessible, METH_VARARGS, doc_wxEditableListBox_CreateAccessible},
     {sipName_Destroy, meth_wxEditableListBox_Destroy, METH_VARARGS, doc_wxEditableListBox_Destroy},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxEditableListBox_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxEditableListBox_DoEnable},
     {sipName_DoFreeze, meth_wxEditableListBox_DoFreeze, METH_VARARGS, doc_wxEditableListBox_DoFreeze},
@@ -2934,7 +3054,6 @@ static PyMethodDef methods_wxEditableListBox[] = {
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxEditableListBox_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxEditableListBox_GetClassDefaultAttributes},
     {sipName_GetClientAreaOrigin, meth_wxEditableListBox_GetClientAreaOrigin, METH_VARARGS, doc_wxEditableListBox_GetClientAreaOrigin},
     {sipName_GetDefaultBorder, meth_wxEditableListBox_GetDefaultBorder, METH_VARARGS, doc_wxEditableListBox_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxEditableListBox_GetDefaultBorderForControl, METH_VARARGS, doc_wxEditableListBox_GetDefaultBorderForControl},
     {sipName_GetDelButton, meth_wxEditableListBox_GetDelButton, METH_VARARGS, doc_wxEditableListBox_GetDelButton},
     {sipName_GetDownButton, meth_wxEditableListBox_GetDownButton, METH_VARARGS, doc_wxEditableListBox_GetDownButton},
     {sipName_GetEditButton, meth_wxEditableListBox_GetEditButton, METH_VARARGS, doc_wxEditableListBox_GetEditButton},

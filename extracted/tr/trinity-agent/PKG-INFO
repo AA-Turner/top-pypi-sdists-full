@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trinity-agent
-Version: 1.0.1161
+Version: 1.0.1163
 Summary: Three minds, one context — Multi-agent AI orchestrator for Claude Code, Codex, and Antigravity CLI.
 Project-URL: Homepage, https://github.com/hongdangmoo49/Trinity
 Project-URL: Repository, https://github.com/hongdangmoo49/Trinity
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.10
+Requires-Python: <3.14,>=3.10
 Requires-Dist: click>=8.1
 Requires-Dist: prompt-toolkit>=3.0
 Requires-Dist: rich>=13.0

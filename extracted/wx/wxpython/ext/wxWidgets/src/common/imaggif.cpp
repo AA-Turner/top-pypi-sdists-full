@@ -22,7 +22,6 @@
 #include "wx/imaggif.h"
 #include "wx/gifdecod.h"
 #include "wx/stream.h"
-#include "wx/anidecod.h" // wxImageArray
 #include "wx/scopedarray.h"
 
 #define GIF89_HDR     "GIF89a"
@@ -275,7 +274,7 @@ bool wxGIFHandler::DoSaveFile(const wxImage& image, wxOutputStream *stream,
     return ok;
 }
 
-bool wxGIFHandler::SaveAnimation(const wxImageArray& images,
+bool wxGIFHandler::SaveAnimation(const std::vector<wxImage>& images,
     wxOutputStream *stream, bool verbose, int delayMilliSecs)
 {
 #if wxUSE_PALETTE
@@ -283,9 +282,9 @@ bool wxGIFHandler::SaveAnimation(const wxImageArray& images,
     size_t i;
 
     wxSize size(0,0);
-    for (i = 0; (i < images.GetCount()) && ok; i++)
+    for (i = 0; (i < images.size()) && ok; i++)
     {
-        const wxImage& image = images.Item(i);
+        const wxImage& image = images[i];
         wxSize temp(image.GetWidth(), image.GetHeight());
         ok = ok && image.HasPalette();
         if (i)
@@ -298,9 +297,9 @@ bool wxGIFHandler::SaveAnimation(const wxImageArray& images,
         }
     }
 
-    for (i = 0; (i < images.GetCount()) && ok; i++)
+    for (i = 0; (i < images.size()) && ok; i++)
     {
-        const wxImage& image = images.Item(i);
+        const wxImage& image = images[i];
 
         wxRGB pal[256];
         int palCount;
@@ -556,6 +555,16 @@ bool wxGIFHandler_GetPalette(const wxImage& image,
 
     const wxPalette& palette = image.GetPalette();
     int palCount = palette.GetColoursCount();
+
+    // The caller's pal[] buffer only has room for the 256 entries a GIF can
+    // hold. A wxImage palette may be larger, e.g. when the image was loaded
+    // from an XPM declaring more than 256 colours, and such an image can't be
+    // represented as a GIF, so fail the save here rather than overflow pal[].
+    if (palCount > 256)
+    {
+        wxLogError(_("Image palette has too many colours to save as GIF."));
+        return false;
+    }
 
     for (int i = 0; i < palCount; ++i)
     {

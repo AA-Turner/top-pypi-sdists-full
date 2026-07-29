@@ -25,15 +25,11 @@ from matrice_inference.server.stream.utils import redact_sensitive
 DEFAULT_EXTERNAL_PORT = 80
 DEFAULT_SHUTDOWN_THRESHOLD_MINUTES = 15
 MIN_SHUTDOWN_THRESHOLD_MINUTES = 1
-HEARTBEAT_INTERVAL_SECONDS = 30
 SHUTDOWN_CHECK_INTERVAL_SECONDS = 30
 CLEANUP_DELAY_SECONDS = 5
 FINAL_CLEANUP_DELAY_SECONDS = 10
 MAX_IP_FETCH_ATTEMPTS = 5  # Increased from 3 to 5
 IP_FETCH_TIMEOUT_SECONDS = 30  # Increased from 10 to 30
-# Shutdown after 10 minutes of consecutive failures (increased from 5 minutes)
-MAX_HEARTBEAT_FAILURES_BEFORE_SHUTDOWN = 20  # 10 minutes at 30 second intervals
-MAX_DEPLOYMENT_CHECK_FAILURES_BEFORE_SHUTDOWN = 20  # 10 minutes at 30 second intervals
 
 
 class MatriceDeployServer:
@@ -1155,56 +1151,6 @@ class MatriceDeployServerUtils:
 
         return self._ip or "localhost"
 
-    def is_instance_running(self):
-        """Check if deployment instance is running.
-
-        Returns:
-            bool: True if instance is running, False otherwise
-        """
-        try:
-            resp = self.rpc.get(
-                f"/v1/inference/get_deployment_without_auth_key/{self.deployment_id}",
-                raise_exception=False,
-            )
-            if not resp:
-                logging.warning("No response received when checking instance status")
-                return False
-
-            if not resp.get("success"):
-                error_msg = resp.get("message", "Unknown error")
-                logging.warning("Failed to get deployment instance status: %s", error_msg)
-                return False
-
-            running_instances = resp.get("data", {}).get("runningInstances", [])
-            if not running_instances:
-                logging.warning("No running instances found")
-                return False
-
-            for instance in running_instances:
-                if instance.get("modelDeployInstanceId") == self.deployment_instance_id:
-                    is_deployed = instance.get("deployed", False)
-                    logging.debug(
-                        "Instance %s deployment status: %s",
-                        self.deployment_instance_id,
-                        "deployed" if is_deployed else "not deployed",
-                    )
-                    if not is_deployed:
-                        logging.warning("Instance %s is not deployed", self.deployment_instance_id)
-                    return is_deployed
-
-            logging.warning(
-                "Instance %s not found in running instances list",
-                self.deployment_instance_id,
-            )
-            return False
-
-        except Exception as exc:
-            logging.warning(
-                "Exception checking deployment instance status: %s",
-                str(exc),
-            )
-            return False
-
     def get_elapsed_time_since_latest_inference(self):
         """Get time elapsed since latest inference.
 
@@ -1311,151 +1257,38 @@ class MatriceDeployServerUtils:
             os._exit(1)
 
     def shutdown_checker(self):
-        """Background thread to periodically check for idle shutdown condition and deployment status."""
-        consecutive_deployment_failures = 0
+        """Background thread to periodically check for the idle shutdown condition.
+
+        Only the idle check (``trigger_shutdown_if_needed``, which honours
+        ``autoShutdown``) can end the process here. The former backend liveness
+        probe (``GET /v1/inference/get_deployment_without_auth_key/{id}``) and its
+        ``MAX_DEPLOYMENT_CHECK_FAILURES_BEFORE_SHUTDOWN`` counter were removed:
+        app deployments carry an empty ``runningInstances`` list on the BE, so the
+        probe reported "not running" for a perfectly healthy deployment and killed
+        it after 10 minutes. Liveness is reported over the
+        ``app_deployment_heartbeat`` Kafka topic instead, and the BE's own
+        ``CheckStoppedInstances`` skips app deployments outright.
+        """
         logging.warning("Shutdown checker started")
 
         while True:
             try:
-                # Check if deployment instance is still running
-                is_running = self.is_instance_running()
-
-                if is_running:
-                    # Reset failure counter if deployment check succeeds
-                    if consecutive_deployment_failures > 0:
-                        logging.info(
-                            "Deployment status check recovered after %d failures",
-                            consecutive_deployment_failures,
-                        )
-                        consecutive_deployment_failures = 0
-
-                    # Check for idle shutdown condition
-                    self.trigger_shutdown_if_needed()
-                else:
-                    consecutive_deployment_failures += 1
-                    failure_duration_minutes = (consecutive_deployment_failures * SHUTDOWN_CHECK_INTERVAL_SECONDS) / 60
-
-                    logging.warning(
-                        "Deployment status check failed (%d/%d) - %.1f minutes of failures",
-                        consecutive_deployment_failures,
-                        MAX_DEPLOYMENT_CHECK_FAILURES_BEFORE_SHUTDOWN,
-                        failure_duration_minutes,
-                    )
-
-                    if consecutive_deployment_failures >= MAX_DEPLOYMENT_CHECK_FAILURES_BEFORE_SHUTDOWN:
-                        logging.error(
-                            "Deployment status check failed %d consecutive times (%.1f minutes), initiating shutdown",
-                            consecutive_deployment_failures,
-                            failure_duration_minutes,
-                        )
-                        self.shutdown()
-                        return
-
+                self.trigger_shutdown_if_needed()
             except Exception as exc:
-                consecutive_deployment_failures += 1
-                failure_duration_minutes = (consecutive_deployment_failures * SHUTDOWN_CHECK_INTERVAL_SECONDS) / 60
-
-                logging.exception(
-                    "Error in shutdown checker (%d/%d) - %.1f minutes of failures: %s",
-                    consecutive_deployment_failures,
-                    MAX_DEPLOYMENT_CHECK_FAILURES_BEFORE_SHUTDOWN,
-                    failure_duration_minutes,
-                    str(exc),
-                )
-
-                if consecutive_deployment_failures >= MAX_DEPLOYMENT_CHECK_FAILURES_BEFORE_SHUTDOWN:
-                    logging.error(
-                        "Shutdown checker failed %d consecutive times (%.1f minutes), initiating shutdown",
-                        consecutive_deployment_failures,
-                        failure_duration_minutes,
-                    )
-                    self.shutdown()
-                    return
+                # Never fatal: a failed idle check must not end the deployment.
+                logging.exception("Error in shutdown checker: %s", str(exc))
             finally:
                 time.sleep(SHUTDOWN_CHECK_INTERVAL_SECONDS)
 
-    def heartbeat_checker(self):
-        """Background thread to periodically send heartbeat."""
-        consecutive_failures = 0
-
-        logging.info("Heartbeat checker started")
-        while True:
-            try:
-                resp = self.rpc.post(
-                    f"/v1/inference/add_instance_heartbeat/{self.deployment_instance_id}",
-                    raise_exception=False,
-                )
-
-                if resp and resp.get("success"):
-                    if consecutive_failures > 0:
-                        logging.info(
-                            "Heartbeat recovered after %d failures: %s",
-                            consecutive_failures,
-                            resp.get("message", "Success"),
-                        )
-                    else:
-                        logging.debug("Heartbeat successful: %s", resp.get("message", "Success"))
-                    consecutive_failures = 0
-                else:
-                    consecutive_failures += 1
-                    error_msg = resp.get("message", "Unknown error") if resp else "No response"
-                    failure_duration_minutes = (consecutive_failures * HEARTBEAT_INTERVAL_SECONDS) / 60
-
-                    logging.warning(
-                        "Heartbeat failed (%d/%d) - %.1f minutes of failures: %s",
-                        consecutive_failures,
-                        MAX_HEARTBEAT_FAILURES_BEFORE_SHUTDOWN,
-                        failure_duration_minutes,
-                        error_msg,
-                    )
-
-                    if consecutive_failures >= MAX_HEARTBEAT_FAILURES_BEFORE_SHUTDOWN:
-                        logging.error(
-                            "Heartbeat failed %d consecutive times (%.1f minutes), initiating shutdown",
-                            consecutive_failures,
-                            failure_duration_minutes,
-                        )
-                        self.shutdown()
-                        return
-
-            except Exception as exc:
-                consecutive_failures += 1
-                failure_duration_minutes = (consecutive_failures * HEARTBEAT_INTERVAL_SECONDS) / 60
-
-                logging.warning(
-                    "Heartbeat exception (%d/%d) - %.1f minutes of failures: %s",
-                    consecutive_failures,
-                    MAX_HEARTBEAT_FAILURES_BEFORE_SHUTDOWN,
-                    failure_duration_minutes,
-                    str(exc),
-                )
-
-                if consecutive_failures >= MAX_HEARTBEAT_FAILURES_BEFORE_SHUTDOWN:
-                    logging.error(
-                        "Heartbeat failed %d consecutive times (%.1f minutes), initiating shutdown",
-                        consecutive_failures,
-                        failure_duration_minutes,
-                    )
-                    self.shutdown()
-                    return
-
-            time.sleep(HEARTBEAT_INTERVAL_SECONDS)
-
     def run_background_checkers(self):
-        """Start the shutdown checker and heartbeat checker threads as daemons."""
+        """Start the shutdown checker thread."""
         shutdown_thread = threading.Thread(
             target=self.shutdown_checker,
             name="ShutdownChecker",
             daemon=False,
         )
-        heartbeat_thread = threading.Thread(
-            target=self.heartbeat_checker,
-            name="HeartbeatChecker",
-            daemon=False,
-        )
 
         shutdown_thread.start()
-        heartbeat_thread.start()
 
         logging.info("Background checker threads started successfully")
 

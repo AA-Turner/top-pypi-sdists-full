@@ -115,9 +115,7 @@ static int slot_wxSizerItemList___contains__(PyObject *sipSelf, PyObject *sipArg
         if (sipParseArgs(&sipParseErr, sipArg, "1J8", sipType_wxSizerItem, &obj))
         {
             int sipRes = 0;
-        wxSizerItemList::compatibility_iterator node;
-        node = sipCpp->Find((wxSizerItem*)obj);
-        sipRes = node != NULL;
+        sipRes = sipCpp->Member((wxSizerItem*)obj);
 
             return sipRes;
         }

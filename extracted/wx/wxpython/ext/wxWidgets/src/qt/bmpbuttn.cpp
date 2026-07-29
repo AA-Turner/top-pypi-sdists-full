@@ -8,12 +8,11 @@
 // For compilers that support precompilation, includes "wx.h".
 #include "wx/wxprec.h"
 
+#if wxUSE_BMPBUTTON
+
 #include "wx/bmpbuttn.h"
 
-wxBitmapButton::wxBitmapButton()
-{
-}
-
+#include <QtWidgets/QPushButton>
 
 wxBitmapButton::wxBitmapButton(wxWindow *parent,
                wxWindowID id,
@@ -42,12 +41,21 @@ bool wxBitmapButton::Create(wxWindow *parent,
     // Show the initial bitmap and resize accordingly:
     if ( bitmap.IsOk() )
     {
-        wxBitmapButtonBase::SetBitmapLabel(bitmap);
+        SetBitmapLabel(bitmap);
 
-        // we need to adjust the size after setting the bitmap as it may be too
-        // big for the default button size
-        SetInitialSize(size);
+        if ( HasFlag(wxBU_EXACTFIT) )
+        {
+            GetQPushButton()->setFlat(true);
+            GetQPushButton()->setStyleSheet("QPushButton { border: none; }");
+        }
+        else
+        {
+            // we need to adjust the size after setting the bitmap as it may be too
+            // big for the default button size
+            SetInitialSize(size);
+        }
     }
     return true;
 }
 
+#endif // wxUSE_BMPBUTTON

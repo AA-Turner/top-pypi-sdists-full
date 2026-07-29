@@ -72,7 +72,7 @@ sipwxRichTextListStyleDefinition::~sipwxRichTextListStyleDefinition()
 }
 
 
-PyDoc_STRVAR(doc_wxRichTextListStyleDefinition_CombineWithParagraphStyle, "CombineWithParagraphStyle(indent, paraStyle, styleSheet=None) -> RichTextAttr\n"
+PyDoc_STRVAR(doc_wxRichTextListStyleDefinition_CombineWithParagraphStyle, "CombineWithParagraphStyle(indent, paraStyle, styleSheet=nullptr) -> RichTextAttr\n"
 "\n"
 "This function combines the given paragraph style with the list style's\n"
 "base attributes and level style matching the given indent, returning\n"
@@ -86,7 +86,7 @@ static PyObject *meth_wxRichTextListStyleDefinition_CombineWithParagraphStyle(Py
     {
         int indent;
         const ::wxRichTextAttr* paraStyle;
-        ::wxRichTextStyleSheet* styleSheet = 0;
+        ::wxRichTextStyleSheet* styleSheet = nullptr;
         ::wxRichTextListStyleDefinition *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -160,7 +160,7 @@ static PyObject *meth_wxRichTextListStyleDefinition_FindLevelForIndent(PyObject 
 }
 
 
-PyDoc_STRVAR(doc_wxRichTextListStyleDefinition_GetCombinedStyle, "GetCombinedStyle(indent, styleSheet=None) -> RichTextAttr\n"
+PyDoc_STRVAR(doc_wxRichTextListStyleDefinition_GetCombinedStyle, "GetCombinedStyle(indent, styleSheet=nullptr) -> RichTextAttr\n"
 "\n"
 "This function combines the list style's base attributes and the level\n"
 "style matching the given indent, returning the combined attributes.");
@@ -172,7 +172,7 @@ static PyObject *meth_wxRichTextListStyleDefinition_GetCombinedStyle(PyObject *s
 
     {
         int indent;
-        ::wxRichTextStyleSheet* styleSheet = 0;
+        ::wxRichTextStyleSheet* styleSheet = nullptr;
         ::wxRichTextListStyleDefinition *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -203,7 +203,7 @@ static PyObject *meth_wxRichTextListStyleDefinition_GetCombinedStyle(PyObject *s
 }
 
 
-PyDoc_STRVAR(doc_wxRichTextListStyleDefinition_GetCombinedStyleForLevel, "GetCombinedStyleForLevel(level, styleSheet=None) -> RichTextAttr\n"
+PyDoc_STRVAR(doc_wxRichTextListStyleDefinition_GetCombinedStyleForLevel, "GetCombinedStyleForLevel(level, styleSheet=nullptr) -> RichTextAttr\n"
 "\n"
 "This function combines the list style's base attributes and the style\n"
 "for the specified level, returning the combined attributes.");
@@ -215,7 +215,7 @@ static PyObject *meth_wxRichTextListStyleDefinition_GetCombinedStyleForLevel(PyO
 
     {
         int level;
-        ::wxRichTextStyleSheet* styleSheet = 0;
+        ::wxRichTextStyleSheet* styleSheet = nullptr;
         ::wxRichTextListStyleDefinition *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -402,6 +402,57 @@ static PyObject *meth_wxRichTextListStyleDefinition_SetLevelAttributes(PyObject 
 }
 
 
+PyDoc_STRVAR(doc_wxRichTextListStyleDefinition_SetAttributes, "SetAttributes(i, leftIndent, leftSubIndent, bulletStyle, bulletSymbol='') -> None\n"
+"\n"
+"Convenience function for setting the major attributes for a list level\n"
+"specification.");
+
+extern "C" {static PyObject *meth_wxRichTextListStyleDefinition_SetAttributes(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxRichTextListStyleDefinition_SetAttributes(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int i;
+        int leftIndent;
+        int leftSubIndent;
+        int bulletStyle;
+        const ::wxString& bulletSymboldef = wxEmptyString;
+        const ::wxString* bulletSymbol = &bulletSymboldef;
+        int bulletSymbolState = 0;
+        ::wxRichTextListStyleDefinition *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_i,
+            sipName_leftIndent,
+            sipName_leftSubIndent,
+            sipName_bulletStyle,
+            sipName_bulletSymbol,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Biiii|J1", &sipSelf, sipType_wxRichTextListStyleDefinition, &sipCpp, &i, &leftIndent, &leftSubIndent, &bulletStyle, sipType_wxString, &bulletSymbol, &bulletSymbolState))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetAttributes(i, leftIndent, leftSubIndent, bulletStyle, *bulletSymbol);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxString *>(bulletSymbol), sipType_wxString, bulletSymbolState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_RichTextListStyleDefinition, sipName_SetAttributes, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 /* Cast a pointer to a type somewhere in its inheritance hierarchy. */
 extern "C" {static void *cast_wxRichTextListStyleDefinition(void *, const sipTypeDef *);}
 static void *cast_wxRichTextListStyleDefinition(void *sipCppV, const sipTypeDef *targetType)
@@ -541,6 +592,7 @@ static PyMethodDef methods_wxRichTextListStyleDefinition[] = {
     {sipName_GetLevelAttributes, SIP_MLMETH_CAST(meth_wxRichTextListStyleDefinition_GetLevelAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextListStyleDefinition_GetLevelAttributes},
     {sipName_GetLevelCount, meth_wxRichTextListStyleDefinition_GetLevelCount, METH_VARARGS, doc_wxRichTextListStyleDefinition_GetLevelCount},
     {sipName_IsNumbered, SIP_MLMETH_CAST(meth_wxRichTextListStyleDefinition_IsNumbered), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextListStyleDefinition_IsNumbered},
+    {sipName_SetAttributes, SIP_MLMETH_CAST(meth_wxRichTextListStyleDefinition_SetAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextListStyleDefinition_SetAttributes},
     {sipName_SetLevelAttributes, SIP_MLMETH_CAST(meth_wxRichTextListStyleDefinition_SetLevelAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextListStyleDefinition_SetLevelAttributes}
 };
 
@@ -567,7 +619,7 @@ sipClassTypeDef sipTypeDef__richtext_wxRichTextListStyleDefinition = {
     {
         sipNameNr_RichTextListStyleDefinition,
         {0, 0, 1},
-        8, methods_wxRichTextListStyleDefinition,
+        9, methods_wxRichTextListStyleDefinition,
         0, SIP_NULLPTR,
         1, variables_wxRichTextListStyleDefinition,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

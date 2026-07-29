@@ -34,8 +34,9 @@ use tensorlake::images::models::{ApplicationBuildContext, CreateApplicationBuild
 use tensorlake::sandbox_images::SandboxImageBuildEvent;
 use tensorlake::sandbox_templates::SandboxTemplatesClient;
 use tensorlake::sandboxes::models::{
-    ArchivedSandboxesPaginationDirection, CreateSandboxRequest, GetSandboxLogsRequest,
-    ListArchivedSandboxesParams, SandboxPoolRequest, SnapshotType, UpdateSandboxRequest,
+    ArchivedSandboxesPaginationDirection, CreateSandboxPoolRequest, CreateSandboxRequest,
+    GetSandboxLogsRequest, ListArchivedSandboxesParams, SnapshotType, UpdateSandboxPoolRequest,
+    UpdateSandboxRequest,
 };
 use tensorlake::sandboxes::{
     SandboxDesktopClient as RustSandboxDesktopClient, SandboxProxyClient, SandboxesClient,
@@ -1840,11 +1841,11 @@ impl CloudSandboxClient {
     }
 
     fn create_pool(&self, request_json: String) -> PyResult<(String, String)> {
-        let request: SandboxPoolRequest = parse_json_payload(&request_json)?;
+        let request: CreateSandboxPoolRequest = parse_json_payload(&request_json)?;
         self.run_with_retry(5, move |client| {
             let request = request.clone();
             async move {
-                let traced = client.create_pool(&request).await?;
+                let traced = client.create_pool_with_network(&request).await?;
                 let trace_id = traced.trace_id.clone();
                 let json = serde_json::to_string(&*traced).map_err(SdkError::from)?;
                 Ok((trace_id, json))
@@ -1875,12 +1876,12 @@ impl CloudSandboxClient {
     }
 
     fn update_pool(&self, pool_id: String, request_json: String) -> PyResult<(String, String)> {
-        let request: SandboxPoolRequest = parse_json_payload(&request_json)?;
+        let request: UpdateSandboxPoolRequest = parse_json_payload(&request_json)?;
         self.run_with_retry(5, move |client| {
             let pool_id = pool_id.clone();
             let request = request.clone();
             async move {
-                let traced = client.update_pool(&pool_id, &request).await?;
+                let traced = client.update_pool_with_network(&pool_id, &request).await?;
                 let trace_id = traced.trace_id.clone();
                 let json = serde_json::to_string(&*traced).map_err(SdkError::from)?;
                 Ok((trace_id, json))
@@ -2269,12 +2270,12 @@ impl CloudSandboxClient {
         py: Python<'py>,
         request_json: String,
     ) -> PyResult<Bound<'py, PyAny>> {
-        let request: SandboxPoolRequest = parse_json_payload(&request_json)?;
+        let request: CreateSandboxPoolRequest = parse_json_payload(&request_json)?;
         let client = self.client.clone();
         future_into_py(py, async move {
             let traced = retry_async_op(client, 5, move |c| {
                 let request = request.clone();
-                async move { c.create_pool(&request).await }
+                async move { c.create_pool_with_network(&request).await }
             })
             .await
             .map_err(into_sandbox_py_error)?;
@@ -2322,13 +2323,13 @@ impl CloudSandboxClient {
         pool_id: String,
         request_json: String,
     ) -> PyResult<Bound<'py, PyAny>> {
-        let request: SandboxPoolRequest = parse_json_payload(&request_json)?;
+        let request: UpdateSandboxPoolRequest = parse_json_payload(&request_json)?;
         let client = self.client.clone();
         future_into_py(py, async move {
             let traced = retry_async_op(client, 5, move |c| {
                 let pool_id = pool_id.clone();
                 let request = request.clone();
-                async move { c.update_pool(&pool_id, &request).await }
+                async move { c.update_pool_with_network(&pool_id, &request).await }
             })
             .await
             .map_err(into_sandbox_py_error)?;

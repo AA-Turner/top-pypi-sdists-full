@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import datetime
 from enum import Enum
 from functools import partial
-from json import dumps as json_dumps
 import sys
 from typing import Dict, get_type_hints, List, Optional, Tuple
 
@@ -18,11 +17,23 @@ from anyscale.client.openapi_client.models.job_queue_sort_field import JobQueueS
 from anyscale.client.openapi_client.models.session_state import SessionState
 from anyscale.client.openapi_client.models.sort_order import SortOrder
 from anyscale.commands import command_examples
+from anyscale.commands.doc_metadata import (
+    command_metadata,
+    CommandExample,
+    ReleaseStatus,
+)
 from anyscale.commands.list_util import (
     display_list,
     MAX_PAGE_SIZE,
     NON_INTERACTIVE_DEFAULT_MAX_ITEMS,
     validate_page_size,
+)
+from anyscale.commands.output_format import (
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    OutputFormat,
+    print_output,
+    resolve_output_format,
 )
 from anyscale.commands.util import (
     AnyscaleCommand,
@@ -91,11 +102,33 @@ VIEW_COLUMNS: Dict[ViewOption, List[JobQueueStatusKeys]] = {
 }
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to [TEXT, JSON] when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="List job queues.",
+            command="anyscale job-queue list",
+            output_raw=command_examples.JOB_QUEUE_LIST,
+            output_instance=[
+                {
+                    "id": "jq_h8fcze2qkr8wttuuvapi1hvyuc",
+                    "name": "queue_3",
+                    "state": "ACTIVE",
+                    "max_concurrency": "3",
+                    "idle_timeout_s": "5000",
+                }
+            ],
+        ),
+    ],
+)
 @job_queue_cli.command(
     name="list",
+    short_help="List job queues.",
     help="List job queues.",
     cls=AnyscaleCommand,
-    example=command_examples.JOB_QUEUE_LIST,
 )
 @click.option("--id", "job_queue_id", help="ID of a job queue.")
 @click.option("--name", type=str, help="Filter by name.")
@@ -159,6 +192,16 @@ VIEW_COLUMNS: Dict[ViewOption, List[JobQueueStatusKeys]] = {
     help="Enable interactive pagination.",
 )
 @click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
+@click.option(
     "-j", "--json", "json_output", is_flag=True, default=False, help="JSON output.",
 )
 @click.option(
@@ -180,10 +223,13 @@ def list_job_queues(  # noqa: PLR0913
     max_items: Optional[int],
     sort_dirs: List[JobQueueSortDirective],
     interactive: bool,
+    output_format: str,
     json_output: bool,
     include_archived: bool,
 ) -> None:
     """List and page job queues according to filters and view."""
+    json_output = json_output or output_format == OutputFormat.JSON.value
+
     if max_items and interactive:
         raise click.UsageError("--max-items only in non-interactive mode")
 
@@ -255,11 +301,36 @@ def list_job_queues(  # noqa: PLR0913
         sys.exit(1)
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Raise the concurrency limit of a job queue.",
+            command="anyscale job-queue update --id jq_h8fcze2qkr8wttuuvapi1hvyuc --max-concurrency 5",
+            output_raw=command_examples.JOB_QUEUE_UPDATE,
+            output_instance={
+                "id": "jq_h8fcze2qkr8wttuuvapi1hvyuc",
+                "name": "queue_3",
+                "state": "ACTIVE",
+                "execution_mode": "PRIORITY",
+                "max_concurrency": "5",
+                "idle_timeout_s": "5000",
+            },
+        ),
+    ],
+)
 @job_queue_cli.command(
     name="update",
-    help="Update job queue settings.",
+    short_help="Update job queue settings.",
+    help=(
+        "Update job queue settings.\n\n"
+        "Specify the job queue by name (--name) or by ID (--id). "
+        "Provide at least one of --max-concurrency or --idle-timeout-s."
+    ),
     cls=AnyscaleCommand,
-    example=command_examples.JOB_QUEUE_UPDATE,
 )
 @click.option("--id", "job_queue_id", help="ID of the job queue.")
 @click.option("--name", "-n", help="Name of the job queue.")
@@ -267,6 +338,16 @@ def list_job_queues(  # noqa: PLR0913
 @click.option("--cloud", help="Cloud name (required when using --name).")
 @click.option("--max-concurrency", type=int, help="Max number of concurrent jobs.")
 @click.option("--idle-timeout-s", type=int, help="Idle timeout in seconds.")
+@click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
 @click.option(
     "--json", "json_output", is_flag=True, default=False, help="JSON output.",
 )
@@ -277,6 +358,7 @@ def update_job_queue(
     cloud: Optional[str],
     max_concurrency: Optional[int],
     idle_timeout_s: Optional[int],
+    output_format: str,
     json_output: bool,
 ) -> None:
     """Update the max_concurrency or idle_timeout_s of a job queue."""
@@ -286,7 +368,7 @@ def update_job_queue(
         raise click.ClickException("Specify --max-concurrency or --idle-timeout-s")
     stderr = Console(stderr=True)
     ident = job_queue_id or name or "<unknown>"
-    if not json_output:
+    if not json_output and output_format == OutputFormat.TEXT.value:
         stderr.print(f"Updating job queue '{ident}'...")
     try:
         jq = anyscale.job_queue.update(
@@ -297,8 +379,9 @@ def update_job_queue(
             max_concurrency=max_concurrency,
             idle_timeout_s=idle_timeout_s,
         )
-        if json_output:
-            Console().print_json(json_dumps(_format_data(jq), indent=2))
+        resolved = resolve_output_format(output_format, json_output)
+        if resolved != OutputFormat.TEXT.value:
+            print_output(_format_data(jq), resolved)
         else:
             _display_single(jq, stderr, ViewOption.ALL)
     except Exception as e:  # noqa: BLE001
@@ -311,11 +394,28 @@ def job_queue_tags_cli() -> None:
     pass
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Add tags to a job queue by name.",
+            command="anyscale job-queue tags add --name my-queue --tag team=data --tag priority=high",
+            output_raw=command_examples.JOB_QUEUE_TAGS_ADD_EXAMPLE,
+        ),
+    ],
+)
 @job_queue_tags_cli.command(
     name="add",
-    help="Add or update tags on a job queue.",
+    short_help="Add or update tags on a job queue.",
+    help=(
+        "Add or update tags on a job queue.\n\n"
+        "Specify the job queue by name (--name) or by ID (--id). "
+        "Provide at least one --tag in key=value format, repeating --tag to "
+        "set multiple. Existing tags with the same key are overwritten."
+    ),
     cls=AnyscaleCommand,
-    example=command_examples.JOB_QUEUE_TAGS_ADD_EXAMPLE,
 )
 @click.option("--id", "job_queue_id", help="ID of a job queue.")
 @click.option("--name", "-n", type=str, help="Name of a job queue.")
@@ -339,11 +439,27 @@ def add_tags(
     stderr.print(f"Tags updated for job queue '{ident}'.")
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Remove tags from a job queue by name.",
+            command="anyscale job-queue tags remove --name my-queue --key team --key priority",
+            output_raw=command_examples.JOB_QUEUE_TAGS_REMOVE_EXAMPLE,
+        ),
+    ],
+)
 @job_queue_tags_cli.command(
     name="remove",
-    help="Remove tags by key from a job queue.",
+    short_help="Remove tags by key from a job queue.",
+    help=(
+        "Remove tags by key from a job queue.\n\n"
+        "Specify the job queue by name (--name) or by ID (--id). "
+        "Provide at least one --key to remove, repeating --key to remove multiple."
+    ),
     cls=AnyscaleCommand,
-    example=command_examples.JOB_QUEUE_TAGS_REMOVE_EXAMPLE,
 )
 @click.option("--id", "job_queue_id", help="ID of a job queue.")
 @click.option("--name", "-n", type=str, help="Name of a job queue.")
@@ -362,23 +478,54 @@ def remove_tags(
     stderr.print(f"Removed tag keys {key_list} from job queue '{ident}'.")
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="List the tags of a job queue by name.",
+            command="anyscale job-queue tags list --name my-queue",
+            output_raw=command_examples.JOB_QUEUE_TAGS_LIST_EXAMPLE,
+            output_instance={"team": "data", "priority": "high"},
+        ),
+    ],
+)
 @job_queue_tags_cli.command(
     name="list",
-    help="List tags for a job queue.",
+    short_help="List tags for a job queue.",
+    help=(
+        "List tags for a job queue.\n\n"
+        "Specify the job queue by name (--name) or by ID (--id)."
+    ),
     cls=AnyscaleCommand,
-    example=command_examples.JOB_QUEUE_TAGS_LIST_EXAMPLE,
 )
 @click.option("--id", "job_queue_id", help="ID of a job queue.")
 @click.option("--name", "-n", type=str, help="Name of a job queue.")
+@click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
 @click.option("--json", "json_output", is_flag=True, default=False, help="JSON output.")
 def list_tags(
-    job_queue_id: Optional[str], name: Optional[str], json_output: bool,
+    job_queue_id: Optional[str],
+    name: Optional[str],
+    output_format: str,
+    json_output: bool,
 ) -> None:
     if not job_queue_id and not name:
         raise click.ClickException("Provide either --id or --name.")
     tag_map = anyscale.job_queue.list_tags(job_queue_id=job_queue_id, name=name)
-    if json_output:
-        Console().print_json(json=json_dumps(tag_map, indent=2))
+    resolved = resolve_output_format(output_format, json_output)
+    if resolved != OutputFormat.TEXT.value:
+        print_output(tag_map, resolved)
     else:
         stderr = Console(stderr=True)
         if not tag_map:
@@ -388,11 +535,36 @@ def list_tags(
         stderr.print(build_kv_table(pairs, title="Tags"))
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Show the details of a job queue by ID.",
+            command="anyscale job-queue status --id jq_h8fcze2qkr8wttuuvapi1hvyuc",
+            output_raw=command_examples.JOB_QUEUE_STATUS,
+            output_instance={
+                "id": "jq_h8fcze2qkr8wttuuvapi1hvyuc",
+                "name": "queue_3",
+                "state": "ACTIVE",
+                "execution_mode": "PRIORITY",
+                "max_concurrency": "3",
+                "idle_timeout_s": "5000",
+            },
+        ),
+    ],
+)
 @job_queue_cli.command(
     name="status",
-    help="Show job queue details.",
+    short_help="Show job queue details.",
+    help=(
+        "Show job queue details.\n\n"
+        "Specify the job queue by name (--name) or by ID (--id). "
+        "--project and --cloud can only be used together with --name."
+    ),
     cls=AnyscaleCommand,
-    example=command_examples.JOB_QUEUE_STATUS,
 )
 @click.option("--id", "job_queue_id", help="ID of the job queue.")
 @click.option("--name", "-n", help="Name of the job queue.")
@@ -404,6 +576,16 @@ def list_tags(
     default=ViewOption.DEFAULT.value,
     help="Columns view.",
     callback=lambda _ctx, _param, value: ViewOption(value),
+)
+@click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
 )
 @click.option(
     "--json", "json_output", is_flag=True, default=False, help="JSON output.",
@@ -420,6 +602,7 @@ def status(
     project: Optional[str],
     cloud: Optional[str],
     view: ViewOption,
+    output_format: str,
     json_output: bool,
     include_archived: bool,
 ) -> None:
@@ -433,7 +616,7 @@ def status(
 
     stderr = Console(stderr=True)
     ident = job_queue_id or name or "<unknown>"
-    if not json_output:
+    if not json_output and output_format == OutputFormat.TEXT.value:
         stderr.print(f"Fetching job queue '{ident}'...")
     try:
         jq = anyscale.job_queue.status(
@@ -443,8 +626,9 @@ def status(
             cloud=cloud,
             include_archived=include_archived,
         )
-        if json_output:
-            Console().print_json(json_dumps(_format_data(jq), indent=2))
+        resolved = resolve_output_format(output_format, json_output)
+        if resolved != OutputFormat.TEXT.value:
+            print_output(_format_data(jq), resolved)
         else:
             # Use ALL view for single item display if not specified
             display_view = ViewOption.ALL if view == ViewOption.DEFAULT else view
@@ -454,11 +638,28 @@ def status(
         sys.exit(1)
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Archive a job queue by ID or by name.",
+            command="anyscale job-queue archive --id jq_abc123",
+            output_raw=command_examples.JOB_QUEUE_ARCHIVE_EXAMPLE,
+        ),
+    ],
+)
 @job_queue_cli.command(
     name="archive",
-    help="Archive (seal) a job queue. No new jobs can be submitted.",
+    short_help="Archive (seal) a job queue. No new jobs can be submitted.",
+    help=(
+        "Archive (seal) a job queue. No new jobs can be submitted.\n\n"
+        "Specify the job queue by name (--name) or by ID (--id). "
+        "--project and --cloud are required with --name and cannot be "
+        "used with --id."
+    ),
     cls=AnyscaleCommand,
-    example=command_examples.JOB_QUEUE_ARCHIVE_EXAMPLE,
 )
 @click.option("--id", "job_queue_id", help="ID of the job queue.")
 @click.option("--name", "-n", help="Name of the job queue.")
@@ -497,11 +698,28 @@ def archive_job_queue(
         sys.exit(1)
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Terminate a job queue by ID or by name.",
+            command="anyscale job-queue terminate --id jq_abc123",
+            output_raw=command_examples.JOB_QUEUE_TERMINATE_EXAMPLE,
+        ),
+    ],
+)
 @job_queue_cli.command(
     name="terminate",
-    help="Terminate a job queue and all its pending/running jobs.",
+    short_help="Terminate a job queue and all its pending/running jobs.",
+    help=(
+        "Terminate a job queue and all its pending/running jobs.\n\n"
+        "Specify the job queue by name (--name) or by ID (--id). "
+        "--project and --cloud are required with --name and cannot be "
+        "used with --id."
+    ),
     cls=AnyscaleCommand,
-    example=command_examples.JOB_QUEUE_TERMINATE_EXAMPLE,
 )
 @click.option("--id", "job_queue_id", help="ID of the job queue.")
 @click.option("--name", "-n", help="Name of the job queue.")
@@ -551,11 +769,29 @@ def terminate_job_queue(
         sys.exit(1)
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Delete a job queue by ID or by name.",
+            command="anyscale job-queue delete --id jq_abc123",
+            output_raw=command_examples.JOB_QUEUE_DELETE_EXAMPLE,
+        ),
+    ],
+)
 @job_queue_cli.command(
     name="delete",
-    help="Delete a job queue. Jobs previously submitted remain accessible.",
+    short_help="Delete a job queue. Jobs previously submitted remain accessible.",
+    help=(
+        "Delete a job queue. Jobs previously submitted remain accessible.\n\n"
+        "The job queue must have all jobs in a terminal state and no running "
+        "clusters. This action cannot be undone. Specify the job queue by name "
+        "(--name) or by ID (--id). --project and "
+        "--cloud are required with --name and cannot be used with --id."
+    ),
     cls=AnyscaleCommand,
-    example=command_examples.JOB_QUEUE_DELETE_EXAMPLE,
 )
 @click.option("--id", "job_queue_id", help="ID of the job queue.")
 @click.option("--name", "-n", help="Name of the job queue.")

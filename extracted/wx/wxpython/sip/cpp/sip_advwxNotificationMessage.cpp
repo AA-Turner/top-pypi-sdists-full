@@ -729,7 +729,7 @@ static void *init_type_wxNotificationMessage(sipSimpleWrapper *sipSelf, PyObject
         const ::wxString& messagedef = wxEmptyString;
         const ::wxString* message = &messagedef;
         int messageState = 0;
-        ::wxWindow* parent = 0;
+        ::wxWindow* parent = nullptr;
         int flags = wxICON_INFORMATION;
 
         static const char *sipKwdList[] = {
@@ -768,7 +768,7 @@ static void *init_type_wxNotificationMessage(sipSimpleWrapper *sipSelf, PyObject
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxNotificationMessage[] = {{23, 0, 1}};
+static sipEncodedTypeDef supers_wxNotificationMessage[] = {{24, 0, 1}};
 
 
 static PyMethodDef methods_wxNotificationMessage[] = {
@@ -787,12 +787,16 @@ static PyMethodDef methods_wxNotificationMessage[] = {
 };
 
 static sipEnumMemberDef enummembers_wxNotificationMessage[] = {
+    {sipName_ByApp, static_cast<int>(::wxNotificationMessage::DismissalReason::ByApp), 35},
+    {sipName_ByUser, static_cast<int>(::wxNotificationMessage::DismissalReason::ByUser), 35},
+    {sipName_TimedOut, static_cast<int>(::wxNotificationMessage::DismissalReason::TimedOut), 35},
     {sipName_Timeout_Auto, static_cast<int>(::wxNotificationMessage::Timeout_Auto), -1},
     {sipName_Timeout_Never, static_cast<int>(::wxNotificationMessage::Timeout_Never), -1},
+    {sipName_Unknown, static_cast<int>(::wxNotificationMessage::DismissalReason::Unknown), 35},
 };
 
 PyDoc_STRVAR(doc_wxNotificationMessage, "NotificationMessage() -> None\n"
-"NotificationMessage(title, message='', parent=None, flags=wx.ICON_INFORMATION) -> None\n"
+"NotificationMessage(title, message='', parent=nullptr, flags=wx.ICON_INFORMATION) -> None\n"
 "\n"
 "This class allows showing the user a message non intrusively.");
 
@@ -811,7 +815,7 @@ sipClassTypeDef sipTypeDef__adv_wxNotificationMessage = {
         sipNameNr_NotificationMessage,
         {0, 0, 1},
         12, methods_wxNotificationMessage,
-        2, enummembers_wxNotificationMessage,
+        6, enummembers_wxNotificationMessage,
         0, SIP_NULLPTR,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },

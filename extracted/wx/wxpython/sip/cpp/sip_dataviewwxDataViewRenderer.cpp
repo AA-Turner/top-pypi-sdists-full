@@ -875,7 +875,7 @@ static void dealloc_wxDataViewRenderer(sipSimpleWrapper *sipSelf)
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxDataViewRenderer[] = {{26, 0, 1}};
+static sipEncodedTypeDef supers_wxDataViewRenderer[] = {{27, 0, 1}};
 
 
 static PyMethodDef methods_wxDataViewRenderer[] = {

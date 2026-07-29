@@ -30,7 +30,8 @@
 #endif // WX_PRECOMP
 
 #include "wx/graphics.h"
-#include "wx/scopedptr.h"
+
+#include <memory>
 
 // ----------------------------------------------------------------------------
 // constants
@@ -106,7 +107,7 @@ private:
         {
         }
 
-        virtual void Notify() wxOVERRIDE
+        virtual void Notify() override
         {
             m_owner->Advance();
         }
@@ -121,7 +122,7 @@ private:
     {
         wxPaintDC pdc(m_win);
 
-        wxScopedPtr<wxGraphicsContext> const
+        std::unique_ptr<wxGraphicsContext> const
             gc(wxGraphicsRenderer::GetDefaultRenderer()->CreateContext(pdc));
 
         const wxSize size = m_win->GetClientSize();

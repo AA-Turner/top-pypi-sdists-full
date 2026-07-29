@@ -104,6 +104,90 @@ static PyObject *meth_wxPoint_SetDefaults(PyObject *sipSelf, PyObject *sipArgs, 
 }
 
 
+PyDoc_STRVAR(doc_wxPoint_Round, "Round(pt) -> Point\n"
+"\n"
+"Creates a wxPoint by rounding the coordinates of the given\n"
+"wxRealPoint.");
+
+extern "C" {static PyObject *meth_wxPoint_Round(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxPoint_Round(PyObject *, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxRealPoint* pt;
+        int ptState = 0;
+
+        static const char *sipKwdList[] = {
+            sipName_pt,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "J1", sipType_wxRealPoint, &pt, &ptState))
+        {
+            ::wxPoint*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxPoint(::wxPoint::Round(*pt));
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxRealPoint *>(pt), sipType_wxRealPoint, ptState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxPoint, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Point, sipName_Round, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxPoint_Truncate, "Truncate(pt) -> Point\n"
+"\n"
+"Creates a wxPoint by truncating the coordinates of the given\n"
+"wxRealPoint.");
+
+extern "C" {static PyObject *meth_wxPoint_Truncate(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxPoint_Truncate(PyObject *, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxRealPoint* pt;
+        int ptState = 0;
+
+        static const char *sipKwdList[] = {
+            sipName_pt,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "J1", sipType_wxRealPoint, &pt, &ptState))
+        {
+            ::wxPoint*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxPoint(::wxPoint::Truncate(*pt));
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxRealPoint *>(pt), sipType_wxRealPoint, ptState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxPoint, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Point, sipName_Truncate, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxPoint_Get, "Get() -> (x,y)\n"
 "\n"
 "Return the x and y properties as a tuple.");
@@ -786,7 +870,9 @@ static sipPySlotDef slots_wxPoint[] = {
 static PyMethodDef methods_wxPoint[] = {
     {sipName_Get, meth_wxPoint_Get, METH_VARARGS, doc_wxPoint_Get},
     {sipName_IsFullySpecified, meth_wxPoint_IsFullySpecified, METH_VARARGS, doc_wxPoint_IsFullySpecified},
-    {sipName_SetDefaults, SIP_MLMETH_CAST(meth_wxPoint_SetDefaults), METH_VARARGS|METH_KEYWORDS, doc_wxPoint_SetDefaults}
+    {sipName_Round, SIP_MLMETH_CAST(meth_wxPoint_Round), METH_VARARGS|METH_KEYWORDS, doc_wxPoint_Round},
+    {sipName_SetDefaults, SIP_MLMETH_CAST(meth_wxPoint_SetDefaults), METH_VARARGS|METH_KEYWORDS, doc_wxPoint_SetDefaults},
+    {sipName_Truncate, SIP_MLMETH_CAST(meth_wxPoint_Truncate), METH_VARARGS|METH_KEYWORDS, doc_wxPoint_Truncate}
 };
 
 
@@ -872,7 +958,7 @@ sipClassTypeDef sipTypeDef__core_wxPoint = {
     {
         sipNameNr_Point,
         {0, 0, 1},
-        3, methods_wxPoint,
+        5, methods_wxPoint,
         0, SIP_NULLPTR,
         2, variables_wxPoint,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

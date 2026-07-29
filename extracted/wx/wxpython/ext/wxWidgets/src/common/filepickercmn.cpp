@@ -2,7 +2,6 @@
 // Name:        src/common/filepickercmn.cpp
 // Purpose:     wxFilePickerCtrl class implementation
 // Author:      Francesco Montorsi (readapted code written by Vadim Zeitlin)
-// Modified by:
 // Created:     15/04/2006
 // Copyright:   (c) Vadim Zeitlin, Francesco Montorsi
 // Licence:     wxWindows licence
@@ -86,10 +85,6 @@ bool wxFileDirPickerCtrlBase::CreateBase(wxWindow *parent,
     wxPickerBase::PostCreation();
 
     DoConnect( m_picker, this );
-
-    // default's wxPickerBase textctrl limit is too small for this control:
-    // make it bigger
-    if (m_text) m_text->SetMaxLength(512);
 
     return true;
 }

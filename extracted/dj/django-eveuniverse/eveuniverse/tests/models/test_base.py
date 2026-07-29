@@ -36,6 +36,7 @@ from eveuniverse.models import (
     EveUnit,
 )
 from eveuniverse.models.base import EveUniverseBaseModel
+from eveuniverse.tests.testdata.factories_2 import EveCategoryFactory
 
 
 class TestEveUniverseBaseModelGetModelClass(TestCase):
@@ -60,6 +61,14 @@ class TestEveUniverseBaseModelGetModelClass(TestCase):
 
 
 class TestEveUniverseBaseModel(TestCase):
+    def test_str(self):
+        obj = EveCategoryFactory(id=42, name="Alpha")
+        self.assertEqual(str(obj), "Alpha")
+
+    def test_repr(self):
+        obj = EveCategoryFactory(id=42, name="Alpha")
+        self.assertEqual(repr(obj), 'EveCategory(id=42, name="Alpha")')
+
     def test_all_models(self):
         models = EveUniverseBaseModel.all_models()
         self.maxDiff = None

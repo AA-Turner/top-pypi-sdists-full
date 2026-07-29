@@ -902,7 +902,7 @@ static void *init_type_wxAnimationDecoder(sipSimpleWrapper *sipSelf, PyObject *s
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxAnimationDecoder[] = {{49, 0, 1}};
+static sipEncodedTypeDef supers_wxAnimationDecoder[] = {{50, 0, 1}};
 
 
 static PyMethodDef methods_wxAnimationDecoder[] = {

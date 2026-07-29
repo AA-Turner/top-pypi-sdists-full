@@ -14,21 +14,22 @@
         #include <wx/gdicmn.h>
         #include <wx/validate.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/bmpbndl.h>
         #include <wx/bitmap.h>
         #include <wx/dc.h>
         #include <wx/event.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -44,6 +45,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
+    wxAccessible* _wxToggleButton_CreateAccessible(wxToggleButton* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxToggleButton : public ::wxToggleButton
@@ -71,7 +81,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -117,7 +126,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -130,7 +138,7 @@ private:
     sipwxToggleButton(const sipwxToggleButton &);
     sipwxToggleButton &operator = (const sipwxToggleButton &);
 
-    char sipPyMethods[39];
+    char sipPyMethods[38];
 };
 
 sipwxToggleButton::sipwxToggleButton(): ::wxToggleButton(), sipPySelf(SIP_NULLPTR)
@@ -161,9 +169,9 @@ void sipwxToggleButton::RemoveChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 void sipwxToggleButton::AddChild(::wxWindowBase*child)
@@ -179,9 +187,9 @@ void sipwxToggleButton::AddChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 bool sipwxToggleButton::ProcessEvent(::wxEvent& event)
@@ -194,9 +202,9 @@ bool sipwxToggleButton::ProcessEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxToggleButton::ProcessEvent(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxToggleButton::TryBefore(::wxEvent& event)
@@ -209,9 +217,9 @@ bool sipwxToggleButton::TryBefore(::wxEvent& event)
     if (!sipMeth)
         return ::wxToggleButton::TryBefore(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxToggleButton::TryAfter(::wxEvent& event)
@@ -224,9 +232,9 @@ bool sipwxToggleButton::TryAfter(::wxEvent& event)
     if (!sipMeth)
         return ::wxToggleButton::TryAfter(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxToggleButton::AcceptsFocus() const
@@ -287,9 +295,9 @@ void sipwxToggleButton::SetCanFocus(bool canFocus)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, canFocus);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, canFocus);
 }
 
 void sipwxToggleButton::EnableVisibleFocus(bool enabled)
@@ -305,9 +313,9 @@ void sipwxToggleButton::EnableVisibleFocus(bool enabled)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enabled);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enabled);
 }
 
 bool sipwxToggleButton::InformFirstDirection(int direction, int size, int availableOtherDir)
@@ -320,9 +328,9 @@ bool sipwxToggleButton::InformFirstDirection(int direction, int size, int availa
     if (!sipMeth)
         return ::wxToggleButton::InformFirstDirection(direction, size, availableOtherDir);
 
-    extern bool sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern bool sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
 
-    return sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
+    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
 }
 
 ::wxPoint sipwxToggleButton::GetClientAreaOrigin() const
@@ -335,9 +343,9 @@ bool sipwxToggleButton::InformFirstDirection(int direction, int size, int availa
     if (!sipMeth)
         return ::wxToggleButton::GetClientAreaOrigin();
 
-    extern ::wxPoint sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPoint sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxToggleButton::HasTransparentBackground()
@@ -380,9 +388,9 @@ bool sipwxToggleButton::ShouldInheritColours() const
     if (!sipMeth)
         return ::wxToggleButton::GetValidator();
 
-    extern ::wxValidator* sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxValidator* sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxToggleButton::SetValidator(const ::wxValidator& validator)
@@ -398,9 +406,9 @@ void sipwxToggleButton::SetValidator(const ::wxValidator& validator)
         return;
     }
 
-    extern void sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
+    extern void sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
 
-    sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth, validator);
+    sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth, validator);
 }
 
 bool sipwxToggleButton::TransferDataFromWindow()
@@ -527,9 +535,9 @@ void sipwxToggleButton::OnInternalIdle()
     if (!sipMeth)
         return ::wxToggleButton::GetMainWindowOfCompositeControl();
 
-    extern ::wxWindow* sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxWindow* sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxToggleButton::DoEnable(bool enable)
@@ -545,9 +553,9 @@ void sipwxToggleButton::DoEnable(bool enable)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enable);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enable);
 }
 
 void sipwxToggleButton::DoGetPosition(int*x, int*y) const
@@ -563,9 +571,9 @@ void sipwxToggleButton::DoGetPosition(int*x, int*y) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, x, y);
 }
 
 void sipwxToggleButton::DoGetSize(int*width, int*height) const
@@ -581,9 +589,9 @@ void sipwxToggleButton::DoGetSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxToggleButton::DoGetClientSize(int*width, int*height) const
@@ -599,9 +607,9 @@ void sipwxToggleButton::DoGetClientSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxToggleButton::DoSetSize(int x, int y, int width, int height, int sizeFlags)
@@ -617,9 +625,9 @@ void sipwxToggleButton::DoSetSize(int x, int y, int width, int height, int sizeF
         return;
     }
 
-    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
+    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
 
-    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
+    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
 }
 
 void sipwxToggleButton::DoSetClientSize(int width, int height)
@@ -635,9 +643,9 @@ void sipwxToggleButton::DoSetClientSize(int width, int height)
         return;
     }
 
-    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
+    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
 
-    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxToggleButton::DoSetSizeHints(int minW, int minH, int maxW, int maxH, int incW, int incH)
@@ -653,9 +661,9 @@ void sipwxToggleButton::DoSetSizeHints(int minW, int minH, int maxW, int maxH, i
         return;
     }
 
-    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
+    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
 
-    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
+    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
 }
 
 void sipwxToggleButton::DoMoveWindow(int x, int y, int width, int height)
@@ -671,9 +679,9 @@ void sipwxToggleButton::DoMoveWindow(int x, int y, int width, int height)
         return;
     }
 
-    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
+    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
 
-    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
+    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
 }
 
 void sipwxToggleButton::DoSetWindowVariant(::wxWindowVariant variant)
@@ -689,9 +697,9 @@ void sipwxToggleButton::DoSetWindowVariant(::wxWindowVariant variant)
         return;
     }
 
-    extern void sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
+    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
 
-    sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth, variant);
+    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, variant);
 }
 
 ::wxBorder sipwxToggleButton::GetDefaultBorder() const
@@ -704,24 +712,9 @@ void sipwxToggleButton::DoSetWindowVariant(::wxWindowVariant variant)
     if (!sipMeth)
         return ::wxToggleButton::GetDefaultBorder();
 
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxBorder sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
-}
-
-::wxBorder sipwxToggleButton::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxToggleButton::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxToggleButton::DoFreeze()
@@ -729,7 +722,7 @@ void sipwxToggleButton::DoFreeze()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -747,7 +740,7 @@ void sipwxToggleButton::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -765,7 +758,7 @@ void sipwxToggleButton::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxToggleButton::DoGetBestSize();
@@ -780,7 +773,7 @@ void sipwxToggleButton::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxToggleButton::DoGetBestClientSize();
@@ -858,11 +851,6 @@ void sipwxToggleButton::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, ::
 ::wxBorder sipwxToggleButton::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxToggleButton::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxToggleButton::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxToggleButton::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxToggleButton::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -2275,40 +2263,6 @@ static PyObject *meth_wxToggleButton_GetDefaultBorder(PyObject *sipSelf, PyObjec
 }
 
 
-PyDoc_STRVAR(doc_wxToggleButton_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxToggleButton_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxToggleButton_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxToggleButton *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxToggleButton, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_ToggleButton, sipName_GetDefaultBorderForControl, doc_wxToggleButton_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxToggleButton_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxToggleButton_DoFreeze(PyObject *, PyObject *);}
@@ -2482,6 +2436,39 @@ static PyObject *meth_wxToggleButton_TryAfter(PyObject *sipSelf, PyObject *sipAr
     }
 
     sipNoMethod(sipParseErr, sipName_ToggleButton, sipName_TryAfter, doc_wxToggleButton_TryAfter);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxToggleButton_CreateAccessible, "CreateAccessible() -> Accessible");
+
+extern "C" {static PyObject *meth_wxToggleButton_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxToggleButton_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxToggleButton *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxToggleButton, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxToggleButton_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_ToggleButton, sipName_CreateAccessible, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -2673,7 +2660,7 @@ static void *init_type_wxToggleButton(sipSimpleWrapper *sipSelf, PyObject *sipAr
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxToggleButton[] = {{18, 255, 1}};
+static sipEncodedTypeDef supers_wxToggleButton[] = {{20, 255, 1}};
 
 
 static PyMethodDef methods_wxToggleButton[] = {
@@ -2682,6 +2669,7 @@ static PyMethodDef methods_wxToggleButton[] = {
     {sipName_AcceptsFocusRecursively, meth_wxToggleButton_AcceptsFocusRecursively, METH_VARARGS, doc_wxToggleButton_AcceptsFocusRecursively},
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxToggleButton_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxToggleButton_AddChild},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxToggleButton_Create), METH_VARARGS|METH_KEYWORDS, doc_wxToggleButton_Create},
+    {sipName_CreateAccessible, meth_wxToggleButton_CreateAccessible, METH_VARARGS, doc_wxToggleButton_CreateAccessible},
     {sipName_Destroy, meth_wxToggleButton_Destroy, METH_VARARGS, doc_wxToggleButton_Destroy},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxToggleButton_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxToggleButton_DoEnable},
     {sipName_DoFreeze, meth_wxToggleButton_DoFreeze, METH_VARARGS, doc_wxToggleButton_DoFreeze},
@@ -2700,7 +2688,6 @@ static PyMethodDef methods_wxToggleButton[] = {
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxToggleButton_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxToggleButton_GetClassDefaultAttributes},
     {sipName_GetClientAreaOrigin, meth_wxToggleButton_GetClientAreaOrigin, METH_VARARGS, doc_wxToggleButton_GetClientAreaOrigin},
     {sipName_GetDefaultBorder, meth_wxToggleButton_GetDefaultBorder, METH_VARARGS, doc_wxToggleButton_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxToggleButton_GetDefaultBorderForControl, METH_VARARGS, doc_wxToggleButton_GetDefaultBorderForControl},
     {sipName_GetMainWindowOfCompositeControl, meth_wxToggleButton_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxToggleButton_GetMainWindowOfCompositeControl},
     {sipName_GetValidator, meth_wxToggleButton_GetValidator, METH_VARARGS, doc_wxToggleButton_GetValidator},
     {sipName_GetValue, meth_wxToggleButton_GetValue, METH_VARARGS, doc_wxToggleButton_GetValue},

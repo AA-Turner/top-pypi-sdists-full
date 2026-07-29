@@ -13,6 +13,7 @@
         #include <wx/dc.h>
         #include <wx/richtext/richtextbuffer.h>
         #include <wx/gdicmn.h>
+        #include <wx/dc.h>
         #include <wx/gdicmn.h>
         #include <wx/object.h>
         #include <wx/object.h>
@@ -35,7 +36,7 @@ protected:
     bool DrawTextBullet(::wxRichTextParagraph*, ::wxDC&, const ::wxRichTextAttr&, const ::wxRect&, const ::wxString&) SIP_OVERRIDE;
     bool DrawBitmapBullet(::wxRichTextParagraph*, ::wxDC&, const ::wxRichTextAttr&, const ::wxRect&) SIP_OVERRIDE;
     bool EnumerateStandardBulletNames(::wxArrayString&) SIP_OVERRIDE;
-    bool MeasureBullet(::wxRichTextParagraph*, ::wxDC&, const ::wxRichTextAttr&, ::wxSize&) SIP_OVERRIDE;
+    bool MeasureBullet(::wxRichTextParagraph*, ::wxReadOnlyDC&, const ::wxRichTextAttr&, ::wxSize&) SIP_OVERRIDE;
 
 public:
     sipSimpleWrapper *sipPySelf;
@@ -122,7 +123,7 @@ bool sipwxRichTextStdRenderer::EnumerateStandardBulletNames(::wxArrayString& bul
     return sipVH__richtext_127(sipGILState, 0, sipPySelf, sipMeth, bulletNames);
 }
 
-bool sipwxRichTextStdRenderer::MeasureBullet(::wxRichTextParagraph*paragraph, ::wxDC& dc, const ::wxRichTextAttr& attr, ::wxSize& sz)
+bool sipwxRichTextStdRenderer::MeasureBullet(::wxRichTextParagraph*paragraph, ::wxReadOnlyDC& dc, const ::wxRichTextAttr& attr, ::wxSize& sz)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -132,7 +133,7 @@ bool sipwxRichTextStdRenderer::MeasureBullet(::wxRichTextParagraph*paragraph, ::
     if (!sipMeth)
         return ::wxRichTextStdRenderer::MeasureBullet(paragraph, dc, attr, sz);
 
-    extern bool sipVH__richtext_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxRichTextParagraph*, ::wxDC&, const ::wxRichTextAttr&, ::wxSize&);
+    extern bool sipVH__richtext_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxRichTextParagraph*, ::wxReadOnlyDC&, const ::wxRichTextAttr&, ::wxSize&);
 
     return sipVH__richtext_128(sipGILState, 0, sipPySelf, sipMeth, paragraph, dc, attr, sz);
 }
@@ -346,7 +347,7 @@ static PyObject *meth_wxRichTextStdRenderer_MeasureBullet(PyObject *sipSelf, PyO
 
     {
         ::wxRichTextParagraph* paragraph;
-        ::wxDC* dc;
+        ::wxReadOnlyDC* dc;
         const ::wxRichTextAttr* attr;
         ::wxSize* sz;
         int szState = 0;
@@ -359,7 +360,7 @@ static PyObject *meth_wxRichTextStdRenderer_MeasureBullet(PyObject *sipSelf, PyO
             sipName_sz,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8J9J9J1", &sipSelf, sipType_wxRichTextStdRenderer, &sipCpp, sipType_wxRichTextParagraph, &paragraph, sipType_wxDC, &dc, sipType_wxRichTextAttr, &attr, sipType_wxSize, &sz, &szState))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8J9J9J1", &sipSelf, sipType_wxRichTextStdRenderer, &sipCpp, sipType_wxRichTextParagraph, &paragraph, sipType_wxReadOnlyDC, &dc, sipType_wxRichTextAttr, &attr, sipType_wxSize, &sz, &szState))
         {
             bool sipRes;
 

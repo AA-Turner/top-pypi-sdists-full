@@ -34,12 +34,28 @@
             return new wxBitmap(self->GetBitmap()); // no checked arg in this case
         #endif
     }
+    wxBitmapBundle* _wxMenuItem_GetBitmapBundle(const wxMenuItem* self, bool checked)
+    {
+        #ifdef __WXMSW__
+            return new wxBitmapBundle(self->GetBitmapBundle(checked));
+        #else
+            return new wxBitmapBundle(self->GetBitmapBundle()); // no checked arg in this case
+        #endif
+    }
     wxBitmap* _wxMenuItem_GetDisabledBitmap(const wxMenuItem* self)
     {
         #ifdef __WXMSW__
             return new wxBitmap(self->GetDisabledBitmap());
         #else
             return new wxBitmap;
+        #endif
+    }
+    wxBitmapBundle* _wxMenuItem_GetDisabledBitmapBundle(const wxMenuItem* self)
+    {
+        #ifdef __WXMSW__
+            return new wxBitmapBundle(self->GetDisabledBitmapBundle());
+        #else
+            return new wxBitmapBundle;
         #endif
     }
     wxFont* _wxMenuItem_GetFont(const wxMenuItem* self)
@@ -212,18 +228,20 @@ static PyObject *meth_wxMenuItem_GetBitmap(PyObject *sipSelf, PyObject *sipArgs,
 
 
 PyDoc_STRVAR(doc_wxMenuItem_GetBitmapBundle, "GetBitmapBundle() -> BitmapBundle\n"
+"GetBitmapBundle(checked) -> BitmapBundle\n"
 "\n"
-"Returns the bitmap bundle containing the bitmap used for this item.");
+"Returns the bitmap bundle containing the bitmap used for this item.\n"
+"");
 
-extern "C" {static PyObject *meth_wxMenuItem_GetBitmapBundle(PyObject *, PyObject *);}
-static PyObject *meth_wxMenuItem_GetBitmapBundle(PyObject *sipSelf, PyObject *sipArgs)
+extern "C" {static PyObject *meth_wxMenuItem_GetBitmapBundle(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxMenuItem_GetBitmapBundle(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
 {
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
         const ::wxMenuItem *sipCpp;
 
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxMenuItem, &sipCpp))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, SIP_NULLPTR, SIP_NULLPTR, "B", &sipSelf, sipType_wxMenuItem, &sipCpp))
         {
             ::wxBitmapBundle*sipRes;
 
@@ -234,6 +252,31 @@ static PyObject *meth_wxMenuItem_GetBitmapBundle(PyObject *sipSelf, PyObject *si
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxBitmapBundle, SIP_NULLPTR);
+        }
+    }
+
+    {
+        bool checked;
+        const ::wxMenuItem *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_checked,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bb", &sipSelf, sipType_wxMenuItem, &sipCpp, &checked))
+        {
+            ::wxBitmapBundle*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxMenuItem_GetBitmapBundle(sipCpp, checked);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
                 return 0;
 
             return sipConvertFromNewType(sipRes, sipType_wxBitmapBundle, SIP_NULLPTR);
@@ -276,6 +319,41 @@ static PyObject *meth_wxMenuItem_GetDisabledBitmap(PyObject *sipSelf, PyObject *
     }
 
     sipNoMethod(sipParseErr, sipName_MenuItem, sipName_GetDisabledBitmap, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxMenuItem_GetDisabledBitmapBundle, "GetDisabledBitmapBundle() -> BitmapBundle\n"
+"\n"
+"Returns the bitmap bundle used for disabled items.");
+
+extern "C" {static PyObject *meth_wxMenuItem_GetDisabledBitmapBundle(PyObject *, PyObject *);}
+static PyObject *meth_wxMenuItem_GetDisabledBitmapBundle(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxMenuItem *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxMenuItem, &sipCpp))
+        {
+            ::wxBitmapBundle*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxMenuItem_GetDisabledBitmapBundle(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxBitmapBundle, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_MenuItem, sipName_GetDisabledBitmapBundle, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -532,7 +610,7 @@ static PyObject *meth_wxMenuItem_GetMarginWidth(PyObject *sipSelf, PyObject *sip
 
 PyDoc_STRVAR(doc_wxMenuItem_GetMenu, "GetMenu() -> Menu\n"
 "\n"
-"Returns the menu this menu item is in, or NULL if this menu item is\n"
+"Returns the menu this menu item is in, or nullptr if this menu item is\n"
 "not attached.");
 
 extern "C" {static PyObject *meth_wxMenuItem_GetMenu(PyObject *, PyObject *);}
@@ -568,7 +646,7 @@ static PyObject *meth_wxMenuItem_GetMenu(PyObject *sipSelf, PyObject *sipArgs)
 
 PyDoc_STRVAR(doc_wxMenuItem_GetSubMenu, "GetSubMenu() -> Menu\n"
 "\n"
-"Returns the submenu associated with the menu item, or NULL if there\n"
+"Returns the submenu associated with the menu item, or nullptr if there\n"
 "isn't one.");
 
 extern "C" {static PyObject *meth_wxMenuItem_GetSubMenu(PyObject *, PyObject *);}
@@ -639,7 +717,7 @@ static PyObject *meth_wxMenuItem_GetTextColour(PyObject *sipSelf, PyObject *sipA
 
 PyDoc_STRVAR(doc_wxMenuItem_GetAccel, "GetAccel() -> AcceleratorEntry\n"
 "\n"
-"Get our accelerator or NULL (caller must delete the pointer)");
+"Get our accelerator or nullptr (caller must delete the pointer)");
 
 extern "C" {static PyObject *meth_wxMenuItem_GetAccel(PyObject *, PyObject *);}
 static PyObject *meth_wxMenuItem_GetAccel(PyObject *sipSelf, PyObject *sipArgs)
@@ -1692,7 +1770,7 @@ static void *init_type_wxMenuItem(sipSimpleWrapper *sipSelf, PyObject *sipArgs, 
     ::wxMenuItem *sipCpp = SIP_NULLPTR;
 
     {
-        ::wxMenu* parentMenu = 0;
+        ::wxMenu* parentMenu = nullptr;
         int id = wxID_SEPARATOR;
         const ::wxString& textdef = wxEmptyString;
         const ::wxString* text = &textdef;
@@ -1701,7 +1779,7 @@ static void *init_type_wxMenuItem(sipSimpleWrapper *sipSelf, PyObject *sipArgs, 
         const ::wxString* helpString = &helpStringdef;
         int helpStringState = 0;
         ::wxItemKind kind = wxITEM_NORMAL;
-        ::wxMenu* subMenu = 0;
+        ::wxMenu* subMenu = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_parentMenu,
@@ -1737,7 +1815,7 @@ static void *init_type_wxMenuItem(sipSimpleWrapper *sipSelf, PyObject *sipArgs, 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxMenuItem[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxMenuItem[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxMenuItem[] = {
@@ -1748,8 +1826,9 @@ static PyMethodDef methods_wxMenuItem[] = {
     {sipName_GetAccel, meth_wxMenuItem_GetAccel, METH_VARARGS, doc_wxMenuItem_GetAccel},
     {sipName_GetBackgroundColour, meth_wxMenuItem_GetBackgroundColour, METH_VARARGS, doc_wxMenuItem_GetBackgroundColour},
     {sipName_GetBitmap, SIP_MLMETH_CAST(meth_wxMenuItem_GetBitmap), METH_VARARGS|METH_KEYWORDS, doc_wxMenuItem_GetBitmap},
-    {sipName_GetBitmapBundle, meth_wxMenuItem_GetBitmapBundle, METH_VARARGS, doc_wxMenuItem_GetBitmapBundle},
+    {sipName_GetBitmapBundle, SIP_MLMETH_CAST(meth_wxMenuItem_GetBitmapBundle), METH_VARARGS|METH_KEYWORDS, doc_wxMenuItem_GetBitmapBundle},
     {sipName_GetDisabledBitmap, meth_wxMenuItem_GetDisabledBitmap, METH_VARARGS, doc_wxMenuItem_GetDisabledBitmap},
+    {sipName_GetDisabledBitmapBundle, meth_wxMenuItem_GetDisabledBitmapBundle, METH_VARARGS, doc_wxMenuItem_GetDisabledBitmapBundle},
     {sipName_GetFont, meth_wxMenuItem_GetFont, METH_VARARGS, doc_wxMenuItem_GetFont},
     {sipName_GetHelp, meth_wxMenuItem_GetHelp, METH_VARARGS, doc_wxMenuItem_GetHelp},
     {sipName_GetId, meth_wxMenuItem_GetId, METH_VARARGS, doc_wxMenuItem_GetId},
@@ -1783,25 +1862,26 @@ static PyMethodDef methods_wxMenuItem[] = {
 };
 
 sipVariableDef variables_wxMenuItem[] = {
-    {PropertyVariable, sipName_Enabled, &methods_wxMenuItem[23], &methods_wxMenuItem[3], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_TextColour, &methods_wxMenuItem[19], &methods_wxMenuItem[38], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SubMenu, &methods_wxMenuItem[18], &methods_wxMenuItem[37], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Menu, &methods_wxMenuItem[17], &methods_wxMenuItem[36], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_MarginWidth, &methods_wxMenuItem[16], &methods_wxMenuItem[35], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Kind, &methods_wxMenuItem[14], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ItemLabelText, &methods_wxMenuItem[13], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ItemLabel, &methods_wxMenuItem[12], &methods_wxMenuItem[34], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Id, &methods_wxMenuItem[11], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Help, &methods_wxMenuItem[10], &methods_wxMenuItem[33], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Font, &methods_wxMenuItem[9], &methods_wxMenuItem[32], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DisabledBitmap, &methods_wxMenuItem[8], &methods_wxMenuItem[31], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Enabled, &methods_wxMenuItem[24], &methods_wxMenuItem[3], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TextColour, &methods_wxMenuItem[20], &methods_wxMenuItem[39], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SubMenu, &methods_wxMenuItem[19], &methods_wxMenuItem[38], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Menu, &methods_wxMenuItem[18], &methods_wxMenuItem[37], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_MarginWidth, &methods_wxMenuItem[17], &methods_wxMenuItem[36], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Kind, &methods_wxMenuItem[15], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ItemLabelText, &methods_wxMenuItem[14], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ItemLabel, &methods_wxMenuItem[13], &methods_wxMenuItem[35], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Id, &methods_wxMenuItem[12], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Help, &methods_wxMenuItem[11], &methods_wxMenuItem[34], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Font, &methods_wxMenuItem[10], &methods_wxMenuItem[33], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DisabledBitmapBundle, &methods_wxMenuItem[9], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DisabledBitmap, &methods_wxMenuItem[8], &methods_wxMenuItem[32], SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_BitmapBundle, &methods_wxMenuItem[7], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Bitmap, &methods_wxMenuItem[6], &methods_wxMenuItem[29], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_BackgroundColour, &methods_wxMenuItem[5], &methods_wxMenuItem[28], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Accel, &methods_wxMenuItem[4], &methods_wxMenuItem[27], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Bitmap, &methods_wxMenuItem[6], &methods_wxMenuItem[30], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_BackgroundColour, &methods_wxMenuItem[5], &methods_wxMenuItem[29], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Accel, &methods_wxMenuItem[4], &methods_wxMenuItem[28], SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxMenuItem, "MenuItem(parentMenu=None, id=ID_SEPARATOR, text='', helpString='', kind=ITEM_NORMAL, subMenu=None) -> None\n"
+PyDoc_STRVAR(doc_wxMenuItem, "MenuItem(parentMenu=nullptr, id=ID_SEPARATOR, text='', helpString='', kind=ITEM_NORMAL, subMenu=nullptr) -> None\n"
 "\n"
 "A menu item represents an item in a menu.");
 
@@ -1819,9 +1899,9 @@ sipClassTypeDef sipTypeDef__core_wxMenuItem = {
     {
         sipNameNr_MenuItem,
         {0, 0, 1},
-        39, methods_wxMenuItem,
+        40, methods_wxMenuItem,
         0, SIP_NULLPTR,
-        16, variables_wxMenuItem,
+        17, variables_wxMenuItem,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxMenuItem,

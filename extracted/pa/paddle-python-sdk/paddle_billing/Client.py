@@ -18,6 +18,7 @@ from paddle_billing.Logger.NullHandler import NullHandler
 from paddle_billing.Resources.Addresses.AddressesClient import AddressesClient
 from paddle_billing.Resources.Adjustments.AdjustmentsClient import AdjustmentsClient
 from paddle_billing.Resources.Businesses.BusinessesClient import BusinessesClient
+from paddle_billing.Resources.CheckoutDomains.CheckoutDomainsClient import CheckoutDomainsClient
 from paddle_billing.Resources.ClientTokens.ClientTokensClient import ClientTokensClient
 from paddle_billing.Resources.Customers.CustomersClient import CustomersClient
 from paddle_billing.Resources.CustomerPortalSessions.CustomerPortalSessionsClient import CustomerPortalSessionsClient
@@ -73,6 +74,7 @@ class Client:
         self.addresses = AddressesClient(self)
         self.adjustments = AdjustmentsClient(self)
         self.businesses = BusinessesClient(self)
+        self.checkout_domains = CheckoutDomainsClient(self)
         self.client_tokens = ClientTokensClient(self)
         self.customers = CustomersClient(self)
         self.customer_portal_sessions = CustomerPortalSessionsClient(self)
@@ -203,7 +205,7 @@ class Client:
                 "Authorization": f"Bearer {self.__api_key}",
                 "Content-Type": "application/json",
                 "Paddle-Version": str(self.use_api_version),
-                "User-Agent": "PaddleSDK/python 1.14.1",
+                "User-Agent": "PaddleSDK/python 1.15.0",
             }
         )
 

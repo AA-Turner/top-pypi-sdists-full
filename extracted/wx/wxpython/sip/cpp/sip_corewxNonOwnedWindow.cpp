@@ -17,9 +17,10 @@
         #include <wx/gdicmn.h>
         #include <wx/window.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
@@ -63,7 +64,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_TryBefore(bool, ::wxEvent&);
@@ -112,7 +112,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -125,7 +124,7 @@ private:
     sipwxNonOwnedWindow(const sipwxNonOwnedWindow &);
     sipwxNonOwnedWindow &operator = (const sipwxNonOwnedWindow &);
 
-    char sipPyMethods[39];
+    char sipPyMethods[38];
 };
 
 sipwxNonOwnedWindow::sipwxNonOwnedWindow(): ::wxNonOwnedWindow(), sipPySelf(SIP_NULLPTR)
@@ -151,9 +150,9 @@ void sipwxNonOwnedWindow::RemoveChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 void sipwxNonOwnedWindow::AddChild(::wxWindowBase*child)
@@ -169,9 +168,9 @@ void sipwxNonOwnedWindow::AddChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 bool sipwxNonOwnedWindow::ProcessEvent(::wxEvent& event)
@@ -184,9 +183,9 @@ bool sipwxNonOwnedWindow::ProcessEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxNonOwnedWindow::ProcessEvent(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxNonOwnedWindow::TryBefore(::wxEvent& event)
@@ -199,9 +198,9 @@ bool sipwxNonOwnedWindow::TryBefore(::wxEvent& event)
     if (!sipMeth)
         return ::wxNonOwnedWindow::TryBefore(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxNonOwnedWindow::TryAfter(::wxEvent& event)
@@ -214,9 +213,9 @@ bool sipwxNonOwnedWindow::TryAfter(::wxEvent& event)
     if (!sipMeth)
         return ::wxNonOwnedWindow::TryAfter(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxNonOwnedWindow::AcceptsFocus() const
@@ -277,9 +276,9 @@ void sipwxNonOwnedWindow::SetCanFocus(bool canFocus)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, canFocus);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, canFocus);
 }
 
 void sipwxNonOwnedWindow::EnableVisibleFocus(bool enable)
@@ -295,9 +294,9 @@ void sipwxNonOwnedWindow::EnableVisibleFocus(bool enable)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enable);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enable);
 }
 
 bool sipwxNonOwnedWindow::InformFirstDirection(int direction, int size, int availableOtherDir)
@@ -310,9 +309,9 @@ bool sipwxNonOwnedWindow::InformFirstDirection(int direction, int size, int avai
     if (!sipMeth)
         return ::wxNonOwnedWindow::InformFirstDirection(direction, size, availableOtherDir);
 
-    extern bool sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern bool sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
 
-    return sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
+    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
 }
 
 ::wxPoint sipwxNonOwnedWindow::GetClientAreaOrigin() const
@@ -325,9 +324,9 @@ bool sipwxNonOwnedWindow::InformFirstDirection(int direction, int size, int avai
     if (!sipMeth)
         return ::wxNonOwnedWindow::GetClientAreaOrigin();
 
-    extern ::wxPoint sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPoint sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxNonOwnedWindow::HasTransparentBackground()
@@ -370,9 +369,9 @@ bool sipwxNonOwnedWindow::ShouldInheritColours() const
     if (!sipMeth)
         return ::wxNonOwnedWindow::GetValidator();
 
-    extern ::wxValidator* sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxValidator* sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxNonOwnedWindow::SetValidator(const ::wxValidator& validator)
@@ -388,9 +387,9 @@ void sipwxNonOwnedWindow::SetValidator(const ::wxValidator& validator)
         return;
     }
 
-    extern void sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
+    extern void sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
 
-    sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth, validator);
+    sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth, validator);
 }
 
 bool sipwxNonOwnedWindow::TransferDataFromWindow()
@@ -517,9 +516,9 @@ void sipwxNonOwnedWindow::OnInternalIdle()
     if (!sipMeth)
         return ::wxNonOwnedWindow::GetMainWindowOfCompositeControl();
 
-    extern ::wxWindow* sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxWindow* sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxNonOwnedWindow::DoEnable(bool enable)
@@ -535,9 +534,9 @@ void sipwxNonOwnedWindow::DoEnable(bool enable)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enable);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enable);
 }
 
 void sipwxNonOwnedWindow::DoGetPosition(int*x, int*y) const
@@ -553,9 +552,9 @@ void sipwxNonOwnedWindow::DoGetPosition(int*x, int*y) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, x, y);
 }
 
 void sipwxNonOwnedWindow::DoGetSize(int*width, int*height) const
@@ -571,9 +570,9 @@ void sipwxNonOwnedWindow::DoGetSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxNonOwnedWindow::DoGetClientSize(int*width, int*height) const
@@ -589,9 +588,9 @@ void sipwxNonOwnedWindow::DoGetClientSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxNonOwnedWindow::DoSetSize(int x, int y, int width, int height, int sizeFlags)
@@ -607,9 +606,9 @@ void sipwxNonOwnedWindow::DoSetSize(int x, int y, int width, int height, int siz
         return;
     }
 
-    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
+    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
 
-    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
+    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
 }
 
 void sipwxNonOwnedWindow::DoSetClientSize(int width, int height)
@@ -625,9 +624,9 @@ void sipwxNonOwnedWindow::DoSetClientSize(int width, int height)
         return;
     }
 
-    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
+    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
 
-    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxNonOwnedWindow::DoSetSizeHints(int minW, int minH, int maxW, int maxH, int incW, int incH)
@@ -643,9 +642,9 @@ void sipwxNonOwnedWindow::DoSetSizeHints(int minW, int minH, int maxW, int maxH,
         return;
     }
 
-    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
+    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
 
-    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
+    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
 }
 
 void sipwxNonOwnedWindow::DoMoveWindow(int x, int y, int width, int height)
@@ -661,9 +660,9 @@ void sipwxNonOwnedWindow::DoMoveWindow(int x, int y, int width, int height)
         return;
     }
 
-    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
+    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
 
-    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
+    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
 }
 
 void sipwxNonOwnedWindow::DoSetWindowVariant(::wxWindowVariant variant)
@@ -679,9 +678,9 @@ void sipwxNonOwnedWindow::DoSetWindowVariant(::wxWindowVariant variant)
         return;
     }
 
-    extern void sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
+    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
 
-    sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth, variant);
+    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, variant);
 }
 
 ::wxBorder sipwxNonOwnedWindow::GetDefaultBorder() const
@@ -694,24 +693,9 @@ void sipwxNonOwnedWindow::DoSetWindowVariant(::wxWindowVariant variant)
     if (!sipMeth)
         return ::wxNonOwnedWindow::GetDefaultBorder();
 
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxBorder sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
-}
-
-::wxBorder sipwxNonOwnedWindow::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxNonOwnedWindow::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxNonOwnedWindow::DoFreeze()
@@ -719,7 +703,7 @@ void sipwxNonOwnedWindow::DoFreeze()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -737,7 +721,7 @@ void sipwxNonOwnedWindow::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -755,7 +739,7 @@ void sipwxNonOwnedWindow::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxNonOwnedWindow::DoGetBestSize();
@@ -770,7 +754,7 @@ void sipwxNonOwnedWindow::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxNonOwnedWindow::DoGetBestClientSize();
@@ -828,11 +812,6 @@ void sipwxNonOwnedWindow::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, 
 ::wxBorder sipwxNonOwnedWindow::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxWindow::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxNonOwnedWindow::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxWindow::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxNonOwnedWindow::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -1261,40 +1240,6 @@ static PyObject *meth_wxNonOwnedWindow_GetDefaultBorder(PyObject *sipSelf, PyObj
     }
 
     sipNoMethod(sipParseErr, sipName_NonOwnedWindow, sipName_GetDefaultBorder, doc_wxNonOwnedWindow_GetDefaultBorder);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxNonOwnedWindow_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxNonOwnedWindow_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxNonOwnedWindow_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxNonOwnedWindow *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxNonOwnedWindow, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_NonOwnedWindow, sipName_GetDefaultBorderForControl, doc_wxNonOwnedWindow_GetDefaultBorderForControl);
 
     return SIP_NULLPTR;
 }
@@ -1744,7 +1689,7 @@ static void *init_type_wxNonOwnedWindow(sipSimpleWrapper *sipSelf, PyObject *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxNonOwnedWindow[] = {{631, 255, 1}};
+static sipEncodedTypeDef supers_wxNonOwnedWindow[] = {{655, 255, 1}};
 
 
 static PyMethodDef methods_wxNonOwnedWindow[] = {
@@ -1762,7 +1707,6 @@ static PyMethodDef methods_wxNonOwnedWindow[] = {
     {sipName_DoSetWindowVariant, SIP_MLMETH_CAST(meth_wxNonOwnedWindow_DoSetWindowVariant), METH_VARARGS|METH_KEYWORDS, SIP_NULLPTR},
     {sipName_DoThaw, meth_wxNonOwnedWindow_DoThaw, METH_VARARGS, SIP_NULLPTR},
     {sipName_GetDefaultBorder, meth_wxNonOwnedWindow_GetDefaultBorder, METH_VARARGS, SIP_NULLPTR},
-    {sipName_GetDefaultBorderForControl, meth_wxNonOwnedWindow_GetDefaultBorderForControl, METH_VARARGS, SIP_NULLPTR},
     {sipName_ProcessEvent, SIP_MLMETH_CAST(meth_wxNonOwnedWindow_ProcessEvent), METH_VARARGS|METH_KEYWORDS, SIP_NULLPTR},
     {sipName_SendDestroyEvent, meth_wxNonOwnedWindow_SendDestroyEvent, METH_VARARGS, SIP_NULLPTR},
     {sipName_SetShape, SIP_MLMETH_CAST(meth_wxNonOwnedWindow_SetShape), METH_VARARGS|METH_KEYWORDS, doc_wxNonOwnedWindow_SetShape},
@@ -1786,7 +1730,7 @@ sipClassTypeDef sipTypeDef__core_wxNonOwnedWindow = {
     {
         sipNameNr_NonOwnedWindow,
         {0, 0, 1},
-        20, methods_wxNonOwnedWindow,
+        19, methods_wxNonOwnedWindow,
         0, SIP_NULLPTR,
         0, SIP_NULLPTR,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

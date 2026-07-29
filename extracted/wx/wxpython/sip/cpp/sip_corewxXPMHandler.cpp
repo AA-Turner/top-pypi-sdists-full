@@ -405,7 +405,7 @@ static void *init_type_wxXPMHandler(sipSimpleWrapper *sipSelf, PyObject *sipArgs
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxXPMHandler[] = {{284, 255, 1}};
+static sipEncodedTypeDef supers_wxXPMHandler[] = {{291, 255, 1}};
 
 
 static PyMethodDef methods_wxXPMHandler[] = {

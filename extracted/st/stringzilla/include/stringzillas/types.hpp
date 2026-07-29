@@ -46,6 +46,28 @@ class spin_mutex_t {
 };
 
 /**
+ *  @brief A `status_t` shared by parallel workers: keeps the @b first failure and lets the others bail out early.
+ *
+ *  Relaxed throughout, as the pool's join already establishes happens-before between the workers and the caller.
+ *  Assigning @b success_k is a no-op, so the success path never writes to the shared line.
+ */
+struct atomic_status_t {
+    std::atomic<status_t> status_ {status_t::success_k};
+
+    atomic_status_t() = default;
+    atomic_status_t(atomic_status_t const &) = delete;
+    atomic_status_t &operator=(atomic_status_t const &) = delete;
+
+    operator status_t() const noexcept { return status_.load(std::memory_order_relaxed); }
+    atomic_status_t &operator=(status_t status) noexcept {
+        if (status == status_t::success_k) return *this; // ? The flag starts here; never write it back.
+        status_t expected = status_t::success_k;
+        status_.compare_exchange_strong(expected, status, std::memory_order_relaxed, std::memory_order_relaxed);
+        return *this;
+    }
+};
+
+/**
  *  @brief Simple RAII lock guard analog to `std::lock_guard` for C++11 compatibility.
  *      Automatically locks the mutex on construction and unlocks on destruction.
  */
@@ -484,6 +506,29 @@ class safe_vector {
     size_type capacity_;
     allocator_type alloc_;
 
+    /**
+     *  @brief Whether the host may dereference what @ref allocator_type hands out, which growing requires.
+     *
+     *  Growth moves live elements on the host, so an allocator over memory the host cannot touch opts out with
+     *  `static constexpr bool host_accessible_k = false` and gets a build error here instead of a segmentation fault
+     *  (see `device_alloc` in `stringzillas/types.cuh`). Allocators that say nothing - `std::allocator` included -
+     *  are assumed reachable, so nothing else needs changing.
+     *
+     *  @note Detected by overload resolution rather than a `requires` expression: this header is compiled at
+     *        C++17 by the Python extension, where concepts are unavailable.
+     */
+    template <typename probed_type_>
+    static constexpr bool allocator_host_accessible_(decltype(probed_type_::host_accessible_k) *) noexcept {
+        return probed_type_::host_accessible_k;
+    }
+    template <typename probed_type_>
+    static constexpr bool allocator_host_accessible_(...) noexcept {
+        return true;
+    }
+    static constexpr bool allocator_reachable_from_host_() noexcept {
+        return allocator_host_accessible_<allocator_type>(nullptr);
+    }
+
   public:
     safe_vector() noexcept : data_(nullptr), size_(0), capacity_(0), alloc_() {}
     safe_vector(allocator_type alloc) noexcept : data_(nullptr), size_(0), capacity_(0), alloc_(alloc) {}
@@ -558,6 +603,8 @@ class safe_vector {
     }
 
     status_t try_reserve(size_type new_cap) noexcept {
+        static_assert(allocator_reachable_from_host_(),
+                      "Growing host-moves live elements, so device-only storage must use `try_resize_uninitialized`");
         if (new_cap <= capacity_) return status_t::success_k;
         value_type *new_data = (value_type *)alloc_.allocate(new_cap);
         if (!new_data) return status_t::bad_alloc_k;

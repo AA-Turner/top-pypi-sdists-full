@@ -495,126 +495,6 @@ static PyObject *meth_wxIcon_LoadFile(PyObject *sipSelf, PyObject *sipArgs, PyOb
 }
 
 
-PyDoc_STRVAR(doc_wxIcon_SetDepth, "SetDepth(depth) -> None");
-
-extern "C" {static PyObject *meth_wxIcon_SetDepth(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxIcon_SetDepth(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        int depth;
-        ::wxIcon *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_depth,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxIcon, &sipCpp, &depth))
-        {
-            if (sipDeprecated(sipName_Icon, sipName_SetDepth) < 0)
-                return SIP_NULLPTR;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->SetDepth(depth);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_Icon, sipName_SetDepth, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxIcon_SetHeight, "SetHeight(height) -> None");
-
-extern "C" {static PyObject *meth_wxIcon_SetHeight(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxIcon_SetHeight(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        int height;
-        ::wxIcon *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_height,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxIcon, &sipCpp, &height))
-        {
-            if (sipDeprecated(sipName_Icon, sipName_SetHeight) < 0)
-                return SIP_NULLPTR;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->SetHeight(height);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_Icon, sipName_SetHeight, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxIcon_SetWidth, "SetWidth(width) -> None");
-
-extern "C" {static PyObject *meth_wxIcon_SetWidth(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxIcon_SetWidth(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        int width;
-        ::wxIcon *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_width,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxIcon, &sipCpp, &width))
-        {
-            if (sipDeprecated(sipName_Icon, sipName_SetWidth) < 0)
-                return SIP_NULLPTR;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->SetWidth(width);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_Icon, sipName_SetWidth, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxIcon___nonzero__, "__nonzero__() -> bool");
 
 extern "C" {static PyObject *meth_wxIcon___nonzero__(PyObject *, PyObject *);}
@@ -952,7 +832,7 @@ static void *init_type_wxIcon(sipSimpleWrapper *, PyObject *sipArgs, PyObject *s
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxIcon[] = {{226, 255, 1}};
+static sipEncodedTypeDef supers_wxIcon[] = {{234, 255, 1}};
 
 
 /* Define this type's Python slots. */
@@ -976,23 +856,20 @@ static PyMethodDef methods_wxIcon[] = {
     {sipName_GetWidth, meth_wxIcon_GetWidth, METH_VARARGS, doc_wxIcon_GetWidth},
     {sipName_IsOk, meth_wxIcon_IsOk, METH_VARARGS, doc_wxIcon_IsOk},
     {sipName_LoadFile, SIP_MLMETH_CAST(meth_wxIcon_LoadFile), METH_VARARGS|METH_KEYWORDS, doc_wxIcon_LoadFile},
-    {sipName_SetDepth, SIP_MLMETH_CAST(meth_wxIcon_SetDepth), METH_VARARGS|METH_KEYWORDS, doc_wxIcon_SetDepth},
     {sipName_SetHandle, SIP_MLMETH_CAST(meth_wxIcon_SetHandle), METH_VARARGS|METH_KEYWORDS, doc_wxIcon_SetHandle},
-    {sipName_SetHeight, SIP_MLMETH_CAST(meth_wxIcon_SetHeight), METH_VARARGS|METH_KEYWORDS, doc_wxIcon_SetHeight},
-    {sipName_SetWidth, SIP_MLMETH_CAST(meth_wxIcon_SetWidth), METH_VARARGS|METH_KEYWORDS, doc_wxIcon_SetWidth},
     {sipName___nonzero__, meth_wxIcon___nonzero__, METH_VARARGS, doc_wxIcon___nonzero__}
 };
 
 sipVariableDef variables_wxIcon[] = {
-    {PropertyVariable, sipName_Width, &methods_wxIcon[10], &methods_wxIcon[16], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Width, &methods_wxIcon[10], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_Size, &methods_wxIcon[9], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_ScaleFactor, &methods_wxIcon[8], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_LogicalWidth, &methods_wxIcon[7], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_LogicalSize, &methods_wxIcon[6], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_LogicalHeight, &methods_wxIcon[5], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Height, &methods_wxIcon[4], &methods_wxIcon[15], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Handle, &methods_wxIcon[3], &methods_wxIcon[14], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Depth, &methods_wxIcon[2], &methods_wxIcon[13], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Height, &methods_wxIcon[4], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Handle, &methods_wxIcon[3], &methods_wxIcon[13], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Depth, &methods_wxIcon[2], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxIcon, "Icon() -> None\n"
@@ -1018,7 +895,7 @@ sipClassTypeDef sipTypeDef__core_wxIcon = {
     {
         sipNameNr_Icon,
         {0, 0, 1},
-        18, methods_wxIcon,
+        15, methods_wxIcon,
         0, SIP_NULLPTR,
         9, variables_wxIcon,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

@@ -1320,7 +1320,16 @@ class DevRunner:
             while True:
                 ready, _, _ = select.select([sys.stdin], [], [], 0.1)
                 if ready:
-                    return sys.stdin.readline()
+                    line = sys.stdin.readline()
+                    if line == "":
+                        # EOF (stdin redirected/closed — e.g. a backgrounded
+                        # run). readline returns "" instantly and forever
+                        # here; treating it as "Enter" put the restart prompt
+                        # into an infinite resume loop that respawned a fresh
+                        # orchestrator VM every ~50s. Callers handle EOFError
+                        # as "exit".
+                        raise EOFError
+                    return line
 
         return await loop.run_in_executor(None, _read)
 

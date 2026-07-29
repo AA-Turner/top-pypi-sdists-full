@@ -18,21 +18,37 @@ from chalk._gen.chalk.server.v1.github_app_pb2 import (
     GetGitHubAppConfigResponse,
     GetGitHubAppInstallUrlRequest,
     GetGitHubAppInstallUrlResponse,
+    GetGitHubRepositoryArchiveRequest,
+    GetGitHubRepositoryArchiveResponse,
+    GetProjectGitHubRepoLinkRequest,
+    GetProjectGitHubRepoLinkResponse,
+    LinkProjectToGitHubRepositoryRequest,
+    LinkProjectToGitHubRepositoryResponse,
     ListGitHubAppInstallationsRequest,
     ListGitHubAppInstallationsResponse,
+    ListGitHubBranchesRequest,
+    ListGitHubBranchesResponse,
     ListGitHubPullRequestsRequest,
     ListGitHubPullRequestsResponse,
     ListGitHubRepositoriesRequest,
     ListGitHubRepositoriesResponse,
+    ListProjectGitHubRepoLinksRequest,
+    ListProjectGitHubRepoLinksResponse,
     SyncGitHubAppInstallationsRequest,
     SyncGitHubAppInstallationsResponse,
+    UnlinkProjectFromGitHubRepositoryRequest,
+    UnlinkProjectFromGitHubRepositoryResponse,
     UpsertGitHubAppConfigRequest,
     UpsertGitHubAppConfigResponse,
+)
+from collections.abc import (
+    Iterator,
 )
 from grpc import (
     Channel,
     Server,
     ServicerContext,
+    UnaryStreamMultiCallable,
     UnaryUnaryMultiCallable,
 )
 
@@ -81,6 +97,32 @@ class GitHubAppServiceStub:
     ListGitHubPullRequests: UnaryUnaryMultiCallable[
         ListGitHubPullRequestsRequest,
         ListGitHubPullRequestsResponse,
+    ]
+    ListGitHubBranches: UnaryUnaryMultiCallable[
+        ListGitHubBranchesRequest,
+        ListGitHubBranchesResponse,
+    ]
+    GetGitHubRepositoryArchive: UnaryStreamMultiCallable[
+        GetGitHubRepositoryArchiveRequest,
+        GetGitHubRepositoryArchiveResponse,
+    ]
+    """Streams the repository's zip archive (GitHub zipball) at the requested ref."""
+    LinkProjectToGitHubRepository: UnaryUnaryMultiCallable[
+        LinkProjectToGitHubRepositoryRequest,
+        LinkProjectToGitHubRepositoryResponse,
+    ]
+    """-- Project links --"""
+    UnlinkProjectFromGitHubRepository: UnaryUnaryMultiCallable[
+        UnlinkProjectFromGitHubRepositoryRequest,
+        UnlinkProjectFromGitHubRepositoryResponse,
+    ]
+    GetProjectGitHubRepoLink: UnaryUnaryMultiCallable[
+        GetProjectGitHubRepoLinkRequest,
+        GetProjectGitHubRepoLinkResponse,
+    ]
+    ListProjectGitHubRepoLinks: UnaryUnaryMultiCallable[
+        ListProjectGitHubRepoLinksRequest,
+        ListProjectGitHubRepoLinksResponse,
     ]
 
 class GitHubAppServiceServicer(metaclass=ABCMeta):
@@ -148,5 +190,43 @@ class GitHubAppServiceServicer(metaclass=ABCMeta):
         request: ListGitHubPullRequestsRequest,
         context: ServicerContext,
     ) -> ListGitHubPullRequestsResponse: ...
+    @abstractmethod
+    def ListGitHubBranches(
+        self,
+        request: ListGitHubBranchesRequest,
+        context: ServicerContext,
+    ) -> ListGitHubBranchesResponse: ...
+    @abstractmethod
+    def GetGitHubRepositoryArchive(
+        self,
+        request: GetGitHubRepositoryArchiveRequest,
+        context: ServicerContext,
+    ) -> Iterator[GetGitHubRepositoryArchiveResponse]:
+        """Streams the repository's zip archive (GitHub zipball) at the requested ref."""
+    @abstractmethod
+    def LinkProjectToGitHubRepository(
+        self,
+        request: LinkProjectToGitHubRepositoryRequest,
+        context: ServicerContext,
+    ) -> LinkProjectToGitHubRepositoryResponse:
+        """-- Project links --"""
+    @abstractmethod
+    def UnlinkProjectFromGitHubRepository(
+        self,
+        request: UnlinkProjectFromGitHubRepositoryRequest,
+        context: ServicerContext,
+    ) -> UnlinkProjectFromGitHubRepositoryResponse: ...
+    @abstractmethod
+    def GetProjectGitHubRepoLink(
+        self,
+        request: GetProjectGitHubRepoLinkRequest,
+        context: ServicerContext,
+    ) -> GetProjectGitHubRepoLinkResponse: ...
+    @abstractmethod
+    def ListProjectGitHubRepoLinks(
+        self,
+        request: ListProjectGitHubRepoLinksRequest,
+        context: ServicerContext,
+    ) -> ListProjectGitHubRepoLinksResponse: ...
 
 def add_GitHubAppServiceServicer_to_server(servicer: GitHubAppServiceServicer, server: Server) -> None: ...

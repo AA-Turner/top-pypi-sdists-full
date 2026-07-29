@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: translation-finder
-Version: 3.3.0
+Version: 3.3.1
 Summary: A translation file finder used in Weblate.
 Home-page: https://weblate.org/
 Download-URL: https://github.com/WeblateOrg/translation-finder
@@ -45,7 +45,7 @@ Requires-Dist: pytest==9.1.1; extra == "test"
 Requires-Dist: pytest-cov==7.1.0; extra == "test"
 Requires-Dist: pytest-github-actions-annotate-failures==0.4.2; extra == "test"
 Provides-Extra: types
-Requires-Dist: ty==0.0.63; extra == "types"
+Requires-Dist: ty==0.0.64; extra == "types"
 Requires-Dist: mypy==2.3.0; extra == "types"
 Dynamic: download-url
 Dynamic: license-file

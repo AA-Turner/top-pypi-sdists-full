@@ -1340,7 +1340,7 @@ static void dealloc_wxToolBarToolBase(sipSimpleWrapper *sipSelf)
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxToolBarToolBase[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxToolBarToolBase[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxToolBarToolBase[] = {
@@ -1400,7 +1400,7 @@ sipVariableDef variables_wxToolBarToolBase[] = {
     {PropertyVariable, sipName_Bitmap, &methods_wxToolBarToolBase[4], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxToolBarToolBase, "ToolBarToolBase(tbar=None, toolid=ID_SEPARATOR, label='', bmpNormal=NullBitmap, bmpDisabled=NullBitmap, kind=ITEM_NORMAL, clientData=None, shortHelpString='', longHelpString='') -> None\n"
+PyDoc_STRVAR(doc_wxToolBarToolBase, "ToolBarToolBase(tbar=nullptr, toolid=ID_SEPARATOR, label='', bmpNormal=NullBitmap, bmpDisabled=NullBitmap, kind=ITEM_NORMAL, clientData=nullptr, shortHelpString='', longHelpString='') -> None\n"
 "ToolBarToolBase(tbar, control, label) -> None\n"
 "\n"
 "A toolbar tool represents one item on the toolbar.");

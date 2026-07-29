@@ -15,6 +15,8 @@
             #include <wx/datetime.h>
         #include <wx/datetime.h>
             #include <wx/datetime.h>
+        #include <wx/datetime.h>
+            #include <wx/datetime.h>
     #include <wx/longlong.h>
     int _wxDateTime_ParseDate(wxDateTime* self, const wxString *date)
     {
@@ -4027,7 +4029,7 @@ static PyObject *meth_wxDateTime_GetCurrentYear(PyObject *, PyObject *sipArgs, P
 }
 
 
-PyDoc_STRVAR(doc_wxDateTime_GetEnglishMonthName, "GetEnglishMonthName(month, flags=Name_Full) -> str\n"
+PyDoc_STRVAR(doc_wxDateTime_GetEnglishMonthName, "GetEnglishMonthName(month, form={}) -> str\n"
 "\n"
 "Return the standard English name of the given month.");
 
@@ -4038,21 +4040,22 @@ static PyObject *meth_wxDateTime_GetEnglishMonthName(PyObject *, PyObject *sipAr
 
     {
         ::wxDateTime::Month month;
-        ::wxDateTime::NameFlags flags = ::wxDateTime::Name_Full;
+        ::wxDateTime::NameForm formdef = {};
+        ::wxDateTime::NameForm* form = &formdef;
 
         static const char *sipKwdList[] = {
             sipName_month,
-            sipName_flags,
+            sipName_form,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "E|E", sipType_wxDateTime_Month, &month, sipType_wxDateTime_NameFlags, &flags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "E|J9", sipType_wxDateTime_Month, &month, sipType_wxDateTime_NameForm, &form))
         {
             ::wxString*sipRes;
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxString(::wxDateTime::GetEnglishMonthName(month, flags));
+            sipRes = new ::wxString(::wxDateTime::GetEnglishMonthName(month, *form));
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
@@ -4068,7 +4071,7 @@ static PyObject *meth_wxDateTime_GetEnglishMonthName(PyObject *, PyObject *sipAr
 }
 
 
-PyDoc_STRVAR(doc_wxDateTime_GetEnglishWeekDayName, "GetEnglishWeekDayName(weekday, flags=Name_Full) -> str\n"
+PyDoc_STRVAR(doc_wxDateTime_GetEnglishWeekDayName, "GetEnglishWeekDayName(weekday, form={}) -> str\n"
 "\n"
 "Return the standard English name of the given week day.");
 
@@ -4079,21 +4082,21 @@ static PyObject *meth_wxDateTime_GetEnglishWeekDayName(PyObject *, PyObject *sip
 
     {
         ::wxDateTime::WeekDay weekday;
-        ::wxDateTime::NameFlags flags = ::wxDateTime::Name_Full;
+        ::wxDateTime::NameFlags form = {};
 
         static const char *sipKwdList[] = {
             sipName_weekday,
-            sipName_flags,
+            sipName_form,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "E|E", sipType_wxDateTime_WeekDay, &weekday, sipType_wxDateTime_NameFlags, &flags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "E|E", sipType_wxDateTime_WeekDay, &weekday, sipType_wxDateTime_NameFlags, &form))
         {
             ::wxString*sipRes;
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxString(::wxDateTime::GetEnglishWeekDayName(weekday, flags));
+            sipRes = new ::wxString(::wxDateTime::GetEnglishWeekDayName(weekday, form));
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
@@ -4109,9 +4112,10 @@ static PyObject *meth_wxDateTime_GetEnglishWeekDayName(PyObject *, PyObject *sip
 }
 
 
-PyDoc_STRVAR(doc_wxDateTime_GetMonthName, "GetMonthName(month, flags=Name_Full) -> str\n"
+PyDoc_STRVAR(doc_wxDateTime_GetMonthName, "GetMonthName(month, form={}) -> str\n"
 "\n"
-"Gets the full (default) or abbreviated name of the given month.");
+"Gets the full (default), abbreviated or shortest name of the given\n"
+"month.");
 
 extern "C" {static PyObject *meth_wxDateTime_GetMonthName(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxDateTime_GetMonthName(PyObject *, PyObject *sipArgs, PyObject *sipKwds)
@@ -4120,21 +4124,21 @@ static PyObject *meth_wxDateTime_GetMonthName(PyObject *, PyObject *sipArgs, PyO
 
     {
         ::wxDateTime::Month month;
-        ::wxDateTime::NameFlags flags = ::wxDateTime::Name_Full;
+        ::wxDateTime::NameFlags form = {};
 
         static const char *sipKwdList[] = {
             sipName_month,
-            sipName_flags,
+            sipName_form,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "E|E", sipType_wxDateTime_Month, &month, sipType_wxDateTime_NameFlags, &flags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "E|E", sipType_wxDateTime_Month, &month, sipType_wxDateTime_NameFlags, &form))
         {
             ::wxString*sipRes;
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxString(::wxDateTime::GetMonthName(month, flags));
+            sipRes = new ::wxString(::wxDateTime::GetMonthName(month, form));
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
@@ -4226,9 +4230,10 @@ static PyObject *meth_wxDateTime_GetTimeNow(PyObject *, PyObject *sipArgs)
 }
 
 
-PyDoc_STRVAR(doc_wxDateTime_GetWeekDayName, "GetWeekDayName(weekday, flags=Name_Full) -> str\n"
+PyDoc_STRVAR(doc_wxDateTime_GetWeekDayName, "GetWeekDayName(weekday, form={}) -> str\n"
 "\n"
-"Gets the full (default) or abbreviated name of the given week day.");
+"Gets the full (default), abbreviated or shortest name of the given\n"
+"week day.");
 
 extern "C" {static PyObject *meth_wxDateTime_GetWeekDayName(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxDateTime_GetWeekDayName(PyObject *, PyObject *sipArgs, PyObject *sipKwds)
@@ -4237,21 +4242,22 @@ static PyObject *meth_wxDateTime_GetWeekDayName(PyObject *, PyObject *sipArgs, P
 
     {
         ::wxDateTime::WeekDay weekday;
-        ::wxDateTime::NameFlags flags = ::wxDateTime::Name_Full;
+        ::wxDateTime::NameForm formdef = {};
+        ::wxDateTime::NameForm* form = &formdef;
 
         static const char *sipKwdList[] = {
             sipName_weekday,
-            sipName_flags,
+            sipName_form,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "E|E", sipType_wxDateTime_WeekDay, &weekday, sipType_wxDateTime_NameFlags, &flags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "E|J9", sipType_wxDateTime_WeekDay, &weekday, sipType_wxDateTime_NameForm, &form))
         {
             ::wxString*sipRes;
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxString(::wxDateTime::GetWeekDayName(weekday, flags));
+            sipRes = new ::wxString(::wxDateTime::GetWeekDayName(weekday, *form));
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
@@ -5599,100 +5605,103 @@ static PyMethodDef methods_wxDateTime[] = {
 };
 
 static sipEnumMemberDef enummembers_wxDateTime[] = {
-    {sipName_ADT, static_cast<int>(::wxDateTime::ADT), 124},
-    {sipName_AKDT, static_cast<int>(::wxDateTime::AKDT), 124},
-    {sipName_AKST, static_cast<int>(::wxDateTime::AKST), 124},
-    {sipName_AST, static_cast<int>(::wxDateTime::AST), 124},
-    {sipName_A_CST, static_cast<int>(::wxDateTime::A_CST), 124},
-    {sipName_A_ESST, static_cast<int>(::wxDateTime::A_ESST), 124},
-    {sipName_A_EST, static_cast<int>(::wxDateTime::A_EST), 124},
-    {sipName_A_WST, static_cast<int>(::wxDateTime::A_WST), 124},
-    {sipName_Apr, static_cast<int>(::wxDateTime::Apr), 122},
-    {sipName_Aug, static_cast<int>(::wxDateTime::Aug), 122},
-    {sipName_CDT, static_cast<int>(::wxDateTime::CDT), 124},
-    {sipName_CEST, static_cast<int>(::wxDateTime::CEST), 124},
-    {sipName_CET, static_cast<int>(::wxDateTime::CET), 124},
-    {sipName_CST, static_cast<int>(::wxDateTime::CST), 124},
-    {sipName_Country_Default, static_cast<int>(::wxDateTime::Country_Default), 121},
-    {sipName_Country_EEC, static_cast<int>(::wxDateTime::Country_EEC), 121},
-    {sipName_Country_Unknown, static_cast<int>(::wxDateTime::Country_Unknown), 121},
-    {sipName_Country_WesternEurope_End, static_cast<int>(::wxDateTime::Country_WesternEurope_End), 121},
-    {sipName_Country_WesternEurope_Start, static_cast<int>(::wxDateTime::Country_WesternEurope_Start), 121},
-    {sipName_Dec, static_cast<int>(::wxDateTime::Dec), 122},
-    {sipName_Default_First, static_cast<int>(::wxDateTime::Default_First), 128},
-    {sipName_EDT, static_cast<int>(::wxDateTime::EDT), 124},
-    {sipName_EEST, static_cast<int>(::wxDateTime::EEST), 124},
-    {sipName_EET, static_cast<int>(::wxDateTime::EET), 124},
-    {sipName_EST, static_cast<int>(::wxDateTime::EST), 124},
-    {sipName_Feb, static_cast<int>(::wxDateTime::Feb), 122},
-    {sipName_France, static_cast<int>(::wxDateTime::France), 121},
-    {sipName_Fri, static_cast<int>(::wxDateTime::Fri), 127},
-    {sipName_GMT0, static_cast<int>(::wxDateTime::GMT0), 124},
-    {sipName_GMT1, static_cast<int>(::wxDateTime::GMT1), 124},
-    {sipName_GMT10, static_cast<int>(::wxDateTime::GMT10), 124},
-    {sipName_GMT11, static_cast<int>(::wxDateTime::GMT11), 124},
-    {sipName_GMT12, static_cast<int>(::wxDateTime::GMT12), 124},
-    {sipName_GMT13, static_cast<int>(::wxDateTime::GMT13), 124},
-    {sipName_GMT2, static_cast<int>(::wxDateTime::GMT2), 124},
-    {sipName_GMT3, static_cast<int>(::wxDateTime::GMT3), 124},
-    {sipName_GMT4, static_cast<int>(::wxDateTime::GMT4), 124},
-    {sipName_GMT5, static_cast<int>(::wxDateTime::GMT5), 124},
-    {sipName_GMT6, static_cast<int>(::wxDateTime::GMT6), 124},
-    {sipName_GMT7, static_cast<int>(::wxDateTime::GMT7), 124},
-    {sipName_GMT8, static_cast<int>(::wxDateTime::GMT8), 124},
-    {sipName_GMT9, static_cast<int>(::wxDateTime::GMT9), 124},
-    {sipName_GMT_1, static_cast<int>(::wxDateTime::GMT_1), 124},
-    {sipName_GMT_10, static_cast<int>(::wxDateTime::GMT_10), 124},
-    {sipName_GMT_11, static_cast<int>(::wxDateTime::GMT_11), 124},
-    {sipName_GMT_12, static_cast<int>(::wxDateTime::GMT_12), 124},
-    {sipName_GMT_2, static_cast<int>(::wxDateTime::GMT_2), 124},
-    {sipName_GMT_3, static_cast<int>(::wxDateTime::GMT_3), 124},
-    {sipName_GMT_4, static_cast<int>(::wxDateTime::GMT_4), 124},
-    {sipName_GMT_5, static_cast<int>(::wxDateTime::GMT_5), 124},
-    {sipName_GMT_6, static_cast<int>(::wxDateTime::GMT_6), 124},
-    {sipName_GMT_7, static_cast<int>(::wxDateTime::GMT_7), 124},
-    {sipName_GMT_8, static_cast<int>(::wxDateTime::GMT_8), 124},
-    {sipName_GMT_9, static_cast<int>(::wxDateTime::GMT_9), 124},
-    {sipName_Germany, static_cast<int>(::wxDateTime::Germany), 121},
-    {sipName_Gregorian, static_cast<int>(::wxDateTime::Gregorian), 120},
-    {sipName_HST, static_cast<int>(::wxDateTime::HST), 124},
-    {sipName_Inv_Month, static_cast<int>(::wxDateTime::Inv_Month), 122},
-    {sipName_Inv_WeekDay, static_cast<int>(::wxDateTime::Inv_WeekDay), 127},
-    {sipName_Inv_Year, static_cast<int>(::wxDateTime::Inv_Year), 129},
-    {sipName_Jan, static_cast<int>(::wxDateTime::Jan), 122},
-    {sipName_Jul, static_cast<int>(::wxDateTime::Jul), 122},
-    {sipName_Julian, static_cast<int>(::wxDateTime::Julian), 120},
-    {sipName_Jun, static_cast<int>(::wxDateTime::Jun), 122},
-    {sipName_Local, static_cast<int>(::wxDateTime::Local), 124},
-    {sipName_MDT, static_cast<int>(::wxDateTime::MDT), 124},
-    {sipName_MSD, static_cast<int>(::wxDateTime::MSD), 124},
-    {sipName_MSK, static_cast<int>(::wxDateTime::MSK), 124},
-    {sipName_MST, static_cast<int>(::wxDateTime::MST), 124},
-    {sipName_Mar, static_cast<int>(::wxDateTime::Mar), 122},
-    {sipName_May, static_cast<int>(::wxDateTime::May), 122},
-    {sipName_Mon, static_cast<int>(::wxDateTime::Mon), 127},
-    {sipName_Monday_First, static_cast<int>(::wxDateTime::Monday_First), 128},
-    {sipName_NZDT, static_cast<int>(::wxDateTime::NZDT), 124},
-    {sipName_NZST, static_cast<int>(::wxDateTime::NZST), 124},
-    {sipName_Name_Abbr, static_cast<int>(::wxDateTime::Name_Abbr), 123},
-    {sipName_Name_Full, static_cast<int>(::wxDateTime::Name_Full), 123},
-    {sipName_Nov, static_cast<int>(::wxDateTime::Nov), 122},
-    {sipName_Oct, static_cast<int>(::wxDateTime::Oct), 122},
-    {sipName_PDT, static_cast<int>(::wxDateTime::PDT), 124},
-    {sipName_PST, static_cast<int>(::wxDateTime::PST), 124},
-    {sipName_Russia, static_cast<int>(::wxDateTime::Russia), 121},
-    {sipName_Sat, static_cast<int>(::wxDateTime::Sat), 127},
-    {sipName_Sep, static_cast<int>(::wxDateTime::Sep), 122},
-    {sipName_Sun, static_cast<int>(::wxDateTime::Sun), 127},
-    {sipName_Sunday_First, static_cast<int>(::wxDateTime::Sunday_First), 128},
-    {sipName_Thu, static_cast<int>(::wxDateTime::Thu), 127},
-    {sipName_Tue, static_cast<int>(::wxDateTime::Tue), 127},
-    {sipName_UK, static_cast<int>(::wxDateTime::UK), 121},
-    {sipName_USA, static_cast<int>(::wxDateTime::USA), 121},
-    {sipName_UTC, static_cast<int>(::wxDateTime::UTC), 124},
-    {sipName_WEST, static_cast<int>(::wxDateTime::WEST), 124},
-    {sipName_WET, static_cast<int>(::wxDateTime::WET), 124},
-    {sipName_Wed, static_cast<int>(::wxDateTime::Wed), 127},
+    {sipName_ADT, static_cast<int>(::wxDateTime::ADT), 131},
+    {sipName_AKDT, static_cast<int>(::wxDateTime::AKDT), 131},
+    {sipName_AKST, static_cast<int>(::wxDateTime::AKST), 131},
+    {sipName_AST, static_cast<int>(::wxDateTime::AST), 131},
+    {sipName_A_CST, static_cast<int>(::wxDateTime::A_CST), 131},
+    {sipName_A_ESST, static_cast<int>(::wxDateTime::A_ESST), 131},
+    {sipName_A_EST, static_cast<int>(::wxDateTime::A_EST), 131},
+    {sipName_A_WST, static_cast<int>(::wxDateTime::A_WST), 131},
+    {sipName_Apr, static_cast<int>(::wxDateTime::Apr), 127},
+    {sipName_Aug, static_cast<int>(::wxDateTime::Aug), 127},
+    {sipName_CDT, static_cast<int>(::wxDateTime::CDT), 131},
+    {sipName_CEST, static_cast<int>(::wxDateTime::CEST), 131},
+    {sipName_CET, static_cast<int>(::wxDateTime::CET), 131},
+    {sipName_CST, static_cast<int>(::wxDateTime::CST), 131},
+    {sipName_Context_Formatting, static_cast<int>(::wxDateTime::Context_Formatting), 128},
+    {sipName_Context_Standalone, static_cast<int>(::wxDateTime::Context_Standalone), 128},
+    {sipName_Country_Default, static_cast<int>(::wxDateTime::Country_Default), 126},
+    {sipName_Country_EEC, static_cast<int>(::wxDateTime::Country_EEC), 126},
+    {sipName_Country_Unknown, static_cast<int>(::wxDateTime::Country_Unknown), 126},
+    {sipName_Country_WesternEurope_End, static_cast<int>(::wxDateTime::Country_WesternEurope_End), 126},
+    {sipName_Country_WesternEurope_Start, static_cast<int>(::wxDateTime::Country_WesternEurope_Start), 126},
+    {sipName_Dec, static_cast<int>(::wxDateTime::Dec), 127},
+    {sipName_Default_First, static_cast<int>(::wxDateTime::Default_First), 135},
+    {sipName_EDT, static_cast<int>(::wxDateTime::EDT), 131},
+    {sipName_EEST, static_cast<int>(::wxDateTime::EEST), 131},
+    {sipName_EET, static_cast<int>(::wxDateTime::EET), 131},
+    {sipName_EST, static_cast<int>(::wxDateTime::EST), 131},
+    {sipName_Feb, static_cast<int>(::wxDateTime::Feb), 127},
+    {sipName_France, static_cast<int>(::wxDateTime::France), 126},
+    {sipName_Fri, static_cast<int>(::wxDateTime::Fri), 134},
+    {sipName_GMT0, static_cast<int>(::wxDateTime::GMT0), 131},
+    {sipName_GMT1, static_cast<int>(::wxDateTime::GMT1), 131},
+    {sipName_GMT10, static_cast<int>(::wxDateTime::GMT10), 131},
+    {sipName_GMT11, static_cast<int>(::wxDateTime::GMT11), 131},
+    {sipName_GMT12, static_cast<int>(::wxDateTime::GMT12), 131},
+    {sipName_GMT13, static_cast<int>(::wxDateTime::GMT13), 131},
+    {sipName_GMT2, static_cast<int>(::wxDateTime::GMT2), 131},
+    {sipName_GMT3, static_cast<int>(::wxDateTime::GMT3), 131},
+    {sipName_GMT4, static_cast<int>(::wxDateTime::GMT4), 131},
+    {sipName_GMT5, static_cast<int>(::wxDateTime::GMT5), 131},
+    {sipName_GMT6, static_cast<int>(::wxDateTime::GMT6), 131},
+    {sipName_GMT7, static_cast<int>(::wxDateTime::GMT7), 131},
+    {sipName_GMT8, static_cast<int>(::wxDateTime::GMT8), 131},
+    {sipName_GMT9, static_cast<int>(::wxDateTime::GMT9), 131},
+    {sipName_GMT_1, static_cast<int>(::wxDateTime::GMT_1), 131},
+    {sipName_GMT_10, static_cast<int>(::wxDateTime::GMT_10), 131},
+    {sipName_GMT_11, static_cast<int>(::wxDateTime::GMT_11), 131},
+    {sipName_GMT_12, static_cast<int>(::wxDateTime::GMT_12), 131},
+    {sipName_GMT_2, static_cast<int>(::wxDateTime::GMT_2), 131},
+    {sipName_GMT_3, static_cast<int>(::wxDateTime::GMT_3), 131},
+    {sipName_GMT_4, static_cast<int>(::wxDateTime::GMT_4), 131},
+    {sipName_GMT_5, static_cast<int>(::wxDateTime::GMT_5), 131},
+    {sipName_GMT_6, static_cast<int>(::wxDateTime::GMT_6), 131},
+    {sipName_GMT_7, static_cast<int>(::wxDateTime::GMT_7), 131},
+    {sipName_GMT_8, static_cast<int>(::wxDateTime::GMT_8), 131},
+    {sipName_GMT_9, static_cast<int>(::wxDateTime::GMT_9), 131},
+    {sipName_Germany, static_cast<int>(::wxDateTime::Germany), 126},
+    {sipName_Gregorian, static_cast<int>(::wxDateTime::Gregorian), 125},
+    {sipName_HST, static_cast<int>(::wxDateTime::HST), 131},
+    {sipName_Inv_Month, static_cast<int>(::wxDateTime::Inv_Month), 127},
+    {sipName_Inv_WeekDay, static_cast<int>(::wxDateTime::Inv_WeekDay), 134},
+    {sipName_Inv_Year, static_cast<int>(::wxDateTime::Inv_Year), 136},
+    {sipName_Jan, static_cast<int>(::wxDateTime::Jan), 127},
+    {sipName_Jul, static_cast<int>(::wxDateTime::Jul), 127},
+    {sipName_Julian, static_cast<int>(::wxDateTime::Julian), 125},
+    {sipName_Jun, static_cast<int>(::wxDateTime::Jun), 127},
+    {sipName_Local, static_cast<int>(::wxDateTime::Local), 131},
+    {sipName_MDT, static_cast<int>(::wxDateTime::MDT), 131},
+    {sipName_MSD, static_cast<int>(::wxDateTime::MSD), 131},
+    {sipName_MSK, static_cast<int>(::wxDateTime::MSK), 131},
+    {sipName_MST, static_cast<int>(::wxDateTime::MST), 131},
+    {sipName_Mar, static_cast<int>(::wxDateTime::Mar), 127},
+    {sipName_May, static_cast<int>(::wxDateTime::May), 127},
+    {sipName_Mon, static_cast<int>(::wxDateTime::Mon), 134},
+    {sipName_Monday_First, static_cast<int>(::wxDateTime::Monday_First), 135},
+    {sipName_NZDT, static_cast<int>(::wxDateTime::NZDT), 131},
+    {sipName_NZST, static_cast<int>(::wxDateTime::NZST), 131},
+    {sipName_Name_Abbr, static_cast<int>(::wxDateTime::Name_Abbr), 129},
+    {sipName_Name_Full, static_cast<int>(::wxDateTime::Name_Full), 129},
+    {sipName_Name_Shortest, static_cast<int>(::wxDateTime::Name_Shortest), 129},
+    {sipName_Nov, static_cast<int>(::wxDateTime::Nov), 127},
+    {sipName_Oct, static_cast<int>(::wxDateTime::Oct), 127},
+    {sipName_PDT, static_cast<int>(::wxDateTime::PDT), 131},
+    {sipName_PST, static_cast<int>(::wxDateTime::PST), 131},
+    {sipName_Russia, static_cast<int>(::wxDateTime::Russia), 126},
+    {sipName_Sat, static_cast<int>(::wxDateTime::Sat), 134},
+    {sipName_Sep, static_cast<int>(::wxDateTime::Sep), 127},
+    {sipName_Sun, static_cast<int>(::wxDateTime::Sun), 134},
+    {sipName_Sunday_First, static_cast<int>(::wxDateTime::Sunday_First), 135},
+    {sipName_Thu, static_cast<int>(::wxDateTime::Thu), 134},
+    {sipName_Tue, static_cast<int>(::wxDateTime::Tue), 134},
+    {sipName_UK, static_cast<int>(::wxDateTime::UK), 126},
+    {sipName_USA, static_cast<int>(::wxDateTime::USA), 126},
+    {sipName_UTC, static_cast<int>(::wxDateTime::UTC), 131},
+    {sipName_WEST, static_cast<int>(::wxDateTime::WEST), 131},
+    {sipName_WET, static_cast<int>(::wxDateTime::WET), 131},
+    {sipName_Wed, static_cast<int>(::wxDateTime::Wed), 134},
 };
 
 sipVariableDef variables_wxDateTime[] = {
@@ -5736,7 +5745,7 @@ sipClassTypeDef sipTypeDef__core_wxDateTime = {
         sipNameNr_DateTime,
         {0, 0, 1},
         111, methods_wxDateTime,
-        94, enummembers_wxDateTime,
+        97, enummembers_wxDateTime,
         17, variables_wxDateTime,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },

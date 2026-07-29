@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: socketsecurity
-Version: 2.5.4
+Version: 2.5.5
 Summary: Socket Security CLI for CI/CD
 Project-URL: Homepage, https://socket.dev
 Author-email: Douglas Coburn <douglas@socket.dev>

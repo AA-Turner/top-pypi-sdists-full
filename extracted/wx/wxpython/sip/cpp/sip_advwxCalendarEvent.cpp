@@ -328,7 +328,7 @@ static void *init_type_wxCalendarEvent(sipSimpleWrapper *sipSelf, PyObject *sipA
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxCalendarEvent[] = {{18, 255, 1}};
+static sipEncodedTypeDef supers_wxCalendarEvent[] = {{20, 255, 1}};
 
 
 static PyMethodDef methods_wxCalendarEvent[] = {

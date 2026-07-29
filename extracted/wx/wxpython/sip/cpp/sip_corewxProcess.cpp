@@ -81,9 +81,9 @@ void sipwxProcess::OnTerminate(int pid, int status)
         return;
     }
 
-    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
+    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
 
-    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, pid, status);
+    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, pid, status);
 }
 
 bool sipwxProcess::ProcessEvent(::wxEvent& event)
@@ -96,9 +96,9 @@ bool sipwxProcess::ProcessEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxProcess::ProcessEvent(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxProcess::TryBefore(::wxEvent& event)
@@ -111,9 +111,9 @@ bool sipwxProcess::TryBefore(::wxEvent& event)
     if (!sipMeth)
         return ::wxProcess::TryBefore(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxProcess::TryAfter(::wxEvent& event)
@@ -126,9 +126,9 @@ bool sipwxProcess::TryAfter(::wxEvent& event)
     if (!sipMeth)
         return ::wxProcess::TryAfter(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxProcess::sipProtectVirt_TryBefore(bool sipSelfWasArg, ::wxEvent& event)
@@ -889,7 +889,7 @@ static void *init_type_wxProcess(sipSimpleWrapper *sipSelf, PyObject *sipArgs, P
     sipwxProcess *sipCpp = SIP_NULLPTR;
 
     {
-        ::wxEvtHandler* parent = 0;
+        ::wxEvtHandler* parent = nullptr;
         int id = -1;
 
         static const char *sipKwdList[] = {
@@ -953,7 +953,7 @@ static void *init_type_wxProcess(sipSimpleWrapper *sipSelf, PyObject *sipArgs, P
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxProcess[] = {{158, 255, 1}};
+static sipEncodedTypeDef supers_wxProcess[] = {{165, 255, 1}};
 
 
 static PyMethodDef methods_wxProcess[] = {
@@ -984,7 +984,7 @@ sipVariableDef variables_wxProcess[] = {
     {PropertyVariable, sipName_ErrorStream, &methods_wxProcess[4], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxProcess, "Process(parent=None, id=-1) -> None\n"
+PyDoc_STRVAR(doc_wxProcess, "Process(parent=nullptr, id=-1) -> None\n"
 "Process(flags) -> None\n"
 "\n"
 "The objects of this class are used in conjunction with the wxExecute()\n"

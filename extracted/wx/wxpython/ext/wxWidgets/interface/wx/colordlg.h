@@ -66,7 +66,7 @@ public:
 
         @see wxColourData
     */
-    wxColourDialog(wxWindow* parent, const wxColourData* data = NULL);
+    wxColourDialog(wxWindow* parent, const wxColourData* data = nullptr);
 
     /**
         Destructor.
@@ -76,7 +76,7 @@ public:
     /**
         Same as wxColourDialog().
     */
-    bool Create(wxWindow* parent, const wxColourData* data = NULL);
+    bool Create(wxWindow* parent, const wxColourData* data = nullptr);
 
     /**
         Returns the colour data associated with the colour dialog.
@@ -117,7 +117,7 @@ public:
     wxColourDialogEvent(wxEventType evtType,
                         wxColourDialog* dialog,
                         const wxColour& colour);
-    
+
     /**
         Retrieve the colour the user has just selected.
     */
@@ -158,10 +158,10 @@ wxEventType wxEVT_COLOUR_CHANGED;
 
     @header{wx/colordlg.h}
 */
-wxColour wxGetColourFromUser(wxWindow* parent,
-                             const wxColour& colInit,
+wxColour wxGetColourFromUser(wxWindow* parent = nullptr,
+                             const wxColour& colInit = wxNullColour,
                              const wxString& caption = wxEmptyString,
-                             wxColourData* data = NULL);
+                             wxColourData* data = nullptr);
 
 ///@}
 

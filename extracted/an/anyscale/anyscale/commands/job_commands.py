@@ -1,5 +1,4 @@
 from io import StringIO
-from json import dumps as json_dumps
 import pathlib
 from subprocess import list2cmdline
 from typing import Any, Dict, List, Optional, Tuple
@@ -15,11 +14,24 @@ from anyscale._private.models.image_uri import ImageURI
 from anyscale.cli_logger import BlockLogger
 from anyscale.client.openapi_client.models.ha_job_states import HaJobStates
 from anyscale.commands import command_examples
+from anyscale.commands.doc_metadata import (
+    command_metadata,
+    CommandExample,
+    ErrorCode,
+    ReleaseStatus,
+)
 from anyscale.commands.list_util import (
     create_table,
     display_list,
     NON_INTERACTIVE_DEFAULT_MAX_ITEMS,
     validate_page_size,
+)
+from anyscale.commands.output_format import (
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    OutputFormat,
+    print_output,
+    resolve_output_format,
 )
 from anyscale.commands.util import (
     AnyscaleCommand,
@@ -34,12 +46,12 @@ from anyscale.controllers.job_controller import JobController
 from anyscale.job.models import (
     JobConfig,
     JobLogMode,
+    JobRunStatus,
     JobSortField,
     JobState,
     JobStatus,
 )
 from anyscale.util import (
-    AnyscaleJSONEncoder,
     get_endpoint,
     validate_non_negative_arg,
 )
@@ -151,11 +163,24 @@ def job_cli() -> None:
     pass
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    option_docs={
+        "--config-file": {"schema": JobConfig},
+        "--connection": {"status": ReleaseStatus.BETA},
+    },
+    examples=[
+        CommandExample(
+            description="Submit a job with an inline entrypoint or from a YAML config file.",
+            command="anyscale job submit -f job.yaml",
+            output_raw=command_examples.JOB_SUBMIT_EXAMPLE,
+        ),
+    ],
+)
 @job_cli.command(
-    name="submit",
-    short_help="Submit a job.",
-    cls=AnyscaleCommand,
-    example=command_examples.JOB_SUBMIT_EXAMPLE,
+    name="submit", short_help="Submit a job.", cls=AnyscaleCommand,
 )
 @click.option("-n", "--name", required=False, default=None, help="Name of the job.")
 @click.option(
@@ -291,11 +316,11 @@ def job_cli() -> None:
     multiple=True,
     required=False,
     default=None,
-    help="[Beta] Third-party connection to associate with the job (e.g., Databricks). "
+    help="Third-party connection to associate with the job (e.g., Databricks). "
     "Format: type=TYPE,name=NAME. "
     "Example: --connection type=databricks,name=my-conn. "
     "Can be repeated for multiple connections. "
-    "This feature is in beta preview. Contact [Anyscale support](mailto:support@anyscale.com) to request enablement.",
+    "Contact [Anyscale support](mailto:support@anyscale.com) to request enablement.",
 )
 @click.argument("entrypoint", required=False, nargs=-1, type=click.UNPROCESSED)
 def submit(  # noqa: PLR0912 PLR0913 C901
@@ -634,11 +659,56 @@ def _display_jobs_table(jobs: List[JobStatus]) -> None:
     print(f"JOBS:\n{table}")
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to [TEXT, JSON] when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="List jobs matching a name.",
+            command="anyscale job list --v2",
+            output_raw=command_examples.JOB_LIST_EXAMPLE,
+            output_instance=[
+                {
+                    "id": "prodjob_jjtrnxhdr7ltfdv482b8zxmrw6",
+                    "name": "eval-gpu-idle",
+                    "state": "SUCCEEDED",
+                    "entrypoint": 'python -c "import time; time.sleep(300)"',
+                    "project": None,
+                    "created_at": "2026-06-29T07:45:51.512795+00:00",
+                    "updated_at": "2026-06-29T07:52:04.084344+00:00",
+                    "status_updated_at": "2026-06-29T07:52:04.084344+00:00",
+                },
+                {
+                    "id": "prodjob_n757jp7drz1rzp6jv3n94bxjbb",
+                    "name": "eval-term-job",
+                    "state": "TERMINATED",
+                    "entrypoint": 'python -c "import time; time.sleep(900)"',
+                    "project": None,
+                    "created_at": "2026-06-29T05:50:42.536733+00:00",
+                    "updated_at": "2026-06-29T05:51:15.607632+00:00",
+                    "status_updated_at": "2026-06-29T05:51:15.607632+00:00",
+                },
+                {
+                    "id": "prodjob_g2nvnjsgurgkdtng89c1eub9rq",
+                    "name": "eval-list-job",
+                    "state": "SUCCEEDED",
+                    "entrypoint": "python -c \"print('hello from eval-list-job')\"",
+                    "project": None,
+                    "created_at": "2026-06-29T05:49:34.841048+00:00",
+                    "updated_at": "2026-06-29T05:50:56.532679+00:00",
+                    "status_updated_at": "2026-06-29T05:50:56.532679+00:00",
+                },
+            ],
+        ),
+    ],
+)
 @job_cli.command(
     name="list",
+    short_help="Display information about existing jobs.",
     help="Display information about existing jobs.",
     cls=AnyscaleCommand,
-    example=command_examples.JOB_LIST_EXAMPLE,
 )
 @click.option(
     "--v2",
@@ -767,6 +837,16 @@ def _display_jobs_table(jobs: List[JobStatus]) -> None:
     help="Filter for jobs whose status was last updated at or before this time (ISO 8601, e.g. 2024-12-31T23:59:59Z). Only with --v2.",
 )
 @click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result. Only with --v2.",
+)
+@click.option(
     "--json",
     "-j",
     "json_output",
@@ -800,9 +880,12 @@ def list(  # noqa: A001 PLR0913 PLR0912
     updated_at_to: Optional[str],
     status_updated_at_from: Optional[str],
     status_updated_at_to: Optional[str],
+    output_format: str,
     json_output: bool,
     interactive: bool,
 ) -> None:
+    json_output = json_output or output_format == OutputFormat.JSON.value
+
     # Validate states based on v2 flag
     if states:
         if v2:
@@ -948,11 +1031,20 @@ def list(  # noqa: A001 PLR0913 PLR0912
         )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Archive a job by name.",
+            command="anyscale job archive -n my-job",
+            output_raw=command_examples.JOB_ARCHIVE_EXAMPLE,
+        ),
+    ],
+)
 @job_cli.command(
-    name="archive",
-    short_help="Archive a job.",
-    cls=AnyscaleCommand,
-    example=command_examples.JOB_ARCHIVE_EXAMPLE,
+    name="archive", short_help="Archive a job.", cls=AnyscaleCommand,
 )
 @click.option("--id", "--job-id", required=False, help="Unique ID of the job.")
 @click.option("--name", "-n", required=False, help="Name of the job.")
@@ -1001,11 +1093,20 @@ status will be archived.
     )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Delete a job by name.",
+            command="anyscale job delete -n my-job",
+            output_raw=command_examples.JOB_DELETE_EXAMPLE,
+        ),
+    ],
+)
 @job_cli.command(
-    name="delete",
-    short_help="Delete a job.",
-    cls=AnyscaleCommand,
-    example=command_examples.JOB_DELETE_EXAMPLE,
+    name="delete", short_help="Delete a job.", cls=AnyscaleCommand,
 )
 @click.option("--id", "--job-id", required=False, help="Unique ID of the job.")
 @click.option("--name", "-n", required=False, help="Name of the job.")
@@ -1054,11 +1155,20 @@ def delete(
     )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Terminate a job by name.",
+            command="anyscale job terminate -n my-job",
+            output_raw=command_examples.JOB_TERMINATE_EXAMPLE,
+        ),
+    ],
+)
 @job_cli.command(
-    name="terminate",
-    short_help="Terminate a job.",
-    cls=AnyscaleCommand,
-    example=command_examples.JOB_TERMINATE_EXAMPLE,
+    name="terminate", short_help="Terminate a job.", cls=AnyscaleCommand,
 )
 @click.option("--id", "--job-id", required=False, help="Unique ID of the job.")
 @click.option("--name", "-n", required=False, help="Name of the job.")
@@ -1113,8 +1223,20 @@ status will be terminated.
         )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Print the logs of a job by name.",
+            command="anyscale job logs -n my-job",
+            output_raw=command_examples.JOB_LOGS_EXAMPLE,
+        ),
+    ],
+)
 @job_cli.command(
-    name="logs", cls=AnyscaleCommand, example=command_examples.JOB_LOGS_EXAMPLE
+    name="logs", short_help="Print the logs of a job.", cls=AnyscaleCommand,
 )
 @click.option("--id", "--job-id", required=False, help="Unique ID of the job.")
 @click.option("--name", "-n", required=False, help="Name of the job.")
@@ -1192,7 +1314,11 @@ def logs(  # noqa: PLR0913
 ) -> None:
     """Print the logs of a job.
 
-    By default from the latest job attempt.
+    By default, prints the logs of the latest job attempt. Specify the job by
+    name (--name) or by ID (--id).
+
+    Use --head or --tail (mutually exclusive) with --max-lines to limit output.
+    Use --follow to stream logs while the job runs.
     """
     if all_attempts:
         raise click.ClickException(
@@ -1232,11 +1358,22 @@ def logs(  # noqa: PLR0913
         print(job_logs)
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Wait for a job to succeed.",
+            command="anyscale job wait -n my-job",
+            output_raw=command_examples.JOB_WAIT_EXAMPLE,
+        ),
+    ],
+)
 @job_cli.command(
     name="wait",
     short_help="Wait for a job to enter a specific state.",
     cls=AnyscaleCommand,
-    example=command_examples.JOB_WAIT_EXAMPLE,
 )
 @click.option(
     "--id", "--job-id", required=False, help="Unique ID of the job.",
@@ -1261,7 +1398,7 @@ def logs(  # noqa: PLR0913
     "-s",
     required=False,
     default=JobState.SUCCEEDED,
-    help="The state to wait for this job to enter",
+    help="The state to wait for this job to enter. Defaults to SUCCEEDED.",
 )
 @click.option(
     "--timeout-s",
@@ -1315,11 +1452,41 @@ def wait(
         raise click.ClickException(str(e)) from None
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Query the status of a job by name.",
+            command="anyscale job status -n my-job",
+            output_raw=command_examples.JOB_STATUS_EXAMPLE,
+            output_instance=lambda: JobStatus(
+                id="prodjob_6ntzknwk1i9b1uw1zk1gp9dbhe",
+                name="my-job",
+                state=JobState.STARTING,
+                config=JobConfig(name="my-job", entrypoint="python main.py"),
+                runs=[
+                    JobRunStatus(name="raysubmit_ynxBVGT1SmzndiXL", state="SUCCEEDED")
+                ],
+                creator_id="usr_we8x7d7u8hq8mj2488ed9x47n6",
+            ),
+            labels=["cloud:aws"],
+        ),
+    ],
+    output_schema=JobStatus,
+    error_codes=[
+        ErrorCode.RESOURCE_NOT_FOUND,
+        ErrorCode.AUTH_UNAUTHORIZED,
+        ErrorCode.AUTH_FORBIDDEN,
+        ErrorCode.AUTH_TOKEN_EXPIRED,
+        ErrorCode.CONNECTION_ERROR,
+        ErrorCode.RATE_LIMITED,
+    ],
+)
 @job_cli.command(
-    name="status",
-    short_help="Get the status of a job.",
-    cls=AnyscaleCommand,
-    example=command_examples.JOB_STATUS_EXAMPLE,
+    name="status", short_help="Get the status of a job.", cls=AnyscaleCommand,
 )
 @click.option(
     "--id", "--job-id", required=False, default=None, help="Unique ID of the job."
@@ -1338,6 +1505,16 @@ def wait(
     default=None,
     type=str,
     help="Named project to use for the job. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
+)
+@click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
 )
 @click.option(
     "--json",
@@ -1364,6 +1541,7 @@ def status(
     id: Optional[str],  # noqa: A002
     cloud: Optional[str],
     project: Optional[str],
+    output_format: str,
     json: bool,
     verbose: bool,
     include_archived: bool,
@@ -1385,15 +1563,14 @@ status will be returned.
         project=project,
         include_archived=include_archived,
     )
-    status_dict = status.to_dict()
 
+    status_dict = status.to_dict()
     if not verbose:
         status_dict.pop("config", None)
 
-    if json:
-        print(
-            json_dumps(status_dict, indent=4, sort_keys=False, cls=AnyscaleJSONEncoder)
-        )
+    resolved = resolve_output_format(output_format, json)
+    if resolved != OutputFormat.TEXT.value:
+        print_output(status_dict, resolved)
     else:
         stream = StringIO()
         yaml.dump(status_dict, stream, sort_keys=False)
@@ -1405,11 +1582,28 @@ def job_tags_cli() -> None:
     pass
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Add tags to a job by name.",
+            command="anyscale job tags add --name my-job --tag owner=alice --tag env=staging",
+            output_raw=command_examples.JOB_TAGS_ADD_EXAMPLE,
+        ),
+    ],
+)
 @job_tags_cli.command(
     name="add",
-    help="Add or update tags on a job.",
+    short_help="Add or update tags on a job.",
+    help=(
+        "Add or update tags on a job.\n\n"
+        "Specify the job by name (--name) or by ID (--id). "
+        "Provide at least one --tag in key=value format, repeating --tag to set multiple. "
+        "Existing tags with the same key are overwritten."
+    ),
     cls=AnyscaleCommand,
-    example=command_examples.JOB_TAGS_ADD_EXAMPLE,
 )
 @click.option("--id", "job_id", required=False, help="Unique ID of the job.")
 @click.option("--name", "-n", required=False, help="Name of the job.")
@@ -1441,11 +1635,27 @@ def add_tags(
     stderr.print(f"Tags updated for job '{ident}'.")
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Remove tags from a job by name.",
+            command="anyscale job tags remove --name my-job --key owner --key env",
+            output_raw=command_examples.JOB_TAGS_REMOVE_EXAMPLE,
+        ),
+    ],
+)
 @job_tags_cli.command(
     name="remove",
-    help="Remove tags by key from a job.",
+    short_help="Remove tags by key from a job.",
+    help=(
+        "Remove tags by key from a job.\n\n"
+        "Specify the job by name (--name) or by ID (--id). "
+        "Provide at least one --key to remove, repeating --key to remove multiple."
+    ),
     cls=AnyscaleCommand,
-    example=command_examples.JOB_TAGS_REMOVE_EXAMPLE,
 )
 @click.option("--id", "job_id", required=False, help="Unique ID of the job.")
 @click.option("--name", "-n", required=False, help="Name of the job.")
@@ -1472,14 +1682,38 @@ def remove_tags(
     stderr.print(f"Removed tag keys {key_list} from job '{ident}'.")
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="List the tags of a job by name.",
+            command="anyscale job tags list --name my-job",
+            output_raw=command_examples.JOB_TAGS_LIST_EXAMPLE,
+            output_instance={"owner": "alice", "env": "staging"},
+        ),
+    ],
+)
 @job_tags_cli.command(
     name="list",
-    help="List tags for a job.",
+    short_help="List tags for a job.",
+    help=("List tags for a job.\n\nSpecify the job by name (--name) or by ID (--id)."),
     cls=AnyscaleCommand,
-    example=command_examples.JOB_TAGS_LIST_EXAMPLE,
 )
 @click.option("--id", "job_id", required=False, help="Unique ID of the job.")
 @click.option("--name", "-n", required=False, help="Name of the job.")
+@click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
 @click.option("--json", "json_output", is_flag=True, default=False, help="JSON output.")
 @click.option(
     "--include-archived",
@@ -1490,6 +1724,7 @@ def remove_tags(
 def list_tags(
     job_id: Optional[str],
     name: Optional[str],
+    output_format: str,
     json_output: bool,
     include_archived: bool,
 ) -> None:
@@ -1498,8 +1733,9 @@ def list_tags(
     tag_map = anyscale.job.list_tags(
         job_id=job_id, name=name, include_archived=include_archived
     )
-    if json_output:
-        Console().print_json(json=json_dumps(tag_map, indent=2))
+    resolved = resolve_output_format(output_format, json_output)
+    if resolved != OutputFormat.TEXT.value:
+        print_output(tag_map, resolved)
     else:
         stderr = Console(stderr=True)
         if not tag_map:

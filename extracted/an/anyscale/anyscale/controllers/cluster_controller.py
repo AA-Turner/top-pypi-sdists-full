@@ -120,7 +120,7 @@ class ClusterController(BaseController):
         cluster_compute_id, cluster_compute_config = None, None
         if cluster_compute_name:
             cluster_compute_id = get_cluster_compute_from_name(
-                cluster_compute_name, self.api_client,
+                cluster_compute_name, self.api_client, cloud_name=cloud_name,
             ).id
         elif cluster_compute_file:
             cluster_compute_config = self._load_cluster_compute(cluster_compute_file)
@@ -558,7 +558,7 @@ class ClusterController(BaseController):
     ) -> ComputeTemplate:
         if cluster_compute_name:
             cluster_compute = get_cluster_compute_from_name(
-                cluster_compute_name, self.api_client,
+                cluster_compute_name, self.api_client, cloud_name=cloud_name,
             )
         elif cluster_compute_file:
             cluster_compute_config = self._load_cluster_compute(cluster_compute_file)

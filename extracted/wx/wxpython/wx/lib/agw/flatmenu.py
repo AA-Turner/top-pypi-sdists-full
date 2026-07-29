@@ -3860,45 +3860,11 @@ class FlatMenuBar(wx.Panel):
         statusBar.PopStatusText(0)
 
 
-
-class mcPopupWindow(wx.MiniFrame):
-    """ Since Max OS does not support :class:`PopupWindow`, this is an alternative. """
-
-    def __init__(self, parent):
-        """
-        Default class constructor.
-
-        :param `parent`: the :class:`mcPopupWindow` parent window.
-        """
-
-        wx.MiniFrame.__init__(self, parent, style = wx.POPUP_WINDOW)
-        self.SetExtraStyle(wx.WS_EX_TRANSIENT)
-        self._parent = parent
-        self.Bind(wx.EVT_LEAVE_WINDOW, self.OnLeaveWindow)
-
-
-    def OnLeaveWindow(self, event):
-        """
-        Handles the ``wx.EVT_LEAVE_WINDOW`` event for :class:`mcPopupWindow`.
-
-        :param `event`: a :class:`MouseEvent` event to be processed.
-        """
-
-        event.Skip()
-
-
-havePopupWindow = 1
-""" Flag used to indicate whether the platform supports the native :class:`PopupWindow`. """
-
-if wx.Platform == '__WXMAC__':
-    havePopupWindow = 0
-
-
 # ---------------------------------------------------------------------------- #
 # Class ShadowPopupWindow
 # ---------------------------------------------------------------------------- #
 
-class ShadowPopupWindow(wx.PopupWindow if havePopupWindow else mcPopupWindow):
+class ShadowPopupWindow(wx.PopupWindow):
     """ Base class for generic :class:`FlatMenu` derived from :class:`PopupWindow`. """
 
     def __init__(self, parent=None):
@@ -4346,8 +4312,8 @@ class FlatMenuBase(ShadowPopupWindow):
         """
 
         # Check that the menu can fully appear in the screen
-        scrWidth  = wx.SystemSettings.GetMetric(wx.SYS_SCREEN_X)
-        scrHeight = wx.SystemSettings.GetMetric(wx.SYS_SCREEN_Y)
+        display = wx.Display(wx.Display.GetFromPoint(pos))
+        displayrect = display.GetGeometry()
 
         scrollBarButtons = self.GetRenderer().scrollBarButtons
         scrollBarMenuItems = not scrollBarButtons
@@ -4360,14 +4326,14 @@ class FlatMenuBase(ShadowPopupWindow):
         self._showScrollButtons = False
         pos.y += self._popupPtOffset
 
-        if size.y + pos.y > scrHeight:
+        if size.y + pos.y > displayrect.GetBottom():
             # the menu will be truncated
             if self._parentMenu is None:
                 # try to flip the menu
                 flippedPosy = pos.y - size.y
                 flippedPosy -= self._popupPtOffset
 
-                if flippedPosy >= 0 and flippedPosy + size.y < scrHeight:
+                if flippedPosy >= 0 and flippedPosy + size.y < displayrect.GetHeight():
                     pos.y = flippedPosy
                     return pos
                 else:
@@ -4377,19 +4343,20 @@ class FlatMenuBase(ShadowPopupWindow):
             else:
                 # we are a submenu
                 # try to decrease the y value of the menu position
-                newy = pos.y
-                newy -= (size.y + pos.y) - scrHeight
+                newy = displayrect.GetBottom() - size.y
 
-                if newy + size.y > scrHeight:
+                if newy < displayrect.GetTop():
+                    newy = displayrect.GetTop()
+
+                if size.y > displayrect.GetHeight():
                     # probably the menu size is too high to fit
                     # the screen, we need scrollbuttons
                     self._showScrollButtons = True
-                else:
-                    pos.y = newy
 
-        menuMaxX = pos.x + size.x
+                # in any case show the menu at the new y position
+                pos.y = newy
 
-        if menuMaxX > scrWidth and pos.x < scrWidth:
+        if (pos.x + size.x) > displayrect.GetRight():
 
             if self._parentMenu:
 
@@ -4400,7 +4367,7 @@ class FlatMenuBase(ShadowPopupWindow):
 
             else:
 
-                self._shiftePos  = ((size.x + pos.x) - scrWidth)
+                self._shiftePos  = ((size.x + pos.x) - displayrect.GetWidth())
                 pos.x -= self._shiftePos
 
         else:
@@ -4952,6 +4919,8 @@ class FlatMenuItem(object):
 
         return self._label
 
+    GetItemLabelText = GetLabel
+
 
     def GetMenu(self):
         """ Returns the parent menu. """
@@ -4981,6 +4950,9 @@ class FlatMenuItem(object):
         return self._text
 
 
+    GetItemLabel = GetText
+
+
     def GetSubMenu(self):
         """ Returns the sub-menu of this menu item (if any). """
 
@@ -4991,6 +4963,9 @@ class FlatMenuItem(object):
         """ Returns ``True`` if this item is of type ``wx.ITEM_CHECK``, ``False`` otherwise. """
 
         return self._kind == wx.ITEM_CHECK
+
+
+    IsCheck = IsCheckable
 
 
     def IsChecked(self):
@@ -5008,6 +4983,8 @@ class FlatMenuItem(object):
         """ Returns ``True`` if this item is of type ``wx.ITEM_RADIO``, ``False`` otherwise. """
 
         return self._kind == wx.ITEM_RADIO
+
+    IsRadio = IsRadioItem
 
 
     def IsEnabled(self):
@@ -5036,6 +5013,8 @@ class FlatMenuItem(object):
         """
 
         self._normalBmp = bmp
+
+    SetBitmap = SetNormalBitmap
 
 
     def SetDisabledBitmap(self, bmp):
@@ -6684,6 +6663,20 @@ class FlatMenu(FlatMenuBase):
         self._DestroyById(item)
 
 
+    def Enable(self, item, enable = True):
+        """
+        Enables or disables (greys out) a menu item.
+
+        :param `item`: can be either a menu item identifier or a plain :class:`FlatMenuItem`.
+        :param bool `enable`: ``True`` to enable the item, ``False`` to disable it.
+        """
+
+        if not isinstance(item, FlatMenuItem):
+            item = self.FindItemById(item)
+
+        item.Enable(enable)
+
+
     def Insert(self, pos, id, item, helpString="", kind=wx.ITEM_NORMAL):
         """
         Inserts the given `item` before the position `pos`.
@@ -6728,6 +6721,19 @@ class FlatMenu(FlatMenuBase):
         self.UpdateRadioGroup(item)
 
         return item
+
+
+    def IsEnabled(self, item):
+        """
+        Determines whether a menu item is enabled.
+
+        :param `item`: can be either a menu item identifier or a plain :class:`FlatMenuItem`.
+        """
+
+        if not isinstance(item, FlatMenuItem):
+            item = self.FindItemById(item)
+
+        return item.IsEnabled()
 
 
     def UpdateRadioGroup(self, item):
@@ -6806,6 +6812,41 @@ class FlatMenu(FlatMenuBase):
         return self._numCols
 
 
+    def FindChildItem(self, itemId):
+        """
+        Finds the menu item object associated with the given menu item identifier.
+
+        :param integer `itemId`: menu item identifier.
+
+        :return: a tuple containing (item, itemidx), or ``None`` if not found
+        """
+
+        retval = None
+
+        item = self.FindItem(itemId)
+
+        if item:
+            itemidx, _ = self.FindMenuItemPos(itemId, None)
+            retval = (item, itemidx)
+
+        return retval
+
+
+    def FindItemByPosition(self, position):
+        """
+        Finds the menu item object given a position in the menu.
+
+        :param integer `position`: position within the menu.
+
+        :return: The found menu item object, or ``None`` if one was not found.
+        """
+
+        if 0 <= position < len(self._itemsArr):
+            return self._itemsArr[position]
+        else:
+            return None
+
+
     def FindItem(self, itemId, menu=None):
         """
         Finds the menu item object associated with the given menu item identifier and,
@@ -6835,6 +6876,31 @@ class FlatMenu(FlatMenuBase):
                 return parentMenu._itemsArr[idx]
             else:
                 return None
+
+    FindItemById = FindItem
+
+
+    def SetHelpString(self, itemId, helpString):
+        """
+        Sets the help string associated with a menu item
+
+        :param integer: `itemId`: the menu item identifier
+        :param string: `helpString`: the new help string to be set
+        """
+
+        item = self.FindItem(itemId)
+        item.SetHelp(helpString)
+
+    def GetHelpString(self, itemId):
+        """
+        Gets the help string associated with a menu item, or an empty
+        string if not found.
+
+        :param integer: `itemId`: the menu item identifier
+        """
+
+        item = self.FindItem(itemId)
+        return item.GetHelp()
 
 
     def SetItemFont(self, itemId, font=None):

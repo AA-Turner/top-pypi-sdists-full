@@ -133,7 +133,7 @@ static void dealloc_wxFileDialogTextCtrl(sipSimpleWrapper *sipSelf)
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxFileDialogTextCtrl[] = {{171, 255, 1}};
+static sipEncodedTypeDef supers_wxFileDialogTextCtrl[] = {{179, 255, 1}};
 
 
 static PyMethodDef methods_wxFileDialogTextCtrl[] = {

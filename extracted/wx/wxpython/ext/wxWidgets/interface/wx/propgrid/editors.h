@@ -14,7 +14,7 @@
 class wxPGWindowList
 {
 public:
-    wxPGWindowList(wxWindow* primary, wxWindow* secondary = NULL);
+    wxPGWindowList(wxWindow* primary, wxWindow* secondary = nullptr);
 
     void SetSecondary(wxWindow* secondary);
 
@@ -441,8 +441,8 @@ public:
         wxDECLARE_DYNAMIC_CLASS(wxSampleMultiButtonEditor);
 
     public:
-        wxSampleMultiButtonEditor() {}
-        virtual ~wxSampleMultiButtonEditor() {}
+        wxSampleMultiButtonEditor() = default;
+        virtual ~wxSampleMultiButtonEditor() = default;
 
         virtual wxString GetName() const { return "SampleMultiButtonEditor"; }
 
@@ -543,17 +543,17 @@ public:
     /**
         Destructor.
     */
-    virtual ~wxPGMultiButton() { }
+    virtual ~wxPGMultiButton() = default;
 
     /**
         Adds new button, with given label.
     */
-    void Add( const wxString& label, int id = -2 );
+    void Add( const wxString& label, int id = wxID_ANY );
 
     /**
         Adds new bitmap button.
     */
-    void Add( const wxBitmapBundle& bitmap, int id = -2 );
+    void Add( const wxBitmapBundle& bitmap, int id = wxID_ANY );
 
     /**
         Call this in CreateControls() of your custom editor class

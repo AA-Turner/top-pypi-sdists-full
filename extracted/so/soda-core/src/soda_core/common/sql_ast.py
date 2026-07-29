@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import weakref
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from numbers import Number
 from typing import Any, Optional
 
@@ -172,12 +172,12 @@ class WITH(BaseSqlExpression):
 class CTE(BaseSqlExpression):
     alias: str
     alias_columns: list[COLUMN] | None = None
-    cte_query: list | str | VALUES | None = None
+    cte_query: list | str | VALUES | UNION | None = None
 
     def __post_init__(self):
         super().__post_init__()
 
-    def AS(self, cte_query: list | str) -> CTE:
+    def AS(self, cte_query: list | str | VALUES | UNION) -> CTE:
         self.cte_query = cte_query
         self.handle_parent_node_update(cte_query)
         return self
@@ -402,6 +402,110 @@ class FUNCTION(SqlExpression):
 
 
 @dataclass
+class WINDOW_FUNCTION(SqlExpression):
+    """Window function: ``name(args) OVER ([PARTITION BY cols] [ORDER BY cols])``."""
+
+    name: str
+    args: list[SqlExpression | str] = field(default_factory=list)
+    partition_by: list[COLUMN] | None = None
+    order_by: list | None = None  # elements are ORDER_BY_ASC / ORDER_BY_DESC
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.args)
+        if self.partition_by:
+            self.handle_parent_node_update(self.partition_by)
+        if self.order_by:
+            self.handle_parent_node_update(self.order_by)
+
+
+@dataclass
+class PERCENTILE_WITHIN_GROUP(SqlExpression):
+    """Ordered-set aggregate: ``PERCENTILE_DISC(percentile) WITHIN GROUP (ORDER BY expression)``.
+
+    The base rendering is valid on postgres/duckdb/snowflake; BigQuery overrides
+    with ``APPROX_QUANTILES(expression, 1000)[int(percentile*1000)]``.
+    """
+
+    expression: SqlExpression | str
+    percentile: float
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
+
+
+# Time units supported by the time-bucket nodes below. All are fixed-length,
+# which is what allows the base epoch-floor rendering of TIME_DELTA.
+TIME_BUCKET_UNITS: tuple[str, ...] = ("weeks", "days", "hours", "seconds")
+
+_SECONDS_PER_TIME_BUCKET_UNIT: dict[str, int] = {
+    "weeks": 7 * 24 * 60 * 60,
+    "days": 24 * 60 * 60,
+    "hours": 60 * 60,
+    "seconds": 1,
+}
+
+
+def _validate_time_bucket_unit(unit: str) -> None:
+    if unit not in TIME_BUCKET_UNITS:
+        raise ValueError(f"Invalid time bucket unit {unit!r}; must be one of {TIME_BUCKET_UNITS}")
+
+
+def seconds_per_time_bucket(unit: str, count: int) -> int:
+    """Seconds in one time bucket of ``count`` ``unit``s."""
+    _validate_time_bucket_unit(unit)
+    return _SECONDS_PER_TIME_BUCKET_UNIT[unit] * count
+
+
+@dataclass
+class TIME_DELTA(SqlExpression):
+    """Time between two timestamps (end - start) expressed in buckets of
+    ``count`` ``unit``s — the start-anchored partition index of the metric
+    monitoring bulk SQL.
+
+    Base renderer emits the epoch-floor form
+    ``FLOOR(EXTRACT(EPOCH FROM {end} - {start}) / {seconds_per_bucket})``,
+    valid on postgres/duckdb and correct because all supported units are
+    fixed-length. Snowflake overrides with a TIMESTAMPDIFF-seconds form;
+    BigQuery with TIMESTAMP_DIFF.
+    """
+
+    start: SqlExpression | str
+    end: SqlExpression | str
+    unit: str
+    count: int = 1
+
+    def __post_init__(self):
+        super().__post_init__()
+        _validate_time_bucket_unit(self.unit)
+        self.handle_parent_node_update(self.start)
+        self.handle_parent_node_update(self.end)
+
+
+@dataclass
+class ADD_INTERVAL(SqlExpression):
+    """Add ``count_expression`` intervals of one ``unit`` to a timestamp — the
+    scan_time reconstruction of the metric monitoring bulk SQL.
+
+    Base renderer emits the interval-multiply form
+    ``{timestamp} + INTERVAL '1 {unit}' * {count_expression}``; the count
+    expression parenthesizes itself (SqlExpressionStr renders ``(...)``).
+    Snowflake overrides with TIMESTAMPADD; BigQuery with TIMESTAMP_ADD.
+    """
+
+    timestamp: SqlExpression | str
+    unit: str
+    count_expression: SqlExpression | str
+
+    def __post_init__(self):
+        super().__post_init__()
+        _validate_time_bucket_unit(self.unit)
+        self.handle_parent_node_update(self.timestamp)
+        self.handle_parent_node_update(self.count_expression)
+
+
+@dataclass
 class COALESCE(SqlExpression):
     args: list[SqlExpression | str]
 
@@ -422,6 +526,28 @@ class CAST(SqlExpression):
 
 @dataclass
 class AVERAGE(SqlExpression):
+    expression: SqlExpression | str
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
+
+
+@dataclass
+class STDDEV_SAMP(SqlExpression):
+    """Sample standard deviation aggregate."""
+
+    expression: SqlExpression | str
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
+
+
+@dataclass
+class VAR_SAMP(SqlExpression):
+    """Sample variance aggregate."""
+
     expression: SqlExpression | str
 
     def __post_init__(self):

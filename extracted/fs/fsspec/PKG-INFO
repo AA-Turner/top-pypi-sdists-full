@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fsspec
-Version: 2026.6.0
+Version: 2026.7.0
 Summary: File-system specification
 Project-URL: Changelog, https://filesystem-spec.readthedocs.io/en/latest/changelog.html
 Project-URL: Documentation, https://filesystem-spec.readthedocs.io/en/latest/
@@ -49,7 +49,7 @@ Requires-Dist: distributed; extra == 'full'
 Requires-Dist: dropbox; extra == 'full'
 Requires-Dist: dropboxdrivefs; extra == 'full'
 Requires-Dist: fusepy; extra == 'full'
-Requires-Dist: gcsfs>2024.2.0; extra == 'full'
+Requires-Dist: gcsfs>=2026.4.0; extra == 'full'
 Requires-Dist: libarchive-c; extra == 'full'
 Requires-Dist: ocifs; extra == 'full'
 Requires-Dist: panel; extra == 'full'
@@ -57,19 +57,19 @@ Requires-Dist: paramiko; extra == 'full'
 Requires-Dist: pyarrow>=1; extra == 'full'
 Requires-Dist: pygit2; extra == 'full'
 Requires-Dist: requests; extra == 'full'
-Requires-Dist: s3fs>2024.2.0; extra == 'full'
+Requires-Dist: s3fs>=2026.6.0; extra == 'full'
 Requires-Dist: smbprotocol; extra == 'full'
 Requires-Dist: tqdm; extra == 'full'
 Provides-Extra: fuse
 Requires-Dist: fusepy; extra == 'fuse'
 Provides-Extra: gcs
-Requires-Dist: gcsfs>2024.2.0; extra == 'gcs'
+Requires-Dist: gcsfs>=2026.4.0; extra == 'gcs'
 Provides-Extra: git
 Requires-Dist: pygit2; extra == 'git'
 Provides-Extra: github
 Requires-Dist: requests; extra == 'github'
 Provides-Extra: gs
-Requires-Dist: gcsfs; extra == 'gs'
+Requires-Dist: gcsfs>=2026.4.0; extra == 'gs'
 Provides-Extra: gui
 Requires-Dist: panel; extra == 'gui'
 Provides-Extra: hdfs
@@ -81,7 +81,7 @@ Requires-Dist: libarchive-c; extra == 'libarchive'
 Provides-Extra: oci
 Requires-Dist: ocifs; extra == 'oci'
 Provides-Extra: s3
-Requires-Dist: s3fs>2024.2.0; extra == 's3'
+Requires-Dist: s3fs>=2026.6.0; extra == 's3'
 Provides-Extra: sftp
 Requires-Dist: paramiko; extra == 'sftp'
 Provides-Extra: smb
@@ -116,7 +116,7 @@ Requires-Dist: dropbox; extra == 'test-full'
 Requires-Dist: dropboxdrivefs; extra == 'test-full'
 Requires-Dist: fastparquet; extra == 'test-full'
 Requires-Dist: fusepy; extra == 'test-full'
-Requires-Dist: gcsfs; extra == 'test-full'
+Requires-Dist: gcsfs>=2026.4.0; extra == 'test-full'
 Requires-Dist: jinja2; extra == 'test-full'
 Requires-Dist: kerchunk; extra == 'test-full'
 Requires-Dist: libarchive-c; extra == 'test-full'
@@ -127,7 +127,6 @@ Requires-Dist: ocifs; extra == 'test-full'
 Requires-Dist: pandas<3.0.0; extra == 'test-full'
 Requires-Dist: panel; extra == 'test-full'
 Requires-Dist: paramiko; extra == 'test-full'
-Requires-Dist: pyarrow; extra == 'test-full'
 Requires-Dist: pyarrow>=1; extra == 'test-full'
 Requires-Dist: pyftpdlib; extra == 'test-full'
 Requires-Dist: pygit2; extra == 'test-full'
@@ -140,6 +139,7 @@ Requires-Dist: pytest-recording; extra == 'test-full'
 Requires-Dist: pytest-rerunfailures; extra == 'test-full'
 Requires-Dist: python-snappy; extra == 'test-full'
 Requires-Dist: requests; extra == 'test-full'
+Requires-Dist: s3fs>=2026.6.0; extra == 'test-full'
 Requires-Dist: smbprotocol; extra == 'test-full'
 Requires-Dist: tqdm; extra == 'test-full'
 Requires-Dist: urllib3; extra == 'test-full'

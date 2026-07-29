@@ -799,7 +799,7 @@ static void *init_type_wxTaskBarIcon(sipSimpleWrapper *sipSelf, PyObject *sipArg
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxTaskBarIcon[] = {{23, 0, 1}};
+static sipEncodedTypeDef supers_wxTaskBarIcon[] = {{24, 0, 1}};
 
 
 static PyMethodDef methods_wxTaskBarIcon[] = {

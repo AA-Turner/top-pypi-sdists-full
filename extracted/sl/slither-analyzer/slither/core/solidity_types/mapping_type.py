@@ -4,14 +4,14 @@ from slither.core.solidity_types.type import Type
 
 if TYPE_CHECKING:
     from slither.core.solidity_types.elementary_type import ElementaryType
-    from slither.core.solidity_types.type_alias import TypeAliasTopLevel
+    from slither.core.solidity_types.type_alias import TypeAlias
 
 
 class MappingType(Type):
     def __init__(
         self,
-        type_from: "ElementaryType",
-        type_to: Union["MappingType", "TypeAliasTopLevel", "ElementaryType"],
+        type_from: Union["ElementaryType", "TypeAlias"],
+        type_to: Union["MappingType", "TypeAlias", "ElementaryType"],
     ) -> None:
         assert isinstance(type_from, Type)
         assert isinstance(type_to, Type)
@@ -39,9 +39,10 @@ class MappingType(Type):
         return f"mapping({self._from!s} => {self._to!s})"
 
     def __eq__(self, other: Any) -> bool:
-        if not isinstance(other, MappingType):
+        # Use type() and direct attribute access for performance
+        if type(other) is not MappingType:
             return False
-        return self.type_from == other.type_from and self.type_to == other.type_to
+        return self._from == other._from and self._to == other._to
 
     def __hash__(self) -> int:
         return hash(str(self))

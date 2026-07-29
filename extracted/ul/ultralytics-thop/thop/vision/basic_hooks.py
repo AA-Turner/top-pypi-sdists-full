@@ -7,14 +7,11 @@ from torch import nn
 from torch.nn.modules.conv import _ConvNd
 
 from thop.vision.calc_func import (
-    calculate_adaptive_avg,
     calculate_avgpool,
     calculate_conv2d_flops,
     calculate_linear,
     calculate_norm,
-    calculate_relu_flops,
     calculate_softmax,
-    calculate_upsample,
     calculate_zero_ops,
     l_prod,
 )
@@ -93,16 +90,15 @@ def count_prelu(m, x, y):
         m.total_ops += x.numel()
 
 
-def count_relu(m, x, y):
-    """Calculate and update the total operation counts for a ReLU layer."""
-    x = x[0]
-    m.total_ops += calculate_relu_flops(list(x.shape))
-
-
 def count_softmax(m, x, y):
     """Calculate and update the total operation counts for a Softmax layer in a PyTorch model."""
     x = x[0]
-    nfeatures = x.size()[m.dim]
+    # nn.Softmax(dim=None) is deprecated but still legal and still runs, resolving the dimension itself, so the
+    # count follows the same rule rather than raising: dimension 0 for 0-, 1- and 3-dimensional input, 1 otherwise
+    dim = m.dim if m.dim is not None else 0 if x.dim() in {0, 1, 3} else 1
+    # a scalar normalizes over itself, which no shape entry can say: torch returns 1.0 for it, so the cost is
+    # the one exponential and the one division that produce that, and indexing the empty shape only raises
+    nfeatures = x.size()[dim] if x.dim() else 1
     batch_size = x.numel() // nfeatures
 
     m.total_ops += calculate_softmax(batch_size, nfeatures)
@@ -117,27 +113,33 @@ def count_avgpool(m, x, y):
 
 
 def count_adap_avgpool(m, x, y):
-    """Calculate and update the total operation counts for an AdaptiveAvgPool layer using kernel and element counts."""
-    total_add = l_prod(i / o for i, o in zip(x[0].shape[2:], y.shape[2:]))
+    """Calculate and update the total operation counts for an AdaptiveAvgPool layer from the windows it pools."""
+    # the windows nn.AdaptiveAvgPool* actually slices, per dimension: output j spans
+    # [j * I // O, ceil((j + 1) * I / O)), so their sizes are integral and unequal whenever O does not divide I.
+    # The input-over-output ratio this replaced was a float, which made total_ops fractional, and it was also
+    # smaller than the window it stood for
+    windows = l_prod(
+        sum(-(-(j + 1) * i // o) - j * i // o for j in range(o)) for i, o in zip(x[0].shape[2:], y.shape[2:])
+    )
     num_elements = y.numel()
-    m.total_ops += calculate_adaptive_avg(total_add, num_elements)
+    m.total_ops += windows * (num_elements // l_prod(y.shape[2:])) + num_elements  # one add per input, one divide out
 
 
 # TODO: verify the accuracy
 def count_upsample(m, x, y):
     """Update total operations counter for upsampling layers based on the mode used."""
-    if m.mode not in (
-        "nearest",
-        "linear",
-        "bilinear",
-        "bicubic",
-        "trilinear",
-    ):
+    ops_per_element = {
+        "nearest": 0,
+        "nearest-exact": 0,
+        "linear": 5,
+        "bilinear": 11,
+        "bicubic": 259,
+        "trilinear": 31,
+    }.get(m.mode)
+    if ops_per_element is None:  # one lookup owns both the cost and whether the mode has one at all
         logging.getLogger(__name__).warning(f"mode {m.mode} is not implemented yet, take it a zero op")
-        m.total_ops += 0
-    else:
-        x = x[0]
-        m.total_ops += calculate_upsample(m.mode, y.nelement())
+        ops_per_element = 0
+    m.total_ops += ops_per_element * y.nelement()
 
 
 # nn.Linear

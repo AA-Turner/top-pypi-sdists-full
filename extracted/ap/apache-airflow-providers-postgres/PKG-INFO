@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-postgres
-Version: 6.8.0
+Version: 7.0.0
 Summary: Provider package apache-airflow-providers-postgres for Apache Airflow
 Keywords: airflow-provider,postgres,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -26,32 +26,36 @@ License-File: NOTICE
 Requires-Dist: apache-airflow>=2.11.0
 Requires-Dist: apache-airflow-providers-common-compat>=1.12.0
 Requires-Dist: apache-airflow-providers-common-sql>=1.32.0
+Requires-Dist: psycopg[binary]>=3.2.9; python_version < '3.14'
+Requires-Dist: psycopg[binary]>=3.3.3; python_version >= '3.14'
 Requires-Dist: psycopg2-binary>=2.9.9; python_version < '3.13'
 Requires-Dist: psycopg2-binary>=2.9.10; python_version >= '3.13'
 Requires-Dist: asyncpg>=0.30.0
 Requires-Dist: apache-airflow-providers-amazon>=2.6.0 ; extra == "amazon"
+Requires-Dist: asyncpg>=0.30.0 ; extra == "asyncpg"
 Requires-Dist: apache-airflow-providers-microsoft-azure>=12.8.0 ; extra == "microsoft-azure"
 Requires-Dist: apache-airflow-providers-openlineage ; extra == "openlineage"
 Requires-Dist: pandas>=2.1.2 ; extra == "pandas" and ( python_version <"3.13")
 Requires-Dist: pandas>=2.2.3 ; extra == "pandas" and ( python_version >="3.13" and python_version <"3.14")
 Requires-Dist: pandas>=2.3.3 ; extra == "pandas" and ( python_version >="3.14")
 Requires-Dist: polars>=1.26.0 ; extra == "polars"
-Requires-Dist: psycopg[binary]>=3.2.9 ; extra == "psycopg" and ( python_version < '3.14')
-Requires-Dist: psycopg[binary]>=3.3.3 ; extra == "psycopg" and ( python_version >= '3.14')
+Requires-Dist: psycopg2-binary>=2.9.9 ; extra == "psycopg2" and ( python_version < '3.13')
+Requires-Dist: psycopg2-binary>=2.9.10 ; extra == "psycopg2" and ( python_version >= '3.13')
 Requires-Dist: sqlalchemy>=1.4.54 ; extra == "sqlalchemy"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-postgres/6.8.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-postgres/6.8.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-postgres/7.0.0/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-postgres/7.0.0
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
 Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 Provides-Extra: amazon
+Provides-Extra: asyncpg
 Provides-Extra: microsoft-azure
 Provides-Extra: openlineage
 Provides-Extra: pandas
 Provides-Extra: polars
-Provides-Extra: psycopg
+Provides-Extra: psycopg2
 Provides-Extra: sqlalchemy
 
 
@@ -79,7 +83,7 @@ Provides-Extra: sqlalchemy
 
 Package ``apache-airflow-providers-postgres``
 
-Release: ``6.8.0``
+Release: ``7.0.0``
 
 
 `PostgreSQL <https://www.postgresql.org/>`__
@@ -92,7 +96,7 @@ This is a provider package for ``postgres`` provider. All classes for this provi
 are in ``airflow.providers.postgres`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-postgres/6.8.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-postgres/7.0.0/>`_.
 
 Installation
 ------------
@@ -112,13 +116,15 @@ PIP package                                 Version required
 ``apache-airflow``                          ``>=2.11.0``
 ``apache-airflow-providers-common-compat``  ``>=1.12.0``
 ``apache-airflow-providers-common-sql``     ``>=1.32.0``
+``psycopg[binary]``                         ``>=3.2.9; python_version < "3.14"``
+``psycopg[binary]``                         ``>=3.3.3; python_version >= "3.14"``
 ``psycopg2-binary``                         ``>=2.9.9; python_version < "3.13"``
 ``psycopg2-binary``                         ``>=2.9.10; python_version >= "3.13"``
 ``asyncpg``                                 ``>=0.30.0``
 ==========================================  ======================================
 
-Cross provider package dependencies
------------------------------------
+Optional cross provider package dependencies
+--------------------------------------------
 
 Those are dependencies that might be needed in order to use all the features of the package.
 You need to install the specified providers in order to use them.
@@ -134,8 +140,6 @@ You can install such cross-provider dependencies when installing from PyPI. For 
 Dependent package                                                                                                       Extra
 ======================================================================================================================  ===================
 `apache-airflow-providers-amazon <https://airflow.apache.org/docs/apache-airflow-providers-amazon>`_                    ``amazon``
-`apache-airflow-providers-common-compat <https://airflow.apache.org/docs/apache-airflow-providers-common-compat>`_      ``common.compat``
-`apache-airflow-providers-common-sql <https://airflow.apache.org/docs/apache-airflow-providers-common-sql>`_            ``common.sql``
 `apache-airflow-providers-microsoft-azure <https://airflow.apache.org/docs/apache-airflow-providers-microsoft-azure>`_  ``microsoft.azure``
 `apache-airflow-providers-openlineage <https://airflow.apache.org/docs/apache-airflow-providers-openlineage>`_          ``openlineage``
 ======================================================================================================================  ===================
@@ -147,14 +151,15 @@ Optional dependencies
 Extra                Dependencies
 ===================  ============================================================================================================================================================
 ``amazon``           ``apache-airflow-providers-amazon>=2.6.0``
+``asyncpg``          ``asyncpg>=0.30.0``
 ``microsoft.azure``  ``apache-airflow-providers-microsoft-azure>=12.8.0``
 ``openlineage``      ``apache-airflow-providers-openlineage``
 ``pandas``           ``pandas>=2.1.2; python_version <"3.13"``, ``pandas>=2.2.3; python_version >="3.13" and python_version <"3.14"``, ``pandas>=2.3.3; python_version >="3.14"``
 ``polars``           ``polars>=1.26.0``
-``psycopg``          ``psycopg[binary]>=3.2.9; python_version < '3.14'``, ``psycopg[binary]>=3.3.3; python_version >= '3.14'``
+``psycopg2``         ``psycopg2-binary>=2.9.9; python_version < '3.13'``, ``psycopg2-binary>=2.9.10; python_version >= '3.13'``
 ``sqlalchemy``       ``sqlalchemy>=1.4.54``
 ===================  ============================================================================================================================================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-postgres/6.8.0/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-postgres/7.0.0/changelog.html>`_.
 

@@ -129,6 +129,7 @@ class Seltz:
         *,
         include_content: bool = False,
         scope: Union[str, Omit] = OMIT,
+        model: Union[str, Omit] = OMIT,
     ) -> AnswerResponse:
         """Generate a natural-language answer for a query, grounded in search results.
 
@@ -144,6 +145,10 @@ class Seltz:
                 Restrict the grounding search to a specific scope (e.g. "news").
                 Omitted from the request when not provided.
 
+            model (str, optional):
+                Select the answer tier (e.g. "seltz-pro").
+                Defaults to "seltz-base" when not provided.
+
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
             SeltzConnectionError: If the connection to the API fails.
@@ -158,12 +163,14 @@ class Seltz:
             response = seltz.answer("Who is Apple's next CEO?")
             response = seltz.answer("Summarize recent AI news", include_content=True)
             response = seltz.answer("Latest AI headlines", scope="news")
+            response = seltz.answer("Who is Apple's next CEO?", model="seltz-pro")
         """
 
         return self._answer.answer(
             query=query,
             include_content=include_content,
             scope=scope,
+            model=model,
         )
 
     def answer_stream(
@@ -172,6 +179,7 @@ class Seltz:
         *,
         include_content: bool = False,
         scope: Union[str, Omit] = OMIT,
+        model: Union[str, Omit] = OMIT,
     ) -> Iterator[AnswerStreamResponse]:
         """Stream a natural-language answer for a query as it is generated.
 
@@ -190,6 +198,10 @@ class Seltz:
             scope (str, optional):
                 Restrict the grounding search to a specific scope (e.g. "news").
                 Omitted from the request when not provided.
+
+            model (str, optional):
+                Select the answer tier (e.g. "seltz-pro").
+                Defaults to "seltz-base" when not provided.
 
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
@@ -213,6 +225,7 @@ class Seltz:
             query=query,
             include_content=include_content,
             scope=scope,
+            model=model,
         )
 
     def close(self) -> None:
@@ -350,6 +363,7 @@ class AsyncSeltz:
         *,
         include_content: bool = False,
         scope: Union[str, Omit] = OMIT,
+        model: Union[str, Omit] = OMIT,
     ) -> AnswerResponse:
         """Generate a natural-language answer for a query, grounded in search results.
 
@@ -365,6 +379,10 @@ class AsyncSeltz:
                 Restrict the grounding search to a specific scope (e.g. "news").
                 Omitted from the request when not provided.
 
+            model (str, optional):
+                Select the answer tier (e.g. "seltz-pro").
+                Defaults to "seltz-base" when not provided.
+
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
             SeltzConnectionError: If the connection to the API fails.
@@ -379,12 +397,14 @@ class AsyncSeltz:
             response = await seltz.answer("Who is Apple's next CEO?")
             response = await seltz.answer("Summarize recent AI news", include_content=True)
             response = await seltz.answer("Latest AI headlines", scope="news")
+            response = await seltz.answer("Who is Apple's next CEO?", model="seltz-pro")
         """
 
         return await self._answer.answer(
             query=query,
             include_content=include_content,
             scope=scope,
+            model=model,
         )
 
     def answer_stream(
@@ -393,6 +413,7 @@ class AsyncSeltz:
         *,
         include_content: bool = False,
         scope: Union[str, Omit] = OMIT,
+        model: Union[str, Omit] = OMIT,
     ) -> AsyncIterator[AnswerStreamResponse]:
         """Stream a natural-language answer for a query as it is generated.
 
@@ -411,6 +432,10 @@ class AsyncSeltz:
             scope (str, optional):
                 Restrict the grounding search to a specific scope (e.g. "news").
                 Omitted from the request when not provided.
+
+            model (str, optional):
+                Select the answer tier (e.g. "seltz-pro").
+                Defaults to "seltz-base" when not provided.
 
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
@@ -433,6 +458,7 @@ class AsyncSeltz:
             query=query,
             include_content=include_content,
             scope=scope,
+            model=model,
         )
 
     async def close(self) -> None:

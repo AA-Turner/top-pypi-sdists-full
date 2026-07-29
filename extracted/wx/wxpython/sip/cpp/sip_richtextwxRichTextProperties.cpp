@@ -1077,7 +1077,7 @@ static void *init_type_wxRichTextProperties(sipSimpleWrapper *, PyObject *sipArg
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxRichTextProperties[] = {{42, 0, 1}};
+static sipEncodedTypeDef supers_wxRichTextProperties[] = {{43, 0, 1}};
 
 
 /* Define this type's Python slots. */

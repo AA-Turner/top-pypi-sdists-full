@@ -626,7 +626,7 @@ static void *init_type_wxRichTextDrawingHandler(sipSimpleWrapper *sipSelf, PyObj
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxRichTextDrawingHandler[] = {{42, 0, 1}};
+static sipEncodedTypeDef supers_wxRichTextDrawingHandler[] = {{43, 0, 1}};
 
 
 static PyMethodDef methods_wxRichTextDrawingHandler[] = {

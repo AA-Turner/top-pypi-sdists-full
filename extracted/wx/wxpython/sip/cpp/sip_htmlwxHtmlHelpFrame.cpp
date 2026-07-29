@@ -13,6 +13,7 @@
         #include <wx/window.h>
         #include <wx/config.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/gdicmn.h>
         #include <wx/validate.h>
@@ -28,15 +29,15 @@
         #include <wx/region.h>
         #include <wx/graphics.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -51,6 +52,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
+    wxAccessible* _wxHtmlHelpFrame_CreateAccessible(wxHtmlHelpFrame* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxHtmlHelpFrame : public ::wxHtmlHelpFrame
@@ -78,7 +88,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -95,7 +104,6 @@ protected:
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
@@ -141,7 +149,7 @@ private:
     sipwxHtmlHelpFrame(const sipwxHtmlHelpFrame &);
     sipwxHtmlHelpFrame &operator = (const sipwxHtmlHelpFrame &);
 
-    char sipPyMethods[43];
+    char sipPyMethods[42];
 };
 
 sipwxHtmlHelpFrame::sipwxHtmlHelpFrame(::wxHtmlHelpData*data): ::wxHtmlHelpFrame(data), sipPySelf(SIP_NULLPTR)
@@ -240,27 +248,12 @@ void sipwxHtmlHelpFrame::DoFreeze()
     sipVH__html_20(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxHtmlHelpFrame::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[5]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxHtmlHelpFrame::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__html_46(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__html_46(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 ::wxBorder sipwxHtmlHelpFrame::GetDefaultBorder() const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[6]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[5]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
 
     if (!sipMeth)
         return ::wxHtmlHelpFrame::GetDefaultBorder();
@@ -275,7 +268,7 @@ void sipwxHtmlHelpFrame::DoSetWindowVariant(::wxWindowVariant variant)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[7], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[6], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
 
     if (!sipMeth)
     {
@@ -293,7 +286,7 @@ void sipwxHtmlHelpFrame::DoMoveWindow(int x, int y, int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[8], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[7], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
 
     if (!sipMeth)
     {
@@ -311,7 +304,7 @@ void sipwxHtmlHelpFrame::DoSetSizeHints(int minW, int minH, int maxW, int maxH, 
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[9], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[8], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
 
     if (!sipMeth)
     {
@@ -329,7 +322,7 @@ void sipwxHtmlHelpFrame::DoSetClientSize(int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[10], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[9], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
 
     if (!sipMeth)
     {
@@ -347,7 +340,7 @@ void sipwxHtmlHelpFrame::DoSetSize(int x, int y, int width, int height, int size
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[11], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[10], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
 
     if (!sipMeth)
     {
@@ -365,7 +358,7 @@ void sipwxHtmlHelpFrame::DoGetClientSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[12]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[11]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
 
     if (!sipMeth)
     {
@@ -383,7 +376,7 @@ void sipwxHtmlHelpFrame::DoGetSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[13]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[12]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
 
     if (!sipMeth)
     {
@@ -401,7 +394,7 @@ void sipwxHtmlHelpFrame::DoGetPosition(int*x, int*y) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[14]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[13]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
 
     if (!sipMeth)
     {
@@ -419,7 +412,7 @@ void sipwxHtmlHelpFrame::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[15], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[14], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
 
     if (!sipMeth)
     {
@@ -437,7 +430,7 @@ void sipwxHtmlHelpFrame::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[16], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[15], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
 
     if (!sipMeth)
         return ::wxHtmlHelpFrame::GetMainWindowOfCompositeControl();
@@ -452,7 +445,7 @@ void sipwxHtmlHelpFrame::OnInternalIdle()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[17], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[16], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
 
     if (!sipMeth)
     {
@@ -470,7 +463,7 @@ void sipwxHtmlHelpFrame::InitDialog()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[18], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[17], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
 
     if (!sipMeth)
     {
@@ -488,7 +481,7 @@ void sipwxHtmlHelpFrame::InheritAttributes()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[19], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[18], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
 
     if (!sipMeth)
     {
@@ -506,7 +499,7 @@ bool sipwxHtmlHelpFrame::Destroy()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[20], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[19], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
 
     if (!sipMeth)
         return ::wxHtmlHelpFrame::Destroy();
@@ -521,7 +514,7 @@ bool sipwxHtmlHelpFrame::Validate()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[21], &sipPySelf, SIP_NULLPTR, sipName_Validate);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[20], &sipPySelf, SIP_NULLPTR, sipName_Validate);
 
     if (!sipMeth)
         return ::wxHtmlHelpFrame::Validate();
@@ -536,7 +529,7 @@ bool sipwxHtmlHelpFrame::TransferDataToWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[22], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[21], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
 
     if (!sipMeth)
         return ::wxHtmlHelpFrame::TransferDataToWindow();
@@ -551,7 +544,7 @@ bool sipwxHtmlHelpFrame::TransferDataFromWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[22], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
 
     if (!sipMeth)
         return ::wxHtmlHelpFrame::TransferDataFromWindow();
@@ -566,7 +559,7 @@ void sipwxHtmlHelpFrame::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[24], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
 
     if (!sipMeth)
     {
@@ -584,7 +577,7 @@ void sipwxHtmlHelpFrame::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[25], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[24], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
 
     if (!sipMeth)
         return ::wxHtmlHelpFrame::GetValidator();
@@ -599,7 +592,7 @@ bool sipwxHtmlHelpFrame::ShouldInheritColours() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[26]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[25]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
 
     if (!sipMeth)
         return ::wxHtmlHelpFrame::ShouldInheritColours();
@@ -614,7 +607,7 @@ bool sipwxHtmlHelpFrame::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[27], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[26], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
 
     if (!sipMeth)
         return ::wxHtmlHelpFrame::HasTransparentBackground();
@@ -629,7 +622,7 @@ bool sipwxHtmlHelpFrame::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[28]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[27]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
 
     if (!sipMeth)
         return ::wxHtmlHelpFrame::GetClientAreaOrigin();
@@ -644,7 +637,7 @@ bool sipwxHtmlHelpFrame::InformFirstDirection(int direction, int size, int avail
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[29], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[28], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
 
     if (!sipMeth)
         return ::wxHtmlHelpFrame::InformFirstDirection(direction, size, availableOtherDir);
@@ -659,7 +652,7 @@ void sipwxHtmlHelpFrame::EnableVisibleFocus(bool enabled)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[30], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[29], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
 
     if (!sipMeth)
     {
@@ -677,7 +670,7 @@ void sipwxHtmlHelpFrame::SetCanFocus(bool canFocus)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[31], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[30], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
 
     if (!sipMeth)
     {
@@ -695,7 +688,7 @@ bool sipwxHtmlHelpFrame::AcceptsFocusRecursively() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[32]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[31]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
 
     if (!sipMeth)
         return ::wxHtmlHelpFrame::AcceptsFocusRecursively();
@@ -710,7 +703,7 @@ bool sipwxHtmlHelpFrame::AcceptsFocusFromKeyboard() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[33]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[32]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
 
     if (!sipMeth)
         return ::wxHtmlHelpFrame::AcceptsFocusFromKeyboard();
@@ -725,7 +718,7 @@ bool sipwxHtmlHelpFrame::AcceptsFocus() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[33]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
 
     if (!sipMeth)
         return ::wxHtmlHelpFrame::AcceptsFocus();
@@ -740,7 +733,7 @@ bool sipwxHtmlHelpFrame::TryAfter(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
 
     if (!sipMeth)
         return ::wxHtmlHelpFrame::TryAfter(event);
@@ -755,7 +748,7 @@ bool sipwxHtmlHelpFrame::TryBefore(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
 
     if (!sipMeth)
         return ::wxHtmlHelpFrame::TryBefore(event);
@@ -770,7 +763,7 @@ bool sipwxHtmlHelpFrame::ProcessEvent(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
 
     if (!sipMeth)
         return ::wxHtmlHelpFrame::ProcessEvent(event);
@@ -785,7 +778,7 @@ void sipwxHtmlHelpFrame::AddChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
 
     if (!sipMeth)
     {
@@ -803,7 +796,7 @@ void sipwxHtmlHelpFrame::RemoveChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[39], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
 
     if (!sipMeth)
     {
@@ -821,7 +814,7 @@ void sipwxHtmlHelpFrame::DoGiveHelp(const ::wxString& text, bool show)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[40], &sipPySelf, SIP_NULLPTR, sipName_DoGiveHelp);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[39], &sipPySelf, SIP_NULLPTR, sipName_DoGiveHelp);
 
     if (!sipMeth)
     {
@@ -839,7 +832,7 @@ void sipwxHtmlHelpFrame::DoGiveHelp(const ::wxString& text, bool show)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[41], &sipPySelf, SIP_NULLPTR, sipName_OnCreateStatusBar);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[40], &sipPySelf, SIP_NULLPTR, sipName_OnCreateStatusBar);
 
     if (!sipMeth)
         return ::wxHtmlHelpFrame::OnCreateStatusBar(number, style, id, name);
@@ -854,7 +847,7 @@ void sipwxHtmlHelpFrame::DoGiveHelp(const ::wxString& text, bool show)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[42], &sipPySelf, SIP_NULLPTR, sipName_OnCreateToolBar);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[41], &sipPySelf, SIP_NULLPTR, sipName_OnCreateToolBar);
 
     if (!sipMeth)
         return ::wxHtmlHelpFrame::OnCreateToolBar(style, id, name);
@@ -932,11 +925,6 @@ void sipwxHtmlHelpFrame::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, :
 ::wxBorder sipwxHtmlHelpFrame::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxHtmlHelpFrame::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxHtmlHelpFrame::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxHtmlHelpFrame::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxHtmlHelpFrame::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -1041,7 +1029,7 @@ static PyObject *meth_wxHtmlHelpFrame_AddToolbarButtons(PyObject *sipSelf, PyObj
 }
 
 
-PyDoc_STRVAR(doc_wxHtmlHelpFrame_Create, "Create(parent, id=wx.ID_ANY, title='', style=HF_DEFAULT_STYLE, config=None, rootpath='') -> bool\n"
+PyDoc_STRVAR(doc_wxHtmlHelpFrame_Create, "Create(parent, id=wx.ID_ANY, title='', style=HF_DEFAULT_STYLE, config=nullptr, rootpath='') -> bool\n"
 "\n"
 "Creates the frame.");
 
@@ -1057,7 +1045,7 @@ static PyObject *meth_wxHtmlHelpFrame_Create(PyObject *sipSelf, PyObject *sipArg
         const ::wxString* title = &titledef;
         int titleState = 0;
         int style = wxHF_DEFAULT_STYLE;
-        ::wxConfigBase* config = 0;
+        ::wxConfigBase* config = nullptr;
         const ::wxString& rootpathdef = wxEmptyString;
         const ::wxString* rootpath = &rootpathdef;
         int rootpathState = 0;
@@ -2417,40 +2405,6 @@ static PyObject *meth_wxHtmlHelpFrame_GetDefaultBorder(PyObject *sipSelf, PyObje
 }
 
 
-PyDoc_STRVAR(doc_wxHtmlHelpFrame_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxHtmlHelpFrame_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxHtmlHelpFrame_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxHtmlHelpFrame *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxHtmlHelpFrame, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_HtmlHelpFrame, sipName_GetDefaultBorderForControl, doc_wxHtmlHelpFrame_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxHtmlHelpFrame_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxHtmlHelpFrame_DoFreeze(PyObject *, PyObject *);}
@@ -2629,6 +2583,39 @@ static PyObject *meth_wxHtmlHelpFrame_TryAfter(PyObject *sipSelf, PyObject *sipA
 }
 
 
+PyDoc_STRVAR(doc_wxHtmlHelpFrame_CreateAccessible, "CreateAccessible() -> wx.Accessible");
+
+extern "C" {static PyObject *meth_wxHtmlHelpFrame_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxHtmlHelpFrame_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxHtmlHelpFrame *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxHtmlHelpFrame, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxHtmlHelpFrame_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_HtmlHelpFrame, sipName_CreateAccessible, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxHtmlHelpFrame_GetClassDefaultAttributes, "GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes");
 
 extern "C" {static PyObject *meth_wxHtmlHelpFrame_GetClassDefaultAttributes(PyObject *, PyObject *, PyObject *);}
@@ -2732,7 +2719,7 @@ static void *init_type_wxHtmlHelpFrame(sipSimpleWrapper *sipSelf, PyObject *sipA
     sipwxHtmlHelpFrame *sipCpp = SIP_NULLPTR;
 
     {
-        ::wxHtmlHelpData* data = 0;
+        ::wxHtmlHelpData* data = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_data,
@@ -2767,8 +2754,8 @@ static void *init_type_wxHtmlHelpFrame(sipSimpleWrapper *sipSelf, PyObject *sipA
         const ::wxString* title = &titledef;
         int titleState = 0;
         int style = wxHF_DEFAULT_STYLE;
-        ::wxHtmlHelpData* data = 0;
-        ::wxConfigBase* config = 0;
+        ::wxHtmlHelpData* data = nullptr;
+        ::wxConfigBase* config = nullptr;
         const ::wxString& rootpathdef = wxEmptyString;
         const ::wxString* rootpath = &rootpathdef;
         int rootpathState = 0;
@@ -2814,7 +2801,7 @@ static void *init_type_wxHtmlHelpFrame(sipSimpleWrapper *sipSelf, PyObject *sipA
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxHtmlHelpFrame[] = {{18, 0, 1}};
+static sipEncodedTypeDef supers_wxHtmlHelpFrame[] = {{19, 0, 1}};
 
 
 static PyMethodDef methods_wxHtmlHelpFrame[] = {
@@ -2824,6 +2811,7 @@ static PyMethodDef methods_wxHtmlHelpFrame[] = {
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxHtmlHelpFrame_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxHtmlHelpFrame_AddChild},
     {sipName_AddToolbarButtons, SIP_MLMETH_CAST(meth_wxHtmlHelpFrame_AddToolbarButtons), METH_VARARGS|METH_KEYWORDS, doc_wxHtmlHelpFrame_AddToolbarButtons},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxHtmlHelpFrame_Create), METH_VARARGS|METH_KEYWORDS, doc_wxHtmlHelpFrame_Create},
+    {sipName_CreateAccessible, meth_wxHtmlHelpFrame_CreateAccessible, METH_VARARGS, doc_wxHtmlHelpFrame_CreateAccessible},
     {sipName_Destroy, meth_wxHtmlHelpFrame_Destroy, METH_VARARGS, doc_wxHtmlHelpFrame_Destroy},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxHtmlHelpFrame_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxHtmlHelpFrame_DoEnable},
     {sipName_DoFreeze, meth_wxHtmlHelpFrame_DoFreeze, METH_VARARGS, doc_wxHtmlHelpFrame_DoFreeze},
@@ -2843,7 +2831,6 @@ static PyMethodDef methods_wxHtmlHelpFrame[] = {
     {sipName_GetClientAreaOrigin, meth_wxHtmlHelpFrame_GetClientAreaOrigin, METH_VARARGS, doc_wxHtmlHelpFrame_GetClientAreaOrigin},
     {sipName_GetController, meth_wxHtmlHelpFrame_GetController, METH_VARARGS, doc_wxHtmlHelpFrame_GetController},
     {sipName_GetDefaultBorder, meth_wxHtmlHelpFrame_GetDefaultBorder, METH_VARARGS, doc_wxHtmlHelpFrame_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxHtmlHelpFrame_GetDefaultBorderForControl, METH_VARARGS, doc_wxHtmlHelpFrame_GetDefaultBorderForControl},
     {sipName_GetMainWindowOfCompositeControl, meth_wxHtmlHelpFrame_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxHtmlHelpFrame_GetMainWindowOfCompositeControl},
     {sipName_GetValidator, meth_wxHtmlHelpFrame_GetValidator, METH_VARARGS, doc_wxHtmlHelpFrame_GetValidator},
     {sipName_HasTransparentBackground, meth_wxHtmlHelpFrame_HasTransparentBackground, METH_VARARGS, doc_wxHtmlHelpFrame_HasTransparentBackground},
@@ -2867,11 +2854,11 @@ static PyMethodDef methods_wxHtmlHelpFrame[] = {
 };
 
 sipVariableDef variables_wxHtmlHelpFrame[] = {
-    {PropertyVariable, sipName_Controller, &methods_wxHtmlHelpFrame[23], &methods_wxHtmlHelpFrame[37], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Controller, &methods_wxHtmlHelpFrame[24], &methods_wxHtmlHelpFrame[37], SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxHtmlHelpFrame, "HtmlHelpFrame(data=None) -> None\n"
-"HtmlHelpFrame(parent, id=wx.ID_ANY, title='', style=HF_DEFAULT_STYLE, data=None, config=None, rootpath='') -> None\n"
+PyDoc_STRVAR(doc_wxHtmlHelpFrame, "HtmlHelpFrame(data=nullptr) -> None\n"
+"HtmlHelpFrame(parent, id=wx.ID_ANY, title='', style=HF_DEFAULT_STYLE, data=nullptr, config=nullptr, rootpath='') -> None\n"
 "\n"
 "This class is used by wxHtmlHelpController to display help.");
 

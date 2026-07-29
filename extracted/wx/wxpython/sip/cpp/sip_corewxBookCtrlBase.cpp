@@ -14,19 +14,20 @@
         #include <wx/gdicmn.h>
         #include <wx/sizer.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/validate.h>
         #include <wx/dc.h>
         #include <wx/event.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -285,7 +286,7 @@ static PyObject *meth_wxBookCtrlBase_GetSelection(PyObject *sipSelf, PyObject *s
 
 PyDoc_STRVAR(doc_wxBookCtrlBase_GetCurrentPage, "GetCurrentPage() -> Window\n"
 "\n"
-"Returns the currently selected page or NULL.");
+"Returns the currently selected page or nullptr.");
 
 extern "C" {static PyObject *meth_wxBookCtrlBase_GetCurrentPage(PyObject *, PyObject *);}
 static PyObject *meth_wxBookCtrlBase_GetCurrentPage(PyObject *sipSelf, PyObject *sipArgs)
@@ -679,7 +680,9 @@ static PyObject *meth_wxBookCtrlBase_InsertPage(PyObject *sipSelf, PyObject *sip
 
 PyDoc_STRVAR(doc_wxBookCtrlBase_RemovePage, "RemovePage(page) -> bool\n"
 "\n"
-"Deletes the specified page, without deleting the associated window.");
+"Deletes the specified page, without deleting the associated window The\n"
+"window will be hidden, though, so you may need to call Show() after\n"
+"e.g.");
 
 extern "C" {static PyObject *meth_wxBookCtrlBase_RemovePage(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxBookCtrlBase_RemovePage(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1018,7 +1021,7 @@ static void dealloc_wxBookCtrlBase(sipSimpleWrapper *sipSelf)
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxBookCtrlBase[] = {{97, 255, 0}, {643, 255, 1}};
+static sipEncodedTypeDef supers_wxBookCtrlBase[] = {{100, 255, 0}, {668, 255, 1}};
 
 
 static PyMethodDef methods_wxBookCtrlBase[] = {

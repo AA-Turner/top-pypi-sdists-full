@@ -116,9 +116,7 @@ static int slot_wxAnimationDecoderList___contains__(PyObject *sipSelf, PyObject 
         if (sipParseArgs(&sipParseErr, sipArg, "1J8", sipType_wxAnimationDecoder, &obj))
         {
             int sipRes = 0;
-        wxAnimationDecoderList::compatibility_iterator node;
-        node = sipCpp->Find((wxAnimationDecoder*)obj);
-        sipRes = node != NULL;
+        sipRes = sipCpp->Member((wxAnimationDecoder*)obj);
 
             return sipRes;
         }

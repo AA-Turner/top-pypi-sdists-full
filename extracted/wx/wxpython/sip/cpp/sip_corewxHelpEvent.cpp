@@ -66,9 +66,9 @@ sipwxHelpEvent::~sipwxHelpEvent()
     if (!sipMeth)
         return ::wxHelpEvent::GetEventCategory();
 
-    extern ::wxEventCategory sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEventCategory sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxEvent* sipwxHelpEvent::Clone() const
@@ -81,9 +81,9 @@ sipwxHelpEvent::~sipwxHelpEvent()
     if (!sipMeth)
         return ::wxHelpEvent::Clone();
 
-    extern ::wxEvent* sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEvent* sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
@@ -378,7 +378,7 @@ static void *init_type_wxHelpEvent(sipSimpleWrapper *sipSelf, PyObject *sipArgs,
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxHelpEvent[] = {{84, 255, 1}};
+static sipEncodedTypeDef supers_wxHelpEvent[] = {{87, 255, 1}};
 
 
 static PyMethodDef methods_wxHelpEvent[] = {
@@ -390,9 +390,9 @@ static PyMethodDef methods_wxHelpEvent[] = {
 };
 
 static sipEnumMemberDef enummembers_wxHelpEvent[] = {
-    {sipName_Origin_HelpButton, static_cast<int>(::wxHelpEvent::Origin_HelpButton), 266},
-    {sipName_Origin_Keyboard, static_cast<int>(::wxHelpEvent::Origin_Keyboard), 266},
-    {sipName_Origin_Unknown, static_cast<int>(::wxHelpEvent::Origin_Unknown), 266},
+    {sipName_Origin_HelpButton, static_cast<int>(::wxHelpEvent::Origin_HelpButton), 274},
+    {sipName_Origin_Keyboard, static_cast<int>(::wxHelpEvent::Origin_Keyboard), 274},
+    {sipName_Origin_Unknown, static_cast<int>(::wxHelpEvent::Origin_Unknown), 274},
 };
 
 sipVariableDef variables_wxHelpEvent[] = {

@@ -562,7 +562,7 @@ static void *init_type_wxLogWindow(sipSimpleWrapper *sipSelf, PyObject *sipArgs,
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxLogWindow[] = {{335, 255, 1}};
+static sipEncodedTypeDef supers_wxLogWindow[] = {{342, 255, 1}};
 
 
 static PyMethodDef methods_wxLogWindow[] = {

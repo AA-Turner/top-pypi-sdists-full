@@ -44,12 +44,12 @@ public:
                 const wxString& name = wxASCII_STR(wxStatusBarNameStr));
 
     // implement base class methods
-    virtual void SetStatusWidths(int n, const int widths_field[]) wxOVERRIDE;
-    virtual bool GetFieldRect(int i, wxRect& rect) const wxOVERRIDE;
-    virtual void SetMinHeight(int height) wxOVERRIDE;
+    virtual void SetStatusWidths(int n, const int widths_field[]) override;
+    virtual bool GetFieldRect(int i, wxRect& rect) const override;
+    virtual void SetMinHeight(int height) override;
 
-    virtual int GetBorderX() const wxOVERRIDE { return m_borderX; }
-    virtual int GetBorderY() const wxOVERRIDE { return m_borderY; }
+    virtual int GetBorderX() const override { return m_borderX; }
+    virtual int GetBorderY() const override { return m_borderY; }
 
 
     // implementation only (not part of wxStatusBar public API):
@@ -57,7 +57,7 @@ public:
     int GetFieldFromPoint(const wxPoint& point) const;
 
 protected:
-    virtual void DoUpdateStatusText(int number) wxOVERRIDE;
+    virtual void DoUpdateStatusText(int number) override;
 
     // event handlers
     void OnPaint(wxPaintEvent& event);
@@ -87,6 +87,9 @@ protected:
     // returns the position and the size of the size grip
     wxRect GetSizeGripRect() const;
 
+    // returns the width available for fields drawing given total width
+    virtual int GetAvailableWidthForFields(int width) const;
+
     // common part of all ctors
     void Init();
 
@@ -103,7 +106,7 @@ protected:
     wxPen             m_mediumShadowPen;
     wxPen             m_hilightPen;
 
-    virtual wxSize DoGetBestSize() const wxOVERRIDE;
+    virtual wxSize DoGetBestSize() const override;
 
 private:
     // Update m_lastClientSize and m_widthsAbs from the current size.

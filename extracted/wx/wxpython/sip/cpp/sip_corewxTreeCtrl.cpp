@@ -14,8 +14,10 @@
         #include <wx/gdicmn.h>
         #include <wx/validate.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/treebase.h>
+        #include <wx/bmpbndl.h>
         #include <wx/imaglist.h>
         #include <wx/colour.h>
         #include <wx/font.h>
@@ -23,15 +25,15 @@
         #include <wx/dc.h>
         #include <wx/event.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -45,7 +47,6 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
-        #include <wx/bmpbndl.h>
     PyObject* _wxTreeCtrl_GetBoundingRect(wxTreeCtrl* self, const wxTreeItemId* item, bool textOnly)
     {
         wxRect rect;
@@ -72,6 +73,15 @@
             Py_DECREF(item);
         }
         return rval;
+    }
+    wxAccessible* _wxTreeCtrl_CreateAccessible(wxTreeCtrl* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
     }
 
 
@@ -101,7 +111,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -119,7 +128,6 @@ protected:
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
@@ -162,7 +170,7 @@ private:
     sipwxTreeCtrl(const sipwxTreeCtrl &);
     sipwxTreeCtrl &operator = (const sipwxTreeCtrl &);
 
-    char sipPyMethods[41];
+    char sipPyMethods[40];
 };
 
 wxIMPLEMENT_ABSTRACT_CLASS(sipwxTreeCtrl, wxTreeCtrl);
@@ -192,9 +200,9 @@ int sipwxTreeCtrl::OnCompareItems(const ::wxTreeItemId& item1, const ::wxTreeIte
     if (!sipMeth)
         return ::wxTreeCtrl::OnCompareItems(item1, item2);
 
-    extern int sipVH__core_179(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxTreeItemId&, const ::wxTreeItemId&);
+    extern int sipVH__core_178(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxTreeItemId&, const ::wxTreeItemId&);
 
-    return sipVH__core_179(sipGILState, 0, sipPySelf, sipMeth, item1, item2);
+    return sipVH__core_178(sipGILState, 0, sipPySelf, sipMeth, item1, item2);
 }
 
 void sipwxTreeCtrl::SetImageList(::wxImageList*imageList)
@@ -210,9 +218,9 @@ void sipwxTreeCtrl::SetImageList(::wxImageList*imageList)
         return;
     }
 
-    extern void sipVH__core_155(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxImageList*);
+    extern void sipVH__core_154(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxImageList*);
 
-    sipVH__core_155(sipGILState, 0, sipPySelf, sipMeth, imageList);
+    sipVH__core_154(sipGILState, 0, sipPySelf, sipMeth, imageList);
 }
 
 ::wxSize sipwxTreeCtrl::DoGetBestClientSize() const
@@ -281,34 +289,19 @@ void sipwxTreeCtrl::DoFreeze()
     sipVH__core_57(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxTreeCtrl::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[6]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxTreeCtrl::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 ::wxBorder sipwxTreeCtrl::GetDefaultBorder() const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[7]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[6]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
 
     if (!sipMeth)
         return ::wxTreeCtrl::GetDefaultBorder();
 
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxBorder sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxTreeCtrl::DoSetWindowVariant(::wxWindowVariant variant)
@@ -316,7 +309,7 @@ void sipwxTreeCtrl::DoSetWindowVariant(::wxWindowVariant variant)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[8], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[7], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
 
     if (!sipMeth)
     {
@@ -324,9 +317,9 @@ void sipwxTreeCtrl::DoSetWindowVariant(::wxWindowVariant variant)
         return;
     }
 
-    extern void sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
+    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
 
-    sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth, variant);
+    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, variant);
 }
 
 void sipwxTreeCtrl::DoMoveWindow(int x, int y, int width, int height)
@@ -334,7 +327,7 @@ void sipwxTreeCtrl::DoMoveWindow(int x, int y, int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[9], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[8], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
 
     if (!sipMeth)
     {
@@ -342,9 +335,9 @@ void sipwxTreeCtrl::DoMoveWindow(int x, int y, int width, int height)
         return;
     }
 
-    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
+    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
 
-    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
+    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
 }
 
 void sipwxTreeCtrl::DoSetSizeHints(int minW, int minH, int maxW, int maxH, int incW, int incH)
@@ -352,7 +345,7 @@ void sipwxTreeCtrl::DoSetSizeHints(int minW, int minH, int maxW, int maxH, int i
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[10], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[9], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
 
     if (!sipMeth)
     {
@@ -360,9 +353,9 @@ void sipwxTreeCtrl::DoSetSizeHints(int minW, int minH, int maxW, int maxH, int i
         return;
     }
 
-    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
+    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
 
-    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
+    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
 }
 
 void sipwxTreeCtrl::DoSetClientSize(int width, int height)
@@ -370,7 +363,7 @@ void sipwxTreeCtrl::DoSetClientSize(int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[11], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[10], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
 
     if (!sipMeth)
     {
@@ -378,9 +371,9 @@ void sipwxTreeCtrl::DoSetClientSize(int width, int height)
         return;
     }
 
-    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
+    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
 
-    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxTreeCtrl::DoSetSize(int x, int y, int width, int height, int sizeFlags)
@@ -388,7 +381,7 @@ void sipwxTreeCtrl::DoSetSize(int x, int y, int width, int height, int sizeFlags
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[12], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[11], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
 
     if (!sipMeth)
     {
@@ -396,9 +389,9 @@ void sipwxTreeCtrl::DoSetSize(int x, int y, int width, int height, int sizeFlags
         return;
     }
 
-    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
+    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
 
-    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
+    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
 }
 
 void sipwxTreeCtrl::DoGetClientSize(int*width, int*height) const
@@ -406,7 +399,7 @@ void sipwxTreeCtrl::DoGetClientSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[13]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[12]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
 
     if (!sipMeth)
     {
@@ -414,9 +407,9 @@ void sipwxTreeCtrl::DoGetClientSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxTreeCtrl::DoGetSize(int*width, int*height) const
@@ -424,7 +417,7 @@ void sipwxTreeCtrl::DoGetSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[14]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[13]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
 
     if (!sipMeth)
     {
@@ -432,9 +425,9 @@ void sipwxTreeCtrl::DoGetSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxTreeCtrl::DoGetPosition(int*x, int*y) const
@@ -442,7 +435,7 @@ void sipwxTreeCtrl::DoGetPosition(int*x, int*y) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[15]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[14]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
 
     if (!sipMeth)
     {
@@ -450,9 +443,9 @@ void sipwxTreeCtrl::DoGetPosition(int*x, int*y) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, x, y);
 }
 
 void sipwxTreeCtrl::DoEnable(bool enable)
@@ -460,7 +453,7 @@ void sipwxTreeCtrl::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[16], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[15], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
 
     if (!sipMeth)
     {
@@ -468,9 +461,9 @@ void sipwxTreeCtrl::DoEnable(bool enable)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enable);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enable);
 }
 
 ::wxWindow* sipwxTreeCtrl::GetMainWindowOfCompositeControl()
@@ -478,14 +471,14 @@ void sipwxTreeCtrl::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[17], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[16], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
 
     if (!sipMeth)
         return ::wxTreeCtrl::GetMainWindowOfCompositeControl();
 
-    extern ::wxWindow* sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxWindow* sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxTreeCtrl::OnInternalIdle()
@@ -493,7 +486,7 @@ void sipwxTreeCtrl::OnInternalIdle()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[18], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[17], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
 
     if (!sipMeth)
     {
@@ -511,7 +504,7 @@ void sipwxTreeCtrl::InitDialog()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[19], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[18], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
 
     if (!sipMeth)
     {
@@ -529,7 +522,7 @@ void sipwxTreeCtrl::InheritAttributes()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[20], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[19], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
 
     if (!sipMeth)
     {
@@ -547,7 +540,7 @@ bool sipwxTreeCtrl::Destroy()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[21], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[20], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
 
     if (!sipMeth)
         return ::wxTreeCtrl::Destroy();
@@ -562,7 +555,7 @@ bool sipwxTreeCtrl::Validate()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[22], &sipPySelf, SIP_NULLPTR, sipName_Validate);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[21], &sipPySelf, SIP_NULLPTR, sipName_Validate);
 
     if (!sipMeth)
         return ::wxTreeCtrl::Validate();
@@ -577,7 +570,7 @@ bool sipwxTreeCtrl::TransferDataToWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[22], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
 
     if (!sipMeth)
         return ::wxTreeCtrl::TransferDataToWindow();
@@ -592,7 +585,7 @@ bool sipwxTreeCtrl::TransferDataFromWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[24], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
 
     if (!sipMeth)
         return ::wxTreeCtrl::TransferDataFromWindow();
@@ -607,7 +600,7 @@ void sipwxTreeCtrl::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[25], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[24], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
 
     if (!sipMeth)
     {
@@ -615,9 +608,9 @@ void sipwxTreeCtrl::SetValidator(const ::wxValidator& validator)
         return;
     }
 
-    extern void sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
+    extern void sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
 
-    sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth, validator);
+    sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth, validator);
 }
 
 ::wxValidator* sipwxTreeCtrl::GetValidator()
@@ -625,14 +618,14 @@ void sipwxTreeCtrl::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[26], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[25], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
 
     if (!sipMeth)
         return ::wxTreeCtrl::GetValidator();
 
-    extern ::wxValidator* sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxValidator* sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxTreeCtrl::ShouldInheritColours() const
@@ -640,7 +633,7 @@ bool sipwxTreeCtrl::ShouldInheritColours() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[27]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[26]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
 
     if (!sipMeth)
         return ::wxTreeCtrl::ShouldInheritColours();
@@ -655,7 +648,7 @@ bool sipwxTreeCtrl::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[28], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[27], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
 
     if (!sipMeth)
         return ::wxTreeCtrl::HasTransparentBackground();
@@ -670,14 +663,14 @@ bool sipwxTreeCtrl::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[29]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[28]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
 
     if (!sipMeth)
         return ::wxTreeCtrl::GetClientAreaOrigin();
 
-    extern ::wxPoint sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPoint sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxTreeCtrl::InformFirstDirection(int direction, int size, int availableOtherDir)
@@ -685,14 +678,14 @@ bool sipwxTreeCtrl::InformFirstDirection(int direction, int size, int availableO
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[30], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[29], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
 
     if (!sipMeth)
         return ::wxTreeCtrl::InformFirstDirection(direction, size, availableOtherDir);
 
-    extern bool sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern bool sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
 
-    return sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
+    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
 }
 
 void sipwxTreeCtrl::EnableVisibleFocus(bool enabled)
@@ -700,7 +693,7 @@ void sipwxTreeCtrl::EnableVisibleFocus(bool enabled)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[31], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[30], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
 
     if (!sipMeth)
     {
@@ -708,9 +701,9 @@ void sipwxTreeCtrl::EnableVisibleFocus(bool enabled)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enabled);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enabled);
 }
 
 void sipwxTreeCtrl::SetCanFocus(bool canFocus)
@@ -718,7 +711,7 @@ void sipwxTreeCtrl::SetCanFocus(bool canFocus)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[32], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[31], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
 
     if (!sipMeth)
     {
@@ -726,9 +719,9 @@ void sipwxTreeCtrl::SetCanFocus(bool canFocus)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, canFocus);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, canFocus);
 }
 
 bool sipwxTreeCtrl::AcceptsFocusRecursively() const
@@ -736,7 +729,7 @@ bool sipwxTreeCtrl::AcceptsFocusRecursively() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[33]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[32]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
 
     if (!sipMeth)
         return ::wxTreeCtrl::AcceptsFocusRecursively();
@@ -751,7 +744,7 @@ bool sipwxTreeCtrl::AcceptsFocusFromKeyboard() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[33]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
 
     if (!sipMeth)
         return ::wxTreeCtrl::AcceptsFocusFromKeyboard();
@@ -766,7 +759,7 @@ bool sipwxTreeCtrl::AcceptsFocus() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[35]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
 
     if (!sipMeth)
         return ::wxTreeCtrl::AcceptsFocus();
@@ -781,14 +774,14 @@ bool sipwxTreeCtrl::TryAfter(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
 
     if (!sipMeth)
         return ::wxTreeCtrl::TryAfter(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxTreeCtrl::TryBefore(::wxEvent& event)
@@ -796,14 +789,14 @@ bool sipwxTreeCtrl::TryBefore(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
 
     if (!sipMeth)
         return ::wxTreeCtrl::TryBefore(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxTreeCtrl::ProcessEvent(::wxEvent& event)
@@ -811,14 +804,14 @@ bool sipwxTreeCtrl::ProcessEvent(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
 
     if (!sipMeth)
         return ::wxTreeCtrl::ProcessEvent(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 void sipwxTreeCtrl::AddChild(::wxWindowBase*child)
@@ -826,7 +819,7 @@ void sipwxTreeCtrl::AddChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[39], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
 
     if (!sipMeth)
     {
@@ -834,9 +827,9 @@ void sipwxTreeCtrl::AddChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 void sipwxTreeCtrl::RemoveChild(::wxWindowBase*child)
@@ -844,7 +837,7 @@ void sipwxTreeCtrl::RemoveChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[40], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[39], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
 
     if (!sipMeth)
     {
@@ -852,9 +845,9 @@ void sipwxTreeCtrl::RemoveChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 void sipwxTreeCtrl::sipProtect_SendDestroyEvent()
@@ -927,11 +920,6 @@ void sipwxTreeCtrl::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, ::wxWi
     return (sipSelfWasArg ? ::wxTreeCtrl::GetDefaultBorder() : GetDefaultBorder());
 }
 
-::wxBorder sipwxTreeCtrl::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxTreeCtrl::GetDefaultBorderForControl() : GetDefaultBorderForControl());
-}
-
 void sipwxTreeCtrl::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
 {
     (sipSelfWasArg ? ::wxTreeCtrl::DoFreeze() : DoFreeze());
@@ -992,7 +980,7 @@ static PyObject *meth_wxTreeCtrl_SendDestroyEvent(PyObject *sipSelf, PyObject *s
 }
 
 
-PyDoc_STRVAR(doc_wxTreeCtrl_AddRoot, "AddRoot(text, image=-1, selImage=-1, data=None) -> TreeItemId\n"
+PyDoc_STRVAR(doc_wxTreeCtrl_AddRoot, "AddRoot(text, image=-1, selImage=-1, data=nullptr) -> TreeItemId\n"
 "\n"
 "Adds the root node to the tree, returning the new item.");
 
@@ -1006,7 +994,7 @@ static PyObject *meth_wxTreeCtrl_AddRoot(PyObject *sipSelf, PyObject *sipArgs, P
         int textState = 0;
         int image = -1;
         int selImage = -1;
-        ::wxTreeItemData* data = 0;
+        ::wxTreeItemData* data = nullptr;
         int dataState = 0;
         ::wxTreeCtrl *sipCpp;
 
@@ -1042,7 +1030,7 @@ static PyObject *meth_wxTreeCtrl_AddRoot(PyObject *sipSelf, PyObject *sipArgs, P
 }
 
 
-PyDoc_STRVAR(doc_wxTreeCtrl_AppendItem, "AppendItem(parent, text, image=-1, selImage=-1, data=None) -> TreeItemId\n"
+PyDoc_STRVAR(doc_wxTreeCtrl_AppendItem, "AppendItem(parent, text, image=-1, selImage=-1, data=nullptr) -> TreeItemId\n"
 "\n"
 "Appends an item to the end of the branch identified by parent, return\n"
 "a new item id.");
@@ -1058,7 +1046,7 @@ static PyObject *meth_wxTreeCtrl_AppendItem(PyObject *sipSelf, PyObject *sipArgs
         int textState = 0;
         int image = -1;
         int selImage = -1;
-        ::wxTreeItemData* data = 0;
+        ::wxTreeItemData* data = nullptr;
         int dataState = 0;
         ::wxTreeCtrl *sipCpp;
 
@@ -2084,7 +2072,8 @@ static PyObject *meth_wxTreeCtrl_SetFocusedItem(PyObject *sipSelf, PyObject *sip
 
 PyDoc_STRVAR(doc_wxTreeCtrl_GetIndent, "GetIndent() -> int\n"
 "\n"
-"Returns the current tree control indentation.");
+"Returns the current tree control indentation in DPI independent\n"
+"pixels.");
 
 extern "C" {static PyObject *meth_wxTreeCtrl_GetIndent(PyObject *, PyObject *);}
 static PyObject *meth_wxTreeCtrl_GetIndent(PyObject *sipSelf, PyObject *sipArgs)
@@ -2864,6 +2853,41 @@ static PyObject *meth_wxTreeCtrl_GetSelections(PyObject *sipSelf, PyObject *sipA
 }
 
 
+PyDoc_STRVAR(doc_wxTreeCtrl_GetStateImageCount, "GetStateImageCount() -> int\n"
+"\n"
+"Returns the number of state images used by the control.");
+
+extern "C" {static PyObject *meth_wxTreeCtrl_GetStateImageCount(PyObject *, PyObject *);}
+static PyObject *meth_wxTreeCtrl_GetStateImageCount(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxTreeCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxTreeCtrl, &sipCpp))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetStateImageCount();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_TreeCtrl, sipName_GetStateImageCount, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxTreeCtrl_GetStateImageList, "GetStateImageList() -> ImageList\n"
 "\n"
 "Returns the state image list (from which application-defined state\n"
@@ -2895,6 +2919,41 @@ static PyObject *meth_wxTreeCtrl_GetStateImageList(PyObject *sipSelf, PyObject *
     }
 
     sipNoMethod(sipParseErr, sipName_TreeCtrl, sipName_GetStateImageList, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxTreeCtrl_HasStateImages, "HasStateImages() -> bool\n"
+"\n"
+"Returns true if the control uses any state images.");
+
+extern "C" {static PyObject *meth_wxTreeCtrl_HasStateImages(PyObject *, PyObject *);}
+static PyObject *meth_wxTreeCtrl_HasStateImages(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxTreeCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxTreeCtrl, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->HasStateImages();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_TreeCtrl, sipName_HasStateImages, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -2945,8 +3004,8 @@ static PyObject *meth_wxTreeCtrl_HitTest(PyObject *sipSelf, PyObject *sipArgs, P
 }
 
 
-PyDoc_STRVAR(doc_wxTreeCtrl_InsertItem, "InsertItem(parent, previous, text, image=-1, selImage=-1, data=None) -> TreeItemId\n"
-"InsertItem(parent, pos, text, image=-1, selImage=-1, data=None) -> TreeItemId\n"
+PyDoc_STRVAR(doc_wxTreeCtrl_InsertItem, "InsertItem(parent, previous, text, image=-1, selImage=-1, data=nullptr) -> TreeItemId\n"
+"InsertItem(parent, pos, text, image=-1, selImage=-1, data=nullptr) -> TreeItemId\n"
 "\n"
 "Inserts an item after a given one (previous).\n"
 "");
@@ -2963,7 +3022,7 @@ static PyObject *meth_wxTreeCtrl_InsertItem(PyObject *sipSelf, PyObject *sipArgs
         int textState = 0;
         int image = -1;
         int selImage = -1;
-        ::wxTreeItemData* data = 0;
+        ::wxTreeItemData* data = nullptr;
         int dataState = 0;
         ::wxTreeCtrl *sipCpp;
 
@@ -3002,7 +3061,7 @@ static PyObject *meth_wxTreeCtrl_InsertItem(PyObject *sipSelf, PyObject *sipArgs
         int textState = 0;
         int image = -1;
         int selImage = -1;
-        ::wxTreeItemData* data = 0;
+        ::wxTreeItemData* data = nullptr;
         int dataState = 0;
         ::wxTreeCtrl *sipCpp;
 
@@ -3321,7 +3380,7 @@ static PyObject *meth_wxTreeCtrl_OnCompareItems(PyObject *sipSelf, PyObject *sip
 }
 
 
-PyDoc_STRVAR(doc_wxTreeCtrl_PrependItem, "PrependItem(parent, text, image=-1, selImage=-1, data=None) -> TreeItemId\n"
+PyDoc_STRVAR(doc_wxTreeCtrl_PrependItem, "PrependItem(parent, text, image=-1, selImage=-1, data=nullptr) -> TreeItemId\n"
 "\n"
 "Appends an item as the first child of parent, return a new item id.");
 
@@ -3336,7 +3395,7 @@ static PyObject *meth_wxTreeCtrl_PrependItem(PyObject *sipSelf, PyObject *sipArg
         int textState = 0;
         int image = -1;
         int selImage = -1;
-        ::wxTreeItemData* data = 0;
+        ::wxTreeItemData* data = nullptr;
         int dataState = 0;
         ::wxTreeCtrl *sipCpp;
 
@@ -3455,7 +3514,8 @@ static PyObject *meth_wxTreeCtrl_SelectItem(PyObject *sipSelf, PyObject *sipArgs
 
 PyDoc_STRVAR(doc_wxTreeCtrl_SetIndent, "SetIndent(indent) -> None\n"
 "\n"
-"Sets the indentation for the tree control.");
+"Sets the indentation for the tree control, in DIP (DPI independent\n"
+"pixels).");
 
 extern "C" {static PyObject *meth_wxTreeCtrl_SetIndent(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxTreeCtrl_SetIndent(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -4031,6 +4091,47 @@ static PyObject *meth_wxTreeCtrl_SetStateImageList(PyObject *sipSelf, PyObject *
     }
 
     sipNoMethod(sipParseErr, sipName_TreeCtrl, sipName_SetStateImageList, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxTreeCtrl_SetStateImages, "SetStateImages(images) -> None\n"
+"\n"
+"Sets the images to use for the application-defined item states.");
+
+extern "C" {static PyObject *meth_wxTreeCtrl_SetStateImages(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxTreeCtrl_SetStateImages(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const wxVector< ::wxBitmapBundle>* images;
+        int imagesState = 0;
+        ::wxTreeCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_images,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxTreeCtrl, &sipCpp, sipType_wxVector_0100wxBitmapBundle, &images, &imagesState))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetStateImages(*images);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast<wxVector< ::wxBitmapBundle> *>(images), sipType_wxVector_0100wxBitmapBundle, imagesState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_TreeCtrl, sipName_SetStateImages, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -5543,40 +5644,6 @@ static PyObject *meth_wxTreeCtrl_GetDefaultBorder(PyObject *sipSelf, PyObject *s
 }
 
 
-PyDoc_STRVAR(doc_wxTreeCtrl_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxTreeCtrl_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxTreeCtrl_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxTreeCtrl *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxTreeCtrl, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_TreeCtrl, sipName_GetDefaultBorderForControl, doc_wxTreeCtrl_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxTreeCtrl_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxTreeCtrl_DoFreeze(PyObject *, PyObject *);}
@@ -5750,6 +5817,39 @@ static PyObject *meth_wxTreeCtrl_TryAfter(PyObject *sipSelf, PyObject *sipArgs, 
     }
 
     sipNoMethod(sipParseErr, sipName_TreeCtrl, sipName_TryAfter, doc_wxTreeCtrl_TryAfter);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxTreeCtrl_CreateAccessible, "CreateAccessible() -> Accessible");
+
+extern "C" {static PyObject *meth_wxTreeCtrl_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxTreeCtrl_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxTreeCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxTreeCtrl, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxTreeCtrl_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_TreeCtrl, sipName_CreateAccessible, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -5965,7 +6065,7 @@ static void *init_type_wxTreeCtrl(sipSimpleWrapper *sipSelf, PyObject *sipArgs, 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxTreeCtrl[] = {{97, 255, 0}, {643, 255, 1}};
+static sipEncodedTypeDef supers_wxTreeCtrl[] = {{100, 255, 0}, {668, 255, 1}};
 
 
 static PyMethodDef methods_wxTreeCtrl[] = {
@@ -5982,6 +6082,7 @@ static PyMethodDef methods_wxTreeCtrl[] = {
     {sipName_CollapseAllChildren, SIP_MLMETH_CAST(meth_wxTreeCtrl_CollapseAllChildren), METH_VARARGS|METH_KEYWORDS, doc_wxTreeCtrl_CollapseAllChildren},
     {sipName_CollapseAndReset, SIP_MLMETH_CAST(meth_wxTreeCtrl_CollapseAndReset), METH_VARARGS|METH_KEYWORDS, doc_wxTreeCtrl_CollapseAndReset},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxTreeCtrl_Create), METH_VARARGS|METH_KEYWORDS, doc_wxTreeCtrl_Create},
+    {sipName_CreateAccessible, meth_wxTreeCtrl_CreateAccessible, METH_VARARGS, doc_wxTreeCtrl_CreateAccessible},
     {sipName_Delete, SIP_MLMETH_CAST(meth_wxTreeCtrl_Delete), METH_VARARGS|METH_KEYWORDS, doc_wxTreeCtrl_Delete},
     {sipName_DeleteAllItems, meth_wxTreeCtrl_DeleteAllItems, METH_VARARGS, doc_wxTreeCtrl_DeleteAllItems},
     {sipName_DeleteChildren, SIP_MLMETH_CAST(meth_wxTreeCtrl_DeleteChildren), METH_VARARGS|METH_KEYWORDS, doc_wxTreeCtrl_DeleteChildren},
@@ -6014,7 +6115,6 @@ static PyMethodDef methods_wxTreeCtrl[] = {
     {sipName_GetClientAreaOrigin, meth_wxTreeCtrl_GetClientAreaOrigin, METH_VARARGS, doc_wxTreeCtrl_GetClientAreaOrigin},
     {sipName_GetCount, meth_wxTreeCtrl_GetCount, METH_VARARGS, doc_wxTreeCtrl_GetCount},
     {sipName_GetDefaultBorder, meth_wxTreeCtrl_GetDefaultBorder, METH_VARARGS, doc_wxTreeCtrl_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxTreeCtrl_GetDefaultBorderForControl, METH_VARARGS, doc_wxTreeCtrl_GetDefaultBorderForControl},
     {sipName_GetEditControl, meth_wxTreeCtrl_GetEditControl, METH_VARARGS, doc_wxTreeCtrl_GetEditControl},
     {sipName_GetFirstChild, SIP_MLMETH_CAST(meth_wxTreeCtrl_GetFirstChild), METH_VARARGS|METH_KEYWORDS, doc_wxTreeCtrl_GetFirstChild},
     {sipName_GetFirstVisibleItem, meth_wxTreeCtrl_GetFirstVisibleItem, METH_VARARGS, doc_wxTreeCtrl_GetFirstVisibleItem},
@@ -6040,8 +6140,10 @@ static PyMethodDef methods_wxTreeCtrl[] = {
     {sipName_GetSelection, meth_wxTreeCtrl_GetSelection, METH_VARARGS, doc_wxTreeCtrl_GetSelection},
     {sipName_GetSelections, meth_wxTreeCtrl_GetSelections, METH_VARARGS, doc_wxTreeCtrl_GetSelections},
     {sipName_GetSpacing, meth_wxTreeCtrl_GetSpacing, METH_VARARGS, doc_wxTreeCtrl_GetSpacing},
+    {sipName_GetStateImageCount, meth_wxTreeCtrl_GetStateImageCount, METH_VARARGS, doc_wxTreeCtrl_GetStateImageCount},
     {sipName_GetStateImageList, meth_wxTreeCtrl_GetStateImageList, METH_VARARGS, doc_wxTreeCtrl_GetStateImageList},
     {sipName_GetValidator, meth_wxTreeCtrl_GetValidator, METH_VARARGS, doc_wxTreeCtrl_GetValidator},
+    {sipName_HasStateImages, meth_wxTreeCtrl_HasStateImages, METH_VARARGS, doc_wxTreeCtrl_HasStateImages},
     {sipName_HasTransparentBackground, meth_wxTreeCtrl_HasTransparentBackground, METH_VARARGS, doc_wxTreeCtrl_HasTransparentBackground},
     {sipName_HitTest, SIP_MLMETH_CAST(meth_wxTreeCtrl_HitTest), METH_VARARGS|METH_KEYWORDS, doc_wxTreeCtrl_HitTest},
     {sipName_InformFirstDirection, SIP_MLMETH_CAST(meth_wxTreeCtrl_InformFirstDirection), METH_VARARGS|METH_KEYWORDS, doc_wxTreeCtrl_InformFirstDirection},
@@ -6079,6 +6181,7 @@ static PyMethodDef methods_wxTreeCtrl[] = {
     {sipName_SetQuickBestSize, SIP_MLMETH_CAST(meth_wxTreeCtrl_SetQuickBestSize), METH_VARARGS|METH_KEYWORDS, doc_wxTreeCtrl_SetQuickBestSize},
     {sipName_SetSpacing, SIP_MLMETH_CAST(meth_wxTreeCtrl_SetSpacing), METH_VARARGS|METH_KEYWORDS, doc_wxTreeCtrl_SetSpacing},
     {sipName_SetStateImageList, SIP_MLMETH_CAST(meth_wxTreeCtrl_SetStateImageList), METH_VARARGS|METH_KEYWORDS, doc_wxTreeCtrl_SetStateImageList},
+    {sipName_SetStateImages, SIP_MLMETH_CAST(meth_wxTreeCtrl_SetStateImages), METH_VARARGS|METH_KEYWORDS, doc_wxTreeCtrl_SetStateImages},
     {sipName_SetValidator, SIP_MLMETH_CAST(meth_wxTreeCtrl_SetValidator), METH_VARARGS|METH_KEYWORDS, doc_wxTreeCtrl_SetValidator},
     {sipName_SetWindowStyle, SIP_MLMETH_CAST(meth_wxTreeCtrl_SetWindowStyle), METH_VARARGS|METH_KEYWORDS, doc_wxTreeCtrl_SetWindowStyle},
     {sipName_ShouldInheritColours, meth_wxTreeCtrl_ShouldInheritColours, METH_VARARGS, doc_wxTreeCtrl_ShouldInheritColours},
@@ -6096,18 +6199,19 @@ static PyMethodDef methods_wxTreeCtrl[] = {
 };
 
 sipVariableDef variables_wxTreeCtrl[] = {
-    {PropertyVariable, sipName_StateImageList, &methods_wxTreeCtrl[71], &methods_wxTreeCtrl[109], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Spacing, &methods_wxTreeCtrl[70], &methods_wxTreeCtrl[108], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_StateImageList, &methods_wxTreeCtrl[72], &methods_wxTreeCtrl[111], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_StateImageCount, &methods_wxTreeCtrl[71], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Spacing, &methods_wxTreeCtrl[70], &methods_wxTreeCtrl[110], SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_Selections, &methods_wxTreeCtrl[69], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_Selection, &methods_wxTreeCtrl[68], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_RootItem, &methods_wxTreeCtrl[67], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_QuickBestSize, &methods_wxTreeCtrl[66], &methods_wxTreeCtrl[107], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Indent, &methods_wxTreeCtrl[50], &methods_wxTreeCtrl[96], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_FocusedItem, &methods_wxTreeCtrl[49], &methods_wxTreeCtrl[95], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_QuickBestSize, &methods_wxTreeCtrl[66], &methods_wxTreeCtrl[109], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Indent, &methods_wxTreeCtrl[50], &methods_wxTreeCtrl[98], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_FocusedItem, &methods_wxTreeCtrl[49], &methods_wxTreeCtrl[97], SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_FirstVisibleItem, &methods_wxTreeCtrl[48], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_EditControl, &methods_wxTreeCtrl[46], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Count, &methods_wxTreeCtrl[43], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_BoundingRect, &methods_wxTreeCtrl[39], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Count, &methods_wxTreeCtrl[44], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_BoundingRect, &methods_wxTreeCtrl[40], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxTreeCtrl, "TreeCtrl() -> None\n"
@@ -6130,9 +6234,9 @@ sipClassTypeDef sipTypeDef__core_wxTreeCtrl = {
     {
         sipNameNr_TreeCtrl,
         {0, 0, 1},
-        124, methods_wxTreeCtrl,
+        127, methods_wxTreeCtrl,
         0, SIP_NULLPTR,
-        12, variables_wxTreeCtrl,
+        13, variables_wxTreeCtrl,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxTreeCtrl,

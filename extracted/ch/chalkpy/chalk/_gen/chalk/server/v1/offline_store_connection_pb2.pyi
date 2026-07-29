@@ -162,12 +162,22 @@ class BigQueryOfflineStoreConnectionConfig(_message.Message):
     def __init__(self, project_id: _Optional[str] = ..., dataset_id: _Optional[str] = ...) -> None: ...
 
 class IcebergGlueS3CatalogConfig(_message.Message):
-    __slots__ = ("s3_bucket", "glue_database_name")
+    __slots__ = ("s3_bucket", "glue_database_name", "account_id", "role_arn")
     S3_BUCKET_FIELD_NUMBER: _ClassVar[int]
     GLUE_DATABASE_NAME_FIELD_NUMBER: _ClassVar[int]
+    ACCOUNT_ID_FIELD_NUMBER: _ClassVar[int]
+    ROLE_ARN_FIELD_NUMBER: _ClassVar[int]
     s3_bucket: str
     glue_database_name: str
-    def __init__(self, s3_bucket: _Optional[str] = ..., glue_database_name: _Optional[str] = ...) -> None: ...
+    account_id: str
+    role_arn: str
+    def __init__(
+        self,
+        s3_bucket: _Optional[str] = ...,
+        glue_database_name: _Optional[str] = ...,
+        account_id: _Optional[str] = ...,
+        role_arn: _Optional[str] = ...,
+    ) -> None: ...
 
 class IcebergOfflineStoreConnectionConfig(_message.Message):
     __slots__ = ("glue_s3",)

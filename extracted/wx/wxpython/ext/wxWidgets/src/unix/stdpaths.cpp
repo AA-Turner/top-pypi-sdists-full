@@ -2,7 +2,6 @@
 // Name:        src/unix/stdpaths.cpp
 // Purpose:     wxStandardPaths implementation for Unix & OpenVMS systems
 // Author:      Vadim Zeitlin
-// Modified by:
 // Created:     2004-10-19
 // Copyright:   (c) 2004 Vadim Zeitlin <vadim@wxwidgets.org>
 // Licence:     wxWindows licence
@@ -213,17 +212,7 @@ wxString wxStandardPaths::GetConfigDir() const
 
 wxString wxStandardPaths::GetDataDir() const
 {
-    // allow to override the location of the data directory by setting
-    // WX_APPNAME_DATA_DIR environment variable: this is very useful in
-    // practice for running well-written (and so using wxStandardPaths to find
-    // their files) wx applications without installing them
-    static const wxString
-      envOverride(
-        getenv(
-            ("WX_" + wxTheApp->GetAppName().Upper() + "_DATA_DIR").c_str()
-        )
-      );
-
+    const wxString& envOverride = wxStandardPathsBase::GetDataDir();
     if ( !envOverride.empty() )
         return envOverride;
 
@@ -275,7 +264,11 @@ wxString wxStandardPaths::GetUserDir(Dir userDir) const
         return cacheDir;
     }
 
-    const wxFileName dirsFile(GetXDGConfigHome(), wxS("user-dirs.dirs"));
+    const wxString configDir = GetXDGConfigHome();
+    if (userDir == Dir_Config)
+        return configDir;
+
+    const wxFileName dirsFile(configDir, wxS("user-dirs.dirs"));
     if ( dirsFile.FileExists() )
     {
         wxString userDirId;
@@ -364,6 +357,11 @@ wxStandardPaths::MakeConfigFileName(const wxString& basename,
         fn.SetExt(wxS("conf"));
 
     return fn.GetFullName();
+}
+
+wxString wxStandardPaths::GetSharedLibrariesDir() const
+{
+    return GetInstallPrefix() + "/lib";
 }
 
 #endif // wxUSE_STDPATHS

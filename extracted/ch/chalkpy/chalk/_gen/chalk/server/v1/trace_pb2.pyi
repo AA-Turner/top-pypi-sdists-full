@@ -31,6 +31,14 @@ class ChalkSpanKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     CHALK_SPAN_KIND_CONSUMER: _ClassVar[ChalkSpanKind]
     CHALK_SPAN_KIND_INTERNAL: _ClassVar[ChalkSpanKind]
 
+class SpanFacetType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    SPAN_FACET_TYPE_UNSPECIFIED: _ClassVar[SpanFacetType]
+    SPAN_FACET_TYPE_LIST: _ClassVar[SpanFacetType]
+    SPAN_FACET_TYPE_RANGE: _ClassVar[SpanFacetType]
+    SPAN_FACET_TYPE_TEXT: _ClassVar[SpanFacetType]
+    SPAN_FACET_TYPE_ID: _ClassVar[SpanFacetType]
+
 CHALK_STATUS_CODE_UNSPECIFIED: ChalkStatusCode
 CHALK_STATUS_CODE_OK: ChalkStatusCode
 CHALK_STATUS_CODE_ERROR: ChalkStatusCode
@@ -40,6 +48,11 @@ CHALK_SPAN_KIND_CLIENT: ChalkSpanKind
 CHALK_SPAN_KIND_PRODUCER: ChalkSpanKind
 CHALK_SPAN_KIND_CONSUMER: ChalkSpanKind
 CHALK_SPAN_KIND_INTERNAL: ChalkSpanKind
+SPAN_FACET_TYPE_UNSPECIFIED: SpanFacetType
+SPAN_FACET_TYPE_LIST: SpanFacetType
+SPAN_FACET_TYPE_RANGE: SpanFacetType
+SPAN_FACET_TYPE_TEXT: SpanFacetType
+SPAN_FACET_TYPE_ID: SpanFacetType
 
 class ChalkSpan(_message.Message):
     __slots__ = (
@@ -785,12 +798,22 @@ class GetSpanLatencyDistributionResponse(_message.Message):
     ) -> None: ...
 
 class SpanFacet(_message.Message):
-    __slots__ = ("path", "name")
+    __slots__ = ("path", "name", "groupable", "facet_type")
     PATH_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
+    GROUPABLE_FIELD_NUMBER: _ClassVar[int]
+    FACET_TYPE_FIELD_NUMBER: _ClassVar[int]
     path: str
     name: str
-    def __init__(self, path: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
+    groupable: bool
+    facet_type: SpanFacetType
+    def __init__(
+        self,
+        path: _Optional[str] = ...,
+        name: _Optional[str] = ...,
+        groupable: bool = ...,
+        facet_type: _Optional[_Union[SpanFacetType, str]] = ...,
+    ) -> None: ...
 
 class GetSpanFacetsRequest(_message.Message):
     __slots__ = ()
@@ -803,17 +826,21 @@ class GetSpanFacetsResponse(_message.Message):
     def __init__(self, facets: _Optional[_Iterable[_Union[SpanFacet, _Mapping]]] = ...) -> None: ...
 
 class GetSpanFacetValuesRequest(_message.Message):
-    __slots__ = ("path", "start_time", "end_time", "limit", "query")
+    __slots__ = ("path", "start_time", "end_time", "limit", "query", "include_synthetic_rows", "facets")
     PATH_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     QUERY_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_SYNTHETIC_ROWS_FIELD_NUMBER: _ClassVar[int]
+    FACETS_FIELD_NUMBER: _ClassVar[int]
     path: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     limit: int
     query: str
+    include_synthetic_rows: bool
+    facets: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         path: _Optional[str] = ...,
@@ -821,15 +848,21 @@ class GetSpanFacetValuesRequest(_message.Message):
         end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         limit: _Optional[int] = ...,
         query: _Optional[str] = ...,
+        include_synthetic_rows: bool = ...,
+        facets: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class SpanFacetValue(_message.Message):
-    __slots__ = ("value", "count")
+    __slots__ = ("value", "count", "values")
     VALUE_FIELD_NUMBER: _ClassVar[int]
     COUNT_FIELD_NUMBER: _ClassVar[int]
+    VALUES_FIELD_NUMBER: _ClassVar[int]
     value: str
     count: int
-    def __init__(self, value: _Optional[str] = ..., count: _Optional[int] = ...) -> None: ...
+    values: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self, value: _Optional[str] = ..., count: _Optional[int] = ..., values: _Optional[_Iterable[str]] = ...
+    ) -> None: ...
 
 class GetSpanFacetValuesResponse(_message.Message):
     __slots__ = ("values",)
@@ -838,19 +871,32 @@ class GetSpanFacetValuesResponse(_message.Message):
     def __init__(self, values: _Optional[_Iterable[_Union[SpanFacetValue, _Mapping]]] = ...) -> None: ...
 
 class ListSpanAggregatedRequest(_message.Message):
-    __slots__ = ("start_time", "end_time", "window_period", "operation_name", "service_name", "query")
+    __slots__ = (
+        "start_time",
+        "end_time",
+        "window_period",
+        "operation_name",
+        "service_name",
+        "query",
+        "facets",
+        "limit",
+    )
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
     WINDOW_PERIOD_FIELD_NUMBER: _ClassVar[int]
     OPERATION_NAME_FIELD_NUMBER: _ClassVar[int]
     SERVICE_NAME_FIELD_NUMBER: _ClassVar[int]
     QUERY_FIELD_NUMBER: _ClassVar[int]
+    FACETS_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     window_period: _duration_pb2.Duration
     operation_name: str
     service_name: str
     query: str
+    facets: _containers.RepeatedScalarFieldContainer[str]
+    limit: int
     def __init__(
         self,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
@@ -859,6 +905,8 @@ class ListSpanAggregatedRequest(_message.Message):
         operation_name: _Optional[str] = ...,
         service_name: _Optional[str] = ...,
         query: _Optional[str] = ...,
+        facets: _Optional[_Iterable[str]] = ...,
+        limit: _Optional[int] = ...,
     ) -> None: ...
 
 class ListSpanAggregatedResponse(_message.Message):

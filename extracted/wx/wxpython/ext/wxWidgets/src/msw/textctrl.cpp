@@ -2,7 +2,6 @@
 // Name:        src/msw/textctrl.cpp
 // Purpose:     wxTextCtrl
 // Author:      Julian Smart
-// Modified by:
 // Created:     04/01/98
 // Copyright:   (c) Julian Smart
 // Licence:     wxWindows licence
@@ -51,6 +50,7 @@
 #include <windowsx.h>
 
 #include "wx/msw/private.h"
+#include "wx/msw/private/darkmode.h"
 #include "wx/msw/winundef.h"
 
 #include <string.h>
@@ -159,7 +159,7 @@
 #if wxUSE_DRAG_AND_DROP && wxUSE_RICHEDIT
 
 // dummy value used for m_dropTarget, different from any valid pointer value
-// (which are all even under Windows) and NULL
+// (which are all even under Windows) and nullptr
 static wxDropTarget *
     wxRICHTEXT_DEFAULT_DROPTARGET = reinterpret_cast<wxDropTarget *>(1);
 
@@ -213,8 +213,8 @@ public:
         Version_Max
     };
 
-    virtual bool OnInit() wxOVERRIDE;
-    virtual void OnExit() wxOVERRIDE;
+    virtual bool OnInit() override;
+    virtual void OnExit() override;
 
     // load the richedit DLL for the specified version of rich edit
     static bool Load(Version version);
@@ -236,7 +236,7 @@ private:
     wxDECLARE_DYNAMIC_CLASS(wxRichEditModule);
 };
 
-HINSTANCE wxRichEditModule::ms_hRichEdit[Version_Max] = { NULL, NULL, NULL };
+HINSTANCE wxRichEditModule::ms_hRichEdit[Version_Max] = { nullptr, nullptr, nullptr };
 
 #if wxUSE_INKEDIT
 wxDynamicLibrary wxRichEditModule::ms_inkEditLib;
@@ -252,20 +252,20 @@ extern wxMenu *wxCurrentPopupMenu;
 class wxTextCtrlOleCallback : public IRichEditOleCallback
 {
 public:
-    wxTextCtrlOleCallback(wxTextCtrl *text) : m_textCtrl(text), m_menu(NULL) {}
+    wxTextCtrlOleCallback(wxTextCtrl *text) : m_textCtrl(text), m_menu(nullptr) {}
     virtual ~wxTextCtrlOleCallback() { DeleteContextMenuObject(); }
 
-    wxSTDMETHODIMP ContextSensitiveHelp(BOOL WXUNUSED(enterMode)) wxOVERRIDE { return E_NOTIMPL; }
-    wxSTDMETHODIMP DeleteObject(LPOLEOBJECT WXUNUSED(oleobj)) wxOVERRIDE { return E_NOTIMPL; }
-    wxSTDMETHODIMP GetClipboardData(CHARRANGE* WXUNUSED(chrg), DWORD WXUNUSED(reco), LPDATAOBJECT* WXUNUSED(dataobj)) wxOVERRIDE { return E_NOTIMPL; }
-    wxSTDMETHODIMP GetDragDropEffect(BOOL WXUNUSED(drag), DWORD WXUNUSED(grfKeyState), LPDWORD WXUNUSED(effect)) wxOVERRIDE { return E_NOTIMPL; }
-    wxSTDMETHODIMP GetInPlaceContext(LPOLEINPLACEFRAME* WXUNUSED(frame), LPOLEINPLACEUIWINDOW* WXUNUSED(doc), LPOLEINPLACEFRAMEINFO WXUNUSED(frameInfo)) wxOVERRIDE { return E_NOTIMPL; }
-    wxSTDMETHODIMP GetNewStorage(LPSTORAGE *WXUNUSED(stg)) wxOVERRIDE { return E_NOTIMPL; }
-    wxSTDMETHODIMP QueryAcceptData(LPDATAOBJECT WXUNUSED(dataobj), CLIPFORMAT* WXUNUSED(format), DWORD WXUNUSED(reco), BOOL WXUNUSED(really), HGLOBAL WXUNUSED(hMetaPict)) wxOVERRIDE { return E_NOTIMPL; }
-    wxSTDMETHODIMP QueryInsertObject(LPCLSID WXUNUSED(clsid), LPSTORAGE WXUNUSED(stg), LONG WXUNUSED(cp)) wxOVERRIDE { return E_NOTIMPL; }
-    wxSTDMETHODIMP ShowContainerUI(BOOL WXUNUSED(show)) wxOVERRIDE { return E_NOTIMPL; }
+    wxSTDMETHODIMP ContextSensitiveHelp(BOOL WXUNUSED(enterMode)) override { return E_NOTIMPL; }
+    wxSTDMETHODIMP DeleteObject(LPOLEOBJECT WXUNUSED(oleobj)) override { return E_NOTIMPL; }
+    wxSTDMETHODIMP GetClipboardData(CHARRANGE* WXUNUSED(chrg), DWORD WXUNUSED(reco), LPDATAOBJECT* WXUNUSED(dataobj)) override { return E_NOTIMPL; }
+    wxSTDMETHODIMP GetDragDropEffect(BOOL WXUNUSED(drag), DWORD WXUNUSED(grfKeyState), LPDWORD WXUNUSED(effect)) override { return E_NOTIMPL; }
+    wxSTDMETHODIMP GetInPlaceContext(LPOLEINPLACEFRAME* WXUNUSED(frame), LPOLEINPLACEUIWINDOW* WXUNUSED(doc), LPOLEINPLACEFRAMEINFO WXUNUSED(frameInfo)) override { return E_NOTIMPL; }
+    wxSTDMETHODIMP GetNewStorage(LPSTORAGE *WXUNUSED(stg)) override { return E_NOTIMPL; }
+    wxSTDMETHODIMP QueryAcceptData(LPDATAOBJECT WXUNUSED(dataobj), CLIPFORMAT* WXUNUSED(format), DWORD WXUNUSED(reco), BOOL WXUNUSED(really), HGLOBAL WXUNUSED(hMetaPict)) override { return E_NOTIMPL; }
+    wxSTDMETHODIMP QueryInsertObject(LPCLSID WXUNUSED(clsid), LPSTORAGE WXUNUSED(stg), LONG WXUNUSED(cp)) override { return E_NOTIMPL; }
+    wxSTDMETHODIMP ShowContainerUI(BOOL WXUNUSED(show)) override { return E_NOTIMPL; }
 
-    wxSTDMETHODIMP GetContextMenu(WORD WXUNUSED(seltype), LPOLEOBJECT WXUNUSED(oleobj), CHARRANGE* WXUNUSED(chrg), HMENU *menu) wxOVERRIDE
+    wxSTDMETHODIMP GetContextMenu(WORD WXUNUSED(seltype), LPOLEOBJECT WXUNUSED(oleobj), CHARRANGE* WXUNUSED(chrg), HMENU *menu) override
     {
         // 'menu' will be shown and destroyed by the caller. We need to keep
         // its wx counterpart, the wxMenu instance, around until it is
@@ -292,7 +292,7 @@ private:
         {
             m_menu->MSWDetachHMENU();
             if ( wxCurrentPopupMenu == m_menu )
-                wxCurrentPopupMenu = NULL;
+                wxCurrentPopupMenu = nullptr;
             wxDELETE(m_menu);
         }
     }
@@ -350,6 +350,17 @@ private:
 
 namespace
 {
+struct InsertTextData
+{
+    // VS14.0 refuses to compile code that uses initializer list to create objects
+    // of this struct: InsertTextData{_somevalue_}; // VS14.0 rejects this
+    explicit InsertTextData(unsigned long len) : lenOfInsertedText(len)
+    {
+    }
+
+    unsigned long lenOfInsertedText = 0;
+    unsigned long oldMaximumLength = 0;
+};
 
 // This stack stores the length of the text being currently inserted into the
 // current control.
@@ -359,7 +370,7 @@ namespace
 // time (but possibly more than into one, if wxEVT_TEXT event handler does
 // something that results in another text control update), and we don't want to
 // waste space in every wxTextCtrl object for this field unnecessarily.
-wxStack<int> gs_lenOfInsertedText;
+wxStack<InsertTextData> gs_insertTextData;
 
 } // anonymous namespace
 
@@ -410,7 +421,7 @@ void wxTextCtrl::Init()
     m_isInkEdit = 0;
 #endif
 
-    m_privateContextMenu = NULL;
+    m_privateContextMenu = nullptr;
     m_updatesCount = -1;
     m_isNativeCaretShown = true;
 }
@@ -440,7 +451,7 @@ wxTextCtrl::~wxTextCtrl()
     if ( m_dropTarget == wxRICHTEXT_DEFAULT_DROPTARGET )
     {
         // don't try to destroy this dummy pointer in the base class dtor
-        m_dropTarget = NULL;
+        m_dropTarget = nullptr;
     }
 #endif // wxUSE_DRAG_AND_DROP && wxUSE_RICHEDIT
 
@@ -463,9 +474,10 @@ bool wxTextCtrl::Create(wxWindow *parent,
     if ( !MSWCreateText(value, pos, size) )
         return false;
 
-#if wxUSE_DRAG_AND_DROP && wxUSE_RICHEDIT
+#if wxUSE_RICHEDIT
     if ( IsRich() )
     {
+#if wxUSE_DRAG_AND_DROP
         // rich text controls have a default associated drop target which
         // allows them to receive (rich) text dropped on them, which is nice,
         // but prevents us from associating a user-defined drop target with
@@ -474,8 +486,9 @@ bool wxTextCtrl::Create(wxWindow *parent,
         // to make it work, we set m_dropTarget to this special value initially
         // and check for it in our SetDropTarget()
         m_dropTarget = wxRICHTEXT_DEFAULT_DROPTARGET;
+#endif // wxUSE_DRAG_AND_DROP
     }
-#endif // wxUSE_DRAG_AND_DROP && wxUSE_RICHEDIT
+#endif // wxUSE_RICHEDIT
 
     return true;
 }
@@ -491,9 +504,6 @@ bool wxTextCtrl::MSWCreateText(const wxString& value,
                                const wxPoint& pos,
                                const wxSize& size)
 {
-    // translate wxWin style flags to MSW ones
-    WXDWORD msStyle = MSWGetCreateWindowFlags();
-
     // do create the control - either an EDIT or RICHEDIT
     wxString windowClass = wxT("EDIT");
 
@@ -521,11 +531,7 @@ bool wxTextCtrl::MSWCreateText(const wxString& value,
         // notice that 1.0 has no Unicode support at all so in Unicode build we
         // must use another version
 
-#if wxUSE_UNICODE
         m_verRichEdit = 2;
-#else // !wxUSE_UNICODE
-        m_verRichEdit = m_windowStyle & wxTE_RICH2 ? 2 : 1;
-#endif // wxUSE_UNICODE/!wxUSE_UNICODE
 
 #if wxUSE_INKEDIT
         // First test if we can load an ink edit control. Normally, all edit
@@ -566,12 +572,7 @@ bool wxTextCtrl::MSWCreateText(const wxString& value,
                 }
                 else if ( wxRichEditModule::Load(wxRichEditModule::Version_2or3) )
                 {
-                    windowClass = wxT("RichEdit20")
-#if wxUSE_UNICODE
-                                wxT("W");
-#else // ANSI
-                                wxT("A");
-#endif // Unicode/ANSI
+                    windowClass = wxT("RichEdit20W");
                 }
                 else // failed to load msftedit.dll and riched20.dll
                 {
@@ -623,7 +624,7 @@ bool wxTextCtrl::MSWCreateText(const wxString& value,
     // implementation detail
     m_updatesCount = -2;
 
-    if ( !MSWCreateControl(windowClass.t_str(), msStyle, pos, size, valueWin) )
+    if ( !MSWCreateControl(windowClass.t_str(), valueWin, pos, size) )
     {
         // There is one case in which window creation may realistically fail
         // and this is when we create a plain EDIT control with too long text,
@@ -722,17 +723,12 @@ bool wxTextCtrl::MSWCreateText(const wxString& value,
         // non-rich read-only multiline controls have grey background by
         // default under MSW but this is not always appropriate, so forcefully
         // reset the background colour to normal default
-        //
-        // this is not ideal but, after a long discussion on wx-dev (see
-        // http://thread.gmane.org/gmane.comp.lib.wxwidgets.devel/116360/) it
-        // was finally deemed to be the best behaviour by default (and ideally
-        // we'd have a way to change this, see #11521)
-        SetBackgroundColour(GetClassDefaultAttributes().colBg);
+        m_backgroundColour = GetClassDefaultAttributes().colBg;
     }
 
     // Without this, if we pass the size in the constructor and then don't change it,
     // the themed borders will be drawn incorrectly.
-    SetWindowPos(GetHwnd(), NULL, 0, 0, 0, 0,
+    SetWindowPos(GetHwnd(), nullptr, 0, 0, 0, 0,
                 SWP_NOZORDER|SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE|
                 SWP_FRAMECHANGED);
 
@@ -909,7 +905,7 @@ bool wxTextCtrl::EnableProofCheck(const wxTextProofOptions& options)
 
     ::SendMessage(GetHwnd(), EM_SETLANGOPTIONS, 0, langOptions);
 
-   return GetProofCheckOptions().IsSpellCheckEnabled();
+   return GetProofCheckOptions().IsSpellCheckEnabled() == options.IsSpellCheckEnabled();
 }
 
 wxTextProofOptions wxTextCtrl::GetProofCheckOptions() const
@@ -933,7 +929,7 @@ void wxTextCtrl::SetWindowStyleFlag(long style)
     // XP but not other ones, and we have no way to determine it so be
     // conservative here) and only for plain EDIT controls (not RICH ones) and
     // we have to recreate the control to make it always work
-    if ( IsRich() || wxGetWinVersion() < wxWinVersion_2003 )
+    if ( IsRich() )
     {
         const long alignMask = wxTE_LEFT | wxTE_CENTRE | wxTE_RIGHT;
         if ( (style & alignMask) != (GetWindowStyle() & alignMask) )
@@ -1014,7 +1010,7 @@ bool wxTextCtrl::IsEmpty() const
     return wxTextCtrlBase::IsEmpty();
 }
 
-wxString wxTextCtrl::GetValue() const
+wxString wxTextCtrl::DoGetValue() const
 {
     // range 0..-1 is special for GetRange() and means to retrieve all text
     return GetRange(0, -1);
@@ -1039,74 +1035,27 @@ wxString wxTextCtrl::GetRange(long from, long to) const
             if ( to == -1 )
                 to = len;
 
-#if !wxUSE_UNICODE
-            // we must use EM_STREAMOUT if we don't want to lose all characters
-            // not representable in the current character set (EM_GETTEXTRANGE
-            // simply replaces them with question marks...)
-            if ( GetRichVersion() > 1 )
+            // alloc one extra WORD as needed by the control
+            wxStringBuffer tmp(str, ++len);
+            wxChar *p = tmp;
+
+            TEXTRANGE textRange;
+            textRange.chrg.cpMin = from;
+            textRange.chrg.cpMax = to;
+            textRange.lpstrText = p;
+
+            (void)::SendMessage(GetHwnd(), EM_GETTEXTRANGE,
+                                0, (LPARAM)&textRange);
+
+            if ( m_verRichEdit > 1 )
             {
-                // we must have some encoding, otherwise any 8bit chars in the
-                // control are simply *lost* (replaced by '?')
-                wxFontEncoding encoding = wxFONTENCODING_SYSTEM;
-
-                wxFont font = m_defaultStyle.GetFont();
-                if ( !font.IsOk() )
-                    font = GetFont();
-
-                if ( font.IsOk() )
+                // RichEdit 2.0 uses just CR ('\r') for the
+                // newlines which is neither Unix nor Windows
+                // style - convert it to something reasonable
+                for ( ; *p; p++ )
                 {
-                   encoding = font.GetEncoding();
-                }
-
-#if wxUSE_INTL
-                if ( encoding == wxFONTENCODING_SYSTEM )
-                {
-                    encoding = wxLocale::GetSystemEncoding();
-                }
-#endif // wxUSE_INTL
-
-                if ( encoding == wxFONTENCODING_SYSTEM )
-                {
-                    encoding = wxFONTENCODING_ISO8859_1;
-                }
-
-                str = StreamOut(encoding);
-
-                if ( !str.empty() )
-                {
-                    // we have to manually extract the required part, luckily
-                    // this is easy in this case as EOL characters in str are
-                    // just LFs because we remove CRs in wxRichEditStreamOut
-                    str = str.Mid(from, to - from);
-                }
-            }
-
-            // StreamOut() wasn't used or failed, try to do it in normal way
-            if ( str.empty() )
-#endif // !wxUSE_UNICODE
-            {
-                // alloc one extra WORD as needed by the control
-                wxStringBuffer tmp(str, ++len);
-                wxChar *p = tmp;
-
-                TEXTRANGE textRange;
-                textRange.chrg.cpMin = from;
-                textRange.chrg.cpMax = to;
-                textRange.lpstrText = p;
-
-                (void)::SendMessage(GetHwnd(), EM_GETTEXTRANGE,
-                                    0, (LPARAM)&textRange);
-
-                if ( m_verRichEdit > 1 )
-                {
-                    // RichEdit 2.0 uses just CR ('\r') for the
-                    // newlines which is neither Unix nor Windows
-                    // style - convert it to something reasonable
-                    for ( ; *p; p++ )
-                    {
-                        if ( *p == wxT('\r') )
-                            *p = wxT('\n');
-                    }
+                    if ( *p == wxT('\r') )
+                        *p = wxT('\n');
                 }
             }
 
@@ -1121,9 +1070,7 @@ wxString wxTextCtrl::GetRange(long from, long to) const
     else
 #endif // wxUSE_RICHEDIT
     {
-        // retrieve all text: wxTextEntry method works even for multiline
-        // controls and must be used for single line ones to account for hints
-        str = wxTextEntry::GetValue();
+        str = wxTextEntry::DoGetValue();
 
         // need only a range?
         if ( from < to )
@@ -1171,163 +1118,138 @@ void wxTextCtrl::DoSetValue(const wxString& value, int flags)
     }
 }
 
-#if wxUSE_RICHEDIT && !wxUSE_UNICODE
+#if wxUSE_RICHEDIT
 
-// TODO: using memcpy() would improve performance a lot for big amounts of text
-
-DWORD CALLBACK
-wxRichEditStreamIn(DWORD_PTR dwCookie, BYTE *buf, LONG cb, LONG *pcb)
+DWORD wxCALLBACK MSWEditStreamOutCallback(DWORD_PTR dwCookie, LPBYTE pbBuff,
+    LONG cb, LONG* pcb)
 {
-    *pcb = 0;
-
-    const wchar_t ** const ppws = (const wchar_t **)dwCookie;
-
-    wchar_t *wbuf = (wchar_t *)buf;
-    const wchar_t *wpc = *ppws;
-    while ( cb && *wpc )
-    {
-        *wbuf++ = *wpc++;
-
-        cb -= sizeof(wchar_t);
-        (*pcb) += sizeof(wchar_t);
-    }
-
-    *ppws = wpc;
+    // write the text
+    std::string* psEntry = reinterpret_cast<std::string*>(dwCookie);
+    psEntry->append(reinterpret_cast<const char*>(pbBuff), cb);
+    *pcb = cb;
 
     return 0;
 }
 
-// helper struct used to pass parameters from wxTextCtrl to wxRichEditStreamOut
-struct wxStreamOutData
+wxString wxTextCtrl::GetRTFValue() const
 {
-    wchar_t *wpc;
-    size_t len;
-};
-
-DWORD CALLBACK
-wxRichEditStreamOut(DWORD_PTR dwCookie, BYTE *buf, LONG cb, LONG *pcb)
-{
-    *pcb = 0;
-
-    wxStreamOutData *data = (wxStreamOutData *)dwCookie;
-
-    const wchar_t *wbuf = (const wchar_t *)buf;
-    wchar_t *wpc = data->wpc;
-    while ( cb )
+    if ( !IsRich() )
     {
-        wchar_t wch = *wbuf++;
-
-        // turn "\r\n" into "\n" on the fly
-        if ( wch != L'\r' )
-            *wpc++ = wch;
-        else
-            data->len--;
-
-        cb -= sizeof(wchar_t);
-        (*pcb) += sizeof(wchar_t);
+        wxFAIL_MSG("RTF support is only available for rich controls!");
+        return wxEmptyString;
     }
 
-    data->wpc = wpc;
+    // The Rich Edit control must write to a char buffer,
+    // which we will later convert to a Unicode wxString using the current code page.
+    //
+    // We will reserve enough space assuming that the RTF will be twice as large
+    // as the unencoded content.
+    std::string buffer;
+    buffer.reserve(GetLastPosition() * 2);
 
-    return 0;
+    // Use a EDITSTREAMCALLBACK to stream text out from the control.
+    EDITSTREAM es = { };
+    es.pfnCallback = MSWEditStreamOutCallback;
+    // our callback will write to a char buffer (i.e., std::string)
+    es.dwCookie = reinterpret_cast<DWORD_PTR>(&buffer);
+
+    // Do NOT call with "(CP_UTF8 << 16) | SF_USECODEPAGE", as this will format the
+    // output RTF to UTF-8 with a "urtf1" header (note the 'u').
+    // Although this is a more modern format, few programs
+    // (including Microsoft Wordpad) recognize it.
+    //
+    // Instead, write the content to an ANSI string using the current code page
+    // (which will use a "rtf1" header). The control will encode any Unicode values
+    // outside of the current code page with "\'[0-9A-F][0-9A-F]" syntax that most
+    // parsers would support.
+    //
+    // Finally, use SFF_PLAINRTF so that the generated RTF is more portable between
+    // RTF readers.
+    ::SendMessage(GetHwnd(), EM_STREAMOUT,
+        (WPARAM)(SF_RTF | SFF_PLAINRTF), (LPARAM)&es);
+
+    // Valid RTF is supposed to consist of 7-bit ASCII characters only,
+    // anything else is escaped.
+    return wxString::FromAscii(buffer.c_str(), buffer.length());
 }
 
-
-bool
-wxTextCtrl::StreamIn(const wxString& value,
-                     wxFontEncoding encoding,
-                     bool selectionOnly)
+void wxTextCtrl::SetRTFValue(const wxString& val)
 {
-    wxCSConv conv(encoding);
+    wxCHECK_RET(IsRich(), "RTF support is only available for rich controls!");
 
-    const size_t len = conv.MB2WC(NULL, value.mb_str(), value.length());
+    SETTEXTEX textInfo = { };
+    textInfo.flags = ST_DEFAULT | ST_UNICODE;
+    textInfo.codepage = 1200;
 
-    if (len == wxCONV_FAILED)
-        return false;
-
-    wxWCharBuffer wchBuf(len); // allocates one extra character
-    wchar_t *wpc = wchBuf.data();
-
-    conv.MB2WC(wpc, value.mb_str(), len + 1);
-
-    // finally, stream it in the control
-    EDITSTREAM eds;
-    wxZeroMemory(eds);
-    eds.dwCookie = (DWORD_PTR)&wpc;
-    // the cast below is needed for broken (very) old mingw32 headers
-    eds.pfnCallback = (EDITSTREAMCALLBACK)wxRichEditStreamIn;
-
-    // same problem as in DoWriteText(): we can get multiple events here
-    UpdatesCountFilter ucf(m_updatesCount);
-
-    ::SendMessage(GetHwnd(), EM_STREAMIN,
-                  SF_TEXT |
-                  SF_UNICODE |
-                  (selectionOnly ? SFF_SELECTION : 0),
-                  (LPARAM)&eds);
-
-    // It's okay for EN_UPDATE to not be sent if the selection is empty and
-    // the text is empty, otherwise warn the programmer about it.
-    wxASSERT_MSG( ucf.GotUpdate() || ( !HasSelection() && value.empty() ),
-                  wxT("EM_STREAMIN didn't send EN_UPDATE?") );
-
-    if ( eds.dwError )
+    // Setting from Unicode will fail if control is read-only
+    // (this is an undocumented "feature"), so we need to toggle that temporarily.
+    const bool
+        isReadOnly = (::GetWindowLong(GetHwnd(), GWL_STYLE) & ES_READONLY) != 0;
+    if ( isReadOnly )
     {
-        wxLogLastError(wxT("EM_STREAMIN"));
+        ::SendMessage(GetHwnd(), EM_SETREADONLY, FALSE, 0);
     }
 
-    return true;
+    ::SendMessage(GetHwnd(), EM_SETTEXTEX, (WPARAM)&textInfo,
+        (LPARAM)static_cast<const wchar_t*>(val.wc_str()));
+
+    if ( isReadOnly )
+    {
+        ::SendMessage(GetHwnd(), EM_SETREADONLY, TRUE, 0);
+    }
+
+    SetInsertionPoint(0);
 }
 
-wxString
-wxTextCtrl::StreamOut(wxFontEncoding encoding, bool selectionOnly) const
+wxTextSearchResult wxTextCtrl::SearchText(const wxTextSearch& search) const
 {
-    wxString out;
-
-    const int len = GetWindowTextLength(GetHwnd());
-
-    wxWCharBuffer wchBuf(len);
-    wchar_t *wpc = wchBuf.data();
-
-    wxStreamOutData data;
-    data.wpc = wpc;
-    data.len = len;
-
-    EDITSTREAM eds;
-    wxZeroMemory(eds);
-    eds.dwCookie = (DWORD_PTR)&data;
-    eds.pfnCallback = wxRichEditStreamOut;
-
-    ::SendMessage
-      (
-        GetHwnd(),
-        EM_STREAMOUT,
-        SF_TEXT | SF_UNICODE | (selectionOnly ? SFF_SELECTION : 0),
-        (LPARAM)&eds
-      );
-
-    if ( eds.dwError )
+    // set up the flags
+    WPARAM flags = 0;
+    switch ( search.m_direction )
     {
-        wxLogLastError(wxT("EM_STREAMOUT"));
+        case wxTextSearch::Direction::Down:
+            flags |= FR_DOWN;
+            break;
+
+        case wxTextSearch::Direction::Up:
+            // Nothing to do this is (surprisingly) the default.
+            break;
     }
-    else // streamed out ok
+    if (search.m_wholeWord)
     {
-        // NUL-terminate the string because its length could have been
-        // decreased by wxRichEditStreamOut
-        *(wchBuf.data() + data.len) = L'\0';
-
-        // now convert to the given encoding (this is a possibly lossful
-        // conversion but what else can we do)
-        wxCSConv conv(encoding);
-        size_t lenNeeded = conv.WC2MB(NULL, wchBuf, 0);
-
-        if ( lenNeeded != wxCONV_FAILED && lenNeeded++ )
-        {
-            conv.WC2MB(wxStringBuffer(out, lenNeeded), wchBuf, lenNeeded);
-        }
+        flags |= FR_WHOLEWORD;
+    }
+    if (search.m_matchCase)
+    {
+        flags |= FR_MATCHCASE;
     }
 
-    return out;
+    FINDTEXTEX findText;
+    findText.chrg.cpMin = (search.m_startingPosition != -1) ?
+        // user-provided start
+        search.m_startingPosition :
+        // if going down, then start from 0; otherwise, start from end
+        (search.m_direction == wxTextSearch::Direction::Down) ? 0 : GetLastPosition();
+    if (search.m_direction == wxTextSearch::Direction::Down)
+    {
+        // go to the end of the text
+        findText.chrg.cpMax = -1;
+    }
+    else
+    {
+        // will search from the end (or user-provided position) and go upward
+        // to the start of the text
+        findText.chrg.cpMax = 0;
+    }
+
+    findText.lpstrText = search.m_searchValue.wc_str();
+
+    if (SendMessage(GetHwnd(), EM_FINDTEXTEXW, flags, (LPARAM)&findText) == -1)
+    {
+        return wxTextSearchResult();
+    }
+
+    return wxTextSearchResult{ findText.chrgText.cpMin, findText.chrgText.cpMax };
 }
 
 #endif // wxUSE_RICHEDIT
@@ -1347,87 +1269,79 @@ void wxTextCtrl::DoWriteText(const wxString& value, int flags)
         valueDos = value;
 
 #if wxUSE_RICHEDIT
-    // there are several complications with the rich edit controls here
-    bool done = false;
     if ( IsRich() )
     {
         // first, ensure that the new text will be in the default style
         if ( !m_defaultStyle.IsDefault() )
         {
             long start, end;
-            GetSelection(&start, &end);
+
+            // For the selection style to be taken into account, we must use
+            // EM_REPLACESEL below, WM_SETTEXT ignores the style, so ensure
+            // that we do, selecting all the text if necessary to do the same
+            // thing as WM_SETTEXT would do.
+            if ( !selectionOnly )
+            {
+                start = 0;
+                end = GetLastPosition();
+                SetSelection(start, end); // Select everything.
+
+                selectionOnly = true;
+            }
+            else // We're already only overwriting the selection.
+            {
+                GetSelection(&start, &end);
+            }
+
             SetStyle(start, end, m_defaultStyle);
         }
-
-#if !wxUSE_UNICODE
-        // next check if the text we're inserting must be shown in a non
-        // default charset -- this only works for RichEdit > 1.0
-        if ( GetRichVersion() > 1 )
-        {
-            wxFont font = m_defaultStyle.GetFont();
-            if ( !font.IsOk() )
-                font = GetFont();
-
-            if ( font.IsOk() )
-            {
-               wxFontEncoding encoding = font.GetEncoding();
-               if ( encoding != wxFONTENCODING_SYSTEM )
-               {
-                   // we have to use EM_STREAMIN to force richedit control 2.0+
-                   // to show any text in the non default charset -- otherwise
-                   // it thinks it knows better than we do and always shows it
-                   // in the default one
-                   done = StreamIn(valueDos, encoding, selectionOnly);
-               }
-            }
-        }
-#endif // !wxUSE_UNICODE
     }
 
-    if ( !done )
 #endif // wxUSE_RICHEDIT
+    // in some cases we get 2 EN_CHANGE notifications after the SendMessage
+    // call (this happens for plain EDITs with EM_REPLACESEL and under some
+    // -- undetermined -- conditions with rich edit) and sometimes we don't
+    // get any events at all (plain EDIT with WM_SETTEXT), so ensure that
+    // we generate exactly one of them by ignoring all but the first one in
+    // SendUpdateEvent() and generating one ourselves if we hadn't got any
+    // notifications from Windows
+    if ( !(flags & SetValue_SendEvent) )
+        m_updatesCount = -2;        // suppress any update event
+
+    UpdatesCountFilter ucf(m_updatesCount);
+
+    // Remember the length of the text we're inserting so that
+    // AdjustSpaceLimit() could adjust the limit to be big enough for it:
+    // and also signal us whether it did it by setting the oldMaximumLength field.
+    // Notice that the cast is needed because length() returns unsigned long long
+    // under x64 systems.
+    gs_insertTextData.push(InsertTextData(static_cast<unsigned long>(valueDos.length())));
+
+    ::SendMessage(GetHwnd(), selectionOnly ? EM_REPLACESEL : WM_SETTEXT,
+                  // EM_REPLACESEL takes 1 to indicate the operation should be redoable
+                  selectionOnly ? 1 : 0, wxMSW_CONV_LPARAM(valueDos));
+
+    const auto oldMaxLength = gs_insertTextData.top().oldMaximumLength;
+    gs_insertTextData.pop();
+
+    if ( oldMaxLength > 0 )
     {
-        // in some cases we get 2 EN_CHANGE notifications after the SendMessage
-        // call (this happens for plain EDITs with EM_REPLACESEL and under some
-        // -- undetermined -- conditions with rich edit) and sometimes we don't
-        // get any events at all (plain EDIT with WM_SETTEXT), so ensure that
-        // we generate exactly one of them by ignoring all but the first one in
-        // SendUpdateEvent() and generating one ourselves if we hadn't got any
-        // notifications from Windows
-        if ( !(flags & SetValue_SendEvent) )
-            m_updatesCount = -2;        // suppress any update event
-
-        UpdatesCountFilter ucf(m_updatesCount);
-
-        // Remember the length of the text we're inserting so that
-        // AdjustSpaceLimit() could adjust the limit to be big enough for it:
-        // and also signal us whether it did it by resetting it to 0.
-        gs_lenOfInsertedText.push(valueDos.length());
+        // Text size limit has been hit and added text has been truncated.
+        // But the max length has been increased by the EN_MAXTEXT message
+        // handler, which also reset the top of the lengths stack to -1),
+        // so we should be able to set it successfully now if we try again.
+        if ( selectionOnly )
+            Undo();
 
         ::SendMessage(GetHwnd(), selectionOnly ? EM_REPLACESEL : WM_SETTEXT,
-                      // EM_REPLACESEL takes 1 to indicate the operation should be redoable
                       selectionOnly ? 1 : 0, wxMSW_CONV_LPARAM(valueDos));
 
-        const int lenActuallyInserted = gs_lenOfInsertedText.top();
-        gs_lenOfInsertedText.pop();
+        SetMaxLength(oldMaxLength); // Restore the old max length
+    }
 
-        if ( lenActuallyInserted == -1 )
-        {
-            // Text size limit has been hit and added text has been truncated.
-            // But the max length has been increased by the EN_MAXTEXT message
-            // handler, which also reset the top of the lengths stack to -1),
-            // so we should be able to set it successfully now if we try again.
-            if ( selectionOnly )
-                Undo();
-
-            ::SendMessage(GetHwnd(), selectionOnly ? EM_REPLACESEL : WM_SETTEXT,
-                          selectionOnly ? 1 : 0, wxMSW_CONV_LPARAM(valueDos));
-        }
-
-        if ( !ucf.GotUpdate() && (flags & SetValue_SendEvent) )
-        {
-            SendUpdateEvent();
-        }
+    if ( !ucf.GotUpdate() && (flags & SetValue_SendEvent) )
+    {
+        SendUpdateEvent();
     }
 }
 
@@ -1439,7 +1353,7 @@ void wxTextCtrl::AppendText(const wxString& text)
     // don't do this if we're frozen, saves some time
     if ( !IsFrozen() && IsMultiLine() && GetRichVersion() > 1 )
     {
-        ::SendMessage(GetHwnd(), WM_VSCROLL, SB_BOTTOM, (LPARAM)NULL);
+        ::SendMessage(GetHwnd(), WM_VSCROLL, SB_BOTTOM, (LPARAM)nullptr);
     }
 #endif // wxUSE_RICHEDIT
 }
@@ -2130,9 +2044,9 @@ void wxTextCtrl::EmptyUndoBuffer()
                                        );
             if ( SUCCEEDED(hr) )
             {
-                hr = pDoc->Undo(tomFalse, NULL);
+                hr = pDoc->Undo(tomFalse, nullptr);
                 if ( SUCCEEDED(hr) )
-                    pDoc->Undo(tomTrue, NULL);
+                    pDoc->Undo(tomTrue, nullptr);
             }
         }
     }
@@ -2564,7 +2478,7 @@ wxTextCtrl::MSWHandleMessage(WXLRESULT *rc,
             if ( IsRich() )
             {
                 // wxCurrentPopupMenu stores the popup menu that will receive
-                // WM_COMMAND, but it may be non-NULL even when the underlying
+                // WM_COMMAND, but it may be non-null even when the underlying
                 // native menu is no longer shown. Use ::IsMenu() to check whether
                 // the menu still exists.
                 extern wxMenu *wxCurrentPopupMenu;
@@ -2681,8 +2595,11 @@ bool wxTextCtrl::HasSpaceLimit(unsigned int *len) const
 bool wxTextCtrl::AdjustSpaceLimit()
 {
     unsigned int limit;
-    if ( HasSpaceLimit(&limit) )
+    if ( HasSpaceLimit(&limit) && gs_insertTextData.empty() )
+    {
+        // Do nothing if the text is entered interactively.
         return false;
+    }
 
     unsigned int len = ::GetWindowTextLength(GetHwnd());
     if ( len >= limit )
@@ -2693,12 +2610,13 @@ bool wxTextCtrl::AdjustSpaceLimit()
         // it too many times make sure that we make it at least big enough to
         // fit all the text we are currently inserting into the control, if
         // we're inserting any, i.e. if we're called from DoWriteText().
-        if ( !gs_lenOfInsertedText.empty() )
+        if ( !gs_insertTextData.empty() )
         {
-            increaseBy = gs_lenOfInsertedText.top();
+            auto& data = gs_insertTextData.top();
+            increaseBy = data.lenOfInsertedText;
 
-            // Indicate to the caller that we increased the limit.
-            gs_lenOfInsertedText.top() = -1;
+            // Save the old max length (will be restored in DoWriteText())
+            data.oldMaximumLength = limit;
         }
         else // Not inserting text, must be text actually typed by user.
         {
@@ -2779,7 +2697,7 @@ wxSize wxTextCtrl::DoGetSizeFromTextSize(int xlen, int ylen) const
     int cy;
     wxFont font = GetFont();
     font.WXAdjustToPPI(GetDPI());
-    wxGetCharSize(GetHWND(), NULL, &cy, font);
+    wxGetCharSize(GetHWND(), nullptr, &cy, font);
 
     DWORD wText = FromDIP(1);
     ::SystemParametersInfo(SPI_GETCARETWIDTH, 0, &wText, 0);
@@ -3004,6 +2922,82 @@ void wxTextCtrl::MSWSetRichZoom()
     ::SendMessage(GetHWND(), EM_SETZOOM, (WPARAM)num, (LPARAM)denom);
 }
 
+void wxTextCtrl::MSWSetDarkOrLightMode(SetMode setmode)
+{
+    wxTextCtrlBase::MSWSetDarkOrLightMode(setmode);
+
+    // Update the background for non-rich read-only multiline, unless there
+    // are custom colours. The foreground is updated by
+    // wxControl::DoMSWControlColor().
+    if ( !IsRich() && HasFlag(wxTE_MULTILINE) && HasFlag(wxTE_READONLY) &&
+        !m_hasBgCol && !m_hasFgCol )
+    {
+        m_backgroundColour = GetClassDefaultAttributes().colBg;
+    }
+
+#if wxUSE_RICHEDIT
+    // The rich edit control does not change colours automatically. We adjust
+    // colours only if no custom colours occur. When we leave the control
+    // as-is, it might update partially and look bad. That is better than
+    // overwriting custom colours. The app user can revert the theme without
+    // losing anything.
+    if ( IsRich() && !UseBgCol() && !UseForegroundColour() )
+    {
+        // True if we need to update the background colour.
+        bool setBackground = false;
+
+        if ( setmode == SetMode::Change )
+        {
+            // Get formatting info for all the text.
+            long sel1, sel2;
+            GetSelection(&sel1, &sel2);
+            DoSetSelection(-1, -1, SetSel_NoScroll);
+            WinStruct<CHARFORMAT> cf;
+            ::SendMessage(m_hWnd, EM_GETCHARFORMAT, SCF_SELECTION, (LPARAM)&cf);
+            DoSetSelection(sel1, sel2, SetSel_NoScroll);
+
+            // Check if all text has the same colour.
+            if ( cf.dwMask & CFM_COLOR )
+            {
+                // If the text colour has not been set or matches the default,
+                // update it. The theme switch may not have finished so we
+                // compare against both the dark and light mode defaults.
+                const auto col = wxColour(cf.crTextColor);
+                const wxColor defDk = wxMSWDarkMode::GetColour(wxSYS_COLOUR_WINDOWTEXT);
+                const wxColor defLt = wxRGBToColour(GetSysColor(COLOR_WINDOWTEXT));
+                if ( !col.IsOk() || col == defDk || col == defLt )
+                {
+                    // Set the text background color.
+                    wxTextAttr attr;
+                    attr.SetFont(m_font);
+                    attr.SetBackgroundColour(
+                        wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
+                    SetStyle(-1, -1, attr);
+
+                    // Set text colour.
+                    WinStruct<CHARFORMAT> cf2;
+                    cf2.dwMask = CFM_COLOR;
+                    cf2.crTextColor = wxColourToRGB(
+                        wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT));
+                    ::SendMessage(m_hWnd, EM_SETCHARFORMAT, SCF_ALL, (LPARAM)&cf2);
+
+                    setBackground = true;
+                }
+            }
+        }
+        else
+        {
+            // Upon window creation, all we need to do is set the background.
+            // The text colour was already set during Create().
+            setBackground = true;
+        }
+
+        if (setBackground)
+            ::SendMessage(m_hWnd, EM_SETBKGNDCOLOR, 0, wxColourToRGB(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW)));
+    }
+#endif
+}
+
 void wxTextCtrl::MSWUpdateFontOnDPIChange(const wxSize& newDPI)
 {
     // Don't use MSWUpdateFontOnDPIChange for the rich edit controls, they
@@ -3134,7 +3128,7 @@ void wxTextCtrl::SetDropTarget(wxDropTarget *dropTarget)
     {
         // get rid of the built-in drop target
         ::RevokeDragDrop(GetHwnd());
-        m_dropTarget = NULL;
+        m_dropTarget = nullptr;
     }
 
     wxTextCtrlBase::SetDropTarget(dropTarget);
@@ -3202,6 +3196,15 @@ bool wxTextCtrl::SetFont(const wxFont& font)
         // the default font for it.
         wxTextAttr attr;
         attr.SetFont(font);
+
+        // In dark mode we also need to set the colours explicitly, just as we
+        // do for the colours of the control itself in Create().
+        if ( wxMSWDarkMode::IsActive() )
+        {
+            attr.SetTextColour(GetForegroundColour());
+            attr.SetBackgroundColour(GetBackgroundColour());
+        }
+
         SetStyle(-1, -1, attr);
     }
 
@@ -3658,10 +3661,10 @@ bool wxTextCtrl::GetStyle(long position, wxTextAttr& style)
 
     LOGFONT lf;
     lf.lfWidth = 0;
-    lf.lfCharSet = ANSI_CHARSET; // FIXME: how to get correct charset?
+    lf.lfCharSet = (cf.dwMask & CFM_CHARSET) ? cf.bCharSet : DEFAULT_CHARSET;
     lf.lfClipPrecision = 0;
     lf.lfEscapement = 0;
-    wxStrcpy(lf.lfFaceName, cf.szFaceName);
+    wxStrlcpy(lf.lfFaceName, cf.szFaceName, WXSIZEOF(lf.lfFaceName));
 
     //NOTE:  we _MUST_ set each of these values to _something_ since we
     //do not call wxZeroMemory on the LOGFONT lf
@@ -3806,7 +3809,7 @@ void wxRichEditModule::OnExit()
         if ( ms_hRichEdit[i] && ms_hRichEdit[i] != INVALID_HINSTANCE )
         {
             ::FreeLibrary(ms_hRichEdit[i]);
-            ms_hRichEdit[i] = NULL;
+            ms_hRichEdit[i] = nullptr;
         }
     }
 #if wxUSE_INKEDIT

@@ -16,13 +16,31 @@ class GetRateCardRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     CONTRACT_ID_FIELD_NUMBER: builtins.int
+    OVERRIDE_PACKAGE_UID_FIELD_NUMBER: builtins.int
+    OVERRIDE_MONTH_INTERVAL_FIELD_NUMBER: builtins.int
     contract_id: builtins.int
+    override_package_uid: builtins.str
+    """Price the contract under this package instead of its own, keeping the
+    contract's overrides (e.g. reserved volumes, which stay fixed across a
+    package change). Unset means use the contract's current package.
+    """
+    override_month_interval: builtins.int
+    """Price the contract at this billing interval instead of its own. Unset means
+    use the contract's current interval.
+    """
     def __init__(
         self,
         *,
         contract_id: builtins.int = ...,
+        override_package_uid: builtins.str | None = ...,
+        override_month_interval: builtins.int | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["contract_id", b"contract_id"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_override_month_interval", b"_override_month_interval", "_override_package_uid", b"_override_package_uid", "override_month_interval", b"override_month_interval", "override_package_uid", b"override_package_uid"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_override_month_interval", b"_override_month_interval", "_override_package_uid", b"_override_package_uid", "contract_id", b"contract_id", "override_month_interval", b"override_month_interval", "override_package_uid", b"override_package_uid"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_override_month_interval", b"_override_month_interval"]) -> typing.Literal["override_month_interval"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_override_package_uid", b"_override_package_uid"]) -> typing.Literal["override_package_uid"] | None: ...
 
 global___GetRateCardRequest = GetRateCardRequest
 

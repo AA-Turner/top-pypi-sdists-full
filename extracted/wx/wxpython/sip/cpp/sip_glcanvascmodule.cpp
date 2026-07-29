@@ -22,10 +22,10 @@
 /* Define the strings used by this module. */
 const char sipStrings__glcanvas[] = {
     'G', 'e', 't', 'M', 'a', 'i', 'n', 'W', 'i', 'n', 'd', 'o', 'w', 'O', 'f', 'C', 'o', 'm', 'p', 'o', 's', 'i', 't', 'e', 'C', 'o', 'n', 't', 'r', 'o', 'l', 0,
-    'G', 'e', 't', 'D', 'e', 'f', 'a', 'u', 'l', 't', 'B', 'o', 'r', 'd', 'e', 'r', 'F', 'o', 'r', 'C', 'o', 'n', 't', 'r', 'o', 'l', 0,
     'G', 'e', 't', 'C', 'l', 'a', 's', 's', 'D', 'e', 'f', 'a', 'u', 'l', 't', 'A', 't', 't', 'r', 'i', 'b', 'u', 't', 'e', 's', 0,
     'A', 'c', 'c', 'e', 'p', 't', 's', 'F', 'o', 'c', 'u', 's', 'F', 'r', 'o', 'm', 'K', 'e', 'y', 'b', 'o', 'a', 'r', 'd', 0,
     'H', 'a', 's', 'T', 'r', 'a', 'n', 's', 'p', 'a', 'r', 'e', 'n', 't', 'B', 'a', 'c', 'k', 'g', 'r', 'o', 'u', 'n', 'd', 0,
+    'w', 'x', 'G', 'L', 'C', 'a', 'n', 'v', 'a', 's', ':', ':', 'S', 'w', 'a', 'p', 'I', 'n', 't', 'e', 'r', 'v', 'a', 'l', 0,
     'A', 'c', 'c', 'e', 'p', 't', 's', 'F', 'o', 'c', 'u', 's', 'R', 'e', 'c', 'u', 'r', 's', 'i', 'v', 'e', 'l', 'y', 0,
     'T', 'r', 'a', 'n', 's', 'f', 'e', 'r', 'D', 'a', 't', 'a', 'F', 'r', 'o', 'm', 'W', 'i', 'n', 'd', 'o', 'w', 0,
     'W', 'X', '_', 'G', 'L', '_', 'F', 'R', 'A', 'M', 'E', 'B', 'U', 'F', 'F', 'E', 'R', '_', 'S', 'R', 'G', 'B', 0,
@@ -42,6 +42,7 @@ const char sipStrings__glcanvas[] = {
     'W', 'X', '_', 'G', 'L', '_', 'F', 'O', 'R', 'W', 'A', 'R', 'D', '_', 'C', 'O', 'M', 'P', 'A', 'T', 0,
     'W', 'X', '_', 'G', 'L', '_', 'M', 'I', 'N', '_', 'A', 'C', 'C', 'U', 'M', '_', 'B', 'L', 'U', 'E', 0,
     'W', 'X', '_', 'G', 'L', '_', 'S', 'A', 'M', 'P', 'L', 'E', '_', 'B', 'U', 'F', 'F', 'E', 'R', 'S', 0,
+    'D', 'e', 'f', 'a', 'u', 'l', 't', 'S', 'w', 'a', 'p', 'I', 'n', 't', 'e', 'r', 'v', 'a', 'l', 0,
     'D', 'o', 'G', 'e', 't', 'B', 'e', 's', 't', 'C', 'l', 'i', 'e', 'n', 't', 'S', 'i', 'z', 'e', 0,
     'G', 'e', 't', 'C', 'l', 'i', 'e', 'n', 't', 'A', 'r', 'e', 'a', 'O', 'r', 'i', 'g', 'i', 'n', 0,
     'W', 'X', '_', 'G', 'L', '_', 'L', 'O', 'S', 'E', '_', 'O', 'N', '_', 'R', 'E', 'S', 'E', 'T', 0,
@@ -62,6 +63,7 @@ const char sipStrings__glcanvas[] = {
     'W', 'X', '_', 'G', 'L', '_', 'A', 'U', 'X', '_', 'B', 'U', 'F', 'F', 'E', 'R', 'S', 0,
     'W', 'X', '_', 'G', 'L', '_', 'B', 'U', 'F', 'F', 'E', 'R', '_', 'S', 'I', 'Z', 'E', 0,
     'a', 'v', 'a', 'i', 'l', 'a', 'b', 'l', 'e', 'O', 't', 'h', 'e', 'r', 'D', 'i', 'r', 0,
+    'C', 'r', 'e', 'a', 't', 'e', 'A', 'c', 'c', 'e', 's', 's', 'i', 'b', 'l', 'e', 0,
     'G', 'e', 't', 'D', 'e', 'f', 'a', 'u', 'l', 't', 'B', 'o', 'r', 'd', 'e', 'r', 0,
     'P', 'l', 'a', 't', 'f', 'o', 'r', 'm', 'D', 'e', 'f', 'a', 'u', 'l', 't', 's', 0,
     'S', 'e', 'n', 'd', 'D', 'e', 's', 't', 'r', 'o', 'y', 'E', 'v', 'e', 'n', 't', 0,
@@ -70,6 +72,8 @@ const char sipStrings__glcanvas[] = {
     'D', 'o', 'G', 'e', 't', 'C', 'l', 'i', 'e', 'n', 't', 'S', 'i', 'z', 'e', 0,
     'D', 'o', 'S', 'e', 't', 'C', 'l', 'i', 'e', 'n', 't', 'S', 'i', 'z', 'e', 0,
     'F', 'r', 'a', 'm', 'e', 'B', 'u', 'f', 'f', 'e', 'r', 's', 'R', 'G', 'B', 0,
+    'G', 'e', 't', 'S', 'w', 'a', 'p', 'I', 'n', 't', 'e', 'r', 'v', 'a', 'l', 0,
+    'S', 'e', 't', 'S', 'w', 'a', 'p', 'I', 'n', 't', 'e', 'r', 'v', 'a', 'l', 0,
     'W', 'X', '_', 'G', 'L', '_', 'M', 'I', 'N', '_', 'A', 'L', 'P', 'H', 'A', 0,
     'W', 'X', '_', 'G', 'L', '_', 'M', 'I', 'N', '_', 'G', 'R', 'E', 'E', 'N', 0,
     'w', 'x', 'G', 'L', 'A', 't', 't', 'r', 'i', 'b', 's', 'B', 'a', 's', 'e', 0,
@@ -79,15 +83,16 @@ const char sipStrings__glcanvas[] = {
     'W', 'X', '_', 'G', 'L', '_', 'M', 'I', 'N', '_', 'B', 'L', 'U', 'E', 0,
     'w', 'x', 'G', 'L', 'A', 't', 't', 'r', 'i', 'b', 'u', 't', 'e', 's', 0,
     'A', 'd', 'd', 'A', 't', 't', 'r', 'i', 'b', 'B', 'i', 't', 's', 0,
-    'C', 'r', 'e', 'a', 't', 'e', 'S', 'u', 'r', 'f', 'a', 'c', 'e', 0,
     'D', 'o', 'G', 'e', 't', 'B', 'e', 's', 't', 'S', 'i', 'z', 'e', 0,
     'D', 'o', 'G', 'e', 't', 'P', 'o', 's', 'i', 't', 'i', 'o', 'n', 0,
+    'G', 'e', 't', 'G', 'L', 'X', 'V', 'e', 'r', 's', 'i', 'o', 'n', 0,
     'N', 'o', 'R', 'e', 's', 'e', 't', 'N', 'o', 't', 'i', 'f', 'y', 0,
     'S', 'a', 'm', 'p', 'l', 'e', 'B', 'u', 'f', 'f', 'e', 'r', 's', 0,
     'W', 'X', '_', 'G', 'L', '_', 'M', 'I', 'N', '_', 'R', 'E', 'D', 0,
     'W', 'X', '_', 'G', 'L', '_', 'S', 'A', 'M', 'P', 'L', 'E', 'S', 0,
     'A', 'c', 'c', 'e', 'p', 't', 's', 'F', 'o', 'c', 'u', 's', 0,
     'A', 'd', 'd', 'A', 't', 't', 'r', 'i', 'b', 'u', 't', 'e', 0,
+    'C', 'l', 'e', 'a', 'r', 'C', 'u', 'r', 'r', 'e', 'n', 't', 0,
     'D', 'o', 'M', 'o', 'v', 'e', 'W', 'i', 'n', 'd', 'o', 'w', 0,
     'D', 'o', 'u', 'b', 'l', 'e', 'B', 'u', 'f', 'f', 'e', 'r', 0,
     'G', 'e', 't', 'V', 'a', 'l', 'i', 'd', 'a', 't', 'o', 'r', 0,
@@ -102,6 +107,7 @@ const char sipStrings__glcanvas[] = {
     'C', 'o', 'r', 'e', 'P', 'r', 'o', 'f', 'i', 'l', 'e', 0,
     'L', 'o', 's', 'e', 'O', 'n', 'R', 'e', 's', 'e', 't', 0,
     'M', 'i', 'n', 'A', 'c', 'u', 'm', 'R', 'G', 'B', 'A', 0,
+    'N', 'o', 'n', 'A', 'd', 'a', 'p', 't', 'i', 'v', 'e', 0,
     'R', 'e', 'm', 'o', 'v', 'e', 'C', 'h', 'i', 'l', 'd', 0,
     'S', 'e', 't', 'C', 'a', 'n', 'F', 'o', 'c', 'u', 's', 0,
     'S', 'e', 't', 'N', 'e', 'e', 'd', 's', 'A', 'R', 'B', 0,
@@ -121,6 +127,7 @@ const char sipStrings__glcanvas[] = {
     'w', 'x', 'G', 'L', 'C', 'a', 'n', 'v', 'a', 's', 0,
     'D', 'o', 'G', 'e', 't', 'S', 'i', 'z', 'e', 0,
     'D', 'o', 'S', 'e', 't', 'S', 'i', 'z', 'e', 0,
+    'P', 'r', 'e', 'f', 'e', 'r', 'G', 'L', 'X', 0,
     'S', 'e', 't', 'C', 'o', 'l', 'o', 'u', 'r', 0,
     'T', 'r', 'y', 'B', 'e', 'f', 'o', 'r', 'e', 0,
     'W', 'X', '_', 'G', 'L', '_', 'E', 'S', '2', 0,
@@ -142,6 +149,7 @@ const char sipStrings__glcanvas[] = {
     'V', 'a', 'l', 'i', 'd', 'a', 't', 'e', 0,
     'c', 'a', 'n', 'F', 'o', 'c', 'u', 's', 0,
     'c', 't', 'x', 'A', 't', 't', 'r', 's', 0,
+    'i', 'n', 't', 'e', 'r', 'v', 'a', 'l', 0,
     'l', 'o', 'c', 'a', 't', 'i', 'o', 'n', 0,
     'n', 'e', 'e', 'd', 's', 'A', 'R', 'B', 0,
     'D', 'e', 's', 't', 'r', 'o', 'y', 0,
@@ -155,6 +163,7 @@ const char sipStrings__glcanvas[] = {
     'u', 'n', 'i', 't', 'M', 'i', 'n', 0,
     'v', 'a', 'r', 'i', 'a', 'n', 't', 0,
     'D', 'o', 'T', 'h', 'a', 'w', 0,
+    'N', 'o', 't', 'S', 'e', 't', 0,
     'R', 'o', 'b', 'u', 's', 't', 0,
     'S', 't', 'e', 'r', 'e', 'o', 0,
     'c', 'l', 'i', 'e', 'n', 't', 0,
@@ -199,13 +208,11 @@ const char sipStrings__glcanvas[] = {
     'r', 'e', 'c', 't', 0,
     's', 'h', 'o', 'w', 0,
     's', 'i', 'z', 'e', 0,
-    't', 'i', 'm', 'e', 0,
     'u', 'n', 'i', 't', 0,
     'i', 'd', 'x', 0,
     'm', 's', 'g', 0,
     'p', 'o', 's', 0,
     'r', 'o', 'w', 0,
-    'v', 'a', 'l', 0,
     'w', 'i', 'n', 0,
     'd', 'c', 0,
     'i', 'd', 0,
@@ -352,6 +359,9 @@ bool sipVH__glcanvas_0(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipEr
 
     return sipRes;
 }
+static sipEnumTypeDef enumTypes[] = {
+    {{-1, SIP_NULLPTR, SIP_NULLPTR, SIP_TYPE_SCOPED_ENUM, sipNameNr_wxGLCanvas__SwapInterval, SIP_NULLPTR, 0}, sipNameNr_SwapInterval, 2, SIP_NULLPTR},
+};
 
 
 /*
@@ -361,6 +371,7 @@ sipTypeDef *sipExportedTypes__glcanvas[] = {
     &sipTypeDef__glcanvas_wxGLAttribsBase.ctd_base,
     &sipTypeDef__glcanvas_wxGLAttributes.ctd_base,
     &sipTypeDef__glcanvas_wxGLCanvas.ctd_base,
+    &enumTypes[0].etd_base,
     &sipTypeDef__glcanvas_wxGLContext.ctd_base,
     &sipTypeDef__glcanvas_wxGLContextAttrs.ctd_base,
 };
@@ -368,6 +379,7 @@ sipTypeDef *sipExportedTypes__glcanvas[] = {
 
 /* This defines the types that this module needs to import from _core. */
 sipImportedTypeDef sipImportedTypes__glcanvas__core[] = {
+    {"wxAccessible"},
     {"wxArrayInt"},
     {"wxBorder"},
     {"wxEvent"},
@@ -442,7 +454,7 @@ sipExportedModuleDef sipModuleAPI__glcanvas = {
     sipStrings__glcanvas,
     importsTable,
     SIP_NULLPTR,
-    5,
+    6,
     sipExportedTypes__glcanvas,
     SIP_NULLPTR,
     0,

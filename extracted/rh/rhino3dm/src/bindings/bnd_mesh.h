@@ -320,6 +320,8 @@ public:
   void SetTextureCoordinates(class BND_TextureMapping* tm, class BND_Transform* xf, bool lazy);
   void SetCachedTextureCoordinates(class BND_TextureMapping* tm, class BND_Transform* xf);
   BND_CachedTextureCoordinates GetCachedTextureCoordinates( BND_UUID mappingId );
+  bool SetCachedTextureCoordinatesFromMaterial(const class BND_ONXModel& file, BND_UUID objectId, const class BND_Material& material);
+  BND_CachedTextureCoordinates* GetCachedTextureCoordinatesFromTexture(const class BND_ONXModel& file, BND_UUID objectId, const class BND_Texture& texture);
   bool Compact() { return m_mesh->Compact(); }
   //void Flip(bool vertexNormals, bool faceNormals, bool faceOrientation);
   //public int SolidOrientation()
@@ -337,6 +339,11 @@ public:
   BND_DICT ToThreejsJSONRotate(bool rotateToYUp) const;
   static BND_DICT ToThreejsJSONMerged(BND_TUPLE meshes, bool rotateYUp);
   static BND_Mesh* CreateFromThreejsJSON(BND_DICT data);
+  // RH3DM-191: zero-copy alternative to ToThreejsJSON. Returns one JS typed array per
+  // attribute (position/normal/uv/color = Float32Array, index = Uint32Array) built with a
+  // single bulk copy each (emscripten::typed_memory_view) instead of N per-element val.set()
+  // boundary crossings. The three.js 3DMLoader can feed these straight into BufferAttributes.
+  BND_DICT ToThreejsBuffers(bool rotateToYUp) const;
 #endif
 
 protected:

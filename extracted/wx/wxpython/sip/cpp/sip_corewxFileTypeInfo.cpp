@@ -9,15 +9,7 @@
 
 #include "sipAPI_core.h"
         #include <wx/mimetype.h>
-    wxFileTypeInfo* _wxFileTypeInfo_ctor(const wxString *mimeType, const wxString *openCmd, const wxString *printCmd, const wxString *description, const wxString *extension)
-    {
-        wxFileTypeInfo* fti = new wxFileTypeInfo(*mimeType);
-        fti->SetOpenCommand(*openCmd);
-        fti->SetPrintCommand(*printCmd);
-        fti->SetDescription(*description);
-        fti->AddExtension(*extension);
-        return fti;
-    }
+
 
 
 PyDoc_STRVAR(doc_wxFileTypeInfo_AddExtension, "AddExtension(ext) -> None\n"
@@ -685,40 +677,6 @@ static void *init_type_wxFileTypeInfo(sipSimpleWrapper *, PyObject *sipArgs, PyO
     }
 
     {
-        const ::wxString* mimeType;
-        int mimeTypeState = 0;
-        const ::wxString* openCmd;
-        int openCmdState = 0;
-        const ::wxString* printCmd;
-        int printCmdState = 0;
-        const ::wxString* description;
-        int descriptionState = 0;
-        const ::wxString* extension;
-        int extensionState = 0;
-
-        static const char *sipKwdList[] = {
-            sipName_mimeType,
-            sipName_openCmd,
-            sipName_printCmd,
-            sipName_description,
-            sipName_extension,
-        };
-
-        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, sipKwdList, sipUnused, "J1J1J1J1J1", sipType_wxString, &mimeType, &mimeTypeState, sipType_wxString, &openCmd, &openCmdState, sipType_wxString, &printCmd, &printCmdState, sipType_wxString, &description, &descriptionState, sipType_wxString, &extension, &extensionState))
-        {
-        PyErr_Clear();
-        sipCpp = _wxFileTypeInfo_ctor(mimeType, openCmd, printCmd, description, extension);
-            sipReleaseType(const_cast< ::wxString *>(mimeType), sipType_wxString, mimeTypeState);
-            sipReleaseType(const_cast< ::wxString *>(openCmd), sipType_wxString, openCmdState);
-            sipReleaseType(const_cast< ::wxString *>(printCmd), sipType_wxString, printCmdState);
-            sipReleaseType(const_cast< ::wxString *>(description), sipType_wxString, descriptionState);
-            sipReleaseType(const_cast< ::wxString *>(extension), sipType_wxString, extensionState);
-
-            return sipCpp;
-        }
-    }
-
-    {
         const ::wxArrayString* sArray;
         int sArrayState = 0;
 
@@ -794,7 +752,6 @@ sipVariableDef variables_wxFileTypeInfo[] = {
 
 PyDoc_STRVAR(doc_wxFileTypeInfo, "FileTypeInfo() -> None\n"
 "FileTypeInfo(mimeType) -> None\n"
-"FileTypeInfo(mimeType, openCmd, printCmd, description, extension) -> None\n"
 "FileTypeInfo(sArray) -> None\n"
 "\n"
 "Container of information about wxFileType.");

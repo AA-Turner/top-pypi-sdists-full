@@ -122,7 +122,7 @@ class _Trailers(list[tuple[str, str]]):
 class Commit:
     """A class to represent a commit."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0917
         self,
         commit_hash: str,
         author_name: str = "",

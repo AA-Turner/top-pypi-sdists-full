@@ -30,6 +30,16 @@ class GraphServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetGraphRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetGraphResponse.FromString,
         )
+        self.GetResolver = channel.unary_unary(
+            "/chalk.server.v1.GraphService/GetResolver",
+            request_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetResolverRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetResolverResponse.FromString,
+        )
+        self.GetStreamResolver = channel.unary_unary(
+            "/chalk.server.v1.GraphService/GetStreamResolver",
+            request_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetStreamResolverRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetStreamResolverResponse.FromString,
+        )
         self.UpdateGraph = channel.unary_unary(
             "/chalk.server.v1.GraphService/UpdateGraph",
             request_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.UpdateGraphRequest.SerializeToString,
@@ -99,6 +109,22 @@ class GraphServiceServicer(object):
 
     def GetGraph(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetResolver(self, request, context):
+        """GetResolver returns a single resolver. Pass a read_mask to fetch just the
+        large sub-trees (e.g. postprocessing) that GetGraph omits from the bulk payload.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetStreamResolver(self, request, context):
+        """GetStreamResolver returns a single stream resolver. Pass a read_mask to fetch
+        just the large sub-trees (e.g. parse_info) that GetGraph omits from the bulk payload.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -187,6 +213,16 @@ def add_GraphServiceServicer_to_server(servicer, server):
             servicer.GetGraph,
             request_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetGraphRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetGraphResponse.SerializeToString,
+        ),
+        "GetResolver": grpc.unary_unary_rpc_method_handler(
+            servicer.GetResolver,
+            request_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetResolverRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetResolverResponse.SerializeToString,
+        ),
+        "GetStreamResolver": grpc.unary_unary_rpc_method_handler(
+            servicer.GetStreamResolver,
+            request_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetStreamResolverRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetStreamResolverResponse.SerializeToString,
         ),
         "UpdateGraph": grpc.unary_unary_rpc_method_handler(
             servicer.UpdateGraph,
@@ -324,6 +360,64 @@ class GraphService(object):
             "/chalk.server.v1.GraphService/GetGraph",
             chalk_dot_server_dot_v1_dot_graph__pb2.GetGraphRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_graph__pb2.GetGraphResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetResolver(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.GraphService/GetResolver",
+            chalk_dot_server_dot_v1_dot_graph__pb2.GetResolverRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_graph__pb2.GetResolverResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetStreamResolver(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.GraphService/GetStreamResolver",
+            chalk_dot_server_dot_v1_dot_graph__pb2.GetStreamResolverRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_graph__pb2.GetStreamResolverResponse.FromString,
             options,
             channel_credentials,
             insecure,

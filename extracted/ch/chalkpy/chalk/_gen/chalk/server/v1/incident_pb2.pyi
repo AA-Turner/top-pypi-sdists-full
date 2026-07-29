@@ -48,7 +48,16 @@ class IncidentGroup(_message.Message):
     def __init__(self, group_key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
 class MetricIncident(_message.Message):
-    __slots__ = ("id", "started_at", "closed_at", "metric_config", "linked_entity", "dedupe_key", "groups")
+    __slots__ = (
+        "id",
+        "started_at",
+        "closed_at",
+        "metric_config",
+        "linked_entity",
+        "dedupe_key",
+        "groups",
+        "linked_entities",
+    )
     ID_FIELD_NUMBER: _ClassVar[int]
     STARTED_AT_FIELD_NUMBER: _ClassVar[int]
     CLOSED_AT_FIELD_NUMBER: _ClassVar[int]
@@ -56,6 +65,7 @@ class MetricIncident(_message.Message):
     LINKED_ENTITY_FIELD_NUMBER: _ClassVar[int]
     DEDUPE_KEY_FIELD_NUMBER: _ClassVar[int]
     GROUPS_FIELD_NUMBER: _ClassVar[int]
+    LINKED_ENTITIES_FIELD_NUMBER: _ClassVar[int]
     id: str
     started_at: _timestamp_pb2.Timestamp
     closed_at: _timestamp_pb2.Timestamp
@@ -63,6 +73,7 @@ class MetricIncident(_message.Message):
     linked_entity: IncidentLinkedEntity
     dedupe_key: str
     groups: _containers.RepeatedCompositeFieldContainer[IncidentGroup]
+    linked_entities: _containers.RepeatedCompositeFieldContainer[IncidentLinkedEntity]
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -72,6 +83,7 @@ class MetricIncident(_message.Message):
         linked_entity: _Optional[_Union[IncidentLinkedEntity, _Mapping]] = ...,
         dedupe_key: _Optional[str] = ...,
         groups: _Optional[_Iterable[_Union[IncidentGroup, _Mapping]]] = ...,
+        linked_entities: _Optional[_Iterable[_Union[IncidentLinkedEntity, _Mapping]]] = ...,
     ) -> None: ...
 
 class GetIncidentRequest(_message.Message):

@@ -8,24 +8,26 @@
  */
 
 #include "sipAPI_aui.h"
+        #include <wx/aui/auibook.h>
         #include <wx/window.h>
-        #include <wx/gdicmn.h>
-        #include <wx/gdicmn.h>
-        #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
+        #include <wx/gdicmn.h>
         #include <wx/validate.h>
+        #include <wx/window.h>
+        #include <wx/gdicmn.h>
         #include <wx/dc.h>
+        #include <wx/event.h>
         #include <wx/event.h>
         #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -41,16 +43,28 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
+        #include <wx/dc.h>
         #include <wx/bmpbndl.h>
         #include <wx/aui/auibook.h>
         #include <wx/aui/auibook.h>
         #include <wx/aui/auibook.h>
+            #include <wx/aui/auibook.h>
+        #include <wx/aui/auibook.h>
+    wxAccessible* _wxAuiTabCtrl_CreateAccessible(wxAuiTabCtrl* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxAuiTabCtrl : public ::wxAuiTabCtrl
 {
 public:
-    sipwxAuiTabCtrl(::wxWindow*, ::wxWindowID, const ::wxPoint&, const ::wxSize&, long);
+    sipwxAuiTabCtrl(::wxAuiNotebook*, ::wxWindowID);
     virtual ~sipwxAuiTabCtrl();
 
     /*
@@ -71,7 +85,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -87,7 +100,6 @@ protected:
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
@@ -130,10 +142,10 @@ private:
     sipwxAuiTabCtrl(const sipwxAuiTabCtrl &);
     sipwxAuiTabCtrl &operator = (const sipwxAuiTabCtrl &);
 
-    char sipPyMethods[39];
+    char sipPyMethods[38];
 };
 
-sipwxAuiTabCtrl::sipwxAuiTabCtrl(::wxWindow*parent, ::wxWindowID id, const ::wxPoint& pos, const ::wxSize& size, long style): ::wxAuiTabCtrl(parent, id, pos, size, style), sipPySelf(SIP_NULLPTR)
+sipwxAuiTabCtrl::sipwxAuiTabCtrl(::wxAuiNotebook*parent, ::wxWindowID id): ::wxAuiTabCtrl(parent, id), sipPySelf(SIP_NULLPTR)
 {
     memset(sipPyMethods, 0, sizeof (sipPyMethods));
 }
@@ -209,27 +221,12 @@ void sipwxAuiTabCtrl::DoFreeze()
     sipVH__aui_3(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxAuiTabCtrl::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[4]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxAuiTabCtrl::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__aui_25(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__aui_25(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 ::wxBorder sipwxAuiTabCtrl::GetDefaultBorder() const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[5]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[4]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
 
     if (!sipMeth)
         return ::wxAuiTabCtrl::GetDefaultBorder();
@@ -244,7 +241,7 @@ void sipwxAuiTabCtrl::DoSetWindowVariant(::wxWindowVariant variant)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[6], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[5], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
 
     if (!sipMeth)
     {
@@ -262,7 +259,7 @@ void sipwxAuiTabCtrl::DoMoveWindow(int x, int y, int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[7], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[6], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
 
     if (!sipMeth)
     {
@@ -280,7 +277,7 @@ void sipwxAuiTabCtrl::DoSetSizeHints(int minW, int minH, int maxW, int maxH, int
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[8], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[7], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
 
     if (!sipMeth)
     {
@@ -298,7 +295,7 @@ void sipwxAuiTabCtrl::DoSetClientSize(int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[9], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[8], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
 
     if (!sipMeth)
     {
@@ -316,7 +313,7 @@ void sipwxAuiTabCtrl::DoSetSize(int x, int y, int width, int height, int sizeFla
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[10], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[9], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
 
     if (!sipMeth)
     {
@@ -334,7 +331,7 @@ void sipwxAuiTabCtrl::DoGetClientSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[11]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[10]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
 
     if (!sipMeth)
     {
@@ -352,7 +349,7 @@ void sipwxAuiTabCtrl::DoGetSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[12]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[11]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
 
     if (!sipMeth)
     {
@@ -370,7 +367,7 @@ void sipwxAuiTabCtrl::DoGetPosition(int*x, int*y) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[13]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[12]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
 
     if (!sipMeth)
     {
@@ -388,7 +385,7 @@ void sipwxAuiTabCtrl::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[14], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[13], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
 
     if (!sipMeth)
     {
@@ -406,7 +403,7 @@ void sipwxAuiTabCtrl::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[15], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[14], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
 
     if (!sipMeth)
         return ::wxAuiTabCtrl::GetMainWindowOfCompositeControl();
@@ -421,7 +418,7 @@ void sipwxAuiTabCtrl::OnInternalIdle()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[16], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[15], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
 
     if (!sipMeth)
     {
@@ -439,7 +436,7 @@ void sipwxAuiTabCtrl::InitDialog()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[17], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[16], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
 
     if (!sipMeth)
     {
@@ -457,7 +454,7 @@ void sipwxAuiTabCtrl::InheritAttributes()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[18], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[17], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
 
     if (!sipMeth)
     {
@@ -475,7 +472,7 @@ bool sipwxAuiTabCtrl::Destroy()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[19], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[18], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
 
     if (!sipMeth)
         return ::wxAuiTabCtrl::Destroy();
@@ -490,7 +487,7 @@ bool sipwxAuiTabCtrl::Validate()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[20], &sipPySelf, SIP_NULLPTR, sipName_Validate);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[19], &sipPySelf, SIP_NULLPTR, sipName_Validate);
 
     if (!sipMeth)
         return ::wxAuiTabCtrl::Validate();
@@ -505,7 +502,7 @@ bool sipwxAuiTabCtrl::TransferDataToWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[21], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[20], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
 
     if (!sipMeth)
         return ::wxAuiTabCtrl::TransferDataToWindow();
@@ -520,7 +517,7 @@ bool sipwxAuiTabCtrl::TransferDataFromWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[22], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[21], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
 
     if (!sipMeth)
         return ::wxAuiTabCtrl::TransferDataFromWindow();
@@ -535,7 +532,7 @@ void sipwxAuiTabCtrl::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[22], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
 
     if (!sipMeth)
     {
@@ -553,7 +550,7 @@ void sipwxAuiTabCtrl::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[24], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
 
     if (!sipMeth)
         return ::wxAuiTabCtrl::GetValidator();
@@ -568,7 +565,7 @@ bool sipwxAuiTabCtrl::ShouldInheritColours() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[25]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[24]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
 
     if (!sipMeth)
         return ::wxAuiTabCtrl::ShouldInheritColours();
@@ -583,7 +580,7 @@ bool sipwxAuiTabCtrl::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[26], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[25], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
 
     if (!sipMeth)
         return ::wxAuiTabCtrl::HasTransparentBackground();
@@ -598,7 +595,7 @@ bool sipwxAuiTabCtrl::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[27]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[26]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
 
     if (!sipMeth)
         return ::wxAuiTabCtrl::GetClientAreaOrigin();
@@ -613,7 +610,7 @@ bool sipwxAuiTabCtrl::InformFirstDirection(int direction, int size, int availabl
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[28], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[27], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
 
     if (!sipMeth)
         return ::wxAuiTabCtrl::InformFirstDirection(direction, size, availableOtherDir);
@@ -628,7 +625,7 @@ void sipwxAuiTabCtrl::EnableVisibleFocus(bool enabled)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[29], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[28], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
 
     if (!sipMeth)
     {
@@ -646,7 +643,7 @@ void sipwxAuiTabCtrl::SetCanFocus(bool canFocus)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[30], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[29], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
 
     if (!sipMeth)
     {
@@ -664,7 +661,7 @@ bool sipwxAuiTabCtrl::AcceptsFocusRecursively() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[31]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[30]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
 
     if (!sipMeth)
         return ::wxAuiTabCtrl::AcceptsFocusRecursively();
@@ -679,7 +676,7 @@ bool sipwxAuiTabCtrl::AcceptsFocusFromKeyboard() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[32]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[31]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
 
     if (!sipMeth)
         return ::wxAuiTabCtrl::AcceptsFocusFromKeyboard();
@@ -694,7 +691,7 @@ bool sipwxAuiTabCtrl::AcceptsFocus() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[33]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[32]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
 
     if (!sipMeth)
         return ::wxAuiTabCtrl::AcceptsFocus();
@@ -709,7 +706,7 @@ bool sipwxAuiTabCtrl::TryAfter(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[33], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
 
     if (!sipMeth)
         return ::wxAuiTabCtrl::TryAfter(event);
@@ -724,7 +721,7 @@ bool sipwxAuiTabCtrl::TryBefore(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
 
     if (!sipMeth)
         return ::wxAuiTabCtrl::TryBefore(event);
@@ -739,7 +736,7 @@ bool sipwxAuiTabCtrl::ProcessEvent(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
 
     if (!sipMeth)
         return ::wxAuiTabCtrl::ProcessEvent(event);
@@ -754,7 +751,7 @@ void sipwxAuiTabCtrl::AddChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
 
     if (!sipMeth)
     {
@@ -772,7 +769,7 @@ void sipwxAuiTabCtrl::RemoveChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
 
     if (!sipMeth)
     {
@@ -853,11 +850,6 @@ void sipwxAuiTabCtrl::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, ::wx
 ::wxBorder sipwxAuiTabCtrl::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxAuiTabCtrl::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxAuiTabCtrl::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxAuiTabCtrl::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxAuiTabCtrl::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -2156,40 +2148,6 @@ static PyObject *meth_wxAuiTabCtrl_GetDefaultBorder(PyObject *sipSelf, PyObject 
 }
 
 
-PyDoc_STRVAR(doc_wxAuiTabCtrl_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxAuiTabCtrl_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxAuiTabCtrl_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxAuiTabCtrl *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxAuiTabCtrl, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_AuiTabCtrl, sipName_GetDefaultBorderForControl, doc_wxAuiTabCtrl_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxAuiTabCtrl_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxAuiTabCtrl_DoFreeze(PyObject *, PyObject *);}
@@ -2368,6 +2326,39 @@ static PyObject *meth_wxAuiTabCtrl_TryAfter(PyObject *sipSelf, PyObject *sipArgs
 }
 
 
+PyDoc_STRVAR(doc_wxAuiTabCtrl_CreateAccessible, "CreateAccessible() -> wx.Accessible");
+
+extern "C" {static PyObject *meth_wxAuiTabCtrl_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxAuiTabCtrl_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxAuiTabCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxAuiTabCtrl, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxAuiTabCtrl_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiTabCtrl, sipName_CreateAccessible, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxAuiTabCtrl_GetClassDefaultAttributes, "GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes");
 
 extern "C" {static PyObject *meth_wxAuiTabCtrl_GetClassDefaultAttributes(PyObject *, PyObject *, PyObject *);}
@@ -2460,35 +2451,23 @@ static void *init_type_wxAuiTabCtrl(sipSimpleWrapper *sipSelf, PyObject *sipArgs
     sipwxAuiTabCtrl *sipCpp = SIP_NULLPTR;
 
     {
-        ::wxWindow* parent;
+        ::wxAuiNotebook* parent;
         ::wxWindowID id = wxID_ANY;
-        const ::wxPoint& posdef = wxDefaultPosition;
-        const ::wxPoint* pos = &posdef;
-        int posState = 0;
-        const ::wxSize& sizedef = wxDefaultSize;
-        const ::wxSize* size = &sizedef;
-        int sizeState = 0;
-        long style = 0;
 
         static const char *sipKwdList[] = {
             sipName_parent,
             sipName_id,
-            sipName_pos,
-            sipName_size,
-            sipName_style,
         };
 
-        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, sipKwdList, sipUnused, "JH|iJ1J1l", sipType_wxWindow, &parent, sipOwner, &id, sipType_wxPoint, &pos, &posState, sipType_wxSize, &size, &sizeState, &style))
+        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, sipKwdList, sipUnused, "JH|i", sipType_wxAuiNotebook, &parent, sipOwner, &id))
         {
         if (!wxPyCheckForApp()) return NULL;
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipCpp = new sipwxAuiTabCtrl(parent, id, *pos, *size, style);
+            sipCpp = new sipwxAuiTabCtrl(parent, id);
             Py_END_ALLOW_THREADS
-            sipReleaseType(const_cast< ::wxPoint *>(pos), sipType_wxPoint, posState);
-            sipReleaseType(const_cast< ::wxSize *>(size), sipType_wxSize, sizeState);
 
             if (PyErr_Occurred())
             {
@@ -2507,7 +2486,7 @@ static void *init_type_wxAuiTabCtrl(sipSimpleWrapper *sipSelf, PyObject *sipArgs
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxAuiTabCtrl[] = {{8, 0, 0}, {31, 255, 1}};
+static sipEncodedTypeDef supers_wxAuiTabCtrl[] = {{9, 0, 0}, {37, 255, 1}};
 
 
 static PyMethodDef methods_wxAuiTabCtrl[] = {
@@ -2515,6 +2494,7 @@ static PyMethodDef methods_wxAuiTabCtrl[] = {
     {sipName_AcceptsFocusFromKeyboard, meth_wxAuiTabCtrl_AcceptsFocusFromKeyboard, METH_VARARGS, doc_wxAuiTabCtrl_AcceptsFocusFromKeyboard},
     {sipName_AcceptsFocusRecursively, meth_wxAuiTabCtrl_AcceptsFocusRecursively, METH_VARARGS, doc_wxAuiTabCtrl_AcceptsFocusRecursively},
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxAuiTabCtrl_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabCtrl_AddChild},
+    {sipName_CreateAccessible, meth_wxAuiTabCtrl_CreateAccessible, METH_VARARGS, doc_wxAuiTabCtrl_CreateAccessible},
     {sipName_Destroy, meth_wxAuiTabCtrl_Destroy, METH_VARARGS, doc_wxAuiTabCtrl_Destroy},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxAuiTabCtrl_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabCtrl_DoEnable},
     {sipName_DoFreeze, meth_wxAuiTabCtrl_DoFreeze, METH_VARARGS, doc_wxAuiTabCtrl_DoFreeze},
@@ -2533,7 +2513,6 @@ static PyMethodDef methods_wxAuiTabCtrl[] = {
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxAuiTabCtrl_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabCtrl_GetClassDefaultAttributes},
     {sipName_GetClientAreaOrigin, meth_wxAuiTabCtrl_GetClientAreaOrigin, METH_VARARGS, doc_wxAuiTabCtrl_GetClientAreaOrigin},
     {sipName_GetDefaultBorder, meth_wxAuiTabCtrl_GetDefaultBorder, METH_VARARGS, doc_wxAuiTabCtrl_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxAuiTabCtrl_GetDefaultBorderForControl, METH_VARARGS, doc_wxAuiTabCtrl_GetDefaultBorderForControl},
     {sipName_GetMainWindowOfCompositeControl, meth_wxAuiTabCtrl_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxAuiTabCtrl_GetMainWindowOfCompositeControl},
     {sipName_GetValidator, meth_wxAuiTabCtrl_GetValidator, METH_VARARGS, doc_wxAuiTabCtrl_GetValidator},
     {sipName_HasTransparentBackground, meth_wxAuiTabCtrl_HasTransparentBackground, METH_VARARGS, doc_wxAuiTabCtrl_HasTransparentBackground},
@@ -2555,7 +2534,7 @@ static PyMethodDef methods_wxAuiTabCtrl[] = {
     {sipName_Validate, meth_wxAuiTabCtrl_Validate, METH_VARARGS, doc_wxAuiTabCtrl_Validate}
 };
 
-PyDoc_STRVAR(doc_wxAuiTabCtrl, "AuiTabCtrl(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=0) -> None");
+PyDoc_STRVAR(doc_wxAuiTabCtrl, "AuiTabCtrl(parent, id=wx.ID_ANY) -> None");
 
 
 sipClassTypeDef sipTypeDef__aui_wxAuiTabCtrl = {

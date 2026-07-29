@@ -1011,7 +1011,7 @@ static PyObject *meth_wxGraphicsRenderer_GetName(PyObject *sipSelf, PyObject *si
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsRenderer_GetVersion, "GetVersion(major, minor=None, micro=None) -> None\n"
+PyDoc_STRVAR(doc_wxGraphicsRenderer_GetVersion, "GetVersion(major, minor=nullptr, micro=nullptr) -> None\n"
 "\n"
 "Returns the version major, minor and micro/build of the technology\n"
 "used by the renderer.");
@@ -1083,7 +1083,7 @@ static PyObject *meth_wxGraphicsRenderer_GetDefaultRenderer(PyObject *, PyObject
 
 PyDoc_STRVAR(doc_wxGraphicsRenderer_GetCairoRenderer, "GetCairoRenderer() -> GraphicsRenderer\n"
 "\n"
-"Returns Cairo renderer.");
+"Returns the Cairo renderer.");
 
 extern "C" {static PyObject *meth_wxGraphicsRenderer_GetCairoRenderer(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsRenderer_GetCairoRenderer(PyObject *, PyObject *sipArgs)
@@ -1219,7 +1219,7 @@ static void dealloc_wxGraphicsRenderer(sipSimpleWrapper *sipSelf)
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGraphicsRenderer[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxGraphicsRenderer[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxGraphicsRenderer[] = {

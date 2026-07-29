@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: instagrapi
-Version: 2.18.11
+Version: 2.18.12
 Summary: Fast and effective Instagram Private API wrapper
 Author-email: Mark Subzeroid <143403577+subzeroid@users.noreply.github.com>
 License-Expression: MIT
@@ -153,11 +153,17 @@ cl = Client()
 cl.login(USERNAME, PASSWORD)
 cl.dump_settings("session.json")
 
-# reload later without entering credentials again
+# reload later; the saved session is validated before reuse
 cl = Client()
 cl.load_settings("session.json")
 cl.login(USERNAME, PASSWORD)
+cl.dump_settings("session.json")
 ```
+
+`login()` reuses a valid saved session. If Instagram rejects that session with
+`login_required`, instagrapi clears the stale authorization and logs in again
+with the supplied credentials. Dump the settings after login so a refreshed
+session is persisted.
 
 If you want more explicit control over the loaded session object:
 
@@ -167,6 +173,7 @@ from instagrapi import Client
 cl = Client()
 cl.set_settings(cl.load_settings("session.json"))
 cl.login(USERNAME, PASSWORD)
+cl.dump_settings("session.json")
 ```
 
 ### Login using a sessionid

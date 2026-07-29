@@ -198,35 +198,6 @@ static int varset_wxLogRecordInfo_line(void *sipSelf, PyObject *sipPy, PyObject 
 }
 
 
-extern "C" {static PyObject *varget_wxLogRecordInfo_timestamp(void *, PyObject *, PyObject *);}
-static PyObject *varget_wxLogRecordInfo_timestamp(void *sipSelf, PyObject *, PyObject *)
-{
-    ::time_t sipVal;
-    ::wxLogRecordInfo *sipCpp = reinterpret_cast< ::wxLogRecordInfo *>(sipSelf);
-
-    sipVal = sipCpp->timestamp;
-
-    return PyLong_FromLongLong(sipVal);
-}
-
-
-extern "C" {static int varset_wxLogRecordInfo_timestamp(void *, PyObject *, PyObject *);}
-static int varset_wxLogRecordInfo_timestamp(void *sipSelf, PyObject *sipPy, PyObject *)
-{
-    ::time_t sipVal;
-    ::wxLogRecordInfo *sipCpp = reinterpret_cast< ::wxLogRecordInfo *>(sipSelf);
-
-    sipVal = sipLong_AsLongLong(sipPy);
-
-    if (PyErr_Occurred() != SIP_NULLPTR)
-        return -1;
-
-    sipCpp->timestamp = sipVal;
-
-    return 0;
-}
-
-
 extern "C" {static PyObject *varget_wxLogRecordInfo_timestampMS(void *, PyObject *, PyObject *);}
 static PyObject *varget_wxLogRecordInfo_timestampMS(void *sipSelf, PyObject *, PyObject *)
 {
@@ -259,7 +230,6 @@ sipVariableDef variables_wxLogRecordInfo[] = {
     {InstanceVariable, sipName_filename, (PyMethodDef *)varget_wxLogRecordInfo_filename, (PyMethodDef *)varset_wxLogRecordInfo_filename, SIP_NULLPTR, SIP_NULLPTR},
     {InstanceVariable, sipName_func, (PyMethodDef *)varget_wxLogRecordInfo_func, (PyMethodDef *)varset_wxLogRecordInfo_func, SIP_NULLPTR, SIP_NULLPTR},
     {InstanceVariable, sipName_line, (PyMethodDef *)varget_wxLogRecordInfo_line, (PyMethodDef *)varset_wxLogRecordInfo_line, SIP_NULLPTR, SIP_NULLPTR},
-    {InstanceVariable, sipName_timestamp, (PyMethodDef *)varget_wxLogRecordInfo_timestamp, (PyMethodDef *)varset_wxLogRecordInfo_timestamp, SIP_NULLPTR, SIP_NULLPTR},
     {InstanceVariable, sipName_timestampMS, (PyMethodDef *)varget_wxLogRecordInfo_timestampMS, (PyMethodDef *)varset_wxLogRecordInfo_timestampMS, SIP_NULLPTR, SIP_NULLPTR},
 };
 
@@ -281,7 +251,7 @@ sipClassTypeDef sipTypeDef__core_wxLogRecordInfo = {
         {0, 0, 1},
         0, SIP_NULLPTR,
         0, SIP_NULLPTR,
-        5, variables_wxLogRecordInfo,
+        4, variables_wxLogRecordInfo,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxLogRecordInfo,

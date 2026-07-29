@@ -3,7 +3,6 @@
 // Purpose:     native implementation of wxStatusBar.
 //              Optional: can use generic version instead.
 // Author:      Stefan Csomor
-// Modified by:
 // Created:     1998-01-01
 // Copyright:   (c) Stefan Csomor
 // Licence:     wxWindows licence
@@ -27,16 +26,25 @@ public:
               const wxString& name = wxASCII_STR(wxStatusBarNameStr));
 
     // Implementation
-    virtual void MacHiliteChanged() wxOVERRIDE;
+    virtual void MacHiliteChanged() override;
     void OnPaint(wxPaintEvent& event);
+    virtual bool GetFieldRect(int i, wxRect& rect) const override;
+
+    void MacSetCornerInset(int inset);
+    int MacGetCornerInset() const { return m_cornerInset; }
 
 protected:
-    virtual int GetEffectiveFieldStyle(int WXUNUSED(i)) const wxOVERRIDE { return wxSB_NORMAL; }
+    virtual int GetEffectiveFieldStyle(int WXUNUSED(i)) const override { return wxSB_NORMAL; }
 
-    virtual void InitColours() wxOVERRIDE;
+    virtual void InitColours() override;
+
+    void InitCornerInset();
+
+    virtual int GetAvailableWidthForFields(int width) const override;
 
 private:
-    wxColour m_textActive, m_textInactive;
+    int m_cornerInset;
+    wxColour m_textActive, m_textInactive, m_bgActive, m_bgInactive, m_separator;
 
     wxDECLARE_DYNAMIC_CLASS(wxStatusBarMac);
     wxDECLARE_EVENT_TABLE();

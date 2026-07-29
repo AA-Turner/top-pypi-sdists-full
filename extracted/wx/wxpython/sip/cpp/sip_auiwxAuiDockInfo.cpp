@@ -373,7 +373,7 @@ static PyObject *varget_wxAuiDockInfo_panes(void *sipSelf, PyObject *sipPySelf, 
     ::wxAuiPaneInfoPtrArray*sipVal;
     ::wxAuiDockInfo *sipCpp = reinterpret_cast< ::wxAuiDockInfo *>(sipSelf);
 
-    sipPy = sipGetReference(sipPySelf, -8);
+    sipPy = sipGetReference(sipPySelf, -10);
 
     if (sipPy)
         return sipPy;
@@ -384,8 +384,8 @@ static PyObject *varget_wxAuiDockInfo_panes(void *sipSelf, PyObject *sipPySelf, 
 
     if (sipPy)
     {
-        sipKeepReference(sipPy, -7, sipPySelf);
-        sipKeepReference(sipPySelf, -8, sipPy);
+        sipKeepReference(sipPy, -9, sipPySelf);
+        sipKeepReference(sipPySelf, -10, sipPy);
     }
 
     return sipPy;
@@ -417,7 +417,7 @@ static PyObject *varget_wxAuiDockInfo_rect(void *sipSelf, PyObject *sipPySelf, P
     ::wxRect*sipVal;
     ::wxAuiDockInfo *sipCpp = reinterpret_cast< ::wxAuiDockInfo *>(sipSelf);
 
-    sipPy = sipGetReference(sipPySelf, -9);
+    sipPy = sipGetReference(sipPySelf, -11);
 
     if (sipPy)
         return sipPy;
@@ -428,8 +428,8 @@ static PyObject *varget_wxAuiDockInfo_rect(void *sipSelf, PyObject *sipPySelf, P
 
     if (sipPy)
     {
-        sipKeepReference(sipPy, -27, sipPySelf);
-        sipKeepReference(sipPySelf, -9, sipPy);
+        sipKeepReference(sipPy, -29, sipPySelf);
+        sipKeepReference(sipPySelf, -11, sipPy);
     }
 
     return sipPy;

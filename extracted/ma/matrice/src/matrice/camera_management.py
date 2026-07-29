@@ -9,6 +9,16 @@ from typing import Any, Dict, List, Optional, Tuple
 import requests
 from matrice_common.utils import handle_response
 
+CAMERA_GROUPS_RETRIEVED_MESSAGE = "Camera groups retrieved successfully"
+CAMERAS_RETRIEVED_MESSAGE = "Cameras retrieved successfully"
+FAILED_TO_CREATE_CAMERAS_MESSAGE = "Failed to create cameras"
+
+# An account-scoped path built from an empty account number collapses to a trailing
+# slash, which be-inference resolves against its `/v1/inference/:deploymentId` route
+# and rejects with a misleading 412 (`GetDeployment:controller`). Fail here instead so
+# the real cause is visible in the error.
+_MISSING_ACCOUNT_NUMBER = "Session has no account number; cannot query account-scoped cameras"
+
 
 class CameraManagement:
     """
@@ -182,7 +192,7 @@ class CameraManagement:
         resp = self.rpc.get(path=path)
         return handle_response(
             resp,
-            "Camera groups retrieved successfully",
+            CAMERA_GROUPS_RETRIEVED_MESSAGE,
             "Failed to retrieve camera groups",
         )
 
@@ -288,7 +298,7 @@ class CameraManagement:
         resp = self.rpc.get(path=path)
         return handle_response(
             resp,
-            "Camera groups retrieved successfully",
+            CAMERA_GROUPS_RETRIEVED_MESSAGE,
             "Failed to retrieve camera groups for gateway",
         )
 
@@ -333,7 +343,7 @@ class CameraManagement:
         resp = self.rpc.get(path=path)
         return handle_response(
             resp,
-            "Camera groups retrieved successfully",
+            CAMERA_GROUPS_RETRIEVED_MESSAGE,
             "Failed to retrieve camera groups by VMS group ID",
         )
 
@@ -603,6 +613,8 @@ class CameraManagement:
             - str or None: Error message if failed
             - str: Status message
         """
+        if not self.account_number:
+            return None, _MISSING_ACCOUNT_NUMBER, "Failed to retrieve camera streams"
         path = f"/v1/inference/get_camerastream_by_acc_number/{self.account_number}"
         resp = self.rpc.get(path=path)
         return handle_response(
@@ -709,7 +721,7 @@ class CameraManagement:
         resp = self.rpc.get(path=path)
         return handle_response(
             resp,
-            "Cameras retrieved successfully",
+            CAMERAS_RETRIEVED_MESSAGE,
             "Failed to retrieve cameras by group ID",
         )
 
@@ -734,7 +746,7 @@ class CameraManagement:
         resp = self.rpc.get(path=path)
         return handle_response(
             resp,
-            "Cameras retrieved successfully",
+            CAMERAS_RETRIEVED_MESSAGE,
             "Failed to retrieve cameras by gateway ID",
         )
 
@@ -788,7 +800,7 @@ class CameraManagement:
         resp = self.rpc.get(path=path)
         return handle_response(
             resp,
-            "Cameras retrieved successfully",
+            CAMERAS_RETRIEVED_MESSAGE,
             "Failed to retrieve cameras by app deployment",
         )
 
@@ -1090,12 +1102,12 @@ class CameraManagement:
         # Get camera names to check for existing cameras
         camera_names = [cam.get("cameraName") for cam in cameras if cam.get("cameraName")]
         if not camera_names:
-            return None, "No camera names found in camera configurations", "Failed to create cameras"
+            return None, "No camera names found in camera configurations", FAILED_TO_CREATE_CAMERAS_MESSAGE
 
         # Check for existing cameras by name
-        all_cameras_data, error, message = self.get_camera_streams_by_account()
+        all_cameras_data, error, _ = self.get_camera_streams_by_account()
         if error:
-            return None, f"Failed to check existing cameras: {error}", "Failed to create cameras"
+            return None, f"Failed to check existing cameras: {error}", FAILED_TO_CREATE_CAMERAS_MESSAGE
 
         # Find existing cameras by name
         existing_cameras = {}
@@ -1121,38 +1133,48 @@ class CameraManagement:
         resp = self.rpc.post(path=path, payload=cameras_to_create, timeout=600)
 
         if resp.get("success"):
-            # Get all cameras again to find the newly created ones
-            all_cameras_data, error, message = self.get_camera_streams_by_account()
-            if error:
-                return None, f"Cameras created but failed to retrieve: {error}", "Failed to retrieve created cameras"
+            return self._collect_created_cameras(camera_names)
+        return self._handle_batch_create_failure(resp, camera_names, existing_cameras)
 
-            # Find all cameras (both existing and newly created)
-            result_cameras = []
-            all_cameras = all_cameras_data if isinstance(all_cameras_data, list) else []
-            for cam in all_cameras:
-                cam_name = cam.get("cameraName")
-                if cam_name in camera_names:
+    def _cameras_matching_names(self, camera_names) -> List[Dict]:
+        """Fetch all account cameras and return those whose name is in ``camera_names``."""
+        all_cameras_data, _, _ = self.get_camera_streams_by_account()
+        all_cameras = all_cameras_data if isinstance(all_cameras_data, list) else []
+        return [cam for cam in all_cameras if cam.get("cameraName") in camera_names]
+
+    def _collect_created_cameras(self, camera_names) -> Tuple[Optional[List[Dict]], Optional[str], str]:
+        """Re-fetch cameras after a successful batch create and return the matches."""
+        # Get all cameras again to find the newly created ones
+        all_cameras_data, error, _ = self.get_camera_streams_by_account()
+        if error:
+            return None, f"Cameras created but failed to retrieve: {error}", "Failed to retrieve created cameras"
+
+        # Find all cameras (both existing and newly created)
+        result_cameras = []
+        all_cameras = all_cameras_data if isinstance(all_cameras_data, list) else []
+        for cam in all_cameras:
+            cam_name = cam.get("cameraName")
+            if cam_name in camera_names:
+                result_cameras.append(cam)
+
+        return result_cameras, None, "Cameras created successfully"
+
+    def _handle_batch_create_failure(
+        self, resp, camera_names, existing_cameras
+    ) -> Tuple[Optional[List[Dict]], Optional[str], str]:
+        """Interpret a failed batch-create response, tolerating 'already exists' errors."""
+        # Check if error is "already exists" - if so, return existing cameras
+        error_message = resp.get("message", "Unknown error")
+        if "already exists" in error_message.lower() or "Camera stream already exists" in error_message:
+            # Return existing cameras we found earlier
+            result_cameras = list(existing_cameras.values())
+            # Try to get any newly created cameras (existing ones are already included)
+            for cam in self._cameras_matching_names(camera_names):
+                if cam.get("cameraName") not in existing_cameras:
                     result_cameras.append(cam)
-
-            return result_cameras, None, "Cameras created successfully"
+            return result_cameras, None, "Some cameras already exist"
         else:
-            # Check if error is "already exists" - if so, return existing cameras
-            error_message = resp.get("message", "Unknown error")
-            if "already exists" in error_message.lower() or "Camera stream already exists" in error_message:
-                # Return existing cameras we found earlier
-                result_cameras = list(existing_cameras.values())
-                # Try to get any newly created cameras
-                # get_camera_streams_by_account returns (data, error, message)
-                # Unpack all three to avoid mypy/mypyc tuple size mismatch
-                all_cameras_data, _, _ = self.get_camera_streams_by_account()
-                if all_cameras_data and isinstance(all_cameras_data, list):
-                    for cam in all_cameras_data:
-                        cam_name = cam.get("cameraName")
-                        if cam_name in camera_names and cam_name not in existing_cameras:
-                            result_cameras.append(cam)
-                return result_cameras, None, "Some cameras already exist"
-            else:
-                return None, error_message, "Failed to create cameras"
+            return None, error_message, FAILED_TO_CREATE_CAMERAS_MESSAGE
 
     def get_camera_streams_with_filters(
         self,
@@ -1251,6 +1273,8 @@ class CameraManagement:
         ... )
         """
         # ── 1. Build and execute the API request ─────────────────────────────
+        if not self.account_number:
+            return None, _MISSING_ACCOUNT_NUMBER, "Failed to retrieve camera streams"
         path = f"/v1/inference/get_camerastream_by_acc_number/{self.account_number}"
         params: Dict[str, str] = {"page": str(page), "limit": str(limit)}
 
@@ -1699,7 +1723,7 @@ class CameraManagement:
         resp = self.rpc.get(path=path)
         return handle_response(
             resp,
-            "Cameras retrieved successfully",
+            CAMERAS_RETRIEVED_MESSAGE,
             "Failed to retrieve cameras for pipeline",
         )
 

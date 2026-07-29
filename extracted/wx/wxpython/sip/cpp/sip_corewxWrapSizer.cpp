@@ -73,9 +73,9 @@ bool sipwxWrapSizer::IsSpaceItem(::wxSizerItem*item) const
     if (!sipMeth)
         return ::wxWrapSizer::IsSpaceItem(item);
 
-    extern bool sipVH__core_107(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxSizerItem*);
+    extern bool sipVH__core_106(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxSizerItem*);
 
-    return sipVH__core_107(sipGILState, 0, sipPySelf, sipMeth, item);
+    return sipVH__core_106(sipGILState, 0, sipPySelf, sipMeth, item);
 }
 
 void sipwxWrapSizer::RecalcSizes()
@@ -109,9 +109,9 @@ void sipwxWrapSizer::RepositionChildren(const ::wxSize& minSize)
         return;
     }
 
-    extern void sipVH__core_106(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxSize&);
+    extern void sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxSize&);
 
-    sipVH__core_106(sipGILState, 0, sipPySelf, sipMeth, minSize);
+    sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, minSize);
 }
 
 bool sipwxWrapSizer::InformFirstDirection(int direction, int size, int availableOtherDir)
@@ -124,9 +124,9 @@ bool sipwxWrapSizer::InformFirstDirection(int direction, int size, int available
     if (!sipMeth)
         return ::wxWrapSizer::InformFirstDirection(direction, size, availableOtherDir);
 
-    extern bool sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern bool sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
 
-    return sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
+    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
 }
 
 ::wxSize sipwxWrapSizer::CalcMin()
@@ -399,7 +399,7 @@ static void *init_type_wxWrapSizer(sipSimpleWrapper *sipSelf, PyObject *sipArgs,
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxWrapSizer[] = {{44, 255, 1}};
+static sipEncodedTypeDef supers_wxWrapSizer[] = {{46, 255, 1}};
 
 
 static PyMethodDef methods_wxWrapSizer[] = {

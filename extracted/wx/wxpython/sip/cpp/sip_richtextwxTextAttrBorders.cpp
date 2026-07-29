@@ -271,7 +271,7 @@ static PyObject *meth_wxTextAttrBorders_EqPartial(PyObject *sipSelf, PyObject *s
 }
 
 
-PyDoc_STRVAR(doc_wxTextAttrBorders_Apply, "Apply(borders, compareWith=None) -> bool\n"
+PyDoc_STRVAR(doc_wxTextAttrBorders_Apply, "Apply(borders, compareWith=nullptr) -> bool\n"
 "\n"
 "Applies border to this object, but not if the same as compareWith.");
 
@@ -282,7 +282,7 @@ static PyObject *meth_wxTextAttrBorders_Apply(PyObject *sipSelf, PyObject *sipAr
 
     {
         const ::wxTextAttrBorders* borders;
-        const ::wxTextAttrBorders* compareWith = 0;
+        const ::wxTextAttrBorders* compareWith = nullptr;
         ::wxTextAttrBorders *sipCpp;
 
         static const char *sipKwdList[] = {

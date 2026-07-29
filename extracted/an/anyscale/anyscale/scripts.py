@@ -15,6 +15,11 @@ from anyscale.commands.cloud_commands import cloud_cli
 from anyscale.commands.cluster_commands import cluster_cli
 from anyscale.commands.compute_config_commands import compute_config_cli
 from anyscale.commands.config_commands import config_cli
+from anyscale.commands.doc_metadata import (
+    command_metadata,
+    CommandExample,
+    ReleaseStatus,
+)
 from anyscale.commands.experimental_integrations_commands import (
     experimental_integrations_cli,
 )
@@ -28,6 +33,7 @@ from anyscale.commands.migrate_commands import migrate_cli
 from anyscale.commands.organization_invitation_commands import (
     organization_invitation_cli,
 )
+from anyscale.commands.output_format import OutputFormat
 from anyscale.commands.policy_commands import policy_cli
 from anyscale.commands.project_commands import project_cli
 from anyscale.commands.resource_quota_commands import resource_quota_cli
@@ -40,6 +46,7 @@ from anyscale.commands.session_commands_hidden import session_cli
 from anyscale.commands.skills_commands import skills_cli
 from anyscale.commands.user_commands import user_cli
 from anyscale.commands.user_group_commands import user_group_cli
+from anyscale.commands.util import AnyscaleCommand
 from anyscale.commands.workspace_commands_v2 import workspace_cli as workspace_cli_v2
 import anyscale.conf
 import anyscale.telemetry  # IMPORTANT: auto-patches click instrumentation on import
@@ -70,6 +77,8 @@ class AliasedGroup(click.Group):
     no_args_is_help=True,
     cls=AliasedGroup,
     context_settings={"help_option_names": ["-h", "--help"]},
+    help="Manage Anyscale jobs, services, workspaces, clouds, and compute "
+    "from the command line.",
 )
 @click.option(
     "--version",
@@ -93,7 +102,22 @@ def cli(ctx: Any, version_flag: bool, show_json: bool) -> None:
     log_warning_if_version_needs_upgrade()
 
 
-@click.command(name="version", help="Display version of the anyscale CLI.")
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Display the anyscale CLI version.", command="anyscale version",
+        ),
+    ],
+)
+@click.command(
+    name="version",
+    short_help="Display the anyscale CLI version.",
+    help="Display the anyscale CLI version.",
+    cls=AnyscaleCommand,
+)
 @click.option(
     "--json", "show_json", is_flag=True, default=False, help="Return output as json."
 )

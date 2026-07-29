@@ -1016,6 +1016,40 @@ export interface components {
             working_start: number;
         };
         /**
+         * ConfigUpdate
+         * @description A group of config changes applied together, sharing provenance.
+         */
+        ConfigUpdate: {
+            /** Changes */
+            changes: components["schemas"]["ConfigValueChange"][];
+            provenance: components["schemas"]["ProvenanceData"];
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "task" | "process";
+        };
+        /**
+         * ConfigValueChange
+         * @description One knob's value change within a config update.
+         */
+        ConfigValueChange: {
+            /**
+             * Cleared
+             * @default false
+             */
+            cleared: boolean;
+            /**
+             * Config
+             * @enum {string}
+             */
+            config: "eval" | "generate" | "concurrency";
+            /** Name */
+            name: string;
+            previous: components["schemas"]["JsonValue"];
+            value: components["schemas"]["JsonValue"];
+        };
+        /**
          * ConnectionLimitChange
          * @description Record of an adaptive-connections controller scale change.
          */
@@ -1094,6 +1128,11 @@ export interface components {
          * @description Document content (e.g. a PDF).
          */
         ContentDocument: {
+            /**
+             * Citations
+             * @default false
+             */
+            citations: boolean;
             /** Document */
             document: string;
             /** Filename */
@@ -1433,6 +1472,8 @@ export interface components {
          * @description Evaluation log.
          */
         EvalLog: {
+            /** Config Updates */
+            config_updates?: components["schemas"]["ConfigUpdate"][] | null;
             error?: components["schemas"]["EvalError"] | null;
             eval: components["schemas"]["EvalSpec"];
             /**

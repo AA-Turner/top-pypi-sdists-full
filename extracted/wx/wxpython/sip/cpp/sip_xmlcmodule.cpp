@@ -12,7 +12,7 @@
         #include <wx/xml/xml.h>
         #include <wx/xml/xml.h>
         #include <wx/stream.h>
-        #include <wx/stream.h>
+        #include <wx/xml/xml.h>
         #include <wx/xml/xml.h>
         #include <wx/xml/xml.h>
 
@@ -43,6 +43,7 @@ const char sipStrings__xml[] = {
     'S', 'e', 't', 'F', 'i', 'l', 'e', 'E', 'n', 'c', 'o', 'd', 'i', 'n', 'g', 0,
     'S', 'e', 't', 'N', 'o', 'C', 'o', 'n', 'v', 'e', 'r', 's', 'i', 'o', 'n', 0,
     'X', 'M', 'L', '_', 'E', 'N', 'T', 'I', 'T', 'Y', '_', 'N', 'O', 'D', 'E', 0,
+    'w', 'x', 'X', 'm', 'l', 'P', 'a', 'r', 's', 'e', 'E', 'r', 'r', 'o', 'r', 0,
     'A', 'p', 'p', 'e', 'n', 'd', 'T', 'o', 'P', 'r', 'o', 'l', 'o', 'g', 0,
     'G', 'e', 't', 'N', 'o', 'd', 'e', 'C', 'o', 'n', 't', 'e', 'n', 't', 0,
     'w', 'x', 'X', 'm', 'l', 'A', 't', 't', 'r', 'i', 'b', 'u', 't', 'e', 0,
@@ -109,6 +110,7 @@ const char sipStrings__xml[] = {
     'S', 'e', 't', 'T', 'y', 'p', 'e', 0,
     'c', 'o', 'n', 't', 'e', 'n', 't', 0,
     'd', 'o', 'c', 't', 'y', 'p', 'e', 0,
+    'm', 'e', 's', 's', 'a', 'g', 'e', 0,
     'u', 'n', 'i', 't', 'M', 'a', 'x', 0,
     'u', 'n', 'i', 't', 'M', 'i', 'n', 0,
     'v', 'a', 'r', 'i', 'a', 'n', 't', 0,
@@ -120,6 +122,7 @@ const char sipStrings__xml[] = {
     'e', 'n', 'a', 'b', 'l', 'e', 0,
     'h', 'e', 'i', 'g', 'h', 't', 0,
     'l', 'i', 'n', 'e', 'N', 'o', 0,
+    'o', 'f', 'f', 's', 'e', 't', 0,
     'r', 'o', 'w', 'M', 'a', 'x', 0,
     'r', 'o', 'w', 'M', 'i', 'n', 0,
     's', 't', 'r', 'e', 'a', 'm', 0,
@@ -145,6 +148,7 @@ const char sipStrings__xml[] = {
     'i', 'n', 'c', 'W', 0,
     'i', 'n', 'f', 'o', 0,
     'i', 't', 'e', 'm', 0,
+    'l', 'i', 'n', 'e', 0,
     'm', 'a', 'x', 'H', 0,
     'm', 'a', 'x', 'W', 0,
     'm', 'i', 'n', 'H', 0,
@@ -154,10 +158,10 @@ const char sipStrings__xml[] = {
     'r', 'e', 'c', 't', 0,
     's', 'h', 'o', 'w', 0,
     's', 'i', 'z', 'e', 0,
-    't', 'i', 'm', 'e', 0,
     'u', 'n', 'i', 't', 0,
     'c', 'o', 'n', 0,
     'd', 'o', 'c', 0,
+    'e', 'r', 'r', 0,
     'i', 'd', 'x', 0,
     'm', 's', 'g', 0,
     'p', 'o', 's', 0,
@@ -165,7 +169,7 @@ const char sipStrings__xml[] = {
     'd', 'c', 0,
 };
 
-bool sipVH__xml_9(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxOutputStream& stream, int indentstep)
+bool sipVH__xml_7(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxOutputStream& stream, int indentstep)
 {
     bool sipRes = 0;
     PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "Di", &stream, sipType_wxOutputStream, SIP_NULLPTR, indentstep);
@@ -175,30 +179,10 @@ bool sipVH__xml_9(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHa
     return sipRes;
 }
 
-bool sipVH__xml_8(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, const ::wxString& filename, int indentstep)
+bool sipVH__xml_6(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, const ::wxString& filename, int indentstep)
 {
     bool sipRes = 0;
     PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "Ni", new ::wxString(filename), sipType_wxString, SIP_NULLPTR, indentstep);
-
-    sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "b", &sipRes);
-
-    return sipRes;
-}
-
-bool sipVH__xml_7(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxInputStream& stream, const ::wxString& encoding, int flags)
-{
-    bool sipRes = 0;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DNi", &stream, sipType_wxInputStream, SIP_NULLPTR, new ::wxString(encoding), sipType_wxString, SIP_NULLPTR, flags);
-
-    sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "b", &sipRes);
-
-    return sipRes;
-}
-
-bool sipVH__xml_6(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, const ::wxString& filename, const ::wxString& encoding, int flags)
-{
-    bool sipRes = 0;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "NNi", new ::wxString(filename), sipType_wxString, SIP_NULLPTR, new ::wxString(encoding), sipType_wxString, SIP_NULLPTR, flags);
 
     sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "b", &sipRes);
 
@@ -284,6 +268,7 @@ sipTypeDef *sipExportedTypes__xml[] = {
     &enumTypes[0].etd_base,
     &sipTypeDef__xml_wxXmlNode.ctd_base,
     &enumTypes[1].etd_base,
+    &sipTypeDef__xml_wxXmlParseError.ctd_base,
 };
 
 
@@ -322,7 +307,7 @@ sipExportedModuleDef sipModuleAPI__xml = {
     sipStrings__xml,
     importsTable,
     SIP_NULLPTR,
-    6,
+    7,
     sipExportedTypes__xml,
     SIP_NULLPTR,
     15,

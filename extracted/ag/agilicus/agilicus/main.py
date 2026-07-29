@@ -4793,6 +4793,21 @@ def reset_auth_policy(ctx, issuer_id, **kwargs):
 @click.option("--org-id", default=None)
 @click.option("--name", default=None)
 @click.option(
+    "--token-lifetime-default",
+    default=None,
+    help="An ISO8601 duration for the defualt max lifetime of a token",
+)
+@click.option(
+    "--token-lifetime-scopes",
+    multiple=True,
+    type=click.Tuple([str, str]),
+    default=None,
+    help=(
+        "Pairs of scopes to ISO8601 duration for the defualt max lifetime of a token"
+        " with that scope"
+    ),
+)
+@click.option(
     "--supported-mfa-methods",
     type=click.Choice(["web_push", "totp", "webauthn"]),
     multiple=True,

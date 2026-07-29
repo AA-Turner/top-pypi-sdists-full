@@ -2,7 +2,6 @@
 // Name:        src/msw/control.cpp
 // Purpose:     wxControl class
 // Author:      Julian Smart
-// Modified by:
 // Created:     01/02/97
 // Copyright:   (c) Julian Smart
 // Licence:     wxWindows licence
@@ -40,6 +39,7 @@
 #include "wx/msw/uxtheme.h"
 #include "wx/msw/dc.h"          // for wxDCTemp
 #include "wx/msw/ownerdrawnbutton.h"
+#include "wx/msw/private/darkmode.h"
 #include "wx/msw/private/winstyle.h"
 
 // ----------------------------------------------------------------------------
@@ -92,13 +92,6 @@ bool wxControl::MSWCreateControl(const wxChar *classname,
                                  const wxString& label,
                                  WXDWORD exstyle)
 {
-    // if no extended style given, determine it ourselves
-    if ( exstyle == (WXDWORD)-1 )
-    {
-        exstyle = 0;
-        (void) MSWGetStyle(GetWindowStyle(), &exstyle);
-    }
-
     // all controls should have this style
     style |= WS_CHILD;
 
@@ -137,19 +130,8 @@ bool wxControl::MSWCreateControl(const wxChar *classname,
         return false;
     }
 
-#if !wxUSE_UNICODE
-    // Text labels starting with the character 0xff (which is a valid character
-    // in many code pages) don't appear correctly as CreateWindowEx() has some
-    // special treatment for this case, apparently the strings starting with -1
-    // are not really strings but something called "ordinals". There is no
-    // documentation about it but the fact is that the label gets mangled or
-    // not displayed at all if we don't do this, see #9572.
-    //
-    // Notice that 0xffff is not a valid Unicode character so the problem
-    // doesn't arise in Unicode build.
-    if ( !label.empty() && label[0] == -1 )
-        ::SetWindowText(GetHwnd(), label.t_str());
-#endif // !wxUSE_UNICODE
+    if ( wxMSWDarkMode::IsActive() )
+        MSWSetDarkOrLightMode(SetMode::Initial);
 
     // saving the label in m_labelOrig to return it verbatim
     // later in GetLabel()
@@ -182,7 +164,7 @@ bool wxControl::MSWCreateControl(const wxChar *classname,
         // else) to fix themed borders when they're used (if they're not, this
         // is harmless, and it's simpler and more fool proof to always do it
         // rather than try to determine whether we need to do it or not).
-        ::SetWindowPos(GetHwnd(), NULL, 0, 0, 0, 0,
+        ::SetWindowPos(GetHwnd(), nullptr, 0, 0, 0, 0,
                        SWP_FRAMECHANGED |
                        SWP_NOSIZE |
                        SWP_NOMOVE |
@@ -195,6 +177,18 @@ bool wxControl::MSWCreateControl(const wxChar *classname,
     }
 
     return true;
+}
+
+void wxControl::MSWSetDarkOrLightMode(SetMode setmode)
+{
+    wxControlBase::MSWSetDarkOrLightMode(setmode);
+
+    if ( const int msgTT = MSWGetToolTipMessage() )
+    {
+        const HWND hwndTT = (HWND)::SendMessage(GetHwnd(), msgTT, 0, 0);
+        if ( ::IsWindow(hwndTT) )
+            wxMSWDarkMode::AllowForWindow(hwndTT);
+    }
 }
 
 // ----------------------------------------------------------------------------
@@ -221,25 +215,15 @@ wxSize wxControl::DoGetBestSize() const
     return FromDIP(wxSize(DEFAULT_ITEM_WIDTH, DEFAULT_ITEM_HEIGHT));
 }
 
-wxBorder wxControl::GetDefaultBorder() const
-{
-    return wxControlBase::GetDefaultBorder();
-}
-
 /* static */ wxVisualAttributes
-wxControl::GetClassDefaultAttributes(wxWindowVariant WXUNUSED(variant))
+wxControl::GetClassDefaultAttributes(wxWindowVariant variant)
 {
-    wxVisualAttributes attrs;
-
-    // old school (i.e. not "common") controls use the standard dialog font
-    // by default
-    attrs.font = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
+    wxVisualAttributes attrs = wxWindow::GetClassDefaultAttributes(variant);
 
     // most, or at least many, of the controls use the same colours as the
     // buttons -- others will have to override this (and possibly simply call
     // GetCompositeControlsDefaultAttributes() from their versions)
     attrs.colFg = wxSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT);
-    attrs.colBg = wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE);
 
     return attrs;
 }
@@ -305,6 +289,8 @@ WXHBRUSH wxControl::DoMSWControlColor(WXHDC pDC, wxColour colBg, WXHWND hWnd)
 {
     HDC hdc = (HDC)pDC;
 
+    wxColour colFg;
+
     WXHBRUSH hbr = 0;
     if ( !colBg.IsOk() )
     {
@@ -339,11 +325,16 @@ WXHBRUSH wxControl::DoMSWControlColor(WXHDC pDC, wxColour colBg, WXHWND hWnd)
         if ( win )
             hbr = win->MSWGetBgBrush(pDC);
 
-        // if the control doesn't have any bg colour, foreground colour will be
-        // ignored as the return value would be 0 -- so forcefully give it a
-        // non default background brush in this case
-        if ( !hbr && m_hasFgCol )
-            colBg = GetBackgroundColour();
+        if ( !hbr )
+        {
+            // We always need to use custom background in dark mode. And in
+            // light mode, we have to use it if the control uses a non-default
+            // foreground too because if we didn't, this function would return
+            // 0 and everything done by it would be ignored -- so ensure we use
+            // a valid value in both of these cases.
+            if ( wxMSWDarkMode::IsActive() || m_hasFgCol )
+                colBg = GetBackgroundColour();
+        }
     }
 
     // use the background colour override if a valid colour is given: this is
@@ -361,13 +352,15 @@ WXHBRUSH wxControl::DoMSWControlColor(WXHDC pDC, wxColour colBg, WXHWND hWnd)
     // default just the simple black is used
     if ( hbr )
     {
-        ::SetTextColor(hdc, wxColourToRGB(GetForegroundColour()));
+        if ( !colFg.IsOk() )
+            colFg = GetForegroundColour();
+        ::SetTextColor(hdc, wxColourToRGB(colFg));
     }
 
     // finally also set the background colour for text drawing: without this,
     // the text in an edit control is drawn using the default background even
     // if we return a valid brush
-    if ( colBg.IsOk() || m_hasBgCol )
+    if ( colBg.IsOk() || m_backgroundColour.IsOk() )
     {
         if ( !colBg.IsOk() )
             colBg = GetBackgroundColour();
@@ -569,7 +562,17 @@ bool wxMSWOwnerDrawnButtonBase::MSWDrawButton(WXDRAWITEMSTRUCT *item)
     }
 
     // Erase the background.
-    ::FillRect(hdc, &rect, m_win->MSWGetBgBrush(hdc));
+    HBRUSH hbr = m_win->MSWGetBgBrush(hdc);
+    if ( !hbr && wxMSWDarkMode::IsActive() )
+    {
+        // We always need to use custom background in dark mode, default
+        // behaviour is never correct.
+        auto const colBg = m_win->GetBackgroundColour();
+        wxBrush* brush = wxTheBrushList->FindOrCreateBrush(colBg);
+        hbr = (WXHBRUSH)brush->GetResourceHandle();
+    }
+
+    ::FillRect(hdc, &rect, hbr);
 
     // draw the button itself
     wxDCTemp dc(hdc);

@@ -116,6 +116,7 @@ impl FlatDistributions {
                     filename,
                     file: Box::new(file),
                     index,
+                    size_is_authoritative: false,
                 };
                 match self.0.entry(version) {
                     Entry::Occupied(mut entry) => {
@@ -140,6 +141,7 @@ impl FlatDistributions {
                     file: Box::new(file),
                     index,
                     wheels: vec![],
+                    size_is_authoritative: false,
                 };
                 match self.0.entry(filename.version) {
                     Entry::Occupied(mut entry) => {
@@ -162,6 +164,14 @@ impl FlatDistributions {
         // Check if source distributions are allowed for this package.
         if build_options.no_build_package(&filename.name) {
             return SourceDistCompatibility::Incompatible(IncompatibleSource::NoBuild);
+        }
+
+        // Check if the filename is PEP 625-compliant.
+        // TODO: Strengthen this check more; right now we allow `.zip`
+        // (which is not compliant) and we don't strictly
+        // enforce the formatting rules for the name or version.
+        if !filename.extension.is_pep625_compliant() {
+            return SourceDistCompatibility::Incompatible(IncompatibleSource::NotPep625Filename);
         }
 
         // Check if hashes line up

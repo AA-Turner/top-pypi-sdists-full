@@ -20,19 +20,19 @@
 class WXDLLIMPEXP_CORE wxIFFHandler : public wxImageHandler
 {
 public:
-    wxIFFHandler()
+    wxIFFHandler() : wxImageHandler(
+        wxT("IFF file"),
+        wxT("iff"),
+        wxBITMAP_TYPE_IFF,
+        wxT("image/x-iff"))
     {
-        m_name = wxT("IFF file");
-        m_extension = wxT("iff");
-        m_type = wxBITMAP_TYPE_IFF;
-        m_mime = wxT("image/x-iff");
     }
 
 #if wxUSE_STREAMS
-    virtual bool LoadFile(wxImage *image, wxInputStream& stream, bool verbose=true, int index=-1) wxOVERRIDE;
-    virtual bool SaveFile(wxImage *image, wxOutputStream& stream, bool verbose=true) wxOVERRIDE;
+    virtual bool LoadFile(wxImage *image, wxInputStream& stream, bool verbose=true, int index=-1) override;
+    virtual bool SaveFile(wxImage *image, wxOutputStream& stream, bool verbose=true) override;
 protected:
-    virtual bool DoCanRead(wxInputStream& stream) wxOVERRIDE;
+    virtual bool DoCanRead(wxInputStream& stream) override;
 #endif
 
     wxDECLARE_DYNAMIC_CLASS(wxIFFHandler);

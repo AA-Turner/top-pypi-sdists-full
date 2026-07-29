@@ -12,6 +12,85 @@
 
 
 
+PyDoc_STRVAR(doc_wxVersionInfo_AtLeast, "AtLeast(major, minor=0, micro=0) -> bool\n"
+"\n"
+"Return true if the version is at least equal to the given one.");
+
+extern "C" {static PyObject *meth_wxVersionInfo_AtLeast(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxVersionInfo_AtLeast(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int major;
+        int minor = 0;
+        int micro = 0;
+        const ::wxVersionInfo *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_major,
+            sipName_minor,
+            sipName_micro,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi|ii", &sipSelf, sipType_wxVersionInfo, &sipCpp, &major, &minor, &micro))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->AtLeast(major, minor, micro);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_VersionInfo, sipName_AtLeast, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxVersionInfo_IsOk, "IsOk() -> bool\n"
+"\n"
+"Return true if there is actually at least some version information.");
+
+extern "C" {static PyObject *meth_wxVersionInfo_IsOk(PyObject *, PyObject *);}
+static PyObject *meth_wxVersionInfo_IsOk(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxVersionInfo *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxVersionInfo, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->IsOk();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_VersionInfo, sipName_IsOk, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxVersionInfo_GetName, "GetName() -> str\n"
 "\n"
 "Get the name of the object (library).");
@@ -217,6 +296,41 @@ static PyObject *meth_wxVersionInfo_ToString(PyObject *sipSelf, PyObject *sipArg
     }
 
     sipNoMethod(sipParseErr, sipName_VersionInfo, sipName_ToString, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxVersionInfo_GetNumericVersionString, "GetNumericVersionString() -> str\n"
+"\n"
+"Get the string representation of only numeric version components.");
+
+extern "C" {static PyObject *meth_wxVersionInfo_GetNumericVersionString(PyObject *, PyObject *);}
+static PyObject *meth_wxVersionInfo_GetNumericVersionString(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxVersionInfo *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxVersionInfo, &sipCpp))
+        {
+            ::wxString*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxString(sipCpp->GetNumericVersionString());
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxString, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_VersionInfo, sipName_GetNumericVersionString, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -516,28 +630,32 @@ static void *init_type_wxVersionInfo(sipSimpleWrapper *, PyObject *sipArgs, PyOb
 
 
 static PyMethodDef methods_wxVersionInfo[] = {
+    {sipName_AtLeast, SIP_MLMETH_CAST(meth_wxVersionInfo_AtLeast), METH_VARARGS|METH_KEYWORDS, doc_wxVersionInfo_AtLeast},
     {sipName_GetCopyright, meth_wxVersionInfo_GetCopyright, METH_VARARGS, doc_wxVersionInfo_GetCopyright},
     {sipName_GetDescription, meth_wxVersionInfo_GetDescription, METH_VARARGS, doc_wxVersionInfo_GetDescription},
     {sipName_GetMajor, meth_wxVersionInfo_GetMajor, METH_VARARGS, doc_wxVersionInfo_GetMajor},
     {sipName_GetMicro, meth_wxVersionInfo_GetMicro, METH_VARARGS, doc_wxVersionInfo_GetMicro},
     {sipName_GetMinor, meth_wxVersionInfo_GetMinor, METH_VARARGS, doc_wxVersionInfo_GetMinor},
     {sipName_GetName, meth_wxVersionInfo_GetName, METH_VARARGS, doc_wxVersionInfo_GetName},
+    {sipName_GetNumericVersionString, meth_wxVersionInfo_GetNumericVersionString, METH_VARARGS, doc_wxVersionInfo_GetNumericVersionString},
     {sipName_GetRevision, meth_wxVersionInfo_GetRevision, METH_VARARGS, doc_wxVersionInfo_GetRevision},
     {sipName_GetVersionString, meth_wxVersionInfo_GetVersionString, METH_VARARGS, doc_wxVersionInfo_GetVersionString},
     {sipName_HasCopyright, meth_wxVersionInfo_HasCopyright, METH_VARARGS, doc_wxVersionInfo_HasCopyright},
     {sipName_HasDescription, meth_wxVersionInfo_HasDescription, METH_VARARGS, doc_wxVersionInfo_HasDescription},
+    {sipName_IsOk, meth_wxVersionInfo_IsOk, METH_VARARGS, doc_wxVersionInfo_IsOk},
     {sipName_ToString, meth_wxVersionInfo_ToString, METH_VARARGS, doc_wxVersionInfo_ToString}
 };
 
 sipVariableDef variables_wxVersionInfo[] = {
-    {PropertyVariable, sipName_VersionString, &methods_wxVersionInfo[7], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Revision, &methods_wxVersionInfo[6], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Name, &methods_wxVersionInfo[5], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Minor, &methods_wxVersionInfo[4], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Micro, &methods_wxVersionInfo[3], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Major, &methods_wxVersionInfo[2], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Description, &methods_wxVersionInfo[1], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Copyright, &methods_wxVersionInfo[0], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_VersionString, &methods_wxVersionInfo[9], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Revision, &methods_wxVersionInfo[8], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_NumericVersionString, &methods_wxVersionInfo[7], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Name, &methods_wxVersionInfo[6], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Minor, &methods_wxVersionInfo[5], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Micro, &methods_wxVersionInfo[4], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Major, &methods_wxVersionInfo[3], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Description, &methods_wxVersionInfo[2], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Copyright, &methods_wxVersionInfo[1], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxVersionInfo, "VersionInfo(name=\"\", major=0, minor=0, micro=0, revision=0, description=\"\", copyright=\"\") -> None\n"
@@ -558,9 +676,9 @@ sipClassTypeDef sipTypeDef__core_wxVersionInfo = {
     {
         sipNameNr_VersionInfo,
         {0, 0, 1},
-        11, methods_wxVersionInfo,
+        14, methods_wxVersionInfo,
         0, SIP_NULLPTR,
-        8, variables_wxVersionInfo,
+        9, variables_wxVersionInfo,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxVersionInfo,

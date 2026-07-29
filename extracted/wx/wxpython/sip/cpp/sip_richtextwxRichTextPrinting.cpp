@@ -1028,7 +1028,7 @@ static void *init_type_wxRichTextPrinting(sipSimpleWrapper *, PyObject *sipArgs,
         const ::wxString& namedef = "Printing";
         const ::wxString* name = &namedef;
         int nameState = 0;
-        ::wxWindow* parentWindow = 0;
+        ::wxWindow* parentWindow = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_name,
@@ -1059,7 +1059,7 @@ static void *init_type_wxRichTextPrinting(sipSimpleWrapper *, PyObject *sipArgs,
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxRichTextPrinting[] = {{42, 0, 1}};
+static sipEncodedTypeDef supers_wxRichTextPrinting[] = {{43, 0, 1}};
 
 
 static PyMethodDef methods_wxRichTextPrinting[] = {
@@ -1100,7 +1100,7 @@ sipVariableDef variables_wxRichTextPrinting[] = {
     {PropertyVariable, sipName_FooterText, &methods_wxRichTextPrinting[0], &methods_wxRichTextPrinting[13], SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxRichTextPrinting, "RichTextPrinting(name=\"Printing\", parentWindow=None) -> None\n"
+PyDoc_STRVAR(doc_wxRichTextPrinting, "RichTextPrinting(name=\"Printing\", parentWindow=nullptr) -> None\n"
 "\n"
 "This class provides a simple interface for performing wxRichTextBuffer\n"
 "printing and previewing.");

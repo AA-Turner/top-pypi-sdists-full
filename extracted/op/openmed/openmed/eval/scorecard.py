@@ -136,8 +136,12 @@ class ModelScorecard:
             if model_tier is not None
             else None
         )
+        device_rows = [self._device_row(device) for device in self._devices()]
         return {
-            "device_tiers": [self._device_row(device) for device in self._devices()],
+            "covered_scripts": sorted(
+                {script for row in device_rows for script in row["per_script"]}
+            ),
+            "device_tiers": device_rows,
             "family": self.family,
             "fixture_count": self.fixture_count,
             "latest_generated_at": self.latest_generated_at,
@@ -211,10 +215,11 @@ class ModelScorecard:
             (
                 "| Device Tier | Targeted | Reports | Fixtures | Recall | "
                 "Critical Finding Recall | Leakage Rate | Strict RE-F1 | "
-                "Relaxed RE-F1 | Per-Type RE-F1 | Latency p50/p95 ms | "
+                "Relaxed RE-F1 | Per-Type RE-F1 | Per-Language RE-F1 | "
+                "Latency p50/p95 ms | "
                 "Peak RSS MB | Model Size MB |"
             ),
-            "|---|---|---:|---:|---:|---:|---:|---:|---:|---|---:|---:|---:|",
+            ("|---|---|---:|---:|---:|---:|---:|---:|---:|---|---|---:|---:|---:|"),
         ]
         for row in payload["device_tiers"]:
             lines.append(
@@ -229,10 +234,38 @@ class ModelScorecard:
                 f"{_format_percent_or_placeholder(row['relation_strict_f1'], self.placeholder)} | "
                 f"{_format_percent_or_placeholder(row['relation_relaxed_f1'], self.placeholder)} | "
                 f"{_format_relation_type_f1(row['relation_per_type_f1'], self.placeholder)} | "
+                f"{_format_relation_type_f1(row['relation_per_language_f1'], self.placeholder)} | "
                 f"{_format_latency(row, self.placeholder)} | "
                 f"{_format_number_or_placeholder(row['peak_rss_mb'], self.placeholder)} | "
                 f"{_format_number_or_placeholder(row['model_size_mb'], self.placeholder)} |"
             )
+        lines.extend(["", "## Per-Script Leakage and Recall", ""])
+        script_rows = [
+            (row["device_tier"], script, values)
+            for row in payload["device_tiers"]
+            for script, values in row["per_script"].items()
+        ]
+        if not script_rows:
+            lines.append("No per-script gold coverage was reported.")
+        else:
+            lines.extend(
+                [
+                    (
+                        "| Device Tier | Script | Recall | Leakage Rate | "
+                        "Covered/Total Graphemes | Leaked/Total Graphemes |"
+                    ),
+                    "|---|---|---:|---:|---:|---:|",
+                ]
+            )
+            for device, script, values in script_rows:
+                lines.append(
+                    "| "
+                    f"`{device}` | `{script}` | "
+                    f"{_format_percent_or_placeholder(values['recall'], self.placeholder)} | "
+                    f"{_format_percent_or_placeholder(values['leakage_rate'], self.placeholder)} | "
+                    f"{_format_grapheme_counts(values['covered_graphemes'], values['total_graphemes'], self.placeholder)} | "
+                    f"{_format_grapheme_counts(values['leaked_graphemes'], values['total_graphemes'], self.placeholder)} |"
+                )
         return "\n".join(lines) + "\n"
 
     def write_markdown(self, path: str | Path) -> Path:
@@ -264,7 +297,9 @@ class ModelScorecard:
             "latency_p95_ms": _aggregate_latency(reports, "p95_ms"),
             "model_size_mb": _aggregate_model_size_mb(reports, self.manifest_row),
             "peak_rss_mb": _aggregate_peak_rss_mb(reports, self.manifest_row, device),
+            "per_script": _aggregate_per_script(reports),
             "recall": _aggregate_recall(reports),
+            "relation_per_language_f1": _aggregate_relation_per_language_f1(reports),
             "relation_per_type_f1": _aggregate_relation_per_type_f1(reports),
             "relation_relaxed_f1": _aggregate_relation_f1(reports, "relaxed"),
             "relation_strict_f1": _aggregate_relation_f1(reports, "strict"),
@@ -342,6 +377,86 @@ def _aggregate_recall(reports: Sequence[BenchmarkReport]) -> float | None:
             "exact_span_f1.recall",
         ),
     )
+
+
+def _aggregate_per_script(
+    reports: Sequence[BenchmarkReport],
+) -> dict[str, dict[str, float | int | None]]:
+    totals: dict[str, int] = {}
+    covered: dict[str, int] = {}
+    leaked: dict[str, int] = {}
+    recall_values: dict[str, list[float]] = {}
+    leakage_values: dict[str, list[float]] = {}
+
+    for report in reports:
+        metrics = _plain(report.metrics)
+        recall_rates = _script_number_map(
+            _nested_get(metrics, "recall_slices.by_script")
+        )
+        leakage_rates = _script_number_map(_nested_get(metrics, "leakage.by_script"))
+        total_counts = _script_number_map(
+            _nested_get(metrics, "recall_slices.total_graphemes_by_script")
+            or _nested_get(metrics, "recall_slices.total_chars_by_script")
+            or _nested_get(metrics, "leakage.total_graphemes_by_script")
+            or _nested_get(metrics, "leakage.total_chars_by_script")
+        )
+        covered_counts = _script_number_map(
+            _nested_get(metrics, "recall_slices.covered_graphemes_by_script")
+            or _nested_get(metrics, "recall_slices.covered_chars_by_script")
+        )
+        leaked_counts = _script_number_map(
+            _nested_get(metrics, "leakage.leaked_graphemes_by_script")
+            or _nested_get(metrics, "leakage.leaked_chars_by_script")
+        )
+        scripts = (
+            set(recall_rates)
+            | set(leakage_rates)
+            | set(total_counts)
+            | set(covered_counts)
+            | set(leaked_counts)
+        )
+        for script in scripts:
+            if script in total_counts:
+                totals[script] = totals.get(script, 0) + int(total_counts[script])
+            if script in covered_counts:
+                covered[script] = covered.get(script, 0) + int(covered_counts[script])
+            if script in leaked_counts:
+                leaked[script] = leaked.get(script, 0) + int(leaked_counts[script])
+            if script in recall_rates:
+                recall_values.setdefault(script, []).append(recall_rates[script])
+            if script in leakage_rates:
+                leakage_values.setdefault(script, []).append(leakage_rates[script])
+
+    result: dict[str, dict[str, float | int | None]] = {}
+    scripts = (
+        set(totals)
+        | set(covered)
+        | set(leaked)
+        | set(recall_values)
+        | set(leakage_values)
+    )
+    for script in sorted(scripts):
+        total = totals.get(script)
+        script_covered = covered.get(script)
+        script_leaked = leaked.get(script)
+        recall = (
+            script_covered / total
+            if total and script_covered is not None
+            else _mean_or_none(recall_values.get(script, ()))
+        )
+        leakage = (
+            script_leaked / total
+            if total and script_leaked is not None
+            else _mean_or_none(leakage_values.get(script, ()))
+        )
+        result[script] = {
+            "recall": recall,
+            "leakage_rate": leakage,
+            "covered_graphemes": script_covered,
+            "leaked_graphemes": script_leaked,
+            "total_graphemes": total,
+        }
+    return result
 
 
 def _aggregate_critical_finding_recall(
@@ -422,6 +537,40 @@ def _aggregate_relation_per_type_f1(
             "strict": _aggregate_f1_metrics(metrics["strict"]),
         }
         for relation_type, metrics in sorted(by_type.items())
+    }
+
+
+def _aggregate_relation_per_language_f1(
+    reports: Sequence[BenchmarkReport],
+) -> dict[str, dict[str, float | None]]:
+    by_language: dict[str, dict[str, list[Mapping[str, Any]]]] = {}
+    for report in reports:
+        metrics = _plain(report.metrics)
+        per_language = _nested_get(metrics, "relation_extraction.per_language")
+        if per_language is None:
+            per_language = _nested_get(metrics, "per_language_relation_f1")
+        if not isinstance(per_language, Mapping):
+            continue
+        for language, payload in per_language.items():
+            if not isinstance(payload, Mapping):
+                continue
+            bucket = by_language.setdefault(
+                str(language),
+                {"relaxed": [], "strict": []},
+            )
+            strict = payload.get("strict")
+            relaxed = payload.get("relaxed")
+            if isinstance(strict, Mapping):
+                bucket["strict"].append(strict)
+            if isinstance(relaxed, Mapping):
+                bucket["relaxed"].append(relaxed)
+
+    return {
+        language: {
+            "relaxed": _aggregate_f1_metrics(metrics["relaxed"]),
+            "strict": _aggregate_f1_metrics(metrics["strict"]),
+        }
+        for language, metrics in sorted(by_language.items())
     }
 
 
@@ -607,6 +756,23 @@ def _number_or_none(value: Any) -> float | None:
     return None
 
 
+def _script_number_map(value: Any) -> dict[str, float]:
+    if not isinstance(value, Mapping):
+        return {}
+    result: dict[str, float] = {}
+    for script, raw in value.items():
+        parsed = _number_or_none(raw)
+        if parsed is not None:
+            result[str(script)] = parsed
+    return result
+
+
+def _mean_or_none(values: Sequence[float]) -> float | None:
+    if not values:
+        return None
+    return sum(values) / len(values)
+
+
 def _safe_ratio(
     numerator: float,
     denominator: float,
@@ -651,6 +817,16 @@ def _format_number_or_placeholder(value: Any, placeholder: str) -> str:
     if value is None:
         return placeholder
     return _format_value(value)
+
+
+def _format_grapheme_counts(
+    numerator: Any,
+    denominator: Any,
+    placeholder: str,
+) -> str:
+    if numerator is None or denominator is None:
+        return placeholder
+    return f"{_format_value(numerator)}/{_format_value(denominator)}"
 
 
 def _format_latency(row: Mapping[str, Any], placeholder: str) -> str:

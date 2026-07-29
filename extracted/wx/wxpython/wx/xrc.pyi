@@ -93,9 +93,9 @@ class XmlResource(Object):
         Add a new handler at the beginning of the handler list.
         """
 
-    def AttachUnknownControl(self, name: str, control: Window, parent: Optional[Window]=None) -> bool:
+    def AttachUnknownControl(self, name: str, control: Window, parent: Window=nullptr) -> bool:
         """
-        AttachUnknownControl(name, control, parent=None) -> bool
+        AttachUnknownControl(name, control, parent=nullptr) -> bool
         
         Attaches an unknown control to the given panel/window/dialog.
         """
@@ -113,6 +113,13 @@ class XmlResource(Object):
         CompareVersion(major, minor, release, revision) -> int
         
         Compares the XRC version to the argument.
+        """
+
+    def EnableFeature(self, feature: str) -> None:
+        """
+        EnableFeature(feature) -> None
+        
+        Add a feature considered to be enabled.
         """
 
     def GetDomain(self) -> str:
@@ -136,7 +143,7 @@ class XmlResource(Object):
         GetResourceNode(name) -> XmlNode
         
         Returns the wxXmlNode containing the definition of the object with the
-        given name or NULL.
+        given name or nullptr.
         """
 
     def GetVersion(self) -> int:
@@ -348,7 +355,7 @@ class XmlResource(Object):
         """
         Set(res) -> XmlResource
         
-        Sets the global resources object and returns a pointer to the previous one (may be NULL).
+        Sets the global resources object and returns a pointer to the previous one (may be nullptr).
         """
 
     def LoadFromBuffer(self, data: PyBuffer) -> bool:
@@ -475,23 +482,23 @@ class XmlResourceHandler(Object):
         Creates children.
         """
 
-    def CreateChildrenPrivately(self, parent: Object, rootnode: Optional[XmlNode]=None) -> None:
+    def CreateChildrenPrivately(self, parent: Object, rootnode: XmlNode=nullptr) -> None:
         """
-        CreateChildrenPrivately(parent, rootnode=None) -> None
+        CreateChildrenPrivately(parent, rootnode=nullptr) -> None
         
         Helper function.
         """
 
-    def CreateResFromNode(self, node: XmlNode, parent: Object, instance: Optional[Object]=None) -> Object:
+    def CreateResFromNode(self, node: XmlNode, parent: Object, instance: Object=nullptr) -> Object:
         """
-        CreateResFromNode(node, parent, instance=None) -> Object
+        CreateResFromNode(node, parent, instance=nullptr) -> Object
         
         Creates a resource from a node.
         """
 
-    def GetAnimation(self, param: str="animation", ctrl: Optional[AnimationCtrl]=None) -> Animation:
+    def GetAnimation(self, param: str="animation", ctrl: AnimationCtrl=nullptr) -> Animation:
         """
-        GetAnimation(param="animation", ctrl=None) -> Animation
+        GetAnimation(param="animation", ctrl=nullptr) -> Animation
         
         Creates an animation (see wxAnimation) from the filename specified in
         param.
@@ -531,11 +538,11 @@ class XmlResourceHandler(Object):
         false).
         """
 
-    def GetColour(self, param: str, defaultColour: Colour=NullColour) -> Colour:
+    def GetColour(self, param: str, defaultLight: Colour=NullColour, defaultDark: Colour=NullColour) -> Colour:
         """
-        GetColour(param, defaultColour=NullColour) -> Colour
+        GetColour(param, defaultLight=NullColour, defaultDark=NullColour) -> Colour
         
-        Gets colour in HTML syntax (#RRGGBB).
+        Gets colour from the given parameter.
         """
 
     def GetCurFileSystem(self) -> FileSystem:
@@ -545,9 +552,9 @@ class XmlResourceHandler(Object):
         Returns the current file system.
         """
 
-    def GetDimension(self, param: str, defaultv: int=0, windowToUse: Window=0) -> int:
+    def GetDimension(self, param: str, defaultv: int=0, windowToUse: Window=nullptr) -> int:
         """
-        GetDimension(param, defaultv=0, windowToUse=0) -> int
+        GetDimension(param, defaultv=0, windowToUse=nullptr) -> int
         
         Gets a dimension (may be in dialog units).
         """
@@ -628,6 +635,20 @@ class XmlResourceHandler(Object):
         Checks if the given node is an object node.
         """
 
+    def GetNodeName(self, node: XmlNode) -> str:
+        """
+        GetNodeName(node) -> str
+        
+        Returns the node name.
+        """
+
+    def GetNodeAttribute(self, node: XmlNode, attrName: str, defaultValue: str={}) -> str:
+        """
+        GetNodeAttribute(node, attrName, defaultValue={}) -> str
+        
+        Gets the node attribute value.
+        """
+
     def GetNodeContent(self, node: XmlNode) -> str:
         """
         GetNodeContent(node) -> str
@@ -646,21 +667,22 @@ class XmlResourceHandler(Object):
         """
         GetNodeNext(node) -> XmlNode
         
-        Gets the next sibling node related to the given node, possibly NULL.
+        Gets the next sibling node related to the given node, possibly
+        nullptr.
         """
 
     def GetNodeChildren(self, node: XmlNode) -> XmlNode:
         """
         GetNodeChildren(node) -> XmlNode
         
-        Gets the first child of the given node or NULL.
+        Gets the first child of the given node or nullptr.
         """
 
     def GetParamNode(self, param: str) -> XmlNode:
         """
         GetParamNode(param) -> XmlNode
         
-        Finds the node or returns NULL.
+        Finds the node or returns nullptr.
         """
 
     @overload
@@ -676,16 +698,16 @@ class XmlResourceHandler(Object):
         Finds the parameter value or returns the empty string.
         """
 
-    def GetPosition(self, param: str="pos") -> Point:
+    def GetPosition(self, param: str="pos", windowToUse: Window=nullptr) -> Point:
         """
-        GetPosition(param="pos") -> Point
+        GetPosition(param="pos", windowToUse=nullptr) -> Point
         
         Gets the position (may be in dialog units).
         """
 
-    def GetSize(self, param: str="size", windowToUse: Window=0) -> Size:
+    def GetSize(self, param: str="size", windowToUse: Window=nullptr) -> Size:
         """
-        GetSize(param="size", windowToUse=0) -> Size
+        GetSize(param="size", windowToUse=nullptr) -> Size
         
         Gets the size (may be in dialog units).
         """

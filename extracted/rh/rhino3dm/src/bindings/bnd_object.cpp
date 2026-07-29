@@ -5,7 +5,14 @@
 std::string StringFromDict(BND_DICT& d, const char* key)
 {
 #if defined(ON_PYTHON_COMPILE)
+
+#if defined(NANOBIND)
+  nanobind::handle value_handle = d[key];
+  std::string rc = ToStdString(nanobind::str(value_handle));
+#else
   std::string rc = ToStdString(py::str(d[key]));
+#endif
+
 #else
   std::string rc = d[key].as<std::string>();
 #endif
@@ -29,7 +36,9 @@ void SetDictValue(BND_DICT& d, const char* key, T& value)
 #if defined(ON_PYTHON_COMPILE)
   d[key] = value;
 #else
-  d.set(key, emscripten::val(value));
+  // embind (emscripten >= ~4.0) forbids implicitly marshaling registered-class
+  // raw pointers into a val; the policy is harmless for non-pointer values.
+  d.set(key, emscripten::val(value, emscripten::allow_raw_pointers()));
 #endif
 }
 

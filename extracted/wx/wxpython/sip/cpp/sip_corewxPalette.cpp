@@ -454,7 +454,7 @@ static void *init_type_wxPalette(sipSimpleWrapper *, PyObject *sipArgs, PyObject
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxPalette[] = {{226, 255, 1}};
+static sipEncodedTypeDef supers_wxPalette[] = {{234, 255, 1}};
 
 
 static PyMethodDef methods_wxPalette[] = {

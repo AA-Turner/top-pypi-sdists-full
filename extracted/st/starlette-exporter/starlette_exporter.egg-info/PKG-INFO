@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: starlette_exporter
-Version: 0.23.0
+Version: 0.24.0
 Summary: Prometheus metrics exporter for Starlette applications.
 Home-page: https://github.com/stephenhillier/starlette_exporter
 Author: Stephen Hillier
@@ -11,6 +11,16 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: prometheus_client>=0.12
 Requires-Dist: starlette>=0.35
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # starlette_exporter
 
@@ -256,12 +266,12 @@ For more information, see the [Prometheus Python client documentation](https://g
 
 ## Developing
 
-This package supports Python 3.6+.
+This package supports Python 3.8+.
 
 ```sh
 git clone https://github.com/stephenhillier/starlette_exporter
 cd starlette_exporter
-pytest tests
+python -m pytest tests
 ```
 
 ## License

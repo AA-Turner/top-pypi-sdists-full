@@ -624,7 +624,14 @@ async def create_workspace_non_interactive(
             await fork_workspace(client, user_client, created_workspace)
 
     except Exception as e:
-        raise CLIWorkspaceException(FeedbackManager.error_exception(error=str(e)))
+        message = str(e)
+        # The server (POST /v0/workspaces) rejects Classic workspace creation for
+        # non-enterprise organizations with this deprecation error. The API is the
+        # source of truth; we only reformat its message so it isn't buried behind a
+        # generic "Forbidden:" prefix. Matched on the stable migration-guide URL.
+        if "migrate-from-classic" in message:
+            raise CLIWorkspaceException(FeedbackManager.error_classic_workspace_creation_deprecated())
+        raise CLIWorkspaceException(FeedbackManager.error_exception(error=message))
 
 
 async def create_workspace_interactive(
@@ -963,7 +970,7 @@ async def push_data(
     sql_condition: Optional[str] = None,
     replace_options=None,
     concurrency: int = 1,
-    use_v1: bool = False,
+    wait: bool = True,
 ) -> Optional[list[str]]:
     if url and type(url) is tuple:
         url = url[0]
@@ -1001,11 +1008,11 @@ async def push_data(
         datasource_name: str, url: str, mode: str, sql_condition: Optional[str], replace_options: Optional[Set[str]]
     ):
         parsed = urlparse(url)
-        if use_v1 and parsed.scheme in ("http", "https"):
-            raise CLIException("--experimental=use_v1 only supports local files.")
+        # Remote URL imports retain the v0 API; local files use v1 body imports.
+        is_remote_url = parsed.scheme in ("http", "https")
         # poor man's format detection
         _format = get_format_from_filename_or_url(url)
-        if parsed.scheme in ("http", "https"):
+        if is_remote_url:
             res = await client.datasource_create_from_url(
                 datasource_name,
                 url,
@@ -1023,13 +1030,12 @@ async def push_data(
                 sql_condition=sql_condition,
                 format=_format,
                 replace_options=replace_options,
-                use_v1=use_v1,
             )
 
-        if use_v1:
+        if not is_remote_url:
             job_id = res.get("id") or res.get("import_id")
             if not isinstance(job_id, str):
-                raise CLIException("The v1 import response did not include a job ID.")
+                raise CLIException("We couldn't confirm that your import started. Please try again.")
             return job_id
 
         datasource_name = res["datasource"]["name"]
@@ -1062,8 +1068,22 @@ async def push_data(
     try:
         tasks = [process_url(datasource_name, url, mode, sql_condition, replace_options) for url in urls]
         output = await gather_with_concurrency(concurrency, *tasks)
-        if use_v1:
-            return list(output)
+        v1_job_ids = [result for result in output if isinstance(result, str)]
+        if v1_job_ids:
+            if not wait:
+                return v1_job_ids
+            for job_id in v1_job_ids:
+                await wait_job_no_ui(client, job_id)
+            datasource = await client.get_datasource(datasource_name)
+            total_rows = (datasource.get("statistics", {}) or {}).get("row_count", 0)
+            click.echo(FeedbackManager.success_total_rows(datasource=datasource_name, total_rows=total_rows))
+            if mode == "replace":
+                click.echo(FeedbackManager.success_replaced_datasource(datasource=datasource_name))
+            else:
+                click.echo(FeedbackManager.success_appended_datasource(datasource=datasource_name))
+            click.echo(FeedbackManager.success_progress_blocks())
+            click.echo(FeedbackManager.info_data_pushed(datasource=datasource_name))
+            return None
         parser, total_rows, appended_rows = list(output)[-1]
     except AuthNoTokenException:
         raise
@@ -2012,6 +2032,35 @@ async def get_organizations_by_user(ctx: Context, user_token: str) -> List[Dict[
     except Exception as e:
         raise CLIWorkspaceException(FeedbackManager.error_while_fetching_orgs(error=str(e)))
     return organizations
+
+
+CLASSIC_WORKSPACE_CREATION_ALLOWED_ORGANIZATION_BILLING_PLANS = {
+    "infrastructure_usage",
+    "shared_infrastructure_usage_commitment",
+    "mixed_infrastructure_usage",
+}
+
+
+def get_organization_billing_plan(organization: Dict[str, Any]) -> Optional[str]:
+    plan = organization.get("plan")
+    if isinstance(plan, dict):
+        billing = plan.get("billing")
+        return billing if isinstance(billing, str) else None
+
+    for field in ("billing", "commitment_billing"):
+        billing = organization.get(field)
+        if isinstance(billing, str):
+            return billing
+
+    return None
+
+
+def get_classic_workspace_creation_organizations(organizations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return [
+        organization
+        for organization in organizations
+        if get_organization_billing_plan(organization) in CLASSIC_WORKSPACE_CREATION_ALLOWED_ORGANIZATION_BILLING_PLANS
+    ]
 
 
 OrgType = Literal["tinybird", "domain", "admin", "member"]

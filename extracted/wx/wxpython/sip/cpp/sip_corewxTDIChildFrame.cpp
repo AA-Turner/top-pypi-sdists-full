@@ -10,6 +10,7 @@
 #include "sipAPI_core.h"
         #include <wx/mdi.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/gdicmn.h>
         #include <wx/validate.h>
@@ -25,15 +26,15 @@
         #include <wx/region.h>
         #include <wx/graphics.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -90,7 +91,7 @@ static void dealloc_wxTDIChildFrame(sipSimpleWrapper *sipSelf)
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxTDIChildFrame[] = {{346, 255, 1}};
+static sipEncodedTypeDef supers_wxTDIChildFrame[] = {{353, 255, 1}};
 
 
 sipClassTypeDef sipTypeDef__core_wxTDIChildFrame = {

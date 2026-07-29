@@ -65,9 +65,9 @@ sipwxQueryNewPaletteEvent::~sipwxQueryNewPaletteEvent()
     if (!sipMeth)
         return ::wxQueryNewPaletteEvent::Clone();
 
-    extern ::wxEvent* sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEvent* sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxEventCategory sipwxQueryNewPaletteEvent::GetEventCategory() const
@@ -80,9 +80,9 @@ sipwxQueryNewPaletteEvent::~sipwxQueryNewPaletteEvent()
     if (!sipMeth)
         return ::wxQueryNewPaletteEvent::GetEventCategory();
 
-    extern ::wxEventCategory sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEventCategory sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
@@ -287,7 +287,7 @@ static void *init_type_wxQueryNewPaletteEvent(sipSimpleWrapper *sipSelf, PyObjec
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxQueryNewPaletteEvent[] = {{151, 255, 1}};
+static sipEncodedTypeDef supers_wxQueryNewPaletteEvent[] = {{158, 255, 1}};
 
 
 static PyMethodDef methods_wxQueryNewPaletteEvent[] = {

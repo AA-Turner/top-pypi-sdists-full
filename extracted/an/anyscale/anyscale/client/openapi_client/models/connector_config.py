@@ -120,7 +120,7 @@ class ConnectorConfig(object):
     def oidc_issuer(self):
         """Gets the oidc_issuer of this ConnectorConfig.  # noqa: E501
 
-        The dataplane cluster's OIDC issuer URL. The control plane matches the 'iss' claim of OIDC tokens against this value during registration. Example: https://oidc.eks.us-west-2.amazonaws.com/id/<cluster-id>.  # noqa: E501
+        The dataplane cluster's OIDC issuer URL. The control plane matches the 'iss' claim of OIDC tokens against this value during registration. Example: `https://oidc.eks.us-west-2.amazonaws.com/id/<cluster-id>`.  # noqa: E501
 
         :return: The oidc_issuer of this ConnectorConfig.  # noqa: E501
         :rtype: str
@@ -131,7 +131,7 @@ class ConnectorConfig(object):
     def oidc_issuer(self, oidc_issuer):
         """Sets the oidc_issuer of this ConnectorConfig.
 
-        The dataplane cluster's OIDC issuer URL. The control plane matches the 'iss' claim of OIDC tokens against this value during registration. Example: https://oidc.eks.us-west-2.amazonaws.com/id/<cluster-id>.  # noqa: E501
+        The dataplane cluster's OIDC issuer URL. The control plane matches the 'iss' claim of OIDC tokens against this value during registration. Example: `https://oidc.eks.us-west-2.amazonaws.com/id/<cluster-id>`.  # noqa: E501
 
         :param oidc_issuer: The oidc_issuer of this ConnectorConfig.  # noqa: E501
         :type: str
@@ -145,7 +145,7 @@ class ConnectorConfig(object):
     def jwks_uri(self):
         """Gets the jwks_uri of this ConnectorConfig.  # noqa: E501
 
-        The JWKS endpoint the control plane fetches the dataplane cluster's public signing keys from to verify OIDC token signatures. Example: https://oidc.eks.us-west-2.amazonaws.com/id/<cluster-id>/keys.  # noqa: E501
+        The JWKS endpoint the control plane fetches the dataplane cluster's public signing keys from to verify OIDC token signatures. Example: `https://oidc.eks.us-west-2.amazonaws.com/id/<cluster-id>/keys`.  # noqa: E501
 
         :return: The jwks_uri of this ConnectorConfig.  # noqa: E501
         :rtype: str
@@ -156,7 +156,7 @@ class ConnectorConfig(object):
     def jwks_uri(self, jwks_uri):
         """Sets the jwks_uri of this ConnectorConfig.
 
-        The JWKS endpoint the control plane fetches the dataplane cluster's public signing keys from to verify OIDC token signatures. Example: https://oidc.eks.us-west-2.amazonaws.com/id/<cluster-id>/keys.  # noqa: E501
+        The JWKS endpoint the control plane fetches the dataplane cluster's public signing keys from to verify OIDC token signatures. Example: `https://oidc.eks.us-west-2.amazonaws.com/id/<cluster-id>/keys`.  # noqa: E501
 
         :param jwks_uri: The jwks_uri of this ConnectorConfig.  # noqa: E501
         :type: str

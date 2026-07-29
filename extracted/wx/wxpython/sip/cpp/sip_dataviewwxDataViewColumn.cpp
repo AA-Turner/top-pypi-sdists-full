@@ -1439,7 +1439,7 @@ static void *init_type_wxDataViewColumn(sipSimpleWrapper *sipSelf, PyObject *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxDataViewColumn[] = {{30, 0, 1}};
+static sipEncodedTypeDef supers_wxDataViewColumn[] = {{31, 0, 1}};
 
 
 static PyMethodDef methods_wxDataViewColumn[] = {

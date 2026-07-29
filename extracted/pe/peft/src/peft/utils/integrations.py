@@ -115,10 +115,10 @@ def dequantize_bnb_weight(weight: torch.nn.Parameter, state=None):
 
     if hasattr(bnb.functional, "int8_vectorwise_dequant"):
         # Use bitsandbytes API if available (requires v0.45.0+)
-        dequantized = bnb.functional.int8_vectorwise_dequant(weight.data, state.SCB)
+        dequantized = bnb.functional.int8_vectorwise_dequant(weight.data, state.SCB.to(weight.data.device))
     else:
         # Multiply by (scale/127) to dequantize.
-        dequantized = weight.data * state.SCB.view(-1, 1) * 7.874015718698502e-3
+        dequantized = weight.data * state.SCB.to(weight.data.device).view(-1, 1) * 7.874015718698502e-3
 
     return dequantized
 
@@ -138,7 +138,7 @@ def get_layer_device_map(model):
     """
     Derive the device map for the layers of the model.
     """
-    main_device = [d for d in model.hf_device_map.values() if d not in ["cpu", "disk"]][0]
+    main_device = next(d for d in model.hf_device_map.values() if d not in ["cpu", "disk"])
 
     execution_device_map = {
         name: main_device if device in ["cpu", "disk"] else device for name, device in model.hf_device_map.items()
@@ -199,18 +199,17 @@ def map_cache_to_layer_device_map(model, cache) -> None:
 
 
 @contextmanager
-def init_empty_weights(include_buffers: bool = None):
+def init_empty_weights(include_buffers: bool | None = None):
     # adapted from accelerate.big_modeling.py
     with _init_on_device(torch.device("meta"), include_buffers=include_buffers) as f:
         yield f
 
 
 @contextmanager
-def _init_on_device(device: torch.device, include_buffers: bool = None):
+def _init_on_device(device: torch.device, include_buffers: bool | None = None):
     # adapted from accelerate.big_modeling.py
     old_register_parameter = nn.Module.register_parameter
-    if include_buffers:
-        old_register_buffer = nn.Module.register_buffer
+    old_register_buffer = nn.Module.register_buffer
 
     def register_empty_parameter(module, name, param):
         # This works because torch first initializes the parameters with torch.empty, thus not assigning any new memory.
@@ -280,7 +279,7 @@ def skip_init_on_device(func):
     """
 
     # The need for this functionality arose when working on MultiheadAttention, where we have to call _restore_weights
-    # repeatedly as parametes are overwritten and need to be re-registered. When using low_cpu_mem_usage=True, as
+    # repeatedly as parameters are overwritten and need to be re-registered. When using low_cpu_mem_usage=True, as
     # register_parameter is patched inside of the init_empty_weights context, this would result in those parameters
     # suddenly being moved to meta device. Using this decorator allows us to avoid this.
     @functools.wraps(func)

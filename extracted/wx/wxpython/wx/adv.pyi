@@ -169,14 +169,14 @@ class AboutDialogInfo:
         Returns true if an icon has been set for the about dialog.
         """
 
-    def GetIcon(self) -> wx.Icon:
+    def GetIcon(self, window: wx.Window=nullptr) -> wx.Icon:
         """
-        GetIcon() -> wx.Icon
+        GetIcon(window=nullptr) -> wx.Icon
         
         Returns the icon set by SetIcon().
         """
 
-    def SetIcon(self, icon: wx.Icon) -> None:
+    def SetIcon(self, icon: wx.BitmapBundle) -> None:
         """
         SetIcon(icon) -> None
         
@@ -352,9 +352,9 @@ class AboutDialogInfo:
     @DocWriters.setter
     def DocWriters(self, value: List[str], /) -> None: ...
     @property
-    def Icon(self) -> wx.Icon: ...
+    def Icon(self) -> wx.BitmapBundle: ...
     @Icon.setter
-    def Icon(self, value: wx.Icon, /) -> None: ...
+    def Icon(self, value: wx.BitmapBundle, /) -> None: ...
     @property
     def Licence(self) -> str: ...
     @Licence.setter
@@ -384,15 +384,15 @@ class AboutDialogInfo:
 # end of class AboutDialogInfo
 
 
-def AboutBox(info: AboutDialogInfo, parent: Optional[wx.Window]=None) -> None:    """
-    AboutBox(info, parent=None) -> None
+def AboutBox(info: AboutDialogInfo, parent: wx.Window=nullptr) -> None:    """
+    AboutBox(info, parent=nullptr) -> None
     
     This function shows the standard about dialog containing the
     information specified in info.
     """
 
-def GenericAboutBox(info: AboutDialogInfo, parent: Optional[wx.Window]=None) -> None:    """
-    GenericAboutBox(info, parent=None) -> None
+def GenericAboutBox(info: AboutDialogInfo, parent: wx.Window=nullptr) -> None:    """
+    GenericAboutBox(info, parent=nullptr) -> None
     
     This function does the same thing as wxAboutBox() except that it
     always uses the generic wxWidgets version of the dialog instead of the
@@ -403,14 +403,14 @@ def GenericAboutBox(info: AboutDialogInfo, parent: Optional[wx.Window]=None) -> 
 
 class ExtHelpController(wx.HelpControllerBase):
     """
-    ExtHelpController(parentWindow=None) -> None
+    ExtHelpController(parentWindow=nullptr) -> None
     
     This class implements help via an external browser.
     """
 
-    def __init__(self, parentWindow: Optional[wx.Window]=None) -> None:
+    def __init__(self, parentWindow: wx.Window=nullptr) -> None:
         """
-        ExtHelpController(parentWindow=None) -> None
+        ExtHelpController(parentWindow=nullptr) -> None
         
         This class implements help via an external browser.
         """
@@ -501,9 +501,9 @@ class ExtHelpController(wx.HelpControllerBase):
         Allows one to override the default settings for the help frame.
         """
 
-    def GetFrameParameters(self, size: Optional[wx.Size]=None, pos: Optional[wx.Point]=None, newFrameEachTime: Optional[bool]=None) -> wx.Frame:
+    def GetFrameParameters(self, size: wx.Size=nullptr, pos: wx.Point=nullptr, newFrameEachTime: bool=nullptr) -> wx.Frame:
         """
-        GetFrameParameters(size=None, pos=None, newFrameEachTime=None) -> wx.Frame
+        GetFrameParameters(size=nullptr, pos=nullptr, newFrameEachTime=nullptr) -> wx.Frame
         
         Obtains the latest settings used by the help frame and the help frame.
         """
@@ -591,6 +591,11 @@ class CommandLinkButton(wx.Button):
         GetNote() -> str
         
         Returns the currently used note.
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
         """
 
     @staticmethod
@@ -749,6 +754,11 @@ class DatePickerCtrl(wx.Control):
         Changes the current value of the control.
         """
 
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
@@ -823,6 +833,11 @@ class DatePickerCtrlGeneric(wx.Control):
         SetValue(dt) -> None
         
         Changes the current value of the control.
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
         """
 
     @staticmethod
@@ -1301,6 +1316,11 @@ class CalendarCtrl(wx.Control):
         Mark or unmark the day.
         """
 
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
@@ -1527,6 +1547,11 @@ class GenericCalendarCtrl(wx.Control):
         Mark or unmark the day.
         """
 
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
@@ -1725,6 +1750,11 @@ class HyperlinkCtrl(wx.Control):
         Sets the colour used to print the label when the mouse is not over the
         control and the link has already been clicked before (i.e. the link
         has been visited).
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
         """
 
     @staticmethod
@@ -2444,11 +2474,13 @@ class _AnimationType(IntEnum):
     ANIMATION_TYPE_INVALID = auto()
     ANIMATION_TYPE_GIF = auto()
     ANIMATION_TYPE_ANI = auto()
+    ANIMATION_TYPE_WEBP = auto()
     ANIMATION_TYPE_ANY = auto()
 AnimationType: TypeAlias = Union[_AnimationType, int]
 ANIMATION_TYPE_INVALID = _AnimationType.ANIMATION_TYPE_INVALID
 ANIMATION_TYPE_GIF = _AnimationType.ANIMATION_TYPE_GIF
 ANIMATION_TYPE_ANI = _AnimationType.ANIMATION_TYPE_ANI
+ANIMATION_TYPE_WEBP = _AnimationType.ANIMATION_TYPE_WEBP
 ANIMATION_TYPE_ANY = _AnimationType.ANIMATION_TYPE_ANY
 
 class _AnimationDisposal(IntEnum):
@@ -2585,8 +2617,8 @@ class Animation(wx.Object):
         """
         InitStandardHandlers() -> None
         
-        Load the stock animation decoders (currently GIF and ANI) into the
-        list of decoders.
+        Load the stock animation decoders (currently GIF, ANI and WebP) into
+        the list of decoders.
         """
 
     @staticmethod
@@ -2674,9 +2706,9 @@ class AnimationCtrl(wx.Control):
         Starts playing the animation.
         """
 
-    def SetAnimation(self, anim: Animation) -> None:
+    def SetAnimation(self, animations: AnimationBundle) -> None:
         """
-        SetAnimation(anim) -> None
+        SetAnimation(animations) -> None
         
         Sets the animation to play in this control.
         """
@@ -2704,15 +2736,20 @@ class AnimationCtrl(wx.Control):
         Create a new animation object compatible with this control.
         """
 
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
         """
     @property
-    def Animation(self) -> Animation: ...
+    def Animation(self) -> AnimationBundle: ...
     @Animation.setter
-    def Animation(self, value: Animation, /) -> None: ...
+    def Animation(self, value: AnimationBundle, /) -> None: ...
     @property
     def InactiveBitmap(self) -> wx.BitmapBundle: ...
     @InactiveBitmap.setter
@@ -2786,6 +2823,11 @@ class GenericAnimationCtrl(wx.Control):
         Returns true if the window's background colour is being used.
         """
 
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
@@ -2827,9 +2869,9 @@ class GenericAnimationCtrl(wx.Control):
         Returns the animation associated with this control.
         """
 
-    def SetAnimation(self, anim: Animation) -> None:
+    def SetAnimation(self, animations: AnimationBundle) -> None:
         """
-        SetAnimation(anim) -> None
+        SetAnimation(animations) -> None
         
         Sets the animation to play in this control.
         """
@@ -2865,9 +2907,9 @@ class GenericAnimationCtrl(wx.Control):
         Create a new animation object compatible with this control.
         """
     @property
-    def Animation(self) -> Animation: ...
+    def Animation(self) -> AnimationBundle: ...
     @Animation.setter
-    def Animation(self, value: Animation, /) -> None: ...
+    def Animation(self, value: AnimationBundle, /) -> None: ...
     @property
     def BackingStore(self) -> wx.Bitmap: ...
     @property
@@ -2877,7 +2919,7 @@ class GenericAnimationCtrl(wx.Control):
 # end of class GenericAnimationCtrl
 
 
-class AnimationDecoder(ObjectRefData):
+class AnimationDecoder(wx.RefCounter):
     """
     AnimationDecoder() -> None
     
@@ -3170,6 +3212,72 @@ class GIFDecoder(AnimationDecoder):
         """
 # end of class GIFDecoder
 
+
+class AnimationBundle:
+    """
+    AnimationBundle() -> None
+    AnimationBundle(anim) -> None
+    AnimationBundle(filename, type=ANIMATION_TYPE_ANY) -> None
+    AnimationBundle() -> None
+    
+    Container for possible multiple versions of the same animation in
+    different resolutions.
+    """
+
+    @overload
+    def __init__(self, anim: Animation) -> None:
+        ...
+
+    @overload
+    def __init__(self, filename: str, type: AnimationType=ANIMATION_TYPE_ANY) -> None:
+        ...
+
+    @overload
+    def __init__(self, : AnimationBundle) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        AnimationBundle() -> None
+        AnimationBundle(anim) -> None
+        AnimationBundle(filename, type=ANIMATION_TYPE_ANY) -> None
+        AnimationBundle() -> None
+        
+        Container for possible multiple versions of the same animation in
+        different resolutions.
+        """
+
+    @overload
+    def Add(self, filename: str, type: AnimationType=ANIMATION_TYPE_ANY) -> None:
+        ...
+
+    @overload
+    def Add(self, anim: Animation) -> None:
+        """
+        Add(anim) -> None
+        Add(filename, type=ANIMATION_TYPE_ANY) -> None
+        
+        Add an animation in another, bigger, size.
+        """
+
+    def GetAll(self) -> std.vectorwxAnimation:
+        """
+        GetAll() -> std.vectorwxAnimation
+        
+        Get vector containing all animations in this bundle.
+        """
+
+    def IsOk(self) -> bool:
+        """
+        IsOk() -> bool
+        
+        Return true if this animation bundle is not empty.
+        """
+    @property
+    def All(self) -> std.vectorwxAnimation: ...
+# end of class AnimationBundle
+
 #-- end-animate --#
 #-- begin-bannerwindow --#
 BannerWindowNameStr: str
@@ -3222,6 +3330,11 @@ class BannerWindow(wx.Window):
         SetGradient(start, end) -> None
         
         Set the colours between which the gradient runs.
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
         """
 
     @staticmethod
@@ -3284,52 +3397,93 @@ class EditableListBox(wx.Panel):
         Returns a list of the current contents of the control.
         """
 
+    @overload
+    def GetListCtrl(self) -> wx.ListCtrl:
+        ...
+
+    @overload
+    def GetListCtrl(self) -> wx.ListCtrl:
+        """
+        GetListCtrl() -> wx.ListCtrl
+        GetListCtrl() -> wx.ListCtrl
+        
+        Returns the internal list control used by the editable list box.
+        """
+
+    @overload
+    def GetDelButton(self) -> wx.BitmapButton:
+        ...
+
+    @overload
+    def GetDelButton(self) -> wx.BitmapButton:
+        """
+        GetDelButton() -> wx.BitmapButton
+        GetDelButton() -> wx.BitmapButton
+        
+        Returns the button used to delete the selected item from the list.
+        """
+
+    @overload
+    def GetNewButton(self) -> wx.BitmapButton:
+        ...
+
+    @overload
+    def GetNewButton(self) -> wx.BitmapButton:
+        """
+        GetNewButton() -> wx.BitmapButton
+        GetNewButton() -> wx.BitmapButton
+        
+        Returns the button used to add a new item to the list.
+        """
+
+    @overload
+    def GetUpButton(self) -> wx.BitmapButton:
+        ...
+
+    @overload
+    def GetUpButton(self) -> wx.BitmapButton:
+        """
+        GetUpButton() -> wx.BitmapButton
+        GetUpButton() -> wx.BitmapButton
+        
+        Returns the button used to move the selected item up in the list.
+        """
+
+    @overload
+    def GetDownButton(self) -> wx.BitmapButton:
+        ...
+
+    @overload
+    def GetDownButton(self) -> wx.BitmapButton:
+        """
+        GetDownButton() -> wx.BitmapButton
+        GetDownButton() -> wx.BitmapButton
+        
+        Returns the button used to move the selected item down in the list.
+        """
+
+    @overload
+    def GetEditButton(self) -> wx.BitmapButton:
+        ...
+
+    @overload
+    def GetEditButton(self) -> wx.BitmapButton:
+        """
+        GetEditButton() -> wx.BitmapButton
+        GetEditButton() -> wx.BitmapButton
+        
+        Returns the button used to edit the label of the selected item.
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
         GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes
-        """
-
-    def GetListCtrl(self) -> wx.ListCtrl:
-        """
-        GetListCtrl() -> wx.ListCtrl
-        
-        Returns a reference to the listctrl used in the EditableListBox.
-        """
-
-    def GetDelButton(self) -> wx.BitmapButton:
-        """
-        GetDelButton() -> wx.BitmapButton
-        
-        Returns a reference to the delete button used in the EditableListBox.
-        """
-
-    def GetNewButton(self) -> wx.BitmapButton:
-        """
-        GetNewButton() -> wx.BitmapButton
-        
-        Returns a reference to the new button used in the EditableListBox.
-        """
-
-    def GetUpButton(self) -> wx.BitmapButton:
-        """
-        GetUpButton() -> wx.BitmapButton
-        
-        Returns a reference to the up button used in the EditableListBox.
-        """
-
-    def GetDownButton(self) -> wx.BitmapButton:
-        """
-        GetDownButton() -> wx.BitmapButton
-        
-        Returns a reference to the down button used in the EditableListBox.
-        """
-
-    def GetEditButton(self) -> wx.BitmapButton:
-        """
-        GetEditButton() -> wx.BitmapButton
-        
-        Returns a reference to the edit button used in the EditableListBox.
         """
     @property
     def DelButton(self) -> wx.BitmapButton: ...
@@ -3358,26 +3512,37 @@ wxEVT_NOTIFICATION_MESSAGE_ACTION: int
 class NotificationMessage(wx.EvtHandler):
     """
     NotificationMessage() -> None
-    NotificationMessage(title, message='', parent=None, flags=wx.ICON_INFORMATION) -> None
+    NotificationMessage(title, message='', parent=nullptr, flags=wx.ICON_INFORMATION) -> None
     
     This class allows showing the user a message non intrusively.
     """
 
-    class _enum_38(IntEnum):
+    class _enum_39(IntEnum):
         Timeout_Auto = auto()
         Timeout_Never = auto()
-    Timeout_Auto = _enum_38.Timeout_Auto
-    Timeout_Never = _enum_38.Timeout_Never
+    Timeout_Auto = _enum_39.Timeout_Auto
+    Timeout_Never = _enum_39.Timeout_Never
+
+    class _DismissalReason(IntEnum):
+        Unknown = auto()
+        ByUser = auto()
+        ByApp = auto()
+        TimedOut = auto()
+    DismissalReason: TypeAlias = Union[_DismissalReason, int]
+    Unknown = _DismissalReason.Unknown
+    ByUser = _DismissalReason.ByUser
+    ByApp = _DismissalReason.ByApp
+    TimedOut = _DismissalReason.TimedOut
 
     @overload
-    def __init__(self, title: str, message: str='', parent: Optional[wx.Window]=None, flags: int=wx.ICON_INFORMATION) -> None:
+    def __init__(self, title: str, message: str='', parent: wx.Window=nullptr, flags: int=wx.ICON_INFORMATION) -> None:
         ...
 
     @overload
     def __init__(self) -> None:
         """
         NotificationMessage() -> None
-        NotificationMessage(title, message='', parent=None, flags=wx.ICON_INFORMATION) -> None
+        NotificationMessage(title, message='', parent=nullptr, flags=wx.ICON_INFORMATION) -> None
         
         This class allows showing the user a message non intrusively.
         """
@@ -3497,6 +3662,11 @@ class SplashScreen(wx.Frame):
         GetTimeout() -> int
         
         Returns the timeout in milliseconds.
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
         """
 
     @staticmethod
@@ -3704,6 +3874,11 @@ class SashWindow(wx.Window):
         Resizes subwindows.
         """
 
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
@@ -3847,23 +4022,23 @@ class LayoutAlgorithm(wx.Object):
         frames.
         """
 
-    def LayoutFrame(self, frame: wx.Frame, mainWindow: Optional[wx.Window]=None) -> bool:
+    def LayoutFrame(self, frame: wx.Frame, mainWindow: wx.Window=nullptr) -> bool:
         """
-        LayoutFrame(frame, mainWindow=None) -> bool
+        LayoutFrame(frame, mainWindow=nullptr) -> bool
         
         Lays out the children of a normal frame.
         """
 
-    def LayoutMDIFrame(self, frame: wx.MDIParentFrame, rect: Optional[wx.Rect]=None) -> bool:
+    def LayoutMDIFrame(self, frame: wx.MDIParentFrame, rect: wx.Rect=nullptr) -> bool:
         """
-        LayoutMDIFrame(frame, rect=None) -> bool
+        LayoutMDIFrame(frame, rect=nullptr) -> bool
         
         Lays out the children of an MDI parent frame.
         """
 
-    def LayoutWindow(self, parent: wx.Window, mainWindow: Optional[wx.Window]=None) -> bool:
+    def LayoutWindow(self, parent: wx.Window, mainWindow: wx.Window=nullptr) -> bool:
         """
-        LayoutWindow(parent, mainWindow=None) -> bool
+        LayoutWindow(parent, mainWindow=nullptr) -> bool
         
         Lays out the children of a normal frame or other window.
         """
@@ -3955,6 +4130,11 @@ class SashLayoutWindow(SashWindow):
         
         Sets the orientation of the window (the direction the window will
         stretch in, to fill the available parent client area).
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
         """
 
     @staticmethod
@@ -4155,11 +4335,11 @@ OwnerDrawnComboBoxPaintingFlags: TypeAlias = Union[_OwnerDrawnComboBoxPaintingFl
 ODCB_PAINTING_CONTROL = _OwnerDrawnComboBoxPaintingFlags.ODCB_PAINTING_CONTROL
 ODCB_PAINTING_SELECTED = _OwnerDrawnComboBoxPaintingFlags.ODCB_PAINTING_SELECTED
 
-class _enum_39(IntEnum):
+class _enum_40(IntEnum):
     ODCB_DCLICK_CYCLES = auto()
     ODCB_STD_CONTROL_PAINT = auto()
-ODCB_DCLICK_CYCLES = _enum_39.ODCB_DCLICK_CYCLES
-ODCB_STD_CONTROL_PAINT = _enum_39.ODCB_STD_CONTROL_PAINT
+ODCB_DCLICK_CYCLES = _enum_40.ODCB_DCLICK_CYCLES
+ODCB_STD_CONTROL_PAINT = _enum_40.ODCB_STD_CONTROL_PAINT
 
 class OwnerDrawnComboBox(wx.ComboCtrl, wx.ItemContainer):
     """
@@ -4215,6 +4395,11 @@ class OwnerDrawnComboBox(wx.ComboCtrl, wx.ItemContainer):
         GetWidestItemWidth() -> int
         
         Returns width of the widest item in the list.
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
         """
 
     @staticmethod
@@ -4286,13 +4471,13 @@ class BitmapComboBox(wx.Control, wx.TextEntry, wx.ItemContainer):
         """
 
     @overload
-    def Append(self, item: str, bitmap: wx.Bitmap, clientData: ClientData) -> int:
+    def Append(self, item: str, bitmap: wx.BitmapBundle, clientData: ClientData) -> int:
         ...
 
     @overload
-    def Append(self, item: str, bitmap: wx.Bitmap=wx.NullBitmap) -> int:
+    def Append(self, item: str, bitmap: wx.BitmapBundle=wx.BitmapBundle()) -> int:
         """
-        Append(item, bitmap=wx.NullBitmap) -> int
+        Append(item, bitmap=wx.BitmapBundle()) -> int
         Append(item, bitmap, clientData) -> int
         
         Adds the item to the end of the combo box.
@@ -4320,11 +4505,11 @@ class BitmapComboBox(wx.Control, wx.TextEntry, wx.ItemContainer):
         """
 
     @overload
-    def Insert(self, item: str, bitmap: wx.Bitmap, pos: int, clientData: ClientData) -> int:
+    def Insert(self, item: str, bitmap: wx.BitmapBundle, pos: int, clientData: ClientData) -> int:
         ...
 
     @overload
-    def Insert(self, item: str, bitmap: wx.Bitmap, pos: int) -> int:
+    def Insert(self, item: str, bitmap: wx.BitmapBundle, pos: int) -> int:
         """
         Insert(item, bitmap, pos) -> int
         Insert(item, bitmap, pos, clientData) -> int
@@ -4337,6 +4522,11 @@ class BitmapComboBox(wx.Control, wx.TextEntry, wx.ItemContainer):
         SetItemBitmap(n, bitmap) -> None
         
         Sets the bitmap for the given item.
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
         """
 
     @staticmethod
@@ -4539,9 +4729,9 @@ class RichToolTip:
         Set the title text font.
         """
 
-    def ShowFor(self, win: wx.Window, rect: Optional[wx.Rect]=None) -> None:
+    def ShowFor(self, win: wx.Window, rect: wx.Rect=nullptr) -> None:
         """
-        ShowFor(win, rect=None) -> None
+        ShowFor(win, rect=nullptr) -> None
         
         Show the tooltip for the given window and optionally specify where to
         show the tooltip.
@@ -4551,9 +4741,9 @@ class RichToolTip:
 #-- end-richtooltip --#
 #-- begin-timectrl --#
 
-class _enum_48(IntEnum):
+class _enum_49(IntEnum):
     TP_DEFAULT = auto()
-TP_DEFAULT = _enum_48.TP_DEFAULT
+TP_DEFAULT = _enum_49.TP_DEFAULT
 TimePickerCtrlNameStr: str
 
 class TimePickerCtrl(wx.Control):
@@ -4612,6 +4802,11 @@ class TimePickerCtrl(wx.Control):
         Changes the current value of the control.
         """
 
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
@@ -4647,7 +4842,7 @@ class WizardPage(wx.Panel):
     WizardPage(parent, bitmap=wx.BitmapBundle()) -> None
     
     wxWizardPage is one of the screens in wxWizard: it must know what are
-    the following and preceding pages (which may be NULL for the
+    the following and preceding pages (which may be nullptr for the
     first/last page).
     """
 
@@ -4662,7 +4857,7 @@ class WizardPage(wx.Panel):
         WizardPage(parent, bitmap=wx.BitmapBundle()) -> None
         
         wxWizardPage is one of the screens in wxWizard: it must know what are
-        the following and preceding pages (which may be NULL for the
+        the following and preceding pages (which may be nullptr for the
         first/last page).
         """
 
@@ -4686,7 +4881,7 @@ class WizardPage(wx.Panel):
         GetNext() -> WizardPage
         
         Get the page which should be shown when the user chooses the "Next"
-        button: if NULL is returned, this button will be disabled.
+        button: if nullptr is returned, this button will be disabled.
         """
 
     def GetPrev(self) -> WizardPage:
@@ -4694,7 +4889,7 @@ class WizardPage(wx.Panel):
         GetPrev() -> WizardPage
         
         Get the page which should be shown when the user chooses the "Back"
-        button: if NULL is returned, this button will be disabled.
+        button: if nullptr is returned, this button will be disabled.
         """
 
     @staticmethod
@@ -4714,7 +4909,7 @@ class WizardPage(wx.Panel):
 class WizardPageSimple(WizardPage):
     """
     WizardPageSimple() -> None
-    WizardPageSimple(parent, prev=None, next=None, bitmap=wx.BitmapBundle()) -> None
+    WizardPageSimple(parent, prev=nullptr, next=nullptr, bitmap=wx.BitmapBundle()) -> None
     
     wxWizardPageSimple is the simplest possible wxWizardPage
     implementation: it just returns the pointers given to its constructor
@@ -4722,23 +4917,23 @@ class WizardPageSimple(WizardPage):
     """
 
     @overload
-    def __init__(self, parent: Wizard, prev: Optional[WizardPage]=None, next: Optional[WizardPage]=None, bitmap: wx.BitmapBundle=wx.BitmapBundle()) -> None:
+    def __init__(self, parent: Wizard, prev: WizardPage=nullptr, next: WizardPage=nullptr, bitmap: wx.BitmapBundle=wx.BitmapBundle()) -> None:
         ...
 
     @overload
     def __init__(self) -> None:
         """
         WizardPageSimple() -> None
-        WizardPageSimple(parent, prev=None, next=None, bitmap=wx.BitmapBundle()) -> None
+        WizardPageSimple(parent, prev=nullptr, next=nullptr, bitmap=wx.BitmapBundle()) -> None
         
         wxWizardPageSimple is the simplest possible wxWizardPage
         implementation: it just returns the pointers given to its constructor
         from wxWizardPage::GetNext() and wxWizardPage::GetPrev() functions.
         """
 
-    def Create(self, parent: Optional[Wizard]=None, prev: Optional[WizardPage]=None, next: Optional[WizardPage]=None, bitmap: wx.BitmapBundle=wx.BitmapBundle()) -> bool:
+    def Create(self, parent: Wizard=nullptr, prev: WizardPage=nullptr, next: WizardPage=nullptr, bitmap: wx.BitmapBundle=wx.BitmapBundle()) -> bool:
         """
-        Create(parent=None, prev=None, next=None, bitmap=wx.BitmapBundle()) -> bool
+        Create(parent=nullptr, prev=nullptr, next=nullptr, bitmap=wx.BitmapBundle()) -> bool
         
         Creates the wizard page.
         """

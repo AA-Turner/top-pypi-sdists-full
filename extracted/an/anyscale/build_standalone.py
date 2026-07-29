@@ -7,9 +7,10 @@ interpreter and all dependencies. The binary is architecture-specific but
 works across different Python runtime versions.
 
 Usage:
-    python3 build_standalone.py
+    python3 build_standalone.py [--expect-python MAJOR.MINOR]
 """
 
+import argparse
 import os
 from pathlib import Path
 import re
@@ -143,4 +144,22 @@ def build():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--expect-python",
+        metavar="MAJOR.MINOR",
+        help="Fail unless the interpreter running this script is this version. "
+        "The built binary bundles that interpreter, so callers testing a "
+        "specific Python version must assert it here.",
+    )
+    args = parser.parse_args()
+    if args.expect_python:
+        running = f"{sys.version_info.major}.{sys.version_info.minor}"
+        if running != args.expect_python:
+            sys.exit(
+                f"Error: running under Python {running}, but --expect-python "
+                f"{args.expect_python} was requested. The standalone binary "
+                "bundles the interpreter that runs this script; invoke it with "
+                f"a Python {args.expect_python} interpreter."
+            )
     sys.exit(build())

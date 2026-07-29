@@ -256,7 +256,7 @@ static void *init_type_wxHtmlLinkEvent(sipSimpleWrapper *sipSelf, PyObject *sipA
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxHtmlLinkEvent[] = {{6, 0, 1}};
+static sipEncodedTypeDef supers_wxHtmlLinkEvent[] = {{7, 0, 1}};
 
 
 static PyMethodDef methods_wxHtmlLinkEvent[] = {

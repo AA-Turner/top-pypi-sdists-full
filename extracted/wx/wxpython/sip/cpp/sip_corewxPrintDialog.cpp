@@ -70,9 +70,9 @@ int sipwxPrintDialog::ShowModal()
     if (!sipMeth)
         return ::wxPrintDialog::ShowModal();
 
-    extern int sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern int sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxPrintData& sipwxPrintDialog::GetPrintData()
@@ -85,9 +85,9 @@ int sipwxPrintDialog::ShowModal()
     if (!sipMeth)
         return ::wxPrintDialog::GetPrintData();
 
-    extern ::wxPrintData& sipVH__core_230(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPrintData& sipVH__core_229(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_230(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_229(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxPrintDialogData& sipwxPrintDialog::GetPrintDialogData()
@@ -100,9 +100,9 @@ int sipwxPrintDialog::ShowModal()
     if (!sipMeth)
         return ::wxPrintDialog::GetPrintDialogData();
 
-    extern ::wxPrintDialogData& sipVH__core_224(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPrintDialogData& sipVH__core_223(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_224(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_223(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxDC* sipwxPrintDialog::GetPrintDC()
@@ -115,9 +115,9 @@ int sipwxPrintDialog::ShowModal()
     if (!sipMeth)
         return ::wxPrintDialog::GetPrintDC();
 
-    extern ::wxDC* sipVH__core_229(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxDC* sipVH__core_228(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_229(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_228(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
@@ -317,7 +317,7 @@ static void *init_type_wxPrintDialog(sipSimpleWrapper *sipSelf, PyObject *sipArg
 
     {
         ::wxWindow* parent;
-        ::wxPrintDialogData* data = 0;
+        ::wxPrintDialogData* data = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_parent,
@@ -378,7 +378,7 @@ static void *init_type_wxPrintDialog(sipSimpleWrapper *sipSelf, PyObject *sipArg
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxPrintDialog[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxPrintDialog[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxPrintDialog[] = {
@@ -394,7 +394,7 @@ sipVariableDef variables_wxPrintDialog[] = {
     {PropertyVariable, sipName_PrintDC, &methods_wxPrintDialog[0], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxPrintDialog, "PrintDialog(parent, data=None) -> None\n"
+PyDoc_STRVAR(doc_wxPrintDialog, "PrintDialog(parent, data=nullptr) -> None\n"
 "PrintDialog(parent, data) -> None\n"
 "\n"
 "This class represents the print and print setup common dialogs.");

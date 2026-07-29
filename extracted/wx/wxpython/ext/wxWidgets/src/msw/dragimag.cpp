@@ -2,7 +2,6 @@
 // Name:        src/msw/dragimag.cpp
 // Purpose:     wxDragImage
 // Author:      Julian Smart
-// Modified by:
 // Created:     08/04/99
 // Copyright:   (c) Julian Smart
 // Licence:     wxWindows licence
@@ -84,47 +83,9 @@ void wxDragImage::Init()
 #if !wxUSE_SIMPLER_DRAGIMAGE
     m_hCursorImageList = 0;
 #endif
-    m_window = NULL;
+    m_window = nullptr;
     m_fullScreen = false;
 }
-
-#if WXWIN_COMPATIBILITY_2_8
-wxDragImage::wxDragImage(const wxBitmap& image, const wxCursor& cursor, const wxPoint& WXUNUSED(cursorHotspot))
-{
-    Init();
-
-    Create(image, cursor);
-}
-
-wxDragImage::wxDragImage(const wxIcon& image, const wxCursor& cursor, const wxPoint& WXUNUSED(cursorHotspot))
-{
-    Init();
-
-    Create(image, cursor);
-}
-
-wxDragImage::wxDragImage(const wxString& str, const wxCursor& cursor, const wxPoint& WXUNUSED(cursorHotspot))
-{
-    Init();
-
-    Create(str, cursor);
-}
-
-bool wxDragImage::Create(const wxBitmap& image, const wxCursor& cursor, const wxPoint& WXUNUSED(cursorHotspot))
-{
-    return Create(image, cursor);
-}
-
-bool wxDragImage::Create(const wxIcon& image, const wxCursor& cursor, const wxPoint& WXUNUSED(cursorHotspot))
-{
-    return Create(image, cursor);
-}
-
-bool wxDragImage::Create(const wxString& str, const wxCursor& cursor, const wxPoint& WXUNUSED(cursorHotspot))
-{
-    return Create(str, cursor);
-}
-#endif // WXWIN_COMPATIBILITY_2_8
 
 // Attributes
 ////////////////////////////////////////////////////////////////////////////
@@ -152,7 +113,7 @@ bool wxDragImage::Create(const wxBitmap& image, const wxCursor& cursor)
     else
         flags = ILC_COLOR32;
 
-    bool mask = (image.GetMask() != 0);
+    bool mask = image.GetMask() != nullptr;
 
     // Curiously, even if the image doesn't have a mask,
     // we still have to use ILC_MASK or the image won't show
@@ -271,7 +232,7 @@ bool wxDragImage::Create(const wxTreeCtrl& treeCtrl, wxTreeItemId& id)
     if ( m_hImageList )
         ImageList_Destroy(GetHimageList());
     m_hImageList = (WXHIMAGELIST)
-        TreeView_CreateDragImage(GetHwndOf(&treeCtrl), (HTREEITEM) id.m_pItem);
+        TreeView_CreateDragImage(GetHwndOf(&treeCtrl), (HTREEITEM) id.GetID());
     if ( !m_hImageList )
     {
         // fall back on just the item text if there is no image
@@ -419,13 +380,13 @@ bool wxDragImage::EndDrag()
     ::ShowCursor(TRUE);
 #endif
 
-    m_window = NULL;
+    m_window = nullptr;
 
     return true;
 }
 
 // Move the image: call from OnMouseMove. Pt is in window client coordinates if window
-// is non-NULL, or in screen coordinates if NULL.
+// is non-null, or in screen coordinates if null.
 bool wxDragImage::Move(const wxPoint& pt)
 {
     wxASSERT_MSG( (m_hImageList != 0), wxT("Image list must not be null in Move."));

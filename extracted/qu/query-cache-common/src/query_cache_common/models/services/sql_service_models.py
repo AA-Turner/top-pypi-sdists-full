@@ -27,6 +27,7 @@ class SubmitValuesRequest(BaseSerDeModel):
     clone_time_travel_limit: t.Optional[int] = None
     clone_table_properties: t.Optional[TableProperties] = None
     clone_chain_depth_limit: t.Optional[int] = None
+    dbt_node_state: t.Optional[shared_models.DbtNodeState] = None
 
 
 @proto_dataclass(sql_service_pb2.SubmitEnrichedSQLRequest)

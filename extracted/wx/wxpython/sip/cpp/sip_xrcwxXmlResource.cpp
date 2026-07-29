@@ -158,7 +158,7 @@ static PyObject *meth_wxXmlResource_InsertHandler(PyObject *sipSelf, PyObject *s
 }
 
 
-PyDoc_STRVAR(doc_wxXmlResource_AttachUnknownControl, "AttachUnknownControl(name, control, parent=None) -> bool\n"
+PyDoc_STRVAR(doc_wxXmlResource_AttachUnknownControl, "AttachUnknownControl(name, control, parent=nullptr) -> bool\n"
 "\n"
 "Attaches an unknown control to the given panel/window/dialog.");
 
@@ -171,7 +171,7 @@ static PyObject *meth_wxXmlResource_AttachUnknownControl(PyObject *sipSelf, PyOb
         const ::wxString* name;
         int nameState = 0;
         ::wxWindow* control;
-        ::wxWindow* parent = 0;
+        ::wxWindow* parent = nullptr;
         ::wxXmlResource *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -285,6 +285,47 @@ static PyObject *meth_wxXmlResource_CompareVersion(PyObject *sipSelf, PyObject *
 }
 
 
+PyDoc_STRVAR(doc_wxXmlResource_EnableFeature, "EnableFeature(feature) -> None\n"
+"\n"
+"Add a feature considered to be enabled.");
+
+extern "C" {static PyObject *meth_wxXmlResource_EnableFeature(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxXmlResource_EnableFeature(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxString* feature;
+        int featureState = 0;
+        ::wxXmlResource *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_feature,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxXmlResource, &sipCpp, sipType_wxString, &feature, &featureState))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->EnableFeature(*feature);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxString *>(feature), sipType_wxString, featureState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_XmlResource, sipName_EnableFeature, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxXmlResource_GetDomain, "GetDomain() -> str\n"
 "\n"
 "Returns the domain (message catalog) that will be used to load\n"
@@ -360,7 +401,7 @@ static PyObject *meth_wxXmlResource_GetFlags(PyObject *sipSelf, PyObject *sipArg
 PyDoc_STRVAR(doc_wxXmlResource_GetResourceNode, "GetResourceNode(name) -> XmlNode\n"
 "\n"
 "Returns the wxXmlNode containing the definition of the object with the\n"
-"given name or NULL.");
+"given name or nullptr.");
 
 extern "C" {static PyObject *meth_wxXmlResource_GetResourceNode(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxXmlResource_GetResourceNode(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1564,7 +1605,7 @@ static PyObject *meth_wxXmlResource_GetXRCID(PyObject *, PyObject *sipArgs, PyOb
 
 PyDoc_STRVAR(doc_wxXmlResource_Set, "Set(res) -> XmlResource\n"
 "\n"
-"Sets the global resources object and returns a pointer to the previous one (may be NULL).");
+"Sets the global resources object and returns a pointer to the previous one (may be nullptr).");
 
 extern "C" {static PyObject *meth_wxXmlResource_Set(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxXmlResource_Set(PyObject *, PyObject *sipArgs, PyObject *sipKwds)
@@ -1775,6 +1816,7 @@ static PyMethodDef methods_wxXmlResource[] = {
     {sipName_AttachUnknownControl, SIP_MLMETH_CAST(meth_wxXmlResource_AttachUnknownControl), METH_VARARGS|METH_KEYWORDS, doc_wxXmlResource_AttachUnknownControl},
     {sipName_ClearHandlers, meth_wxXmlResource_ClearHandlers, METH_VARARGS, doc_wxXmlResource_ClearHandlers},
     {sipName_CompareVersion, SIP_MLMETH_CAST(meth_wxXmlResource_CompareVersion), METH_VARARGS|METH_KEYWORDS, doc_wxXmlResource_CompareVersion},
+    {sipName_EnableFeature, SIP_MLMETH_CAST(meth_wxXmlResource_EnableFeature), METH_VARARGS|METH_KEYWORDS, doc_wxXmlResource_EnableFeature},
     {sipName_FindXRCIDById, SIP_MLMETH_CAST(meth_wxXmlResource_FindXRCIDById), METH_VARARGS|METH_KEYWORDS, doc_wxXmlResource_FindXRCIDById},
     {sipName_Get, meth_wxXmlResource_Get, METH_VARARGS, doc_wxXmlResource_Get},
     {sipName_GetDomain, meth_wxXmlResource_GetDomain, METH_VARARGS, doc_wxXmlResource_GetDomain},
@@ -1806,9 +1848,9 @@ static PyMethodDef methods_wxXmlResource[] = {
 };
 
 sipVariableDef variables_wxXmlResource[] = {
-    {PropertyVariable, sipName_Version, &methods_wxXmlResource[10], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Flags, &methods_wxXmlResource[8], &methods_wxXmlResource[31], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Domain, &methods_wxXmlResource[7], &methods_wxXmlResource[30], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Version, &methods_wxXmlResource[11], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Flags, &methods_wxXmlResource[9], &methods_wxXmlResource[32], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Domain, &methods_wxXmlResource[8], &methods_wxXmlResource[31], SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxXmlResource, "XmlResource(filemask, flags=XRC_USE_LOCALE, domain='') -> None\n"
@@ -1831,7 +1873,7 @@ sipClassTypeDef sipTypeDef__xrc_wxXmlResource = {
     {
         sipNameNr_XmlResource,
         {0, 0, 1},
-        33, methods_wxXmlResource,
+        34, methods_wxXmlResource,
         0, SIP_NULLPTR,
         3, variables_wxXmlResource,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

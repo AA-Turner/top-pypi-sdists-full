@@ -48,9 +48,9 @@ protected:
     void OnSetValue() SIP_OVERRIDE;
     ::wxPGVariant DoGetValue() const SIP_OVERRIDE;
     bool ValidateValue(::wxPGVariant&, ::wxPGValidationInfo&) const SIP_OVERRIDE;
-    bool StringToValue(::wxPGVariant&, const ::wxString&, int) const SIP_OVERRIDE;
-    bool IntToValue(::wxPGVariant&, int, int) const SIP_OVERRIDE;
-    ::wxString ValueToString(::wxPGVariant&, int) const SIP_OVERRIDE;
+    bool StringToValue(::wxPGVariant&, const ::wxString&, ::wxPGPropValFormatFlags) const SIP_OVERRIDE;
+    bool IntToValue(::wxPGVariant&, int, ::wxPGPropValFormatFlags) const SIP_OVERRIDE;
+    ::wxString ValueToString(::wxPGVariant&, ::wxPGPropValFormatFlags) const SIP_OVERRIDE;
     ::wxSize OnMeasureImage(int) const SIP_OVERRIDE;
     bool OnEvent(::wxPropertyGrid*, ::wxWindow*, ::wxEvent&) SIP_OVERRIDE;
     ::wxPGVariant ChildChanged(::wxPGVariant&, int, ::wxPGVariant&) const SIP_OVERRIDE;
@@ -64,7 +64,7 @@ protected:
     ::wxPGVariant DoGetAttribute(const ::wxString&) const SIP_OVERRIDE;
     ::wxPGEditorDialogAdapter* GetEditorDialog() const SIP_OVERRIDE;
     void OnValidationFailure(::wxPGVariant&) SIP_OVERRIDE;
-    ::wxString GetValueAsString(int) const SIP_OVERRIDE;
+    ::wxString GetValueAsString(::wxPGPropValFormatFlags) const SIP_OVERRIDE;
 
 public:
     sipSimpleWrapper *sipPySelf;
@@ -109,9 +109,9 @@ void sipwxFlagsProperty::OnSetValue()
         return;
     }
 
-    extern void sipVH__propgrid_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern void sipVH__propgrid_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    sipVH__propgrid_3(sipGILState, 0, sipPySelf, sipMeth);
+    sipVH__propgrid_2(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxPGVariant sipwxFlagsProperty::DoGetValue() const
@@ -124,9 +124,9 @@ void sipwxFlagsProperty::OnSetValue()
     if (!sipMeth)
         return ::wxFlagsProperty::DoGetValue();
 
-    extern ::wxPGVariant sipVH__propgrid_4(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPGVariant sipVH__propgrid_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_4(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_3(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxFlagsProperty::ValidateValue(::wxPGVariant& value, ::wxPGValidationInfo& validationInfo) const
@@ -139,12 +139,12 @@ bool sipwxFlagsProperty::ValidateValue(::wxPGVariant& value, ::wxPGValidationInf
     if (!sipMeth)
         return ::wxFlagsProperty::ValidateValue(value, validationInfo);
 
-    extern bool sipVH__propgrid_5(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGVariant&, ::wxPGValidationInfo&);
+    extern bool sipVH__propgrid_4(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGVariant&, ::wxPGValidationInfo&);
 
-    return sipVH__propgrid_5(sipGILState, 0, sipPySelf, sipMeth, value, validationInfo);
+    return sipVH__propgrid_4(sipGILState, 0, sipPySelf, sipMeth, value, validationInfo);
 }
 
-bool sipwxFlagsProperty::StringToValue(::wxPGVariant& variant, const ::wxString& text, int argFlags) const
+bool sipwxFlagsProperty::StringToValue(::wxPGVariant& variant, const ::wxString& text, ::wxPGPropValFormatFlags flags) const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -152,14 +152,14 @@ bool sipwxFlagsProperty::StringToValue(::wxPGVariant& variant, const ::wxString&
     sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[3]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_StringToValue);
 
     if (!sipMeth)
-        return ::wxFlagsProperty::StringToValue(variant, text, argFlags);
+        return ::wxFlagsProperty::StringToValue(variant, text, flags);
 
-    extern bool sipVH__propgrid_6(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGVariant&, const ::wxString&, int);
+    extern bool sipVH__propgrid_5(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGVariant&, const ::wxString&, ::wxPGPropValFormatFlags);
 
-    return sipVH__propgrid_6(sipGILState, 0, sipPySelf, sipMeth, variant, text, argFlags);
+    return sipVH__propgrid_5(sipGILState, 0, sipPySelf, sipMeth, variant, text, flags);
 }
 
-bool sipwxFlagsProperty::IntToValue(::wxPGVariant& variant, int number, int argFlags) const
+bool sipwxFlagsProperty::IntToValue(::wxPGVariant& variant, int number, ::wxPGPropValFormatFlags flags) const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -167,14 +167,14 @@ bool sipwxFlagsProperty::IntToValue(::wxPGVariant& variant, int number, int argF
     sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[4]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_IntToValue);
 
     if (!sipMeth)
-        return ::wxFlagsProperty::IntToValue(variant, number, argFlags);
+        return ::wxFlagsProperty::IntToValue(variant, number, flags);
 
-    extern bool sipVH__propgrid_7(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGVariant&, int, int);
+    extern bool sipVH__propgrid_6(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGVariant&, int, ::wxPGPropValFormatFlags);
 
-    return sipVH__propgrid_7(sipGILState, 0, sipPySelf, sipMeth, variant, number, argFlags);
+    return sipVH__propgrid_6(sipGILState, 0, sipPySelf, sipMeth, variant, number, flags);
 }
 
-::wxString sipwxFlagsProperty::ValueToString(::wxPGVariant& value, int argFlags) const
+::wxString sipwxFlagsProperty::ValueToString(::wxPGVariant& value, ::wxPGPropValFormatFlags flags) const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -182,11 +182,11 @@ bool sipwxFlagsProperty::IntToValue(::wxPGVariant& variant, int number, int argF
     sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[5]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ValueToString);
 
     if (!sipMeth)
-        return ::wxFlagsProperty::ValueToString(value, argFlags);
+        return ::wxFlagsProperty::ValueToString(value, flags);
 
-    extern ::wxString sipVH__propgrid_8(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGVariant&, int);
+    extern ::wxString sipVH__propgrid_7(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGVariant&, ::wxPGPropValFormatFlags);
 
-    return sipVH__propgrid_8(sipGILState, 0, sipPySelf, sipMeth, value, argFlags);
+    return sipVH__propgrid_7(sipGILState, 0, sipPySelf, sipMeth, value, flags);
 }
 
 ::wxSize sipwxFlagsProperty::OnMeasureImage(int item) const
@@ -199,9 +199,9 @@ bool sipwxFlagsProperty::IntToValue(::wxPGVariant& variant, int number, int argF
     if (!sipMeth)
         return ::wxFlagsProperty::OnMeasureImage(item);
 
-    extern ::wxSize sipVH__propgrid_9(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern ::wxSize sipVH__propgrid_8(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    return sipVH__propgrid_9(sipGILState, 0, sipPySelf, sipMeth, item);
+    return sipVH__propgrid_8(sipGILState, 0, sipPySelf, sipMeth, item);
 }
 
 bool sipwxFlagsProperty::OnEvent(::wxPropertyGrid*propgrid, ::wxWindow*wnd_primary, ::wxEvent& event)
@@ -214,9 +214,9 @@ bool sipwxFlagsProperty::OnEvent(::wxPropertyGrid*propgrid, ::wxWindow*wnd_prima
     if (!sipMeth)
         return ::wxFlagsProperty::OnEvent(propgrid, wnd_primary, event);
 
-    extern bool sipVH__propgrid_10(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPropertyGrid*, ::wxWindow*, ::wxEvent&);
+    extern bool sipVH__propgrid_9(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPropertyGrid*, ::wxWindow*, ::wxEvent&);
 
-    return sipVH__propgrid_10(sipGILState, 0, sipPySelf, sipMeth, propgrid, wnd_primary, event);
+    return sipVH__propgrid_9(sipGILState, 0, sipPySelf, sipMeth, propgrid, wnd_primary, event);
 }
 
 ::wxPGVariant sipwxFlagsProperty::ChildChanged(::wxPGVariant& thisValue, int childIndex, ::wxPGVariant& childValue) const
@@ -229,9 +229,9 @@ bool sipwxFlagsProperty::OnEvent(::wxPropertyGrid*propgrid, ::wxWindow*wnd_prima
     if (!sipMeth)
         return ::wxFlagsProperty::ChildChanged(thisValue, childIndex, childValue);
 
-    extern ::wxPGVariant sipVH__propgrid_11(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGVariant&, int, ::wxPGVariant&);
+    extern ::wxPGVariant sipVH__propgrid_10(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGVariant&, int, ::wxPGVariant&);
 
-    return sipVH__propgrid_11(sipGILState, 0, sipPySelf, sipMeth, thisValue, childIndex, childValue);
+    return sipVH__propgrid_10(sipGILState, 0, sipPySelf, sipMeth, thisValue, childIndex, childValue);
 }
 
 const ::wxPGEditor* sipwxFlagsProperty::DoGetEditorClass() const
@@ -244,9 +244,9 @@ const ::wxPGEditor* sipwxFlagsProperty::DoGetEditorClass() const
     if (!sipMeth)
         return ::wxFlagsProperty::DoGetEditorClass();
 
-    extern const ::wxPGEditor* sipVH__propgrid_12(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern const ::wxPGEditor* sipVH__propgrid_11(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_12(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_11(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxValidator* sipwxFlagsProperty::DoGetValidator() const
@@ -259,9 +259,9 @@ const ::wxPGEditor* sipwxFlagsProperty::DoGetEditorClass() const
     if (!sipMeth)
         return ::wxFlagsProperty::DoGetValidator();
 
-    extern ::wxValidator* sipVH__propgrid_13(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxValidator* sipVH__propgrid_12(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_13(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_12(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxFlagsProperty::OnCustomPaint(::wxDC& dc, const ::wxRect& rect, ::wxPGPaintData& paintdata)
@@ -277,9 +277,9 @@ void sipwxFlagsProperty::OnCustomPaint(::wxDC& dc, const ::wxRect& rect, ::wxPGP
         return;
     }
 
-    extern void sipVH__propgrid_14(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, const ::wxRect&, ::wxPGPaintData&);
+    extern void sipVH__propgrid_13(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, const ::wxRect&, ::wxPGPaintData&);
 
-    sipVH__propgrid_14(sipGILState, 0, sipPySelf, sipMeth, dc, rect, paintdata);
+    sipVH__propgrid_13(sipGILState, 0, sipPySelf, sipMeth, dc, rect, paintdata);
 }
 
 ::wxPGCellRenderer* sipwxFlagsProperty::GetCellRenderer(int column) const
@@ -292,9 +292,9 @@ void sipwxFlagsProperty::OnCustomPaint(::wxDC& dc, const ::wxRect& rect, ::wxPGP
     if (!sipMeth)
         return ::wxFlagsProperty::GetCellRenderer(column);
 
-    extern ::wxPGCellRenderer* sipVH__propgrid_15(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern ::wxPGCellRenderer* sipVH__propgrid_14(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    return sipVH__propgrid_15(sipGILState, 0, sipPySelf, sipMeth, column);
+    return sipVH__propgrid_14(sipGILState, 0, sipPySelf, sipMeth, column);
 }
 
 int sipwxFlagsProperty::GetChoiceSelection() const
@@ -307,9 +307,9 @@ int sipwxFlagsProperty::GetChoiceSelection() const
     if (!sipMeth)
         return ::wxFlagsProperty::GetChoiceSelection();
 
-    extern int sipVH__propgrid_16(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern int sipVH__propgrid_15(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_16(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_15(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxFlagsProperty::RefreshChildren()
@@ -325,9 +325,9 @@ void sipwxFlagsProperty::RefreshChildren()
         return;
     }
 
-    extern void sipVH__propgrid_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern void sipVH__propgrid_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    sipVH__propgrid_3(sipGILState, 0, sipPySelf, sipMeth);
+    sipVH__propgrid_2(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxFlagsProperty::DoSetAttribute(const ::wxString& name, ::wxPGVariant& value)
@@ -340,9 +340,9 @@ bool sipwxFlagsProperty::DoSetAttribute(const ::wxString& name, ::wxPGVariant& v
     if (!sipMeth)
         return ::wxFlagsProperty::DoSetAttribute(name, value);
 
-    extern bool sipVH__propgrid_17(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, ::wxPGVariant&);
+    extern bool sipVH__propgrid_16(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, ::wxPGVariant&);
 
-    return sipVH__propgrid_17(sipGILState, 0, sipPySelf, sipMeth, name, value);
+    return sipVH__propgrid_16(sipGILState, 0, sipPySelf, sipMeth, name, value);
 }
 
 ::wxPGVariant sipwxFlagsProperty::DoGetAttribute(const ::wxString& name) const
@@ -355,9 +355,9 @@ bool sipwxFlagsProperty::DoSetAttribute(const ::wxString& name, ::wxPGVariant& v
     if (!sipMeth)
         return ::wxFlagsProperty::DoGetAttribute(name);
 
-    extern ::wxPGVariant sipVH__propgrid_18(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&);
+    extern ::wxPGVariant sipVH__propgrid_17(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&);
 
-    return sipVH__propgrid_18(sipGILState, 0, sipPySelf, sipMeth, name);
+    return sipVH__propgrid_17(sipGILState, 0, sipPySelf, sipMeth, name);
 }
 
 ::wxPGEditorDialogAdapter* sipwxFlagsProperty::GetEditorDialog() const
@@ -370,9 +370,9 @@ bool sipwxFlagsProperty::DoSetAttribute(const ::wxString& name, ::wxPGVariant& v
     if (!sipMeth)
         return ::wxFlagsProperty::GetEditorDialog();
 
-    extern ::wxPGEditorDialogAdapter* sipVH__propgrid_19(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPGEditorDialogAdapter* sipVH__propgrid_18(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_19(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_18(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxFlagsProperty::OnValidationFailure(::wxPGVariant& pendingValue)
@@ -388,12 +388,12 @@ void sipwxFlagsProperty::OnValidationFailure(::wxPGVariant& pendingValue)
         return;
     }
 
-    extern void sipVH__propgrid_20(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGVariant&);
+    extern void sipVH__propgrid_19(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGVariant&);
 
-    sipVH__propgrid_20(sipGILState, 0, sipPySelf, sipMeth, pendingValue);
+    sipVH__propgrid_19(sipGILState, 0, sipPySelf, sipMeth, pendingValue);
 }
 
-::wxString sipwxFlagsProperty::GetValueAsString(int argFlags) const
+::wxString sipwxFlagsProperty::GetValueAsString(::wxPGPropValFormatFlags flags) const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -401,11 +401,11 @@ void sipwxFlagsProperty::OnValidationFailure(::wxPGVariant& pendingValue)
     sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[19]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetValueAsString);
 
     if (!sipMeth)
-        return ::wxFlagsProperty::GetValueAsString(argFlags);
+        return ::wxFlagsProperty::GetValueAsString(flags);
 
-    extern ::wxString sipVH__propgrid_21(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern ::wxString sipVH__propgrid_20(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGPropValFormatFlags);
 
-    return sipVH__propgrid_21(sipGILState, 0, sipPySelf, sipMeth, argFlags);
+    return sipVH__propgrid_20(sipGILState, 0, sipPySelf, sipMeth, flags);
 }
 
 
@@ -444,7 +444,7 @@ static PyObject *meth_wxFlagsProperty_OnSetValue(PyObject *sipSelf, PyObject *si
 }
 
 
-PyDoc_STRVAR(doc_wxFlagsProperty_ValueToString, "ValueToString(value, argFlags=0) -> str\n"
+PyDoc_STRVAR(doc_wxFlagsProperty_ValueToString, "ValueToString(value, flags=PGPropValFormatFlags.Null) -> str\n"
 "\n"
 "Converts property value into a text representation.");
 
@@ -457,22 +457,22 @@ static PyObject *meth_wxFlagsProperty_ValueToString(PyObject *sipSelf, PyObject 
     {
         ::wxPGVariant* value;
         int valueState = 0;
-        int argFlags = 0;
+        ::wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null;
         const ::wxFlagsProperty *sipCpp;
 
         static const char *sipKwdList[] = {
             sipName_value,
-            sipName_argFlags,
+            sipName_flags,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|i", &sipSelf, sipType_wxFlagsProperty, &sipCpp, sipType_wxPGVariant, &value, &valueState, &argFlags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|E", &sipSelf, sipType_wxFlagsProperty, &sipCpp, sipType_wxPGVariant, &value, &valueState, sipType_wxPGPropValFormatFlags, &flags))
         {
             ::wxString*sipRes;
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxString((sipSelfWasArg ? sipCpp->::wxFlagsProperty::ValueToString(*value, argFlags) : sipCpp->ValueToString(*value, argFlags)));
+            sipRes = new ::wxString((sipSelfWasArg ? sipCpp->::wxFlagsProperty::ValueToString(*value, flags) : sipCpp->ValueToString(*value, flags)));
             Py_END_ALLOW_THREADS
             sipReleaseType(value, sipType_wxPGVariant, valueState);
 
@@ -489,7 +489,7 @@ static PyObject *meth_wxFlagsProperty_ValueToString(PyObject *sipSelf, PyObject 
 }
 
 
-PyDoc_STRVAR(doc_wxFlagsProperty_StringToValue, "StringToValue(text, argFlags) -> Tuple[bool, PGVariant]\n"
+PyDoc_STRVAR(doc_wxFlagsProperty_StringToValue, "StringToValue(text, flags) -> Tuple[bool, PGVariant]\n"
 "\n"
 "Converts text into wxVariant value appropriate for this property.");
 
@@ -503,15 +503,15 @@ static PyObject *meth_wxFlagsProperty_StringToValue(PyObject *sipSelf, PyObject 
         ::wxPGVariant* variant;
         const ::wxString* text;
         int textState = 0;
-        int argFlags;
+        ::wxPGPropValFormatFlags flags;
         const ::wxFlagsProperty *sipCpp;
 
         static const char *sipKwdList[] = {
             sipName_text,
-            sipName_argFlags,
+            sipName_flags,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1i", &sipSelf, sipType_wxFlagsProperty, &sipCpp, sipType_wxString, &text, &textState, &argFlags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1E", &sipSelf, sipType_wxFlagsProperty, &sipCpp, sipType_wxString, &text, &textState, sipType_wxPGPropValFormatFlags, &flags))
         {
             bool sipRes;
             variant = new ::wxPGVariant();
@@ -519,7 +519,7 @@ static PyObject *meth_wxFlagsProperty_StringToValue(PyObject *sipSelf, PyObject 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = (sipSelfWasArg ? sipCpp->::wxFlagsProperty::StringToValue(*variant, *text, argFlags) : sipCpp->StringToValue(*variant, *text, argFlags));
+            sipRes = (sipSelfWasArg ? sipCpp->::wxFlagsProperty::StringToValue(*variant, *text, flags) : sipCpp->StringToValue(*variant, *text, flags));
             Py_END_ALLOW_THREADS
             sipReleaseType(const_cast< ::wxString *>(text), sipType_wxString, textState);
 
@@ -957,7 +957,7 @@ static void *init_type_wxFlagsProperty(sipSimpleWrapper *sipSelf, PyObject *sipA
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxFlagsProperty[] = {{44, 255, 1}};
+static sipEncodedTypeDef supers_wxFlagsProperty[] = {{47, 255, 1}};
 
 
 static PyMethodDef methods_wxFlagsProperty[] = {

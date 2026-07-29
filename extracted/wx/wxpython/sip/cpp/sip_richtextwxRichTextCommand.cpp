@@ -426,7 +426,7 @@ static void *init_type_wxRichTextCommand(sipSimpleWrapper *sipSelf, PyObject *si
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxRichTextCommand[] = {{11, 0, 1}};
+static sipEncodedTypeDef supers_wxRichTextCommand[] = {{12, 0, 1}};
 
 
 static PyMethodDef methods_wxRichTextCommand[] = {

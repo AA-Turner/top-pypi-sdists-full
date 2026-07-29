@@ -2,7 +2,6 @@
 // Name:        src/osx/menuitem_osx.cpp
 // Purpose:     wxMenuItem implementation
 // Author:      Stefan Csomor
-// Modified by:
 // Created:     1998-01-01
 // Copyright:   (c) Stefan Csomor
 // Licence:     wxWindows licence
@@ -37,15 +36,13 @@ wxMenuItem::wxMenuItem(wxMenu *pParentMenu,
                        wxMenu *pSubMenu)
            :wxMenuItemBase(pParentMenu, id, t, strHelp, kind, pSubMenu)
 {
-    wxASSERT_MSG( id != 0 || pSubMenu != NULL , wxT("A MenuItem ID of Zero does not work under Mac") ) ;
-
     // In other languages there is no difference in naming the Exit/Quit menu item between MacOS and Windows guidelines
     // therefore these item must not be translated
-    if (pParentMenu != NULL && !pParentMenu->GetNoEventsMode())
+    if (pParentMenu != nullptr && !pParentMenu->GetNoEventsMode())
         if ( wxStripMenuCodes(m_text, wxStrip_Menu).Upper() == wxT("EXIT") )
             m_text = wxT("Quit\tCtrl+Q") ;
 
-    wxString text = wxStripMenuCodes(m_text, (pParentMenu != NULL && pParentMenu->GetNoEventsMode()) ? wxStrip_Accel : wxStrip_Menu);
+    wxString text = wxStripMenuCodes(m_text, (pParentMenu != nullptr && pParentMenu->GetNoEventsMode()) ? wxStrip_Accel : wxStrip_Menu);
     if (text.IsEmpty() && !IsSeparator())
     {
         wxASSERT_MSG(wxIsStockID(GetId()), wxT("A non-stock menu item with an empty label?"));
@@ -58,7 +55,7 @@ wxMenuItem::wxMenuItem(wxMenu *pParentMenu,
     m_peer = wxMenuItemImpl::Create( this, pParentMenu, GetId(), text, entry, strHelp, GetKind(), pSubMenu );
     delete entry;
 #else
-    m_peer = wxMenuItemImpl::Create( this, pParentMenu, GetId(), text, NULL, strHelp, GetKind(), pSubMenu );
+    m_peer = wxMenuItemImpl::Create( this, pParentMenu, GetId(), text, nullptr, strHelp, GetKind(), pSubMenu );
 #endif // wxUSE_ACCEL/!wxUSE_ACCEL
 }
 
@@ -161,9 +158,6 @@ void wxMenuItem::SetBitmap(const wxBitmapBundle& bitmap)
 
 void wxMenuItem::UpdateItemBitmap()
 {
-    if ( !m_parentMenu )
-        return;
-
     if ( m_bitmap.IsOk() )
     {
         GetPeer()->SetBitmap(m_bitmap);
@@ -172,9 +166,6 @@ void wxMenuItem::UpdateItemBitmap()
 
 void wxMenuItem::UpdateItemStatus()
 {
-    if ( !m_parentMenu )
-        return ;
-
     if ( IsSeparator() )
         return ;
 
@@ -188,10 +179,7 @@ void wxMenuItem::UpdateItemStatus()
 
 void wxMenuItem::UpdateItemText()
 {
-    if ( !m_parentMenu )
-        return ;
-
-    wxString text = wxStripMenuCodes(m_text, m_parentMenu != NULL && m_parentMenu->GetNoEventsMode() ? wxStrip_Accel : wxStrip_Menu);
+    wxString text = wxStripMenuCodes(m_text, m_parentMenu != nullptr && m_parentMenu->GetNoEventsMode() ? wxStrip_Accel : wxStrip_Menu);
     if (text.IsEmpty() && !IsSeparator())
     {
         wxASSERT_MSG(wxIsStockID(GetId()), wxT("A non-stock menu item with an empty label?"));
@@ -203,7 +191,7 @@ void wxMenuItem::UpdateItemText()
     GetPeer()->SetLabel( text, entry );
     delete entry ;
 #else
-    GetPeer()->SetLabel( text, NULL );
+    GetPeer()->SetLabel( text, nullptr );
 #endif // wxUSE_ACCEL/!wxUSE_ACCEL
 }
 

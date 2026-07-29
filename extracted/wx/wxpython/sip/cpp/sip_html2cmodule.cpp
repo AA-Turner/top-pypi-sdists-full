@@ -10,13 +10,15 @@
 #include "sipAPI_html2.h"
         #include <wx/object.h>
         #include <wx/filesys.h>
-        #include <wx/event.h>
-        #include <wx/gdicmn.h>
-        #include <wx/validate.h>
+        #include <wx/webview.h>
         #include <wx/window.h>
         #include <wx/gdicmn.h>
+        #include <wx/gdicmn.h>
         #include <wx/webview.h>
-        #include <wx/versioninfo.h>
+        #include <wx/event.h>
+        #include <wx/validate.h>
+        #include <wx/stream.h>
+        #include <wx/webview.h>
         #include <wx/webview.h>
         #include <wx/webviewarchivehandler.h>
         #include <wx/webviewfshandler.h>
@@ -24,24 +26,36 @@
 /* Define the strings used by this module. */
 const char sipStrings__html2[] = {
     'w', 'x', 'E', 'V', 'T', '_', 'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'S', 'C', 'R', 'I', 'P', 'T', '_', 'M', 'E', 'S', 'S', 'A', 'G', 'E', '_', 'R', 'E', 'C', 'E', 'I', 'V', 'E', 'D', 0,
+    'w', 'x', 'E', 'V', 'T', '_', 'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'W', 'I', 'N', 'D', 'O', 'W', '_', 'C', 'L', 'O', 'S', 'E', '_', 'R', 'E', 'Q', 'U', 'E', 'S', 'T', 'E', 'D', 0,
+    'w', 'x', 'E', 'V', 'T', '_', 'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'B', 'R', 'O', 'W', 'S', 'I', 'N', 'G', '_', 'D', 'A', 'T', 'A', '_', 'C', 'L', 'E', 'A', 'R', 'E', 'D', 0,
+    'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'B', 'R', 'O', 'W', 'S', 'I', 'N', 'G', '_', 'D', 'A', 'T', 'A', '_', 'D', 'O', 'M', '_', 'S', 'T', 'O', 'R', 'A', 'G', 'E', 0,
+    'A', 'r', 'e', 'B', 'r', 'o', 'w', 's', 'e', 'r', 'A', 'c', 'c', 'e', 'l', 'e', 'r', 'a', 't', 'o', 'r', 'K', 'e', 'y', 's', 'E', 'n', 'a', 'b', 'l', 'e', 'd', 0,
     'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'I', 'N', 'J', 'E', 'C', 'T', '_', 'A', 'T', '_', 'D', 'O', 'C', 'U', 'M', 'E', 'N', 'T', '_', 'S', 'T', 'A', 'R', 'T', 0,
+    'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'P', 'R', 'I', 'N', 'T', '_', 'H', 'I', 'D', 'E', '_', 'H', 'E', 'A', 'D', 'E', 'R', '_', 'F', 'O', 'O', 'T', 'E', 'R', 0,
     'w', 'x', 'E', 'V', 'T', '_', 'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'F', 'U', 'L', 'L', 'S', 'C', 'R', 'E', 'E', 'N', '_', 'C', 'H', 'A', 'N', 'G', 'E', 'D', 0,
+    'w', 'x', 'E', 'V', 'T', '_', 'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'N', 'E', 'W', 'W', 'I', 'N', 'D', 'O', 'W', '_', 'F', 'E', 'A', 'T', 'U', 'R', 'E', 'S', 0,
     'w', 'x', 'W', 'e', 'b', 'V', 'i', 'e', 'w', 'U', 's', 'e', 'r', 'S', 'c', 'r', 'i', 'p', 't', 'I', 'n', 'j', 'e', 'c', 't', 'i', 'o', 'n', 'T', 'i', 'm', 'e', 0,
     'G', 'e', 't', 'M', 'a', 'i', 'n', 'W', 'i', 'n', 'd', 'o', 'w', 'O', 'f', 'C', 'o', 'm', 'p', 'o', 's', 'i', 't', 'e', 'C', 'o', 'n', 't', 'r', 'o', 'l', 0,
     'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'I', 'N', 'J', 'E', 'C', 'T', '_', 'A', 'T', '_', 'D', 'O', 'C', 'U', 'M', 'E', 'N', 'T', '_', 'E', 'N', 'D', 0,
     'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'N', 'A', 'V', '_', 'E', 'R', 'R', '_', 'U', 'S', 'E', 'R', '_', 'C', 'A', 'N', 'C', 'E', 'L', 'L', 'E', 'D', 0,
     'w', 'x', 'W', 'e', 'b', 'V', 'i', 'e', 'w', 'N', 'a', 'v', 'i', 'g', 'a', 't', 'i', 'o', 'n', 'A', 'c', 't', 'i', 'o', 'n', 'F', 'l', 'a', 'g', 's', 0,
+    'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'B', 'R', 'O', 'W', 'S', 'I', 'N', 'G', '_', 'D', 'A', 'T', 'A', '_', 'C', 'O', 'O', 'K', 'I', 'E', 'S', 0,
     'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'F', 'I', 'N', 'D', '_', 'H', 'I', 'G', 'H', 'L', 'I', 'G', 'H', 'T', '_', 'R', 'E', 'S', 'U', 'L', 'T', 0,
+    'E', 'n', 'a', 'b', 'l', 'e', 'B', 'r', 'o', 'w', 's', 'e', 'r', 'A', 'c', 'c', 'e', 'l', 'e', 'r', 'a', 't', 'o', 'r', 'K', 'e', 'y', 's', 0,
+    'w', 'x', 'W', 'e', 'b', 'V', 'i', 'e', 'w', 'H', 'a', 'n', 'd', 'l', 'e', 'r', 'R', 'e', 's', 'p', 'o', 'n', 's', 'e', 'D', 'a', 't', 'a', 0,
+    'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'B', 'R', 'O', 'W', 'S', 'I', 'N', 'G', '_', 'D', 'A', 'T', 'A', '_', 'C', 'A', 'C', 'H', 'E', 0,
+    'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'B', 'R', 'O', 'W', 'S', 'I', 'N', 'G', '_', 'D', 'A', 'T', 'A', '_', 'O', 'T', 'H', 'E', 'R', 0,
     'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'N', 'A', 'V', '_', 'E', 'R', 'R', '_', 'C', 'E', 'R', 'T', 'I', 'F', 'I', 'C', 'A', 'T', 'E', 0,
     'w', 'x', 'E', 'V', 'T', '_', 'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'S', 'C', 'R', 'I', 'P', 'T', '_', 'R', 'E', 'S', 'U', 'L', 'T', 0,
     'w', 'x', 'E', 'V', 'T', '_', 'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'T', 'I', 'T', 'L', 'E', '_', 'C', 'H', 'A', 'N', 'G', 'E', 'D', 0,
-    'G', 'e', 't', 'D', 'e', 'f', 'a', 'u', 'l', 't', 'B', 'o', 'r', 'd', 'e', 'r', 'F', 'o', 'r', 'C', 'o', 'n', 't', 'r', 'o', 'l', 0,
     'M', 'S', 'W', 'S', 'e', 't', 'M', 'o', 'd', 'e', 'r', 'n', 'E', 'm', 'u', 'l', 'a', 't', 'i', 'o', 'n', 'L', 'e', 'v', 'e', 'l', 0,
     'R', 'e', 'm', 'o', 'v', 'e', 'S', 'c', 'r', 'i', 'p', 't', 'M', 'e', 's', 's', 'a', 'g', 'e', 'H', 'a', 'n', 'd', 'l', 'e', 'r', 0,
     'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'N', 'A', 'V', '_', 'E', 'R', 'R', '_', 'C', 'O', 'N', 'N', 'E', 'C', 'T', 'I', 'O', 'N', 0,
+    'w', 'x', 'W', 'e', 'b', 'V', 'i', 'e', 'w', 'B', 'r', 'o', 'w', 's', 'i', 'n', 'g', 'D', 'a', 't', 'a', 'T', 'y', 'p', 'e', 's', 0,
     'w', 'x', 'W', 'e', 'b', 'V', 'i', 'e', 'w', 'I', 'E', '_', 'E', 'm', 'u', 'l', 'a', 't', 'i', 'o', 'n', 'L', 'e', 'v', 'e', 'l', 0,
     'G', 'e', 't', 'C', 'l', 'a', 's', 's', 'D', 'e', 'f', 'a', 'u', 'l', 't', 'A', 't', 't', 'r', 'i', 'b', 'u', 't', 'e', 's', 0,
     'I', 's', 'A', 'c', 'c', 'e', 's', 's', 'T', 'o', 'D', 'e', 'v', 'T', 'o', 'o', 'l', 's', 'E', 'n', 'a', 'b', 'l', 'e', 'd', 0,
+    'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'B', 'R', 'O', 'W', 'S', 'I', 'N', 'G', '_', 'D', 'A', 'T', 'A', '_', 'A', 'L', 'L', 0,
     'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'N', 'A', 'V', '_', 'E', 'R', 'R', '_', 'N', 'O', 'T', '_', 'F', 'O', 'U', 'N', 'D', 0,
     'A', 'c', 'c', 'e', 'p', 't', 's', 'F', 'o', 'c', 'u', 's', 'F', 'r', 'o', 'm', 'K', 'e', 'y', 'b', 'o', 'a', 'r', 'd', 0,
     'H', 'a', 's', 'T', 'r', 'a', 'n', 's', 'p', 'a', 'r', 'e', 'n', 't', 'B', 'a', 'c', 'k', 'g', 'r', 'o', 'u', 'n', 'd', 0,
@@ -52,9 +66,13 @@ const char sipStrings__html2[] = {
     'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'N', 'A', 'V', '_', 'E', 'R', 'R', '_', 'S', 'E', 'C', 'U', 'R', 'I', 'T', 'Y', 0,
     'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'Z', 'O', 'O', 'M', '_', 'T', 'Y', 'P', 'E', '_', 'L', 'A', 'Y', 'O', 'U', 'T', 0,
     'w', 'x', 'E', 'V', 'T', '_', 'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'N', 'A', 'V', 'I', 'G', 'A', 'T', 'I', 'N', 'G', 0,
+    'w', 'x', 'W', 'e', 'b', 'V', 'i', 'e', 'w', 'H', 'a', 'n', 'd', 'l', 'e', 'r', 'R', 'e', 's', 'p', 'o', 'n', 's', 'e', 0,
     'w', 'x', 'W', 'e', 'b', 'V', 'i', 'e', 'w', 'N', 'a', 'v', 'i', 'g', 'a', 't', 'i', 'o', 'n', 'E', 'r', 'r', 'o', 'r', 0,
     'A', 'c', 'c', 'e', 'p', 't', 's', 'F', 'o', 'c', 'u', 's', 'R', 'e', 'c', 'u', 'r', 's', 'i', 'v', 'e', 'l', 'y', 0,
     'A', 'd', 'd', 'S', 'c', 'r', 'i', 'p', 't', 'M', 'e', 's', 's', 'a', 'g', 'e', 'H', 'a', 'n', 'd', 'l', 'e', 'r', 0,
+    'E', 'n', 'a', 'b', 'l', 'e', 'P', 'e', 'r', 's', 'i', 's', 't', 'e', 'n', 't', 'S', 't', 'o', 'r', 'a', 'g', 'e', 0,
+    'G', 'e', 't', 'T', 'a', 'r', 'g', 'e', 't', 'W', 'i', 'n', 'd', 'o', 'w', 'F', 'e', 'a', 't', 'u', 'r', 'e', 's', 0,
+    'S', 'h', 'o', 'u', 'l', 'd', 'D', 'i', 's', 'p', 'l', 'a', 'y', 'S', 'c', 'r', 'o', 'l', 'l', 'B', 'a', 'r', 's', 0,
     'W', 'E', 'B', 'V', 'I', 'E', 'W', 'I', 'E', '_', 'E', 'M', 'U', '_', 'I', 'E', '8', '_', 'F', 'O', 'R', 'C', 'E', 0,
     'W', 'E', 'B', 'V', 'I', 'E', 'W', 'I', 'E', '_', 'E', 'M', 'U', '_', 'I', 'E', '9', '_', 'F', 'O', 'R', 'C', 'E', 0,
     'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'F', 'I', 'N', 'D', '_', 'M', 'A', 'T', 'C', 'H', '_', 'C', 'A', 'S', 'E', 0,
@@ -64,20 +82,30 @@ const char sipStrings__html2[] = {
     'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'R', 'E', 'L', 'O', 'A', 'D', '_', 'N', 'O', '_', 'C', 'A', 'C', 'H', 'E', 0,
     'w', 'x', 'E', 'V', 'T', '_', 'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'N', 'A', 'V', 'I', 'G', 'A', 'T', 'E', 'D', 0,
     'w', 'x', 'E', 'V', 'T', '_', 'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'N', 'E', 'W', 'W', 'I', 'N', 'D', 'O', 'W', 0,
+    'w', 'x', 'E', 'V', 'T', '_', 'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'P', 'D', 'F', '_', 'S', 'A', 'V', 'E', 'D', 0,
     'w', 'x', 'W', 'e', 'b', 'V', 'i', 'e', 'w', 'A', 'r', 'c', 'h', 'i', 'v', 'e', 'H', 'a', 'n', 'd', 'l', 'e', 'r', 0,
+    'w', 'x', 'W', 'e', 'b', 'V', 'i', 'e', 'w', 'H', 'a', 'n', 'd', 'l', 'e', 'r', 'R', 'e', 'q', 'u', 'e', 's', 't', 0,
+    'w', 'x', 'W', 'e', 'b', 'V', 'i', 'e', 'w', 'W', 'i', 'n', 'd', 'o', 'w', 'F', 'e', 'a', 't', 'u', 'r', 'e', 's', 0,
+    'D', 'i', 's', 'a', 'b', 'l', 'e', 'G', 'P', 'U', 'A', 'c', 'c', 'e', 'l', 'e', 'r', 'a', 't', 'i', 'o', 'n', 0,
     'E', 'n', 'a', 'b', 'l', 'e', 'A', 'c', 'c', 'e', 's', 's', 'T', 'o', 'D', 'e', 'v', 'T', 'o', 'o', 'l', 's', 0,
+    'G', 'e', 't', 'N', 'a', 't', 'i', 'v', 'e', 'C', 'o', 'n', 'f', 'i', 'g', 'u', 'r', 'a', 't', 'i', 'o', 'n', 0,
+    'S', 'h', 'o', 'u', 'l', 'd', 'D', 'i', 's', 'p', 'l', 'a', 'y', 'S', 't', 'a', 't', 'u', 's', 'B', 'a', 'r', 0,
     'T', 'r', 'a', 'n', 's', 'f', 'e', 'r', 'D', 'a', 't', 'a', 'F', 'r', 'o', 'm', 'W', 'i', 'n', 'd', 'o', 'w', 0,
     'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'F', 'I', 'N', 'D', '_', 'B', 'A', 'C', 'K', 'W', 'A', 'R', 'D', 'S', 0,
     'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'R', 'E', 'L', 'O', 'A', 'D', '_', 'D', 'E', 'F', 'A', 'U', 'L', 'T', 0,
     'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'Z', 'O', 'O', 'M', '_', 'T', 'Y', 'P', 'E', '_', 'T', 'E', 'X', 'T', 0,
-    'G', 'e', 't', 'B', 'a', 'c', 'k', 'e', 'n', 'd', 'V', 'e', 'r', 's', 'i', 'o', 'n', 'I', 'n', 'f', 'o', 0,
+    'w', 'x', 'W', 'e', 'b', 'V', 'i', 'e', 'w', 'C', 'o', 'n', 'f', 'i', 'g', 'u', 'r', 'a', 't', 'i', 'o', 'n', 0,
     'W', 'E', 'B', 'V', 'I', 'E', 'W', 'I', 'E', '_', 'E', 'M', 'U', '_', 'D', 'E', 'F', 'A', 'U', 'L', 'T', 0,
     'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'N', 'A', 'V', '_', 'E', 'R', 'R', '_', 'O', 'T', 'H', 'E', 'R', 0,
+    'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'P', 'R', 'I', 'N', 'T', '_', 'D', 'E', 'F', 'A', 'U', 'L', 'T', 0,
     'W', 'e', 'b', 'V', 'i', 'e', 'w', 'B', 'a', 'c', 'k', 'e', 'n', 'd', 'D', 'e', 'f', 'a', 'u', 'l', 't', 0,
+    'w', 'x', 'E', 'V', 'T', '_', 'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'C', 'R', 'E', 'A', 'T', 'E', 'D', 0,
     'I', 'n', 'f', 'o', 'r', 'm', 'F', 'i', 'r', 's', 't', 'D', 'i', 'r', 'e', 'c', 't', 'i', 'o', 'n', 0,
     'I', 's', 'C', 'o', 'n', 't', 'e', 'x', 't', 'M', 'e', 'n', 'u', 'E', 'n', 'a', 'b', 'l', 'e', 'd', 0,
     'M', 'S', 'W', 'S', 'e', 't', 'E', 'm', 'u', 'l', 'a', 't', 'i', 'o', 'n', 'L', 'e', 'v', 'e', 'l', 0,
     'R', 'e', 'm', 'o', 'v', 'e', 'A', 'l', 'l', 'U', 's', 'e', 'r', 'S', 'c', 'r', 'i', 'p', 't', 's', 0,
+    'S', 'h', 'o', 'u', 'l', 'd', 'D', 'i', 's', 'p', 'l', 'a', 'y', 'M', 'e', 'n', 'u', 'B', 'a', 'r', 0,
+    'S', 'h', 'o', 'u', 'l', 'd', 'D', 'i', 's', 'p', 'l', 'a', 'y', 'T', 'o', 'o', 'l', 'B', 'a', 'r', 0,
     'S', 'h', 'o', 'u', 'l', 'd', 'I', 'n', 'h', 'e', 'r', 'i', 't', 'C', 'o', 'l', 'o', 'u', 'r', 's', 0,
     'T', 'r', 'a', 'n', 's', 'f', 'e', 'r', 'D', 'a', 't', 'a', 'T', 'o', 'W', 'i', 'n', 'd', 'o', 'w', 0,
     'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'F', 'I', 'N', 'D', '_', 'D', 'E', 'F', 'A', 'U', 'L', 'T', 0,
@@ -88,11 +116,13 @@ const char sipStrings__html2[] = {
     'w', 'x', 'E', 'V', 'T', '_', 'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'L', 'O', 'A', 'D', 'E', 'D', 0,
     'w', 'x', 'W', 'e', 'b', 'V', 'i', 'e', 'w', 'H', 'i', 's', 't', 'o', 'r', 'y', 'I', 't', 'e', 'm', 0,
     'w', 'x', 'W', 'e', 'b', 'V', 'i', 'e', 'w', 'R', 'e', 'l', 'o', 'a', 'd', 'F', 'l', 'a', 'g', 's', 0,
+    'C', 'r', 'e', 'a', 't', 'e', 'C', 'o', 'n', 'f', 'i', 'g', 'u', 'r', 'a', 't', 'i', 'o', 'n', 0,
     'D', 'o', 'G', 'e', 't', 'B', 'e', 's', 't', 'C', 'l', 'i', 'e', 'n', 't', 'S', 'i', 'z', 'e', 0,
     'G', 'e', 't', 'C', 'l', 'i', 'e', 'n', 't', 'A', 'r', 'e', 'a', 'O', 'r', 'i', 'g', 'i', 'n', 0,
     'G', 'e', 't', 'N', 'a', 'v', 'i', 'g', 'a', 't', 'i', 'o', 'n', 'A', 'c', 't', 'i', 'o', 'n', 0,
     'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'Z', 'O', 'O', 'M', '_', 'M', 'E', 'D', 'I', 'U', 'M', 0,
     'w', 'x', 'E', 'V', 'T', '_', 'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'E', 'R', 'R', 'O', 'R', 0,
+    'w', 'x', 'W', 'e', 'b', 'V', 'i', 'e', 'w', 'P', 'r', 'i', 'n', 't', 'F', 'l', 'a', 'g', 's', 0,
     'D', 'o', 'S', 'e', 't', 'W', 'i', 'n', 'd', 'o', 'w', 'V', 'a', 'r', 'i', 'a', 'n', 't', 0,
     'E', 'n', 'a', 'b', 'l', 'e', 'V', 'i', 's', 'i', 'b', 'l', 'e', 'F', 'o', 'c', 'u', 's', 0,
     'G', 'e', 't', 'B', 'a', 'c', 'k', 'w', 'a', 'r', 'd', 'H', 'i', 's', 't', 'o', 'r', 'y', 0,
@@ -104,11 +134,13 @@ const char sipStrings__html2[] = {
     'W', 'e', 'b', 'V', 'i', 'e', 'w', 'B', 'a', 'c', 'k', 'e', 'n', 'd', 'E', 'd', 'g', 'e', 0,
     'w', 'x', 'W', 'e', 'b', 'V', 'i', 'e', 'w', 'F', 'S', 'H', 'a', 'n', 'd', 'l', 'e', 'r', 0,
     'w', 'x', 'W', 'e', 'b', 'V', 'i', 'e', 'w', 'F', 'i', 'n', 'd', 'F', 'l', 'a', 'g', 's', 0,
+    'C', 'l', 'e', 'a', 'r', 'B', 'r', 'o', 'w', 's', 'i', 'n', 'g', 'D', 'a', 't', 'a', 0,
     'E', 'n', 'a', 'b', 'l', 'e', 'C', 'o', 'n', 't', 'e', 'x', 't', 'M', 'e', 'n', 'u', 0,
     'G', 'e', 't', 'F', 'o', 'r', 'w', 'a', 'r', 'd', 'H', 'i', 's', 't', 'o', 'r', 'y', 0,
     'G', 'e', 't', 'M', 'e', 's', 's', 'a', 'g', 'e', 'H', 'a', 'n', 'd', 'l', 'e', 'r', 0,
     'G', 'e', 't', 'S', 'e', 'l', 'e', 'c', 't', 'e', 'd', 'S', 'o', 'u', 'r', 'c', 'e', 0,
     'I', 'n', 'h', 'e', 'r', 'i', 't', 'A', 't', 't', 'r', 'i', 'b', 'u', 't', 'e', 's', 0,
+    'I', 's', 'T', 'a', 'r', 'g', 'e', 't', 'M', 'a', 'i', 'n', 'F', 'r', 'a', 'm', 'e', 0,
     'W', 'E', 'B', 'V', 'I', 'E', 'W', 'I', 'E', '_', 'E', 'M', 'U', '_', 'I', 'E', '7', 0,
     'W', 'E', 'B', 'V', 'I', 'E', 'W', 'I', 'E', '_', 'E', 'M', 'U', '_', 'I', 'E', '8', 0,
     'W', 'E', 'B', 'V', 'I', 'E', 'W', 'I', 'E', '_', 'E', 'M', 'U', '_', 'I', 'E', '9', 0,
@@ -116,6 +148,8 @@ const char sipStrings__html2[] = {
     'W', 'E', 'B', 'V', 'I', 'E', 'W', '_', 'Z', 'O', 'O', 'M', '_', 'T', 'I', 'N', 'Y', 0,
     'a', 'v', 'a', 'i', 'l', 'a', 'b', 'l', 'e', 'O', 't', 'h', 'e', 'r', 'D', 'i', 'r', 0,
     'w', 'x', 'W', 'e', 'b', 'V', 'i', 'e', 'w', 'Z', 'o', 'o', 'm', 'T', 'y', 'p', 'e', 0,
+    'C', 'r', 'e', 'a', 't', 'e', 'A', 'c', 'c', 'e', 's', 's', 'i', 'b', 'l', 'e', 0,
+    'C', 'r', 'e', 'a', 't', 'e', 'W', 'i', 't', 'h', 'C', 'o', 'n', 'f', 'i', 'g', 0,
     'G', 'e', 't', 'D', 'e', 'f', 'a', 'u', 'l', 't', 'B', 'o', 'r', 'd', 'e', 'r', 0,
     'G', 'e', 't', 'E', 'v', 'e', 'n', 't', 'C', 'a', 't', 'e', 'g', 'o', 'r', 'y', 0,
     'G', 'e', 't', 'N', 'a', 't', 'i', 'v', 'e', 'B', 'a', 'c', 'k', 'e', 'n', 'd', 0,
@@ -125,6 +159,8 @@ const char sipStrings__html2[] = {
     'D', 'e', 'l', 'e', 't', 'e', 'S', 'e', 'l', 'e', 'c', 't', 'i', 'o', 'n', 0,
     'D', 'o', 'G', 'e', 't', 'C', 'l', 'i', 'e', 'n', 't', 'S', 'i', 'z', 'e', 0,
     'D', 'o', 'S', 'e', 't', 'C', 'l', 'i', 'e', 'n', 't', 'S', 'i', 'z', 'e', 0,
+    'F', 'i', 'n', 'i', 's', 'h', 'W', 'i', 't', 'h', 'E', 'r', 'r', 'o', 'r', 0,
+    'G', 'e', 't', 'C', 'h', 'i', 'l', 'd', 'W', 'e', 'b', 'V', 'i', 'e', 'w', 0,
     'G', 'e', 't', 'C', 'u', 'r', 'r', 'e', 'n', 't', 'T', 'i', 't', 'l', 'e', 0,
     'G', 'e', 't', 'S', 'e', 'l', 'e', 'c', 't', 'e', 'd', 'T', 'e', 'x', 't', 0,
     'R', 'e', 'g', 'i', 's', 't', 'e', 'r', 'F', 'a', 'c', 't', 'o', 'r', 'y', 0,
@@ -133,10 +169,12 @@ const char sipStrings__html2[] = {
     'C', 'l', 'e', 'a', 'r', 'S', 'e', 'l', 'e', 'c', 't', 'i', 'o', 'n', 0,
     'D', 'o', 'S', 'e', 't', 'S', 'i', 'z', 'e', 'H', 'i', 'n', 't', 's', 0,
     'G', 'e', 't', 'S', 'e', 'c', 'u', 'r', 'i', 't', 'y', 'U', 'R', 'L', 0,
-    'G', 'e', 't', 'V', 'e', 'r', 's', 'i', 'o', 'n', 'I', 'n', 'f', 'o', 0,
+    'G', 'e', 't', 'V', 'i', 'r', 't', 'u', 'a', 'l', 'H', 'o', 's', 't', 0,
     'O', 'n', 'I', 'n', 't', 'e', 'r', 'n', 'a', 'l', 'I', 'd', 'l', 'e', 0,
     'R', 'u', 'n', 'S', 'c', 'r', 'i', 'p', 't', 'A', 's', 'y', 'n', 'c', 0,
+    'S', 'e', 't', 'C', 'o', 'n', 't', 'e', 'n', 't', 'T', 'y', 'p', 'e', 0,
     'S', 'e', 't', 'S', 'e', 'c', 'u', 'r', 'i', 't', 'y', 'U', 'R', 'L', 0,
+    'S', 'e', 't', 'V', 'i', 'r', 't', 'u', 'a', 'l', 'H', 'o', 's', 't', 0,
     'W', 'e', 'b', 'V', 'i', 'e', 'w', 'N', 'a', 'm', 'e', 'S', 't', 'r', 0,
     'm', 'e', 's', 's', 'a', 'g', 'e', 'H', 'a', 'n', 'd', 'l', 'e', 'r', 0,
     'w', 'x', 'W', 'e', 'b', 'V', 'i', 'e', 'w', 'E', 'v', 'e', 'n', 't', 0,
@@ -160,29 +198,42 @@ const char sipStrings__html2[] = {
     'P', 'r', 'o', 'c', 'e', 's', 's', 'E', 'v', 'e', 'n', 't', 0,
     'S', 'e', 't', 'U', 's', 'e', 'r', 'A', 'g', 'e', 'n', 't', 0,
     'S', 'e', 't', 'V', 'a', 'l', 'i', 'd', 'a', 't', 'o', 'r', 0,
+    'S', 'h', 'o', 'w', 'D', 'e', 'v', 'T', 'o', 'o', 'l', 's', 0,
+    'G', 'e', 't', 'D', 'a', 't', 'a', 'P', 'a', 't', 'h', 0,
     'G', 'e', 't', 'P', 'a', 'g', 'e', 'T', 'e', 'x', 't', 0,
     'G', 'e', 't', 'Z', 'o', 'o', 'm', 'T', 'y', 'p', 'e', 0,
     'I', 's', 'A', 'v', 'a', 'i', 'l', 'a', 'b', 'l', 'e', 0,
     'R', 'e', 'm', 'o', 'v', 'e', 'C', 'h', 'i', 'l', 'd', 0,
     'S', 'e', 't', 'C', 'a', 'n', 'F', 'o', 'c', 'u', 's', 0,
+    'S', 'e', 't', 'D', 'a', 't', 'a', 'P', 'a', 't', 'h', 0,
     'S', 'e', 't', 'E', 'd', 'i', 't', 'a', 'b', 'l', 'e', 0,
     'U', 'S', 'E', '_', 'W', 'E', 'B', 'V', 'I', 'E', 'W', 0,
+    'c', 'o', 'n', 't', 'e', 'n', 't', 'T', 'y', 'p', 'e', 0,
     'm', 'o', 'd', 'e', 'r', 'n', 'L', 'e', 'v', 'e', 'l', 0,
+    'G', 'e', 't', 'B', 'a', 'c', 'k', 'e', 'n', 'd', 0,
     'I', 'n', 'i', 't', 'D', 'i', 'a', 'l', 'o', 'g', 0,
     'I', 's', 'E', 'd', 'i', 't', 'a', 'b', 'l', 'e', 0,
+    'P', 'r', 'i', 'n', 't', 'T', 'o', 'P', 'D', 'F', 0,
     'c', 'l', 'i', 'e', 'n', 't', 'D', 'a', 't', 'a', 0,
     'j', 'a', 'v', 'a', 's', 'c', 'r', 'i', 'p', 't', 0,
     'w', 'i', 'd', 't', 'h', 'T', 'i', 't', 'l', 'e', 0,
     'C', 'a', 'n', 'G', 'o', 'B', 'a', 'c', 'k', 0,
     'D', 'o', 'G', 'e', 't', 'S', 'i', 'z', 'e', 0,
     'D', 'o', 'S', 'e', 't', 'S', 'i', 'z', 'e', 0,
+    'G', 'e', 't', 'H', 'e', 'a', 'd', 'e', 'r', 0,
+    'G', 'e', 't', 'M', 'e', 't', 'h', 'o', 'd', 0,
+    'G', 'e', 't', 'R', 'a', 'w', 'U', 'R', 'I', 0,
+    'G', 'e', 't', 'S', 't', 'r', 'e', 'a', 'm', 0,
     'G', 'e', 't', 'T', 'a', 'r', 'g', 'e', 't', 0,
     'R', 'u', 'n', 'S', 'c', 'r', 'i', 'p', 't', 0,
     'S', 'e', 'l', 'e', 'c', 't', 'A', 'l', 'l', 0,
+    'S', 'e', 't', 'H', 'e', 'a', 'd', 'e', 'r', 0,
+    'S', 'e', 't', 'S', 't', 'a', 't', 'u', 's', 0,
     'T', 'r', 'y', 'B', 'e', 'f', 'o', 'r', 'e', 0,
     'c', 'o', 'l', 'u', 'm', 'n', 'M', 'a', 'x', 0,
     'c', 'o', 'l', 'u', 'm', 'n', 'M', 'i', 'n', 0,
     'd', 'i', 'r', 'e', 'c', 't', 'i', 'o', 'n', 0,
+    'p', 'r', 'i', 'n', 't', 'D', 'a', 't', 'a', 0,
     's', 'i', 'z', 'e', 'F', 'l', 'a', 'g', 's', 0,
     'u', 's', 'e', 'r', 'A', 'g', 'e', 'n', 't', 0,
     'v', 'a', 'l', 'i', 'd', 'a', 't', 'o', 'r', 0,
@@ -193,15 +244,18 @@ const char sipStrings__html2[] = {
     'D', 'o', 'E', 'n', 'a', 'b', 'l', 'e', 0,
     'D', 'o', 'F', 'r', 'e', 'e', 'z', 'e', 0,
     'G', 'e', 't', 'T', 'i', 't', 'l', 'e', 0,
+    'S', 'e', 't', 'P', 'r', 'o', 'x', 'y', 0,
     'T', 'r', 'y', 'A', 'f', 't', 'e', 'r', 0,
     'V', 'a', 'l', 'i', 'd', 'a', 't', 'e', 0,
     'c', 'a', 'n', 'F', 'o', 'c', 'u', 's', 0,
+    'f', 'i', 'l', 'e', 'P', 'a', 't', 'h', 0,
     'l', 'o', 'c', 'a', 't', 'i', 'o', 'n', 0,
     'z', 'o', 'o', 'm', 'T', 'y', 'p', 'e', 0,
     'C', 'a', 'n', 'C', 'o', 'p', 'y', 0,
     'C', 'a', 'n', 'R', 'e', 'd', 'o', 0,
     'C', 'a', 'n', 'U', 'n', 'd', 'o', 0,
     'D', 'e', 's', 't', 'r', 'o', 'y', 0,
+    'G', 'e', 't', 'D', 'a', 't', 'a', 0,
     'G', 'e', 't', 'F', 'i', 'l', 'e', 0,
     'G', 'e', 't', 'N', 'a', 'm', 'e', 0,
     'G', 'e', 't', 'Z', 'o', 'o', 'm', 0,
@@ -220,12 +274,14 @@ const char sipStrings__html2[] = {
     'C', 'a', 'n', 'C', 'u', 't', 0,
     'C', 'r', 'e', 'a', 't', 'e', 0,
     'D', 'o', 'T', 'h', 'a', 'w', 0,
+    'G', 'e', 't', 'U', 'R', 'I', 0,
     'G', 'e', 't', 'U', 'R', 'L', 0,
     'G', 'e', 't', 'U', 'r', 'l', 0,
     'I', 's', 'B', 'u', 's', 'y', 0,
     'R', 'e', 'l', 'o', 'a', 'd', 0,
     'c', 'l', 'i', 'e', 'n', 't', 0,
     'c', 'o', 'l', 'u', 'm', 'n', 0,
+    'c', 'o', 'n', 'f', 'i', 'g', 0,
     'd', 'i', 'a', 'l', 'o', 'g', 0,
     'e', 'n', 'a', 'b', 'l', 'e', 0,
     'h', 'e', 'i', 'g', 'h', 't', 0,
@@ -234,6 +290,7 @@ const char sipStrings__html2[] = {
     'r', 'o', 'w', 'M', 'a', 'x', 0,
     'r', 'o', 'w', 'M', 'i', 'n', 0,
     's', 'c', 'h', 'e', 'm', 'e', 0,
+    's', 't', 'a', 't', 'u', 's', 0,
     's', 't', 'r', 'e', 'a', 'm', 0,
     't', 'a', 'r', 'g', 'e', 't', 0,
     'C', 'l', 'o', 'n', 'e', 0,
@@ -244,13 +301,18 @@ const char sipStrings__html2[] = {
     'f', 'l', 'a', 'g', 's', 0,
     'l', 'e', 'v', 'e', 'l', 0,
     'p', 'o', 'p', 'u', 'p', 0,
+    'p', 'r', 'o', 'x', 'y', 0,
     's', 'c', 'a', 'l', 'e', 0,
+    's', 'i', 'n', 'c', 'e', 0,
     's', 'i', 'z', 'e', 'r', 0,
     's', 't', 'y', 'l', 'e', 0,
     't', 'i', 't', 'l', 'e', 0,
+    't', 'y', 'p', 'e', 's', 0,
+    'v', 'a', 'l', 'u', 'e', 0,
     'w', 'i', 'd', 't', 'h', 0,
     'F', 'i', 'n', 'd', 0,
     'S', 't', 'o', 'p', 0,
+    'h', 'o', 's', 't', 0,
     'h', 'r', 'e', 'f', 0,
     'h', 't', 'm', 'l', 0,
     'i', 'n', 'c', 'H', 0,
@@ -262,11 +324,11 @@ const char sipStrings__html2[] = {
     'm', 'i', 'n', 'H', 0,
     'm', 'i', 'n', 'W', 0,
     'n', 'a', 'm', 'e', 0,
+    'p', 'a', 't', 'h', 0,
     'r', 'e', 'c', 't', 0,
     's', 'h', 'o', 'w', 0,
     's', 'i', 'z', 'e', 0,
     't', 'e', 'x', 't', 0,
-    't', 'i', 'm', 'e', 0,
     't', 'y', 'p', 'e', 0,
     'u', 'n', 'i', 't', 0,
     'z', 'o', 'o', 'm', 0,
@@ -287,48 +349,53 @@ const char* wxWebViewBackendWebKit = "";
 const char* wxWebViewBackendEdge = "";
 const char* wxWebViewBackendIE = "";
 const char* wxWebViewBackendDefault = "";
+wxEventType wxEVT_WEBVIEW_CREATED;
 wxEventType wxEVT_WEBVIEW_NAVIGATING;
 wxEventType wxEVT_WEBVIEW_NAVIGATED;
 wxEventType wxEVT_WEBVIEW_LOADED;
 wxEventType wxEVT_WEBVIEW_ERROR;
 wxEventType wxEVT_WEBVIEW_NEWWINDOW;
+wxEventType wxEVT_WEBVIEW_NEWWINDOW_FEATURES;
 wxEventType wxEVT_WEBVIEW_TITLE_CHANGED;
 wxEventType wxEVT_WEBVIEW_FULLSCREEN_CHANGED;
 wxEventType wxEVT_WEBVIEW_SCRIPT_MESSAGE_RECEIVED;
 wxEventType wxEVT_WEBVIEW_SCRIPT_RESULT;
+wxEventType wxEVT_WEBVIEW_WINDOW_CLOSE_REQUESTED;
+wxEventType wxEVT_WEBVIEW_BROWSING_DATA_CLEARED;
+wxEventType wxEVT_WEBVIEW_PDF_SAVED;
 #endif //!wxUSE_WEBVIEW
 
-::wxVersionInfo sipVH__html2_25(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod)
+void sipVH__html2_31(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, const ::wxString& name, const ::wxString& value)
 {
-    ::wxVersionInfo sipRes;
+    sipCallProcedureMethod(sipGILState, sipErrorHandler, sipPySelf, sipMethod, "NN", new ::wxString(name), sipType_wxString, SIP_NULLPTR, new ::wxString(value), sipType_wxString, SIP_NULLPTR);
+}
+
+void sipVH__html2_30(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, int status)
+{
+    sipCallProcedureMethod(sipGILState, sipErrorHandler, sipPySelf, sipMethod, "i", status);
+}
+
+::wxString sipVH__html2_29(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, const ::wxString& name)
+{
+    ::wxString sipRes;
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "N", new ::wxString(name), sipType_wxString, SIP_NULLPTR);
+
+    sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "H5", sipType_wxString, &sipRes);
+
+    return sipRes;
+}
+
+::wxInputStream* sipVH__html2_28(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod)
+{
+    ::wxInputStream* sipRes = 0;
     PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "");
 
-    sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "H5", sipType_wxVersionInfo, &sipRes);
+    sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "H0", sipType_wxInputStream, &sipRes);
 
     return sipRes;
 }
 
-::wxWebView* sipVH__html2_24(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxWindow*parent, ::wxWindowID id, const ::wxString& url, const ::wxPoint& pos, const ::wxSize& size, long style, const ::wxString& name)
-{
-    ::wxWebView* sipRes = 0;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DiNNNlN", parent, sipType_wxWindow, SIP_NULLPTR, id, new ::wxString(url), sipType_wxString, SIP_NULLPTR, new ::wxPoint(pos), sipType_wxPoint, SIP_NULLPTR, new ::wxSize(size), sipType_wxSize, SIP_NULLPTR, style, new ::wxString(name), sipType_wxString, SIP_NULLPTR);
-
-    sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "H0", sipType_wxWebView, &sipRes);
-
-    return sipRes;
-}
-
-::wxWebView* sipVH__html2_23(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod)
-{
-    ::wxWebView* sipRes = 0;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "");
-
-    sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "H0", sipType_wxWebView, &sipRes);
-
-    return sipRes;
-}
-
-::wxEvent* sipVH__html2_22(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod)
+::wxEvent* sipVH__html2_27(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod)
 {
     ::wxEvent* sipRes = 0;
     PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "");
@@ -338,7 +405,7 @@ wxEventType wxEVT_WEBVIEW_SCRIPT_RESULT;
     return sipRes;
 }
 
-::wxEventCategory sipVH__html2_21(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod)
+::wxEventCategory sipVH__html2_26(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod)
 {
     ::wxEventCategory sipRes = ::wxEVT_CATEGORY_UI;
     PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "");
@@ -348,7 +415,7 @@ wxEventType wxEVT_WEBVIEW_SCRIPT_RESULT;
     return sipRes;
 }
 
-::wxSize sipVH__html2_20(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod)
+::wxSize sipVH__html2_25(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod)
 {
     ::wxSize sipRes;
     PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "");
@@ -358,7 +425,7 @@ wxEventType wxEVT_WEBVIEW_SCRIPT_RESULT;
     return sipRes;
 }
 
-::wxBorder sipVH__html2_19(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod)
+::wxBorder sipVH__html2_24(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod)
 {
     ::wxBorder sipRes = ::wxBORDER_DEFAULT;
     PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "");
@@ -368,39 +435,39 @@ wxEventType wxEVT_WEBVIEW_SCRIPT_RESULT;
     return sipRes;
 }
 
-void sipVH__html2_18(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxWindowVariant variant)
+void sipVH__html2_23(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxWindowVariant variant)
 {
     sipCallProcedureMethod(sipGILState, sipErrorHandler, sipPySelf, sipMethod, "F", variant, sipType_wxWindowVariant);
 }
 
-void sipVH__html2_17(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, int x, int y, int width, int height)
+void sipVH__html2_22(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, int x, int y, int width, int height)
 {
     sipCallProcedureMethod(sipGILState, sipErrorHandler, sipPySelf, sipMethod, "iiii", x, y, width, height);
 }
 
-void sipVH__html2_16(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, int minW, int minH, int maxW, int maxH, int incW, int incH)
+void sipVH__html2_21(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, int minW, int minH, int maxW, int maxH, int incW, int incH)
 {
     sipCallProcedureMethod(sipGILState, sipErrorHandler, sipPySelf, sipMethod, "iiiiii", minW, minH, maxW, maxH, incW, incH);
 }
 
-void sipVH__html2_15(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, int width, int height)
+void sipVH__html2_20(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, int width, int height)
 {
     sipCallProcedureMethod(sipGILState, sipErrorHandler, sipPySelf, sipMethod, "ii", width, height);
 }
 
-void sipVH__html2_14(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, int x, int y, int width, int height, int sizeFlags)
+void sipVH__html2_19(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, int x, int y, int width, int height, int sizeFlags)
 {
     sipCallProcedureMethod(sipGILState, sipErrorHandler, sipPySelf, sipMethod, "iiiii", x, y, width, height, sizeFlags);
 }
 
-void sipVH__html2_13(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, int*x, int*y)
+void sipVH__html2_18(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, int*x, int*y)
 {
     PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "");
 
     sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "(ii)", x, y);
 }
 
-::wxWindow* sipVH__html2_12(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod)
+::wxWindow* sipVH__html2_17(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod)
 {
     ::wxWindow* sipRes = 0;
     PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "");
@@ -410,17 +477,17 @@ void sipVH__html2_13(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErro
     return sipRes;
 }
 
-void sipVH__html2_11(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod)
+void sipVH__html2_16(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod)
 {
     sipCallProcedureMethod(sipGILState, sipErrorHandler, sipPySelf, sipMethod, "");
 }
 
-void sipVH__html2_10(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, const ::wxValidator& validator)
+void sipVH__html2_15(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, const ::wxValidator& validator)
 {
     sipCallProcedureMethod(sipGILState, sipErrorHandler, sipPySelf, sipMethod, "D", const_cast< ::wxValidator *>(&validator), sipType_wxValidator, SIP_NULLPTR);
 }
 
-::wxValidator* sipVH__html2_9(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod)
+::wxValidator* sipVH__html2_14(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod)
 {
     ::wxValidator* sipRes = 0;
     PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "");
@@ -430,7 +497,7 @@ void sipVH__html2_10(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErro
     return sipRes;
 }
 
-::wxPoint sipVH__html2_8(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod)
+::wxPoint sipVH__html2_13(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod)
 {
     ::wxPoint sipRes;
     PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "");
@@ -440,7 +507,7 @@ void sipVH__html2_10(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErro
     return sipRes;
 }
 
-bool sipVH__html2_7(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, int direction, int size, int availableOtherDir)
+bool sipVH__html2_12(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, int direction, int size, int availableOtherDir)
 {
     bool sipRes = 0;
     PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "iii", direction, size, availableOtherDir);
@@ -450,22 +517,12 @@ bool sipVH__html2_7(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipError
     return sipRes;
 }
 
-void sipVH__html2_6(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, bool canFocus)
+void sipVH__html2_11(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, bool canFocus)
 {
     sipCallProcedureMethod(sipGILState, sipErrorHandler, sipPySelf, sipMethod, "b", canFocus);
 }
 
-bool sipVH__html2_5(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod)
-{
-    bool sipRes = 0;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "");
-
-    sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "b", &sipRes);
-
-    return sipRes;
-}
-
-bool sipVH__html2_4(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxEvent& event)
+bool sipVH__html2_10(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxEvent& event)
 {
     bool sipRes = 0;
     PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "D", &event, sipType_wxEvent, SIP_NULLPTR);
@@ -475,9 +532,78 @@ bool sipVH__html2_4(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipError
     return sipRes;
 }
 
-void sipVH__html2_3(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxWindowBase*child)
+void sipVH__html2_9(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxWindowBase*child)
 {
     sipCallProcedureMethod(sipGILState, sipErrorHandler, sipPySelf, sipMethod, "D", child, sipType_wxWindowBase, SIP_NULLPTR);
+}
+
+::wxWebViewConfiguration sipVH__html2_8(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod)
+{
+    static ::wxWebViewConfiguration *sipCpp = SIP_NULLPTR;
+
+    if (!sipCpp)
+    {
+        #if wxUSE_WEBVIEW
+            sipCpp = new wxWebViewConfiguration("", NULL);
+        #endif
+    }
+
+    ::wxWebViewConfiguration sipRes = *sipCpp;
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "");
+
+    sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "H5", sipType_wxWebViewConfiguration, &sipRes);
+
+    return sipRes;
+}
+
+bool sipVH__html2_7(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod)
+{
+    bool sipRes = 0;
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "");
+
+    sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "b", &sipRes);
+
+    return sipRes;
+}
+
+::wxWebView* sipVH__html2_6(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, const ::wxWebViewConfiguration& config)
+{
+    ::wxWebView* sipRes = 0;
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "D", const_cast< ::wxWebViewConfiguration *>(&config), sipType_wxWebViewConfiguration, SIP_NULLPTR);
+
+    sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "H0", sipType_wxWebView, &sipRes);
+
+    return sipRes;
+}
+
+::wxWebView* sipVH__html2_5(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxWindow*parent, ::wxWindowID id, const ::wxString& url, const ::wxPoint& pos, const ::wxSize& size, long style, const ::wxString& name)
+{
+    ::wxWebView* sipRes = 0;
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DiNNNlN", parent, sipType_wxWindow, SIP_NULLPTR, id, new ::wxString(url), sipType_wxString, SIP_NULLPTR, new ::wxPoint(pos), sipType_wxPoint, SIP_NULLPTR, new ::wxSize(size), sipType_wxSize, SIP_NULLPTR, style, new ::wxString(name), sipType_wxString, SIP_NULLPTR);
+
+    sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "H0", sipType_wxWebView, &sipRes);
+
+    return sipRes;
+}
+
+::wxWebView* sipVH__html2_4(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod)
+{
+    ::wxWebView* sipRes = 0;
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "");
+
+    sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "H0", sipType_wxWebView, &sipRes);
+
+    return sipRes;
+}
+
+void* sipVH__html2_3(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod)
+{
+    void* sipRes = 0;
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "");
+
+    sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "V", &sipRes);
+
+    return sipRes;
 }
 
 void sipVH__html2_2(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, const ::wxString& url)
@@ -505,10 +631,12 @@ void sipVH__html2_2(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipError
     return sipRes;
 }
 static sipEnumTypeDef enumTypes[] = {
+    {{-1, SIP_NULLPTR, SIP_NULLPTR, SIP_TYPE_ENUM, sipNameNr_wxWebViewBrowsingDataTypes, SIP_NULLPTR, 0}, sipNameNr_WebViewBrowsingDataTypes, -1, SIP_NULLPTR},
     {{-1, SIP_NULLPTR, SIP_NULLPTR, SIP_TYPE_ENUM, sipNameNr_wxWebViewFindFlags, SIP_NULLPTR, 0}, sipNameNr_WebViewFindFlags, -1, SIP_NULLPTR},
     {{-1, SIP_NULLPTR, SIP_NULLPTR, SIP_TYPE_ENUM, sipNameNr_wxWebViewIE_EmulationLevel, SIP_NULLPTR, 0}, sipNameNr_WebViewIE_EmulationLevel, -1, SIP_NULLPTR},
     {{-1, SIP_NULLPTR, SIP_NULLPTR, SIP_TYPE_ENUM, sipNameNr_wxWebViewNavigationActionFlags, SIP_NULLPTR, 0}, sipNameNr_WebViewNavigationActionFlags, -1, SIP_NULLPTR},
     {{-1, SIP_NULLPTR, SIP_NULLPTR, SIP_TYPE_ENUM, sipNameNr_wxWebViewNavigationError, SIP_NULLPTR, 0}, sipNameNr_WebViewNavigationError, -1, SIP_NULLPTR},
+    {{-1, SIP_NULLPTR, SIP_NULLPTR, SIP_TYPE_ENUM, sipNameNr_wxWebViewPrintFlags, SIP_NULLPTR, 0}, sipNameNr_WebViewPrintFlags, -1, SIP_NULLPTR},
     {{-1, SIP_NULLPTR, SIP_NULLPTR, SIP_TYPE_ENUM, sipNameNr_wxWebViewReloadFlags, SIP_NULLPTR, 0}, sipNameNr_WebViewReloadFlags, -1, SIP_NULLPTR},
     {{-1, SIP_NULLPTR, SIP_NULLPTR, SIP_TYPE_ENUM, sipNameNr_wxWebViewUserScriptInjectionTime, SIP_NULLPTR, 0}, sipNameNr_WebViewUserScriptInjectionTime, -1, SIP_NULLPTR},
     {{-1, SIP_NULLPTR, SIP_NULLPTR, SIP_TYPE_ENUM, sipNameNr_wxWebViewZoom, SIP_NULLPTR, 0}, sipNameNr_WebViewZoom, -1, SIP_NULLPTR},
@@ -517,44 +645,51 @@ static sipEnumTypeDef enumTypes[] = {
 
 /* These are the enum members of all global enums. */
 static sipEnumMemberDef enummembers[] = {
-    {sipName_WEBVIEWIE_EMU_DEFAULT, static_cast<int>(::wxWEBVIEWIE_EMU_DEFAULT), 8},
-    {sipName_WEBVIEWIE_EMU_IE10, static_cast<int>(::wxWEBVIEWIE_EMU_IE10), 8},
-    {sipName_WEBVIEWIE_EMU_IE10_FORCE, static_cast<int>(::wxWEBVIEWIE_EMU_IE10_FORCE), 8},
-    {sipName_WEBVIEWIE_EMU_IE11, static_cast<int>(::wxWEBVIEWIE_EMU_IE11), 8},
-    {sipName_WEBVIEWIE_EMU_IE11_FORCE, static_cast<int>(::wxWEBVIEWIE_EMU_IE11_FORCE), 8},
-    {sipName_WEBVIEWIE_EMU_IE7, static_cast<int>(::wxWEBVIEWIE_EMU_IE7), 8},
-    {sipName_WEBVIEWIE_EMU_IE8, static_cast<int>(::wxWEBVIEWIE_EMU_IE8), 8},
-    {sipName_WEBVIEWIE_EMU_IE8_FORCE, static_cast<int>(::wxWEBVIEWIE_EMU_IE8_FORCE), 8},
-    {sipName_WEBVIEWIE_EMU_IE9, static_cast<int>(::wxWEBVIEWIE_EMU_IE9), 8},
-    {sipName_WEBVIEWIE_EMU_IE9_FORCE, static_cast<int>(::wxWEBVIEWIE_EMU_IE9_FORCE), 8},
-    {sipName_WEBVIEW_FIND_BACKWARDS, static_cast<int>(::wxWEBVIEW_FIND_BACKWARDS), 5},
-    {sipName_WEBVIEW_FIND_DEFAULT, static_cast<int>(::wxWEBVIEW_FIND_DEFAULT), 5},
-    {sipName_WEBVIEW_FIND_ENTIRE_WORD, static_cast<int>(::wxWEBVIEW_FIND_ENTIRE_WORD), 5},
-    {sipName_WEBVIEW_FIND_HIGHLIGHT_RESULT, static_cast<int>(::wxWEBVIEW_FIND_HIGHLIGHT_RESULT), 5},
-    {sipName_WEBVIEW_FIND_MATCH_CASE, static_cast<int>(::wxWEBVIEW_FIND_MATCH_CASE), 5},
-    {sipName_WEBVIEW_FIND_WRAP, static_cast<int>(::wxWEBVIEW_FIND_WRAP), 5},
-    {sipName_WEBVIEW_INJECT_AT_DOCUMENT_END, static_cast<int>(::wxWEBVIEW_INJECT_AT_DOCUMENT_END), 12},
-    {sipName_WEBVIEW_INJECT_AT_DOCUMENT_START, static_cast<int>(::wxWEBVIEW_INJECT_AT_DOCUMENT_START), 12},
-    {sipName_WEBVIEW_NAV_ACTION_NONE, static_cast<int>(::wxWEBVIEW_NAV_ACTION_NONE), 9},
-    {sipName_WEBVIEW_NAV_ACTION_OTHER, static_cast<int>(::wxWEBVIEW_NAV_ACTION_OTHER), 9},
-    {sipName_WEBVIEW_NAV_ACTION_USER, static_cast<int>(::wxWEBVIEW_NAV_ACTION_USER), 9},
-    {sipName_WEBVIEW_NAV_ERR_AUTH, static_cast<int>(::wxWEBVIEW_NAV_ERR_AUTH), 10},
-    {sipName_WEBVIEW_NAV_ERR_CERTIFICATE, static_cast<int>(::wxWEBVIEW_NAV_ERR_CERTIFICATE), 10},
-    {sipName_WEBVIEW_NAV_ERR_CONNECTION, static_cast<int>(::wxWEBVIEW_NAV_ERR_CONNECTION), 10},
-    {sipName_WEBVIEW_NAV_ERR_NOT_FOUND, static_cast<int>(::wxWEBVIEW_NAV_ERR_NOT_FOUND), 10},
-    {sipName_WEBVIEW_NAV_ERR_OTHER, static_cast<int>(::wxWEBVIEW_NAV_ERR_OTHER), 10},
-    {sipName_WEBVIEW_NAV_ERR_REQUEST, static_cast<int>(::wxWEBVIEW_NAV_ERR_REQUEST), 10},
-    {sipName_WEBVIEW_NAV_ERR_SECURITY, static_cast<int>(::wxWEBVIEW_NAV_ERR_SECURITY), 10},
-    {sipName_WEBVIEW_NAV_ERR_USER_CANCELLED, static_cast<int>(::wxWEBVIEW_NAV_ERR_USER_CANCELLED), 10},
-    {sipName_WEBVIEW_RELOAD_DEFAULT, static_cast<int>(::wxWEBVIEW_RELOAD_DEFAULT), 11},
-    {sipName_WEBVIEW_RELOAD_NO_CACHE, static_cast<int>(::wxWEBVIEW_RELOAD_NO_CACHE), 11},
-    {sipName_WEBVIEW_ZOOM_LARGE, static_cast<int>(::wxWEBVIEW_ZOOM_LARGE), 13},
-    {sipName_WEBVIEW_ZOOM_LARGEST, static_cast<int>(::wxWEBVIEW_ZOOM_LARGEST), 13},
-    {sipName_WEBVIEW_ZOOM_MEDIUM, static_cast<int>(::wxWEBVIEW_ZOOM_MEDIUM), 13},
-    {sipName_WEBVIEW_ZOOM_SMALL, static_cast<int>(::wxWEBVIEW_ZOOM_SMALL), 13},
-    {sipName_WEBVIEW_ZOOM_TINY, static_cast<int>(::wxWEBVIEW_ZOOM_TINY), 13},
-    {sipName_WEBVIEW_ZOOM_TYPE_LAYOUT, static_cast<int>(::wxWEBVIEW_ZOOM_TYPE_LAYOUT), 14},
-    {sipName_WEBVIEW_ZOOM_TYPE_TEXT, static_cast<int>(::wxWEBVIEW_ZOOM_TYPE_TEXT), 14},
+    {sipName_WEBVIEWIE_EMU_DEFAULT, static_cast<int>(::wxWEBVIEWIE_EMU_DEFAULT), 13},
+    {sipName_WEBVIEWIE_EMU_IE10, static_cast<int>(::wxWEBVIEWIE_EMU_IE10), 13},
+    {sipName_WEBVIEWIE_EMU_IE10_FORCE, static_cast<int>(::wxWEBVIEWIE_EMU_IE10_FORCE), 13},
+    {sipName_WEBVIEWIE_EMU_IE11, static_cast<int>(::wxWEBVIEWIE_EMU_IE11), 13},
+    {sipName_WEBVIEWIE_EMU_IE11_FORCE, static_cast<int>(::wxWEBVIEWIE_EMU_IE11_FORCE), 13},
+    {sipName_WEBVIEWIE_EMU_IE7, static_cast<int>(::wxWEBVIEWIE_EMU_IE7), 13},
+    {sipName_WEBVIEWIE_EMU_IE8, static_cast<int>(::wxWEBVIEWIE_EMU_IE8), 13},
+    {sipName_WEBVIEWIE_EMU_IE8_FORCE, static_cast<int>(::wxWEBVIEWIE_EMU_IE8_FORCE), 13},
+    {sipName_WEBVIEWIE_EMU_IE9, static_cast<int>(::wxWEBVIEWIE_EMU_IE9), 13},
+    {sipName_WEBVIEWIE_EMU_IE9_FORCE, static_cast<int>(::wxWEBVIEWIE_EMU_IE9_FORCE), 13},
+    {sipName_WEBVIEW_BROWSING_DATA_ALL, static_cast<int>(::wxWEBVIEW_BROWSING_DATA_ALL), 2},
+    {sipName_WEBVIEW_BROWSING_DATA_CACHE, static_cast<int>(::wxWEBVIEW_BROWSING_DATA_CACHE), 2},
+    {sipName_WEBVIEW_BROWSING_DATA_COOKIES, static_cast<int>(::wxWEBVIEW_BROWSING_DATA_COOKIES), 2},
+    {sipName_WEBVIEW_BROWSING_DATA_DOM_STORAGE, static_cast<int>(::wxWEBVIEW_BROWSING_DATA_DOM_STORAGE), 2},
+    {sipName_WEBVIEW_BROWSING_DATA_OTHER, static_cast<int>(::wxWEBVIEW_BROWSING_DATA_OTHER), 2},
+    {sipName_WEBVIEW_FIND_BACKWARDS, static_cast<int>(::wxWEBVIEW_FIND_BACKWARDS), 7},
+    {sipName_WEBVIEW_FIND_DEFAULT, static_cast<int>(::wxWEBVIEW_FIND_DEFAULT), 7},
+    {sipName_WEBVIEW_FIND_ENTIRE_WORD, static_cast<int>(::wxWEBVIEW_FIND_ENTIRE_WORD), 7},
+    {sipName_WEBVIEW_FIND_HIGHLIGHT_RESULT, static_cast<int>(::wxWEBVIEW_FIND_HIGHLIGHT_RESULT), 7},
+    {sipName_WEBVIEW_FIND_MATCH_CASE, static_cast<int>(::wxWEBVIEW_FIND_MATCH_CASE), 7},
+    {sipName_WEBVIEW_FIND_WRAP, static_cast<int>(::wxWEBVIEW_FIND_WRAP), 7},
+    {sipName_WEBVIEW_INJECT_AT_DOCUMENT_END, static_cast<int>(::wxWEBVIEW_INJECT_AT_DOCUMENT_END), 18},
+    {sipName_WEBVIEW_INJECT_AT_DOCUMENT_START, static_cast<int>(::wxWEBVIEW_INJECT_AT_DOCUMENT_START), 18},
+    {sipName_WEBVIEW_NAV_ACTION_NONE, static_cast<int>(::wxWEBVIEW_NAV_ACTION_NONE), 14},
+    {sipName_WEBVIEW_NAV_ACTION_OTHER, static_cast<int>(::wxWEBVIEW_NAV_ACTION_OTHER), 14},
+    {sipName_WEBVIEW_NAV_ACTION_USER, static_cast<int>(::wxWEBVIEW_NAV_ACTION_USER), 14},
+    {sipName_WEBVIEW_NAV_ERR_AUTH, static_cast<int>(::wxWEBVIEW_NAV_ERR_AUTH), 15},
+    {sipName_WEBVIEW_NAV_ERR_CERTIFICATE, static_cast<int>(::wxWEBVIEW_NAV_ERR_CERTIFICATE), 15},
+    {sipName_WEBVIEW_NAV_ERR_CONNECTION, static_cast<int>(::wxWEBVIEW_NAV_ERR_CONNECTION), 15},
+    {sipName_WEBVIEW_NAV_ERR_NOT_FOUND, static_cast<int>(::wxWEBVIEW_NAV_ERR_NOT_FOUND), 15},
+    {sipName_WEBVIEW_NAV_ERR_OTHER, static_cast<int>(::wxWEBVIEW_NAV_ERR_OTHER), 15},
+    {sipName_WEBVIEW_NAV_ERR_REQUEST, static_cast<int>(::wxWEBVIEW_NAV_ERR_REQUEST), 15},
+    {sipName_WEBVIEW_NAV_ERR_SECURITY, static_cast<int>(::wxWEBVIEW_NAV_ERR_SECURITY), 15},
+    {sipName_WEBVIEW_NAV_ERR_USER_CANCELLED, static_cast<int>(::wxWEBVIEW_NAV_ERR_USER_CANCELLED), 15},
+    {sipName_WEBVIEW_PRINT_DEFAULT, static_cast<int>(::wxWEBVIEW_PRINT_DEFAULT), 16},
+    {sipName_WEBVIEW_PRINT_HIDE_HEADER_FOOTER, static_cast<int>(::wxWEBVIEW_PRINT_HIDE_HEADER_FOOTER), 16},
+    {sipName_WEBVIEW_RELOAD_DEFAULT, static_cast<int>(::wxWEBVIEW_RELOAD_DEFAULT), 17},
+    {sipName_WEBVIEW_RELOAD_NO_CACHE, static_cast<int>(::wxWEBVIEW_RELOAD_NO_CACHE), 17},
+    {sipName_WEBVIEW_ZOOM_LARGE, static_cast<int>(::wxWEBVIEW_ZOOM_LARGE), 20},
+    {sipName_WEBVIEW_ZOOM_LARGEST, static_cast<int>(::wxWEBVIEW_ZOOM_LARGEST), 20},
+    {sipName_WEBVIEW_ZOOM_MEDIUM, static_cast<int>(::wxWEBVIEW_ZOOM_MEDIUM), 20},
+    {sipName_WEBVIEW_ZOOM_SMALL, static_cast<int>(::wxWEBVIEW_ZOOM_SMALL), 20},
+    {sipName_WEBVIEW_ZOOM_TINY, static_cast<int>(::wxWEBVIEW_ZOOM_TINY), 20},
+    {sipName_WEBVIEW_ZOOM_TYPE_LAYOUT, static_cast<int>(::wxWEBVIEW_ZOOM_TYPE_LAYOUT), 21},
+    {sipName_WEBVIEW_ZOOM_TYPE_TEXT, static_cast<int>(::wxWEBVIEW_ZOOM_TYPE_TEXT), 21},
 };
 
 
@@ -564,27 +699,36 @@ static sipEnumMemberDef enummembers[] = {
 sipTypeDef *sipExportedTypes__html2[] = {
     &sipTypeDef__html2_wxWebView.ctd_base,
     &sipTypeDef__html2_wxWebViewArchiveHandler.ctd_base,
+    &enumTypes[0].etd_base,
+    &sipTypeDef__html2_wxWebViewConfiguration.ctd_base,
     &sipTypeDef__html2_wxWebViewEvent.ctd_base,
     &sipTypeDef__html2_wxWebViewFSHandler.ctd_base,
     &sipTypeDef__html2_wxWebViewFactory.ctd_base,
-    &enumTypes[0].etd_base,
-    &sipTypeDef__html2_wxWebViewHandler.ctd_base,
-    &sipTypeDef__html2_wxWebViewHistoryItem.ctd_base,
     &enumTypes[1].etd_base,
+    &sipTypeDef__html2_wxWebViewHandler.ctd_base,
+    &sipTypeDef__html2_wxWebViewHandlerRequest.ctd_base,
+    &sipTypeDef__html2_wxWebViewHandlerResponse.ctd_base,
+    &sipTypeDef__html2_wxWebViewHandlerResponseData.ctd_base,
+    &sipTypeDef__html2_wxWebViewHistoryItem.ctd_base,
     &enumTypes[2].etd_base,
     &enumTypes[3].etd_base,
     &enumTypes[4].etd_base,
     &enumTypes[5].etd_base,
     &enumTypes[6].etd_base,
     &enumTypes[7].etd_base,
+    &sipTypeDef__html2_wxWebViewWindowFeatures.ctd_base,
+    &enumTypes[8].etd_base,
+    &enumTypes[9].etd_base,
 };
 
 
 /* This defines the types that this module needs to import from _core. */
 sipImportedTypeDef sipImportedTypes__html2__core[] = {
+    {"wxAccessible"},
     {"wxBorder"},
     {"wxCommandEvent"},
     {"wxControl"},
+    {"wxDateTime"},
     {"wxEvent"},
     {"wxEventCategory"},
     {"wxEvtHandler"},
@@ -593,11 +737,11 @@ sipImportedTypeDef sipImportedTypes__html2__core[] = {
     {"wxNotifyEvent"},
     {"wxObject"},
     {"wxPoint"},
+    {"wxPrintData"},
     {"wxSize"},
     {"wxString"},
     {"wxTrackable"},
     {"wxValidator"},
-    {"wxVersionInfo"},
     {"wxVisualAttributes"},
     {"wxWindow"},
     {"wxWindowBase"},
@@ -628,15 +772,20 @@ static sipStringInstanceDef stringInstances[] = {
 /* Define the enum members and ints to be added to this module. */
 static sipIntInstanceDef intInstances[] = {
     {sipName_USE_WEBVIEW, wxUSE_WEBVIEW},
+    {sipName_wxEVT_WEBVIEW_BROWSING_DATA_CLEARED, wxEVT_WEBVIEW_BROWSING_DATA_CLEARED},
+    {sipName_wxEVT_WEBVIEW_CREATED, wxEVT_WEBVIEW_CREATED},
     {sipName_wxEVT_WEBVIEW_ERROR, wxEVT_WEBVIEW_ERROR},
     {sipName_wxEVT_WEBVIEW_FULLSCREEN_CHANGED, wxEVT_WEBVIEW_FULLSCREEN_CHANGED},
     {sipName_wxEVT_WEBVIEW_LOADED, wxEVT_WEBVIEW_LOADED},
     {sipName_wxEVT_WEBVIEW_NAVIGATED, wxEVT_WEBVIEW_NAVIGATED},
     {sipName_wxEVT_WEBVIEW_NAVIGATING, wxEVT_WEBVIEW_NAVIGATING},
     {sipName_wxEVT_WEBVIEW_NEWWINDOW, wxEVT_WEBVIEW_NEWWINDOW},
+    {sipName_wxEVT_WEBVIEW_NEWWINDOW_FEATURES, wxEVT_WEBVIEW_NEWWINDOW_FEATURES},
+    {sipName_wxEVT_WEBVIEW_PDF_SAVED, wxEVT_WEBVIEW_PDF_SAVED},
     {sipName_wxEVT_WEBVIEW_SCRIPT_MESSAGE_RECEIVED, wxEVT_WEBVIEW_SCRIPT_MESSAGE_RECEIVED},
     {sipName_wxEVT_WEBVIEW_SCRIPT_RESULT, wxEVT_WEBVIEW_SCRIPT_RESULT},
     {sipName_wxEVT_WEBVIEW_TITLE_CHANGED, wxEVT_WEBVIEW_TITLE_CHANGED},
+    {sipName_wxEVT_WEBVIEW_WINDOW_CLOSE_REQUESTED, wxEVT_WEBVIEW_WINDOW_CLOSE_REQUESTED},
     {0, 0}
 };
 
@@ -650,10 +799,10 @@ sipExportedModuleDef sipModuleAPI__html2 = {
     sipStrings__html2,
     importsTable,
     SIP_NULLPTR,
-    15,
+    22,
     sipExportedTypes__html2,
     SIP_NULLPTR,
-    38,
+    45,
     enummembers,
     0,
     SIP_NULLPTR,

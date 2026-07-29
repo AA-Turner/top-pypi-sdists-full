@@ -46,7 +46,19 @@ class GetPriceForContractRequest(google.protobuf.message.Message):
     CONTRACT_ID_FIELD_NUMBER: builtins.int
     USAGE_START_WATERMARK_TS_FIELD_NUMBER: builtins.int
     SIMULATED_USAGE_FIELD_NUMBER: builtins.int
+    OVERRIDE_PACKAGE_UID_FIELD_NUMBER: builtins.int
+    OVERRIDE_MONTH_INTERVAL_FIELD_NUMBER: builtins.int
     contract_id: builtins.int
+    override_package_uid: builtins.str
+    """When set, price the contract's usage against this package's rate card instead
+    of the contract's own -- "what would this usage cost under package X". Used by
+    checkout to freeze a PAYG cap against usage re-priced under an upgrade's target
+    package. The contract's overrides (e.g. reserved volumes) still apply.
+    """
+    override_month_interval: builtins.int
+    """Paired with override_package_uid: price at this billing interval instead of the
+    contract's own, for an upgrade that also changes the interval.
+    """
     @property
     def usage_start_watermark_ts(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
     @property
@@ -61,9 +73,16 @@ class GetPriceForContractRequest(google.protobuf.message.Message):
         contract_id: builtins.int = ...,
         usage_start_watermark_ts: google.protobuf.timestamp_pb2.Timestamp | None = ...,
         simulated_usage: sentry_protos.billing.v1.services.usage.v1.endpoint_usage_pb2.GetUsageResponse | None = ...,
+        override_package_uid: builtins.str | None = ...,
+        override_month_interval: builtins.int | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_simulated_usage", b"_simulated_usage", "simulated_usage", b"simulated_usage", "usage_start_watermark_ts", b"usage_start_watermark_ts"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_simulated_usage", b"_simulated_usage", "contract_id", b"contract_id", "simulated_usage", b"simulated_usage", "usage_start_watermark_ts", b"usage_start_watermark_ts"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_override_month_interval", b"_override_month_interval", "_override_package_uid", b"_override_package_uid", "_simulated_usage", b"_simulated_usage", "override_month_interval", b"override_month_interval", "override_package_uid", b"override_package_uid", "simulated_usage", b"simulated_usage", "usage_start_watermark_ts", b"usage_start_watermark_ts"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_override_month_interval", b"_override_month_interval", "_override_package_uid", b"_override_package_uid", "_simulated_usage", b"_simulated_usage", "contract_id", b"contract_id", "override_month_interval", b"override_month_interval", "override_package_uid", b"override_package_uid", "simulated_usage", b"simulated_usage", "usage_start_watermark_ts", b"usage_start_watermark_ts"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_override_month_interval", b"_override_month_interval"]) -> typing.Literal["override_month_interval"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_override_package_uid", b"_override_package_uid"]) -> typing.Literal["override_package_uid"] | None: ...
+    @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_simulated_usage", b"_simulated_usage"]) -> typing.Literal["simulated_usage"] | None: ...
 
 global___GetPriceForContractRequest = GetPriceForContractRequest

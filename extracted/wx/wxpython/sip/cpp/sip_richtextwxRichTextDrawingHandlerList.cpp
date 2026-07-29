@@ -117,9 +117,7 @@ static int slot_wxRichTextDrawingHandlerList___contains__(PyObject *sipSelf, PyO
         if (sipParseArgs(&sipParseErr, sipArg, "1J8", sipType_wxRichTextDrawingHandler, &obj))
         {
             int sipRes = 0;
-        wxRichTextDrawingHandlerList::compatibility_iterator node;
-        node = sipCpp->Find((wxRichTextDrawingHandler*)obj);
-        sipRes = node != NULL;
+        sipRes = sipCpp->Member((wxRichTextDrawingHandler*)obj);
 
             return sipRes;
         }

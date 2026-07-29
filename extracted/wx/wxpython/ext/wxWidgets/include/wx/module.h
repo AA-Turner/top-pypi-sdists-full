@@ -2,7 +2,6 @@
 // Name:        wx/module.h
 // Purpose:     Modules handling
 // Author:      Wolfram Gloger/adapted by Guilhem Lavaux
-// Modified by:
 // Created:     04/11/98
 // Copyright:   (c) Wolfram Gloger and Guilhem Lavaux
 // Licence:     wxWindows licence
@@ -12,6 +11,7 @@
 #define _WX_MODULE_H_
 
 #include "wx/object.h"
+#include "wx/string.h"
 #include "wx/vector.h"
 
 class wxModule;
@@ -24,8 +24,8 @@ typedef wxVector<wxModule*> wxModuleList;
 class WXDLLIMPEXP_BASE wxModule : public wxObject
 {
 public:
-    wxModule() {}
-    virtual ~wxModule() {}
+    wxModule() = default;
+    virtual ~wxModule() = default;
 
     // if module init routine returns false the application
     // will fail to startup
@@ -54,6 +54,10 @@ public:
 
     static void UnregisterModule(wxModule *module);
 
+    // Initialize the module with the given type information if it's not
+    // already initialized. This is for internal use only currently.
+    static void AddModuleIfNecessary(const wxClassInfo *classInfo);
+
 protected:
     static wxModuleList ms_modules;
 
@@ -64,7 +68,7 @@ protected:
     // after that
     void AddDependency(wxClassInfo *dep)
     {
-        wxCHECK_RET( dep, wxT("NULL module dependency") );
+        wxCHECK_RET( dep, wxT("null module dependency") );
 
         m_dependencies.push_back(dep);
     }

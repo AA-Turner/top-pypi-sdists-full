@@ -717,7 +717,7 @@ static void *init_type_wxGIFDecoder(sipSimpleWrapper *sipSelf, PyObject *sipArgs
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGIFDecoder[] = {{4, 255, 1}};
+static sipEncodedTypeDef supers_wxGIFDecoder[] = {{6, 255, 1}};
 
 
 static PyMethodDef methods_wxGIFDecoder[] = {

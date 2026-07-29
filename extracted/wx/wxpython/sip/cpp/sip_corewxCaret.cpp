@@ -81,9 +81,9 @@ void sipwxCaret::Show(bool show)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, show);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, show);
 }
 
 void sipwxCaret::Hide()

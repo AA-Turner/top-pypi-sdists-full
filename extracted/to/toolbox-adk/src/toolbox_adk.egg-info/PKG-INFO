@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: toolbox-adk
-Version: 1.2.0
+Version: 1.3.0
 Summary: Agent Development Kit Integration for MCP Toolbox
 Author-email: Google LLC <googleapis-packages@google.com>
 Project-URL: Homepage, https://github.com/googleapis/mcp-toolbox-sdk-python/blob/main/packages/toolbox-adk

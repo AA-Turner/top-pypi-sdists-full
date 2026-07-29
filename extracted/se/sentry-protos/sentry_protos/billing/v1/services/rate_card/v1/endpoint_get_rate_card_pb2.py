@@ -25,15 +25,15 @@ _sym_db = _symbol_database.Default()
 from sentry_protos.billing.v1.services.rate_card.v1 import rate_card_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_rate__card_dot_v1_dot_rate__card__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nKsentry_protos/billing/v1/services/rate_card/v1/endpoint_get_rate_card.proto\x12.sentry_protos.billing.v1.services.rate_card.v1\x1a>sentry_protos/billing/v1/services/rate_card/v1/rate_card.proto\")\n\x12GetRateCardRequest\x12\x13\n\x0b\x63ontract_id\x18\x01 \x01(\x04\"b\n\x13GetRateCardResponse\x12K\n\trate_card\x18\x01 \x01(\x0b\x32\x38.sentry_protos.billing.v1.services.rate_card.v1.RateCardb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nKsentry_protos/billing/v1/services/rate_card/v1/endpoint_get_rate_card.proto\x12.sentry_protos.billing.v1.services.rate_card.v1\x1a>sentry_protos/billing/v1/services/rate_card/v1/rate_card.proto\"\xa7\x01\n\x12GetRateCardRequest\x12\x13\n\x0b\x63ontract_id\x18\x01 \x01(\x04\x12!\n\x14override_package_uid\x18\x02 \x01(\tH\x00\x88\x01\x01\x12$\n\x17override_month_interval\x18\x03 \x01(\rH\x01\x88\x01\x01\x42\x17\n\x15_override_package_uidB\x1a\n\x18_override_month_interval\"b\n\x13GetRateCardResponse\x12K\n\trate_card\x18\x01 \x01(\x0b\x32\x38.sentry_protos.billing.v1.services.rate_card.v1.RateCardb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.rate_card.v1.endpoint_get_rate_card_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_GETRATECARDREQUEST']._serialized_start=191
-  _globals['_GETRATECARDREQUEST']._serialized_end=232
-  _globals['_GETRATECARDRESPONSE']._serialized_start=234
-  _globals['_GETRATECARDRESPONSE']._serialized_end=332
+  _globals['_GETRATECARDREQUEST']._serialized_start=192
+  _globals['_GETRATECARDREQUEST']._serialized_end=359
+  _globals['_GETRATECARDRESPONSE']._serialized_start=361
+  _globals['_GETRATECARDRESPONSE']._serialized_end=459
 # @@protoc_insertion_point(module_scope)

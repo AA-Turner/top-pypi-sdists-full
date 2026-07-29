@@ -596,7 +596,7 @@ static void *init_type_wxQueryLayoutInfoEvent(sipSimpleWrapper *sipSelf, PyObjec
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxQueryLayoutInfoEvent[] = {{21, 0, 1}};
+static sipEncodedTypeDef supers_wxQueryLayoutInfoEvent[] = {{22, 0, 1}};
 
 
 static PyMethodDef methods_wxQueryLayoutInfoEvent[] = {

@@ -69,9 +69,9 @@ const ::wxString& sipwxConfig::GetPath() const
     if (!sipMeth)
         return ::wxConfig::GetPath();
 
-    extern const ::wxString& sipVH__core_97(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern const ::wxString& sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_97(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxConfig::SetPath(const ::wxString& strPath)
@@ -102,9 +102,9 @@ size_t sipwxConfig::GetNumberOfEntries(bool bRecursive) const
     if (!sipMeth)
         return ::wxConfig::GetNumberOfEntries(bRecursive);
 
-    extern size_t sipVH__core_98(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern size_t sipVH__core_97(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    return sipVH__core_98(sipGILState, 0, sipPySelf, sipMeth, bRecursive);
+    return sipVH__core_97(sipGILState, 0, sipPySelf, sipMeth, bRecursive);
 }
 
 size_t sipwxConfig::GetNumberOfGroups(bool bRecursive) const
@@ -117,9 +117,9 @@ size_t sipwxConfig::GetNumberOfGroups(bool bRecursive) const
     if (!sipMeth)
         return ::wxConfig::GetNumberOfGroups(bRecursive);
 
-    extern size_t sipVH__core_98(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern size_t sipVH__core_97(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    return sipVH__core_98(sipGILState, 0, sipPySelf, sipMeth, bRecursive);
+    return sipVH__core_97(sipGILState, 0, sipPySelf, sipMeth, bRecursive);
 }
 
 ::wxConfigBase::EntryType sipwxConfig::GetEntryType(const ::wxString& name) const
@@ -132,9 +132,9 @@ size_t sipwxConfig::GetNumberOfGroups(bool bRecursive) const
     if (!sipMeth)
         return ::wxConfig::GetEntryType(name);
 
-    extern ::wxConfigBase::EntryType sipVH__core_99(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&);
+    extern ::wxConfigBase::EntryType sipVH__core_98(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&);
 
-    return sipVH__core_99(sipGILState, 0, sipPySelf, sipMeth, name);
+    return sipVH__core_98(sipGILState, 0, sipPySelf, sipMeth, name);
 }
 
 bool sipwxConfig::HasEntry(const ::wxString& strName) const
@@ -177,9 +177,9 @@ bool sipwxConfig::Flush(bool bCurrentOnly)
     if (!sipMeth)
         return ::wxConfig::Flush(bCurrentOnly);
 
-    extern bool sipVH__core_100(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern bool sipVH__core_99(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    return sipVH__core_100(sipGILState, 0, sipPySelf, sipMeth, bCurrentOnly);
+    return sipVH__core_99(sipGILState, 0, sipPySelf, sipMeth, bCurrentOnly);
 }
 
 bool sipwxConfig::RenameEntry(const ::wxString& oldName, const ::wxString& newName)
@@ -237,9 +237,9 @@ bool sipwxConfig::DeleteEntry(const ::wxString& key, bool bDeleteGroupIfEmpty)
     if (!sipMeth)
         return ::wxConfig::DeleteEntry(key, bDeleteGroupIfEmpty);
 
-    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, bool);
+    extern bool sipVH__core_100(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, bool);
 
-    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, key, bDeleteGroupIfEmpty);
+    return sipVH__core_100(sipGILState, 0, sipPySelf, sipMeth, key, bDeleteGroupIfEmpty);
 }
 
 bool sipwxConfig::DeleteGroup(const ::wxString& key)
@@ -855,7 +855,7 @@ static void *init_type_wxConfig(sipSimpleWrapper *sipSelf, PyObject *sipArgs, Py
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxConfig[] = {{90, 255, 1}};
+static sipEncodedTypeDef supers_wxConfig[] = {{93, 255, 1}};
 
 
 static PyMethodDef methods_wxConfig[] = {

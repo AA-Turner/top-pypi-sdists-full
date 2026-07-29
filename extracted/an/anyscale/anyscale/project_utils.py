@@ -464,10 +464,10 @@ def infer_project_id(  # noqa PLR0913
             project_definition = ProjectDefinition(root_dir)
             project_id = get_project_id(project_definition.root)
         else:
-            # TODO: add cloud compute config args here
             if not cluster_compute_id and isinstance(cluster_compute, str):
+                # CI-1151: forward the cloud name so a config name shared across clouds resolves correctly.
                 cluster_compute_id = get_cluster_compute_from_name(
-                    cluster_compute, api_client
+                    cluster_compute, api_client, cloud_name=cloud
                 ).id
             cluster_compute_config = (
                 ClusterComputeConfig(**cluster_compute)

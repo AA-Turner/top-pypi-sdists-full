@@ -22,6 +22,7 @@ from tinybird.tb_cli_modules.common import (
     create_workspace_interactive,
     create_workspace_non_interactive,
     echo_safe_humanfriendly_tables_format_smart_table,
+    get_classic_workspace_creation_organizations,
     get_current_main_workspace,
     get_organizations_by_user,
     is_valid_starterkit,
@@ -226,19 +227,22 @@ async def create_workspace(
 
     organization_name = None
     organizations = await get_organizations_by_user(ctx, user_token)
+    selectable_organizations = get_classic_workspace_creation_organizations(organizations)
 
     if organization_id:
         organization = next((org for org in organizations if org.get("id") == organization_id), None)
         if not organization:
             raise CLIWorkspaceException(FeedbackManager.error_organization_not_found(organization_id=organization_id))
         organization_name = organization.get("name")
-    elif len(organizations) == 0:
-        click.echo(FeedbackManager.warning_none_organization(ui_host=ui_host))
-    elif len(organizations) == 1:
-        organization_id = organizations[0].get("id")
-        organization_name = organizations[0].get("name")
+    elif len(selectable_organizations) == 0:
+        # Let the API return the Classic deprecation error without printing the
+        # old organizations-migration warning that claimed creation would proceed.
+        organization_id = None
+    elif len(selectable_organizations) == 1:
+        organization_id = selectable_organizations[0].get("id")
+        organization_name = selectable_organizations[0].get("name")
     else:
-        sorted_organizations = sort_organizations_by_user(organizations, user_email=config.get_user_email())
+        sorted_organizations = sort_organizations_by_user(selectable_organizations, user_email=config.get_user_email())
         current_organization = await ask_for_organization_interactively(sorted_organizations)
         if current_organization:
             organization_id = current_organization.get("id")

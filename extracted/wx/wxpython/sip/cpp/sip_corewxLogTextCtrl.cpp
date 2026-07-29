@@ -360,7 +360,7 @@ static void *init_type_wxLogTextCtrl(sipSimpleWrapper *sipSelf, PyObject *sipArg
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxLogTextCtrl[] = {{330, 255, 1}};
+static sipEncodedTypeDef supers_wxLogTextCtrl[] = {{337, 255, 1}};
 
 
 static PyMethodDef methods_wxLogTextCtrl[] = {

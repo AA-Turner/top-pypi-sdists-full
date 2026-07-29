@@ -88,9 +88,9 @@ sipwxMouseEvent::~sipwxMouseEvent()
     if (!sipMeth)
         return ::wxMouseEvent::Clone();
 
-    extern ::wxEvent* sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEvent* sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxEventCategory sipwxMouseEvent::GetEventCategory() const
@@ -103,9 +103,9 @@ sipwxMouseEvent::~sipwxMouseEvent()
     if (!sipMeth)
         return ::wxMouseEvent::GetEventCategory();
 
-    extern ::wxEventCategory sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEventCategory sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
@@ -990,6 +990,41 @@ static PyObject *meth_wxMouseEvent_IsPageScroll(PyObject *sipSelf, PyObject *sip
 }
 
 
+PyDoc_STRVAR(doc_wxMouseEvent_IsSynthesized, "IsSynthesized() -> bool\n"
+"\n"
+"Returns true if the event was synthesized from a touch event.");
+
+extern "C" {static PyObject *meth_wxMouseEvent_IsSynthesized(PyObject *, PyObject *);}
+static PyObject *meth_wxMouseEvent_IsSynthesized(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxMouseEvent *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxMouseEvent, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->IsSynthesized();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_MouseEvent, sipName_IsSynthesized, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxMouseEvent_Leaving, "Leaving() -> bool\n"
 "\n"
 "Returns true if the mouse was leaving the window.");
@@ -1771,7 +1806,7 @@ static void *init_type_wxMouseEvent(sipSimpleWrapper *sipSelf, PyObject *sipArgs
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxMouseEvent[] = {{151, 255, 0}, {377, 255, 1}};
+static sipEncodedTypeDef supers_wxMouseEvent[] = {{158, 255, 0}, {385, 255, 1}};
 
 
 static PyMethodDef methods_wxMouseEvent[] = {
@@ -1799,6 +1834,7 @@ static PyMethodDef methods_wxMouseEvent[] = {
     {sipName_GetWheelRotation, meth_wxMouseEvent_GetWheelRotation, METH_VARARGS, doc_wxMouseEvent_GetWheelRotation},
     {sipName_IsButton, meth_wxMouseEvent_IsButton, METH_VARARGS, doc_wxMouseEvent_IsButton},
     {sipName_IsPageScroll, meth_wxMouseEvent_IsPageScroll, METH_VARARGS, doc_wxMouseEvent_IsPageScroll},
+    {sipName_IsSynthesized, meth_wxMouseEvent_IsSynthesized, METH_VARARGS, doc_wxMouseEvent_IsSynthesized},
     {sipName_IsWheelInverted, meth_wxMouseEvent_IsWheelInverted, METH_VARARGS, doc_wxMouseEvent_IsWheelInverted},
     {sipName_Leaving, meth_wxMouseEvent_Leaving, METH_VARARGS, doc_wxMouseEvent_Leaving},
     {sipName_LeftDClick, meth_wxMouseEvent_LeftDClick, METH_VARARGS, doc_wxMouseEvent_LeftDClick},
@@ -1821,11 +1857,11 @@ static PyMethodDef methods_wxMouseEvent[] = {
 };
 
 sipVariableDef variables_wxMouseEvent[] = {
-    {PropertyVariable, sipName_ColumnsPerAction, &methods_wxMouseEvent[15], &methods_wxMouseEvent[38], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_LinesPerAction, &methods_wxMouseEvent[16], &methods_wxMouseEvent[39], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_WheelDelta, &methods_wxMouseEvent[20], &methods_wxMouseEvent[41], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_WheelRotation, &methods_wxMouseEvent[21], &methods_wxMouseEvent[42], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_WheelAxis, &methods_wxMouseEvent[19], &methods_wxMouseEvent[40], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ColumnsPerAction, &methods_wxMouseEvent[15], &methods_wxMouseEvent[39], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_LinesPerAction, &methods_wxMouseEvent[16], &methods_wxMouseEvent[40], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_WheelDelta, &methods_wxMouseEvent[20], &methods_wxMouseEvent[42], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_WheelRotation, &methods_wxMouseEvent[21], &methods_wxMouseEvent[43], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_WheelAxis, &methods_wxMouseEvent[19], &methods_wxMouseEvent[41], SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxMouseEvent, "MouseEvent(mouseEventType=wxEVT_NULL) -> None\n"
@@ -1848,7 +1884,7 @@ sipClassTypeDef sipTypeDef__core_wxMouseEvent = {
     {
         sipNameNr_MouseEvent,
         {0, 0, 1},
-        43, methods_wxMouseEvent,
+        44, methods_wxMouseEvent,
         0, SIP_NULLPTR,
         5, variables_wxMouseEvent,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

@@ -297,7 +297,7 @@ static void *init_type_wxHtmlLinkInfo(sipSimpleWrapper *, PyObject *sipArgs, PyO
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxHtmlLinkInfo[] = {{25, 0, 1}};
+static sipEncodedTypeDef supers_wxHtmlLinkInfo[] = {{26, 0, 1}};
 
 
 static PyMethodDef methods_wxHtmlLinkInfo[] = {

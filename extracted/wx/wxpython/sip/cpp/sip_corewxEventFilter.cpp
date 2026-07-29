@@ -55,9 +55,9 @@ int sipwxEventFilter::FilterEvent(::wxEvent& event)
     if (!sipMeth)
         return 0;
 
-    extern int sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern int sipVH__core_110(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_110(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 

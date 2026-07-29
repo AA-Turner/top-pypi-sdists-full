@@ -395,11 +395,6 @@
             self->SetHandle((WXHANDLE)LongToHandle(handle));
         #endif
     }
-    void _wxBitmap_SetSize(wxBitmap* self, const wxSize* size)
-    {
-        self->SetWidth(size->x);
-        self->SetHeight(size->y);
-    }
     void _wxBitmap_CopyFromBuffer(wxBitmap* self, wxPyBuffer* data, wxBitmapBufferFormat format, int stride)
     {
         wxPyCopyBitmapFromBuffer(self, (byte*)data->m_ptr, data->m_len, format, stride);
@@ -793,6 +788,86 @@ static PyObject *meth_wxBitmap_CreateWithDIPSize(PyObject *sipSelf, PyObject *si
     }
 
     sipNoMethod(sipParseErr, sipName_Bitmap, sipName_CreateWithDIPSize, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxBitmap_CreateWithLogicalSize, "CreateWithLogicalSize(size, scale, depth=BITMAP_SCREEN_DEPTH) -> bool\n"
+"CreateWithLogicalSize(width, height, scale, depth=BITMAP_SCREEN_DEPTH) -> bool\n"
+"\n"
+"Create a bitmap specifying its size in logical pixels and the scale\n"
+"factor to use.\n"
+"");
+
+extern "C" {static PyObject *meth_wxBitmap_CreateWithLogicalSize(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxBitmap_CreateWithLogicalSize(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxSize* size;
+        int sizeState = 0;
+        double scale;
+        int depth = wxBITMAP_SCREEN_DEPTH;
+        ::wxBitmap *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_size,
+            sipName_scale,
+            sipName_depth,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1d|i", &sipSelf, sipType_wxBitmap, &sipCpp, sipType_wxSize, &size, &sizeState, &scale, &depth))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->CreateWithLogicalSize(*size, scale, depth);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxSize *>(size), sipType_wxSize, sizeState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    {
+        int width;
+        int height;
+        double scale;
+        int depth = wxBITMAP_SCREEN_DEPTH;
+        ::wxBitmap *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_width,
+            sipName_height,
+            sipName_scale,
+            sipName_depth,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Biid|i", &sipSelf, sipType_wxBitmap, &sipCpp, &width, &height, &scale, &depth))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->CreateWithLogicalSize(width, height, scale, depth);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Bitmap, sipName_CreateWithLogicalSize, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -1527,7 +1602,7 @@ static PyObject *meth_wxBitmap_ResetAlpha(PyObject *sipSelf, PyObject *sipArgs)
 }
 
 
-PyDoc_STRVAR(doc_wxBitmap_SaveFile, "SaveFile(name, type, palette=None) -> bool\n"
+PyDoc_STRVAR(doc_wxBitmap_SaveFile, "SaveFile(name, type, palette=nullptr) -> bool\n"
 "\n"
 "Saves a bitmap in the named file.");
 
@@ -1540,7 +1615,7 @@ static PyObject *meth_wxBitmap_SaveFile(PyObject *sipSelf, PyObject *sipArgs, Py
         const ::wxString* name;
         int nameState = 0;
         ::wxBitmapType type;
-        const ::wxPalette* palette = 0;
+        const ::wxPalette* palette = nullptr;
         const ::wxBitmap *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -1568,86 +1643,6 @@ static PyObject *meth_wxBitmap_SaveFile(PyObject *sipSelf, PyObject *sipArgs, Py
     }
 
     sipNoMethod(sipParseErr, sipName_Bitmap, sipName_SaveFile, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxBitmap_SetDepth, "SetDepth(depth) -> None");
-
-extern "C" {static PyObject *meth_wxBitmap_SetDepth(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxBitmap_SetDepth(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        int depth;
-        ::wxBitmap *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_depth,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxBitmap, &sipCpp, &depth))
-        {
-            if (sipDeprecated(sipName_Bitmap, sipName_SetDepth) < 0)
-                return SIP_NULLPTR;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->SetDepth(depth);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_Bitmap, sipName_SetDepth, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxBitmap_SetHeight, "SetHeight(height) -> None");
-
-extern "C" {static PyObject *meth_wxBitmap_SetHeight(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxBitmap_SetHeight(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        int height;
-        ::wxBitmap *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_height,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxBitmap, &sipCpp, &height))
-        {
-            if (sipDeprecated(sipName_Bitmap, sipName_SetHeight) < 0)
-                return SIP_NULLPTR;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->SetHeight(height);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_Bitmap, sipName_SetHeight, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -1765,46 +1760,6 @@ static PyObject *meth_wxBitmap_SetPalette(PyObject *sipSelf, PyObject *sipArgs, 
     }
 
     sipNoMethod(sipParseErr, sipName_Bitmap, sipName_SetPalette, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxBitmap_SetWidth, "SetWidth(width) -> None");
-
-extern "C" {static PyObject *meth_wxBitmap_SetWidth(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxBitmap_SetWidth(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        int width;
-        ::wxBitmap *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_width,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxBitmap, &sipCpp, &width))
-        {
-            if (sipDeprecated(sipName_Bitmap, sipName_SetWidth) < 0)
-                return SIP_NULLPTR;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->SetWidth(width);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_Bitmap, sipName_SetWidth, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -2078,49 +2033,6 @@ static PyObject *meth_wxBitmap_SetHandle(PyObject *sipSelf, PyObject *sipArgs, P
     }
 
     sipNoMethod(sipParseErr, sipName_Bitmap, sipName_SetHandle, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxBitmap_SetSize, "SetSize(size) -> None\n"
-"\n"
-"Set the bitmap size (does not alter the existing native bitmap data or\n"
-"image size).");
-
-extern "C" {static PyObject *meth_wxBitmap_SetSize(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxBitmap_SetSize(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxSize* size;
-        int sizeState = 0;
-        ::wxBitmap *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_size,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxBitmap, &sipCpp, sipType_wxSize, &size, &sizeState))
-        {
-            int sipIsErr = 0;
-        PyErr_Clear();
-        Py_BEGIN_ALLOW_THREADS
-        _wxBitmap_SetSize(sipCpp, size);
-        Py_END_ALLOW_THREADS
-        if (PyErr_Occurred()) sipIsErr = 1;
-            sipReleaseType(const_cast< ::wxSize *>(size), sipType_wxSize, sizeState);
-
-            if (sipIsErr)
-                return 0;
-
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_Bitmap, sipName_SetSize, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -2894,7 +2806,7 @@ static void *init_type_wxBitmap(sipSimpleWrapper *, PyObject *sipArgs, PyObject 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxBitmap[] = {{226, 255, 1}};
+static sipEncodedTypeDef supers_wxBitmap[] = {{234, 255, 1}};
 
 
 /* Define this type's Python slots. */
@@ -2913,6 +2825,7 @@ static PyMethodDef methods_wxBitmap[] = {
     {sipName_Create, SIP_MLMETH_CAST(meth_wxBitmap_Create), METH_VARARGS|METH_KEYWORDS, doc_wxBitmap_Create},
     {sipName_CreateScaled, SIP_MLMETH_CAST(meth_wxBitmap_CreateScaled), METH_VARARGS|METH_KEYWORDS, doc_wxBitmap_CreateScaled},
     {sipName_CreateWithDIPSize, SIP_MLMETH_CAST(meth_wxBitmap_CreateWithDIPSize), METH_VARARGS|METH_KEYWORDS, doc_wxBitmap_CreateWithDIPSize},
+    {sipName_CreateWithLogicalSize, SIP_MLMETH_CAST(meth_wxBitmap_CreateWithLogicalSize), METH_VARARGS|METH_KEYWORDS, doc_wxBitmap_CreateWithLogicalSize},
     {sipName_FromBuffer, SIP_MLMETH_CAST(meth_wxBitmap_FromBuffer), METH_VARARGS|METH_KEYWORDS, doc_wxBitmap_FromBuffer},
     {sipName_FromBufferAndAlpha, SIP_MLMETH_CAST(meth_wxBitmap_FromBufferAndAlpha), METH_VARARGS|METH_KEYWORDS, doc_wxBitmap_FromBufferAndAlpha},
     {sipName_FromBufferRGBA, SIP_MLMETH_CAST(meth_wxBitmap_FromBufferRGBA), METH_VARARGS|METH_KEYWORDS, doc_wxBitmap_FromBufferRGBA},
@@ -2941,35 +2854,31 @@ static PyMethodDef methods_wxBitmap[] = {
     {sipName_Rescale, SIP_MLMETH_CAST(meth_wxBitmap_Rescale), METH_VARARGS|METH_KEYWORDS, doc_wxBitmap_Rescale},
     {sipName_ResetAlpha, meth_wxBitmap_ResetAlpha, METH_VARARGS, doc_wxBitmap_ResetAlpha},
     {sipName_SaveFile, SIP_MLMETH_CAST(meth_wxBitmap_SaveFile), METH_VARARGS|METH_KEYWORDS, doc_wxBitmap_SaveFile},
-    {sipName_SetDepth, SIP_MLMETH_CAST(meth_wxBitmap_SetDepth), METH_VARARGS|METH_KEYWORDS, doc_wxBitmap_SetDepth},
     {sipName_SetHandle, SIP_MLMETH_CAST(meth_wxBitmap_SetHandle), METH_VARARGS|METH_KEYWORDS, doc_wxBitmap_SetHandle},
-    {sipName_SetHeight, SIP_MLMETH_CAST(meth_wxBitmap_SetHeight), METH_VARARGS|METH_KEYWORDS, doc_wxBitmap_SetHeight},
     {sipName_SetMask, SIP_MLMETH_CAST(meth_wxBitmap_SetMask), METH_VARARGS|METH_KEYWORDS, doc_wxBitmap_SetMask},
     {sipName_SetMaskColour, SIP_MLMETH_CAST(meth_wxBitmap_SetMaskColour), METH_VARARGS|METH_KEYWORDS, doc_wxBitmap_SetMaskColour},
     {sipName_SetPalette, SIP_MLMETH_CAST(meth_wxBitmap_SetPalette), METH_VARARGS|METH_KEYWORDS, doc_wxBitmap_SetPalette},
     {sipName_SetScaleFactor, SIP_MLMETH_CAST(meth_wxBitmap_SetScaleFactor), METH_VARARGS|METH_KEYWORDS, doc_wxBitmap_SetScaleFactor},
-    {sipName_SetSize, SIP_MLMETH_CAST(meth_wxBitmap_SetSize), METH_VARARGS|METH_KEYWORDS, doc_wxBitmap_SetSize},
-    {sipName_SetWidth, SIP_MLMETH_CAST(meth_wxBitmap_SetWidth), METH_VARARGS|METH_KEYWORDS, doc_wxBitmap_SetWidth},
     {sipName_UseAlpha, SIP_MLMETH_CAST(meth_wxBitmap_UseAlpha), METH_VARARGS|METH_KEYWORDS, doc_wxBitmap_UseAlpha},
     {sipName___nonzero__, meth_wxBitmap___nonzero__, METH_VARARGS, doc_wxBitmap___nonzero__}
 };
 
 sipVariableDef variables_wxBitmap[] = {
-    {PropertyVariable, sipName_Width, &methods_wxBitmap[28], &methods_wxBitmap[44], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Size, &methods_wxBitmap[26], &methods_wxBitmap[43], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ScaledWidth, &methods_wxBitmap[25], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ScaledSize, &methods_wxBitmap[24], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ScaledHeight, &methods_wxBitmap[23], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ScaleFactor, &methods_wxBitmap[22], &methods_wxBitmap[42], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Palette, &methods_wxBitmap[21], &methods_wxBitmap[41], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Mask, &methods_wxBitmap[20], &methods_wxBitmap[39], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_LogicalWidth, &methods_wxBitmap[19], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_LogicalSize, &methods_wxBitmap[18], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_LogicalHeight, &methods_wxBitmap[17], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Height, &methods_wxBitmap[16], &methods_wxBitmap[38], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Handle, &methods_wxBitmap[15], &methods_wxBitmap[37], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Depth, &methods_wxBitmap[14], &methods_wxBitmap[36], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DIPSize, &methods_wxBitmap[13], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Width, &methods_wxBitmap[29], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Size, &methods_wxBitmap[27], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ScaledWidth, &methods_wxBitmap[26], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ScaledSize, &methods_wxBitmap[25], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ScaledHeight, &methods_wxBitmap[24], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ScaleFactor, &methods_wxBitmap[23], &methods_wxBitmap[41], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Palette, &methods_wxBitmap[22], &methods_wxBitmap[40], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Mask, &methods_wxBitmap[21], &methods_wxBitmap[38], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_LogicalWidth, &methods_wxBitmap[20], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_LogicalSize, &methods_wxBitmap[19], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_LogicalHeight, &methods_wxBitmap[18], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Height, &methods_wxBitmap[17], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Handle, &methods_wxBitmap[16], &methods_wxBitmap[37], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Depth, &methods_wxBitmap[15], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DIPSize, &methods_wxBitmap[14], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxBitmap, "Bitmap() -> None\n"
@@ -3000,7 +2909,7 @@ sipClassTypeDef sipTypeDef__core_wxBitmap = {
     {
         sipNameNr_Bitmap,
         {0, 0, 1},
-        47, methods_wxBitmap,
+        44, methods_wxBitmap,
         0, SIP_NULLPTR,
         15, variables_wxBitmap,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

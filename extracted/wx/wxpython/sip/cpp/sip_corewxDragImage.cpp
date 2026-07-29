@@ -23,7 +23,7 @@
         #include <wx/object.h>
 
 
-PyDoc_STRVAR(doc_wxDragImage_BeginDrag, "BeginDrag(hotspot, window, fullScreen=False, rect=None) -> bool\n"
+PyDoc_STRVAR(doc_wxDragImage_BeginDrag, "BeginDrag(hotspot, window, fullScreen=False, rect=nullptr) -> bool\n"
 "BeginDrag(hotspot, window, boundingWindow) -> bool\n"
 "\n"
 "Start dragging the image, in a window or full screen.\n"
@@ -39,7 +39,7 @@ static PyObject *meth_wxDragImage_BeginDrag(PyObject *sipSelf, PyObject *sipArgs
         int hotspotState = 0;
         ::wxWindow* window;
         bool fullScreen = 0;
-        ::wxRect* rect = 0;
+        ::wxRect* rect = nullptr;
         int rectState = 0;
         ::wxDragImage *sipCpp;
 
@@ -486,7 +486,7 @@ static void *init_type_wxDragImage(sipSimpleWrapper *, PyObject *sipArgs, PyObje
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxDragImage[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxDragImage[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxDragImage[] = {

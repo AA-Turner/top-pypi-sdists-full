@@ -12,9 +12,6 @@
 
 #include "testprec.h"
 
-
-#if wxUSE_UNICODE
-
 #include "wx/convauto.h"
 
 #include "wx/mstream.h"
@@ -131,7 +128,7 @@ void ConvAutoTestCase::TestFirstChar(const char *src, wchar_t wch, size_t len,
                                      ConvState st, wxFontEncoding fe)
 {
     wxConvAuto conv(fe);
-    wxWCharBuffer wbuf = conv.cMB2WC(src, len, NULL);
+    wxWCharBuffer wbuf = conv.cMB2WC(src, len, nullptr);
     CPPUNIT_ASSERT( wbuf );
     CPPUNIT_ASSERT_EQUAL( wch, *wbuf );
     st.Check(conv);
@@ -152,7 +149,7 @@ void ConvAutoTestCase::Empty()
 void ConvAutoTestCase::Encode()
 {
     wxConvAuto conv;
-    wxString str = wxString::FromUTF8("\xd0\x9f\xe3\x81\x82");
+    wxString str = wxString::FromUTF8("Пあ");
     wxCharBuffer buf = conv.cWC2MB(str.wc_str());
     CPPUNIT_ASSERT( buf );
     CPPUNIT_ASSERT_EQUAL( str, wxString::FromUTF8(buf) );
@@ -189,36 +186,34 @@ void ConvAutoTestCase::UTF16BE()
     TestFirstChar("\xfe\xff\0Y", wxT('Y'), 4, ConvState(wxBOM_UTF16BE, wxFONTENCODING_UTF16BE));
 }
 
+#ifdef wxMUST_USE_U_ESCAPE
+constexpr wchar_t CYRILLIC_LETTER_P = L'\u041f';
+#else
+constexpr wchar_t CYRILLIC_LETTER_P = L'П';
+#endif
+
 void ConvAutoTestCase::UTF8()
 {
-#ifdef wxHAVE_U_ESCAPE
-    TestFirstChar("\xef\xbb\xbf\xd0\x9f", L'\u041f', wxNO_LEN, ConvState(wxBOM_UTF8, wxFONTENCODING_UTF8));
-#endif
+    TestFirstChar("\xef\xbb\xbfП", CYRILLIC_LETTER_P, wxNO_LEN, ConvState(wxBOM_UTF8, wxFONTENCODING_UTF8));
 }
 
 void ConvAutoTestCase::UTF8NoBom()
 {
-#ifdef wxHAVE_U_ESCAPE
-    TestFirstChar("\xd0\x9f\xe3\x81\x82", L'\u041f', wxNO_LEN, ConvState(wxBOM_None, wxFONTENCODING_UTF8));
-#endif
+    TestFirstChar("Пあ", CYRILLIC_LETTER_P, wxNO_LEN, ConvState(wxBOM_None, wxFONTENCODING_UTF8));
 }
 
 void ConvAutoTestCase::Fallback()
 {
-#ifdef wxHAVE_U_ESCAPE
-    TestFirstChar("\xbf", L'\u041f', wxNO_LEN,
+    TestFirstChar("\xbf", CYRILLIC_LETTER_P, wxNO_LEN,
                   ConvState(wxBOM_None, wxFONTENCODING_ISO8859_5, true),
                   wxFONTENCODING_ISO8859_5);
-#endif
 }
 
 void ConvAutoTestCase::FallbackMultibyte()
 {
-#ifdef wxHAVE_U_ESCAPE
-    TestFirstChar("\x84\x50", L'\u041f', wxNO_LEN,
+    TestFirstChar("\x84\x50", CYRILLIC_LETTER_P, wxNO_LEN,
                   ConvState(wxBOM_None, wxFONTENCODING_CP932, true),
                   wxFONTENCODING_CP932);
-#endif
 }
 
 void ConvAutoTestCase::FallbackShort()
@@ -249,8 +244,8 @@ void ConvAutoTestCase::TestTextStream(const char *src,
 namespace
 {
 
-const wxString line1 = wxString::FromUTF8("a\xe3\x81\x82");
-const wxString line2 = wxString::FromUTF8("\xce\xb2");
+const wxString line1 = wxString::FromUTF8("aあ");
+const wxString line2 = wxString::FromUTF8("β");
 
 } // anonymous namespace
 
@@ -304,5 +299,3 @@ void ConvAutoTestCase::StreamFallbackMultibyte()
     TestTextStream("\x61\x82\xa0\x0A\x83\xc0",
                    6, line1, line2, wxFONTENCODING_CP932);
 }
-
-#endif // wxUSE_UNICODE

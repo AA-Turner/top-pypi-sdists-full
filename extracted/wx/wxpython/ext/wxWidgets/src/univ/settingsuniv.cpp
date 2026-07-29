@@ -2,7 +2,6 @@
 // Name:        src/univ/settingsuniv.cpp
 // Purpose:     wxSystemSettings wxUniv-specific parts
 // Author:      Vadim Zeitlin
-// Modified by:
 // Created:     20.08.00
 // Copyright:   (c) 2000 SciTech Software, Inc. (www.scitechsoft.com)
 // Licence:     wxWindows licence
@@ -74,7 +73,9 @@ wxColour wxSystemSettings::GetColour(wxSystemColour index)
         wxColourScheme::MAX /* wxSYS_COLOUR_MENUHILIGHT */,
         wxColourScheme::MAX /* wxSYS_COLOUR_MENUBAR */,
         wxColourScheme::CONTROL_TEXT /* wxSYS_COLOUR_LISTBOXTEXT */,
-        wxColourScheme::HIGHLIGHT_TEXT /* wxSYS_COLOUR_LISTBOXHIGHLIGHTTEXT */
+        wxColourScheme::HIGHLIGHT_TEXT /* wxSYS_COLOUR_LISTBOXHIGHLIGHTTEXT */,
+        wxColourScheme::CONTROL /* wxSYS_COLOUR_GRIDLINES */,
+        wxColourScheme::HIGHLIGHT /* wxSYS_COLOUR_LISTBOXHIGHLIGHT */,
     };
 
     wxCOMPILE_TIME_ASSERT( WXSIZEOF(s_mapSysToThemeCol) == wxSYS_COLOUR_MAX,

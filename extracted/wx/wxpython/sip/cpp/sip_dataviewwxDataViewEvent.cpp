@@ -15,8 +15,8 @@
         #include <wx/event.h>
         #include <wx/dataobj.h>
         #include <wx/dataobj.h>
-        #include <wx/dataview.h>
         #include <wx/gdicmn.h>
+        #include <wx/dataview.h>
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
@@ -149,7 +149,7 @@ static PyObject *meth_wxDataViewEvent_GetColumn(PyObject *sipSelf, PyObject *sip
 PyDoc_STRVAR(doc_wxDataViewEvent_GetDataViewColumn, "GetDataViewColumn() -> DataViewColumn\n"
 "\n"
 "Returns a pointer to the wxDataViewColumn from which the event was\n"
-"emitted or NULL.");
+"emitted or nullptr.");
 
 extern "C" {static PyObject *meth_wxDataViewEvent_GetDataViewColumn(PyObject *, PyObject *);}
 static PyObject *meth_wxDataViewEvent_GetDataViewColumn(PyObject *sipSelf, PyObject *sipArgs)
@@ -357,84 +357,6 @@ static PyObject *meth_wxDataViewEvent_SetColumn(PyObject *sipSelf, PyObject *sip
     }
 
     sipNoMethod(sipParseErr, sipName_DataViewEvent, sipName_SetColumn, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDataViewEvent_SetDataViewColumn, "SetDataViewColumn(col) -> None\n"
-"\n"
-"For wxEVT_DATAVIEW_COLUMN_HEADER_CLICK only.");
-
-extern "C" {static PyObject *meth_wxDataViewEvent_SetDataViewColumn(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDataViewEvent_SetDataViewColumn(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        ::wxDataViewColumn* col;
-        ::wxDataViewEvent *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_col,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8", &sipSelf, sipType_wxDataViewEvent, &sipCpp, sipType_wxDataViewColumn, &col))
-        {
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->SetDataViewColumn(col);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DataViewEvent, sipName_SetDataViewColumn, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDataViewEvent_SetModel, "SetModel(model) -> None\n"
-"\n"
-"Sets the dataview model associated with this event.");
-
-extern "C" {static PyObject *meth_wxDataViewEvent_SetModel(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDataViewEvent_SetModel(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        ::wxDataViewModel* model;
-        ::wxDataViewEvent *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_model,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8", &sipSelf, sipType_wxDataViewEvent, &sipCpp, sipType_wxDataViewModel, &model))
-        {
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->SetModel(model);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DataViewEvent, sipName_SetModel, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -835,43 +757,6 @@ static PyObject *meth_wxDataViewEvent_GetItem(PyObject *sipSelf, PyObject *sipAr
     }
 
     sipNoMethod(sipParseErr, sipName_DataViewEvent, sipName_GetItem, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDataViewEvent_SetItem, "SetItem(item) -> None");
-
-extern "C" {static PyObject *meth_wxDataViewEvent_SetItem(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDataViewEvent_SetItem(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxDataViewItem* item;
-        ::wxDataViewEvent *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_item,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9", &sipSelf, sipType_wxDataViewEvent, &sipCpp, sipType_wxDataViewItem, &item))
-        {
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->SetItem(*item);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DataViewEvent, sipName_SetItem, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -1371,7 +1256,7 @@ static void *init_type_wxDataViewEvent(sipSimpleWrapper *sipSelf, PyObject *sipA
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxDataViewEvent[] = {{25, 0, 1}};
+static sipEncodedTypeDef supers_wxDataViewEvent[] = {{26, 0, 1}};
 
 
 static PyMethodDef methods_wxDataViewEvent[] = {
@@ -1398,24 +1283,21 @@ static PyMethodDef methods_wxDataViewEvent[] = {
     {sipName_SetDataFormat, SIP_MLMETH_CAST(meth_wxDataViewEvent_SetDataFormat), METH_VARARGS|METH_KEYWORDS, doc_wxDataViewEvent_SetDataFormat},
     {sipName_SetDataObject, SIP_MLMETH_CAST(meth_wxDataViewEvent_SetDataObject), METH_VARARGS|METH_KEYWORDS, doc_wxDataViewEvent_SetDataObject},
     {sipName_SetDataSize, SIP_MLMETH_CAST(meth_wxDataViewEvent_SetDataSize), METH_VARARGS|METH_KEYWORDS, doc_wxDataViewEvent_SetDataSize},
-    {sipName_SetDataViewColumn, SIP_MLMETH_CAST(meth_wxDataViewEvent_SetDataViewColumn), METH_VARARGS|METH_KEYWORDS, doc_wxDataViewEvent_SetDataViewColumn},
     {sipName_SetDragFlags, SIP_MLMETH_CAST(meth_wxDataViewEvent_SetDragFlags), METH_VARARGS|METH_KEYWORDS, doc_wxDataViewEvent_SetDragFlags},
     {sipName_SetDropEffect, SIP_MLMETH_CAST(meth_wxDataViewEvent_SetDropEffect), METH_VARARGS|METH_KEYWORDS, doc_wxDataViewEvent_SetDropEffect},
-    {sipName_SetItem, SIP_MLMETH_CAST(meth_wxDataViewEvent_SetItem), METH_VARARGS|METH_KEYWORDS, doc_wxDataViewEvent_SetItem},
-    {sipName_SetModel, SIP_MLMETH_CAST(meth_wxDataViewEvent_SetModel), METH_VARARGS|METH_KEYWORDS, doc_wxDataViewEvent_SetModel},
     {sipName_SetPosition, SIP_MLMETH_CAST(meth_wxDataViewEvent_SetPosition), METH_VARARGS|METH_KEYWORDS, doc_wxDataViewEvent_SetPosition},
     {sipName_SetValue, SIP_MLMETH_CAST(meth_wxDataViewEvent_SetValue), METH_VARARGS|METH_KEYWORDS, doc_wxDataViewEvent_SetValue}
 };
 
 sipVariableDef variables_wxDataViewEvent[] = {
-    {PropertyVariable, sipName_Value, &methods_wxDataViewEvent[15], &methods_wxDataViewEvent[29], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Value, &methods_wxDataViewEvent[15], &methods_wxDataViewEvent[26], SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_ProposedDropIndex, &methods_wxDataViewEvent[14], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Position, &methods_wxDataViewEvent[13], &methods_wxDataViewEvent[28], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Model, &methods_wxDataViewEvent[12], &methods_wxDataViewEvent[27], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Item, &methods_wxDataViewEvent[11], &methods_wxDataViewEvent[26], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DropEffect, &methods_wxDataViewEvent[10], &methods_wxDataViewEvent[25], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DragFlags, &methods_wxDataViewEvent[9], &methods_wxDataViewEvent[24], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DataViewColumn, &methods_wxDataViewEvent[8], &methods_wxDataViewEvent[23], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Position, &methods_wxDataViewEvent[13], &methods_wxDataViewEvent[25], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Model, &methods_wxDataViewEvent[12], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Item, &methods_wxDataViewEvent[11], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DropEffect, &methods_wxDataViewEvent[10], &methods_wxDataViewEvent[24], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DragFlags, &methods_wxDataViewEvent[9], &methods_wxDataViewEvent[23], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DataViewColumn, &methods_wxDataViewEvent[8], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_DataSize, &methods_wxDataViewEvent[7], &methods_wxDataViewEvent[22], SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_DataObject, &methods_wxDataViewEvent[6], &methods_wxDataViewEvent[21], SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_DataFormat, &methods_wxDataViewEvent[5], &methods_wxDataViewEvent[20], SIP_NULLPTR, SIP_NULLPTR},
@@ -1446,7 +1328,7 @@ sipClassTypeDef sipTypeDef__dataview_wxDataViewEvent = {
     {
         sipNameNr_DataViewEvent,
         {0, 0, 1},
-        30, methods_wxDataViewEvent,
+        27, methods_wxDataViewEvent,
         0, SIP_NULLPTR,
         15, variables_wxDataViewEvent,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

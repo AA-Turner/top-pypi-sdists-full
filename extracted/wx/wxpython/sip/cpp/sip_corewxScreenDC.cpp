@@ -16,18 +16,18 @@
         #include <wx/gdicmn.h>
         #include <wx/graphics.h>
         #include <wx/bitmap.h>
-        #include <wx/palette.h>
-        #include <wx/gdicmn.h>
-        #include <wx/colour.h>
         #include <wx/dc.h>
-        #include <wx/affinematrix2d.h>
+        #include <wx/palette.h>
+        #include <wx/colour.h>
         #include <wx/pen.h>
         #include "arrayholder.h"
         #include <wx/brush.h>
+        #include <wx/region.h>
+        #include <wx/gdicmn.h>
+        #include <wx/icon.h>
         #include <wx/font.h>
         #include <wx/dc.h>
-        #include <wx/region.h>
-        #include <wx/icon.h>
+        #include <wx/affinematrix2d.h>
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
@@ -91,7 +91,7 @@ static PyObject *meth_wxScreenDC_EndDrawingOnTop(PyObject *, PyObject *sipArgs)
 
 
 PyDoc_STRVAR(doc_wxScreenDC_StartDrawingOnTop, "StartDrawingOnTop(window) -> bool\n"
-"StartDrawingOnTop(rect=None) -> bool\n"
+"StartDrawingOnTop(rect=nullptr) -> bool\n"
 "\n"
 "Use this in conjunction with EndDrawingOnTop() to ensure that drawing\n"
 "to the screen occurs on top of existing windows.\n"
@@ -127,7 +127,7 @@ static PyObject *meth_wxScreenDC_StartDrawingOnTop(PyObject *, PyObject *sipArgs
     }
 
     {
-        ::wxRect* rect = 0;
+        ::wxRect* rect = nullptr;
         int rectState = 0;
 
         static const char *sipKwdList[] = {
@@ -250,7 +250,7 @@ static void *init_type_wxScreenDC(sipSimpleWrapper *sipSelf, PyObject *sipArgs, 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxScreenDC[] = {{101, 255, 1}};
+static sipEncodedTypeDef supers_wxScreenDC[] = {{105, 255, 1}};
 
 
 static PyMethodDef methods_wxScreenDC[] = {
@@ -260,7 +260,7 @@ static PyMethodDef methods_wxScreenDC[] = {
 
 PyDoc_STRVAR(doc_wxScreenDC, "ScreenDC() -> None\n"
 "\n"
-"A wxScreenDC can be used to paint on the screen.");
+"Deprecated class for drawing on the screen.");
 
 
 sipClassTypeDef sipTypeDef__core_wxScreenDC = {

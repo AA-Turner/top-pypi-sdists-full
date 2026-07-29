@@ -24,7 +24,7 @@ protected:
     // font larger than it) to it and so it must be valid.
     wxMarkupToAttrStringBase(const wxFont& font)
         : wxMarkupParserAttrOutput(font, wxColour(), wxColour()),
-          m_attrString(NULL)
+          m_attrString(nullptr)
     {}
 
     void Parse(const wxFont& WXUNUSED(font), const wxString& markup)
@@ -63,7 +63,7 @@ public:
     }
 
     // Implement base class pure virtual methods to process markup tags.
-    virtual void OnText(const wxString& text)
+    virtual void OnText(const wxString& text) override
     {
         const Attr& attr = GetAttr();
 
@@ -76,10 +76,10 @@ public:
             dict[NSUnderlineStyleAttributeName] = @(NSUnderlineStyleSingle);
 
         if ( attr.effectiveForeground.IsOk() )
-            dict[NSForegroundColorAttributeName] = attr.effectiveForeground.OSXGetNSColor();
+            dict[NSForegroundColorAttributeName] = attr.effectiveForeground.OSXGetWXColor();
 
         if ( attr.effectiveBackground.IsOk() )
-            dict[NSBackgroundColorAttributeName] = attr.effectiveBackground.OSXGetNSColor();
+            dict[NSBackgroundColorAttributeName] = attr.effectiveBackground.OSXGetWXColor();
 
         const unsigned len = PrepareText(text).length();
 
@@ -88,9 +88,9 @@ public:
         m_pos += len;
     }
 
-    virtual void OnAttrStart(const Attr& WXUNUSED(attr)) {}
+    virtual void OnAttrStart(const Attr& WXUNUSED(attr)) override {}
 
-    virtual void OnAttrEnd(const Attr& WXUNUSED(attr)) {}
+    virtual void OnAttrEnd(const Attr& WXUNUSED(attr)) override {}
 
 private:
     // The attributed string we're building.
@@ -112,7 +112,7 @@ public:
     }
 
 protected:
-    virtual wxString PrepareText(const wxString& text)
+    virtual wxString PrepareText(const wxString& text) override
     {
         return wxControl::RemoveMnemonics(text);
     }
@@ -132,7 +132,7 @@ public:
     }
 
 protected:
-    virtual wxString PrepareText(const wxString& text)
+    virtual wxString PrepareText(const wxString& text) override
     {
         return text;
     }

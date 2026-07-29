@@ -10,9 +10,18 @@ from rich.table import Table
 from anyscale._private.models.integrations import ConnectionConfig, ConnectionType
 from anyscale._private.workload import WorkloadConfig
 from anyscale.cli_logger import BlockLogger
+from anyscale.commands.doc_metadata import ReleaseStatus
+from anyscale.commands.help_examples_formatter import render_examples_for_help
 
 
 logger = BlockLogger()
+
+# Markers rendered into --help for non-GA lifecycle stages.
+_STATUS_HELP_MARKERS = {
+    ReleaseStatus.ALPHA: "[Alpha]",
+    ReleaseStatus.BETA: "[Beta]",
+    ReleaseStatus.DEPRECATED: "[Deprecated]",
+}
 
 
 class AnyscaleCommand(click.Command):
@@ -36,6 +45,62 @@ class AnyscaleCommand(click.Command):
     @property
     def is_beta(self) -> bool:
         return self.__is_beta__
+
+    def _doc_status_marker(self) -> Optional[str]:
+        status = (getattr(self, "doc_metadata", None) or {}).get("status")
+        return _STATUS_HELP_MARKERS.get(status)
+
+    def get_short_help_str(self, limit: int = 45) -> str:
+        """Prefix the one-line summary with the command_metadata status marker."""
+        text = super().get_short_help_str(limit)
+        marker = self._doc_status_marker()
+        if marker:
+            return f"{marker} {text}" if text else marker
+        return text
+
+    def format_help_text(self, ctx, formatter) -> None:
+        """Prepend the command_metadata status marker to the long help."""
+        marker = self._doc_status_marker()
+        if marker:
+            formatter.write_paragraph()
+            with formatter.indentation():
+                formatter.write_text(marker)
+        super().format_help_text(ctx, formatter)
+
+    def format_options(self, ctx, formatter) -> None:
+        """Render options, prefixing help with status markers from option_docs."""
+        option_docs = (getattr(self, "doc_metadata", None) or {}).get(
+            "option_docs"
+        ) or {}
+        records: List[Tuple[str, str]] = []
+        for param in self.get_params(ctx):
+            record = param.get_help_record(ctx)
+            if record is None:
+                continue
+            marker = None
+            if isinstance(param, click.Option):
+                flags = list(param.opts) + list(param.secondary_opts)
+                doc = next((option_docs[f] for f in flags if f in option_docs), None)
+                marker = _STATUS_HELP_MARKERS.get((doc or {}).get("status"))
+            if marker:
+                record = (record[0], f"{marker} {record[1]}".strip())
+            records.append(record)
+        if records:
+            with formatter.section("Options"):
+                formatter.write_dl(records)
+
+    def format_epilog(self, ctx, formatter) -> None:
+        """Append an Examples section to --help from the command_metadata examples."""
+        super().format_epilog(ctx, formatter)
+        rendered = render_examples_for_help(getattr(self, "doc_metadata", None))
+        if not rendered:
+            return
+        with formatter.section("Examples"):
+            for line in rendered.splitlines():
+                if line:
+                    formatter.write(" " * formatter.current_indent + line + "\n")
+                else:
+                    formatter.write("\n")
 
 
 class LegacyAnyscaleCommand(click.Command):

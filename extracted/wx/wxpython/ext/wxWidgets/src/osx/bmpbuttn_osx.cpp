@@ -2,7 +2,6 @@
 // Name:        src/osx/bmpbuttn_osx.cpp
 // Purpose:     wxBitmapButton
 // Author:      Stefan Csomor
-// Modified by:
 // Created:     1998-01-01
 // Copyright:   (c) Stefan Csomor
 // Licence:     wxWindows licence
@@ -33,7 +32,7 @@ bool wxBitmapButton::Create( wxWindow *parent,
                              const wxString& name )
 {
     DontCreatePeer();
-    
+
     if ( !wxBitmapButtonBase::Create(parent, id, pos, size, style,
                                      validator, name) )
         return false;

@@ -60,9 +60,9 @@ void sipwxWithImages::SetImageList(::wxImageList*imageList)
         return;
     }
 
-    extern void sipVH__core_155(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxImageList*);
+    extern void sipVH__core_154(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxImageList*);
 
-    sipVH__core_155(sipGILState, 0, sipPySelf, sipMeth, imageList);
+    sipVH__core_154(sipGILState, 0, sipPySelf, sipMeth, imageList);
 }
 
 
@@ -259,7 +259,7 @@ static PyObject *meth_wxWithImages_SetImageList(PyObject *sipSelf, PyObject *sip
 
 PyDoc_STRVAR(doc_wxWithImages_GetImageList, "GetImageList() -> ImageList\n"
 "\n"
-"Returns the associated image list, may be NULL.");
+"Returns the associated image list, may be nullptr.");
 
 extern "C" {static PyObject *meth_wxWithImages_GetImageList(PyObject *, PyObject *);}
 static PyObject *meth_wxWithImages_GetImageList(PyObject *sipSelf, PyObject *sipArgs)

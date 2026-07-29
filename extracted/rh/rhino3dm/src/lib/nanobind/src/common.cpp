@@ -8,6 +8,7 @@
 */
 
 #include <nanobind/nanobind.h>
+#include <complex>
 #include "nb_internals.h"
 
 NAMESPACE_BEGIN(NB_NAMESPACE)
@@ -370,20 +371,59 @@ PyObject *getattr(PyObject *obj, PyObject *key) {
     return res;
 }
 
-PyObject *getattr(PyObject *obj, const char *key, PyObject *def) noexcept {
-    PyObject *res = PyObject_GetAttrString(obj, key);
-    if (res)
+PyObject *getattr(PyObject *obj, const char *key_, PyObject *def) noexcept {
+#if (defined(Py_LIMITED_API) && PY_LIMITED_API < 0x030d0000) || defined(PYPY_VERSION)
+    str key(key_);
+    if (PyObject_HasAttr(obj, key.ptr())) {
+        PyObject *res = PyObject_GetAttr(obj, key.ptr());
+        if (res)
+            return res;
+        PyErr_Clear();
+    }
+#else
+    PyObject *res;
+    int rv;
+
+    #if PY_VERSION_HEX < 0x030d0000
+        rv = _PyObject_LookupAttr(obj, str(key_).ptr(), &res);
+    #else
+        rv = PyObject_GetOptionalAttrString(obj, key_, &res);
+    #endif
+
+    if (rv == 1)
         return res;
-    PyErr_Clear();
+    else if (rv < 0)
+        PyErr_Clear();
+#endif
+
     Py_XINCREF(def);
     return def;
 }
 
 PyObject *getattr(PyObject *obj, PyObject *key, PyObject *def) noexcept {
-    PyObject *res = PyObject_GetAttr(obj, key);
-    if (res)
+#if (defined(Py_LIMITED_API) && PY_LIMITED_API < 0x030d0000) || defined(PYPY_VERSION)
+    if (PyObject_HasAttr(obj, key)) {
+        PyObject *res = PyObject_GetAttr(obj, key);
+        if (res)
+            return res;
+        PyErr_Clear();
+    }
+#else
+    PyObject *res;
+    int rv;
+
+    #if PY_VERSION_HEX < 0x030d0000
+        rv = _PyObject_LookupAttr(obj, key, &res);
+    #else
+        rv = PyObject_GetOptionalAttr(obj, key, &res);
+    #endif
+
+    if (rv == 1)
         return res;
-    PyErr_Clear();
+    else if (rv < 0)
+        PyErr_Clear();
+#endif
+
     Py_XINCREF(def);
     return def;
 }
@@ -898,6 +938,57 @@ void print(PyObject *value, PyObject *end, PyObject *file) {
 }
 
 // ========================================================================
+
+NB_CORE bool load_cmplx(PyObject *ob, uint8_t flags,
+                        std::complex<double> *out) noexcept {
+    bool is_complex = PyComplex_CheckExact(ob),
+         convert = (flags & (uint8_t) cast_flags::convert);
+#if !defined(Py_LIMITED_API)
+    if (is_complex || convert) {
+        Py_complex result = PyComplex_AsCComplex(ob);
+        if (result.real != -1.0 || !PyErr_Occurred()) {
+            *out = std::complex<double>(result.real, result.imag);
+            return true;
+        } else {
+            PyErr_Clear();
+        }
+    }
+#else
+#if Py_LIMITED_API < 0x030D0000
+    // Before version 3.13, __complex__() was not called by the Stable ABI
+    // functions PyComplex_{Real,Imag}AsDouble(), so we do so ourselves.
+    if (!is_complex && convert
+            && !PyType_IsSubtype(Py_TYPE(ob), &PyComplex_Type)
+            && PyObject_HasAttrString(ob, "__complex__")) {
+        PyObject* tmp = PyObject_CallFunctionObjArgs(
+                (PyObject*) &PyComplex_Type, ob, NULL);
+        if (tmp) {
+            double re = PyComplex_RealAsDouble(tmp);
+            double im = PyComplex_ImagAsDouble(tmp);
+            Py_DECREF(tmp);
+            if ((re != -1.0 && im != -1.0) || !PyErr_Occurred()) {
+                *out = std::complex<double>(re, im);
+                return true;
+            }
+        }
+        PyErr_Clear();
+        return false;
+    }
+#endif
+    if (is_complex || convert) {
+        double re = PyComplex_RealAsDouble(ob);
+        double im = PyComplex_ImagAsDouble(ob);
+        if ((re != -1.0 && im != -1.0) || !PyErr_Occurred()) {
+            *out = std::complex<double>(re, im);
+            return true;
+        } else {
+            PyErr_Clear();
+        }
+    }
+#endif
+
+    return false;
+}
 
 bool load_f64(PyObject *o, uint8_t flags, double *out) noexcept {
     bool is_float = PyFloat_CheckExact(o);

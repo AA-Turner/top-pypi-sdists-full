@@ -18,412 +18,432 @@
  */
 #define sipNameNr_GetMainWindowOfCompositeControl 0
 #define sipName_GetMainWindowOfCompositeControl &sipStrings__glcanvas[0]
-#define sipNameNr_GetDefaultBorderForControl 32
-#define sipName_GetDefaultBorderForControl &sipStrings__glcanvas[32]
-#define sipNameNr_GetClassDefaultAttributes 59
-#define sipName_GetClassDefaultAttributes &sipStrings__glcanvas[59]
-#define sipNameNr_AcceptsFocusFromKeyboard 85
-#define sipName_AcceptsFocusFromKeyboard &sipStrings__glcanvas[85]
-#define sipNameNr_HasTransparentBackground 110
-#define sipName_HasTransparentBackground &sipStrings__glcanvas[110]
-#define sipNameNr_AcceptsFocusRecursively 135
-#define sipName_AcceptsFocusRecursively &sipStrings__glcanvas[135]
-#define sipNameNr_TransferDataFromWindow 159
-#define sipName_TransferDataFromWindow &sipStrings__glcanvas[159]
-#define sipNameNr_WX_GL_FRAMEBUFFER_SRGB 182
-#define sipName_WX_GL_FRAMEBUFFER_SRGB &sipStrings__glcanvas[182]
-#define sipNameNr_WX_GL_MIN_ACCUM_ALPHA 205
-#define sipName_WX_GL_MIN_ACCUM_ALPHA &sipStrings__glcanvas[205]
-#define sipNameNr_WX_GL_MIN_ACCUM_GREEN 227
-#define sipName_WX_GL_MIN_ACCUM_GREEN &sipStrings__glcanvas[227]
-#define sipNameNr_WX_GL_NO_RESET_NOTIFY 249
-#define sipName_WX_GL_NO_RESET_NOTIFY &sipStrings__glcanvas[249]
-#define sipNameNr_WX_GL_RESET_ISOLATION 271
-#define sipName_WX_GL_RESET_ISOLATION &sipStrings__glcanvas[271]
-#define sipNameNr_CompatibilityProfile 293
-#define sipName_CompatibilityProfile &sipStrings__glcanvas[293]
-#define sipNameNr_InformFirstDirection 314
-#define sipName_InformFirstDirection &sipStrings__glcanvas[314]
-#define sipNameNr_IsExtensionSupported 335
-#define sipName_IsExtensionSupported &sipStrings__glcanvas[335]
-#define sipNameNr_ShouldInheritColours 356
-#define sipName_ShouldInheritColours &sipStrings__glcanvas[356]
-#define sipNameNr_TransferDataToWindow 377
-#define sipName_TransferDataToWindow &sipStrings__glcanvas[377]
-#define sipNameNr_WX_GL_COMPAT_PROFILE 398
-#define sipName_WX_GL_COMPAT_PROFILE &sipStrings__glcanvas[398]
-#define sipNameNr_WX_GL_FORWARD_COMPAT 419
-#define sipName_WX_GL_FORWARD_COMPAT &sipStrings__glcanvas[419]
-#define sipNameNr_WX_GL_MIN_ACCUM_BLUE 440
-#define sipName_WX_GL_MIN_ACCUM_BLUE &sipStrings__glcanvas[440]
-#define sipNameNr_WX_GL_SAMPLE_BUFFERS 461
-#define sipName_WX_GL_SAMPLE_BUFFERS &sipStrings__glcanvas[461]
-#define sipNameNr_DoGetBestClientSize 482
-#define sipName_DoGetBestClientSize &sipStrings__glcanvas[482]
-#define sipNameNr_GetClientAreaOrigin 502
-#define sipName_GetClientAreaOrigin &sipStrings__glcanvas[502]
-#define sipNameNr_WX_GL_LOSE_ON_RESET 522
-#define sipName_WX_GL_LOSE_ON_RESET &sipStrings__glcanvas[522]
-#define sipNameNr_WX_GL_MAJOR_VERSION 542
-#define sipName_WX_GL_MAJOR_VERSION &sipStrings__glcanvas[542]
-#define sipNameNr_WX_GL_MINOR_VERSION 562
-#define sipName_WX_GL_MINOR_VERSION &sipStrings__glcanvas[562]
-#define sipNameNr_WX_GL_MIN_ACCUM_RED 582
-#define sipName_WX_GL_MIN_ACCUM_RED &sipStrings__glcanvas[582]
-#define sipNameNr_WX_GL_RELEASE_FLUSH 602
-#define sipName_WX_GL_RELEASE_FLUSH &sipStrings__glcanvas[602]
-#define sipNameNr_WX_GL_ROBUST_ACCESS 622
-#define sipName_WX_GL_ROBUST_ACCESS &sipStrings__glcanvas[622]
-#define sipNameNr_DoSetWindowVariant 642
-#define sipName_DoSetWindowVariant &sipStrings__glcanvas[642]
-#define sipNameNr_EnableVisibleFocus 661
-#define sipName_EnableVisibleFocus &sipStrings__glcanvas[661]
-#define sipNameNr_IsDisplaySupported 680
-#define sipName_IsDisplaySupported &sipStrings__glcanvas[680]
-#define sipNameNr_WX_GL_CORE_PROFILE 699
-#define sipName_WX_GL_CORE_PROFILE &sipStrings__glcanvas[699]
-#define sipNameNr_WX_GL_DOUBLEBUFFER 718
-#define sipName_WX_GL_DOUBLEBUFFER &sipStrings__glcanvas[718]
-#define sipNameNr_WX_GL_RELEASE_NONE 737
-#define sipName_WX_GL_RELEASE_NONE &sipStrings__glcanvas[737]
-#define sipNameNr_WX_GL_STENCIL_SIZE 756
-#define sipName_WX_GL_STENCIL_SIZE &sipStrings__glcanvas[756]
-#define sipNameNr_ForwardCompatible 775
-#define sipName_ForwardCompatible &sipStrings__glcanvas[775]
-#define sipNameNr_InheritAttributes 793
-#define sipName_InheritAttributes &sipStrings__glcanvas[793]
-#define sipNameNr_WX_GL_AUX_BUFFERS 811
-#define sipName_WX_GL_AUX_BUFFERS &sipStrings__glcanvas[811]
-#define sipNameNr_WX_GL_BUFFER_SIZE 829
-#define sipName_WX_GL_BUFFER_SIZE &sipStrings__glcanvas[829]
-#define sipNameNr_availableOtherDir 847
-#define sipName_availableOtherDir &sipStrings__glcanvas[847]
-#define sipNameNr_GetDefaultBorder 865
-#define sipName_GetDefaultBorder &sipStrings__glcanvas[865]
-#define sipNameNr_PlatformDefaults 882
-#define sipName_PlatformDefaults &sipStrings__glcanvas[882]
-#define sipNameNr_SendDestroyEvent 899
-#define sipName_SendDestroyEvent &sipStrings__glcanvas[899]
-#define sipNameNr_WX_GL_DEPTH_SIZE 916
-#define sipName_WX_GL_DEPTH_SIZE &sipStrings__glcanvas[916]
-#define sipNameNr_wxGLContextAttrs 933
-#define sipName_wxGLContextAttrs &sipStrings__glcanvas[933]
-#define sipNameNr_DoGetClientSize 950
-#define sipName_DoGetClientSize &sipStrings__glcanvas[950]
-#define sipNameNr_DoSetClientSize 966
-#define sipName_DoSetClientSize &sipStrings__glcanvas[966]
-#define sipNameNr_FrameBuffersRGB 982
-#define sipName_FrameBuffersRGB &sipStrings__glcanvas[982]
-#define sipNameNr_WX_GL_MIN_ALPHA 998
-#define sipName_WX_GL_MIN_ALPHA &sipStrings__glcanvas[998]
-#define sipNameNr_WX_GL_MIN_GREEN 1014
-#define sipName_WX_GL_MIN_GREEN &sipStrings__glcanvas[1014]
-#define sipNameNr_wxGLAttribsBase 1030
-#define sipName_wxGLAttribsBase &sipStrings__glcanvas[1030]
-#define sipNameNr_DoSetSizeHints 1046
-#define sipName_DoSetSizeHints &sipStrings__glcanvas[1046]
-#define sipNameNr_GLContextAttrs 935
-#define sipName_GLContextAttrs &sipStrings__glcanvas[935]
-#define sipNameNr_OnInternalIdle 1061
-#define sipName_OnInternalIdle &sipStrings__glcanvas[1061]
-#define sipNameNr_ResetIsolation 1076
-#define sipName_ResetIsolation &sipStrings__glcanvas[1076]
-#define sipNameNr_WX_GL_MIN_BLUE 1091
-#define sipName_WX_GL_MIN_BLUE &sipStrings__glcanvas[1091]
-#define sipNameNr_wxGLAttributes 1106
-#define sipName_wxGLAttributes &sipStrings__glcanvas[1106]
-#define sipNameNr_AddAttribBits 1121
-#define sipName_AddAttribBits &sipStrings__glcanvas[1121]
-#define sipNameNr_CreateSurface 1135
-#define sipName_CreateSurface &sipStrings__glcanvas[1135]
-#define sipNameNr_DoGetBestSize 1149
-#define sipName_DoGetBestSize &sipStrings__glcanvas[1149]
-#define sipNameNr_DoGetPosition 1163
-#define sipName_DoGetPosition &sipStrings__glcanvas[1163]
-#define sipNameNr_GLAttribsBase 1032
-#define sipName_GLAttribsBase &sipStrings__glcanvas[1032]
-#define sipNameNr_NoResetNotify 1177
-#define sipName_NoResetNotify &sipStrings__glcanvas[1177]
-#define sipNameNr_SampleBuffers 1191
-#define sipName_SampleBuffers &sipStrings__glcanvas[1191]
-#define sipNameNr_WX_GL_MIN_RED 1205
-#define sipName_WX_GL_MIN_RED &sipStrings__glcanvas[1205]
-#define sipNameNr_WX_GL_SAMPLES 1219
-#define sipName_WX_GL_SAMPLES &sipStrings__glcanvas[1219]
-#define sipNameNr_AcceptsFocus 1233
-#define sipName_AcceptsFocus &sipStrings__glcanvas[1233]
-#define sipNameNr_AddAttribute 1246
-#define sipName_AddAttribute &sipStrings__glcanvas[1246]
-#define sipNameNr_DoMoveWindow 1259
-#define sipName_DoMoveWindow &sipStrings__glcanvas[1259]
-#define sipNameNr_DoubleBuffer 1272
-#define sipName_DoubleBuffer &sipStrings__glcanvas[1272]
-#define sipNameNr_GLAttributes 1108
-#define sipName_GLAttributes &sipStrings__glcanvas[1108]
-#define sipNameNr_GetValidator 1285
-#define sipName_GetValidator &sipStrings__glcanvas[1285]
-#define sipNameNr_MajorVersion 1298
-#define sipName_MajorVersion &sipStrings__glcanvas[1298]
-#define sipNameNr_MinorVersion 1311
-#define sipName_MinorVersion &sipStrings__glcanvas[1311]
-#define sipNameNr_ProcessEvent 1324
-#define sipName_ProcessEvent &sipStrings__glcanvas[1324]
-#define sipNameNr_ReleaseFlush 1337
-#define sipName_ReleaseFlush &sipStrings__glcanvas[1337]
-#define sipNameNr_SetValidator 1350
-#define sipName_SetValidator &sipStrings__glcanvas[1350]
-#define sipNameNr_USE_GLCANVAS 1363
-#define sipName_USE_GLCANVAS &sipStrings__glcanvas[1363]
-#define sipNameNr_WX_GL_STEREO 1376
-#define sipName_WX_GL_STEREO &sipStrings__glcanvas[1376]
-#define sipNameNr_wx__glcanvas 1389
-#define sipName_wx__glcanvas &sipStrings__glcanvas[1389]
-#define sipNameNr_CoreProfile 1402
-#define sipName_CoreProfile &sipStrings__glcanvas[1402]
-#define sipNameNr_LoseOnReset 1414
-#define sipName_LoseOnReset &sipStrings__glcanvas[1414]
-#define sipNameNr_MinAcumRGBA 1426
-#define sipName_MinAcumRGBA &sipStrings__glcanvas[1426]
-#define sipNameNr_RemoveChild 1438
-#define sipName_RemoveChild &sipStrings__glcanvas[1438]
-#define sipNameNr_SetCanFocus 1450
-#define sipName_SetCanFocus &sipStrings__glcanvas[1450]
-#define sipNameNr_SetNeedsARB 1462
-#define sipName_SetNeedsARB &sipStrings__glcanvas[1462]
-#define sipNameNr_SwapBuffers 1474
-#define sipName_SwapBuffers &sipStrings__glcanvas[1474]
-#define sipNameNr_WX_GL_DEBUG 1486
-#define sipName_WX_GL_DEBUG &sipStrings__glcanvas[1486]
-#define sipNameNr_WX_GL_LEVEL 1498
-#define sipName_WX_GL_LEVEL &sipStrings__glcanvas[1498]
-#define sipNameNr_wxGLContext 1510
-#define sipName_wxGLContext &sipStrings__glcanvas[1510]
-#define sipNameNr_AuxBuffers 1522
-#define sipName_AuxBuffers &sipStrings__glcanvas[1522]
-#define sipNameNr_BufferSize 1533
-#define sipName_BufferSize &sipStrings__glcanvas[1533]
-#define sipNameNr_InitDialog 1544
-#define sipName_InitDialog &sipStrings__glcanvas[1544]
-#define sipNameNr_OGLVersion 1555
-#define sipName_OGLVersion &sipStrings__glcanvas[1555]
-#define sipNameNr_SetCurrent 1566
-#define sipName_SetCurrent &sipStrings__glcanvas[1566]
-#define sipNameNr_WX_GL_RGBA 1577
-#define sipName_WX_GL_RGBA &sipStrings__glcanvas[1577]
-#define sipNameNr_attribList 1588
-#define sipName_attribList &sipStrings__glcanvas[1588]
-#define sipNameNr_combineVal 1599
-#define sipName_combineVal &sipStrings__glcanvas[1599]
-#define sipNameNr_widthTitle 1610
-#define sipName_widthTitle &sipStrings__glcanvas[1610]
-#define sipNameNr_wxGLCanvas 1621
-#define sipName_wxGLCanvas &sipStrings__glcanvas[1621]
-#define sipNameNr_DoGetSize 1632
-#define sipName_DoGetSize &sipStrings__glcanvas[1632]
-#define sipNameNr_DoSetSize 1642
-#define sipName_DoSetSize &sipStrings__glcanvas[1642]
-#define sipNameNr_GLContext 1512
-#define sipName_GLContext &sipStrings__glcanvas[1512]
-#define sipNameNr_SetColour 1652
-#define sipName_SetColour &sipStrings__glcanvas[1652]
-#define sipNameNr_TryBefore 1662
-#define sipName_TryBefore &sipStrings__glcanvas[1662]
-#define sipNameNr_WX_GL_ES2 1672
-#define sipName_WX_GL_ES2 &sipStrings__glcanvas[1672]
-#define sipNameNr_attribute 1682
-#define sipName_attribute &sipStrings__glcanvas[1682]
-#define sipNameNr_columnMax 1692
-#define sipName_columnMax &sipStrings__glcanvas[1692]
-#define sipNameNr_columnMin 1702
-#define sipName_columnMin &sipStrings__glcanvas[1702]
-#define sipNameNr_direction 1712
-#define sipName_direction &sipStrings__glcanvas[1712]
-#define sipNameNr_dispAttrs 1722
-#define sipName_dispAttrs &sipStrings__glcanvas[1722]
-#define sipNameNr_extension 1732
-#define sipName_extension &sipStrings__glcanvas[1732]
-#define sipNameNr_searchVal 1742
-#define sipName_searchVal &sipStrings__glcanvas[1742]
-#define sipNameNr_sizeFlags 1752
-#define sipName_sizeFlags &sipStrings__glcanvas[1752]
-#define sipNameNr_validator 1762
-#define sipName_validator &sipStrings__glcanvas[1762]
-#define sipNameNr_AddChild 1772
-#define sipName_AddChild &sipStrings__glcanvas[1772]
-#define sipNameNr_DebugCtx 1781
-#define sipName_DebugCtx &sipStrings__glcanvas[1781]
-#define sipNameNr_Defaults 890
-#define sipName_Defaults &sipStrings__glcanvas[890]
-#define sipNameNr_DoEnable 1790
-#define sipName_DoEnable &sipStrings__glcanvas[1790]
-#define sipNameNr_DoFreeze 1799
-#define sipName_DoFreeze &sipStrings__glcanvas[1799]
-#define sipNameNr_GLCanvas 1623
-#define sipName_GLCanvas &sipStrings__glcanvas[1623]
-#define sipNameNr_NeedsARB 1465
-#define sipName_NeedsARB &sipStrings__glcanvas[1465]
-#define sipNameNr_Samplers 1808
-#define sipName_Samplers &sipStrings__glcanvas[1808]
-#define sipNameNr_TryAfter 1817
-#define sipName_TryAfter &sipStrings__glcanvas[1817]
-#define sipNameNr_Validate 1826
-#define sipName_Validate &sipStrings__glcanvas[1826]
-#define sipNameNr_canFocus 1835
-#define sipName_canFocus &sipStrings__glcanvas[1835]
-#define sipNameNr_ctxAttrs 1844
-#define sipName_ctxAttrs &sipStrings__glcanvas[1844]
-#define sipNameNr_location 1853
-#define sipName_location &sipStrings__glcanvas[1853]
-#define sipNameNr_needsARB 1862
-#define sipName_needsARB &sipStrings__glcanvas[1862]
-#define sipNameNr_Destroy 1871
-#define sipName_Destroy &sipStrings__glcanvas[1871]
-#define sipNameNr_EndList 1879
-#define sipName_EndList &sipStrings__glcanvas[1879]
-#define sipNameNr_GetSize 1634
-#define sipName_GetSize &sipStrings__glcanvas[1634]
-#define sipNameNr_MinRGBA 1887
-#define sipName_MinRGBA &sipStrings__glcanvas[1887]
-#define sipNameNr_Stencil 1895
-#define sipName_Stencil &sipStrings__glcanvas[1895]
-#define sipNameNr_context 1903
-#define sipName_context &sipStrings__glcanvas[1903]
-#define sipNameNr_enabled 1911
-#define sipName_enabled &sipStrings__glcanvas[1911]
-#define sipNameNr_palette 1919
-#define sipName_palette &sipStrings__glcanvas[1919]
-#define sipNameNr_unitMax 1927
-#define sipName_unitMax &sipStrings__glcanvas[1927]
-#define sipNameNr_unitMin 1935
-#define sipName_unitMin &sipStrings__glcanvas[1935]
-#define sipNameNr_variant 1943
-#define sipName_variant &sipStrings__glcanvas[1943]
-#define sipNameNr_DoThaw 1951
-#define sipName_DoThaw &sipStrings__glcanvas[1951]
-#define sipNameNr_Robust 1958
-#define sipName_Robust &sipStrings__glcanvas[1958]
-#define sipNameNr_Stereo 1965
-#define sipName_Stereo &sipStrings__glcanvas[1965]
-#define sipNameNr_client 1972
-#define sipName_client &sipStrings__glcanvas[1972]
-#define sipNameNr_colour 1979
-#define sipName_colour &sipStrings__glcanvas[1979]
-#define sipNameNr_column 1986
-#define sipName_column &sipStrings__glcanvas[1986]
-#define sipNameNr_dialog 1993
-#define sipName_dialog &sipStrings__glcanvas[1993]
-#define sipNameNr_enable 2000
-#define sipName_enable &sipStrings__glcanvas[2000]
-#define sipNameNr_height 2007
-#define sipName_height &sipStrings__glcanvas[2007]
-#define sipNameNr_mAlpha 2014
-#define sipName_mAlpha &sipStrings__glcanvas[2014]
-#define sipNameNr_mGreen 2021
-#define sipName_mGreen &sipStrings__glcanvas[2021]
-#define sipNameNr_parent 2028
-#define sipName_parent &sipStrings__glcanvas[2028]
-#define sipNameNr_rowMax 2035
-#define sipName_rowMax &sipStrings__glcanvas[2035]
-#define sipNameNr_rowMin 2042
-#define sipName_rowMin &sipStrings__glcanvas[2042]
-#define sipNameNr_stream 2049
-#define sipName_stream &sipStrings__glcanvas[2049]
-#define sipNameNr_vmayor 2056
-#define sipName_vmayor &sipStrings__glcanvas[2056]
-#define sipNameNr_vminor 2063
-#define sipName_vminor &sipStrings__glcanvas[2063]
-#define sipNameNr_Depth 2070
-#define sipName_Depth &sipStrings__glcanvas[2070]
-#define sipNameNr_Level 2076
-#define sipName_Level &sipStrings__glcanvas[2076]
-#define sipNameNr_Reset 1420
-#define sipName_Reset &sipStrings__glcanvas[1420]
-#define sipNameNr_child 2082
-#define sipName_child &sipStrings__glcanvas[2082]
-#define sipNameNr_count 2088
-#define sipName_count &sipStrings__glcanvas[2088]
-#define sipNameNr_event 2094
-#define sipName_event &sipStrings__glcanvas[2094]
-#define sipNameNr_flags 2100
-#define sipName_flags &sipStrings__glcanvas[2100]
-#define sipNameNr_level 2106
-#define sipName_level &sipStrings__glcanvas[2106]
-#define sipNameNr_mBlue 2112
-#define sipName_mBlue &sipStrings__glcanvas[2112]
-#define sipNameNr_order 876
-#define sipName_order &sipStrings__glcanvas[876]
-#define sipNameNr_other 2118
-#define sipName_other &sipStrings__glcanvas[2118]
-#define sipNameNr_popup 2124
-#define sipName_popup &sipStrings__glcanvas[2124]
-#define sipNameNr_scale 2130
-#define sipName_scale &sipStrings__glcanvas[2130]
-#define sipNameNr_sizer 2136
-#define sipName_sizer &sipStrings__glcanvas[2136]
-#define sipNameNr_style 2142
-#define sipName_style &sipStrings__glcanvas[2142]
-#define sipNameNr_width 2148
-#define sipName_width &sipStrings__glcanvas[2148]
-#define sipNameNr_IsOK 2154
-#define sipName_IsOK &sipStrings__glcanvas[2154]
-#define sipNameNr_RGBA 1433
-#define sipName_RGBA &sipStrings__glcanvas[1433]
-#define sipNameNr_Size 497
-#define sipName_Size &sipStrings__glcanvas[497]
-#define sipNameNr_incH 2159
-#define sipName_incH &sipStrings__glcanvas[2159]
-#define sipNameNr_incW 2164
-#define sipName_incW &sipStrings__glcanvas[2164]
-#define sipNameNr_info 2169
-#define sipName_info &sipStrings__glcanvas[2169]
-#define sipNameNr_item 2174
-#define sipName_item &sipStrings__glcanvas[2174]
-#define sipNameNr_mRed 2179
-#define sipName_mRed &sipStrings__glcanvas[2179]
-#define sipNameNr_maxH 2184
-#define sipName_maxH &sipStrings__glcanvas[2184]
-#define sipNameNr_maxW 2189
-#define sipName_maxW &sipStrings__glcanvas[2189]
-#define sipNameNr_minH 2194
-#define sipName_minH &sipStrings__glcanvas[2194]
-#define sipNameNr_minW 2199
-#define sipName_minW &sipStrings__glcanvas[2199]
-#define sipNameNr_name 2204
-#define sipName_name &sipStrings__glcanvas[2204]
-#define sipNameNr_rect 2209
-#define sipName_rect &sipStrings__glcanvas[2209]
-#define sipNameNr_show 2214
-#define sipName_show &sipStrings__glcanvas[2214]
-#define sipNameNr_size 2219
-#define sipName_size &sipStrings__glcanvas[2219]
-#define sipNameNr_time 2224
-#define sipName_time &sipStrings__glcanvas[2224]
-#define sipNameNr_unit 2229
-#define sipName_unit &sipStrings__glcanvas[2229]
-#define sipNameNr_ES2 1678
-#define sipName_ES2 &sipStrings__glcanvas[1678]
-#define sipNameNr_idx 2234
-#define sipName_idx &sipStrings__glcanvas[2234]
-#define sipNameNr_msg 2238
-#define sipName_msg &sipStrings__glcanvas[2238]
-#define sipNameNr_pos 2242
-#define sipName_pos &sipStrings__glcanvas[2242]
-#define sipNameNr_row 2246
-#define sipName_row &sipStrings__glcanvas[2246]
-#define sipNameNr_val 2250
-#define sipName_val &sipStrings__glcanvas[2250]
-#define sipNameNr_win 2254
-#define sipName_win &sipStrings__glcanvas[2254]
-#define sipNameNr_dc 2258
-#define sipName_dc &sipStrings__glcanvas[2258]
-#define sipNameNr_id 2261
-#define sipName_id &sipStrings__glcanvas[2261]
-#define sipNameNr_n 333
-#define sipName_n &sipStrings__glcanvas[333]
-#define sipNameNr_x 1700
-#define sipName_x &sipStrings__glcanvas[1700]
-#define sipNameNr_y 157
-#define sipName_y &sipStrings__glcanvas[157]
+#define sipNameNr_GetClassDefaultAttributes 32
+#define sipName_GetClassDefaultAttributes &sipStrings__glcanvas[32]
+#define sipNameNr_AcceptsFocusFromKeyboard 58
+#define sipName_AcceptsFocusFromKeyboard &sipStrings__glcanvas[58]
+#define sipNameNr_HasTransparentBackground 83
+#define sipName_HasTransparentBackground &sipStrings__glcanvas[83]
+#define sipNameNr_wxGLCanvas__SwapInterval 108
+#define sipName_wxGLCanvas__SwapInterval &sipStrings__glcanvas[108]
+#define sipNameNr_AcceptsFocusRecursively 133
+#define sipName_AcceptsFocusRecursively &sipStrings__glcanvas[133]
+#define sipNameNr_TransferDataFromWindow 157
+#define sipName_TransferDataFromWindow &sipStrings__glcanvas[157]
+#define sipNameNr_WX_GL_FRAMEBUFFER_SRGB 180
+#define sipName_WX_GL_FRAMEBUFFER_SRGB &sipStrings__glcanvas[180]
+#define sipNameNr_WX_GL_MIN_ACCUM_ALPHA 203
+#define sipName_WX_GL_MIN_ACCUM_ALPHA &sipStrings__glcanvas[203]
+#define sipNameNr_WX_GL_MIN_ACCUM_GREEN 225
+#define sipName_WX_GL_MIN_ACCUM_GREEN &sipStrings__glcanvas[225]
+#define sipNameNr_WX_GL_NO_RESET_NOTIFY 247
+#define sipName_WX_GL_NO_RESET_NOTIFY &sipStrings__glcanvas[247]
+#define sipNameNr_WX_GL_RESET_ISOLATION 269
+#define sipName_WX_GL_RESET_ISOLATION &sipStrings__glcanvas[269]
+#define sipNameNr_CompatibilityProfile 291
+#define sipName_CompatibilityProfile &sipStrings__glcanvas[291]
+#define sipNameNr_InformFirstDirection 312
+#define sipName_InformFirstDirection &sipStrings__glcanvas[312]
+#define sipNameNr_IsExtensionSupported 333
+#define sipName_IsExtensionSupported &sipStrings__glcanvas[333]
+#define sipNameNr_ShouldInheritColours 354
+#define sipName_ShouldInheritColours &sipStrings__glcanvas[354]
+#define sipNameNr_TransferDataToWindow 375
+#define sipName_TransferDataToWindow &sipStrings__glcanvas[375]
+#define sipNameNr_WX_GL_COMPAT_PROFILE 396
+#define sipName_WX_GL_COMPAT_PROFILE &sipStrings__glcanvas[396]
+#define sipNameNr_WX_GL_FORWARD_COMPAT 417
+#define sipName_WX_GL_FORWARD_COMPAT &sipStrings__glcanvas[417]
+#define sipNameNr_WX_GL_MIN_ACCUM_BLUE 438
+#define sipName_WX_GL_MIN_ACCUM_BLUE &sipStrings__glcanvas[438]
+#define sipNameNr_WX_GL_SAMPLE_BUFFERS 459
+#define sipName_WX_GL_SAMPLE_BUFFERS &sipStrings__glcanvas[459]
+#define sipNameNr_DefaultSwapInterval 480
+#define sipName_DefaultSwapInterval &sipStrings__glcanvas[480]
+#define sipNameNr_DoGetBestClientSize 500
+#define sipName_DoGetBestClientSize &sipStrings__glcanvas[500]
+#define sipNameNr_GetClientAreaOrigin 520
+#define sipName_GetClientAreaOrigin &sipStrings__glcanvas[520]
+#define sipNameNr_WX_GL_LOSE_ON_RESET 540
+#define sipName_WX_GL_LOSE_ON_RESET &sipStrings__glcanvas[540]
+#define sipNameNr_WX_GL_MAJOR_VERSION 560
+#define sipName_WX_GL_MAJOR_VERSION &sipStrings__glcanvas[560]
+#define sipNameNr_WX_GL_MINOR_VERSION 580
+#define sipName_WX_GL_MINOR_VERSION &sipStrings__glcanvas[580]
+#define sipNameNr_WX_GL_MIN_ACCUM_RED 600
+#define sipName_WX_GL_MIN_ACCUM_RED &sipStrings__glcanvas[600]
+#define sipNameNr_WX_GL_RELEASE_FLUSH 620
+#define sipName_WX_GL_RELEASE_FLUSH &sipStrings__glcanvas[620]
+#define sipNameNr_WX_GL_ROBUST_ACCESS 640
+#define sipName_WX_GL_ROBUST_ACCESS &sipStrings__glcanvas[640]
+#define sipNameNr_DoSetWindowVariant 660
+#define sipName_DoSetWindowVariant &sipStrings__glcanvas[660]
+#define sipNameNr_EnableVisibleFocus 679
+#define sipName_EnableVisibleFocus &sipStrings__glcanvas[679]
+#define sipNameNr_IsDisplaySupported 698
+#define sipName_IsDisplaySupported &sipStrings__glcanvas[698]
+#define sipNameNr_WX_GL_CORE_PROFILE 717
+#define sipName_WX_GL_CORE_PROFILE &sipStrings__glcanvas[717]
+#define sipNameNr_WX_GL_DOUBLEBUFFER 736
+#define sipName_WX_GL_DOUBLEBUFFER &sipStrings__glcanvas[736]
+#define sipNameNr_WX_GL_RELEASE_NONE 755
+#define sipName_WX_GL_RELEASE_NONE &sipStrings__glcanvas[755]
+#define sipNameNr_WX_GL_STENCIL_SIZE 774
+#define sipName_WX_GL_STENCIL_SIZE &sipStrings__glcanvas[774]
+#define sipNameNr_ForwardCompatible 793
+#define sipName_ForwardCompatible &sipStrings__glcanvas[793]
+#define sipNameNr_InheritAttributes 811
+#define sipName_InheritAttributes &sipStrings__glcanvas[811]
+#define sipNameNr_WX_GL_AUX_BUFFERS 829
+#define sipName_WX_GL_AUX_BUFFERS &sipStrings__glcanvas[829]
+#define sipNameNr_WX_GL_BUFFER_SIZE 847
+#define sipName_WX_GL_BUFFER_SIZE &sipStrings__glcanvas[847]
+#define sipNameNr_availableOtherDir 865
+#define sipName_availableOtherDir &sipStrings__glcanvas[865]
+#define sipNameNr_CreateAccessible 883
+#define sipName_CreateAccessible &sipStrings__glcanvas[883]
+#define sipNameNr_GetDefaultBorder 900
+#define sipName_GetDefaultBorder &sipStrings__glcanvas[900]
+#define sipNameNr_PlatformDefaults 917
+#define sipName_PlatformDefaults &sipStrings__glcanvas[917]
+#define sipNameNr_SendDestroyEvent 934
+#define sipName_SendDestroyEvent &sipStrings__glcanvas[934]
+#define sipNameNr_WX_GL_DEPTH_SIZE 951
+#define sipName_WX_GL_DEPTH_SIZE &sipStrings__glcanvas[951]
+#define sipNameNr_wxGLContextAttrs 968
+#define sipName_wxGLContextAttrs &sipStrings__glcanvas[968]
+#define sipNameNr_DoGetClientSize 985
+#define sipName_DoGetClientSize &sipStrings__glcanvas[985]
+#define sipNameNr_DoSetClientSize 1001
+#define sipName_DoSetClientSize &sipStrings__glcanvas[1001]
+#define sipNameNr_FrameBuffersRGB 1017
+#define sipName_FrameBuffersRGB &sipStrings__glcanvas[1017]
+#define sipNameNr_GetSwapInterval 1033
+#define sipName_GetSwapInterval &sipStrings__glcanvas[1033]
+#define sipNameNr_SetSwapInterval 1049
+#define sipName_SetSwapInterval &sipStrings__glcanvas[1049]
+#define sipNameNr_WX_GL_MIN_ALPHA 1065
+#define sipName_WX_GL_MIN_ALPHA &sipStrings__glcanvas[1065]
+#define sipNameNr_WX_GL_MIN_GREEN 1081
+#define sipName_WX_GL_MIN_GREEN &sipStrings__glcanvas[1081]
+#define sipNameNr_wxGLAttribsBase 1097
+#define sipName_wxGLAttribsBase &sipStrings__glcanvas[1097]
+#define sipNameNr_DoSetSizeHints 1113
+#define sipName_DoSetSizeHints &sipStrings__glcanvas[1113]
+#define sipNameNr_GLContextAttrs 970
+#define sipName_GLContextAttrs &sipStrings__glcanvas[970]
+#define sipNameNr_OnInternalIdle 1128
+#define sipName_OnInternalIdle &sipStrings__glcanvas[1128]
+#define sipNameNr_ResetIsolation 1143
+#define sipName_ResetIsolation &sipStrings__glcanvas[1143]
+#define sipNameNr_WX_GL_MIN_BLUE 1158
+#define sipName_WX_GL_MIN_BLUE &sipStrings__glcanvas[1158]
+#define sipNameNr_wxGLAttributes 1173
+#define sipName_wxGLAttributes &sipStrings__glcanvas[1173]
+#define sipNameNr_AddAttribBits 1188
+#define sipName_AddAttribBits &sipStrings__glcanvas[1188]
+#define sipNameNr_DoGetBestSize 1202
+#define sipName_DoGetBestSize &sipStrings__glcanvas[1202]
+#define sipNameNr_DoGetPosition 1216
+#define sipName_DoGetPosition &sipStrings__glcanvas[1216]
+#define sipNameNr_GLAttribsBase 1099
+#define sipName_GLAttribsBase &sipStrings__glcanvas[1099]
+#define sipNameNr_GetGLXVersion 1230
+#define sipName_GetGLXVersion &sipStrings__glcanvas[1230]
+#define sipNameNr_NoResetNotify 1244
+#define sipName_NoResetNotify &sipStrings__glcanvas[1244]
+#define sipNameNr_SampleBuffers 1258
+#define sipName_SampleBuffers &sipStrings__glcanvas[1258]
+#define sipNameNr_WX_GL_MIN_RED 1272
+#define sipName_WX_GL_MIN_RED &sipStrings__glcanvas[1272]
+#define sipNameNr_WX_GL_SAMPLES 1286
+#define sipName_WX_GL_SAMPLES &sipStrings__glcanvas[1286]
+#define sipNameNr_AcceptsFocus 1300
+#define sipName_AcceptsFocus &sipStrings__glcanvas[1300]
+#define sipNameNr_AddAttribute 1313
+#define sipName_AddAttribute &sipStrings__glcanvas[1313]
+#define sipNameNr_ClearCurrent 1326
+#define sipName_ClearCurrent &sipStrings__glcanvas[1326]
+#define sipNameNr_DoMoveWindow 1339
+#define sipName_DoMoveWindow &sipStrings__glcanvas[1339]
+#define sipNameNr_DoubleBuffer 1352
+#define sipName_DoubleBuffer &sipStrings__glcanvas[1352]
+#define sipNameNr_GLAttributes 1175
+#define sipName_GLAttributes &sipStrings__glcanvas[1175]
+#define sipNameNr_GetValidator 1365
+#define sipName_GetValidator &sipStrings__glcanvas[1365]
+#define sipNameNr_MajorVersion 1378
+#define sipName_MajorVersion &sipStrings__glcanvas[1378]
+#define sipNameNr_MinorVersion 1391
+#define sipName_MinorVersion &sipStrings__glcanvas[1391]
+#define sipNameNr_ProcessEvent 1404
+#define sipName_ProcessEvent &sipStrings__glcanvas[1404]
+#define sipNameNr_ReleaseFlush 1417
+#define sipName_ReleaseFlush &sipStrings__glcanvas[1417]
+#define sipNameNr_SetValidator 1430
+#define sipName_SetValidator &sipStrings__glcanvas[1430]
+#define sipNameNr_SwapInterval 120
+#define sipName_SwapInterval &sipStrings__glcanvas[120]
+#define sipNameNr_USE_GLCANVAS 1443
+#define sipName_USE_GLCANVAS &sipStrings__glcanvas[1443]
+#define sipNameNr_WX_GL_STEREO 1456
+#define sipName_WX_GL_STEREO &sipStrings__glcanvas[1456]
+#define sipNameNr_wx__glcanvas 1469
+#define sipName_wx__glcanvas &sipStrings__glcanvas[1469]
+#define sipNameNr_CoreProfile 1482
+#define sipName_CoreProfile &sipStrings__glcanvas[1482]
+#define sipNameNr_LoseOnReset 1494
+#define sipName_LoseOnReset &sipStrings__glcanvas[1494]
+#define sipNameNr_MinAcumRGBA 1506
+#define sipName_MinAcumRGBA &sipStrings__glcanvas[1506]
+#define sipNameNr_NonAdaptive 1518
+#define sipName_NonAdaptive &sipStrings__glcanvas[1518]
+#define sipNameNr_RemoveChild 1530
+#define sipName_RemoveChild &sipStrings__glcanvas[1530]
+#define sipNameNr_SetCanFocus 1542
+#define sipName_SetCanFocus &sipStrings__glcanvas[1542]
+#define sipNameNr_SetNeedsARB 1554
+#define sipName_SetNeedsARB &sipStrings__glcanvas[1554]
+#define sipNameNr_SwapBuffers 1566
+#define sipName_SwapBuffers &sipStrings__glcanvas[1566]
+#define sipNameNr_WX_GL_DEBUG 1578
+#define sipName_WX_GL_DEBUG &sipStrings__glcanvas[1578]
+#define sipNameNr_WX_GL_LEVEL 1590
+#define sipName_WX_GL_LEVEL &sipStrings__glcanvas[1590]
+#define sipNameNr_wxGLContext 1602
+#define sipName_wxGLContext &sipStrings__glcanvas[1602]
+#define sipNameNr_AuxBuffers 1614
+#define sipName_AuxBuffers &sipStrings__glcanvas[1614]
+#define sipNameNr_BufferSize 1625
+#define sipName_BufferSize &sipStrings__glcanvas[1625]
+#define sipNameNr_InitDialog 1636
+#define sipName_InitDialog &sipStrings__glcanvas[1636]
+#define sipNameNr_OGLVersion 1647
+#define sipName_OGLVersion &sipStrings__glcanvas[1647]
+#define sipNameNr_SetCurrent 1658
+#define sipName_SetCurrent &sipStrings__glcanvas[1658]
+#define sipNameNr_WX_GL_RGBA 1669
+#define sipName_WX_GL_RGBA &sipStrings__glcanvas[1669]
+#define sipNameNr_attribList 1680
+#define sipName_attribList &sipStrings__glcanvas[1680]
+#define sipNameNr_combineVal 1691
+#define sipName_combineVal &sipStrings__glcanvas[1691]
+#define sipNameNr_widthTitle 1702
+#define sipName_widthTitle &sipStrings__glcanvas[1702]
+#define sipNameNr_wxGLCanvas 1713
+#define sipName_wxGLCanvas &sipStrings__glcanvas[1713]
+#define sipNameNr_DoGetSize 1724
+#define sipName_DoGetSize &sipStrings__glcanvas[1724]
+#define sipNameNr_DoSetSize 1734
+#define sipName_DoSetSize &sipStrings__glcanvas[1734]
+#define sipNameNr_GLContext 1604
+#define sipName_GLContext &sipStrings__glcanvas[1604]
+#define sipNameNr_PreferGLX 1744
+#define sipName_PreferGLX &sipStrings__glcanvas[1744]
+#define sipNameNr_SetColour 1754
+#define sipName_SetColour &sipStrings__glcanvas[1754]
+#define sipNameNr_TryBefore 1764
+#define sipName_TryBefore &sipStrings__glcanvas[1764]
+#define sipNameNr_WX_GL_ES2 1774
+#define sipName_WX_GL_ES2 &sipStrings__glcanvas[1774]
+#define sipNameNr_attribute 1784
+#define sipName_attribute &sipStrings__glcanvas[1784]
+#define sipNameNr_columnMax 1794
+#define sipName_columnMax &sipStrings__glcanvas[1794]
+#define sipNameNr_columnMin 1804
+#define sipName_columnMin &sipStrings__glcanvas[1804]
+#define sipNameNr_direction 1814
+#define sipName_direction &sipStrings__glcanvas[1814]
+#define sipNameNr_dispAttrs 1824
+#define sipName_dispAttrs &sipStrings__glcanvas[1824]
+#define sipNameNr_extension 1834
+#define sipName_extension &sipStrings__glcanvas[1834]
+#define sipNameNr_searchVal 1844
+#define sipName_searchVal &sipStrings__glcanvas[1844]
+#define sipNameNr_sizeFlags 1854
+#define sipName_sizeFlags &sipStrings__glcanvas[1854]
+#define sipNameNr_validator 1864
+#define sipName_validator &sipStrings__glcanvas[1864]
+#define sipNameNr_AddChild 1874
+#define sipName_AddChild &sipStrings__glcanvas[1874]
+#define sipNameNr_DebugCtx 1883
+#define sipName_DebugCtx &sipStrings__glcanvas[1883]
+#define sipNameNr_Defaults 925
+#define sipName_Defaults &sipStrings__glcanvas[925]
+#define sipNameNr_DoEnable 1892
+#define sipName_DoEnable &sipStrings__glcanvas[1892]
+#define sipNameNr_DoFreeze 1901
+#define sipName_DoFreeze &sipStrings__glcanvas[1901]
+#define sipNameNr_GLCanvas 1715
+#define sipName_GLCanvas &sipStrings__glcanvas[1715]
+#define sipNameNr_NeedsARB 1557
+#define sipName_NeedsARB &sipStrings__glcanvas[1557]
+#define sipNameNr_Samplers 1910
+#define sipName_Samplers &sipStrings__glcanvas[1910]
+#define sipNameNr_TryAfter 1919
+#define sipName_TryAfter &sipStrings__glcanvas[1919]
+#define sipNameNr_Validate 1928
+#define sipName_Validate &sipStrings__glcanvas[1928]
+#define sipNameNr_canFocus 1937
+#define sipName_canFocus &sipStrings__glcanvas[1937]
+#define sipNameNr_ctxAttrs 1946
+#define sipName_ctxAttrs &sipStrings__glcanvas[1946]
+#define sipNameNr_interval 1955
+#define sipName_interval &sipStrings__glcanvas[1955]
+#define sipNameNr_location 1964
+#define sipName_location &sipStrings__glcanvas[1964]
+#define sipNameNr_needsARB 1973
+#define sipName_needsARB &sipStrings__glcanvas[1973]
+#define sipNameNr_Destroy 1982
+#define sipName_Destroy &sipStrings__glcanvas[1982]
+#define sipNameNr_EndList 1990
+#define sipName_EndList &sipStrings__glcanvas[1990]
+#define sipNameNr_GetSize 1726
+#define sipName_GetSize &sipStrings__glcanvas[1726]
+#define sipNameNr_MinRGBA 1998
+#define sipName_MinRGBA &sipStrings__glcanvas[1998]
+#define sipNameNr_Stencil 2006
+#define sipName_Stencil &sipStrings__glcanvas[2006]
+#define sipNameNr_context 2014
+#define sipName_context &sipStrings__glcanvas[2014]
+#define sipNameNr_enabled 2022
+#define sipName_enabled &sipStrings__glcanvas[2022]
+#define sipNameNr_palette 2030
+#define sipName_palette &sipStrings__glcanvas[2030]
+#define sipNameNr_unitMax 2038
+#define sipName_unitMax &sipStrings__glcanvas[2038]
+#define sipNameNr_unitMin 2046
+#define sipName_unitMin &sipStrings__glcanvas[2046]
+#define sipNameNr_variant 2054
+#define sipName_variant &sipStrings__glcanvas[2054]
+#define sipNameNr_DoThaw 2062
+#define sipName_DoThaw &sipStrings__glcanvas[2062]
+#define sipNameNr_NotSet 2069
+#define sipName_NotSet &sipStrings__glcanvas[2069]
+#define sipNameNr_Robust 2076
+#define sipName_Robust &sipStrings__glcanvas[2076]
+#define sipNameNr_Stereo 2083
+#define sipName_Stereo &sipStrings__glcanvas[2083]
+#define sipNameNr_client 2090
+#define sipName_client &sipStrings__glcanvas[2090]
+#define sipNameNr_colour 2097
+#define sipName_colour &sipStrings__glcanvas[2097]
+#define sipNameNr_column 2104
+#define sipName_column &sipStrings__glcanvas[2104]
+#define sipNameNr_dialog 2111
+#define sipName_dialog &sipStrings__glcanvas[2111]
+#define sipNameNr_enable 2118
+#define sipName_enable &sipStrings__glcanvas[2118]
+#define sipNameNr_height 2125
+#define sipName_height &sipStrings__glcanvas[2125]
+#define sipNameNr_mAlpha 2132
+#define sipName_mAlpha &sipStrings__glcanvas[2132]
+#define sipNameNr_mGreen 2139
+#define sipName_mGreen &sipStrings__glcanvas[2139]
+#define sipNameNr_parent 2146
+#define sipName_parent &sipStrings__glcanvas[2146]
+#define sipNameNr_rowMax 2153
+#define sipName_rowMax &sipStrings__glcanvas[2153]
+#define sipNameNr_rowMin 2160
+#define sipName_rowMin &sipStrings__glcanvas[2160]
+#define sipNameNr_stream 2167
+#define sipName_stream &sipStrings__glcanvas[2167]
+#define sipNameNr_vmayor 2174
+#define sipName_vmayor &sipStrings__glcanvas[2174]
+#define sipNameNr_vminor 2181
+#define sipName_vminor &sipStrings__glcanvas[2181]
+#define sipNameNr_Depth 2188
+#define sipName_Depth &sipStrings__glcanvas[2188]
+#define sipNameNr_Level 2194
+#define sipName_Level &sipStrings__glcanvas[2194]
+#define sipNameNr_Reset 1500
+#define sipName_Reset &sipStrings__glcanvas[1500]
+#define sipNameNr_child 2200
+#define sipName_child &sipStrings__glcanvas[2200]
+#define sipNameNr_count 2206
+#define sipName_count &sipStrings__glcanvas[2206]
+#define sipNameNr_event 2212
+#define sipName_event &sipStrings__glcanvas[2212]
+#define sipNameNr_flags 2218
+#define sipName_flags &sipStrings__glcanvas[2218]
+#define sipNameNr_level 2224
+#define sipName_level &sipStrings__glcanvas[2224]
+#define sipNameNr_mBlue 2230
+#define sipName_mBlue &sipStrings__glcanvas[2230]
+#define sipNameNr_order 911
+#define sipName_order &sipStrings__glcanvas[911]
+#define sipNameNr_other 2236
+#define sipName_other &sipStrings__glcanvas[2236]
+#define sipNameNr_popup 2242
+#define sipName_popup &sipStrings__glcanvas[2242]
+#define sipNameNr_scale 2248
+#define sipName_scale &sipStrings__glcanvas[2248]
+#define sipNameNr_sizer 2254
+#define sipName_sizer &sipStrings__glcanvas[2254]
+#define sipNameNr_style 2260
+#define sipName_style &sipStrings__glcanvas[2260]
+#define sipNameNr_width 2266
+#define sipName_width &sipStrings__glcanvas[2266]
+#define sipNameNr_IsOK 2272
+#define sipName_IsOK &sipStrings__glcanvas[2272]
+#define sipNameNr_RGBA 1513
+#define sipName_RGBA &sipStrings__glcanvas[1513]
+#define sipNameNr_Size 515
+#define sipName_Size &sipStrings__glcanvas[515]
+#define sipNameNr_incH 2277
+#define sipName_incH &sipStrings__glcanvas[2277]
+#define sipNameNr_incW 2282
+#define sipName_incW &sipStrings__glcanvas[2282]
+#define sipNameNr_info 2287
+#define sipName_info &sipStrings__glcanvas[2287]
+#define sipNameNr_item 2292
+#define sipName_item &sipStrings__glcanvas[2292]
+#define sipNameNr_mRed 2297
+#define sipName_mRed &sipStrings__glcanvas[2297]
+#define sipNameNr_maxH 2302
+#define sipName_maxH &sipStrings__glcanvas[2302]
+#define sipNameNr_maxW 2307
+#define sipName_maxW &sipStrings__glcanvas[2307]
+#define sipNameNr_minH 2312
+#define sipName_minH &sipStrings__glcanvas[2312]
+#define sipNameNr_minW 2317
+#define sipName_minW &sipStrings__glcanvas[2317]
+#define sipNameNr_name 2322
+#define sipName_name &sipStrings__glcanvas[2322]
+#define sipNameNr_rect 2327
+#define sipName_rect &sipStrings__glcanvas[2327]
+#define sipNameNr_show 2332
+#define sipName_show &sipStrings__glcanvas[2332]
+#define sipNameNr_size 2337
+#define sipName_size &sipStrings__glcanvas[2337]
+#define sipNameNr_unit 2342
+#define sipName_unit &sipStrings__glcanvas[2342]
+#define sipNameNr_ES2 1780
+#define sipName_ES2 &sipStrings__glcanvas[1780]
+#define sipNameNr_Set 2072
+#define sipName_Set &sipStrings__glcanvas[2072]
+#define sipNameNr_idx 2347
+#define sipName_idx &sipStrings__glcanvas[2347]
+#define sipNameNr_msg 2351
+#define sipName_msg &sipStrings__glcanvas[2351]
+#define sipNameNr_pos 2355
+#define sipName_pos &sipStrings__glcanvas[2355]
+#define sipNameNr_row 2359
+#define sipName_row &sipStrings__glcanvas[2359]
+#define sipNameNr_val 129
+#define sipName_val &sipStrings__glcanvas[129]
+#define sipNameNr_win 2363
+#define sipName_win &sipStrings__glcanvas[2363]
+#define sipNameNr_dc 2367
+#define sipName_dc &sipStrings__glcanvas[2367]
+#define sipNameNr_id 2370
+#define sipName_id &sipStrings__glcanvas[2370]
+#define sipNameNr_n 331
+#define sipName_n &sipStrings__glcanvas[331]
+#define sipNameNr_x 1802
+#define sipName_x &sipStrings__glcanvas[1802]
+#define sipNameNr_y 155
+#define sipName_y &sipStrings__glcanvas[155]
 
 #define sipMalloc                   sipAPI__glcanvas->api_malloc
 #define sipFree                     sipAPI__glcanvas->api_free
@@ -585,15 +605,17 @@ extern sipClassTypeDef sipTypeDef__glcanvas_wxGLAttribsBase;
 
 extern sipClassTypeDef sipTypeDef__glcanvas_wxGLAttributes;
 
-#define sipType_wxGLContextAttrs sipExportedTypes__glcanvas[4]
+#define sipType_wxGLContextAttrs sipExportedTypes__glcanvas[5]
 
 extern sipClassTypeDef sipTypeDef__glcanvas_wxGLContextAttrs;
 
-#define sipType_wxGLContext sipExportedTypes__glcanvas[3]
+#define sipType_wxGLContext sipExportedTypes__glcanvas[4]
 
 extern sipClassTypeDef sipTypeDef__glcanvas_wxGLContext;
 
 #define sipType_wxGLCanvas sipExportedTypes__glcanvas[2]
+
+#define sipType_wxGLCanvas_SwapInterval sipExportedTypes__glcanvas[3]
 
 extern sipClassTypeDef sipTypeDef__glcanvas_wxGLCanvas;
 
@@ -602,37 +624,43 @@ extern const sipAPIDef *sipAPI__glcanvas;
 extern sipExportedModuleDef sipModuleAPI__glcanvas;
 extern sipTypeDef *sipExportedTypes__glcanvas[];
 
-#define sipType_wxObject sipImportedTypes__glcanvas__core[4].it_td
+#define sipType_wxObject sipImportedTypes__glcanvas__core[5].it_td
 
-#define sipType_wxPoint sipImportedTypes__glcanvas__core[6].it_td
+#define sipType_wxPoint sipImportedTypes__glcanvas__core[7].it_td
 
-#define sipType_wxSize sipImportedTypes__glcanvas__core[7].it_td
+#define sipType_wxSize sipImportedTypes__glcanvas__core[8].it_td
 
-#define sipType_wxPalette sipImportedTypes__glcanvas__core[5].it_td
+#define sipType_wxPalette sipImportedTypes__glcanvas__core[6].it_td
 
-#define sipType_wxTrackable sipImportedTypes__glcanvas__core[9].it_td
+#define sipType_wxAccessible sipImportedTypes__glcanvas__core[0].it_td
 
-#define sipType_wxEvtHandler sipImportedTypes__glcanvas__core[3].it_td
+#define sipType_wxTrackable sipImportedTypes__glcanvas__core[10].it_td
 
-#define sipType_wxEvent sipImportedTypes__glcanvas__core[2].it_td
+#define sipType_wxEvtHandler sipImportedTypes__glcanvas__core[4].it_td
 
-#define sipType_wxVisualAttributes sipImportedTypes__glcanvas__core[11].it_td
+#define sipType_wxEvent sipImportedTypes__glcanvas__core[3].it_td
 
-#define sipType_wxWindowBase sipImportedTypes__glcanvas__core[13].it_td
+#define sipType_wxVisualAttributes sipImportedTypes__glcanvas__core[12].it_td
 
-#define sipType_wxWindow sipImportedTypes__glcanvas__core[12].it_td
+#define sipType_wxWindowBase sipImportedTypes__glcanvas__core[14].it_td
 
-#define sipType_wxValidator sipImportedTypes__glcanvas__core[10].it_td
+#define sipType_wxWindow sipImportedTypes__glcanvas__core[13].it_td
 
-#define sipType_wxArrayInt sipImportedTypes__glcanvas__core[0].it_td
+#define sipType_wxValidator sipImportedTypes__glcanvas__core[11].it_td
 
-#define sipType_wxString sipImportedTypes__glcanvas__core[8].it_td
+#define sipType_wxArrayInt sipImportedTypes__glcanvas__core[1].it_td
 
-#define sipType_wxWindowVariant sipImportedTypes__glcanvas__core[14].it_td
+#define sipType_wxString sipImportedTypes__glcanvas__core[9].it_td
 
-#define sipType_wxBorder sipImportedTypes__glcanvas__core[1].it_td
+#define sipType_wxWindowVariant sipImportedTypes__glcanvas__core[15].it_td
+
+#define sipType_wxBorder sipImportedTypes__glcanvas__core[2].it_td
 extern sipImportedTypeDef sipImportedTypes__glcanvas__core[];
 #include <wxPython/wxpy_api.h>
+#include <wx/access.h>
+#if !wxUSE_ACCESSIBILITY
+class wxAccessible;
+#endif
 #include <wx/glcanvas.h>
 #if !wxUSE_GLCANVAS
 class wxGLAttribsBase;
@@ -809,7 +837,7 @@ public:
 
 class wxGLContext : public wxObject {
 public:
-    wxGLContext(wxGLCanvas *win, const wxGLContext *other=NULL, const wxGLContextAttrs *ctxAttrs=NULL)
+    wxGLContext(wxGLCanvas *win, const wxGLContext *other=nullptr, const wxGLContextAttrs *ctxAttrs=nullptr)
         { wxPyRaiseNotImplemented(); }
 
     bool IsOK()
@@ -818,18 +846,30 @@ public:
     virtual bool SetCurrent(const wxGLCanvas &win) const
         { return false; }
 
+    static void ClearCurrent()
+        { wxPyRaiseNotImplemented(); }
+
 };
 
 class wxGLCanvas : public wxWindow {
 public:
+
+enum SwapInterval {
+    NotSet,
+    Set,
+    NonAdaptive,
+};
+    wxGLCanvas()
+        { wxPyRaiseNotImplemented(); }
+
     wxGLCanvas(wxWindow *parent, const wxGLAttributes &dispAttrs, wxWindowID id=wxID_ANY, const wxPoint &pos=wxDefaultPosition, const wxSize &size=wxDefaultSize, long style=0, const wxString &name=wxGLCanvasName, const wxPalette &palette=wxNullPalette)
         { wxPyRaiseNotImplemented(); }
 
-    wxGLCanvas(wxWindow *parent, wxWindowID id=wxID_ANY, const int *attribList=NULL, const wxPoint &pos=wxDefaultPosition, const wxSize &size=wxDefaultSize, long style=0, const wxString &name="GLCanvas", const wxPalette &palette=wxNullPalette)
+    wxGLCanvas(wxWindow *parent, wxWindowID id=wxID_ANY, const int *attribList=nullptr, const wxPoint &pos=wxDefaultPosition, const wxSize &size=wxDefaultSize, long style=0, const wxString &name="GLCanvas", const wxPalette &palette=wxNullPalette)
         { wxPyRaiseNotImplemented(); }
 
-    bool CreateSurface()
-        { return false; }
+    int GetSwapInterval() const
+        { return 0; }
 
     bool SetColour(const wxString &colour)
         { return false; }
@@ -837,8 +877,17 @@ public:
     bool SetCurrent(const wxGLContext &context) const
         { return false; }
 
+    SwapInterval SetSwapInterval(int interval)
+        { return 0; }
+
     virtual bool SwapBuffers()
         { return false; }
+
+    static bool GetEGLVersion(int *major, int *minor)
+        { wxPyRaiseNotImplemented(); return false; }
+
+    static int GetGLXVersion()
+        { wxPyRaiseNotImplemented(); return 0; }
 
     static bool IsDisplaySupported(const wxGLAttributes &dispAttrs)
         { wxPyRaiseNotImplemented(); return false; }
@@ -848,6 +897,9 @@ public:
 
     static bool IsExtensionSupported(const char *extension)
         { wxPyRaiseNotImplemented(); return false; }
+
+    static void PreferGLX()
+        { wxPyRaiseNotImplemented(); }
 
 };
 #endif //!wxUSE_GLCANVAS

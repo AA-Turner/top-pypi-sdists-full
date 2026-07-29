@@ -141,6 +141,80 @@ static PyObject *meth_wxColourDatabase_FindName(PyObject *sipSelf, PyObject *sip
 }
 
 
+PyDoc_STRVAR(doc_wxColourDatabase_GetAllNames, "GetAllNames() -> VectorwxString\n"
+"\n"
+"List all known colours by name.");
+
+extern "C" {static PyObject *meth_wxColourDatabase_GetAllNames(PyObject *, PyObject *);}
+static PyObject *meth_wxColourDatabase_GetAllNames(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxColourDatabase *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxColourDatabase, &sipCpp))
+        {
+            wxVector< ::wxString>*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new wxVector< ::wxString>(sipCpp->GetAllNames());
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxVector_0100wxString, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_ColourDatabase, sipName_GetAllNames, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxColourDatabase_UseScheme, "UseScheme(scheme) -> None\n"
+"\n"
+"Select the colour scheme to use.");
+
+extern "C" {static PyObject *meth_wxColourDatabase_UseScheme(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxColourDatabase_UseScheme(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxColourDatabase::Scheme scheme;
+        ::wxColourDatabase *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_scheme,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BE", &sipSelf, sipType_wxColourDatabase, &sipCpp, sipType_wxColourDatabase_Scheme, &scheme))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->UseScheme(scheme);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_ColourDatabase, sipName_UseScheme, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 /* Call the instance's destructor. */
 extern "C" {static void release_wxColourDatabase(void *, int);}
 static void release_wxColourDatabase(void *sipCppV, int)
@@ -237,7 +311,18 @@ static void *init_type_wxColourDatabase(sipSimpleWrapper *, PyObject *sipArgs, P
 static PyMethodDef methods_wxColourDatabase[] = {
     {sipName_AddColour, SIP_MLMETH_CAST(meth_wxColourDatabase_AddColour), METH_VARARGS|METH_KEYWORDS, doc_wxColourDatabase_AddColour},
     {sipName_Find, SIP_MLMETH_CAST(meth_wxColourDatabase_Find), METH_VARARGS|METH_KEYWORDS, doc_wxColourDatabase_Find},
-    {sipName_FindName, SIP_MLMETH_CAST(meth_wxColourDatabase_FindName), METH_VARARGS|METH_KEYWORDS, doc_wxColourDatabase_FindName}
+    {sipName_FindName, SIP_MLMETH_CAST(meth_wxColourDatabase_FindName), METH_VARARGS|METH_KEYWORDS, doc_wxColourDatabase_FindName},
+    {sipName_GetAllNames, meth_wxColourDatabase_GetAllNames, METH_VARARGS, doc_wxColourDatabase_GetAllNames},
+    {sipName_UseScheme, SIP_MLMETH_CAST(meth_wxColourDatabase_UseScheme), METH_VARARGS|METH_KEYWORDS, doc_wxColourDatabase_UseScheme}
+};
+
+static sipEnumMemberDef enummembers_wxColourDatabase[] = {
+    {sipName_CSS, static_cast<int>(::wxColourDatabase::CSS), 77},
+    {sipName_Traditional, static_cast<int>(::wxColourDatabase::Traditional), 77},
+};
+
+sipVariableDef variables_wxColourDatabase[] = {
+    {PropertyVariable, sipName_AllNames, &methods_wxColourDatabase[3], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxColourDatabase, "ColourDatabase() -> None\n"
@@ -259,9 +344,9 @@ sipClassTypeDef sipTypeDef__core_wxColourDatabase = {
     {
         sipNameNr_ColourDatabase,
         {0, 0, 1},
-        3, methods_wxColourDatabase,
-        0, SIP_NULLPTR,
-        0, SIP_NULLPTR,
+        5, methods_wxColourDatabase,
+        2, enummembers_wxColourDatabase,
+        1, variables_wxColourDatabase,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxColourDatabase,

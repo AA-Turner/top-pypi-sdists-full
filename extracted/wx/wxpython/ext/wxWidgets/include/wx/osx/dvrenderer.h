@@ -31,31 +31,31 @@ public:
     // inherited methods from wxDataViewRendererBase
     // ---------------------------------------------
 
-    virtual int GetAlignment() const wxOVERRIDE
+    virtual int GetAlignment() const override
     {
         return m_alignment;
     }
-    virtual wxDataViewCellMode GetMode() const wxOVERRIDE
+    virtual wxDataViewCellMode GetMode() const override
     {
         return m_mode;
     }
-    virtual bool GetValue(wxVariant& value) const wxOVERRIDE
+    virtual bool GetValue(wxVariant& value) const override
     {
         value = m_value;
         return true;
     }
 
     // NB: in Carbon this is always identical to the header alignment
-    virtual void SetAlignment(int align) wxOVERRIDE;
-    virtual void SetMode(wxDataViewCellMode mode) wxOVERRIDE;
-    virtual bool SetValue(const wxVariant& newValue) wxOVERRIDE
+    virtual void SetAlignment(int align) override;
+    virtual void SetMode(wxDataViewCellMode mode) override;
+    virtual bool SetValue(const wxVariant& newValue) override
     {
         m_value = newValue;
         return true;
     }
 
-    virtual void EnableEllipsize(wxEllipsizeMode mode = wxELLIPSIZE_MIDDLE) wxOVERRIDE;
-    virtual wxEllipsizeMode GetEllipsizeMode() const wxOVERRIDE;
+    virtual void EnableEllipsize(wxEllipsizeMode mode = wxELLIPSIZE_MIDDLE) override;
+    virtual wxEllipsizeMode GetEllipsizeMode() const override;
 
     // implementation
     // --------------
@@ -79,21 +79,25 @@ public:
     void OSXUpdateAlignment();
 
 #if wxOSX_USE_COCOA
+    bool m_callEditingDoneOnCellChange = false;
+    void OSXCallEditingDoneOnCellChange() { m_callEditingDoneOnCellChange = true; }
+    void OSXSendEditingDoneEventIfPending( const wxDataViewItem &item, const wxVariant &value );
+
     // called when a value was edited by user
     virtual void OSXOnCellChanged(NSObject *value,
                                   const wxDataViewItem& item,
                                   unsigned col);
 
 protected:
-    virtual void SetAttr(const wxDataViewItemAttr& attr) wxOVERRIDE;
-    virtual void SetEnabled(bool enabled) wxOVERRIDE;
+    virtual void SetAttr(const wxDataViewItemAttr& attr) override;
+    virtual void SetEnabled(bool enabled) override;
 #else
 protected:
-    void SetAttr(const wxDataViewItemAttr& WXUNUSED(attr)) wxOVERRIDE { };
-    void SetEnabled(bool WXUNUSED(enabled)) wxOVERRIDE { };
+    void SetAttr(const wxDataViewItemAttr& WXUNUSED(attr)) override { };
+    void SetEnabled(bool WXUNUSED(enabled)) override { };
 #endif
 
-    virtual bool IsHighlighted() const wxOVERRIDE;
+    virtual bool IsHighlighted() const override;
 
 private:
     // contains the alignment flags

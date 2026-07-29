@@ -19,7 +19,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n"chalk/artifacts/v1/dashboard.proto\x12\x12\x63halk.artifacts.v1\x1a\x1e\x63halk/artifacts/v1/chart.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto"F\n\x0cGridPosition\x12\x0c\n\x01x\x18\x01 \x01(\x05R\x01x\x12\x0c\n\x01y\x18\x02 \x01(\x05R\x01y\x12\x0c\n\x01w\x18\x03 \x01(\x05R\x01w\x12\x0c\n\x01h\x18\x04 \x01(\x05R\x01h"\xb6\x02\n\x10\x44\x61shboardElement\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12<\n\x08position\x18\x02 \x01(\x0b\x32 .chalk.artifacts.v1.GridPositionR\x08position\x12:\n\x05\x63hart\x18\x03 \x01(\x0b\x32".chalk.artifacts.v1.DashboardChartH\x00R\x05\x63hart\x12\x44\n\tlog_chart\x18\x04 \x01(\x0b\x32%.chalk.artifacts.v1.DashboardLogChartH\x00R\x08logChart\x12\x44\n\tlog_table\x18\x05 \x01(\x0b\x32%.chalk.artifacts.v1.DashboardLogTableH\x00R\x08logTableB\x0c\n\ndefinition"\x9b\x02\n\x0e\x44\x61shboardChart\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12#\n\rwindow_period\x18\x02 \x01(\tR\x0cwindowPeriod\x12>\n\x06series\x18\x03 \x03(\x0b\x32&.chalk.artifacts.v1.MetricConfigSeriesR\x06series\x12=\n\x08\x66ormulas\x18\x04 \x03(\x0b\x32!.chalk.artifacts.v1.MetricFormulaR\x08\x66ormulas\x12\x37\n\x15\x64isplay_window_period\x18\x05 \x01(\tH\x00R\x13\x64isplayWindowPeriod\x88\x01\x01\x42\x18\n\x16_display_window_period"\xaf\x01\n\x11\x44\x61shboardLogChart\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n\x05query\x18\x02 \x01(\tR\x05query\x12\x37\n\x15\x64isplay_window_period\x18\x03 \x01(\tH\x00R\x13\x64isplayWindowPeriod\x88\x01\x01\x12\x1d\n\nplot_style\x18\x04 \x01(\tR\tplotStyleB\x18\n\x16_display_window_period"\x88\x01\n\x11\x44\x61shboardLogTable\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n\x05query\x18\x02 \x01(\tR\x05query\x12%\n\x0eshow_component\x18\x03 \x01(\x08R\rshowComponent\x12"\n\rshow_shard_id\x18\x04 \x01(\x08R\x0bshowShardId"\xc6\x02\n\tDashboard\x12\x13\n\x02id\x18\x01 \x01(\tB\x03\xe0\x41\x03R\x02id\x12*\n\x0e\x65nvironment_id\x18\x02 \x01(\tB\x03\xe0\x41\x03R\renvironmentId\x12\x12\n\x04name\x18\x03 \x01(\tR\x04name\x12@\n\x08\x65lements\x18\x04 \x03(\x0b\x32$.chalk.artifacts.v1.DashboardElementR\x08\x65lements\x12>\n\ncreated_at\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x03\xe0\x41\x03R\tcreatedAt\x12>\n\nupdated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x03\xe0\x41\x03R\tupdatedAt\x12"\n\ncreated_by\x18\x07 \x01(\tB\x03\xe0\x41\x03R\tcreatedByB\x92\x01\n\x16\x63om.chalk.artifacts.v1B\x0e\x44\x61shboardProtoP\x01\xa2\x02\x03\x43\x41X\xaa\x02\x12\x43halk.Artifacts.V1\xca\x02\x12\x43halk\\Artifacts\\V1\xe2\x02\x1e\x43halk\\Artifacts\\V1\\GPBMetadata\xea\x02\x14\x43halk::Artifacts::V1b\x06proto3'
+    b'\n"chalk/artifacts/v1/dashboard.proto\x12\x12\x63halk.artifacts.v1\x1a\x1e\x63halk/artifacts/v1/chart.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto"F\n\x0cGridPosition\x12\x0c\n\x01x\x18\x01 \x01(\x05R\x01x\x12\x0c\n\x01y\x18\x02 \x01(\x05R\x01y\x12\x0c\n\x01w\x18\x03 \x01(\x05R\x01w\x12\x0c\n\x01h\x18\x04 \x01(\x05R\x01h"\xb4\x03\n\x0f\x44\x61shboardWidget\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12<\n\x08position\x18\x02 \x01(\x0b\x32 .chalk.artifacts.v1.GridPositionR\x08position\x12J\n\x0b\x64\x61ta_widget\x18\x03 \x01(\x0b\x32\'.chalk.artifacts.v1.DashboardDataWidgetH\x00R\ndataWidget\x12I\n\x08markdown\x18\x04 \x01(\x0b\x32+.chalk.artifacts.v1.DashboardMarkdownWidgetH\x00R\x08markdown\x12V\n\rsection_title\x18\x05 \x01(\x0b\x32/.chalk.artifacts.v1.DashboardSectionTitleWidgetH\x00R\x0csectionTitle\x12V\n\rnotebook_cell\x18\x06 \x01(\x0b\x32/.chalk.artifacts.v1.DashboardNotebookCellWidgetH\x00R\x0cnotebookCellB\x0c\n\ndefinition"V\n\x13NotebookCellDisplay\x12?\n\x04mode\x18\x01 \x01(\x0e\x32+.chalk.artifacts.v1.NotebookCellDisplayModeR\x04mode"\x9a\x01\n\x1b\x44\x61shboardNotebookCellWidget\x12\x1f\n\x0bnotebook_id\x18\x01 \x01(\tR\nnotebookId\x12\x17\n\x07\x63\x65ll_id\x18\x02 \x01(\tR\x06\x63\x65llId\x12\x41\n\x07\x64isplay\x18\x03 \x01(\x0b\x32\'.chalk.artifacts.v1.NotebookCellDisplayR\x07\x64isplay"\xf3\x02\n\x13\x44\x61shboardDataWidget\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12M\n\x0cmetric_query\x18\x02 \x01(\x0b\x32(.chalk.artifacts.v1.DashboardMetricQueryH\x00R\x0bmetricQuery\x12M\n\x0csource_query\x18\x03 \x01(\x0b\x32(.chalk.artifacts.v1.DashboardSourceQueryH\x00R\x0bsourceQuery\x12L\n\ntimeseries\x18\x04 \x01(\x0b\x32*.chalk.artifacts.v1.DashboardTimeseriesVizH\x01R\ntimeseries\x12=\n\x05table\x18\x05 \x01(\x0b\x32%.chalk.artifacts.v1.DashboardTableVizH\x01R\x05tableB\x0c\n\ndata_queryB\x0f\n\rvisualization"\x8d\x02\n\x14\x44\x61shboardMetricQuery\x12#\n\rwindow_period\x18\x01 \x01(\tR\x0cwindowPeriod\x12>\n\x06series\x18\x02 \x03(\x0b\x32&.chalk.artifacts.v1.MetricConfigSeriesR\x06series\x12=\n\x08\x66ormulas\x18\x03 \x03(\x0b\x32!.chalk.artifacts.v1.MetricFormulaR\x08\x66ormulas\x12\x37\n\x15\x64isplay_window_period\x18\x04 \x01(\tH\x00R\x13\x64isplayWindowPeriod\x88\x01\x01\x42\x18\n\x16_display_window_period"M\n\x14\x44\x61shboardSourceQuery\x12\x1f\n\x0b\x64\x61ta_source\x18\x01 \x01(\tR\ndataSource\x12\x14\n\x05query\x18\x02 \x01(\tR\x05query"7\n\x16\x44\x61shboardTimeseriesViz\x12\x1d\n\nplot_style\x18\x01 \x01(\tR\tplotStyle"\x13\n\x11\x44\x61shboardTableViz"3\n\x17\x44\x61shboardMarkdownWidget\x12\x18\n\x07\x63ontent\x18\x01 \x01(\tR\x07\x63ontent"3\n\x1b\x44\x61shboardSectionTitleWidget\x12\x14\n\x05title\x18\x01 \x01(\tR\x05title"\x89\x05\n\tDashboard\x12\x13\n\x02id\x18\x01 \x01(\tB\x03\xe0\x41\x03R\x02id\x12*\n\x0e\x65nvironment_id\x18\x02 \x01(\tB\x03\xe0\x41\x03R\renvironmentId\x12\x12\n\x04name\x18\x03 \x01(\tR\x04name\x12=\n\x07widgets\x18\x04 \x03(\x0b\x32#.chalk.artifacts.v1.DashboardWidgetR\x07widgets\x12%\n\x0b\x64\x65scription\x18\r \x01(\tH\x00R\x0b\x64\x65scription\x88\x01\x01\x12>\n\ncreated_at\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x03\xe0\x41\x03R\tcreatedAt\x12>\n\nupdated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x03\xe0\x41\x03R\tupdatedAt\x12"\n\ncreated_by\x18\x07 \x01(\tB\x03\xe0\x41\x03R\tcreatedBy\x12\'\n\nowner_type\x18\x08 \x01(\tB\x03\xe0\x41\x03H\x01R\townerType\x88\x01\x01\x12#\n\x08owner_id\x18\t \x01(\tB\x03\xe0\x41\x03H\x02R\x07ownerId\x88\x01\x01\x12 \n\tread_only\x18\n \x01(\x08\x42\x03\xe0\x41\x03R\x08readOnly\x12-\n\x10total_view_count\x18\x0b \x01(\x03\x42\x03\xe0\x41\x03R\x0etotalViewCount\x12R\n\x15viewer_last_viewed_at\x18\x0c \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x03\xe0\x41\x03R\x12viewerLastViewedAtB\x0e\n\x0c_descriptionB\r\n\x0b_owner_typeB\x0b\n\t_owner_id*\xc5\x01\n\x17NotebookCellDisplayMode\x12*\n&NOTEBOOK_CELL_DISPLAY_MODE_UNSPECIFIED\x10\x00\x12%\n!NOTEBOOK_CELL_DISPLAY_MODE_OUTPUT\x10\x01\x12%\n!NOTEBOOK_CELL_DISPLAY_MODE_SOURCE\x10\x02\x12\x30\n,NOTEBOOK_CELL_DISPLAY_MODE_SOURCE_AND_OUTPUT\x10\x03\x42\x92\x01\n\x16\x63om.chalk.artifacts.v1B\x0e\x44\x61shboardProtoP\x01\xa2\x02\x03\x43\x41X\xaa\x02\x12\x43halk.Artifacts.V1\xca\x02\x12\x43halk\\Artifacts\\V1\xe2\x02\x1e\x43halk\\Artifacts\\V1\\GPBMetadata\xea\x02\x14\x43halk::Artifacts::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -40,16 +40,40 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_DASHBOARD"].fields_by_name["updated_at"]._serialized_options = b"\340A\003"
     _globals["_DASHBOARD"].fields_by_name["created_by"]._options = None
     _globals["_DASHBOARD"].fields_by_name["created_by"]._serialized_options = b"\340A\003"
+    _globals["_DASHBOARD"].fields_by_name["owner_type"]._options = None
+    _globals["_DASHBOARD"].fields_by_name["owner_type"]._serialized_options = b"\340A\003"
+    _globals["_DASHBOARD"].fields_by_name["owner_id"]._options = None
+    _globals["_DASHBOARD"].fields_by_name["owner_id"]._serialized_options = b"\340A\003"
+    _globals["_DASHBOARD"].fields_by_name["read_only"]._options = None
+    _globals["_DASHBOARD"].fields_by_name["read_only"]._serialized_options = b"\340A\003"
+    _globals["_DASHBOARD"].fields_by_name["total_view_count"]._options = None
+    _globals["_DASHBOARD"].fields_by_name["total_view_count"]._serialized_options = b"\340A\003"
+    _globals["_DASHBOARD"].fields_by_name["viewer_last_viewed_at"]._options = None
+    _globals["_DASHBOARD"].fields_by_name["viewer_last_viewed_at"]._serialized_options = b"\340A\003"
+    _globals["_NOTEBOOKCELLDISPLAYMODE"]._serialized_start = 2474
+    _globals["_NOTEBOOKCELLDISPLAYMODE"]._serialized_end = 2671
     _globals["_GRIDPOSITION"]._serialized_start = 156
     _globals["_GRIDPOSITION"]._serialized_end = 226
-    _globals["_DASHBOARDELEMENT"]._serialized_start = 229
-    _globals["_DASHBOARDELEMENT"]._serialized_end = 539
-    _globals["_DASHBOARDCHART"]._serialized_start = 542
-    _globals["_DASHBOARDCHART"]._serialized_end = 825
-    _globals["_DASHBOARDLOGCHART"]._serialized_start = 828
-    _globals["_DASHBOARDLOGCHART"]._serialized_end = 1003
-    _globals["_DASHBOARDLOGTABLE"]._serialized_start = 1006
-    _globals["_DASHBOARDLOGTABLE"]._serialized_end = 1142
-    _globals["_DASHBOARD"]._serialized_start = 1145
-    _globals["_DASHBOARD"]._serialized_end = 1471
+    _globals["_DASHBOARDWIDGET"]._serialized_start = 229
+    _globals["_DASHBOARDWIDGET"]._serialized_end = 665
+    _globals["_NOTEBOOKCELLDISPLAY"]._serialized_start = 667
+    _globals["_NOTEBOOKCELLDISPLAY"]._serialized_end = 753
+    _globals["_DASHBOARDNOTEBOOKCELLWIDGET"]._serialized_start = 756
+    _globals["_DASHBOARDNOTEBOOKCELLWIDGET"]._serialized_end = 910
+    _globals["_DASHBOARDDATAWIDGET"]._serialized_start = 913
+    _globals["_DASHBOARDDATAWIDGET"]._serialized_end = 1284
+    _globals["_DASHBOARDMETRICQUERY"]._serialized_start = 1287
+    _globals["_DASHBOARDMETRICQUERY"]._serialized_end = 1556
+    _globals["_DASHBOARDSOURCEQUERY"]._serialized_start = 1558
+    _globals["_DASHBOARDSOURCEQUERY"]._serialized_end = 1635
+    _globals["_DASHBOARDTIMESERIESVIZ"]._serialized_start = 1637
+    _globals["_DASHBOARDTIMESERIESVIZ"]._serialized_end = 1692
+    _globals["_DASHBOARDTABLEVIZ"]._serialized_start = 1694
+    _globals["_DASHBOARDTABLEVIZ"]._serialized_end = 1713
+    _globals["_DASHBOARDMARKDOWNWIDGET"]._serialized_start = 1715
+    _globals["_DASHBOARDMARKDOWNWIDGET"]._serialized_end = 1766
+    _globals["_DASHBOARDSECTIONTITLEWIDGET"]._serialized_start = 1768
+    _globals["_DASHBOARDSECTIONTITLEWIDGET"]._serialized_end = 1819
+    _globals["_DASHBOARD"]._serialized_start = 1822
+    _globals["_DASHBOARD"]._serialized_end = 2471
 # @@protoc_insertion_point(module_scope)

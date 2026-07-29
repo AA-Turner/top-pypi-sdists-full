@@ -29,8 +29,8 @@
 
 PyDoc_STRVAR(doc_wxGraphicsObject_GetRenderer, "GetRenderer() -> GraphicsRenderer\n"
 "\n"
-"Returns the renderer that was used to create this instance, or NULL if\n"
-"it has not been initialized yet.");
+"Returns the renderer that was used to create this instance, or nullptr\n"
+"if it has not been initialized yet.");
 
 extern "C" {static PyObject *meth_wxGraphicsObject_GetRenderer(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsObject_GetRenderer(PyObject *sipSelf, PyObject *sipArgs)
@@ -296,7 +296,7 @@ static void *init_type_wxGraphicsObject(sipSimpleWrapper *, PyObject *sipArgs, P
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGraphicsObject[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxGraphicsObject[] = {{400, 255, 1}};
 
 
 /* Define this type's Python slots. */

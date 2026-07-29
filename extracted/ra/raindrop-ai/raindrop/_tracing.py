@@ -177,12 +177,176 @@ def current_context() -> _BoundContext | None:
     return pruned[-1] if pruned else None
 
 
+# --- Contextual span attributes ------------------------------------------------
+#
+# Raw attributes stamped on EVERY span started in the current execution
+# context, on top of the routing attributes above. Used by the detached
+# sub-agent hand-off (``raindrop.subagent``), whose contract requires the
+# child's reverse reference on every span it emits — spans are ingested and
+# projected independently, so a reference on the root alone would be invisible
+# to anything reading a child span on its own.
+#
+# A STACK of frames removed by IDENTITY, for the same reason the routing
+# bindings are (see ``unbind_current``): a run's lifetime is caller-controlled
+# and two runs on one context may end out of order, and plain contextvar token
+# reset would then resurrect a finished run's attributes.
+
+
+class _AttributeFrame:
+    """One set of contextual span attributes on the stack.
+
+    Holds its owner WEAKLY, like ``_BoundContext``: a caller who abandons an
+    interaction or a sub-agent run without finishing it should not leave the
+    thing it described stamped on the next turn to reuse this context. Readers
+    skip and prune frames whose owner is gone. A frame with no owner is always
+    live — its lifetime is a ``with`` block's ``finally``.
+    """
+
+    __slots__ = ("attributes", "saw_error_span", "owner_ref")
+
+    def __init__(
+        self,
+        attributes: Dict[str, str],
+        owner_ref: "weakref.ref | None" = None,
+    ) -> None:
+        self.attributes = attributes
+        # Whether a span ended in error while this frame was bound. A detached
+        # sub-agent run uses it to tell "the failure is already on a span" from
+        # "nothing recorded it", so it records one only in the second case.
+        self.saw_error_span = False
+        self.owner_ref = owner_ref
+
+    def is_live(self) -> bool:
+        return self.owner_ref is None or self.owner_ref() is not None
+
+
+_span_attribute_frames: "contextvars.ContextVar[tuple[_AttributeFrame, ...]]" = (
+    contextvars.ContextVar("raindrop_span_attributes", default=())
+)
+
+# Same bound, same reasoning as _MAX_BINDING_STACK: a pathological loop that
+# binds without unbinding must not grow unboundedly.
+_MAX_ATTRIBUTE_FRAMES = 128
+
+
+def bind_span_attributes(
+    attributes: Dict[str, str], owner: Any = None
+) -> "_AttributeFrame | None":
+    """Stamp ``attributes`` on every span started later in this context.
+
+    Returns the frame to hand to :func:`unbind_span_attributes`, or ``None``
+    when there is nothing to bind. Unbind it when whatever it describes ends: a
+    sync worker thread keeps its context between requests, so a frame left
+    bound stamps the next unrelated turn on that thread. Pass the ``owner`` it
+    describes and an abandoned one stops applying when that object is collected,
+    even if the unbind never comes.
+    """
+    if not attributes:
+        return None
+    owner_ref = None
+    if owner is not None:
+        try:
+            owner_ref = weakref.ref(owner)
+        except TypeError:
+            # Not weak-referenceable: the frame is simply always live, exactly
+            # as it was before owners existed.
+            owner_ref = None
+    frame = _AttributeFrame(dict(attributes), owner_ref)
+    try:
+        frames = _span_attribute_frames.get()
+        if len(frames) >= _MAX_ATTRIBUTE_FRAMES:
+            frames = frames[-(_MAX_ATTRIBUTE_FRAMES - 1) :]
+        _span_attribute_frames.set(frames + (frame,))
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("[raindrop] bind_span_attributes ignored error: %s", exc)
+        return None
+    return frame
+
+
+def frame_applies_to(span: Any, frame: "_AttributeFrame | None") -> bool:
+    """Whether ``span`` was started under ``frame``.
+
+    Every span a frame is bound over carries all of its attributes, and nothing
+    that predates the frame — or belongs to a sibling one — does. That is what
+    lets a sub-agent run tell its own spans from the host's.
+    """
+    if frame is None or not frame.attributes:
+        return False
+    attributes = getattr(span, "attributes", None) or {}
+    return all(attributes.get(key) == value for key, value in frame.attributes.items())
+
+
+def own_span_attributes(frame: "_AttributeFrame | None", owner: Any) -> None:
+    """Give a frame its owner after the fact.
+
+    For the caller that has to bind before the object the frame describes
+    exists — the sub-agent run's reverse reference has to be in place before the
+    interaction that the run wraps is begun.
+    """
+    if frame is None or owner is None:
+        return
+    try:
+        frame.owner_ref = weakref.ref(owner)
+    except TypeError:
+        # Not weak-referenceable: always live, as it was before owners existed.
+        pass
+
+
+def unbind_span_attributes(frame: "_AttributeFrame | None") -> None:
+    """Remove a frame pushed by :func:`bind_span_attributes` (by identity)."""
+    if frame is None:
+        return
+    try:
+        frames = _span_attribute_frames.get()
+        pruned = tuple(f for f in frames if f is not frame)
+        if len(pruned) != len(frames):
+            _span_attribute_frames.set(pruned)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("[raindrop] unbind_span_attributes ignored error: %s", exc)
+
+
+@contextmanager
+def span_attributes(attributes: Dict[str, str]) -> Iterator[None]:
+    """Stamp ``attributes`` on spans started inside the ``with`` block."""
+    frame = bind_span_attributes(attributes)
+    try:
+        yield
+    finally:
+        unbind_span_attributes(frame)
+
+
+def live_span_attribute_frames() -> tuple:
+    """The bound frames whose owner is still around; prunes the rest."""
+    try:
+        frames = _span_attribute_frames.get()
+    except Exception:  # pragma: no cover - defensive
+        return ()
+    if all(frame.is_live() for frame in frames):
+        return frames
+    live = tuple(frame for frame in frames if frame.is_live())
+    try:
+        _span_attribute_frames.set(live)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("[raindrop] could not prune abandoned frames: %s", exc)
+    return live
+
+
+def current_span_attributes() -> Dict[str, str]:
+    """Merged contextual span attributes, innermost frame winning."""
+    merged: Dict[str, str] = {}
+    for frame in live_span_attribute_frames():
+        merged.update(frame.attributes)
+    return merged
+
+
 # --- Span stamping -----------------------------------------------------------
 
 try:  # SpanProcessor import kept lazy-safe: tracing is optional at runtime.
     from opentelemetry.sdk.trace import SpanProcessor
+    from opentelemetry.trace import StatusCode
 except Exception:  # pragma: no cover - opentelemetry-sdk is a hard dep today
     SpanProcessor = object  # type: ignore[assignment,misc]
+    StatusCode = None  # type: ignore[assignment]
 
 
 # Flipped (never unflipped) the first time clients with TWO DIFFERENT
@@ -255,15 +419,28 @@ def stamp_span(span: Any, project_id: str | None, auth_hint: str | None) -> None
         pass
 
 
+def stamp_context_attributes(span: Any) -> None:
+    """Apply the current context's contextual span attributes to ``span``."""
+    try:
+        for key, value in current_span_attributes().items():
+            span.set_attribute(key, value)
+    except Exception:
+        # Telemetry must never crash the host app.
+        pass
+
+
 class _RaindropContextSpanProcessor(SpanProcessor):
     """Stamp every span started under a bound context with routing attributes.
 
-    Spans started outside any bound context get no attributes and route to
-    the exporter's default (header) project — exactly today's behavior.
+    Spans started outside any bound context get no routing attributes and route
+    to the exporter's default (header) project — exactly today's behavior.
+    Contextual attributes (the hand-off reverse reference) are independent of
+    the routing binding, so they are applied either way.
     """
 
     def on_start(self, span: Any, parent_context: Any = None) -> None:
         try:
+            stamp_context_attributes(span)
             bound = current_context()
             if bound is None:
                 return
@@ -272,8 +449,21 @@ class _RaindropContextSpanProcessor(SpanProcessor):
             # Telemetry must never crash the host app.
             pass
 
-    def on_end(self, span: Any) -> None:  # pragma: no cover - no-op
-        pass
+    def on_end(self, span: Any) -> None:
+        try:
+            status = getattr(span, "status", None)
+            if status is None or status.status_code is not StatusCode.ERROR:
+                return
+            # Only the frames this span was started under: an error span that
+            # predates a run, or belongs to a sibling run on the same context,
+            # is not that run's failure, and treating it as one would let the
+            # run skip recording its own — leaving it derived as finished.
+            for frame in live_span_attribute_frames():
+                if frame_applies_to(span, frame):
+                    frame.saw_error_span = True
+        except Exception:
+            # Telemetry must never crash the host app.
+            pass
 
     def shutdown(self) -> None:  # pragma: no cover - no-op
         pass

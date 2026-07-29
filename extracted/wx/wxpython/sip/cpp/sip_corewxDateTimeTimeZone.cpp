@@ -272,7 +272,7 @@ sipClassTypeDef sipTypeDef__core_wxDateTime_TimeZone = {
     },
     {
         sipNameNr_TimeZone,
-        {119, 255, 0},
+        {124, 255, 0},
         3, methods_wxDateTime_TimeZone,
         0, SIP_NULLPTR,
         1, variables_wxDateTime_TimeZone,

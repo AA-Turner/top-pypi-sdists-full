@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crytic-compile
-Version: 0.4.1
+Version: 0.4.2
 Summary: Util to facilitate smart contracts compilation.
 Author: Trail of Bits
 License-Expression: AGPL-3.0-only

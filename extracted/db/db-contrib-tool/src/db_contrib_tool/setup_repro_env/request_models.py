@@ -50,6 +50,8 @@ class RequestType(Enum):
     * evg_task: Get binaries from a specific evergreen task.
     * mongo_release_version: Get binaries for a release version of mongo (e.g. 4.4, 5.0, etc).
     * mongo_patch_version: Get binaries for a patch version of mongo (e.g. 4.2.18, 6.0.0-rc4, 6.1.0-alpha, etc).
+    * mongo_last_patch_version: Get binaries for the `last-patch` alias. Like mongo_patch_version,
+      but falls back to the latest published patch in the series if the exact tag isn't published.
     """
 
     GIT_COMMIT = "git_commit"
@@ -58,6 +60,7 @@ class RequestType(Enum):
     EVG_TASK = "evg_task"
     MONGO_RELEASE_VERSION = "mongo_release_version"
     MONGO_PATCH_VERSION = "mongo_patch_version"
+    MONGO_LAST_PATCH_VERSION = "mongo_last_patch_version"
     VERSIONS_FILE = "versions_file"
 
     def __str__(self) -> str:

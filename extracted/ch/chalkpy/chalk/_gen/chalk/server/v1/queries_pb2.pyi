@@ -442,6 +442,11 @@ class ListMetaQueryRunsRequest(_message.Message):
         "deployment_filter",
         "source",
         "page_token",
+        "meta_query_names",
+        "query_versions",
+        "branch_filters",
+        "agent_ids",
+        "resource_groups",
     )
     INCLUDE_LATENCY_FIELD_NUMBER: _ClassVar[int]
     MIN_LATENCY_MS_FIELD_NUMBER: _ClassVar[int]
@@ -464,6 +469,11 @@ class ListMetaQueryRunsRequest(_message.Message):
     DEPLOYMENT_FILTER_FIELD_NUMBER: _ClassVar[int]
     SOURCE_FIELD_NUMBER: _ClassVar[int]
     PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    META_QUERY_NAMES_FIELD_NUMBER: _ClassVar[int]
+    QUERY_VERSIONS_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_FILTERS_FIELD_NUMBER: _ClassVar[int]
+    AGENT_IDS_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUPS_FIELD_NUMBER: _ClassVar[int]
     include_latency: bool
     min_latency_ms: float
     query_plan_id: str
@@ -485,6 +495,11 @@ class ListMetaQueryRunsRequest(_message.Message):
     deployment_filter: str
     source: MetaQueryRunsSource
     page_token: str
+    meta_query_names: _containers.RepeatedScalarFieldContainer[str]
+    query_versions: _containers.RepeatedScalarFieldContainer[str]
+    branch_filters: _containers.RepeatedScalarFieldContainer[str]
+    agent_ids: _containers.RepeatedScalarFieldContainer[str]
+    resource_groups: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         include_latency: bool = ...,
@@ -508,6 +523,11 @@ class ListMetaQueryRunsRequest(_message.Message):
         deployment_filter: _Optional[str] = ...,
         source: _Optional[_Union[MetaQueryRunsSource, str]] = ...,
         page_token: _Optional[str] = ...,
+        meta_query_names: _Optional[_Iterable[str]] = ...,
+        query_versions: _Optional[_Iterable[str]] = ...,
+        branch_filters: _Optional[_Iterable[str]] = ...,
+        agent_ids: _Optional[_Iterable[str]] = ...,
+        resource_groups: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class ListMetaQueryRunsPageToken(_message.Message):

@@ -423,7 +423,7 @@ class ToolTipWindowBase(object):
             dc.DrawText(footer, bmpXPos + bmpWidth + self._spacing, yPos + toAdd)
             maxWidth = max(bmpXPos + bmpWidth + (self._spacing*2) + textWidth, maxWidth)
         if footerBmp and footerBmp.IsOk():
-            toAdd = (height - bmpHeight + self._spacing) / 2
+            toAdd = (height - bmpHeight + self._spacing) // 2
             dc.DrawBitmap(footerBmp, bmpXPos, int(yPos + toAdd), True)
             maxWidth = max(footerBmp.GetSize().GetWidth() + bmpXPos, maxWidth)
 
@@ -678,7 +678,7 @@ class ToolTipWindowBase(object):
         """ Calculates the :class:`SuperToolTip` window best size. """
 
         maxWidth, maxHeight = self.OnPaint(None)
-        self.SetSize((maxWidth, maxHeight))
+        self.SetSize((int(maxWidth), int(maxHeight)))
 
 
     def CalculateBestPosition(self,widget):

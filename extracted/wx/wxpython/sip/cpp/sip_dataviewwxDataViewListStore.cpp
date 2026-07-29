@@ -503,7 +503,7 @@ static PyObject *meth_wxDataViewListStore_AppendColumn(PyObject *sipSelf, PyObje
 }
 
 
-PyDoc_STRVAR(doc_wxDataViewListStore_AppendItem, "AppendItem(values, data=None) -> None\n"
+PyDoc_STRVAR(doc_wxDataViewListStore_AppendItem, "AppendItem(values, data=0) -> None\n"
 "\n"
 "Appends an item (=row) and fills it with values.");
 
@@ -549,7 +549,7 @@ static PyObject *meth_wxDataViewListStore_AppendItem(PyObject *sipSelf, PyObject
 }
 
 
-PyDoc_STRVAR(doc_wxDataViewListStore_PrependItem, "PrependItem(values, data=None) -> None\n"
+PyDoc_STRVAR(doc_wxDataViewListStore_PrependItem, "PrependItem(values, data=0) -> None\n"
 "\n"
 "Prepends an item (=row) and fills it with values.");
 
@@ -595,7 +595,7 @@ static PyObject *meth_wxDataViewListStore_PrependItem(PyObject *sipSelf, PyObjec
 }
 
 
-PyDoc_STRVAR(doc_wxDataViewListStore_InsertItem, "InsertItem(row, values, data=None) -> None\n"
+PyDoc_STRVAR(doc_wxDataViewListStore_InsertItem, "InsertItem(row, values, data=0) -> None\n"
 "\n"
 "Inserts an item (=row) and fills it with values.");
 

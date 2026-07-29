@@ -45,7 +45,8 @@ class WorkloadResponse(object):
         'status': 'WorkloadStatus',
         'plan_id': 'str',
         'queue_position': 'int',
-        'requested_resources': 'dict(str, float)'
+        'requested_resources': 'dict(str, float)',
+        'url': 'str'
     }
 
     attribute_map = {
@@ -61,10 +62,11 @@ class WorkloadResponse(object):
         'status': 'status',
         'plan_id': 'plan_id',
         'queue_position': 'queue_position',
-        'requested_resources': 'requested_resources'
+        'requested_resources': 'requested_resources',
+        'url': 'url'
     }
 
-    def __init__(self, cluster_id=None, name=None, type=None, project=None, priority=None, nodes=None, flavors=None, cloud_id=None, created_at=None, status=None, plan_id=None, queue_position=None, requested_resources=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, cluster_id=None, name=None, type=None, project=None, priority=None, nodes=None, flavors=None, cloud_id=None, created_at=None, status=None, plan_id=None, queue_position=None, requested_resources=None, url=None, local_vars_configuration=None):  # noqa: E501
         """WorkloadResponse - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -83,6 +85,7 @@ class WorkloadResponse(object):
         self._plan_id = None
         self._queue_position = None
         self._requested_resources = None
+        self._url = None
         self.discriminator = None
 
         self.cluster_id = cluster_id
@@ -104,6 +107,8 @@ class WorkloadResponse(object):
         self.queue_position = queue_position
         if requested_resources is not None:
             self.requested_resources = requested_resources
+        if url is not None:
+            self.url = url
 
     @property
     def cluster_id(self):
@@ -391,6 +396,27 @@ class WorkloadResponse(object):
         """
 
         self._requested_resources = requested_resources
+
+    @property
+    def url(self):
+        """Gets the url of this WorkloadResponse.  # noqa: E501
+
+
+        :return: The url of this WorkloadResponse.  # noqa: E501
+        :rtype: str
+        """
+        return self._url
+
+    @url.setter
+    def url(self, url):
+        """Sets the url of this WorkloadResponse.
+
+
+        :param url: The url of this WorkloadResponse.  # noqa: E501
+        :type: str
+        """
+
+        self._url = url
 
     def to_dict(self):
         """Returns the model properties as a dict"""

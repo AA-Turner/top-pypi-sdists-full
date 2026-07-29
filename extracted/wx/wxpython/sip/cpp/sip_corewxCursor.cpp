@@ -9,8 +9,9 @@
 
 #include "sipAPI_core.h"
         #include <wx/cursor.h>
-        #include <wx/image.h>
+        #include <wx/bitmap.h>
         #include <wx/gdicmn.h>
+        #include <wx/image.h>
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
@@ -46,7 +47,10 @@ class sipwxCursor : public ::wxCursor
 {
 public:
     sipwxCursor();
+    sipwxCursor(const ::wxBitmap&, int, int);
+    sipwxCursor(const ::wxBitmap&, const ::wxPoint&);
     sipwxCursor(const ::wxString&, ::wxBitmapType, int, int);
+    sipwxCursor(const ::wxString&, ::wxBitmapType, const ::wxPoint&);
     sipwxCursor(::wxStockCursor);
     sipwxCursor(const ::wxImage&);
     sipwxCursor(const ::wxCursor&);
@@ -74,7 +78,22 @@ sipwxCursor::sipwxCursor(): ::wxCursor(), sipPySelf(SIP_NULLPTR)
     memset(sipPyMethods, 0, sizeof (sipPyMethods));
 }
 
+sipwxCursor::sipwxCursor(const ::wxBitmap& bitmap, int hotSpotX, int hotSpotY): ::wxCursor(bitmap, hotSpotX, hotSpotY), sipPySelf(SIP_NULLPTR)
+{
+    memset(sipPyMethods, 0, sizeof (sipPyMethods));
+}
+
+sipwxCursor::sipwxCursor(const ::wxBitmap& bitmap, const ::wxPoint& hotSpot): ::wxCursor(bitmap, hotSpot), sipPySelf(SIP_NULLPTR)
+{
+    memset(sipPyMethods, 0, sizeof (sipPyMethods));
+}
+
 sipwxCursor::sipwxCursor(const ::wxString& cursorName, ::wxBitmapType type, int hotSpotX, int hotSpotY): ::wxCursor(cursorName, type, hotSpotX, hotSpotY), sipPySelf(SIP_NULLPTR)
+{
+    memset(sipPyMethods, 0, sizeof (sipPyMethods));
+}
+
+sipwxCursor::sipwxCursor(const ::wxString& name, ::wxBitmapType type, const ::wxPoint& hotSpot): ::wxCursor(name, type, hotSpot), sipPySelf(SIP_NULLPTR)
 {
     memset(sipPyMethods, 0, sizeof (sipPyMethods));
 }
@@ -464,6 +483,72 @@ static void *init_type_wxCursor(sipSimpleWrapper *sipSelf, PyObject *sipArgs, Py
     }
 
     {
+        const ::wxBitmap* bitmap;
+        int hotSpotX = 0;
+        int hotSpotY = 0;
+
+        static const char *sipKwdList[] = {
+            sipName_bitmap,
+            sipName_hotSpotX,
+            sipName_hotSpotY,
+        };
+
+        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, sipKwdList, sipUnused, "J9|ii", sipType_wxBitmap, &bitmap, &hotSpotX, &hotSpotY))
+        {
+        if (!wxPyCheckForApp()) return NULL;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp = new sipwxCursor(*bitmap, hotSpotX, hotSpotY);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+            {
+                delete sipCpp;
+                return SIP_NULLPTR;
+            }
+
+            sipCpp->sipPySelf = sipSelf;
+
+            return sipCpp;
+        }
+    }
+
+    {
+        const ::wxBitmap* bitmap;
+        const ::wxPoint* hotSpot;
+        int hotSpotState = 0;
+
+        static const char *sipKwdList[] = {
+            sipName_bitmap,
+            sipName_hotSpot,
+        };
+
+        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, sipKwdList, sipUnused, "J9J1", sipType_wxBitmap, &bitmap, sipType_wxPoint, &hotSpot, &hotSpotState))
+        {
+        if (!wxPyCheckForApp()) return NULL;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp = new sipwxCursor(*bitmap, *hotSpot);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxPoint *>(hotSpot), sipType_wxPoint, hotSpotState);
+
+            if (PyErr_Occurred())
+            {
+                delete sipCpp;
+                return SIP_NULLPTR;
+            }
+
+            sipCpp->sipPySelf = sipSelf;
+
+            return sipCpp;
+        }
+    }
+
+    {
         const ::wxString* cursorName;
         int cursorNameState = 0;
         ::wxBitmapType type = wxBITMAP_TYPE_ANY;
@@ -487,6 +572,43 @@ static void *init_type_wxCursor(sipSimpleWrapper *sipSelf, PyObject *sipArgs, Py
             sipCpp = new sipwxCursor(*cursorName, type, hotSpotX, hotSpotY);
             Py_END_ALLOW_THREADS
             sipReleaseType(const_cast< ::wxString *>(cursorName), sipType_wxString, cursorNameState);
+
+            if (PyErr_Occurred())
+            {
+                delete sipCpp;
+                return SIP_NULLPTR;
+            }
+
+            sipCpp->sipPySelf = sipSelf;
+
+            return sipCpp;
+        }
+    }
+
+    {
+        const ::wxString* name;
+        int nameState = 0;
+        ::wxBitmapType type;
+        const ::wxPoint* hotSpot;
+        int hotSpotState = 0;
+
+        static const char *sipKwdList[] = {
+            sipName_name,
+            sipName_type,
+            sipName_hotSpot,
+        };
+
+        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, sipKwdList, sipUnused, "J1EJ1", sipType_wxString, &name, &nameState, sipType_wxBitmapType, &type, sipType_wxPoint, &hotSpot, &hotSpotState))
+        {
+        if (!wxPyCheckForApp()) return NULL;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp = new sipwxCursor(*name, type, *hotSpot);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxString *>(name), sipType_wxString, nameState);
+            sipReleaseType(const_cast< ::wxPoint *>(hotSpot), sipType_wxPoint, hotSpotState);
 
             if (PyErr_Occurred())
             {
@@ -592,7 +714,7 @@ static void *init_type_wxCursor(sipSimpleWrapper *sipSelf, PyObject *sipArgs, Py
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxCursor[] = {{226, 255, 1}};
+static sipEncodedTypeDef supers_wxCursor[] = {{234, 255, 1}};
 
 
 /* Define this type's Python slots. */
@@ -617,14 +739,16 @@ sipVariableDef variables_wxCursor[] = {
 };
 
 PyDoc_STRVAR(doc_wxCursor, "Cursor() -> None\n"
+"Cursor(bitmap, hotSpotX=0, hotSpotY=0) -> None\n"
+"Cursor(bitmap, hotSpot) -> None\n"
 "Cursor(cursorName, type=BITMAP_TYPE_ANY, hotSpotX=0, hotSpotY=0) -> None\n"
+"Cursor(name, type, hotSpot) -> None\n"
 "Cursor(cursorId) -> None\n"
 "Cursor(image) -> None\n"
 "Cursor(cursor) -> None\n"
 "\n"
-"A cursor is a small bitmap usually used for denoting where the mouse\n"
-"pointer is, with a picture that might indicate the interpretation of a\n"
-"mouse click.");
+"A cursor is a small bitmap used for denoting where the mouse pointer\n"
+"is, with a picture that indicates the point of a mouse click.");
 
 
 sipClassTypeDef sipTypeDef__core_wxCursor = {

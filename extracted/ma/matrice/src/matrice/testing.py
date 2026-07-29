@@ -365,7 +365,7 @@ class TestingActionTracker:
             ]
             print(f"Model config: {self.model_config}")
         else:
-            raise Exception(
+            raise RuntimeError(
                 "Couldn't load action config, Make sure config path is one of [train-config.json, export-export_format-config, eval]"
             )
 
@@ -395,20 +395,20 @@ class TestingActionTracker:
         else:
             return value
 
-    def update_status(self, stepCode, status, status_description):
+    def update_status(self, step_code, status, status_description):
         """Mocks the status update for a given step, adding it to logs.
 
         Parameters
         ----------
-        stepCode : str
+        step_code : str
             The code for the current step.
         status : str
             The current status (e.g., 'SUCCESS', 'ERROR').
         status_description : str
             Description or details about the step status.
         """
-        print(f"Mock update status: {stepCode}, {status}, {status_description}")
-        self.add_logs(stepCode, status, status_description)
+        print(f"Mock update status: {step_code}, {status}, {status_description}")
+        self.add_logs(step_code, status, status_description)
 
     @log_decorator
     def upload_checkpoint(
@@ -426,7 +426,7 @@ class TestingActionTracker:
             Type of model (default is 'trained').
         """
         print(f"Mock upload checkpoint: {checkpoint_path}, {model_type}")
-        file_path, ext = os.path.splitext(checkpoint_path)
+        _, ext = os.path.splitext(checkpoint_path)
         if model_type == "trained":
             new_name = os.path.join(
                 self.testing_logs_folder_path,
@@ -459,12 +459,8 @@ class TestingActionTracker:
             Framework used for the model (default is '').
         """
         print(f"Mock download model to: {model_path}, {model_type}")
-        file_path, ext = os.path.splitext(model_path)
-        if model_type == "trained":
-            local_model_file = [
-                path for path in os.listdir(self.testing_logs_folder_path) if path.endswith(f"{model_type}{ext}")
-            ][0]
-        elif model_type == "exported":
+        _, ext = os.path.splitext(model_path)
+        if model_type in ("trained", "exported"):
             local_model_file = [
                 path for path in os.listdir(self.testing_logs_folder_path) if path.endswith(f"{model_type}{ext}")
             ][0]
@@ -504,12 +500,12 @@ class TestingActionTracker:
         return self.model_config
 
     @log_decorator
-    def add_index_to_category(self, indexToCat):
+    def add_index_to_category(self, index_to_cat):
         """Adds an index-to-category mapping to the log files.
 
         Parameters
         ----------
-        indexToCat : dict
+        index_to_cat : dict
             Dictionary mapping category indexes to class names.
 
         Returns
@@ -517,14 +513,14 @@ class TestingActionTracker:
         dict
             The index-to-category mapping.
         """
-        print(f"Mock add index to category: {indexToCat}")
+        print(f"Mock add index to category: {index_to_cat}")
         file_path = os.path.join(
             self.testing_logs_folder_path,
             "index_to_category.json",
         )
         with open(file_path, "w") as file:
-            json.dump(indexToCat, file, indent=4)
-        return indexToCat
+            json.dump(index_to_cat, file, indent=4)
+        return index_to_cat
 
     @log_decorator
     def get_index_to_category(self, is_exported=False):
@@ -699,7 +695,7 @@ class TestingActionTracker:
                     # Zip-slip guard: reject absolute/'..' members before extract.
                     safe_extractall_zip(zip_ref, dataset_dir)
                 print("Zip file extracted successfully")
-            elif file_name.endswith(".tar.gz") or file_name.endswith(".tgz"):
+            elif file_name.endswith((".tar.gz", ".tgz")):
                 with tarfile.open(local_file_path, "r:gz") as tar:
                     tar.extractall(path=dataset_dir, filter="data")  # nosec B202
                 print("Tar.gz file extracted successfully")
@@ -1130,12 +1126,8 @@ class ModelDownloadMock:
             Returns True after successfully copying the model file.
         """
         print(f"Mock download model to: {model_path}, {model_type}")
-        file_path, ext = os.path.splitext(model_path)
-        if model_type == "trained":
-            local_model_file = [
-                path for path in os.listdir(self.testing_logs_folder_path) if path.endswith(f"{model_type}{ext}")
-            ][0]
-        elif model_type == "exported":
+        _, ext = os.path.splitext(model_path)
+        if model_type in ("trained", "exported"):
             local_model_file = [
                 path for path in os.listdir(self.testing_logs_folder_path) if path.endswith(f"{model_type}{ext}")
             ][0]

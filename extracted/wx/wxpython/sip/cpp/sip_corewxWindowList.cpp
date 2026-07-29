@@ -115,9 +115,7 @@ static int slot_wxWindowList___contains__(PyObject *sipSelf, PyObject *sipArg)
         if (sipParseArgs(&sipParseErr, sipArg, "1J8", sipType_wxWindow, &obj))
         {
             int sipRes = 0;
-        wxWindowList::compatibility_iterator node;
-        node = sipCpp->Find((wxWindow*)obj);
-        sipRes = node != NULL;
+        sipRes = sipCpp->Member((wxWindow*)obj);
 
             return sipRes;
         }

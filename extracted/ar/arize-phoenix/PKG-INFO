@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix
-Version: 19.8.0
+Version: 19.10.0
 Summary: AI Observability and Evaluation
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -28,7 +28,7 @@ Requires-Dist: bashkit!=0.14.2,>=0.10.0
 Requires-Dist: cachetools
 Requires-Dist: email-validator
 Requires-Dist: fastapi>=0.137.0
-Requires-Dist: fastmcp-slim[client,code-mode,server]>=3.4.2
+Requires-Dist: fastmcp-slim[client,server]<4,>=3.4.2
 Requires-Dist: grpc-interceptor
 Requires-Dist: grpcio
 Requires-Dist: httpx[http2]
@@ -51,6 +51,7 @@ Requires-Dist: prometheus-client
 Requires-Dist: psutil
 Requires-Dist: pyarrow
 Requires-Dist: pydantic-ai-slim[anthropic,bedrock,google,mcp,openai,ui]<3,>=2.0.0
+Requires-Dist: pydantic-monty==0.0.19
 Requires-Dist: pydantic>=2.1.0
 Requires-Dist: pystache
 Requires-Dist: python-dateutil

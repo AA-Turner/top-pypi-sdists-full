@@ -430,7 +430,7 @@ sipClassTypeDef sipTypeDef__core_wxDateTime_Tm = {
     },
     {
         sipNameNr_Tm,
-        {119, 255, 0},
+        {124, 255, 0},
         2, methods_wxDateTime_Tm,
         0, SIP_NULLPTR,
         9, variables_wxDateTime_Tm,

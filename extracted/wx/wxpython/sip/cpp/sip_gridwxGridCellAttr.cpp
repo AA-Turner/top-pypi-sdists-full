@@ -1536,7 +1536,7 @@ static void *init_type_wxGridCellAttr(sipSimpleWrapper *sipSelf, PyObject *sipAr
     sipwxGridCellAttr *sipCpp = SIP_NULLPTR;
 
     {
-        ::wxGridCellAttr* attrDefault = 0;
+        ::wxGridCellAttr* attrDefault = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_attrDefault,
@@ -1610,7 +1610,7 @@ static void *init_type_wxGridCellAttr(sipSimpleWrapper *sipSelf, PyObject *sipAr
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGridCellAttr[] = {{26, 0, 0}, {22, 0, 1}};
+static sipEncodedTypeDef supers_wxGridCellAttr[] = {{27, 0, 0}, {23, 0, 1}};
 
 
 static PyMethodDef methods_wxGridCellAttr[] = {
@@ -1673,7 +1673,7 @@ sipVariableDef variables_wxGridCellAttr[] = {
     {PropertyVariable, sipName_BackgroundColour, &methods_wxGridCellAttr[4], &methods_wxGridCellAttr[28], SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxGridCellAttr, "GridCellAttr(attrDefault=None) -> None\n"
+PyDoc_STRVAR(doc_wxGridCellAttr, "GridCellAttr(attrDefault=nullptr) -> None\n"
 "GridCellAttr(colText, colBack, font, hAlign, vAlign) -> None\n"
 "\n"
 "This class can be used to alter the cells' appearance in the grid by\n"

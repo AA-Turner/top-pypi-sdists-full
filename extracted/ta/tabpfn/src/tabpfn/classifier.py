@@ -233,6 +233,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
         ] = "fit_preprocessors",
         memory_saving_mode: MemorySavingMode = "auto",
         keep_cache_on_device: bool = True,
+        kv_cache_precision: Literal["auto", "int8"] | None = None,
         random_state: int | np.random.RandomState | np.random.Generator | None = 0,
         n_jobs: Annotated[int | None, deprecated("Use n_preprocessing_jobs")] = None,
         n_preprocessing_jobs: int = 1,
@@ -335,7 +336,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
 
                 - If `True`, the model will not raise an error if the input data is
                   outside the pre-training range. Also suppresses error when using
-                  the model with more than 1000 samples on CPU.
+                  the model with a large dataset on CPU.
                 - If `False`, you can use the model outside the pre-training range, but
                   the model could perform worse.
 
@@ -418,6 +419,15 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
                 (default), the key-value cache is kept on the inference
                 device (e.g. GPU). Uses more device
                 memory but gives lower latency. If False, the cache is stored on CPU.
+
+            kv_cache_precision:
+                Only relevant when `fit_mode="fit_with_cache"`. Resolved against
+                what the model architecture supports. `None` (default) picks the
+                architecture default (`"int8"` when it can quantize, e.g. TabPFN-3,
+                else `"auto"`); `"int8"` quantizes the key-value cache to save
+                memory; `"auto"` keeps the computed dtype. Requesting `"int8"` on
+                an architecture that cannot quantize warns and falls back to
+                `"auto"`.
 
             random_state:
                 Controls the randomness of the model. Pass an int for reproducible
@@ -503,6 +513,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
         self.show_progress_bar = show_progress_bar
         self.memory_saving_mode: MemorySavingMode = memory_saving_mode
         self.keep_cache_on_device = keep_cache_on_device
+        self.kv_cache_precision = kv_cache_precision
         self.random_state = random_state
         self.inference_config = inference_config
         self.differentiable_input = differentiable_input
@@ -637,6 +648,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
             y=y,
             max_num_samples=self.inference_config_.MAX_NUMBER_OF_SAMPLES,
             max_num_features=self.inference_config_.MAX_NUMBER_OF_FEATURES,
+            max_cpu_samples=self.inference_config_.MAX_CPU_SAMPLES,
             devices=self.devices_,
             ignore_pretraining_limits=self.ignore_pretraining_limits,
         )
@@ -701,6 +713,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
             estimator=self,
             max_num_samples=self.inference_config_.MAX_NUMBER_OF_SAMPLES,
             max_num_features=self.inference_config_.MAX_NUMBER_OF_FEATURES,
+            max_cpu_samples=self.inference_config_.MAX_CPU_SAMPLES,
             ignore_pretraining_limits=self.ignore_pretraining_limits,
             ensure_y_numeric=False,
             devices=self.devices_,
@@ -858,6 +871,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
             use_autocast_=self.use_autocast_,
             inference_mode=True,
             keep_cache_on_device=self.keep_cache_on_device,
+            kv_cache_precision=self.kv_cache_precision,
         )
 
         return self
@@ -1713,6 +1727,10 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
             unit="estimator",
             disable=not self.show_progress_bar,
         ):
+            # Upcast from autocast's reduced precision so the post-processing
+            # (temperature scaling, softmax, estimator averaging) runs in
+            # float32, keeping predict_proba consistent with predict_logits.
+            output = output.float()  # noqa: PLW2901
             original_ndim = output.ndim
 
             # This block correctly handles both single configs and lists of configs

@@ -19,7 +19,7 @@ from google.protobuf import field_mask_pb2 as google_dot_protobuf_dot_field__mas
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\'chalk/server/v1/dashboard_service.proto\x12\x0f\x63halk.server.v1\x1a"chalk/artifacts/v1/dashboard.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a google/protobuf/field_mask.proto"\x92\x01\n\x11\x44\x61shboardControls\x12\x35\n\x17\x64\x65\x66\x61ult_range_preset_id\x18\x01 \x01(\tR\x14\x64\x65\x66\x61ultRangePresetId\x12\x46\n\x0b\x61nnotations\x18\x02 \x03(\x0e\x32$.chalk.server.v1.DashboardAnnotationR\x0b\x61nnotations"\xa7\x01\n\x16\x43reateDashboardRequest\x12;\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\tdashboard\x12\x43\n\x08\x63ontrols\x18\x02 \x01(\x0b\x32".chalk.server.v1.DashboardControlsH\x00R\x08\x63ontrols\x88\x01\x01\x42\x0b\n\t_controls"\x96\x01\n\x17\x43reateDashboardResponse\x12;\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\tdashboard\x12>\n\x08\x63ontrols\x18\x02 \x01(\x0b\x32".chalk.server.v1.DashboardControlsR\x08\x63ontrols"\x84\x01\n\x13GetDashboardRequest\x12!\n\x0c\x64\x61shboard_id\x18\x01 \x01(\tR\x0b\x64\x61shboardId\x12<\n\tread_mask\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskH\x00R\x08readMask\x88\x01\x01\x42\x0c\n\n_read_mask"\x93\x01\n\x14GetDashboardResponse\x12;\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\tdashboard\x12>\n\x08\x63ontrols\x18\x02 \x01(\x0b\x32".chalk.server.v1.DashboardControlsR\x08\x63ontrols"\xb0\x01\n\x15ListDashboardsRequest\x12\x19\n\x05limit\x18\x01 \x01(\x05H\x00R\x05limit\x88\x01\x01\x12\x1b\n\x06\x63ursor\x18\x02 \x01(\tH\x01R\x06\x63ursor\x88\x01\x01\x12<\n\tread_mask\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskH\x02R\x08readMask\x88\x01\x01\x42\x08\n\x06_limitB\t\n\x07_cursorB\x0c\n\n_read_mask"\x8d\x01\n\x16ListDashboardsResponse\x12=\n\ndashboards\x18\x01 \x03(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\ndashboards\x12$\n\x0bnext_cursor\x18\x02 \x01(\tH\x00R\nnextCursor\x88\x01\x01\x42\x0e\n\x0c_next_cursor"\xe4\x01\n\x16UpdateDashboardRequest\x12;\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\tdashboard\x12\x43\n\x08\x63ontrols\x18\x02 \x01(\x0b\x32".chalk.server.v1.DashboardControlsH\x00R\x08\x63ontrols\x88\x01\x01\x12;\n\x0bupdate_mask\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskR\nupdateMaskB\x0b\n\t_controls"\x96\x01\n\x17UpdateDashboardResponse\x12;\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\tdashboard\x12>\n\x08\x63ontrols\x18\x02 \x01(\x0b\x32".chalk.server.v1.DashboardControlsR\x08\x63ontrols";\n\x16\x44\x65leteDashboardRequest\x12!\n\x0c\x64\x61shboard_id\x18\x01 \x01(\tR\x0b\x64\x61shboardId"\x19\n\x17\x44\x65leteDashboardResponse*\xbd\x01\n\x13\x44\x61shboardAnnotation\x12$\n DASHBOARD_ANNOTATION_UNSPECIFIED\x10\x00\x12)\n%DASHBOARD_ANNOTATION_INCIDENT_MARKERS\x10\x01\x12(\n$DASHBOARD_ANNOTATION_INCIDENT_RANGES\x10\x02\x12+\n\'DASHBOARD_ANNOTATION_DEPLOYMENT_MARKERS\x10\x03\x32\x9d\x04\n\x10\x44\x61shboardService\x12i\n\x0f\x43reateDashboard\x12\'.chalk.server.v1.CreateDashboardRequest\x1a(.chalk.server.v1.CreateDashboardResponse"\x03\x80}\x05\x12`\n\x0cGetDashboard\x12$.chalk.server.v1.GetDashboardRequest\x1a%.chalk.server.v1.GetDashboardResponse"\x03\x80}\x06\x12\x66\n\x0eListDashboards\x12&.chalk.server.v1.ListDashboardsRequest\x1a\'.chalk.server.v1.ListDashboardsResponse"\x03\x80}\x06\x12i\n\x0fUpdateDashboard\x12\'.chalk.server.v1.UpdateDashboardRequest\x1a(.chalk.server.v1.UpdateDashboardResponse"\x03\x80}\x05\x12i\n\x0f\x44\x65leteDashboard\x12\'.chalk.server.v1.DeleteDashboardRequest\x1a(.chalk.server.v1.DeleteDashboardResponse"\x03\x80}\x05\x42\x9e\x01\n\x13\x63om.chalk.server.v1B\x15\x44\x61shboardServiceProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n\'chalk/server/v1/dashboard_service.proto\x12\x0f\x63halk.server.v1\x1a"chalk/artifacts/v1/dashboard.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a google/protobuf/field_mask.proto"\x92\x01\n\x11\x44\x61shboardControls\x12\x35\n\x17\x64\x65\x66\x61ult_range_preset_id\x18\x01 \x01(\tR\x14\x64\x65\x66\x61ultRangePresetId\x12\x46\n\x0b\x61nnotations\x18\x02 \x03(\x0e\x32$.chalk.server.v1.DashboardAnnotationR\x0b\x61nnotations"\xa7\x01\n\x16\x43reateDashboardRequest\x12;\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\tdashboard\x12\x43\n\x08\x63ontrols\x18\x02 \x01(\x0b\x32".chalk.server.v1.DashboardControlsH\x00R\x08\x63ontrols\x88\x01\x01\x42\x0b\n\t_controls"\x96\x01\n\x17\x43reateDashboardResponse\x12;\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\tdashboard\x12>\n\x08\x63ontrols\x18\x02 \x01(\x0b\x32".chalk.server.v1.DashboardControlsR\x08\x63ontrols"\x84\x01\n\x13GetDashboardRequest\x12!\n\x0c\x64\x61shboard_id\x18\x01 \x01(\tR\x0b\x64\x61shboardId\x12<\n\tread_mask\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskH\x00R\x08readMask\x88\x01\x01\x42\x0c\n\n_read_mask"\x93\x01\n\x14GetDashboardResponse\x12;\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\tdashboard\x12>\n\x08\x63ontrols\x18\x02 \x01(\x0b\x32".chalk.server.v1.DashboardControlsR\x08\x63ontrols"\xd8\x01\n\x15ListDashboardsRequest\x12\x19\n\x05limit\x18\x01 \x01(\x05H\x00R\x05limit\x88\x01\x01\x12\x1b\n\x06\x63ursor\x18\x02 \x01(\tH\x01R\x06\x63ursor\x88\x01\x01\x12<\n\tread_mask\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskH\x02R\x08readMask\x88\x01\x01\x12\x1b\n\x06search\x18\x04 \x01(\tH\x03R\x06search\x88\x01\x01\x42\x08\n\x06_limitB\t\n\x07_cursorB\x0c\n\n_read_maskB\t\n\x07_search"\x8d\x01\n\x16ListDashboardsResponse\x12=\n\ndashboards\x18\x01 \x03(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\ndashboards\x12$\n\x0bnext_cursor\x18\x02 \x01(\tH\x00R\nnextCursor\x88\x01\x01\x42\x0e\n\x0c_next_cursor"\xe4\x01\n\x16UpdateDashboardRequest\x12;\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\tdashboard\x12\x43\n\x08\x63ontrols\x18\x02 \x01(\x0b\x32".chalk.server.v1.DashboardControlsH\x00R\x08\x63ontrols\x88\x01\x01\x12;\n\x0bupdate_mask\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskR\nupdateMaskB\x0b\n\t_controls"\x96\x01\n\x17UpdateDashboardResponse\x12;\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\tdashboard\x12>\n\x08\x63ontrols\x18\x02 \x01(\x0b\x32".chalk.server.v1.DashboardControlsR\x08\x63ontrols";\n\x16\x44\x65leteDashboardRequest\x12!\n\x0c\x64\x61shboard_id\x18\x01 \x01(\tR\x0b\x64\x61shboardId"\x19\n\x17\x44\x65leteDashboardResponse";\n\x16\x45xportDashboardRequest\x12!\n\x0c\x64\x61shboard_id\x18\x01 \x01(\tR\x0b\x64\x61shboardId"M\n\x17\x45xportDashboardResponse\x12\x32\n\x15\x64\x61shboard_json_string\x18\x01 \x01(\tR\x13\x64\x61shboardJsonString"\x98\x01\n\x16ImportDashboardRequest\x12\x32\n\x15\x64\x61shboard_json_string\x18\x01 \x01(\tR\x13\x64\x61shboardJsonString\x12\x17\n\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01\x12\x1c\n\x07\x64ry_run\x18\x03 \x01(\x08H\x01R\x06\x64ryRun\x88\x01\x01\x42\x07\n\x05_nameB\n\n\x08_dry_run"V\n\x17ImportDashboardResponse\x12;\n\tdashboard\x18\x01 \x01(\x0b\x32\x1d.chalk.artifacts.v1.DashboardR\tdashboard*\xbd\x01\n\x13\x44\x61shboardAnnotation\x12$\n DASHBOARD_ANNOTATION_UNSPECIFIED\x10\x00\x12)\n%DASHBOARD_ANNOTATION_INCIDENT_MARKERS\x10\x01\x12(\n$DASHBOARD_ANNOTATION_INCIDENT_RANGES\x10\x02\x12+\n\'DASHBOARD_ANNOTATION_DEPLOYMENT_MARKERS\x10\x03\x32\xf3\x05\n\x10\x44\x61shboardService\x12i\n\x0f\x43reateDashboard\x12\'.chalk.server.v1.CreateDashboardRequest\x1a(.chalk.server.v1.CreateDashboardResponse"\x03\x80}\x05\x12`\n\x0cGetDashboard\x12$.chalk.server.v1.GetDashboardRequest\x1a%.chalk.server.v1.GetDashboardResponse"\x03\x80}\x06\x12\x66\n\x0eListDashboards\x12&.chalk.server.v1.ListDashboardsRequest\x1a\'.chalk.server.v1.ListDashboardsResponse"\x03\x80}\x06\x12i\n\x0fUpdateDashboard\x12\'.chalk.server.v1.UpdateDashboardRequest\x1a(.chalk.server.v1.UpdateDashboardResponse"\x03\x80}\x05\x12i\n\x0f\x44\x65leteDashboard\x12\'.chalk.server.v1.DeleteDashboardRequest\x1a(.chalk.server.v1.DeleteDashboardResponse"\x03\x80}\x05\x12i\n\x0f\x45xportDashboard\x12\'.chalk.server.v1.ExportDashboardRequest\x1a(.chalk.server.v1.ExportDashboardResponse"\x03\x80}\x06\x12i\n\x0fImportDashboard\x12\'.chalk.server.v1.ImportDashboardRequest\x1a(.chalk.server.v1.ImportDashboardResponse"\x03\x80}\x05\x42\x9e\x01\n\x13\x63om.chalk.server.v1B\x15\x44\x61shboardServiceProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -40,8 +40,12 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_DASHBOARDSERVICE"].methods_by_name["UpdateDashboard"]._serialized_options = b"\200}\005"
     _globals["_DASHBOARDSERVICE"].methods_by_name["DeleteDashboard"]._options = None
     _globals["_DASHBOARDSERVICE"].methods_by_name["DeleteDashboard"]._serialized_options = b"\200}\005"
-    _globals["_DASHBOARDANNOTATION"]._serialized_start = 1716
-    _globals["_DASHBOARDANNOTATION"]._serialized_end = 1905
+    _globals["_DASHBOARDSERVICE"].methods_by_name["ExportDashboard"]._options = None
+    _globals["_DASHBOARDSERVICE"].methods_by_name["ExportDashboard"]._serialized_options = b"\200}\006"
+    _globals["_DASHBOARDSERVICE"].methods_by_name["ImportDashboard"]._options = None
+    _globals["_DASHBOARDSERVICE"].methods_by_name["ImportDashboard"]._serialized_options = b"\200}\005"
+    _globals["_DASHBOARDANNOTATION"]._serialized_start = 2139
+    _globals["_DASHBOARDANNOTATION"]._serialized_end = 2328
     _globals["_DASHBOARDCONTROLS"]._serialized_start = 164
     _globals["_DASHBOARDCONTROLS"]._serialized_end = 310
     _globals["_CREATEDASHBOARDREQUEST"]._serialized_start = 313
@@ -53,17 +57,25 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_GETDASHBOARDRESPONSE"]._serialized_start = 771
     _globals["_GETDASHBOARDRESPONSE"]._serialized_end = 918
     _globals["_LISTDASHBOARDSREQUEST"]._serialized_start = 921
-    _globals["_LISTDASHBOARDSREQUEST"]._serialized_end = 1097
-    _globals["_LISTDASHBOARDSRESPONSE"]._serialized_start = 1100
-    _globals["_LISTDASHBOARDSRESPONSE"]._serialized_end = 1241
-    _globals["_UPDATEDASHBOARDREQUEST"]._serialized_start = 1244
-    _globals["_UPDATEDASHBOARDREQUEST"]._serialized_end = 1472
-    _globals["_UPDATEDASHBOARDRESPONSE"]._serialized_start = 1475
-    _globals["_UPDATEDASHBOARDRESPONSE"]._serialized_end = 1625
-    _globals["_DELETEDASHBOARDREQUEST"]._serialized_start = 1627
-    _globals["_DELETEDASHBOARDREQUEST"]._serialized_end = 1686
-    _globals["_DELETEDASHBOARDRESPONSE"]._serialized_start = 1688
-    _globals["_DELETEDASHBOARDRESPONSE"]._serialized_end = 1713
-    _globals["_DASHBOARDSERVICE"]._serialized_start = 1908
-    _globals["_DASHBOARDSERVICE"]._serialized_end = 2449
+    _globals["_LISTDASHBOARDSREQUEST"]._serialized_end = 1137
+    _globals["_LISTDASHBOARDSRESPONSE"]._serialized_start = 1140
+    _globals["_LISTDASHBOARDSRESPONSE"]._serialized_end = 1281
+    _globals["_UPDATEDASHBOARDREQUEST"]._serialized_start = 1284
+    _globals["_UPDATEDASHBOARDREQUEST"]._serialized_end = 1512
+    _globals["_UPDATEDASHBOARDRESPONSE"]._serialized_start = 1515
+    _globals["_UPDATEDASHBOARDRESPONSE"]._serialized_end = 1665
+    _globals["_DELETEDASHBOARDREQUEST"]._serialized_start = 1667
+    _globals["_DELETEDASHBOARDREQUEST"]._serialized_end = 1726
+    _globals["_DELETEDASHBOARDRESPONSE"]._serialized_start = 1728
+    _globals["_DELETEDASHBOARDRESPONSE"]._serialized_end = 1753
+    _globals["_EXPORTDASHBOARDREQUEST"]._serialized_start = 1755
+    _globals["_EXPORTDASHBOARDREQUEST"]._serialized_end = 1814
+    _globals["_EXPORTDASHBOARDRESPONSE"]._serialized_start = 1816
+    _globals["_EXPORTDASHBOARDRESPONSE"]._serialized_end = 1893
+    _globals["_IMPORTDASHBOARDREQUEST"]._serialized_start = 1896
+    _globals["_IMPORTDASHBOARDREQUEST"]._serialized_end = 2048
+    _globals["_IMPORTDASHBOARDRESPONSE"]._serialized_start = 2050
+    _globals["_IMPORTDASHBOARDRESPONSE"]._serialized_end = 2136
+    _globals["_DASHBOARDSERVICE"]._serialized_start = 2331
+    _globals["_DASHBOARDSERVICE"]._serialized_end = 3086
 # @@protoc_insertion_point(module_scope)

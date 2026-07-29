@@ -89,8 +89,22 @@ AUI_MGR_HINT_FADE = _AuiManagerOption.AUI_MGR_HINT_FADE
 AUI_MGR_NO_VENETIAN_BLINDS_FADE = _AuiManagerOption.AUI_MGR_NO_VENETIAN_BLINDS_FADE
 AUI_MGR_LIVE_RESIZE = _AuiManagerOption.AUI_MGR_LIVE_RESIZE
 AUI_MGR_DEFAULT = _AuiManagerOption.AUI_MGR_DEFAULT
+
+class _AuiMinDockOption(IntEnum):
+    AUI_MIN_DOCK_ICONS = auto()
+    AUI_MIN_DOCK_TEXT = auto()
+    AUI_MIN_DOCK_BOTH = auto()
+    AUI_MIN_DOCK_ROTATE_ICON_WITH_TEXT = auto()
+    AUI_MIN_DOCK_DEFAULT = auto()
+AuiMinDockOption: TypeAlias = Union[_AuiMinDockOption, int]
+AUI_MIN_DOCK_ICONS = _AuiMinDockOption.AUI_MIN_DOCK_ICONS
+AUI_MIN_DOCK_TEXT = _AuiMinDockOption.AUI_MIN_DOCK_TEXT
+AUI_MIN_DOCK_BOTH = _AuiMinDockOption.AUI_MIN_DOCK_BOTH
+AUI_MIN_DOCK_ROTATE_ICON_WITH_TEXT = _AuiMinDockOption.AUI_MIN_DOCK_ROTATE_ICON_WITH_TEXT
+AUI_MIN_DOCK_DEFAULT = _AuiMinDockOption.AUI_MIN_DOCK_DEFAULT
 wxEVT_AUI_PANE_BUTTON: int
 wxEVT_AUI_PANE_CLOSE: int
+wxEVT_AUI_PANE_MINIMIZE: int
 wxEVT_AUI_PANE_MAXIMIZE: int
 wxEVT_AUI_PANE_RESTORE: int
 wxEVT_AUI_PANE_ACTIVATED: int
@@ -99,14 +113,14 @@ wxEVT_AUI_FIND_MANAGER: int
 
 class AuiManager(wx.EvtHandler):
     """
-    AuiManager(managed_wnd=None, flags=AUI_MGR_DEFAULT) -> None
+    AuiManager(managedWindow=nullptr, flags=AUI_MGR_DEFAULT) -> None
     
     wxAuiManager is the central class of the wxAUI class framework.
     """
 
-    def __init__(self, managed_wnd: Optional[wx.Window]=None, flags: int=AUI_MGR_DEFAULT) -> None:
+    def __init__(self, managedWindow: wx.Window=nullptr, flags: int=AUI_MGR_DEFAULT) -> None:
         """
-        AuiManager(managed_wnd=None, flags=AUI_MGR_DEFAULT) -> None
+        AuiManager(managedWindow=nullptr, flags=AUI_MGR_DEFAULT) -> None
         
         wxAuiManager is the central class of the wxAUI class framework.
         """
@@ -129,12 +143,34 @@ class AuiManager(wx.EvtHandler):
         AddPane() tells the frame manager to start managing a child window.
         """
 
-    def CalculateHintRect(self, paneWindow: wx.Window, pt: wx.Point, offset: wx.Point) -> wx.Rect:
+    def AllowDocksForMinPanes(self, directions: int) -> None:
         """
-        CalculateHintRect(paneWindow, pt, offset) -> wx.Rect
+        AllowDocksForMinPanes(directions) -> None
+        
+        Change the sides where docks for minimized panes can be created.
+        """
+
+    def SetDocksForMinPanesStyle(self, style: int) -> None:
+        """
+        SetDocksForMinPanesStyle(style) -> None
+        
+        Set style of for the items representing minimized panes in the docking
+        toolbars.
+        """
+
+    def CalculateHintRect(self, paneWindow: wx.Window, pt: wx.Point, offset: wx.Point=wx.Point(0,0)) -> wx.Rect:
+        """
+        CalculateHintRect(paneWindow, pt, offset=wx.Point(0,0)) -> wx.Rect
         
         This function is used by controls to calculate the drop hint
         rectangle.
+        """
+
+    def CalculateNewSplitSize(self) -> wx.Size:
+        """
+        CalculateNewSplitSize() -> wx.Size
+        
+        Return a reasonable size to use for a new split.
         """
 
     def CanDockPanel(self, p: AuiPaneInfo) -> bool:
@@ -167,9 +203,9 @@ class AuiManager(wx.EvtHandler):
         Tells the wxAuiManager to stop managing the pane specified by window.
         """
 
-    def DrawHintRect(self, paneWindow: wx.Window, pt: wx.Point, offset: wx.Point) -> None:
+    def DrawHintRect(self, paneWindow: wx.Window, pt: wx.Point, offset: wx.Point=wx.Point(0,0)) -> None:
         """
-        DrawHintRect(paneWindow, pt, offset) -> None
+        DrawHintRect(paneWindow, pt, offset=wx.Point(0,0)) -> None
         
         This function is used by controls to draw the hint window.
         """
@@ -245,6 +281,13 @@ class AuiManager(wx.EvtHandler):
         somewhere else.
         """
 
+    def LoadLayout(self, deserializer: AuiDeserializer) -> None:
+        """
+        LoadLayout(deserializer) -> None
+        
+        Load the layout information saved by SaveLayout().
+        """
+
     def LoadPaneInfo(self, pane_part: str, pane: AuiPaneInfo) -> None:
         """
         LoadPaneInfo(pane_part, pane) -> None
@@ -257,6 +300,13 @@ class AuiManager(wx.EvtHandler):
         LoadPerspective(perspective, update=True) -> bool
         
         Loads a saved perspective.
+        """
+
+    def MinimizePane(self, paneInfo: AuiPaneInfo) -> None:
+        """
+        MinimizePane(paneInfo) -> None
+        
+        Minimize the given pane.
         """
 
     def MaximizePane(self, paneInfo: AuiPaneInfo) -> None:
@@ -278,6 +328,13 @@ class AuiManager(wx.EvtHandler):
         RestoreMaximizedPane() -> None
         
         Restore the previously maximized pane.
+        """
+
+    def SaveLayout(self, serializer: AuiSerializer) -> None:
+        """
+        SaveLayout(serializer) -> None
+        
+        Save the layout information using the provided object.
         """
 
     def SavePaneInfo(self, pane: AuiPaneInfo) -> str:
@@ -319,20 +376,26 @@ class AuiManager(wx.EvtHandler):
         This method is used to specify wxAuiManagerOption's flags.
         """
 
-    def SetManagedWindow(self, managed_wnd: wx.Window) -> None:
+    def SetManagedWindow(self, managedWindow: wx.Window) -> None:
         """
-        SetManagedWindow(managed_wnd) -> None
+        SetManagedWindow(managedWindow) -> None
         
-        Called to specify the frame or window which is to be managed by
-        wxAuiManager.
+        Set the window which is to be managed by wxAuiManager.
         """
 
     def ShowHint(self, rect: wx.Rect) -> None:
         """
         ShowHint(rect) -> None
         
-        This function is used by controls to explicitly show a hint window at
-        the specified rectangle.
+        This function is used to show a hint window at the specified
+        rectangle.
+        """
+
+    def SplitPane(self, window: wx.Window, newWindow: wx.Window, direction: int, dropPos: wx.Point=wx.DefaultPosition) -> bool:
+        """
+        SplitPane(window, newWindow, direction, dropPos=wx.DefaultPosition) -> bool
+        
+        Create a new pane with the given window near an existing pane.
         """
 
     def StartPaneDrag(self, paneWindow: wx.Window, offset: wx.Point) -> None:
@@ -357,10 +420,17 @@ class AuiManager(wx.EvtHandler):
         the managed panes.
         """
 
-    @staticmethod
-    def AlwaysUsesLiveResize() -> bool:
+    def UpdateHint(self, rect: wx.Rect) -> None:
         """
-        AlwaysUsesLiveResize() -> bool
+        UpdateHint(rect) -> None
+        
+        Show or hide the hint window.
+        """
+
+    @staticmethod
+    def AlwaysUsesLiveResize(window: wx.Window) -> bool:
+        """
+        AlwaysUsesLiveResize(window) -> bool
         
         Returns true if live resize is always used on the current platform.
         """
@@ -595,6 +665,19 @@ class AuiPaneInfo:
         FloatingSize() sets the size of the floating pane.
         """
 
+    @overload
+    def FloatingClientSize(self, x: int, y: int) -> AuiPaneInfo:
+        ...
+
+    @overload
+    def FloatingClientSize(self, size: wx.Size) -> AuiPaneInfo:
+        """
+        FloatingClientSize(size) -> AuiPaneInfo
+        FloatingClientSize(x, y) -> AuiPaneInfo
+        
+        FloatingClientSize() sets the client size of the floating pane.
+        """
+
     def Gripper(self, visible: bool=True) -> AuiPaneInfo:
         """
         Gripper(visible=True) -> AuiPaneInfo
@@ -684,6 +767,13 @@ class AuiPaneInfo:
         Icon(b) -> AuiPaneInfo
         
         Icon() sets the icon of the pane.
+        """
+
+    def IconMin(self, b: wx.BitmapBundle) -> AuiPaneInfo:
+        """
+        IconMin(b) -> AuiPaneInfo
+        
+        IconMin() sets the icon shown when the pane is minimized.
         """
 
     def IsBottomDockable(self) -> bool:
@@ -1365,6 +1455,13 @@ class AuiDockArt:
         Get the value of a certain setting.
         """
 
+    def GetMetricForWindow(self, id: int, window: wx.Window) -> int:
+        """
+        GetMetricForWindow(id, window) -> int
+        
+        Get metric value scaled by the DPI of the given window if appropriate.
+        """
+
     def SetColour(self, id: int, colour: wx.Colour) -> None:
         """
         SetColour(id, colour) -> None
@@ -1492,11 +1589,6 @@ class AuiDefaultDockArt(AuiDockArt):
         
         Draws a button in the pane's title bar.
         """
-
-    def DrawIcon(self, dc: wx.DC, rect: wx.Rect, pane: AuiPaneInfo) -> None:
-        """
-        DrawIcon(dc, rect, pane) -> None
-        """
 # end of class AuiDefaultDockArt
 
 #-- end-auidockart --#
@@ -1512,7 +1604,12 @@ class _AuiToolBarStyle(IntEnum):
     AUI_TB_HORZ_LAYOUT = auto()
     AUI_TB_HORIZONTAL = auto()
     AUI_TB_PLAIN_BACKGROUND = auto()
+    AUI_TB_VERT_LAYOUT_DOWN = auto()
+    AUI_TB_VERT_LAYOUT_UP = auto()
     AUI_TB_HORZ_TEXT = auto()
+    AUI_TB_VERT_TEXT_DOWN = auto()
+    AUI_TB_VERT_TEXT_UP = auto()
+    AUI_TB_ROTATE_ICON_WITH_TEXT = auto()
     AUI_ORIENTATION_MASK = auto()
     AUI_TB_DEFAULT_STYLE = auto()
 AuiToolBarStyle: TypeAlias = Union[_AuiToolBarStyle, int]
@@ -1525,7 +1622,12 @@ AUI_TB_VERTICAL = _AuiToolBarStyle.AUI_TB_VERTICAL
 AUI_TB_HORZ_LAYOUT = _AuiToolBarStyle.AUI_TB_HORZ_LAYOUT
 AUI_TB_HORIZONTAL = _AuiToolBarStyle.AUI_TB_HORIZONTAL
 AUI_TB_PLAIN_BACKGROUND = _AuiToolBarStyle.AUI_TB_PLAIN_BACKGROUND
+AUI_TB_VERT_LAYOUT_DOWN = _AuiToolBarStyle.AUI_TB_VERT_LAYOUT_DOWN
+AUI_TB_VERT_LAYOUT_UP = _AuiToolBarStyle.AUI_TB_VERT_LAYOUT_UP
 AUI_TB_HORZ_TEXT = _AuiToolBarStyle.AUI_TB_HORZ_TEXT
+AUI_TB_VERT_TEXT_DOWN = _AuiToolBarStyle.AUI_TB_VERT_TEXT_DOWN
+AUI_TB_VERT_TEXT_UP = _AuiToolBarStyle.AUI_TB_VERT_TEXT_UP
+AUI_TB_ROTATE_ICON_WITH_TEXT = _AuiToolBarStyle.AUI_TB_ROTATE_ICON_WITH_TEXT
 AUI_ORIENTATION_MASK = _AuiToolBarStyle.AUI_ORIENTATION_MASK
 AUI_TB_DEFAULT_STYLE = _AuiToolBarStyle.AUI_TB_DEFAULT_STYLE
 
@@ -1533,10 +1635,12 @@ class _AuiToolBarArtSetting(IntEnum):
     AUI_TBART_SEPARATOR_SIZE = auto()
     AUI_TBART_GRIPPER_SIZE = auto()
     AUI_TBART_OVERFLOW_SIZE = auto()
+    AUI_TBART_DROPDOWN_SIZE = auto()
 AuiToolBarArtSetting: TypeAlias = Union[_AuiToolBarArtSetting, int]
 AUI_TBART_SEPARATOR_SIZE = _AuiToolBarArtSetting.AUI_TBART_SEPARATOR_SIZE
 AUI_TBART_GRIPPER_SIZE = _AuiToolBarArtSetting.AUI_TBART_GRIPPER_SIZE
 AUI_TBART_OVERFLOW_SIZE = _AuiToolBarArtSetting.AUI_TBART_OVERFLOW_SIZE
+AUI_TBART_DROPDOWN_SIZE = _AuiToolBarArtSetting.AUI_TBART_DROPDOWN_SIZE
 
 class _AuiToolBarToolTextOrientation(IntEnum):
     AUI_TBTOOL_TEXT_LEFT = auto()
@@ -1548,6 +1652,15 @@ AUI_TBTOOL_TEXT_LEFT = _AuiToolBarToolTextOrientation.AUI_TBTOOL_TEXT_LEFT
 AUI_TBTOOL_TEXT_RIGHT = _AuiToolBarToolTextOrientation.AUI_TBTOOL_TEXT_RIGHT
 AUI_TBTOOL_TEXT_TOP = _AuiToolBarToolTextOrientation.AUI_TBTOOL_TEXT_TOP
 AUI_TBTOOL_TEXT_BOTTOM = _AuiToolBarToolTextOrientation.AUI_TBTOOL_TEXT_BOTTOM
+
+class _AuiTextDirection(IntEnum):
+    LeftToRight = auto()
+    TopToBottom = auto()
+    BottomToTop = auto()
+AuiTextDirection: TypeAlias = Union[_AuiTextDirection, int]
+LeftToRight = _AuiTextDirection.LeftToRight
+TopToBottom = _AuiTextDirection.TopToBottom
+BottomToTop = _AuiTextDirection.BottomToTop
 wxEVT_AUITOOLBAR_TOOL_DROPDOWN: int
 wxEVT_AUITOOLBAR_OVERFLOW_CLICK: int
 wxEVT_AUITOOLBAR_RIGHT_CLICK: int
@@ -1774,14 +1887,32 @@ class AuiToolBarItem:
         IsSticky() -> bool
         """
 
-    def SetUserData(self, l: int) -> None:
+    def SetUserData(self, userData: int) -> None:
         """
-        SetUserData(l) -> None
+        SetUserData(userData) -> None
+        
+        Associates a number with the item.
         """
 
     def GetUserData(self) -> int:
         """
         GetUserData() -> int
+        
+        Get number associated with the item.
+        """
+
+    def SetClientData(self, clientData: wx.Object) -> None:
+        """
+        SetClientData(clientData) -> None
+        
+        Associates a wxObject with the item.
+        """
+
+    def GetClientData(self) -> wx.Object:
+        """
+        GetClientData() -> wx.Object
+        
+        Get wxObject associated with the item.
         """
 
     def SetAlignment(self, l: int) -> None:
@@ -1808,6 +1939,10 @@ class AuiToolBarItem:
     def Bitmap(self) -> wx.BitmapBundle: ...
     @Bitmap.setter
     def Bitmap(self, value: wx.BitmapBundle, /) -> None: ...
+    @property
+    def ClientData(self) -> wx.Object: ...
+    @ClientData.setter
+    def ClientData(self, value: wx.Object, /) -> None: ...
     @property
     def DisabledBitmap(self) -> wx.BitmapBundle: ...
     @DisabledBitmap.setter
@@ -1871,14 +2006,16 @@ class AuiToolBarArt:
     """
     AuiToolBarArt() -> None
     
-    wxAuiToolBarArt is part of the wxAUI class framework.
+    wxAuiToolBarArt is part of the wxAUI class framework and is the base
+    class defining the interface for rendering wxAuiToolBar.
     """
 
     def __init__(self) -> None:
         """
         AuiToolBarArt() -> None
         
-        wxAuiToolBarArt is part of the wxAUI class framework.
+        wxAuiToolBarArt is part of the wxAUI class framework and is the base
+        class defining the interface for rendering wxAuiToolBar.
         """
 
     def Clone(self) -> AuiToolBarArt:
@@ -1914,6 +2051,20 @@ class AuiToolBarArt:
     def GetTextOrientation(self) -> int:
         """
         GetTextOrientation() -> int
+        """
+
+    def SetTextDirection(self, direction: AuiTextDirection) -> None:
+        """
+        SetTextDirection(direction) -> None
+        
+        Set the text direction for rendering text.
+        """
+
+    def GetTextDirection(self) -> AuiTextDirection:
+        """
+        GetTextDirection() -> AuiTextDirection
+        
+        Return the direction used for rendering text.
         """
 
     def DrawBackground(self, dc: wx.DC, wnd: wx.Window, rect: wx.Rect) -> None:
@@ -1961,29 +2112,46 @@ class AuiToolBarArt:
         DrawOverflowButton(dc, wnd, rect, state) -> None
         """
 
-    def GetLabelSize(self, dc: wx.DC, wnd: wx.Window, item: AuiToolBarItem) -> wx.Size:
+    def GetLabelSize(self, dc: wx.ReadOnlyDC, wnd: wx.Window, item: AuiToolBarItem) -> wx.Size:
         """
         GetLabelSize(dc, wnd, item) -> wx.Size
+        
+        Return the size of the label for the given item.
         """
 
-    def GetToolSize(self, dc: wx.DC, wnd: wx.Window, item: AuiToolBarItem) -> wx.Size:
+    def GetToolSize(self, dc: wx.ReadOnlyDC, wnd: wx.Window, item: AuiToolBarItem) -> wx.Size:
         """
         GetToolSize(dc, wnd, item) -> wx.Size
+        
+        Return the size of the given item.
         """
 
-    def GetElementSize(self, element_id: int) -> int:
+    def GetElementSizeForWindow(self, elementId: int, window: wx.Window) -> int:
         """
-        GetElementSize(element_id) -> int
+        GetElementSizeForWindow(elementId, window) -> int
+        
+        Get the element size scaled by the DPI of the given window.
         """
 
-    def SetElementSize(self, element_id: int, size: int) -> None:
+    def GetElementSize(self, elementId: int) -> int:
         """
-        SetElementSize(element_id, size) -> None
+        GetElementSize(elementId) -> int
+        
+        Returns the size of the given element in DIPs.
+        """
+
+    def SetElementSize(self, elementId: int, size: int) -> None:
+        """
+        SetElementSize(elementId, size) -> None
+        
+        Sets the size of the given element in DIPs.
         """
 
     def ShowDropDown(self, wnd: wx.Window, items: AuiToolBarItemArray) -> int:
         """
         ShowDropDown(wnd, items) -> int
+        
+        Show a drop down menu with the given items.
         """
     @property
     def Flags(self) -> int: ...
@@ -1993,6 +2161,10 @@ class AuiToolBarArt:
     def Font(self) -> wx.Font: ...
     @Font.setter
     def Font(self, value: wx.Font, /) -> None: ...
+    @property
+    def TextDirection(self) -> AuiTextDirection: ...
+    @TextDirection.setter
+    def TextDirection(self, value: AuiTextDirection, /) -> None: ...
     @property
     def TextOrientation(self) -> int: ...
     @TextOrientation.setter
@@ -2094,29 +2266,39 @@ class AuiDefaultToolBarArt(AuiToolBarArt):
         DrawOverflowButton(dc, wnd, rect, state) -> None
         """
 
-    def GetLabelSize(self, dc: wx.DC, wnd: wx.Window, item: AuiToolBarItem) -> wx.Size:
+    def GetLabelSize(self, dc: wx.ReadOnlyDC, wnd: wx.Window, item: AuiToolBarItem) -> wx.Size:
         """
         GetLabelSize(dc, wnd, item) -> wx.Size
+        
+        Return the size of the label for the given item.
         """
 
-    def GetToolSize(self, dc: wx.DC, wnd: wx.Window, item: AuiToolBarItem) -> wx.Size:
+    def GetToolSize(self, dc: wx.ReadOnlyDC, wnd: wx.Window, item: AuiToolBarItem) -> wx.Size:
         """
         GetToolSize(dc, wnd, item) -> wx.Size
+        
+        Return the size of the given item.
         """
 
-    def GetElementSize(self, element: int) -> int:
+    def GetElementSize(self, elementId: int) -> int:
         """
-        GetElementSize(element) -> int
+        GetElementSize(elementId) -> int
+        
+        Return the size of the element.
         """
 
-    def SetElementSize(self, element_id: int, size: int) -> None:
+    def SetElementSize(self, elementId: int, size: int) -> None:
         """
-        SetElementSize(element_id, size) -> None
+        SetElementSize(elementId, size) -> None
+        
+        Change the size of the element.
         """
 
     def ShowDropDown(self, wnd: wx.Window, items: AuiToolBarItemArray) -> int:
         """
         ShowDropDown(wnd, items) -> int
+        
+        Show a drop down menu with the given items.
         """
     @property
     def Flags(self) -> int: ...
@@ -2152,6 +2334,24 @@ class AuiToolBar(wx.Control):
         AuiToolBar(parent, id=wx.ID_ANY, position=wx.DefaultPosition, size=wx.DefaultSize, style=AUI_TB_DEFAULT_STYLE) -> None
         
         wxAuiToolBar is a dockable toolbar, part of the wxAUI class framework.
+        """
+
+    @overload
+    def AddTool(self, toolId: int, label: str, bitmap: wx.BitmapBundle, disabled_bitmap: wx.BitmapBundle, kind: wx.ItemKind, short_help_string: str, long_help_string: str, client_data: wx.Object) -> AuiToolBarItem:
+        ...
+
+    @overload
+    def AddTool(self, toolId: int, bitmap: wx.BitmapBundle, disabled_bitmap: wx.BitmapBundle, toggle: bool=False, client_data: wx.Object=nullptr, short_help_string: str='', long_help_string: str='') -> AuiToolBarItem:
+        ...
+
+    @overload
+    def AddTool(self, toolId: int, label: str, bitmap: wx.BitmapBundle, short_help_string: str='', kind: wx.ItemKind=wx.ITEM_NORMAL) -> AuiToolBarItem:
+        """
+        AddTool(toolId, label, bitmap, short_help_string='', kind=wx.ITEM_NORMAL) -> AuiToolBarItem
+        AddTool(toolId, label, bitmap, disabled_bitmap, kind, short_help_string, long_help_string, client_data) -> AuiToolBarItem
+        AddTool(toolId, bitmap, disabled_bitmap, toggle=False, client_data=nullptr, short_help_string='', long_help_string='') -> AuiToolBarItem
+        
+        Add a new tool to the toolbar.
         """
 
     def Create(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=AUI_TB_DEFAULT_STYLE) -> bool:
@@ -2191,22 +2391,6 @@ class AuiToolBar(wx.Control):
         SetFont(font) -> bool
         
         Sets the font for this window.
-        """
-
-    @overload
-    def AddTool(self, toolId: int, label: str, bitmap: wx.BitmapBundle, disabled_bitmap: wx.BitmapBundle, kind: wx.ItemKind, short_help_string: str, long_help_string: str, client_data: wx.Object) -> AuiToolBarItem:
-        ...
-
-    @overload
-    def AddTool(self, toolId: int, bitmap: wx.BitmapBundle, disabled_bitmap: wx.BitmapBundle, toggle: bool=False, client_data: Optional[wx.Object]=None, short_help_string: str='', long_help_string: str='') -> AuiToolBarItem:
-        ...
-
-    @overload
-    def AddTool(self, toolId: int, label: str, bitmap: wx.BitmapBundle, short_help_string: str='', kind: wx.ItemKind=wx.ITEM_NORMAL) -> AuiToolBarItem:
-        """
-        AddTool(toolId, label, bitmap, short_help_string='', kind=wx.ITEM_NORMAL) -> AuiToolBarItem
-        AddTool(toolId, label, bitmap, disabled_bitmap, kind, short_help_string, long_help_string, client_data) -> AuiToolBarItem
-        AddTool(toolId, bitmap, disabled_bitmap, toggle=False, client_data=None, short_help_string='', long_help_string='') -> AuiToolBarItem
         """
 
     def AddLabel(self, toolId: int, label: str='', width: int=-1) -> AuiToolBarItem:
@@ -2349,6 +2533,20 @@ class AuiToolBar(wx.Control):
         SetMargins(left, right, top, bottom) -> None
         """
 
+    def SetToolClientData(self, toolId: int, clientData: wx.Object) -> None:
+        """
+        SetToolClientData(toolId, clientData) -> None
+        
+        Associates a wxObject with the item identified by id.
+        """
+
+    def GetToolClientData(self, toolId: int) -> wx.Object:
+        """
+        GetToolClientData(toolId) -> wx.Object
+        
+        Get wxObject associated with the item identified by id.
+        """
+
     def SetToolBitmapSize(self, size: wx.Size) -> None:
         """
         SetToolBitmapSize(size) -> None
@@ -2457,11 +2655,15 @@ class AuiToolBar(wx.Control):
     def SetToolSeparation(self, separation: int) -> None:
         """
         SetToolSeparation(separation) -> None
+        
+        Set the tool separation in DIPs.
         """
 
     def GetToolSeparation(self) -> int:
         """
         GetToolSeparation() -> int
+        
+        Returns the separation between tools in logical pixels.
         """
 
     def SetToolSticky(self, toolId: int, sticky: bool) -> None:
@@ -2531,6 +2733,11 @@ class AuiToolBar(wx.Control):
     def IsPaneValid(self, pane: AuiPaneInfo) -> bool:
         """
         IsPaneValid(pane) -> bool
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
         """
 
     @staticmethod
@@ -2687,6 +2894,9 @@ class _AuiNotebookOption(IntEnum):
     AUI_NB_CLOSE_ON_ACTIVE_TAB = auto()
     AUI_NB_CLOSE_ON_ALL_TABS = auto()
     AUI_NB_MIDDLE_CLICK_CLOSE = auto()
+    AUI_NB_MULTILINE = auto()
+    AUI_NB_PIN_ON_ACTIVE_TAB = auto()
+    AUI_NB_UNPIN_ON_ALL_PINNED = auto()
     AUI_NB_DEFAULT_STYLE = auto()
 AuiNotebookOption: TypeAlias = Union[_AuiNotebookOption, int]
 AUI_NB_TOP = _AuiNotebookOption.AUI_NB_TOP
@@ -2703,7 +2913,19 @@ AUI_NB_CLOSE_BUTTON = _AuiNotebookOption.AUI_NB_CLOSE_BUTTON
 AUI_NB_CLOSE_ON_ACTIVE_TAB = _AuiNotebookOption.AUI_NB_CLOSE_ON_ACTIVE_TAB
 AUI_NB_CLOSE_ON_ALL_TABS = _AuiNotebookOption.AUI_NB_CLOSE_ON_ALL_TABS
 AUI_NB_MIDDLE_CLICK_CLOSE = _AuiNotebookOption.AUI_NB_MIDDLE_CLICK_CLOSE
+AUI_NB_MULTILINE = _AuiNotebookOption.AUI_NB_MULTILINE
+AUI_NB_PIN_ON_ACTIVE_TAB = _AuiNotebookOption.AUI_NB_PIN_ON_ACTIVE_TAB
+AUI_NB_UNPIN_ON_ALL_PINNED = _AuiNotebookOption.AUI_NB_UNPIN_ON_ALL_PINNED
 AUI_NB_DEFAULT_STYLE = _AuiNotebookOption.AUI_NB_DEFAULT_STYLE
+
+class _AuiTabKind(IntEnum):
+    Normal = auto()
+    Pinned = auto()
+    Locked = auto()
+AuiTabKind: TypeAlias = Union[_AuiTabKind, int]
+Normal = _AuiTabKind.Normal
+Pinned = _AuiTabKind.Pinned
+Locked = _AuiTabKind.Locked
 wxEVT_AUINOTEBOOK_PAGE_CLOSE: int
 wxEVT_AUINOTEBOOK_PAGE_CHANGED: int
 wxEVT_AUINOTEBOOK_PAGE_CHANGING: int
@@ -2760,7 +2982,8 @@ class AuiNotebook(wx.BookCtrlBase):
         """
         AdvanceSelection(forward=True) -> None
         
-        Sets the selection to the next or previous page.
+        Sets the selection to the next or previous page in the same tab
+        control.
         """
 
     def ChangeSelection(self, n: int) -> int:
@@ -2803,7 +3026,7 @@ class AuiNotebook(wx.BookCtrlBase):
         """
         GetCurrentPage() -> wx.Window
         
-        Returns the currently selected page or NULL.
+        Returns the currently selected page or nullptr.
         """
 
     def GetHeightForPageHeight(self, pageHeight: int) -> int:
@@ -2841,6 +3064,20 @@ class AuiNotebook(wx.BookCtrlBase):
         Returns the page index for the specified window.
         """
 
+    def GetPageKind(self, pageIdx: int) -> AuiTabKind:
+        """
+        GetPageKind(pageIdx) -> AuiTabKind
+        
+        Returns the tab kind for the page.
+        """
+
+    def GetPagePosition(self, page: int) -> AuiNotebookPosition:
+        """
+        GetPagePosition(page) -> AuiNotebookPosition
+        
+        Returns the position of the page in the notebook.
+        """
+
     def GetPageText(self, page: int) -> str:
         """
         GetPageText(page) -> str
@@ -2874,12 +3111,19 @@ class AuiNotebook(wx.BookCtrlBase):
         ...
 
     @overload
-    def InsertPage(self, page_idx: int, page: wx.Window, caption: str, select: bool=False, bitmap: wx.BitmapBundle=wx.BitmapBundle()) -> bool:
+    def InsertPage(self, index: int, page: wx.Window, text: str, select: bool=False, bitmap: wx.BitmapBundle=wx.BitmapBundle()) -> bool:
         """
-        InsertPage(page_idx, page, caption, select=False, bitmap=wx.BitmapBundle()) -> bool
+        InsertPage(index, page, text, select=False, bitmap=wx.BitmapBundle()) -> bool
         InsertPage(index, page, text, select, imageId) -> bool
         
         InsertPage() is similar to AddPage, but allows the ability to specify the insert location.
+        """
+
+    def LoadLayout(self, name: str, deserializer: AuiBookDeserializer) -> None:
+        """
+        LoadLayout(name, deserializer) -> None
+        
+        Load the previously saved layout of the notebook.
         """
 
     def RemovePage(self, page: int) -> bool:
@@ -2887,6 +3131,13 @@ class AuiNotebook(wx.BookCtrlBase):
         RemovePage(page) -> bool
         
         Removes a page, without deleting the window pointer.
+        """
+
+    def SaveLayout(self, name: str, serializer: AuiBookSerializer) -> None:
+        """
+        SaveLayout(name, serializer) -> None
+        
+        Save the layout of the notebook using the provided serializer.
         """
 
     def SetArtProvider(self, art: AuiTabArt) -> None:
@@ -2902,6 +3153,13 @@ class AuiNotebook(wx.BookCtrlBase):
         
         Sets the font for drawing the tab labels, using a bold version of the
         font for selected tab labels.
+        """
+
+    def SetManagerFlags(self, flags: int) -> None:
+        """
+        SetManagerFlags(flags) -> None
+        
+        Sets the flags for the wxAuiManager used by wxAuiNotebook.
         """
 
     def SetMeasuringFont(self, font: wx.Font) -> None:
@@ -2930,6 +3188,13 @@ class AuiNotebook(wx.BookCtrlBase):
         SetPageImage(n, imageId) -> bool
         
         Sets the image index for the given page.
+        """
+
+    def SetPageKind(self, pageIdx: int, kind: AuiTabKind) -> bool:
+        """
+        SetPageKind(pageIdx, kind) -> bool
+        
+        Set the tab kind.
         """
 
     def SetPageText(self, page: int, text: str) -> bool:
@@ -2991,6 +3256,13 @@ class AuiNotebook(wx.BookCtrlBase):
         notebook, and returns true if a selection was made.
         """
 
+    def UnsplitAll(self) -> None:
+        """
+        UnsplitAll() -> None
+        
+        Remove all split tab controls, leaving only the single one.
+        """
+
     def GetPageImage(self, nPage: int) -> int:
         """
         GetPageImage(nPage) -> int
@@ -3012,11 +3284,23 @@ class AuiNotebook(wx.BookCtrlBase):
         Returns active tab control for this notebook.
         """
 
+    def GetMainTabCtrl(self) -> AuiTabCtrl:
+        """
+        GetMainTabCtrl() -> AuiTabCtrl
+        
+        Returns the main tab control for this notebook.
+        """
+
     def FindTab(self, page: wx.Window, ctrl: AuiTabCtrl, idx: int) -> bool:
         """
         FindTab(page, ctrl, idx) -> bool
         
         Finds tab control associated with a given window and its tab index.
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
         """
 
     @staticmethod
@@ -3033,6 +3317,8 @@ class AuiNotebook(wx.BookCtrlBase):
     @property
     def CurrentPage(self) -> wx.Window: ...
     @property
+    def MainTabCtrl(self) -> AuiTabCtrl: ...
+    @property
     def PageCount(self) -> int: ...
     @property
     def Selection(self) -> int: ...
@@ -3047,8 +3333,7 @@ class AuiNotebook(wx.BookCtrlBase):
 
 class AuiNotebookPage:
     """
-    A simple class which holds information about the notebook's pages and
-    their state.
+    Holds information about a page in wxAuiNotebook.
     """
     window: wx.Window
     caption: str
@@ -3081,6 +3366,22 @@ class AuiTabContainer:
     tab.
     """
 
+    class HitTestResult:
+        """
+        
+        """
+        window: wx.Window
+        pos: int
+    # end of class HitTestResult
+
+
+    class _HitTestFlags(IntFlag):
+        HitTest_Default = auto()
+        HitTest_AllowAfterTab = auto()
+    HitTestFlags: TypeAlias = Union[_HitTestFlags, int]
+    HitTest_Default = _HitTestFlags.HitTest_Default
+    HitTest_AllowAfterTab = _HitTestFlags.HitTest_AllowAfterTab
+
     def __init__(self) -> None:
         """
         AuiTabContainer() -> None
@@ -3109,14 +3410,21 @@ class AuiTabContainer:
         GetFlags() -> int
         """
 
-    def AddPage(self, page: wx.Window, info: AuiNotebookPage) -> bool:
+    def IsFlagSet(self, flag: int) -> bool:
         """
-        AddPage(page, info) -> bool
+        IsFlagSet(flag) -> bool
+        
+        Returns true if the given flag is set.
         """
 
-    def InsertPage(self, page: wx.Window, info: AuiNotebookPage, idx: int) -> bool:
+    def AddPage(self, info: AuiNotebookPage) -> bool:
         """
-        InsertPage(page, info, idx) -> bool
+        AddPage(info) -> bool
+        """
+
+    def InsertPage(self, info: AuiNotebookPage, idx: int) -> bool:
+        """
+        InsertPage(info, idx) -> bool
         """
 
     def MovePage(self, page: wx.Window, newIdx: int) -> bool:
@@ -3127,6 +3435,11 @@ class AuiTabContainer:
     def RemovePage(self, page: wx.Window) -> bool:
         """
         RemovePage(page) -> bool
+        """
+
+    def RemovePageAt(self, idx: int) -> None:
+        """
+        RemovePageAt(idx) -> None
         """
 
     @overload
@@ -3150,14 +3463,14 @@ class AuiTabContainer:
         GetActivePage() -> int
         """
 
-    def TabHitTest(self, x: int, y: int, hit: wx.Window) -> bool:
+    def TabHitTest(self, pt: wx.Point, flags: int=HitTest_Default) -> HitTestResult:
         """
-        TabHitTest(x, y, hit) -> bool
+        TabHitTest(pt, flags=HitTest_Default) -> HitTestResult
         """
 
-    def ButtonHitTest(self, x: int, y: int, hit: AuiTabContainerButton) -> bool:
+    def ButtonHitTest(self, pt: wx.Point) -> AuiTabContainerButton:
         """
-        ButtonHitTest(x, y, hit) -> bool
+        ButtonHitTest(pt) -> AuiTabContainerButton
         """
 
     def GetWindowFromIdx(self, idx: int) -> wx.Window:
@@ -3178,11 +3491,6 @@ class AuiTabContainer:
     def GetPage(self, idx: int) -> AuiNotebookPage:
         """
         GetPage(idx) -> AuiNotebookPage
-        """
-
-    def GetPages(self) -> AuiNotebookPageArray:
-        """
-        GetPages() -> AuiNotebookPageArray
         """
 
     def SetNormalFont(self, normalFont: wx.Font) -> None:
@@ -3215,9 +3523,9 @@ class AuiTabContainer:
         DoShowHide() -> None
         """
 
-    def SetRect(self, rect: wx.Rect, wnd: Optional[wx.Window]=None) -> None:
+    def SetRect(self, rect: wx.Rect, wnd: wx.Window=nullptr) -> None:
         """
-        SetRect(rect, wnd=None) -> None
+        SetRect(rect, wnd=nullptr) -> None
         """
 
     def RemoveButton(self, id: int) -> None:
@@ -3263,8 +3571,6 @@ class AuiTabContainer:
     def Flags(self, value: int, /) -> None: ...
     @property
     def PageCount(self) -> int: ...
-    @property
-    def Pages(self) -> AuiNotebookPageArray: ...
     @property
     def TabOffset(self) -> int: ...
     @TabOffset.setter
@@ -3316,11 +3622,11 @@ class AuiTabArt:
         Draws a tab.
         """
 
-    def GetBestTabCtrlSize(self, : wx.Size) -> int:
+    def DrawPageTab(self, dc: wx.DC, wnd: wx.Window, page: AuiNotebookPage, rect: wx.Rect) -> int:
         """
-        GetBestTabCtrlSize() -> int
+        DrawPageTab(dc, wnd, page, rect) -> int
         
-        Returns the tab control size.
+        Draws a tab for the specified notebook page.
         """
 
     def GetIndentSize(self) -> int:
@@ -3330,11 +3636,39 @@ class AuiTabArt:
         Returns the indent size.
         """
 
-    def GetTabSize(self, dc: wx.DC, wnd: wx.Window, caption: str, bitmap: wx.BitmapBundle, active: bool, close_button_state: int, x_extent: int) -> wx.Size:
+    def GetNormalFont(self) -> wx.Font:
+        """
+        GetNormalFont() -> wx.Font
+        
+        Returns the font to use for normal, non-selected, tabs.
+        """
+
+    def GetSelectedFont(self) -> wx.Font:
+        """
+        GetSelectedFont() -> wx.Font
+        
+        Returns the font to use for the selected tab.
+        """
+
+    def GetTabSize(self, dc: wx.ReadOnlyDC, wnd: wx.Window, caption: str, bitmap: wx.BitmapBundle, active: bool, close_button_state: int, x_extent: int) -> wx.Size:
         """
         GetTabSize(dc, wnd, caption, bitmap, active, close_button_state, x_extent) -> wx.Size
         
         Returns the tab size for the given caption, bitmap and state.
+        """
+
+    def GetPageTabSize(self, dc: wx.ReadOnlyDC, wnd: wx.Window, page: AuiNotebookPage, xExtent: int=nullptr) -> wx.Size:
+        """
+        GetPageTabSize(dc, wnd, page, xExtent=nullptr) -> wx.Size
+        
+        Returns the size of the tab for the specified notebook page.
+        """
+
+    def GetButtonRect(self, dc: wx.ReadOnlyDC, wnd: wx.Window, inRect: wx.Rect, bitmapId: int, buttonState: int, orientation: int, outRect: wx.Rect=nullptr) -> int:
+        """
+        GetButtonRect(dc, wnd, inRect, bitmapId, buttonState, orientation, outRect=nullptr) -> int
+        
+        Returns the rectangle for the given button.
         """
 
     def SetFlags(self, flags: int) -> None:
@@ -3379,29 +3713,53 @@ class AuiTabArt:
         Sets the colour of the selected tab.
         """
 
-    def SetSizingInfo(self, tab_ctrl_size: wx.Size, tab_count: int, wnd: Optional[wx.Window]=None) -> None:
+    def SetSizingInfo(self, tab_ctrl_size: wx.Size, tab_count: int, wnd: wx.Window=nullptr) -> None:
         """
-        SetSizingInfo(tab_ctrl_size, tab_count, wnd=None) -> None
+        SetSizingInfo(tab_ctrl_size, tab_count, wnd=nullptr) -> None
         
         Sets sizing information.
         """
     @property
     def IndentSize(self) -> int: ...
+    @property
+    def NormalFont(self) -> wx.Font: ...
+    @NormalFont.setter
+    def NormalFont(self, value: wx.Font, /) -> None: ...
+    @property
+    def SelectedFont(self) -> wx.Font: ...
+    @SelectedFont.setter
+    def SelectedFont(self, value: wx.Font, /) -> None: ...
 # end of class AuiTabArt
 
 
-class AuiDefaultTabArt(AuiTabArt):
+class AuiFlatTabArt(AuiTabArt):
     """
-    AuiDefaultTabArt() -> None
+    AuiFlatTabArt() -> None
     
-    Default art provider for wxAuiNotebook.
+    An art provider for wxAuiNotebook implementing "flat" look.
     """
 
     def __init__(self) -> None:
         """
-        AuiDefaultTabArt() -> None
+        AuiFlatTabArt() -> None
         
-        Default art provider for wxAuiNotebook.
+        An art provider for wxAuiNotebook implementing "flat" look.
+        """
+# end of class AuiFlatTabArt
+
+
+class AuiGenericTabArt(AuiTabArt):
+    """
+    AuiGenericTabArt() -> None
+    
+    An art provider for wxAuiNotebook implementing "glossy" look.
+    """
+
+    def __init__(self) -> None:
+        """
+        AuiGenericTabArt() -> None
+        
+        An art provider for wxAuiNotebook implementing "glossy" look.
         """
 
     def Clone(self) -> AuiTabArt:
@@ -3418,9 +3776,9 @@ class AuiDefaultTabArt(AuiTabArt):
         Sets flags.
         """
 
-    def SetSizingInfo(self, tab_ctrl_size: wx.Size, tab_count: int, wnd: Optional[wx.Window]=None) -> None:
+    def SetSizingInfo(self, tab_ctrl_size: wx.Size, tab_count: int, wnd: wx.Window=nullptr) -> None:
         """
-        SetSizingInfo(tab_ctrl_size, tab_count, wnd=None) -> None
+        SetSizingInfo(tab_ctrl_size, tab_count, wnd=nullptr) -> None
         
         Sets sizing information.
         """
@@ -3488,27 +3846,15 @@ class AuiDefaultTabArt(AuiTabArt):
         Returns the indent size.
         """
 
-    def GetTabSize(self, dc: wx.DC, wnd: wx.Window, caption: str, bitmap: wx.BitmapBundle, active: bool, close_button_state: int, x_extent: int) -> wx.Size:
+    def GetTabSize(self, dc: wx.ReadOnlyDC, wnd: wx.Window, caption: str, bitmap: wx.BitmapBundle, active: bool, close_button_state: int, x_extent: int) -> wx.Size:
         """
         GetTabSize(dc, wnd, caption, bitmap, active, close_button_state, x_extent) -> wx.Size
         
         Returns the tab size for the given caption, bitmap and state.
         """
-
-    def ShowDropDown(self, wnd: wx.Window, items: AuiNotebookPageArray, activeIdx: int) -> int:
-        """
-        ShowDropDown(wnd, items, activeIdx) -> int
-        """
-
-    def GetBestTabCtrlSize(self, : wx.Size) -> int:
-        """
-        GetBestTabCtrlSize() -> int
-        
-        Returns the tab control size.
-        """
     @property
     def IndentSize(self) -> int: ...
-# end of class AuiDefaultTabArt
+# end of class AuiGenericTabArt
 
 
 class AuiSimpleTabArt(AuiTabArt):
@@ -3539,9 +3885,9 @@ class AuiSimpleTabArt(AuiTabArt):
         Sets flags.
         """
 
-    def SetSizingInfo(self, tab_ctrl_size: wx.Size, tab_count: int, wnd: Optional[wx.Window]=None) -> None:
+    def SetSizingInfo(self, tab_ctrl_size: wx.Size, tab_count: int, wnd: wx.Window=nullptr) -> None:
         """
-        SetSizingInfo(tab_ctrl_size, tab_count, wnd=None) -> None
+        SetSizingInfo(tab_ctrl_size, tab_count, wnd=nullptr) -> None
         
         Sets sizing information.
         """
@@ -3609,21 +3955,9 @@ class AuiSimpleTabArt(AuiTabArt):
         Returns the indent size.
         """
 
-    def GetTabSize(self, dc: wx.DC, wnd: wx.Window, caption: str, bitmap: wx.Bitmap, active: bool, closeButtonState: int, xExtent: int) -> wx.Size:
+    def GetTabSize(self, dc: wx.ReadOnlyDC, wnd: wx.Window, caption: str, bitmap: wx.Bitmap, active: bool, closeButtonState: int, xExtent: int) -> wx.Size:
         """
         GetTabSize(dc, wnd, caption, bitmap, active, closeButtonState, xExtent) -> wx.Size
-        """
-
-    def ShowDropDown(self, wnd: wx.Window, items: AuiNotebookPageArray, activeIdx: int) -> int:
-        """
-        ShowDropDown(wnd, items, activeIdx) -> int
-        """
-
-    def GetBestTabCtrlSize(self, : wx.Size) -> int:
-        """
-        GetBestTabCtrlSize() -> int
-        
-        Returns the tab control size.
         """
     @property
     def IndentSize(self) -> int: ...
@@ -3651,6 +3985,101 @@ class AuiNotebookEvent(wx.BookCtrlEvent):
 # end of class AuiNotebookEvent
 
 
+class AuiNotebookPosition:
+    """
+    Simple struct combining wxAuiTabCtrl with the position inside it.
+    """
+    tabCtrl: AuiTabCtrl
+    tabIdx: int
+# end of class AuiNotebookPosition
+
+
+class AuiBookDeserializer:
+    """
+    AuiBookDeserializer() -> None
+    
+    wxAuiBookDeserializer is used for deserializing wxAuiNotebook layout.
+    """
+
+    def __init__(self) -> None:
+        """
+        AuiBookDeserializer() -> None
+        
+        wxAuiBookDeserializer is used for deserializing wxAuiNotebook layout.
+        """
+
+    def HandleOrphanedPage(self, book: AuiNotebook, page: int, tabCtrl: AuiTabCtrl, tabIndex: int) -> bool:
+        """
+        HandleOrphanedPage(book, page, tabCtrl, tabIndex) -> bool
+        
+        Determine what should be done with the pages not attached to any tab
+        control after restoring the pages order.
+        """
+# end of class AuiBookDeserializer
+
+
+class AuiBookSerializer:
+    """
+    AuiBookSerializer() -> None
+    
+    wxAuiBookSerializer is used for serializing wxAuiNotebook layout.
+    """
+
+    def __init__(self) -> None:
+        """
+        AuiBookSerializer() -> None
+        
+        wxAuiBookSerializer is used for serializing wxAuiNotebook layout.
+        """
+
+    def BeforeSaveNotebook(self, name: str) -> None:
+        """
+        BeforeSaveNotebook(name) -> None
+        
+        Called before starting to save information about the tabs in the
+        notebook in the AUI pane with the given name.
+        """
+
+    def SaveNotebookTabControl(self, tab: AuiTabLayoutInfo) -> None:
+        """
+        SaveNotebookTabControl(tab) -> None
+        
+        Called to save information about a single tab control in the given
+        notebook.
+        """
+
+    def AfterSaveNotebook(self) -> None:
+        """
+        AfterSaveNotebook() -> None
+        
+        Called after saving information about all the pages of the notebook in
+        the AUI pane with the given name.
+        """
+# end of class AuiBookSerializer
+
+
+class AuiTabLayoutInfo(AuiDockLayoutInfo):
+    """
+    Contains information about the layout of a tab control in a
+    wxAuiNotebook.
+    """
+    active: int
+# end of class AuiTabLayoutInfo
+
+
+class AuiDockLayoutInfo:
+    """
+    Description of a docked element layout.
+    """
+    dock_direction: int
+    dock_layer: int
+    dock_row: int
+    dock_pos: int
+    dock_proportion: int
+    dock_size: int
+# end of class AuiDockLayoutInfo
+
+
 EVT_AUINOTEBOOK_PAGE_CLOSE = wx.PyEventBinder( wxEVT_AUINOTEBOOK_PAGE_CLOSE, 1 )
 EVT_AUINOTEBOOK_PAGE_CLOSED = wx.PyEventBinder( wxEVT_AUINOTEBOOK_PAGE_CLOSED, 1 )
 EVT_AUINOTEBOOK_PAGE_CHANGED = wx.PyEventBinder( wxEVT_AUINOTEBOOK_PAGE_CHANGED, 1 )
@@ -3667,19 +4096,26 @@ EVT_AUINOTEBOOK_TAB_RIGHT_DOWN = wx.PyEventBinder( wxEVT_AUINOTEBOOK_TAB_RIGHT_D
 EVT_AUINOTEBOOK_TAB_RIGHT_UP = wx.PyEventBinder( wxEVT_AUINOTEBOOK_TAB_RIGHT_UP, 1 )
 EVT_AUINOTEBOOK_BG_DCLICK = wx.PyEventBinder( wxEVT_AUINOTEBOOK_BG_DCLICK, 1 )
 
+AuiDefaultTabArt = AuiFlatTabArt
+
 class AuiTabCtrl(wx.Control, AuiTabContainer):
     """
-    AuiTabCtrl(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=0) -> None
+    AuiTabCtrl(parent, id=wx.ID_ANY) -> None
     """
 
-    def __init__(self, parent: wx.Window, id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=0) -> None:
+    def __init__(self, parent: AuiNotebook, id: int=wx.ID_ANY) -> None:
         """
-        AuiTabCtrl(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=0) -> None
+        AuiTabCtrl(parent, id=wx.ID_ANY) -> None
         """
 
     def IsDragging(self) -> bool:
         """
         IsDragging() -> bool
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
         """
 
     @staticmethod
@@ -3794,6 +4230,11 @@ class AuiMDIParentFrame(wx.Frame):
     def ActivatePrevious(self) -> None:
         """
         ActivatePrevious() -> None
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
         """
 
     @staticmethod
@@ -3983,6 +4424,11 @@ class AuiMDIChildFrame(TDIChildFrame):
         GetMDIParentFrame() -> AuiMDIParentFrame
         """
 
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
@@ -4054,6 +4500,11 @@ class AuiMDIClientWindow(AuiNotebook):
         SetActiveChild(pChildFrame) -> None
         """
 
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
@@ -4066,3 +4517,132 @@ class AuiMDIClientWindow(AuiNotebook):
 # end of class AuiMDIClientWindow
 
 #-- end-auitabmdi --#
+#-- begin-auiserializer --#
+
+class AuiDeserializer(AuiBookDeserializer):
+    """
+    AuiDeserializer(manager) -> None
+    
+    wxAuiDeserializer is used by wxAuiManager::LoadLayout() to restore
+    layout information saved by wxAuiManager::SaveLayout().
+    """
+
+    def __init__(self, manager: AuiManager) -> None:
+        """
+        AuiDeserializer(manager) -> None
+        
+        wxAuiDeserializer is used by wxAuiManager::LoadLayout() to restore
+        layout information saved by wxAuiManager::SaveLayout().
+        """
+
+    def BeforeLoad(self) -> None:
+        """
+        BeforeLoad() -> None
+        
+        Called before doing anything else.
+        """
+
+    def CreatePaneWindow(self, pane: AuiPaneInfo) -> wx.Window:
+        """
+        CreatePaneWindow(pane) -> wx.Window
+        
+        Create the window to be managed by the given pane if necessary.
+        """
+
+    def AfterLoad(self) -> None:
+        """
+        AfterLoad() -> None
+        
+        Called after restoring everything.
+        """
+# end of class AuiDeserializer
+
+
+class AuiPaneLayoutInfo(AuiDockLayoutInfo):
+    """
+    AuiPaneLayoutInfo(name) -> None
+    
+    Description of user-modifiable pane layout information.
+    """
+
+    def __init__(self, name: str) -> None:
+        """
+        AuiPaneLayoutInfo(name) -> None
+        
+        Description of user-modifiable pane layout information.
+        """
+    name: str
+    floating_pos: wx.Point
+    floating_size: wx.Size
+    is_maximized: bool
+    is_hidden: bool
+# end of class AuiPaneLayoutInfo
+
+
+class AuiSerializer(AuiBookSerializer):
+    """
+    AuiSerializer() -> None
+    
+    wxAuiSerializer is used by wxAuiManager::SaveLayout() to store layout
+    information.
+    """
+
+    def __init__(self) -> None:
+        """
+        AuiSerializer() -> None
+        
+        wxAuiSerializer is used by wxAuiManager::SaveLayout() to store layout
+        information.
+        """
+
+    def BeforeSave(self) -> None:
+        """
+        BeforeSave() -> None
+        
+        Called before doing anything else.
+        """
+
+    def BeforeSavePanes(self) -> None:
+        """
+        BeforeSavePanes() -> None
+        
+        Called before starting to save information about the panes.
+        """
+
+    def SavePane(self, pane: AuiPaneLayoutInfo) -> None:
+        """
+        SavePane(pane) -> None
+        
+        Save information about the given pane.
+        """
+
+    def AfterSavePanes(self) -> None:
+        """
+        AfterSavePanes() -> None
+        
+        Called after the last call to SavePane().
+        """
+
+    def BeforeSaveNotebooks(self) -> None:
+        """
+        BeforeSaveNotebooks() -> None
+        
+        Called before starting to save information about the notebooks.
+        """
+
+    def AfterSaveNotebooks(self) -> None:
+        """
+        AfterSaveNotebooks() -> None
+        
+        Called after the last call to SaveNotebook().
+        """
+
+    def AfterSave(self) -> None:
+        """
+        AfterSave() -> None
+        
+        Called after saving everything.
+        """
+# end of class AuiSerializer
+
+#-- end-auiserializer --#

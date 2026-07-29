@@ -24,6 +24,16 @@ class ExprPolicyKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     EXPR_POLICY_KIND_CACHE: _ClassVar[ExprPolicyKind]
     EXPR_POLICY_KIND_BATCHING: _ClassVar[ExprPolicyKind]
 
+class PyObjectType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    PY_OBJECT_TYPE_UNSPECIFIED: _ClassVar[PyObjectType]
+    PY_OBJECT_TYPE_INT: _ClassVar[PyObjectType]
+    PY_OBJECT_TYPE_STRING: _ClassVar[PyObjectType]
+    PY_OBJECT_TYPE_BYTES: _ClassVar[PyObjectType]
+    PY_OBJECT_TYPE_CALLABLE: _ClassVar[PyObjectType]
+    PY_OBJECT_TYPE_CALL: _ClassVar[PyObjectType]
+    PY_OBJECT_TYPE_PYARROW_SCHEMA: _ClassVar[PyObjectType]
+
 class ScalarFunction(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     SCALAR_FUNCTION_UNSPECIFIED: _ClassVar[ScalarFunction]
@@ -234,6 +244,13 @@ EXPR_POLICY_KIND_RETRY: ExprPolicyKind
 EXPR_POLICY_KIND_LOGGING: ExprPolicyKind
 EXPR_POLICY_KIND_CACHE: ExprPolicyKind
 EXPR_POLICY_KIND_BATCHING: ExprPolicyKind
+PY_OBJECT_TYPE_UNSPECIFIED: PyObjectType
+PY_OBJECT_TYPE_INT: PyObjectType
+PY_OBJECT_TYPE_STRING: PyObjectType
+PY_OBJECT_TYPE_BYTES: PyObjectType
+PY_OBJECT_TYPE_CALLABLE: PyObjectType
+PY_OBJECT_TYPE_CALL: PyObjectType
+PY_OBJECT_TYPE_PYARROW_SCHEMA: PyObjectType
 SCALAR_FUNCTION_UNSPECIFIED: ScalarFunction
 SCALAR_FUNCTION_ABS: ScalarFunction
 SCALAR_FUNCTION_ACOS: ScalarFunction
@@ -513,14 +530,17 @@ class ExprPolicy(_message.Message):
     ) -> None: ...
 
 class ExprBlockingCall(_message.Message):
-    __slots__ = ("blocking_fn", "arguments")
+    __slots__ = ("blocking_fn", "blocking_fn_v2", "arguments")
     BLOCKING_FN_FIELD_NUMBER: _ClassVar[int]
+    BLOCKING_FN_V2_FIELD_NUMBER: _ClassVar[int]
     ARGUMENTS_FIELD_NUMBER: _ClassVar[int]
     blocking_fn: BlockingFunction
+    blocking_fn_v2: BlockingFunctionV2
     arguments: _containers.RepeatedCompositeFieldContainer[LogicalExprNode]
     def __init__(
         self,
         blocking_fn: _Optional[_Union[BlockingFunction, _Mapping]] = ...,
+        blocking_fn_v2: _Optional[_Union[BlockingFunctionV2, _Mapping]] = ...,
         arguments: _Optional[_Iterable[_Union[LogicalExprNode, _Mapping]]] = ...,
     ) -> None: ...
 
@@ -537,6 +557,26 @@ class BlockingFunction(_message.Message):
         catalog_call: _Optional[_Union[CatalogCall, _Mapping]] = ...,
         call_resolver: _Optional[_Union[CallResolver, _Mapping]] = ...,
         http_request: _Optional[_Union[HttpRequest, _Mapping]] = ...,
+    ) -> None: ...
+
+class BlockingFunctionV2(_message.Message):
+    __slots__ = ("fn_type", "arguments")
+    class ArgumentsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: RichArgument
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[RichArgument, _Mapping]] = ...
+        ) -> None: ...
+
+    FN_TYPE_FIELD_NUMBER: _ClassVar[int]
+    ARGUMENTS_FIELD_NUMBER: _ClassVar[int]
+    fn_type: str
+    arguments: _containers.MessageMap[str, RichArgument]
+    def __init__(
+        self, fn_type: _Optional[str] = ..., arguments: _Optional[_Mapping[str, RichArgument]] = ...
     ) -> None: ...
 
 class HttpRequest(_message.Message):
@@ -569,7 +609,7 @@ class CallResolver(_message.Message):
     ) -> None: ...
 
 class BatchUDF(_message.Message):
-    __slots__ = ("batch_udf_type", "arguments")
+    __slots__ = ("batch_udf_type", "arguments", "arguments_v2")
     class ArgumentsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -580,13 +620,85 @@ class BatchUDF(_message.Message):
             self, key: _Optional[str] = ..., value: _Optional[_Union[BatchUDFArgument, _Mapping]] = ...
         ) -> None: ...
 
+    class ArgumentsV2Entry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: RichArgument
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[RichArgument, _Mapping]] = ...
+        ) -> None: ...
+
     BATCH_UDF_TYPE_FIELD_NUMBER: _ClassVar[int]
     ARGUMENTS_FIELD_NUMBER: _ClassVar[int]
+    ARGUMENTS_V2_FIELD_NUMBER: _ClassVar[int]
     batch_udf_type: str
     arguments: _containers.MessageMap[str, BatchUDFArgument]
+    arguments_v2: _containers.MessageMap[str, RichArgument]
     def __init__(
-        self, batch_udf_type: _Optional[str] = ..., arguments: _Optional[_Mapping[str, BatchUDFArgument]] = ...
+        self,
+        batch_udf_type: _Optional[str] = ...,
+        arguments: _Optional[_Mapping[str, BatchUDFArgument]] = ...,
+        arguments_v2: _Optional[_Mapping[str, RichArgument]] = ...,
     ) -> None: ...
+
+class RichArgument(_message.Message):
+    __slots__ = (
+        "primitive_value",
+        "expr_value",
+        "py_object_value",
+        "py_object_v2_value",
+        "batch_udf_value",
+        "list_value",
+        "unordered_dict_value",
+    )
+    PRIMITIVE_VALUE_FIELD_NUMBER: _ClassVar[int]
+    EXPR_VALUE_FIELD_NUMBER: _ClassVar[int]
+    PY_OBJECT_VALUE_FIELD_NUMBER: _ClassVar[int]
+    PY_OBJECT_V2_VALUE_FIELD_NUMBER: _ClassVar[int]
+    BATCH_UDF_VALUE_FIELD_NUMBER: _ClassVar[int]
+    LIST_VALUE_FIELD_NUMBER: _ClassVar[int]
+    UNORDERED_DICT_VALUE_FIELD_NUMBER: _ClassVar[int]
+    primitive_value: _primitive_pb2.Primitive
+    expr_value: LogicalExprNode
+    py_object_value: PyObject
+    py_object_v2_value: PyObjectV2
+    batch_udf_value: BatchUDF
+    list_value: RichArgumentList
+    unordered_dict_value: RichArgumentUnorderedDict
+    def __init__(
+        self,
+        primitive_value: _Optional[_Union[_primitive_pb2.Primitive, _Mapping]] = ...,
+        expr_value: _Optional[_Union[LogicalExprNode, _Mapping]] = ...,
+        py_object_value: _Optional[_Union[PyObject, _Mapping]] = ...,
+        py_object_v2_value: _Optional[_Union[PyObjectV2, _Mapping]] = ...,
+        batch_udf_value: _Optional[_Union[BatchUDF, _Mapping]] = ...,
+        list_value: _Optional[_Union[RichArgumentList, _Mapping]] = ...,
+        unordered_dict_value: _Optional[_Union[RichArgumentUnorderedDict, _Mapping]] = ...,
+    ) -> None: ...
+
+class RichArgumentList(_message.Message):
+    __slots__ = ("values",)
+    VALUES_FIELD_NUMBER: _ClassVar[int]
+    values: _containers.RepeatedCompositeFieldContainer[RichArgument]
+    def __init__(self, values: _Optional[_Iterable[_Union[RichArgument, _Mapping]]] = ...) -> None: ...
+
+class RichArgumentUnorderedDict(_message.Message):
+    __slots__ = ("items",)
+    class ItemsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: RichArgument
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[RichArgument, _Mapping]] = ...
+        ) -> None: ...
+
+    ITEMS_FIELD_NUMBER: _ClassVar[int]
+    items: _containers.MessageMap[str, RichArgument]
+    def __init__(self, items: _Optional[_Mapping[str, RichArgument]] = ...) -> None: ...
 
 class BatchUDFArgument(_message.Message):
     __slots__ = ("primitive_value", "expr_value", "py_object_value", "list_value", "unordered_dict_value")
@@ -653,6 +765,26 @@ class PyObject(_message.Message):
         py_string: _Optional[str] = ...,
         py_bytes: _Optional[bytes] = ...,
         py_arrow_schema: _Optional[_Union[PyArrowSchema, _Mapping]] = ...,
+    ) -> None: ...
+
+class PyObjectV2(_message.Message):
+    __slots__ = ("type", "arguments")
+    class ArgumentsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: RichArgument
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[RichArgument, _Mapping]] = ...
+        ) -> None: ...
+
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    ARGUMENTS_FIELD_NUMBER: _ClassVar[int]
+    type: PyObjectType
+    arguments: _containers.MessageMap[str, RichArgument]
+    def __init__(
+        self, type: _Optional[_Union[PyObjectType, str]] = ..., arguments: _Optional[_Mapping[str, RichArgument]] = ...
     ) -> None: ...
 
 class PyCallable(_message.Message):

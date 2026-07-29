@@ -925,7 +925,7 @@ def push_data(
     replace_options=None,
     concurrency: int = 1,
     silent: bool = False,
-    use_v1: bool = False,
+    wait: bool = True,
 ) -> Optional[list[str]]:
     if url and type(url) is tuple:
         url = url[0]
@@ -963,11 +963,11 @@ def push_data(
         datasource_name: str, url: str, mode: str, sql_condition: Optional[str], replace_options: Optional[Set[str]]
     ):
         parsed = urlparse(url)
-        if use_v1 and parsed.scheme in ("http", "https"):
-            raise CLIException("--experimental=use_v1 only supports local files.")
+        # Remote URL imports retain the v0 API; local files use v1 body imports.
+        is_remote_url = parsed.scheme in ("http", "https")
         # poor man's format detection
         _format = get_format_from_filename_or_url(url)
-        if parsed.scheme in ("http", "https"):
+        if is_remote_url:
             res = client.datasource_create_from_url(
                 datasource_name,
                 url,
@@ -985,13 +985,12 @@ def push_data(
                 sql_condition=sql_condition,
                 format=_format,
                 replace_options=replace_options,
-                use_v1=use_v1,
             )
 
-        if use_v1:
+        if not is_remote_url:
             job_id = res.get("id") or res.get("import_id")
             if not isinstance(job_id, str):
-                raise CLIException("The v1 import response did not include a job ID.")
+                raise CLIException("We couldn't confirm that your import started. Please try again.")
             return job_id
 
         datasource_name = res["datasource"]["name"]
@@ -1024,8 +1023,17 @@ def push_data(
     try:
         tasks = [process_url(datasource_name, url, mode, sql_condition, replace_options) for url in urls]
         output = gather_with_concurrency(concurrency, *tasks)
-        if use_v1:
-            return list(output)
+        v1_job_ids = [result for result in output if isinstance(result, str)]
+        if v1_job_ids:
+            if not wait:
+                return v1_job_ids
+            for job_id in v1_job_ids:
+                wait_job_no_ui(client, job_id)
+            if not silent:
+                if mode == "replace":
+                    click.echo(FeedbackManager.success_replaced_datasource(datasource=datasource_name))
+                click.echo(FeedbackManager.success_progress_blocks())
+            return None
         parser, total_rows, appended_rows = list(output)[-1]
     except AuthNoTokenException:
         raise
@@ -2380,7 +2388,7 @@ def force_echo(string: str) -> None:
     click.echo(string, force_output=True)  # type: ignore
 
 
-def echo_json(data: Dict[str, Any], indent: Union[None, int, str] = None) -> None:
+def echo_json(data: Dict[str, Any], indent: Union[int, str, None] = None) -> None:
     force_echo(json.dumps(data, indent=indent))
 
 

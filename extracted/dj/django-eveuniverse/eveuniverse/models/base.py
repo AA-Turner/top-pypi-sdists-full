@@ -58,41 +58,6 @@ class EveUniverseBaseModel(models.Model):
     class Meta:
         abstract = True
 
-    def __repr__(self) -> str:
-        """General purpose __repr__ that works for all model classes"""
-        fields = sorted(
-            [
-                f
-                for f in self._meta.get_fields()
-                if isinstance(f, models.Field) and f.name != "last_updated"
-            ],
-            key=lambda x: x.name,
-        )
-        fields_2 = []
-        for field in fields:
-            if field.many_to_one or field.one_to_one:
-                name = f"{field.name}_id"
-                value = getattr(self, name)
-            elif field.many_to_many:
-                name = field.name
-                value = ", ".join(
-                    sorted([str(x) for x in getattr(self, field.name).all()])
-                )
-            else:
-                name = field.name
-                value = getattr(self, field.name)
-
-            if isinstance(value, str):
-                if isinstance(field, models.TextField) and len(value) > 32:
-                    value = f"{value[:32]}..."
-                text = f"{name}='{value}'"
-            else:
-                text = f"{name}={value}"
-
-            fields_2.append(text)
-
-        return f"{self.__class__.__name__}({', '.join(fields_2)})"
-
     @classmethod
     def all_models(cls) -> List[Dict[Any, int]]:
         """Return a list of all Eve Universe model classes sorted by load order."""
@@ -338,16 +303,23 @@ class EveUniverseEntityModel(EveUniverseBaseModel):
     def __str__(self) -> str:
         return self.name
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}(id={self.id}, name="{self.name}")'
+
     # pylint: disable = no-member
-    def set_updated_sections(self, enabled_sections: Optional[Set[str]]) -> bool:
-        """Set updated sections for this object."""
+    def add_enabled_sections(self, enabled_sections: Optional[Set[str]]) -> bool:
+        """Add to `enable_ sections` field from enum values.
+
+        No-op when the field does not exist.
+        """
         if not enabled_sections or not hasattr(self, "enabled_sections"):
             return False
 
         updated_sections = False
         old_value = self.enabled_sections.mask
+        valid_values = set(self.Section.values())
         for section in enabled_sections:
-            if str(section) in self.Section.values():
+            if str(section) in valid_values:
                 setattr(self.enabled_sections, section, True)
                 updated_sections = True
 
@@ -357,6 +329,18 @@ class EveUniverseEntityModel(EveUniverseBaseModel):
 
         self.save()
         return True
+
+    @property
+    def enabled_sections_set(self) -> Set[_SectionBase]:
+        """Return value of `enabled_sections' field as enum values.
+
+        Returns empty when the field does not exist.
+        """
+        if not hasattr(self, "enabled_sections"):
+            return set()
+
+        flag = {self.Section(flag[0]) for flag in self.enabled_sections if flag[1]}
+        return flag
 
     @classmethod
     def _update_or_create_children(

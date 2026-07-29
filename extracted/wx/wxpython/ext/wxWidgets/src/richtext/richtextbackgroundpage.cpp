@@ -3,7 +3,6 @@
 // Purpose:     Implements the rich text formatting dialog background
 //              properties page.
 // Author:      Julian Smart
-// Modified by: 
 // Created:     13/11/2010 11:17:25
 // Copyright:   (c) Julian Smart
 // Licence:     wxWindows Licence
@@ -105,24 +104,24 @@ wxRichTextBackgroundPage::~wxRichTextBackgroundPage()
 void wxRichTextBackgroundPage::Init()
 {
 ////@begin wxRichTextBackgroundPage member initialisation
-    m_backgroundColourCheckBox = NULL;
-    m_backgroundColourSwatch = NULL;
-    m_shadowBox = NULL;
-    m_useShadow = NULL;
-    m_offsetX = NULL;
-    m_unitsHorizontalOffset = NULL;
-    m_offsetY = NULL;
-    m_unitsVerticalOffset = NULL;
-    m_shadowColourCheckBox = NULL;
-    m_shadowColourSwatch = NULL;
-    m_useShadowSpread = NULL;
-    m_spread = NULL;
-    m_unitsShadowSpread = NULL;
-    m_useBlurDistance = NULL;
-    m_blurDistance = NULL;
-    m_unitsBlurDistance = NULL;
-    m_useShadowOpacity = NULL;
-    m_opacity = NULL;
+    m_backgroundColourCheckBox = nullptr;
+    m_backgroundColourSwatch = nullptr;
+    m_shadowBox = nullptr;
+    m_useShadow = nullptr;
+    m_offsetX = nullptr;
+    m_unitsHorizontalOffset = nullptr;
+    m_offsetY = nullptr;
+    m_unitsVerticalOffset = nullptr;
+    m_shadowColourCheckBox = nullptr;
+    m_shadowColourSwatch = nullptr;
+    m_useShadowSpread = nullptr;
+    m_spread = nullptr;
+    m_unitsShadowSpread = nullptr;
+    m_useBlurDistance = nullptr;
+    m_blurDistance = nullptr;
+    m_unitsBlurDistance = nullptr;
+    m_useShadowOpacity = nullptr;
+    m_opacity = nullptr;
 ////@end wxRichTextBackgroundPage member initialisation
 }
 
@@ -132,7 +131,7 @@ void wxRichTextBackgroundPage::Init()
  */
 
 void wxRichTextBackgroundPage::CreateControls()
-{    
+{
 ////@begin wxRichTextBackgroundPage content construction
     wxRichTextBackgroundPage* itemRichTextDialogPage1 = this;
 
@@ -369,7 +368,7 @@ bool wxRichTextBackgroundPage::TransferDataToWindow()
     }
 
     m_useShadow->SetValue(attr->GetTextBoxAttr().GetShadow().IsValid());
-    
+
     wxArrayInt units;
     units.Add(wxTEXT_ATTR_UNITS_PIXELS);
     units.Add(wxTEXT_ATTR_UNITS_TENTHS_MM);
@@ -383,15 +382,15 @@ bool wxRichTextBackgroundPage::TransferDataToWindow()
     if (!attr->GetTextBoxAttr().GetShadow().GetOffsetY().IsValid())
         attr->GetTextBoxAttr().GetShadow().GetOffsetY().SetValue(0, wxTEXT_ATTR_UNITS_PIXELS);
 
-    wxRichTextFormattingDialog::SetDimensionValue(attr->GetTextBoxAttr().GetShadow().GetOffsetX(), m_offsetX, m_unitsHorizontalOffset, NULL,
+    wxRichTextFormattingDialog::SetDimensionValue(attr->GetTextBoxAttr().GetShadow().GetOffsetX(), m_offsetX, m_unitsHorizontalOffset, nullptr,
         & units);
-    wxRichTextFormattingDialog::SetDimensionValue(attr->GetTextBoxAttr().GetShadow().GetOffsetY(), m_offsetY, m_unitsVerticalOffset, NULL,
+    wxRichTextFormattingDialog::SetDimensionValue(attr->GetTextBoxAttr().GetShadow().GetOffsetY(), m_offsetY, m_unitsVerticalOffset, nullptr,
         & units);
     wxRichTextFormattingDialog::SetDimensionValue(attr->GetTextBoxAttr().GetShadow().GetSpread(), m_spread, m_unitsShadowSpread, m_useShadowSpread,
         & units);
     wxRichTextFormattingDialog::SetDimensionValue(attr->GetTextBoxAttr().GetShadow().GetBlurDistance(), m_blurDistance, m_unitsBlurDistance, m_useBlurDistance,
         & units);
-    wxRichTextFormattingDialog::SetDimensionValue(attr->GetTextBoxAttr().GetShadow().GetOpacity(), m_opacity, NULL, m_useShadowOpacity,
+    wxRichTextFormattingDialog::SetDimensionValue(attr->GetTextBoxAttr().GetShadow().GetOpacity(), m_opacity, nullptr, m_useShadowOpacity,
         & percentUnits);
 
     if (!attr->GetTextBoxAttr().GetShadow().HasColour() || !attr->GetTextBoxAttr().GetShadow().IsValid())
@@ -419,7 +418,7 @@ bool wxRichTextBackgroundPage::TransferDataFromWindow()
     {
         attr->SetFlags(attr->GetFlags() & ~wxTEXT_ATTR_BACKGROUND_COLOUR);
     }
-    
+
     if (!m_useShadow->GetValue())
         attr->GetTextBoxAttr().GetShadow().Reset();
     else
@@ -434,15 +433,15 @@ bool wxRichTextBackgroundPage::TransferDataFromWindow()
         wxArrayInt percentUnits;
         percentUnits.Add(wxTEXT_ATTR_UNITS_PERCENTAGE);
 
-        wxRichTextFormattingDialog::GetDimensionValue(attr->GetTextBoxAttr().GetShadow().GetOffsetX(), m_offsetX, m_unitsHorizontalOffset, NULL,
+        wxRichTextFormattingDialog::GetDimensionValue(attr->GetTextBoxAttr().GetShadow().GetOffsetX(), m_offsetX, m_unitsHorizontalOffset, nullptr,
             & units);
-        wxRichTextFormattingDialog::GetDimensionValue(attr->GetTextBoxAttr().GetShadow().GetOffsetY(), m_offsetY, m_unitsVerticalOffset, NULL,
+        wxRichTextFormattingDialog::GetDimensionValue(attr->GetTextBoxAttr().GetShadow().GetOffsetY(), m_offsetY, m_unitsVerticalOffset, nullptr,
             & units);
         wxRichTextFormattingDialog::GetDimensionValue(attr->GetTextBoxAttr().GetShadow().GetSpread(), m_spread, m_unitsShadowSpread, m_useShadowSpread,
             & units);
         wxRichTextFormattingDialog::GetDimensionValue(attr->GetTextBoxAttr().GetShadow().GetBlurDistance(), m_blurDistance, m_unitsBlurDistance, m_useBlurDistance,
             & units);
-        wxRichTextFormattingDialog::GetDimensionValue(attr->GetTextBoxAttr().GetShadow().GetOpacity(), m_opacity, NULL, m_useShadowOpacity,
+        wxRichTextFormattingDialog::GetDimensionValue(attr->GetTextBoxAttr().GetShadow().GetOpacity(), m_opacity, nullptr, m_useShadowOpacity,
             & percentUnits);
 
         if (m_shadowColourCheckBox->GetValue())

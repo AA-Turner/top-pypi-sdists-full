@@ -203,7 +203,7 @@ static void dealloc_wxFileDialogCustomControl(sipSimpleWrapper *sipSelf)
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxFileDialogCustomControl[] = {{158, 255, 1}};
+static sipEncodedTypeDef supers_wxFileDialogCustomControl[] = {{165, 255, 1}};
 
 
 static PyMethodDef methods_wxFileDialogCustomControl[] = {

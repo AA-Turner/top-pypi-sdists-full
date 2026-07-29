@@ -62,7 +62,9 @@ static PyObject *meth_wxTreeItemId_IsOk(PyObject *sipSelf, PyObject *sipArgs)
 }
 
 
-PyDoc_STRVAR(doc_wxTreeItemId_GetID, "GetID() -> Any");
+PyDoc_STRVAR(doc_wxTreeItemId_GetID, "GetID() -> Any\n"
+"\n"
+"Returns the ID as an opaque void pointer.");
 
 extern "C" {static PyObject *meth_wxTreeItemId_GetID(PyObject *, PyObject *);}
 static PyObject *meth_wxTreeItemId_GetID(PyObject *sipSelf, PyObject *sipArgs)
@@ -95,7 +97,9 @@ static PyObject *meth_wxTreeItemId_GetID(PyObject *sipSelf, PyObject *sipArgs)
 }
 
 
-PyDoc_STRVAR(doc_wxTreeItemId_Unset, "Unset() -> None");
+PyDoc_STRVAR(doc_wxTreeItemId_Unset, "Unset() -> None\n"
+"\n"
+"Makes this item invalid.");
 
 extern "C" {static PyObject *meth_wxTreeItemId_Unset(PyObject *, PyObject *);}
 static PyObject *meth_wxTreeItemId_Unset(PyObject *sipSelf, PyObject *sipArgs)

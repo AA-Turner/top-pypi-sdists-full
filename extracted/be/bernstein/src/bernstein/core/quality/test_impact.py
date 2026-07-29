@@ -19,9 +19,38 @@ from typing_extensions import TypedDict
 
 logger = logging.getLogger(__name__)
 
-_ANALYZER_CACHE_VERSION = "2"
-_COMPAT_CACHE_VERSION = "2"
+# Bumped whenever the shape or the derivation of a cached entry changes, so a
+# map built by an older rule is rebuilt rather than trusted. Cached "imports"
+# lists are alias-resolved at write time, so a change to alias discovery makes
+# every existing entry potentially short of edges even though its file hashes
+# still match.
+_ANALYZER_CACHE_VERSION = "4"
+_COMPAT_CACHE_VERSION = "4"
 _WORKFLOW_PATH_PREFIX = ".github/workflows/"
+
+# A package can keep an old dotted import path alive without a physical shim
+# file by registering a ``sys.meta_path`` finder backed by a
+# ``{short_name: real_dotted_module}`` table. The import then resolves, but the
+# name the importer wrote never appears on disk, so an import graph keyed on
+# literal dotted names has no edge from the real module to the file that
+# imports it under the old name.
+#
+# Which module-level dict literals count as such a table is decided by their
+# content, not by what they are bound to. An earlier version required the name
+# to end in ``REDIRECT_MAP``, which made renaming the table -- a refactor no
+# importer can observe and no reviewer would question -- silently delete
+# selection edges. The two content filters in ``discover_module_aliases`` are
+# what actually discriminate, and they are strictly safer than a name check:
+# an entry is kept only when its target is a real module on disk and its
+# legacy key is not. A key that names no real module can be imported only if
+# some redirect resolves it, so an entry harvested from a dict that is not a
+# redirect table describes an import nobody can successfully write, and
+# contributes nothing. The failure mode of guessing wrong is therefore an
+# unused map entry, never a dropped edge.
+
+# Bound on alias chain following. Chains are one hop today; the bound stops a
+# hand-written cycle in an alias table from hanging the index build.
+_ALIAS_CHAIN_LIMIT = 8
 
 # Inert repo-root files that never affect test outcomes. A change limited to
 # these paths does not force a full-suite fallback. Kept intentionally tiny:
@@ -130,6 +159,105 @@ def extract_project_imports(path: Path, package_prefixes: set[str]) -> set[str]:
     return imports
 
 
+def _string_dict_literal(node: ast.expr) -> dict[str, str]:
+    """Return the ``str -> str`` pairs of a dict literal, ignoring the rest."""
+    if not isinstance(node, ast.Dict):
+        return {}
+    pairs: dict[str, str] = {}
+    for key, value in zip(node.keys, node.values, strict=False):
+        if (
+            isinstance(key, ast.Constant)
+            and isinstance(key.value, str)
+            and isinstance(value, ast.Constant)
+            and isinstance(value.value, str)
+        ):
+            pairs[key.value] = value.value
+    return pairs
+
+
+def _alias_tables_in_module(path: Path) -> dict[str, str]:
+    """Return the merged alias tables declared at module level in ``path``."""
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError, UnicodeDecodeError):
+        return {}
+
+    tables: dict[str, str] = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            targets: list[ast.expr] = list(node.targets)
+            value: ast.expr | None = node.value
+        elif isinstance(node, ast.AnnAssign):
+            targets = [node.target]
+            value = node.value
+        else:
+            continue
+        if value is None:
+            continue
+        if any(isinstance(target, ast.Name) for target in targets):
+            tables.update(_string_dict_literal(value))
+    return tables
+
+
+def _real_module_names(src_root: Path) -> set[str]:
+    """Return the dotted names of every module that physically exists."""
+    if not src_root.exists():
+        return set()
+    names: set[str] = set()
+    for source_file in src_root.rglob("*.py"):
+        module = _path_to_module(source_file, src_root)
+        if module:
+            names.add(module)
+    return names
+
+
+def discover_module_aliases(src_root: Path) -> dict[str, str]:
+    """Return legacy dotted module names mapped to the module they resolve to.
+
+    The tables are read from the package ``__init__`` files that declare them
+    rather than imported, so discovery has no import side effects and works on
+    any source tree. An alias whose legacy name is also a real module on disk
+    is dropped: the redirect finders are appended to ``sys.meta_path``, so the
+    real module wins the import and no rewrite is warranted.
+    """
+    if not src_root.exists():
+        return {}
+
+    real_modules = _real_module_names(src_root)
+    aliases: dict[str, str] = {}
+    for init_file in sorted(src_root.rglob("__init__.py")):
+        package = _path_to_module(init_file, src_root)
+        if not package:
+            continue
+        for short, target in _alias_tables_in_module(init_file).items():
+            legacy = f"{package}.{short}"
+            if legacy == target or legacy in real_modules or target not in real_modules:
+                continue
+            aliases[legacy] = target
+    return aliases
+
+
+def resolve_module_aliases(modules: set[str], aliases: dict[str, str]) -> set[str]:
+    """Return ``modules`` widened with the real module each alias resolves to.
+
+    The legacy name is kept alongside the resolved one so an existing edge
+    keyed on the old name still matches; the resolved name is what creates the
+    missing edge from the real source file to the test that imports it.
+    """
+    if not aliases:
+        return modules
+
+    resolved = set(modules)
+    for module in modules:
+        target = aliases.get(module)
+        hops = 0
+        while target is not None and hops < _ALIAS_CHAIN_LIMIT and target not in resolved:
+            resolved.add(target)
+            target = aliases.get(target)
+            hops += 1
+    return resolved
+
+
 def build_compat_dep_map(
     root: Path,
     src_root: Path,
@@ -138,6 +266,10 @@ def build_compat_dep_map(
 ) -> dict[str, Any]:
     """Build the legacy dependency-map shape used by ``scripts/test_impact.py``."""
     prefixes = package_prefixes or _iter_project_packages(src_root)
+    # A test that imports a module under a legacy alias records the alias, not
+    # the file that actually backs it. Resolving the alias here is what puts
+    # the edge from the real source file into the map at all.
+    aliases = discover_module_aliases(src_root)
     test_deps: dict[str, dict[str, Any]] = {}
     for test_dir in test_dirs:
         if not test_dir.exists():
@@ -146,7 +278,7 @@ def build_compat_dep_map(
             rel = test_file.relative_to(root).as_posix()
             test_deps[rel] = {
                 "hash": _file_hash(test_file),
-                "imports": sorted(extract_project_imports(test_file, prefixes)),
+                "imports": sorted(resolve_module_aliases(extract_project_imports(test_file, prefixes), aliases)),
             }
 
     source_imports: dict[str, dict[str, Any]] = {}
@@ -157,7 +289,7 @@ def build_compat_dep_map(
                 continue
             source_imports[module] = {
                 "hash": _file_hash(src_file),
-                "imports": sorted(extract_project_imports(src_file, prefixes)),
+                "imports": sorted(resolve_module_aliases(extract_project_imports(src_file, prefixes), aliases)),
             }
 
     return {
@@ -284,6 +416,40 @@ def _collect_tests_for_modules(
     return affected
 
 
+def _asset_owner_packages(changed_files: list[str], root: Path, src_root: Path) -> set[str]:
+    """Map non-Python files under ``src_root`` to their nearest enclosing package.
+
+    Package data (a built GUI bundle, templates, schema files) carries no
+    import edge, so a change confined to it would otherwise produce an empty
+    affected set and trip the fail-closed rule in ``scripts/run_tests.py``
+    even though the tests that exercise the owning package genuinely cover
+    the data it ships. Attributing the file to its nearest package with an
+    ``__init__.py`` lets the selector treat the change as a change to that
+    package.
+    """
+    packages: set[str] = set()
+    for rel_path in changed_files:
+        file_path = root / Path(rel_path)
+        if file_path.suffix == ".py" or not file_path.is_relative_to(src_root):
+            continue
+        for parent in file_path.parents:
+            if parent == src_root or not parent.is_relative_to(src_root):
+                break
+            if (parent / "__init__.py").exists():
+                packages.add(".".join(parent.relative_to(src_root).parts))
+                break
+    return packages
+
+
+def _modules_within_packages(packages: set[str], source_imports: dict[str, object]) -> set[str]:
+    """Return indexed modules that live inside any of ``packages``."""
+    modules: set[str] = set()
+    for package in packages:
+        prefix = package + "."
+        modules.update(module for module in source_imports if module == package or module.startswith(prefix))
+    return modules
+
+
 def compat_get_affected_tests(
     changed_files: list[str],
     dep_map: dict[str, Any],
@@ -307,6 +473,16 @@ def compat_get_affected_tests(
         file_path = root / rel_path
         if file_path.suffix == ".py" and file_path.is_relative_to(src_root):
             changed_modules.add(_path_to_module(file_path, src_root))
+
+    # Non-Python package data (e.g. the shipped GUI bundle) is attributed to
+    # its owning package: every indexed module inside that package counts as
+    # changed, so the tests that import the package run against the new data.
+    changed_modules.update(
+        _modules_within_packages(
+            _asset_owner_packages(changed_files, root, src_root),
+            source_imports,
+        )
+    )
 
     all_affected = _expand_transitive_modules(changed_modules, source_imports)
     affected_tests = _collect_changed_test_files(changed_files, root, test_deps)
@@ -353,6 +529,9 @@ class TestImpactAnalyzer:
         self._test_dirs = test_dirs or [project_root / "tests"]
         self._cache_path = cache_path or (project_root / ".sdd" / "cache" / "test_impact_index.json")
         self._package_prefixes = _iter_project_packages(self._src_root)
+        # Built lazily: only a fresh index needs it, and a warm cache must not
+        # pay for an AST scan of every package __init__.
+        self._aliases: dict[str, str] | None = None
         self._graph: dict[str, set[str]] = {}
         self._reverse: dict[str, set[str]] = {}
         self._source_imports: dict[str, set[str]] = {}
@@ -373,6 +552,7 @@ class TestImpactAnalyzer:
         reverse: dict[str, set[str]] = {}
         source_imports: dict[str, set[str]] = {}
         all_tests: set[str] = set()
+        self._aliases = discover_module_aliases(self._src_root)
 
         for test_file in self._discover_tests():
             rel = test_file.relative_to(self._root).as_posix()
@@ -568,13 +748,19 @@ class TestImpactAnalyzer:
             tests.extend(sorted(path for path in test_dir.rglob("test_*.py") if path.is_file()))
         return tests
 
+    def _resolved_imports(self, path: Path) -> set[str]:
+        """Parse project imports from ``path`` with legacy aliases resolved."""
+        if self._aliases is None:
+            self._aliases = discover_module_aliases(self._src_root)
+        return resolve_module_aliases(extract_project_imports(path, self._package_prefixes), self._aliases)
+
     def _parse_test_imports(self, test_file: Path) -> set[str]:
         """Parse source dependencies imported by a test file."""
-        return extract_project_imports(test_file, self._package_prefixes)
+        return self._resolved_imports(test_file)
 
     def _parse_source_imports(self, source_file: Path) -> set[str]:
         """Parse project imports used by a source file."""
-        return extract_project_imports(source_file, self._package_prefixes)
+        return self._resolved_imports(source_file)
 
     def _name_based_mapping(self, source_rel: str) -> list[str]:
         """Map a source file to likely test files by naming convention."""

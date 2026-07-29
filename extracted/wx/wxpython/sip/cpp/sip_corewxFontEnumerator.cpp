@@ -88,9 +88,9 @@ bool sipwxFontEnumerator::EnumerateFacenames(::wxFontEncoding encoding, bool fix
     if (!sipMeth)
         return ::wxFontEnumerator::EnumerateFacenames(encoding, fixedWidthOnly);
 
-    extern bool sipVH__core_232(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxFontEncoding, bool);
+    extern bool sipVH__core_231(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxFontEncoding, bool);
 
-    return sipVH__core_232(sipGILState, 0, sipPySelf, sipMeth, encoding, fixedWidthOnly);
+    return sipVH__core_231(sipGILState, 0, sipPySelf, sipMeth, encoding, fixedWidthOnly);
 }
 
 bool sipwxFontEnumerator::EnumerateEncodings(const ::wxString& font)

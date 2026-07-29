@@ -74,6 +74,7 @@ __all__ = [
     "track_signal",
     "begin",
     "resume_interaction",
+    "resume_subagent",
     "interaction",
     "task",
     "tool",
@@ -98,6 +99,13 @@ def __getattr__(name: str) -> Any:
         from raindrop.client import Raindrop
 
         return Raindrop
+    # Same reason: subagent.py needs this module, so it can only be reached
+    # lazily. ``resume_subagent`` on the default client is the module-level
+    # counterpart of ``Raindrop.resume_subagent``.
+    if name == "resume_subagent":
+        from raindrop.subagent import resume_subagent
+
+        return resume_subagent
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -622,6 +630,7 @@ def _build_direct_tool_span(
     output_value: str | None,
     error_message: str | None,
     association_properties: Dict[str, Any],
+    extra_attributes: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     trace_id_b64, parent_span_id_b64 = _get_active_trace_context_b64()
     if trace_id_b64 is None:
@@ -649,6 +658,14 @@ def _build_direct_tool_span(
     ):
         if candidate is not None:
             attributes.append(candidate)
+
+    # Raw (unprefixed) attributes from the execution context — today the
+    # detached hand-off reverse reference, which ingest reads by its exact key
+    # and would not recognize under the association-properties prefix.
+    for key, value in (extra_attributes or {}).items():
+        attr = _otlp_attr_string(key, value)
+        if attr is not None:
+            attributes.append(attr)
 
     for key, value in association_properties.items():
         attr = None
@@ -2149,6 +2166,29 @@ class ManualSpan:
     def event_id(self) -> str | None:
         return self._event_id
 
+    @property
+    def span_id(self) -> str | None:
+        """This span's id as 16 lowercase hex digits, or None when unavailable.
+
+        Needed by cross-process hand-offs, where the child records the exact
+        dispatch span it was launched from and only the dispatcher can name it.
+        """
+        return self._context_id("span_id", 16)
+
+    @property
+    def trace_id(self) -> str | None:
+        """This span's trace id as 32 lowercase hex digits, or None."""
+        return self._context_id("trace_id", 32)
+
+    def _context_id(self, attribute: str, width: int) -> str | None:
+        if not self._span:
+            return None
+        try:
+            value = getattr(self._span.get_span_context(), attribute)
+        except Exception:
+            return None
+        return format(value, f"0{width}x") if value else None
+
     def record_input(self, data: Any) -> None:
         if self._span and _should_send_prompts():
             try:
@@ -2235,6 +2275,7 @@ class _EntitySpanContext:
         # even without an ambient begin()/as_current() binding. The context
         # processor still covers spans from the default (project-less) client.
         _rd_tracing.stamp_span(span, st.project_id, st.auth_hint)
+        _rd_tracing.stamp_context_attributes(span)
 
         self._span = span
         self._helper = TraceEntitySpan(span, state=self._state)
@@ -2341,6 +2382,7 @@ def start_span(
     # that bound the context, so the on-start context stamp alone isn't
     # sufficient.
     _rd_tracing.stamp_span(span, st.project_id, st.auth_hint)
+    _rd_tracing.stamp_context_attributes(span)
 
     return ManualSpan(span, kind, name, event_id, state=st)
 

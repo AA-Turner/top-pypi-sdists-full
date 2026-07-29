@@ -13,6 +13,7 @@
         #include <wx/gdicmn.h>
         #include <wx/gdicmn.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/validate.h>
         #include <wx/bitmap.h>
@@ -22,15 +23,15 @@
         #include <wx/dc.h>
         #include <wx/event.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -48,6 +49,15 @@
     wxPyUserData* _wxRibbonToolBar_GetToolClientData(const wxRibbonToolBar* self, int tool_id)
     {
         return dynamic_cast<wxPyUserData*>(self->GetToolClientData(tool_id));
+    }
+    wxAccessible* _wxRibbonToolBar_CreateAccessible(wxRibbonToolBar* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
     }
 
 
@@ -78,7 +88,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -124,7 +133,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -137,7 +145,7 @@ private:
     sipwxRibbonToolBar(const sipwxRibbonToolBar &);
     sipwxRibbonToolBar &operator = (const sipwxRibbonToolBar &);
 
-    char sipPyMethods[39];
+    char sipPyMethods[38];
 };
 
 sipwxRibbonToolBar::sipwxRibbonToolBar(): ::wxRibbonToolBar(), sipPySelf(SIP_NULLPTR)
@@ -716,27 +724,12 @@ void sipwxRibbonToolBar::DoSetWindowVariant(::wxWindowVariant variant)
     return sipVH__ribbon_16(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxRibbonToolBar::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxRibbonToolBar::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__ribbon_16(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__ribbon_16(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 void sipwxRibbonToolBar::DoFreeze()
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -754,7 +747,7 @@ void sipwxRibbonToolBar::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -772,7 +765,7 @@ void sipwxRibbonToolBar::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxRibbonToolBar::DoGetBestSize();
@@ -787,7 +780,7 @@ void sipwxRibbonToolBar::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxRibbonToolBar::DoGetBestClientSize();
@@ -875,11 +868,6 @@ void sipwxRibbonToolBar::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, :
 ::wxBorder sipwxRibbonToolBar::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxRibbonToolBar::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxRibbonToolBar::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxRibbonToolBar::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxRibbonToolBar::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -1091,7 +1079,7 @@ static PyObject *meth_wxRibbonToolBar_Create(PyObject *sipSelf, PyObject *sipArg
 
 
 PyDoc_STRVAR(doc_wxRibbonToolBar_AddTool, "AddTool(tool_id, bitmap, help_string, kind=RIBBON_BUTTON_NORMAL) -> RibbonToolBarToolBase\n"
-"AddTool(tool_id, bitmap, bitmap_disabled=wx.NullBitmap, help_string='', kind=RIBBON_BUTTON_NORMAL, clientData=None) -> RibbonToolBarToolBase\n"
+"AddTool(tool_id, bitmap, bitmap_disabled=wx.NullBitmap, help_string='', kind=RIBBON_BUTTON_NORMAL, clientData=nullptr) -> RibbonToolBarToolBase\n"
 "\n"
 "Add a tool to the tool bar (simple version).\n"
 "");
@@ -1143,7 +1131,7 @@ static PyObject *meth_wxRibbonToolBar_AddTool(PyObject *sipSelf, PyObject *sipAr
         const ::wxString* help_string = &help_stringdef;
         int help_stringState = 0;
         ::wxRibbonButtonKind kind = wxRIBBON_BUTTON_NORMAL;
-        ::wxPyUserData* clientData = 0;
+        ::wxPyUserData* clientData = nullptr;
         int clientDataState = 0;
         ::wxRibbonToolBar *sipCpp;
 
@@ -1357,7 +1345,7 @@ static PyObject *meth_wxRibbonToolBar_AddSeparator(PyObject *sipSelf, PyObject *
 
 
 PyDoc_STRVAR(doc_wxRibbonToolBar_InsertTool, "InsertTool(pos, tool_id, bitmap, help_string, kind=RIBBON_BUTTON_NORMAL) -> RibbonToolBarToolBase\n"
-"InsertTool(pos, tool_id, bitmap, bitmap_disabled=wx.NullBitmap, help_string='', kind=RIBBON_BUTTON_NORMAL, clientData=None) -> RibbonToolBarToolBase\n"
+"InsertTool(pos, tool_id, bitmap, bitmap_disabled=wx.NullBitmap, help_string='', kind=RIBBON_BUTTON_NORMAL, clientData=nullptr) -> RibbonToolBarToolBase\n"
 "\n"
 "Insert a tool to the tool bar (simple version) as the specified\n"
 "position.\n"
@@ -1413,7 +1401,7 @@ static PyObject *meth_wxRibbonToolBar_InsertTool(PyObject *sipSelf, PyObject *si
         const ::wxString* help_string = &help_stringdef;
         int help_stringState = 0;
         ::wxRibbonButtonKind kind = wxRIBBON_BUTTON_NORMAL;
-        ::wxPyUserData* clientData = 0;
+        ::wxPyUserData* clientData = nullptr;
         int clientDataState = 0;
         ::wxRibbonToolBar *sipCpp;
 
@@ -1759,7 +1747,7 @@ static PyObject *meth_wxRibbonToolBar_DeleteToolByPos(PyObject *sipSelf, PyObjec
 
 PyDoc_STRVAR(doc_wxRibbonToolBar_FindById, "FindById(tool_id) -> RibbonToolBarToolBase\n"
 "\n"
-"Returns a pointer to the tool opaque structure by id or NULL if no\n"
+"Returns a pointer to the tool opaque structure by id or nullptr if no\n"
 "corresponding tool is found.");
 
 extern "C" {static PyObject *meth_wxRibbonToolBar_FindById(PyObject *, PyObject *, PyObject *);}
@@ -1944,7 +1932,7 @@ static PyObject *meth_wxRibbonToolBar_GetToolId(PyObject *sipSelf, PyObject *sip
 
 PyDoc_STRVAR(doc_wxRibbonToolBar_GetActiveTool, "GetActiveTool() -> RibbonToolBarToolBase\n"
 "\n"
-"Returns the active item of the tool bar or NULL if there is none.");
+"Returns the active item of the tool bar or nullptr if there is none.");
 
 extern "C" {static PyObject *meth_wxRibbonToolBar_GetActiveTool(PyObject *, PyObject *);}
 static PyObject *meth_wxRibbonToolBar_GetActiveTool(PyObject *sipSelf, PyObject *sipArgs)
@@ -3790,40 +3778,6 @@ static PyObject *meth_wxRibbonToolBar_GetDefaultBorder(PyObject *sipSelf, PyObje
 }
 
 
-PyDoc_STRVAR(doc_wxRibbonToolBar_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxRibbonToolBar_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxRibbonToolBar_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxRibbonToolBar *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRibbonToolBar, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_RibbonToolBar, sipName_GetDefaultBorderForControl, doc_wxRibbonToolBar_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxRibbonToolBar_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxRibbonToolBar_DoFreeze(PyObject *, PyObject *);}
@@ -3997,6 +3951,39 @@ static PyObject *meth_wxRibbonToolBar_TryAfter(PyObject *sipSelf, PyObject *sipA
     }
 
     sipNoMethod(sipParseErr, sipName_RibbonToolBar, sipName_TryAfter, doc_wxRibbonToolBar_TryAfter);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxRibbonToolBar_CreateAccessible, "CreateAccessible() -> wx.Accessible");
+
+extern "C" {static PyObject *meth_wxRibbonToolBar_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxRibbonToolBar_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxRibbonToolBar *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRibbonToolBar, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxRibbonToolBar_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_RibbonToolBar, sipName_CreateAccessible, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -4190,6 +4177,7 @@ static PyMethodDef methods_wxRibbonToolBar[] = {
     {sipName_AddTool, SIP_MLMETH_CAST(meth_wxRibbonToolBar_AddTool), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonToolBar_AddTool},
     {sipName_ClearTools, meth_wxRibbonToolBar_ClearTools, METH_VARARGS, doc_wxRibbonToolBar_ClearTools},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxRibbonToolBar_Create), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonToolBar_Create},
+    {sipName_CreateAccessible, meth_wxRibbonToolBar_CreateAccessible, METH_VARARGS, doc_wxRibbonToolBar_CreateAccessible},
     {sipName_DeleteTool, SIP_MLMETH_CAST(meth_wxRibbonToolBar_DeleteTool), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonToolBar_DeleteTool},
     {sipName_DeleteToolByPos, SIP_MLMETH_CAST(meth_wxRibbonToolBar_DeleteToolByPos), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonToolBar_DeleteToolByPos},
     {sipName_Destroy, meth_wxRibbonToolBar_Destroy, METH_VARARGS, doc_wxRibbonToolBar_Destroy},
@@ -4215,7 +4203,6 @@ static PyMethodDef methods_wxRibbonToolBar[] = {
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxRibbonToolBar_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonToolBar_GetClassDefaultAttributes},
     {sipName_GetClientAreaOrigin, meth_wxRibbonToolBar_GetClientAreaOrigin, METH_VARARGS, doc_wxRibbonToolBar_GetClientAreaOrigin},
     {sipName_GetDefaultBorder, meth_wxRibbonToolBar_GetDefaultBorder, METH_VARARGS, doc_wxRibbonToolBar_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxRibbonToolBar_GetDefaultBorderForControl, METH_VARARGS, doc_wxRibbonToolBar_GetDefaultBorderForControl},
     {sipName_GetMainWindowOfCompositeControl, meth_wxRibbonToolBar_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxRibbonToolBar_GetMainWindowOfCompositeControl},
     {sipName_GetToolByPos, SIP_MLMETH_CAST(meth_wxRibbonToolBar_GetToolByPos), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonToolBar_GetToolByPos},
     {sipName_GetToolClientData, SIP_MLMETH_CAST(meth_wxRibbonToolBar_GetToolClientData), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonToolBar_GetToolClientData},
@@ -4260,7 +4247,7 @@ static PyMethodDef methods_wxRibbonToolBar[] = {
 
 sipVariableDef variables_wxRibbonToolBar[] = {
     {PropertyVariable, sipName_ToolCount, &methods_wxRibbonToolBar[40], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ActiveTool, &methods_wxRibbonToolBar[32], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ActiveTool, &methods_wxRibbonToolBar[33], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxRibbonToolBar, "RibbonToolBar() -> None\n"

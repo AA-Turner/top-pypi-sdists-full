@@ -1,4 +1,4 @@
-// AUTO GENERATED ON 2026-07-02 AT 19:33:43
+// AUTO GENERATED ON 2026-07-28 AT 17:37:39
 // DO NOT EDIT BY HAND!
 //
 // To regenerate file, run
@@ -3123,6 +3123,205 @@ extern "C" {
     const uint32_t* fromptr,
     const int64_t* offsets,
     int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sum_float64_int8_64(
+    double* toptr,
+    const int8_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sum_float64_uint8_64(
+    double* toptr,
+    const uint8_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sum_float64_int16_64(
+    double* toptr,
+    const int16_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sum_float64_uint16_64(
+    double* toptr,
+    const uint16_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sum_float64_int32_64(
+    double* toptr,
+    const int32_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sum_float64_uint32_64(
+    double* toptr,
+    const uint32_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sum_float64_int64_64(
+    double* toptr,
+    const int64_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sum_float64_uint64_64(
+    double* toptr,
+    const uint64_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sum_float64_float32_64(
+    double* toptr,
+    const float* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sumofsquares_float64_int8_64(
+    double* toptr,
+    const int8_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sumofsquares_float64_uint8_64(
+    double* toptr,
+    const uint8_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sumofsquares_float64_int16_64(
+    double* toptr,
+    const int16_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sumofsquares_float64_uint16_64(
+    double* toptr,
+    const uint16_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sumofsquares_float64_int32_64(
+    double* toptr,
+    const int32_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sumofsquares_float64_uint32_64(
+    double* toptr,
+    const uint32_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sumofsquares_float64_int64_64(
+    double* toptr,
+    const int64_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sumofsquares_float64_uint64_64(
+    double* toptr,
+    const uint64_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sumofsquares_float64_bool_64(
+    double* toptr,
+    const bool* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sumofsquares_float64_float32_64(
+    double* toptr,
+    const float* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sumofsquares_float64_float64_64(
+    double* toptr,
+    const double* fromptr,
+    const int64_t* offsets,
+    int64_t outlength);
+
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sumofpowers_float64_int8_64(
+    double* toptr,
+    const int8_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    int64_t n);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sumofpowers_float64_uint8_64(
+    double* toptr,
+    const uint8_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    int64_t n);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sumofpowers_float64_int16_64(
+    double* toptr,
+    const int16_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    int64_t n);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sumofpowers_float64_uint16_64(
+    double* toptr,
+    const uint16_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    int64_t n);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sumofpowers_float64_int32_64(
+    double* toptr,
+    const int32_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    int64_t n);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sumofpowers_float64_uint32_64(
+    double* toptr,
+    const uint32_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    int64_t n);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sumofpowers_float64_int64_64(
+    double* toptr,
+    const int64_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    int64_t n);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sumofpowers_float64_uint64_64(
+    double* toptr,
+    const uint64_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    int64_t n);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sumofpowers_float64_bool_64(
+    double* toptr,
+    const bool* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    int64_t n);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sumofpowers_float64_float32_64(
+    double* toptr,
+    const float* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    int64_t n);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_sumofpowers_float64_float64_64(
+    double* toptr,
+    const double* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    int64_t n);
 
   EXPORT_SYMBOL ERROR
   awkward_reduce_sum_complex64_complex64_64(

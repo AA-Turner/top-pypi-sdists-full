@@ -14,6 +14,7 @@
         #include <wx/richtext/richtextbuffer.h>
         #include <wx/richtext/richtextbuffer.h>
         #include <wx/gdicmn.h>
+        #include <wx/dc.h>
         #include <wx/gdicmn.h>
         #include <wx/richtext/richtextbuffer.h>
         #include <wx/gdicmn.h>
@@ -233,7 +234,6 @@ const char sipStrings__richtext[] = {
     'w', 'x', 'R', 'i', 'c', 'h', 'T', 'e', 'x', 't', 'F', 'i', 'e', 'l', 'd', 'T', 'y', 'p', 'e', 'S', 't', 'a', 'n', 'd', 'a', 'r', 'd', 0,
     'w', 'x', 'T', 'e', 'x', 't', 'B', 'o', 'x', 'A', 't', 't', 'r', 'W', 'h', 'i', 't', 'e', 's', 'p', 'a', 'c', 'e', 'M', 'o', 'd', 'e', 0,
     'A', 'p', 'p', 'l', 'y', 'T', 'e', 'x', 't', 'E', 'f', 'f', 'e', 'c', 't', 'T', 'o', 'S', 'e', 'l', 'e', 'c', 't', 'i', 'o', 'n', 0,
-    'G', 'e', 't', 'D', 'e', 'f', 'a', 'u', 'l', 't', 'B', 'o', 'r', 'd', 'e', 'r', 'F', 'o', 'r', 'C', 'o', 'n', 't', 'r', 'o', 'l', 0,
     'G', 'e', 't', 'F', 'o', 'r', 'm', 'a', 't', 't', 'i', 'n', 'g', 'D', 'i', 'a', 'l', 'o', 'g', 'F', 'a', 'c', 't', 'o', 'r', 'y', 0,
     'G', 'e', 't', 'F', 'u', 'l', 'l', 'L', 'a', 'y', 'o', 'u', 't', 'S', 'a', 'v', 'e', 'd', 'P', 'o', 's', 'i', 't', 'i', 'o', 'n', 0,
     'G', 'e', 't', 'S', 'e', 'l', 'e', 'c', 't', 'e', 'd', 'S', 't', 'y', 'l', 'e', 'D', 'e', 'f', 'i', 'n', 'i', 't', 'i', 'o', 'n', 0,
@@ -662,6 +662,7 @@ const char sipStrings__richtext[] = {
     'C', 'a', 'n', 'I', 'n', 's', 'e', 'r', 't', 'C', 'o', 'n', 't', 'e', 'n', 't', 0,
     'C', 'l', 'e', 'a', 'r', 'D', 'e', 'f', 'a', 'u', 'l', 't', 'T', 'a', 'b', 's', 0,
     'C', 'l', 'e', 'a', 'r', 'U', 'n', 'u', 's', 'e', 'd', 'L', 'i', 'n', 'e', 's', 0,
+    'C', 'r', 'e', 'a', 't', 'e', 'A', 'c', 'c', 'e', 's', 's', 'i', 'b', 'l', 'e', 0,
     'D', 'o', 'M', 'a', 'k', 'e', 'I', 'm', 'a', 'g', 'e', 'B', 'l', 'o', 'c', 'k', 0,
     'D', 'r', 'a', 'w', 'B', 'i', 't', 'm', 'a', 'p', 'B', 'u', 'l', 'l', 'e', 't', 0,
     'F', 'i', 'n', 'd', 'R', 'a', 'n', 'g', 'e', 'F', 'o', 'r', 'L', 'i', 's', 't', 0,
@@ -1059,6 +1060,7 @@ const char sipStrings__richtext[] = {
     '_', '_', 'c', 'o', 'n', 't', 'a', 'i', 'n', 's', '_', '_', 0,
     'b', 'o', 't', 't', 'o', 'm', 'M', 'a', 'r', 'g', 'i', 'n', 0,
     'b', 'u', 'l', 'l', 'e', 't', 'N', 'u', 'm', 'b', 'e', 'r', 0,
+    'b', 'u', 'l', 'l', 'e', 't', 'S', 'y', 'm', 'b', 'o', 'l', 0,
     'c', 'l', 'a', 's', 'h', 'i', 'n', 'g', 'A', 't', 't', 'r', 0,
     'c', 'o', 'n', 't', 'e', 'n', 't', 'S', 't', 'y', 'l', 'e', 0,
     'c', 'u', 'r', 'r', 'e', 'n', 't', 'S', 't', 'y', 'l', 'e', 0,
@@ -1680,7 +1682,6 @@ const char sipStrings__richtext[] = {
     's', 'a', 'v', 'e', 0,
     's', 'h', 'o', 'w', 0,
     's', 'p', 'a', 'n', 0,
-    't', 'i', 'm', 'e', 0,
     't', 'y', 'p', 'e', 0,
     'u', 'n', 'i', 't', 0,
     'A', 'd', 'd', 0,
@@ -2008,10 +2009,10 @@ void sipVH__richtext_129(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sip
     sipCallProcedureMethod(sipGILState, sipErrorHandler, sipPySelf, sipMethod, "D", child, sipType_wxWindowBase, SIP_NULLPTR);
 }
 
-bool sipVH__richtext_128(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxRichTextParagraph*paragraph, ::wxDC& dc, const ::wxRichTextAttr& attr, ::wxSize& sz)
+bool sipVH__richtext_128(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxRichTextParagraph*paragraph, ::wxReadOnlyDC& dc, const ::wxRichTextAttr& attr, ::wxSize& sz)
 {
     bool sipRes = 0;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDND", paragraph, sipType_wxRichTextParagraph, SIP_NULLPTR, &dc, sipType_wxDC, SIP_NULLPTR, new ::wxRichTextAttr(attr), sipType_wxRichTextAttr, SIP_NULLPTR, &sz, sipType_wxSize, SIP_NULLPTR);
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDND", paragraph, sipType_wxRichTextParagraph, SIP_NULLPTR, &dc, sipType_wxReadOnlyDC, SIP_NULLPTR, new ::wxRichTextAttr(attr), sipType_wxRichTextAttr, SIP_NULLPTR, &sz, sipType_wxSize, SIP_NULLPTR);
 
     sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "b", &sipRes);
 
@@ -2473,10 +2474,10 @@ bool sipVH__richtext_92(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipE
     return sipRes;
 }
 
-bool sipVH__richtext_91(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxDC& dc, ::wxRichTextDrawingContext& context, ::wxSize& retImageSize, bool resetCache, const ::wxSize& parentSize)
+bool sipVH__richtext_91(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxReadOnlyDC& dc, ::wxRichTextDrawingContext& context, ::wxSize& retImageSize, bool resetCache, const ::wxSize& parentSize)
 {
     bool sipRes = 0;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDDbN", &dc, sipType_wxDC, SIP_NULLPTR, &context, sipType_wxRichTextDrawingContext, SIP_NULLPTR, &retImageSize, sipType_wxSize, SIP_NULLPTR, resetCache, new ::wxSize(parentSize), sipType_wxSize, SIP_NULLPTR);
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDDbN", &dc, sipType_wxReadOnlyDC, SIP_NULLPTR, &context, sipType_wxRichTextDrawingContext, SIP_NULLPTR, &retImageSize, sipType_wxSize, SIP_NULLPTR, resetCache, new ::wxSize(parentSize), sipType_wxSize, SIP_NULLPTR);
 
     sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "b", &sipRes);
 
@@ -2543,9 +2544,9 @@ bool sipVH__richtext_84(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipE
     return sipRes;
 }
 
-void sipVH__richtext_83(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxRichTextLine*line, const ::wxRichTextAttr& attr, const ::wxRect& rect, ::wxDC& dc)
+void sipVH__richtext_83(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxRichTextLine*line, const ::wxRichTextAttr& attr, const ::wxRect& rect, ::wxReadOnlyDC& dc)
 {
-    sipCallProcedureMethod(sipGILState, sipErrorHandler, sipPySelf, sipMethod, "DNND", line, sipType_wxRichTextLine, SIP_NULLPTR, new ::wxRichTextAttr(attr), sipType_wxRichTextAttr, SIP_NULLPTR, new ::wxRect(rect), sipType_wxRect, SIP_NULLPTR, &dc, sipType_wxDC, SIP_NULLPTR);
+    sipCallProcedureMethod(sipGILState, sipErrorHandler, sipPySelf, sipMethod, "DNND", line, sipType_wxRichTextLine, SIP_NULLPTR, new ::wxRichTextAttr(attr), sipType_wxRichTextAttr, SIP_NULLPTR, new ::wxRect(rect), sipType_wxRect, SIP_NULLPTR, &dc, sipType_wxReadOnlyDC, SIP_NULLPTR);
 }
 
 ::wxRichTextLine* sipVH__richtext_82(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod)
@@ -2598,20 +2599,20 @@ bool sipVH__richtext_78(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipE
     return sipRes;
 }
 
-bool sipVH__richtext_77(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxRichTextField*obj, const ::wxRichTextRange& range, ::wxSize& size, int& descent, ::wxDC& dc, ::wxRichTextDrawingContext& context, int flags, const ::wxPoint& position, const ::wxSize& parentSize, ::wxArrayInt*partialExtents)
+bool sipVH__richtext_77(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxRichTextField*obj, const ::wxRichTextRange& range, ::wxSize& size, int& descent, ::wxReadOnlyDC& dc, ::wxRichTextDrawingContext& context, int flags, const ::wxPoint& position, const ::wxSize& parentSize, ::wxArrayInt*partialExtents)
 {
     bool sipRes = 0;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DNDDDiNND", obj, sipType_wxRichTextField, SIP_NULLPTR, new ::wxRichTextRange(range), sipType_wxRichTextRange, SIP_NULLPTR, &size, sipType_wxSize, SIP_NULLPTR, &dc, sipType_wxDC, SIP_NULLPTR, &context, sipType_wxRichTextDrawingContext, SIP_NULLPTR, flags, new ::wxPoint(position), sipType_wxPoint, SIP_NULLPTR, new ::wxSize(parentSize), sipType_wxSize, SIP_NULLPTR, partialExtents, sipType_wxArrayInt, SIP_NULLPTR);
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DNDDDiNND", obj, sipType_wxRichTextField, SIP_NULLPTR, new ::wxRichTextRange(range), sipType_wxRichTextRange, SIP_NULLPTR, &size, sipType_wxSize, SIP_NULLPTR, &dc, sipType_wxReadOnlyDC, SIP_NULLPTR, &context, sipType_wxRichTextDrawingContext, SIP_NULLPTR, flags, new ::wxPoint(position), sipType_wxPoint, SIP_NULLPTR, new ::wxSize(parentSize), sipType_wxSize, SIP_NULLPTR, partialExtents, sipType_wxArrayInt, SIP_NULLPTR);
 
     sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "(bi)", &sipRes, &descent);
 
     return sipRes;
 }
 
-bool sipVH__richtext_76(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxRichTextField*obj, ::wxDC& dc, ::wxRichTextDrawingContext& context, const ::wxRect& rect, const ::wxRect& parentRect, int style)
+bool sipVH__richtext_76(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxRichTextField*obj, ::wxReadOnlyDC& dc, ::wxRichTextDrawingContext& context, const ::wxRect& rect, const ::wxRect& parentRect, int style)
 {
     bool sipRes = 0;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDDNNi", obj, sipType_wxRichTextField, SIP_NULLPTR, &dc, sipType_wxDC, SIP_NULLPTR, &context, sipType_wxRichTextDrawingContext, SIP_NULLPTR, new ::wxRect(rect), sipType_wxRect, SIP_NULLPTR, new ::wxRect(parentRect), sipType_wxRect, SIP_NULLPTR, style);
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDDNNi", obj, sipType_wxRichTextField, SIP_NULLPTR, &dc, sipType_wxReadOnlyDC, SIP_NULLPTR, &context, sipType_wxRichTextDrawingContext, SIP_NULLPTR, new ::wxRect(rect), sipType_wxRect, SIP_NULLPTR, new ::wxRect(parentRect), sipType_wxRect, SIP_NULLPTR, style);
 
     sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "b", &sipRes);
 
@@ -3036,20 +3037,20 @@ bool sipVH__richtext_32(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipE
     return sipRes;
 }
 
-bool sipVH__richtext_31(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxDC& dc, ::wxRichTextDrawingContext& context, ::wxRichTextBuffer*buffer, const ::wxRichTextAttr& parentAttr, const ::wxRichTextAttr& attr, const ::wxRect& availableParentSpace, const ::wxRect& availableContainerSpace, int style)
+bool sipVH__richtext_31(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxReadOnlyDC& dc, ::wxRichTextDrawingContext& context, ::wxRichTextBuffer*buffer, const ::wxRichTextAttr& parentAttr, const ::wxRichTextAttr& attr, const ::wxRect& availableParentSpace, const ::wxRect& availableContainerSpace, int style)
 {
     bool sipRes = 0;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDDNNNNi", &dc, sipType_wxDC, SIP_NULLPTR, &context, sipType_wxRichTextDrawingContext, SIP_NULLPTR, buffer, sipType_wxRichTextBuffer, SIP_NULLPTR, new ::wxRichTextAttr(parentAttr), sipType_wxRichTextAttr, SIP_NULLPTR, new ::wxRichTextAttr(attr), sipType_wxRichTextAttr, SIP_NULLPTR, new ::wxRect(availableParentSpace), sipType_wxRect, SIP_NULLPTR, new ::wxRect(availableContainerSpace), sipType_wxRect, SIP_NULLPTR, style);
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDDNNNNi", &dc, sipType_wxReadOnlyDC, SIP_NULLPTR, &context, sipType_wxRichTextDrawingContext, SIP_NULLPTR, buffer, sipType_wxRichTextBuffer, SIP_NULLPTR, new ::wxRichTextAttr(parentAttr), sipType_wxRichTextAttr, SIP_NULLPTR, new ::wxRichTextAttr(attr), sipType_wxRichTextAttr, SIP_NULLPTR, new ::wxRect(availableParentSpace), sipType_wxRect, SIP_NULLPTR, new ::wxRect(availableContainerSpace), sipType_wxRect, SIP_NULLPTR, style);
 
     sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "b", &sipRes);
 
     return sipRes;
 }
 
-::wxRect sipVH__richtext_30(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxDC& dc, ::wxRichTextDrawingContext& context, const ::wxRect& outerRect)
+::wxRect sipVH__richtext_30(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxReadOnlyDC& dc, ::wxRichTextDrawingContext& context, const ::wxRect& outerRect)
 {
     ::wxRect sipRes;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDN", &dc, sipType_wxDC, SIP_NULLPTR, &context, sipType_wxRichTextDrawingContext, SIP_NULLPTR, new ::wxRect(outerRect), sipType_wxRect, SIP_NULLPTR);
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDN", &dc, sipType_wxReadOnlyDC, SIP_NULLPTR, &context, sipType_wxRichTextDrawingContext, SIP_NULLPTR, new ::wxRect(outerRect), sipType_wxRect, SIP_NULLPTR);
 
     sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "H5", sipType_wxRect, &sipRes);
 
@@ -3263,10 +3264,10 @@ void sipVH__richtext_7(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipEr
     return sipRes;
 }
 
-bool sipVH__richtext_5(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, const ::wxRichTextRange& range, ::wxSize& size, int& descent, ::wxDC& dc, ::wxRichTextDrawingContext& context, int flags, const ::wxPoint& position, const ::wxSize& parentSize, ::wxArrayInt*partialExtents)
+bool sipVH__richtext_5(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, const ::wxRichTextRange& range, ::wxSize& size, int& descent, ::wxReadOnlyDC& dc, ::wxRichTextDrawingContext& context, int flags, const ::wxPoint& position, const ::wxSize& parentSize, ::wxArrayInt*partialExtents)
 {
     bool sipRes = 0;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "NDDDiNND", new ::wxRichTextRange(range), sipType_wxRichTextRange, SIP_NULLPTR, &size, sipType_wxSize, SIP_NULLPTR, &dc, sipType_wxDC, SIP_NULLPTR, &context, sipType_wxRichTextDrawingContext, SIP_NULLPTR, flags, new ::wxPoint(position), sipType_wxPoint, SIP_NULLPTR, new ::wxSize(parentSize), sipType_wxSize, SIP_NULLPTR, partialExtents, sipType_wxArrayInt, SIP_NULLPTR);
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "NDDDiNND", new ::wxRichTextRange(range), sipType_wxRichTextRange, SIP_NULLPTR, &size, sipType_wxSize, SIP_NULLPTR, &dc, sipType_wxReadOnlyDC, SIP_NULLPTR, &context, sipType_wxRichTextDrawingContext, SIP_NULLPTR, flags, new ::wxPoint(position), sipType_wxPoint, SIP_NULLPTR, new ::wxSize(parentSize), sipType_wxSize, SIP_NULLPTR, partialExtents, sipType_wxArrayInt, SIP_NULLPTR);
 
     sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "(bi)", &sipRes, &descent);
 
@@ -3283,30 +3284,30 @@ bool sipVH__richtext_5(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipEr
     return sipRes;
 }
 
-bool sipVH__richtext_3(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxDC& dc, ::wxRichTextDrawingContext& context, long index, ::wxPoint& pt, int*height, bool forceLineStart)
+bool sipVH__richtext_3(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxReadOnlyDC& dc, ::wxRichTextDrawingContext& context, long index, ::wxPoint& pt, int*height, bool forceLineStart)
 {
     bool sipRes = 0;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDlb", &dc, sipType_wxDC, SIP_NULLPTR, &context, sipType_wxRichTextDrawingContext, SIP_NULLPTR, index, forceLineStart);
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDlb", &dc, sipType_wxReadOnlyDC, SIP_NULLPTR, &context, sipType_wxRichTextDrawingContext, SIP_NULLPTR, index, forceLineStart);
 
     sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "(bH5i)", &sipRes, sipType_wxPoint, &pt, height);
 
     return sipRes;
 }
 
-int sipVH__richtext_2(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxDC& dc, ::wxRichTextDrawingContext& context, const ::wxPoint& pt, long& textPosition, ::wxRichTextObject**obj, ::wxRichTextObject**contextObj, int flags)
+int sipVH__richtext_2(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxReadOnlyDC& dc, ::wxRichTextDrawingContext& context, const ::wxPoint& pt, long& textPosition, ::wxRichTextObject**obj, ::wxRichTextObject**contextObj, int flags)
 {
     int sipRes = 0;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDNi", &dc, sipType_wxDC, SIP_NULLPTR, &context, sipType_wxRichTextDrawingContext, SIP_NULLPTR, new ::wxPoint(pt), sipType_wxPoint, SIP_NULLPTR, flags);
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDNi", &dc, sipType_wxReadOnlyDC, SIP_NULLPTR, &context, sipType_wxRichTextDrawingContext, SIP_NULLPTR, new ::wxPoint(pt), sipType_wxPoint, SIP_NULLPTR, flags);
 
     sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "(ilH0H0)", &sipRes, &textPosition, sipType_wxRichTextObject, obj, sipType_wxRichTextObject, contextObj);
 
     return sipRes;
 }
 
-bool sipVH__richtext_1(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxDC& dc, ::wxRichTextDrawingContext& context, const ::wxRect& rect, const ::wxRect& parentRect, int style)
+bool sipVH__richtext_1(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxReadOnlyDC& dc, ::wxRichTextDrawingContext& context, const ::wxRect& rect, const ::wxRect& parentRect, int style)
 {
     bool sipRes = 0;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDNNi", &dc, sipType_wxDC, SIP_NULLPTR, &context, sipType_wxRichTextDrawingContext, SIP_NULLPTR, new ::wxRect(rect), sipType_wxRect, SIP_NULLPTR, new ::wxRect(parentRect), sipType_wxRect, SIP_NULLPTR, style);
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDNNi", &dc, sipType_wxReadOnlyDC, SIP_NULLPTR, &context, sipType_wxRichTextDrawingContext, SIP_NULLPTR, new ::wxRect(rect), sipType_wxRect, SIP_NULLPTR, new ::wxRect(parentRect), sipType_wxRect, SIP_NULLPTR, style);
 
     sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "b", &sipRes);
 
@@ -3656,7 +3657,7 @@ static PyObject *func_RichTextRemoveStyle(PyObject *, PyObject *sipArgs, PyObjec
 }
 
 
-PyDoc_STRVAR(doc_RichTextApplyStyle, "RichTextApplyStyle(destStyle, style, compareWith=None) -> bool\n"
+PyDoc_STRVAR(doc_RichTextApplyStyle, "RichTextApplyStyle(destStyle, style, compareWith=nullptr) -> bool\n"
 "\n"
 "Apply one style to another.");
 
@@ -3668,7 +3669,7 @@ static PyObject *func_RichTextApplyStyle(PyObject *, PyObject *sipArgs, PyObject
     {
         ::wxRichTextAttr* destStyle;
         const ::wxRichTextAttr* style;
-        ::wxRichTextAttr* compareWith = 0;
+        ::wxRichTextAttr* compareWith = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_destStyle,
@@ -3998,6 +3999,7 @@ static sipTypedefDef typedefsTable[] = {
 
 /* This defines the types that this module needs to import from _core. */
 sipImportedTypeDef sipImportedTypes__richtext__core[] = {
+    {"wxAccessible"},
     {"wxArrayInt"},
     {"wxArrayString"},
     {"wxBitmap"},
@@ -4050,6 +4052,7 @@ sipImportedTypeDef sipImportedTypes__richtext__core[] = {
     {"wxPosition"},
     {"wxPrintData"},
     {"wxPrintout"},
+    {"wxReadOnlyDC"},
     {"wxRect"},
     {"wxScrollWinEvent"},
     {"wxSize"},
@@ -4067,7 +4070,7 @@ sipImportedTypeDef sipImportedTypes__richtext__core[] = {
     {"wxTrackable"},
     {"wxUpdateUIEvent"},
     {"wxVListBox"},
-    {"wxVScrolledWindow"},
+    {"wxVScrolledCanvas"},
     {"wxValidator"},
     {"wxVarScrollHelperBase"},
     {"wxVarVScrollHelper"},

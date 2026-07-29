@@ -131,7 +131,7 @@ static void dealloc_wxFileDialogRadioButton(sipSimpleWrapper *sipSelf)
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxFileDialogRadioButton[] = {{171, 255, 1}};
+static sipEncodedTypeDef supers_wxFileDialogRadioButton[] = {{179, 255, 1}};
 
 
 static PyMethodDef methods_wxFileDialogRadioButton[] = {

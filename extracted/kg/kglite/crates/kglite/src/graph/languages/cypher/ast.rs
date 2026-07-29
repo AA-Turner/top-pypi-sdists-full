@@ -1,0 +1,1159 @@
+// src/graph/cypher/ast.rs
+// Full Cypher AST definitions
+
+use crate::datatypes::values::Value;
+use crate::graph::core::pattern_matching::Pattern;
+
+// ============================================================================
+// Top-Level Query
+// ============================================================================
+
+/// Output format for query results
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum OutputFormat {
+    /// Default: ResultView (lazy row-by-row access)
+    Default,
+    /// FORMAT CSV: return result as a CSV string
+    Csv,
+}
+
+/// A complete Cypher query: a pipeline of clauses
+#[derive(Debug, Clone)]
+pub struct CypherQuery {
+    pub clauses: Vec<Clause>,
+    pub explain: bool,
+    pub profile: bool,
+    pub output_format: OutputFormat,
+    /// Passes that changed the plan. Populated only for EXPLAIN so normal
+    /// execution pays no plan-diff allocation cost.
+    pub optimizer_tags: Vec<String>,
+}
+
+/// A node in the query pipeline.
+///
+/// **Deliberately overloaded** (not a mess): this one enum carries both
+/// *surface* clauses parsed from Cypher (`Match`, `With`, `Create`, …)
+/// AND the optimizer's *physical* fused nodes (`Fused*`, below). They
+/// share a type so the optimizer can rewrite in place and the SAME
+/// execution loop runs both — a deliberate perf trade-off (no
+/// logical→physical translation layer on the hot path). The cost is a
+/// wide exhaustive-`match` surface; the compiler enforces it, so adding
+/// a variant is mechanical.
+///
+/// **Execution is split across two engines** keyed on whether a clause
+/// mutates (see `clause_is_mutation` / `is_mutation_query` in
+/// `executor/write.rs`): reads + fused nodes run in `executor/mod.rs`;
+/// `Create`/`Set`/`Delete`/`Remove`/`Merge` (and future mutation
+/// control-flow like `FOREACH`) run in `executor/write.rs`.
+#[derive(Debug, Clone)]
+pub enum Clause {
+    Match(MatchClause),
+    OptionalMatch(MatchClause),
+    Where(WhereClause),
+    Return(ReturnClause),
+    With(WithClause),
+    OrderBy(OrderByClause),
+    Skip(SkipClause),
+    Limit(LimitClause),
+    Unwind(UnwindClause),
+    /// `LOAD CSV … AS row` — an external row source. Legal only as the leading
+    /// clause; the executor drives the rest of the pipeline over bounded row
+    /// batches rather than materializing the file (see
+    /// `executor/load_csv.rs`).
+    LoadCsv(LoadCsvClause),
+    Union(UnionClause),
+    Create(CreateClause),
+    Set(SetClause),
+    Delete(DeleteClause),
+    Remove(RemoveClause),
+    Merge(MergeClause),
+    /// `FOREACH (var IN listExpr | <update clauses>)` — run the update
+    /// clauses once per element of `list`, with `variable` bound to the
+    /// element. A side-effect loop: the surrounding row set is unchanged.
+    /// `body` holds update clauses (Create/Set/Delete/Remove/Merge) and
+    /// nested Foreach only. Mutation control-flow → executed in the
+    /// mutable engine (`executor/write.rs`); `clause_is_mutation` recurses
+    /// into `body` so a FOREACH with a write routes there.
+    Foreach {
+        variable: String,
+        list: Expression,
+        body: Vec<Clause>,
+    },
+    Call(CallClause),
+    /// Schema DDL — `CREATE INDEX` / `DROP INDEX` / `SHOW INDEXES` and the
+    /// constraint counterparts. Always the *sole* clause of its query (the
+    /// parser enforces that); see [`SchemaCommand`].
+    Schema(SchemaCommand),
+    /// `CALL { ... }` subquery: a nested sub-pipeline evaluated once per outer
+    /// row (correlated) or exactly once (uncorrelated). `import` holds the
+    /// outer variable names lifted from a leading bare importing `WITH`
+    /// (empty = uncorrelated); the importing `WITH` is stripped from `body`
+    /// during parsing so the body re-binds those names from the seed row.
+    /// `body` is the remaining sub-pipeline (a full `CypherQuery`).
+    ///
+    /// Phase 1 ships the parser + AST node only; execution and planner
+    /// integration land in later phases. See
+    /// `dev_workfolder/dev-documentation/design/call-subqueries.md`.
+    CallSubquery {
+        import: Vec<String>,
+        body: Box<CypherQuery>,
+    },
+    /// Optimizer-generated: fuse OPTIONAL MATCH + WITH count(...) into a single pass.
+    /// Instead of expanding rows then aggregating, count matches directly per input row.
+    FusedOptionalMatchAggregate {
+        match_clause: MatchClause,
+        with_clause: WithClause,
+    },
+    /// Optimizer-generated: fuse RETURN (with vector_score) + ORDER BY + LIMIT
+    /// into a single pass using a min-heap for O(n log k) instead of O(n log n).
+    /// Projects RETURN expressions only for the k surviving rows.
+    FusedVectorScoreTopK {
+        return_clause: ReturnClause,
+        /// Index of the vector_score item within `return_clause.items`
+        score_item_index: usize,
+        /// ORDER BY direction (true = DESC, which is typical for similarity)
+        descending: bool,
+        /// LIMIT k value
+        limit: usize,
+    },
+    /// Optimizer-generated: fuse MATCH traversal + RETURN with count() into
+    /// a single pass. Instead of expanding all edges then grouping, iterate
+    /// group keys and count edges directly per node.
+    FusedMatchReturnAggregate {
+        /// The full MATCH pattern (3 elements: node-edge-node)
+        match_clause: MatchClause,
+        /// RETURN clause (group-by items + count aggregates)
+        return_clause: ReturnClause,
+        /// Single-key ORDER BY + LIMIT fusion: (count_item_index, descending, limit).
+        /// When set, the executor uses a BinaryHeap to find exactly k rows;
+        /// caller has absorbed both ORDER BY and LIMIT. Mutually exclusive with
+        /// `candidate_emit`.
+        top_k: Option<(usize, bool, usize)>,
+        /// Multi-key ORDER BY fusion (0.8.12 phase 4): emit the superset of
+        /// candidates whose primary sort key (the count aggregate) is
+        /// within the top-k-by-primary — boundary ties included. The
+        /// downstream OrderBy + Limit clauses are still in the pipeline and
+        /// re-sort those candidates using the full multi-key spec.
+        /// Tuple: `(count_item_index, descending, k)`. Mutually exclusive
+        /// with `top_k`.
+        candidate_emit: Option<(usize, bool, usize)>,
+        /// `count(DISTINCT v)` for a node variable: the executor must dedup
+        /// peer NodeIndices per group. The edge-centric fast path is
+        /// disabled in this mode (it counts edges, not distinct peers).
+        distinct_count: bool,
+    },
+    /// Optimizer-generated: fuse MATCH traversal + WITH count() into a single
+    /// pass. Same as FusedMatchReturnAggregate but for WITH clauses (pipeline
+    /// continues after). Avoids materializing all edge rows before grouping.
+    ///
+    /// `secondary_match` is set when the optimizer also folds a *second*
+    /// adjacent MATCH whose edge variable is only consumed by the WITH's
+    /// count(). The primary `match_clause` enumerates group keys; the
+    /// secondary clause's pattern drives the per-group-key degree count via
+    /// `try_count_simple_pattern`. This handles the common shape:
+    ///   `MATCH (a)-[:T]->(b {nid:'X'}) MATCH (a)-[r]-() WITH a, count(r) ...`
+    /// without expanding 4 M edge rows from the second MATCH.
+    ///
+    /// `top_k` is set when a downstream `ORDER BY <count_alias> {DESC|ASC}
+    /// LIMIT k` only needs the K winners. The executor keeps a K-element
+    /// heap on the count and only evaluates the group-key projections
+    /// (e.g. `w.nid`, `w.title`) for those K rows — saves N×P property
+    /// reads when N is large and K is small.
+    FusedMatchWithAggregate {
+        match_clause: MatchClause,
+        with_clause: WithClause,
+        secondary_match: Option<MatchClause>,
+        top_k: Option<AggregateTopK>,
+        /// `count(DISTINCT v)` for a node variable. When true the executor's
+        /// per-group counter is a `HashSet<NodeIndex>` and the edge-centric
+        /// fast path is bypassed.
+        distinct_count: bool,
+    },
+    /// Optimizer-generated: fuse RETURN + ORDER BY + LIMIT into a single
+    /// pass using a min-heap for O(n log k) instead of O(n log n).
+    /// Generalizes FusedVectorScoreTopK to ANY numeric sort expression.
+    FusedOrderByTopK {
+        return_clause: ReturnClause,
+        /// Index of the sort-key item within `return_clause.items`
+        score_item_index: usize,
+        /// true = DESC (keep k largest), false = ASC (keep k smallest)
+        descending: bool,
+        /// LIMIT k value
+        limit: usize,
+        /// Optional external sort expression (not in RETURN items).
+        /// When set, this expression is used for scoring instead of
+        /// `return_clause.items[score_item_index]`.
+        sort_expression: Option<Expression>,
+    },
+    /// Optimizer-generated: MATCH (n) RETURN count(n) → graph.node_count() in O(1).
+    FusedCountAll {
+        alias: String,
+    },
+    /// Optimizer-generated: MATCH ()-[r]->() RETURN count(r) → graph.edge_count() in O(1).
+    FusedCountAllEdges {
+        alias: String,
+    },
+    /// Optimizer-generated: MATCH (n) RETURN n.type, count(n) → iterate type_indices in O(types).
+    FusedCountByType {
+        type_alias: String,
+        count_alias: String,
+        /// Emit the type key as a single-element `labels()`-style list (`true`,
+        /// for a `labels(n)` group key) or as a scalar string (`false`, for the
+        /// `n.type` / `n.node_type` / `n.label` accessors). Keeps the fused
+        /// output shape identical to the un-fused path for each accessor.
+        type_as_list: bool,
+    },
+    /// Optimizer-generated: MATCH ()-[r]->() RETURN type(r), count(*) → single edge scan.
+    FusedCountEdgesByType {
+        type_alias: String,
+        count_alias: String,
+    },
+    /// Optimizer-generated: MATCH (n:Type) RETURN count(n) → type_indices[type].len() in O(1).
+    FusedCountTypedNode {
+        node_type: String,
+        alias: String,
+    },
+    /// Optimizer-generated: MATCH ()-[r:Type]->() RETURN count(*) → single-pass edge scan.
+    FusedCountTypedEdge {
+        edge_type: String,
+        alias: String,
+    },
+    /// Optimizer-generated: MATCH (var)-[r:TYPE?]->({id: VAL}) RETURN count(var)
+    /// (or the symmetric incoming form) → O(log D) CSR offset subtraction on
+    /// the anchored node. Anchor node index is resolved at plan time via
+    /// `graph.id_indices`. Connection type is None when the query didn't
+    /// specify one.
+    FusedCountAnchoredEdges {
+        /// Resolved NodeIndex of the anchor (`{id: VAL}` side).
+        anchor_idx: u32,
+        /// Direction relative to the anchor. Outgoing = edges that leave the
+        /// anchor; Incoming = edges that enter it.
+        anchor_direction: petgraph::Direction,
+        /// Connection type name (None = all types). Kept as String so the
+        /// executor interns with the live interner; covers mmap-mode FNV
+        /// hashes automatically.
+        edge_type: Option<String>,
+        alias: String,
+    },
+    /// Optimizer-generated: MATCH (n:Type) [WHERE ...] RETURN group_keys, agg_funcs(...)
+    /// → single-pass node scan with inline aggregation. Avoids materializing intermediate
+    /// ResultRows — evaluates group keys and aggregates directly from node properties.
+    FusedNodeScanAggregate {
+        match_clause: MatchClause,
+        where_predicate: Option<Predicate>,
+        return_clause: ReturnClause,
+    },
+    /// Optimizer-generated: MATCH (n:Type) [WHERE ...] RETURN expressions ORDER BY expr LIMIT k
+    /// → single-pass node scan with inline top-K selection. Avoids materializing all rows —
+    /// maintains a K-element heap/sorted-vec during scan, evaluates RETURN only for winners.
+    FusedNodeScanTopK {
+        match_clause: MatchClause,
+        where_predicate: Option<Predicate>,
+        return_clause: ReturnClause,
+        sort_expression: Expression,
+        descending: bool,
+        limit: usize,
+    },
+    /// Optimizer-generated: MATCH (s:A), (w:B) WHERE contains(s, w) → spatial-join operator.
+    /// Builds an R-tree on container bboxes and probes points against it, avoiding the
+    /// full cartesian product. `remainder` is the ANDed residual predicate (or None) left
+    /// after `try_extract_contains_filter` removed the contains() call.
+    ///
+    /// `probe_kind` selects how the probe-side point is sourced:
+    /// - `Location` (default, single-MATCH `contains(s, w)`): use the probe's
+    ///   spatial-config `location` (lat/lon properties) → Point.
+    /// - `Centroid` (multi-MATCH `contains(s, centroid(p))`): compute the
+    ///   centroid of the probe's geometry → Point. Lets fusion fire on the
+    ///   common `MATCH (p) ... MATCH (s) WHERE contains(s, centroid(p))`
+    ///   shape used by point-in-polygon enrichment pipelines.
+    SpatialJoin {
+        container_var: String,
+        probe_var: String,
+        container_type: String,
+        probe_type: String,
+        probe_kind: SpatialProbeKind,
+        remainder: Option<Predicate>,
+    },
+}
+
+/// How the spatial-join executor should source the probe-side point.
+/// See `Clause::SpatialJoin` for context.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SpatialProbeKind {
+    /// Probe's spatial-config `location` (lat/lon properties) → Point.
+    Location,
+    /// Centroid of the probe's geometry → Point.
+    Centroid,
+}
+
+/// Top-K hint absorbed by `FusedMatchWithAggregate` from a downstream
+/// `ORDER BY <count_alias> {DESC|ASC} LIMIT k` pipeline. The executor uses
+/// this to skip projection-expression evaluation for non-winners.
+#[derive(Debug, Clone)]
+pub struct AggregateTopK {
+    /// LIMIT k.
+    pub limit: usize,
+    /// `true` for DESC (keep k largest counts), `false` for ASC (smallest).
+    pub descending: bool,
+}
+
+// ============================================================================
+// MATCH Clause
+// ============================================================================
+
+/// MATCH clause reuses the existing Pattern from pattern_matching.rs
+#[derive(Debug, Clone)]
+pub struct MatchClause {
+    pub patterns: Vec<Pattern>,
+    pub path_assignments: Vec<PathAssignment>,
+    /// Planner-set limit for early termination (pushed down from LIMIT clause)
+    pub limit_hint: Option<usize>,
+    /// Planner-set hint: when RETURN DISTINCT only references a single node variable,
+    /// pre-deduplicate pattern matches by that variable's NodeIndex to avoid creating
+    /// duplicate ResultRows that would be removed later.
+    pub distinct_node_hint: Option<String>,
+}
+
+/// Path variable assignment: `p = shortestPath(pattern)`
+#[derive(Debug, Clone)]
+pub struct PathAssignment {
+    pub variable: String,
+    pub pattern_index: usize,
+    pub is_shortest_path: bool,
+    /// `allShortestPaths(...)`: enumerate every minimal-length path, not
+    /// just one. Only meaningful when `is_shortest_path` is also true.
+    pub all_shortest: bool,
+}
+
+// ============================================================================
+// WHERE Clause
+// ============================================================================
+
+/// WHERE clause with a predicate expression tree
+#[derive(Debug, Clone)]
+pub struct WhereClause {
+    pub predicate: Predicate,
+}
+
+/// Predicate expression tree supporting AND/OR/NOT and comparisons
+#[derive(Debug, Clone)]
+pub enum Predicate {
+    Comparison {
+        left: Expression,
+        operator: ComparisonOp,
+        right: Expression,
+    },
+    And(Box<Predicate>, Box<Predicate>),
+    Or(Box<Predicate>, Box<Predicate>),
+    Xor(Box<Predicate>, Box<Predicate>),
+    Not(Box<Predicate>),
+    IsNull(Expression),
+    IsNotNull(Expression),
+    In {
+        expr: Expression,
+        list: Vec<Expression>,
+    },
+    /// Optimized IN with pre-evaluated literal values (produced by constant folding).
+    /// Uses HashSet for O(1) membership testing instead of per-row linear scan.
+    InLiteralSet {
+        expr: Expression,
+        values: std::collections::HashSet<Value>,
+    },
+    StartsWith {
+        expr: Expression,
+        pattern: Expression,
+    },
+    EndsWith {
+        expr: Expression,
+        pattern: Expression,
+    },
+    Contains {
+        expr: Expression,
+        pattern: Expression,
+    },
+    Exists {
+        patterns: Vec<Pattern>,
+        /// Clause-group id per pattern (same length as `patterns`).
+        /// Comma-separated patterns share a group; each `MATCH` keyword in
+        /// the multi-clause subquery form (`EXISTS { MATCH ... MATCH ... }`)
+        /// starts a new one. Relationship uniqueness (the openCypher trail
+        /// rule) applies WITHIN a group, never across groups — exactly as
+        /// it applies within one MATCH clause but not across clauses.
+        pattern_groups: Vec<usize>,
+        where_clause: Option<Box<Predicate>>,
+    },
+    /// IN with a general expression (variable, parameter, function call) as the list.
+    /// Unlike `In` which takes a literal list of expressions, this evaluates the
+    /// list_expr at runtime and checks membership.
+    InExpression {
+        expr: Expression,
+        list_expr: Expression,
+    },
+    /// `WHERE n:Label` — true when the variable's node type matches.
+    /// Parsed as a boolean predicate alongside MATCH-level label filtering.
+    LabelCheck {
+        variable: String,
+        label: String,
+    },
+}
+
+/// Comparison operators
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ComparisonOp {
+    Equals,        // =
+    NotEquals,     // <>
+    LessThan,      // <
+    LessThanEq,    // <=
+    GreaterThan,   // >
+    GreaterThanEq, // >=
+    RegexMatch,    // =~
+}
+
+// ============================================================================
+// Expressions
+// ============================================================================
+
+/// Expressions used in WHERE, RETURN, ORDER BY, WITH
+#[derive(Debug, Clone)]
+pub enum Expression {
+    /// Property access: n.name, r.weight
+    PropertyAccess {
+        variable: String,
+        property: String,
+    },
+    /// A variable reference: n, r
+    Variable(String),
+    /// Literal value
+    Literal(Value),
+    /// Function call: count(n), sum(n.age), collect(n.name)
+    FunctionCall {
+        name: String,
+        args: Vec<Expression>,
+        distinct: bool,
+    },
+    /// Arithmetic operations
+    Add(Box<Expression>, Box<Expression>),
+    Subtract(Box<Expression>, Box<Expression>),
+    Multiply(Box<Expression>, Box<Expression>),
+    Divide(Box<Expression>, Box<Expression>),
+    Modulo(Box<Expression>, Box<Expression>),
+    /// String concatenation: expr || expr
+    Concat(Box<Expression>, Box<Expression>),
+    /// Unary negation: -n.value
+    Negate(Box<Expression>),
+    /// Star (*) for count(*)
+    Star,
+    /// List literal [1, 2, 3]
+    ListLiteral(Vec<Expression>),
+    /// CASE expression
+    /// Generic form: CASE WHEN pred THEN result ... ELSE default END
+    /// Simple form:  CASE expr WHEN val THEN result ... ELSE default END
+    Case {
+        operand: Option<Box<Expression>>,
+        when_clauses: Vec<(CaseCondition, Expression)>,
+        else_expr: Option<Box<Expression>>,
+    },
+    /// Parameter reference: $param_name
+    Parameter(String),
+    /// List comprehension: [x IN list WHERE predicate | map_expr]
+    ListComprehension {
+        variable: String,
+        list_expr: Box<Expression>,
+        filter: Option<Box<Predicate>>,
+        map_expr: Option<Box<Expression>>,
+    },
+    /// Index access: expr[index]
+    IndexAccess {
+        expr: Box<Expression>,
+        index: Box<Expression>,
+    },
+    /// List slice: expr[start..end]
+    ListSlice {
+        expr: Box<Expression>,
+        start: Option<Box<Expression>>,
+        end: Option<Box<Expression>>,
+    },
+    /// Map projection: n {.prop1, .prop2, alias: expr}
+    MapProjection {
+        variable: String,
+        items: Vec<MapProjectionItem>,
+    },
+    /// IS NULL expression: expr IS NULL → bool
+    IsNull(Box<Expression>),
+    /// IS NOT NULL expression: expr IS NOT NULL → bool
+    IsNotNull(Box<Expression>),
+    /// Map literal: {key: expr, key2: expr, ...}
+    /// Evaluates to a JSON-like map object.
+    MapLiteral(Vec<(String, Expression)>),
+    /// List quantifier: any(x IN list WHERE pred), all(...), none(...), single(...)
+    /// Evaluates to a boolean Value.
+    QuantifiedList {
+        quantifier: ListQuantifier,
+        variable: String,
+        list_expr: Box<Expression>,
+        filter: Box<Predicate>,
+    },
+    /// List fold: `reduce(acc = init, x IN list | body)`. Evaluates body
+    /// once per element with `acc` and `x` bound; returns the final
+    /// accumulator value.
+    Reduce {
+        accumulator: String,
+        init: Box<Expression>,
+        variable: String,
+        list_expr: Box<Expression>,
+        body: Box<Expression>,
+    },
+    /// A predicate used in expression position (e.g. `RETURN n.name STARTS WITH 'A'`).
+    /// Evaluates to Boolean(true/false) or Null for three-valued logic.
+    PredicateExpr(Box<Predicate>),
+    /// Property access on an arbitrary expression: `date().year`, `func().prop`
+    ExprPropertyAccess {
+        expr: Box<Expression>,
+        property: String,
+    },
+    /// Window function: func() OVER (PARTITION BY ... ORDER BY ...)
+    WindowFunction {
+        name: String,
+        partition_by: Vec<Expression>,
+        order_by: Vec<OrderItem>,
+    },
+    /// Cypher subquery expression: `count { <pattern(s)> [WHERE <pred>] }`.
+    /// Evaluates to the number of JOIN rows produced by the pattern(s),
+    /// scoped to the current row's outer bindings. The parser routes
+    /// `count { ... }` here (vs the `count(...)` aggregate-function form).
+    /// `EXISTS { ... }` stays on the separate predicate path at
+    /// `Predicate::Exists`.
+    CountSubquery {
+        patterns: Vec<crate::graph::core::pattern_matching::Pattern>,
+        /// Clause-group id per pattern (same length as `patterns`) —
+        /// identical semantics to [`Predicate::Exists::pattern_groups`]:
+        /// comma-separated patterns share a group and join under the
+        /// openCypher trail rule (no relationship reuse within a group);
+        /// each `MATCH` keyword in `COUNT { MATCH ... MATCH ... }` starts
+        /// a new group, and edges may repeat across groups exactly as
+        /// across top-level MATCH clauses.
+        pattern_groups: Vec<usize>,
+        where_clause: Option<Box<Predicate>>,
+    },
+}
+
+/// Quantifier type for list predicate functions
+#[derive(Debug, Clone)]
+pub enum ListQuantifier {
+    Any,
+    All,
+    None,
+    Single,
+}
+
+/// A single item in a map projection.
+#[derive(Debug, Clone)]
+pub enum MapProjectionItem {
+    /// Shorthand property: .prop — projects node.prop as "prop"
+    Property(String),
+    /// All properties: .* — projects all node properties
+    AllProperties,
+    /// Computed/aliased: key: expr
+    Alias { key: String, expr: Expression },
+}
+
+/// Condition in a CASE WHEN clause
+#[derive(Debug, Clone)]
+pub enum CaseCondition {
+    /// Generic form: CASE WHEN predicate THEN ...
+    Predicate(Predicate),
+    /// Simple form: CASE expr WHEN value THEN ...
+    Expression(Expression),
+}
+
+// ============================================================================
+// RETURN Clause
+// ============================================================================
+
+/// RETURN clause: list of expressions with optional aliases
+#[derive(Debug, Clone)]
+pub struct ReturnClause {
+    pub items: Vec<ReturnItem>,
+    pub distinct: bool,
+    pub having: Option<Predicate>,
+    /// Planner-set: when `true`, the executor skips per-row evaluation of
+    /// the RETURN items and instead carries `node_bindings` forward into a
+    /// lazy `ResultView` that materialises each cell on Python access.
+    /// Only set when every item is `Variable` or `PropertyAccess`, no
+    /// DISTINCT/HAVING, and no downstream operator consumes row values.
+    pub lazy_eligible: bool,
+    /// Planner-set: when grouping aggregation is followed by a literal
+    /// `LIMIT N` *without* an intervening `ORDER BY`, the aggregator can
+    /// stop creating new groups once `N` distinct keys have been seen
+    /// (rows for already-collected keys still feed their aggregates so
+    /// `collect()` etc. complete correctly). Cuts the materialised
+    /// hub-anchored OPTIONAL+aggregate+LIMIT shape from O(fanout) to
+    /// O(N + duplicates of first N keys). Set by the
+    /// `push_limit_into_aggregate` planner pass.
+    pub group_limit_hint: Option<usize>,
+}
+
+/// A single item in RETURN: expression AS alias
+#[derive(Debug, Clone)]
+pub struct ReturnItem {
+    pub expression: Expression,
+    pub alias: Option<String>,
+}
+
+// ============================================================================
+// WITH Clause
+// ============================================================================
+
+/// WITH clause: same structure as RETURN, acts as intermediate projection
+#[derive(Debug, Clone)]
+pub struct WithClause {
+    pub items: Vec<ReturnItem>,
+    pub distinct: bool,
+    pub where_clause: Option<WhereClause>,
+    /// Mirrors `ReturnClause::group_limit_hint`. Same trigger and same
+    /// semantics: the aggregator stops creating new groups after `N`
+    /// distinct keys when `WITH ... LIMIT N` (no `ORDER BY`) is the
+    /// pipeline shape. Forwarded to the synthetic `ReturnClause` that
+    /// `execute_with` builds.
+    pub group_limit_hint: Option<usize>,
+}
+
+// ============================================================================
+// ORDER BY / SKIP / LIMIT
+// ============================================================================
+
+/// ORDER BY clause
+#[derive(Debug, Clone)]
+pub struct OrderByClause {
+    pub items: Vec<OrderItem>,
+}
+
+/// NULLS placement modifier for an ORDER BY item.
+/// 0.9.0 §2: explicit `NULLS FIRST` / `NULLS LAST` in the source.
+/// Default mirrors Neo4j 5+ — NULLS LAST for ASC, NULLS FIRST for DESC.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NullsPlacement {
+    First,
+    Last,
+}
+
+/// Single ORDER BY item: expression + direction.
+/// `nulls` is `None` when the source omitted `NULLS FIRST/LAST`; the
+/// executor falls back to the `ascending`-derived default.
+#[derive(Debug, Clone)]
+pub struct OrderItem {
+    pub expression: Expression,
+    pub ascending: bool,
+    pub nulls: Option<NullsPlacement>,
+}
+
+impl OrderItem {
+    /// Effective NULLS placement: explicit modifier wins, otherwise
+    /// ASC → Last, DESC → First (Neo4j 5+ default).
+    #[inline]
+    pub fn effective_nulls(&self) -> NullsPlacement {
+        self.nulls.unwrap_or(if self.ascending {
+            NullsPlacement::Last
+        } else {
+            NullsPlacement::First
+        })
+    }
+}
+
+/// SKIP clause
+#[derive(Debug, Clone)]
+pub struct SkipClause {
+    pub count: Expression,
+}
+
+/// LIMIT clause
+#[derive(Debug, Clone)]
+pub struct LimitClause {
+    pub count: Expression,
+}
+
+// ============================================================================
+// UNWIND / UNION (Phase 3)
+// ============================================================================
+
+/// UNWIND clause: expand a list into rows
+#[derive(Debug, Clone)]
+pub struct UnwindClause {
+    pub expression: Expression,
+    pub alias: String,
+}
+
+/// `LOAD CSV [WITH HEADERS] FROM <source> AS <variable> [FIELDTERMINATOR <sep>]`
+///
+/// A row **source**: unlike every other clause it originates rows from outside
+/// the graph rather than transforming an upstream row set, so it is only legal
+/// as the leading clause (enforced in
+/// [`super::parser::CypherParser::parse_clause_sequence`]).
+///
+/// `source` stays an [`Expression`] rather than a resolved path because the
+/// parsed AST is plan-cached and replayed across executions: a literal path is
+/// the common form, but `FROM $path` must re-evaluate per call, and the file is
+/// only ever opened at execute time.
+#[derive(Debug, Clone)]
+pub struct LoadCsvClause {
+    /// `WITH HEADERS` present — bind each row as a map keyed by the header
+    /// row. Without it, rows bind as a zero-indexed list.
+    pub with_headers: bool,
+    /// The CSV location. Evaluated per execution; `file://` URLs and bare
+    /// filesystem paths resolve, other URL schemes are rejected.
+    pub source: Expression,
+    /// The variable each row binds to (`AS row`).
+    pub variable: String,
+    /// `FIELDTERMINATOR ';'` — a single-byte delimiter. `None` means comma.
+    pub field_terminator: Option<u8>,
+}
+
+/// Set-operator kind: UNION, INTERSECT, EXCEPT.
+///
+/// All three combine two result sets but differ in row-set semantics:
+/// - `Union`: rows from either side; deduped unless `all` is true.
+/// - `Intersect`: rows present in both sides; always deduped.
+/// - `Except`: rows in left but not right; always deduped.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SetOpKind {
+    Union,
+    Intersect,
+    Except,
+}
+
+/// UNION / INTERSECT / EXCEPT clause: combine result sets. Named
+/// `UnionClause` for backwards compatibility — the `kind` field selects
+/// the actual set operator.
+#[derive(Debug, Clone)]
+pub struct UnionClause {
+    pub all: bool,
+    pub query: Box<CypherQuery>,
+    pub kind: SetOpKind,
+}
+
+// ============================================================================
+// Mutation Clauses
+// ============================================================================
+
+/// CREATE clause with expression-aware patterns
+#[derive(Debug, Clone)]
+pub struct CreateClause {
+    pub patterns: Vec<CreatePattern>,
+}
+
+/// A single CREATE path pattern: node (-edge-> node)*
+#[derive(Debug, Clone)]
+pub struct CreatePattern {
+    pub elements: Vec<CreateElement>,
+}
+
+/// Either a node or edge in a CREATE pattern
+#[derive(Debug, Clone)]
+pub enum CreateElement {
+    Node(CreateNodePattern),
+    Edge(CreateEdgePattern),
+}
+
+/// Node pattern in CREATE: (var:Label {key: expr, ...})
+#[derive(Debug, Clone)]
+pub struct CreateNodePattern {
+    pub variable: Option<String>,
+    pub label: Option<String>,
+    /// Additional labels from Cypher multi-label CREATE syntax like
+    /// `(n:Person:Director)`. The first label lives in `label`
+    /// (becomes the primary type); these are added as secondaries
+    /// via `DirGraph::add_node_label`.
+    pub extra_labels: Vec<String>,
+    pub properties: Vec<(String, Expression)>,
+}
+
+/// Edge pattern in CREATE: -[var:TYPE {key: expr, ...}]->
+#[derive(Debug, Clone)]
+pub struct CreateEdgePattern {
+    pub variable: Option<String>,
+    pub connection_type: String,
+    pub direction: CreateEdgeDirection,
+    pub properties: Vec<(String, Expression)>,
+}
+
+/// Edge direction in CREATE
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CreateEdgeDirection {
+    Outgoing, // ->
+    Incoming, // <-
+}
+
+/// SET clause
+#[derive(Debug, Clone)]
+pub struct SetClause {
+    pub items: Vec<SetItem>,
+}
+
+/// Single SET item
+#[derive(Debug, Clone)]
+pub enum SetItem {
+    Property {
+        variable: String,
+        property: String,
+        expression: Expression,
+    },
+    Label {
+        variable: String,
+        label: String,
+    },
+    /// `SET n += map` merges keys; `SET n = map` replaces mutable keys.
+    Map {
+        variable: String,
+        expression: Expression,
+        replace: bool,
+    },
+}
+
+/// DELETE clause
+#[derive(Debug, Clone)]
+pub struct DeleteClause {
+    pub detach: bool,
+    pub expressions: Vec<Expression>,
+}
+
+/// REMOVE clause — removes properties or labels from nodes
+#[derive(Debug, Clone)]
+pub struct RemoveClause {
+    pub items: Vec<RemoveItem>,
+}
+
+/// Single REMOVE item
+#[derive(Debug, Clone)]
+pub enum RemoveItem {
+    Property { variable: String, property: String },
+    Label { variable: String, label: String },
+}
+
+/// MERGE clause — match-or-create with optional ON CREATE/ON MATCH SET
+#[derive(Debug, Clone)]
+pub struct MergeClause {
+    pub pattern: CreatePattern,
+    pub on_create: Option<Vec<SetItem>>,
+    pub on_match: Option<Vec<SetItem>>,
+}
+
+// ============================================================================
+// CALL Clause
+// ============================================================================
+
+/// CALL clause: invoke a graph algorithm procedure
+#[derive(Debug, Clone)]
+pub struct CallClause {
+    pub procedure_name: String,
+    pub parameters: Vec<(String, Expression)>,
+    pub yield_items: Vec<YieldItem>,
+}
+
+/// A single YIELD item: output_name [AS alias]
+#[derive(Debug, Clone)]
+pub struct YieldItem {
+    pub name: String,
+    pub alias: Option<String>,
+}
+
+// ============================================================================
+// Schema DDL (Neo4j 5 `CREATE INDEX` / `DROP INDEX` / `SHOW INDEXES`, and the
+// constraint counterparts)
+// ============================================================================
+
+/// A schema-definition statement.
+///
+/// A schema command is a *whole statement*, not a pipeline stage: the parser
+/// rejects it whenever another clause appears in the same query, so a
+/// `Clause::Schema` is always the sole element of `CypherQuery::clauses`. It
+/// rides inside `Clause` anyway so the existing parse → plan → execute
+/// pipeline (parse cache, plan cache, EXPLAIN, mutation routing) needs no
+/// parallel statement type.
+///
+/// Routing: `CreateIndex` / `DropIndex` / `Constraint` are mutations (schema
+/// is graph state) and run in `executor/write.rs`; `ShowIndexes` is a read and
+/// runs in `executor/mod.rs`. See `executor::write::clause_is_mutation`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum SchemaCommand {
+    CreateIndex(CreateIndex),
+    /// `CREATE <TYPE> INDEX …` for an index type KGLite has no equivalent of
+    /// (`TEXT`, `POINT`, `FULLTEXT`, `VECTOR`, `LOOKUP`). The remainder of the
+    /// statement is scanned to its end without structural validation: it is
+    /// rejected wholesale at execution, and those forms carry grammar the
+    /// supported ones don't (`ON EACH [...]`, `ON EACH labels(n)`, provider
+    /// `OPTIONS`) that would buy nothing to model.
+    UnsupportedIndexType {
+        index_type: DdlIndexType,
+        name: Option<String>,
+    },
+    DropIndex(DropIndex),
+    /// `SHOW INDEXES` — a read. Rows come from the same collector that backs
+    /// `CALL db.indexes()`.
+    ShowIndexes,
+    /// Constraint DDL. Parsed into a typed command so a ported Neo4j schema
+    /// script gets a specific unsupported-feature error at *execution* rather
+    /// than a syntax error. Sprint 4b replaces that error with enforcement —
+    /// the parser does not change.
+    Constraint(ConstraintCommand),
+}
+
+/// Index-type word in `CREATE <TYPE> INDEX` (Neo4j 5).
+///
+/// KGLite implements `Unspecified` and `Range`; the remaining words parse and
+/// are rejected at execution with a per-kind message (see
+/// `executor::schema_ddl`). Carrying them in the AST — rather than failing in
+/// the parser — is what makes a ported script report "feature unsupported"
+/// instead of "syntax error".
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DdlIndexType {
+    /// No type word. Neo4j 5 defaults this to RANGE; KGLite maps it to a hash
+    /// equality index (one property) or a composite index (two or more).
+    Unspecified,
+    Range,
+    Text,
+    Point,
+    Fulltext,
+    Vector,
+    Lookup,
+}
+
+impl DdlIndexType {
+    /// The Cypher keyword this variant was parsed from, for error messages.
+    /// `Unspecified` has no keyword and reports as `INDEX`.
+    pub fn keyword(self) -> &'static str {
+        match self {
+            DdlIndexType::Unspecified => "INDEX",
+            DdlIndexType::Range => "RANGE",
+            DdlIndexType::Text => "TEXT",
+            DdlIndexType::Point => "POINT",
+            DdlIndexType::Fulltext => "FULLTEXT",
+            DdlIndexType::Vector => "VECTOR",
+            DdlIndexType::Lookup => "LOOKUP",
+        }
+    }
+}
+
+/// The entity a DDL `FOR` clause targets.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DdlTarget {
+    /// `FOR (n:Label)` — `variable` is the pattern variable, used to validate
+    /// that the `ON (…)` property references bind to it.
+    Node {
+        variable: Option<String>,
+        label: String,
+    },
+    /// `FOR ()-[r:TYPE]-()` — relationship indexes/constraints. Parsed so the
+    /// executor can reject them by name; KGLite has no relationship-property
+    /// index.
+    Relationship {
+        variable: Option<String>,
+        rel_type: String,
+    },
+}
+
+impl DdlTarget {
+    /// Pattern variable bound by the `FOR` clause, when one was written.
+    pub fn variable(&self) -> Option<&str> {
+        match self {
+            DdlTarget::Node { variable, .. } | DdlTarget::Relationship { variable, .. } => {
+                variable.as_deref()
+            }
+        }
+    }
+}
+
+/// `CREATE [<type>] INDEX [<name>] [IF NOT EXISTS] FOR <target> ON (<props>)
+/// [OPTIONS { … }]`
+#[derive(Debug, Clone, PartialEq)]
+pub struct CreateIndex {
+    /// Name from `CREATE INDEX <name> FOR …`. Accepted for Neo4j-script
+    /// portability, but **not persisted**: KGLite derives its own canonical
+    /// index name (`Label.property`) and `SHOW INDEXES` / `DROP INDEX` speak
+    /// that name. Documented in CYPHER.md.
+    pub name: Option<String>,
+    pub index_type: DdlIndexType,
+    pub if_not_exists: bool,
+    pub target: DdlTarget,
+    /// Properties from `ON (n.p1, n.p2, …)`, in declaration order.
+    pub properties: Vec<String>,
+    /// True when the statement carried an `OPTIONS { … }` block. KGLite has no
+    /// index providers or per-index configuration, so the executor rejects it
+    /// rather than dropping it on the floor.
+    pub has_options: bool,
+}
+
+/// `DROP INDEX <selector> [IF EXISTS]`
+#[derive(Debug, Clone, PartialEq)]
+pub struct DropIndex {
+    pub selector: DropIndexSelector,
+    pub if_exists: bool,
+}
+
+/// How a `DROP INDEX` statement names its index.
+#[derive(Debug, Clone, PartialEq)]
+pub enum DropIndexSelector {
+    /// `DROP INDEX <name>` — the only Neo4j 5 form. Resolved against KGLite's
+    /// canonical index names.
+    Name(String),
+    /// `DROP INDEX FOR (n:Label) ON (n.prop, …)` — a KGLite extension. Names
+    /// the index by its descriptor so a script never has to know the
+    /// canonical-name spelling.
+    Descriptor {
+        target: DdlTarget,
+        properties: Vec<String>,
+    },
+}
+
+/// Constraint DDL. Sprint 4a parses these; the executor rejects them with a
+/// specific message. Sprint 4b routes them to enforcement.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ConstraintCommand {
+    Create(CreateConstraint),
+    Drop { name: String, if_exists: bool },
+    Show,
+}
+
+/// `CREATE CONSTRAINT [<name>] [IF NOT EXISTS] FOR <target>
+/// {REQUIRE|ASSERT} <requirement>`
+#[derive(Debug, Clone, PartialEq)]
+pub struct CreateConstraint {
+    pub name: Option<String>,
+    pub if_not_exists: bool,
+    pub target: DdlTarget,
+    /// Properties the requirement applies to, in declaration order.
+    pub properties: Vec<String>,
+    pub requirement: ConstraintRequirement,
+}
+
+/// The predicate half of `CREATE CONSTRAINT … REQUIRE <props> <requirement>`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ConstraintRequirement {
+    /// `IS UNIQUE`, `IS NODE UNIQUE`, `IS RELATIONSHIP UNIQUE`
+    Unique,
+    /// `IS NOT NULL`
+    NotNull,
+    /// `IS KEY`, `IS NODE KEY`, `IS RELATIONSHIP KEY`
+    Key,
+    /// `IS :: <TYPE>` / `IS TYPED <TYPE>` — the type word verbatim.
+    PropertyType(String),
+}
+
+impl ConstraintRequirement {
+    /// Canonical Cypher spelling, for error messages.
+    pub fn keyword(&self) -> &str {
+        match self {
+            ConstraintRequirement::Unique => "IS UNIQUE",
+            ConstraintRequirement::NotNull => "IS NOT NULL",
+            ConstraintRequirement::Key => "IS NODE KEY",
+            ConstraintRequirement::PropertyType(ty) => ty,
+        }
+    }
+}
+
+// ============================================================================
+// Expression classification helpers
+// ============================================================================
+
+/// Check if an expression contains an aggregate function call.
+/// Function names are normalized to lowercase at parse time, so direct
+/// comparison against lowercase literals is sufficient.
+pub fn is_aggregate_expression(expr: &Expression) -> bool {
+    match expr {
+        Expression::FunctionCall { name, args, .. } => {
+            if matches!(
+                name.as_str(),
+                "count"
+                    | "sum"
+                    | "avg"
+                    | "mean"
+                    | "average"
+                    | "min"
+                    | "max"
+                    | "collect"
+                    | "std"
+                    | "stdev"
+                    | "variance"
+                    | "var_samp"
+                    | "median"
+                    | "mode"
+                    | "percentile_cont"
+                    | "percentile_disc"
+            ) {
+                return true;
+            }
+            // Non-aggregate function wrapping aggregate args (e.g. size(collect(...)))
+            args.iter().any(is_aggregate_expression)
+        }
+        Expression::Add(l, r)
+        | Expression::Subtract(l, r)
+        | Expression::Multiply(l, r)
+        | Expression::Divide(l, r)
+        | Expression::Modulo(l, r)
+        | Expression::Concat(l, r) => is_aggregate_expression(l) || is_aggregate_expression(r),
+        Expression::Negate(inner) => is_aggregate_expression(inner),
+        Expression::Case {
+            when_clauses,
+            else_expr,
+            ..
+        } => {
+            when_clauses
+                .iter()
+                .any(|(_, result)| is_aggregate_expression(result))
+                || else_expr
+                    .as_ref()
+                    .is_some_and(|e| is_aggregate_expression(e))
+        }
+        Expression::ListComprehension {
+            list_expr,
+            map_expr,
+            ..
+        } => {
+            is_aggregate_expression(list_expr)
+                || map_expr
+                    .as_ref()
+                    .is_some_and(|e| is_aggregate_expression(e))
+        }
+        Expression::IndexAccess { expr, index } => {
+            is_aggregate_expression(expr) || is_aggregate_expression(index)
+        }
+        Expression::ListSlice { expr, start, end } => {
+            is_aggregate_expression(expr)
+                || start.as_ref().is_some_and(|s| is_aggregate_expression(s))
+                || end.as_ref().is_some_and(|e| is_aggregate_expression(e))
+        }
+        Expression::MapProjection { items, .. } => items.iter().any(|item| {
+            if let MapProjectionItem::Alias { expr, .. } = item {
+                is_aggregate_expression(expr)
+            } else {
+                false
+            }
+        }),
+        Expression::MapLiteral(entries) => entries
+            .iter()
+            .any(|(_, expr)| is_aggregate_expression(expr)),
+        Expression::PredicateExpr(pred) => match pred.as_ref() {
+            Predicate::Comparison { left, right, .. } => {
+                is_aggregate_expression(left) || is_aggregate_expression(right)
+            }
+            Predicate::StartsWith { expr, pattern }
+            | Predicate::EndsWith { expr, pattern }
+            | Predicate::Contains { expr, pattern } => {
+                is_aggregate_expression(expr) || is_aggregate_expression(pattern)
+            }
+            Predicate::In { expr, list } => {
+                is_aggregate_expression(expr) || list.iter().any(is_aggregate_expression)
+            }
+            Predicate::InExpression { expr, list_expr } => {
+                is_aggregate_expression(expr) || is_aggregate_expression(list_expr)
+            }
+            _ => false,
+        },
+        Expression::ExprPropertyAccess { expr, .. } => is_aggregate_expression(expr),
+        _ => false,
+    }
+}
+
+/// Check if an expression is a window function
+pub fn is_window_expression(expr: &Expression) -> bool {
+    matches!(expr, Expression::WindowFunction { .. })
+}

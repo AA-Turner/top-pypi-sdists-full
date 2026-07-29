@@ -26,7 +26,7 @@ from sentry_protos.billing.v1.common.v1 import line_item_details_pb2 as sentry__
 from sentry_protos.billing.v1.common.v1 import pricing_tier_pb2 as sentry__protos_dot_billing_dot_v1_dot_common_dot_v1_dot_pricing__tier__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n>sentry_protos/billing/v1/services/rate_card/v1/rate_card.proto\x12.sentry_protos.billing.v1.services.rate_card.v1\x1a:sentry_protos/billing/v1/common/v1/line_item_details.proto\x1a\x35sentry_protos/billing/v1/common/v1/pricing_tier.proto\"\x8f\x03\n\x10RateCardLineItem\x12M\n\x10line_item_detail\x18\x01 \x01(\x0b\x32\x33.sentry_protos.billing.v1.common.v1.LineItemDetails\x12\x16\n\x0cis_unlimited\x18\x02 \x01(\x08H\x00\x12\x1c\n\x12num_reserved_units\x18\x03 \x01(\x04H\x00\x12H\n\tpayg_rate\x18\x04 \x01(\x0b\x32\x35.sentry_protos.billing.v1.common.v1.TieredPricingRate\x12L\n\rreserved_rate\x18\x05 \x01(\x0b\x32\x35.sentry_protos.billing.v1.common.v1.TieredPricingRate\x12L\n\runcapped_rate\x18\x06 \x01(\x0b\x32\x35.sentry_protos.billing.v1.common.v1.TieredPricingRateB\x10\n\x0ereserved_units\"\x9b\x02\n\x16SharedRateCardLineItem\x12^\n\x14rate_card_line_items\x18\x01 \x03(\x0b\x32@.sentry_protos.billing.v1.services.rate_card.v1.RateCardLineItem\x12\x16\n\x0cis_unlimited\x18\x02 \x01(\x08H\x00\x12\x1c\n\x12num_reserved_cents\x18\x03 \x01(\x04H\x00\x12T\n\x17shared_line_item_detail\x18\x04 \x01(\x0b\x32\x33.sentry_protos.billing.v1.common.v1.LineItemDetailsB\x15\n\x13reserved_pool_cents\"\xc3\x01\n\x08RateCard\x12T\n\nline_items\x18\x01 \x03(\x0b\x32@.sentry_protos.billing.v1.services.rate_card.v1.RateCardLineItem\x12\x61\n\x11shared_line_items\x18\x02 \x03(\x0b\x32\x46.sentry_protos.billing.v1.services.rate_card.v1.SharedRateCardLineItemb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n>sentry_protos/billing/v1/services/rate_card/v1/rate_card.proto\x12.sentry_protos.billing.v1.services.rate_card.v1\x1a:sentry_protos/billing/v1/common/v1/line_item_details.proto\x1a\x35sentry_protos/billing/v1/common/v1/pricing_tier.proto\"\xa3\x03\n\x10RateCardLineItem\x12M\n\x10line_item_detail\x18\x01 \x01(\x0b\x32\x33.sentry_protos.billing.v1.common.v1.LineItemDetails\x12\x16\n\x0cis_unlimited\x18\x02 \x01(\x08H\x00\x12\x1c\n\x12num_reserved_units\x18\x03 \x01(\x04H\x00\x12H\n\tpayg_rate\x18\x04 \x01(\x0b\x32\x35.sentry_protos.billing.v1.common.v1.TieredPricingRate\x12L\n\rreserved_rate\x18\x05 \x01(\x0b\x32\x35.sentry_protos.billing.v1.common.v1.TieredPricingRate\x12L\n\runcapped_rate\x18\x06 \x01(\x0b\x32\x35.sentry_protos.billing.v1.common.v1.TieredPricingRate\x12\x12\n\nis_enabled\x18\x07 \x01(\x08\x42\x10\n\x0ereserved_units\"\xaf\x02\n\x16SharedRateCardLineItem\x12^\n\x14rate_card_line_items\x18\x01 \x03(\x0b\x32@.sentry_protos.billing.v1.services.rate_card.v1.RateCardLineItem\x12\x16\n\x0cis_unlimited\x18\x02 \x01(\x08H\x00\x12\x1c\n\x12num_reserved_cents\x18\x03 \x01(\x04H\x00\x12T\n\x17shared_line_item_detail\x18\x04 \x01(\x0b\x32\x33.sentry_protos.billing.v1.common.v1.LineItemDetails\x12\x12\n\nis_enabled\x18\x05 \x01(\x08\x42\x15\n\x13reserved_pool_cents\"\xc3\x01\n\x08RateCard\x12T\n\nline_items\x18\x01 \x03(\x0b\x32@.sentry_protos.billing.v1.services.rate_card.v1.RateCardLineItem\x12\x61\n\x11shared_line_items\x18\x02 \x03(\x0b\x32\x46.sentry_protos.billing.v1.services.rate_card.v1.SharedRateCardLineItemb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -34,9 +34,9 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.se
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_RATECARDLINEITEM']._serialized_start=230
-  _globals['_RATECARDLINEITEM']._serialized_end=629
-  _globals['_SHAREDRATECARDLINEITEM']._serialized_start=632
-  _globals['_SHAREDRATECARDLINEITEM']._serialized_end=915
-  _globals['_RATECARD']._serialized_start=918
-  _globals['_RATECARD']._serialized_end=1113
+  _globals['_RATECARDLINEITEM']._serialized_end=649
+  _globals['_SHAREDRATECARDLINEITEM']._serialized_start=652
+  _globals['_SHAREDRATECARDLINEITEM']._serialized_end=955
+  _globals['_RATECARD']._serialized_start=958
+  _globals['_RATECARD']._serialized_end=1153
 # @@protoc_insertion_point(module_scope)

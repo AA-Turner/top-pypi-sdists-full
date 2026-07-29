@@ -33,7 +33,7 @@
 
 PyDoc_STRVAR(doc_wxDataViewItem_GetID, "GetID() -> Any\n"
 "\n"
-"Returns the ID.");
+"Returns the ID as an opaque void pointer.");
 
 extern "C" {static PyObject *meth_wxDataViewItem_GetID(PyObject *, PyObject *);}
 static PyObject *meth_wxDataViewItem_GetID(PyObject *sipSelf, PyObject *sipArgs)
@@ -68,7 +68,7 @@ static PyObject *meth_wxDataViewItem_GetID(PyObject *sipSelf, PyObject *sipArgs)
 
 PyDoc_STRVAR(doc_wxDataViewItem_IsOk, "IsOk() -> bool\n"
 "\n"
-"Returns true if the ID is not NULL.");
+"Returns true if the ID is not nullptr.");
 
 extern "C" {static PyObject *meth_wxDataViewItem_IsOk(PyObject *, PyObject *);}
 static PyObject *meth_wxDataViewItem_IsOk(PyObject *sipSelf, PyObject *sipArgs)
@@ -96,6 +96,40 @@ static PyObject *meth_wxDataViewItem_IsOk(PyObject *sipSelf, PyObject *sipArgs)
     }
 
     sipNoMethod(sipParseErr, sipName_DataViewItem, sipName_IsOk, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxDataViewItem_Unset, "Unset() -> None\n"
+"\n"
+"Sets the ID to nullptr and thus makes this item invalid.");
+
+extern "C" {static PyObject *meth_wxDataViewItem_Unset(PyObject *, PyObject *);}
+static PyObject *meth_wxDataViewItem_Unset(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxDataViewItem *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxDataViewItem, &sipCpp))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->Unset();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_DataViewItem, sipName_Unset, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -407,6 +441,7 @@ static sipPySlotDef slots_wxDataViewItem[] = {
 static PyMethodDef methods_wxDataViewItem[] = {
     {sipName_GetID, meth_wxDataViewItem_GetID, METH_VARARGS, doc_wxDataViewItem_GetID},
     {sipName_IsOk, meth_wxDataViewItem_IsOk, METH_VARARGS, doc_wxDataViewItem_IsOk},
+    {sipName_Unset, meth_wxDataViewItem_Unset, METH_VARARGS, doc_wxDataViewItem_Unset},
     {sipName___nonzero__, meth_wxDataViewItem___nonzero__, METH_VARARGS, doc_wxDataViewItem___nonzero__}
 };
 
@@ -435,7 +470,7 @@ sipClassTypeDef sipTypeDef__dataview_wxDataViewItem = {
     {
         sipNameNr_DataViewItem,
         {0, 0, 1},
-        3, methods_wxDataViewItem,
+        4, methods_wxDataViewItem,
         0, SIP_NULLPTR,
         1, variables_wxDataViewItem,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

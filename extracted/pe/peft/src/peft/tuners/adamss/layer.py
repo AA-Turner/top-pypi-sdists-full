@@ -24,6 +24,7 @@ from torch import nn
 from peft.tuners._buffer_dict import BufferDict
 from peft.tuners.tuners_utils import BaseTunerLayer, check_adapters_to_merge
 
+from .config import AdamssConfig
 from .utils import clustering_Z, get_trainable_subspaces, seg_locations, slice_pca
 
 
@@ -47,6 +48,7 @@ class AdamssLayer(BaseTunerLayer):
         "exp_avg_ipt_B",
         "exp_avg_unc_A",
         "exp_avg_unc_B",
+        "adamss_newB",
     )
 
     def __init__(self, base_layer: nn.Module, **kwargs) -> None:
@@ -135,13 +137,7 @@ class AdamssLayer(BaseTunerLayer):
         self,
         adapter_name: str,
         r: int,
-        num_subspaces: int,
-        subspace_rank: int,
-        init_weights: str,
-        use_asa: bool = False,
-        inference_mode: bool = False,
-        use_dynamic_rank: bool = False,
-        svd_threshold: float = 0.1,
+        config: AdamssConfig,
         **kwargs,
     ) -> None:
         """
@@ -150,6 +146,13 @@ class AdamssLayer(BaseTunerLayer):
         This method initializes the Adamss decomposition for the weight matrix using SVD, clustering, and QR
         initialization.
         """
+        num_subspaces = config.num_subspaces
+        subspace_rank = config.subspace_rank
+        init_weights = config.init_weights
+        use_asa = config.use_asa
+        inference_mode = config.inference_mode
+        use_dynamic_rank = config.use_dynamic_rank
+        svd_threshold = config.svd_threshold
 
         # Get the base weight info
         weight = self.get_base_layer().weight
@@ -173,7 +176,7 @@ class AdamssLayer(BaseTunerLayer):
 
         # Perform SVD decomposition with diagnostics in case of failure
         try:
-            res = slice_pca(weight_tensor, r, device, torch.float32)
+            res = slice_pca(weight_tensor, r, device, torch.float32, random_seed=config.random_seed)
         except Exception as e:
             raise RuntimeError(
                 f"slice_pca raised an exception for layer {adapter_name} (shape={tuple(weight_tensor.shape)}, dtype={weight_tensor.dtype}, device={device}): {e}"
@@ -318,11 +321,8 @@ class Linear(nn.Module, AdamssLayer):
         self,
         base_layer: nn.Module,
         adapter_name: str,
-        r: int = 500,
-        num_subspaces: int = 5,
-        subspace_rank: int = 1,
-        init_weights: str = "orthogonal",
-        use_asa: bool = False,
+        r: int,
+        config: AdamssConfig,
         **kwargs,
     ) -> None:
         super().__init__()
@@ -333,15 +333,10 @@ class Linear(nn.Module, AdamssLayer):
         self.out_features = base_layer.out_features
 
         # Initialize the adapter
-        inference_mode = kwargs.pop("inference_mode", False)
         self.update_layer(
             adapter_name,
             r,
-            num_subspaces,
-            subspace_rank,
-            init_weights,
-            use_asa,
-            inference_mode=inference_mode,
+            config=config,
             **kwargs,
         )
         self._active_adapter = adapter_name

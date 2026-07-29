@@ -1,7 +1,7 @@
 
 [project]
 name = "fathom-python"
-version = "0.0.42"
+version = "0.0.43"
 description = "Fathom's official Python SDK."
 authors = [{ name = "Speakeasy" },]
 readme = "README.md"

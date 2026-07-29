@@ -42,7 +42,11 @@ std::string ToStdString(const py::str& str);
   #pragma comment(lib, "shlwapi.lib")
 #endif
 
+#if defined(RHINOCORE_BINDINGS)
+#include "../rhinocore_bindings/stdafx.h"
+#else
 #include "../lib/opennurbs/opennurbs.h"
+#endif
 
 #if defined(ON_WASM_COMPILE)
 #include <emscripten/bind.h>
@@ -79,7 +83,12 @@ void SetTuple(BND_TUPLE& tuple, int index, const T& value)
   tuple[index] = value;
 #endif
 #else
-  tuple.set(index, value);
+  // embind (emscripten >= ~4.0) forbids implicitly marshaling registered-class
+  // raw pointers into a val. Route through the policy-aware val constructor so
+  // pointer values (incl. polymorphic wrappers) are wrapped exactly as a
+  // function return with allow_raw_pointers() would be. The policy is harmless
+  // for non-pointer values.
+  tuple.set(index, emscripten::val(value, emscripten::allow_raw_pointers()));
 #endif
 }
 
@@ -125,7 +134,7 @@ void Insert(BND_LIST& list, int index, const T& value)
 #if defined(ON_PYTHON_COMPILE)
   list.insert(index, value);
 #else
-  list.set(index, value);
+  list.set(index, emscripten::val(value, emscripten::allow_raw_pointers()));
 #endif
 }
 
@@ -136,7 +145,7 @@ void Append(BND_LIST& list, const T& value)
   list.append(value);
 #else
   int count = list["length"].as<int>();
-  list.set(count++, value);
+  list.set(count++, emscripten::val(value, emscripten::allow_raw_pointers()));
 #endif
 }
 
@@ -162,9 +171,7 @@ BND_DateTime CreateDateTime(struct tm t);
 #include "bnd_cylinder.h"
 #include "bnd_ellipse.h"
 #include "bnd_font.h"
-#include "bnd_object.h"
 #include "bnd_model_component.h"
-#include "bnd_geometry.h"
 #include "bnd_light.h"
 #include "bnd_material.h"
 #include "bnd_embedded_file.h"
@@ -216,3 +223,7 @@ BND_DateTime CreateDateTime(struct tm t);
 #include "bnd_draco.h"
 #include "bnd_rtree.h"
 #include "bnd_linetype.h"
+
+#if defined(RHINOCORE_BINDINGS)
+#include "bnd_rhinosdkdoc.h"
+#endif

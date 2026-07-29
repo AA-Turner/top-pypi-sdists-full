@@ -369,6 +369,7 @@ async def test_answer_omits_scope_when_not_provided():
     await service.answer("AI news")
 
     assert not captured["req"].HasField("scope")
+    assert not captured["req"].HasField("model")
 
 
 async def test_answer_forwards_scope(monkeypatch):
@@ -388,6 +389,44 @@ async def test_answer_forwards_scope(monkeypatch):
         await client.close()
 
     assert captured["scope"] == "news"
+
+
+async def test_answer_builds_request_with_model():
+    """A non-empty model (answer tier) is forwarded verbatim onto the AnswerRequest."""
+    channel = MagicMock()
+    service = AsyncAnswerService(channel, api_key="test-key")
+
+    captured = {}
+
+    async def fake_answer(req, metadata=None, timeout=None):
+        captured["req"] = req
+        return AnswerResponse(answer="An answer.", citations=[])
+
+    service._stub.Answer = fake_answer
+
+    await service.answer("who is the CEO?", model="seltz-pro")
+
+    assert captured["req"].model == "seltz-pro"
+    assert captured["req"].HasField("model")
+
+
+async def test_answer_forwards_model(monkeypatch):
+    """model is forwarded from AsyncSeltz.answer() to AsyncAnswerService.answer()."""
+    captured = {}
+
+    async def fake_answer(*args, **kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(
+        "seltz.services.answer_service.AsyncAnswerService.answer", fake_answer
+    )
+    client = AsyncSeltz(api_key="test-key")
+    try:
+        await client.answer("who is the CEO?", model="seltz-pro")
+    finally:
+        await client.close()
+
+    assert captured["model"] == "seltz-pro"
 
 
 async def test_answer_stream_builds_request_and_yields_events():
@@ -490,10 +529,33 @@ async def test_answer_stream_omits_scope_when_not_provided():
     [event async for event in service.answer_stream("AI news")]
 
     assert not captured["req"].HasField("scope")
+    assert not captured["req"].HasField("model")
+
+
+async def test_answer_stream_builds_request_with_model():
+    """A non-empty model (answer tier) is forwarded verbatim onto the AnswerStreamRequest."""
+    channel = MagicMock()
+    service = AsyncAnswerService(channel, api_key="test-key")
+
+    captured = {}
+
+    def fake_answer_stream(req, metadata=None):
+        captured["req"] = req
+        return _aiter([])
+
+    service._stub.AnswerStream = fake_answer_stream
+
+    [
+        event
+        async for event in service.answer_stream("who is the CEO?", model="seltz-pro")
+    ]
+
+    assert captured["req"].model == "seltz-pro"
+    assert captured["req"].HasField("model")
 
 
 async def test_answer_stream_forwards_params(monkeypatch):
-    """query, include_content, and scope are forwarded from
+    """query, include_content, scope, and model are forwarded from
     AsyncSeltz.answer_stream() to AsyncAnswerService.answer_stream()."""
     captured = {}
 
@@ -510,7 +572,7 @@ async def test_answer_stream_forwards_params(monkeypatch):
         [
             event
             async for event in client.answer_stream(
-                "AI news", include_content=True, scope="news"
+                "AI news", include_content=True, scope="news", model="seltz-pro"
             )
         ]
     finally:
@@ -519,6 +581,7 @@ async def test_answer_stream_forwards_params(monkeypatch):
     assert captured["query"] == "AI news"
     assert captured["include_content"] is True
     assert captured["scope"] == "news"
+    assert captured["model"] == "seltz-pro"
 
 
 # ---------------------------------------------------------------------------

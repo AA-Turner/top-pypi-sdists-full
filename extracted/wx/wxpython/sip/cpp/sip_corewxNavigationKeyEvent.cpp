@@ -66,9 +66,9 @@ sipwxNavigationKeyEvent::~sipwxNavigationKeyEvent()
     if (!sipMeth)
         return ::wxNavigationKeyEvent::Clone();
 
-    extern ::wxEvent* sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEvent* sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxEventCategory sipwxNavigationKeyEvent::GetEventCategory() const
@@ -81,15 +81,15 @@ sipwxNavigationKeyEvent::~sipwxNavigationKeyEvent()
     if (!sipMeth)
         return ::wxNavigationKeyEvent::GetEventCategory();
 
-    extern ::wxEventCategory sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEventCategory sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
 PyDoc_STRVAR(doc_wxNavigationKeyEvent_GetCurrentFocus, "GetCurrentFocus() -> Window\n"
 "\n"
-"Returns the child that has the focus, or NULL.");
+"Returns the child that has the focus, or nullptr.");
 
 extern "C" {static PyObject *meth_wxNavigationKeyEvent_GetCurrentFocus(PyObject *, PyObject *);}
 static PyObject *meth_wxNavigationKeyEvent_GetCurrentFocus(PyObject *sipSelf, PyObject *sipArgs)
@@ -561,7 +561,7 @@ static void *init_type_wxNavigationKeyEvent(sipSimpleWrapper *sipSelf, PyObject 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxNavigationKeyEvent[] = {{151, 255, 1}};
+static sipEncodedTypeDef supers_wxNavigationKeyEvent[] = {{158, 255, 1}};
 
 
 static PyMethodDef methods_wxNavigationKeyEvent[] = {
@@ -578,10 +578,10 @@ static PyMethodDef methods_wxNavigationKeyEvent[] = {
 };
 
 static sipEnumMemberDef enummembers_wxNavigationKeyEvent[] = {
-    {sipName_FromTab, static_cast<int>(::wxNavigationKeyEvent::FromTab), 387},
-    {sipName_IsBackward, static_cast<int>(::wxNavigationKeyEvent::IsBackward), 387},
-    {sipName_IsForward, static_cast<int>(::wxNavigationKeyEvent::IsForward), 387},
-    {sipName_WinChange, static_cast<int>(::wxNavigationKeyEvent::WinChange), 387},
+    {sipName_FromTab, static_cast<int>(::wxNavigationKeyEvent::FromTab), 395},
+    {sipName_IsBackward, static_cast<int>(::wxNavigationKeyEvent::IsBackward), 395},
+    {sipName_IsForward, static_cast<int>(::wxNavigationKeyEvent::IsForward), 395},
+    {sipName_WinChange, static_cast<int>(::wxNavigationKeyEvent::WinChange), 395},
 };
 
 sipVariableDef variables_wxNavigationKeyEvent[] = {

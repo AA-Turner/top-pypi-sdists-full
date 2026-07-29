@@ -47,6 +47,9 @@ class LlmConfig(TypedDict, total=False):
     top_p_min: float
     top_p_max: float
     top_p_step: float
+    # Output-only: the set of system prompts explored by the study. Not user-set on
+    # create(); populated by the server on the returned search space.
+    system_prompts: Optional[List[str]]
 
 
 class ChunkingParameters(TypedDict, total=False):
@@ -106,6 +109,9 @@ llm_config_trafaret = t.Dict({
     t.Key("top_p_min", default=0.0): t.Float,
     t.Key("top_p_max", default=1.0): t.Float,
     t.Key("top_p_step", default=0.05): t.Float,
+    # Output-only: the server returns the system prompts explored by the study.
+    # Not user-set on create(), so it is optional and defaults to None.
+    t.Key("system_prompts", default=None): t.Or(t.List(t.String), t.Null),
 })
 
 chunking_parameters_config_trafaret = t.Dict({

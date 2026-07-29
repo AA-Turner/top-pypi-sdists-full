@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openmed
-Version: 1.9.1
+Version: 2.0.0
 Summary: OpenMed delivers state-of-the-art biomedical and clinical LLMs that rival proprietary enterprise stacks, unifying model discovery, advanced extractions, and one-line orchestration.
 Author: Maziyar Panahi
 License: Apache-2.0
@@ -9,13 +9,15 @@ License-File: NOTICE
 Keywords: LLM,NLP,biomedical,clinical,healthcare,medical,medical LLMs,medical NER,medical NLP,medical de-identification,medical extraction,medical language models,medical reasoning,natural language processing
 Requires-Python: >=3.10
 Requires-Dist: faker>=22.0
+Requires-Dist: jieba<0.43,>=0.42.1
 Requires-Dist: pysbd<0.4,>=0.3.4
 Requires-Dist: pyyaml>=6.0
 Provides-Extra: agents
 Requires-Dist: langchain-core<2,>=0.2; extra == 'agents'
 Requires-Dist: llama-index-core<1,>=0.10; extra == 'agents'
 Provides-Extra: awq
-Requires-Dist: autoawq>=0.2.9; extra == 'awq'
+Requires-Dist: autoawq==0.2.9; (sys_platform == 'linux') and extra == 'awq'
+Requires-Dist: transformers==5.5.0; (sys_platform == 'linux') and extra == 'awq'
 Provides-Extra: cli
 Requires-Dist: rich>=13.0; extra == 'cli'
 Requires-Dist: typer>=0.12; extra == 'cli'
@@ -34,6 +36,7 @@ Requires-Dist: transformers>=4.50; extra == 'coreml'
 Provides-Extra: dask
 Requires-Dist: dask[dataframe]>=2024.8; extra == 'dask'
 Provides-Extra: dev
+Requires-Dist: cryptography<50,>=42; extra == 'dev'
 Requires-Dist: dask[dataframe]>=2024.8; extra == 'dev'
 Requires-Dist: duckdb<2,>=1.0; extra == 'dev'
 Requires-Dist: fastapi>=0.110; extra == 'dev'
@@ -41,10 +44,12 @@ Requires-Dist: fsspec>=2025.9.0; extra == 'dev'
 Requires-Dist: grpcio-tools>=1.64; extra == 'dev'
 Requires-Dist: grpcio>=1.64; extra == 'dev'
 Requires-Dist: httpx>=0.27; extra == 'dev'
+Requires-Dist: huggingface-hub>=0.30; extra == 'dev'
 Requires-Dist: hypothesis>=6.100; extra == 'dev'
 Requires-Dist: jsonschema>=4.0; extra == 'dev'
-Requires-Dist: mypy==2.2.0; extra == 'dev'
+Requires-Dist: mypy==2.3.0; extra == 'dev'
 Requires-Dist: numpy>=1.26; extra == 'dev'
+Requires-Dist: opencc<2,>=1.4.1; extra == 'dev'
 Requires-Dist: opentelemetry-api<2,>=1.26; extra == 'dev'
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2,>=1.26; extra == 'dev'
 Requires-Dist: opentelemetry-sdk<2,>=1.26; extra == 'dev'
@@ -53,15 +58,20 @@ Requires-Dist: polars>=0.20; extra == 'dev'
 Requires-Dist: pre-commit>=4.0; extra == 'dev'
 Requires-Dist: protobuf<7,>=5.26; extra == 'dev'
 Requires-Dist: pytest-cov>=4.0; extra == 'dev'
+Requires-Dist: pytest-timeout>=2.3; extra == 'dev'
 Requires-Dist: pytest>=7.0; extra == 'dev'
 Requires-Dist: python-dateutil>=2.8; extra == 'dev'
-Requires-Dist: ruff==0.15.20; extra == 'dev'
+Requires-Dist: rich>=13.0; extra == 'dev'
+Requires-Dist: ruff==0.15.22; extra == 'dev'
 Requires-Dist: tomli>=2.0; (python_version < '3.11') and extra == 'dev'
+Requires-Dist: typer>=0.12; extra == 'dev'
 Provides-Extra: docs
 Requires-Dist: griffe; extra == 'docs'
 Requires-Dist: mkdocs-git-revision-date-localized-plugin>=1.2.6; extra == 'docs'
+Requires-Dist: mkdocs-llmstxt<1,>=0.5.0; extra == 'docs'
 Requires-Dist: mkdocs-material>=9.5; extra == 'docs'
 Requires-Dist: mkdocs-minify-plugin>=0.8.0; extra == 'docs'
+Requires-Dist: mkdocs-static-i18n<2,>=1.3; extra == 'docs'
 Requires-Dist: mkdocs>=1.6; extra == 'docs'
 Requires-Dist: mkdocstrings[python]; extra == 'docs'
 Requires-Dist: pymdown-extensions>=10.8; extra == 'docs'
@@ -80,14 +90,20 @@ Requires-Dist: accelerate>=0.29; extra == 'hf'
 Requires-Dist: huggingface-hub>=0.30; extra == 'hf'
 Requires-Dist: tokenizers>=0.15; extra == 'hf'
 Requires-Dist: transformers>=4.50; extra == 'hf'
+Provides-Extra: indic
+Requires-Dist: indic-nlp-library>=0.92; extra == 'indic'
+Provides-Extra: integrity
+Requires-Dist: cryptography<50,>=42; extra == 'integrity'
 Provides-Extra: kafka
 Requires-Dist: confluent-kafka>=2.3; extra == 'kafka'
 Provides-Extra: langchain
 Requires-Dist: langchain-core<2,>=0.2; extra == 'langchain'
+Provides-Extra: lid
+Requires-Dist: pycld2<1,>=0.41; extra == 'lid'
 Provides-Extra: llamaindex
 Requires-Dist: llama-index-core<1,>=0.10; extra == 'llamaindex'
 Provides-Extra: mcp
-Requires-Dist: mcp>=1.9; extra == 'mcp'
+Requires-Dist: mcp<2,>=1.27; extra == 'mcp'
 Provides-Extra: mlx
 Requires-Dist: huggingface-hub>=0.30; extra == 'mlx'
 Requires-Dist: mlx-lm>=0.31; extra == 'mlx'
@@ -100,6 +116,7 @@ Provides-Extra: multimodal
 Requires-Dist: easyocr>=1.7; extra == 'multimodal'
 Requires-Dist: markdown-it-py<5,>=3.0; extra == 'multimodal'
 Requires-Dist: numpy>=1.26; extra == 'multimodal'
+Requires-Dist: onnx>=1.21; extra == 'multimodal'
 Requires-Dist: pdfplumber>=0.11; extra == 'multimodal'
 Requires-Dist: piexif>=1.1; extra == 'multimodal'
 Requires-Dist: pikepdf>=9.0; extra == 'multimodal'
@@ -111,7 +128,7 @@ Requires-Dist: python-docx>=1.1; extra == 'multimodal'
 Provides-Extra: ocr-paddle
 Requires-Dist: paddleocr>=2.7; extra == 'ocr-paddle'
 Provides-Extra: onnx
-Requires-Dist: onnx>=1.14; extra == 'onnx'
+Requires-Dist: onnx>=1.21; extra == 'onnx'
 Requires-Dist: onnxruntime>=1.16; extra == 'onnx'
 Requires-Dist: onnxscript>=0.1.0; extra == 'onnx'
 Requires-Dist: torch>=2.0; extra == 'onnx'
@@ -120,7 +137,9 @@ Provides-Extra: onnx-runtime
 Requires-Dist: huggingface-hub>=0.30; extra == 'onnx-runtime'
 Requires-Dist: numpy>=1.26; extra == 'onnx-runtime'
 Requires-Dist: onnxruntime>=1.16; extra == 'onnx-runtime'
-Requires-Dist: transformers>=4.50; extra == 'onnx-runtime'
+Requires-Dist: tokenizers>=0.15; extra == 'onnx-runtime'
+Provides-Extra: openmrs
+Requires-Dist: httpx>=0.27; extra == 'openmrs'
 Provides-Extra: openvino
 Requires-Dist: nncf>=2.10; extra == 'openvino'
 Requires-Dist: onnxruntime>=1.16; extra == 'openvino'
@@ -132,10 +151,18 @@ Provides-Extra: philter
 Requires-Dist: philter-ucsf<2,>=1.0.3; extra == 'philter'
 Provides-Extra: polars
 Requires-Dist: polars>=0.20; extra == 'polars'
+Provides-Extra: prefect
+Requires-Dist: prefect<4,>=3.7; extra == 'prefect'
 Provides-Extra: presidio
 Requires-Dist: presidio-analyzer<3,>=2.2.354; extra == 'presidio'
 Provides-Extra: pydeid
 Requires-Dist: pydeid>=0.0.1; extra == 'pydeid'
+Provides-Extra: quickumls
+Requires-Dist: quickumls<2,>=1.4; extra == 'quickumls'
+Provides-Extra: scispacy
+Requires-Dist: scispacy<1,>=0.5.4; extra == 'scispacy'
+Provides-Extra: scrubadub
+Requires-Dist: scrubadub<3,>=2.0; extra == 'scrubadub'
 Provides-Extra: service
 Requires-Dist: fastapi>=0.110; extra == 'service'
 Requires-Dist: grpcio>=1.64; extra == 'service'
@@ -147,9 +174,19 @@ Requires-Dist: protobuf<7,>=5.26; extra == 'service'
 Requires-Dist: uvicorn[standard]>=0.29; extra == 'service'
 Provides-Extra: spacy
 Requires-Dist: click>=8.0; extra == 'spacy'
-Requires-Dist: spacy>=3.5; extra == 'spacy'
+Requires-Dist: spacy>=3.8.9; extra == 'spacy'
 Provides-Extra: spark
+Requires-Dist: pandas>=2.0; extra == 'spark'
+Requires-Dist: pyarrow>=16; extra == 'spark'
 Requires-Dist: pyspark<4,>=3.5; extra == 'spark'
+Provides-Extra: zh
+Requires-Dist: jieba>=0.42; extra == 'zh'
+Requires-Dist: opencc<2,>=1.4.1; extra == 'zh'
+Requires-Dist: pypinyin>=0.51; extra == 'zh'
+Provides-Extra: zh-hanlp
+Requires-Dist: hanlp<3,>=2.1; extra == 'zh-hanlp'
+Provides-Extra: zh-pkuseg
+Requires-Dist: pkuseg<0.1,>=0.0.25; extra == 'zh-pkuseg'
 Description-Content-Type: text/markdown
 
 <div align="center">
@@ -186,7 +223,7 @@ No cloud. No vendor lock-in. No patient data leaving your network.</p>
 </p>
 
 <p>
-  <b>2,000+ models</b> &nbsp;·&nbsp; <b>17 model-backed PII languages</b> &nbsp;·&nbsp; <b>600+ PII checkpoints</b> &nbsp;·&nbsp; <b>100% on-device</b> &nbsp;·&nbsp; <b>Apache-2.0</b>
+  <b>2,000+ models</b> &nbsp;·&nbsp; <b>32 model-backed PII languages</b> &nbsp;·&nbsp; <b>600+ PII checkpoints</b> &nbsp;·&nbsp; <b>100% on-device</b> &nbsp;·&nbsp; <b>Apache-2.0</b>
 </p>
 
 <p>
@@ -203,7 +240,8 @@ No cloud. No vendor lock-in. No patient data leaving your network.</p>
   <a href="README.te.md">తెలుగు</a> ·
   <a href="README.ja.md">日本語</a> ·
   <a href="README.tr.md">Türkçe</a> ·
-  <a href="README.fa.md">فارسی</a>
+  <a href="README.fa.md">فارسی</a> ·
+  <a href="README.sw.md">Kiswahili</a>
 </p>
 
 </div>
@@ -250,6 +288,17 @@ A state-of-the-art clinical NER model running locally: no API key, no network ca
 
 ---
 
+## Building with an agent?
+
+Start with the [consumer agent-usage guide](docs/agent-usage.md), or load the
+curated [llms.txt](https://openmed.life/docs/llms.txt) documentation index.
+For callable local interfaces, use the [MCP server](docs/mcp-clients.md), the
+typed [tool registry](openmed/mcp/tool_registry.py), or the
+[command-line interface](docs/agent-usage.md#command-line-interface). Ready-made
+cross-tool procedures live in the [repository skills catalog](skills/README.md).
+
+---
+
 ## Why OpenMed?
 
 |                                       |       **OpenMed**        |   Cloud medical APIs   |
@@ -258,7 +307,7 @@ A state-of-the-art clinical NER model running locally: no API key, no network ca
 | Patient data leaves your network      |        **Never**         |   Sent to the vendor   |
 | Cost                                  |    Free & open-source    |    Per-call pricing    |
 | Specialized medical models            |          2,000+          |        Limited         |
-| Model-backed PII languages            |            17            |         Varies         |
+| Model-backed PII languages            |            29            |         Varies         |
 | Offline / air-gapped                  |            ✅            |           ❌           |
 | Apple Silicon (MLX) acceleration      |            ✅            |          n/a           |
 | Native iOS / macOS apps               |   ✅ via OpenMedKit      |           ❌           |
@@ -282,7 +331,7 @@ PII detection and clinical extraction happen fully offline, on the device.
 ```swift
 // Add OpenMedKit to your app
 dependencies: [
-    .package(url: "https://github.com/maziyarpanahi/openmed.git", from: "1.9.1"),
+    .package(url: "https://github.com/maziyarpanahi/openmed.git", from: "2.0.0"),
 ]
 ```
 
@@ -326,11 +375,11 @@ dependencyResolutionManagement {
 }
 ```
 
-Then use the immutable OpenMed `v1.9.1` release:
+Then use the immutable OpenMed `v2.0.0` release:
 
 ```kotlin
 dependencies {
-    implementation("com.github.maziyarpanahi:openmed:v1.9.1")
+    implementation("com.github.maziyarpanahi:openmed:v2.0.0")
 }
 ```
 
@@ -397,6 +446,23 @@ flowchart LR
 
 Rendered result: a local clinical-text pipeline that returns medical entities,
 PII findings, and de-identified text without sending data to a cloud API.
+
+---
+
+## Agent Skills — build with OpenMed from your coding agent
+
+The [`skills/`](skills/) catalog ships portable [Agent Skills](https://agentskills.io) for on-device de-identification, clinical NER, FHIR export, evaluation, and the healthcare workflows around them. The same `SKILL.md` folders work in **Claude Code**, **OpenAI Codex**, **OpenCode**, and compatible agents; the installer uses each client's skills directory plus the cross-client `~/.agents/skills` convention.
+
+```bash
+git clone https://github.com/maziyarpanahi/openmed && cd openmed
+./install-skills.sh          # installs for Claude Code, Codex, OpenCode, and ~/.agents/skills
+```
+
+Then ask your agent for the pipeline using synthetic placeholders:
+
+> Build a local OpenMed pipeline that de-identifies a synthetic discharge note and extracts medication entities.
+
+It loads the right skills and produces an on-device pipeline (`openmed.deidentify(...)` → `openmed.analyze_text(...)`). After the one-time model download, run that pipeline locally on real notes; do not paste real PHI into a cloud-hosted agent prompt. See the **[skills catalog and 30-second example](skills/README.md)**.
 
 ---
 
@@ -657,13 +723,23 @@ On non-Apple-Silicon hosts, MLX model names are automatically substituted with t
 
 ---
 
-## Multilingual PII (17 model-backed languages)
+## Multilingual PII (34 supported languages)
 
-Extraction and de-identification support **17 supported PII language codes**:
-`ar`, `de`, `en`, `es`, `fr`, `he`, `hi`, `id`, `it`, `ja`, `ko`, `nl`, `pt`, `ro`, `te`, `th`, and `tr`, with **600+ PII checkpoints** in total.
-These are the model-backed PII language allow-list.
+Extraction and de-identification support **34 supported PII language codes**:
+`am`, `ar`, `as`, `bn`, `cs`, `da`, `de`, `el`, `en`, `es`, `fr`, `he`, `hi`, `id`,
+`it`, `ja`, `ko`, `mr`, `nl`, `no`, `or`, `pt`, `ro`, `ru`, `sv`, `sw`, `ta`,
+`te`, `th`, `tr`, `uk`, `xh`, `zh`, and `zu`, with **600+ PII checkpoints** in total.
+Russian routing currently uses a documented multilingual default-model
+placeholder. Bengali, Chinese, and Tamil have dedicated registry entries.
+An optional, user-configured Indic NER family accepts four additional routes
+(`gu`, `kn`, `ml`, and `pa`) and can also serve Assamese, Bengali, Hindi,
+Marathi, Odia, Tamil, and Telugu. Set `OPENMED_INDIC_NER_MODEL`; OpenMed never
+bundles or automatically selects those optional weights.
 OpenMed also includes validator-backed national-ID coverage for additional
-ID-only locales such as Polish, Latvian, Slovak, Malay, Filipino, and Danish.
+ID-only locales such as Polish, Latvian, Slovak, Malay, Filipino, and Finnish.
+
+See the [per-language guide](docs/languages.md) for each code's default PII
+model, Faker locale, and a before/after de-identification example.
 
 ```bash
 python -c "from openmed import extract_pii; print([(e.label, e.text) for e in extract_pii('Dr. Pedro Almeida, CPF: 123.456.789-09, email: pedro@hospital.pt', lang='pt').entities])"
@@ -776,15 +852,21 @@ See the full [REST service guide](docs/rest-service.md).
 
 Full guides at **[openmed.life/docs](https://openmed.life/docs/)**.
 
+AI agents can load the curated [llms.txt](https://openmed.life/docs/llms.txt)
+index or the inlined [llms-full.txt](https://openmed.life/docs/llms-full.txt)
+feed. Both are regenerated from the current documentation during every strict
+MkDocs build.
+
 | | | |
 |---|---|---|
 | [Getting Started](https://openmed.life/docs/) | [Analyze Text](https://openmed.life/docs/analyze-text) | [Model Registry](https://openmed.life/docs/model-registry) |
 | [FAQ](docs/faq.md) | [Anonymization](docs/anonymization.md) | [Batch Processing](https://openmed.life/docs/batch-processing) |
 | [Configuration Profiles](https://openmed.life/docs/profiles) | [REST Service](docs/rest-service.md) | [MLX Backend](docs/mlx-backend.md) |
 | [Transformers.js Export](docs/export-transformersjs.md) | [FHIR Interop](docs/fhir-interop.md) | [HL7 v2 De-identification](docs/hl7v2-deidentification.md) |
-| [OpenMed 1.9.1 Release Notes](docs/release/v1.9.1.md) | [OpenMed 1.9.0 Release Notes](docs/release/v1.9.0.md) | [Examples](docs/examples.md) |
+| [OpenMed 2.0.0 Release Notes](docs/release/v2.0.0.md) | [OpenMed 1.9.1 Release Notes](docs/release/v1.9.1.md) | [Examples](docs/examples.md) |
 | [Release Streams](docs/release/semver-and-channels.md) | [Generative Model Policy](docs/generative-model-policy.md) | [Contributing](docs/contributing.md) |
-| [Security Policy](SECURITY.md) | [Compliance Posture](docs/compliance.md) | |
+| [Security Policy](SECURITY.md) | [Compliance Posture](docs/compliance.md) | [Detector Plugin SDK](docs/plugin-sdk.md) |
+| [v1 to v2 Migration](docs/migration.md) | [MCP Client Connections](docs/mcp-clients.md) | [African Developer Onboarding](docs/africa-onboarding.md) |
 
 ---
 
@@ -852,9 +934,7 @@ papers, posters, and derived documentation.
 
 If OpenMed is useful to you, a star helps others discover it.
 
-<a href="https://star-history.com/#maziyarpanahi/openmed&Date">
-  <img src="https://api.star-history.com/svg?repos=maziyarpanahi/openmed&type=Date" alt="Star History Chart" width="640" />
-</a>
+[![Star History Chart](https://api.star-history.com/chart?repos=maziyarpanahi/openmed&type=date&legend=top-left&sealed_token=_HghchEkPCrucwFdVMULC2ufUwKUsFcTwheGjTM2VUvsTVevJ8xvrV-b5WyNkXCLDaOMTzk3vvsnzTR1rtTL7oxu90MGSTw8Eljuy0wrwEk_qEa1s83OV3hyz0-1mckZLCffMDc5Pot9Yx_MiZaQjsz4NxNnV7Pb_k-1KBWkf6gM9C9AZl3sgqRC-y2w)](https://www.star-history.com/?repos=maziyarpanahi%2Fopenmed&type=date&legend=top-left)
 
 ---
 

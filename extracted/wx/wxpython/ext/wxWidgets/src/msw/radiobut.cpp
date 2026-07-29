@@ -2,7 +2,6 @@
 // Name:        src/msw/radiobut.cpp
 // Purpose:     wxRadioButton
 // Author:      Julian Smart
-// Modified by:
 // Created:     04/01/98
 // Copyright:   (c) Julian Smart
 // Licence:     wxWindows licence
@@ -30,9 +29,14 @@
 #endif
 
 #include "wx/msw/private.h"
+#include "wx/msw/private/darkmode.h"
 #include "wx/private/window.h"
 #include "wx/renderer.h"
 #include "wx/msw/uxtheme.h"
+
+#if wxUSE_ACCESSIBILITY
+    #include "wx/msw/private/accessible.h"
+#endif
 
 // ============================================================================
 // wxRadioButton implementation
@@ -257,7 +261,7 @@ wxSize wxRadioButton::DoGetBestSize() const
 
     if ( s_radioSize.HasChanged(this) )
     {
-        wxClientDC dc(const_cast<wxRadioButton*>(this));
+        wxInfoDC dc(const_cast<wxRadioButton*>(this));
         dc.SetFont(wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT));
 
         s_radioSize.SetAtNewDPI(dc.GetCharHeight());
@@ -334,5 +338,48 @@ void wxRadioButton::MSWDrawButtonBitmap(wxDC& dc, const wxRect& rect, int flags)
 {
     wxRendererNative::Get().DrawRadioBitmap(this, dc, rect, flags);
 }
+
+void wxRadioButton::MSWSetDarkOrLightMode(SetMode setmode)
+{
+    wxRadioButtonBase::MSWSetDarkOrLightMode(setmode);
+
+    // Use owner-draw mode if needed for dark mode or custom text colour
+    MSWMakeOwnerDrawn(wxMSWDarkMode::IsActive() || m_hasFgCol);
+}
+
+#if wxUSE_ACCESSIBILITY
+
+namespace
+{
+
+// When the radio button is owner-drawn (e.g. in dark mode), the native
+// BS_RADIOBUTTON style is replaced with BS_OWNERDRAW, causing the standard
+// Windows accessible object to report the control as a generic button. This
+// custom accessible ensures the correct role and checked state are always
+// reported.
+class wxRadioButtonAccessible :
+    public wxOwnerDrawnAccessible<wxRadioButton, wxROLE_SYSTEM_RADIOBUTTON>
+{
+public:
+    explicit wxRadioButtonAccessible(wxRadioButton* win)
+        : wxOwnerDrawnAccessible(win)
+    {
+    }
+
+protected:
+    long MSWGetCheckedState(wxRadioButton* rb) const override
+    {
+        return rb->GetValue() ? wxACC_STATE_SYSTEM_CHECKED : 0;
+    }
+};
+
+} // anonymous namespace
+
+wxAccessible* wxRadioButton::CreateAccessible()
+{
+    return new wxRadioButtonAccessible(this);
+}
+
+#endif // wxUSE_ACCESSIBILITY
 
 #endif // wxUSE_RADIOBTN

@@ -87,6 +87,7 @@ class DecoratedSession(object):
         'idle_termination_status': 'IdleTerminationStatus',
         'ray_dashboard_snapshot_last_reported_at': 'datetime',
         'is_system_cluster': 'bool',
+        'aggregated_logs_sink_enabled': 'bool',
         'build': 'MiniBuild',
         'cloud': 'MiniCloud',
         'creator': 'MiniUser',
@@ -152,6 +153,7 @@ class DecoratedSession(object):
         'idle_termination_status': 'idle_termination_status',
         'ray_dashboard_snapshot_last_reported_at': 'ray_dashboard_snapshot_last_reported_at',
         'is_system_cluster': 'is_system_cluster',
+        'aggregated_logs_sink_enabled': 'aggregated_logs_sink_enabled',
         'build': 'build',
         'cloud': 'cloud',
         'creator': 'creator',
@@ -162,7 +164,7 @@ class DecoratedSession(object):
         'latest_started_at': 'latest_started_at'
     }
 
-    def __init__(self, name=None, project_id=None, cloud_id=None, cluster_config=None, build_id=None, compute_template_id=None, idle_timeout=120, uses_app_config=False, allow_public_internet_traffic=False, user_service_access=None, user_service_token=None, ha_job_id=None, id=None, state=None, pending_state=None, state_data=None, status=None, status_details=None, creator_id=None, created_at=None, archived_at=None, webterminal_auth_url=None, metrics_dashboard_url=None, data_metrics_dashboard_url=None, train_metrics_dashboard_url=None, serve_metrics_dashboard_url=None, serve_deployment_metrics_dashboard_url=None, serve_llm_metrics_dashboard_url=None, supports_full_grafana_view=False, persistent_metrics_url=None, connect_url=None, jupyter_notebook_url=None, ray_dashboard_url=None, access_token=None, service_proxy_url=None, tensorboard_available=None, cluster_config_last_modified_at=None, host_name=None, head_node_ip=None, ssh_authorized_keys=None, ssh_private_key=None, anyscaled_config=None, anyscaled_config_generated_at=None, default_build_id=None, idle_timeout_last_activity_at=None, ray_version=None, ray_version_last_updated_at=None, user_service_url=None, ray_component_activities_last_reported_at=None, activity_details=None, maximum_uptime_will_terminate_cluster_at=None, idle_termination_status=None, ray_dashboard_snapshot_last_reported_at=None, is_system_cluster=False, build=None, cloud=None, creator=None, compute_template=None, idle_time_remaining_seconds=None, access=None, project=None, latest_started_at=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, project_id=None, cloud_id=None, cluster_config=None, build_id=None, compute_template_id=None, idle_timeout=120, uses_app_config=False, allow_public_internet_traffic=False, user_service_access=None, user_service_token=None, ha_job_id=None, id=None, state=None, pending_state=None, state_data=None, status=None, status_details=None, creator_id=None, created_at=None, archived_at=None, webterminal_auth_url=None, metrics_dashboard_url=None, data_metrics_dashboard_url=None, train_metrics_dashboard_url=None, serve_metrics_dashboard_url=None, serve_deployment_metrics_dashboard_url=None, serve_llm_metrics_dashboard_url=None, supports_full_grafana_view=False, persistent_metrics_url=None, connect_url=None, jupyter_notebook_url=None, ray_dashboard_url=None, access_token=None, service_proxy_url=None, tensorboard_available=None, cluster_config_last_modified_at=None, host_name=None, head_node_ip=None, ssh_authorized_keys=None, ssh_private_key=None, anyscaled_config=None, anyscaled_config_generated_at=None, default_build_id=None, idle_timeout_last_activity_at=None, ray_version=None, ray_version_last_updated_at=None, user_service_url=None, ray_component_activities_last_reported_at=None, activity_details=None, maximum_uptime_will_terminate_cluster_at=None, idle_termination_status=None, ray_dashboard_snapshot_last_reported_at=None, is_system_cluster=False, aggregated_logs_sink_enabled=None, build=None, cloud=None, creator=None, compute_template=None, idle_time_remaining_seconds=None, access=None, project=None, latest_started_at=None, local_vars_configuration=None):  # noqa: E501
         """DecoratedSession - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -222,6 +224,7 @@ class DecoratedSession(object):
         self._idle_termination_status = None
         self._ray_dashboard_snapshot_last_reported_at = None
         self._is_system_cluster = None
+        self._aggregated_logs_sink_enabled = None
         self._build = None
         self._cloud = None
         self._creator = None
@@ -327,6 +330,8 @@ class DecoratedSession(object):
             self.ray_dashboard_snapshot_last_reported_at = ray_dashboard_snapshot_last_reported_at
         if is_system_cluster is not None:
             self.is_system_cluster = is_system_cluster
+        if aggregated_logs_sink_enabled is not None:
+            self.aggregated_logs_sink_enabled = aggregated_logs_sink_enabled
         if build is not None:
             self.build = build
         self.cloud = cloud
@@ -1609,6 +1614,29 @@ class DecoratedSession(object):
         """
 
         self._is_system_cluster = is_system_cluster
+
+    @property
+    def aggregated_logs_sink_enabled(self):
+        """Gets the aggregated_logs_sink_enabled of this DecoratedSession.  # noqa: E501
+
+        Whether this cluster's logs go to customer aggregated logs (Loki). Pinned at the cluster's first launch and fixed for its entire lifetime -- restarts reuse it even if the cloud's aggregation config later changed. Read from the sessions.aggregated_logs_sink_enabled column; None for clusters that ran before the column existed (no pin -- callers fall back to the cloud's current setting). On the cluster-detail endpoint this is overwritten with the resolved viewer decision (pin, else cloud fallback); see ClustersResolver.resolve_cluster. Distinct from the CLOUD-level toggle cloud.customer_aggregated_logs_enabled.  # noqa: E501
+
+        :return: The aggregated_logs_sink_enabled of this DecoratedSession.  # noqa: E501
+        :rtype: bool
+        """
+        return self._aggregated_logs_sink_enabled
+
+    @aggregated_logs_sink_enabled.setter
+    def aggregated_logs_sink_enabled(self, aggregated_logs_sink_enabled):
+        """Sets the aggregated_logs_sink_enabled of this DecoratedSession.
+
+        Whether this cluster's logs go to customer aggregated logs (Loki). Pinned at the cluster's first launch and fixed for its entire lifetime -- restarts reuse it even if the cloud's aggregation config later changed. Read from the sessions.aggregated_logs_sink_enabled column; None for clusters that ran before the column existed (no pin -- callers fall back to the cloud's current setting). On the cluster-detail endpoint this is overwritten with the resolved viewer decision (pin, else cloud fallback); see ClustersResolver.resolve_cluster. Distinct from the CLOUD-level toggle cloud.customer_aggregated_logs_enabled.  # noqa: E501
+
+        :param aggregated_logs_sink_enabled: The aggregated_logs_sink_enabled of this DecoratedSession.  # noqa: E501
+        :type: bool
+        """
+
+        self._aggregated_logs_sink_enabled = aggregated_logs_sink_enabled
 
     @property
     def build(self):

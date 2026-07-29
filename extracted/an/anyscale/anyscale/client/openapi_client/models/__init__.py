@@ -135,6 +135,7 @@ from openapi_client.models.cloud_deny_role import CloudDenyRole
 from openapi_client.models.cloud_deployment import CloudDeployment
 from openapi_client.models.cloud_deployment_compute_config import CloudDeploymentComputeConfig
 from openapi_client.models.cloud_deployment_config import CloudDeploymentConfig
+from openapi_client.models.cloud_gpu_status import CloudGpuStatus
 from openapi_client.models.cloud_name_options import CloudNameOptions
 from openapi_client.models.cloud_overview_dashboard import CloudOverviewDashboard
 from openapi_client.models.cloud_permission_removal import CloudPermissionRemoval
@@ -164,6 +165,7 @@ from openapi_client.models.clouddatabucketpresigneduploadinfo_response import Cl
 from openapi_client.models.clouddatabucketpresignedurlresponse_response import ClouddatabucketpresignedurlresponseResponse
 from openapi_client.models.clouddeployment_response import ClouddeploymentResponse
 from openapi_client.models.clouddeploymentconfig_response import ClouddeploymentconfigResponse
+from openapi_client.models.cloudgpustatus_response import CloudgpustatusResponse
 from openapi_client.models.cloudoverviewdashboard_response import CloudoverviewdashboardResponse
 from openapi_client.models.cloudregionandzones_response import CloudregionandzonesResponse
 from openapi_client.models.cloudresource_response import CloudresourceResponse
@@ -442,6 +444,22 @@ from openapi_client.models.get_queue_response import GetQueueResponse
 from openapi_client.models.getqueueresponse_response import GetqueueresponseResponse
 from openapi_client.models.global_workspace_template import GlobalWorkspaceTemplate
 from openapi_client.models.globalworkspacetemplate_list_response import GlobalworkspacetemplateListResponse
+from openapi_client.models.gpu_detail import GpuDetail
+from openapi_client.models.gpu_entity_type import GpuEntityType
+from openapi_client.models.gpu_group_by import GpuGroupBy
+from openapi_client.models.gpu_metadata import GpuMetadata
+from openapi_client.models.gpu_node_rollup import GpuNodeRollup
+from openapi_client.models.gpu_scope import GpuScope
+from openapi_client.models.gpu_state import GpuState
+from openapi_client.models.gpu_status_cluster import GpuStatusCluster
+from openapi_client.models.gpu_status_group import GpuStatusGroup
+from openapi_client.models.gpu_status_group_key import GpuStatusGroupKey
+from openapi_client.models.gpu_status_node import GpuStatusNode
+from openapi_client.models.gpu_status_rollup import GpuStatusRollup
+from openapi_client.models.gpu_telemetry import GpuTelemetry
+from openapi_client.models.gpu_workload_ref import GpuWorkloadRef
+from openapi_client.models.gpu_xid import GpuXid
+from openapi_client.models.gpudetail_response import GpudetailResponse
 from openapi_client.models.grafana_dashboard import GrafanaDashboard
 from openapi_client.models.grpc_protocol_config import GrpcProtocolConfig
 from openapi_client.models.http_validation_error import HTTPValidationError
@@ -458,6 +476,9 @@ from openapi_client.models.i_know_response import IKnowResponse
 from openapi_client.models.i_know_time_series_event import IKnowTimeSeriesEvent
 from openapi_client.models.idle_termination_status import IdleTerminationStatus
 from openapi_client.models.import_cluster_environment import ImportClusterEnvironment
+from openapi_client.models.import_workload_request import ImportWorkloadRequest
+from openapi_client.models.import_workload_response import ImportWorkloadResponse
+from openapi_client.models.importworkloadresponse_response import ImportworkloadresponseResponse
 from openapi_client.models.instance_usage_budget import InstanceUsageBudget
 from openapi_client.models.instance_usage_budget_evaluation_period import InstanceUsageBudgetEvaluationPeriod
 from openapi_client.models.instance_usage_budget_unit import InstanceUsageBudgetUnit
@@ -585,6 +606,7 @@ from openapi_client.models.minicomputetemplate_list_response import Minicomputet
 from openapi_client.models.nfs_mount_target import NFSMountTarget
 from openapi_client.models.networking_mode import NetworkingMode
 from openapi_client.models.node_counts import NodeCounts
+from openapi_client.models.node_gpus_response import NodeGpusResponse
 from openapi_client.models.node_metrics import NodeMetrics
 from openapi_client.models.node_metrics_response import NodeMetricsResponse
 from openapi_client.models.node_registration_aws import NodeRegistrationAWS
@@ -595,6 +617,7 @@ from openapi_client.models.node_registration_v2 import NodeRegistrationV2
 from openapi_client.models.node_sort_field import NodeSortField
 from openapi_client.models.node_status import NodeStatus
 from openapi_client.models.node_type import NodeType
+from openapi_client.models.nodegpusresponse_response import NodegpusresponseResponse
 from openapi_client.models.nodemetricsresponse_response import NodemetricsresponseResponse
 from openapi_client.models.notification_channel_email_config import NotificationChannelEmailConfig
 from openapi_client.models.notification_channel_slack_config import NotificationChannelSlackConfig
@@ -948,6 +971,8 @@ from openapi_client.models.work_os_event_status import WorkOSEventStatus
 from openapi_client.models.worker_node_type import WorkerNodeType
 from openapi_client.models.workload_connection_credentials import WorkloadConnectionCredentials
 from openapi_client.models.workload_counts import WorkloadCounts
+from openapi_client.models.workload_gpu_row import WorkloadGpuRow
+from openapi_client.models.workload_gpus_result import WorkloadGpusResult
 from openapi_client.models.workload_info import WorkloadInfo
 from openapi_client.models.workload_machine_info import WorkloadMachineInfo
 from openapi_client.models.workload_nodes import WorkloadNodes
@@ -956,6 +981,7 @@ from openapi_client.models.workload_state import WorkloadState
 from openapi_client.models.workload_state_info import WorkloadStateInfo
 from openapi_client.models.workload_status import WorkloadStatus
 from openapi_client.models.workload_type import WorkloadType
+from openapi_client.models.workloadgpusresult_response import WorkloadgpusresultResponse
 from openapi_client.models.workloadresponse_list_response import WorkloadresponseListResponse
 from openapi_client.models.workloadstateinfo_list_response import WorkloadstateinfoListResponse
 from openapi_client.models.workosauthorizeurlresponse_response import WorkosauthorizeurlresponseResponse

@@ -1,0 +1,1801 @@
+use super::*;
+use crate::graph::core::pattern_matching::pattern::{PropOp, RelEdgePredicate};
+use crate::graph::core::pattern_matching::PropertyMatcher;
+use crate::graph::languages::cypher::parser::parse_cypher;
+
+#[test]
+fn test_predicate_pushdown_simple() {
+    let mut query = parse_cypher("MATCH (n:Person) WHERE n.age = 30 RETURN n").unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    // WHERE is kept as a safety net even when all predicates are pushed
+    assert_eq!(query.clauses.len(), 3); // MATCH + WHERE + RETURN
+    assert!(matches!(&query.clauses[0], Clause::Match(_)));
+    assert!(matches!(&query.clauses[2], Clause::Return(_)));
+
+    // The MATCH pattern should now have {age: 30} as a property
+    if let Clause::Match(m) = &query.clauses[0] {
+        if let PatternElement::Node(np) = &m.patterns[0].elements[0] {
+            assert!(np.properties.is_some());
+            let props = np.properties.as_ref().unwrap();
+            assert!(props.contains_key("age"));
+        } else {
+            panic!("Expected node pattern");
+        }
+    }
+}
+
+#[test]
+fn test_predicate_pushdown_partial() {
+    let mut query =
+        parse_cypher("MATCH (n:Person) WHERE n.age = 30 AND n.score > 100 RETURN n").unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    // Both n.age = 30 and n.score > 100 should be pushed into MATCH
+    // WHERE is kept as a safety net
+    assert_eq!(query.clauses.len(), 3); // MATCH + WHERE + RETURN
+
+    if let Clause::Match(m) = &query.clauses[0] {
+        if let PatternElement::Node(np) = &m.patterns[0].elements[0] {
+            let props = np.properties.as_ref().unwrap();
+            assert!(matches!(
+                props.get("age"),
+                Some(PropertyMatcher::Equals(Value::Int64(30)))
+            ));
+            assert!(matches!(
+                props.get("score"),
+                Some(PropertyMatcher::GreaterThan(Value::Int64(100)))
+            ));
+        }
+    }
+}
+
+#[test]
+fn test_predicate_pushdown_keeps_inline_property_collision_in_where() {
+    let mut query = parse_cypher(
+        "MATCH (n:Person {name: 'Alice'}) \
+         WHERE n.name = 'Bob' AND size(n.name) > 0 RETURN n",
+    )
+    .unwrap();
+
+    push_where_into_match(&mut query, &HashMap::new());
+
+    let Clause::Match(m) = &query.clauses[0] else {
+        panic!("expected MATCH clause");
+    };
+    let PatternElement::Node(node) = &m.patterns[0].elements[0] else {
+        panic!("expected node pattern");
+    };
+    assert!(matches!(
+        node.properties.as_ref().and_then(|props| props.get("name")),
+        Some(PropertyMatcher::Equals(Value::String(value))) if value == "Alice"
+    ));
+
+    let Clause::Where(where_clause) = &query.clauses[1] else {
+        panic!("expected residual WHERE clause");
+    };
+    let Predicate::And(left, _) = &where_clause.predicate else {
+        panic!("expected both the collision and non-pushable residual");
+    };
+    assert!(matches!(
+        left.as_ref(),
+        Predicate::Comparison {
+            left: Expression::PropertyAccess { property, .. },
+            operator: ComparisonOp::Equals,
+            right: Expression::Literal(Value::String(value)),
+        } if property == "name" && value == "Bob"
+    ));
+}
+
+#[test]
+fn test_predicate_pushdown_keeps_second_same_direction_bound_in_where() {
+    let mut query = parse_cypher(
+        "MATCH (n:Person) \
+         WHERE n.age > 35 AND n.age > 38 AND size(n.name) > 0 RETURN n",
+    )
+    .unwrap();
+
+    push_where_into_match(&mut query, &HashMap::new());
+
+    let Clause::Match(m) = &query.clauses[0] else {
+        panic!("expected MATCH clause");
+    };
+    let PatternElement::Node(node) = &m.patterns[0].elements[0] else {
+        panic!("expected node pattern");
+    };
+    assert!(matches!(
+        node.properties.as_ref().and_then(|props| props.get("age")),
+        Some(PropertyMatcher::GreaterThan(Value::Int64(35)))
+    ));
+
+    let Clause::Where(where_clause) = &query.clauses[1] else {
+        panic!("expected residual WHERE clause");
+    };
+    assert!(matches!(where_clause.predicate, Predicate::And(_, _)));
+}
+
+#[test]
+fn test_text_predicate_pushdown_literals_and_parameters() {
+    let cases = [
+        (
+            "MATCH (n:Person) WHERE n.name STARTS WITH 'Ali' RETURN n",
+            "starts",
+        ),
+        (
+            "MATCH (n:Person) WHERE n.name CONTAINS 'lic' RETURN n",
+            "contains",
+        ),
+        (
+            "MATCH (n:Person) WHERE n.name ENDS WITH $suffix RETURN n",
+            "ends",
+        ),
+    ];
+    let mut params = HashMap::new();
+    params.insert("suffix".to_string(), Value::String("ice".to_string()));
+
+    for (cypher, expected) in cases {
+        let mut query = parse_cypher(cypher).unwrap();
+        push_where_into_match(&mut query, &params);
+
+        let Clause::Match(m) = &query.clauses[0] else {
+            panic!("expected MATCH clause");
+        };
+        let PatternElement::Node(node) = &m.patterns[0].elements[0] else {
+            panic!("expected node pattern");
+        };
+        let matcher = node
+            .properties
+            .as_ref()
+            .and_then(|properties| properties.get("name"));
+        assert!(match expected {
+            "starts" =>
+                matches!(matcher, Some(PropertyMatcher::StartsWith(value)) if value == "Ali"),
+            "contains" =>
+                matches!(matcher, Some(PropertyMatcher::Contains(value)) if value == "lic"),
+            "ends" => matches!(matcher, Some(PropertyMatcher::EndsWith(value)) if value == "ice"),
+            _ => unreachable!(),
+        });
+        assert!(matches!(query.clauses[1], Clause::Where(_)));
+    }
+}
+
+#[test]
+fn test_text_predicate_pushdown_rejects_unsafe_shapes() {
+    for cypher in [
+        "MATCH (n:Person) WHERE n.name CONTAINS '' RETURN n",
+        "MATCH (n:Person) WHERE n.name ENDS WITH $missing RETURN n",
+        "MATCH (n:Person) WHERE NOT (n.name STARTS WITH 'Ali') RETURN n",
+    ] {
+        let mut query = parse_cypher(cypher).unwrap();
+        push_where_into_match(&mut query, &HashMap::new());
+
+        let Clause::Match(m) = &query.clauses[0] else {
+            panic!("expected MATCH clause");
+        };
+        let PatternElement::Node(node) = &m.patterns[0].elements[0] else {
+            panic!("expected node pattern");
+        };
+        assert!(node.properties.is_none());
+    }
+}
+
+#[test]
+fn test_relationship_text_and_parameter_pushdown() {
+    let cases = [
+        (
+            "MATCH (a:A)-[r:R]->(b:B) WHERE r.tag STARTS WITH 'pre' RETURN b",
+            PropOp::StartsWith,
+            Value::String("pre".to_string()),
+        ),
+        (
+            "MATCH (a:A)-[r:R]->(b:B) WHERE r.tag CONTAINS $needle RETURN b",
+            PropOp::Contains,
+            Value::String("mid".to_string()),
+        ),
+        (
+            "MATCH (a:A)-[r:R]->(b:B) WHERE r.tag ENDS WITH 'end' RETURN b",
+            PropOp::EndsWith,
+            Value::String("end".to_string()),
+        ),
+        (
+            "MATCH (a:A)-[r:R]->(b:B) WHERE r.score = $score RETURN b",
+            PropOp::Eq,
+            Value::Int64(7),
+        ),
+    ];
+    let mut params = HashMap::new();
+    params.insert("needle".to_string(), Value::String("mid".to_string()));
+    params.insert("score".to_string(), Value::Int64(7));
+
+    for (cypher, expected_op, expected_value) in cases {
+        let mut query = parse_cypher(cypher).unwrap();
+        optimize(&mut query, &DirGraph::new(), &params);
+
+        let filter = query
+            .clauses
+            .iter()
+            .filter_map(|clause| match clause {
+                Clause::Match(m) => Some(m),
+                _ => None,
+            })
+            .flat_map(|m| &m.patterns)
+            .flat_map(|pattern| &pattern.elements)
+            .find_map(|element| match element {
+                PatternElement::Edge(edge) => edge.edge_filter.as_ref(),
+                _ => None,
+            })
+            .expect("expected pushed relationship filter");
+        assert!(matches!(
+            &filter.predicate,
+            RelEdgePredicate::Property { op, value, .. }
+                if *op == expected_op && *value == expected_value
+        ));
+    }
+}
+
+#[test]
+fn test_relationship_text_pushdown_rejects_missing_or_wrong_typed_params() {
+    for (cypher, params) in [
+        (
+            "MATCH (a:A)-[r:R]->(b:B) WHERE r.tag CONTAINS $missing RETURN b",
+            HashMap::new(),
+        ),
+        (
+            "MATCH (a:A)-[r:R]->(b:B) WHERE r.tag ENDS WITH $suffix RETURN b",
+            HashMap::from([("suffix".to_string(), Value::Int64(7))]),
+        ),
+    ] {
+        let mut query = parse_cypher(cypher).unwrap();
+        optimize(&mut query, &DirGraph::new(), &params);
+        assert!(query.clauses.iter().all(|clause| match clause {
+            Clause::Match(m) => m.patterns.iter().all(|pattern| {
+                pattern.elements.iter().all(|element| match element {
+                    PatternElement::Edge(edge) => edge.edge_filter.is_none(),
+                    _ => true,
+                })
+            }),
+            _ => true,
+        }));
+        assert!(query
+            .clauses
+            .iter()
+            .any(|clause| matches!(clause, Clause::Where(_))));
+    }
+}
+
+#[test]
+fn test_comparison_pushdown() {
+    let mut query = parse_cypher("MATCH (n:Person) WHERE n.age > 30 RETURN n").unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    // Comparison should be pushed into MATCH, WHERE kept as safety net
+    assert_eq!(query.clauses.len(), 3); // MATCH + WHERE + RETURN
+
+    if let Clause::Match(m) = &query.clauses[0] {
+        if let PatternElement::Node(np) = &m.patterns[0].elements[0] {
+            let props = np.properties.as_ref().unwrap();
+            assert!(matches!(
+                props.get("age"),
+                Some(PropertyMatcher::GreaterThan(Value::Int64(30)))
+            ));
+        }
+    }
+}
+
+#[test]
+fn test_no_pushdown_for_not_equals() {
+    let mut query = parse_cypher("MATCH (n:Person) WHERE n.age <> 30 RETURN n").unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    // NotEquals should NOT be pushed - WHERE should remain
+    assert_eq!(query.clauses.len(), 3); // MATCH + WHERE + RETURN
+}
+
+#[test]
+fn test_predicate_pushdown_parameter() {
+    let mut query = parse_cypher("MATCH (n:Person) WHERE n.name = $name RETURN n").unwrap();
+
+    let graph = DirGraph::new();
+    let mut params = HashMap::new();
+    params.insert("name".to_string(), Value::String("Alice".to_string()));
+    optimize(&mut query, &graph, &params);
+
+    // Parameter resolved and pushed; WHERE kept as safety net
+    assert_eq!(query.clauses.len(), 3); // MATCH + WHERE + RETURN
+
+    // The MATCH pattern should now have {name: 'Alice'} as a property
+    if let Clause::Match(m) = &query.clauses[0] {
+        if let PatternElement::Node(np) = &m.patterns[0].elements[0] {
+            assert!(np.properties.is_some());
+            let props = np.properties.as_ref().unwrap();
+            assert!(props.contains_key("name"));
+            assert!(matches!(
+                props.get("name"),
+                Some(PropertyMatcher::Equals(Value::String(s))) if s == "Alice"
+            ));
+        } else {
+            panic!("Expected node pattern");
+        }
+    }
+}
+
+#[test]
+fn test_predicate_pushdown_parameter_partial() {
+    let mut query =
+        parse_cypher("MATCH (n:Person) WHERE n.name = $name AND n.age > $min_age RETURN n")
+            .unwrap();
+
+    let graph = DirGraph::new();
+    let mut params = HashMap::new();
+    params.insert("name".to_string(), Value::String("Alice".to_string()));
+    params.insert("min_age".to_string(), Value::Int64(25));
+    optimize(&mut query, &graph, &params);
+
+    // Both should be pushed: n.name = $name (equality) and n.age > $min_age (comparison)
+    // WHERE kept as safety net
+    assert_eq!(query.clauses.len(), 3); // MATCH + WHERE + RETURN
+
+    if let Clause::Match(m) = &query.clauses[0] {
+        if let PatternElement::Node(np) = &m.patterns[0].elements[0] {
+            let props = np.properties.as_ref().unwrap();
+            assert!(matches!(
+                props.get("name"),
+                Some(PropertyMatcher::Equals(Value::String(s))) if s == "Alice"
+            ));
+            assert!(matches!(
+                props.get("age"),
+                Some(PropertyMatcher::GreaterThan(Value::Int64(25)))
+            ));
+        }
+    }
+}
+
+#[test]
+fn test_comparison_range_merge() {
+    let mut query =
+        parse_cypher("MATCH (n:Paper) WHERE n.year >= 2015 AND n.year <= 2022 RETURN n").unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    // Both comparisons should be merged into a Range matcher; WHERE kept
+    assert_eq!(query.clauses.len(), 3); // MATCH + WHERE + RETURN
+
+    if let Clause::Match(m) = &query.clauses[0] {
+        if let PatternElement::Node(np) = &m.patterns[0].elements[0] {
+            let props = np.properties.as_ref().unwrap();
+            assert!(matches!(
+                props.get("year"),
+                Some(PropertyMatcher::Range {
+                    lower: Value::Int64(2015),
+                    lower_inclusive: true,
+                    upper: Value::Int64(2022),
+                    upper_inclusive: true,
+                })
+            ));
+        }
+    }
+}
+
+#[test]
+fn test_correlated_nodeprop_pushdown() {
+    // The classic shape from sodir-prospect build:
+    //   MATCH (a:A) MATCH (b:B) WHERE b.x = a.y
+    // should push { x: EqualsNodeProp { var: "a", prop: "y" } } onto B.
+    let mut query =
+        parse_cypher("MATCH (a:A) MATCH (b:B) WHERE b.x = a.y RETURN a.id, b.id").unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    // Locate the second MATCH (matching on B)
+    let b_match = query
+        .clauses
+        .iter()
+        .filter_map(|c| match c {
+            Clause::Match(m) => Some(m),
+            _ => None,
+        })
+        .find(|m| {
+            matches!(
+                &m.patterns[0].elements[0],
+                PatternElement::Node(np) if np.node_type.as_deref() == Some("B")
+            )
+        })
+        .expect("expected second MATCH on B");
+
+    if let PatternElement::Node(np) = &b_match.patterns[0].elements[0] {
+        let props = np.properties.as_ref().expect("expected props on b");
+        match props.get("x") {
+            Some(PropertyMatcher::EqualsNodeProp { var, prop }) => {
+                assert_eq!(var, "a");
+                assert_eq!(prop, "y");
+            }
+            other => panic!("expected EqualsNodeProp on b.x, got {:?}", other),
+        }
+    }
+}
+
+#[test]
+fn test_correlated_nodeprop_reversed_sides() {
+    // Reversed: a.y = b.x (the cur_var b appears on the right).
+    let mut query =
+        parse_cypher("MATCH (a:A) MATCH (b:B) WHERE a.y = b.x RETURN a.id, b.id").unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    let b_match = query
+        .clauses
+        .iter()
+        .filter_map(|c| match c {
+            Clause::Match(m) => Some(m),
+            _ => None,
+        })
+        .find(|m| {
+            matches!(
+                &m.patterns[0].elements[0],
+                PatternElement::Node(np) if np.node_type.as_deref() == Some("B")
+            )
+        })
+        .unwrap();
+
+    if let PatternElement::Node(np) = &b_match.patterns[0].elements[0] {
+        let props = np.properties.as_ref().unwrap();
+        assert!(matches!(
+            props.get("x"),
+            Some(PropertyMatcher::EqualsNodeProp { var, prop })
+                if var == "a" && prop == "y"
+        ));
+    }
+}
+
+#[test]
+fn test_scalar_var_pushdown_from_unwind() {
+    // WHERE s.title = fname where fname comes from UNWIND should become
+    // an EqualsVar matcher on the pattern.
+    let mut query =
+        parse_cypher("UNWIND ['x','y'] AS fname MATCH (s:Strat) WHERE s.title = fname RETURN s.id")
+            .unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    let s_match = query
+        .clauses
+        .iter()
+        .filter_map(|c| match c {
+            Clause::Match(m) => Some(m),
+            _ => None,
+        })
+        .next()
+        .unwrap();
+
+    if let PatternElement::Node(np) = &s_match.patterns[0].elements[0] {
+        let props = np.properties.as_ref().unwrap();
+        assert!(matches!(
+            props.get("title"),
+            Some(PropertyMatcher::EqualsVar(n)) if n == "fname"
+        ));
+    }
+}
+
+#[test]
+fn test_no_pushdown_when_both_vars_in_same_match() {
+    // Within the same MATCH, a.y = b.x is handled by the pattern
+    // executor's shared-var join. We must NOT rewrite it as an
+    // EqualsNodeProp (which assumes prior-bound node).
+    let mut query = parse_cypher("MATCH (a:A), (b:B) WHERE a.y = b.x RETURN a.id, b.id").unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    for clause in &query.clauses {
+        if let Clause::Match(m) = clause {
+            for pat in &m.patterns {
+                for el in &pat.elements {
+                    if let PatternElement::Node(np) = el {
+                        if let Some(props) = &np.properties {
+                            for m in props.values() {
+                                assert!(
+                                    !matches!(m, PropertyMatcher::EqualsNodeProp { .. }),
+                                    "same-MATCH correlated equality must not be rewritten"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn test_undirected_pattern_reversed_by_selectivity() {
+    // Regression: `(other)-[r]-(p {title: 'X'})` was not reversed because
+    // the planner bailed out on undirected edges, leaving `other` (no
+    // constraints, full graph scan) as the start node. The selective
+    // anchor `p {title: 'X'}` must now be picked as start.
+    let mut query =
+        parse_cypher("MATCH (other)-[r]-(p {title: 'X'}) RETURN type(r), count(other)").unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    let m = query
+        .clauses
+        .iter()
+        .find_map(|c| match c {
+            Clause::Match(m) => Some(m),
+            _ => None,
+        })
+        .unwrap();
+
+    let first = match &m.patterns[0].elements[0] {
+        PatternElement::Node(np) => np,
+        _ => panic!("expected node"),
+    };
+    assert_eq!(
+        first.variable.as_deref(),
+        Some("p"),
+        "selective anchor `p` should be the start after reversal"
+    );
+    assert!(
+        first.properties.is_some(),
+        "start node must carry the title property after reversal"
+    );
+}
+
+#[test]
+fn test_nonindexed_in_does_not_tie_id_anchor() {
+    let mut query = parse_cypher(
+        "MATCH (a:Broad)-[:R]->(b:Anchor {id: 7}) \
+         WHERE a.code IN ['code_7'] RETURN a, b",
+    )
+    .unwrap();
+    let mut graph = DirGraph::new();
+    graph
+        .type_indices
+        .entry_or_default("Broad".to_string())
+        .extend((0..100).map(petgraph::graph::NodeIndex::new));
+    graph
+        .type_indices
+        .entry_or_default("Anchor".to_string())
+        .extend((100..200).map(petgraph::graph::NodeIndex::new));
+
+    optimize(&mut query, &graph, &HashMap::new());
+
+    let match_clause = query
+        .clauses
+        .iter()
+        .find_map(|clause| match clause {
+            Clause::Match(m) => Some(m),
+            _ => None,
+        })
+        .expect("expected MATCH clause");
+    let PatternElement::Node(first) = &match_clause.patterns[0].elements[0] else {
+        panic!("expected start node");
+    };
+    assert_eq!(first.variable.as_deref(), Some("b"));
+}
+
+#[test]
+fn test_empty_in_parameter_pushes_known_empty_matcher() {
+    let mut query = parse_cypher("MATCH (n:Item) WHERE n.code IN $codes RETURN n").unwrap();
+    let params = HashMap::from([("codes".to_string(), Value::List(Vec::new()))]);
+
+    push_where_into_match(&mut query, &params);
+
+    let Clause::Match(match_clause) = &query.clauses[0] else {
+        panic!("expected MATCH clause");
+    };
+    let PatternElement::Node(node) = &match_clause.patterns[0].elements[0] else {
+        panic!("expected node pattern");
+    };
+    assert!(matches!(
+        node.properties
+            .as_ref()
+            .and_then(|properties| properties.get("code")),
+        Some(PropertyMatcher::In(values)) if values.is_empty()
+    ));
+}
+
+#[test]
+fn test_label_cardinality_includes_secondary_carriers() {
+    let query = parse_cypher("MATCH (n:Item) RETURN n").unwrap();
+    let Clause::Match(match_clause) = &query.clauses[0] else {
+        panic!("expected MATCH clause");
+    };
+    let PatternElement::Node(node) = &match_clause.patterns[0].elements[0] else {
+        panic!("expected node pattern");
+    };
+    let mut graph = DirGraph::new();
+    graph
+        .type_indices
+        .entry_or_default("Item".to_string())
+        .extend((0..3).map(petgraph::graph::NodeIndex::new));
+    graph.secondary_label_index.insert(
+        crate::graph::schema::InternedKey::from_str("Item"),
+        vec![
+            petgraph::graph::NodeIndex::new(3),
+            petgraph::graph::NodeIndex::new(4),
+        ],
+    );
+    graph.has_secondary_labels = true;
+
+    assert_eq!(join_order::estimate_node_selectivity(node, &graph), 5);
+}
+
+#[test]
+fn test_undirected_pattern_no_reverse_when_first_is_anchor() {
+    // Reverse case: anchor is already first — no reversal expected.
+    let mut query =
+        parse_cypher("MATCH (p {title: 'X'})-[r]-(other) RETURN type(r), count(other)").unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    let m = query
+        .clauses
+        .iter()
+        .find_map(|c| match c {
+            Clause::Match(m) => Some(m),
+            _ => None,
+        })
+        .unwrap();
+
+    let first = match &m.patterns[0].elements[0] {
+        PatternElement::Node(np) => np,
+        _ => panic!("expected node"),
+    };
+    assert_eq!(first.variable.as_deref(), Some("p"));
+}
+
+#[test]
+fn test_var_length_pattern_reversed_by_selectivity() {
+    // `(other)-[*1..3]-(p {id: 1})` — the anchor is selective. Reversal
+    // is safe when the pattern has no path assignment (the `path_assignments`
+    // guard already protects path-bound patterns).
+    let mut query = parse_cypher("MATCH (other)-[*1..3]-(p {id: 1}) RETURN p, other").unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    let m = query
+        .clauses
+        .iter()
+        .find_map(|c| match c {
+            Clause::Match(m) => Some(m),
+            _ => None,
+        })
+        .unwrap();
+
+    let first = match &m.patterns[0].elements[0] {
+        PatternElement::Node(np) => np,
+        _ => panic!("expected node"),
+    };
+    assert_eq!(
+        first.variable.as_deref(),
+        Some("p"),
+        "var-length patterns should still get start-node optimization"
+    );
+}
+
+#[test]
+fn test_var_length_with_path_assignment_not_reversed() {
+    // Path assignments must block reversal (path semantics depend on direction).
+    let mut query = parse_cypher("MATCH path = (other)-[*1..3]-(p {id: 1}) RETURN path").unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    let m = query
+        .clauses
+        .iter()
+        .find_map(|c| match c {
+            Clause::Match(m) => Some(m),
+            _ => None,
+        })
+        .unwrap();
+
+    let first = match &m.patterns[0].elements[0] {
+        PatternElement::Node(np) => np,
+        _ => panic!("expected node"),
+    };
+    assert_eq!(
+        first.variable.as_deref(),
+        Some("other"),
+        "path-bound patterns must not be reversed"
+    );
+}
+
+#[test]
+fn test_limit_pushdown_single_match_with_where() {
+    // Single MATCH + WHERE + RETURN + LIMIT — pushdown is safe; the LIMIT
+    // clause should be removed and the MATCH should carry limit_hint.
+    let mut query =
+        parse_cypher("MATCH (n:Person) WHERE n.age > 25 RETURN n.name LIMIT 10").unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    // Limit clause should be gone (absorbed into the MATCH hint)
+    let has_limit = query.clauses.iter().any(|c| matches!(c, Clause::Limit(_)));
+    assert!(
+        !has_limit,
+        "single-MATCH query should have LIMIT pushed into MATCH"
+    );
+
+    let m = query
+        .clauses
+        .iter()
+        .find_map(|c| match c {
+            Clause::Match(m) => Some(m),
+            _ => None,
+        })
+        .expect("expected a MATCH clause");
+    assert_eq!(m.limit_hint, Some(10));
+}
+
+#[test]
+fn test_limit_pushdown_unfiltered_node_cartesian() {
+    let mut query =
+        parse_cypher("MATCH (a:Person), (b:Organization) RETURN a.name, b.name LIMIT 20").unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    assert!(
+        !query.clauses.iter().any(|c| matches!(c, Clause::Limit(_))),
+        "pure node cartesian should absorb LIMIT"
+    );
+    let match_clause = query
+        .clauses
+        .iter()
+        .find_map(|clause| match clause {
+            Clause::Match(m) => Some(m),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(match_clause.limit_hint, Some(20));
+}
+
+#[test]
+fn test_limit_pushdown_keeps_filtered_node_cartesian_conservative() {
+    let mut query = parse_cypher(
+        "MATCH (a:Person), (b:Organization) WHERE a.city = b.city \
+         RETURN a.name, b.name LIMIT 20",
+    )
+    .unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    assert!(query.clauses.iter().any(|c| matches!(c, Clause::Limit(_))));
+    let match_clause = query
+        .clauses
+        .iter()
+        .find_map(|clause| match clause {
+            Clause::Match(m) => Some(m),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(match_clause.limit_hint, None);
+}
+
+#[test]
+fn test_multi_match_no_reverse_when_bound_var_first() {
+    // Regression for the user's "(p)-[:P31]->(:human) gets reversed to scan
+    // 13M humans" report: in the second MATCH, `p` is already bound by the
+    // first MATCH. The planner must not reverse the pattern to start from
+    // `(:human)` (a 13M-row scan) just because `p` looks unconstrained
+    // statically.
+    let mut query =
+        parse_cypher("MATCH (p:Person) MATCH (p)-[:KNOWS]->(c:Company) RETURN p, c").unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    // The second MATCH should still start with `p`, not `c`.
+    let matches: Vec<_> = query
+        .clauses
+        .iter()
+        .filter_map(|c| match c {
+            Clause::Match(m) => Some(m),
+            _ => None,
+        })
+        .collect();
+    assert!(matches.len() >= 2, "expected two MATCH clauses");
+    let second = matches[1];
+    let first_var = match &second.patterns[0].elements[0] {
+        PatternElement::Node(np) => np.variable.as_deref(),
+        _ => None,
+    };
+    assert_eq!(
+        first_var,
+        Some("p"),
+        "second MATCH must keep pre-bound `p` as start node, not reverse to `c`"
+    );
+}
+
+#[test]
+fn test_multi_match_reorder_prefers_anchored_pattern() {
+    // When a single MATCH has two patterns sharing a pre-bound variable,
+    // the more selective pattern should run first. The planner already
+    // does intra-clause reordering — this test pins the cross-clause
+    // bound-vars logic so it doesn't regress.
+    let mut query = parse_cypher(
+        "MATCH (p {id: 1}) \
+         MATCH (p)-[:R1]->(:T1), (p)-[:R2]->({id: 99}) \
+         RETURN p",
+    )
+    .unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    // Just ensure optimization doesn't crash and patterns survive.
+    let m2 = query
+        .clauses
+        .iter()
+        .filter_map(|c| match c {
+            Clause::Match(m) => Some(m),
+            _ => None,
+        })
+        .nth(1)
+        .expect("expected second MATCH");
+    assert_eq!(m2.patterns.len(), 2);
+}
+
+#[test]
+fn test_limit_pushdown_multi_match_safety() {
+    // Regression: 3-MATCH + WHERE on last-bound variable + LIMIT N produced
+    // fewer rows than expected because push_limit_into_match was setting
+    // `limit_hint` on the last MATCH, which interacts incorrectly with the
+    // per-row pattern executor in the subsequent-MATCH path. The planner
+    // must NOT push LIMIT into MATCH when there are multiple MATCH clauses.
+    let mut query = parse_cypher(
+        "MATCH (a)-[:R1]->(:T1) \
+         MATCH (a)-[:R2]->(b) \
+         MATCH (b)-[:R3]->(c) \
+         WHERE c.id = 7318 \
+         RETURN a.id, b.id LIMIT 50",
+    )
+    .unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    // Limit clause must remain — pushdown is unsafe for multi-MATCH
+    let has_limit = query.clauses.iter().any(|c| matches!(c, Clause::Limit(_)));
+    assert!(has_limit, "multi-MATCH query must retain its LIMIT clause");
+
+    // No MATCH clause should have a limit_hint set
+    for clause in &query.clauses {
+        if let Clause::Match(m) = clause {
+            assert_eq!(
+                m.limit_hint, None,
+                "multi-MATCH clauses must not receive a limit_hint"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_reorder_match_clauses_picks_rare_edge_first() {
+    // Two MATCH clauses share `p`, both id-anchored on the other end. The
+    // planner should drive the smaller-edge-type clause first so the
+    // executor enumerates fewer rows before joining.
+    //
+    // Motivating real-world case (Wikidata):
+    //   MATCH (p)-[:P31]->({id:5})    -- 80M instance-of edges
+    //   MATCH (p)-[:P27]->({id:183})  -- 3M citizenship edges
+    // → swap so P27 drives, then per-row check P31. ~25× cheaper.
+    let mut query = parse_cypher(
+        "MATCH (p)-[:VERY_COMMON]->({id: 1}) \
+         MATCH (p)-[:RARE]->({id: 2}) \
+         RETURN p",
+    )
+    .unwrap();
+
+    let graph = DirGraph::new();
+    {
+        let mut cache = graph.edge_type_counts_cache.write().unwrap();
+        let mut counts = HashMap::new();
+        counts.insert("VERY_COMMON".to_string(), 1_000_000);
+        counts.insert("RARE".to_string(), 1_000);
+        *cache = Some(counts);
+    }
+
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    let matches: Vec<_> = query
+        .clauses
+        .iter()
+        .filter_map(|c| match c {
+            Clause::Match(m) => Some(m),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(matches.len(), 2, "expected two MATCH clauses preserved");
+
+    // First MATCH after reorder must be the RARE one.
+    let first_edge_type = matches[0].patterns[0].elements.iter().find_map(|e| {
+        if let PatternElement::Edge(ep) = e {
+            ep.connection_type.clone()
+        } else {
+            None
+        }
+    });
+    assert_eq!(
+        first_edge_type.as_deref(),
+        Some("RARE"),
+        "RARE (lower edge-type cost) should be promoted to first MATCH; \
+         got first edge type = {first_edge_type:?}"
+    );
+}
+
+#[test]
+fn test_reorder_match_clauses_promotes_later_id_anchor_without_cache() {
+    let mut query = parse_cypher(
+        "MATCH (h:Hub)-[:WIDE]->(leaf:Leaf) \
+         MATCH (h)-[:ANCHORED]->(anchor:Anchor {id: 7}) \
+         RETURN h, leaf",
+    )
+    .unwrap();
+    let graph = DirGraph::new();
+
+    optimize(&mut query, &graph, &HashMap::new());
+
+    let edge_types: Vec<_> = query
+        .clauses
+        .iter()
+        .filter_map(|clause| match clause {
+            Clause::Match(m) => m.patterns[0]
+                .elements
+                .iter()
+                .find_map(|element| match element {
+                    PatternElement::Edge(edge) => edge.connection_type.as_deref(),
+                    _ => None,
+                }),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(edge_types, ["ANCHORED", "WIDE"]);
+    assert!(!graph.has_edge_type_counts_cache());
+}
+
+#[test]
+fn test_reorder_match_clauses_anchor_partition_is_stable() {
+    let mut query = parse_cypher(
+        "MATCH (h)-[:WIDE]->(leaf) \
+         MATCH (h)-[:FIRST_ANCHOR]->({id: 1}) \
+         MATCH (h)-[:SECOND_ANCHOR]->({id: 2}) \
+         RETURN h",
+    )
+    .unwrap();
+
+    optimize(&mut query, &DirGraph::new(), &HashMap::new());
+
+    let edge_types: Vec<_> = query
+        .clauses
+        .iter()
+        .filter_map(|clause| match clause {
+            Clause::Match(m) => m.patterns[0]
+                .elements
+                .iter()
+                .find_map(|element| match element {
+                    PatternElement::Edge(edge) => edge.connection_type.as_deref(),
+                    _ => None,
+                }),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(edge_types, ["FIRST_ANCHOR", "SECOND_ANCHOR", "WIDE"]);
+}
+
+#[test]
+fn test_reorder_match_clauses_does_not_move_independent_anchor() {
+    let mut query = parse_cypher(
+        "MATCH (h)-[:WIDE]->(leaf) \
+         MATCH (other)-[:ANCHORED]->({id: 1}) \
+         RETURN h, other",
+    )
+    .unwrap();
+
+    optimize(&mut query, &DirGraph::new(), &HashMap::new());
+
+    let first_edge_type = query.clauses.iter().find_map(|clause| match clause {
+        Clause::Match(m) => m.patterns[0]
+            .elements
+            .iter()
+            .find_map(|element| match element {
+                PatternElement::Edge(edge) => edge.connection_type.as_deref(),
+                _ => None,
+            }),
+        _ => None,
+    });
+    assert_eq!(first_edge_type, Some("WIDE"));
+}
+
+#[test]
+fn test_reorder_match_clauses_skips_when_cache_missing() {
+    // Same query shape as above, but no edge_type_counts_cache populated.
+    // The reorder pass must bail (avoid triggering an O(E) cache build
+    // at plan time) and leave the original clause order intact.
+    let mut query = parse_cypher(
+        "MATCH (p)-[:VERY_COMMON]->({id: 1}) \
+         MATCH (p)-[:RARE]->({id: 2}) \
+         RETURN p",
+    )
+    .unwrap();
+
+    let graph = DirGraph::new();
+    // Confirm cache is unset to start.
+    assert!(!graph.has_edge_type_counts_cache());
+
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    // Original textual order preserved: VERY_COMMON first.
+    let matches: Vec<_> = query
+        .clauses
+        .iter()
+        .filter_map(|c| match c {
+            Clause::Match(m) => Some(m),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(matches.len(), 2);
+    let first_edge_type = matches[0].patterns[0].elements.iter().find_map(|e| {
+        if let PatternElement::Edge(ep) = e {
+            ep.connection_type.clone()
+        } else {
+            None
+        }
+    });
+    assert_eq!(first_edge_type.as_deref(), Some("VERY_COMMON"));
+    // Cache must still be empty — the planner did not force a build.
+    assert!(
+        !graph.has_edge_type_counts_cache(),
+        "planner must not warm the edge-type-counts cache from the optimization path"
+    );
+}
+
+#[test]
+fn test_reorder_match_clauses_requires_id_anchor() {
+    // No id anchor on either MATCH → cannot use the edge-count proxy
+    // safely (other-end fan-in dominates and isn't captured). Pass must
+    // leave order intact even if the cache is populated.
+    let mut query = parse_cypher(
+        "MATCH (p)-[:VERY_COMMON]->(q) \
+         MATCH (p)-[:RARE]->(r) \
+         RETURN p",
+    )
+    .unwrap();
+
+    let graph = DirGraph::new();
+    {
+        let mut cache = graph.edge_type_counts_cache.write().unwrap();
+        let mut counts = HashMap::new();
+        counts.insert("VERY_COMMON".to_string(), 1_000_000);
+        counts.insert("RARE".to_string(), 1_000);
+        *cache = Some(counts);
+    }
+
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    let matches: Vec<_> = query
+        .clauses
+        .iter()
+        .filter_map(|c| match c {
+            Clause::Match(m) => Some(m),
+            _ => None,
+        })
+        .collect();
+    let first_edge_type = matches[0].patterns[0].elements.iter().find_map(|e| {
+        if let PatternElement::Edge(ep) = e {
+            ep.connection_type.clone()
+        } else {
+            None
+        }
+    });
+    assert_eq!(
+        first_edge_type.as_deref(),
+        Some("VERY_COMMON"),
+        "without id-anchored endpoints the proxy is unreliable; do not reorder"
+    );
+}
+
+#[test]
+fn test_fuse_match_return_aggregate_count_distinct() {
+    // Single-MATCH + RETURN with count(DISTINCT v) on the OTHER node variable
+    // — the planner should now fuse this and set distinct_count=true.
+    let mut query = parse_cypher(
+        "MATCH (a:Person)-[:KNOWS]->(b:Person) \
+         RETURN a, count(DISTINCT b) AS friends \
+         ORDER BY friends DESC LIMIT 10",
+    )
+    .unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    let mut found = false;
+    for clause in &query.clauses {
+        if let Clause::FusedMatchReturnAggregate {
+            distinct_count,
+            top_k,
+            ..
+        } = clause
+        {
+            assert!(*distinct_count, "distinct_count flag must be set");
+            assert!(
+                top_k.is_some(),
+                "ORDER BY count DESC LIMIT 10 must absorb into top_k"
+            );
+            found = true;
+        }
+    }
+    assert!(
+        found,
+        "FusedMatchReturnAggregate must fire for count(DISTINCT) shape"
+    );
+}
+
+#[test]
+fn test_fuse_untyped_global_edge_count() {
+    let mut query = parse_cypher("MATCH ()-[r]->() RETURN count(r) AS n").unwrap();
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+    assert!(matches!(
+        query.clauses.as_slice(),
+        [Clause::FusedCountAllEdges { alias }] if alias == "n"
+    ));
+}
+
+#[test]
+fn test_untyped_global_edge_count_rejects_constrained_shapes() {
+    let queries = [
+        "MATCH ()-[r]-() RETURN count(r) AS n",
+        "MATCH (a)-[r]->(a) RETURN count(r) AS n",
+        "MATCH (:Person)-[r]->() RETURN count(r) AS n",
+        "MATCH ()-[r:R|S]->() RETURN count(r) AS n",
+        "MATCH p = ()-[r]->() RETURN count(r) AS n",
+    ];
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    for source in queries {
+        let mut query = parse_cypher(source).unwrap();
+        optimize(&mut query, &graph, &params);
+        assert!(
+            !query
+                .clauses
+                .iter()
+                .any(|clause| matches!(clause, Clause::FusedCountAllEdges { .. })),
+            "constrained edge count must not use global count: {source}"
+        );
+    }
+}
+
+#[test]
+fn test_fuse_match_return_aggregate_property_group_topk() {
+    let mut query = parse_cypher(
+        "MATCH (a:Person)-[:KNOWS]->(b:Person) \
+         RETURN a.city AS city, count(b) AS n \
+         ORDER BY n DESC LIMIT 10",
+    )
+    .unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    assert!(
+        matches!(
+            query.clauses.as_slice(),
+            [Clause::FusedMatchReturnAggregate {
+                top_k: Some((_, true, 10)),
+                distinct_count: false,
+                ..
+            }]
+        ),
+        "direct property grouping must merge values inside fused top-k: {:#?}",
+        query.clauses
+    );
+}
+
+#[test]
+fn test_property_grouped_distinct_count_is_not_fused() {
+    let mut query = parse_cypher(
+        "MATCH (a:Person)-[:KNOWS]->(b:Person) \
+         RETURN a.city AS city, count(DISTINCT b) AS n",
+    )
+    .unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    assert!(
+        !query
+            .clauses
+            .iter()
+            .any(|clause| matches!(clause, Clause::FusedMatchReturnAggregate { .. })),
+        "distinct peer sets cannot be summed after nodes collapse by property value"
+    );
+}
+
+#[test]
+fn test_fuse_match_return_aggregate_global_two_hop_count() {
+    let mut query = parse_cypher(
+        "MATCH (a:Person)-[:KNOWS]->(b:Person)-[:KNOWS]->(c:Person) \
+         RETURN count(*) AS paths",
+    )
+    .unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    assert!(
+        matches!(
+            query.clauses.as_slice(),
+            [Clause::FusedMatchReturnAggregate {
+                distinct_count: false,
+                ..
+            }]
+        ),
+        "pure two-hop count must use row-free aggregate fusion: {:#?}",
+        query.clauses
+    );
+}
+
+#[test]
+fn test_global_two_hop_count_with_repeated_variable_is_not_fused() {
+    let mut query = parse_cypher(
+        "MATCH (a:Person)-[:KNOWS]->(b:Person)-[:KNOWS]->(a) \
+         RETURN count(*) AS cycles",
+    )
+    .unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    assert!(
+        !query
+            .clauses
+            .iter()
+            .any(|clause| matches!(clause, Clause::FusedMatchReturnAggregate { .. })),
+        "repeated node variables require the binding-aware matcher"
+    );
+}
+
+#[test]
+fn test_fuse_match_with_aggregate_count_distinct() {
+    // Single-MATCH + WITH with count(DISTINCT v) — pipeline form.
+    let mut query = parse_cypher(
+        "MATCH (a:Person)-[:KNOWS]->(b:Person) \
+         WITH a, count(DISTINCT b) AS friends \
+         RETURN a, friends",
+    )
+    .unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    let mut found = false;
+    for clause in &query.clauses {
+        if let Clause::FusedMatchWithAggregate { distinct_count, .. } = clause {
+            assert!(*distinct_count, "WITH-form distinct_count flag must be set");
+            found = true;
+        }
+    }
+    assert!(
+        found,
+        "FusedMatchWithAggregate must fire for WITH-count-DISTINCT shape"
+    );
+}
+
+#[test]
+fn test_count_distinct_unconstrained_group_not_fused() {
+    // Unconstrained group node — fusing would force a 124M-node enumeration
+    // on a Wikidata-scale graph. The materializing path is faster in that
+    // regime, so the planner must NOT fuse.
+    let mut query = parse_cypher(
+        "MATCH (a)-[:R]->(b) \
+         RETURN b, count(DISTINCT a) AS n \
+         ORDER BY n DESC LIMIT 10",
+    )
+    .unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    let fused_with_distinct = query.clauses.iter().any(|c| {
+        matches!(
+            c,
+            Clause::FusedMatchReturnAggregate {
+                distinct_count: true,
+                ..
+            }
+        )
+    });
+    assert!(
+        !fused_with_distinct,
+        "untyped group node must skip distinct-count fusion"
+    );
+}
+
+#[test]
+fn test_count_distinct_5_element_pattern_not_fused() {
+    // 5-element patterns aren't supported in the distinct-count path yet.
+    // The planner should leave the query unfused so the materializing
+    // executor produces semantically-correct results.
+    let mut query = parse_cypher(
+        "MATCH (a:A)-[:R1]->(b)<-[:R2]-(c) \
+         RETURN a, count(DISTINCT c) AS n \
+         ORDER BY n DESC LIMIT 10",
+    )
+    .unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    let fused_with_distinct = query.clauses.iter().any(|c| {
+        matches!(
+            c,
+            Clause::FusedMatchReturnAggregate {
+                distinct_count: true,
+                ..
+            }
+        )
+    });
+    assert!(
+        !fused_with_distinct,
+        "5-element distinct-count pattern must not be fused"
+    );
+}
+
+#[test]
+fn test_fold_pass_through_with_between_matches() {
+    // The cohort-top-K shape: `Match WITH p Match Return ...`. The
+    // pass-through WITH should be stripped so downstream Match-Match
+    // fusion can fire.
+    let mut query = parse_cypher(
+        "MATCH (p)-[:T1]->({id: 1}) \
+         WITH p \
+         MATCH (p)-[r]->() \
+         RETURN p.title, count(r) AS d \
+         ORDER BY d DESC LIMIT 10",
+    )
+    .unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    // The pass-through WITH is dropped. The multi-MATCH desugar produces one
+    // aggregate WITH, which must remain eager because p.title groups by value,
+    // not by the p node's identity.
+    let bare_with_count = query
+        .clauses
+        .iter()
+        .filter(|c| matches!(c, Clause::With(_)))
+        .count();
+    assert_eq!(
+        bare_with_count, 1,
+        "pass-through WITH must be stripped while the value-grouping \
+         aggregate WITH remains eager; got query: {:#?}",
+        query.clauses
+    );
+
+    // The node-keyed streaming aggregate must not accept p.title grouping.
+    let has_fused_aggregate = query
+        .clauses
+        .iter()
+        .any(|c| matches!(c, Clause::FusedMatchWithAggregate { .. }));
+    assert!(
+        !has_fused_aggregate,
+        "property-valued grouping must not land on the node-keyed \
+         aggregate path; clauses: {:#?}",
+        query.clauses
+    );
+}
+
+#[test]
+fn test_fold_pass_through_with_keeps_useful_with() {
+    // A non-pass-through WITH (here aliasing or referencing extra
+    // variables that subsequent clauses need) must NOT be folded.
+    let mut query = parse_cypher("MATCH (p)-[r]->(q) WITH p, r RETURN p, r LIMIT 10").unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    // The pass-through WITH `WITH p, r` covers exactly what RETURN
+    // references, so it CAN be safely folded in this case. To ensure
+    // the converse test, use a different shape where the WITH
+    // *renames* a variable.
+    let mut renaming =
+        parse_cypher("MATCH (p)-[r]->(q) WITH p AS person RETURN person LIMIT 10").unwrap();
+    optimize(&mut renaming, &graph, &params);
+    let has_with = renaming
+        .clauses
+        .iter()
+        .any(|c| matches!(c, Clause::With(_)));
+    assert!(
+        has_with,
+        "renaming WITH (`p AS person`) must not be folded — it changes scope"
+    );
+}
+
+#[test]
+fn test_fold_pass_through_with_skipped_when_orderby_follows() {
+    // ORDER BY immediately after a WITH binds to the WITH's row scope.
+    // Folding the WITH would move the ORDER BY's binding context.
+    let mut query =
+        parse_cypher("MATCH (p)-[:T]->({id: 1}) WITH p ORDER BY p.title LIMIT 10 RETURN p")
+            .unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    // The WITH is preserved because ORDER BY follows it.
+    let has_with = query.clauses.iter().any(|c| matches!(c, Clause::With(_)));
+    assert!(
+        has_with,
+        "WITH followed by ORDER BY/SKIP/LIMIT must not be folded; \
+         clauses: {:#?}",
+        query.clauses
+    );
+}
+
+#[test]
+fn test_desugar_multi_match_return_aggregate() {
+    // The Variant-B shape (Match-Match-Return-aggregate, no WITH).
+    // Should be rewritten into Match-Match-With(group, agg)-Return so
+    // the existing aggregate fusion fires.
+    let mut query = parse_cypher(
+        "MATCH (p)-[:T1]->({id: 1}) \
+         MATCH (p)-[r]->() \
+         RETURN p.title, count(r) AS d \
+         ORDER BY d DESC LIMIT 10",
+    )
+    .unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    // The desugar still fires, but its synthesized value-grouping WITH stays
+    // eager rather than entering the NodeIndex-keyed aggregate fusion.
+    let landed_on_fused_aggregate = query
+        .clauses
+        .iter()
+        .any(|c| matches!(c, Clause::FusedMatchWithAggregate { .. }));
+    assert!(
+        !landed_on_fused_aggregate,
+        "property-valued Match-Match aggregation must not enter the \
+         node-keyed streaming path; clauses: {:#?}",
+        query.clauses
+    );
+    assert!(
+        query.clauses.iter().any(|c| matches!(c, Clause::With(_))),
+        "the safe eager aggregate WITH must remain after desugaring"
+    );
+}
+
+#[test]
+fn test_topk_bails_for_property_value_grouping() {
+    // Property expressions group by VALUE, not NodeIndex. The fused
+    // accumulator is node-keyed, so it must bail until it can re-bucket
+    // equal property values without changing counts.
+    let mut query = parse_cypher(
+        "MATCH (p)-[:T1]->({id: 1}) \
+         MATCH (p)-[r]-(other) \
+         WHERE NOT (type(r) = 'T2' AND startNode(r) = other) \
+         RETURN p.title AS name, p.description AS desc, count(r) AS d \
+         ORDER BY d DESC LIMIT 10",
+    )
+    .unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    let topk_absorbed = query
+        .clauses
+        .iter()
+        .any(|c| matches!(c, Clause::FusedMatchWithAggregate { top_k: Some(_), .. }));
+    assert!(
+        !topk_absorbed,
+        "property-value grouping must not use node-keyed fusion"
+    );
+}
+
+#[test]
+fn test_topk_bails_for_property_grouping_after_pass_through_with() {
+    // Folding the pass-through WITH must not accidentally admit the same
+    // unsafe property-value grouping shape downstream.
+    let mut query = parse_cypher(
+        "MATCH (p)-[:P27]->({id: 20}) \
+         WITH p \
+         MATCH (p)-[r]-(other) \
+         WHERE NOT (type(r) = 'P50' AND startNode(r) = other) \
+         RETURN p.title AS name, p.description AS desc, count(r) AS connections \
+         ORDER BY connections DESC LIMIT 10",
+    )
+    .unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    let topk_absorbed = query
+        .clauses
+        .iter()
+        .any(|c| matches!(c, Clause::FusedMatchWithAggregate { top_k: Some(_), .. }));
+    assert!(
+        !topk_absorbed,
+        "property-value grouping must stay unfused after WITH folding"
+    );
+}
+
+#[test]
+fn test_topk_skipped_for_computed_return_expressions() {
+    // Computed RETURN expressions (arithmetic on aggregates here) are
+    // not safe to absorb — we'd need *all* rows to know which 10 win.
+    // Pin the bail-out so a future relaxation has to opt in.
+    let mut query = parse_cypher(
+        "MATCH (p)-[:T1]->({id: 1}) \
+         MATCH (p)-[r]-() \
+         WITH p, count(r) AS total, 1 AS one \
+         RETURN p.title, total + one AS adjusted \
+         ORDER BY total DESC LIMIT 10",
+    )
+    .unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    let topk_absorbed = query
+        .clauses
+        .iter()
+        .any(|c| matches!(c, Clause::FusedMatchWithAggregate { top_k: Some(_), .. }));
+    assert!(
+        !topk_absorbed,
+        "computed RETURN expressions must not absorb top_k; \
+         clauses: {:#?}",
+        query.clauses
+    );
+}
+
+#[test]
+fn test_desugar_skips_when_no_aggregate() {
+    // No aggregate in RETURN → desugar must not fire (would just add
+    // an unnecessary WITH).
+    let mut query = parse_cypher(
+        "MATCH (p)-[:T1]->({id: 1}) \
+         MATCH (p)-[:T2]->({id: 2}) \
+         RETURN p.title \
+         LIMIT 10",
+    )
+    .unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    let bare_with_count = query
+        .clauses
+        .iter()
+        .filter(|c| matches!(c, Clause::With(_)))
+        .count();
+    assert_eq!(
+        bare_with_count, 0,
+        "desugar must not introduce a WITH when RETURN has no aggregate"
+    );
+}
+
+#[test]
+fn test_desugar_skips_when_multiple_group_vars() {
+    // Two distinct group variables (`p.title`, `q.name`) — the simple
+    // single-variable rewrite doesn't apply; bail.
+    let mut query = parse_cypher(
+        "MATCH (p)-[:T1]->({id: 1}) \
+         MATCH (p)-[r]->(q) \
+         RETURN p.title, q.title, count(r) AS d \
+         ORDER BY d DESC LIMIT 10",
+    )
+    .unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    // Should NOT have produced a FusedMatchWithAggregate — the desugar
+    // was correctly skipped, leaving the query for the slow path.
+    let fused_count = query
+        .clauses
+        .iter()
+        .filter(|c| matches!(c, Clause::FusedMatchWithAggregate { .. }))
+        .count();
+    assert_eq!(
+        fused_count, 0,
+        "multi-group-variable RETURN must not be auto-rewritten"
+    );
+}
+
+#[test]
+fn test_fuse_optional_match_aggregate_single_pattern_fires() {
+    let mut query = parse_cypher(
+        "MATCH (n:Person) \
+         OPTIONAL MATCH (n)-[r:KNOWS]->(m) \
+         WITH n, count(*) AS c \
+         RETURN n.title, c",
+    )
+    .unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    let fused_count = query
+        .clauses
+        .iter()
+        .filter(|c| matches!(c, Clause::FusedOptionalMatchAggregate { .. }))
+        .count();
+    assert_eq!(
+        fused_count, 1,
+        "single-pattern OPTIONAL MATCH + WITH count(*) must fuse"
+    );
+}
+
+#[test]
+fn test_fuse_optional_match_aggregate_bails_on_multi_pattern() {
+    // The fused executor computes ONE per-row match_count by summing
+    // pattern counts — wrong for comma-separated multi-pattern OPTIONAL
+    // MATCH (row count is the patterns' join; per-variable counts differ
+    // per pattern). The gate must leave this to the materialized path.
+    let mut query = parse_cypher(
+        "MATCH (n:Person) \
+         OPTIONAL MATCH (n)-[:KNOWS]->(a), (n)-[:WORKS_AT]->(b) \
+         WITH n, count(a) AS ca, count(b) AS cb \
+         RETURN n.title, ca, cb",
+    )
+    .unwrap();
+
+    let graph = DirGraph::new();
+    let params = HashMap::new();
+    optimize(&mut query, &graph, &params);
+
+    let fused_count = query
+        .clauses
+        .iter()
+        .filter(|c| matches!(c, Clause::FusedOptionalMatchAggregate { .. }))
+        .count();
+    assert_eq!(
+        fused_count, 0,
+        "multi-pattern OPTIONAL MATCH must not fuse into FusedOptionalMatchAggregate"
+    );
+}
+
+/// The lazy-eligibility contract, pinned as a corpus.
+///
+/// `mark_lazy_eligibility` decides whether a result is returned deferred, and a
+/// deferred result holds an `Arc<DirGraph>` for its whole life — which makes the
+/// next write through the owning graph copy-on-write the entire graph. So this
+/// gate is not merely a projection optimisation: it decides who pays an O(V+E)
+/// fork. Pinning the exact shape keeps that reach visible and honest.
+///
+/// The surprising member is `WHERE`: `optimize` keeps a standalone
+/// `Clause::Where` as a safety net even after pushing every predicate into the
+/// MATCH (see `test_predicate_pushdown_simple`), and the eligibility walk has no
+/// arm for it. So the same point lookup is eligible written with an inline map
+/// and ineligible written with `WHERE`.
+#[test]
+fn lazy_eligibility_corpus() {
+    fn is_lazy(q: &str) -> bool {
+        let mut query = parse_cypher(q).unwrap();
+        let graph = DirGraph::new();
+        let params = HashMap::new();
+        optimize(&mut query, &graph, &params);
+        mark_lazy_eligibility(&mut query);
+        query.clauses.iter().any(|c| match c {
+            Clause::Return(r) => r.lazy_eligible,
+            _ => false,
+        })
+    }
+
+    // Eligible: bare property projections over an unfiltered or inline-filtered
+    // MATCH, with nothing but SKIP/LIMIT after the RETURN.
+    for q in [
+        "MATCH (u:User) RETURN u.name",
+        "MATCH (u:User {id: 1}) RETURN u.name, u.email",
+        "MATCH (u:User {id: 1}) RETURN u.name AS name",
+        "MATCH (u:User) RETURN u.name LIMIT 10",
+        "MATCH (u:User)-[:OWNS]->(t:Task) RETURN u.name, t.title",
+        "OPTIONAL MATCH (u:User) RETURN u.name",
+    ] {
+        assert!(is_lazy(q), "expected lazy-eligible: {q}");
+    }
+
+    // Ineligible. Each of these takes the eager path and therefore never pins
+    // the graph, whatever its size.
+    for q in [
+        // A standalone WHERE survives optimisation and disqualifies.
+        "MATCH (u:User) WHERE u.id = 1 RETURN u.name",
+        // Whole-node returns resolve via NodeRef, not the lazy resolver.
+        "MATCH (u:User) RETURN u",
+        // Any non-PropertyAccess return item.
+        "MATCH (u:User) RETURN u.age + 1",
+        "MATCH (u:User) RETURN count(u)",
+        // Ordering, dedup and multi-stage pipelines all disqualify.
+        "MATCH (u:User) RETURN u.name ORDER BY u.name",
+        "MATCH (u:User) RETURN DISTINCT u.name",
+        "MATCH (u:User) WITH u.name AS n RETURN n",
+        "UNWIND [1, 2] AS x RETURN x",
+    ] {
+        assert!(!is_lazy(q), "expected NOT lazy-eligible: {q}");
+    }
+
+    // The same lookup, two spellings, opposite classifications. Asserted as an
+    // explicit pair because it is the least defensible part of the rule: the
+    // two queries are semantically identical and a user has no way to know
+    // which one they wrote. Whichever way the rule moves, these two should
+    // arrive at the same answer — if a future change makes them agree, delete
+    // this pair rather than "fixing" it.
+    assert!(is_lazy("MATCH (u:User {id: 1}) RETURN u.name"));
+    assert!(!is_lazy("MATCH (u:User) WHERE u.id = 1 RETURN u.name"));
+
+    // The exact shapes the graph-pin benchmark relies on. Pinned here because
+    // measuring the pin with an ineligible read reports no change and looks
+    // like a working fix doing nothing.
+    assert!(is_lazy(
+        "MATCH (p:Person {id: 0}) RETURN p.name AS name, p.age AS age"
+    ));
+    assert!(!is_lazy(
+        "MATCH (p:Person) WHERE p.id = 0 RETURN p.name AS name, p.age AS age"
+    ));
+    assert!(is_lazy(
+        "MATCH (p:Person) RETURN p.name AS name, p.age AS age"
+    ));
+}

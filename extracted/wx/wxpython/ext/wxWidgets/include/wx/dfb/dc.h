@@ -25,14 +25,14 @@ class WXDLLIMPEXP_CORE wxDFBDCImpl : public wxDCImpl
 {
 public:
     // ctors
-    wxDFBDCImpl(wxDC *owner) : wxDCImpl(owner) { m_surface = NULL; }
+    wxDFBDCImpl(wxDC *owner) : wxDCImpl(owner) { m_surface = nullptr; }
     wxDFBDCImpl(wxDC *owner, const wxIDirectFBSurfacePtr& surface)
         : wxDCImpl(owner)
     {
         DFBInit(surface);
     }
 
-    bool IsOk() const { return m_surface != NULL; }
+    bool IsOk() const { return m_surface != nullptr; }
 
     // implement base class pure virtuals
     // ----------------------------------
@@ -62,9 +62,9 @@ public:
     virtual wxCoord GetCharWidth() const;
     virtual void DoGetTextExtent(const wxString& string,
                                  wxCoord *x, wxCoord *y,
-                                 wxCoord *descent = NULL,
-                                 wxCoord *externalLeading = NULL,
-                                 const wxFont *theFont = NULL) const;
+                                 wxCoord *descent = nullptr,
+                                 wxCoord *externalLeading = nullptr,
+                                 const wxFont *theFont = nullptr) const;
 
     virtual bool CanDrawBitmap() const { return true; }
     virtual bool CanGetTextExtent() const { return true; }
@@ -75,16 +75,6 @@ public:
     wxIDirectFBSurfacePtr GetDirectFBSurface() const { return m_surface; }
 
 protected:
-    // implementation
-    wxCoord XDEV2LOG(wxCoord x) const       { return DeviceToLogicalX(x); }
-    wxCoord XDEV2LOGREL(wxCoord x) const    { return DeviceToLogicalXRel(x); }
-    wxCoord YDEV2LOG(wxCoord y) const       { return DeviceToLogicalY(y); }
-    wxCoord YDEV2LOGREL(wxCoord y) const    { return DeviceToLogicalYRel(y); }
-    wxCoord XLOG2DEV(wxCoord x) const       { return LogicalToDeviceX(x); }
-    wxCoord XLOG2DEVREL(wxCoord x) const    { return LogicalToDeviceXRel(x); }
-    wxCoord YLOG2DEV(wxCoord y) const       { return LogicalToDeviceY(y); }
-    wxCoord YLOG2DEVREL(wxCoord y) const    { return LogicalToDeviceYRel(y); }
-
     // initializes the DC from a surface, must be called if default ctor
     // was used
     void DFBInit(const wxIDirectFBSurfacePtr& surface);

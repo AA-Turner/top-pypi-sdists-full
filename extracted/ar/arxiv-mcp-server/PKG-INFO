@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arxiv-mcp-server
-Version: 0.6.1
+Version: 0.6.2
 Summary: A flexible arXiv search and analysis service with MCP protocol support
 Project-URL: Repository, https://github.com/blazickjp/arxiv-mcp-server
 Project-URL: Issues, https://github.com/blazickjp/arxiv-mcp-server/issues
@@ -26,7 +26,7 @@ Requires-Dist: aiohttp>=3.9.1
 Requires-Dist: anyio>=4.2.0
 Requires-Dist: arxiv>=2.1.0
 Requires-Dist: httpx>=0.24.0
-Requires-Dist: mcp>=1.27.0
+Requires-Dist: mcp<2.0.0,>=1.27.0
 Requires-Dist: pydantic-settings>=2.1.0
 Requires-Dist: pydantic>=2.8.0
 Requires-Dist: python-dateutil>=2.8.2

@@ -1,0 +1,59 @@
+[package]
+name = "kglite-cli"
+version.workspace = true
+edition = "2021"
+# Above the 1.88.0 workspace floor: `rustyline 18` declares no
+# `rust-version` of its own but calls `File::lock_shared`, stabilized in
+# 1.89.0. On 1.88 it fails with E0658 `use of unstable library feature
+# 'file_lock'`, so the metadata floor understates the real one.
+rust-version = "1.89.0"
+authors = ["Kristian dF Kollsgård <kkollsg@gmail.com>"]
+license = "MIT"
+description = "Pure-Rust KGLite CLI: Cypher shell and offline code-review skill installer"
+readme = "README.md"
+repository = "https://github.com/kkollsga/kglite"
+homepage = "https://github.com/kkollsga/kglite"
+keywords = ["cypher", "repl", "shell", "knowledge-graph", "kglite"]
+categories = ["database", "command-line-utilities"]
+
+[[bin]]
+name = "kglite"
+path = "src/main.rs"
+
+[dependencies]
+# Reuse kglite's pure-Rust surface (kglite::api::*) — no libpython link
+# in the resulting binary. Mirrors the kglite-bolt-server / kglite-mcp-server
+# pattern: path dep locally, version requirement on `cargo publish`. The
+# requirement tracks the exact workspace version (`make bump-version
+# VERSION=X.Y.Z`; `make gate` fails on drift).
+kglite = { version = "0.15.3", path = "../kglite", default-features = false, features = ["okf"] }
+
+# Line editor: prompt, history, Emacs/Vi keybindings, Ctrl-C/Ctrl-D handling.
+# The standard Rust REPL choice; not otherwise a workspace dep.
+rustyline = "18"
+
+# SIGINT → cancel the in-flight query (sets the flag execute_mut polls).
+# rustyline keeps the prompt in raw mode, so Ctrl-C only raises SIGINT while
+# a query is actually running.
+ctrlc = "3"
+
+# `.mode json` output via kglite::api::param::kglite_value_to_json.
+serde_json = "1.0.150"
+
+# `.import <file.csv> <Type>` — parse the CSV; rows are passed as a Cypher
+# `$rows` param (values parameterized, not interpolated). Already a `kglite` dep.
+csv = "1.4"
+
+clap = { version = "4.3", features = ["derive"] }
+# 1.0.47 is a BEHAVIOURAL floor, not just a compiling one. Below it,
+# `anyhow!("... {e}")` does not capture `e` -- the macro routed a lone
+# literal straight to `Error::msg`, so the message printed the literal
+# text "{e}". kglite-cli relies on inline captures (src/lib.rs:405 and
+# others). Verified by RUNNING each version, not by compiling: 1.0.45
+# prints "failed: {e}", 1.0.47 prints "failed: BOOM" (1.0.46 is yanked).
+# 1.0.20 also matters (anyhow::Error::msg, used by mcp-methods) and
+# 1.0.5 (Context for Option, used by kglite-cli); 1.0.47 covers all.
+anyhow = "1.0.47"
+
+[dev-dependencies]
+tempfile = "3.10.0"

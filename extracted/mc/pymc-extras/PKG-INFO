@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymc-extras
-Version: 0.13.1
+Version: 0.14.0
 Summary: A home for new additions to PyMC, which may include unusual probability distribitions, advanced model fitting algorithms, or any code that may be inappropriate to include in the pymc repository, but may want to be made available to users.
 Project-URL: Documentation, https://pymc-extras.readthedocs.io/
 Project-URL: Repository, https://github.com/pymc-devs/pymc-extras.git
@@ -232,13 +232,12 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Requires-Python: >=3.12
-Requires-Dist: arviz>=1.1
+Requires-Dist: arviz<2.0,>=1.2
 Requires-Dist: better-optimize<1.0,>=0.4.2
-Requires-Dist: matplotlib<3.11
-Requires-Dist: preliz<0.27.0,>=0.26.0
-Requires-Dist: pydantic>=2.0.0
-Requires-Dist: pymc<6.2,>=6.1.0
-Requires-Dist: pytensor<3.2,>=3.1.3
+Requires-Dist: preliz<0.28.0,>=0.27.0
+Requires-Dist: pydantic<3.0,>=2.0.0
+Requires-Dist: pymc<6.3,>=6.2.0
+Requires-Dist: pytensor<3.3,>=3.2.3
 Provides-Extra: complete
 Requires-Dist: dask[complete]<2025.1.1; extra == 'complete'
 Requires-Dist: xhistogram; extra == 'complete'
@@ -246,14 +245,14 @@ Provides-Extra: dask-histogram
 Requires-Dist: dask[complete]<2025.1.1; extra == 'dask-histogram'
 Requires-Dist: xhistogram; extra == 'dask-histogram'
 Provides-Extra: dev
-Requires-Dist: blackjax>=0.12; extra == 'dev'
+Requires-Dist: blackjax<2.0,>=0.12; extra == 'dev'
 Requires-Dist: dask[all]<2025.1.1; extra == 'dev'
-Requires-Dist: pytest>=6.0; extra == 'dev'
+Requires-Dist: pytest<10.0,>=6.0; extra == 'dev'
 Requires-Dist: statsmodels; extra == 'dev'
 Provides-Extra: docs
-Requires-Dist: nbsphinx>=0.4.2; extra == 'docs'
-Requires-Dist: pymc-sphinx-theme>=0.16; extra == 'docs'
-Requires-Dist: sphinx>=4.0; extra == 'docs'
+Requires-Dist: nbsphinx<1.0,>=0.4.2; extra == 'docs'
+Requires-Dist: pymc-sphinx-theme<1.0,>=0.16; extra == 'docs'
+Requires-Dist: sphinx<10.0,>=4.0; extra == 'docs'
 Provides-Extra: histogram
 Requires-Dist: xhistogram; extra == 'histogram'
 Description-Content-Type: text/markdown

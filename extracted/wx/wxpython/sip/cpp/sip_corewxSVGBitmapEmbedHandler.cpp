@@ -227,7 +227,7 @@ static void *init_type_wxSVGBitmapEmbedHandler(sipSimpleWrapper *sipSelf, PyObje
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxSVGBitmapEmbedHandler[] = {{488, 255, 1}};
+static sipEncodedTypeDef supers_wxSVGBitmapEmbedHandler[] = {{503, 255, 1}};
 
 
 static PyMethodDef methods_wxSVGBitmapEmbedHandler[] = {

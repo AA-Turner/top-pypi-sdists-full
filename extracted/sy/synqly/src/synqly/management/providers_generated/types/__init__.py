@@ -43,6 +43,7 @@ if typing.TYPE_CHECKING:
     from .assets_ivanti_neurons import AssetsIvantiNeurons
     from .assets_ivanti_neurons_dataset import AssetsIvantiNeuronsDataset
     from .assets_ivanti_neurons_mock import AssetsIvantiNeuronsMock
+    from .assets_jupiter_one import AssetsJupiterOne
     from .assets_nozomi_vantage import AssetsNozomiVantage
     from .assets_nozomi_vantage_dataset import AssetsNozomiVantageDataset
     from .assets_nozomi_vantage_mock import AssetsNozomiVantageMock
@@ -303,6 +304,7 @@ if typing.TYPE_CHECKING:
     )
     from .jamf_credential import JamfCredential, JamfCredential_OAuthClient, JamfCredential_OAuthClientId
     from .jira_credential import JiraCredential, JiraCredential_Basic, JiraCredential_BasicId
+    from .jupiter_one_credential import JupiterOneCredential, JupiterOneCredential_Token, JupiterOneCredential_TokenId
     from .linear_credential import LinearCredential, LinearCredential_Token, LinearCredential_TokenId
     from .malwarebytes_credential import (
         MalwarebytesCredential,
@@ -355,6 +357,7 @@ if typing.TYPE_CHECKING:
         PantherIngestionCredential_Token,
         PantherIngestionCredential_TokenId,
     )
+    from .pentera_credential import PenteraCredential, PenteraCredential_Basic, PenteraCredential_BasicId
     from .ping_one_apiurl import PingOneApiurl
     from .ping_one_auth_url import PingOneAuthUrl
     from .ping_one_credential import PingOneCredential, PingOneCredential_Token, PingOneCredential_TokenId
@@ -382,6 +385,7 @@ if typing.TYPE_CHECKING:
         ProviderConfig_AssetsIru,
         ProviderConfig_AssetsIvantiNeurons,
         ProviderConfig_AssetsIvantiNeuronsMock,
+        ProviderConfig_AssetsJupiterone,
         ProviderConfig_AssetsNozomiVantage,
         ProviderConfig_AssetsNozomiVantageMock,
         ProviderConfig_AssetsQualysCloud,
@@ -509,6 +513,7 @@ if typing.TYPE_CHECKING:
         ProviderConfig_VulnerabilitiesHorizon3,
         ProviderConfig_VulnerabilitiesIru,
         ProviderConfig_VulnerabilitiesNucleus,
+        ProviderConfig_VulnerabilitiesPentera,
         ProviderConfig_VulnerabilitiesQualysCloud,
         ProviderConfig_VulnerabilitiesQualysCloudMock,
         ProviderConfig_VulnerabilitiesRapid7InsightCloud,
@@ -699,6 +704,7 @@ if typing.TYPE_CHECKING:
     from .vulnerabilities_horizon_3 import VulnerabilitiesHorizon3
     from .vulnerabilities_iru import VulnerabilitiesIru
     from .vulnerabilities_nucleus import VulnerabilitiesNucleus
+    from .vulnerabilities_pentera import VulnerabilitiesPentera
     from .vulnerabilities_qualys_cloud import VulnerabilitiesQualysCloud
     from .vulnerabilities_qualys_cloud_dataset import VulnerabilitiesQualysCloudDataset
     from .vulnerabilities_qualys_cloud_mock import VulnerabilitiesQualysCloudMock
@@ -753,6 +759,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AssetsIvantiNeurons": ".assets_ivanti_neurons",
     "AssetsIvantiNeuronsDataset": ".assets_ivanti_neurons_dataset",
     "AssetsIvantiNeuronsMock": ".assets_ivanti_neurons_mock",
+    "AssetsJupiterOne": ".assets_jupiter_one",
     "AssetsNozomiVantage": ".assets_nozomi_vantage",
     "AssetsNozomiVantageDataset": ".assets_nozomi_vantage_dataset",
     "AssetsNozomiVantageMock": ".assets_nozomi_vantage_mock",
@@ -996,6 +1003,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "JiraCredential": ".jira_credential",
     "JiraCredential_Basic": ".jira_credential",
     "JiraCredential_BasicId": ".jira_credential",
+    "JupiterOneCredential": ".jupiter_one_credential",
+    "JupiterOneCredential_Token": ".jupiter_one_credential",
+    "JupiterOneCredential_TokenId": ".jupiter_one_credential",
     "LinearCredential": ".linear_credential",
     "LinearCredential_Token": ".linear_credential",
     "LinearCredential_TokenId": ".linear_credential",
@@ -1046,6 +1056,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PantherIngestionCredential": ".panther_ingestion_credential",
     "PantherIngestionCredential_Token": ".panther_ingestion_credential",
     "PantherIngestionCredential_TokenId": ".panther_ingestion_credential",
+    "PenteraCredential": ".pentera_credential",
+    "PenteraCredential_Basic": ".pentera_credential",
+    "PenteraCredential_BasicId": ".pentera_credential",
     "PingOneApiurl": ".ping_one_apiurl",
     "PingOneAuthUrl": ".ping_one_auth_url",
     "PingOneCredential": ".ping_one_credential",
@@ -1075,6 +1088,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ProviderConfig_AssetsIru": ".provider_config",
     "ProviderConfig_AssetsIvantiNeurons": ".provider_config",
     "ProviderConfig_AssetsIvantiNeuronsMock": ".provider_config",
+    "ProviderConfig_AssetsJupiterone": ".provider_config",
     "ProviderConfig_AssetsNozomiVantage": ".provider_config",
     "ProviderConfig_AssetsNozomiVantageMock": ".provider_config",
     "ProviderConfig_AssetsQualysCloud": ".provider_config",
@@ -1202,6 +1216,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ProviderConfig_VulnerabilitiesHorizon3": ".provider_config",
     "ProviderConfig_VulnerabilitiesIru": ".provider_config",
     "ProviderConfig_VulnerabilitiesNucleus": ".provider_config",
+    "ProviderConfig_VulnerabilitiesPentera": ".provider_config",
     "ProviderConfig_VulnerabilitiesQualysCloud": ".provider_config",
     "ProviderConfig_VulnerabilitiesQualysCloudMock": ".provider_config",
     "ProviderConfig_VulnerabilitiesRapid7InsightCloud": ".provider_config",
@@ -1378,6 +1393,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "VulnerabilitiesHorizon3": ".vulnerabilities_horizon_3",
     "VulnerabilitiesIru": ".vulnerabilities_iru",
     "VulnerabilitiesNucleus": ".vulnerabilities_nucleus",
+    "VulnerabilitiesPentera": ".vulnerabilities_pentera",
     "VulnerabilitiesQualysCloud": ".vulnerabilities_qualys_cloud",
     "VulnerabilitiesQualysCloudDataset": ".vulnerabilities_qualys_cloud_dataset",
     "VulnerabilitiesQualysCloudMock": ".vulnerabilities_qualys_cloud_mock",
@@ -1462,6 +1478,7 @@ __all__ = [
     "AssetsIvantiNeurons",
     "AssetsIvantiNeuronsDataset",
     "AssetsIvantiNeuronsMock",
+    "AssetsJupiterOne",
     "AssetsNozomiVantage",
     "AssetsNozomiVantageDataset",
     "AssetsNozomiVantageMock",
@@ -1705,6 +1722,9 @@ __all__ = [
     "JiraCredential",
     "JiraCredential_Basic",
     "JiraCredential_BasicId",
+    "JupiterOneCredential",
+    "JupiterOneCredential_Token",
+    "JupiterOneCredential_TokenId",
     "LinearCredential",
     "LinearCredential_Token",
     "LinearCredential_TokenId",
@@ -1755,6 +1775,9 @@ __all__ = [
     "PantherIngestionCredential",
     "PantherIngestionCredential_Token",
     "PantherIngestionCredential_TokenId",
+    "PenteraCredential",
+    "PenteraCredential_Basic",
+    "PenteraCredential_BasicId",
     "PingOneApiurl",
     "PingOneAuthUrl",
     "PingOneCredential",
@@ -1784,6 +1807,7 @@ __all__ = [
     "ProviderConfig_AssetsIru",
     "ProviderConfig_AssetsIvantiNeurons",
     "ProviderConfig_AssetsIvantiNeuronsMock",
+    "ProviderConfig_AssetsJupiterone",
     "ProviderConfig_AssetsNozomiVantage",
     "ProviderConfig_AssetsNozomiVantageMock",
     "ProviderConfig_AssetsQualysCloud",
@@ -1911,6 +1935,7 @@ __all__ = [
     "ProviderConfig_VulnerabilitiesHorizon3",
     "ProviderConfig_VulnerabilitiesIru",
     "ProviderConfig_VulnerabilitiesNucleus",
+    "ProviderConfig_VulnerabilitiesPentera",
     "ProviderConfig_VulnerabilitiesQualysCloud",
     "ProviderConfig_VulnerabilitiesQualysCloudMock",
     "ProviderConfig_VulnerabilitiesRapid7InsightCloud",
@@ -2087,6 +2112,7 @@ __all__ = [
     "VulnerabilitiesHorizon3",
     "VulnerabilitiesIru",
     "VulnerabilitiesNucleus",
+    "VulnerabilitiesPentera",
     "VulnerabilitiesQualysCloud",
     "VulnerabilitiesQualysCloudDataset",
     "VulnerabilitiesQualysCloudMock",

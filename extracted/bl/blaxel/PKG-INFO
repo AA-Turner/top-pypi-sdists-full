@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: blaxel
-Version: 0.3.5
+Version: 0.4.1
 Summary: Blaxel - AI development platform SDK
 Project-URL: Homepage, https://blaxel.ai
 Project-URL: Documentation, https://docs.blaxel.ai
@@ -12,7 +12,7 @@ Requires-Python: <3.15,>=3.10
 Requires-Dist: attrs>=21.3.0
 Requires-Dist: dockerfile-parse>=2.0.0
 Requires-Dist: httpx>=0.27.0
-Requires-Dist: mcp>=1.9.4
+Requires-Dist: mcp<2.0.0,>=1.9.4
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: pyjwt>=2.0.0
 Requires-Dist: python-dateutil>=2.8.0

@@ -13,18 +13,19 @@
         #include <wx/gdicmn.h>
         #include <wx/gdicmn.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/validate.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -40,6 +41,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
+    wxAccessible* _wxSplitterWindow_CreateAccessible(wxSplitterWindow* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxSplitterWindow : public ::wxSplitterWindow
@@ -67,7 +77,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -113,7 +122,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -126,7 +134,7 @@ private:
     sipwxSplitterWindow(const sipwxSplitterWindow &);
     sipwxSplitterWindow &operator = (const sipwxSplitterWindow &);
 
-    char sipPyMethods[39];
+    char sipPyMethods[38];
 };
 
 sipwxSplitterWindow::sipwxSplitterWindow(): ::wxSplitterWindow(), sipPySelf(SIP_NULLPTR)
@@ -157,9 +165,9 @@ void sipwxSplitterWindow::RemoveChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 void sipwxSplitterWindow::AddChild(::wxWindowBase*child)
@@ -175,9 +183,9 @@ void sipwxSplitterWindow::AddChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 bool sipwxSplitterWindow::ProcessEvent(::wxEvent& event)
@@ -190,9 +198,9 @@ bool sipwxSplitterWindow::ProcessEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxSplitterWindow::ProcessEvent(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxSplitterWindow::TryBefore(::wxEvent& event)
@@ -205,9 +213,9 @@ bool sipwxSplitterWindow::TryBefore(::wxEvent& event)
     if (!sipMeth)
         return ::wxSplitterWindow::TryBefore(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxSplitterWindow::TryAfter(::wxEvent& event)
@@ -220,9 +228,9 @@ bool sipwxSplitterWindow::TryAfter(::wxEvent& event)
     if (!sipMeth)
         return ::wxSplitterWindow::TryAfter(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxSplitterWindow::AcceptsFocus() const
@@ -283,9 +291,9 @@ void sipwxSplitterWindow::SetCanFocus(bool canFocus)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, canFocus);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, canFocus);
 }
 
 void sipwxSplitterWindow::EnableVisibleFocus(bool enabled)
@@ -301,9 +309,9 @@ void sipwxSplitterWindow::EnableVisibleFocus(bool enabled)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enabled);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enabled);
 }
 
 bool sipwxSplitterWindow::InformFirstDirection(int direction, int size, int availableOtherDir)
@@ -316,9 +324,9 @@ bool sipwxSplitterWindow::InformFirstDirection(int direction, int size, int avai
     if (!sipMeth)
         return ::wxSplitterWindow::InformFirstDirection(direction, size, availableOtherDir);
 
-    extern bool sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern bool sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
 
-    return sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
+    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
 }
 
 ::wxPoint sipwxSplitterWindow::GetClientAreaOrigin() const
@@ -331,9 +339,9 @@ bool sipwxSplitterWindow::InformFirstDirection(int direction, int size, int avai
     if (!sipMeth)
         return ::wxSplitterWindow::GetClientAreaOrigin();
 
-    extern ::wxPoint sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPoint sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxSplitterWindow::HasTransparentBackground()
@@ -376,9 +384,9 @@ bool sipwxSplitterWindow::ShouldInheritColours() const
     if (!sipMeth)
         return ::wxSplitterWindow::GetValidator();
 
-    extern ::wxValidator* sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxValidator* sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxSplitterWindow::SetValidator(const ::wxValidator& validator)
@@ -394,9 +402,9 @@ void sipwxSplitterWindow::SetValidator(const ::wxValidator& validator)
         return;
     }
 
-    extern void sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
+    extern void sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
 
-    sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth, validator);
+    sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth, validator);
 }
 
 bool sipwxSplitterWindow::TransferDataFromWindow()
@@ -523,9 +531,9 @@ void sipwxSplitterWindow::OnInternalIdle()
     if (!sipMeth)
         return ::wxSplitterWindow::GetMainWindowOfCompositeControl();
 
-    extern ::wxWindow* sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxWindow* sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxSplitterWindow::DoEnable(bool enable)
@@ -541,9 +549,9 @@ void sipwxSplitterWindow::DoEnable(bool enable)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enable);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enable);
 }
 
 void sipwxSplitterWindow::DoGetPosition(int*x, int*y) const
@@ -559,9 +567,9 @@ void sipwxSplitterWindow::DoGetPosition(int*x, int*y) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, x, y);
 }
 
 void sipwxSplitterWindow::DoGetSize(int*width, int*height) const
@@ -577,9 +585,9 @@ void sipwxSplitterWindow::DoGetSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxSplitterWindow::DoGetClientSize(int*width, int*height) const
@@ -595,9 +603,9 @@ void sipwxSplitterWindow::DoGetClientSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxSplitterWindow::DoSetSize(int x, int y, int width, int height, int sizeFlags)
@@ -613,9 +621,9 @@ void sipwxSplitterWindow::DoSetSize(int x, int y, int width, int height, int siz
         return;
     }
 
-    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
+    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
 
-    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
+    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
 }
 
 void sipwxSplitterWindow::DoSetClientSize(int width, int height)
@@ -631,9 +639,9 @@ void sipwxSplitterWindow::DoSetClientSize(int width, int height)
         return;
     }
 
-    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
+    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
 
-    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxSplitterWindow::DoSetSizeHints(int minW, int minH, int maxW, int maxH, int incW, int incH)
@@ -649,9 +657,9 @@ void sipwxSplitterWindow::DoSetSizeHints(int minW, int minH, int maxW, int maxH,
         return;
     }
 
-    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
+    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
 
-    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
+    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
 }
 
 void sipwxSplitterWindow::DoMoveWindow(int x, int y, int width, int height)
@@ -667,9 +675,9 @@ void sipwxSplitterWindow::DoMoveWindow(int x, int y, int width, int height)
         return;
     }
 
-    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
+    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
 
-    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
+    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
 }
 
 void sipwxSplitterWindow::DoSetWindowVariant(::wxWindowVariant variant)
@@ -685,9 +693,9 @@ void sipwxSplitterWindow::DoSetWindowVariant(::wxWindowVariant variant)
         return;
     }
 
-    extern void sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
+    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
 
-    sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth, variant);
+    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, variant);
 }
 
 ::wxBorder sipwxSplitterWindow::GetDefaultBorder() const
@@ -700,24 +708,9 @@ void sipwxSplitterWindow::DoSetWindowVariant(::wxWindowVariant variant)
     if (!sipMeth)
         return ::wxSplitterWindow::GetDefaultBorder();
 
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxBorder sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
-}
-
-::wxBorder sipwxSplitterWindow::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxSplitterWindow::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxSplitterWindow::DoFreeze()
@@ -725,7 +718,7 @@ void sipwxSplitterWindow::DoFreeze()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -743,7 +736,7 @@ void sipwxSplitterWindow::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -761,7 +754,7 @@ void sipwxSplitterWindow::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxSplitterWindow::DoGetBestSize();
@@ -776,7 +769,7 @@ void sipwxSplitterWindow::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxSplitterWindow::DoGetBestClientSize();
@@ -854,11 +847,6 @@ void sipwxSplitterWindow::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, 
 ::wxBorder sipwxSplitterWindow::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxSplitterWindow::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxSplitterWindow::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxSplitterWindow::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxSplitterWindow::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -1705,7 +1693,7 @@ static PyObject *meth_wxSplitterWindow_SplitVertically(PyObject *sipSelf, PyObje
 }
 
 
-PyDoc_STRVAR(doc_wxSplitterWindow_Unsplit, "Unsplit(toRemove=None) -> bool\n"
+PyDoc_STRVAR(doc_wxSplitterWindow_Unsplit, "Unsplit(toRemove=nullptr) -> bool\n"
 "\n"
 "Unsplits the window.");
 
@@ -1715,7 +1703,7 @@ static PyObject *meth_wxSplitterWindow_Unsplit(PyObject *sipSelf, PyObject *sipA
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        ::wxWindow* toRemove = 0;
+        ::wxWindow* toRemove = nullptr;
         ::wxSplitterWindow *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -1775,6 +1763,82 @@ static PyObject *meth_wxSplitterWindow_UpdateSize(PyObject *sipSelf, PyObject *s
     }
 
     sipNoMethod(sipParseErr, sipName_SplitterWindow, sipName_UpdateSize, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxSplitterWindow_GetLastSplitPosition, "GetLastSplitPosition() -> Point\n"
+"\n"
+"Get the last sash position before the splitter was unsplit.");
+
+extern "C" {static PyObject *meth_wxSplitterWindow_GetLastSplitPosition(PyObject *, PyObject *);}
+static PyObject *meth_wxSplitterWindow_GetLastSplitPosition(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxSplitterWindow *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxSplitterWindow, &sipCpp))
+        {
+            ::wxPoint*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxPoint(sipCpp->GetLastSplitPosition());
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxPoint, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_SplitterWindow, sipName_GetLastSplitPosition, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxSplitterWindow_SetLastSplitPosition, "SetLastSplitPosition(pos) -> None\n"
+"\n"
+"Sets the last sash position.");
+
+extern "C" {static PyObject *meth_wxSplitterWindow_SetLastSplitPosition(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxSplitterWindow_SetLastSplitPosition(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxPoint* pos;
+        int posState = 0;
+        ::wxSplitterWindow *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_pos,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxSplitterWindow, &sipCpp, sipType_wxPoint, &pos, &posState))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetLastSplitPosition(*pos);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxPoint *>(pos), sipType_wxPoint, posState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_SplitterWindow, sipName_SetLastSplitPosition, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -2983,40 +3047,6 @@ static PyObject *meth_wxSplitterWindow_GetDefaultBorder(PyObject *sipSelf, PyObj
 }
 
 
-PyDoc_STRVAR(doc_wxSplitterWindow_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxSplitterWindow_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxSplitterWindow_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxSplitterWindow *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxSplitterWindow, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_SplitterWindow, sipName_GetDefaultBorderForControl, doc_wxSplitterWindow_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxSplitterWindow_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxSplitterWindow_DoFreeze(PyObject *, PyObject *);}
@@ -3190,6 +3220,39 @@ static PyObject *meth_wxSplitterWindow_TryAfter(PyObject *sipSelf, PyObject *sip
     }
 
     sipNoMethod(sipParseErr, sipName_SplitterWindow, sipName_TryAfter, doc_wxSplitterWindow_TryAfter);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxSplitterWindow_CreateAccessible, "CreateAccessible() -> Accessible");
+
+extern "C" {static PyObject *meth_wxSplitterWindow_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxSplitterWindow_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxSplitterWindow *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxSplitterWindow, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxSplitterWindow_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_SplitterWindow, sipName_CreateAccessible, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -3373,7 +3436,7 @@ static void *init_type_wxSplitterWindow(sipSimpleWrapper *sipSelf, PyObject *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxSplitterWindow[] = {{631, 255, 1}};
+static sipEncodedTypeDef supers_wxSplitterWindow[] = {{655, 255, 1}};
 
 
 static PyMethodDef methods_wxSplitterWindow[] = {
@@ -3382,6 +3445,7 @@ static PyMethodDef methods_wxSplitterWindow[] = {
     {sipName_AcceptsFocusRecursively, meth_wxSplitterWindow_AcceptsFocusRecursively, METH_VARARGS, doc_wxSplitterWindow_AcceptsFocusRecursively},
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxSplitterWindow_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxSplitterWindow_AddChild},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxSplitterWindow_Create), METH_VARARGS|METH_KEYWORDS, doc_wxSplitterWindow_Create},
+    {sipName_CreateAccessible, meth_wxSplitterWindow_CreateAccessible, METH_VARARGS, doc_wxSplitterWindow_CreateAccessible},
     {sipName_Destroy, meth_wxSplitterWindow_Destroy, METH_VARARGS, doc_wxSplitterWindow_Destroy},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxSplitterWindow_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxSplitterWindow_DoEnable},
     {sipName_DoFreeze, meth_wxSplitterWindow_DoFreeze, METH_VARARGS, doc_wxSplitterWindow_DoFreeze},
@@ -3400,8 +3464,8 @@ static PyMethodDef methods_wxSplitterWindow[] = {
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxSplitterWindow_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxSplitterWindow_GetClassDefaultAttributes},
     {sipName_GetClientAreaOrigin, meth_wxSplitterWindow_GetClientAreaOrigin, METH_VARARGS, doc_wxSplitterWindow_GetClientAreaOrigin},
     {sipName_GetDefaultBorder, meth_wxSplitterWindow_GetDefaultBorder, METH_VARARGS, doc_wxSplitterWindow_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxSplitterWindow_GetDefaultBorderForControl, METH_VARARGS, doc_wxSplitterWindow_GetDefaultBorderForControl},
     {sipName_GetDefaultSashSize, meth_wxSplitterWindow_GetDefaultSashSize, METH_VARARGS, doc_wxSplitterWindow_GetDefaultSashSize},
+    {sipName_GetLastSplitPosition, meth_wxSplitterWindow_GetLastSplitPosition, METH_VARARGS, doc_wxSplitterWindow_GetLastSplitPosition},
     {sipName_GetMainWindowOfCompositeControl, meth_wxSplitterWindow_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxSplitterWindow_GetMainWindowOfCompositeControl},
     {sipName_GetMinimumPaneSize, meth_wxSplitterWindow_GetMinimumPaneSize, METH_VARARGS, doc_wxSplitterWindow_GetMinimumPaneSize},
     {sipName_GetSashGravity, meth_wxSplitterWindow_GetSashGravity, METH_VARARGS, doc_wxSplitterWindow_GetSashGravity},
@@ -3424,6 +3488,7 @@ static PyMethodDef methods_wxSplitterWindow[] = {
     {sipName_ReplaceWindow, SIP_MLMETH_CAST(meth_wxSplitterWindow_ReplaceWindow), METH_VARARGS|METH_KEYWORDS, doc_wxSplitterWindow_ReplaceWindow},
     {sipName_SendDestroyEvent, meth_wxSplitterWindow_SendDestroyEvent, METH_VARARGS, SIP_NULLPTR},
     {sipName_SetCanFocus, SIP_MLMETH_CAST(meth_wxSplitterWindow_SetCanFocus), METH_VARARGS|METH_KEYWORDS, doc_wxSplitterWindow_SetCanFocus},
+    {sipName_SetLastSplitPosition, SIP_MLMETH_CAST(meth_wxSplitterWindow_SetLastSplitPosition), METH_VARARGS|METH_KEYWORDS, doc_wxSplitterWindow_SetLastSplitPosition},
     {sipName_SetMinimumPaneSize, SIP_MLMETH_CAST(meth_wxSplitterWindow_SetMinimumPaneSize), METH_VARARGS|METH_KEYWORDS, doc_wxSplitterWindow_SetMinimumPaneSize},
     {sipName_SetSashGravity, SIP_MLMETH_CAST(meth_wxSplitterWindow_SetSashGravity), METH_VARARGS|METH_KEYWORDS, doc_wxSplitterWindow_SetSashGravity},
     {sipName_SetSashInvisible, SIP_MLMETH_CAST(meth_wxSplitterWindow_SetSashInvisible), METH_VARARGS|METH_KEYWORDS, doc_wxSplitterWindow_SetSashInvisible},
@@ -3443,14 +3508,15 @@ static PyMethodDef methods_wxSplitterWindow[] = {
 };
 
 sipVariableDef variables_wxSplitterWindow[] = {
-    {PropertyVariable, sipName_SashInvisible, &methods_wxSplitterWindow[39], &methods_wxSplitterWindow[49], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Window2, &methods_wxSplitterWindow[33], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Window1, &methods_wxSplitterWindow[32], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SplitMode, &methods_wxSplitterWindow[30], &methods_wxSplitterWindow[51], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SashSize, &methods_wxSplitterWindow[29], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SashPosition, &methods_wxSplitterWindow[28], &methods_wxSplitterWindow[50], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SashGravity, &methods_wxSplitterWindow[27], &methods_wxSplitterWindow[48], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_MinimumPaneSize, &methods_wxSplitterWindow[26], &methods_wxSplitterWindow[47], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SashInvisible, &methods_wxSplitterWindow[40], &methods_wxSplitterWindow[51], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Window2, &methods_wxSplitterWindow[34], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Window1, &methods_wxSplitterWindow[33], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SplitMode, &methods_wxSplitterWindow[31], &methods_wxSplitterWindow[53], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SashSize, &methods_wxSplitterWindow[30], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SashPosition, &methods_wxSplitterWindow[29], &methods_wxSplitterWindow[52], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SashGravity, &methods_wxSplitterWindow[28], &methods_wxSplitterWindow[50], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_MinimumPaneSize, &methods_wxSplitterWindow[27], &methods_wxSplitterWindow[49], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_LastSplitPosition, &methods_wxSplitterWindow[25], &methods_wxSplitterWindow[48], SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_DefaultSashSize, &methods_wxSplitterWindow[24], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
@@ -3473,9 +3539,9 @@ sipClassTypeDef sipTypeDef__core_wxSplitterWindow = {
     {
         sipNameNr_SplitterWindow,
         {0, 0, 1},
-        63, methods_wxSplitterWindow,
+        65, methods_wxSplitterWindow,
         0, SIP_NULLPTR,
-        9, variables_wxSplitterWindow,
+        10, variables_wxSplitterWindow,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxSplitterWindow,

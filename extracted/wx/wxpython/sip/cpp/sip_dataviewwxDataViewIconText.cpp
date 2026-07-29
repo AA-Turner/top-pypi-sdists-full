@@ -376,7 +376,7 @@ static void *init_type_wxDataViewIconText(sipSimpleWrapper *, PyObject *sipArgs,
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxDataViewIconText[] = {{26, 0, 1}};
+static sipEncodedTypeDef supers_wxDataViewIconText[] = {{27, 0, 1}};
 
 
 static PyMethodDef methods_wxDataViewIconText[] = {

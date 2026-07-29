@@ -557,7 +557,7 @@ static void *init_type_wxFilterFSHandler(sipSimpleWrapper *sipSelf, PyObject *si
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxFilterFSHandler[] = {{186, 255, 1}};
+static sipEncodedTypeDef supers_wxFilterFSHandler[] = {{194, 255, 1}};
 
 
 static PyMethodDef methods_wxFilterFSHandler[] = {

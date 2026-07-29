@@ -450,43 +450,6 @@ static PyObject *meth_wxAppTraits_SafeMessageBox(PyObject *sipSelf, PyObject *si
 }
 
 
-PyDoc_STRVAR(doc_wxAppTraits_GetAssertStackTrace, "GetAssertStackTrace() -> str\n"
-"\n"
-"Helper function mostly useful for derived classes ShowAssertDialog()\n"
-"implementation.");
-
-extern "C" {static PyObject *meth_wxAppTraits_GetAssertStackTrace(PyObject *, PyObject *);}
-static PyObject *meth_wxAppTraits_GetAssertStackTrace(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        ::wxAppTraits *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxAppTraits, &sipCpp))
-        {
-            ::wxString*sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxString((sipSelfWasArg ? sipCpp->::wxAppTraits::GetAssertStackTrace() : sipCpp->GetAssertStackTrace()));
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromNewType(sipRes, sipType_wxString, SIP_NULLPTR);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_AppTraits, sipName_GetAssertStackTrace, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
 /* Call the instance's destructor. */
 extern "C" {static void release_wxAppTraits(void *, int);}
 static void release_wxAppTraits(void *sipCppV, int)
@@ -513,7 +476,6 @@ static PyMethodDef methods_wxAppTraits[] = {
     {sipName_CreateConfig, meth_wxAppTraits_CreateConfig, METH_VARARGS, doc_wxAppTraits_CreateConfig},
     {sipName_CreateEventLoop, meth_wxAppTraits_CreateEventLoop, METH_VARARGS, doc_wxAppTraits_CreateEventLoop},
     {sipName_CreateLogTarget, meth_wxAppTraits_CreateLogTarget, METH_VARARGS, doc_wxAppTraits_CreateLogTarget},
-    {sipName_GetAssertStackTrace, meth_wxAppTraits_GetAssertStackTrace, METH_VARARGS, doc_wxAppTraits_GetAssertStackTrace},
     {sipName_GetDesktopEnvironment, meth_wxAppTraits_GetDesktopEnvironment, METH_VARARGS, doc_wxAppTraits_GetDesktopEnvironment},
     {sipName_GetStandardPaths, meth_wxAppTraits_GetStandardPaths, METH_VARARGS, doc_wxAppTraits_GetStandardPaths},
     {sipName_GetToolkitVersion, SIP_MLMETH_CAST(meth_wxAppTraits_GetToolkitVersion), METH_VARARGS|METH_KEYWORDS, doc_wxAppTraits_GetToolkitVersion},
@@ -524,10 +486,9 @@ static PyMethodDef methods_wxAppTraits[] = {
 };
 
 sipVariableDef variables_wxAppTraits[] = {
-    {PropertyVariable, sipName_ToolkitVersion, &methods_wxAppTraits[6], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_StandardPaths, &methods_wxAppTraits[5], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DesktopEnvironment, &methods_wxAppTraits[4], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_AssertStackTrace, &methods_wxAppTraits[3], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ToolkitVersion, &methods_wxAppTraits[5], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_StandardPaths, &methods_wxAppTraits[4], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DesktopEnvironment, &methods_wxAppTraits[3], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxAppTraits, "The wxAppTraits class defines various configurable aspects of a wxApp.");
@@ -546,9 +507,9 @@ sipClassTypeDef sipTypeDef__core_wxAppTraits = {
     {
         sipNameNr_AppTraits,
         {0, 0, 1},
-        11, methods_wxAppTraits,
+        10, methods_wxAppTraits,
         0, SIP_NULLPTR,
-        4, variables_wxAppTraits,
+        3, variables_wxAppTraits,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxAppTraits,

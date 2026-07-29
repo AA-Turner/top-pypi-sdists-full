@@ -523,12 +523,12 @@ connector_config:
 
     oidc_issuer: str = field(
         metadata={
-            "docstring": "The dataplane cluster's OIDC issuer URL. The control plane matches the 'iss' claim of OIDC tokens against this value during registration. Example: https://oidc.eks.us-west-2.amazonaws.com/id/<cluster-id>."
+            "docstring": "The dataplane cluster's OIDC issuer URL. The control plane matches the 'iss' claim of OIDC tokens against this value during registration. Example: `https://oidc.eks.us-west-2.amazonaws.com/id/<cluster-id>`."
         },
     )
     jwks_uri: str = field(
         metadata={
-            "docstring": "The JWKS endpoint the control plane fetches the dataplane cluster's public signing keys from to verify OIDC token signatures. Example: https://oidc.eks.us-west-2.amazonaws.com/id/<cluster-id>/keys."
+            "docstring": "The JWKS endpoint the control plane fetches the dataplane cluster's public signing keys from to verify OIDC token signatures. Example: `https://oidc.eks.us-west-2.amazonaws.com/id/<cluster-id>/keys`."
         },
     )
     service_account_name: str = field(
@@ -633,3 +633,44 @@ aws_config:
             "docstring": "Anyscale Connector configuration (Kubernetes resources)."
         },
     )
+
+
+@dataclass(frozen=True)
+class CloudInfo(ModelBase):
+    """Cloud details returned by the cloud get and cloud status commands."""
+
+    name: str = field(metadata={"docstring": "Name of this Cloud."})
+
+    def _validate_name(self, name: str):
+        if not isinstance(name, str):
+            raise TypeError("'name' must be a string.")
+
+    id: str = field(metadata={"docstring": "Unique identifier for this Cloud."})
+
+    def _validate_id(self, id: str):  # noqa: A002
+        if not isinstance(id, str):
+            raise TypeError("'id' must be a string.")
+
+    created_at: Optional[datetime] = field(
+        metadata={"docstring": "Timestamp when this Cloud was created."}
+    )
+
+    def _validate_created_at(self, created_at: Optional[datetime]):
+        if created_at is not None and not isinstance(created_at, datetime):
+            raise TypeError("'created_at' must be a datetime or None.")
+
+    is_default: Optional[bool] = field(
+        metadata={"docstring": "Whether this is the default cloud."}
+    )
+
+    def _validate_is_default(self, is_default: Optional[bool]):
+        if is_default is not None and not isinstance(is_default, bool):
+            raise TypeError("'is_default' must be a boolean or None.")
+
+    resources: Optional[List[Dict[str, Any]]] = field(
+        metadata={"docstring": "Cloud resources associated with this Cloud."}
+    )
+
+    def _validate_resources(self, resources: Optional[List[Dict[str, Any]]]):
+        if resources is not None and not isinstance(resources, list):
+            raise TypeError("'resources' must be a list or None.")

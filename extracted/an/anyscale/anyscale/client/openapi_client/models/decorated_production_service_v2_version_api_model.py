@@ -162,7 +162,7 @@ class DecoratedProductionServiceV2VersionAPIModel(object):
     def weight(self):
         """Gets the weight of this DecoratedProductionServiceV2VersionAPIModel.  # noqa: E501
 
-        The target percentage of traffic sent to this version. This is a number between 0 and 100.  # noqa: E501
+        The configured traffic weight currently stored for this version. During rollouts, this may be an intermediate desired load balancer weight. This is a number between 0 and 100.  # noqa: E501
 
         :return: The weight of this DecoratedProductionServiceV2VersionAPIModel.  # noqa: E501
         :rtype: int
@@ -173,7 +173,7 @@ class DecoratedProductionServiceV2VersionAPIModel(object):
     def weight(self, weight):
         """Sets the weight of this DecoratedProductionServiceV2VersionAPIModel.
 
-        The target percentage of traffic sent to this version. This is a number between 0 and 100.  # noqa: E501
+        The configured traffic weight currently stored for this version. During rollouts, this may be an intermediate desired load balancer weight. This is a number between 0 and 100.  # noqa: E501
 
         :param weight: The weight of this DecoratedProductionServiceV2VersionAPIModel.  # noqa: E501
         :type: int
@@ -187,7 +187,7 @@ class DecoratedProductionServiceV2VersionAPIModel(object):
     def current_weight(self):
         """Gets the current_weight of this DecoratedProductionServiceV2VersionAPIModel.  # noqa: E501
 
-        The current percentage of traffic sent to this version. This is a number between 0 and 100.  # noqa: E501
+        The current percentage of live traffic observed for this version. This is a number between 0 and 100.  # noqa: E501
 
         :return: The current_weight of this DecoratedProductionServiceV2VersionAPIModel.  # noqa: E501
         :rtype: int
@@ -198,7 +198,7 @@ class DecoratedProductionServiceV2VersionAPIModel(object):
     def current_weight(self, current_weight):
         """Sets the current_weight of this DecoratedProductionServiceV2VersionAPIModel.
 
-        The current percentage of traffic sent to this version. This is a number between 0 and 100.  # noqa: E501
+        The current percentage of live traffic observed for this version. This is a number between 0 and 100.  # noqa: E501
 
         :param current_weight: The current_weight of this DecoratedProductionServiceV2VersionAPIModel.  # noqa: E501
         :type: int
@@ -210,7 +210,7 @@ class DecoratedProductionServiceV2VersionAPIModel(object):
     def target_weight(self):
         """Gets the target_weight of this DecoratedProductionServiceV2VersionAPIModel.  # noqa: E501
 
-        The target weight for this version during a weight change operation. This is a number between 0 and 100.  # noqa: E501
+        The intended final traffic weight for this version, when known. This is a number between 0 and 100.  # noqa: E501
 
         :return: The target_weight of this DecoratedProductionServiceV2VersionAPIModel.  # noqa: E501
         :rtype: int
@@ -221,7 +221,7 @@ class DecoratedProductionServiceV2VersionAPIModel(object):
     def target_weight(self, target_weight):
         """Sets the target_weight of this DecoratedProductionServiceV2VersionAPIModel.
 
-        The target weight for this version during a weight change operation. This is a number between 0 and 100.  # noqa: E501
+        The intended final traffic weight for this version, when known. This is a number between 0 and 100.  # noqa: E501
 
         :param target_weight: The target_weight of this DecoratedProductionServiceV2VersionAPIModel.  # noqa: E501
         :type: int

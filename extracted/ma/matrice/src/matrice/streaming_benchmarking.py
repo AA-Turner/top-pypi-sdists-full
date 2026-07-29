@@ -19,6 +19,8 @@ from typing import Any, Dict, List, Optional, cast
 
 from matrice.streaming_automation import StreamingAutomation
 
+API_ERROR_UNKNOWN = "API error: Unknown error"
+
 
 def _parse_iso_ts(value: Optional[str], default: Optional[datetime] = None) -> Optional[datetime]:
     """Parse an ISO-8601 timestamp into a timezone-aware UTC datetime.
@@ -270,6 +272,131 @@ class StreamingBenchmarking:
                 self.logger.warning(f"Failed to load state from {self.state_file}: {str(e)}")
                 self.logger.info("Starting with fresh state")
 
+    def _create_initial_cameras(self) -> List[str]:
+        """Create the initial ``min_cameras`` cameras in batches; return their IDs."""
+        # Get video path once (handles upload and caching)
+        video_path_to_use = self._get_video_path_for_cameras()
+
+        # Create cameras in batches
+        initial_camera_ids: List[str] = []
+        camera_number = 1
+
+        while camera_number <= self.min_cameras:
+            # Determine batch size for this iteration
+            batch_size = min(self.camera_batch_size, self.min_cameras - camera_number + 1)
+
+            # Build camera payloads for this batch
+            camera_payloads = []
+            for i in range(batch_size):
+                camera_payload = self._build_camera_payload(
+                    camera_number=camera_number, video_path_to_use=video_path_to_use
+                )
+                camera_payloads.append(camera_payload)
+                camera_number += 1
+
+            # Create cameras in this batch
+            self.logger.info(
+                f"[Batch Creation] Creating batch of {len(camera_payloads)} camera(s) ({len(initial_camera_ids) + len(camera_payloads)}/{self.min_cameras} total)..."
+            )
+            created_cameras, error = self.automation.create_cameras(camera_payloads)
+
+            if error:
+                raise RuntimeError(f"Batch camera creation returned error: {error}")
+
+            if not created_cameras:
+                raise RuntimeError("Camera creation succeeded but no cameras returned")
+
+            # Extract camera IDs and auto-assigned gateway ID from this batch
+            for cam in created_cameras:
+                camera_id = cam.get("_id") or cam.get("id")
+                if camera_id:
+                    initial_camera_ids.append(camera_id)
+                    self.camera_ids.append(camera_id)
+                    self.logger.info(f"Created camera: {camera_id}")
+                # Capture auto-assigned gateway ID from first camera
+                if not self.gateway_id and cam.get("streamingGatewayId"):
+                    self.gateway_id = cam["streamingGatewayId"]
+                    self.logger.info(f"Auto-assigned gateway: {self.gateway_id}")
+
+        if len(initial_camera_ids) != self.min_cameras:
+            self.logger.warning(f"Expected {self.min_cameras} cameras but got {len(initial_camera_ids)}")
+
+        return initial_camera_ids
+
+    def _create_benchmark_pipeline(
+        self, pipeline_name: str, unique_id: str, initial_camera_ids: List[str]
+    ) -> None:
+        """Create the benchmark pipeline and add the initial cameras in batches."""
+        # Add cameras to pipeline in batches
+        if initial_camera_ids:
+            # Create pipeline with first batch
+            first_batch_size = min(self.pipeline_batch_size, len(initial_camera_ids))
+            pipeline_cameras = [
+                {"cameraId": cam_id, "applications": [{"_idApplication": self.application_id}]}
+                for cam_id in initial_camera_ids[:first_batch_size]
+            ]
+
+            # Safely get project_id from session; raise if missing
+            project_id_value: Optional[str] = cast(
+                Optional[str], getattr(self.automation.session, "project_id", None)
+            )
+            if not project_id_value:
+                raise RuntimeError("Session missing project_id")
+            self.pipeline_id, error = self.automation.create_inference_pipeline(
+                name=pipeline_name,
+                project_id=project_id_value,
+                cameras=pipeline_cameras,
+                description=f"Benchmarking pipeline {unique_id}",
+                facial_recognition_server_id=self.facial_recognition_server_id,
+                lpr_server_id=self.lpr_server_id,
+                cluster_name=self.cluster_name,
+                runtime_framework=self.runtime_framework,
+            )
+            if error:
+                raise RuntimeError(f"API returned error: {error}")
+            if not self.pipeline_id:
+                raise RuntimeError("Pipeline creation succeeded but no ID returned")
+            self.logger.info(f"Created pipeline: {self.pipeline_id} with {len(pipeline_cameras)} camera(s)")
+
+            # Add remaining cameras in batches
+            remaining_cameras = initial_camera_ids[first_batch_size:]
+            if remaining_cameras:
+                for i in range(0, len(remaining_cameras), self.pipeline_batch_size):
+                    batch = remaining_cameras[i : i + self.pipeline_batch_size]
+                    batch_payload = [
+                        {"cameraId": cam_id, "applications": [{"_idApplication": self.application_id}]}
+                        for cam_id in batch
+                    ]
+                    self.logger.info(f"Adding batch of {len(batch_payload)} camera(s) to pipeline...")
+                    _, error = self.automation.add_cameras_and_applications_to_pipeline(
+                        pipeline_id=self.pipeline_id, cameras=batch_payload, compute_alias=self.compute_alias
+                    )
+                    if error:
+                        self.logger.warning(f"Failed to add batch to pipeline: {error}")
+                    else:
+                        self.logger.info(f"Added {len(batch_payload)} camera(s) to pipeline")
+        else:
+            # Create empty pipeline if no cameras
+            # Safely get project_id from session; raise if missing
+            project_id_value = cast(Optional[str], getattr(self.automation.session, "project_id", None))
+            if not project_id_value:
+                raise RuntimeError("Session missing project_id")
+            self.pipeline_id, error = self.automation.create_inference_pipeline(
+                name=pipeline_name,
+                project_id=project_id_value,
+                cameras=[],
+                description=f"Benchmarking pipeline {unique_id}",
+                facial_recognition_server_id=self.facial_recognition_server_id,
+                lpr_server_id=self.lpr_server_id,
+                cluster_name=self.cluster_name,
+                runtime_framework=self.runtime_framework,
+            )
+            if error:
+                raise RuntimeError(f"API returned error: {error}")
+            if not self.pipeline_id:
+                raise RuntimeError("Pipeline creation succeeded but no ID returned")
+            self.logger.info(f"Created empty pipeline: {self.pipeline_id}")
+
     def initialize_setup(self) -> Dict[str, Any]:
         """
         Initialize the streaming infrastructure with one camera.
@@ -307,13 +434,13 @@ class StreamingBenchmarking:
             try:
                 app, error = self.automation.find_application_by_name(self.app_name)
                 if error:
-                    raise Exception(f"Failed to find application '{self.app_name}': {error}")
+                    raise RuntimeError(f"Failed to find application '{self.app_name}': {error}")
                 # Ensure app is not None before accessing
                 if not app:
-                    raise Exception(f"Application '{self.app_name}' not found")
+                    raise RuntimeError(f"Application '{self.app_name}' not found")
                 self.application_id = app.get("_id")
                 if not self.application_id:
-                    raise Exception(f"Application found but no ID returned: {app}")
+                    raise RuntimeError(f"Application found but no ID returned: {app}")
                 self.logger.info(f"Found application ID: {self.application_id}")
             except Exception as e:
                 self.logger.error(f"Failed to find application '{self.app_name}': {str(e)}", exc_info=True)
@@ -324,53 +451,7 @@ class StreamingBenchmarking:
                 f"[2/4] Creating {self.min_cameras} initial camera(s) with video: {Path(self.video_path).name}"
             )
             try:
-                # Get video path once (handles upload and caching)
-                video_path_to_use = self._get_video_path_for_cameras()
-
-                # Create cameras in batches
-                initial_camera_ids: List[str] = []
-                camera_number = 1
-
-                while camera_number <= self.min_cameras:
-                    # Determine batch size for this iteration
-                    batch_size = min(self.camera_batch_size, self.min_cameras - camera_number + 1)
-
-                    # Build camera payloads for this batch
-                    camera_payloads = []
-                    for i in range(batch_size):
-                        camera_payload = self._build_camera_payload(
-                            camera_number=camera_number, video_path_to_use=video_path_to_use
-                        )
-                        camera_payloads.append(camera_payload)
-                        camera_number += 1
-
-                    # Create cameras in this batch
-                    self.logger.info(
-                        f"[Batch Creation] Creating batch of {len(camera_payloads)} camera(s) ({len(initial_camera_ids) + len(camera_payloads)}/{self.min_cameras} total)..."
-                    )
-                    created_cameras, error = self.automation.create_cameras(camera_payloads)
-
-                    if error:
-                        raise Exception(f"Batch camera creation returned error: {error}")
-
-                    if not created_cameras:
-                        raise Exception("Camera creation succeeded but no cameras returned")
-
-                    # Extract camera IDs and auto-assigned gateway ID from this batch
-                    for cam in created_cameras:
-                        camera_id = cam.get("_id") or cam.get("id")
-                        if camera_id:
-                            initial_camera_ids.append(camera_id)
-                            self.camera_ids.append(camera_id)
-                            self.logger.info(f"Created camera: {camera_id}")
-                        # Capture auto-assigned gateway ID from first camera
-                        if not self.gateway_id and cam.get("streamingGatewayId"):
-                            self.gateway_id = cam["streamingGatewayId"]
-                            self.logger.info(f"Auto-assigned gateway: {self.gateway_id}")
-
-                if len(initial_camera_ids) != self.min_cameras:
-                    self.logger.warning(f"Expected {self.min_cameras} cameras but got {len(initial_camera_ids)}")
-
+                initial_camera_ids = self._create_initial_cameras()
             except Exception as e:
                 self.logger.error(f"Failed to create initial cameras: {str(e)}", exc_info=True)
                 raise
@@ -378,75 +459,7 @@ class StreamingBenchmarking:
             # Create pipeline with initial cameras in batches
             self.logger.info(f"[3/4] Creating inference pipeline: {pipeline_name}")
             try:
-                # Add cameras to pipeline in batches
-                if initial_camera_ids:
-                    # Create pipeline with first batch
-                    first_batch_size = min(self.pipeline_batch_size, len(initial_camera_ids))
-                    pipeline_cameras = [
-                        {"cameraId": cam_id, "applications": [{"_idApplication": self.application_id}]}
-                        for cam_id in initial_camera_ids[:first_batch_size]
-                    ]
-
-                    # Safely get project_id from session; raise if missing
-                    project_id_value: Optional[str] = cast(
-                        Optional[str], getattr(self.automation.session, "project_id", None)
-                    )
-                    if not project_id_value:
-                        raise Exception("Session missing project_id")
-                    self.pipeline_id, error = self.automation.create_inference_pipeline(
-                        name=pipeline_name,
-                        project_id=project_id_value,
-                        cameras=pipeline_cameras,
-                        description=f"Benchmarking pipeline {unique_id}",
-                        facial_recognition_server_id=self.facial_recognition_server_id,
-                        lpr_server_id=self.lpr_server_id,
-                        cluster_name=self.cluster_name,
-                        runtime_framework=self.runtime_framework,
-                    )
-                    if error:
-                        raise Exception(f"API returned error: {error}")
-                    if not self.pipeline_id:
-                        raise Exception("Pipeline creation succeeded but no ID returned")
-                    self.logger.info(f"Created pipeline: {self.pipeline_id} with {len(pipeline_cameras)} camera(s)")
-
-                    # Add remaining cameras in batches
-                    remaining_cameras = initial_camera_ids[first_batch_size:]
-                    if remaining_cameras:
-                        for i in range(0, len(remaining_cameras), self.pipeline_batch_size):
-                            batch = remaining_cameras[i : i + self.pipeline_batch_size]
-                            batch_payload = [
-                                {"cameraId": cam_id, "applications": [{"_idApplication": self.application_id}]}
-                                for cam_id in batch
-                            ]
-                            self.logger.info(f"Adding batch of {len(batch_payload)} camera(s) to pipeline...")
-                            result, error = self.automation.add_cameras_and_applications_to_pipeline(
-                                pipeline_id=self.pipeline_id, cameras=batch_payload, compute_alias=self.compute_alias
-                            )
-                            if error:
-                                self.logger.warning(f"Failed to add batch to pipeline: {error}")
-                            else:
-                                self.logger.info(f"Added {len(batch_payload)} camera(s) to pipeline")
-                else:
-                    # Create empty pipeline if no cameras
-                    # Safely get project_id from session; raise if missing
-                    project_id_value = cast(Optional[str], getattr(self.automation.session, "project_id", None))
-                    if not project_id_value:
-                        raise Exception("Session missing project_id")
-                    self.pipeline_id, error = self.automation.create_inference_pipeline(
-                        name=pipeline_name,
-                        project_id=project_id_value,
-                        cameras=[],
-                        description=f"Benchmarking pipeline {unique_id}",
-                        facial_recognition_server_id=self.facial_recognition_server_id,
-                        lpr_server_id=self.lpr_server_id,
-                        cluster_name=self.cluster_name,
-                        runtime_framework=self.runtime_framework,
-                    )
-                    if error:
-                        raise Exception(f"API returned error: {error}")
-                    if not self.pipeline_id:
-                        raise Exception("Pipeline creation succeeded but no ID returned")
-                    self.logger.info(f"Created empty pipeline: {self.pipeline_id}")
+                self._create_benchmark_pipeline(pipeline_name, unique_id, initial_camera_ids)
             except Exception as e:
                 self.logger.error(f"Failed to create pipeline: {str(e)}", exc_info=True)
                 raise
@@ -455,9 +468,10 @@ class StreamingBenchmarking:
             if self.auto_start:
                 self.logger.info("[4/4] Starting inference pipeline...")
                 try:
-                    # Assert pipeline_id is set before use (helps mypy)
-                    assert self.pipeline_id is not None, "pipeline_id not set"
-                    success, error = self.automation.start_inference_pipeline(
+                    # Guard: pipeline_id must be set before use (helps mypy)
+                    if self.pipeline_id is None:
+                        raise RuntimeError("pipeline_id not set")
+                    _, error = self.automation.start_inference_pipeline(
                         self.pipeline_id,
                         self.compute_alias,
                         cluster_name=self.cluster_name,
@@ -497,7 +511,7 @@ class StreamingBenchmarking:
             Video path (S3 URL or original URL/path)
         """
         # Check if it's a URL (starts with http:// or https://)
-        if self.video_path.startswith(("http://", "https://")):
+        if self.video_path.split("://", 1)[0] in ("http", "https"):
             # Already a URL, use it directly
             self.logger.debug(f"Using video URL: {self.video_path}")
             return self.video_path
@@ -516,7 +530,7 @@ class StreamingBenchmarking:
                 file_name = f"benchmark-video-{str(uuid.uuid4())[:8]}.mp4"
                 s3_url, error = self.automation.upload_video(self.video_path, file_name)
                 if error or not s3_url:
-                    raise Exception(f"Failed to upload video: {error or 'empty URL returned'}")
+                    raise RuntimeError(f"Failed to upload video: {error or 'empty URL returned'}")
                 self.logger.info(f"Video uploaded to S3: {s3_url}")
                 return s3_url
         else:
@@ -645,7 +659,7 @@ class StreamingBenchmarking:
             endpoint = f"/v1/inference/get_camera_input_topic_by_camera_id/{camera_id}"
             response = self.automation.rpc.get(endpoint, timeout=300)
             if response is None:
-                return {"error": "API error: Unknown error"}
+                return {"error": API_ERROR_UNKNOWN}
 
             if not response.get("success"):
                 return {"error": f"API error: {response.get('message', 'Unknown error')}"}
@@ -674,7 +688,7 @@ class StreamingBenchmarking:
             endpoint = f"/v1/inference/get_topics_by_streaming_id_and_server_id/{streaming_id}/{server_id}"
             response = self.automation.rpc.get(endpoint, timeout=300)
             if response is None:
-                return {"error": "API error: Unknown error"}
+                return {"error": API_ERROR_UNKNOWN}
 
             if not response.get("success"):
                 return {"error": f"API error: {response.get('message', 'Unknown error')}"}
@@ -701,7 +715,7 @@ class StreamingBenchmarking:
             If pipeline not initialized or camera creation fails
         """
         if not self.pipeline_id:
-            raise Exception("Pipeline not initialized. Call initialize_setup() first.")
+            raise RuntimeError("Pipeline not initialized. Call initialize_setup() first.")
 
         with self._lock:
             camera_number = len(self.camera_ids) + 1
@@ -726,7 +740,7 @@ class StreamingBenchmarking:
             print("[2/3] Adding camera to pipeline...")
             cameras_payload = [{"cameraId": new_camera_id, "applications": [{"_idApplication": self.application_id}]}]
 
-            result, error = self.automation.add_cameras_and_applications_to_pipeline(
+            _, error = self.automation.add_cameras_and_applications_to_pipeline(
                 pipeline_id=self.pipeline_id, cameras=cameras_payload, compute_alias=self.compute_alias
             )
 
@@ -777,7 +791,7 @@ class StreamingBenchmarking:
         if not self.pipeline_id:
             error_msg = "Pipeline not initialized. Call initialize_setup() first."
             self.logger.error(error_msg)
-            raise Exception(error_msg)
+            raise RuntimeError(error_msg)
 
         try:
             with self._lock:
@@ -860,12 +874,12 @@ class StreamingBenchmarking:
                         self.logger.info(
                             f"[Adding to pipeline] Adding batch of {len(cameras_payload)} camera(s) to pipeline ({i + len(cameras_payload)}/{len(created_camera_ids)} total)..."
                         )
-                        result, error = self.automation.add_cameras_and_applications_to_pipeline(
+                        _, error = self.automation.add_cameras_and_applications_to_pipeline(
                             pipeline_id=self.pipeline_id, cameras=cameras_payload, compute_alias=self.compute_alias
                         )
 
                         if error:
-                            raise Exception(f"API returned error: {error}")
+                            raise RuntimeError(f"API returned error: {error}")
                         self.logger.info(f"Added {len(cameras_payload)} camera(s) to pipeline")
 
                     self.logger.info(f"All {len(created_camera_ids)} cameras added to pipeline")
@@ -979,7 +993,7 @@ class StreamingBenchmarking:
             endpoint = f"/v1/monitoring/streaming_gateway_metrics/{self.gateway_id}/latest?limit=1"
             response = self.automation.rpc.get(endpoint, timeout=300)
             if response is None:
-                return {"error": "API error: Unknown error"}
+                return {"error": API_ERROR_UNKNOWN}
 
             if not response.get("success"):
                 return {"error": f"API error: {response.get('message', 'Unknown error')}"}
@@ -1080,7 +1094,7 @@ class StreamingBenchmarking:
             metrics_endpoint = f"/v1/monitoring/app_deployment_metrics/{app_deploy_id}/latest?limit=1"
             response = self.automation.rpc.get(metrics_endpoint, timeout=300)
             if response is None:
-                return {"error": "API error: Unknown error"}
+                return {"error": API_ERROR_UNKNOWN}
 
             if not response.get("success"):
                 return {"error": f"API error: {response.get('message', 'Unknown error')}"}
@@ -1120,6 +1134,160 @@ class StreamingBenchmarking:
         except Exception as e:
             return {"error": f"Exception fetching pipeline metrics: {str(e)}"}
 
+    def _compute_benchmark_schedule(self, duration_minutes: Optional[float]):
+        """Compute end time, intervals, and next camera/metrics times for the loop.
+
+        Returns a tuple of
+        ``(end_time, camera_interval_seconds, metrics_interval_seconds,
+        next_camera_time, next_metrics_time, now)``.
+        """
+        # Calculate end_time based on original start_time if resuming
+        end_time = None
+        if duration_minutes:
+            if self.start_time:
+                # Use original start_time to calculate end_time (for resuming)
+                end_time = self.start_time + timedelta(minutes=duration_minutes)
+            else:
+                # Fresh start
+                end_time = datetime.now(timezone.utc) + timedelta(minutes=duration_minutes)
+
+        # Separate intervals for cameras and metrics
+        camera_interval_seconds = self.interval_minutes * 60
+        metrics_interval_seconds = self.metrics_interval_minutes * 60
+
+        # Calculate next camera addition time
+        # If resuming, base it on last camera addition, otherwise start from now
+        now = datetime.now(timezone.utc)
+        if self.camera_addition_history:
+            # Resume: calculate next time based on last addition
+            last_addition = self.camera_addition_history[-1]
+            last_addition_time = _parse_iso_ts(last_addition.get("timestamp"), default=now)
+            # Next addition should be at last_addition_time + interval
+            next_camera_time = last_addition_time + timedelta(seconds=camera_interval_seconds)
+            # If that time has already passed, schedule for immediate addition
+            if next_camera_time < now:
+                next_camera_time = now + timedelta(seconds=min(camera_interval_seconds, 30))
+        else:
+            # Fresh start: schedule first addition after interval
+            next_camera_time = now + timedelta(seconds=camera_interval_seconds)
+
+        # Calculate next metrics collection time
+        # If resuming, base it on last metrics collection, otherwise start from now
+        if self.metrics_timeline:
+            # Resume: calculate next time based on last metrics collection
+            last_metrics = self.metrics_timeline[-1]
+            last_metrics_time = _parse_iso_ts(last_metrics.get("timestamp"), default=now)
+            # Next collection should be at last_metrics_time + interval
+            next_metrics_time = last_metrics_time + timedelta(seconds=metrics_interval_seconds)
+            # If that time has already passed, schedule for immediate collection
+            if next_metrics_time < now:
+                next_metrics_time = now + timedelta(seconds=min(metrics_interval_seconds, 10))
+        else:
+            # Fresh start: schedule first collection after interval
+            next_metrics_time = now + timedelta(seconds=metrics_interval_seconds)
+
+        return (
+            end_time,
+            camera_interval_seconds,
+            metrics_interval_seconds,
+            next_camera_time,
+            next_metrics_time,
+            now,
+        )
+
+    def _log_benchmark_start(self, duration_minutes, end_time, now):
+        """Log the benchmark start/resume banner and configuration summary."""
+        self.logger.info("=" * 60)
+        if self.camera_addition_history or self.metrics_timeline:
+            self.logger.info("BENCHMARK RESUMED")
+            self.logger.info(f"  Resuming from {len(self.camera_addition_history)} camera addition(s)")
+            self.logger.info(f"  Resuming from {len(self.metrics_timeline)} metric collection(s)")
+        else:
+            self.logger.info("BENCHMARK STARTED")
+        self.logger.info("=" * 60)
+        self.logger.info("Configuration:")
+        self.logger.info(f"  Starting cameras: {len(self.camera_ids)}")
+        self.logger.info(f"  Min cameras: {self.min_cameras}")
+        self.logger.info(f"  Max cameras: {self.max_cameras}")
+        self.logger.info(f"  Step size: {self.step_size} camera(s) per interval")
+        self.logger.info(f"  Camera addition interval: {self.interval_minutes} minutes")
+        self.logger.info(f"  Metrics collection interval: {self.metrics_interval_minutes} minutes")
+        self.logger.info(f"  Duration: {duration_minutes if duration_minutes else 'Unlimited'} minutes")
+        if end_time:
+            remaining_minutes = (end_time - now).total_seconds() / 60
+            self.logger.info(f"  Remaining duration: {remaining_minutes:.1f} minutes")
+        self.logger.info(f"  Output file: {self.output_file}")
+        self.logger.info("=" * 60)
+
+    def _benchmark_add_cameras_tick(self, consecutive_errors, max_consecutive_errors):
+        """Attempt one camera-addition step. Returns ``(consecutive_errors, should_stop)``."""
+        should_stop_cameras = False
+        try:
+            self.logger.info(f"Time to add cameras (interval: {self.interval_minutes} min)")
+            new_camera_ids = self.add_cameras()
+            if not new_camera_ids:
+                # Max cameras reached or failed
+                self.logger.info("No more cameras to add. Stopping benchmark...")
+                should_stop_cameras = True
+            else:
+                consecutive_errors = 0  # Reset error counter on success
+                self.logger.info(f"Next camera addition scheduled in {self.interval_minutes} minutes")
+        except Exception as e:
+            consecutive_errors += 1
+            self.logger.error(
+                f"Error adding cameras (attempt {consecutive_errors}/{max_consecutive_errors}): {str(e)}",
+                exc_info=True,
+            )
+            if consecutive_errors >= max_consecutive_errors:
+                self.logger.error(f"Too many consecutive errors ({consecutive_errors}). Stopping benchmark.")
+                should_stop_cameras = True
+        return consecutive_errors, should_stop_cameras
+
+    def _benchmark_collect_metrics_tick(self, consecutive_errors, max_consecutive_errors):
+        """Collect and log one metrics sample. Returns ``(consecutive_errors, should_stop)``."""
+        should_stop_metrics = False
+        try:
+            self.logger.debug(f"Collecting metrics (interval: {self.metrics_interval_minutes} min)")
+            metrics = self.collect_metrics()
+
+            # Display metrics summary
+            gw = metrics.get("gateway_metrics", {})
+            pl = metrics.get("pipeline_metrics", {})
+            camera_count = metrics.get("camera_count", 0)
+
+            if "aggregated" in gw:
+                # Real metrics available
+                agg = gw["aggregated"]
+                inf = pl.get("inference", {})
+                self.logger.info(
+                    f"Metrics: Cameras={camera_count}, "
+                    f"Camera FPS={agg.get('avg_camera_throughput_fps', 0):.1f}, "
+                    f"Gateway FPS={agg.get('avg_gateway_throughput_fps', 0):.1f}, "
+                    f"Inference Throughput={inf.get('throughput_avg', 0):.2f}"
+                )
+            elif "error" in gw or "error" in pl:
+                # Error case
+                gw_error = gw.get("error", "N/A")
+                pl_error = pl.get("error", "N/A")
+                self.logger.warning(
+                    f"Metrics (with errors): Cameras={camera_count}, "
+                    f"GW Error={gw_error}, PL Error={pl_error}"
+                )
+            else:
+                self.logger.info(f"Metrics collected: Cameras={camera_count}")
+
+            return 0, should_stop_metrics  # Reset error counter on success
+        except Exception as e:
+            errors = consecutive_errors + 1
+            self.logger.error(
+                f"Error collecting metrics (attempt {errors}/{max_consecutive_errors}): {str(e)}",
+                exc_info=True,
+            )
+            if errors >= max_consecutive_errors:
+                self.logger.error(f"Too many consecutive errors ({errors}). Stopping benchmark.")
+                should_stop_metrics = True
+            return errors, should_stop_metrics
+
     def _benchmark_loop(self, duration_minutes: Optional[float] = None):
         """
         Internal benchmark loop that runs in a separate thread.
@@ -1130,72 +1298,16 @@ class StreamingBenchmarking:
             Maximum duration to run. If None, runs indefinitely.
         """
         try:
-            # Calculate end_time based on original start_time if resuming
-            end_time = None
-            if duration_minutes:
-                if self.start_time:
-                    # Use original start_time to calculate end_time (for resuming)
-                    end_time = self.start_time + timedelta(minutes=duration_minutes)
-                else:
-                    # Fresh start
-                    end_time = datetime.now(timezone.utc) + timedelta(minutes=duration_minutes)
+            (
+                end_time,
+                camera_interval_seconds,
+                metrics_interval_seconds,
+                next_camera_time,
+                next_metrics_time,
+                now,
+            ) = self._compute_benchmark_schedule(duration_minutes)
 
-            # Separate intervals for cameras and metrics
-            camera_interval_seconds = self.interval_minutes * 60
-            metrics_interval_seconds = self.metrics_interval_minutes * 60
-
-            # Calculate next camera addition time
-            # If resuming, base it on last camera addition, otherwise start from now
-            now = datetime.now(timezone.utc)
-            if self.camera_addition_history:
-                # Resume: calculate next time based on last addition
-                last_addition = self.camera_addition_history[-1]
-                last_addition_time = _parse_iso_ts(last_addition.get("timestamp"), default=now)
-                # Next addition should be at last_addition_time + interval
-                next_camera_time = last_addition_time + timedelta(seconds=camera_interval_seconds)
-                # If that time has already passed, schedule for immediate addition
-                if next_camera_time < now:
-                    next_camera_time = now + timedelta(seconds=min(camera_interval_seconds, 30))
-            else:
-                # Fresh start: schedule first addition after interval
-                next_camera_time = now + timedelta(seconds=camera_interval_seconds)
-
-            # Calculate next metrics collection time
-            # If resuming, base it on last metrics collection, otherwise start from now
-            if self.metrics_timeline:
-                # Resume: calculate next time based on last metrics collection
-                last_metrics = self.metrics_timeline[-1]
-                last_metrics_time = _parse_iso_ts(last_metrics.get("timestamp"), default=now)
-                # Next collection should be at last_metrics_time + interval
-                next_metrics_time = last_metrics_time + timedelta(seconds=metrics_interval_seconds)
-                # If that time has already passed, schedule for immediate collection
-                if next_metrics_time < now:
-                    next_metrics_time = now + timedelta(seconds=min(metrics_interval_seconds, 10))
-            else:
-                # Fresh start: schedule first collection after interval
-                next_metrics_time = now + timedelta(seconds=metrics_interval_seconds)
-
-            self.logger.info("=" * 60)
-            if self.camera_addition_history or self.metrics_timeline:
-                self.logger.info("BENCHMARK RESUMED")
-                self.logger.info(f"  Resuming from {len(self.camera_addition_history)} camera addition(s)")
-                self.logger.info(f"  Resuming from {len(self.metrics_timeline)} metric collection(s)")
-            else:
-                self.logger.info("BENCHMARK STARTED")
-            self.logger.info("=" * 60)
-            self.logger.info("Configuration:")
-            self.logger.info(f"  Starting cameras: {len(self.camera_ids)}")
-            self.logger.info(f"  Min cameras: {self.min_cameras}")
-            self.logger.info(f"  Max cameras: {self.max_cameras}")
-            self.logger.info(f"  Step size: {self.step_size} camera(s) per interval")
-            self.logger.info(f"  Camera addition interval: {self.interval_minutes} minutes")
-            self.logger.info(f"  Metrics collection interval: {self.metrics_interval_minutes} minutes")
-            self.logger.info(f"  Duration: {duration_minutes if duration_minutes else 'Unlimited'} minutes")
-            if end_time:
-                remaining_minutes = (end_time - now).total_seconds() / 60
-                self.logger.info(f"  Remaining duration: {remaining_minutes:.1f} minutes")
-            self.logger.info(f"  Output file: {self.output_file}")
-            self.logger.info("=" * 60)
+            self._log_benchmark_start(duration_minutes, end_time, now)
 
             # Collect initial metrics
             try:
@@ -1229,83 +1341,24 @@ class StreamingBenchmarking:
                         break
 
                     # Check if time to add cameras
-                    should_stop_cameras = False
                     if now >= next_camera_time:
-                        try:
-                            self.logger.info(f"Time to add cameras (interval: {self.interval_minutes} min)")
-                            new_camera_ids = self.add_cameras()
-                            if not new_camera_ids:
-                                # Max cameras reached or failed
-                                self.logger.info("No more cameras to add. Stopping benchmark...")
-                                should_stop_cameras = True
-                            else:
-                                consecutive_errors = 0  # Reset error counter on success
-                                self.logger.info(f"Next camera addition scheduled in {self.interval_minutes} minutes")
-                        except Exception as e:
-                            consecutive_errors += 1
-                            self.logger.error(
-                                f"Error adding cameras (attempt {consecutive_errors}/{max_consecutive_errors}): {str(e)}",
-                                exc_info=True,
-                            )
-                            if consecutive_errors >= max_consecutive_errors:
-                                self.logger.error(
-                                    f"Too many consecutive errors ({consecutive_errors}). Stopping benchmark."
-                                )
-                                should_stop_cameras = True
+                        consecutive_errors, should_stop_cameras = self._benchmark_add_cameras_tick(
+                            consecutive_errors, max_consecutive_errors
+                        )
                         # Always schedule next camera addition at the configured interval
                         next_camera_time = now + timedelta(seconds=camera_interval_seconds)
-                    if should_stop_cameras:
-                        break
+                        if should_stop_cameras:
+                            break
 
                     # Check if time to collect metrics
-                    should_stop_metrics = False
                     if now >= next_metrics_time:
-                        try:
-                            self.logger.debug(f"Collecting metrics (interval: {self.metrics_interval_minutes} min)")
-                            metrics = self.collect_metrics()
-
-                            # Display metrics summary
-                            gw = metrics.get("gateway_metrics", {})
-                            pl = metrics.get("pipeline_metrics", {})
-                            camera_count = metrics.get("camera_count", 0)
-
-                            if "aggregated" in gw:
-                                # Real metrics available
-                                agg = gw["aggregated"]
-                                inf = pl.get("inference", {})
-                                self.logger.info(
-                                    f"Metrics: Cameras={camera_count}, "
-                                    f"Camera FPS={agg.get('avg_camera_throughput_fps', 0):.1f}, "
-                                    f"Gateway FPS={agg.get('avg_gateway_throughput_fps', 0):.1f}, "
-                                    f"Inference Throughput={inf.get('throughput_avg', 0):.2f}"
-                                )
-                            elif "error" in gw or "error" in pl:
-                                # Error case
-                                gw_error = gw.get("error", "N/A")
-                                pl_error = pl.get("error", "N/A")
-                                self.logger.warning(
-                                    f"Metrics (with errors): Cameras={camera_count}, "
-                                    f"GW Error={gw_error}, PL Error={pl_error}"
-                                )
-                            else:
-                                self.logger.info(f"Metrics collected: Cameras={camera_count}")
-
-                            consecutive_errors = 0  # Reset error counter on success
-                        except Exception as e:
-                            consecutive_errors += 1
-                            self.logger.error(
-                                f"Error collecting metrics (attempt {consecutive_errors}/{max_consecutive_errors}): {str(e)}",
-                                exc_info=True,
-                            )
-                            if consecutive_errors >= max_consecutive_errors:
-                                self.logger.error(
-                                    f"Too many consecutive errors ({consecutive_errors}). Stopping benchmark."
-                                )
-                                should_stop_metrics = True
+                        consecutive_errors, should_stop_metrics = self._benchmark_collect_metrics_tick(
+                            consecutive_errors, max_consecutive_errors
+                        )
                         # Always schedule next metrics collection at the configured interval
                         next_metrics_time = now + timedelta(seconds=metrics_interval_seconds)
-                    if should_stop_metrics:
-                        break
+                        if should_stop_metrics:
+                            break
 
                     # Sleep briefly to avoid busy waiting
                     time.sleep(1)
@@ -1359,7 +1412,7 @@ class StreamingBenchmarking:
         if self.is_running:
             error_msg = "Benchmark already running"
             self.logger.error(error_msg)
-            raise Exception(error_msg)
+            raise RuntimeError(error_msg)
 
         # Check if we should resume from state
         should_resume = resume if resume is not None else self.auto_resume
@@ -1387,7 +1440,7 @@ class StreamingBenchmarking:
         if not self.pipeline_id:
             error_msg = "Setup not initialized. Call initialize_setup() first."
             self.logger.error(error_msg)
-            raise Exception(error_msg)
+            raise RuntimeError(error_msg)
 
         try:
             self.is_running = True
@@ -1642,6 +1695,12 @@ class StreamingBenchmarking:
         summary = self._calculate_summary()
 
         # Build comprehensive experiment info
+        if self.is_running:
+            experiment_status = "running"
+        elif self.end_time:
+            experiment_status = "completed"
+        else:
+            experiment_status = "not_started"
         experiment_info = {
             "experiment_id": self.experiment_id,
             "experiment_start_time": (self.experiment_start_time.isoformat() if self.experiment_start_time else None),
@@ -1651,7 +1710,7 @@ class StreamingBenchmarking:
                 if self.experiment_start_time and self.end_time
                 else None
             ),
-            "status": "running" if self.is_running else ("completed" if self.end_time else "not_started"),
+            "status": experiment_status,
         }
 
         # Build results structure
@@ -1856,6 +1915,59 @@ class StreamingBenchmarking:
             self.logger.warning(f"Failed to save state: {str(e)}")
             return False
 
+    def _restore_state_fields(self, state: Dict[str, Any]) -> None:
+        """Restore experiment IDs, timestamps, setup IDs, config, and history from state."""
+        # Restore experiment ID and timestamps
+        if state.get("experiment_id"):
+            self.experiment_id = state["experiment_id"]
+
+        if state.get("experiment_start_time"):
+            self.experiment_start_time = _parse_iso_ts(state["experiment_start_time"])
+
+        if state.get("start_time"):
+            self.start_time = _parse_iso_ts(state["start_time"])
+
+        if state.get("end_time"):
+            self.end_time = _parse_iso_ts(state["end_time"])
+
+        # Restore setup IDs
+        if state.get("setup_ids"):
+            setup_ids = state["setup_ids"]
+            self.gateway_id = setup_ids.get("gateway_id")
+            if setup_ids.get("lan_id"):
+                self.lan_id = setup_ids["lan_id"]
+            if setup_ids.get("cluster_name"):
+                self.cluster_name = setup_ids["cluster_name"]
+            self.pipeline_id = setup_ids.get("pipeline_id")
+            self.application_id = setup_ids.get("application_id")
+            self.camera_ids = setup_ids.get("camera_ids", [])
+
+        # Restore benchmark config (including server IDs)
+        if state.get("benchmark_config"):
+            benchmark_config = state["benchmark_config"]
+            self.facial_recognition_server_id = benchmark_config.get("facial_recognition_server_id")
+            self.lpr_server_id = benchmark_config.get("lpr_server_id")
+            if benchmark_config.get("cluster_name"):
+                self.cluster_name = benchmark_config.get("cluster_name")
+            if benchmark_config.get("runtime_framework"):
+                self.runtime_framework = benchmark_config.get("runtime_framework")
+
+        # Restore history and metrics
+        if state.get("camera_addition_history"):
+            self.camera_addition_history = state["camera_addition_history"]
+
+        if state.get("metrics_timeline"):
+            self.metrics_timeline = state["metrics_timeline"]
+
+        # Reset is_running flag since we're loading from a saved state (process was interrupted)
+        if state.get("is_running"):
+            self.logger.info("Previous benchmark was running. Resetting is_running flag.")
+            self.is_running = False
+
+        # Mark log file as initialized if we have logs
+        if self.metrics_timeline or self.camera_addition_history:
+            self._log_file_initialized = True
+
     def load_state(self) -> bool:
         """
         Load benchmark state from file.
@@ -1900,56 +2012,7 @@ class StreamingBenchmarking:
             else:
                 raise ValueError("Unknown file format")
 
-            # Restore experiment ID and timestamps
-            if state.get("experiment_id"):
-                self.experiment_id = state["experiment_id"]
-
-            if state.get("experiment_start_time"):
-                self.experiment_start_time = _parse_iso_ts(state["experiment_start_time"])
-
-            if state.get("start_time"):
-                self.start_time = _parse_iso_ts(state["start_time"])
-
-            if state.get("end_time"):
-                self.end_time = _parse_iso_ts(state["end_time"])
-
-            # Restore setup IDs
-            if state.get("setup_ids"):
-                setup_ids = state["setup_ids"]
-                self.gateway_id = setup_ids.get("gateway_id")
-                if setup_ids.get("lan_id"):
-                    self.lan_id = setup_ids["lan_id"]
-                if setup_ids.get("cluster_name"):
-                    self.cluster_name = setup_ids["cluster_name"]
-                self.pipeline_id = setup_ids.get("pipeline_id")
-                self.application_id = setup_ids.get("application_id")
-                self.camera_ids = setup_ids.get("camera_ids", [])
-
-            # Restore benchmark config (including server IDs)
-            if state.get("benchmark_config"):
-                benchmark_config = state["benchmark_config"]
-                self.facial_recognition_server_id = benchmark_config.get("facial_recognition_server_id")
-                self.lpr_server_id = benchmark_config.get("lpr_server_id")
-                if benchmark_config.get("cluster_name"):
-                    self.cluster_name = benchmark_config.get("cluster_name")
-                if benchmark_config.get("runtime_framework"):
-                    self.runtime_framework = benchmark_config.get("runtime_framework")
-
-            # Restore history and metrics
-            if state.get("camera_addition_history"):
-                self.camera_addition_history = state["camera_addition_history"]
-
-            if state.get("metrics_timeline"):
-                self.metrics_timeline = state["metrics_timeline"]
-
-            # Reset is_running flag since we're loading from a saved state (process was interrupted)
-            if state.get("is_running"):
-                self.logger.info("Previous benchmark was running. Resetting is_running flag.")
-                self.is_running = False
-
-            # Mark log file as initialized if we have logs
-            if self.metrics_timeline or self.camera_addition_history:
-                self._log_file_initialized = True
+            self._restore_state_fields(state)
 
             self.logger.info("State loaded successfully")
             self.logger.info("  Experiment ID: %s", str(self.experiment_id).replace("\n", "").replace("\r", ""))
@@ -1963,35 +2026,8 @@ class StreamingBenchmarking:
             self.logger.error(f"Failed to load state: {str(e)}", exc_info=True)
             raise
 
-    def resume_from_state(self) -> Dict[str, Any]:
-        """
-        Resume benchmark from saved state.
-
-        Validates that all required resources (gateway, pipeline, etc.) still exist
-        and are accessible before resuming.
-
-        Returns
-        -------
-        dict
-            Resume status with information about what was restored
-
-        Raises
-        ------
-        Exception
-            If state cannot be loaded or resources are invalid
-        """
-        if not os.path.exists(self.state_file):
-            raise Exception(f"State file not found: {self.state_file}")
-
-        self.logger.info("=" * 60)
-        self.logger.info("RESUMING BENCHMARK FROM SAVED STATE")
-        self.logger.info("=" * 60)
-
-        # Load state
-        if not self.load_state():
-            raise Exception("Failed to load state")
-
-        # Validate that required resources exist
+    def _validate_resume_resources(self) -> Dict[str, bool]:
+        """Validate that gateway/pipeline/application/camera resources still exist."""
         validation_results = {
             "gateway_valid": False,
             "pipeline_valid": False,
@@ -2043,6 +2079,39 @@ class StreamingBenchmarking:
             except Exception as e:
                 self.logger.warning(f"Failed to validate cameras: {str(e)}")
 
+        return validation_results
+
+    def resume_from_state(self) -> Dict[str, Any]:
+        """
+        Resume benchmark from saved state.
+
+        Validates that all required resources (gateway, pipeline, etc.) still exist
+        and are accessible before resuming.
+
+        Returns
+        -------
+        dict
+            Resume status with information about what was restored
+
+        Raises
+        ------
+        Exception
+            If state cannot be loaded or resources are invalid
+        """
+        if not os.path.exists(self.state_file):
+            raise RuntimeError(f"State file not found: {self.state_file}")
+
+        self.logger.info("=" * 60)
+        self.logger.info("RESUMING BENCHMARK FROM SAVED STATE")
+        self.logger.info("=" * 60)
+
+        # Load state
+        if not self.load_state():
+            raise RuntimeError("Failed to load state")
+
+        # Validate that required resources exist
+        validation_results = self._validate_resume_resources()
+
         # Log validation results
         self.logger.info("Resource validation:")
         for resource, valid in validation_results.items():
@@ -2052,11 +2121,11 @@ class StreamingBenchmarking:
         # Warn if critical resources are missing
         if not validation_results["pipeline_valid"]:
             self.logger.error("Pipeline is invalid. Cannot resume benchmark.")
-            raise Exception("Pipeline validation failed. Cannot resume.")
+            raise RuntimeError("Pipeline validation failed. Cannot resume.")
 
         if not validation_results["gateway_valid"]:
             self.logger.error("Gateway is invalid. Cannot resume benchmark.")
-            raise Exception("Gateway validation failed. Cannot resume.")
+            raise RuntimeError("Gateway validation failed. Cannot resume.")
 
         self.logger.info("=" * 60)
         self.logger.info("STATE RESTORED - Ready to resume benchmarking")
@@ -2244,27 +2313,9 @@ if __name__ == "__main__":
         camera_batch_size=100,
         pipeline_batch_size=100,
         auto_start=False,
-        # facial_recognition_server_id="694c2cbbc060108fe7514d38", # "694c4612c060108fe7514d6c"
         cluster_name=cluster_name,
         runtime_framework="Pytorch",
     )
-
-    # pipeline_cameras = [
-    #         {
-    #             "cameraId": cam_id,
-    #             "applications": [{"_idApplication": app_id}]
-    #         }
-    #         for cam_id in cams
-    #     ]
-
-    # pipeline_id, error = benchmark.automation.create_inference_pipeline(
-    #     name="Benchmarking pipeline",
-    #     project_id=benchmark.automation.session.project_id,
-    #     cameras=pipeline_cameras,
-    #     description="Benchmarking pipeline",
-    # )
-    # print(f"Pipeline created: {pipeline_id}")
-    # print(f"Error: {error}")
 
     print("\n--- Example: Benchmarking Setup ---")
     # Initialize the setup (creates gateway, location, camera group, initial cameras, and pipeline)

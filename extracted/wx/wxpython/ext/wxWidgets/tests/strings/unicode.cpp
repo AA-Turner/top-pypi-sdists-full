@@ -25,7 +25,7 @@
 
 struct StringConversionData
 {
-    // either str or wcs (but not both) may be NULL, this means that the conversion
+    // either str or wcs (but not both) may be null, this means that the conversion
     // to it should fail
     StringConversionData(const char *str_, const wchar_t *wcs_, int flags_ = 0)
         : str(str_), wcs(wcs_), flags(flags_)
@@ -146,9 +146,7 @@ private:
         CPPUNIT_TEST( ConversionUTF16 );
         CPPUNIT_TEST( ConversionUTF32 );
         CPPUNIT_TEST( IsConvOk );
-#if wxUSE_UNICODE
         CPPUNIT_TEST( Iteration );
-#endif
     CPPUNIT_TEST_SUITE_END();
 
     void ToFromAscii();
@@ -160,9 +158,7 @@ private:
     void ConversionUTF16();
     void ConversionUTF32();
     void IsConvOk();
-#if wxUSE_UNICODE
     void Iteration();
-#endif
 
     wxDECLARE_NO_COPY_CLASS(UnicodeTestCase);
 };
@@ -193,37 +189,30 @@ void UnicodeTestCase::ToFromAscii()
 
 void UnicodeTestCase::ConstructorsWithConversion()
 {
-    // the string "Déjà" in UTF-8 and wchar_t:
-    const unsigned char utf8Buf[] = {0x44,0xC3,0xA9,0x6A,0xC3,0xA0,0};
-    const unsigned char utf8subBuf[] = {0x44,0xC3,0xA9,0x6A,0}; // just "Déj"
+    const unsigned char utf8Buf[] = "Déjà";
+    const unsigned char utf8subBuf[] = "Déj";
     const char* utf8 = reinterpret_cast<const char*>(utf8Buf);
     const char* utf8sub = reinterpret_cast<const char*>(utf8subBuf);
 
     wxString s1(utf8, wxConvUTF8);
 
-#if wxUSE_UNICODE
     const wchar_t wchar[] = {0x44,0xE9,0x6A,0xE0,0};
     CPPUNIT_ASSERT_EQUAL( wchar, s1 );
 
     wxString s2(wchar);
     CPPUNIT_ASSERT_EQUAL( wchar, s2 );
     CPPUNIT_ASSERT_EQUAL( wxString::FromUTF8(utf8), s2 );
-#else
-    CPPUNIT_ASSERT_EQUAL( utf8, s1 );
-#endif
 
     wxString sub(utf8sub, wxConvUTF8); // "Dej" substring
     wxString s3(utf8, wxConvUTF8, 4);
     CPPUNIT_ASSERT_EQUAL( sub, s3 );
 
-#if wxUSE_UNICODE
-    wxString s4(wchar, wxConvUTF8, 3);
+    wxString s4(wchar, 3);
     CPPUNIT_ASSERT_EQUAL( sub, s4 );
 
     // conversion should stop with failure at pos 35
     wxString s("\t[pl]open.format.Sformatuj dyskietk\xea=gfloppy %f", wxConvUTF8);
     CPPUNIT_ASSERT( s.empty() );
-#endif // wxUSE_UNICODE
 
 
     // test using Unicode strings together with char* strings (this must work
@@ -242,30 +231,23 @@ void UnicodeTestCase::ConversionFixed()
 {
     size_t len;
 
-#if wxUSE_UNICODE
     wxConvLibc.cWC2MB(L"", 0, &len);
-#else // !wxUSE_UNICODE
-    wxConvLibc.cMB2WC("", 0, &len);
-#endif // wxUSE_UNICODE/!wxUSE_UNICODE
 
     CPPUNIT_ASSERT_EQUAL( 0, len );
 
-#if wxUSE_UNICODE
     // check that when we convert a fixed number of characters we obtain the
     // expected return value
-    CPPUNIT_ASSERT_EQUAL( 0, wxConvLibc.ToWChar(NULL, 0, "", 0) );
-    CPPUNIT_ASSERT_EQUAL( 1, wxConvLibc.ToWChar(NULL, 0, "x", 1) );
-    CPPUNIT_ASSERT_EQUAL( 2, wxConvLibc.ToWChar(NULL, 0, "x", 2) );
-    CPPUNIT_ASSERT_EQUAL( 2, wxConvLibc.ToWChar(NULL, 0, "xy", 2) );
-#endif // wxUSE_UNICODE
+    CPPUNIT_ASSERT_EQUAL( 0, wxConvLibc.ToWChar(nullptr, 0, "", 0) );
+    CPPUNIT_ASSERT_EQUAL( 1, wxConvLibc.ToWChar(nullptr, 0, "x", 1) );
+    CPPUNIT_ASSERT_EQUAL( 2, wxConvLibc.ToWChar(nullptr, 0, "x", 2) );
+    CPPUNIT_ASSERT_EQUAL( 2, wxConvLibc.ToWChar(nullptr, 0, "xy", 2) );
 }
 
 void UnicodeTestCase::ConversionWithNULs()
 {
-#if wxUSE_UNICODE
     static const size_t lenNulString = 10;
 
-    wxString szTheString(L"The\0String", wxConvLibc, lenNulString);
+    wxString szTheString(L"The\0String", lenNulString);
     wxCharBuffer theBuffer = szTheString.mb_str(wxConvLibc);
 
     CPPUNIT_ASSERT( memcmp(theBuffer.data(), "The\0String",
@@ -275,19 +257,6 @@ void UnicodeTestCase::ConversionWithNULs()
     CPPUNIT_ASSERT_EQUAL( lenNulString, szTheString2.length() );
     CPPUNIT_ASSERT( wxTmemcmp(szTheString2.c_str(), L"The\0String",
                     lenNulString) == 0 );
-#else // !wxUSE_UNICODE
-    wxString szTheString("TheString");
-    szTheString.insert(3, 1, '\0');
-    wxWCharBuffer theBuffer = szTheString.wc_str(wxConvLibc);
-
-    CPPUNIT_ASSERT( memcmp(theBuffer.data(), L"The\0String", 11 * sizeof(wchar_t)) == 0 );
-
-    wxString szLocalTheString("TheString");
-    szLocalTheString.insert(3, 1, '\0');
-    wxWCharBuffer theLocalBuffer = szLocalTheString.wc_str(wxConvLocal);
-
-    CPPUNIT_ASSERT( memcmp(theLocalBuffer.data(), L"The\0String", 11 * sizeof(wchar_t)) == 0 );
-#endif // wxUSE_UNICODE/!wxUSE_UNICODE
 
     const char *null4buff = "\0\0\0\0";
     wxString null4str(null4buff, 4);
@@ -311,10 +280,10 @@ void UnicodeTestCase::ConversionUTF7()
         StringConversionData("+--", L"+-"),
 
         // the following are invalid UTF-7 sequences
-        StringConversionData("\xa3", NULL),
-        StringConversionData("+", NULL),
-        StringConversionData("+~", NULL),
-        StringConversionData("a+", NULL),
+        StringConversionData("\xa3", nullptr),
+        StringConversionData("+", nullptr),
+        StringConversionData("+~", nullptr),
+        StringConversionData("a+", nullptr),
     };
 
     for ( size_t n = 0; n < WXSIZEOF(utf7data); n++ )
@@ -341,10 +310,11 @@ void UnicodeTestCase::ConversionUTF8()
 {
     static const StringConversionData utf8data[] =
     {
-#ifdef wxHAVE_U_ESCAPE
+#ifdef wxMUST_USE_U_ESCAPE
         StringConversionData("\xc2\xa3", L"\u00a3"),
+#else
+        StringConversionData("£", L"£"),
 #endif
-        StringConversionData("\xc2", NULL),
     };
 
     wxCSConv conv(wxT("utf-8"));
@@ -357,10 +327,10 @@ void UnicodeTestCase::ConversionUTF8()
 
     static const char* const u25a6 = "\xe2\x96\xa6";
     wxMBConvUTF8 c(wxMBConvUTF8::MAP_INVALID_UTF8_TO_OCTAL);
-    CPPUNIT_ASSERT_EQUAL( 2, c.ToWChar(NULL, 0, u25a6, wxNO_LEN) );
-    CPPUNIT_ASSERT_EQUAL( 0, c.ToWChar(NULL, 0, u25a6, 0) );
-    CPPUNIT_ASSERT_EQUAL( 1, c.ToWChar(NULL, 0, u25a6, 3) );
-    CPPUNIT_ASSERT_EQUAL( 2, c.ToWChar(NULL, 0, u25a6, 4) );
+    CPPUNIT_ASSERT_EQUAL( 2, c.ToWChar(nullptr, 0, u25a6, wxNO_LEN) );
+    CPPUNIT_ASSERT_EQUAL( 0, c.ToWChar(nullptr, 0, u25a6, 0) );
+    CPPUNIT_ASSERT_EQUAL( 1, c.ToWChar(nullptr, 0, u25a6, 3) );
+    CPPUNIT_ASSERT_EQUAL( 2, c.ToWChar(nullptr, 0, u25a6, 4) );
 
     // Verify that converting a string with embedded NULs works.
     CPPUNIT_ASSERT_EQUAL( 5, wxString::FromUTF8("abc\0\x32", 5).length() );
@@ -375,15 +345,15 @@ void UnicodeTestCase::ConversionUTF16()
 {
     static const StringConversionData utf16data[] =
     {
-#ifdef wxHAVE_U_ESCAPE
+#ifdef wxMUST_USE_U_ESCAPE
         StringConversionData(
             "\x04\x1f\x04\x40\x04\x38\x04\x32\x04\x35\x04\x42\0\0",
             L"\u041f\u0440\u0438\u0432\u0435\u0442"),
+#else
         StringConversionData(
-            "\x01\0\0b\x01\0\0a\x01\0\0r\0\0",
-            L"\u0100b\u0100a\u0100r"),
+            "\x04\x1f\x04\x40\x04\x38\x04\x32\x04\x35\x04\x42\0\0",
+            L"Привет"),
 #endif
-        StringConversionData("\0f\0o\0o\0\0", L"foo"),
     };
 
     wxCSConv conv(wxFONTENCODING_UTF16BE);
@@ -419,7 +389,7 @@ void UnicodeTestCase::ConversionUTF16()
     wchar_t ws[2];
     ws[0] = 0xd83d;
     ws[1] = 0xdc31;
-    CPPUNIT_ASSERT_EQUAL( 4, wxMBConvUTF32BE().FromWChar(NULL, 0, ws, 2) );
+    CPPUNIT_ASSERT_EQUAL( 4, wxMBConvUTF32BE().FromWChar(nullptr, 0, ws, 2) );
 #endif // UTF-16 internal representation
 }
 
@@ -427,12 +397,15 @@ void UnicodeTestCase::ConversionUTF32()
 {
     static const StringConversionData utf32data[] =
     {
-#ifdef wxHAVE_U_ESCAPE
+#ifdef wxMUST_USE_U_ESCAPE
         StringConversionData(
             "\0\0\x04\x1f\0\0\x04\x40\0\0\x04\x38\0\0\x04\x32\0\0\x04\x35\0\0\x04\x42\0\0\0\0",
           L"\u041f\u0440\u0438\u0432\u0435\u0442"),
+#else
+        StringConversionData(
+            "\0\0\x04\x1f\0\0\x04\x40\0\0\x04\x38\0\0\x04\x32\0\0\x04\x35\0\0\x04\x42\0\0\0\0",
+          L"Привет"),
 #endif
-        StringConversionData("\0\0\0f\0\0\0o\0\0\0o\0\0\0\0", L"foo"),
     };
 
     wxCSConv conv(wxFONTENCODING_UTF32BE);
@@ -459,11 +432,9 @@ void UnicodeTestCase::IsConvOk()
 #endif
 }
 
-#if wxUSE_UNICODE
 void UnicodeTestCase::Iteration()
 {
-    // "czech" in Czech ("cestina"):
-    static const char *textUTF8 = "\304\215e\305\241tina";
+    static const char *textUTF8 = "čeština";// "czech" in Czech
     static const wchar_t textUTF16[] = {0x10D, 0x65, 0x161, 0x74, 0x69, 0x6E, 0x61, 0};
 
     wxString text(wxString::FromUTF8(textUTF8));
@@ -472,16 +443,16 @@ void UnicodeTestCase::Iteration()
     // verify the string was decoded correctly:
     {
         size_t idx = 0;
-        for ( wxString::const_iterator i = text.begin(); i != text.end(); ++i, ++idx )
+        for ( auto c : text )
         {
-            CPPUNIT_ASSERT( *i == textUTF16[idx] );
+            CPPUNIT_ASSERT( c == textUTF16[idx++] );
         }
     }
 
     // overwrite the string with something that is shorter in UTF-8:
     {
-        for ( wxString::iterator i = text.begin(); i != text.end(); ++i )
-            *i = 'x';
+        for ( auto c : text )
+            c = 'x';
     }
 
     // restore the original text now:
@@ -490,9 +461,9 @@ void UnicodeTestCase::Iteration()
         wxString::const_iterator end2 = text.end();
 
         size_t idx = 0;
-        for ( wxString::iterator i = text.begin(); i != text.end(); ++i, ++idx )
+        for ( auto c : text )
         {
-            *i = textUTF16[idx];
+            c = textUTF16[idx++];
 
             CPPUNIT_ASSERT( end1 == text.end() );
             CPPUNIT_ASSERT( end2 == text.end() );
@@ -505,11 +476,9 @@ void UnicodeTestCase::Iteration()
     // and verify it again:
     {
         size_t idx = 0;
-        for ( wxString::const_iterator i = text.begin(); i != text.end(); ++i, ++idx )
+        for ( auto c : text )
         {
-            CPPUNIT_ASSERT( *i == textUTF16[idx] );
+            CPPUNIT_ASSERT( c == textUTF16[idx++] );
         }
     }
 }
-#endif // wxUSE_UNICODE
-

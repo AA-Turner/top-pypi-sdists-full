@@ -164,9 +164,9 @@ int sipwxHeaderColumn::GetFlags() const
     if (!sipMeth)
         return 0;
 
-    extern int sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern int sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxAlignment sipwxHeaderColumn::GetAlignment() const
@@ -179,9 +179,9 @@ int sipwxHeaderColumn::GetFlags() const
     if (!sipMeth)
         return ::wxALIGN_INVALID;
 
-    extern ::wxAlignment sipVH__core_166(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxAlignment sipVH__core_165(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_166(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_165(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 int sipwxHeaderColumn::GetMinWidth() const
@@ -194,9 +194,9 @@ int sipwxHeaderColumn::GetMinWidth() const
     if (!sipMeth)
         return 0;
 
-    extern int sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern int sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 int sipwxHeaderColumn::GetWidth() const
@@ -209,9 +209,9 @@ int sipwxHeaderColumn::GetWidth() const
     if (!sipMeth)
         return 0;
 
-    extern int sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern int sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxBitmapBundle sipwxHeaderColumn::GetBitmapBundle() const
@@ -224,9 +224,9 @@ int sipwxHeaderColumn::GetWidth() const
     if (!sipMeth)
         return ::wxHeaderColumn::GetBitmapBundle();
 
-    extern ::wxBitmapBundle sipVH__core_165(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxBitmapBundle sipVH__core_164(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_165(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_164(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxBitmap sipwxHeaderColumn::GetBitmap() const
@@ -239,9 +239,9 @@ int sipwxHeaderColumn::GetWidth() const
     if (!sipMeth)
         return ::wxBitmap();
 
-    extern ::wxBitmap sipVH__core_80(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxBitmap sipVH__core_79(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_80(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_79(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxString sipwxHeaderColumn::GetTitle() const

@@ -736,7 +736,7 @@ static void *init_type_wxMouseState(sipSimpleWrapper *, PyObject *sipArgs, PyObj
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxMouseState[] = {{308, 255, 1}};
+static sipEncodedTypeDef supers_wxMouseState[] = {{315, 255, 1}};
 
 
 static PyMethodDef methods_wxMouseState[] = {

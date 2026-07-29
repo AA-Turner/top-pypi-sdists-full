@@ -55,18 +55,148 @@ import textwrap
 SCHEMA_VERSION = 1
 
 
+def normalize_style(text):
+    """Apply style-safe substitutions to generated prose."""
+    if not text:
+        return ""
+    text = re.sub(r"\be\.g\.(?:,)?", "for example,", text, flags=re.IGNORECASE)
+    text = re.sub(
+        r"\bAWS (?:Bedrock(?: AgentCore)? )?Code\s*Interpreter\b",
+        "Amazon Bedrock AgentCore Code Interpreter",
+        text,
+        flags=re.IGNORECASE,
+    )
+    text = text.replace(
+        "Bedrock AgentCore Policy Engine client.",
+        "Policy Engine client for Amazon Bedrock AgentCore.",
+    )
+    text = text.replace(
+        "Client for Bedrock AgentCore Policy Engine operations.",
+        "Provides a client for Policy in AgentCore.",
+    )
+    text = re.sub(r"\bAWS Bedrock AgentCore\b", "Amazon Bedrock AgentCore", text)
+    text = re.sub(r"\bAWS Bedrock\b", "Amazon Bedrock", text)
+    text = re.sub(
+        r"(?<!Amazon )(?<!AWS )\bBedrock AgentCore\b",
+        "Amazon Bedrock AgentCore",
+        text,
+    )
+    text = re.sub(
+        r"(?<!Amazon Bedrock )\bAgentCore Code Interpreter\b",
+        "Amazon Bedrock AgentCore Code Interpreter",
+        text,
+    )
+    text = re.sub(
+        r"(?<!Amazon Bedrock )\bAgentCore runtime\b",
+        "Amazon Bedrock AgentCore runtime",
+        text,
+    )
+    text = re.sub(
+        r"(?<!Amazon Bedrock )\bAgentCore Identity\b",
+        "Amazon Bedrock AgentCore Identity",
+        text,
+    )
+    text = text.replace(", allowing applications to", " so applications can")
+    text = re.sub(r"\bAWS region\b", "AWS Region", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bAgentCore Memory\b", "AgentCore memory", text)
+    text = re.sub(r"\bAgentCore Runtime\b", "AgentCore runtime", text)
+    text = text.replace(
+        "BedrockAgentCore Runtime Package.",
+        "Amazon Bedrock AgentCore runtime package.",
+    )
+    text = re.sub(r"\bAgentCore SDK\b", "AgentCore Python SDK", text)
+    text = text.replace(
+        "This feature is in preview and may change in future releases.",
+        "This feature is in preview and might change in future releases.",
+    )
+    text = text.replace("validation will ensure", "validation ensures")
+    text = text.replace(
+        "Delete all long-term memory records within a specific namespace.",
+        "Deletes all long-term memory records in the specified namespace.",
+    )
+    text = text.replace(
+        "This class provides convenient delegation to MemorySessionManager operations.",
+        "Use this class to delegate operations to MemorySessionManager.",
+    )
+    return re.sub(r"\bAWS\b", "{aws}", text)
+
+
+def normalize_param_description(text):
+    """Normalize recurring parameter-description style issues."""
+    text = normalize_style(clean_rst(text)).strip()
+    optional_replacement = "Optional" if _starts_with_plural_noun(text) else "An optional"
+    substitutions = (
+        (r"^Optional\b", optional_replacement),
+        (r"^(?:\{aws\}|AWS)\s+region\b", "The {aws} Region"),
+        (r"^id of\b", "The ID of"),
+        (r"^Behaviour\b", "The behavior"),
+        (r"^Behavior\b", "The behavior"),
+        (r"^Memory resource ID\b", "The memory resource ID"),
+        (r"^Strategy name\b", "The name of the memory strategy"),
+        (r"^Strategy ID\b", "The ID of the memory strategy"),
+    )
+    for pattern, replacement in substitutions:
+        text = re.sub(pattern, replacement, text, count=1, flags=re.IGNORECASE)
+    return text
+
+
+def _starts_with_plural_noun(text):
+    """Return whether an Optional description starts with a likely plural noun."""
+    match = re.match(r"^Optional\s+([A-Za-z]+)\b", text, flags=re.IGNORECASE)
+    if not match:
+        return False
+    noun = match.group(1)
+    return noun.islower() and noun.endswith("s") and not noun.endswith(("is", "ss", "us"))
+
+
 def esc(text):
     """Escape AsciiDoc-significant characters in inline text."""
     if not text:
         return ""
     # Guard the couple of chars that start AsciiDoc markup in running prose.
-    return text.replace("|", "\\|").replace("{", "\\{")
+    marker = "\0AWS_ENTITY\0"
+    text = normalize_style(text).replace("{aws}", marker)
+    return text.replace("|", "\\|").replace("{", "\\{").replace(marker, "{aws}")
 
 
 # Match markdown code fences that may be indented (reST/Google docstrings often
 # indent example blocks). `re.MULTILINE` lets ^ match each line start; the
 # leading-whitespace groups are stripped from the captured code.
 _FENCE_RE = re.compile(r"^[ \t]*```(\w*)[ \t]*\n(.*?)\n[ \t]*```[ \t]*$", re.DOTALL | re.MULTILINE)
+
+# RST admonitions (.. warning::, .. note::, etc.) followed by indented body.
+_RST_ADMONITION_RE = re.compile(
+    r"^[ \t]*\.\. (warning|note|tip|important|caution|danger)::\s*\n((?:[ \t]+\S[^\n]*\n?)+)",
+    re.MULTILINE,
+)
+
+# RST cross-reference roles: :class:`Foo`, :py:meth:`bar`, :func:`baz`, etc.
+_RST_ROLE_RE = re.compile(r":(?:py:)?(?:class|meth|func|attr|obj|exc|mod|data):`([^`]*)`")
+
+
+def clean_rst(text):
+    """Convert common RST constructs to AsciiDoc equivalents."""
+    if not text:
+        return text
+
+    # Convert admonitions: .. warning::\n    body  ->  [WARNING]\n====\nbody\n====
+    def _admonition_repl(m):
+        kind = m.group(1).upper()
+        body = textwrap.dedent(m.group(2)).strip()
+        return f"\n[{kind}]\n====\n{body}\n====\n"
+
+    text = _RST_ADMONITION_RE.sub(_admonition_repl, text)
+
+    # Convert roles: :class:`Foo` -> `Foo`
+    text = _RST_ROLE_RE.sub(r"`\1`", text)
+
+    return normalize_style(text)
+
+
+_ADOC_ADMONITION_RE = re.compile(
+    r"^\[(WARNING|NOTE|TIP|IMPORTANT|CAUTION)\]\n====\n(.*?)\n====",
+    re.DOTALL | re.MULTILINE,
+)
 
 
 def render_prose(text):
@@ -76,15 +206,18 @@ def render_prose(text):
     (not just in @example). Left alone they leak literal backticks into the
     AsciiDoc. Split the prose on fences: escape the prose spans, and convert
     each fenced block into an AsciiDoc [source] block (verbatim, not escaped).
+
+    Also converts RST directives and roles to AsciiDoc equivalents.
     """
     if not text:
         return []
+    text = clean_rst(text)
     out = []
     pos = 0
     for m in _FENCE_RE.finditer(text):
         before = text[pos : m.start()].strip()
         if before:
-            out.append(esc(before))
+            out.extend(_escape_prose_segment(before))
             out.append("")
         lang = m.group(1) or ""
         out.append(f"[source,{lang}]" if lang else "[source]")
@@ -92,6 +225,27 @@ def render_prose(text):
         # Dedent the captured code (fences are often indented in docstrings).
         out.append(textwrap.dedent(m.group(2)).rstrip())
         out.append("----")
+        out.append("")
+        pos = m.end()
+    tail = text[pos:].strip()
+    if tail:
+        out.extend(_escape_prose_segment(tail))
+    return out
+
+
+def _escape_prose_segment(text):
+    """Escape a prose segment while preserving AsciiDoc admonition blocks."""
+    out = []
+    pos = 0
+    for m in _ADOC_ADMONITION_RE.finditer(text):
+        before = text[pos : m.start()].strip()
+        if before:
+            out.append(esc(before))
+            out.append("")
+        out.append(f"[{m.group(1)}]")
+        out.append("====")
+        out.append(m.group(2).strip())
+        out.append("====")
         out.append("")
         pos = m.end()
     tail = text[pos:].strip()
@@ -113,7 +267,7 @@ def render_params(params, out):
         req = "" if p.get("required") else " _(optional)_"
         typ = f"`{p['type']}`" if p.get("type") else ""
         out.append(f"`{p['name']}`{req} {typ}::")
-        out.append(esc(p.get("description", "")) or "_No description._")
+        out.append(esc(normalize_param_description(p.get("description", ""))) or "_No description._")
     out.append("")
 
 
@@ -123,7 +277,7 @@ def render_returns(returns, out):
     typ = f"`{returns['type']}` — " if returns.get("type") else ""
     out.append("*Returns*")
     out.append("")
-    out.append(f"{typ}{esc(returns.get('description', ''))}".strip())
+    out.append(f"{typ}{esc(clean_rst(returns.get('description', '')))}".strip())
     out.append("")
 
 
@@ -133,7 +287,7 @@ def render_raises(raises, out):
     out.append("*Raises*")
     out.append("")
     for r in raises:
-        out.append(f"`{r.get('type', 'Error')}`:: {esc(r.get('description', ''))}")
+        out.append(f"`{r.get('type', 'Error')}`:: {esc(clean_rst(r.get('description', '')))}")
     out.append("")
 
 

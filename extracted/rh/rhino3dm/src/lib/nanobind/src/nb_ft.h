@@ -7,6 +7,8 @@
     BSD-style license that can be found in the LICENSE file.
 */
 
+#pragma once
+
 #if !defined(Py_GIL_DISABLED)
 /// Trivial implementations for non-free-threaded Python
 inline void make_immortal(PyObject *) noexcept { }
@@ -21,7 +23,7 @@ inline bool nb_try_inc_ref(PyObject *obj) noexcept {
 #else
 extern void make_immortal(PyObject *op) noexcept;
 
-#if 0 && PY_VERSION_HEX >= 0x030E00A5
+#if PY_VERSION_HEX >= 0x030E00A5
 /// Sufficiently recent CPython versions provide an API for the following operations
 inline void nb_enable_try_inc_ref(PyObject *obj) noexcept {
     PyUnstable_EnableTryIncRef(obj);

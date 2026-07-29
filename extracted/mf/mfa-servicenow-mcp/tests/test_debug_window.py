@@ -23,8 +23,8 @@ from servicenow_mcp.browser import (
     impersonate,
     launch_budget,
     login,
-    mfa_trust,
     report,
+    server_scripts,
     window,
 )
 from servicenow_mcp.browser.badge import badge_init_script, badge_label, hide_badge_script
@@ -1924,7 +1924,45 @@ def test_a_page_that_cannot_be_probed_never_blocks_navigation():
     assert capture_module._dirty_fields(Hostile()) == ([], "guessed")
 
 
-def test_a_guessed_block_says_it_is_probably_a_false_alarm(monkeypatch):
+def test_a_guess_steps_aside_into_a_new_tab_instead_of_refusing(monkeypatch):
+    # A shared window that answers "no" to every navigation is not shared, it is
+    # broken: the portal landing page reports eight fields nobody touched. The
+    # guess now opens a tab beside them and says why.
+    state = window.WindowState(
+        pid=1, port=2, profile_dir="/tmp/p", instance_url="https://dev.example.com", started_at=0.0
+    )
+    monkeypatch.setattr(tools, "ensure_window", lambda auth_manager, **kw: (state, False))
+    monkeypatch.setattr(tools, "budget_status", lambda path: (1, 6))
+    monkeypatch.setattr(tools, "window_history_path", lambda a: "/tmp/h.json")
+    monkeypatch.setattr(tools, "arm", lambda state, **kw: {"armed": True})
+    monkeypatch.setattr(tools, "auto_login", lambda state, **kw: {"status": "no_credentials"})
+    monkeypatch.setattr(tools, "window_login_path", lambda a: "/tmp/l.json")
+    monkeypatch.setattr(
+        tools,
+        "navigate",
+        lambda state, url, profile, allow_discard, new_tab, **kw: {
+            "navigated": True,
+            "url": "https://dev.example.com/sp?id=other",
+            "new_tab": True,
+            "tabs": 2,
+            "kept_input": ["c.data.requestType", "request_date_from"],
+            "input_basis": "guessed",
+        },
+    )
+
+    result = tools.open_debug_window(
+        SimpleNamespace(instance_url="https://dev.example.com"),
+        MagicMock(),
+        tools.OpenDebugWindowParams(url="/sp?id=other"),
+    )
+
+    assert result["new_tab"] is True
+    assert "2 field(s)" in result["opened_beside"]
+    assert "discard_unsaved_input" in result["opened_beside"]
+
+
+def test_observed_typing_still_refuses(monkeypatch):
+    # The guess steps aside; a real person's keystrokes do not get stepped on.
     state = window.WindowState(
         pid=1, port=2, profile_dir="/tmp/p", instance_url="https://dev.example.com", started_at=0.0
     )
@@ -1937,8 +1975,8 @@ def test_a_guessed_block_says_it_is_probably_a_false_alarm(monkeypatch):
         lambda state, url, profile, allow_discard, new_tab, **kw: {
             "navigated": False,
             "url": "https://dev.example.com/form",
-            "blocked_by_unsaved_input": ["c.data.requestType"],
-            "input_basis": "guessed",
+            "blocked_by_unsaved_input": ["short_description"],
+            "input_basis": "typed",
         },
     )
 
@@ -1948,8 +1986,9 @@ def test_a_guessed_block_says_it_is_probably_a_false_alarm(monkeypatch):
         tools.OpenDebugWindowParams(url="/sp?id=other"),
     )
 
-    assert result["input_basis"] == "guessed"
-    assert "false alarm" in result["hint"]
+    assert result["navigated"] is False
+    assert result["input_basis"] == "typed"
+    assert "Someone typed" in result["hint"]
 
 
 def test_a_new_tab_leaves_the_form_alone(monkeypatch):
@@ -2537,136 +2576,410 @@ def test_the_effective_user_script_reads_the_platform_impersonation_flag():
 
 
 # ---------------------------------------------------------------------------
-# mfa_trust.py — one challenge per account, and only the one cookie moves
+# Crash marks — why a reopened window came back with two of the same tab
 # ---------------------------------------------------------------------------
 
 
-def _mfa_cookie(value="tok", expires=None, name=None, domain="dev.example.com"):
-    return {
-        "name": name or mfa_trust.MFA_COOKIE_NAME,
-        "value": value,
-        "domain": domain,
-        "path": "/",
-        "expires": expires if expires is not None else time.time() + 16 * 3600,
-        "httpOnly": True,
-        "secure": True,
-    }
+def _prefs(profile_dir, payload):
+    default = os.path.join(profile_dir, "Default")
+    os.makedirs(default, exist_ok=True)
+    path = os.path.join(default, "Preferences")
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle)
+    return path
 
 
-def test_only_the_remembered_browser_cookie_is_ever_picked_up():
-    jar = [
-        {"name": "JSESSIONID", "value": "s", "domain": "dev.example.com", "expires": -1},
-        {"name": "glide_session_store", "value": "s", "domain": "dev.example.com", "expires": -1},
-        {"name": "glide_user_activity", "value": "s", "domain": "dev.example.com", "expires": -1},
-        _mfa_cookie(),
+def test_a_crash_mark_is_cleared_so_no_tab_is_restored(tmp_path):
+    # Closing by signal (stop_window, the reaper) is what Chromium records as a
+    # crash — measured on a real profile: exit_type "Crashed", and the next
+    # launch showed the restored tab AND the url we passed on the command line.
+    profile = str(tmp_path / "profile")
+    path = _prefs(profile, {"profile": {"exit_type": "Crashed"}, "other": {"keep": 1}})
+
+    assert window.clear_restore_state(profile) is True
+
+    saved = json.load(open(path))
+    assert saved["profile"]["exit_type"] == "Normal"
+    assert saved["profile"]["exited_cleanly"] is True
+    # Everything else in that file belongs to Chromium, not to us.
+    assert saved["other"] == {"keep": 1}
+
+
+def test_a_clean_profile_is_left_untouched(tmp_path):
+    profile = str(tmp_path / "profile")
+    _prefs(profile, {"profile": {"exit_type": "Normal", "exited_cleanly": True}})
+
+    assert window.clear_restore_state(profile) is False
+
+
+def test_a_profile_that_never_ran_has_nothing_to_clear(tmp_path):
+    assert window.clear_restore_state(str(tmp_path / "never")) is False
+
+
+def test_unreadable_preferences_never_stop_a_window_from_opening(tmp_path):
+    profile = str(tmp_path / "profile")
+    os.makedirs(os.path.join(profile, "Default"))
+    with open(os.path.join(profile, "Default", "Preferences"), "w") as handle:
+        handle.write("{not json")
+
+    assert window.clear_restore_state(profile) is False
+
+
+def test_the_restore_bubble_can_never_cover_the_shared_page():
+    args = window._launch_args(
+        port=1, profile_dir="/tmp/p", viewport=(800, 600), url="https://x.test"
+    )
+
+    assert "--hide-crash-restore-bubble" in args
+
+
+def test_the_session_files_chromium_restores_from_are_removed(tmp_path):
+    # The measured cause: Sessions/Session_* and Tabs_* survive a signal-close,
+    # so the next launch restores that tab and adds the one it was asked for —
+    # two, then three, growing by one per cycle.
+    profile = tmp_path / "profile"
+    sessions = profile / "Default" / "Sessions"
+    sessions.mkdir(parents=True)
+    (sessions / "Session_13429694818788795").write_bytes(b"x")
+    (sessions / "Tabs_13429694819516645").write_bytes(b"x")
+    (profile / "Default" / "Last Session").write_bytes(b"x")
+    cookies = profile / "Default" / "Cookies"
+    cookies.write_bytes(b"sqlite")
+
+    assert window.clear_restore_state(str(profile)) is True
+
+    assert list(sessions.iterdir()) == []
+    assert not (profile / "Default" / "Last Session").exists()
+    # The signed-in session is the whole reason a reopen is silent. Never ours
+    # to delete.
+    assert cookies.read_bytes() == b"sqlite"
+
+
+# ---------------------------------------------------------------------------
+# Which tab do we continue in? The one someone was working in.
+# ---------------------------------------------------------------------------
+
+
+class PresencePage:
+    """A tab that answers the probe's presence question with a stamp."""
+
+    def __init__(self, url, last_human=None):
+        self.url = url
+        self.last_human = last_human
+
+    def evaluate(self, script):
+        if "presence" in script:
+            if self.last_human is None:
+                return None  # unarmed document: no say
+            return {"lastHuman": self.last_human, "now": 9_000.0}
+        return None
+
+
+def test_with_one_tab_nothing_is_asked():
+    only = PresencePage("https://dev.example.com/sp")
+
+    assert capture_module._active_instance_page([only], "dev.example.com") is only
+
+
+def test_the_tab_last_worked_in_wins_over_the_first_one():
+    # A new tab opened beside a form would otherwise leave the model reading the
+    # old page while the person looks at the new one.
+    old = PresencePage("https://dev.example.com/ybpm", last_human=1000.0)
+    new = PresencePage("https://dev.example.com/incident_list.do", last_human=8000.0)
+
+    assert capture_module._active_instance_page([old, new], "dev.example.com") is new
+
+
+def test_tabs_off_the_instance_are_never_chosen_over_one_on_it():
+    off = PresencePage("https://docs.example.org/guide", last_human=9999.0)
+    on = PresencePage("https://dev.example.com/sp", last_human=1.0)
+
+    assert capture_module._active_instance_page([off, on], "dev.example.com") is on
+
+
+def test_when_no_tab_can_answer_the_first_instance_tab_is_used():
+    # An unarmed document is not a reason to pick the wrong page.
+    first = PresencePage("https://dev.example.com/sp")
+    second = PresencePage("https://dev.example.com/other")
+
+    assert capture_module._active_instance_page([first, second], "dev.example.com") is first
+
+
+def test_a_tab_that_refuses_to_answer_does_not_break_the_choice():
+    class Hostile(PresencePage):
+        def evaluate(self, script):
+            raise RuntimeError("execution context destroyed")
+
+    hostile = Hostile("https://dev.example.com/a")
+    answering = PresencePage("https://dev.example.com/b", last_human=42.0)
+
+    assert (
+        capture_module._active_instance_page([hostile, answering], "dev.example.com") is answering
+    )
+
+
+def test_devtools_tabs_are_still_never_selected():
+    devtools = PresencePage("devtools://devtools/bundled/inspector.html", last_human=9999.0)
+    real = PresencePage("https://dev.example.com/sp", last_human=1.0)
+
+    assert capture_module._active_instance_page([devtools, real], "dev.example.com") is real
+
+
+class ArmablePage:
+    def __init__(self, url, hostile=False):
+        self.url = url
+        self.hostile = hostile
+        self.scripts = []
+
+    def evaluate(self, script):
+        if self.hostile:
+            raise RuntimeError("execution context destroyed")
+        self.scripts.append(script)
+        return None
+
+
+def test_every_instance_tab_gets_the_probe_not_just_the_chosen_one(auth):
+    # The circle this breaks: no probe -> no say in which tab is being worked
+    # in -> never chosen -> never armed.
+    state = window.WindowState(
+        pid=1, port=2, profile_dir="/p", instance_url="https://dev.example.com", started_at=0.0
+    )
+    tabs = [
+        ArmablePage("https://dev.example.com/sp"),
+        ArmablePage("https://dev.example.com/incident_list.do"),
+        ArmablePage("https://docs.example.org/guide"),
+        ArmablePage("devtools://devtools/bundled/inspector.html"),
     ]
 
-    picked = mfa_trust.pick(jar, "dev.example.com")
+    armed = capture_module._arm_tabs(tabs, state, "dev")
 
-    # The session cookies are the ones session.py refuses to share. They must
-    # not be able to ride along with the device trust.
-    assert picked["name"] == mfa_trust.MFA_COOKIE_NAME
-    assert picked["value"] == "tok"
-
-
-def test_a_cookie_for_another_host_is_not_ours():
-    assert mfa_trust.pick([_mfa_cookie(domain="other.example.com")], "dev.example.com") is None
+    assert armed == 2
+    assert tabs[0].scripts and tabs[1].scripts
+    # Someone's unrelated reading and the devtools window are not ours to touch.
+    assert tabs[2].scripts == [] and tabs[3].scripts == []
 
 
-def test_an_expired_or_session_scoped_cookie_is_not_worth_carrying():
-    assert mfa_trust.pick([_mfa_cookie(expires=time.time() - 5)], "dev.example.com") is None
-    assert mfa_trust.pick([_mfa_cookie(expires=-1)], "dev.example.com") is None
-    assert mfa_trust.pick([_mfa_cookie(expires=time.time() + 30)], "dev.example.com") is None
+def test_a_tab_that_refuses_the_probe_does_not_stop_the_others(auth):
+    state = window.WindowState(
+        pid=1, port=2, profile_dir="/p", instance_url="https://dev.example.com", started_at=0.0
+    )
+    tabs = [
+        ArmablePage("https://dev.example.com/a", hostile=True),
+        ArmablePage("https://dev.example.com/b"),
+    ]
+
+    assert capture_module._arm_tabs(tabs, state, "dev") == 1
+    assert tabs[1].scripts
 
 
-def test_the_store_round_trips_and_is_owner_only(tmp_path):
-    path = str(tmp_path / "mfa.json")
-    cookie = _mfa_cookie(value="secret-token")
-
-    assert mfa_trust.write_store(path, cookie) is True
-    assert mfa_trust.read_store(path)["value"] == "secret-token"
-    # It is a credential: same handling the session cache gives cookies.
-    assert oct(os.stat(path).st_mode & 0o777) == "0o600"
+# ---------------------------------------------------------------------------
+# server_scripts.py — running server-side code is not a click
+# ---------------------------------------------------------------------------
 
 
-def test_writing_the_same_value_twice_is_not_an_update(tmp_path):
-    # The write-back into the login profile is gated on this returning True, so
-    # a no-op write must not trigger a headless launch on every open.
-    path = str(tmp_path / "mfa.json")
-    cookie = _mfa_cookie(value="same")
-
-    assert mfa_trust.write_store(path, cookie) is True
-    assert mfa_trust.write_store(path, dict(cookie)) is False
-
-
-def test_an_expired_store_reads_as_nothing(tmp_path):
-    path = str(tmp_path / "mfa.json")
-    mfa_trust.write_store(path, _mfa_cookie(expires=time.time() + 16 * 3600))
-    json.dump({"cookie": _mfa_cookie(expires=time.time() - 1)}, open(path, "w"))
-
-    assert mfa_trust.read_store(path) is None
+@pytest.mark.parametrize(
+    "url,surface",
+    [
+        ("https://dev.example.com/sys.scripts.do", "Background Scripts"),
+        ("https://dev.example.com/nav_to.do?uri=sys_script_fix.do%3Fsys_id%3Dab", "Fix Script"),
+        # A gate an encoder walks through is not a gate.
+        ("https://dev.example.com/nav_to.do?uri=%2Fsys.scripts.do", "Background Scripts"),
+        ("https://dev.example.com/SYS.SCRIPTS.DO", "Background Scripts"),
+        ("https://dev.example.com/sysauto_script.do?sys_id=1", "Scheduled Script Execution"),
+    ],
+)
+def test_a_script_runner_page_is_recognised_however_it_is_addressed(url, surface):
+    assert server_scripts.surface_for_url(url) == surface
 
 
-def test_the_store_is_keyed_by_account_not_by_profile_configuration():
-    # A named-instance alias and a legacy host+user key produce different
-    # PROFILE directories for the same human — which is exactly how one account
-    # got challenged twice. The trust key must not inherit that split.
-    root = "/cache"
-    from_alias = mfa_trust.store_path(root, "https://dev.example.com", "alice@corp.com")
-    from_legacy = mfa_trust.store_path(root, "https://dev.example.com", "Alice@Corp.com")
-
-    assert from_alias == from_legacy
-    assert mfa_trust.store_path(root, "https://other.example.com", "alice@corp.com") != from_alias
+def test_an_ordinary_page_is_not_a_script_runner():
+    assert server_scripts.surface_for_url("https://dev.example.com/incident.do?sys_id=1") is None
+    assert server_scripts.surface_for_url("") is None
 
 
-def test_seeding_puts_exactly_one_cookie_into_the_context():
-    class FakeContext:
-        def __init__(self):
-            self.added = []
-
-        def add_cookies(self, cookies):
-            self.added.extend(cookies)
-
-    context = FakeContext()
-    assert mfa_trust.seed_context(context, _mfa_cookie()) is True
-    assert [c["name"] for c in context.added] == [mfa_trust.MFA_COOKIE_NAME]
-
-    # Nothing to seed is not a failure, and must not touch the browser.
-    fresh = FakeContext()
-    assert mfa_trust.seed_context(fresh, None) is False
-    assert fresh.added == []
+def test_the_run_verb_is_recognised_without_any_url():
+    # A Fix Script run from a list view's context menu never loads its form,
+    # so the URL half of the check has nothing to look at.
+    assert server_scripts.surface_for_step(_step(selector="text=Run Fix Script")) == "Fix Script"
+    assert server_scripts.surface_for_step(_step(selector='input[name="runscript"]')) == (
+        "Background Scripts"
+    )
 
 
-def test_harvesting_from_a_context_never_raises_on_a_hostile_jar():
-    class Hostile:
-        def cookies(self):
-            raise RuntimeError("context destroyed")
-
-    assert mfa_trust.harvest_from_context(Hostile(), "dev.example.com") is None
+def test_typing_a_script_is_not_running_one():
+    # fill has to stay free: showing the user what you want run is the outcome
+    # this gate is asking for.
+    assert server_scripts.surface_for_step(_step(action="fill", value="gs.info('x')")) is None
 
 
-def test_a_profile_in_use_is_left_alone(monkeypatch, tmp_path):
-    # The login profile's lock is held for as long as that browser is open;
-    # waiting for it would stall the window someone is waiting for.
-    profile = tmp_path / "profile"
-    profile.mkdir()
-    monkeypatch.setattr("servicenow_mcp.auth._browser_dom._singleton_holder_pid", lambda path: 4321)
+def test_an_activating_step_on_a_script_runner_fails_that_step(monkeypatch):
+    page = FakePage(known=["#run"], url="https://dev.example.com/sys.scripts.do")
 
-    assert mfa_trust.harvest_from_profile(str(profile), "dev.example.com") is None
-    assert mfa_trust.seed_profile(str(profile), _mfa_cookie()) is False
+    with pytest.raises(actions.ActionError) as excinfo:
+        actions._run_step(page, _step(selector="#run"), 3)
 
-
-def test_a_missing_profile_is_not_an_error():
-    assert mfa_trust.harvest_from_profile("/nope/does/not/exist", "dev.example.com") is None
+    assert "Background Scripts" in str(excinfo.value)
+    assert "confirm_script_exec='approve'" in str(excinfo.value)
+    assert excinfo.value.index == 3
 
 
-def test_the_shared_cookie_only_helps_a_headed_window():
-    # Measured: seeded + headless was still challenged, seeded + headed was not.
-    # The debug window is headed by contract, which is why this feature works at
-    # all — if that contract ever changes, this stops being an optimisation and
-    # starts being a lie. Pinned here rather than in prose.
-    from servicenow_mcp.browser import mfa_trust as trust
-    from servicenow_mcp.browser.window import DEBUG_WINDOW_ALWAYS_HEADED
+def test_the_same_step_proceeds_once_approved():
+    page = FakePage(known=["#run"], url="https://dev.example.com/sys.scripts.do")
 
-    assert DEBUG_WINDOW_ALWAYS_HEADED is True
-    assert "headed" in trust.__doc__
+    assert actions._run_step(page, _step(selector="#run"), 1, None, True) == {}
+
+
+def test_a_click_elsewhere_is_untouched_by_the_gate():
+    page = FakePage(known=["#save"], url="https://dev.example.com/incident.do")
+
+    assert actions._run_step(page, _step(selector="#save"), 1) == {}
+
+
+def test_an_unreadable_url_does_not_break_an_ordinary_click():
+    class Detached(FakePage):
+        @property
+        def url(self):
+            raise RuntimeError("page has been closed")
+
+        @url.setter
+        def url(self, _value):
+            pass
+
+    assert actions._run_step(Detached(known=["#save"]), _step(selector="#save"), 1) == {}
+
+
+def test_running_a_background_script_needs_its_own_approval(monkeypatch):
+    def _explode(*args, **kwargs):
+        raise AssertionError("must not reach the window without confirm_script_exec")
+
+    monkeypatch.setattr(tools, "find_window", _explode)
+
+    result = tools.act_in_debug_window(
+        MagicMock(),
+        MagicMock(),
+        tools.ActInDebugWindowParams(
+            actions=[
+                {"action": "fill", "selector": "#script", "value": "gr.deleteMultiple()"},
+                {"action": "click", "selector": "text=Run script"},
+            ]
+        ),
+    )
+
+    assert result["success"] is False
+    assert result["script_exec_steps"] == [2]
+    assert "confirm_script_exec='approve'" in result["error"]
+    assert "Background Scripts" in result["error"]
+
+
+def test_an_eval_that_posts_to_the_runner_needs_both_approvals(monkeypatch):
+    monkeypatch.setattr(tools, "find_window", lambda a: pytest.fail("must not reach the window"))
+
+    result = tools.act_in_debug_window(
+        MagicMock(),
+        MagicMock(),
+        tools.ActInDebugWindowParams(
+            actions=[{"action": "eval", "value": "fetch('/sys.scripts.do', {method:'POST'})"}],
+            confirm_eval="approve",
+        ),
+    )
+
+    assert result["success"] is False
+    assert result["script_exec_steps"] == [1]
+
+
+def test_an_approved_run_reaches_the_window_with_the_flag(monkeypatch, tmp_path):
+    state = _state()
+    seen = {}
+    monkeypatch.setattr(tools, "find_window", lambda auth_manager: state)
+    monkeypatch.setattr(tools, "window_cursor_path", lambda a: str(tmp_path / "c.json"))
+    monkeypatch.setattr(tools, "window_artifacts_dir", lambda a: str(tmp_path / "artifacts"))
+
+    def _act(state, **kw):
+        seen.update(kw)
+        return {
+            "url": "https://dev.example.com/sys.scripts.do",
+            "seq": 1,
+            "events": [],
+            "steps": [{"step": 1, "action": "click", "ok": True}],
+            "dialogs": [],
+            "failed_step": None,
+            "skipped": 0,
+        }
+
+    monkeypatch.setattr(tools, "act", _act)
+
+    result = tools.act_in_debug_window(
+        SimpleNamespace(instance_url="https://dev.example.com"),
+        MagicMock(),
+        tools.ActInDebugWindowParams(
+            actions=[{"action": "click", "selector": "text=Run script"}],
+            confirm_script_exec="approve",
+        ),
+    )
+
+    assert result["success"] is True
+    assert seen["allow_server_script"] is True
+
+
+def test_a_window_already_on_the_runner_refuses_the_whole_batch(monkeypatch, tmp_path):
+    state = _state()
+    monkeypatch.setattr(tools, "find_window", lambda auth_manager: state)
+    monkeypatch.setattr(tools, "window_cursor_path", lambda a: str(tmp_path / "c.json"))
+    monkeypatch.setattr(tools, "window_artifacts_dir", lambda a: str(tmp_path / "artifacts"))
+
+    def _act(state, **kw):
+        raise server_scripts.ServerScriptBlocked(
+            server_scripts.rejection("Background Scripts"), surface="Background Scripts"
+        )
+
+    monkeypatch.setattr(tools, "act", _act)
+
+    result = tools.act_in_debug_window(
+        SimpleNamespace(instance_url="https://dev.example.com"),
+        MagicMock(),
+        # Neither selector names a run verb — only the live URL knows.
+        tools.ActInDebugWindowParams(actions=[{"action": "click", "selector": "#go"}]),
+    )
+
+    assert result["success"] is False
+    assert result["script_exec_surface"] == "Background Scripts"
+    assert "confirm_script_exec='approve'" in result["error"]
+
+
+def test_the_read_tool_cannot_post_to_the_runner_either(monkeypatch):
+    monkeypatch.setattr(tools, "find_window", lambda a: pytest.fail("must not reach the window"))
+
+    result = tools.inspect_debug_window(
+        MagicMock(),
+        MagicMock(),
+        tools.InspectDebugWindowParams(evaluate="fetch('/sys.scripts.do',{method:'POST'})"),
+    )
+
+    assert result["success"] is False
+    assert result["script_exec_surface"] == "Background Scripts"
+
+
+def test_an_ordinary_expression_still_reads_freely(monkeypatch, tmp_path):
+    state = _state()
+    monkeypatch.setattr(tools, "find_window", lambda auth_manager: state)
+    monkeypatch.setattr(tools, "window_cursor_path", lambda a: str(tmp_path / "c.json"))
+    monkeypatch.setattr(tools, "window_artifacts_dir", lambda a: str(tmp_path / "artifacts"))
+    monkeypatch.setattr(
+        tools,
+        "capture",
+        lambda state, **kw: {
+            "url": "https://dev.example.com/sp",
+            "seq": 1,
+            "events": [],
+            "evaluation": {"ok": True, "value": 7},
+        },
+    )
+
+    result = tools.inspect_debug_window(
+        SimpleNamespace(instance_url="https://dev.example.com"),
+        MagicMock(),
+        tools.InspectDebugWindowParams(evaluate="$scope.data.items.length"),
+    )
+
+    assert result["success"] is True
+    assert result["evaluation"]["value"] == 7

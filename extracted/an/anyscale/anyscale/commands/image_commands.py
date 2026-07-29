@@ -10,11 +10,22 @@ import yaml
 import anyscale
 from anyscale.authenticate import get_auth_api_client
 from anyscale.commands import command_examples
+from anyscale.commands.doc_metadata import (
+    command_metadata,
+    CommandExample,
+    ReleaseStatus,
+)
 from anyscale.commands.list_util import (
     display_list,
     MAX_PAGE_SIZE,
     NON_INTERACTIVE_DEFAULT_MAX_ITEMS,
     validate_page_size,
+)
+from anyscale.commands.output_format import (
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    OutputFormat,
+    print_output,
 )
 from anyscale.commands.util import AnyscaleCommand
 from anyscale.image.models import ImageBuild
@@ -111,11 +122,23 @@ def _format_image_output_verbose(image: ImageBuild) -> Dict[str, str]:
     }
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Build an image from a Containerfile.",
+            command="anyscale image build -n my-image -f Containerfile",
+            output_raw=command_examples.IMAGE_BUILD_EXAMPLE,
+        ),
+    ],
+)
 @image_cli.command(
     name="build",
-    help=("Build an image from a Containerfile."),
+    short_help="Build an image from a Containerfile.",
+    help="Build an image from a Containerfile.",
     cls=AnyscaleCommand,
-    example=command_examples.IMAGE_BUILD_EXAMPLE,
 )
 @click.option(
     "--containerfile",
@@ -162,11 +185,31 @@ def build(
         raise click.ClickException(f"Failed to build image: {e}") from None
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Get the details of an image by name.",
+            command="anyscale image get -n my-image",
+            output_raw=command_examples.IMAGE_GET_EXAMPLE,
+            # Serialized form of the ImageBuild model (what --json/--yaml emit).
+            output_instance={
+                "id": "img_abc123",
+                "name": "my-image",
+                "status": "SUCCEEDED",
+            },
+        ),
+    ],
+    output_schema=ImageBuild,
+)
 @image_cli.command(
     name="get",
-    help=("Get details of an image."),
+    short_help="Get details of an image.",
+    help="Get details of an image.",
     cls=AnyscaleCommand,
-    example=command_examples.IMAGE_GET_EXAMPLE,
 )
 @click.option(
     "--name",
@@ -199,18 +242,31 @@ def build(
     type=str,
     default=None,
 )
-def get(
+@click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
+def get(  # noqa: PLR0913
     name: str,
     json_output: bool,
     yaml_output: bool,
     verbose: bool,
     cloud_id: Optional[str] = None,
+    output_format: str = OutputFormat.TEXT.value,
 ) -> None:
     try:
         image = anyscale.image.get(name=name, cloud_id=cloud_id)
 
         if json_output:
             print(json.dumps(image.to_dict(), indent=2, cls=AnyscaleJSONEncoder))
+        elif output_format != OutputFormat.TEXT.value:
+            print_output(image, output_format)
         elif yaml_output:
             stream = StringIO()
             yaml.safe_dump(image.to_dict(), stream, sort_keys=False)
@@ -253,11 +309,20 @@ def get(
         raise click.ClickException(f"Failed to get image: {e}") from None
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="List images.",
+            command="anyscale image list",
+            output_raw=command_examples.IMAGE_LIST_EXAMPLE,
+        ),
+    ],
+)
 @image_cli.command(
-    name="list",
-    help="List images.",
-    cls=AnyscaleCommand,
-    example=command_examples.IMAGE_LIST_EXAMPLE,
+    name="list", short_help="List images.", help="List images.", cls=AnyscaleCommand,
 )
 @click.option("--image-id", "--id", help="ID of the image to display.")
 @click.option("--name", "-n", help="Substring to match against the image name.")
@@ -420,11 +485,23 @@ def list(  # noqa: A001, PLR0913
         raise click.ClickException(f"Failed to list images: {e}") from None
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Register a custom container image.",
+            command="anyscale image register --image-uri docker.io/myorg/my-image:v1 -n my-image",
+            output_raw=command_examples.IMAGE_REGISTER_EXAMPLE,
+        ),
+    ],
+)
 @image_cli.command(
     name="register",
-    help=("Register a custom container image with a container image name."),
+    short_help="Register a custom container image with a name.",
+    help="Register a custom container image with a name.",
     cls=AnyscaleCommand,
-    example=command_examples.IMAGE_REGISTER_EXAMPLE,
 )
 @click.option(
     "--image-uri",
@@ -480,11 +557,23 @@ def register(
         raise click.ClickException(f"Failed to register image: {e}") from None
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Archive an image by name.",
+            command="anyscale image archive -n my-image",
+            output_raw=command_examples.IMAGE_ARCHIVE_EXAMPLE,
+        ),
+    ],
+)
 @image_cli.command(
     name="archive",
+    short_help="Archive an image and all of its versions.",
     help="Archive an image and all of its versions.",
     cls=AnyscaleCommand,
-    example=command_examples.IMAGE_ARCHIVE_EXAMPLE,
 )
 @click.option(
     "--name",

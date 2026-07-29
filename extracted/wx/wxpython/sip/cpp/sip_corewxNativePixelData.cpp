@@ -333,7 +333,7 @@ static void *init_type_wxNativePixelData(sipSimpleWrapper *sipSelf, PyObject *si
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxNativePixelData[] = {{419, 255, 1}};
+static sipEncodedTypeDef supers_wxNativePixelData[] = {{427, 255, 1}};
 
 
 /* Define this type's Python slots. */

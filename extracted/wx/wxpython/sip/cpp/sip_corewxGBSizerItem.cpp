@@ -412,7 +412,7 @@ static void *init_type_wxGBSizerItem(sipSimpleWrapper *sipSelf, PyObject *sipArg
         int spanState = 0;
         int flag = 0;
         int border = 0;
-        ::wxPyUserData* userData = 0;
+        ::wxPyUserData* userData = nullptr;
         int userDataState = 0;
 
         static const char *sipKwdList[] = {
@@ -455,7 +455,7 @@ static void *init_type_wxGBSizerItem(sipSimpleWrapper *sipSelf, PyObject *sipArg
         int spanState = 0;
         int flag = 0;
         int border = 0;
-        ::wxPyUserData* userData = 0;
+        ::wxPyUserData* userData = nullptr;
         int userDataState = 0;
 
         static const char *sipKwdList[] = {
@@ -497,7 +497,7 @@ static void *init_type_wxGBSizerItem(sipSimpleWrapper *sipSelf, PyObject *sipArg
         int spanState = 0;
         int flag = 0;
         int border = 0;
-        ::wxPyUserData* userData = 0;
+        ::wxPyUserData* userData = nullptr;
         int userDataState = 0;
 
         static const char *sipKwdList[] = {
@@ -535,7 +535,7 @@ static void *init_type_wxGBSizerItem(sipSimpleWrapper *sipSelf, PyObject *sipArg
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGBSizerItem[] = {{515, 255, 1}};
+static sipEncodedTypeDef supers_wxGBSizerItem[] = {{530, 255, 1}};
 
 
 static PyMethodDef methods_wxGBSizerItem[] = {
@@ -555,9 +555,9 @@ sipVariableDef variables_wxGBSizerItem[] = {
     {PropertyVariable, sipName_GBSizer, &methods_wxGBSizerItem[1], &methods_wxGBSizerItem[5], SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxGBSizerItem, "GBSizerItem(width, height, pos, span=DefaultSpan, flag=0, border=0, userData=None) -> None\n"
-"GBSizerItem(window, pos, span=DefaultSpan, flag=0, border=0, userData=None) -> None\n"
-"GBSizerItem(sizer, pos, span=DefaultSpan, flag=0, border=0, userData=None) -> None\n"
+PyDoc_STRVAR(doc_wxGBSizerItem, "GBSizerItem(width, height, pos, span=DefaultSpan, flag=0, border=0, userData=nullptr) -> None\n"
+"GBSizerItem(window, pos, span=DefaultSpan, flag=0, border=0, userData=nullptr) -> None\n"
+"GBSizerItem(sizer, pos, span=DefaultSpan, flag=0, border=0, userData=nullptr) -> None\n"
 "\n"
 "The wxGBSizerItem class is used by the wxGridBagSizer for tracking the\n"
 "items in the sizer.");

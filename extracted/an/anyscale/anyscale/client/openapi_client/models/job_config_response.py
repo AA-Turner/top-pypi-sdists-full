@@ -48,6 +48,7 @@ class JobConfigResponse(object):
         'excludes': 'list[str]',
         'max_retries': 'int',
         'timeout_s': 'int',
+        'priority': 'int',
         'job_queue_config': 'JobQueueConfigResponse',
         'tags': 'dict(str, str)',
         'connections': 'list[ConnectionConfigResponse]',
@@ -71,6 +72,7 @@ class JobConfigResponse(object):
         'excludes': 'excludes',
         'max_retries': 'max_retries',
         'timeout_s': 'timeout_s',
+        'priority': 'priority',
         'job_queue_config': 'job_queue_config',
         'tags': 'tags',
         'connections': 'connections',
@@ -78,7 +80,7 @@ class JobConfigResponse(object):
         'cloud': 'cloud'
     }
 
-    def __init__(self, name=None, entrypoint=None, image_uri=None, containerfile=None, ray_version=None, registry_login_secret=None, compute_config=None, working_dir=None, requirements=None, env_vars=None, py_modules=None, py_executable=None, excludes=None, max_retries=None, timeout_s=None, job_queue_config=None, tags=None, connections=None, project=None, cloud=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, entrypoint=None, image_uri=None, containerfile=None, ray_version=None, registry_login_secret=None, compute_config=None, working_dir=None, requirements=None, env_vars=None, py_modules=None, py_executable=None, excludes=None, max_retries=None, timeout_s=None, priority=None, job_queue_config=None, tags=None, connections=None, project=None, cloud=None, local_vars_configuration=None):  # noqa: E501
         """JobConfigResponse - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -99,6 +101,7 @@ class JobConfigResponse(object):
         self._excludes = None
         self._max_retries = None
         self._timeout_s = None
+        self._priority = None
         self._job_queue_config = None
         self._tags = None
         self._connections = None
@@ -135,6 +138,8 @@ class JobConfigResponse(object):
             self.max_retries = max_retries
         if timeout_s is not None:
             self.timeout_s = timeout_s
+        if priority is not None:
+            self.priority = priority
         if job_queue_config is not None:
             self.job_queue_config = job_queue_config
         if tags is not None:
@@ -492,6 +497,29 @@ class JobConfigResponse(object):
         """
 
         self._timeout_s = timeout_s
+
+    @property
+    def priority(self):
+        """Gets the priority of this JobConfigResponse.  # noqa: E501
+
+        Scheduling priority for the Global Resource Scheduler. Must be an integer in the range [0, 1000] inclusive. Leave unset (None) for no priority. Distinct from a job queue's per-job 'priority'.  # noqa: E501
+
+        :return: The priority of this JobConfigResponse.  # noqa: E501
+        :rtype: int
+        """
+        return self._priority
+
+    @priority.setter
+    def priority(self, priority):
+        """Sets the priority of this JobConfigResponse.
+
+        Scheduling priority for the Global Resource Scheduler. Must be an integer in the range [0, 1000] inclusive. Leave unset (None) for no priority. Distinct from a job queue's per-job 'priority'.  # noqa: E501
+
+        :param priority: The priority of this JobConfigResponse.  # noqa: E501
+        :type: int
+        """
+
+        self._priority = priority
 
     @property
     def job_queue_config(self):

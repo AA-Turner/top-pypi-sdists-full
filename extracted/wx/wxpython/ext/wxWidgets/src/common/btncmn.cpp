@@ -54,7 +54,6 @@ wxFLAGS_MEMBER(wxBORDER)
 // standard window styles
 wxFLAGS_MEMBER(wxTAB_TRAVERSAL)
 wxFLAGS_MEMBER(wxCLIP_CHILDREN)
-wxFLAGS_MEMBER(wxTRANSPARENT_WINDOW)
 wxFLAGS_MEMBER(wxWANTS_CHARS)
 wxFLAGS_MEMBER(wxFULL_REPAINT_ON_RESIZE)
 wxFLAGS_MEMBER(wxALWAYS_SHOW_SB )
@@ -98,18 +97,9 @@ wxWindow *wxButtonBase::SetDefault()
     wxTopLevelWindow * const
         tlw = wxDynamicCast(wxGetTopLevelParent(this), wxTopLevelWindow);
 
-    wxCHECK_MSG( tlw, NULL, wxT("button without top level window?") );
-
-    // Avoid spurious warning from gcc 15 when using -O2, see #25338.
-#if wxCHECK_GCC_VERSION(15, 0)
-    wxGCC_WARNING_SUPPRESS(dangling-pointer)
-#endif
+    wxCHECK_MSG( tlw, nullptr, wxT("button without top level window?") );
 
     return tlw->SetDefaultItem(this);
-
-#if wxCHECK_GCC_VERSION(15, 0)
-    wxGCC_WARNING_RESTORE(dangling-pointer)
-#endif
 }
 
 void wxAnyButtonBase::SetBitmapPosition(wxDirection dir)

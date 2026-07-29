@@ -47,7 +47,7 @@ sipwxLayoutAlgorithm::~sipwxLayoutAlgorithm()
 }
 
 
-PyDoc_STRVAR(doc_wxLayoutAlgorithm_LayoutFrame, "LayoutFrame(frame, mainWindow=None) -> bool\n"
+PyDoc_STRVAR(doc_wxLayoutAlgorithm_LayoutFrame, "LayoutFrame(frame, mainWindow=nullptr) -> bool\n"
 "\n"
 "Lays out the children of a normal frame.");
 
@@ -58,7 +58,7 @@ static PyObject *meth_wxLayoutAlgorithm_LayoutFrame(PyObject *sipSelf, PyObject 
 
     {
         ::wxFrame* frame;
-        ::wxWindow* mainWindow = 0;
+        ::wxWindow* mainWindow = nullptr;
         ::wxLayoutAlgorithm *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -89,7 +89,7 @@ static PyObject *meth_wxLayoutAlgorithm_LayoutFrame(PyObject *sipSelf, PyObject 
 }
 
 
-PyDoc_STRVAR(doc_wxLayoutAlgorithm_LayoutMDIFrame, "LayoutMDIFrame(frame, rect=None) -> bool\n"
+PyDoc_STRVAR(doc_wxLayoutAlgorithm_LayoutMDIFrame, "LayoutMDIFrame(frame, rect=nullptr) -> bool\n"
 "\n"
 "Lays out the children of an MDI parent frame.");
 
@@ -100,7 +100,7 @@ static PyObject *meth_wxLayoutAlgorithm_LayoutMDIFrame(PyObject *sipSelf, PyObje
 
     {
         ::wxMDIParentFrame* frame;
-        ::wxRect* rect = 0;
+        ::wxRect* rect = nullptr;
         int rectState = 0;
         ::wxLayoutAlgorithm *sipCpp;
 
@@ -133,7 +133,7 @@ static PyObject *meth_wxLayoutAlgorithm_LayoutMDIFrame(PyObject *sipSelf, PyObje
 }
 
 
-PyDoc_STRVAR(doc_wxLayoutAlgorithm_LayoutWindow, "LayoutWindow(parent, mainWindow=None) -> bool\n"
+PyDoc_STRVAR(doc_wxLayoutAlgorithm_LayoutWindow, "LayoutWindow(parent, mainWindow=nullptr) -> bool\n"
 "\n"
 "Lays out the children of a normal frame or other window.");
 
@@ -144,7 +144,7 @@ static PyObject *meth_wxLayoutAlgorithm_LayoutWindow(PyObject *sipSelf, PyObject
 
     {
         ::wxWindow* parent;
-        ::wxWindow* mainWindow = 0;
+        ::wxWindow* mainWindow = nullptr;
         ::wxLayoutAlgorithm *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -293,7 +293,7 @@ static void *init_type_wxLayoutAlgorithm(sipSimpleWrapper *sipSelf, PyObject *si
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxLayoutAlgorithm[] = {{40, 0, 1}};
+static sipEncodedTypeDef supers_wxLayoutAlgorithm[] = {{41, 0, 1}};
 
 
 static PyMethodDef methods_wxLayoutAlgorithm[] = {

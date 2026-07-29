@@ -1539,7 +1539,7 @@ static void *init_type_wxHtmlWinParser(sipSimpleWrapper *sipSelf, PyObject *sipA
     sipwxHtmlWinParser *sipCpp = SIP_NULLPTR;
 
     {
-        ::wxHtmlWindowInterface* wndIface = 0;
+        ::wxHtmlWindowInterface* wndIface = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_wndIface,
@@ -1627,7 +1627,7 @@ sipVariableDef variables_wxHtmlWinParser[] = {
     {PropertyVariable, sipName_ActualColor, &methods_wxHtmlWinParser[3], &methods_wxHtmlWinParser[20], SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxHtmlWinParser, "HtmlWinParser(wndIface=None) -> None\n"
+PyDoc_STRVAR(doc_wxHtmlWinParser, "HtmlWinParser(wndIface=nullptr) -> None\n"
 "\n"
 "This class is derived from wxHtmlParser and its main goal is to parse\n"
 "HTML input so that it can be displayed in wxHtmlWindow.");

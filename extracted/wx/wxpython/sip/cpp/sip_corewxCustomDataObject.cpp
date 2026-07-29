@@ -80,9 +80,9 @@ sipwxCustomDataObject::~sipwxCustomDataObject()
     if (!sipMeth)
         return ::wxCustomDataObject::GetPreferredFormat(dir);
 
-    extern ::wxDataFormat sipVH__core_69(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject::Direction);
+    extern ::wxDataFormat sipVH__core_68(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject::Direction);
 
-    return sipVH__core_69(sipGILState, 0, sipPySelf, sipMeth, dir);
+    return sipVH__core_68(sipGILState, 0, sipPySelf, sipMeth, dir);
 }
 
 size_t sipwxCustomDataObject::GetFormatCount(::wxDataObject::Direction dir) const
@@ -95,9 +95,9 @@ size_t sipwxCustomDataObject::GetFormatCount(::wxDataObject::Direction dir) cons
     if (!sipMeth)
         return ::wxCustomDataObject::GetFormatCount(dir);
 
-    extern size_t sipVH__core_68(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject::Direction);
+    extern size_t sipVH__core_67(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject::Direction);
 
-    return sipVH__core_68(sipGILState, 0, sipPySelf, sipMeth, dir);
+    return sipVH__core_67(sipGILState, 0, sipPySelf, sipMeth, dir);
 }
 
 void sipwxCustomDataObject::GetAllFormats(::wxDataFormat*formats, ::wxDataObject::Direction dir) const
@@ -113,9 +113,9 @@ void sipwxCustomDataObject::GetAllFormats(::wxDataFormat*formats, ::wxDataObject
         return;
     }
 
-    extern void sipVH__core_65(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataFormat*, ::wxDataObject::Direction);
+    extern void sipVH__core_64(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataFormat*, ::wxDataObject::Direction);
 
-    sipVH__core_65(sipGILState, 0, sipPySelf, sipMeth, formats, dir);
+    sipVH__core_64(sipGILState, 0, sipPySelf, sipMeth, formats, dir);
 }
 
 bool sipwxCustomDataObject::GetDataHere(void*buf) const
@@ -128,9 +128,9 @@ bool sipwxCustomDataObject::GetDataHere(void*buf) const
     if (!sipMeth)
         return ::wxCustomDataObject::GetDataHere(buf);
 
-    extern bool sipVH__core_77(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, void*);
+    extern bool sipVH__core_76(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, void*);
 
-    return sipVH__core_77(sipGILState, 0, sipPySelf, sipMeth, buf);
+    return sipVH__core_76(sipGILState, 0, sipPySelf, sipMeth, buf);
 }
 
 size_t sipwxCustomDataObject::GetDataSize() const
@@ -143,9 +143,9 @@ size_t sipwxCustomDataObject::GetDataSize() const
     if (!sipMeth)
         return ::wxCustomDataObject::GetDataSize();
 
-    extern size_t sipVH__core_74(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern size_t sipVH__core_73(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_74(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_73(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxCustomDataObject::SetData(size_t len, const void*buf)
@@ -158,9 +158,9 @@ bool sipwxCustomDataObject::SetData(size_t len, const void*buf)
     if (!sipMeth)
         return ::wxCustomDataObject::SetData(len, buf);
 
-    extern bool sipVH__core_76(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, const void*);
+    extern bool sipVH__core_75(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, const void*);
 
-    return sipVH__core_76(sipGILState, 0, sipPySelf, sipMeth, len, buf);
+    return sipVH__core_75(sipGILState, 0, sipPySelf, sipMeth, len, buf);
 }
 
 
@@ -615,7 +615,7 @@ static void *init_type_wxCustomDataObject(sipSimpleWrapper *sipSelf, PyObject *s
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxCustomDataObject[] = {{117, 255, 1}};
+static sipEncodedTypeDef supers_wxCustomDataObject[] = {{122, 255, 1}};
 
 
 static PyMethodDef methods_wxCustomDataObject[] = {

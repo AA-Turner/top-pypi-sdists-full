@@ -140,6 +140,59 @@ class GitHubRepository(_message.Message):
         html_url: _Optional[str] = ...,
     ) -> None: ...
 
+class GitHubProjectRepoLink(_message.Message):
+    __slots__ = (
+        "id",
+        "team_id",
+        "project_id",
+        "installation_id",
+        "repo_owner",
+        "repo_name",
+        "default_branch",
+        "created_at",
+        "updated_at",
+    )
+    ID_FIELD_NUMBER: _ClassVar[int]
+    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
+    PROJECT_ID_FIELD_NUMBER: _ClassVar[int]
+    INSTALLATION_ID_FIELD_NUMBER: _ClassVar[int]
+    REPO_OWNER_FIELD_NUMBER: _ClassVar[int]
+    REPO_NAME_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_BRANCH_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    team_id: str
+    project_id: str
+    installation_id: str
+    repo_owner: str
+    repo_name: str
+    default_branch: str
+    created_at: _timestamp_pb2.Timestamp
+    updated_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        team_id: _Optional[str] = ...,
+        project_id: _Optional[str] = ...,
+        installation_id: _Optional[str] = ...,
+        repo_owner: _Optional[str] = ...,
+        repo_name: _Optional[str] = ...,
+        default_branch: _Optional[str] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class GitHubBranch(_message.Message):
+    __slots__ = ("name", "commit_sha", "protected")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    COMMIT_SHA_FIELD_NUMBER: _ClassVar[int]
+    PROTECTED_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    commit_sha: str
+    protected: bool
+    def __init__(self, name: _Optional[str] = ..., commit_sha: _Optional[str] = ..., protected: bool = ...) -> None: ...
+
 class GitHubPullRequest(_message.Message):
     __slots__ = (
         "id",
@@ -340,3 +393,113 @@ class ListGitHubPullRequestsResponse(_message.Message):
     PULL_REQUESTS_FIELD_NUMBER: _ClassVar[int]
     pull_requests: _containers.RepeatedCompositeFieldContainer[GitHubPullRequest]
     def __init__(self, pull_requests: _Optional[_Iterable[_Union[GitHubPullRequest, _Mapping]]] = ...) -> None: ...
+
+class LinkProjectToGitHubRepositoryRequest(_message.Message):
+    __slots__ = ("project_id", "installation_id", "repo_owner", "repo_name", "default_branch")
+    PROJECT_ID_FIELD_NUMBER: _ClassVar[int]
+    INSTALLATION_ID_FIELD_NUMBER: _ClassVar[int]
+    REPO_OWNER_FIELD_NUMBER: _ClassVar[int]
+    REPO_NAME_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_BRANCH_FIELD_NUMBER: _ClassVar[int]
+    project_id: str
+    installation_id: str
+    repo_owner: str
+    repo_name: str
+    default_branch: str
+    def __init__(
+        self,
+        project_id: _Optional[str] = ...,
+        installation_id: _Optional[str] = ...,
+        repo_owner: _Optional[str] = ...,
+        repo_name: _Optional[str] = ...,
+        default_branch: _Optional[str] = ...,
+    ) -> None: ...
+
+class LinkProjectToGitHubRepositoryResponse(_message.Message):
+    __slots__ = ("link",)
+    LINK_FIELD_NUMBER: _ClassVar[int]
+    link: GitHubProjectRepoLink
+    def __init__(self, link: _Optional[_Union[GitHubProjectRepoLink, _Mapping]] = ...) -> None: ...
+
+class UnlinkProjectFromGitHubRepositoryRequest(_message.Message):
+    __slots__ = ("project_id",)
+    PROJECT_ID_FIELD_NUMBER: _ClassVar[int]
+    project_id: str
+    def __init__(self, project_id: _Optional[str] = ...) -> None: ...
+
+class UnlinkProjectFromGitHubRepositoryResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetProjectGitHubRepoLinkRequest(_message.Message):
+    __slots__ = ("project_id",)
+    PROJECT_ID_FIELD_NUMBER: _ClassVar[int]
+    project_id: str
+    def __init__(self, project_id: _Optional[str] = ...) -> None: ...
+
+class GetProjectGitHubRepoLinkResponse(_message.Message):
+    __slots__ = ("link",)
+    LINK_FIELD_NUMBER: _ClassVar[int]
+    link: GitHubProjectRepoLink
+    def __init__(self, link: _Optional[_Union[GitHubProjectRepoLink, _Mapping]] = ...) -> None: ...
+
+class ListProjectGitHubRepoLinksRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ListProjectGitHubRepoLinksResponse(_message.Message):
+    __slots__ = ("links",)
+    LINKS_FIELD_NUMBER: _ClassVar[int]
+    links: _containers.RepeatedCompositeFieldContainer[GitHubProjectRepoLink]
+    def __init__(self, links: _Optional[_Iterable[_Union[GitHubProjectRepoLink, _Mapping]]] = ...) -> None: ...
+
+class ListGitHubBranchesRequest(_message.Message):
+    __slots__ = ("installation_id", "owner", "repo", "page", "per_page")
+    INSTALLATION_ID_FIELD_NUMBER: _ClassVar[int]
+    OWNER_FIELD_NUMBER: _ClassVar[int]
+    REPO_FIELD_NUMBER: _ClassVar[int]
+    PAGE_FIELD_NUMBER: _ClassVar[int]
+    PER_PAGE_FIELD_NUMBER: _ClassVar[int]
+    installation_id: str
+    owner: str
+    repo: str
+    page: int
+    per_page: int
+    def __init__(
+        self,
+        installation_id: _Optional[str] = ...,
+        owner: _Optional[str] = ...,
+        repo: _Optional[str] = ...,
+        page: _Optional[int] = ...,
+        per_page: _Optional[int] = ...,
+    ) -> None: ...
+
+class ListGitHubBranchesResponse(_message.Message):
+    __slots__ = ("branches",)
+    BRANCHES_FIELD_NUMBER: _ClassVar[int]
+    branches: _containers.RepeatedCompositeFieldContainer[GitHubBranch]
+    def __init__(self, branches: _Optional[_Iterable[_Union[GitHubBranch, _Mapping]]] = ...) -> None: ...
+
+class GetGitHubRepositoryArchiveRequest(_message.Message):
+    __slots__ = ("installation_id", "owner", "repo", "ref")
+    INSTALLATION_ID_FIELD_NUMBER: _ClassVar[int]
+    OWNER_FIELD_NUMBER: _ClassVar[int]
+    REPO_FIELD_NUMBER: _ClassVar[int]
+    REF_FIELD_NUMBER: _ClassVar[int]
+    installation_id: str
+    owner: str
+    repo: str
+    ref: str
+    def __init__(
+        self,
+        installation_id: _Optional[str] = ...,
+        owner: _Optional[str] = ...,
+        repo: _Optional[str] = ...,
+        ref: _Optional[str] = ...,
+    ) -> None: ...
+
+class GetGitHubRepositoryArchiveResponse(_message.Message):
+    __slots__ = ("data",)
+    DATA_FIELD_NUMBER: _ClassVar[int]
+    data: bytes
+    def __init__(self, data: _Optional[bytes] = ...) -> None: ...

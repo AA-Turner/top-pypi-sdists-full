@@ -390,7 +390,7 @@ static PyObject *meth_wxGridBlockCoords_GetBottomRight(PyObject *sipSelf, PyObje
 
 PyDoc_STRVAR(doc_wxGridBlockCoords_Canonicalize, "Canonicalize() -> GridBlockCoords\n"
 "\n"
-"Return the canonicalized block where top left coordinates is less then\n"
+"Return the canonicalized block where top left coordinates is less than\n"
 "bottom right coordinates.");
 
 extern "C" {static PyObject *meth_wxGridBlockCoords_Canonicalize(PyObject *, PyObject *);}

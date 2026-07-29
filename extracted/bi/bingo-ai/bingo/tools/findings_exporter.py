@@ -765,6 +765,29 @@ def _evidence_ladder(output: str, code_snippet: str = "") -> EvidenceVerdict:
         return EvidenceVerdict(CONF_BLOCKED, REASON_LOGIN_FORM_ONLY, FINDING_CREDENTIAL, "login form")
 
     # ═══════════════ TIER 3: POTENTIAL (패턴만, Confirmed 금지) ═══════════════
+    # v6.2.341: 정보 노출 자동 탐지 — executor 관찰 기반
+    if re.search(
+        r'"name"\s*:\s*"drupal/core"'
+        r'|"require"\s*:\s*\{[^}]*"drupal/',
+        output, re.I
+    ):
+        return EvidenceVerdict(CONF_POTENTIAL, "sensitive_file_exposure", FINDING_INFO_DISC, "composer.lock/json exposed")
+
+    if re.search(
+        r'more than \d+ failed login attempts.*temporarily blocked'
+        r'|The account .* has been temporarily blocked',
+        output, re.I
+    ):
+        return EvidenceVerdict(CONF_PROBABLE, "user_enumeration_flood", FINDING_INFO_DISC, "user enum via flood control")
+
+    if re.search(
+        r'X-Generator:\s*Drupal'
+        r'|X-Powered-By:\s*PHP/'
+        r'|Server:\s*Apache/\d',
+        output, re.I
+    ) and re.search(r'(?:admin/reports/status|server-status|phpinfo)', code, re.I):
+        return EvidenceVerdict(CONF_POTENTIAL, "admin_page_exposed", FINDING_INFO_DISC, "admin/status page anonymous access")
+
     # 실제 타입은 _detect_vuln_type_raw 가 결정 — 여기서는 "후보 있음"만
     return EvidenceVerdict(CONF_POTENTIAL, REASON_PATTERN_MATCH, "", "pattern scan")
 

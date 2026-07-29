@@ -107,15 +107,40 @@ static sz_bool_t (*sz_py_export_strings_as_u32tape)(PyObject *, sz_cptr_t *, sz_
 static sz_bool_t (*sz_py_export_strings_as_u64tape)(PyObject *, sz_cptr_t *, sz_u64_t const **, sz_size_t *) = NULL;
 static sz_bool_t (*sz_py_replace_strings_allocator)(PyObject *, sz_memory_allocator_t *) = NULL;
 
-// Default device scope that can be safely reused across calls
-// The underlying implementation is stateless and thread-safe
+/** Default device scope that can be safely reused across calls; stateless and thread-safe underneath. */
 static szs_device_scope_t default_device_scope = NULL;
-// Static variable to store hardware capabilities
-static sz_capability_t default_hardware_capabilities = 0;
-// Static unified memory allocator for GPU compatibility
+/** What this binary ships, probed once at import and never rewritten. */
+static sz_capability_t comptime_capabilities_ = 0;
+/** What this machine offers, probed once at import and never rewritten. */
+static sz_capability_t runtime_capabilities_ = 0;
+/** The selected subset of `comptime_capabilities_ & runtime_capabilities_` that dispatch currently uses. */
+static sz_capability_t active_capabilities_ = 0;
+/** Static unified memory allocator for GPU compatibility. */
 static sz_memory_allocator_t unified_allocator;
-// Default CPU-side allocator for buffer-based flows
+/** Default CPU-side allocator for buffer-based flows. */
 static sz_memory_allocator_t default_allocator;
+
+/**
+ *  Per-object serialization for free-threaded builds.
+ *
+ *  Engines keep a grow-only `scratch_` buffer that every call writes through, and an explicit
+ *  `DeviceScope` owns either a fork-union pool - which admits a single driver - or a CUDA executor.
+ *  The GIL is what serializes both today, so a build without it has to say so out loud. The default
+ *  scope needs no lock: it is an empty struct handing out a stateless executor by value.
+ *
+ *  `PyMutex` is zero-initialized, and `tp_alloc` zeroes the object, so these fields need no setup or
+ *  teardown. On a GIL build every macro compiles away. Locks are always taken scope-first, then
+ *  engine, so two threads sharing either object cannot deadlock.
+ */
+#ifdef Py_GIL_DISABLED
+#define SZS_LOCK_FIELD_ PyMutex lock;
+#define SZS_LOCK_(mutex) PyMutex_Lock(mutex)
+#define SZS_UNLOCK_(mutex) PyMutex_Unlock(mutex)
+#else
+#define SZS_LOCK_FIELD_
+#define SZS_LOCK_(mutex) ((void)0)
+#define SZS_UNLOCK_(mutex) ((void)0)
+#endif
 
 typedef struct PyAPI {
     sz_bool_t (*sz_py_export_string_like)(PyObject *, sz_cptr_t *, sz_size_t *);
@@ -170,6 +195,7 @@ typedef struct {
     PyObject ob_base;
     szs_device_scope_t handle;
     char description[32];
+    SZS_LOCK_FIELD_
 } DeviceScope;
 
 static void DeviceScope_dealloc(DeviceScope *self) {
@@ -275,22 +301,26 @@ static PyTypeObject DeviceScopeType = {
 #pragma region Metadata
 
 /**
- *  @brief Parse capabilities from a Python tuple of strings and intersect with hardware capabilities.
- *  @param[in] caps_tuple Python tuple containing capability strings (e.g., ('serial', 'haswell')).
- *  @param[out] result Output capability mask after intersection with hardware capabilities.
+ *  @brief Parse capabilities from a sequence of strings and clamp them to what this build can run.
+ *  @param[in] caps_obj Sequence of capability strings (e.g., ('serial', 'haswell')), or a `DeviceScope`.
+ *  @param[out] result Output capability mask after intersection.
  *  @return 0 on success, -1 on error (with Python exception set).
  */
 static int parse_and_intersect_capabilities(PyObject *caps_obj, sz_capability_t *result) {
+    sz_capability_t const ceiling = (sz_capability_t)(comptime_capabilities_ & runtime_capabilities_);
+
     // Handle `DeviceScope` objects
-    if (PyObject_IsInstance(caps_obj, (PyObject *)&DeviceScopeType)) {
+    int const is_device_scope = PyObject_IsInstance(caps_obj, (PyObject *)&DeviceScopeType);
+    if (is_device_scope < 0) return -1;
+    if (is_device_scope) {
         DeviceScope *device_scope = (DeviceScope *)caps_obj;
 
         // Try to get GPU device
         sz_size_t gpu_device;
         char const *error_detail_gpu = NULL;
         if (szs_device_scope_get_gpu_device(device_scope->handle, &gpu_device, &error_detail_gpu) == sz_success_k) {
-            if (default_hardware_capabilities & sz_caps_cuda_k) {
-                *result = sz_caps_cuda_k & default_hardware_capabilities;
+            if (ceiling & sz_caps_cuda_k) {
+                *result = sz_caps_cuda_k & ceiling;
                 return 0;
             }
             else {
@@ -303,47 +333,55 @@ static int parse_and_intersect_capabilities(PyObject *caps_obj, sz_capability_t 
         sz_size_t cpu_cores;
         char const *error_detail_cpu = NULL;
         if (szs_device_scope_get_cpu_cores(device_scope->handle, &cpu_cores, &error_detail_cpu) == sz_success_k) {
-            *result = sz_caps_cpus_k & default_hardware_capabilities;
+            *result = sz_caps_cpus_k & ceiling;
             return 0;
         }
 
         // Default scope - use all available capabilities
-        *result = default_hardware_capabilities;
+        *result = ceiling;
         return 0;
     }
 
-    // Handle tuple of capability strings (original behavior)
-    if (!PyTuple_Check(caps_obj)) {
-        PyErr_SetString(PyExc_TypeError, "capabilities must be a tuple of strings or a DeviceScope object");
-        return -1;
-    }
+    // Any sequence of names, matching the StringZilla module rather than demanding a tuple
+    PyObject *seq = PySequence_Fast(caps_obj, "capabilities must be a sequence of strings or a DeviceScope object");
+    if (!seq) return -1;
 
     sz_capability_t requested_caps = 0;
-    Py_ssize_t n = PyTuple_Size(caps_obj);
+    Py_ssize_t n = PySequence_Fast_GET_SIZE(seq);
+    PyObject **items = PySequence_Fast_ITEMS(seq);
 
     for (Py_ssize_t i = 0; i < n; i++) {
-        PyObject *item = PyTuple_GET_ITEM(caps_obj, i);
+        PyObject *item = items[i];
         if (!PyUnicode_Check(item)) {
-            PyErr_SetString(PyExc_TypeError, "capabilities must be a tuple of strings");
+            PyErr_SetString(PyExc_TypeError, "capabilities must be strings");
+            Py_DECREF(seq);
             return -1;
         }
 
         char const *cap_str = PyUnicode_AsUTF8(item);
-        if (!cap_str) return -1;
+        if (!cap_str) {
+            Py_DECREF(seq);
+            return -1;
+        }
 
         sz_capability_t flag = sz_capability_from_string_implementation_(cap_str);
         if (flag == sz_caps_none_k) {
             PyErr_Format(PyExc_ValueError, "Unknown capability: %s", cap_str);
+            Py_DECREF(seq);
             return -1;
         }
         requested_caps |= flag;
     }
+    Py_DECREF(seq);
 
-    // Intersect with hardware capabilities
-    *result = requested_caps & default_hardware_capabilities;
-
-    // If no capabilities match, fall back to serial
-    if (*result == 0) { *result = sz_cap_serial_k; }
+    // An empty request or one entirely outside this build's reach is a configuration error; silently
+    // degrading to serial would hide it, and the `DeviceScope` arm above already raises for the same case.
+    *result = requested_caps & ceiling;
+    if (*result == 0) {
+        PyErr_Format(PyExc_ValueError, "No requested capability is available here; available: %s",
+                     sz_capabilities_to_string_implementation_(ceiling));
+        return -1;
+    }
 
     return 0;
 }
@@ -361,6 +399,7 @@ typedef struct {
     szs_levenshtein_distances_t handle;
     char description[32];
     sz_capability_t capabilities;
+    SZS_LOCK_FIELD_
 } LevenshteinDistances;
 
 static void LevenshteinDistances_dealloc(LevenshteinDistances *self) {
@@ -388,7 +427,7 @@ static PyObject *LevenshteinDistances_new(PyTypeObject *type, PyObject *args, Py
 static int LevenshteinDistances_init(LevenshteinDistances *self, PyObject *args, PyObject *kwargs) {
     int match = 0, mismatch = 1, open = 1, extend = 1;
     PyObject *capabilities_tuple = NULL;
-    sz_capability_t capabilities = default_hardware_capabilities;
+    sz_capability_t capabilities = active_capabilities_;
 
     // Manual positional + keyword parse (no `PyArg_ParseTupleAndKeywords`, no generic binder).
     char const *const callable_name = Py_TYPE(self)->tp_name;
@@ -734,11 +773,16 @@ static PyObject *LevenshteinDistances_vectorcall(PyObject *callable, PyObject *c
 
     char const *error_detail = NULL;
     sz_status_t status = sz_success_k; // An empty cross product (zero-row/col matrix) needs no kernel
-    if (kernel_punned)
+    if (kernel_punned) {
+        if (device_scope) SZS_LOCK_(&device_scope->lock);
+        SZS_LOCK_(&self->lock);
         status = kernel_punned(                              //
             self->handle, device_handle,                     //
             kernel_queries_punned, kernel_candidates_punned, //
             kernel_results, kernel_results_row_stride, &error_detail);
+        SZS_UNLOCK_(&self->lock);
+        if (device_scope) SZS_UNLOCK_(&device_scope->lock);
+    }
 
     if (status != sz_success_k) {
         set_stringzilla_error(status, error_detail, "Levenshtein distances computation");
@@ -823,6 +867,7 @@ typedef struct {
     szs_levenshtein_distances_utf8_t handle;
     char description[32];
     sz_capability_t capabilities;
+    SZS_LOCK_FIELD_
 } LevenshteinDistancesUTF8;
 
 static PyObject *LevenshteinDistancesUTF8_vectorcall(PyObject *callable, PyObject *const *args, size_t nargsf,
@@ -847,7 +892,7 @@ static void LevenshteinDistancesUTF8_dealloc(LevenshteinDistancesUTF8 *self) {
 static int LevenshteinDistancesUTF8_init(LevenshteinDistancesUTF8 *self, PyObject *args, PyObject *kwargs) {
     int match = 0, mismatch = 1, open = 1, extend = 1;
     PyObject *capabilities_tuple = NULL;
-    sz_capability_t capabilities = default_hardware_capabilities;
+    sz_capability_t capabilities = active_capabilities_;
 
     // Manual positional + keyword parse (no `PyArg_ParseTupleAndKeywords`, no generic binder).
     char const *const callable_name = Py_TYPE(self)->tp_name;
@@ -1122,11 +1167,16 @@ static PyObject *LevenshteinDistancesUTF8_vectorcall(PyObject *callable, PyObjec
 
     char const *error_detail = NULL;
     sz_status_t status = sz_success_k; // An empty cross product (zero-row/col matrix) needs no kernel
-    if (kernel_punned)
+    if (kernel_punned) {
+        if (device_scope) SZS_LOCK_(&device_scope->lock);
+        SZS_LOCK_(&self->lock);
         status = kernel_punned(                              //
             self->handle, device_handle,                     //
             kernel_queries_punned, kernel_candidates_punned, //
             kernel_results, kernel_results_row_stride, &error_detail);
+        SZS_UNLOCK_(&self->lock);
+        if (device_scope) SZS_UNLOCK_(&device_scope->lock);
+    }
 
     if (status != sz_success_k) {
         set_stringzilla_error(status, error_detail, "Levenshtein distances computation");
@@ -1208,6 +1258,7 @@ typedef struct {
     szs_needleman_wunsch_scores_t handle;
     char description[32];
     sz_capability_t capabilities;
+    SZS_LOCK_FIELD_
 } NeedlemanWunsch;
 
 static void NeedlemanWunsch_dealloc(NeedlemanWunsch *self) {
@@ -1237,7 +1288,7 @@ static int NeedlemanWunsch_init(NeedlemanWunsch *self, PyObject *args, PyObject 
     PyObject *class_substitution_costs_obj = NULL;
     sz_error_cost_t open = -1, extend = -1;
     PyObject *capabilities_tuple = NULL;
-    sz_capability_t capabilities = default_hardware_capabilities;
+    sz_capability_t capabilities = active_capabilities_;
 
     // Manual positional + keyword parse (no `PyArg_ParseTupleAndKeywords`, no generic binder).
     // Arguments: byte_to_class, class_substitution_costs, open, extend, capabilities.
@@ -1546,11 +1597,15 @@ static PyObject *NeedlemanWunsch_vectorcall(PyObject *callable, PyObject *const 
 
     char const *error_detail = NULL;
     sz_status_t status = sz_success_k; // An empty cross product (zero-row/col matrix) needs no kernel
-    if (kernel_punned)
+    if (kernel_punned) {
+        // The default scope is stateless, so only the engine's scratch needs guarding.
+        SZS_LOCK_(&self->lock);
         status = kernel_punned(                              //
             self->handle, device_handle,                     //
             kernel_queries_punned, kernel_candidates_punned, //
             kernel_results, kernel_results_row_stride, &error_detail);
+        SZS_UNLOCK_(&self->lock);
+    }
 
     if (status != sz_success_k) {
         set_stringzilla_error(status, error_detail, "NeedlemanWunsch computation");
@@ -1635,6 +1690,7 @@ typedef struct {
     szs_smith_waterman_scores_t handle;
     char description[32];
     sz_capability_t capabilities;
+    SZS_LOCK_FIELD_
 } SmithWaterman;
 
 static void SmithWaterman_dealloc(SmithWaterman *self) {
@@ -1663,7 +1719,7 @@ static int SmithWaterman_init(SmithWaterman *self, PyObject *args, PyObject *kwa
     PyObject *class_substitution_costs_obj = NULL;
     sz_error_cost_t open = -1, extend = -1;
     PyObject *capabilities_tuple = NULL;
-    sz_capability_t capabilities = default_hardware_capabilities;
+    sz_capability_t capabilities = active_capabilities_;
 
     // Manual positional + keyword parse (no `PyArg_ParseTupleAndKeywords`, no generic binder).
     // Arguments: byte_to_class, class_substitution_costs, open, extend, capabilities.
@@ -1963,11 +2019,15 @@ static PyObject *SmithWaterman_vectorcall(PyObject *callable, PyObject *const *a
 
     char const *error_detail = NULL;
     sz_status_t status = sz_success_k; // An empty cross product (zero-row/col matrix) needs no kernel
-    if (kernel_punned)
+    if (kernel_punned) {
+        // The default scope is stateless, so only the engine's scratch needs guarding.
+        SZS_LOCK_(&self->lock);
         status = kernel_punned(                              //
             self->handle, device_handle,                     //
             kernel_queries_punned, kernel_candidates_punned, //
             kernel_results, kernel_results_row_stride, &error_detail);
+        SZS_UNLOCK_(&self->lock);
+    }
 
     if (status != sz_success_k) {
         set_stringzilla_error(status, error_detail, "SmithWaterman computation");
@@ -2060,6 +2120,7 @@ typedef struct {
     char description[64];
     sz_capability_t capabilities;
     sz_size_t ndim;
+    SZS_LOCK_FIELD_
 } Fingerprints;
 
 static void Fingerprints_dealloc(Fingerprints *self) {
@@ -2087,7 +2148,7 @@ static int Fingerprints_init(Fingerprints *self, PyObject *args, PyObject *kwarg
     sz_size_t alphabet_size = 256;
     unsigned long long seed = 0;
     PyObject *capabilities_tuple = NULL;
-    sz_capability_t capabilities = default_hardware_capabilities;
+    sz_capability_t capabilities = active_capabilities_;
 
     static char *kwlist[] = {"ndim", "window_widths", "alphabet_size", "seed", "capabilities", NULL};
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "n|OnKO", kwlist, &ndim, &window_widths_obj, &alphabet_size, &seed,
@@ -2272,9 +2333,13 @@ static PyObject *Fingerprints_call(Fingerprints *self, PyObject *args, PyObject 
         }
 
         char const *error_detail = NULL;
+        if (device_scope) SZS_LOCK_(&device_scope->lock);
+        SZS_LOCK_(&self->lock);
         sz_status_t status = kernel_punned(self->handle, device_handle, kernel_texts_punned, buf_hashes,
                                            self->ndim * sizeof(sz_u32_t), buf_counts, self->ndim * sizeof(sz_u32_t),
                                            &error_detail);
+        SZS_UNLOCK_(&self->lock);
+        if (device_scope) SZS_UNLOCK_(&device_scope->lock);
         if (status != sz_success_k) {
             out_alloc->free(buf_hashes, total_bytes, out_alloc->handle);
             out_alloc->free(buf_counts, total_bytes, out_alloc->handle);
@@ -2336,8 +2401,8 @@ static char const doc_Fingerprints[] =                                          
     "  >>> engine = szs.Fingerprints(ndim=256, capabilities=scope)\n"                                                //
     "  >>> hashes, counts = engine(docs, device=scope)";
 static PyGetSetDef Fingerprints_getsetters[] = {
-    {"capabilities", (getter)Fingerprints_get_capabilities, NULL, doc_capabilities, NULL}, //
-    {NULL}                                                                                 /* Sentinel */
+    {"__capabilities__", (getter)Fingerprints_get_capabilities, NULL, doc_capabilities, NULL}, //
+    {NULL}                                                                                     /* Sentinel */
 };
 
 static PyTypeObject FingerprintsType = {
@@ -2359,7 +2424,7 @@ static char const doc_reset_capabilities[] =                                    
     "reset_capabilities(names) -> None\n\n"                                             //
     "Sets the active SIMD/backend capabilities for this module and updates the\n"       //
     "default hardware capabilities. The provided names are intersected with hardware\n" //
-    "capabilities; if the result is empty, falls back to 'serial'.\n\n"                 //
+    "capabilities; raises ValueError if none of them is available.\n\n"                 //
     "Side effects: updates stringzillas.__capabilities__ and __capabilities_str__.\n"   //
     "\n"                                                                                //
     "Examples:\n"                                                                       //
@@ -2373,8 +2438,8 @@ static PyObject *module_reset_capabilities(PyObject *self, PyObject *args) {
     sz_capability_t caps = 0;
     if (parse_and_intersect_capabilities(caps_obj, &caps) != 0) return NULL;
 
-    // Update the default hardware capabilities
-    default_hardware_capabilities = caps;
+    // Only the active subset moves; the probed sets stay put, so `('any',)` widens back out.
+    active_capabilities_ = caps;
 
     // Recompute and set module-level capability exports
     sz_cptr_t cap_strings[SZ_CAPABILITIES_COUNT];
@@ -2537,13 +2602,14 @@ PyMODINIT_FUNC PyInit_stringzillas(void) {
         PyModule_AddStringConstant(m, "__version__", version_str);
     }
 
-    // Initialize hardware capabilities for capability intersection
-    default_hardware_capabilities = szs_capabilities();
+    comptime_capabilities_ = szs_capabilities_comptime();
+    runtime_capabilities_ = szs_capabilities_runtime();
+    active_capabilities_ = (sz_capability_t)(comptime_capabilities_ & runtime_capabilities_);
 
     // Define SIMD capabilities as a tuple
     {
         // Create a Python tuple with the capabilities
-        sz_capability_t caps = default_hardware_capabilities;
+        sz_capability_t caps = active_capabilities_;
         PyObject *caps_tuple = capabilities_to_tuple(caps);
         if (!caps_tuple) {
             Py_XDECREF(m);

@@ -24,8 +24,11 @@ class RateCardLineItem(google.protobuf.message.Message):
     PAYG_RATE_FIELD_NUMBER: builtins.int
     RESERVED_RATE_FIELD_NUMBER: builtins.int
     UNCAPPED_RATE_FIELD_NUMBER: builtins.int
+    IS_ENABLED_FIELD_NUMBER: builtins.int
     is_unlimited: builtins.bool
     num_reserved_units: builtins.int
+    is_enabled: builtins.bool
+    """Whether this line item is currently enabled"""
     @property
     def line_item_detail(self) -> sentry_protos.billing.v1.common.v1.line_item_details_pb2.LineItemDetails: ...
     @property
@@ -43,9 +46,10 @@ class RateCardLineItem(google.protobuf.message.Message):
         payg_rate: sentry_protos.billing.v1.common.v1.pricing_tier_pb2.TieredPricingRate | None = ...,
         reserved_rate: sentry_protos.billing.v1.common.v1.pricing_tier_pb2.TieredPricingRate | None = ...,
         uncapped_rate: sentry_protos.billing.v1.common.v1.pricing_tier_pb2.TieredPricingRate | None = ...,
+        is_enabled: builtins.bool = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["is_unlimited", b"is_unlimited", "line_item_detail", b"line_item_detail", "num_reserved_units", b"num_reserved_units", "payg_rate", b"payg_rate", "reserved_rate", b"reserved_rate", "reserved_units", b"reserved_units", "uncapped_rate", b"uncapped_rate"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["is_unlimited", b"is_unlimited", "line_item_detail", b"line_item_detail", "num_reserved_units", b"num_reserved_units", "payg_rate", b"payg_rate", "reserved_rate", b"reserved_rate", "reserved_units", b"reserved_units", "uncapped_rate", b"uncapped_rate"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["is_enabled", b"is_enabled", "is_unlimited", b"is_unlimited", "line_item_detail", b"line_item_detail", "num_reserved_units", b"num_reserved_units", "payg_rate", b"payg_rate", "reserved_rate", b"reserved_rate", "reserved_units", b"reserved_units", "uncapped_rate", b"uncapped_rate"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["reserved_units", b"reserved_units"]) -> typing.Literal["is_unlimited", "num_reserved_units"] | None: ...
 
 global___RateCardLineItem = RateCardLineItem
@@ -58,8 +62,11 @@ class SharedRateCardLineItem(google.protobuf.message.Message):
     IS_UNLIMITED_FIELD_NUMBER: builtins.int
     NUM_RESERVED_CENTS_FIELD_NUMBER: builtins.int
     SHARED_LINE_ITEM_DETAIL_FIELD_NUMBER: builtins.int
+    IS_ENABLED_FIELD_NUMBER: builtins.int
     is_unlimited: builtins.bool
     num_reserved_cents: builtins.int
+    is_enabled: builtins.bool
+    """Whether this line item is currently enabled"""
     @property
     def rate_card_line_items(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___RateCardLineItem]: ...
     @property
@@ -71,9 +78,10 @@ class SharedRateCardLineItem(google.protobuf.message.Message):
         is_unlimited: builtins.bool = ...,
         num_reserved_cents: builtins.int = ...,
         shared_line_item_detail: sentry_protos.billing.v1.common.v1.line_item_details_pb2.LineItemDetails | None = ...,
+        is_enabled: builtins.bool = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["is_unlimited", b"is_unlimited", "num_reserved_cents", b"num_reserved_cents", "reserved_pool_cents", b"reserved_pool_cents", "shared_line_item_detail", b"shared_line_item_detail"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["is_unlimited", b"is_unlimited", "num_reserved_cents", b"num_reserved_cents", "rate_card_line_items", b"rate_card_line_items", "reserved_pool_cents", b"reserved_pool_cents", "shared_line_item_detail", b"shared_line_item_detail"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["is_enabled", b"is_enabled", "is_unlimited", b"is_unlimited", "num_reserved_cents", b"num_reserved_cents", "rate_card_line_items", b"rate_card_line_items", "reserved_pool_cents", b"reserved_pool_cents", "shared_line_item_detail", b"shared_line_item_detail"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["reserved_pool_cents", b"reserved_pool_cents"]) -> typing.Literal["is_unlimited", "num_reserved_cents"] | None: ...
 
 global___SharedRateCardLineItem = SharedRateCardLineItem

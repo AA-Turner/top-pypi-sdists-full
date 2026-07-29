@@ -7,7 +7,7 @@ from starlette.authentication import AuthCredentials, AuthenticationBackend, Sim
 from starlette.requests import HTTPConnection
 from starlette.types import Receive, Scope, Send
 
-from mcp.server.auth.provider import AccessToken, TokenVerifier
+from mcp.server.auth.provider import AccessToken, TokenVerifier, principal_components
 
 
 class AuthenticatedUser(SimpleUser):
@@ -34,19 +34,12 @@ def authorization_context(user: AuthenticatedUser) -> AuthorizationContext:
     See `examples/servers/simple-auth/mcp_simple_auth/token_verifier.py` for
     a verifier that populates `subject` and `claims` from an introspection
     response."""
-    token = user.access_token
-    issuer = (token.claims or {}).get("iss")
-    return AuthorizationContext(
-        client_id=token.client_id,
-        issuer=str(issuer) if issuer is not None else None,
-        subject=token.subject,
-    )
+    client_id, issuer, subject = principal_components(user.access_token)
+    return AuthorizationContext(client_id=client_id, issuer=issuer, subject=subject)
 
 
 class BearerAuthBackend(AuthenticationBackend):
-    """
-    Authentication backend that validates Bearer tokens using a TokenVerifier.
-    """
+    """Authentication backend that validates Bearer tokens using a TokenVerifier."""
 
     def __init__(self, token_verifier: TokenVerifier):
         self.token_verifier = token_verifier
@@ -74,8 +67,7 @@ class BearerAuthBackend(AuthenticationBackend):
 
 
 class RequireAuthMiddleware:
-    """
-    Middleware that requires a valid Bearer token in the Authorization header.
+    """Middleware that requires a valid Bearer token in the Authorization header.
 
     This will validate the token with the auth provider and store the resulting
     auth info in the request state.
@@ -87,8 +79,7 @@ class RequireAuthMiddleware:
         required_scopes: list[str],
         resource_metadata_url: AnyHttpUrl | None = None,
     ):
-        """
-        Initialize the middleware.
+        """Initialize the middleware.
 
         Args:
             app: ASGI application
@@ -123,7 +114,7 @@ class RequireAuthMiddleware:
         """Send an authentication error response with WWW-Authenticate header."""
         # Build WWW-Authenticate header value
         www_auth_parts = [f'error="{error}"', f'error_description="{description}"']
-        if self.resource_metadata_url:  # pragma: no cover
+        if self.resource_metadata_url:
             www_auth_parts.append(f'resource_metadata="{self.resource_metadata_url}"')
 
         www_authenticate = f"Bearer {', '.join(www_auth_parts)}"

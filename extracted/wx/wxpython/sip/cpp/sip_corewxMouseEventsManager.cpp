@@ -96,9 +96,9 @@ void sipwxMouseEventsManager::MouseClickCancelled(int item)
         return;
     }
 
-    extern void sipVH__core_113(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern void sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    sipVH__core_113(sipGILState, 0, sipPySelf, sipMeth, item);
+    sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth, item);
 }
 
 void sipwxMouseEventsManager::MouseClickBegin(int item)
@@ -114,9 +114,9 @@ void sipwxMouseEventsManager::MouseClickBegin(int item)
         return;
     }
 
-    extern void sipVH__core_113(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern void sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    sipVH__core_113(sipGILState, 0, sipPySelf, sipMeth, item);
+    sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth, item);
 }
 
 void sipwxMouseEventsManager::MouseDragCancelled(int item)
@@ -129,9 +129,9 @@ void sipwxMouseEventsManager::MouseDragCancelled(int item)
     if (!sipMeth)
         return;
 
-    extern void sipVH__core_113(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern void sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    sipVH__core_113(sipGILState, 0, sipPySelf, sipMeth, item);
+    sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth, item);
 }
 
 void sipwxMouseEventsManager::MouseDragEnd(int item, const ::wxPoint& pos)
@@ -144,9 +144,9 @@ void sipwxMouseEventsManager::MouseDragEnd(int item, const ::wxPoint& pos)
     if (!sipMeth)
         return;
 
-    extern void sipVH__core_237(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, const ::wxPoint&);
+    extern void sipVH__core_236(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, const ::wxPoint&);
 
-    sipVH__core_237(sipGILState, 0, sipPySelf, sipMeth, item, pos);
+    sipVH__core_236(sipGILState, 0, sipPySelf, sipMeth, item, pos);
 }
 
 void sipwxMouseEventsManager::MouseDragging(int item, const ::wxPoint& pos)
@@ -159,9 +159,9 @@ void sipwxMouseEventsManager::MouseDragging(int item, const ::wxPoint& pos)
     if (!sipMeth)
         return;
 
-    extern void sipVH__core_237(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, const ::wxPoint&);
+    extern void sipVH__core_236(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, const ::wxPoint&);
 
-    sipVH__core_237(sipGILState, 0, sipPySelf, sipMeth, item, pos);
+    sipVH__core_236(sipGILState, 0, sipPySelf, sipMeth, item, pos);
 }
 
 bool sipwxMouseEventsManager::MouseDragBegin(int item, const ::wxPoint& pos)
@@ -174,9 +174,9 @@ bool sipwxMouseEventsManager::MouseDragBegin(int item, const ::wxPoint& pos)
     if (!sipMeth)
         return 0;
 
-    extern bool sipVH__core_236(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, const ::wxPoint&);
+    extern bool sipVH__core_235(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, const ::wxPoint&);
 
-    return sipVH__core_236(sipGILState, 0, sipPySelf, sipMeth, item, pos);
+    return sipVH__core_235(sipGILState, 0, sipPySelf, sipMeth, item, pos);
 }
 
 bool sipwxMouseEventsManager::MouseClicked(int item)
@@ -189,9 +189,9 @@ bool sipwxMouseEventsManager::MouseClicked(int item)
     if (!sipMeth)
         return 0;
 
-    extern bool sipVH__core_147(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern bool sipVH__core_146(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    return sipVH__core_147(sipGILState, 0, sipPySelf, sipMeth, item);
+    return sipVH__core_146(sipGILState, 0, sipPySelf, sipMeth, item);
 }
 
 int sipwxMouseEventsManager::MouseHitTest(const ::wxPoint& pos)
@@ -204,9 +204,9 @@ int sipwxMouseEventsManager::MouseHitTest(const ::wxPoint& pos)
     if (!sipMeth)
         return 0;
 
-    extern int sipVH__core_235(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxPoint&);
+    extern int sipVH__core_234(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxPoint&);
 
-    return sipVH__core_235(sipGILState, 0, sipPySelf, sipMeth, pos);
+    return sipVH__core_234(sipGILState, 0, sipPySelf, sipMeth, pos);
 }
 
 bool sipwxMouseEventsManager::ProcessEvent(::wxEvent& event)
@@ -219,9 +219,9 @@ bool sipwxMouseEventsManager::ProcessEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxMouseEventsManager::ProcessEvent(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxMouseEventsManager::TryBefore(::wxEvent& event)
@@ -234,9 +234,9 @@ bool sipwxMouseEventsManager::TryBefore(::wxEvent& event)
     if (!sipMeth)
         return ::wxMouseEventsManager::TryBefore(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxMouseEventsManager::TryAfter(::wxEvent& event)
@@ -249,9 +249,9 @@ bool sipwxMouseEventsManager::TryAfter(::wxEvent& event)
     if (!sipMeth)
         return ::wxMouseEventsManager::TryAfter(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxMouseEventsManager::sipProtectVirt_TryBefore(bool sipSelfWasArg, ::wxEvent& event)
@@ -907,7 +907,7 @@ static void *init_type_wxMouseEventsManager(sipSimpleWrapper *sipSelf, PyObject 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxMouseEventsManager[] = {{158, 255, 1}};
+static sipEncodedTypeDef supers_wxMouseEventsManager[] = {{165, 255, 1}};
 
 
 static PyMethodDef methods_wxMouseEventsManager[] = {

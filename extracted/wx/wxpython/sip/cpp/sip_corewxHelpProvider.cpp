@@ -90,7 +90,7 @@ static PyObject *meth_wxHelpProvider_AddHelp(PyObject *sipSelf, PyObject *sipArg
 
 PyDoc_STRVAR(doc_wxHelpProvider_GetHelp, "GetHelp(window) -> str\n"
 "\n"
-"This version associates the given text with all windows with this id.");
+"Get the help string for the given window.");
 
 extern "C" {static PyObject *meth_wxHelpProvider_GetHelp(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxHelpProvider_GetHelp(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)

@@ -2,7 +2,6 @@
 // Name:        src/msw/joystick.cpp
 // Purpose:     wxJoystick class
 // Author:      Julian Smart
-// Modified by:
 // Created:     04/01/98
 // Copyright:   (c) Julian Smart
 // Licence:     wxWindows licence
@@ -54,7 +53,7 @@ class wxJoystickThread : public wxThread
 {
 public:
     explicit wxJoystickThread(int joystick);
-    void* Entry() wxOVERRIDE;
+    void* Entry() override;
     void SetPolling(wxWindow* win, int pollingFreq)
     {
         m_catchwin = win;
@@ -76,7 +75,7 @@ private:
 wxJoystickThread::wxJoystickThread(int joystick)
     : m_joystick(joystick),
       m_buttons(0),
-      m_catchwin(NULL),
+      m_catchwin(nullptr),
       m_polling(0),
       m_joyInfo(),
       m_lastJoyInfo()
@@ -130,7 +129,7 @@ void* wxJoystickThread::Entry()
         m_lastJoyInfo = m_joyInfo;
     }
 
-    return NULL;
+    return nullptr;
 }
 
 
@@ -149,7 +148,7 @@ wxJoystick::wxJoystick(int joystick)
     JOYINFO joyInfo;
     int i, maxsticks;
 
-    m_thread = NULL;
+    m_thread = nullptr;
     maxsticks = joyGetNumDevs();
     for( i=0; i<maxsticks; i++ )
     {
@@ -267,9 +266,8 @@ bool wxJoystick::GetButtonState(unsigned id) const
 int wxJoystick::GetPOVPosition() const
 {
 #ifndef NO_JOYGETPOSEX
-    JOYINFOEX joyInfo;
+    WinStructWordSize<JOYINFOEX> joyInfo;
     joyInfo.dwFlags = JOY_RETURNPOV;
-    joyInfo.dwSize = sizeof(joyInfo);
     MMRESULT res = joyGetPosEx(m_joystick, & joyInfo);
     if (res == JOYERR_NOERROR )
     {
@@ -289,9 +287,8 @@ int wxJoystick::GetPOVPosition() const
 int wxJoystick::GetPOVCTSPosition() const
 {
 #ifndef NO_JOYGETPOSEX
-    JOYINFOEX joyInfo;
+    WinStructWordSize<JOYINFOEX> joyInfo;
     joyInfo.dwFlags = JOY_RETURNPOVCTS;
-    joyInfo.dwSize = sizeof(joyInfo);
     MMRESULT res = joyGetPosEx(m_joystick, & joyInfo);
     if (res == JOYERR_NOERROR )
     {
@@ -307,9 +304,8 @@ int wxJoystick::GetPOVCTSPosition() const
 int wxJoystick::GetRudderPosition() const
 {
 #ifndef NO_JOYGETPOSEX
-    JOYINFOEX joyInfo;
+    WinStructWordSize<JOYINFOEX> joyInfo;
     joyInfo.dwFlags = JOY_RETURNR;
-    joyInfo.dwSize = sizeof(joyInfo);
     MMRESULT res = joyGetPosEx(m_joystick, & joyInfo);
     if (res == JOYERR_NOERROR )
     {
@@ -325,9 +321,8 @@ int wxJoystick::GetRudderPosition() const
 int wxJoystick::GetUPosition() const
 {
 #ifndef NO_JOYGETPOSEX
-    JOYINFOEX joyInfo;
+    WinStructWordSize<JOYINFOEX> joyInfo;
     joyInfo.dwFlags = JOY_RETURNU;
-    joyInfo.dwSize = sizeof(joyInfo);
     MMRESULT res = joyGetPosEx(m_joystick, & joyInfo);
     if (res == JOYERR_NOERROR )
     {
@@ -343,9 +338,8 @@ int wxJoystick::GetUPosition() const
 int wxJoystick::GetVPosition() const
 {
 #ifndef NO_JOYGETPOSEX
-    JOYINFOEX joyInfo;
+    WinStructWordSize<JOYINFOEX> joyInfo;
     joyInfo.dwFlags = JOY_RETURNV;
-    joyInfo.dwSize = sizeof(joyInfo);
     MMRESULT res = joyGetPosEx(m_joystick, & joyInfo);
     if (res == JOYERR_NOERROR )
     {
@@ -428,43 +422,40 @@ int wxJoystick::GetProductId() const
         return joyCaps.wPid;
 }
 
-static wxString
-GetJoystickProductNameFromRegKey(wxRegKey::StdKey root, const wxString& key, int joystick)
-{
-    wxString result;
-    wxString subKey1 = wxString::Format(wxT("%s\\%s\\%s"), REGSTR_PATH_JOYCONFIG, key, REGSTR_KEY_JOYCURR);
-    wxRegKey key1(root, subKey1);
-
-    if ( key1.Exists() )
-    {
-        key1.QueryValue(wxString::Format(wxT("Joystick%d%s"), joystick + 1, REGSTR_VAL_JOYOEMNAME), result);
-    }
-
-    if ( !result.empty() )
-    {
-        wxString subKey2 = wxString::Format(wxT("%s\\%s"), REGSTR_PATH_JOYOEM, result.c_str());
-        wxRegKey key2(root, subKey2);
-        if ( key2.Exists() )
-        {
-            key2.QueryValue(REGSTR_VAL_JOYOEMNAME, result);
-        }
-    }
-    return result;
-};
-
 wxString wxJoystick::GetProductName() const
 {
     wxString str;
-#ifndef __WINE__
+#if !defined(__WINE__) && wxUSE_REGKEY
     JOYCAPS joyCaps;
     if (joyGetDevCaps(m_joystick, &joyCaps, sizeof(joyCaps)) != JOYERR_NOERROR)
         return wxEmptyString;
 
-    const wxString regKey(joyCaps.szRegKey);
+    auto GetNameFromReg = [this, joyCaps](wxRegKey::StdKey root) -> wxString
+    {
+        wxString result;
+        wxString subKey1 = wxString::Format(wxT("%s\\%s\\%s"), REGSTR_PATH_JOYCONFIG, joyCaps.szRegKey, REGSTR_KEY_JOYCURR);
+        wxRegKey key1(root, subKey1);
 
-    str = GetJoystickProductNameFromRegKey(wxRegKey::HKCU, regKey, m_joystick);
+        if ( key1.Exists() )
+        {
+            key1.QueryValue(wxString::Format(wxT("Joystick%d%s"), m_joystick + 1, REGSTR_VAL_JOYOEMNAME), result);
+        }
+
+        if ( !result.empty() )
+        {
+            wxString subKey2 = wxString::Format(wxT("%s\\%s"), REGSTR_PATH_JOYOEM, result.c_str());
+            wxRegKey key2(root, subKey2);
+            if ( key2.Exists() )
+            {
+                key2.QueryValue(REGSTR_VAL_JOYOEMNAME, result);
+            }
+        }
+        return result;
+    };
+
+    str = GetNameFromReg(wxRegKey::HKCU);
     if (str.empty())
-        str = GetJoystickProductNameFromRegKey(wxRegKey::HKLM, regKey, m_joystick);
+        str = GetNameFromReg(wxRegKey::HKLM);
 #endif
     return str;
 }
@@ -713,7 +704,7 @@ bool wxJoystick::ReleaseCapture()
 {
     if (m_thread)
     {
-        m_thread->SetPolling(NULL, 0);
+        m_thread->SetPolling(nullptr, 0);
         return true;
     }
     return false;

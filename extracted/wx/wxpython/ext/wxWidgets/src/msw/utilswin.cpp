@@ -2,7 +2,6 @@
 // Name:        src/msw/utilswin.cpp
 // Purpose:     Various utility functions only available in Windows GUI
 // Author:      Vadim Zeitlin
-// Modified by:
 // Created:     21.06.2003 (extracted from msw/utils.cpp)
 // Copyright:   (c) Julian Smart
 // Licence:     wxWindows licence
@@ -15,10 +14,26 @@
     #include "wx/utils.h"
 #endif //WX_PRECOMP
 
+#include "wx/filefn.h"
 #include "wx/private/launchbrowser.h"
 #include "wx/msw/private.h"     // includes <windows.h>
+#include "wx/msw/private/dpiaware.h"
+
 #include "wx/msw/registry.h"
+
 #include <shellapi.h> // needed for SHELLEXECUTEINFO
+#include <wchar.h>
+
+namespace wxMSWImpl
+{
+
+AutoSystemDpiAware::SetThreadDpiAwarenessContext_t
+AutoSystemDpiAware::ms_pfnSetThreadDpiAwarenessContext =
+    (AutoSystemDpiAware::SetThreadDpiAwarenessContext_t)-1;
+
+} // namespace wxMSWImpl
+
+#ifndef __WXQT__
 
 // ----------------------------------------------------------------------------
 // Launch document with default app
@@ -65,7 +80,7 @@ bool wxLaunchDefaultApplication(const wxString& document, int flags)
 
 bool wxDoLaunchDefaultBrowser(const wxLaunchBrowserParams& params)
 {
-#if wxUSE_IPC
+#if wxUSE_IPC && wxUSE_REGKEY
     if ( params.flags & wxBROWSER_NEW_WINDOW )
     {
         // ShellExecuteEx() opens the URL in an existing window by default so
@@ -131,7 +146,7 @@ bool wxDoLaunchDefaultBrowser(const wxLaunchBrowserParams& params)
             }
         }
     }
-#endif // wxUSE_IPC
+#endif // wxUSE_IPC && wxUSE_REGKEY
 
     WinStruct<SHELLEXECUTEINFO> sei;
     sei.lpFile = params.GetPathOrURL().t_str();
@@ -143,4 +158,53 @@ bool wxDoLaunchDefaultBrowser(const wxLaunchBrowserParams& params)
         return true;
 
     return false;
+}
+
+#endif // !__WXQT__
+
+bool wxMSWIsOnSecureScreen()
+{
+    HDESK desktop = ::GetThreadDesktop(::GetCurrentThreadId());
+    if ( !desktop )
+        return false;
+
+    wchar_t name[256];
+    DWORD needed = 0;
+    BOOL result = ::GetUserObjectInformationW(desktop, UOI_NAME, name, sizeof(name), &needed);
+    if ( !result )
+        return false;
+
+    // Check if the current desktop is the secure desktop, i.e. the desktop
+    // that is used for UAC prompts and sign-in screens and running at system
+    // level.
+    return wcscmp(name, L"Winlogon") == 0;
+}
+
+bool wxMoveToTrash(const wxString& path)
+{
+    // SHFileOperation needs double null termination string
+    // but without separator at the end of the path
+    wxString pathStr(path);
+    if ( pathStr.Last() == wxFILE_SEP_PATH )
+        pathStr.RemoveLast();
+    pathStr += wxT('\0');
+
+    SHFILEOPSTRUCT fileop;
+    wxZeroMemory(fileop);
+    fileop.wFunc = FO_DELETE;
+    fileop.pFrom = pathStr.t_str();
+    fileop.fFlags = FOF_ALLOWUNDO | FOF_SILENT | FOF_NOCONFIRMATION | FOF_NOERRORUI;
+
+    const int ret = SHFileOperation(&fileop);
+    if ( ret != 0 || fileop.fAnyOperationsAborted )
+    {
+        // Note that the return value from SHFileOperation() is not a standard
+        // Win32 error code, so we can't use wxLogSysError() here.
+        wxLogError(_("'%s' couldn't be moved to trash: error 0x%08x"),
+                   path,
+                   ret);
+        return false;
+    }
+
+    return true;
 }

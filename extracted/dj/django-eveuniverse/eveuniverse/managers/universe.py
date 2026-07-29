@@ -2,11 +2,11 @@
 
 import datetime as dt
 import logging
-from collections import namedtuple
 from http import HTTPStatus
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from django.db import models
+from django.db.models import F
 from django.utils.timezone import now
 from esi.exceptions import HTTPClientError
 
@@ -15,10 +15,39 @@ from eveuniverse.providers import esi
 
 logger = logging.getLogger(__name__)
 
-_FakeResponse = namedtuple("_FakeResponse", ["status_code"])
+
+class EveUniverseEntityModelQuerySet(models.QuerySet):
+    """QuerySets for EveUniverseEntityModel."""
+
+    def filter_enabled_sections(
+        self, enabled_sections: Iterable[str]
+    ) -> models.QuerySet:
+        """Return a filter that matches objects
+        which have all of the provided sections enabled.
+
+        If no sections are provided
+        or the model does not support sections the filter matches all.
+        Sections not valid for a model are ignored.
+        """
+        valid_sections = {
+            self.model.Section(s)
+            for s in enabled_sections
+            if str(s) in self.model.Section.values()
+        }
+        if not valid_sections:
+            return self.all()
+
+        mask = 0
+        for s in valid_sections:
+            mask |= getattr(self.model.enabled_sections, s)
+
+        qs = self.annotate(masked_flags=F("enabled_sections").bitand(mask)).filter(
+            masked_flags=mask
+        )
+        return qs
 
 
-class EveUniverseEntityModelManager(models.Manager):
+class EveUniverseEntityModelManagerBase(models.Manager):
     """Custom manager adding the ability to fetch objects from ESI."""
 
     def get_or_create_esi(
@@ -53,8 +82,7 @@ class EveUniverseEntityModelManager(models.Manager):
         id = int(id)
         effective_sections = determine_effective_sections(enabled_sections)
         try:
-            enabled_sections_filter = self._enabled_sections_filter(effective_sections)
-            obj = self.filter(**enabled_sections_filter).get(id=id)
+            obj = self.filter_enabled_sections(effective_sections).get(id=id)
             return obj, False
         except self.model.DoesNotExist:
             return self.update_or_create_esi(
@@ -64,13 +92,6 @@ class EveUniverseEntityModelManager(models.Manager):
                 enabled_sections=effective_sections,
                 task_priority=task_priority,
             )
-
-    def _enabled_sections_filter(self, enabled_sections: Iterable[str]) -> dict:
-        return {
-            "enabled_sections": getattr(self.model.enabled_sections, section)
-            for section in enabled_sections
-            if str(section) in self.model.Section.values()
-        }
 
     def update_or_create_esi(
         self,
@@ -134,7 +155,7 @@ class EveUniverseEntityModelManager(models.Manager):
             else:
                 updated_sections = effective_sections
 
-            obj.set_updated_sections(updated_sections)
+            obj.add_enabled_sections(updated_sections)
 
         else:
             raise HTTPClientError(
@@ -300,10 +321,9 @@ class EveUniverseEntityModelManager(models.Manager):
 
         ids = set(map(int, ids))
         effective_sections = determine_effective_sections(enabled_sections)
-        enabled_sections_filter = self._enabled_sections_filter(effective_sections)
         existing_ids = set(
             self.filter(id__in=ids)
-            .filter(**enabled_sections_filter)
+            .filter_enabled_sections(effective_sections)
             .values_list("id", flat=True)
         )
         for id in ids.difference(existing_ids):
@@ -316,6 +336,11 @@ class EveUniverseEntityModelManager(models.Manager):
             )
 
         return self.filter(id__in=ids)
+
+
+EveUniverseEntityModelManager = EveUniverseEntityModelManagerBase.from_queryset(
+    EveUniverseEntityModelQuerySet
+)
 
 
 class EvePlanetManager(EveUniverseEntityModelManager):
@@ -433,6 +458,7 @@ class EveStargateManager(EveUniverseEntityModelManager):
         enabled_sections: Optional[Iterable[str]] = None,
         task_priority: Optional[int] = None,
     ) -> Tuple[Any, bool]:
+        # pylint: disable=unused-argument
         """updates or creates an EveStargate object by fetching it from ESI (blocking).
         Will always get/create parent objects
 
@@ -475,6 +501,7 @@ class EveTypeManager(EveUniverseEntityModelManager):
         enabled_sections: Optional[Iterable[str]] = None,
         task_priority: Optional[int] = None,
     ) -> Tuple[Any, bool]:
+        # pylint: disable=missing-function-docstring
         from eveuniverse.models.base import determine_effective_sections
 
         effective_sections = determine_effective_sections(enabled_sections)

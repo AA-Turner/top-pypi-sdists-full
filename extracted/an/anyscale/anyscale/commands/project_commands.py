@@ -11,10 +11,21 @@ import yaml
 import anyscale
 from anyscale.cli_logger import BlockLogger
 from anyscale.commands import command_examples
+from anyscale.commands.doc_metadata import (
+    command_metadata,
+    CommandExample,
+    ReleaseStatus,
+)
 from anyscale.commands.list_util import (
     display_list,
     MAX_PAGE_SIZE,
     NON_INTERACTIVE_DEFAULT_MAX_ITEMS,
+)
+from anyscale.commands.output_format import (
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    OutputFormat,
+    print_output,
 )
 from anyscale.commands.util import AnyscaleCommand
 from anyscale.project.models import (
@@ -103,14 +114,44 @@ def project_cli() -> None:
     pass
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    # TODO(Dhyey): flip to all OutputFormat values when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Get the details of a project by ID.",
+            command="anyscale project get -i prj_abc123",
+            output_raw=command_examples.PROJECT_GET_EXAMPLE,
+            # Serialized form of the Project model (what --json and -o emit).
+            output_instance={
+                "id": "prj_abc123",
+                "name": "my-project",
+                "parent_cloud_id": "cld_abc123",
+            },
+        ),
+    ],
+    output_schema=Project,
+)
 @project_cli.command(
     name="get",
+    short_help="Get details of a project.",
     help="Get details of a project.",
     cls=AnyscaleCommand,
-    example=command_examples.PROJECT_GET_EXAMPLE,
 )
 @click.option(
     "--id", "-i", type=str, required=True, help="ID of the project.",
+)
+@click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
 )
 @click.option(
     "--json",
@@ -119,7 +160,7 @@ def project_cli() -> None:
     default=False,
     help="Output the details in a structured JSON format.",
 )
-def get(id: str, json: bool = False):  # noqa: A002
+def get(id: str, output_format: str, json: bool = False):  # noqa: A002
     try:
         project: Project = anyscale.project.get(project_id=id)
     except ValueError as e:
@@ -130,17 +171,41 @@ def get(id: str, json: bool = False):  # noqa: A002
     if json:
         json_str = json_dumps(project.to_dict(), indent=2, cls=AnyscaleJSONEncoder)
         console.print_json(json=json_str)
+    elif output_format != OutputFormat.TEXT.value:
+        print_output(project, output_format)
     else:
         stream = StringIO()
         yaml.dump(project.to_dict(), stream, sort_keys=False)
         console.print(stream.getvalue(), end="")
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    # TODO(Dhyey): flip to [TEXT, JSON] when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="List all projects.",
+            command="anyscale project list",
+            output_raw=command_examples.PROJECT_LIST_EXAMPLE,
+            # JSON rows are the serialized form of the ProjectMinimal model.
+            output_instance=[
+                {
+                    "id": "prj_abc123",
+                    "name": "my-project",
+                    "parent_cloud_id": "cld_abc123",
+                }
+            ],
+        ),
+    ],
+    output_schema=ProjectMinimal,
+)
 @project_cli.command(
     name="list",
+    short_help="List all projects with optional filters.",
     help="List all projects with optional filters.",
     cls=AnyscaleCommand,
-    example=command_examples.PROJECT_LIST_EXAMPLE,
 )
 @click.option(
     "--name", "-n", type=str, help="A string to filter projects by name.",
@@ -181,6 +246,16 @@ def get(id: str, json: bool = False):  # noqa: A002
     help="Use interactive paging.",
 )
 @click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
+@click.option(
     "--json",
     "-j",
     is_flag=True,
@@ -197,8 +272,10 @@ def list(  # noqa: A001, PLR0913
     page_size: Optional[int] = None,
     sort: Optional[str] = None,
     interactive: bool = True,
+    output_format: str = OutputFormat.TEXT.value,
     json: bool = False,
 ):
+    json = json or output_format == OutputFormat.JSON.value
 
     if max_items is not None and interactive:
         raise click.UsageError("--max-items only allowed with --no-interactive")
@@ -273,11 +350,23 @@ def list(  # noqa: A001, PLR0913
         sys.exit(1)
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Create a project in a cloud.",
+            command="anyscale project create -n my-project -c cld_abc123",
+            output_raw=command_examples.PROJECT_CREATE_EXAMPLE,
+        ),
+    ],
+)
 @project_cli.command(
     name="create",
+    short_help="Create a new project.",
     help="Create a new project.",
     cls=AnyscaleCommand,
-    example=command_examples.PROJECT_CREATE_EXAMPLE,
 )
 @click.option(
     "--name", "-n", type=str, required=True, help="Name of the project.",
@@ -315,11 +404,23 @@ def create(
     log.info(f"Created project '{name}' with ID: {project_id}")
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Delete a project by ID.",
+            command="anyscale project delete -i prj_abc123",
+            output_raw=command_examples.PROJECT_DELETE_EXAMPLE,
+        ),
+    ],
+)
 @project_cli.command(
     name="delete",
+    short_help="Delete a project.",
     help="Delete a project.",
     cls=AnyscaleCommand,
-    example=command_examples.PROJECT_DELETE_EXAMPLE,
 )
 @click.option(
     "--id", "-i", type=str, required=True, help="ID of the project to delete.",
@@ -334,14 +435,44 @@ def delete(id: str):  # noqa: A002
     log.info(f"Deleted project '{id}'")
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    # TODO(Dhyey): flip to all OutputFormat values when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Get the default project of a cloud.",
+            command="anyscale project get-default -c cld_abc123",
+            output_raw=command_examples.PROJECT_GET_DEFAULT_EXAMPLE,
+            # Serialized form of the Project model (what --json and -o emit).
+            output_instance={
+                "id": "prj_abc123",
+                "name": "default",
+                "parent_cloud_id": "cld_abc123",
+            },
+        ),
+    ],
+    output_schema=Project,
+)
 @project_cli.command(
     name="get-default",
+    short_help="Get the default project for a cloud.",
     help="Get the default project for a cloud.",
     cls=AnyscaleCommand,
-    example=command_examples.PROJECT_GET_DEFAULT_EXAMPLE,
 )
 @click.option(
     "--cloud", "-c", type=str, required=True, help="Parent cloud ID for the project.",
+)
+@click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
 )
 @click.option(
     "--json",
@@ -350,7 +481,7 @@ def delete(id: str):  # noqa: A002
     default=False,
     help="Output the project in a structured JSON format.",
 )
-def get_default(cloud: str, json: bool = False):
+def get_default(cloud: str, output_format: str, json: bool = False):
     try:
         project: Project = anyscale.project.get_default(cloud)
     except ValueError as e:
@@ -361,17 +492,31 @@ def get_default(cloud: str, json: bool = False):
     if json:
         json_str = json_dumps(project.to_dict(), indent=2, cls=AnyscaleJSONEncoder)
         console.print_json(json=json_str)
+    elif output_format != OutputFormat.TEXT.value:
+        print_output(project, output_format)
     else:
         stream = StringIO()
         yaml.dump(project.to_dict(), stream, sort_keys=False)
         console.print(stream.getvalue(), end="")
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Add collaborators to a project from a YAML file.",
+            command="anyscale project add-collaborators -c my-cloud -p my-project --users-file collaborators.yaml",
+            output_raw=command_examples.PROJECT_ADD_COLLABORATORS_EXAMPLE,
+        ),
+    ],
+)
 @project_cli.command(
     name="add-collaborators",
+    short_help="Add collaborators to the project.",
     help="Add collaborators to the project.",
     cls=AnyscaleCommand,
-    example=command_examples.PROJECT_ADD_COLLABORATORS_EXAMPLE,
 )
 @click.option(
     "--cloud",

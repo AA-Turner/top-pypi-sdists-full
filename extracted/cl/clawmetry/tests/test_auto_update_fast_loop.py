@@ -87,6 +87,10 @@ def test_dashboard_worker_fast_by_default(monkeypatch):
     uc = _uc()
     uc._process_role = "dashboard"
     monkeypatch.delenv("CLAWMETRY_AUTO_UPDATE", raising=False)
+    # These tests simulate a USER machine; GitHub Actions exports CI=true,
+    # which now implicitly disables auto-update (ephemeral runners must
+    # never swap themselves for a newer wheel mid-job).
+    monkeypatch.delenv("CI", raising=False)
     monkeypatch.setattr(uc, "_get_update_check_config",
                         lambda: {"enabled": True, "check_on_startup": False,
                                  "check_daily": True, "auto_update": True})
@@ -119,6 +123,10 @@ def test_dashboard_worker_keeps_daily_cadence_when_opted_out(monkeypatch):
     uc = _uc()
     uc._process_role = "dashboard"
     monkeypatch.delenv("CLAWMETRY_AUTO_UPDATE", raising=False)
+    # These tests simulate a USER machine; GitHub Actions exports CI=true,
+    # which now implicitly disables auto-update (ephemeral runners must
+    # never swap themselves for a newer wheel mid-job).
+    monkeypatch.delenv("CI", raising=False)
     monkeypatch.setattr(uc, "_get_update_check_config",
                         lambda: {"enabled": True, "check_on_startup": False,
                                  "check_daily": True, "auto_update": False})
@@ -191,6 +199,10 @@ def test_sync_daemon_starts_checker_with_daemon_role():
 
 def _gate(monkeypatch, uc, supervised, platform="darwin", kill=None):
     monkeypatch.delenv("CLAWMETRY_AUTO_UPDATE", raising=False)
+    # These tests simulate a USER machine; GitHub Actions exports CI=true,
+    # which now implicitly disables auto-update (ephemeral runners must
+    # never swap themselves for a newer wheel mid-job).
+    monkeypatch.delenv("CI", raising=False)
     if kill is None:
         monkeypatch.delenv("CLAWMETRY_AUTOUPDATE_EXEC_RESTART", raising=False)
     else:
@@ -199,6 +211,7 @@ def _gate(monkeypatch, uc, supervised, platform="darwin", kill=None):
     monkeypatch.setattr(uc, "_daemon_supervised", lambda: supervised)
     monkeypatch.setattr(uc, "_get_update_check_config",
                         lambda: {"auto_update": True})
+    monkeypatch.setattr(uc, "_record_update_attempt", lambda *a, **k: None)
     monkeypatch.setattr(uc.sys, "platform", platform)
     restarts = []
     execs = []
@@ -232,11 +245,19 @@ def test_supervised_daemon_uses_normal_restart(monkeypatch):
 
 
 def test_exec_restart_skipped_on_windows(monkeypatch):
+    """Windows never uses execv AND never pips in-process: the plan is the
+    out-of-process helper handoff (WinError 32 on the running launcher,
+    measured live 2026-07-28)."""
     uc = _uc()
     restarts, execs = _gate(monkeypatch, uc, supervised=False, platform="win32")
+    respawns = []
+    monkeypatch.setattr(uc, "_schedule_windows_respawn",
+                        lambda *a, **k: respawns.append(1))
+    monkeypatch.setattr(uc, "_record_update_attempt", lambda *a, **k: None)
     uc._maybe_auto_update("0.12.1", "0.12.2")
-    assert restarts == [False]
-    assert execs == [], "no execv semantics on Windows; defer to next start"
+    assert restarts == [], "no in-process pip on Windows"
+    assert execs == [], "no execv semantics on Windows"
+    assert respawns == [1], "the out-of-process helper must be armed"
 
 
 def test_exec_restart_kill_switch(monkeypatch):
@@ -258,6 +279,10 @@ def test_status_endpoint_reports_updater_posture(monkeypatch):
     uc = _uc()
     uc._process_role = "daemon"
     monkeypatch.delenv("CLAWMETRY_AUTO_UPDATE", raising=False)
+    # These tests simulate a USER machine; GitHub Actions exports CI=true,
+    # which now implicitly disables auto-update (ephemeral runners must
+    # never swap themselves for a newer wheel mid-job).
+    monkeypatch.delenv("CI", raising=False)
     monkeypatch.delenv("CLAWMETRY_UPDATE_CHECK_SECS", raising=False)
     monkeypatch.delenv("CLAWMETRY_AUTOUPDATE_MIN_AGE_HOURS", raising=False)
     monkeypatch.setattr(uc, "_get_update_check_config",

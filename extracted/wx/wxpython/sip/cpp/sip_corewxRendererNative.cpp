@@ -15,6 +15,7 @@
         #include <wx/gdicmn.h>
         #include <wx/dc.h>
         #include <wx/gdicmn.h>
+        #include <wx/dc.h>
         #include <wx/renderer.h>
     void _wxRendererNative_DrawTitleBarBitmap(wxRendererNative* self, wxWindow* win, wxDC* dc, const wxRect* rect, wxTitleBarButton button, int flags)
     {
@@ -301,7 +302,7 @@ static PyObject *meth_wxRendererNative_DrawGauge(PyObject *sipSelf, PyObject *si
 }
 
 
-PyDoc_STRVAR(doc_wxRendererNative_DrawHeaderButton, "DrawHeaderButton(win, dc, rect, flags=0, sortArrow=HDR_SORT_ICON_NONE, params=None) -> int\n"
+PyDoc_STRVAR(doc_wxRendererNative_DrawHeaderButton, "DrawHeaderButton(win, dc, rect, flags=0, sortArrow=HDR_SORT_ICON_NONE, params=nullptr) -> int\n"
 "\n"
 "Draw the header control button (used, for example, by wxListCtrl).");
 
@@ -318,7 +319,7 @@ static PyObject *meth_wxRendererNative_DrawHeaderButton(PyObject *sipSelf, PyObj
         int rectState = 0;
         int flags = 0;
         ::wxHeaderSortIconType sortArrow = wxHDR_SORT_ICON_NONE;
-        ::wxHeaderButtonParams* params = 0;
+        ::wxHeaderButtonParams* params = nullptr;
         ::wxRendererNative *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -360,7 +361,7 @@ static PyObject *meth_wxRendererNative_DrawHeaderButton(PyObject *sipSelf, PyObj
 }
 
 
-PyDoc_STRVAR(doc_wxRendererNative_DrawHeaderButtonContents, "DrawHeaderButtonContents(win, dc, rect, flags=0, sortArrow=HDR_SORT_ICON_NONE, params=None) -> int\n"
+PyDoc_STRVAR(doc_wxRendererNative_DrawHeaderButtonContents, "DrawHeaderButtonContents(win, dc, rect, flags=0, sortArrow=HDR_SORT_ICON_NONE, params=nullptr) -> int\n"
 "\n"
 "Draw the contents of a header control button (label, sort arrows,\n"
 "etc.).");
@@ -378,7 +379,7 @@ static PyObject *meth_wxRendererNative_DrawHeaderButtonContents(PyObject *sipSel
         int rectState = 0;
         int flags = 0;
         ::wxHeaderSortIconType sortArrow = wxHDR_SORT_ICON_NONE;
-        ::wxHeaderButtonParams* params = 0;
+        ::wxHeaderButtonParams* params = nullptr;
         ::wxRendererNative *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -656,7 +657,7 @@ static PyObject *meth_wxRendererNative_GetCollapseButtonSize(PyObject *sipSelf, 
 
     {
         ::wxWindow* win;
-        ::wxDC* dc;
+        ::wxReadOnlyDC* dc;
         ::wxRendererNative *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -664,7 +665,7 @@ static PyObject *meth_wxRendererNative_GetCollapseButtonSize(PyObject *sipSelf, 
             sipName_dc,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8J9", &sipSelf, sipType_wxRendererNative, &sipCpp, sipType_wxWindow, &win, sipType_wxDC, &dc))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8J9", &sipSelf, sipType_wxRendererNative, &sipCpp, sipType_wxWindow, &win, sipType_wxReadOnlyDC, &dc))
         {
             ::wxSize*sipRes;
 
@@ -1623,7 +1624,7 @@ static PyObject *meth_wxRendererNative_GetGeneric(PyObject *, PyObject *sipArgs)
 
 PyDoc_STRVAR(doc_wxRendererNative_Load, "Load(name) -> RendererNative\n"
 "\n"
-"Load the renderer from the specified DLL, the returned pointer must be deleted by caller if not NULL when it is not used any more.");
+"Load the renderer from the specified DLL, the returned pointer must be deleted by caller if not nullptr when it is not used any more.");
 
 extern "C" {static PyObject *meth_wxRendererNative_Load(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRendererNative_Load(PyObject *, PyObject *sipArgs, PyObject *sipKwds)
@@ -1664,7 +1665,7 @@ static PyObject *meth_wxRendererNative_Load(PyObject *, PyObject *sipArgs, PyObj
 
 PyDoc_STRVAR(doc_wxRendererNative_Set, "Set(renderer) -> RendererNative\n"
 "\n"
-"Set the renderer to use, passing NULL reverts to using the default renderer (the global renderer must always exist).");
+"Set the renderer to use, passing nullptr reverts to using the default renderer (the global renderer must always exist).");
 
 extern "C" {static PyObject *meth_wxRendererNative_Set(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRendererNative_Set(PyObject *, PyObject *sipArgs, PyObject *sipKwds)

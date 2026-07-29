@@ -728,7 +728,7 @@ static void *init_type_wxRichTextPrintout(sipSimpleWrapper *sipSelf, PyObject *s
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxRichTextPrintout[] = {{51, 0, 1}};
+static sipEncodedTypeDef supers_wxRichTextPrintout[] = {{52, 0, 1}};
 
 
 static PyMethodDef methods_wxRichTextPrintout[] = {

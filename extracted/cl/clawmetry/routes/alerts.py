@@ -664,6 +664,25 @@ def api_alert_rules():
         channels = data.get("channels", ["banner"])
         cooldown = data.get("cooldown_min", 30)
         enabled = data.get("enabled", True)
+        # Self-hosted bridge (founder 2026-07-28: "alerts should work in the
+        # self-hosted setup"): the Alerts tab speaks the cloud vocabulary
+        # (alert_type / threshold_value / channel_ids). A locally-entitled
+        # install (self-hosted Trial/Pro key) saves those rules HERE instead
+        # of at the cloud; map the fields onto the local schema. Cloud-vocab
+        # types without a local evaluator equivalent land on "anomaly" so
+        # the rule persists and renders; evaluator parity is tracked
+        # separately.
+        _cloud_type = (data.get("alert_type") or "").strip()
+        if _cloud_type and not rtype:
+            _CLOUD_TO_LOCAL = {
+                "cost_daily": "threshold", "session_cost": "threshold",
+                "token_velocity": "token_spike", "agent_offline": "agent_down",
+            }
+            rtype = _CLOUD_TO_LOCAL.get(_cloud_type, "anomaly")
+            if not threshold:
+                threshold = data.get("threshold_value", 0)
+            if data.get("channel_ids") and channels == ["banner"]:
+                channels = list(data.get("channel_ids") or []) or ["banner"]
         if rtype not in ("threshold", "spike", "token_spike", "anomaly",
                          "agent_down", "unproductive_burn"):
             return jsonify({"error": "Invalid alert type"}), 400
@@ -817,6 +836,8 @@ def api_alerts_webhook():
             "slack_webhook_url",
             "discord_webhook_url",
             "pagerduty_routing_key",
+            "telegram_bot_token",
+            "telegram_chat_id",
             "opsgenie_api_key",
             "opsgenie_api_url",
             "cost_spike_alerts",
@@ -919,6 +940,8 @@ def api_alert_channels():
             "slack_webhook_url",
             "discord_webhook_url",
             "pagerduty_routing_key",
+            "telegram_bot_token",
+            "telegram_chat_id",
             "opsgenie_api_key",
             "opsgenie_api_url",
             "cost_spike_alerts",
@@ -967,6 +990,42 @@ def api_alert_channels_test():
         if url:
             _d._send_discord_alert(message, severity=severity, title=title)
             sent.append("discord")
+    # Self-hosted delivery (founder 2026-07-28: notifications must work
+    # locally): Telegram and PagerDuty are plain outbound HTTP, sent
+    # directly from the configured keys so the test proves the LOCAL path.
+    if target in ("all", "telegram"):
+        tok = str(cfg.get("telegram_bot_token", "")).strip()
+        chat = str(cfg.get("telegram_chat_id", "")).strip()
+        if tok and chat:
+            try:
+                import urllib.request as _ur
+                _req = _ur.Request(
+                    f"https://api.telegram.org/bot{tok}/sendMessage",
+                    data=json.dumps({"chat_id": chat,
+                                     "text": title + "\n" + message}).encode(),
+                    headers={"Content-Type": "application/json"}, method="POST")
+                _ur.urlopen(_req, timeout=10)
+                sent.append("telegram")
+            except Exception:
+                pass
+    if target in ("all", "pagerduty"):
+        rk = str(cfg.get("pagerduty_routing_key", "")).strip()
+        if rk:
+            try:
+                import urllib.request as _ur
+                _req = _ur.Request(
+                    "https://events.pagerduty.com/v2/enqueue",
+                    data=json.dumps({
+                        "routing_key": rk, "event_action": "trigger",
+                        "payload": {"summary": f"{title}: {message}",
+                                    "source": "clawmetry-local",
+                                    "severity": "warning" if severity == "warning" else "critical"},
+                    }).encode(),
+                    headers={"Content-Type": "application/json"}, method="POST")
+                _ur.urlopen(_req, timeout=10)
+                sent.append("pagerduty")
+            except Exception:
+                pass
 
     if not sent:
         return jsonify({"ok": False, "error": "No configured webhook URL for selected target"}), 400

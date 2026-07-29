@@ -5,7 +5,7 @@ import inspect
 import os
 import re
 import typing
-from typing import Any, Callable, Dict, List, Optional, Set, Type, Union
+from typing import Any, Callable, cast, Dict, List, Optional, Set, Type, Union
 
 import click
 import yaml
@@ -21,6 +21,7 @@ from anyscale._private.models.model_base import (
     ModelEnumType,
     ResultIterator,
 )
+from anyscale.commands.help_examples_formatter import render_examples_for_help
 from anyscale.commands.util import (
     AnyscaleCommand,
     DeprecatedAnyscaleCommand,
@@ -448,6 +449,11 @@ class MarkdownGenerator:
         yaml_example: Optional[str] = getattr(t, "__doc_yaml_example__", None)
         py_example: Optional[str] = getattr(t, "__doc_py_example__", None)
         cli_example: Optional[str] = getattr(t, "__doc_cli_example__", None)
+        # Fall back to new command_metadata examples when there is no legacy example.
+        if not cli_example:
+            cli_example = (
+                render_examples_for_help(getattr(t, "doc_metadata", None)) or None
+            )
 
         if isinstance(t, ModelBaseType):
             if not skip_py_example and not py_example:
@@ -550,7 +556,7 @@ class MarkdownGenerator:
                         f"Model '{t.__name__}' is missing a docstring for field '{field.name}'"
                     )
 
-                md += f"- **`{field.name}` ({self._model_type_to_string(field.type)})**: {_escape_mdx_content(docstring)}\n"
+                md += f"- **`{field.name}` ({self._model_type_to_string(cast(Type[Any], field.type))})**: {_escape_mdx_content(docstring)}\n"
 
                 customer_hosted_only = field.metadata.get("customer_hosted_only", False)
                 if customer_hosted_only:

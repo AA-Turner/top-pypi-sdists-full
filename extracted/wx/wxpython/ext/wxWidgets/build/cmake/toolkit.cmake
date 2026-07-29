@@ -32,7 +32,7 @@ elseif(APPLE)
     set(wxPLATFORM OSX)
 elseif(UNIX)
     set(wxDEFAULT_TOOLKIT gtk3)
-    set(wxTOOLKIT_OPTIONS gtk2 gtk3 gtk4 motif qt)
+    set(wxTOOLKIT_OPTIONS gtk2 gtk3 gtk4 qt)
     set(wxPLATFORM UNIX)
 else()
     message(FATAL_ERROR "Unsupported platform")
@@ -117,11 +117,11 @@ if(WXGTK)
     endif()
 endif()
 
-# We need X11 for non-GTK Unix ports (X11, Motif) and for GTK with X11
+# We need X11 for non-GTK Unix ports (X11) and for GTK with X11
 # support, but not for Wayland-only GTK (necessarily 3 or later), which is why
 # we have to do this after find_package(GTKx) above, as this is what sets
 # wxHAVE_GDK_X11.
-if(UNIX AND NOT WIN32 AND (WXX11 OR WXMOTIF OR WXGTK2 OR (WXGTK AND wxHAVE_GDK_X11)))
+if(UNIX AND NOT WIN32 AND (WXX11 OR WXGTK2 OR (WXGTK AND wxHAVE_GDK_X11)))
     find_package(X11 REQUIRED)
     list(APPEND wxTOOLKIT_INCLUDE_DIRS ${X11_INCLUDE_DIR})
     list(APPEND wxTOOLKIT_LIBRARIES ${X11_LIBRARIES})
@@ -132,9 +132,9 @@ if(WXQT)
     find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core)
 
     if(QT_VERSION_MAJOR EQUAL 5)
-        set(QT_COMPONENTS Core Widgets Gui OpenGL OpenGL Test)
+        set(QT_COMPONENTS Core Widgets Gui OpenGL OpenGL Test PrintSupport)
     elseif(QT_VERSION_MAJOR EQUAL 6)
-        set(QT_COMPONENTS Core Widgets Gui OpenGL OpenGLWidgets Test)
+        set(QT_COMPONENTS Core Widgets Gui OpenGL OpenGLWidgets Test PrintSupport)
     endif()
 
     foreach(QT_COMPONENT ${QT_COMPONENTS})

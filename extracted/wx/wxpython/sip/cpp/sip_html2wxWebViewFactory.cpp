@@ -9,7 +9,7 @@
 
 #include "sipAPI_html2.h"
         #include <wx/webview.h>
-        #include <wx/versioninfo.h>
+        #include <wx/webview.h>
         #include <wx/webview.h>
         #include <wx/window.h>
         #include <wx/gdicmn.h>
@@ -31,8 +31,9 @@ public:
      * this class.
      */
 protected:
-    ::wxVersionInfo GetVersionInfo() SIP_OVERRIDE;
+    ::wxWebViewConfiguration CreateConfiguration() SIP_OVERRIDE;
     bool IsAvailable() SIP_OVERRIDE;
+    ::wxWebView* CreateWithConfig(const ::wxWebViewConfiguration&) SIP_OVERRIDE;
     ::wxWebView* Create(::wxWindow*, ::wxWindowID, const ::wxString&, const ::wxPoint&, const ::wxSize&, long, const ::wxString&) SIP_OVERRIDE;
     ::wxWebView* Create() SIP_OVERRIDE;
 
@@ -43,7 +44,7 @@ private:
     sipwxWebViewFactory(const sipwxWebViewFactory &);
     sipwxWebViewFactory &operator = (const sipwxWebViewFactory &);
 
-    char sipPyMethods[4];
+    char sipPyMethods[5];
 };
 
 sipwxWebViewFactory::sipwxWebViewFactory(): ::wxWebViewFactory(), sipPySelf(SIP_NULLPTR)
@@ -61,19 +62,30 @@ sipwxWebViewFactory::~sipwxWebViewFactory()
     sipInstanceDestroyedEx(&sipPySelf);
 }
 
-::wxVersionInfo sipwxWebViewFactory::GetVersionInfo()
+::wxWebViewConfiguration sipwxWebViewFactory::CreateConfiguration()
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[0], &sipPySelf, SIP_NULLPTR, sipName_GetVersionInfo);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[0], &sipPySelf, sipName_WebViewFactory, sipName_CreateConfiguration);
 
     if (!sipMeth)
-        return ::wxWebViewFactory::GetVersionInfo();
+    {
+        static ::wxWebViewConfiguration *sipCpp = SIP_NULLPTR;
 
-    extern ::wxVersionInfo sipVH__html2_25(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+        if (!sipCpp)
+        {
+        #if wxUSE_WEBVIEW
+            sipCpp = new wxWebViewConfiguration("", NULL);
+        #endif
+        }
 
-    return sipVH__html2_25(sipGILState, 0, sipPySelf, sipMeth);
+        return *sipCpp;
+    }
+
+    extern ::wxWebViewConfiguration sipVH__html2_8(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+
+    return sipVH__html2_8(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxWebViewFactory::IsAvailable()
@@ -86,27 +98,27 @@ bool sipwxWebViewFactory::IsAvailable()
     if (!sipMeth)
         return ::wxWebViewFactory::IsAvailable();
 
-    extern bool sipVH__html2_5(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__html2_7(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__html2_5(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__html2_7(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxWebView* sipwxWebViewFactory::Create(::wxWindow*parent, ::wxWindowID id, const ::wxString& url, const ::wxPoint& pos, const ::wxSize& size, long style, const ::wxString& name)
+::wxWebView* sipwxWebViewFactory::CreateWithConfig(const ::wxWebViewConfiguration& config)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[2], &sipPySelf, sipName_WebViewFactory, sipName_Create);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[2], &sipPySelf, SIP_NULLPTR, sipName_CreateWithConfig);
 
     if (!sipMeth)
-        return 0;
+        return ::wxWebViewFactory::CreateWithConfig(config);
 
-    extern ::wxWebView* sipVH__html2_24(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*, ::wxWindowID, const ::wxString&, const ::wxPoint&, const ::wxSize&, long, const ::wxString&);
+    extern ::wxWebView* sipVH__html2_6(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxWebViewConfiguration&);
 
-    return sipVH__html2_24(sipGILState, 0, sipPySelf, sipMeth, parent, id, url, pos, size, style, name);
+    return sipVH__html2_6(sipGILState, 0, sipPySelf, sipMeth, config);
 }
 
-::wxWebView* sipwxWebViewFactory::Create()
+::wxWebView* sipwxWebViewFactory::Create(::wxWindow*parent, ::wxWindowID id, const ::wxString& url, const ::wxPoint& pos, const ::wxSize& size, long style, const ::wxString& name)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -116,9 +128,24 @@ bool sipwxWebViewFactory::IsAvailable()
     if (!sipMeth)
         return 0;
 
-    extern ::wxWebView* sipVH__html2_23(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxWebView* sipVH__html2_5(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*, ::wxWindowID, const ::wxString&, const ::wxPoint&, const ::wxSize&, long, const ::wxString&);
 
-    return sipVH__html2_23(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__html2_5(sipGILState, 0, sipPySelf, sipMeth, parent, id, url, pos, size, style, name);
+}
+
+::wxWebView* sipwxWebViewFactory::Create()
+{
+    sip_gilstate_t sipGILState;
+    PyObject *sipMeth;
+
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[4], &sipPySelf, sipName_WebViewFactory, sipName_Create);
+
+    if (!sipMeth)
+        return 0;
+
+    extern ::wxWebView* sipVH__html2_4(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+
+    return sipVH__html2_4(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
@@ -222,6 +249,49 @@ static PyObject *meth_wxWebViewFactory_Create(PyObject *sipSelf, PyObject *sipAr
 }
 
 
+PyDoc_STRVAR(doc_wxWebViewFactory_CreateWithConfig, "CreateWithConfig(config) -> WebView\n"
+"\n"
+"Function to create a new wxWebView with two-step creation with a\n"
+"wxWebViewConfiguration, wxWebView::Create should be called on the\n"
+"returned object.");
+
+extern "C" {static PyObject *meth_wxWebViewFactory_CreateWithConfig(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxWebViewFactory_CreateWithConfig(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
+
+    {
+        const ::wxWebViewConfiguration* config;
+        ::wxWebViewFactory *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_config,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9", &sipSelf, sipType_wxWebViewFactory, &sipCpp, sipType_wxWebViewConfiguration, &config))
+        {
+            ::wxWebView*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = (sipSelfWasArg ? sipCpp->::wxWebViewFactory::CreateWithConfig(*config) : sipCpp->CreateWithConfig(*config));
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxWebView, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_WebViewFactory, sipName_CreateWithConfig, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxWebViewFactory_IsAvailable, "IsAvailable() -> bool\n"
 "\n"
 "Function to check if the backend is available at runtime.");
@@ -258,37 +328,49 @@ static PyObject *meth_wxWebViewFactory_IsAvailable(PyObject *sipSelf, PyObject *
 }
 
 
-PyDoc_STRVAR(doc_wxWebViewFactory_GetVersionInfo, "GetVersionInfo() -> wx.VersionInfo\n"
+PyDoc_STRVAR(doc_wxWebViewFactory_CreateConfiguration, "CreateConfiguration() -> WebViewConfiguration\n"
 "\n"
-"Retrieve the version information about this backend implementation.");
+"Create a wxWebViewConfiguration object for wxWebView instances created\n"
+"by this factory.");
 
-extern "C" {static PyObject *meth_wxWebViewFactory_GetVersionInfo(PyObject *, PyObject *);}
-static PyObject *meth_wxWebViewFactory_GetVersionInfo(PyObject *sipSelf, PyObject *sipArgs)
+extern "C" {static PyObject *meth_wxWebViewFactory_CreateConfiguration(PyObject *, PyObject *);}
+static PyObject *meth_wxWebViewFactory_CreateConfiguration(PyObject *sipSelf, PyObject *sipArgs)
 {
     PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
+    PyObject *sipOrigSelf = sipSelf;
 
     {
         ::wxWebViewFactory *sipCpp;
 
         if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxWebViewFactory, &sipCpp))
         {
-            ::wxVersionInfo*sipRes;
+            ::wxWebViewConfiguration*sipRes = 0;
+            int sipIsErr = 0;
 
+            if (!sipOrigSelf)
+            {
+                sipAbstractMethod(sipName_WebViewFactory, sipName_CreateConfiguration);
+                return SIP_NULLPTR;
+            }
+        #if wxUSE_WEBVIEW
             PyErr_Clear();
-
             Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxVersionInfo((sipSelfWasArg ? sipCpp->::wxWebViewFactory::GetVersionInfo() : sipCpp->GetVersionInfo()));
+            wxWebViewConfiguration cfg = sipCpp->CreateConfiguration();
+            sipRes = new wxWebViewConfiguration(cfg.GetBackend(), cfg.GetImpl());
             Py_END_ALLOW_THREADS
+            if (PyErr_Occurred()) sipIsErr = 1;
+        #else
+            wxPyRaiseNotImplemented();
+        #endif
 
-            if (PyErr_Occurred())
+            if (sipIsErr)
                 return 0;
 
-            return sipConvertFromNewType(sipRes, sipType_wxVersionInfo, SIP_NULLPTR);
+            return sipConvertFromType(sipRes, sipType_wxWebViewConfiguration, SIP_NULLPTR);
         }
     }
 
-    sipNoMethod(sipParseErr, sipName_WebViewFactory, sipName_GetVersionInfo, SIP_NULLPTR);
+    sipNoMethod(sipParseErr, sipName_WebViewFactory, sipName_CreateConfiguration, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -376,17 +458,14 @@ static void *init_type_wxWebViewFactory(sipSimpleWrapper *sipSelf, PyObject *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxWebViewFactory[] = {{9, 0, 1}};
+static sipEncodedTypeDef supers_wxWebViewFactory[] = {{11, 0, 1}};
 
 
 static PyMethodDef methods_wxWebViewFactory[] = {
     {sipName_Create, SIP_MLMETH_CAST(meth_wxWebViewFactory_Create), METH_VARARGS|METH_KEYWORDS, doc_wxWebViewFactory_Create},
-    {sipName_GetVersionInfo, meth_wxWebViewFactory_GetVersionInfo, METH_VARARGS, doc_wxWebViewFactory_GetVersionInfo},
+    {sipName_CreateConfiguration, meth_wxWebViewFactory_CreateConfiguration, METH_VARARGS, doc_wxWebViewFactory_CreateConfiguration},
+    {sipName_CreateWithConfig, SIP_MLMETH_CAST(meth_wxWebViewFactory_CreateWithConfig), METH_VARARGS|METH_KEYWORDS, doc_wxWebViewFactory_CreateWithConfig},
     {sipName_IsAvailable, meth_wxWebViewFactory_IsAvailable, METH_VARARGS, doc_wxWebViewFactory_IsAvailable}
-};
-
-sipVariableDef variables_wxWebViewFactory[] = {
-    {PropertyVariable, sipName_VersionInfo, &methods_wxWebViewFactory[1], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxWebViewFactory, "An abstract factory class for creating wxWebView backends.");
@@ -405,9 +484,9 @@ sipClassTypeDef sipTypeDef__html2_wxWebViewFactory = {
     {
         sipNameNr_WebViewFactory,
         {0, 0, 1},
-        3, methods_wxWebViewFactory,
+        4, methods_wxWebViewFactory,
         0, SIP_NULLPTR,
-        1, variables_wxWebViewFactory,
+        0, SIP_NULLPTR,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxWebViewFactory,

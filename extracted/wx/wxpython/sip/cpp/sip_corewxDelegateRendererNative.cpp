@@ -17,6 +17,7 @@
         #include <wx/renderer.h>
         #include <wx/gdicmn.h>
         #include <wx/renderer.h>
+        #include <wx/dc.h>
     void _wxDelegateRendererNative_DrawTitleBarBitmap(wxDelegateRendererNative* self, wxWindow* win, wxDC* dc, const wxRect* rect, wxTitleBarButton button, int flags)
     {
         #ifdef wxHAS_DRAW_TITLE_BAR_BITMAP
@@ -50,7 +51,7 @@ protected:
     void DrawItemText(::wxWindow*, ::wxDC&, const ::wxString&, const ::wxRect&, int, int, ::wxEllipsizeMode) SIP_OVERRIDE;
     void DrawPushButton(::wxWindow*, ::wxDC&, const ::wxRect&, int) SIP_OVERRIDE;
     void DrawCollapseButton(::wxWindow*, ::wxDC&, const ::wxRect&, int) SIP_OVERRIDE;
-    ::wxSize GetCollapseButtonSize(::wxWindow*, ::wxDC&) SIP_OVERRIDE;
+    ::wxSize GetCollapseButtonSize(::wxWindow*, ::wxReadOnlyDC&) SIP_OVERRIDE;
     void DrawSplitterBorder(::wxWindow*, ::wxDC&, const ::wxRect&, int) SIP_OVERRIDE;
     void DrawSplitterSash(::wxWindow*, ::wxDC&, const ::wxSize&, ::wxCoord, ::wxOrientation, int) SIP_OVERRIDE;
     void DrawTreeItemButton(::wxWindow*, ::wxDC&, const ::wxRect&, int) SIP_OVERRIDE;
@@ -275,7 +276,7 @@ void sipwxDelegateRendererNative::DrawCollapseButton(::wxWindow*win, ::wxDC& dc,
     sipVH__core_32(sipGILState, 0, sipPySelf, sipMeth, win, dc, rect, flags);
 }
 
-::wxSize sipwxDelegateRendererNative::GetCollapseButtonSize(::wxWindow*win, ::wxDC& dc)
+::wxSize sipwxDelegateRendererNative::GetCollapseButtonSize(::wxWindow*win, ::wxReadOnlyDC& dc)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -285,7 +286,7 @@ void sipwxDelegateRendererNative::DrawCollapseButton(::wxWindow*win, ::wxDC& dc,
     if (!sipMeth)
         return ::wxSize();
 
-    extern ::wxSize sipVH__core_36(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*, ::wxDC&);
+    extern ::wxSize sipVH__core_36(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*, ::wxReadOnlyDC&);
 
     return sipVH__core_36(sipGILState, 0, sipPySelf, sipMeth, win, dc);
 }
@@ -528,7 +529,7 @@ int sipwxDelegateRendererNative::GetHeaderButtonMargin(::wxWindow*win)
 }
 
 
-PyDoc_STRVAR(doc_wxDelegateRendererNative_DrawHeaderButton, "DrawHeaderButton(win, dc, rect, flags=0, sortArrow=HDR_SORT_ICON_NONE, params=None) -> int\n"
+PyDoc_STRVAR(doc_wxDelegateRendererNative_DrawHeaderButton, "DrawHeaderButton(win, dc, rect, flags=0, sortArrow=HDR_SORT_ICON_NONE, params=nullptr) -> int\n"
 "\n"
 "Draw the header control button (used, for example, by wxListCtrl).");
 
@@ -545,7 +546,7 @@ static PyObject *meth_wxDelegateRendererNative_DrawHeaderButton(PyObject *sipSel
         int rectState = 0;
         int flags = 0;
         ::wxHeaderSortIconType sortArrow = wxHDR_SORT_ICON_NONE;
-        ::wxHeaderButtonParams* params = 0;
+        ::wxHeaderButtonParams* params = nullptr;
         ::wxDelegateRendererNative *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -581,7 +582,7 @@ static PyObject *meth_wxDelegateRendererNative_DrawHeaderButton(PyObject *sipSel
 }
 
 
-PyDoc_STRVAR(doc_wxDelegateRendererNative_DrawHeaderButtonContents, "DrawHeaderButtonContents(win, dc, rect, flags=0, sortArrow=HDR_SORT_ICON_NONE, params=None) -> int\n"
+PyDoc_STRVAR(doc_wxDelegateRendererNative_DrawHeaderButtonContents, "DrawHeaderButtonContents(win, dc, rect, flags=0, sortArrow=HDR_SORT_ICON_NONE, params=nullptr) -> int\n"
 "\n"
 "Draw the contents of a header control button (label, sort arrows,\n"
 "etc.).");
@@ -599,7 +600,7 @@ static PyObject *meth_wxDelegateRendererNative_DrawHeaderButtonContents(PyObject
         int rectState = 0;
         int flags = 0;
         ::wxHeaderSortIconType sortArrow = wxHDR_SORT_ICON_NONE;
-        ::wxHeaderButtonParams* params = 0;
+        ::wxHeaderButtonParams* params = nullptr;
         ::wxDelegateRendererNative *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -1524,7 +1525,7 @@ static void *init_type_wxDelegateRendererNative(sipSimpleWrapper *sipSelf, PyObj
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxDelegateRendererNative[] = {{482, 255, 1}};
+static sipEncodedTypeDef supers_wxDelegateRendererNative[] = {{496, 255, 1}};
 
 
 static PyMethodDef methods_wxDelegateRendererNative[] = {

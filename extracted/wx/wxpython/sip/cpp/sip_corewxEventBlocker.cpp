@@ -70,9 +70,9 @@ bool sipwxEventBlocker::ProcessEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxEventBlocker::ProcessEvent(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxEventBlocker::TryBefore(::wxEvent& event)
@@ -85,9 +85,9 @@ bool sipwxEventBlocker::TryBefore(::wxEvent& event)
     if (!sipMeth)
         return ::wxEventBlocker::TryBefore(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxEventBlocker::TryAfter(::wxEvent& event)
@@ -100,9 +100,9 @@ bool sipwxEventBlocker::TryAfter(::wxEvent& event)
     if (!sipMeth)
         return ::wxEventBlocker::TryAfter(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxEventBlocker::sipProtectVirt_TryBefore(bool sipSelfWasArg, ::wxEvent& event)
@@ -323,7 +323,7 @@ static void *init_type_wxEventBlocker(sipSimpleWrapper *sipSelf, PyObject *sipAr
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxEventBlocker[] = {{158, 255, 1}};
+static sipEncodedTypeDef supers_wxEventBlocker[] = {{165, 255, 1}};
 
 
 static PyMethodDef methods_wxEventBlocker[] = {

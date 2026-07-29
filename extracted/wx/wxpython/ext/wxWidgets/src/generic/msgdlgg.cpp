@@ -2,7 +2,6 @@
 // Name:        src/generic/msgdlgg.cpp
 // Purpose:     wxGenericMessageDialog
 // Author:      Julian Smart, Robert Roebling
-// Modified by:
 // Created:     04/01/98
 // Copyright:   (c) Julian Smart and Robert Roebling
 // Licence:     wxWindows licence
@@ -40,6 +39,7 @@
     #include "wx/statline.h"
 #endif
 
+#if wxUSE_STATTEXT
 // ----------------------------------------------------------------------------
 // wxTitleTextWrapper: simple class to create wrapped text in "title font"
 // ----------------------------------------------------------------------------
@@ -53,7 +53,7 @@ public:
     }
 
 protected:
-    virtual wxWindow *OnCreateLine(const wxString& s) wxOVERRIDE
+    virtual wxWindow *OnCreateLine(const wxString& s) override
     {
         wxWindow * const win = wxTextSizerWrapper::OnCreateLine(s);
 
@@ -62,6 +62,7 @@ protected:
         return win;
     }
 };
+#endif // wxUSE_STATTEXT
 
 // ----------------------------------------------------------------------------
 // icons
@@ -75,6 +76,14 @@ wxBEGIN_EVENT_TABLE(wxGenericMessageDialog, wxDialog)
 wxEND_EVENT_TABLE()
 
 wxIMPLEMENT_CLASS(wxGenericMessageDialog, wxDialog);
+
+// gcc 16 gives a bogus warning about "'<unknown>' may be used uninitialized"
+// (sic) for GetParentForModalDialog() call below, this is almost certainly a
+// compiler bug, so disable it for this version only for now.
+#if wxCHECK_GCC_VERSION(16, 0) && !wxCHECK_GCC_VERSION(16, 2)
+#define wxGCC_WARNING_SUPPRESS_MAYBE_UNINITIALIZED
+wxGCC_WARNING_SUPPRESS(maybe-uninitialized)
+#endif
 
 wxGenericMessageDialog::wxGenericMessageDialog( wxWindow *parent,
                                                 const wxString& message,
@@ -90,13 +99,18 @@ wxGenericMessageDialog::wxGenericMessageDialog( wxWindow *parent,
     m_created = false;
 }
 
+#ifdef wxGCC_WARNING_SUPPRESS_MAYBE_UNINITIALIZED
+wxGCC_WARNING_RESTORE(maybe-uninitialized)
+#endif
+
+#if wxUSE_BUTTON
 wxSizer *wxGenericMessageDialog::CreateMsgDlgButtonSizer()
 {
     if ( HasCustomLabels() )
     {
         wxStdDialogButtonSizer * const sizerStd = new wxStdDialogButtonSizer;
 
-        wxButton *btnDef = NULL;
+        wxButton *btnDef = nullptr;
 
         if ( m_dialogStyle & wxOK )
         {
@@ -154,6 +168,7 @@ wxSizer *wxGenericMessageDialog::CreateMsgDlgButtonSizer()
                                  wxNO_DEFAULT | wxCANCEL_DEFAULT)
            );
 }
+#endif // wxUSE_BUTTON
 
 void wxGenericMessageDialog::DoCreateMsgdialog()
 {
@@ -174,9 +189,9 @@ void wxGenericMessageDialog::DoCreateMsgdialog()
                                     wxArtProvider::GetMessageBoxIcon(m_dialogStyle)
                                    );
         if ( wxSystemSettings::GetScreenType() <= wxSYS_SCREEN_PDA )
-            topsizer->Add( icon, 0, wxTOP|wxLEFT|wxRIGHT | wxALIGN_LEFT, 10 );
+            topsizer->Add( icon, 0, wxTOP|wxLEFT|wxRIGHT | wxALIGN_LEFT, FromDIP(10) );
         else
-            icon_text->Add(icon, wxSizerFlags().Top().Border(wxRIGHT, 20));
+            icon_text->Add(icon, wxSizerFlags().Top().Border(wxRIGHT, FromDIP(20)));
     }
 #endif // wxUSE_STATBMP
 
@@ -199,7 +214,7 @@ void wxGenericMessageDialog::DoCreateMsgdialog()
     {
         wxTitleTextWrapper titleWrapper(this);
         textsizer->Add(CreateTextSizer(GetMessage(), titleWrapper, maxWidth),
-                       wxSizerFlags().Border(wxBOTTOM, 20));
+                       wxSizerFlags().Border(wxBOTTOM, FromDIP(20)));
 
         lowerMessage = GetExtendedMessage();
     }
@@ -218,10 +233,12 @@ void wxGenericMessageDialog::DoCreateMsgdialog()
     AddMessageDialogCheckBox( topsizer );
     AddMessageDialogDetails( topsizer );
 
+#if wxUSE_BUTTON
     // 4) buttons
     wxSizer *sizerBtn = CreateMsgDlgButtonSizer();
     if ( sizerBtn )
         topsizer->Add(sizerBtn, 0, wxEXPAND | wxALL, 10 );
+#endif // wxUSE_BUTTON
 
     SetSizer( topsizer );
 

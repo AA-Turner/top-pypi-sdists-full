@@ -366,7 +366,7 @@ static PyObject *meth_wxLog_DontCreateOnDemand(PyObject *, PyObject *sipArgs)
 
 PyDoc_STRVAR(doc_wxLog_GetActiveTarget, "GetActiveTarget() -> Log\n"
 "\n"
-"Returns the pointer to the active log target (may be NULL).");
+"Returns the pointer to the active log target (may be nullptr).");
 
 extern "C" {static PyObject *meth_wxLog_GetActiveTarget(PyObject *, PyObject *);}
 static PyObject *meth_wxLog_GetActiveTarget(PyObject *, PyObject *sipArgs)

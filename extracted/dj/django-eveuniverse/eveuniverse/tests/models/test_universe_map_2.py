@@ -87,10 +87,7 @@ class TestEveSolarSystem_Sections(TestCase):
         self.assertEqual(obj.security_status, security_status)
         self.assertEqual(obj.eve_entity_category(), EveEntity.CATEGORY_SOLAR_SYSTEM)
 
-        self.assertFalse(obj.enabled_sections.planets)
-        self.assertFalse(obj.enabled_sections.stargates)
-        self.assertFalse(obj.enabled_sections.stars)
-        self.assertFalse(obj.enabled_sections.stations)
+        self.assertSetEqual(obj.enabled_sections_set, set())
 
     @pook.on
     def test_should_create_from_esi_with_all_sections_full(self):
@@ -245,10 +242,15 @@ class TestEveSolarSystem_Sections(TestCase):
         self.assertEqual(obj.security_status, security_status)
         self.assertEqual(obj.eve_entity_category(), EveEntity.CATEGORY_SOLAR_SYSTEM)
 
-        self.assertTrue(obj.enabled_sections.planets)
-        self.assertTrue(obj.enabled_sections.stargates)
-        self.assertTrue(obj.enabled_sections.stars)
-        self.assertTrue(obj.enabled_sections.stations)
+        self.assertSetEqual(
+            obj.enabled_sections_set,
+            {
+                EveSolarSystem.Section.PLANETS,
+                EveSolarSystem.Section.STARGATES,
+                EveSolarSystem.Section.STARS,
+                EveSolarSystem.Section.STATIONS,
+            },
+        )
 
         self.assertEqual(obj.eve_star, EveStar.objects.get(id=star_id))
         self.assertTrue(obj.eve_planets.filter(id=planet_id).exists())
@@ -303,7 +305,7 @@ class TestEveSolarSystem_Sections(TestCase):
         )
         # then
         self.assertEqual(obj.id, solar_system_id)
-        self.assertFalse(obj.enabled_sections.stargates)
+        self.assertSetEqual(obj.enabled_sections_set, set())
 
     @pook.on
     def test_should_create_solar_system_with_planets_and_moons(self):
@@ -368,11 +370,13 @@ class TestEveSolarSystem_Sections(TestCase):
 
         # then
         self.assertEqual(solar_system.id, solar_system_id)
-        self.assertTrue(solar_system.enabled_sections.planets)
+        self.assertSetEqual(
+            solar_system.enabled_sections_set, {EveSolarSystem.Section.PLANETS}
+        )
         self.assertTrue(solar_system.eve_planets.filter(id=planet_id).exists())
 
-        planet = solar_system.eve_planets.get(id=planet_id)
-        self.assertTrue(planet.enabled_sections.moons)
+        planet: EvePlanet = solar_system.eve_planets.get(id=planet_id)
+        self.assertSetEqual(planet.enabled_sections_set, {EvePlanet.Section.MOONS})
         self.assertTrue(planet.eve_moons.filter(id=moon_id).exists())
 
 

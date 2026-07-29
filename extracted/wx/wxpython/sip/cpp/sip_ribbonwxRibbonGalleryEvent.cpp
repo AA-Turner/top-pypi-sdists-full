@@ -124,7 +124,7 @@ static PyObject *meth_wxRibbonGalleryEvent_GetGallery(PyObject *sipSelf, PyObjec
 
 PyDoc_STRVAR(doc_wxRibbonGalleryEvent_GetGalleryItem, "GetGalleryItem() -> RibbonGalleryItem\n"
 "\n"
-"Returns the gallery item which the event relates to, or NULL if it\n"
+"Returns the gallery item which the event relates to, or nullptr if it\n"
 "does not relate to an item.");
 
 extern "C" {static PyObject *meth_wxRibbonGalleryEvent_GetGalleryItem(PyObject *, PyObject *);}
@@ -323,8 +323,8 @@ static void *init_type_wxRibbonGalleryEvent(sipSimpleWrapper *sipSelf, PyObject 
     {
         ::wxEventType command_type = wxEVT_NULL;
         int win_id = 0;
-        ::wxRibbonGallery* gallery = 0;
-        ::wxRibbonGalleryItem* item = 0;
+        ::wxRibbonGallery* gallery = nullptr;
+        ::wxRibbonGalleryItem* item = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_command_type,
@@ -373,7 +373,7 @@ static void *init_type_wxRibbonGalleryEvent(sipSimpleWrapper *sipSelf, PyObject 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxRibbonGalleryEvent[] = {{4, 0, 1}};
+static sipEncodedTypeDef supers_wxRibbonGalleryEvent[] = {{6, 0, 1}};
 
 
 static PyMethodDef methods_wxRibbonGalleryEvent[] = {
@@ -389,7 +389,7 @@ sipVariableDef variables_wxRibbonGalleryEvent[] = {
     {PropertyVariable, sipName_Gallery, &methods_wxRibbonGalleryEvent[1], &methods_wxRibbonGalleryEvent[3], SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxRibbonGalleryEvent, "RibbonGalleryEvent(command_type=wx.wxEVT_NULL, win_id=0, gallery=None, item=None) -> None");
+PyDoc_STRVAR(doc_wxRibbonGalleryEvent, "RibbonGalleryEvent(command_type=wx.wxEVT_NULL, win_id=0, gallery=nullptr, item=nullptr) -> None");
 
 
 sipClassTypeDef sipTypeDef__ribbon_wxRibbonGalleryEvent = {

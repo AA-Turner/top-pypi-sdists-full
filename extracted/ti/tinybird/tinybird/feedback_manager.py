@@ -242,10 +242,11 @@ class FeedbackManager:
     error_organization_index = error_message(
         "Error selecting organization '{organization_index}'. Select a valid index or 0 to cancel"
     )
-    warning_none_organization = warning_message(
-        "Tinybird is now based on organizations. Please, go to the UI ({ui_host}) to follow the migration process. \nYour workspace will be created any way."
-    )
     error_while_fetching_orgs = error_message("Error while fetching organizations: {error}")
+    error_classic_workspace_creation_deprecated = error_message(
+        "The Classic experience is deprecated. New workspaces should be created in Forward. "
+        "Migration guide: https://www.tinybird.co/docs/forward/guides/migrate-from-classic"
+    )
     error_deleted_include = error_message(
         "Related include file {include_file} was deleted and it's used in {filename}. Delete or remove dependency from {filename}."
     )

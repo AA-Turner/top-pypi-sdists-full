@@ -1,9 +1,9 @@
+# pylint: disable=line-too-long,useless-suppression
 # ------------------------------------
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 # ------------------------------------
 # mypy: disable-error-code="attr-defined"
-# pylint: disable=too-many-lines
 
 from typing import Any, List, Union, overload, Optional, cast, Mapping, IO, MutableMapping
 from enum import Enum
@@ -18,6 +18,9 @@ from azure.core.pipeline.policies import HttpLoggingPolicy
 
 from ._operations._patch import DocumentTranslationLROPoller, DocumentTranslationLROPollingMethod, TranslationPolling
 from ._client import DocumentTranslationClient as GeneratedDocumentTranslationClient
+from ._client import SingleDocumentTranslationClient as GeneratedSingleDocumentTranslationClient
+from ._operations._patch import DocumentTranslationClientOperationsMixin
+from ._operations._patch import SingleDocumentTranslationClientOperationsMixin
 from .models import (
     DocumentBatch,
     SourceInput,
@@ -28,9 +31,10 @@ from .models import (
     StartTranslationDetails,
     StorageInputType,
     DocumentTranslationFileFormat,
+    FileFormatType,
     TranslationStatus,
-    DocumentTranslationError,
     DocumentTranslationInput,
+    BatchOptions,
 )
 from .models._patch import convert_status
 
@@ -62,8 +66,10 @@ def convert_order_by(orderby: Optional[List[str]]) -> Optional[List[str]]:
 class DocumentTranslationApiVersion(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Document Translation API versions supported by this package"""
 
-    #: This is the default version
     V2024_05_01 = "2024-05-01"
+
+    #: This is the default version
+    V2026_03_01 = "2026-03-01"
 
 
 def get_translation_input(args, kwargs, continuation_token):
@@ -83,8 +89,16 @@ def get_translation_input(args, kwargs, continuation_token):
         request = inputs
     # backcompatibility
     elif len(inputs) > 0 and isinstance(inputs[0], DocumentTranslationInput):
+        translate_text_within_image = kwargs.pop("translate_text_within_image", None)
         # pylint: disable=protected-access
-        request = StartTranslationDetails(inputs=[input._to_generated() for input in inputs])
+        request = StartTranslationDetails(
+            inputs=[input._to_generated() for input in inputs],
+            options=(
+                BatchOptions(translate_text_within_image=translate_text_within_image)
+                if translate_text_within_image is not None
+                else None
+            ),
+        )
     else:
         try:
             source_url = kwargs.pop("source_url", None)
@@ -103,6 +117,8 @@ def get_translation_input(args, kwargs, continuation_token):
             suffix = kwargs.pop("suffix", None)
             storage_type = kwargs.pop("storage_type", None)
             category_id = kwargs.pop("category_id", None)
+            deployment_name = kwargs.pop("deployment_name", None)
+            translate_text_within_image = kwargs.pop("translate_text_within_image", None)
             glossaries = kwargs.pop("glossaries", None)
 
             request = StartTranslationDetails(
@@ -119,11 +135,17 @@ def get_translation_input(args, kwargs, continuation_token):
                                 language=target_language,
                                 glossaries=glossaries,
                                 category_id=category_id,
+                                deployment_name=deployment_name,
                             )
                         ],
                         storage_type=storage_type,
                     )
-                ]
+                ],
+                options=(
+                    BatchOptions(translate_text_within_image=translate_text_within_image)
+                    if translate_text_within_image is not None
+                    else None
+                ),
             )
         except (AttributeError, TypeError, IndexError) as exc:
             raise ValueError(
@@ -164,7 +186,7 @@ def get_http_logging_policy(**kwargs):
     return http_logging_policy
 
 
-class DocumentTranslationClient(GeneratedDocumentTranslationClient):
+class DocumentTranslationClient(DocumentTranslationClientOperationsMixin, GeneratedDocumentTranslationClient):
     def __init__(self, endpoint: str, credential: Union[AzureKeyCredential, TokenCredential], **kwargs: Any) -> None:
         """DocumentTranslationClient is your interface to the Document Translation service.
         Use the client to translate whole documents while preserving source document
@@ -213,17 +235,17 @@ class DocumentTranslationClient(GeneratedDocumentTranslationClient):
         )
 
     def __enter__(self) -> "DocumentTranslationClient":
-        self._client.__enter__()  # pylint:disable=no-member
+        self._client.__enter__()
         return self
 
     def __exit__(self, *args) -> None:
-        self._client.__exit__(*args)  # pylint:disable=no-member
+        self._client.__exit__(*args)
 
     def close(self) -> None:
         """Close the :class:`~azure.ai.translation.document.DocumentTranslationClient` session."""
         return self._client.close()
 
-    @overload
+    @overload  # type: ignore[override]
     def begin_translation(
         self,
         source_url: str,
@@ -236,6 +258,8 @@ class DocumentTranslationClient(GeneratedDocumentTranslationClient):
         storage_type: Optional[Union[str, StorageInputType]] = None,
         category_id: Optional[str] = None,
         glossaries: Optional[List[TranslationGlossary]] = None,
+        deployment_name: Optional[str] = None,
+        translate_text_within_image: Optional[bool] = None,
         **kwargs: Any
     ) -> DocumentTranslationLROPoller[ItemPaged[DocumentStatus]]:
         """Begin translating the document(s) in your source container to your target container
@@ -262,10 +286,14 @@ class DocumentTranslationClient(GeneratedDocumentTranslationClient):
             translation. This is most often use for file extensions.
         :keyword storage_type: Storage type of the input documents source string. Possible values
             include: "Folder", "File".
-        :paramtype storage_type: str or ~azure.ai.translation.document.StorageInputType
+        :paramtype storage_type: str or ~azure.ai.translation.document.models.StorageInputType
         :keyword str category_id: Category / custom model ID for using custom translation.
         :keyword glossaries: Glossaries to apply to translation.
-        :paramtype glossaries: list[~azure.ai.translation.document.TranslationGlossary]
+        :paramtype glossaries: list[~azure.ai.translation.document.models.TranslationGlossary]
+        :keyword str deployment_name: Deployment name of the custom translation model for the
+            translation request.
+        :keyword bool translate_text_within_image: Whether to translate text embedded within images
+            in the documents.
         :return: An instance of a DocumentTranslationLROPoller. Call `result()` on the poller
             object to return a pageable of DocumentStatus. A DocumentStatus will be
             returned for each translation on a document.
@@ -274,7 +302,7 @@ class DocumentTranslationClient(GeneratedDocumentTranslationClient):
         """
 
     @overload
-    def begin_translation(
+    def begin_translation(  # pylint: disable=arguments-renamed
         self, inputs: StartTranslationDetails, **kwargs: Any
     ) -> DocumentTranslationLROPoller[ItemPaged[DocumentStatus]]:
         """Begin translating the document(s) in your source container to your target container
@@ -295,7 +323,9 @@ class DocumentTranslationClient(GeneratedDocumentTranslationClient):
         """
 
     @overload
-    def begin_translation(self, inputs: JSON, **kwargs: Any) -> DocumentTranslationLROPoller[ItemPaged[DocumentStatus]]:
+    def begin_translation(  # pylint: disable=arguments-renamed
+        self, inputs: JSON, **kwargs: Any
+    ) -> DocumentTranslationLROPoller[ItemPaged[DocumentStatus]]:
         """Begin translating the document(s) in your source container to your target container
         in the given language.
 
@@ -351,7 +381,7 @@ class DocumentTranslationClient(GeneratedDocumentTranslationClient):
         """
 
     @overload
-    def begin_translation(
+    def begin_translation(  # pylint: disable=arguments-renamed
         self, inputs: IO[bytes], **kwargs: Any
     ) -> DocumentTranslationLROPoller[ItemPaged[DocumentStatus]]:
         """Begin translating the document(s) in your source container to your target container
@@ -372,7 +402,7 @@ class DocumentTranslationClient(GeneratedDocumentTranslationClient):
         """
 
     @overload
-    def begin_translation(
+    def begin_translation(  # pylint: disable=arguments-renamed
         self, inputs: List[DocumentTranslationInput], **kwargs: Any
     ) -> DocumentTranslationLROPoller[ItemPaged[DocumentStatus]]:
         """Begin translating the document(s) in your source container to your target container
@@ -384,7 +414,7 @@ class DocumentTranslationClient(GeneratedDocumentTranslationClient):
         :param inputs: A list of translation inputs. Each individual input has a single
             source URL to documents and can contain multiple TranslationTargets (one for each language)
             for the destination to write translated documents.
-        :type inputs: List[~azure.ai.translation.document.DocumentTranslationInput]
+        :type inputs: List[~azure.ai.translation.document.models.DocumentTranslationInput]
         :return: An instance of a DocumentTranslationLROPoller. Call `result()` on the poller
             object to return a pageable of DocumentStatus. A DocumentStatus will be
             returned for each translation on a document.
@@ -393,7 +423,7 @@ class DocumentTranslationClient(GeneratedDocumentTranslationClient):
         """
 
     @distributed_trace
-    def begin_translation(  # pylint: disable=docstring-missing-param,docstring-should-be-keyword
+    def begin_translation(  # pylint: disable=docstring-missing-param,docstring-should-be-keyword,docstring-keyword-should-match-keyword-only
         self, *args: Union[str, List[DocumentTranslationInput], StartTranslationDetails, IO[bytes], JSON], **kwargs: Any
     ) -> DocumentTranslationLROPoller[ItemPaged[DocumentStatus]]:
         """Begin translating the document(s) in your source container to your target container
@@ -405,7 +435,7 @@ class DocumentTranslationClient(GeneratedDocumentTranslationClient):
         :param inputs: The translation inputs. Each individual input has a single
             source URL to documents and can contain multiple targets (one for each language)
             for the destination to write translated documents.
-        :type inputs: List[~azure.ai.translation.document.DocumentTranslationInput] or
+        :type inputs: List[~azure.ai.translation.document.models.DocumentTranslationInput] or
             IO[bytes] or JSON or ~azure.ai.translation.document.models.StartTranslationDetails
         :param str source_url: The source SAS URL to the Azure Blob container containing the documents
             to be translated. See the service documentation for the supported SAS permissions for accessing
@@ -425,10 +455,10 @@ class DocumentTranslationClient(GeneratedDocumentTranslationClient):
             translation. This is most often use for file extensions.
         :keyword storage_type: Storage type of the input documents source string. Possible values
             include: "Folder", "File".
-        :paramtype storage_type: str or ~azure.ai.translation.document.StorageInputType
+        :paramtype storage_type: str or ~azure.ai.translation.document.models.StorageInputType
         :keyword str category_id: Category / custom model ID for using custom translation.
         :keyword glossaries: Glossaries to apply to translation.
-        :paramtype glossaries: list[~azure.ai.translation.document.TranslationGlossary]
+        :paramtype glossaries: list[~azure.ai.translation.document.models.TranslationGlossary]
         :return: An instance of a DocumentTranslationLROPoller. Call `result()` on the poller
             object to return a pageable of DocumentStatus. A DocumentStatus will be
             returned for each translation on a document.
@@ -455,7 +485,7 @@ class DocumentTranslationClient(GeneratedDocumentTranslationClient):
 
         polling_interval = kwargs.pop(
             "polling_interval",
-            self._config.polling_interval,  # pylint: disable=protected-access
+            self._config.polling_interval,
         )
 
         pipeline_response = None
@@ -482,7 +512,6 @@ class DocumentTranslationClient(GeneratedDocumentTranslationClient):
             ),
         )
 
-    # pylint: disable=arguments-renamed
     @distributed_trace
     def cancel_translation(self, translation_id: str, **kwargs: Any) -> None:  # type: ignore[override]
         """Cancel a currently processing or queued translation operation.
@@ -561,7 +590,6 @@ class DocumentTranslationClient(GeneratedDocumentTranslationClient):
             ),
         )
 
-    # pylint: disable=arguments-renamed
     @distributed_trace
     def list_document_statuses(  # type: ignore[override]
         self,
@@ -638,7 +666,7 @@ class DocumentTranslationClient(GeneratedDocumentTranslationClient):
         :raises ~azure.core.exceptions.HttpResponseError:
         """
 
-        return super()._get_supported_formats(type="glossary", **kwargs).value
+        return super()._get_supported_formats(type=FileFormatType.GLOSSARY, **kwargs).value
 
     @distributed_trace
     def get_supported_document_formats(self, **kwargs: Any) -> List[DocumentTranslationFileFormat]:
@@ -649,22 +677,34 @@ class DocumentTranslationClient(GeneratedDocumentTranslationClient):
         :raises ~azure.core.exceptions.HttpResponseError:
         """
 
-        return super()._get_supported_formats(type="document", **kwargs).value
+        return super()._get_supported_formats(type=FileFormatType.DOCUMENT, **kwargs).value
+
+
+class SingleDocumentTranslationClient(
+    SingleDocumentTranslationClientOperationsMixin, GeneratedSingleDocumentTranslationClient
+):
+    """SingleDocumentTranslationClient is your interface to the Document Translation service to
+    translate a single document.
+
+    :param endpoint: Supported document Translation endpoint, protocol and hostname, for example:
+     https://{TranslatorResourceName}.cognitiveservices.azure.com/translator. Required.
+    :type endpoint: str
+    :param credential: Credential used to authenticate requests to the service. Is either a key
+     credential type or a token credential type. Required.
+    :type credential: ~azure.core.credentials.AzureKeyCredential or
+     ~azure.core.credentials.TokenCredential
+    :keyword api_version:
+        The API version of the service to use for requests. It defaults to the latest service version.
+        Setting to an older version may result in reduced feature compatibility.
+    :paramtype api_version: str or ~azure.ai.translation.document.DocumentTranslationApiVersion
+    """
 
 
 __all__: List[str] = [
     "DocumentTranslationClient",
+    "SingleDocumentTranslationClient",
     "DocumentTranslationApiVersion",
     "DocumentTranslationLROPoller",
-    # re-export models at this level for backwards compatibility
-    "TranslationGlossary",
-    "TranslationTarget",
-    "DocumentTranslationInput",
-    "TranslationStatus",
-    "DocumentStatus",
-    "DocumentTranslationError",
-    "DocumentTranslationFileFormat",
-    "StorageInputType",
 ]  # Add all objects you want publicly available to users at this package level
 
 

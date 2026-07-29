@@ -6,8 +6,12 @@ from typing import Optional, Set
 from unittest.mock import Mock
 
 import pytest
+import requests.exceptions
+from pygitguardian import GGClient
+from pygitguardian.models import Detail
 
 from ggshield.__main__ import cli
+from ggshield.cmd.auth.login import _warn_missing_scopes
 from ggshield.core.config import Config
 from ggshield.core.constants import DEFAULT_INSTANCE_URL
 from ggshield.core.errors import ExitCode, UnexpectedError
@@ -47,6 +51,7 @@ VALID_TOKEN_RESPONSE = create_json_response(
             "scan",
             "honeytokens:check",
             "endpoints:send",
+            "ai-discover:send",
         ],
         "expire_at": None,
     }
@@ -77,6 +82,7 @@ VALID_API_TOKENS_RESPONSE = create_json_response(
             "scan",
             "honeytokens:check",
             "endpoints:send",
+            "ai-discover:send",
         ],
     }
 )
@@ -140,6 +146,30 @@ class TestAuthLoginToken:
                 assert "Authentication failed with token." in result.output
             assert instance not in config_instance_urls
 
+        self._request_mock.assert_all_requests_happened()
+
+    def test_auth_login_token_non_json_response(self, monkeypatch, cli_fs_runner):
+        """
+        GIVEN a wrong instance URL whose /v1/token answers a 2xx with HTML
+            (the dashboard SPA) instead of JSON
+        WHEN the auth login command is called with --method=token
+        THEN it fails with a clean error, not a raw JSONDecodeError traceback
+        """
+        token = "mysupertoken"
+        instance = "https://dashboard.gitguardian.com"
+        cmd = ["auth", "login", "--method=token", f"--instance={instance}"]
+        self._request_mock.add_GET(
+            TOKEN_ENDPOINT,
+            create_html_response(
+                "<!doctype html><html><body>GitGuardian</body></html>"
+            ),
+        )
+
+        result = cli_fs_runner.invoke(cli, cmd, color=False, input=token + "\n")
+
+        assert result.exit_code != 0
+        assert not isinstance(result.exception, requests.exceptions.JSONDecodeError)
+        assert "instance URL" in result.output
         self._request_mock.assert_all_requests_happened()
 
     def test_auth_login_token_missing_default_scopes(self, monkeypatch, cli_fs_runner):
@@ -699,6 +729,7 @@ class TestAuthLoginWeb:
                 "honeytokens:write",
                 "honeytokens:check",
                 "endpoints:send",
+                "ai-discover:send",
                 "teams:read",
             }
         )
@@ -931,6 +962,7 @@ class TestAuthLoginWeb:
                 "scan",
                 "honeytokens:check",
                 "endpoints:send",
+                "ai-discover:send",
             }
 
         (url,), kwargs = self._webbrowser_open_mock.call_args_list[0]
@@ -1328,3 +1360,52 @@ class TestAuthLoginOob:
         result = cli_fs_runner.invoke(cli, cmd, color=False)
         assert result.exit_code != 0
         assert "'no-browser' is not one of 'token', 'web', 'oob'" in result.output
+
+
+def test_warn_missing_scopes_swallows_non_json_body(capsys):
+    """
+    GIVEN a just-logged-in client whose api_tokens() hits a non-JSON 2xx body
+    WHEN _warn_missing_scopes() is called (best-effort, post-login)
+    THEN it neither crashes nor prints a misleading "scopes not granted" warning
+    """
+    client_mock = Mock(spec=GGClient)
+    client_mock.base_uri = "https://dashboard.example.com"
+    client_mock.api_tokens.side_effect = requests.exceptions.JSONDecodeError(
+        "Expecting value: line 1 column 1 (char 0)",
+        "<!doctype html><html></html>",
+        0,
+    )
+
+    _warn_missing_scopes(client_mock)  # must not raise
+
+    assert "scopes were not granted" not in capsys.readouterr().err
+
+
+def test_warn_missing_scopes_silent_on_error_detail(capsys):
+    """
+    GIVEN a client whose api_tokens() returns an error Detail (e.g. 401)
+    WHEN _warn_missing_scopes() is called
+    THEN it does not warn about "missing" scopes it never managed to read
+    """
+    client_mock = Mock(spec=GGClient)
+    client_mock.base_uri = "https://dashboard.example.com"
+    client_mock.api_tokens.return_value = Detail("Unauthorized", 401)
+
+    _warn_missing_scopes(client_mock)
+
+    assert "scopes were not granted" not in capsys.readouterr().err
+
+
+def test_warn_missing_scopes_swallows_connection_error(capsys):
+    """
+    GIVEN a transient network error while fetching token info post-login
+    WHEN _warn_missing_scopes() is called (best-effort, after login succeeded)
+    THEN it neither crashes nor warns
+    """
+    client_mock = Mock(spec=GGClient)
+    client_mock.base_uri = "https://dashboard.example.com"
+    client_mock.api_tokens.side_effect = requests.exceptions.ConnectionError("boom")
+
+    _warn_missing_scopes(client_mock)  # must not raise
+
+    assert "scopes were not granted" not in capsys.readouterr().err

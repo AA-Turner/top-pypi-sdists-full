@@ -48,6 +48,7 @@
         #include <wx/richtext/richtextstyles.h>
         #include <wx/richtext/richtextstyles.h>
         #include <wx/richtext/richtextbuffer.h>
+        #include <wx/dc.h>
         #include <wx/richtext/richtextbuffer.h>
         #include <wx/image.h>
         #include <wx/colour.h>
@@ -61,13 +62,14 @@
         #include <wx/richtext/richtextctrl.h>
         #include <wx/datetime.h>
         #include <wx/cursor.h>
+        #include <wx/access.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
+        #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/tooltip.h>
         #include <wx/event.h>
@@ -104,7 +106,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
     bool sipProtectVirt_TryBefore(bool, ::wxEvent&);
@@ -131,7 +132,6 @@ protected:
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
@@ -174,7 +174,7 @@ private:
     sipwxRichTextCtrl(const sipwxRichTextCtrl &);
     sipwxRichTextCtrl &operator = (const sipwxRichTextCtrl &);
 
-    char sipPyMethods[49];
+    char sipPyMethods[48];
 };
 
 sipwxRichTextCtrl::sipwxRichTextCtrl(): ::wxRichTextCtrl(), sipPySelf(SIP_NULLPTR)
@@ -423,27 +423,12 @@ void sipwxRichTextCtrl::DoFreeze()
     sipVH__richtext_36(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxRichTextCtrl::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[14]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxRichTextCtrl::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__richtext_140(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__richtext_140(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 ::wxBorder sipwxRichTextCtrl::GetDefaultBorder() const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[15]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[14]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
 
     if (!sipMeth)
         return ::wxRichTextCtrl::GetDefaultBorder();
@@ -458,7 +443,7 @@ void sipwxRichTextCtrl::DoSetWindowVariant(::wxWindowVariant variant)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[16], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[15], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
 
     if (!sipMeth)
     {
@@ -476,7 +461,7 @@ void sipwxRichTextCtrl::DoMoveWindow(int x, int y, int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[17], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[16], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
 
     if (!sipMeth)
     {
@@ -494,7 +479,7 @@ void sipwxRichTextCtrl::DoSetSizeHints(int minW, int minH, int maxW, int maxH, i
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[18], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[17], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
 
     if (!sipMeth)
     {
@@ -512,7 +497,7 @@ void sipwxRichTextCtrl::DoSetClientSize(int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[19], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[18], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
 
     if (!sipMeth)
     {
@@ -530,7 +515,7 @@ void sipwxRichTextCtrl::DoSetSize(int x, int y, int width, int height, int sizeF
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[20], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[19], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
 
     if (!sipMeth)
     {
@@ -548,7 +533,7 @@ void sipwxRichTextCtrl::DoGetClientSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[21]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[20]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
 
     if (!sipMeth)
     {
@@ -566,7 +551,7 @@ void sipwxRichTextCtrl::DoGetSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[22]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[21]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
 
     if (!sipMeth)
     {
@@ -584,7 +569,7 @@ void sipwxRichTextCtrl::DoGetPosition(int*x, int*y) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[23]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[22]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
 
     if (!sipMeth)
     {
@@ -602,7 +587,7 @@ void sipwxRichTextCtrl::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[24], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
 
     if (!sipMeth)
     {
@@ -620,7 +605,7 @@ void sipwxRichTextCtrl::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[25], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[24], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
 
     if (!sipMeth)
         return ::wxRichTextCtrl::GetMainWindowOfCompositeControl();
@@ -635,7 +620,7 @@ void sipwxRichTextCtrl::OnInternalIdle()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[26], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[25], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
 
     if (!sipMeth)
     {
@@ -653,7 +638,7 @@ void sipwxRichTextCtrl::InitDialog()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[27], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[26], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
 
     if (!sipMeth)
     {
@@ -671,7 +656,7 @@ void sipwxRichTextCtrl::InheritAttributes()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[28], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[27], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
 
     if (!sipMeth)
     {
@@ -689,7 +674,7 @@ bool sipwxRichTextCtrl::Destroy()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[29], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[28], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
 
     if (!sipMeth)
         return ::wxRichTextCtrl::Destroy();
@@ -704,7 +689,7 @@ bool sipwxRichTextCtrl::Validate()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[30], &sipPySelf, SIP_NULLPTR, sipName_Validate);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[29], &sipPySelf, SIP_NULLPTR, sipName_Validate);
 
     if (!sipMeth)
         return ::wxRichTextCtrl::Validate();
@@ -719,7 +704,7 @@ bool sipwxRichTextCtrl::TransferDataToWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[31], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[30], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
 
     if (!sipMeth)
         return ::wxRichTextCtrl::TransferDataToWindow();
@@ -734,7 +719,7 @@ bool sipwxRichTextCtrl::TransferDataFromWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[32], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[31], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
 
     if (!sipMeth)
         return ::wxRichTextCtrl::TransferDataFromWindow();
@@ -749,7 +734,7 @@ void sipwxRichTextCtrl::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[33], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[32], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
 
     if (!sipMeth)
     {
@@ -767,7 +752,7 @@ void sipwxRichTextCtrl::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[33], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
 
     if (!sipMeth)
         return ::wxRichTextCtrl::GetValidator();
@@ -782,7 +767,7 @@ bool sipwxRichTextCtrl::ShouldInheritColours() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[35]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
 
     if (!sipMeth)
         return ::wxRichTextCtrl::ShouldInheritColours();
@@ -797,7 +782,7 @@ bool sipwxRichTextCtrl::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
 
     if (!sipMeth)
         return ::wxRichTextCtrl::HasTransparentBackground();
@@ -812,7 +797,7 @@ bool sipwxRichTextCtrl::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
 
     if (!sipMeth)
         return ::wxRichTextCtrl::GetClientAreaOrigin();
@@ -827,7 +812,7 @@ bool sipwxRichTextCtrl::InformFirstDirection(int direction, int size, int availa
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
 
     if (!sipMeth)
         return ::wxRichTextCtrl::InformFirstDirection(direction, size, availableOtherDir);
@@ -842,7 +827,7 @@ void sipwxRichTextCtrl::EnableVisibleFocus(bool enabled)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[39], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
 
     if (!sipMeth)
     {
@@ -860,7 +845,7 @@ void sipwxRichTextCtrl::SetCanFocus(bool canFocus)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[40], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[39], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
 
     if (!sipMeth)
     {
@@ -878,7 +863,7 @@ bool sipwxRichTextCtrl::AcceptsFocusRecursively() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[41]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[40]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
 
     if (!sipMeth)
         return ::wxRichTextCtrl::AcceptsFocusRecursively();
@@ -893,7 +878,7 @@ bool sipwxRichTextCtrl::AcceptsFocusFromKeyboard() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[42]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[41]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
 
     if (!sipMeth)
         return ::wxRichTextCtrl::AcceptsFocusFromKeyboard();
@@ -908,7 +893,7 @@ bool sipwxRichTextCtrl::AcceptsFocus() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[43]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[42]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
 
     if (!sipMeth)
         return ::wxRichTextCtrl::AcceptsFocus();
@@ -923,7 +908,7 @@ bool sipwxRichTextCtrl::TryAfter(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[44], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[43], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
 
     if (!sipMeth)
         return ::wxRichTextCtrl::TryAfter(event);
@@ -938,7 +923,7 @@ bool sipwxRichTextCtrl::TryBefore(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[45], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[44], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
 
     if (!sipMeth)
         return ::wxRichTextCtrl::TryBefore(event);
@@ -953,7 +938,7 @@ bool sipwxRichTextCtrl::ProcessEvent(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[46], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[45], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
 
     if (!sipMeth)
         return ::wxRichTextCtrl::ProcessEvent(event);
@@ -968,7 +953,7 @@ void sipwxRichTextCtrl::AddChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[47], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[46], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
 
     if (!sipMeth)
     {
@@ -986,7 +971,7 @@ void sipwxRichTextCtrl::RemoveChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[48], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[47], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
 
     if (!sipMeth)
     {
@@ -1062,11 +1047,6 @@ void sipwxRichTextCtrl::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, ::
 ::wxBorder sipwxRichTextCtrl::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxRichTextCtrl::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxRichTextCtrl::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxRichTextCtrl::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxRichTextCtrl::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -4273,7 +4253,7 @@ static PyObject *meth_wxRichTextCtrl_ClearListStyle(PyObject *sipSelf, PyObject 
 }
 
 
-PyDoc_STRVAR(doc_wxRichTextCtrl_NumberList, "NumberList(range, _def=None, flags=RICHTEXT_SETSTYLE_WITH_UNDO, startFrom=1, specifiedLevel=-1) -> bool\n"
+PyDoc_STRVAR(doc_wxRichTextCtrl_NumberList, "NumberList(range, _def=nullptr, flags=RICHTEXT_SETSTYLE_WITH_UNDO, startFrom=1, specifiedLevel=-1) -> bool\n"
 "NumberList(range, defName, flags=RICHTEXT_SETSTYLE_WITH_UNDO, startFrom=1, specifiedLevel=-1) -> bool\n"
 "\n"
 "Numbers the paragraphs in the given range.\n"
@@ -4287,7 +4267,7 @@ static PyObject *meth_wxRichTextCtrl_NumberList(PyObject *sipSelf, PyObject *sip
     {
         const ::wxRichTextRange* range;
         int rangeState = 0;
-        ::wxRichTextListStyleDefinition* def = 0;
+        ::wxRichTextListStyleDefinition* def = nullptr;
         int flags = wxRICHTEXT_SETSTYLE_WITH_UNDO;
         int startFrom = 1;
         int specifiedLevel = -1;
@@ -4362,7 +4342,7 @@ static PyObject *meth_wxRichTextCtrl_NumberList(PyObject *sipSelf, PyObject *sip
 }
 
 
-PyDoc_STRVAR(doc_wxRichTextCtrl_PromoteList, "PromoteList(promoteBy, range, _def=None, flags=RICHTEXT_SETSTYLE_WITH_UNDO, specifiedLevel=-1) -> bool\n"
+PyDoc_STRVAR(doc_wxRichTextCtrl_PromoteList, "PromoteList(promoteBy, range, _def=nullptr, flags=RICHTEXT_SETSTYLE_WITH_UNDO, specifiedLevel=-1) -> bool\n"
 "PromoteList(promoteBy, range, defName, flags=RICHTEXT_SETSTYLE_WITH_UNDO, specifiedLevel=-1) -> bool\n"
 "\n"
 "Promotes or demotes the paragraphs in the given range.\n"
@@ -4377,7 +4357,7 @@ static PyObject *meth_wxRichTextCtrl_PromoteList(PyObject *sipSelf, PyObject *si
         int promoteBy;
         const ::wxRichTextRange* range;
         int rangeState = 0;
-        ::wxRichTextListStyleDefinition* def = 0;
+        ::wxRichTextListStyleDefinition* def = nullptr;
         int flags = wxRICHTEXT_SETSTYLE_WITH_UNDO;
         int specifiedLevel = -1;
         ::wxRichTextCtrl *sipCpp;
@@ -7891,7 +7871,7 @@ static PyObject *meth_wxRichTextCtrl_DoLayoutBuffer(PyObject *sipSelf, PyObject 
 
     {
         ::wxRichTextBuffer* buffer;
-        ::wxDC* dc;
+        ::wxReadOnlyDC* dc;
         ::wxRichTextDrawingContext* context;
         const ::wxRect* rect;
         int rectState = 0;
@@ -7909,7 +7889,7 @@ static PyObject *meth_wxRichTextCtrl_DoLayoutBuffer(PyObject *sipSelf, PyObject 
             sipName_flags,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J9J9J1J1i", &sipSelf, sipType_wxRichTextCtrl, &sipCpp, sipType_wxRichTextBuffer, &buffer, sipType_wxDC, &dc, sipType_wxRichTextDrawingContext, &context, sipType_wxRect, &rect, &rectState, sipType_wxRect, &parentRect, &parentRectState, &flags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J9J9J1J1i", &sipSelf, sipType_wxRichTextCtrl, &sipCpp, sipType_wxRichTextBuffer, &buffer, sipType_wxReadOnlyDC, &dc, sipType_wxRichTextDrawingContext, &context, sipType_wxRect, &rect, &rectState, sipType_wxRect, &parentRect, &parentRectState, &flags))
         {
             PyErr_Clear();
 
@@ -7933,7 +7913,7 @@ static PyObject *meth_wxRichTextCtrl_DoLayoutBuffer(PyObject *sipSelf, PyObject 
 }
 
 
-PyDoc_STRVAR(doc_wxRichTextCtrl_MoveCaret, "MoveCaret(pos, showAtLineStart=False, container=None) -> bool\n"
+PyDoc_STRVAR(doc_wxRichTextCtrl_MoveCaret, "MoveCaret(pos, showAtLineStart=False, container=nullptr) -> bool\n"
 "\n"
 "Move the caret to the given character position.");
 
@@ -7945,7 +7925,7 @@ static PyObject *meth_wxRichTextCtrl_MoveCaret(PyObject *sipSelf, PyObject *sipA
     {
         long pos;
         bool showAtLineStart = 0;
-        ::wxRichTextParagraphLayoutBox* container = 0;
+        ::wxRichTextParagraphLayoutBox* container = nullptr;
         ::wxRichTextCtrl *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -9462,7 +9442,7 @@ static PyObject *meth_wxRichTextCtrl_PopStyleSheet(PyObject *sipSelf, PyObject *
 }
 
 
-PyDoc_STRVAR(doc_wxRichTextCtrl_ApplyStyleSheet, "ApplyStyleSheet(styleSheet=None) -> bool\n"
+PyDoc_STRVAR(doc_wxRichTextCtrl_ApplyStyleSheet, "ApplyStyleSheet(styleSheet=nullptr) -> bool\n"
 "\n"
 "Applies the style sheet to the buffer, for example if the styles have\n"
 "changed.");
@@ -9473,7 +9453,7 @@ static PyObject *meth_wxRichTextCtrl_ApplyStyleSheet(PyObject *sipSelf, PyObject
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        ::wxRichTextStyleSheet* styleSheet = 0;
+        ::wxRichTextStyleSheet* styleSheet = nullptr;
         ::wxRichTextCtrl *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -12091,7 +12071,7 @@ static PyObject *meth_wxRichTextCtrl_ShouldInheritColours(PyObject *sipSelf, PyO
 }
 
 
-PyDoc_STRVAR(doc_wxRichTextCtrl_PositionCaret, "PositionCaret(container=None) -> None\n"
+PyDoc_STRVAR(doc_wxRichTextCtrl_PositionCaret, "PositionCaret(container=nullptr) -> None\n"
 "\n"
 "Internal function to position the visible caret according to the\n"
 "current caret position.");
@@ -12102,7 +12082,7 @@ static PyObject *meth_wxRichTextCtrl_PositionCaret(PyObject *sipSelf, PyObject *
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        ::wxRichTextParagraphLayoutBox* container = 0;
+        ::wxRichTextParagraphLayoutBox* container = nullptr;
         ::wxRichTextCtrl *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -12547,7 +12527,7 @@ static PyObject *meth_wxRichTextCtrl_MoveCaretBack(PyObject *sipSelf, PyObject *
 }
 
 
-PyDoc_STRVAR(doc_wxRichTextCtrl_GetCaretPositionForIndex, "GetCaretPositionForIndex(position, rect, container=None) -> bool\n"
+PyDoc_STRVAR(doc_wxRichTextCtrl_GetCaretPositionForIndex, "GetCaretPositionForIndex(position, rect, container=nullptr) -> bool\n"
 "\n"
 "Returns the caret height and position for the given character\n"
 "position.");
@@ -12561,7 +12541,7 @@ static PyObject *meth_wxRichTextCtrl_GetCaretPositionForIndex(PyObject *sipSelf,
         long position;
         ::wxRect* rect;
         int rectState = 0;
-        ::wxRichTextParagraphLayoutBox* container = 0;
+        ::wxRichTextParagraphLayoutBox* container = nullptr;
         ::wxRichTextCtrl *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -12670,7 +12650,7 @@ static PyObject *meth_wxRichTextCtrl_GetCommandProcessor(PyObject *sipSelf, PyOb
 }
 
 
-PyDoc_STRVAR(doc_wxRichTextCtrl_DeleteSelectedContent, "DeleteSelectedContent(newPos=None) -> bool\n"
+PyDoc_STRVAR(doc_wxRichTextCtrl_DeleteSelectedContent, "DeleteSelectedContent(newPos=nullptr) -> bool\n"
 "\n"
 "Deletes content if there is a selection, e.g.");
 
@@ -15071,40 +15051,6 @@ static PyObject *meth_wxRichTextCtrl_GetDefaultBorder(PyObject *sipSelf, PyObjec
 }
 
 
-PyDoc_STRVAR(doc_wxRichTextCtrl_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxRichTextCtrl_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxRichTextCtrl_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxRichTextCtrl *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRichTextCtrl, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_RichTextCtrl, sipName_GetDefaultBorderForControl, doc_wxRichTextCtrl_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxRichTextCtrl_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxRichTextCtrl_DoFreeze(PyObject *, PyObject *);}
@@ -15940,7 +15886,7 @@ static void *init_type_wxRichTextCtrl(sipSimpleWrapper *sipSelf, PyObject *sipAr
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxRichTextCtrl[] = {{15, 0, 1}};
+static sipEncodedTypeDef supers_wxRichTextCtrl[] = {{16, 0, 1}};
 
 
 static PyMethodDef methods_wxRichTextCtrl[] = {
@@ -16074,7 +16020,6 @@ static PyMethodDef methods_wxRichTextCtrl[] = {
     {sipName_GetContextMenu, meth_wxRichTextCtrl_GetContextMenu, METH_VARARGS, doc_wxRichTextCtrl_GetContextMenu},
     {sipName_GetContextMenuPropertiesInfo, meth_wxRichTextCtrl_GetContextMenuPropertiesInfo, METH_VARARGS, doc_wxRichTextCtrl_GetContextMenuPropertiesInfo},
     {sipName_GetDefaultBorder, meth_wxRichTextCtrl_GetDefaultBorder, METH_VARARGS, doc_wxRichTextCtrl_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxRichTextCtrl_GetDefaultBorderForControl, METH_VARARGS, doc_wxRichTextCtrl_GetDefaultBorderForControl},
     {sipName_GetDefaultStyleEx, meth_wxRichTextCtrl_GetDefaultStyleEx, METH_VARARGS, doc_wxRichTextCtrl_GetDefaultStyleEx},
     {sipName_GetDelayedImageLoading, meth_wxRichTextCtrl_GetDelayedImageLoading, METH_VARARGS, doc_wxRichTextCtrl_GetDelayedImageLoading},
     {sipName_GetDelayedImageProcessingRequired, meth_wxRichTextCtrl_GetDelayedImageProcessingRequired, METH_VARARGS, doc_wxRichTextCtrl_GetDelayedImageProcessingRequired},
@@ -16310,52 +16255,52 @@ static PyMethodDef methods_wxRichTextCtrl[] = {
 };
 
 sipVariableDef variables_wxRichTextCtrl[] = {
-    {PropertyVariable, sipName_VirtualAttributesEnabled, &methods_wxRichTextCtrl[185], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_VerticalScrollbarEnabled, &methods_wxRichTextCtrl[184], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Value, &methods_wxRichTextCtrl[183], &methods_wxRichTextCtrl[341], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_URLCursor, &methods_wxRichTextCtrl[177], &methods_wxRichTextCtrl[339], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_TextCursor, &methods_wxRichTextCtrl[176], &methods_wxRichTextCtrl[338], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_StyleSheet, &methods_wxRichTextCtrl[175], &methods_wxRichTextCtrl[337], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_StringSelection, &methods_wxRichTextCtrl[172], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelectionRange, &methods_wxRichTextCtrl[171], &methods_wxRichTextCtrl[334], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelectionAnchorObject, &methods_wxRichTextCtrl[170], &methods_wxRichTextCtrl[333], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelectionAnchor, &methods_wxRichTextCtrl[169], &methods_wxRichTextCtrl[332], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Selection, &methods_wxRichTextCtrl[168], &methods_wxRichTextCtrl[331], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Scale, &methods_wxRichTextCtrl[164], &methods_wxRichTextCtrl[330], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_PreDrag, &methods_wxRichTextCtrl[161], &methods_wxRichTextCtrl[328], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_NumberOfLines, &methods_wxRichTextCtrl[159], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Margins, &methods_wxRichTextCtrl[158], &methods_wxRichTextCtrl[325], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_LastPosition, &methods_wxRichTextCtrl[153], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_InternalSelectionRange, &methods_wxRichTextCtrl[152], &methods_wxRichTextCtrl[323], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_InsertionPoint, &methods_wxRichTextCtrl[151], &methods_wxRichTextCtrl[321], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ImagesEnabled, &methods_wxRichTextCtrl[150], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Hint, &methods_wxRichTextCtrl[149], &methods_wxRichTextCtrl[320], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_HandlerFlags, &methods_wxRichTextCtrl[148], &methods_wxRichTextCtrl[319], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_FullLayoutTime, &methods_wxRichTextCtrl[147], &methods_wxRichTextCtrl[318], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_FullLayoutSavedPosition, &methods_wxRichTextCtrl[146], &methods_wxRichTextCtrl[317], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_FullLayoutRequired, &methods_wxRichTextCtrl[145], &methods_wxRichTextCtrl[316], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_FontScale, &methods_wxRichTextCtrl[144], &methods_wxRichTextCtrl[315], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_FocusObject, &methods_wxRichTextCtrl[143], &methods_wxRichTextCtrl[313], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_FirstVisiblePosition, &methods_wxRichTextCtrl[142], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_FirstVisiblePoint, &methods_wxRichTextCtrl[141], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Filename, &methods_wxRichTextCtrl[140], &methods_wxRichTextCtrl[312], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Dragging, &methods_wxRichTextCtrl[139], &methods_wxRichTextCtrl[310], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DragStartTime, &methods_wxRichTextCtrl[138], &methods_wxRichTextCtrl[309], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DragStartPoint, &methods_wxRichTextCtrl[137], &methods_wxRichTextCtrl[308], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DimensionScale, &methods_wxRichTextCtrl[136], &methods_wxRichTextCtrl[307], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DelayedLayoutThreshold, &methods_wxRichTextCtrl[135], &methods_wxRichTextCtrl[306], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DelayedImageProcessingTime, &methods_wxRichTextCtrl[134], &methods_wxRichTextCtrl[305], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DelayedImageProcessingRequired, &methods_wxRichTextCtrl[133], &methods_wxRichTextCtrl[304], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DelayedImageLoading, &methods_wxRichTextCtrl[132], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DefaultStyleEx, &methods_wxRichTextCtrl[131], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_VirtualAttributesEnabled, &methods_wxRichTextCtrl[184], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_VerticalScrollbarEnabled, &methods_wxRichTextCtrl[183], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Value, &methods_wxRichTextCtrl[182], &methods_wxRichTextCtrl[340], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_URLCursor, &methods_wxRichTextCtrl[176], &methods_wxRichTextCtrl[338], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TextCursor, &methods_wxRichTextCtrl[175], &methods_wxRichTextCtrl[337], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_StyleSheet, &methods_wxRichTextCtrl[174], &methods_wxRichTextCtrl[336], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_StringSelection, &methods_wxRichTextCtrl[171], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelectionRange, &methods_wxRichTextCtrl[170], &methods_wxRichTextCtrl[333], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelectionAnchorObject, &methods_wxRichTextCtrl[169], &methods_wxRichTextCtrl[332], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelectionAnchor, &methods_wxRichTextCtrl[168], &methods_wxRichTextCtrl[331], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Selection, &methods_wxRichTextCtrl[167], &methods_wxRichTextCtrl[330], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Scale, &methods_wxRichTextCtrl[163], &methods_wxRichTextCtrl[329], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_PreDrag, &methods_wxRichTextCtrl[160], &methods_wxRichTextCtrl[327], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_NumberOfLines, &methods_wxRichTextCtrl[158], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Margins, &methods_wxRichTextCtrl[157], &methods_wxRichTextCtrl[324], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_LastPosition, &methods_wxRichTextCtrl[152], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_InternalSelectionRange, &methods_wxRichTextCtrl[151], &methods_wxRichTextCtrl[322], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_InsertionPoint, &methods_wxRichTextCtrl[150], &methods_wxRichTextCtrl[320], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ImagesEnabled, &methods_wxRichTextCtrl[149], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Hint, &methods_wxRichTextCtrl[148], &methods_wxRichTextCtrl[319], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_HandlerFlags, &methods_wxRichTextCtrl[147], &methods_wxRichTextCtrl[318], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_FullLayoutTime, &methods_wxRichTextCtrl[146], &methods_wxRichTextCtrl[317], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_FullLayoutSavedPosition, &methods_wxRichTextCtrl[145], &methods_wxRichTextCtrl[316], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_FullLayoutRequired, &methods_wxRichTextCtrl[144], &methods_wxRichTextCtrl[315], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_FontScale, &methods_wxRichTextCtrl[143], &methods_wxRichTextCtrl[314], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_FocusObject, &methods_wxRichTextCtrl[142], &methods_wxRichTextCtrl[312], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_FirstVisiblePosition, &methods_wxRichTextCtrl[141], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_FirstVisiblePoint, &methods_wxRichTextCtrl[140], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Filename, &methods_wxRichTextCtrl[139], &methods_wxRichTextCtrl[311], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Dragging, &methods_wxRichTextCtrl[138], &methods_wxRichTextCtrl[309], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DragStartTime, &methods_wxRichTextCtrl[137], &methods_wxRichTextCtrl[308], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DragStartPoint, &methods_wxRichTextCtrl[136], &methods_wxRichTextCtrl[307], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DimensionScale, &methods_wxRichTextCtrl[135], &methods_wxRichTextCtrl[306], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DelayedLayoutThreshold, &methods_wxRichTextCtrl[134], &methods_wxRichTextCtrl[305], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DelayedImageProcessingTime, &methods_wxRichTextCtrl[133], &methods_wxRichTextCtrl[304], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DelayedImageProcessingRequired, &methods_wxRichTextCtrl[132], &methods_wxRichTextCtrl[303], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DelayedImageLoading, &methods_wxRichTextCtrl[131], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DefaultStyleEx, &methods_wxRichTextCtrl[130], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_ContextMenuPropertiesInfo, &methods_wxRichTextCtrl[128], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ContextMenu, &methods_wxRichTextCtrl[127], &methods_wxRichTextCtrl[301], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ContextMenu, &methods_wxRichTextCtrl[127], &methods_wxRichTextCtrl[300], SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_CommandProcessor, &methods_wxRichTextCtrl[126], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CaretPositionForDefaultStyle, &methods_wxRichTextCtrl[122], &methods_wxRichTextCtrl[300], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CaretPosition, &methods_wxRichTextCtrl[121], &methods_wxRichTextCtrl[298], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CaretAtLineStart, &methods_wxRichTextCtrl[120], &methods_wxRichTextCtrl[297], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CaretPositionForDefaultStyle, &methods_wxRichTextCtrl[122], &methods_wxRichTextCtrl[299], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CaretPosition, &methods_wxRichTextCtrl[121], &methods_wxRichTextCtrl[297], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CaretAtLineStart, &methods_wxRichTextCtrl[120], &methods_wxRichTextCtrl[296], SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_Buffer, &methods_wxRichTextCtrl[119], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_BasicStyle, &methods_wxRichTextCtrl[118], &methods_wxRichTextCtrl[295], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_BasicStyle, &methods_wxRichTextCtrl[118], &methods_wxRichTextCtrl[294], SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxRichTextCtrl, "RichTextCtrl() -> None\n"
@@ -16378,7 +16323,7 @@ sipClassTypeDef sipTypeDef__richtext_wxRichTextCtrl = {
     {
         sipNameNr_RichTextCtrl,
         {0, 0, 1},
-        363, methods_wxRichTextCtrl,
+        362, methods_wxRichTextCtrl,
         0, SIP_NULLPTR,
         46, variables_wxRichTextCtrl,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

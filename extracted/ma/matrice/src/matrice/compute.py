@@ -113,7 +113,7 @@ class ComputeInstance:
         """
         path = f"/v1/scaling/stop_account_compute/{self.account_number}/{self.alias}"
         resp = self.rpc.put(path=path)
-        data, error, message = handle_response(
+        data, error, _ = handle_response(
             resp,
             f"Successfully stopped on-demand instance: {self.alias}",
             f"An error occurred while stopping the instance: {self.alias}",
@@ -375,7 +375,7 @@ def get_compute_status_summary(session, lease_type="on-demand"):
     """
     path = f"/v1/scaling/get_all_account_compute/{session.account_number}/{lease_type}"
     resp = session.rpc.get(path=path)
-    data, error, message = handle_response(
+    data, error, _ = handle_response(
         resp,
         "Successfully fetched compute status summary",
         "An error occurred while fetching compute status summary",
@@ -429,7 +429,7 @@ def add_on_demand_instance(
         "leaseType": "on-demand",
     }
     resp = session.rpc.post(path=path, json=payload)
-    data, error, message = handle_response(
+    data, error, _ = handle_response(
         resp,
         "Successfully added on-demand instance",
         "An error occurred while adding on-demand instance",

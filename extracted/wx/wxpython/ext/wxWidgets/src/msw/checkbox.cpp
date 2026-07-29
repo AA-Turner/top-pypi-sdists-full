@@ -2,7 +2,6 @@
 // Name:        src/msw/checkbox.cpp
 // Purpose:     wxCheckBox
 // Author:      Julian Smart
-// Modified by:
 // Created:     04/01/98
 // Copyright:   (c) Julian Smart
 // Licence:     wxWindows licence
@@ -32,8 +31,13 @@
 #include "wx/renderer.h"
 #include "wx/msw/uxtheme.h"
 #include "wx/msw/private/button.h"
+#include "wx/msw/private/darkmode.h"
 #include "wx/private/window.h"
 #include "wx/msw/missing.h"
+
+#if wxUSE_ACCESSIBILITY
+    #include "wx/msw/private/accessible.h"
+#endif
 
 // ============================================================================
 // implementation
@@ -88,6 +92,14 @@ WXDWORD wxCheckBox::MSWGetStyle(long style, WXDWORD *exstyle) const
     return msStyle;
 }
 
+void wxCheckBox::MSWSetDarkOrLightMode(SetMode setmode)
+{
+    wxCheckBoxBase::MSWSetDarkOrLightMode(setmode);
+
+    // Use owner-draw mode if needed for dark mode or custom text colour
+    MSWMakeOwnerDrawn(wxMSWDarkMode::IsActive() || m_hasFgCol);
+}
+
 // ----------------------------------------------------------------------------
 // wxCheckBox geometry
 // ----------------------------------------------------------------------------
@@ -98,7 +110,7 @@ wxSize wxCheckBox::DoGetBestClientSize() const
 
     if ( s_checkSize.HasChanged(this) )
     {
-        wxClientDC dc(const_cast<wxCheckBox*>(this));
+        wxInfoDC dc(const_cast<wxCheckBox*>(this));
         dc.SetFont(wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT));
 
         s_checkSize.SetAtNewDPI(dc.GetCharHeight());
@@ -110,8 +122,7 @@ wxSize wxCheckBox::DoGetBestClientSize() const
     int wCheckbox, hCheckbox;
     if ( !str.empty() )
     {
-        wxClientDC dc(const_cast<wxCheckBox *>(this));
-        dc.SetFont(GetFont());
+        wxInfoDC dc(const_cast<wxCheckBox *>(this));
         dc.GetMultiLineTextExtent(GetLabelText(str), &wCheckbox, &hCheckbox);
         wCheckbox += checkSize + GetCharWidth();
 
@@ -178,6 +189,9 @@ wxCOMPILE_TIME_ASSERT(wxCHK_UNCHECKED == BST_UNCHECKED
 
 void wxCheckBox::DoSet3StateValue(wxCheckBoxState state)
 {
+    if ( m_state == state )
+        return;
+
     m_state = state;
     if ( !IsOwnerDrawn() )
         ::SendMessage(GetHwnd(), BM_SETCHECK, (WPARAM) state, 0);
@@ -263,5 +277,53 @@ void wxCheckBox::MSWDrawButtonBitmap(wxDC& dc, const wxRect& rect, int flags)
 {
     wxRendererNative::Get().DrawCheckBox(this, dc, rect, flags);
 }
+
+#if wxUSE_ACCESSIBILITY
+
+namespace
+{
+
+// When the checkbox is owner-drawn (e.g. in dark mode), the native BS_CHECKBOX
+// style is replaced with BS_OWNERDRAW, causing the standard Windows accessible
+// object to report the control as a generic button. This custom accessible
+// ensures the correct role and checked state are always reported.
+class wxCheckBoxAccessible
+    : public wxOwnerDrawnAccessible<wxCheckBox, wxROLE_SYSTEM_CHECKBUTTON>
+{
+public:
+    explicit wxCheckBoxAccessible(wxCheckBox* win)
+        : wxOwnerDrawnAccessible(win)
+    {
+    }
+
+protected:
+    long MSWGetCheckedState(wxCheckBox* cb) const override
+    {
+        switch ( cb->Get3StateValue() )
+        {
+            case wxCHK_CHECKED:
+                return wxACC_STATE_SYSTEM_CHECKED;
+
+            case wxCHK_UNDETERMINED:
+                return wxACC_STATE_SYSTEM_MIXED;
+
+            case wxCHK_UNCHECKED:
+                return 0;
+        }
+
+        wxFAIL_MSG( wxT("unexpected Get3StateValue() return value") );
+
+        return 0;
+    }
+};
+
+} // anonymous namespace
+
+wxAccessible* wxCheckBox::CreateAccessible()
+{
+    return new wxCheckBoxAccessible(this);
+}
+
+#endif // wxUSE_ACCESSIBILITY
 
 #endif // wxUSE_CHECKBOX

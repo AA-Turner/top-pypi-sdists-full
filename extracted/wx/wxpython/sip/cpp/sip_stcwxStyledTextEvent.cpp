@@ -2125,7 +2125,7 @@ static void *init_type_wxStyledTextEvent(sipSimpleWrapper *sipSelf, PyObject *si
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxStyledTextEvent[] = {{5, 0, 1}};
+static sipEncodedTypeDef supers_wxStyledTextEvent[] = {{6, 0, 1}};
 
 
 static PyMethodDef methods_wxStyledTextEvent[] = {

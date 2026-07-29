@@ -248,7 +248,7 @@ static void *init_type_wxRibbonBarEvent(sipSimpleWrapper *sipSelf, PyObject *sip
     {
         ::wxEventType command_type = wxEVT_NULL;
         int win_id = 0;
-        ::wxRibbonPage* page = 0;
+        ::wxRibbonPage* page = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_command_type,
@@ -296,7 +296,7 @@ static void *init_type_wxRibbonBarEvent(sipSimpleWrapper *sipSelf, PyObject *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxRibbonBarEvent[] = {{13, 0, 1}};
+static sipEncodedTypeDef supers_wxRibbonBarEvent[] = {{16, 0, 1}};
 
 
 static PyMethodDef methods_wxRibbonBarEvent[] = {
@@ -309,7 +309,7 @@ sipVariableDef variables_wxRibbonBarEvent[] = {
     {PropertyVariable, sipName_Page, &methods_wxRibbonBarEvent[1], &methods_wxRibbonBarEvent[2], SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxRibbonBarEvent, "RibbonBarEvent(command_type=wx.wxEVT_NULL, win_id=0, page=None) -> None\n"
+PyDoc_STRVAR(doc_wxRibbonBarEvent, "RibbonBarEvent(command_type=wx.wxEVT_NULL, win_id=0, page=nullptr) -> None\n"
 "\n"
 "Event used to indicate various actions relating to a wxRibbonBar.");
 

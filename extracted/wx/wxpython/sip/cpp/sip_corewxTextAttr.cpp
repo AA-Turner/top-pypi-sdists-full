@@ -3783,7 +3783,7 @@ static PyObject *meth_wxTextAttr_SetURL(PyObject *sipSelf, PyObject *sipArgs, Py
 }
 
 
-PyDoc_STRVAR(doc_wxTextAttr_Apply, "Apply(style, compareWith=None) -> bool\n"
+PyDoc_STRVAR(doc_wxTextAttr_Apply, "Apply(style, compareWith=nullptr) -> bool\n"
 "\n"
 "Applies the attributes in style to the original object, but not those\n"
 "attributes from style that are the same as those in compareWith (if\n"
@@ -3796,7 +3796,7 @@ static PyObject *meth_wxTextAttr_Apply(PyObject *sipSelf, PyObject *sipArgs, PyO
 
     {
         const ::wxTextAttr* style;
-        const ::wxTextAttr* compareWith = 0;
+        const ::wxTextAttr* compareWith = nullptr;
         ::wxTextAttr *sipCpp;
 
         static const char *sipKwdList[] = {

@@ -13,13 +13,14 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
+from chalk._gen.chalk.artifacts.v1 import alert_channel_pb2 as chalk_dot_artifacts_dot_v1_dot_alert__channel__pb2
 from chalk._gen.chalk.artifacts.v1 import chart_pb2 as chalk_dot_artifacts_dot_v1_dot_chart__pb2
 from google.api import field_behavior_pb2 as google_dot_api_dot_field__behavior__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n chalk/artifacts/v1/monitor.proto\x12\x12\x63halk.artifacts.v1\x1a\x1e\x63halk/artifacts/v1/chart.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\x88\x02\n\x10TriggerThreshold\x12J\n\rseverity_kind\x18\x01 \x01(\x0e\x32%.chalk.artifacts.v1.AlertSeverityKindR\x0cseverityKind\x12H\n\x0ethreshold_kind\x18\x02 \x01(\x0e\x32!.chalk.artifacts.v1.ThresholdKindR\rthresholdKind\x12\'\n\x0fthreshold_value\x18\x03 \x01(\x02R\x0ethresholdValue\x12%\n\x0b\x64\x65scription\x18\x04 \x01(\tH\x00R\x0b\x64\x65scription\x88\x01\x01\x42\x0e\n\x0c_description"m\n\x16TieredFrequencyTrigger\x12S\n\x12trigger_thresholds\x18\x01 \x03(\x0b\x32$.chalk.artifacts.v1.TriggerThresholdR\x11triggerThresholds"\x93\x01\n\x0e\x42ooleanTrigger\x12J\n\rseverity_kind\x18\x01 \x01(\x0e\x32%.chalk.artifacts.v1.AlertSeverityKindR\x0cseverityKind\x12%\n\x0b\x64\x65scription\x18\x02 \x01(\tH\x00R\x0b\x64\x65scription\x88\x01\x01\x42\x0e\n\x0c_description"\x93\x02\n\x0bLogsMonitor\x12!\n\x0cquery_string\x18\x01 \x01(\tR\x0bqueryString\x12=\n\x04tags\x18\x02 \x03(\x0b\x32).chalk.artifacts.v1.LogsMonitor.TagsEntryR\x04tags\x12#\n\rwindow_period\x18\x03 \x01(\tR\x0cwindowPeriod\x12\x44\n\x07trigger\x18\x64 \x01(\x0b\x32*.chalk.artifacts.v1.TieredFrequencyTriggerR\x07trigger\x1a\x37\n\tTagsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01"}\n\x12HealthcheckMonitor\x12)\n\x10healthcheck_name\x18\x01 \x01(\tR\x0fhealthcheckName\x12<\n\x07trigger\x18\x64 \x01(\x0b\x32".chalk.artifacts.v1.BooleanTriggerR\x07trigger"\x90\x01\n\x0c\x43hartMonitor\x12\x19\n\x08\x63hart_id\x18\x01 \x01(\tR\x07\x63hartId\x12\x1f\n\x0bseries_name\x18\x02 \x01(\tR\nseriesName\x12\x44\n\x07trigger\x18\x64 \x01(\x0b\x32*.chalk.artifacts.v1.TieredFrequencyTriggerR\x07trigger"\xb2\x04\n\x07Monitor\x12\x13\n\x02id\x18\x01 \x01(\tB\x03\xe0\x41\x03R\x02id\x12\x12\n\x04type\x18\x02 \x01(\tR\x04type\x12!\n\x0c\x61lert_owners\x18\x03 \x03(\tR\x0b\x61lertOwners\x12%\n\x0e\x61lert_channels\x18\x04 \x03(\tR\ralertChannels\x12\x12\n\x04name\x18\x05 \x01(\tR\x04name\x12"\n\ncreated_by\x18\x06 \x01(\tB\x03\xe0\x41\x03R\tcreatedBy\x12G\n\rchart_monitor\x18\x07 \x01(\x0b\x32 .chalk.artifacts.v1.ChartMonitorH\x00R\x0c\x63hartMonitor\x12Y\n\x13healthcheck_monitor\x18\x08 \x01(\x0b\x32&.chalk.artifacts.v1.HealthcheckMonitorH\x00R\x12healthcheckMonitor\x12\x44\n\x0clogs_monitor\x18\t \x01(\x0b\x32\x1f.chalk.artifacts.v1.LogsMonitorH\x00R\x0blogsMonitor\x12>\n\ncreated_at\x18\x64 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x03\xe0\x41\x03R\tcreatedAt\x12>\n\nupdated_at\x18\x65 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x03\xe0\x41\x03R\tupdatedAtB\x12\n\x10monitored_entityB\x90\x01\n\x16\x63om.chalk.artifacts.v1B\x0cMonitorProtoP\x01\xa2\x02\x03\x43\x41X\xaa\x02\x12\x43halk.Artifacts.V1\xca\x02\x12\x43halk\\Artifacts\\V1\xe2\x02\x1e\x43halk\\Artifacts\\V1\\GPBMetadata\xea\x02\x14\x43halk::Artifacts::V1b\x06proto3'
+    b'\n chalk/artifacts/v1/monitor.proto\x12\x12\x63halk.artifacts.v1\x1a&chalk/artifacts/v1/alert_channel.proto\x1a\x1e\x63halk/artifacts/v1/chart.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xcd\x01\n\x0bLogsMonitor\x12!\n\x0cquery_string\x18\x01 \x01(\tR\x0bqueryString\x12=\n\x04tags\x18\x02 \x03(\x0b\x32).chalk.artifacts.v1.LogsMonitor.TagsEntryR\x04tags\x12#\n\rwindow_period\x18\x03 \x01(\tR\x0cwindowPeriod\x1a\x37\n\tTagsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01"?\n\x12HealthcheckMonitor\x12)\n\x10healthcheck_name\x18\x01 \x01(\tR\x0fhealthcheckName"c\n\x0c\x43hartMonitor\x12\x1d\n\nseries_mql\x18\x01 \x03(\tR\tseriesMql\x12$\n\x0b\x66ormula_mql\x18\x02 \x01(\tH\x00R\nformulaMql\x88\x01\x01\x42\x0e\n\x0c_formula_mql"\xac\x01\n\x0c\x41lertChannel\x12\x45\n\x0b\x65ntity_kind\x18\x01 \x01(\x0e\x32$.chalk.artifacts.v1.AlertChannelKindR\nentityKind\x12\x1d\n\tentity_id\x18\x02 \x01(\tH\x00R\x08\x65ntityId\x12!\n\x0b\x65ntity_name\x18\x03 \x01(\tH\x00R\nentityNameB\x13\n\x11\x65ntity_identifier"\xc7\x01\n\tThreshold\x12H\n\x0ethreshold_kind\x18\x06 \x01(\x0e\x32!.chalk.artifacts.v1.ThresholdKindR\rthresholdKind\x12\'\n\x0fthreshold_value\x18\x07 \x01(\x02R\x0ethresholdValue\x12G\n\x0e\x61lert_channels\x18\x08 \x03(\x0b\x32 .chalk.artifacts.v1.AlertChannelR\ralertChannels"\xc9\x04\n\x07Monitor\x12\x13\n\x02id\x18\x01 \x01(\tB\x03\xe0\x41\x03R\x02id\x12\x12\n\x04type\x18\x02 \x01(\tR\x04type\x12\x12\n\x04name\x18\x03 \x01(\tR\x04name\x12 \n\x0b\x64\x65scription\x18\x04 \x01(\tR\x0b\x64\x65scription\x12"\n\ncreated_by\x18\x05 \x01(\tB\x03\xe0\x41\x03R\tcreatedBy\x12;\n\tthreshold\x18\x06 \x01(\x0b\x32\x1d.chalk.artifacts.v1.ThresholdR\tthreshold\x12G\n\rchart_monitor\x18\x64 \x01(\x0b\x32 .chalk.artifacts.v1.ChartMonitorH\x00R\x0c\x63hartMonitor\x12Y\n\x13healthcheck_monitor\x18\x65 \x01(\x0b\x32&.chalk.artifacts.v1.HealthcheckMonitorH\x00R\x12healthcheckMonitor\x12\x44\n\x0clogs_monitor\x18\x66 \x01(\x0b\x32\x1f.chalk.artifacts.v1.LogsMonitorH\x00R\x0blogsMonitor\x12?\n\ncreated_at\x18\xc8\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x03\xe0\x41\x03R\tcreatedAt\x12?\n\nupdated_at\x18\xc9\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x03\xe0\x41\x03R\tupdatedAtB\x12\n\x10monitored_entity*w\n\x0bMonitorType\x12\x1c\n\x18MONITOR_TYPE_UNSPECIFIED\x10\x00\x12\x16\n\x12MONITOR_TYPE_CHART\x10\x01\x12\x14\n\x10MONITOR_TYPE_LOG\x10\x02\x12\x1c\n\x18MONITOR_TYPE_HEALTHCHECK\x10\x03\x42\x90\x01\n\x16\x63om.chalk.artifacts.v1B\x0cMonitorProtoP\x01\xa2\x02\x03\x43\x41X\xaa\x02\x12\x43halk.Artifacts.V1\xca\x02\x12\x43halk\\Artifacts\\V1\xe2\x02\x1e\x43halk\\Artifacts\\V1\\GPBMetadata\xea\x02\x14\x43halk::Artifacts::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -40,20 +41,20 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_MONITOR"].fields_by_name["created_at"]._serialized_options = b"\340A\003"
     _globals["_MONITOR"].fields_by_name["updated_at"]._options = None
     _globals["_MONITOR"].fields_by_name["updated_at"]._serialized_options = b"\340A\003"
-    _globals["_TRIGGERTHRESHOLD"]._serialized_start = 155
-    _globals["_TRIGGERTHRESHOLD"]._serialized_end = 419
-    _globals["_TIEREDFREQUENCYTRIGGER"]._serialized_start = 421
-    _globals["_TIEREDFREQUENCYTRIGGER"]._serialized_end = 530
-    _globals["_BOOLEANTRIGGER"]._serialized_start = 533
-    _globals["_BOOLEANTRIGGER"]._serialized_end = 680
-    _globals["_LOGSMONITOR"]._serialized_start = 683
-    _globals["_LOGSMONITOR"]._serialized_end = 958
-    _globals["_LOGSMONITOR_TAGSENTRY"]._serialized_start = 903
-    _globals["_LOGSMONITOR_TAGSENTRY"]._serialized_end = 958
-    _globals["_HEALTHCHECKMONITOR"]._serialized_start = 960
-    _globals["_HEALTHCHECKMONITOR"]._serialized_end = 1085
-    _globals["_CHARTMONITOR"]._serialized_start = 1088
-    _globals["_CHARTMONITOR"]._serialized_end = 1232
-    _globals["_MONITOR"]._serialized_start = 1235
-    _globals["_MONITOR"]._serialized_end = 1797
+    _globals["_MONITORTYPE"]._serialized_start = 1533
+    _globals["_MONITORTYPE"]._serialized_end = 1652
+    _globals["_LOGSMONITOR"]._serialized_start = 195
+    _globals["_LOGSMONITOR"]._serialized_end = 400
+    _globals["_LOGSMONITOR_TAGSENTRY"]._serialized_start = 345
+    _globals["_LOGSMONITOR_TAGSENTRY"]._serialized_end = 400
+    _globals["_HEALTHCHECKMONITOR"]._serialized_start = 402
+    _globals["_HEALTHCHECKMONITOR"]._serialized_end = 465
+    _globals["_CHARTMONITOR"]._serialized_start = 467
+    _globals["_CHARTMONITOR"]._serialized_end = 566
+    _globals["_ALERTCHANNEL"]._serialized_start = 569
+    _globals["_ALERTCHANNEL"]._serialized_end = 741
+    _globals["_THRESHOLD"]._serialized_start = 744
+    _globals["_THRESHOLD"]._serialized_end = 943
+    _globals["_MONITOR"]._serialized_start = 946
+    _globals["_MONITOR"]._serialized_end = 1531
 # @@protoc_insertion_point(module_scope)

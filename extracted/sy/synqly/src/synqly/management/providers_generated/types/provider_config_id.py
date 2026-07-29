@@ -122,6 +122,11 @@ class ProviderConfigId(enum.StrEnum):
     [MOCK] Ivanti Neurons
     """
 
+    ASSETS_JUPITER_ONE = "assets_jupiterone"
+    """
+    JupiterOne
+    """
+
     ASSETS_NOZOMI_VANTAGE = "assets_nozomi_vantage"
     """
     Nozomi Vantage
@@ -757,6 +762,11 @@ class ProviderConfigId(enum.StrEnum):
     Nucleus Vulnerability Management
     """
 
+    VULNERABILITIES_PENTERA = "vulnerabilities_pentera"
+    """
+    Pentera
+    """
+
     VULNERABILITIES_QUALYS_CLOUD = "vulnerabilities_qualys_cloud"
     """
     Qualys Vulnerability Management, Detection & Response (VMDR)
@@ -842,6 +852,7 @@ class ProviderConfigId(enum.StrEnum):
         assets_iru: typing.Callable[[], T_Result],
         assets_ivanti_neurons: typing.Callable[[], T_Result],
         assets_ivanti_neurons_mock: typing.Callable[[], T_Result],
+        assets_jupiter_one: typing.Callable[[], T_Result],
         assets_nozomi_vantage: typing.Callable[[], T_Result],
         assets_nozomi_vantage_mock: typing.Callable[[], T_Result],
         assets_qualys_cloud: typing.Callable[[], T_Result],
@@ -969,6 +980,7 @@ class ProviderConfigId(enum.StrEnum):
         vulnerabilities_horizon_3: typing.Callable[[], T_Result],
         vulnerabilities_iru: typing.Callable[[], T_Result],
         vulnerabilities_nucleus: typing.Callable[[], T_Result],
+        vulnerabilities_pentera: typing.Callable[[], T_Result],
         vulnerabilities_qualys_cloud: typing.Callable[[], T_Result],
         vulnerabilities_qualys_cloud_mock: typing.Callable[[], T_Result],
         vulnerabilities_rapid_7_insight_cloud: typing.Callable[[], T_Result],
@@ -1025,6 +1037,8 @@ class ProviderConfigId(enum.StrEnum):
             return assets_ivanti_neurons()
         if self is ProviderConfigId.ASSETS_IVANTI_NEURONS_MOCK:
             return assets_ivanti_neurons_mock()
+        if self is ProviderConfigId.ASSETS_JUPITER_ONE:
+            return assets_jupiter_one()
         if self is ProviderConfigId.ASSETS_NOZOMI_VANTAGE:
             return assets_nozomi_vantage()
         if self is ProviderConfigId.ASSETS_NOZOMI_VANTAGE_MOCK:
@@ -1279,6 +1293,8 @@ class ProviderConfigId(enum.StrEnum):
             return vulnerabilities_iru()
         if self is ProviderConfigId.VULNERABILITIES_NUCLEUS:
             return vulnerabilities_nucleus()
+        if self is ProviderConfigId.VULNERABILITIES_PENTERA:
+            return vulnerabilities_pentera()
         if self is ProviderConfigId.VULNERABILITIES_QUALYS_CLOUD:
             return vulnerabilities_qualys_cloud()
         if self is ProviderConfigId.VULNERABILITIES_QUALYS_CLOUD_MOCK:

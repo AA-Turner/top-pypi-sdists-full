@@ -79,9 +79,9 @@ bool sipwxImageDataObject::SetData(const ::wxDataFormat& format, size_t len, con
     if (!sipMeth)
         return ::wxImageDataObject::SetData(format, len, buf);
 
-    extern bool sipVH__core_86(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxDataFormat&, size_t, const void*);
+    extern bool sipVH__core_85(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxDataFormat&, size_t, const void*);
 
-    return sipVH__core_86(sipGILState, 0, sipPySelf, sipMeth, format, len, buf);
+    return sipVH__core_85(sipGILState, 0, sipPySelf, sipMeth, format, len, buf);
 }
 
 void sipwxImageDataObject::GetAllFormats(::wxDataFormat*formats, ::wxDataObject::Direction dir) const
@@ -97,9 +97,9 @@ void sipwxImageDataObject::GetAllFormats(::wxDataFormat*formats, ::wxDataObject:
         return;
     }
 
-    extern void sipVH__core_65(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataFormat*, ::wxDataObject::Direction);
+    extern void sipVH__core_64(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataFormat*, ::wxDataObject::Direction);
 
-    sipVH__core_65(sipGILState, 0, sipPySelf, sipMeth, formats, dir);
+    sipVH__core_64(sipGILState, 0, sipPySelf, sipMeth, formats, dir);
 }
 
 size_t sipwxImageDataObject::GetFormatCount(::wxDataObject::Direction dir) const
@@ -112,9 +112,9 @@ size_t sipwxImageDataObject::GetFormatCount(::wxDataObject::Direction dir) const
     if (!sipMeth)
         return ::wxImageDataObject::GetFormatCount(dir);
 
-    extern size_t sipVH__core_68(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject::Direction);
+    extern size_t sipVH__core_67(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject::Direction);
 
-    return sipVH__core_68(sipGILState, 0, sipPySelf, sipMeth, dir);
+    return sipVH__core_67(sipGILState, 0, sipPySelf, sipMeth, dir);
 }
 
 ::wxDataFormat sipwxImageDataObject::GetPreferredFormat(::wxDataObject::Direction dir) const
@@ -127,9 +127,9 @@ size_t sipwxImageDataObject::GetFormatCount(::wxDataObject::Direction dir) const
     if (!sipMeth)
         return ::wxImageDataObject::GetPreferredFormat(dir);
 
-    extern ::wxDataFormat sipVH__core_69(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject::Direction);
+    extern ::wxDataFormat sipVH__core_68(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject::Direction);
 
-    return sipVH__core_69(sipGILState, 0, sipPySelf, sipMeth, dir);
+    return sipVH__core_68(sipGILState, 0, sipPySelf, sipMeth, dir);
 }
 
 
@@ -487,7 +487,7 @@ static void *init_type_wxImageDataObject(sipSimpleWrapper *sipSelf, PyObject *si
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxImageDataObject[] = {{100, 255, 1}};
+static sipEncodedTypeDef supers_wxImageDataObject[] = {{104, 255, 1}};
 
 
 static PyMethodDef methods_wxImageDataObject[] = {

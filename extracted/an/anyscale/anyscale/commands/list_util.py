@@ -1,12 +1,12 @@
 import itertools
-from json import dumps as json_dumps
 from typing import Any, Callable, Dict, Iterator, List, Optional
 
 import click
 from rich.console import Console
 from rich.table import Table
 
-from anyscale.util import AnyscaleJSONEncoder, validate_non_negative_arg
+from anyscale.commands.output_format import OutputFormat, render_output
+from anyscale.util import validate_non_negative_arg
 
 
 MAX_PAGE_SIZE = 50
@@ -60,24 +60,23 @@ def _render_page(
     page: List[Any],
     item_formatter: Callable[[Any], Dict[str, Any]],
     table_creator: Callable[[bool], Table],
-    json_output: bool,
     is_first: bool,
     page_num: int,
     console: Console,
 ) -> int:
-    """Render a single page of items."""
+    """Render a single page of items as a table.
+
+    JSON output does not flow through here: it is collected across all pages and
+    emitted once as a single valid document by ``display_list``.
+    """
     if page_num > 1:  # Only show page number for pages after first
         console.print(f"[dim]Page {page_num}[/dim]")
 
     rows = [item_formatter(item) for item in page]
-    if json_output:
-        json_str = json_dumps(rows, indent=2, cls=AnyscaleJSONEncoder)
-        console.print_json(json=json_str)
-    else:
-        tbl = table_creator(is_first)
-        for row in rows:
-            tbl.add_row(*row.values())
-        console.print(tbl)
+    tbl = table_creator(is_first)
+    for row in rows:
+        tbl.add_row(*row.values())
+    console.print(tbl)
 
     return len(page)
 
@@ -126,6 +125,27 @@ def display_list(  # noqa: PLR0913, PLR0912
     Returns:
         The total number of items displayed.
     """
+    # JSON output is machine-readable: stdout carries exactly one valid JSON
+    # document. Every item is collected first (bounded by max_items when set)
+    # and emitted as a single array, keeping pagination markers and interactive
+    # prompts out of the stream.
+    #
+    # The shared renderer writes plain JSON: no color codes or terminal-width
+    # wrapping even when stdout is a terminal, and values with no JSON
+    # representation (NaN/Infinity) raise a clean error instead of being
+    # emitted.
+    if json_output:
+        items = (
+            list(itertools.islice(iterator, max_items))
+            if max_items is not None
+            else list(iterator)
+        )
+        rows = [item_formatter(item) for item in items]
+        print(
+            render_output(rows, OutputFormat.JSON.value), file=console.file, flush=True
+        )
+        return len(rows)
+
     total_count = 0
     pages = _paginate(iterator, page_size if interactive else max_items)
 
@@ -149,7 +169,7 @@ def display_list(  # noqa: PLR0913, PLR0912
 
     if first_page:
         total_count += _render_page(
-            first_page, item_formatter, table_creator, json_output, True, 1, console
+            first_page, item_formatter, table_creator, True, 1, console
         )
 
     # For interactive commands, mark when command logic completes
@@ -192,7 +212,7 @@ def display_list(  # noqa: PLR0913, PLR0912
 
         # Render the page
         total_count += _render_page(
-            page, item_formatter, table_creator, json_output, False, page_num, console
+            page, item_formatter, table_creator, False, page_num, console
         )
 
         # Complete page fetch telemetry

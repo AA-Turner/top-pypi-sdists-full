@@ -405,7 +405,7 @@ static void *init_type_wxTGAHandler(sipSimpleWrapper *sipSelf, PyObject *sipArgs
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxTGAHandler[] = {{284, 255, 1}};
+static sipEncodedTypeDef supers_wxTGAHandler[] = {{291, 255, 1}};
 
 
 static PyMethodDef methods_wxTGAHandler[] = {

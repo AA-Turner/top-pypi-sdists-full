@@ -13,7 +13,9 @@
         #include <wx/bitmap.h>
 
 
-PyDoc_STRVAR(doc_wxPenInfo_Colour, "Colour(col) -> PenInfo");
+PyDoc_STRVAR(doc_wxPenInfo_Colour, "Colour(col) -> PenInfo\n"
+"\n"
+"Sets the colour for the pen.");
 
 extern "C" {static PyObject *meth_wxPenInfo_Colour(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxPenInfo_Colour(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -53,7 +55,9 @@ static PyObject *meth_wxPenInfo_Colour(PyObject *sipSelf, PyObject *sipArgs, PyO
 }
 
 
-PyDoc_STRVAR(doc_wxPenInfo_Width, "Width(width) -> PenInfo");
+PyDoc_STRVAR(doc_wxPenInfo_Width, "Width(width) -> PenInfo\n"
+"\n"
+"Sets the line width for the pen.");
 
 extern "C" {static PyObject *meth_wxPenInfo_Width(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxPenInfo_Width(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -91,7 +95,9 @@ static PyObject *meth_wxPenInfo_Width(PyObject *sipSelf, PyObject *sipArgs, PyOb
 }
 
 
-PyDoc_STRVAR(doc_wxPenInfo_Style, "Style(style) -> PenInfo");
+PyDoc_STRVAR(doc_wxPenInfo_Style, "Style(style) -> PenInfo\n"
+"\n"
+"Sets the style for the pen.");
 
 extern "C" {static PyObject *meth_wxPenInfo_Style(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxPenInfo_Style(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -129,7 +135,9 @@ static PyObject *meth_wxPenInfo_Style(PyObject *sipSelf, PyObject *sipArgs, PyOb
 }
 
 
-PyDoc_STRVAR(doc_wxPenInfo_Stipple, "Stipple(stipple) -> PenInfo");
+PyDoc_STRVAR(doc_wxPenInfo_Stipple, "Stipple(stipple) -> PenInfo\n"
+"\n"
+"Sets the bitmap used for stippling.");
 
 extern "C" {static PyObject *meth_wxPenInfo_Stipple(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxPenInfo_Stipple(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -167,7 +175,10 @@ static PyObject *meth_wxPenInfo_Stipple(PyObject *sipSelf, PyObject *sipArgs, Py
 }
 
 
-PyDoc_STRVAR(doc_wxPenInfo_Join, "Join(join) -> PenInfo");
+PyDoc_STRVAR(doc_wxPenInfo_Join, "Join(join) -> PenInfo\n"
+"\n"
+"Sets the join for the pen, which is the appearance of where two lines\n"
+"meet or overlap.");
 
 extern "C" {static PyObject *meth_wxPenInfo_Join(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxPenInfo_Join(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -205,7 +216,9 @@ static PyObject *meth_wxPenInfo_Join(PyObject *sipSelf, PyObject *sipArgs, PyObj
 }
 
 
-PyDoc_STRVAR(doc_wxPenInfo_Cap, "Cap(cap) -> PenInfo");
+PyDoc_STRVAR(doc_wxPenInfo_Cap, "Cap(cap) -> PenInfo\n"
+"\n"
+"Sets the cap (i.e., the end point) for the pen.");
 
 extern "C" {static PyObject *meth_wxPenInfo_Cap(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxPenInfo_Cap(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -353,7 +366,9 @@ static PyObject *meth_wxPenInfo_HighQuality(PyObject *sipSelf, PyObject *sipArgs
 }
 
 
-PyDoc_STRVAR(doc_wxPenInfo_GetColour, "GetColour() -> Colour");
+PyDoc_STRVAR(doc_wxPenInfo_GetColour, "GetColour() -> Colour\n"
+"\n"
+"Returns the pen's colour.");
 
 extern "C" {static PyObject *meth_wxPenInfo_GetColour(PyObject *, PyObject *);}
 static PyObject *meth_wxPenInfo_GetColour(PyObject *sipSelf, PyObject *sipArgs)
@@ -386,7 +401,9 @@ static PyObject *meth_wxPenInfo_GetColour(PyObject *sipSelf, PyObject *sipArgs)
 }
 
 
-PyDoc_STRVAR(doc_wxPenInfo_GetStipple, "GetStipple() -> Bitmap");
+PyDoc_STRVAR(doc_wxPenInfo_GetStipple, "GetStipple() -> Bitmap\n"
+"\n"
+"Returns the pen's stipple bitmap.");
 
 extern "C" {static PyObject *meth_wxPenInfo_GetStipple(PyObject *, PyObject *);}
 static PyObject *meth_wxPenInfo_GetStipple(PyObject *sipSelf, PyObject *sipArgs)
@@ -419,7 +436,9 @@ static PyObject *meth_wxPenInfo_GetStipple(PyObject *sipSelf, PyObject *sipArgs)
 }
 
 
-PyDoc_STRVAR(doc_wxPenInfo_GetStyle, "GetStyle() -> PenStyle");
+PyDoc_STRVAR(doc_wxPenInfo_GetStyle, "GetStyle() -> PenStyle\n"
+"\n"
+"Returns the pen's style.");
 
 extern "C" {static PyObject *meth_wxPenInfo_GetStyle(PyObject *, PyObject *);}
 static PyObject *meth_wxPenInfo_GetStyle(PyObject *sipSelf, PyObject *sipArgs)
@@ -452,7 +471,9 @@ static PyObject *meth_wxPenInfo_GetStyle(PyObject *sipSelf, PyObject *sipArgs)
 }
 
 
-PyDoc_STRVAR(doc_wxPenInfo_GetJoin, "GetJoin() -> PenJoin");
+PyDoc_STRVAR(doc_wxPenInfo_GetJoin, "GetJoin() -> PenJoin\n"
+"\n"
+"Returns the pen's joining method.");
 
 extern "C" {static PyObject *meth_wxPenInfo_GetJoin(PyObject *, PyObject *);}
 static PyObject *meth_wxPenInfo_GetJoin(PyObject *sipSelf, PyObject *sipArgs)
@@ -485,7 +506,9 @@ static PyObject *meth_wxPenInfo_GetJoin(PyObject *sipSelf, PyObject *sipArgs)
 }
 
 
-PyDoc_STRVAR(doc_wxPenInfo_GetCap, "GetCap() -> PenCap");
+PyDoc_STRVAR(doc_wxPenInfo_GetCap, "GetCap() -> PenCap\n"
+"\n"
+"Returns the pen's cap (i.e., end-point style).");
 
 extern "C" {static PyObject *meth_wxPenInfo_GetCap(PyObject *, PyObject *);}
 static PyObject *meth_wxPenInfo_GetCap(PyObject *sipSelf, PyObject *sipArgs)
@@ -518,7 +541,9 @@ static PyObject *meth_wxPenInfo_GetCap(PyObject *sipSelf, PyObject *sipArgs)
 }
 
 
-PyDoc_STRVAR(doc_wxPenInfo_GetQuality, "GetQuality() -> PenQuality");
+PyDoc_STRVAR(doc_wxPenInfo_GetQuality, "GetQuality() -> PenQuality\n"
+"\n"
+"Returns the pen's quality.");
 
 extern "C" {static PyObject *meth_wxPenInfo_GetQuality(PyObject *, PyObject *);}
 static PyObject *meth_wxPenInfo_GetQuality(PyObject *sipSelf, PyObject *sipArgs)
@@ -551,7 +576,9 @@ static PyObject *meth_wxPenInfo_GetQuality(PyObject *sipSelf, PyObject *sipArgs)
 }
 
 
-PyDoc_STRVAR(doc_wxPenInfo_IsTransparent, "IsTransparent() -> bool");
+PyDoc_STRVAR(doc_wxPenInfo_IsTransparent, "IsTransparent() -> bool\n"
+"\n"
+"Returns whether the pen is transparent.");
 
 extern "C" {static PyObject *meth_wxPenInfo_IsTransparent(PyObject *, PyObject *);}
 static PyObject *meth_wxPenInfo_IsTransparent(PyObject *sipSelf, PyObject *sipArgs)
@@ -584,7 +611,9 @@ static PyObject *meth_wxPenInfo_IsTransparent(PyObject *sipSelf, PyObject *sipAr
 }
 
 
-PyDoc_STRVAR(doc_wxPenInfo_GetWidth, "GetWidth() -> int");
+PyDoc_STRVAR(doc_wxPenInfo_GetWidth, "GetWidth() -> int\n"
+"\n"
+"Returns the pen's line width.");
 
 extern "C" {static PyObject *meth_wxPenInfo_GetWidth(PyObject *, PyObject *);}
 static PyObject *meth_wxPenInfo_GetWidth(PyObject *sipSelf, PyObject *sipArgs)

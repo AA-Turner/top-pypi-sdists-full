@@ -99,6 +99,7 @@ from .literals import (
     SchemaTypeType,
     SecretSourceTypeType,
     ServerProtocolType,
+    SigningAlgorithmType,
     StatusType,
     TargetProtocolTypeType,
     TargetStatusType,
@@ -547,6 +548,7 @@ __all__ = (
     "KinesisResourceOutputTypeDef",
     "KinesisResourceTypeDef",
     "KmsConfigurationTypeDef",
+    "KmsKeySourceTypeTypeDef",
     "LambdaEvaluatorConfigTypeDef",
     "LambdaInterceptorConfigurationTypeDef",
     "LambdaTransformConfigurationTypeDef",
@@ -759,6 +761,10 @@ __all__ = (
     "PrivateEndpointOverrideUnionTypeDef",
     "PrivateEndpointTypeDef",
     "PrivateEndpointUnionTypeDef",
+    "PrivateKeyJwtConfigOutputTypeDef",
+    "PrivateKeyJwtConfigTypeDef",
+    "PrivateKeyJwtConfigUnionTypeDef",
+    "PrivateKeySourceTypeDef",
     "ProtocolConfigurationTypeDef",
     "ProviderPrefixTypeDef",
     "PutResourcePolicyRequestTypeDef",
@@ -1881,6 +1887,9 @@ class InvocationConfigurationInputTypeDef(TypedDict):
 class InvocationConfigurationTypeDef(TypedDict):
     topicArn: str
     payloadDeliveryBucketName: str
+
+class KmsKeySourceTypeTypeDef(TypedDict):
+    kmsKeyArn: str
 
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
@@ -3526,6 +3535,9 @@ class InterceptorPayloadFilterOutputTypeDef(TypedDict):
 class InterceptorPayloadFilterTypeDef(TypedDict):
     exclude: Sequence[InterceptorPayloadExclusionSelectorTypeDef]
 
+class PrivateKeySourceTypeDef(TypedDict):
+    kmsKeySource: NotRequired[KmsKeySourceTypeTypeDef]
+
 class ListAgentRuntimeEndpointsRequestPaginateTypeDef(TypedDict):
     agentRuntimeId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -4229,6 +4241,18 @@ InterceptorPayloadFilterUnionTypeDef = Union[
     InterceptorPayloadFilterTypeDef, InterceptorPayloadFilterOutputTypeDef
 ]
 
+class PrivateKeyJwtConfigOutputTypeDef(TypedDict):
+    privateKeySource: NotRequired[PrivateKeySourceTypeDef]
+    signingAlgorithm: NotRequired[SigningAlgorithmType]
+    additionalHeaderClaims: NotRequired[dict[str, str]]
+    additionalPayloadClaims: NotRequired[dict[str, str]]
+
+class PrivateKeyJwtConfigTypeDef(TypedDict):
+    privateKeySource: NotRequired[PrivateKeySourceTypeDef]
+    signingAlgorithm: NotRequired[SigningAlgorithmType]
+    additionalHeaderClaims: NotRequired[Mapping[str, str]]
+    additionalPayloadClaims: NotRequired[Mapping[str, str]]
+
 class GatewayProtocolConfigurationOutputTypeDef(TypedDict):
     mcp: NotRequired[MCPGatewayConfigurationOutputTypeDef]
 
@@ -4662,6 +4686,9 @@ class InterceptorInputConfigurationTypeDef(TypedDict):
     passRequestHeaders: bool
     payloadFilter: NotRequired[InterceptorPayloadFilterUnionTypeDef]
 
+PrivateKeyJwtConfigUnionTypeDef = Union[
+    PrivateKeyJwtConfigTypeDef, PrivateKeyJwtConfigOutputTypeDef
+]
 GatewayProtocolConfigurationUnionTypeDef = Union[
     GatewayProtocolConfigurationTypeDef, GatewayProtocolConfigurationOutputTypeDef
 ]
@@ -4708,10 +4735,11 @@ class CustomJWTAuthorizerConfigurationOutputTypeDef(TypedDict):
 class CustomOauth2ProviderConfigOutputTypeDef(TypedDict):
     oauthDiscovery: Oauth2DiscoveryOutputTypeDef
     clientId: NotRequired[str]
-    privateEndpoint: NotRequired[PrivateEndpointOutputTypeDef]
-    privateEndpointOverrides: NotRequired[list[PrivateEndpointOverrideOutputTypeDef]]
     onBehalfOfTokenExchangeConfig: NotRequired[OnBehalfOfTokenExchangeConfigTypeOutputTypeDef]
     clientAuthenticationMethod: NotRequired[ClientAuthenticationMethodTypeType]
+    privateEndpoint: NotRequired[PrivateEndpointOutputTypeDef]
+    privateEndpointOverrides: NotRequired[list[PrivateEndpointOverrideOutputTypeDef]]
+    privateKeyJwtConfig: NotRequired[PrivateKeyJwtConfigOutputTypeDef]
 
 class FromUrlSynchronizationConfigurationOutputTypeDef(TypedDict):
     url: str
@@ -5327,6 +5355,7 @@ class CustomOauth2ProviderConfigInputTypeDef(TypedDict):
     clientSecretSource: NotRequired[SecretSourceTypeType]
     onBehalfOfTokenExchangeConfig: NotRequired[OnBehalfOfTokenExchangeConfigTypeUnionTypeDef]
     clientAuthenticationMethod: NotRequired[ClientAuthenticationMethodTypeType]
+    privateKeyJwtConfig: NotRequired[PrivateKeyJwtConfigUnionTypeDef]
     privateEndpoint: NotRequired[PrivateEndpointUnionTypeDef]
     privateEndpointOverrides: NotRequired[Sequence[PrivateEndpointOverrideUnionTypeDef]]
 

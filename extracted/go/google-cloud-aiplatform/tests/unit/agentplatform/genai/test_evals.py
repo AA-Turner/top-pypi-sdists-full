@@ -4154,17 +4154,17 @@ class TestEvalsRunInference:
     @mock.patch.object(_evals_common, "_get_interactions_client")
     @mock.patch.object(_evals_utils, "EvalDatasetLoader")
     def test_run_inference_with_gemini_agent(
-        self, mock_eval_dataset_loader, mock_get_interactions_client,
-        mock_fetch_agent_config
+        self,
+        mock_eval_dataset_loader,
+        mock_get_interactions_client,
+        mock_fetch_agent_config,
     ):
         mock_fetch_agent_config.return_value = (
             agentplatform_genai_types.evals.AgentConfig(
                 agent_id="test-agent",
                 instruction="You are helpful.",
                 tools=[
-                    genai_types.Tool(
-                        code_execution=genai_types.ToolCodeExecution()
-                    ),
+                    genai_types.Tool(code_execution=genai_types.ToolCodeExecution()),
                 ],
             )
         )
@@ -4234,7 +4234,9 @@ class TestEvalsRunInference:
     @mock.patch.object(_evals_common, "_get_interactions_client")
     @mock.patch.object(_evals_utils, "EvalDatasetLoader")
     def test_run_inference_gemini_agent_continues_on_failure(
-        self, mock_eval_dataset_loader, mock_get_interactions_client,
+        self,
+        mock_eval_dataset_loader,
+        mock_get_interactions_client,
         mock_fetch_agent_config,
     ):
         mock_fetch_agent_config.return_value = (
@@ -7764,9 +7766,7 @@ class TestMergeResponseDatasets:
             ]
         )
 
-        with mock.patch.object(
-            _evals_data_converters, "logger"
-        ) as mock_logger:
+        with mock.patch.object(_evals_data_converters, "logger") as mock_logger:
             merged = _evals_data_converters.merge_evaluation_datasets([dataset])
 
         assert len(merged.eval_cases) == 1
@@ -7797,9 +7797,7 @@ class TestMergeResponseDatasets:
             ]
         )
 
-        with mock.patch.object(
-            _evals_data_converters, "logger"
-        ) as mock_logger:
+        with mock.patch.object(_evals_data_converters, "logger") as mock_logger:
             merged = _evals_data_converters.merge_evaluation_datasets(
                 [dataset_1, dataset_2]
             )
@@ -7845,9 +7843,7 @@ class TestMergeResponseDatasets:
             ]
         )
 
-        with mock.patch.object(
-            _evals_data_converters, "logger"
-        ) as mock_logger:
+        with mock.patch.object(_evals_data_converters, "logger") as mock_logger:
             merged = _evals_data_converters.merge_evaluation_datasets(
                 [dataset_interactions, dataset_response]
             )
@@ -10873,6 +10869,10 @@ class TestCreateEvaluationRunGeminiAgent:
             == _TEST_GEMINI_AGENT
         )
         assert "agent_engine" not in agent_run_config
+        # agent_info.name overrides the default candidate name.
+        inference_configs = request_body["inferenceConfigs"]
+        assert "gemini-agent" in inference_configs
+        assert _evals_common._DEFAULT_CANDIDATE_NAME not in inference_configs
 
     def test_create_evaluation_run_agent_engine_does_not_set_gemini(self):
         evals_module = evals.Evals(api_client_=self.mock_api_client)
@@ -10900,6 +10900,140 @@ class TestCreateEvaluationRunGeminiAgent:
         agent_run_config = self._agent_run_config(request_body)
         assert "gemini_agent_config" not in agent_run_config
         assert agent_run_config["agent_engine"] == _TEST_AGENT_ENGINE
+        # agent_info.name overrides the default candidate name.
+        inference_configs = request_body["inferenceConfigs"]
+        assert "ae-agent" in inference_configs
+        assert _evals_common._DEFAULT_CANDIDATE_NAME not in inference_configs
+
+    def test_create_evaluation_run_gemini_agent_without_agent_info(self):
+        """Gemini agent resource alone triggers inference_configs auto-construction."""
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        evals_module.create_evaluation_run(
+            dataset=agentplatform_genai_types.EvaluationRunDataSource(
+                evaluation_set="projects/123/locations/us-central1/evaluationSets/789"
+            ),
+            metrics=[
+                agentplatform_genai_types.EvaluationRunMetric(
+                    metric="multi_turn_task_success_v1",
+                    metric_config=agentplatform_genai_types.UnifiedMetric(
+                        predefined_metric_spec=genai_types.PredefinedMetricSpec(
+                            metric_spec_name="multi_turn_task_success_v1",
+                        )
+                    ),
+                )
+            ],
+            dest="gs://test-bucket/output",
+            agent=_TEST_GEMINI_AGENT,
+            # No agent_info provided.
+        )
+
+        request_body = self._get_create_run_body()
+        agent_run_config = self._agent_run_config(request_body)
+        assert (
+            agent_run_config["gemini_agent_config"]["gemini_agent"]
+            == _TEST_GEMINI_AGENT
+        )
+        assert "agent_engine" not in agent_run_config
+        # Default candidate name should match the constant.
+        inference_configs = request_body["inferenceConfigs"]
+        assert _evals_common._DEFAULT_CANDIDATE_NAME in inference_configs
+
+    def test_create_evaluation_run_no_agent_no_agent_info_no_inference(self):
+        """Without agent or agent_info, no inference_configs are auto-constructed."""
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        evals_module.create_evaluation_run(
+            dataset=agentplatform_genai_types.EvaluationRunDataSource(
+                evaluation_set="projects/123/locations/us-central1/evaluationSets/789"
+            ),
+            metrics=[
+                agentplatform_genai_types.EvaluationRunMetric(
+                    metric="multi_turn_task_success_v1",
+                    metric_config=agentplatform_genai_types.UnifiedMetric(
+                        predefined_metric_spec=genai_types.PredefinedMetricSpec(
+                            metric_spec_name="multi_turn_task_success_v1",
+                        )
+                    ),
+                )
+            ],
+            dest="gs://test-bucket/output",
+            # No agent, no agent_info.
+        )
+
+        request_body = self._get_create_run_body()
+        assert "inferenceConfigs" not in request_body or not request_body.get(
+            "inferenceConfigs"
+        )
+
+    def test_create_evaluation_run_agent_engine_without_agent_info(self):
+        """Agent Engine resource alone triggers inference_configs auto-construction."""
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        evals_module.create_evaluation_run(
+            dataset=agentplatform_genai_types.EvaluationRunDataSource(
+                evaluation_set="projects/123/locations/us-central1/evaluationSets/789"
+            ),
+            metrics=[
+                agentplatform_genai_types.EvaluationRunMetric(
+                    metric="multi_turn_task_success_v1",
+                    metric_config=agentplatform_genai_types.UnifiedMetric(
+                        predefined_metric_spec=genai_types.PredefinedMetricSpec(
+                            metric_spec_name="multi_turn_task_success_v1",
+                        )
+                    ),
+                )
+            ],
+            dest="gs://test-bucket/output",
+            agent=_TEST_AGENT_ENGINE,
+            # No agent_info provided.
+        )
+
+        request_body = self._get_create_run_body()
+        agent_run_config = self._agent_run_config(request_body)
+        assert agent_run_config["agent_engine"] == _TEST_AGENT_ENGINE
+        assert "gemini_agent_config" not in agent_run_config
+        # Default candidate name should match the constant.
+        inference_configs = request_body["inferenceConfigs"]
+        assert _evals_common._DEFAULT_CANDIDATE_NAME in inference_configs
+
+    @mock.patch.object(_evals_common, "_resolve_dataset")
+    def test_create_evaluation_run_uses_dataset_candidate_name(
+        self, mock_resolve_dataset
+    ):
+        """When dataset.candidate_name is set (e.g. from run_inference), the
+        inference_configs key should match it instead of using the default."""
+        mock_resolve_dataset.return_value = (
+            agentplatform_genai_types.EvaluationRunDataSource(
+                evaluation_set="projects/123/locations/us-central1/evaluationSets/789"
+            )
+        )
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        evals_module.create_evaluation_run(
+            dataset=agentplatform_genai_types.EvaluationDataset(
+                eval_dataset_df=pd.DataFrame({"prompt": ["hello"]}),
+                candidate_name="my-agent-v2",
+            ),
+            metrics=[
+                agentplatform_genai_types.EvaluationRunMetric(
+                    metric="multi_turn_task_success_v1",
+                    metric_config=agentplatform_genai_types.UnifiedMetric(
+                        predefined_metric_spec=genai_types.PredefinedMetricSpec(
+                            metric_spec_name="multi_turn_task_success_v1",
+                        )
+                    ),
+                )
+            ],
+            dest="gs://test-bucket/output",
+            agent=_TEST_GEMINI_AGENT,
+            # No agent_info -- candidate name should come from dataset.
+        )
+
+        request_body = self._get_create_run_body()
+        inference_configs = request_body["inferenceConfigs"]
+        assert "my-agent-v2" in inference_configs
+        assert _evals_common._DEFAULT_CANDIDATE_NAME not in inference_configs
 
 
 class TestResolveInteractionsForDisplay:
@@ -11384,6 +11518,236 @@ class TestInteractionDictToAgentData:
         assert len(events) == 2
 
 
+class TestIsSandboxOnlyTurn:
+    """Tests for _is_sandbox_only_turn."""
+
+    def _make_event(self, *, author, part):
+        return agentplatform_genai_types.evals.AgentEvent(
+            author=author,
+            content=genai_types.Content(role="model", parts=[part]),
+        )
+
+    def test_provision_sandbox_is_sandbox_only(self):
+        events = [
+            self._make_event(
+                author="agent",
+                part=genai_types.Part(
+                    function_call=genai_types.FunctionCall(
+                        name="provision_sandbox", args={}
+                    )
+                ),
+            ),
+            self._make_event(
+                author="user",
+                part=genai_types.Part(
+                    function_response=genai_types.FunctionResponse(
+                        name="provision_sandbox", response={"status": "ready"}
+                    )
+                ),
+            ),
+        ]
+        assert _evals_builtin_tools.is_sandbox_only_turn(events) is True
+
+    def test_load_sandbox_is_sandbox_only(self):
+        events = [
+            self._make_event(
+                author="agent",
+                part=genai_types.Part(
+                    function_call=genai_types.FunctionCall(name="load_sandbox", args={})
+                ),
+            ),
+        ]
+        assert _evals_builtin_tools.is_sandbox_only_turn(events) is True
+
+    def test_non_sandbox_tool_is_not_sandbox_only(self):
+        events = [
+            self._make_event(
+                author="agent",
+                part=genai_types.Part(
+                    function_call=genai_types.FunctionCall(name="run_command", args={})
+                ),
+            ),
+        ]
+        assert _evals_builtin_tools.is_sandbox_only_turn(events) is False
+
+    def test_text_event_is_not_sandbox_only(self):
+        events = [
+            self._make_event(
+                author="user",
+                part=genai_types.Part(text="Hello"),
+            ),
+        ]
+        assert _evals_builtin_tools.is_sandbox_only_turn(events) is False
+
+    def test_empty_events_is_sandbox_only(self):
+        assert _evals_builtin_tools.is_sandbox_only_turn([]) is True
+
+
+class TestSandboxTurnMergingInAgentData:
+    """Tests that sandbox-only turns are merged in _interaction_dict_to_agent_data."""
+
+    def test_sandbox_prefix_merged_into_single_turn(self):
+        """Sandbox + 1 real interaction produces 1 turn, not 2."""
+        interaction_dict = {
+            "status": "completed",
+            "steps": [
+                # Sandbox provisioning (no user_input, creates Turn 0)
+                {
+                    "type": "function_call",
+                    "name": "provision_sandbox",
+                    "arguments": {"display_name": "sb"},
+                    "id": "call_sb",
+                },
+                {
+                    "type": "function_result",
+                    "name": "provision_sandbox",
+                    "call_id": "call_sb",
+                    "result": {"status": "ready"},
+                },
+                # Real user interaction (UserInputStep creates Turn 1)
+                {
+                    "type": "user_input",
+                    "content": [{"type": "text", "text": "What is 2+2?"}],
+                },
+                {
+                    "type": "model_output",
+                    "content": [{"type": "text", "text": "4"}],
+                },
+            ],
+        }
+        result = _evals_common._interaction_dict_to_agent_data(interaction_dict)
+        # Should produce 1 turn, not 2.
+        assert len(result.turns) == 1
+        assert result.turns[0].turn_index == 0
+        # The turn should contain all events: sandbox + real.
+        events = result.turns[0].events
+        assert len(events) == 4
+        # First two events are sandbox tool call/response.
+        assert events[0].content.parts[0].function_call.name == "provision_sandbox"
+        assert events[1].content.parts[0].function_response.name == "provision_sandbox"
+        # Last two are the real conversation.
+        assert events[2].content.parts[0].text == "What is 2+2?"
+        assert events[3].content.parts[0].text == "4"
+
+    def test_sandbox_prefix_with_multi_turn(self):
+        """Sandbox + 2 real turns produces 2 turns, not 3."""
+        interaction_dict = {
+            "status": "completed",
+            "steps": [
+                {
+                    "type": "function_call",
+                    "name": "provision_sandbox",
+                    "arguments": {},
+                    "id": "call_sb",
+                },
+                {
+                    "type": "function_result",
+                    "name": "provision_sandbox",
+                    "call_id": "call_sb",
+                    "result": {"status": "ready"},
+                },
+                {
+                    "type": "user_input",
+                    "content": [{"type": "text", "text": "Turn 1"}],
+                },
+                {
+                    "type": "model_output",
+                    "content": [{"type": "text", "text": "Reply 1"}],
+                },
+                {
+                    "type": "user_input",
+                    "content": [{"type": "text", "text": "Turn 2"}],
+                },
+                {
+                    "type": "model_output",
+                    "content": [{"type": "text", "text": "Reply 2"}],
+                },
+            ],
+        }
+        result = _evals_common._interaction_dict_to_agent_data(interaction_dict)
+        assert len(result.turns) == 2
+        assert (
+            result.turns[0].events[0].content.parts[0].function_call.name
+            == "provision_sandbox"
+        )
+        assert result.turns[0].events[-1].content.parts[0].text == "Reply 1"
+        assert result.turns[1].events[0].content.parts[0].text == "Turn 2"
+
+    def test_no_sandbox_prefix_unchanged(self):
+        """Interaction without sandbox steps is unaffected."""
+        interaction_dict = {
+            "status": "completed",
+            "steps": [
+                {
+                    "type": "user_input",
+                    "content": [{"type": "text", "text": "Hello"}],
+                },
+                {
+                    "type": "model_output",
+                    "content": [{"type": "text", "text": "Hi"}],
+                },
+            ],
+        }
+        result = _evals_common._interaction_dict_to_agent_data(interaction_dict)
+        assert len(result.turns) == 1
+        assert len(result.turns[0].events) == 2
+
+    def test_all_sandbox_only_not_discarded(self):
+        """If every step is sandbox-only, it remains as 1 turn (not discarded)."""
+        interaction_dict = {
+            "status": "completed",
+            "steps": [
+                {
+                    "type": "function_call",
+                    "name": "provision_sandbox",
+                    "arguments": {},
+                    "id": "call_sb",
+                },
+                {
+                    "type": "function_result",
+                    "name": "provision_sandbox",
+                    "call_id": "call_sb",
+                    "result": {"status": "ready"},
+                },
+            ],
+        }
+        result = _evals_common._interaction_dict_to_agent_data(interaction_dict)
+        # Only 1 group, and it's sandbox-only — but there's no second group
+        # to merge into, so it stays as-is.
+        assert len(result.turns) == 1
+
+    def test_non_sandbox_tool_before_user_input_not_merged(self):
+        """A non-sandbox tool call before user_input is NOT merged."""
+        interaction_dict = {
+            "status": "completed",
+            "steps": [
+                {
+                    "type": "function_call",
+                    "name": "run_command",
+                    "arguments": {"cmd": "ls"},
+                    "id": "call_1",
+                },
+                {
+                    "type": "function_result",
+                    "name": "run_command",
+                    "call_id": "call_1",
+                    "result": {"output": "file.txt"},
+                },
+                {
+                    "type": "user_input",
+                    "content": [{"type": "text", "text": "Hello"}],
+                },
+                {
+                    "type": "model_output",
+                    "content": [{"type": "text", "text": "Hi"}],
+                },
+            ],
+        }
+        result = _evals_common._interaction_dict_to_agent_data(interaction_dict)
+        # run_command is NOT a sandbox tool, so Turn 0 stays separate.
+        assert len(result.turns) == 2
+
+
 class TestMergeTextPartsInAgentData:
     """Tests for _merge_text_parts_in_agent_data."""
 
@@ -11616,7 +11980,8 @@ class TestFetchAgentConfigDict:
         mock_api_client = mock.MagicMock()
         mock_api_client.request.return_value = self._make_api_response(agent_json)
         result = _evals_common._fetch_agent_config_dict(
-            mock_api_client, "projects/p/locations/l/agents/a",
+            mock_api_client,
+            "projects/p/locations/l/agents/a",
         )
         assert len(result.tools) == 1
         decls = result.tools[0].function_declarations
@@ -11630,17 +11995,22 @@ class TestFetchAgentConfigDict:
         mock_api_client = mock.MagicMock()
         mock_api_client.request.return_value = self._make_api_response(agent_json)
         result = _evals_common._fetch_agent_config_dict(
-            mock_api_client, "projects/p/locations/l/agents/a",
+            mock_api_client,
+            "projects/p/locations/l/agents/a",
         )
         assert len(result.tools) == 1
         names = {fd.name for fd in result.tools[0].function_declarations}
         assert names == {
-            "view_file", "create_file", "edit_file",
-            "list_dir", "delete_file", "move_file",
+            "view_file",
+            "create_file",
+            "edit_file",
+            "list_dir",
+            "delete_file",
+            "move_file",
         }
 
-    def test_environment_adds_sandbox_tools(self):
-        """When agent has environment_config, sandbox tools are appended."""
+    def test_environment_does_not_add_sandbox_tools(self):
+        """Sandbox tools should NOT appear even when agent has environment."""
         agent_json = {
             "tools": [{"type": "code_execution"}],
             "environment_config": {"some_field": "value"},
@@ -11648,10 +12018,11 @@ class TestFetchAgentConfigDict:
         mock_api_client = mock.MagicMock()
         mock_api_client.request.return_value = self._make_api_response(agent_json)
         result = _evals_common._fetch_agent_config_dict(
-            mock_api_client, "projects/p/locations/l/agents/a",
+            mock_api_client,
+            "projects/p/locations/l/agents/a",
         )
-        # code_execution + sandbox tool
-        assert len(result.tools) == 2
+        # Only code_execution, no sandbox tools.
+        assert len(result.tools) == 1
         all_decl_names = {
             fd.name
             for t in result.tools
@@ -11659,8 +12030,8 @@ class TestFetchAgentConfigDict:
             for fd in t.function_declarations
         }
         assert "run_command" in all_decl_names
-        assert "provision_sandbox" in all_decl_names
-        assert "load_sandbox" in all_decl_names
+        assert "provision_sandbox" not in all_decl_names
+        assert "load_sandbox" not in all_decl_names
 
     def test_mcp_server_kept_as_named_declaration(self):
         """mcp_server entries are kept as named declarations, not dropped."""
@@ -11673,12 +12044,14 @@ class TestFetchAgentConfigDict:
         mock_api_client = mock.MagicMock()
         mock_api_client.request.return_value = self._make_api_response(agent_json)
         result = _evals_common._fetch_agent_config_dict(
-            mock_api_client, "projects/p/locations/l/agents/a",
+            mock_api_client,
+            "projects/p/locations/l/agents/a",
         )
         assert len(result.tools) == 2
         assert any(t.google_search is not None for t in result.tools)
         mcp_tool = [
-            t for t in result.tools
+            t
+            for t in result.tools
             if t.function_declarations
             and t.function_declarations[0].name == "mcp_server"
         ]
@@ -11688,19 +12061,21 @@ class TestFetchAgentConfigDict:
     def test_catalog_in_sync_with_server(self):
         """SDK catalog keys and function names match the server-side catalog.
 
-        The SDK-side BUILTIN_TOOL_DECLARATIONS and SANDBOX_DECLARATIONS in
-        _evals_builtin_tools are a display-only copy of the authoritative
-        server-side catalog in interaction_converter.py.  This test imports
-        both and asserts that tool-type keys and declaration names stay in
-        sync.  If this test fails, update _evals_builtin_tools.py to match.
+        The SDK-side BUILTIN_TOOL_DECLARATIONS in _evals_builtin_tools is a
+        display-only copy of the authoritative server-side catalog in
+        interaction_converter.py.  This test imports both and asserts that
+        tool-type keys and declaration names stay in sync.  If this test
+        fails, update _evals_builtin_tools.py to match.
+
+        Sandbox tool declarations (provision_sandbox, load_sandbox) are
+        intentionally excluded from both the SDK and server AgentConfig
+        tool catalogs, so no sync check is needed for them.
         """
         # pylint: disable=g-import-not-at-top
         try:
             from cloud.ai.platform.evaluation.utils import interaction_converter
         except ImportError:
-            pytest.skip(
-                "interaction_converter not available outside google3"
-            )
+            pytest.skip("interaction_converter not available outside google3")
         # pylint: enable=g-import-not-at-top
 
         # --- Built-in tool types: keys must match ---
@@ -11718,7 +12093,9 @@ class TestFetchAgentConfigDict:
         for tool_type in server_builtin_keys:
             server_names = {
                 fd.name
-                for fd in interaction_converter._BUILTIN_TOOL_FUNCTION_DECLARATIONS[tool_type]
+                for fd in interaction_converter._BUILTIN_TOOL_FUNCTION_DECLARATIONS[
+                    tool_type
+                ]
             }
             sdk_names = {
                 fd.name
@@ -11730,16 +12107,211 @@ class TestFetchAgentConfigDict:
                 f"  SDK:    {sorted(sdk_names)}"
             )
 
-        # --- Sandbox declarations: names must match ---
-        server_sandbox_names = {
-            fd.name
-            for fd in interaction_converter.sandbox_function_declarations()
-        }
-        sdk_sandbox_names = {
-            fd.name for fd in _evals_builtin_tools.SANDBOX_DECLARATIONS
-        }
-        assert sdk_sandbox_names == server_sandbox_names, (
-            f"SANDBOX_DECLARATIONS names out of sync.\n"
+        # --- Sandbox tool names: SDK names must match server names ---
+        server_sandbox_names = set(interaction_converter._SANDBOX_TOOL_NAMES)
+        assert _evals_builtin_tools.SANDBOX_TOOL_NAMES == server_sandbox_names, (
+            f"SANDBOX_TOOL_NAMES out of sync.\n"
             f"  Server: {sorted(server_sandbox_names)}\n"
-            f"  SDK:    {sorted(sdk_sandbox_names)}"
+            f"  SDK:    {sorted(_evals_builtin_tools.SANDBOX_TOOL_NAMES)}"
         )
+
+
+class TestGetEvaluationExperiment:
+
+    def setup_method(self, method):
+        self.mock_api_client = mock.MagicMock()
+        self.mock_api_client.vertexai = True
+        self.experiment_name = (
+            "projects/123/locations/us-central1/evaluationExperiments/456"
+        )
+        self.mock_response = mock.MagicMock()
+        self.mock_response.body = json.dumps(
+            {
+                "name": self.experiment_name,
+                "displayName": "my_experiment",
+                "evaluationRuns": [
+                    "projects/123/locations/us-central1/evaluationRuns/789"
+                ],
+            }
+        )
+        self.mock_api_client.request.return_value = self.mock_response
+
+    def test_get_evaluation_experiment_returns_experiment(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        experiment = evals_module.get_evaluation_experiment(name=self.experiment_name)
+
+        assert isinstance(experiment, agentplatform_genai_types.EvaluationExperiment)
+        assert experiment.name == self.experiment_name
+        assert experiment.display_name == "my_experiment"
+        assert experiment.evaluation_runs == [
+            "projects/123/locations/us-central1/evaluationRuns/789"
+        ]
+
+    def test_get_evaluation_experiment_uses_full_name_in_url(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        evals_module.get_evaluation_experiment(name=self.experiment_name)
+
+        self.mock_api_client.request.assert_called_once()
+        path = self.mock_api_client.request.call_args[0][1]
+        assert path == self.experiment_name
+
+
+class TestListEvaluationExperiments:
+
+    def setup_method(self, method):
+        self.mock_api_client = mock.MagicMock()
+        self.mock_api_client.vertexai = True
+        self.mock_response = mock.MagicMock()
+        self.mock_response.body = json.dumps(
+            {
+                "evaluationExperiments": [
+                    {
+                        "name": "projects/123/locations/us-central1/evaluationExperiments/1",
+                        "displayName": "exp_1",
+                    },
+                    {
+                        "name": "projects/123/locations/us-central1/evaluationExperiments/2",
+                        "displayName": "exp_2",
+                    },
+                ]
+            }
+        )
+        self.mock_api_client.request.return_value = self.mock_response
+
+    def test_list_evaluation_experiments_returns_experiments(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        response = evals_module.list_evaluation_experiments()
+
+        assert len(response.evaluation_experiments) == 2
+        assert response.evaluation_experiments[0].display_name == "exp_1"
+        assert response.evaluation_experiments[1].display_name == "exp_2"
+
+    def test_list_evaluation_experiments_passes_filter_and_order_by(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        evals_module.list_evaluation_experiments(
+            config={"filter": 'display_name="exp_1"', "order_by": "create_time desc"}
+        )
+
+        self.mock_api_client.request.assert_called_once()
+        path = self.mock_api_client.request.call_args[0][1]
+        assert path.startswith("evaluationExperiments?")
+        assert "orderBy=create_time+desc" in path
+
+
+class TestCreateEvaluationExperiment:
+
+    def setup_method(self, method):
+        self.mock_api_client = mock.MagicMock()
+        self.mock_api_client.vertexai = True
+        self.mock_response = mock.MagicMock()
+        self.mock_response.body = json.dumps(
+            {
+                "name": "projects/123/locations/us-central1/evaluationExperiments/456",
+                "displayName": "my_experiment",
+            }
+        )
+        self.mock_api_client.request.return_value = self.mock_response
+
+    def test_create_evaluation_experiment_returns_experiment(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        experiment = evals_module.create_evaluation_experiment(
+            display_name="my_experiment"
+        )
+
+        assert isinstance(experiment, agentplatform_genai_types.EvaluationExperiment)
+        assert experiment.display_name == "my_experiment"
+
+    def test_create_evaluation_experiment_posts_to_experiments(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        evals_module.create_evaluation_experiment(display_name="my_experiment")
+
+        self.mock_api_client.request.assert_called_once()
+        call_args = self.mock_api_client.request.call_args
+        assert call_args[0][0] == "post"
+        assert call_args[0][1] == "evaluationExperiments"
+        request_body = call_args[0][2]
+        assert request_body.get("displayName") == "my_experiment"
+
+    def test_create_evaluation_experiment_passes_all_params(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        evals_module.create_evaluation_experiment(
+            display_name="my_experiment",
+            merge_strategy=agentplatform_genai_types.EvaluationExperimentMergeStrategy.SHARED_RESULT_SET,
+            labels={"team": "agents"},
+            metadata={"owner": "test"},
+        )
+
+        request_body = self.mock_api_client.request.call_args[0][2]
+        assert request_body.get("displayName") == "my_experiment"
+        assert request_body.get("mergeStrategy") == "SHARED_RESULT_SET"
+        assert request_body.get("labels") == {"team": "agents"}
+        assert request_body.get("metadata") == {"owner": "test"}
+
+
+class TestUpdateEvaluationExperiment:
+
+    def setup_method(self, method):
+        self.mock_api_client = mock.MagicMock()
+        self.mock_api_client.vertexai = True
+        self.experiment_name = (
+            "projects/123/locations/us-central1/evaluationExperiments/456"
+        )
+        self.mock_response = mock.MagicMock()
+        self.mock_response.body = json.dumps(
+            {"name": self.experiment_name, "displayName": "updated_name"}
+        )
+        self.mock_api_client.request.return_value = self.mock_response
+
+    def test_update_evaluation_experiment_returns_experiment(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        experiment = evals_module.update_evaluation_experiment(
+            name=self.experiment_name,
+            config={"display_name": "updated_name", "update_mask": "display_name"},
+        )
+
+        assert isinstance(experiment, agentplatform_genai_types.EvaluationExperiment)
+        assert experiment.display_name == "updated_name"
+
+    def test_update_evaluation_experiment_uses_patch_and_full_name(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        evals_module.update_evaluation_experiment(
+            name=self.experiment_name,
+            config={"display_name": "updated_name", "update_mask": "display_name"},
+        )
+
+        self.mock_api_client.request.assert_called_once()
+        call_args = self.mock_api_client.request.call_args
+        assert call_args[0][0] == "patch"
+        assert call_args[0][1].startswith(self.experiment_name)
+
+
+class TestDeleteEvaluationExperiment:
+
+    def setup_method(self, method):
+        self.mock_api_client = mock.MagicMock()
+        self.mock_api_client.vertexai = True
+        self.experiment_name = (
+            "projects/123/locations/us-central1/evaluationExperiments/456"
+        )
+        self.mock_response = mock.MagicMock()
+        self.mock_response.body = json.dumps({"name": "operations/789"})
+        self.mock_api_client.request.return_value = self.mock_response
+
+    def test_delete_evaluation_experiment_uses_delete_and_full_name(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        evals_module.delete_evaluation_experiment(name=self.experiment_name)
+
+        self.mock_api_client.request.assert_called_once()
+        call_args = self.mock_api_client.request.call_args
+        assert call_args[0][0] == "delete"
+        assert call_args[0][1] == self.experiment_name

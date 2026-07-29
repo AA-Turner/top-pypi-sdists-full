@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: matrice_inference
-Version: 0.2.0
+Version: 0.4.0
 Summary: Common server utilities for Matrice.ai services
 Author-email: "Matrice.ai" <dipendra@matrice.ai>
 License: MIT
@@ -43,7 +43,7 @@ Requires-Dist: opencv-python-headless==4.13.0.92; extra == "dev"
 Requires-Dist: tritonclient==2.67.0; extra == "dev"
 Requires-Dist: fastapi==0.135.3; extra == "dev"
 Requires-Dist: uvicorn==0.44.0; extra == "dev"
-Requires-Dist: pillow==12.2.0; extra == "dev"
+Requires-Dist: pillow==12.3.0; extra == "dev"
 Dynamic: license-file
 Dynamic: requires-python
 

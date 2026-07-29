@@ -41,9 +41,7 @@ class TestEveEntity_repr(TestCase):
             id=1001, name="Bruce Wayne", category=EveEntity.CATEGORY_CHARACTER
         )
         # when/then
-        self.assertEqual(
-            repr(obj), "EveEntity(category='character', id=1001, name='Bruce Wayne')"
-        )
+        self.assertEqual(repr(obj), 'EveEntity(id=1001, name="Bruce Wayne")')
 
 
 class TestEveEntity_IsNPC(TestCase):

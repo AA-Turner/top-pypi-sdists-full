@@ -10,6 +10,7 @@
 #include "sipAPI_html2.h"
         #include <wx/webview.h>
         #include <wx/event.h>
+        #include <wx/webview.h>
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
@@ -71,9 +72,9 @@ sipwxWebViewEvent::~sipwxWebViewEvent()
     if (!sipMeth)
         return ::wxWebViewEvent::Clone();
 
-    extern ::wxEvent* sipVH__html2_22(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEvent* sipVH__html2_27(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__html2_22(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__html2_27(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxEventCategory sipwxWebViewEvent::GetEventCategory() const
@@ -86,9 +87,9 @@ sipwxWebViewEvent::~sipwxWebViewEvent()
     if (!sipMeth)
         return ::wxWebViewEvent::GetEventCategory();
 
-    extern ::wxEventCategory sipVH__html2_21(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEventCategory sipVH__html2_26(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__html2_21(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__html2_26(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
@@ -233,9 +234,44 @@ static PyObject *meth_wxWebViewEvent_GetMessageHandler(PyObject *sipSelf, PyObje
 }
 
 
+PyDoc_STRVAR(doc_wxWebViewEvent_GetTargetWindowFeatures, "GetTargetWindowFeatures() -> WebViewWindowFeatures\n"
+"\n"
+"Get information about the target window.");
+
+extern "C" {static PyObject *meth_wxWebViewEvent_GetTargetWindowFeatures(PyObject *, PyObject *);}
+static PyObject *meth_wxWebViewEvent_GetTargetWindowFeatures(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxWebViewEvent *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxWebViewEvent, &sipCpp))
+        {
+            ::wxWebViewWindowFeatures*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetTargetWindowFeatures();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxWebViewWindowFeatures, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_WebViewEvent, sipName_GetTargetWindowFeatures, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxWebViewEvent_IsError, "IsError() -> bool\n"
 "\n"
-"Returns true the script execution failed.");
+"Returns true if the operation failed.");
 
 extern "C" {static PyObject *meth_wxWebViewEvent_IsError(PyObject *, PyObject *);}
 static PyObject *meth_wxWebViewEvent_IsError(PyObject *sipSelf, PyObject *sipArgs)
@@ -263,6 +299,41 @@ static PyObject *meth_wxWebViewEvent_IsError(PyObject *sipSelf, PyObject *sipArg
     }
 
     sipNoMethod(sipParseErr, sipName_WebViewEvent, sipName_IsError, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxWebViewEvent_IsTargetMainFrame, "IsTargetMainFrame() -> bool\n"
+"\n"
+"Returns true if the navigation target is the main frame.");
+
+extern "C" {static PyObject *meth_wxWebViewEvent_IsTargetMainFrame(PyObject *, PyObject *);}
+static PyObject *meth_wxWebViewEvent_IsTargetMainFrame(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxWebViewEvent *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxWebViewEvent, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->IsTargetMainFrame();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_WebViewEvent, sipName_IsTargetMainFrame, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -437,7 +508,7 @@ static void *init_type_wxWebViewEvent(sipSimpleWrapper *sipSelf, PyObject *sipAr
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxWebViewEvent[] = {{8, 0, 1}};
+static sipEncodedTypeDef supers_wxWebViewEvent[] = {{10, 0, 1}};
 
 
 static PyMethodDef methods_wxWebViewEvent[] = {
@@ -445,12 +516,15 @@ static PyMethodDef methods_wxWebViewEvent[] = {
     {sipName_GetMessageHandler, meth_wxWebViewEvent_GetMessageHandler, METH_VARARGS, doc_wxWebViewEvent_GetMessageHandler},
     {sipName_GetNavigationAction, meth_wxWebViewEvent_GetNavigationAction, METH_VARARGS, doc_wxWebViewEvent_GetNavigationAction},
     {sipName_GetTarget, meth_wxWebViewEvent_GetTarget, METH_VARARGS, doc_wxWebViewEvent_GetTarget},
+    {sipName_GetTargetWindowFeatures, meth_wxWebViewEvent_GetTargetWindowFeatures, METH_VARARGS, doc_wxWebViewEvent_GetTargetWindowFeatures},
     {sipName_GetURL, meth_wxWebViewEvent_GetURL, METH_VARARGS, doc_wxWebViewEvent_GetURL},
-    {sipName_IsError, meth_wxWebViewEvent_IsError, METH_VARARGS, doc_wxWebViewEvent_IsError}
+    {sipName_IsError, meth_wxWebViewEvent_IsError, METH_VARARGS, doc_wxWebViewEvent_IsError},
+    {sipName_IsTargetMainFrame, meth_wxWebViewEvent_IsTargetMainFrame, METH_VARARGS, doc_wxWebViewEvent_IsTargetMainFrame}
 };
 
 sipVariableDef variables_wxWebViewEvent[] = {
-    {PropertyVariable, sipName_URL, &methods_wxWebViewEvent[4], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_URL, &methods_wxWebViewEvent[5], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TargetWindowFeatures, &methods_wxWebViewEvent[4], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_Target, &methods_wxWebViewEvent[3], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_NavigationAction, &methods_wxWebViewEvent[2], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_MessageHandler, &methods_wxWebViewEvent[1], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
@@ -476,9 +550,9 @@ sipClassTypeDef sipTypeDef__html2_wxWebViewEvent = {
     {
         sipNameNr_WebViewEvent,
         {0, 0, 1},
-        6, methods_wxWebViewEvent,
+        8, methods_wxWebViewEvent,
         0, SIP_NULLPTR,
-        4, variables_wxWebViewEvent,
+        5, variables_wxWebViewEvent,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxWebViewEvent,

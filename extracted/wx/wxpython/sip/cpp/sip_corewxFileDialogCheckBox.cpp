@@ -131,7 +131,7 @@ static void dealloc_wxFileDialogCheckBox(sipSimpleWrapper *sipSelf)
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxFileDialogCheckBox[] = {{171, 255, 1}};
+static sipEncodedTypeDef supers_wxFileDialogCheckBox[] = {{179, 255, 1}};
 
 
 static PyMethodDef methods_wxFileDialogCheckBox[] = {

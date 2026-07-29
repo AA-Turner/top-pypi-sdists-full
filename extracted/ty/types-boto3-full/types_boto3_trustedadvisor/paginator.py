@@ -17,6 +17,7 @@ Usage::
         ListOrganizationRecommendationResourcesPaginator,
         ListOrganizationRecommendationsPaginator,
         ListRecommendationResourcesPaginator,
+        ListRecommendationsForResourcePaginator,
         ListRecommendationsPaginator,
     )
 
@@ -28,6 +29,7 @@ Usage::
     list_organization_recommendation_resources_paginator: ListOrganizationRecommendationResourcesPaginator = client.get_paginator("list_organization_recommendation_resources")
     list_organization_recommendations_paginator: ListOrganizationRecommendationsPaginator = client.get_paginator("list_organization_recommendations")
     list_recommendation_resources_paginator: ListRecommendationResourcesPaginator = client.get_paginator("list_recommendation_resources")
+    list_recommendations_for_resource_paginator: ListRecommendationsForResourcePaginator = client.get_paginator("list_recommendations_for_resource")
     list_recommendations_paginator: ListRecommendationsPaginator = client.get_paginator("list_recommendations")
     ```
 """
@@ -50,6 +52,8 @@ from .type_defs import (
     ListOrganizationRecommendationsResponseTypeDef,
     ListRecommendationResourcesRequestPaginateTypeDef,
     ListRecommendationResourcesResponseTypeDef,
+    ListRecommendationsForResourceRequestPaginateTypeDef,
+    ListRecommendationsForResourceResponseTypeDef,
     ListRecommendationsRequestPaginateTypeDef,
     ListRecommendationsResponseTypeDef,
 )
@@ -66,6 +70,7 @@ __all__ = (
     "ListOrganizationRecommendationResourcesPaginator",
     "ListOrganizationRecommendationsPaginator",
     "ListRecommendationResourcesPaginator",
+    "ListRecommendationsForResourcePaginator",
     "ListRecommendationsPaginator",
 )
 
@@ -184,6 +189,29 @@ class ListRecommendationResourcesPaginator(_ListRecommendationResourcesPaginator
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/trustedadvisor/paginator/ListRecommendationResources.html#TrustedAdvisorPublicAPI.Paginator.ListRecommendationResources.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_trustedadvisor/paginators/#listrecommendationresourcespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListRecommendationsForResourcePaginatorBase = Paginator[
+        ListRecommendationsForResourceResponseTypeDef
+    ]
+else:
+    _ListRecommendationsForResourcePaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListRecommendationsForResourcePaginator(_ListRecommendationsForResourcePaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/trustedadvisor/paginator/ListRecommendationsForResource.html#TrustedAdvisorPublicAPI.Paginator.ListRecommendationsForResource)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_trustedadvisor/paginators/#listrecommendationsforresourcepaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRecommendationsForResourceRequestPaginateTypeDef]
+    ) -> PageIterator[ListRecommendationsForResourceResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/trustedadvisor/paginator/ListRecommendationsForResource.html#TrustedAdvisorPublicAPI.Paginator.ListRecommendationsForResource.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_trustedadvisor/paginators/#listrecommendationsforresourcepaginator)
         """
 
 

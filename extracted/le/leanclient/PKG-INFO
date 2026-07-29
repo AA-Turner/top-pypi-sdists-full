@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: leanclient
-Version: 0.12.1
+Version: 0.13.0
 Summary: Interact with the Lean theorem prover language server
 Project-URL: Homepage, https://github.com/oOo0oOo/leanclient
 Project-URL: Repository, https://github.com/oOo0oOo/leanclient

@@ -363,8 +363,8 @@ static void *init_type_wxRibbonButtonBarEvent(sipSimpleWrapper *sipSelf, PyObjec
     {
         ::wxEventType command_type = wxEVT_NULL;
         int win_id = 0;
-        ::wxRibbonButtonBar* bar = 0;
-        ::wxRibbonButtonBarButtonBase* button = 0;
+        ::wxRibbonButtonBar* bar = nullptr;
+        ::wxRibbonButtonBarButtonBase* button = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_command_type,
@@ -413,7 +413,7 @@ static void *init_type_wxRibbonButtonBarEvent(sipSimpleWrapper *sipSelf, PyObjec
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxRibbonButtonBarEvent[] = {{4, 0, 1}};
+static sipEncodedTypeDef supers_wxRibbonButtonBarEvent[] = {{6, 0, 1}};
 
 
 static PyMethodDef methods_wxRibbonButtonBarEvent[] = {
@@ -430,7 +430,7 @@ sipVariableDef variables_wxRibbonButtonBarEvent[] = {
     {PropertyVariable, sipName_Bar, &methods_wxRibbonButtonBarEvent[1], &methods_wxRibbonButtonBarEvent[4], SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxRibbonButtonBarEvent, "RibbonButtonBarEvent(command_type=wx.wxEVT_NULL, win_id=0, bar=None, button=None) -> None\n"
+PyDoc_STRVAR(doc_wxRibbonButtonBarEvent, "RibbonButtonBarEvent(command_type=wx.wxEVT_NULL, win_id=0, bar=nullptr, button=nullptr) -> None\n"
 "\n"
 "Event used to indicate various actions relating to a button on a\n"
 "wxRibbonButtonBar.");

@@ -1251,7 +1251,7 @@ static void *init_type_wxPrintData(sipSimpleWrapper *, PyObject *sipArgs, PyObje
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxPrintData[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxPrintData[] = {{400, 255, 1}};
 
 
 /* Define this type's Python slots. */

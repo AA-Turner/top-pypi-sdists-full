@@ -537,6 +537,14 @@ const ON_wString ON_TextContent::Internal_GetPlainText(bool evaluate_fields, boo
             map.j = plaintext.Length();
             map.k = (int)wcslen(str);
           }
+
+          // December 3, 2025 - Tim
+          // Fix for https://mcneel.myjetbrains.com/youtrack/issue/RH-90830
+          // Add a space before the fraction if is not the first 
+          // chunk of text.
+          if (0 < ri && nullptr != wcschr(str, '/'))
+            plaintext += " ";
+
           plaintext += str;
         }
       }
@@ -1729,7 +1737,11 @@ bool ON_TextContent::CreateStackedText(ON_TextRun* run, int cpcount, const ON__U
     stack_width += 2.0 * separator_size;
 
   double top_dy = separator_height + 1.5 * separator_size;
-  double bottom_dy = separator_height - 1.5 * separator_size - (bottom_run->BoundingBox().m_max.y - bottom_run->BoundingBox().m_min.y);
+  // 11 Oct 2025 S. Baer (RH-81827)
+  // Offset for the bottom stacked portion should not take m_min.y into account
+  // Letters that hang below like 'g' were causing the bottom stack offset to be
+  // too large
+  double bottom_dy = separator_height - 1.5 * separator_size - (bottom_run->BoundingBox().m_max.y);// - bottom_run->BoundingBox().m_min.y);
 
   ON_2dPoint box[2];  // total stacked run bounding box
   box[0].Set(top_run->BoundingBox().m_min.x, bottom_dy);
@@ -2520,9 +2532,22 @@ bool ON_TextContent::FormatLength(
   wchar_t decimal_char,
   ON_wString & output)
 {
+  // Record length before appending so we only replace periods in the newly added portion
+  const int length_before = output.Length();
   bool rc = ON_NumberFormatter::FormatLength( distance, output_lengthdisplay,  round_off,  resolution, zero_suppress,  bracket_fractions, output);
   if (rc && ON_wString::DecimalAsPeriod != decimal_char)
-    output.Replace(ON_wString::DecimalAsPeriod, decimal_char);
+  {
+    // Only replace periods in the newly appended portion, not in any pre-existing text RH-83506
+    wchar_t* str = output.Array();
+    if (nullptr != str)
+    {
+      for (int i = length_before; i < output.Length(); i++)
+      {
+        if (str[i] == ON_wString::DecimalAsPeriod)
+          str[i] = decimal_char;
+      }
+    }
+  }
   return rc;
 }
 
@@ -2540,9 +2565,22 @@ bool ON_TextContent::FormatAngleStringDMS(
   int resolution,
   ON_wString& formatted_string)
 {
+  // Record length before appending so we only replace periods in the newly added portion
+  const int length_before = formatted_string.Length();
   bool rc = ON_NumberFormatter::FormatAngleStringDMS(angle_degrees, resolution, formatted_string);
   if (rc && ON_wString::DecimalAsPeriod != decimal_char)
-    formatted_string.Replace(ON_wString::DecimalAsPeriod, decimal_char);
+  {
+    // Only replace periods in the newly appended portion, not in any pre-existing text RH-83506
+    wchar_t* str = formatted_string.Array();
+    if (nullptr != str)
+    {
+      for (int i = length_before; i < formatted_string.Length(); i++)
+      {
+        if (str[i] == ON_wString::DecimalAsPeriod)
+          str[i] = decimal_char;
+      }
+    }
+  }
   return rc;
 }
 
@@ -2554,9 +2592,22 @@ bool ON_TextContent::FormatAngleStringDecimal(
   wchar_t decimal_char,
   ON_wString& formatted_string)
 {
+  // Record length before appending so we only replace periods in the newly added portion
+  const int length_before = formatted_string.Length();
   bool rc = ON_NumberFormatter::FormatAngleStringDecimal(angle_radians, resolution, roundoff, zero_suppression, formatted_string);
   if (rc && ON_wString::DecimalAsPeriod != decimal_char)
-    formatted_string.Replace(ON_wString::DecimalAsPeriod, decimal_char);
+  {
+    // Only replace periods in the newly appended portion, not in any pre-existing text RH-83506
+    wchar_t* str = formatted_string.Array();
+    if (nullptr != str)
+    {
+      for (int i = length_before; i < formatted_string.Length(); i++)
+      {
+        if (str[i] == ON_wString::DecimalAsPeriod)
+          str[i] = decimal_char;
+      }
+    }
+  }
   return rc;
 }
 
@@ -2619,6 +2670,8 @@ bool ON_TextContent::FormatAreaOrVolume(
 
   ON_DimStyle::OBSOLETE_length_format output_format = ON_DimStyle::OBSOLETE_length_format::Decimal;
 
+  // Record length before appending so we only replace periods in the newly added portion
+  const int length_before = formatted_string.Length();
   bool rc = ON_NumberFormatter::FormatNumber(
     value,
     output_format,
@@ -2629,7 +2682,18 @@ bool ON_TextContent::FormatAreaOrVolume(
     formatted_string);
 
   if (rc && ON_wString::DecimalAsPeriod != decimal_char)
-    formatted_string.Replace(ON_wString::DecimalAsPeriod, decimal_char);
+  {
+    // Only replace periods in the newly appended portion, not in any pre-existing text RH-83506
+    wchar_t* str = formatted_string.Array();
+    if (nullptr != str)
+    {
+      for (int i = length_before; i < formatted_string.Length(); i++)
+      {
+        if (str[i] == ON_wString::DecimalAsPeriod)
+          str[i] = decimal_char;
+      }
+    }
+  }
 
   return rc;
 }

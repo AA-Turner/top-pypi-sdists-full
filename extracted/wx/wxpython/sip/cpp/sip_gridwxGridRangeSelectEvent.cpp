@@ -648,7 +648,7 @@ static void *init_type_wxGridRangeSelectEvent(sipSimpleWrapper *sipSelf, PyObjec
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGridRangeSelectEvent[] = {{17, 0, 1}};
+static sipEncodedTypeDef supers_wxGridRangeSelectEvent[] = {{18, 0, 1}};
 
 
 static PyMethodDef methods_wxGridRangeSelectEvent[] = {

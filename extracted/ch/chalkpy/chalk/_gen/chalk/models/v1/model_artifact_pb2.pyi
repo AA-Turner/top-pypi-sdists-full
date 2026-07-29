@@ -148,6 +148,7 @@ class ModelArtifactSpec(_message.Message):
         "input_features",
         "output_features",
         "python_dependencies",
+        "python_version",
         "model_image",
         "model_volume",
     )
@@ -160,6 +161,7 @@ class ModelArtifactSpec(_message.Message):
     INPUT_FEATURES_FIELD_NUMBER: _ClassVar[int]
     OUTPUT_FEATURES_FIELD_NUMBER: _ClassVar[int]
     PYTHON_DEPENDENCIES_FIELD_NUMBER: _ClassVar[int]
+    PYTHON_VERSION_FIELD_NUMBER: _ClassVar[int]
     MODEL_IMAGE_FIELD_NUMBER: _ClassVar[int]
     MODEL_VOLUME_FIELD_NUMBER: _ClassVar[int]
     model_files: _containers.RepeatedCompositeFieldContainer[ModelFile]
@@ -171,6 +173,7 @@ class ModelArtifactSpec(_message.Message):
     input_features: _containers.RepeatedScalarFieldContainer[str]
     output_features: _containers.RepeatedScalarFieldContainer[str]
     python_dependencies: _containers.RepeatedScalarFieldContainer[str]
+    python_version: str
     model_image: str
     model_volume: str
     def __init__(
@@ -184,6 +187,7 @@ class ModelArtifactSpec(_message.Message):
         input_features: _Optional[_Iterable[str]] = ...,
         output_features: _Optional[_Iterable[str]] = ...,
         python_dependencies: _Optional[_Iterable[str]] = ...,
+        python_version: _Optional[str] = ...,
         model_image: _Optional[str] = ...,
         model_volume: _Optional[str] = ...,
     ) -> None: ...

@@ -3,9 +3,17 @@
 const std::string version = ON::VersionQuartetAsString();
 
 #if defined(ON_PYTHON_COMPILE)
+
+#if defined(RHINOCORE_BINDINGS)
+RH3DM_PYTHON_BINDING(rhinocore_py_bindings, m) {
+  m.doc() = "rhinocore python package. Direc in-rhino C++ class bindings";
+  m.attr("Version") = py::cast(version);
+#else
 RH3DM_PYTHON_BINDING(_rhino3dm, m) {
   m.doc() = "rhino3dm python package. OpenNURBS wrappers with a RhinoCommon style";
   m.attr("Version") = py::cast(version);
+#endif
+
 #endif
 
 #if defined(ON_WASM_COMPILE)
@@ -88,6 +96,9 @@ EMSCRIPTEN_BINDINGS(rhino3dm) {
   initDracoBindings(m);
   initRTreeBindings(m);
   initLinetypeBindings(m);
+#if defined(RHINOCORE_BINDINGS)
+  initRhinoDocBindings(m);
+#endif
 }
 
 #if defined(ON_PYTHON_COMPILE)

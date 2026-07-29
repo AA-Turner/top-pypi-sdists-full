@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-http
-Version: 6.0.4
+Version: 6.0.5
 Summary: Provider package apache-airflow-providers-http for Apache Airflow
 Keywords: airflow-provider,http,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -24,7 +24,7 @@ Classifier: Topic :: System :: Monitoring
 License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: apache-airflow>=2.11.0
-Requires-Dist: apache-airflow-providers-common-compat>=1.12.0
+Requires-Dist: apache-airflow-providers-common-compat>=1.17.0
 Requires-Dist: requests>=2.32.0,<3
 Requires-Dist: requests-toolbelt>=1.0.0
 Requires-Dist: aiohttp>=3.14.0
@@ -32,8 +32,8 @@ Requires-Dist: asgiref>=2.3.0; python_version < '3.14'
 Requires-Dist: asgiref>=3.11.1; python_version >= '3.14'
 Requires-Dist: pydantic>=2.11.0
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-http/6.0.4/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-http/6.0.4
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-http/6.0.5/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-http/6.0.5
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -64,7 +64,7 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-http``
 
-Release: ``6.0.4``
+Release: ``6.0.5``
 
 
 `Hypertext Transfer Protocol (HTTP) <https://www.w3.org/Protocols/>`__
@@ -77,7 +77,7 @@ This is a provider package for ``http`` provider. All classes for this provider 
 are in ``airflow.providers.http`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-http/6.0.4/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-http/6.0.5/>`_.
 
 Installation
 ------------
@@ -95,7 +95,7 @@ Requirements
 PIP package                                 Version required
 ==========================================  ======================================
 ``apache-airflow``                          ``>=2.11.0``
-``apache-airflow-providers-common-compat``  ``>=1.12.0``
+``apache-airflow-providers-common-compat``  ``>=1.17.0``
 ``requests``                                ``>=2.32.0,<3``
 ``requests-toolbelt``                       ``>=1.0.0``
 ``aiohttp``                                 ``>=3.14.0``
@@ -104,25 +104,6 @@ PIP package                                 Version required
 ``pydantic``                                ``>=2.11.0``
 ==========================================  ======================================
 
-Cross provider package dependencies
------------------------------------
-
-Those are dependencies that might be needed in order to use all the features of the package.
-You need to install the specified providers in order to use them.
-
-You can install such cross-provider dependencies when installing from PyPI. For example:
-
-.. code-block:: bash
-
-    pip install apache-airflow-providers-http[common.compat]
-
-
-==================================================================================================================  =================
-Dependent package                                                                                                   Extra
-==================================================================================================================  =================
-`apache-airflow-providers-common-compat <https://airflow.apache.org/docs/apache-airflow-providers-common-compat>`_  ``common.compat``
-==================================================================================================================  =================
-
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-http/6.0.4/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-http/6.0.5/changelog.html>`_.
 

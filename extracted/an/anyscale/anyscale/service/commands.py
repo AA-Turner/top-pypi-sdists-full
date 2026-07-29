@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from anyscale._private.models.model_base import ResultIterator
 from anyscale._private.sdk import sdk_command
@@ -534,3 +534,75 @@ def list(  # noqa: A001, PLR0913
         sort_field=sort_field,
         sort_order=sort_order,
     )
+
+
+_TOKEN_ADD_EXAMPLE = """
+import anyscale
+
+primary, secondary = anyscale.service.token_add(name="my-service")
+"""
+
+_TOKEN_ADD_ARG_DOCSTRINGS = {
+    "name": "Name of the service.",
+    "service_id": "ID of the service.",
+    "cloud": "The Anyscale Cloud of this workload. If not provided, the organization default will be used (or, if running in a workspace, the cloud of the workspace).",
+    "project": "Named project to use for the service. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
+}
+
+
+@sdk_command(
+    _SERVICE_SDK_SINGLETON_KEY,
+    PrivateServiceSDK,
+    doc_py_example=_TOKEN_ADD_EXAMPLE,
+    arg_docstrings=_TOKEN_ADD_ARG_DOCSTRINGS,
+)
+def token_add(
+    name: Optional[str] = None,
+    service_id: Optional[str] = None,
+    *,
+    cloud: Optional[str] = None,
+    project: Optional[str] = None,
+    _private_sdk: Optional[PrivateServiceSDK] = None,
+) -> Tuple[str, Optional[str]]:
+    """Add a secondary auth token for zero-downtime service token rotation.
+
+    Returns a (primary_auth_token, secondary_auth_token) tuple.
+    """
+    return _private_sdk.token_add(name=name, service_id=service_id, cloud=cloud, project=project)  # type: ignore
+
+
+_TOKEN_DELETE_EXAMPLE = """
+import anyscale
+
+primary, secondary = anyscale.service.token_delete(name="my-service", auth_token="<old-token>")
+"""
+
+_TOKEN_DELETE_ARG_DOCSTRINGS = {
+    "name": "Name of the service.",
+    "service_id": "ID of the service.",
+    "cloud": "The Anyscale Cloud of this workload. If not provided, the organization default will be used (or, if running in a workspace, the cloud of the workspace).",
+    "project": "Named project to use for the service. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
+    "auth_token": "Auth token to delete. If not provided, the primary token is deleted and the secondary is promoted to primary.",
+}
+
+
+@sdk_command(
+    _SERVICE_SDK_SINGLETON_KEY,
+    PrivateServiceSDK,
+    doc_py_example=_TOKEN_DELETE_EXAMPLE,
+    arg_docstrings=_TOKEN_DELETE_ARG_DOCSTRINGS,
+)
+def token_delete(
+    name: Optional[str] = None,
+    service_id: Optional[str] = None,
+    *,
+    cloud: Optional[str] = None,
+    project: Optional[str] = None,
+    auth_token: Optional[str] = None,
+    _private_sdk: Optional[PrivateServiceSDK] = None,
+) -> Tuple[str, Optional[str]]:
+    """Delete a service auth token during token rotation.
+
+    Returns the resulting (primary_auth_token, secondary_auth_token) tuple.
+    """
+    return _private_sdk.token_delete(name=name, service_id=service_id, cloud=cloud, project=project, auth_token=auth_token)  # type: ignore

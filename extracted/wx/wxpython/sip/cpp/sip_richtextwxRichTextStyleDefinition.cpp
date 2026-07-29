@@ -472,7 +472,7 @@ static void dealloc_wxRichTextStyleDefinition(sipSimpleWrapper *sipSelf)
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxRichTextStyleDefinition[] = {{42, 0, 1}};
+static sipEncodedTypeDef supers_wxRichTextStyleDefinition[] = {{43, 0, 1}};
 
 
 static PyMethodDef methods_wxRichTextStyleDefinition[] = {

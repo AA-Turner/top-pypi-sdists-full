@@ -83,9 +83,9 @@ sipwxDropFilesEvent::~sipwxDropFilesEvent()
     if (!sipMeth)
         return ::wxDropFilesEvent::Clone();
 
-    extern ::wxEvent* sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEvent* sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxEventCategory sipwxDropFilesEvent::GetEventCategory() const
@@ -98,9 +98,9 @@ sipwxDropFilesEvent::~sipwxDropFilesEvent()
     if (!sipMeth)
         return ::wxDropFilesEvent::GetEventCategory();
 
-    extern ::wxEventCategory sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEventCategory sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
@@ -296,7 +296,7 @@ static void *init_type_wxDropFilesEvent(sipSimpleWrapper *sipSelf, PyObject *sip
     {
         ::wxEventType id = 0;
         Py_ssize_t noFiles = 0;
-        ::wxString* files = 0;
+        ::wxString* files = nullptr;
         int filesState = 0;
 
         static const char *sipKwdList[] = {
@@ -345,7 +345,7 @@ static void *init_type_wxDropFilesEvent(sipSimpleWrapper *sipSelf, PyObject *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxDropFilesEvent[] = {{151, 255, 1}};
+static sipEncodedTypeDef supers_wxDropFilesEvent[] = {{158, 255, 1}};
 
 
 static PyMethodDef methods_wxDropFilesEvent[] = {
@@ -361,7 +361,7 @@ sipVariableDef variables_wxDropFilesEvent[] = {
     {PropertyVariable, sipName_Files, &methods_wxDropFilesEvent[1], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxDropFilesEvent, "DropFilesEvent(id=0, files=None) -> None\n"
+PyDoc_STRVAR(doc_wxDropFilesEvent, "DropFilesEvent(id=0, files=nullptr) -> None\n"
 "\n"
 "This class is used for drop files events, that is, when files have\n"
 "been dropped onto the window.");

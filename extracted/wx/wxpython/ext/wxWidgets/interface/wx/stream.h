@@ -610,12 +610,18 @@ public:
     int GetC();
 
     /**
-        Returns the last number of bytes read.
+        Returns the last number of bytes read by the last input operation.
+
+        Such operations include Read(), GetC() and Peek().
     */
     virtual size_t LastRead() const;
 
     /**
         Returns the first character in the input queue without removing it.
+
+        If Peek() failed, e.g. because there is nothing more to read in the
+        stream, LastRead() will return 0 after calling it, otherwise it will
+        return 1.
     */
     virtual char Peek();
 
@@ -641,6 +647,17 @@ public:
                 user can test any states of the stream right away.
     */
     wxInputStream& Read(wxOutputStream& stream_out);
+
+    /**
+        Read all data from the stream and stores it in the specified buffer.
+        Data is read until the end of the input stream, or until an error occurs.
+        The buffer will be resized to the number of bytes read.
+
+        @return Returns true if the entire stream is read.
+
+        @since 3.3.3
+    */
+    bool Read(std::vector<wxUint8>& buffer);
 
     /**
         Reads exactly the specified number of bytes into the buffer.
@@ -783,12 +800,12 @@ public:
         @param stream
             The associated low-level stream.
         @param buffer
-            The buffer to use if non-@NULL. Notice that the ownership of this
+            The buffer to use if non-null. Notice that the ownership of this
             buffer is taken by the stream, i.e. it will delete it. If this
             parameter is @NULL a default 1KB buffer is used.
     */
     wxBufferedInputStream(wxInputStream& stream,
-                          wxStreamBuffer *buffer = NULL);
+                          wxStreamBuffer *buffer = nullptr);
 
     /**
         Constructor allowing to specify the size of the buffer.
@@ -887,7 +904,7 @@ public:
         const wxFilterClassFactory *factory = wxFilterClassFactory::GetFirst();
 
         while (factory) {
-            list << factory->GetProtocol() << wxT("\n");
+            list << factory->GetProtocol() << "\n";
             factory = factory->GetNext();
         }
         @endcode
@@ -917,7 +934,7 @@ public:
         const wxChar *const *p;
 
         for (p = factory->GetProtocols(wxSTREAM_FILEEXT); *p; p++)
-            list << *p << wxT("\n");
+            list << *p << "\n";
         @endcode
     */
     virtual const wxChar * const* GetProtocols(wxStreamProtocolType type = wxSTREAM_PROTOCOL) const = 0;
@@ -1058,12 +1075,12 @@ public:
         @param stream
             The associated low-level stream.
         @param buffer
-            The buffer to use if non-@NULL. Notice that the ownership of this
+            The buffer to use if non-null. Notice that the ownership of this
             buffer is taken by the stream, i.e. it will delete it. If this
             parameter is @NULL a default 1KB buffer is used.
     */
     wxBufferedOutputStream(wxOutputStream& stream,
-                           wxStreamBuffer *buffer = NULL);
+                           wxStreamBuffer *buffer = nullptr);
 
     /**
         Constructor allowing to specify the size of the buffer.

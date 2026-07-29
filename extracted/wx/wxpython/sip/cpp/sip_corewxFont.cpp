@@ -2786,7 +2786,7 @@ static void *init_type_wxFont(sipSimpleWrapper *, PyObject *sipArgs, PyObject *s
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxFont[] = {{226, 255, 1}};
+static sipEncodedTypeDef supers_wxFont[] = {{234, 255, 1}};
 
 
 /* Define this type's Python slots. */

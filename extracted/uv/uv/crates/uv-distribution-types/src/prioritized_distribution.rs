@@ -144,6 +144,7 @@ impl IncompatibleDist {
                 IncompatibleSource::RequiresPython(..) => {
                     format!("requires {self}")
                 }
+                IncompatibleSource::NotPep625Filename => format!("has {self}"),
             },
             Self::Unavailable => format!("has {self}"),
         }
@@ -172,6 +173,7 @@ impl IncompatibleDist {
                 IncompatibleSource::RequiresPython(..) => {
                     format!("require {self}")
                 }
+                IncompatibleSource::NotPep625Filename => format!("have {self}"),
             },
             Self::Unavailable => format!("have {self}"),
         }
@@ -277,6 +279,9 @@ impl Display for IncompatibleDist {
                 IncompatibleSource::RequiresPython(python, _) => {
                     write!(f, "Python {python}")
                 }
+                IncompatibleSource::NotPep625Filename => {
+                    f.write_str("a non-PEP 625-compliant source distribution filename")
+                }
             },
             Self::Unavailable => f.write_str("no available distributions"),
         }
@@ -327,6 +332,8 @@ pub enum IncompatibleSource {
     RequiresPython(VersionSpecifiers, PythonRequirementKind),
     Yanked(Yanked),
     NoBuild,
+    /// The source distribution's filename does not confirm to PEP 625.
+    NotPep625Filename,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -380,7 +387,7 @@ impl PrioritizedDist {
         // Track the implied markers.
         if compatibility.is_compatible() {
             if !self.0.markers.is_true() {
-                self.0.markers.or(implied_markers(&dist.filename));
+                self.0.markers = self.0.markers.or(implied_markers(&dist.filename));
             }
         }
         // Track the hashes.
@@ -737,21 +744,26 @@ impl IncompatibleSource {
             Self::ExcludeNewer(timestamp_self) => match other {
                 // Smaller timestamps are closer to the cut-off time
                 Self::ExcludeNewer(timestamp_other) => timestamp_other < timestamp_self,
-                Self::NoBuild | Self::RequiresPython(_, _) | Self::Yanked(_) => true,
+                Self::NoBuild
+                | Self::RequiresPython(_, _)
+                | Self::Yanked(_)
+                | Self::NotPep625Filename => true,
             },
             Self::RequiresPython(_, _) => match other {
                 Self::ExcludeNewer(_) => false,
                 // Version specifiers cannot be reasonably compared
                 Self::RequiresPython(_, _) => false,
-                Self::NoBuild | Self::Yanked(_) => true,
+                Self::NoBuild | Self::Yanked(_) | Self::NotPep625Filename => true,
             },
             Self::Yanked(_) => match other {
-                Self::ExcludeNewer(_) | Self::RequiresPython(_, _) => false,
+                Self::ExcludeNewer(_) | Self::RequiresPython(_, _) | Self::NotPep625Filename => {
+                    false
+                }
                 // Yanks with a reason are more helpful for errors
                 Self::Yanked(yanked_other) => matches!(yanked_other, Yanked::Reason(_)),
                 Self::NoBuild => true,
             },
-            Self::NoBuild => false,
+            Self::NoBuild | Self::NotPep625Filename => false,
         }
     }
 }
@@ -809,10 +821,7 @@ impl IncompatibleWheel {
 
 /// Given a wheel filename, determine the set of supported markers.
 pub fn implied_markers(filename: &WheelFilename) -> MarkerTree {
-    let mut marker = implied_platform_markers(filename);
-    marker.and(implied_python_markers(filename));
-
-    marker
+    implied_platform_markers(filename).and(implied_python_markers(filename))
 }
 
 /// Given a wheel filename, determine the set of supported platforms, in terms of their markers.
@@ -834,12 +843,12 @@ fn implied_platform_markers(filename: &WheelFilename) -> MarkerTree {
                     operator: MarkerOperator::Equal,
                     value: arcstr::literal!("win32"),
                 });
-                tag_marker.and(MarkerTree::expression(MarkerExpression::String {
+                tag_marker = tag_marker.and(MarkerTree::expression(MarkerExpression::String {
                     key: MarkerValueString::PlatformMachine,
                     operator: MarkerOperator::Equal,
                     value: arcstr::literal!("x86"),
                 }));
-                marker.or(tag_marker);
+                marker = marker.or(tag_marker);
             }
             PlatformTag::WinAmd64 => {
                 let mut tag_marker = MarkerTree::expression(MarkerExpression::String {
@@ -847,12 +856,12 @@ fn implied_platform_markers(filename: &WheelFilename) -> MarkerTree {
                     operator: MarkerOperator::Equal,
                     value: arcstr::literal!("win32"),
                 });
-                tag_marker.and(MarkerTree::expression(MarkerExpression::String {
+                tag_marker = tag_marker.and(MarkerTree::expression(MarkerExpression::String {
                     key: MarkerValueString::PlatformMachine,
                     operator: MarkerOperator::Equal,
                     value: arcstr::literal!("AMD64"),
                 }));
-                marker.or(tag_marker);
+                marker = marker.or(tag_marker);
             }
             PlatformTag::WinArm64 => {
                 let mut tag_marker = MarkerTree::expression(MarkerExpression::String {
@@ -860,12 +869,12 @@ fn implied_platform_markers(filename: &WheelFilename) -> MarkerTree {
                     operator: MarkerOperator::Equal,
                     value: arcstr::literal!("win32"),
                 });
-                tag_marker.and(MarkerTree::expression(MarkerExpression::String {
+                tag_marker = tag_marker.and(MarkerTree::expression(MarkerExpression::String {
                     key: MarkerValueString::PlatformMachine,
                     operator: MarkerOperator::Equal,
                     value: arcstr::literal!("ARM64"),
                 }));
-                marker.or(tag_marker);
+                marker = marker.or(tag_marker);
             }
 
             // macOS
@@ -879,15 +888,16 @@ fn implied_platform_markers(filename: &WheelFilename) -> MarkerTree {
                 // Extract the architecture from the end of the tag.
                 let mut arch_marker = MarkerTree::FALSE;
                 for arch in binary_format.platform_machine() {
-                    arch_marker.or(MarkerTree::expression(MarkerExpression::String {
-                        key: MarkerValueString::PlatformMachine,
-                        operator: MarkerOperator::Equal,
-                        value: ArcStr::from(arch.name()),
-                    }));
+                    arch_marker =
+                        arch_marker.or(MarkerTree::expression(MarkerExpression::String {
+                            key: MarkerValueString::PlatformMachine,
+                            operator: MarkerOperator::Equal,
+                            value: ArcStr::from(arch.name()),
+                        }));
                 }
-                tag_marker.and(arch_marker);
+                tag_marker = tag_marker.and(arch_marker);
 
-                marker.or(tag_marker);
+                marker = marker.or(tag_marker);
             }
 
             // Linux
@@ -902,12 +912,12 @@ fn implied_platform_markers(filename: &WheelFilename) -> MarkerTree {
                     operator: MarkerOperator::Equal,
                     value: arcstr::literal!("linux"),
                 });
-                tag_marker.and(MarkerTree::expression(MarkerExpression::String {
+                tag_marker = tag_marker.and(MarkerTree::expression(MarkerExpression::String {
                     key: MarkerValueString::PlatformMachine,
                     operator: MarkerOperator::Equal,
                     value: ArcStr::from(arch.name()),
                 }));
-                marker.or(tag_marker);
+                marker = marker.or(tag_marker);
             }
 
             tag => {
@@ -997,28 +1007,28 @@ fn implied_python_markers(filename: &WheelFilename) -> MarkerTree {
                 // No implementation marker needed
             }
             LanguageTag::CPython { .. } | LanguageTag::CPythonMajor { .. } => {
-                tree.and(MarkerTree::expression(MarkerExpression::String {
+                tree = tree.and(MarkerTree::expression(MarkerExpression::String {
                     key: MarkerValueString::PlatformPythonImplementation,
                     operator: MarkerOperator::Equal,
                     value: arcstr::literal!("CPython"),
                 }));
             }
             LanguageTag::PyPy { .. } => {
-                tree.and(MarkerTree::expression(MarkerExpression::String {
+                tree = tree.and(MarkerTree::expression(MarkerExpression::String {
                     key: MarkerValueString::PlatformPythonImplementation,
                     operator: MarkerOperator::Equal,
                     value: arcstr::literal!("PyPy"),
                 }));
             }
             LanguageTag::GraalPy { .. } => {
-                tree.and(MarkerTree::expression(MarkerExpression::String {
+                tree = tree.and(MarkerTree::expression(MarkerExpression::String {
                     key: MarkerValueString::PlatformPythonImplementation,
                     operator: MarkerOperator::Equal,
                     value: arcstr::literal!("GraalPy"),
                 }));
             }
             LanguageTag::Pyston { .. } => {
-                tree.and(MarkerTree::expression(MarkerExpression::String {
+                tree = tree.and(MarkerTree::expression(MarkerExpression::String {
                     key: MarkerValueString::PlatformPythonImplementation,
                     operator: MarkerOperator::Equal,
                     value: arcstr::literal!("Pyston"),
@@ -1026,7 +1036,7 @@ fn implied_python_markers(filename: &WheelFilename) -> MarkerTree {
             }
         }
 
-        marker.or(tree);
+        marker = marker.or(tree);
     }
 
     marker

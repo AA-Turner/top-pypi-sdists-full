@@ -47,6 +47,11 @@ Can be set in config file.
 HELP_IGNORE_MESSAGES = """A regular expression to match linting issue messages against to ignore.
 Can be set in config file.
 """
+HELP_SPHINX_SOURCE_DIR = """Path to the sphinx 'source' directory. Only necessary if sphinx is used
+and automatic discovery fails.
+May be relative or absolute.
+Can be set in config file.
+"""
 HELP_VERSION = "Print versions and exit."
 
 
@@ -72,36 +77,23 @@ def version_callback(value: bool) -> None:  # noqa: FBT001
         raise typer.Exit
 
 
-def cli(  # noqa: PLR0913
+def cli(  # noqa: PLR0913, PLR0917
     files: t.List[pathlib.Path] = typer.Argument(..., allow_dash=True, hidden=True),  # noqa: UP006
-    config: t.Optional[pathlib.Path] = typer.Option(  # noqa: UP007
-        None, "--config", help=HELP_CONFIG
-    ),
-    warn_unknown_settings: t.Optional[bool] = typer.Option(  # noqa: UP007
+    config: pathlib.Path | None = typer.Option(None, "--config", help=HELP_CONFIG),
+    warn_unknown_settings: bool | None = typer.Option(  # noqa: FBT001
         None, "--warn-unknown-settings", help=HELP_WARN_UNKNOWN_SETTINGS
     ),
-    recursive: t.Optional[bool] = typer.Option(  # noqa: UP007
-        None, "--recursive", "-r", help=HELP_RECURSIVE
-    ),
-    report_level: t.Optional[str] = typer.Option(  # noqa: UP007
-        None, metavar="LEVEL", help=HELP_REPORT_LEVEL
-    ),
+    recursive: bool | None = typer.Option(None, "--recursive", "-r", help=HELP_RECURSIVE),  # noqa: FBT001
+    report_level: str | None = typer.Option(None, metavar="LEVEL", help=HELP_REPORT_LEVEL),
     # TODO: #i# use `t.Literal["INFO", "WARNING", "ERROR", "SEVERE", "NONE"]` when supported
     log_level: str = typer.Option("WARNING", metavar="LEVEL", help=HELP_LOG_LEVEL),
-    ignore_directives: t.Optional[str] = typer.Option(  # noqa: UP007
-        None, help=HELP_IGNORE_DIRECTIVES
-    ),
-    ignore_roles: t.Optional[str] = typer.Option(None, help=HELP_IGNORE_ROLES),  # noqa: UP007
-    ignore_substitutions: t.Optional[str] = typer.Option(  # noqa: UP007
-        None, help=HELP_IGNORE_SUBSTITUTIONS
-    ),
-    ignore_languages: t.Optional[str] = typer.Option(  # noqa: UP007
-        None, help=HELP_IGNORE_LANGUAGES
-    ),
-    ignore_messages: t.Optional[str] = typer.Option(  # noqa: UP007
-        None, metavar="REGEX", help=HELP_IGNORE_MESSAGES
-    ),
-    version: t.Optional[bool] = typer.Option(  # noqa: ARG001, UP007
+    ignore_directives: str | None = typer.Option(None, help=HELP_IGNORE_DIRECTIVES),
+    ignore_roles: str | None = typer.Option(None, help=HELP_IGNORE_ROLES),
+    ignore_substitutions: str | None = typer.Option(None, help=HELP_IGNORE_SUBSTITUTIONS),
+    ignore_languages: str | None = typer.Option(None, help=HELP_IGNORE_LANGUAGES),
+    ignore_messages: str | None = typer.Option(None, metavar="REGEX", help=HELP_IGNORE_MESSAGES),
+    sphinx_source_dir: pathlib.Path | None = typer.Option(None, help=HELP_SPHINX_SOURCE_DIR),
+    version: bool | None = typer.Option(  # noqa: ARG001, FBT001
         None, "--version", callback=version_callback, is_eager=True, help=HELP_VERSION
     ),
 ) -> None:
@@ -112,6 +104,11 @@ def cli(  # noqa: PLR0913
     if pathlib.Path("-") in files and len(files) > 1:
         typer.echo("'-' is only allowed without additional files.", err=True)
         raise typer.Abort
+
+    sphinx_source_dir_absolute = sphinx_source_dir
+    if sphinx_source_dir is not None and not sphinx_source_dir.is_absolute():
+        sphinx_source_dir_absolute = pathlib.Path.cwd() / sphinx_source_dir
+        logger.info(f"Relative sphinx 'source' dir path resolved to: {sphinx_source_dir_absolute}")
 
     logger.info("Create main configuration from CLI options.")
     rstcheck_config = config_mod.RstcheckConfig(
@@ -124,6 +121,7 @@ def cli(  # noqa: PLR0913
         ignore_substitutions=ignore_substitutions,
         ignore_languages=ignore_languages,
         ignore_messages=ignore_messages,
+        sphinx_source_dir=sphinx_source_dir_absolute,
     )
 
     exit_code = 1

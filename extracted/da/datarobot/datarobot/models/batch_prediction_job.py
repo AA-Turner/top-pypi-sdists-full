@@ -405,267 +405,99 @@ class BatchPredictionJob(AbstractBatchJob):
             Deployment which will be used for scoring.
 
         intake_settings : Optional[IntakeSettings]
-            A dict configuring how data is coming from. Supported options:
-
-                - type : str, either `localFile`, `s3`, `azure`, `gcp`, `dataset`, `jdbc`
-                  `snowflake`, `synapse`, `bigquery`, or `datasphere`
-
-            Note that to pass a dataset, you not only need to specify the `type` parameter
-            as `dataset`, but you must also set the `dataset` parameter as a
-            `dr.Dataset` object.
-
-            To score from a local file, add the this parameter to the
-            settings:
-
-            - file : file-like object, string path to file or a
-              pandas.DataFrame of scoring data
-
-            To score from S3, add the next parameters to the settings:
-
-            - url : str, the URL to score (e.g.: `s3://bucket/key`)
-            - credential_id : Optional[str]
-            - endpoint_url : Optional[str], any non-default endpoint
-              URL for S3 access (omit to use the default)
-
-            To score from JDBC, add the next parameters to the settings:
-
-            - data_store_id : str, the ID of the external data store connected
-              to the JDBC data source (see
-              :ref:`Database Connectivity <database-connectivity-overview>`).
-            - query : str (optional if `table`, `schema` and/or `catalog` is specified),
-              a self-supplied SELECT statement of the data set you wish to predict.
-            - table : str (optional if `query` is specified),
-              the name of specified database table.
-            - schema : str (optional if `query` is specified),
-              the name of specified database schema.
-            - catalog : str  (optional if `query` is specified),
-              (new in v2.22) the name of specified database catalog.
-            - fetch_size : Optional[int],
-              Changing the `fetchSize` can be used to balance throughput and memory
-              usage.
-            - credential_id : Optional[str] the ID of the credentials holding
-              information about a user with read-access to the JDBC data source (see
-              :ref:`Credentials <credentials-api-doc>`).
-
-            To score from Datasphere, add the next parameters to the settings:
-
-            - `data_store_id` : str, the ID of the external data store connected to
-              the Datasphere data source (see
-              :ref:`Database Connectivity <database-connectivity-overview>`).
-            - `table` : str,  the name of specified database table.
-            - `schema` : str, the name of specified database schema.
-            - `credential_id` : str, the ID of the credentials holding information about
-              a user with read-access to the Datasphere data source (see
-              :ref:`Credentials <credentials-api-doc>`).
+            Dict configuring the scoring data source. Set ``type`` to one of
+            ``localFile``, ``s3``, ``azure``, ``gcp``, ``dataset``, ``jdbc``,
+            ``snowflake``, ``synapse``, ``bigquery``, or ``datasphere``.
+            See :ref:`Supported intake types <batch-predictions-intake-settings>` for
+            type-specific parameters and examples.
 
         output_settings : Optional[OutputSettings]
-            A dict configuring how scored data is to be saved. Supported
-            options:
-
-            - type : str, either `localFile`, `s3`, `azure`, `gcp`, `jdbc`,
-              `snowflake`, `synapse`, `bigquery`, or `datasphere`
-
-            To save scored data to a local file, add this parameters to the
-            settings:
-
-            - path : Optional[str], path to save the scored data
-              as CSV. If a path is not specified, you must download
-              the scored data yourself with `job.download()`.
-              If a path is specified, the call will block until the
-              job is done. if there are no other jobs currently
-              processing for the targeted prediction instance,
-              uploading, scoring, downloading will happen in parallel
-              without waiting for a full job to complete. Otherwise,
-              it will still block, but start downloading the scored
-              data as soon as it starts generating data. This is the
-              fastest method to get predictions.
-
-            To save scored data to S3, add the next parameters to the settings:
-
-            - url : str, the URL for storing the results
-              (e.g.: `s3://bucket/key`)
-            - credential_id : Optional[str]
-            - endpoint_url : Optional[str], any non-default endpoint
-              URL for S3 access (omit to use the default)
-
-            To save scored data to JDBC, add the next parameters to the settings:
-
-            - `data_store_id` : str, the ID of the external data store connected to
-              the JDBC data source (see
-              :ref:`Database Connectivity <database-connectivity-overview>`).
-            - `table` : str,  the name of specified database table.
-            - `schema` : Optional[str], the name of specified database schema.
-            - `catalog` : Optional[str], (new in v2.22) the name of specified database
-              catalog.
-            - `statement_type` : str, the type of insertion statement to create,
-              one of ``datarobot.enums.AVAILABLE_STATEMENT_TYPES``.
-            - `update_columns` : list(string) (optional),  a list of strings containing
-              those column names to be updated in case `statement_type` is set to a
-              value related to update or upsert.
-            - `where_columns` : list(string) (optional), a list of strings containing
-              those column names to be selected in case `statement_type` is set to a
-              value related to insert or update.
-            - `credential_id` : str, the ID of the credentials holding information about
-              a user with write-access to the JDBC data source (see
-              :ref:`Credentials <credentials-api-doc>`).
-
-            To save scored data to Datasphere, add the following parameters to the settings:
-
-            - `data_store_id` : str, the ID of the external data store connected to
-              the Datasphere data source (see
-              :ref:`Database Connectivity <database-connectivity-overview>`).
-            - `table` : str,  the name of specified database table.
-            - `schema` : str, the name of specified database schema.
-            - `credential_id` : str, the ID of the credentials holding information about
-              a user with write-access to the Datasphere data source (see
-              :ref:`Credentials <credentials-api-doc>`).
+            Dict configuring where scored data is saved. Set ``type`` to one of
+            ``localFile``, ``s3``, ``azure``, ``gcp``, ``jdbc``, ``snowflake``,
+            ``synapse``, ``bigquery``, or ``datasphere``.
+            See :ref:`Supported output types <batch-predictions-output-settings>` for
+            type-specific parameters and examples.
 
         csv_settings : Optional[CsvSettings]
-            CSV intake and output settings. Supported options:
-
-            - `delimiter` : str (optional, default `,`), fields are delimited by
-              this character. Use the string `tab` to denote TSV (TAB separated values).
-              Must be either a one-character string or the string `tab`.
-            - `quotechar` : str (optional, default `"`), fields containing the
-              delimiter must be quoted using this character.
-            - `encoding` : str (optional, default `utf-8`), encoding for the CSV
-              files. For example (but not limited to): `shift_jis`, `latin_1` or
-              `mskanji`.
+            CSV intake and output parsing options.
+            See :ref:`CSV settings <batch-predictions-csv-settings>` for supported options.
 
         timeseries_settings : Optional[TimeSeriesSettings]
-            Configuration for time-series scoring. Supported options:
-
-            - `type` : str, must be `forecast` or `historical` (default if
-              not passed is `forecast`). `forecast` mode makes predictions using
-              `forecast_point` or rows in the dataset without target. `historical`
-              enables bulk prediction mode which calculates predictions for all
-              possible forecast points and forecast distances in the dataset within
-              `predictions_start_date`/`predictions_end_date` range.
-            - `forecast_point` : Optional[datetime.datetime], forecast point for the dataset,
-              used for the forecast predictions, by default value will be inferred
-              from the dataset. May be passed if ``timeseries_settings.type=forecast``.
-            - `predictions_start_date` : Optional[datetime.datetime], used for historical
-              predictions in order to override date from which predictions should be
-              calculated. By default value will be inferred automatically from the
-              dataset. May be passed if ``timeseries_settings.type=historical``.
-            - `predictions_end_date` : Optional[datetime.datetime], used for historical
-              predictions in order to override date from which predictions should be
-              calculated. By default value will be inferred automatically from the
-              dataset. May be passed if ``timeseries_settings.type=historical``.
-            - `relax_known_in_advance_features_check` : bool, (default `False`).
-              If True, missing values in the known in advance features are allowed
-              in the forecast window at the prediction time. If omitted or False,
-              missing values are not allowed.
+            Time series scoring configuration.
+            See :ref:`Time series settings <batch-predictions-timeseries-settings>` for supported options.
 
         num_concurrent : Optional[int]
-            Number of concurrent chunks to score simultaneously. Defaults to
-            the available number of cores of the deployment. Lower it to leave
-            resources for real-time scoring.
+            Number of concurrent chunks to score simultaneously.
 
         chunk_size : str or Optional[int]
-            Which strategy should be used to determine the chunk size.
-            Can be either a named strategy or a fixed size in bytes.
-            - auto: use fixed or dynamic based on flipper
-            - fixed: use 1MB for explanations, 5MB for regular requests
-            - dynamic: use dynamic chunk sizes
-            - int: use this many bytes per chunk
+            Chunk size strategy or fixed size in bytes.
 
         passthrough_columns : list[string] (optional)
-            Keep these columns from the scoring dataset in the scored dataset.
-            This is useful for correlating predictions with source data.
+            Columns from the scoring dataset to include in the output.
 
         passthrough_columns_set : Optional[str]
-            To pass through every column from the scoring dataset, set this to
-            `all`. Takes precedence over `passthrough_columns` if set.
+            Set to ``all`` to pass through every scoring column.
 
         max_explanations : Optional[int]
-            Compute prediction explanations for this amount of features.
+            Number of features for which to compute prediction explanations.
 
         max_ngram_explanations : int or str (optional)
-            Compute text explanations for this amount of ngrams. Set to `all` to return all ngram
-            explanations, or set to a positive integer value to limit the amount of ngram
-            explanations returned. By default no ngram explanations will be computed and returned.
+            Number of ngram text explanations to compute, or ``all``.
 
         threshold_high : Optional[float]
-            Only compute prediction explanations for predictions above this
-            threshold. Can be combined with `threshold_low`.
+            Only compute explanations for predictions above this threshold.
 
         threshold_low : Optional[float]
-            Only compute prediction explanations for predictions below this
-            threshold. Can be combined with `threshold_high`.
+            Only compute explanations for predictions below this threshold.
 
         explanations_mode : PredictionExplanationsMode, optional
-            Mode of prediction explanations calculation for multiclass and clustering models, if not
-            specified - server default is to explain only the predicted class, identical to passing
-            TopPredictionsMode(1).
+            Prediction explanations mode for multiclass and clustering models.
 
         prediction_warning_enabled : Optional[bool]
-            Add prediction warnings to the scored data. Currently only
-            supported for regression models.
+            Include prediction warnings in the output (regression models only).
 
         include_prediction_status : Optional[bool]
-            Include the prediction_status column in the output, defaults to `False`.
+            Include the ``prediction_status`` column in the output.
 
         skip_drift_tracking : Optional[bool]
-            Skips drift tracking on any predictions made from this job. This is useful when running
-            non-production workloads to not affect drift tracking and cause unnecessary alerts.
-            Defaults to `False`.
+            Skip drift tracking for predictions from this job.
 
         prediction_instance : Optional[PredictionInstance]
-            Defaults to instance specified by deployment or system configuration.
-            Supported options:
-
-                - `hostName` : str
-                - `sslEnabled` : boolean (optional, default `true`). Set to `false` to
-                  run prediction requests from the batch prediction job without SSL.
-                - `datarobotKey` : Optional[str], if running a job against a prediction
-                  instance in the Managed AI Cloud, you must provide the organization level
-                  DataRobot-Key
-                - `apiKey` : Optional[str], by default, prediction requests will use the
-                  API key of the user that created the job. This allows you to make requests
-                  on behalf of other users.
+            Prediction instance connection settings.
+            See :ref:`Scoring parameters <batch-predictions-score-parameters>` for supported options.
 
         abort_on_error : Optional[bool]
-             Default behavior is to abort the job if too many rows fail scoring. This will free
-             up resources for other jobs that may score successfully. Set to `false` to
-             unconditionally score every row no matter how many errors are encountered.
-             Defaults to `True`.
+            Abort the job when too many rows fail scoring.
 
         column_names_remapping : Optional[Dict[str, str]]
-            Mapping with column renaming for output table. Defaults to `{}`.
+            Output column rename map.
 
         include_probabilities : Optional[bool]
-            Flag that enables returning of all probability columns. Defaults to `True`.
+            Return probability columns in the output.
 
         include_probabilities_classes : list (optional)
-            List the subset of classes if a user doesn't want all the classes. Defaults to `[]`.
+            Subset of class probability columns to return.
 
         download_timeout : Optional[int]
             .. versionadded:: 2.22
 
-            If using localFile output, wait this many seconds for the download to become
-            available. See `download()`.
+            Seconds to wait for a local file download to become available.
 
         download_read_timeout : Optional[int], default 660
             .. versionadded:: 2.22
 
-            If using localFile output, wait this many seconds for the server to respond
-            between chunks.
+            Seconds to wait for the server to respond between download chunks.
 
         upload_read_timeout: Optional[int], default 600
             .. versionadded:: 2.28
 
-            If using localFile intake, wait this many seconds for the server to respond
-            after whole dataset upload.
+            Seconds to wait for the server to respond after a local file upload.
 
         prediction_threshold: Optional[float]
             .. versionadded:: 3.4.0
 
-            Threshold is the point that sets the class boundary for a predicted value. The model
-            classifies an observation below the threshold as FALSE, and an observation above the
-            threshold as TRUE. In other words, DataRobot automatically assigns the positive class
-            label to any prediction exceeding the threshold.
-            This value can be set between 0.0 and 1.0.
+            Classification threshold between 0.0 and 1.0.
+            See :ref:`Scoring parameters <batch-predictions-score-parameters>` for details.
 
         Returns
         -------
@@ -749,29 +581,8 @@ class BatchPredictionJob(AbstractBatchJob):
                   pandas.DataFrame of scoring data.
 
         timeseries_settings : dict
-            Configuration for time-series scoring. Supported options:
-
-            - `type` : str, must be `forecast` or `historical` (default if
-              not passed is `forecast`). `forecast` mode makes predictions using
-              `forecast_point`. `historical` enables bulk prediction mode which
-              calculates predictions for all possible forecast points and forecast
-              distances in the dataset within `predictions_start_date`/`predictions_end_date`
-              range.
-            - `forecast_point` : Optional[datetime.datetime], forecast point for the dataset,
-              used for the forecast predictions. Must be passed if
-              ``timeseries_settings.type=forecast``.
-            - `predictions_start_date` : Optional[datetime.datetime], used for historical
-              predictions in order to override date from which predictions should be
-              calculated. By default value will be inferred automatically from the
-              dataset. May be passed if ``timeseries_settings.type=historical``.
-            - `predictions_end_date` : Optional[datetime.datetime], used for historical
-              predictions in order to override date from which predictions should be
-              calculated. By default value will be inferred automatically from the
-              dataset. May be passed if ``timeseries_settings.type=historical``.
-            - `relax_known_in_advance_features_check` : bool, (default `False`).
-              If True, missing values in the known in advance features are allowed
-              in the forecast window at the prediction time. If omitted or False,
-              missing values are not allowed.
+            Time series scoring configuration.
+            See :ref:`Time series settings <batch-predictions-timeseries-settings>` for supported options.
 
         Returns
         -------
@@ -897,29 +708,8 @@ class BatchPredictionJob(AbstractBatchJob):
             The filename under which you save the result.
 
         timeseries_settings : dict
-            Configuration for time-series scoring. Supported options:
-
-            - `type` : str, must be `forecast` or `historical` (default if
-              not passed is `forecast`). `forecast` mode makes predictions using
-              `forecast_point`. `historical` enables bulk prediction mode which
-              calculates predictions for all possible forecast points and forecast
-              distances in the dataset within `predictions_start_date`/`predictions_end_date`
-              range.
-            - `forecast_point` : Optional[datetime.datetime], forecast point for the dataset,
-              used for the forecast predictions. Must be passed if
-              ``timeseries_settings.type=forecast``.
-            - `predictions_start_date` : Optional[datetime.datetime], used for historical
-              predictions in order to override date from which predictions should be
-              calculated. By default value will be inferred automatically from the
-              dataset. May be passed if ``timeseries_settings.type=historical``.
-            - `predictions_end_date` : Optional[datetime.datetime], used for historical
-              predictions in order to override date from which predictions should be
-              calculated. By default value will be inferred automatically from the
-              dataset. May be passed if ``timeseries_settings.type=historical``.
-            - `relax_known_in_advance_features_check` : bool, (default `False`).
-              If True, missing values in the known in advance features are allowed
-              in the forecast window at the prediction time. If omitted or False,
-              missing values are not allowed.
+            Time series scoring configuration.
+            See :ref:`Time series settings <batch-predictions-timeseries-settings>` for supported options.
 
         Returns
         -------
@@ -1330,164 +1120,84 @@ class BatchPredictionJob(AbstractBatchJob):
             Model which will be used for scoring.
 
         intake_settings : Optional[IntakeSettings]
-            A dict configuring how data is coming from. Supported options:
-
-            - type : str, either `localFile`, `dataset`, or `dss`.
-
-            Note that to pass a dataset, you not only need to specify the `type` parameter
-            as `dataset`, but you must also set the `dataset` parameter as a
-            `dr.Dataset` object.
-
-            To score from a local file, add the this parameter to the
-            settings:
-
-            - file : file-like object, string path to file or a pandas.DataFrame of scoring data.
-
-            To score a subset of the training data, use the `dss` intake type
-            and specify the following parameters. Note that you must also
-            specify 'timeseries_settings="type": "training"' to score the
-            training data.
-
-            - project_id : project to fetch training data from. Access to project is required.
-            - partition : subset of training data to score, one of ``datarobot.enums.TrainingDataSubsets``.
+            Dict configuring the scoring data source. Supported ``type`` values are
+            ``localFile``, ``dataset``, and ``dss``.
+            See :ref:`Supported intake types <batch-predictions-intake-settings>` for
+            configuration details.
 
         output_settings : Optional[OutputSettings]
-            A dict configuring how scored data is to be saved. Supported
-            options:
-
-            - type : str, `localFile`
-
-            To save scored data to a local file, add this parameters to the
-            settings:
-
-            - path : Optional[str] The path to save the scored data
-              as a CSV file. If a path is not specified, you must download
-              the scored data yourself with `job.download()`.
-              If a path is specified, the call is blocked until the
-              job is done. If there are no other jobs currently
-              processing for the targeted prediction instance,
-              uploading, scoring, and downloading will happen in parallel
-              without waiting for a full job to complete. Otherwise,
-              it will still block, but start downloading the scored
-              data as soon as it starts generating data. This is the
-              fastest method to get predictions.
+            Dict configuring where scored data is saved. Only ``localFile`` output is
+            supported for leaderboard model scoring.
+            See :ref:`Supported output types <batch-predictions-output-settings>` for
+            the ``path`` option and download behavior.
 
         csv_settings : Optional[CsvSettings]
-            CSV intake and output settings. Supported options:
-
-            - `delimiter` : str (optional, default `,`), fields are delimited by
-              this character. Use the string `tab` to denote TSV (TAB separated values).
-              Must be either a one-character string or the string `tab`.
-            - `quotechar` : str (optional, default `"`), fields containing the
-              delimiter must be quoted using this character.
-            - `encoding` : str (optional, default `utf-8`), encoding for the CSV
-              files. For example (but not limited to): `shift_jis`, `latin_1` or
-              `mskanji`.
+            CSV intake and output parsing options.
+            See :ref:`CSV settings <batch-predictions-csv-settings>` for supported options.
 
         timeseries_settings : Optional[TimeSeriesSettings]
-            Configuration for time-series scoring. Supported options:
-
-            - `type` : str, must be `forecast`, `historical` (default if
-              not passed is `forecast`), or `training`. `forecast` mode makes predictions using
-              `forecast_point` or rows in the dataset without target. `historical`
-              enables bulk prediction mode which calculates predictions for all
-              possible forecast points and forecast distances in the dataset within
-              `predictions_start_date`/`predictions_end_date` range. `training` mode is
-              a special case for predictions on subsets of training data. Note, that it must
-              be used in conjunction with `dss` intake type only.
-            - `forecast_point` : Optional[datetime.datetime], forecast point for the dataset,
-              used for the forecast predictions, by default value will be inferred
-              from the dataset. May be passed if ``timeseries_settings.type=forecast``.
-            - `predictions_start_date` : Optional[datetime.datetime], used for historical
-              predictions in order to override date from which predictions should be
-              calculated. By default value will be inferred automatically from the
-              dataset. May be passed if ``timeseries_settings.type=historical``.
-            - `predictions_end_date` : Optional[datetime.datetime], used for historical
-              predictions in order to override date from which predictions should be
-              calculated. By default value will be inferred automatically from the
-              dataset. May be passed if ``timeseries_settings.type=historical``.
-            - `relax_known_in_advance_features_check` : bool, (default `False`).
-              If True, missing values in the known in advance features are allowed
-              in the forecast window at the prediction time. If omitted or False,
-              missing values are not allowed.
+            Time series scoring configuration.
+            See :ref:`Time series settings <batch-predictions-timeseries-settings>` for supported options.
 
         passthrough_columns : list[string] (optional)
-            Keep these columns from the scoring dataset in the scored dataset.
-            This is useful for correlating predictions with source data.
+            Columns from the scoring dataset to include in the output.
 
         passthrough_columns_set : Optional[str]
-            To pass through every column from the scoring dataset, set this to
-            `all`. Takes precedence over `passthrough_columns` if set.
+            Set to ``all`` to pass through every scoring column.
 
         max_explanations : Optional[int]
-            Compute prediction explanations for this amount of features.
+            Number of features for which to compute prediction explanations.
 
         max_ngram_explanations : int or str (optional)
-            Compute text explanations for this amount of ngrams. Set to `all` to return all ngram
-            explanations, or set to a positive integer value to limit the amount of ngram
-            explanations returned. By default no ngram explanations will be computed and returned.
+            Number of ngram text explanations to compute, or ``all``.
 
         threshold_high : Optional[float]
-            Only compute prediction explanations for predictions above this
-            threshold. Can be combined with `threshold_low`.
+            Only compute explanations for predictions above this threshold.
 
         threshold_low : Optional[float]
-            Only compute prediction explanations for predictions below this
-            threshold. Can be combined with `threshold_high`.
+            Only compute explanations for predictions below this threshold.
 
         explanations_mode : PredictionExplanationsMode, optional
-            Mode of prediction explanations calculation for multiclass and clustering models, if not
-            specified - server default is to explain only the predicted class, identical to passing
-            TopPredictionsMode(1).
+            Prediction explanations mode for multiclass and clustering models.
 
         prediction_warning_enabled : Optional[bool]
-            Add prediction warnings to the scored data. Currently only
-            supported for regression models.
+            Include prediction warnings in the output (regression models only).
 
         include_prediction_status : Optional[bool]
-            Include the `prediction_status` column in the output, defaults to `False`.
+            Include the ``prediction_status`` column in the output.
 
         abort_on_error : Optional[bool]
-             Default behavior is to abort the job if too many rows fail scoring. This will free
-             up resources for other jobs that may score successfully. Set to `false` to
-             unconditionally score every row no matter how many errors are encountered.
-             Defaults to `True`.
+            Abort the job when too many rows fail scoring.
 
         column_names_remapping : Optional[Dict]
-            Mapping with column renaming for output table. Defaults to `{}`.
+            Output column rename map.
 
         include_probabilities : Optional[bool]
-            Flag that enables returning of all probability columns. Defaults to `True`.
+            Return probability columns in the output.
 
         include_probabilities_classes : list (optional)
-            List the subset of classes if you do not want all the classes. Defaults to `[]`.
+            Subset of class probability columns to return.
 
         download_timeout : Optional[int]
             .. versionadded:: 2.22
 
-            If using localFile output, wait this many seconds for the download to become
-            available. See `download()`.
+            Seconds to wait for a local file download to become available.
 
         download_read_timeout : int (optional, default 660)
             .. versionadded:: 2.22
 
-            If using localFile output, wait this many seconds for the server to respond
-            between chunks.
+            Seconds to wait for the server to respond between download chunks.
 
         upload_read_timeout: int (optional, default 600)
             .. versionadded:: 2.28
 
-            If using localFile intake, wait this many seconds for the server to respond
-            after whole dataset upload.
+            Seconds to wait for the server to respond after a local file upload.
 
         prediction_threshold: Optional[float]
             .. versionadded:: 3.4.0
 
-            Threshold is the point that sets the class boundary for a predicted value. The model
-            classifies an observation below the threshold as FALSE, and an observation above the
-            threshold as TRUE. In other words, DataRobot automatically assigns the positive class
-            label to any prediction exceeding the threshold.
-            This value can be set between 0.0 and 1.0.
+            Classification threshold between 0.0 and 1.0.
+            See :ref:`Scoring parameters <batch-predictions-score-parameters>` for details.
 
         Returns
         -------
@@ -1574,20 +1284,12 @@ class BatchPredictionJob(AbstractBatchJob):
             .. versionadded:: 2.22
 
             Seconds to wait for the download to become available.
-
-            The download will not be available before the job has started processing.
-            In case other jobs are occupying the queue, processing may not start
-            immediately.
-
-            If the timeout is reached, the job will be aborted and `RuntimeError`
-            is raised.
-
-            Set to -1 to wait infinitely.
+            See :ref:`Scoring parameters <batch-predictions-score-parameters>` for details.
 
         read_timeout : int (optional, default 660)
             .. versionadded:: 2.22
 
-            Seconds to wait for the server to respond between chunks.
+            Seconds to wait for the server to respond between download chunks.
         """
         self._download(fileobj, timeout, read_timeout)
 

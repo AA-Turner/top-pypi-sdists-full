@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-ai-translation-document
-Version: 1.1.0
+Version: 2.0.0
 Summary: Microsoft Azure Ai Translation Document Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk
 Author: Microsoft Corporation
@@ -11,19 +11,30 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: isodate>=0.6.1
-Requires-Dist: azure-core>=1.30.0
+Requires-Dist: azure-core>=1.37.0
 Requires-Dist: typing-extensions>=4.6.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Azure Document Translation client library for Python
 
@@ -57,10 +68,10 @@ _Azure SDK Python packages support for Python 2.7 has ended 01 January 2022. For
 Install the Azure Document Translation client library for Python with [pip][pip]:
 
 ```bash
-pip install --pre azure-ai-translation-document
+pip install azure-ai-translation-document
 ```
 
-> Note: This version of the client library defaults to the v2024-05-01 version of the service
+> Note: This version of the client library defaults to the `2026-03-01` version of the service.
 
 #### Create a Translator resource
 
@@ -206,7 +217,8 @@ poller = document_translation_client.begin_translation("<sas_url_to_source>", "<
 ```python
 import os
 from azure.core.credentials import AzureKeyCredential
-from azure.ai.translation.document import DocumentTranslationClient, DocumentTranslationInput, TranslationTarget
+from azure.ai.translation.document import DocumentTranslationClient
+from azure.ai.translation.document.models import DocumentTranslationInput, TranslationTarget
 
 endpoint = os.environ["AZURE_DOCUMENT_TRANSLATION_ENDPOINT"]
 key = os.environ["AZURE_DOCUMENT_TRANSLATION_KEY"]
@@ -329,7 +341,8 @@ Begin translating with documents in multiple source containers to multiple targe
 ```python
 import os
 from azure.core.credentials import AzureKeyCredential
-from azure.ai.translation.document import DocumentTranslationClient, DocumentTranslationInput, TranslationTarget
+from azure.ai.translation.document import DocumentTranslationClient
+from azure.ai.translation.document.models import DocumentTranslationInput, TranslationTarget
 
 endpoint = os.environ["AZURE_DOCUMENT_TRANSLATION_ENDPOINT"]
 key = os.environ["AZURE_DOCUMENT_TRANSLATION_KEY"]

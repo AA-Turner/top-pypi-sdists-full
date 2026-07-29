@@ -21,6 +21,7 @@ class sipwxImageHandler : public ::wxImageHandler
 {
 public:
     sipwxImageHandler();
+    sipwxImageHandler(const ::wxString&, const ::wxString&, ::wxBitmapType, const ::wxString&);
     virtual ~sipwxImageHandler();
 
     /*
@@ -51,6 +52,11 @@ private:
 };
 
 sipwxImageHandler::sipwxImageHandler(): ::wxImageHandler(), sipPySelf(SIP_NULLPTR)
+{
+    memset(sipPyMethods, 0, sizeof (sipPyMethods));
+}
+
+sipwxImageHandler::sipwxImageHandler(const ::wxString& name, const ::wxString& ext, ::wxBitmapType type, const ::wxString& mime): ::wxImageHandler(name, ext, type, mime), sipPySelf(SIP_NULLPTR)
 {
     memset(sipPyMethods, 0, sizeof (sipPyMethods));
 }
@@ -885,12 +891,51 @@ static void *init_type_wxImageHandler(sipSimpleWrapper *sipSelf, PyObject *sipAr
         }
     }
 
+    {
+        const ::wxString* name;
+        int nameState = 0;
+        const ::wxString* ext;
+        int extState = 0;
+        ::wxBitmapType type;
+        const ::wxString* mime;
+        int mimeState = 0;
+
+        static const char *sipKwdList[] = {
+            sipName_name,
+            sipName_ext,
+            sipName_type,
+            sipName_mime,
+        };
+
+        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, sipKwdList, sipUnused, "J1J1EJ1", sipType_wxString, &name, &nameState, sipType_wxString, &ext, &extState, sipType_wxBitmapType, &type, sipType_wxString, &mime, &mimeState))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp = new sipwxImageHandler(*name, *ext, type, *mime);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxString *>(name), sipType_wxString, nameState);
+            sipReleaseType(const_cast< ::wxString *>(ext), sipType_wxString, extState);
+            sipReleaseType(const_cast< ::wxString *>(mime), sipType_wxString, mimeState);
+
+            if (PyErr_Occurred())
+            {
+                delete sipCpp;
+                return SIP_NULLPTR;
+            }
+
+            sipCpp->sipPySelf = sipSelf;
+
+            return sipCpp;
+        }
+    }
+
     return SIP_NULLPTR;
 }
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxImageHandler[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxImageHandler[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxImageHandler[] = {
@@ -921,6 +966,7 @@ sipVariableDef variables_wxImageHandler[] = {
 };
 
 PyDoc_STRVAR(doc_wxImageHandler, "ImageHandler() -> None\n"
+"ImageHandler(name, ext, type, mime) -> None\n"
 "\n"
 "This is the base class for implementing image file loading/saving, and\n"
 "image creation from data.");

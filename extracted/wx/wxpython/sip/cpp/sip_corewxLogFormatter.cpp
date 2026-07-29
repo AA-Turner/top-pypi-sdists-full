@@ -20,17 +20,10 @@ public:
     virtual ~sipwxLogFormatter();
 
     /*
-     * There is a public method for every protected method visible from
-     * this class.
-     */
-    ::wxString sipProtectVirt_FormatTime(bool, ::time_t) const;
-
-    /*
      * There is a protected method for every virtual method visible from
      * this class.
      */
 protected:
-    ::wxString FormatTime(::time_t) const SIP_OVERRIDE;
     ::wxString Format(::wxLogLevel, const ::wxString&, const ::wxLogRecordInfo&) const SIP_OVERRIDE;
 
 public:
@@ -40,7 +33,7 @@ private:
     sipwxLogFormatter(const sipwxLogFormatter &);
     sipwxLogFormatter &operator = (const sipwxLogFormatter &);
 
-    char sipPyMethods[2];
+    char sipPyMethods[1];
 };
 
 sipwxLogFormatter::sipwxLogFormatter(): ::wxLogFormatter(), sipPySelf(SIP_NULLPTR)
@@ -58,27 +51,12 @@ sipwxLogFormatter::~sipwxLogFormatter()
     sipInstanceDestroyedEx(&sipPySelf);
 }
 
-::wxString sipwxLogFormatter::FormatTime(::time_t time) const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[0]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_FormatTime);
-
-    if (!sipMeth)
-        return ::wxLogFormatter::FormatTime(time);
-
-    extern ::wxString sipVH__core_64(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::time_t);
-
-    return sipVH__core_64(sipGILState, 0, sipPySelf, sipMeth, time);
-}
-
 ::wxString sipwxLogFormatter::Format(::wxLogLevel level, const ::wxString& msg, const ::wxLogRecordInfo& info) const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[1]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_Format);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[0]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_Format);
 
     if (!sipMeth)
         return ::wxLogFormatter::Format(level, msg, info);
@@ -86,11 +64,6 @@ sipwxLogFormatter::~sipwxLogFormatter()
     extern ::wxString sipVH__core_63(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxLogLevel, const ::wxString&, const ::wxLogRecordInfo&);
 
     return sipVH__core_63(sipGILState, 0, sipPySelf, sipMeth, level, msg, info);
-}
-
-::wxString sipwxLogFormatter::sipProtectVirt_FormatTime(bool sipSelfWasArg, ::time_t time) const
-{
-    return (sipSelfWasArg ? ::wxLogFormatter::FormatTime(time) : FormatTime(time));
 }
 
 
@@ -136,50 +109,6 @@ static PyObject *meth_wxLogFormatter_Format(PyObject *sipSelf, PyObject *sipArgs
     }
 
     sipNoMethod(sipParseErr, sipName_LogFormatter, sipName_Format, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxLogFormatter_FormatTime, "FormatTime(time) -> str\n"
-"\n"
-"This function formats the time stamp part of the log message.");
-
-extern "C" {static PyObject *meth_wxLogFormatter_FormatTime(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxLogFormatter_FormatTime(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        ::time_t time;
-        const sipwxLogFormatter *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_time,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bn", &sipSelf, sipType_wxLogFormatter, &sipCpp, &time))
-        {
-            ::wxString*sipRes;
-
-            if (sipDeprecated(sipName_LogFormatter, sipName_FormatTime) < 0)
-                return SIP_NULLPTR;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxString(sipCpp->sipProtectVirt_FormatTime(sipSelfWasArg, time));
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromNewType(sipRes, sipType_wxString, SIP_NULLPTR);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_LogFormatter, sipName_FormatTime, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -287,8 +216,7 @@ static void *init_type_wxLogFormatter(sipSimpleWrapper *sipSelf, PyObject *sipAr
 
 
 static PyMethodDef methods_wxLogFormatter[] = {
-    {sipName_Format, SIP_MLMETH_CAST(meth_wxLogFormatter_Format), METH_VARARGS|METH_KEYWORDS, doc_wxLogFormatter_Format},
-    {sipName_FormatTime, SIP_MLMETH_CAST(meth_wxLogFormatter_FormatTime), METH_VARARGS|METH_KEYWORDS, doc_wxLogFormatter_FormatTime}
+    {sipName_Format, SIP_MLMETH_CAST(meth_wxLogFormatter_Format), METH_VARARGS|METH_KEYWORDS, doc_wxLogFormatter_Format}
 };
 
 PyDoc_STRVAR(doc_wxLogFormatter, "LogFormatter() -> None\n"
@@ -309,7 +237,7 @@ sipClassTypeDef sipTypeDef__core_wxLogFormatter = {
     {
         sipNameNr_LogFormatter,
         {0, 0, 1},
-        2, methods_wxLogFormatter,
+        1, methods_wxLogFormatter,
         0, SIP_NULLPTR,
         0, SIP_NULLPTR,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

@@ -17,7 +17,8 @@
 #endif // WX_PRECOMP
 
 #include "wx/accel.h"
-#include "wx/scopedptr.h"
+
+#include <memory>
 
 namespace
 {
@@ -36,7 +37,7 @@ void CheckAccelEntry(const wxAcceleratorEntry& accel, int keycode, int flags)
  */
 TEST_CASE( "wxAcceleratorEntry::Create", "[accelentry]" )
 {
-    wxScopedPtr<wxAcceleratorEntry> pa;
+    std::unique_ptr<wxAcceleratorEntry> pa;
 
     SECTION( "Correct behavior" )
     {
@@ -103,4 +104,18 @@ TEST_CASE( "wxAcceleratorEntry::StringTests", "[accelentry]" )
     {
         CHECK( !a.FromString("bloordyblop") );
     }
+}
+
+TEST_CASE( "wxAcceleratorTable::Create", "[accelentry]" )
+{
+    CHECK( !wxAcceleratorTable(0, nullptr).IsOk() );
+
+    const wxAcceleratorEntry entries[] =
+    {
+        wxAcceleratorEntry(wxACCEL_CTRL, 'A'),
+        wxAcceleratorEntry(wxACCEL_ALT, 'B'),
+        wxAcceleratorEntry(wxACCEL_SHIFT, 'C')
+    };
+
+    CHECK( wxAcceleratorTable(WXSIZEOF(entries), entries).IsOk() );
 }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awkward_cpp
-Version: 54
+Version: 55
 Summary: CPU kernels and compiled extensions for Awkward Array
 Author-Email: Jim Pivarski <jpivarski@gmail.com>
 Maintainer-Email: Scikit-HEP <scikit-hep-admins@googlegroups.com>
@@ -34,7 +34,6 @@ Project-URL: Documentation, https://awkward-array.org
 Project-URL: Source Code, https://github.com/scikit-hep/awkward-1.0
 Project-URL: Bug Tracker, https://github.com/scikit-hep/awkward-1.0/issues
 Project-URL: Discussions, https://github.com/scikit-hep/awkward-1.0/discussions
-Project-URL: Chat, https://gitter.im/Scikit-HEP/awkward-array
 Project-URL: Releases, https://github.com/scikit-hep/awkward-1.0/releases
 Requires-Python: >=3.10
 Requires-Dist: numpy>=1.21.3

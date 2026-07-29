@@ -790,7 +790,7 @@ static PyObject *meth_wxRichTextImageBlock_SetImageType(PyObject *sipSelf, PyObj
 
 PyDoc_STRVAR(doc_wxRichTextImageBlock_IsOk, "IsOk() -> bool\n"
 "\n"
-"Returns true if the data is non-NULL.");
+"Returns true if the data is non-null.");
 
 extern "C" {static PyObject *meth_wxRichTextImageBlock_IsOk(PyObject *, PyObject *);}
 static PyObject *meth_wxRichTextImageBlock_IsOk(PyObject *sipSelf, PyObject *sipArgs)
@@ -1183,7 +1183,7 @@ static void *init_type_wxRichTextImageBlock(sipSimpleWrapper *sipSelf, PyObject 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxRichTextImageBlock[] = {{42, 0, 1}};
+static sipEncodedTypeDef supers_wxRichTextImageBlock[] = {{43, 0, 1}};
 
 
 static PyMethodDef methods_wxRichTextImageBlock[] = {

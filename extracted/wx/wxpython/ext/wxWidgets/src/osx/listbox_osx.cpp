@@ -2,7 +2,6 @@
 // Name:        src/osx/listbox_osx.cpp
 // Purpose:     wxListBox
 // Author:      Stefan Csomor
-// Modified by:
 // Created:     1998-01-01
 // Copyright:   (c) Stefan Csomor
 // Licence:     wxWindows licence
@@ -73,9 +72,6 @@ bool wxListBox::Create(
     DontCreatePeer();
     m_blockEvents = false;
 
-    if ( ! (style & wxNO_BORDER) )
-        style = (style & ~wxBORDER_MASK) | wxSUNKEN_BORDER ;
-
     wxASSERT_MSG( !(style & wxLB_MULTIPLE) || !(style & wxLB_EXTENDED),
                   wxT("only a single listbox selection mode can be specified") );
 
@@ -108,14 +104,14 @@ wxListBox::~wxListBox()
     m_blockEvents = false;
 
     // make sure no native events get sent to a object in destruction
-    SetPeer(NULL);
+    SetPeer(nullptr);
 
     if ( IsSorted() )
         delete m_strings.sorted;
     else
         delete m_strings.unsorted;
 
-    m_strings.sorted = NULL;
+    m_strings.sorted = nullptr;
 }
 
 void wxListBox::FreeData()
@@ -132,10 +128,10 @@ void wxListBox::FreeData()
 
 void wxListBox::DoSetFirstItem(int n)
 {
-    // osx actually only has an implementation for ensuring the visibility of a row, it does so  
+    // osx actually only has an implementation for ensuring the visibility of a row, it does so
     // by scrolling the minimal amount necessary from the current scrolling position.
-    // in order to get the same behaviour I'd have to make sure first that the last line is visible, 
-    // followed by a scrollRowToVisible for the desired line 
+    // in order to get the same behaviour I'd have to make sure first that the last line is visible,
+    // followed by a scrollRowToVisible for the desired line
     GetListPeer()->ListScrollTo( GetCount()-1 );
     GetListPeer()->ListScrollTo( n );
 }
@@ -255,16 +251,15 @@ wxSize wxListBox::DoGetBestSize() const
     int lbHeight;
 
     {
-        wxClientDC dc(const_cast<wxListBox*>(this));
-        dc.SetFont(GetFont());
+        wxInfoDC dc(const_cast<wxListBox*>(this));
 
         // Find the widest line
         for (unsigned int i = 0; i < GetCount(); i++)
         {
             wxString str( GetString( i ) );
 
-            wxCoord width, height ;
-            dc.GetTextExtent( str , &width, &height);
+            wxCoord width;
+            dc.GetTextExtent(str, &width, nullptr);
             lbWidth = wxMax( lbWidth, width );
         }
 
@@ -274,8 +269,8 @@ wxSize wxListBox::DoGetBestSize() const
         // And just a bit more
         int cy = 12;
 
-        wxCoord width, height ;
-        dc.GetTextExtent( wxT("XX") , &width, &height);
+        wxCoord width;
+        dc.GetTextExtent(wxT("XX"), &width, nullptr);
         int cx = width ;
         lbWidth += cx;
 
@@ -377,9 +372,9 @@ int wxListBox::DoInsertItems(const wxArrayStringsAdapter& items,
     {
         const wxString& item = items[i];
         idx = IsSorted() ? m_strings.sorted->Add(item)
-                         : (m_strings.unsorted->Insert(item, pos), pos++);
+                         : ((void)m_strings.unsorted->Insert(item, pos), pos++);
 
-        m_itemsClientData.Insert(NULL, idx);
+        m_itemsClientData.Insert(nullptr, idx);
         AssignNewItemClientData(idx, clientData, i, type);
 
         GetListPeer()->ListInsert(startpos+i);

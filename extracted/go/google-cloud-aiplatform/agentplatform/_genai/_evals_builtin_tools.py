@@ -25,6 +25,10 @@ server round-trip.  Parameter schemas are intentionally omitted to avoid
 publishing internal tool contract details.
 
 **If the server catalog changes, this SDK-side copy must be updated to match.**
+
+Sandbox orchestration tools (``provision_sandbox``, ``load_sandbox``) are
+intentionally excluded from the tool catalog.  They are infrastructure
+initialization, not user-facing agent capabilities.
 """
 
 from typing import Any, Optional
@@ -72,24 +76,64 @@ BUILTIN_TOOL_DECLARATIONS: dict[str, list[genai_types.FunctionDeclaration]] = {
 }
 
 
-# Sandbox-environment orchestration tool declarations.
-#
-# Source of truth: interaction_converter.py, _SANDBOX_FUNCTION_DECLARATIONS
-SANDBOX_DECLARATIONS: list[genai_types.FunctionDeclaration] = [
-    genai_types.FunctionDeclaration(
-        name="provision_sandbox",
-        description="Provisions a sandbox environment.",
-    ),
-    genai_types.FunctionDeclaration(
-        name="load_sandbox",
-        description="Loads a previously provisioned sandbox environment.",
-    ),
-]
+# Sandbox-environment orchestration tools.
+# Source of truth: interaction_converter.py, _SANDBOX_TOOL_NAMES
+SANDBOX_TOOL_NAMES: frozenset[str] = frozenset(
+    {
+        "provision_sandbox",
+        "load_sandbox",
+    }
+)
+
+
+def is_sandbox_only_turn(
+    events: list[Any],
+) -> bool:
+    """Returns True if a turn contains only sandbox initialization events.
+
+    Sandbox provisioning events (``provision_sandbox``, ``load_sandbox``)
+    are infrastructure setup steps that happen before the user's first
+    real prompt.
+
+    A turn is sandbox-only when every event is either a
+    ``function_call`` or ``function_response`` referencing a sandbox
+    tool name.  Events with plain text content (model output, user
+    input) disqualify the turn.
+
+    Args:
+        events: The list of AgentEvents in the turn.
+
+    Returns:
+        True if the turn is sandbox-only and should be merged into the
+        next real turn for display.
+    """
+    if not events:
+        return True
+
+    for event in events:
+        content = getattr(event, "content", None)
+        if not content:
+            continue
+        parts = getattr(content, "parts", None)
+        if not parts:
+            continue
+        for part in parts:
+            if getattr(part, "function_call", None):
+                if part.function_call.name not in SANDBOX_TOOL_NAMES:
+                    return False
+            elif getattr(part, "function_response", None):
+                if part.function_response.name not in SANDBOX_TOOL_NAMES:
+                    return False
+            else:
+                # Any other part type (text, inline_data, executable_code,
+                # code_execution_result, etc.) means this is a real
+                # conversational event, not sandbox infrastructure.
+                return False
+    return True
 
 
 def agent_tools_to_config_tools(
     agent_tools: Optional[list[Any]],
-    has_environment: bool = False,
 ) -> Optional[list[genai_types.Tool]]:
     """Maps Gemini Agents API tools to ``genai_types.Tool`` for display.
 
@@ -106,18 +150,19 @@ def agent_tools_to_config_tools(
       * ``mcp_server`` is represented as a named declaration with a
         human-readable label.
       * Tools carrying explicit ``function_declarations`` are passed through.
-      * When ``has_environment`` is True, sandbox orchestration tools
-        (``provision_sandbox``, ``load_sandbox``) are appended.
+
+    Sandbox orchestration tools (``provision_sandbox``, ``load_sandbox``)
+    are intentionally excluded.  They are infrastructure initialization,
+    not user-facing capabilities.
 
     Args:
         agent_tools: The ``tools`` list from a fetched Gemini agent dict.
-        has_environment: Whether the agent has a sandbox environment configured.
 
     Returns:
         A list of ``genai_types.Tool``, or ``None`` if there are no mappable
         tools.
     """
-    if not agent_tools and not has_environment:
+    if not agent_tools:
         return None
     tools: list[genai_types.Tool] = []
     for tool in agent_tools or []:
@@ -160,8 +205,5 @@ def agent_tools_to_config_tools(
             )
         elif remainder:
             tools.append(genai_types.Tool.model_validate(remainder))
-
-    if has_environment:
-        tools.append(genai_types.Tool(function_declarations=list(SANDBOX_DECLARATIONS)))
 
     return tools or None

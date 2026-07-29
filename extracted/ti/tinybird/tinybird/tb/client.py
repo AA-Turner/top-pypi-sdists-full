@@ -435,7 +435,7 @@ class TinyB:
         sql_condition: Optional[str] = None,
         format: str = "csv",
         replace_options: Optional[Set[str]] = None,
-    ):
+    ) -> Dict[str, Any]:
         params = {"name": table_name, "url": url, "mode": mode, "debug": "blocks_block_log", "format": format}
 
         if sql_condition:
@@ -465,16 +465,9 @@ class TinyB:
         sql_condition: Optional[str] = None,
         format: str = "csv",
         replace_options: Optional[Set[str]] = None,
-        use_v1: bool = False,
     ):
-        params = {"name": datasource_name, "mode": mode, "format": format, "debug": "blocks_block_log"}
-
-        if sql_condition:
-            params["replace_condition"] = sql_condition
-        if replace_options:
-            for option in list(replace_options):
-                params[option] = "true"
-
+        # Keep this argument for SDK compatibility; v1 returns before import completion.
+        del status_callback
         with open(file, "rb") as content:
             file_content = content.read()
         content_types = {
@@ -485,29 +478,34 @@ class TinyB:
         headers = {"Content-Type": content_types[format]}
         if str(file).endswith(".gz"):
             headers["Content-Encoding"] = "gzip"
-        if use_v1:
-            v1_params = {"format": format}
-            if sql_condition:
-                v1_params["replace_condition"] = sql_condition
-            if replace_options:
-                for option in list(replace_options):
-                    v1_params[option] = "true"
-            res = self._req(
-                f"/v1/datasources/{quote(datasource_name, safe='')}/{mode}?{urlencode(v1_params, safe='')}",
-                data=file_content,
-                headers=headers,
-                method="POST",
-            )
-            if "error" in res:
-                raise Exception(res["error"])
-            return res
-        if format == "csv":
-            files = {"csv": ("csv", file_content)}
-        else:
-            files = {"ndjson": ("ndjson", file_content)}
-        res = self._req(f"v0/datasources?{urlencode(params, safe='')}", files=files, method="POST")
-        if status_callback:
-            status_callback(res)
+        v1_params = {"format": format}
+        if sql_condition:
+            v1_params["replace_condition"] = sql_condition
+        if replace_options:
+            for option in list(replace_options):
+                v1_params[option] = "true"
+        res = self._req(
+            f"/v1/datasources/{quote(datasource_name, safe='')}/{mode}?{urlencode(v1_params, safe='')}",
+            data=file_content,
+            headers=headers,
+            method="POST",
+        )
+        if not isinstance(res, dict):
+            raise RuntimeError("We couldn't confirm that your import started. Please try again.")
+        if "error" in res:
+            raise Exception(res["error"])
+        return res
+
+    def datasource_append_events(self, datasource_name: str, events: str) -> dict:
+        """Submit NDJSON event data through the asynchronous v1 append route."""
+        res = self._req(
+            f"/v1/datasources/{quote(datasource_name, safe='')}/append?format=ndjson",
+            data=events.encode(),
+            headers={"Content-Type": "application/x-ndjson"},
+            method="POST",
+        )
+        if "error" in res:
+            raise Exception(res["error"])
         return res
 
     def datasource_truncate(self, datasource_name: str):

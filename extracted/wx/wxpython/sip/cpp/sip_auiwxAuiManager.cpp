@@ -14,7 +14,10 @@
         #include <wx/gdicmn.h>
         #include <wx/gdicmn.h>
         #include <wx/aui/dockart.h>
+        #include <wx/aui/serializer.h>
+        #include <wx/aui/serializer.h>
         #include <wx/aui/floatpane.h>
+        #include <wx/gdicmn.h>
         #include <wx/event.h>
         #include <wx/eventfilter.h>
         #include <wx/event.h>
@@ -61,7 +64,7 @@ private:
     char sipPyMethods[8];
 };
 
-sipwxAuiManager::sipwxAuiManager(::wxWindow*managed_wnd, uint flags): ::wxAuiManager(managed_wnd, flags), sipPySelf(SIP_NULLPTR)
+sipwxAuiManager::sipwxAuiManager(::wxWindow*managedWindow, uint flags): ::wxAuiManager(managedWindow, flags), sipPySelf(SIP_NULLPTR)
 {
     memset(sipPyMethods, 0, sizeof (sipPyMethods));
 }
@@ -405,7 +408,86 @@ static PyObject *meth_wxAuiManager_AddPane(PyObject *sipSelf, PyObject *sipArgs,
 }
 
 
-PyDoc_STRVAR(doc_wxAuiManager_CalculateHintRect, "CalculateHintRect(paneWindow, pt, offset) -> wx.Rect\n"
+PyDoc_STRVAR(doc_wxAuiManager_AllowDocksForMinPanes, "AllowDocksForMinPanes(directions) -> None\n"
+"\n"
+"Change the sides where docks for minimized panes can be created.");
+
+extern "C" {static PyObject *meth_wxAuiManager_AllowDocksForMinPanes(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAuiManager_AllowDocksForMinPanes(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int directions;
+        ::wxAuiManager *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_directions,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxAuiManager, &sipCpp, &directions))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->AllowDocksForMinPanes(directions);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiManager, sipName_AllowDocksForMinPanes, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxAuiManager_SetDocksForMinPanesStyle, "SetDocksForMinPanesStyle(style) -> None\n"
+"\n"
+"Set style of for the items representing minimized panes in the docking\n"
+"toolbars.");
+
+extern "C" {static PyObject *meth_wxAuiManager_SetDocksForMinPanesStyle(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAuiManager_SetDocksForMinPanesStyle(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        uint style;
+        ::wxAuiManager *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_style,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bu", &sipSelf, sipType_wxAuiManager, &sipCpp, &style))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetDocksForMinPanesStyle(style);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiManager, sipName_SetDocksForMinPanesStyle, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxAuiManager_CalculateHintRect, "CalculateHintRect(paneWindow, pt, offset=wx.Point(0,0)) -> wx.Rect\n"
 "\n"
 "This function is used by controls to calculate the drop hint\n"
 "rectangle.");
@@ -419,7 +501,8 @@ static PyObject *meth_wxAuiManager_CalculateHintRect(PyObject *sipSelf, PyObject
         ::wxWindow* paneWindow;
         const ::wxPoint* pt;
         int ptState = 0;
-        const ::wxPoint* offset;
+        const ::wxPoint& offsetdef = wxPoint(0, 0);
+        const ::wxPoint* offset = &offsetdef;
         int offsetState = 0;
         ::wxAuiManager *sipCpp;
 
@@ -429,7 +512,7 @@ static PyObject *meth_wxAuiManager_CalculateHintRect(PyObject *sipSelf, PyObject
             sipName_offset,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8J1J1", &sipSelf, sipType_wxAuiManager, &sipCpp, sipType_wxWindow, &paneWindow, sipType_wxPoint, &pt, &ptState, sipType_wxPoint, &offset, &offsetState))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8J1|J1", &sipSelf, sipType_wxAuiManager, &sipCpp, sipType_wxWindow, &paneWindow, sipType_wxPoint, &pt, &ptState, sipType_wxPoint, &offset, &offsetState))
         {
             ::wxRect*sipRes;
 
@@ -449,6 +532,41 @@ static PyObject *meth_wxAuiManager_CalculateHintRect(PyObject *sipSelf, PyObject
     }
 
     sipNoMethod(sipParseErr, sipName_AuiManager, sipName_CalculateHintRect, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxAuiManager_CalculateNewSplitSize, "CalculateNewSplitSize() -> wx.Size\n"
+"\n"
+"Return a reasonable size to use for a new split.");
+
+extern "C" {static PyObject *meth_wxAuiManager_CalculateNewSplitSize(PyObject *, PyObject *);}
+static PyObject *meth_wxAuiManager_CalculateNewSplitSize(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxAuiManager *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxAuiManager, &sipCpp))
+        {
+            ::wxSize*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxSize(sipCpp->CalculateNewSplitSize());
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxSize, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiManager, sipName_CalculateNewSplitSize, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -619,7 +737,7 @@ static PyObject *meth_wxAuiManager_DetachPane(PyObject *sipSelf, PyObject *sipAr
 }
 
 
-PyDoc_STRVAR(doc_wxAuiManager_DrawHintRect, "DrawHintRect(paneWindow, pt, offset) -> None\n"
+PyDoc_STRVAR(doc_wxAuiManager_DrawHintRect, "DrawHintRect(paneWindow, pt, offset=wx.Point(0,0)) -> None\n"
 "\n"
 "This function is used by controls to draw the hint window.");
 
@@ -632,7 +750,8 @@ static PyObject *meth_wxAuiManager_DrawHintRect(PyObject *sipSelf, PyObject *sip
         ::wxWindow* paneWindow;
         const ::wxPoint* pt;
         int ptState = 0;
-        const ::wxPoint* offset;
+        const ::wxPoint& offsetdef = wxPoint(0, 0);
+        const ::wxPoint* offset = &offsetdef;
         int offsetState = 0;
         ::wxAuiManager *sipCpp;
 
@@ -642,7 +761,7 @@ static PyObject *meth_wxAuiManager_DrawHintRect(PyObject *sipSelf, PyObject *sip
             sipName_offset,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8J1J1", &sipSelf, sipType_wxAuiManager, &sipCpp, sipType_wxWindow, &paneWindow, sipType_wxPoint, &pt, &ptState, sipType_wxPoint, &offset, &offsetState))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8J1|J1", &sipSelf, sipType_wxAuiManager, &sipCpp, sipType_wxWindow, &paneWindow, sipType_wxPoint, &pt, &ptState, sipType_wxPoint, &offset, &offsetState))
         {
             PyErr_Clear();
 
@@ -1026,6 +1145,45 @@ static PyObject *meth_wxAuiManager_InsertPane(PyObject *sipSelf, PyObject *sipAr
 }
 
 
+PyDoc_STRVAR(doc_wxAuiManager_LoadLayout, "LoadLayout(deserializer) -> None\n"
+"\n"
+"Load the layout information saved by SaveLayout().");
+
+extern "C" {static PyObject *meth_wxAuiManager_LoadLayout(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAuiManager_LoadLayout(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxAuiDeserializer* deserializer;
+        ::wxAuiManager *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_deserializer,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9", &sipSelf, sipType_wxAuiManager, &sipCpp, sipType_wxAuiDeserializer, &deserializer))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->LoadLayout(*deserializer);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiManager, sipName_LoadLayout, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxAuiManager_LoadPaneInfo, "LoadPaneInfo(pane_part, pane) -> None\n"
 "\n"
 "LoadPaneInfo() is similar to LoadPerspective, with the exception that it only loads information about a single pane.");
@@ -1108,6 +1266,45 @@ static PyObject *meth_wxAuiManager_LoadPerspective(PyObject *sipSelf, PyObject *
     }
 
     sipNoMethod(sipParseErr, sipName_AuiManager, sipName_LoadPerspective, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxAuiManager_MinimizePane, "MinimizePane(paneInfo) -> None\n"
+"\n"
+"Minimize the given pane.");
+
+extern "C" {static PyObject *meth_wxAuiManager_MinimizePane(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAuiManager_MinimizePane(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxAuiPaneInfo* paneInfo;
+        ::wxAuiManager *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_paneInfo,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9", &sipSelf, sipType_wxAuiManager, &sipCpp, sipType_wxAuiPaneInfo, &paneInfo))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->MinimizePane(*paneInfo);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiManager, sipName_MinimizePane, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -1225,6 +1422,45 @@ static PyObject *meth_wxAuiManager_RestoreMaximizedPane(PyObject *sipSelf, PyObj
 }
 
 
+PyDoc_STRVAR(doc_wxAuiManager_SaveLayout, "SaveLayout(serializer) -> None\n"
+"\n"
+"Save the layout information using the provided object.");
+
+extern "C" {static PyObject *meth_wxAuiManager_SaveLayout(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAuiManager_SaveLayout(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxAuiSerializer* serializer;
+        const ::wxAuiManager *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_serializer,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9", &sipSelf, sipType_wxAuiManager, &sipCpp, sipType_wxAuiSerializer, &serializer))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SaveLayout(*serializer);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiManager, sipName_SaveLayout, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxAuiManager_SavePaneInfo, "SavePaneInfo(pane) -> str\n"
 "\n"
 "SavePaneInfo() is similar to SavePerspective, with the exception that it only saves information about a single pane.");
@@ -1319,7 +1555,7 @@ static PyObject *meth_wxAuiManager_SetArtProvider(PyObject *sipSelf, PyObject *s
             sipName_art_provider,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8", &sipSelf, sipType_wxAuiManager, &sipCpp, sipType_wxAuiDockArt, &art_provider))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ:", &sipSelf, sipType_wxAuiManager, &sipCpp, sipType_wxAuiDockArt, &art_provider))
         {
             PyErr_Clear();
 
@@ -1423,10 +1659,9 @@ static PyObject *meth_wxAuiManager_SetFlags(PyObject *sipSelf, PyObject *sipArgs
 }
 
 
-PyDoc_STRVAR(doc_wxAuiManager_SetManagedWindow, "SetManagedWindow(managed_wnd) -> None\n"
+PyDoc_STRVAR(doc_wxAuiManager_SetManagedWindow, "SetManagedWindow(managedWindow) -> None\n"
 "\n"
-"Called to specify the frame or window which is to be managed by\n"
-"wxAuiManager.");
+"Set the window which is to be managed by wxAuiManager.");
 
 extern "C" {static PyObject *meth_wxAuiManager_SetManagedWindow(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxAuiManager_SetManagedWindow(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1434,19 +1669,19 @@ static PyObject *meth_wxAuiManager_SetManagedWindow(PyObject *sipSelf, PyObject 
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        ::wxWindow* managed_wnd;
+        ::wxWindow* managedWindow;
         ::wxAuiManager *sipCpp;
 
         static const char *sipKwdList[] = {
-            sipName_managed_wnd,
+            sipName_managedWindow,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8", &sipSelf, sipType_wxAuiManager, &sipCpp, sipType_wxWindow, &managed_wnd))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8", &sipSelf, sipType_wxAuiManager, &sipCpp, sipType_wxWindow, &managedWindow))
         {
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipCpp->SetManagedWindow(managed_wnd);
+            sipCpp->SetManagedWindow(managedWindow);
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
@@ -1465,8 +1700,8 @@ static PyObject *meth_wxAuiManager_SetManagedWindow(PyObject *sipSelf, PyObject 
 
 PyDoc_STRVAR(doc_wxAuiManager_ShowHint, "ShowHint(rect) -> None\n"
 "\n"
-"This function is used by controls to explicitly show a hint window at\n"
-"the specified rectangle.");
+"This function is used to show a hint window at the specified\n"
+"rectangle.");
 
 extern "C" {static PyObject *meth_wxAuiManager_ShowHint(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxAuiManager_ShowHint(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1501,6 +1736,55 @@ static PyObject *meth_wxAuiManager_ShowHint(PyObject *sipSelf, PyObject *sipArgs
     }
 
     sipNoMethod(sipParseErr, sipName_AuiManager, sipName_ShowHint, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxAuiManager_SplitPane, "SplitPane(window, newWindow, direction, dropPos=wx.DefaultPosition) -> bool\n"
+"\n"
+"Create a new pane with the given window near an existing pane.");
+
+extern "C" {static PyObject *meth_wxAuiManager_SplitPane(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAuiManager_SplitPane(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxWindow* window;
+        ::wxWindow* newWindow;
+        int direction;
+        const ::wxPoint& dropPosdef = wxDefaultPosition;
+        const ::wxPoint* dropPos = &dropPosdef;
+        int dropPosState = 0;
+        ::wxAuiManager *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_window,
+            sipName_newWindow,
+            sipName_direction,
+            sipName_dropPos,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8J8i|J1", &sipSelf, sipType_wxAuiManager, &sipCpp, sipType_wxWindow, &window, sipType_wxWindow, &newWindow, &direction, sipType_wxPoint, &dropPos, &dropPosState))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->SplitPane(window, newWindow, direction, *dropPos);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxPoint *>(dropPos), sipType_wxPoint, dropPosState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiManager, sipName_SplitPane, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -1618,24 +1902,71 @@ static PyObject *meth_wxAuiManager_Update(PyObject *sipSelf, PyObject *sipArgs)
 }
 
 
-PyDoc_STRVAR(doc_wxAuiManager_AlwaysUsesLiveResize, "AlwaysUsesLiveResize() -> bool\n"
+PyDoc_STRVAR(doc_wxAuiManager_UpdateHint, "UpdateHint(rect) -> None\n"
 "\n"
-"Returns true if live resize is always used on the current platform.");
+"Show or hide the hint window.");
 
-extern "C" {static PyObject *meth_wxAuiManager_AlwaysUsesLiveResize(PyObject *, PyObject *);}
-static PyObject *meth_wxAuiManager_AlwaysUsesLiveResize(PyObject *, PyObject *sipArgs)
+extern "C" {static PyObject *meth_wxAuiManager_UpdateHint(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAuiManager_UpdateHint(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
 {
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        if (sipParseArgs(&sipParseErr, sipArgs, ""))
+        const ::wxRect* rect;
+        int rectState = 0;
+        ::wxAuiManager *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_rect,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxAuiManager, &sipCpp, sipType_wxRect, &rect, &rectState))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->UpdateHint(*rect);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxRect *>(rect), sipType_wxRect, rectState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiManager, sipName_UpdateHint, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxAuiManager_AlwaysUsesLiveResize, "AlwaysUsesLiveResize(window) -> bool\n"
+"\n"
+"Returns true if live resize is always used on the current platform.");
+
+extern "C" {static PyObject *meth_wxAuiManager_AlwaysUsesLiveResize(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAuiManager_AlwaysUsesLiveResize(PyObject *, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxWindow* window;
+
+        static const char *sipKwdList[] = {
+            sipName_window,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "J8", sipType_wxWindow, &window))
         {
             bool sipRes;
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = ::wxAuiManager::AlwaysUsesLiveResize();
+            sipRes = ::wxAuiManager::AlwaysUsesLiveResize(window);
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
@@ -1798,20 +2129,20 @@ static void *init_type_wxAuiManager(sipSimpleWrapper *sipSelf, PyObject *sipArgs
     sipwxAuiManager *sipCpp = SIP_NULLPTR;
 
     {
-        ::wxWindow* managed_wnd = 0;
+        ::wxWindow* managedWindow = nullptr;
         uint flags = wxAUI_MGR_DEFAULT;
 
         static const char *sipKwdList[] = {
-            sipName_managed_wnd,
+            sipName_managedWindow,
             sipName_flags,
         };
 
-        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, sipKwdList, sipUnused, "|J8u", sipType_wxWindow, &managed_wnd, &flags))
+        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, sipKwdList, sipUnused, "|J8u", sipType_wxWindow, &managedWindow, &flags))
         {
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipCpp = new sipwxAuiManager(managed_wnd, flags);
+            sipCpp = new sipwxAuiManager(managedWindow, flags);
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
@@ -1831,13 +2162,15 @@ static void *init_type_wxAuiManager(sipSimpleWrapper *sipSelf, PyObject *sipArgs
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxAuiManager[] = {{12, 0, 1}};
+static sipEncodedTypeDef supers_wxAuiManager[] = {{13, 0, 1}};
 
 
 static PyMethodDef methods_wxAuiManager[] = {
     {sipName_AddPane, SIP_MLMETH_CAST(meth_wxAuiManager_AddPane), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_AddPane},
-    {sipName_AlwaysUsesLiveResize, meth_wxAuiManager_AlwaysUsesLiveResize, METH_VARARGS, doc_wxAuiManager_AlwaysUsesLiveResize},
+    {sipName_AllowDocksForMinPanes, SIP_MLMETH_CAST(meth_wxAuiManager_AllowDocksForMinPanes), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_AllowDocksForMinPanes},
+    {sipName_AlwaysUsesLiveResize, SIP_MLMETH_CAST(meth_wxAuiManager_AlwaysUsesLiveResize), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_AlwaysUsesLiveResize},
     {sipName_CalculateHintRect, SIP_MLMETH_CAST(meth_wxAuiManager_CalculateHintRect), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_CalculateHintRect},
+    {sipName_CalculateNewSplitSize, meth_wxAuiManager_CalculateNewSplitSize, METH_VARARGS, doc_wxAuiManager_CalculateNewSplitSize},
     {sipName_CanDockPanel, SIP_MLMETH_CAST(meth_wxAuiManager_CanDockPanel), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_CanDockPanel},
     {sipName_ClosePane, SIP_MLMETH_CAST(meth_wxAuiManager_ClosePane), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_ClosePane},
     {sipName_CreateFloatingFrame, SIP_MLMETH_CAST(meth_wxAuiManager_CreateFloatingFrame), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_CreateFloatingFrame},
@@ -1853,34 +2186,40 @@ static PyMethodDef methods_wxAuiManager[] = {
     {sipName_HasLiveResize, meth_wxAuiManager_HasLiveResize, METH_VARARGS, doc_wxAuiManager_HasLiveResize},
     {sipName_HideHint, meth_wxAuiManager_HideHint, METH_VARARGS, doc_wxAuiManager_HideHint},
     {sipName_InsertPane, SIP_MLMETH_CAST(meth_wxAuiManager_InsertPane), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_InsertPane},
+    {sipName_LoadLayout, SIP_MLMETH_CAST(meth_wxAuiManager_LoadLayout), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_LoadLayout},
     {sipName_LoadPaneInfo, SIP_MLMETH_CAST(meth_wxAuiManager_LoadPaneInfo), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_LoadPaneInfo},
     {sipName_LoadPerspective, SIP_MLMETH_CAST(meth_wxAuiManager_LoadPerspective), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_LoadPerspective},
     {sipName_MaximizePane, SIP_MLMETH_CAST(meth_wxAuiManager_MaximizePane), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_MaximizePane},
+    {sipName_MinimizePane, SIP_MLMETH_CAST(meth_wxAuiManager_MinimizePane), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_MinimizePane},
     {sipName_ProcessDockResult, SIP_MLMETH_CAST(meth_wxAuiManager_ProcessDockResult), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_ProcessDockResult},
     {sipName_RestoreMaximizedPane, meth_wxAuiManager_RestoreMaximizedPane, METH_VARARGS, doc_wxAuiManager_RestoreMaximizedPane},
     {sipName_RestorePane, SIP_MLMETH_CAST(meth_wxAuiManager_RestorePane), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_RestorePane},
+    {sipName_SaveLayout, SIP_MLMETH_CAST(meth_wxAuiManager_SaveLayout), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_SaveLayout},
     {sipName_SavePaneInfo, SIP_MLMETH_CAST(meth_wxAuiManager_SavePaneInfo), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_SavePaneInfo},
     {sipName_SavePerspective, meth_wxAuiManager_SavePerspective, METH_VARARGS, doc_wxAuiManager_SavePerspective},
     {sipName_SetArtProvider, SIP_MLMETH_CAST(meth_wxAuiManager_SetArtProvider), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_SetArtProvider},
     {sipName_SetDockSizeConstraint, SIP_MLMETH_CAST(meth_wxAuiManager_SetDockSizeConstraint), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_SetDockSizeConstraint},
+    {sipName_SetDocksForMinPanesStyle, SIP_MLMETH_CAST(meth_wxAuiManager_SetDocksForMinPanesStyle), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_SetDocksForMinPanesStyle},
     {sipName_SetFlags, SIP_MLMETH_CAST(meth_wxAuiManager_SetFlags), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_SetFlags},
     {sipName_SetManagedWindow, SIP_MLMETH_CAST(meth_wxAuiManager_SetManagedWindow), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_SetManagedWindow},
     {sipName_ShowHint, SIP_MLMETH_CAST(meth_wxAuiManager_ShowHint), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_ShowHint},
+    {sipName_SplitPane, SIP_MLMETH_CAST(meth_wxAuiManager_SplitPane), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_SplitPane},
     {sipName_StartPaneDrag, SIP_MLMETH_CAST(meth_wxAuiManager_StartPaneDrag), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_StartPaneDrag},
     {sipName_TryAfter, SIP_MLMETH_CAST(meth_wxAuiManager_TryAfter), METH_VARARGS|METH_KEYWORDS, SIP_NULLPTR},
     {sipName_TryBefore, SIP_MLMETH_CAST(meth_wxAuiManager_TryBefore), METH_VARARGS|METH_KEYWORDS, SIP_NULLPTR},
     {sipName_UnInit, meth_wxAuiManager_UnInit, METH_VARARGS, doc_wxAuiManager_UnInit},
-    {sipName_Update, meth_wxAuiManager_Update, METH_VARARGS, doc_wxAuiManager_Update}
+    {sipName_Update, meth_wxAuiManager_Update, METH_VARARGS, doc_wxAuiManager_Update},
+    {sipName_UpdateHint, SIP_MLMETH_CAST(meth_wxAuiManager_UpdateHint), METH_VARARGS|METH_KEYWORDS, doc_wxAuiManager_UpdateHint}
 };
 
 sipVariableDef variables_wxAuiManager[] = {
-    {PropertyVariable, sipName_ManagedWindow, &methods_wxAuiManager[12], &methods_wxAuiManager[29], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Flags, &methods_wxAuiManager[11], &methods_wxAuiManager[28], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ArtProvider, &methods_wxAuiManager[9], &methods_wxAuiManager[26], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_AllPanes, &methods_wxAuiManager[8], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ManagedWindow, &methods_wxAuiManager[14], &methods_wxAuiManager[35], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Flags, &methods_wxAuiManager[13], &methods_wxAuiManager[34], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ArtProvider, &methods_wxAuiManager[11], &methods_wxAuiManager[31], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_AllPanes, &methods_wxAuiManager[10], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxAuiManager, "AuiManager(managed_wnd=None, flags=AUI_MGR_DEFAULT) -> None\n"
+PyDoc_STRVAR(doc_wxAuiManager, "AuiManager(managedWindow=nullptr, flags=AUI_MGR_DEFAULT) -> None\n"
 "\n"
 "wxAuiManager is the central class of the wxAUI class framework.");
 
@@ -1898,7 +2237,7 @@ sipClassTypeDef sipTypeDef__aui_wxAuiManager = {
     {
         sipNameNr_AuiManager,
         {0, 0, 1},
-        36, methods_wxAuiManager,
+        44, methods_wxAuiManager,
         0, SIP_NULLPTR,
         4, variables_wxAuiManager,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

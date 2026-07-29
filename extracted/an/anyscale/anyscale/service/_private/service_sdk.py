@@ -1467,6 +1467,47 @@ class PrivateServiceSDK(WorkloadSDK):
         )
         return {r.key: r.value for r in records if r and r.key is not None}
 
+    def token_add(
+        self,
+        name: Optional[str] = None,
+        service_id: Optional[str] = None,
+        *,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+    ) -> Tuple[str, Optional[str]]:
+        """Add a secondary auth token for zero-downtime service token rotation.
+
+        Returns the resulting (primary_auth_token, secondary_auth_token) tuple.
+        """
+        if service_id is None:
+            model = self._resolve_to_service_model(
+                name=name, cloud=cloud, project=project
+            )
+            service_id = model.id
+        model = self.client.add_service_secondary_auth_token(service_id)
+        return model.auth_token, model.secondary_auth_token
+
+    def token_delete(
+        self,
+        name: Optional[str] = None,
+        service_id: Optional[str] = None,
+        *,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+        auth_token: Optional[str] = None,
+    ) -> Tuple[str, Optional[str]]:
+        """Delete a service auth token during token rotation.
+
+        Returns the resulting (primary_auth_token, secondary_auth_token) tuple.
+        """
+        if service_id is None:
+            model = self._resolve_to_service_model(
+                name=name, cloud=cloud, project=project
+            )
+            service_id = model.id
+        model = self.client.delete_service_auth_token(service_id, auth_token)
+        return model.auth_token, model.secondary_auth_token
+
 
 def _normalize_state_filter(
     states: Optional[Union[List[ServiceState], List[str]]],

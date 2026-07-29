@@ -79,9 +79,9 @@ sipwxArtProvider::~sipwxArtProvider()
     if (!sipMeth)
         return ::wxArtProvider::CreateIconBundle(id, client);
 
-    extern ::wxIconBundle sipVH__core_213(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxArtID&, const ::wxArtClient&);
+    extern ::wxIconBundle sipVH__core_212(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxArtID&, const ::wxArtClient&);
 
-    return sipVH__core_213(sipGILState, 0, sipPySelf, sipMeth, id, client);
+    return sipVH__core_212(sipGILState, 0, sipPySelf, sipMeth, id, client);
 }
 
 ::wxBitmapBundle sipwxArtProvider::CreateBitmapBundle(const ::wxArtID& id, const ::wxArtClient& client, const ::wxSize& size)
@@ -94,9 +94,9 @@ sipwxArtProvider::~sipwxArtProvider()
     if (!sipMeth)
         return ::wxArtProvider::CreateBitmapBundle(id, client, size);
 
-    extern ::wxBitmapBundle sipVH__core_212(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxArtID&, const ::wxArtClient&, const ::wxSize&);
+    extern ::wxBitmapBundle sipVH__core_211(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxArtID&, const ::wxArtClient&, const ::wxSize&);
 
-    return sipVH__core_212(sipGILState, 0, sipPySelf, sipMeth, id, client, size);
+    return sipVH__core_211(sipGILState, 0, sipPySelf, sipMeth, id, client, size);
 }
 
 ::wxBitmap sipwxArtProvider::CreateBitmap(const ::wxArtID& id, const ::wxArtClient& client, const ::wxSize& size)
@@ -109,9 +109,9 @@ sipwxArtProvider::~sipwxArtProvider()
     if (!sipMeth)
         return ::wxArtProvider::CreateBitmap(id, client, size);
 
-    extern ::wxBitmap sipVH__core_211(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxArtID&, const ::wxArtClient&, const ::wxSize&);
+    extern ::wxBitmap sipVH__core_210(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxArtID&, const ::wxArtClient&, const ::wxSize&);
 
-    return sipVH__core_211(sipGILState, 0, sipPySelf, sipMeth, id, client, size);
+    return sipVH__core_210(sipGILState, 0, sipPySelf, sipMeth, id, client, size);
 }
 
 ::wxBitmap sipwxArtProvider::sipProtectVirt_CreateBitmap(bool sipSelfWasArg, const ::wxArtID& id, const ::wxArtClient& client, const ::wxSize& size)
@@ -366,7 +366,7 @@ static PyObject *meth_wxArtProvider_GetNativeDIPSizeHint(PyObject *, PyObject *s
 }
 
 
-PyDoc_STRVAR(doc_wxArtProvider_GetNativeSizeHint, "GetNativeSizeHint(client, win=None) -> Size\n"
+PyDoc_STRVAR(doc_wxArtProvider_GetNativeSizeHint, "GetNativeSizeHint(client, win=nullptr) -> Size\n"
 "\n"
 "Returns native icon size for use specified by client hint.");
 
@@ -378,7 +378,7 @@ static PyObject *meth_wxArtProvider_GetNativeSizeHint(PyObject *, PyObject *sipA
     {
         const ::wxArtClient* client;
         int clientState = 0;
-        ::wxWindow* win = 0;
+        ::wxWindow* win = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_client,
@@ -450,7 +450,7 @@ static PyObject *meth_wxArtProvider_GetDIPSizeHint(PyObject *, PyObject *sipArgs
 }
 
 
-PyDoc_STRVAR(doc_wxArtProvider_GetSizeHint, "GetSizeHint(client, win=None) -> Size\n"
+PyDoc_STRVAR(doc_wxArtProvider_GetSizeHint, "GetSizeHint(client, win=nullptr) -> Size\n"
 "\n"
 "Returns a suitable size hint for the given wxArtClient.");
 
@@ -462,7 +462,7 @@ static PyObject *meth_wxArtProvider_GetSizeHint(PyObject *, PyObject *sipArgs, P
     {
         const ::wxArtClient* client;
         int clientState = 0;
-        ::wxWindow* win = 0;
+        ::wxWindow* win = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_client,
@@ -1066,7 +1066,7 @@ static void *init_type_wxArtProvider(sipSimpleWrapper *sipSelf, PyObject *sipArg
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxArtProvider[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxArtProvider[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxArtProvider[] = {

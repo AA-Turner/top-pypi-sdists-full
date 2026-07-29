@@ -96,9 +96,9 @@ void sipwxPrintPreview::SetZoom(int percent)
         return;
     }
 
-    extern void sipVH__core_113(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern void sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    sipVH__core_113(sipGILState, 0, sipPySelf, sipMeth, percent);
+    sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth, percent);
 }
 
 void sipwxPrintPreview::SetPrintout(::wxPrintout*printout)
@@ -114,9 +114,9 @@ void sipwxPrintPreview::SetPrintout(::wxPrintout*printout)
         return;
     }
 
-    extern void sipVH__core_222(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPrintout*);
+    extern void sipVH__core_221(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPrintout*);
 
-    sipVH__core_222(sipGILState, 0, sipPySelf, sipMeth, printout);
+    sipVH__core_221(sipGILState, 0, sipPySelf, sipMeth, printout);
 }
 
 void sipwxPrintPreview::SetFrame(::wxFrame*frame)
@@ -147,9 +147,9 @@ bool sipwxPrintPreview::SetCurrentPage(int pageNum)
     if (!sipMeth)
         return ::wxPrintPreview::SetCurrentPage(pageNum);
 
-    extern bool sipVH__core_147(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern bool sipVH__core_146(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    return sipVH__core_147(sipGILState, 0, sipPySelf, sipMeth, pageNum);
+    return sipVH__core_146(sipGILState, 0, sipPySelf, sipMeth, pageNum);
 }
 
 void sipwxPrintPreview::SetCanvas(::wxPreviewCanvas*window)
@@ -165,9 +165,9 @@ void sipwxPrintPreview::SetCanvas(::wxPreviewCanvas*window)
         return;
     }
 
-    extern void sipVH__core_221(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPreviewCanvas*);
+    extern void sipVH__core_220(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPreviewCanvas*);
 
-    sipVH__core_221(sipGILState, 0, sipPySelf, sipMeth, window);
+    sipVH__core_220(sipGILState, 0, sipPySelf, sipMeth, window);
 }
 
 bool sipwxPrintPreview::RenderPage(int pageNum)
@@ -180,9 +180,9 @@ bool sipwxPrintPreview::RenderPage(int pageNum)
     if (!sipMeth)
         return ::wxPrintPreview::RenderPage(pageNum);
 
-    extern bool sipVH__core_147(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern bool sipVH__core_146(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    return sipVH__core_147(sipGILState, 0, sipPySelf, sipMeth, pageNum);
+    return sipVH__core_146(sipGILState, 0, sipPySelf, sipMeth, pageNum);
 }
 
 bool sipwxPrintPreview::Print(bool prompt)
@@ -195,9 +195,9 @@ bool sipwxPrintPreview::Print(bool prompt)
     if (!sipMeth)
         return ::wxPrintPreview::Print(prompt);
 
-    extern bool sipVH__core_100(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern bool sipVH__core_99(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    return sipVH__core_100(sipGILState, 0, sipPySelf, sipMeth, prompt);
+    return sipVH__core_99(sipGILState, 0, sipPySelf, sipMeth, prompt);
 }
 
 bool sipwxPrintPreview::PaintPage(::wxPreviewCanvas*canvas, ::wxDC& dc)
@@ -210,9 +210,9 @@ bool sipwxPrintPreview::PaintPage(::wxPreviewCanvas*canvas, ::wxDC& dc)
     if (!sipMeth)
         return ::wxPrintPreview::PaintPage(canvas, dc);
 
-    extern bool sipVH__core_220(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPreviewCanvas*, ::wxDC&);
+    extern bool sipVH__core_219(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPreviewCanvas*, ::wxDC&);
 
-    return sipVH__core_220(sipGILState, 0, sipPySelf, sipMeth, canvas, dc);
+    return sipVH__core_219(sipGILState, 0, sipPySelf, sipMeth, canvas, dc);
 }
 
 bool sipwxPrintPreview::IsOk() const
@@ -240,9 +240,9 @@ int sipwxPrintPreview::GetZoom() const
     if (!sipMeth)
         return ::wxPrintPreview::GetZoom();
 
-    extern int sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern int sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxPrintout* sipwxPrintPreview::GetPrintoutForPrinting() const
@@ -255,9 +255,9 @@ int sipwxPrintPreview::GetZoom() const
     if (!sipMeth)
         return ::wxPrintPreview::GetPrintoutForPrinting();
 
-    extern ::wxPrintout* sipVH__core_219(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPrintout* sipVH__core_218(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_219(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_218(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxPrintout* sipwxPrintPreview::GetPrintout() const
@@ -270,9 +270,9 @@ int sipwxPrintPreview::GetZoom() const
     if (!sipMeth)
         return ::wxPrintPreview::GetPrintout();
 
-    extern ::wxPrintout* sipVH__core_219(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPrintout* sipVH__core_218(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_219(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_218(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 int sipwxPrintPreview::GetMinPage() const
@@ -285,9 +285,9 @@ int sipwxPrintPreview::GetMinPage() const
     if (!sipMeth)
         return ::wxPrintPreview::GetMinPage();
 
-    extern int sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern int sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 int sipwxPrintPreview::GetMaxPage() const
@@ -300,9 +300,9 @@ int sipwxPrintPreview::GetMaxPage() const
     if (!sipMeth)
         return ::wxPrintPreview::GetMaxPage();
 
-    extern int sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern int sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxFrame* sipwxPrintPreview::GetFrame() const
@@ -315,9 +315,9 @@ int sipwxPrintPreview::GetMaxPage() const
     if (!sipMeth)
         return ::wxPrintPreview::GetFrame();
 
-    extern ::wxFrame* sipVH__core_218(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxFrame* sipVH__core_217(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_218(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_217(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 int sipwxPrintPreview::GetCurrentPage() const
@@ -330,9 +330,9 @@ int sipwxPrintPreview::GetCurrentPage() const
     if (!sipMeth)
         return ::wxPrintPreview::GetCurrentPage();
 
-    extern int sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern int sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxPreviewCanvas* sipwxPrintPreview::GetCanvas() const
@@ -345,9 +345,9 @@ int sipwxPrintPreview::GetCurrentPage() const
     if (!sipMeth)
         return ::wxPrintPreview::GetCanvas();
 
-    extern ::wxPreviewCanvas* sipVH__core_217(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPreviewCanvas* sipVH__core_216(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_217(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_216(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
@@ -572,7 +572,7 @@ static PyObject *meth_wxPrintPreview_GetPrintout(PyObject *sipSelf, PyObject *si
 PyDoc_STRVAR(doc_wxPrintPreview_GetPrintoutForPrinting, "GetPrintoutForPrinting() -> Printout\n"
 "\n"
 "Gets the printout object to be used for printing from within the\n"
-"preview interface, or NULL if none exists.");
+"preview interface, or nullptr if none exists.");
 
 extern "C" {static PyObject *meth_wxPrintPreview_GetPrintoutForPrinting(PyObject *, PyObject *);}
 static PyObject *meth_wxPrintPreview_GetPrintoutForPrinting(PyObject *sipSelf, PyObject *sipArgs)
@@ -1098,8 +1098,8 @@ static void *init_type_wxPrintPreview(sipSimpleWrapper *sipSelf, PyObject *sipAr
 
     {
         ::wxPrintout* printout;
-        ::wxPrintout* printoutForPrinting = 0;
-        ::wxPrintDialogData* data = 0;
+        ::wxPrintout* printoutForPrinting = nullptr;
+        ::wxPrintDialogData* data = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_printout,
@@ -1167,7 +1167,7 @@ static void *init_type_wxPrintPreview(sipSimpleWrapper *sipSelf, PyObject *sipAr
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxPrintPreview[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxPrintPreview[] = {{400, 255, 1}};
 
 
 /* Define this type's Python slots. */
@@ -1209,7 +1209,7 @@ sipVariableDef variables_wxPrintPreview[] = {
     {PropertyVariable, sipName_Canvas, &methods_wxPrintPreview[0], &methods_wxPrintPreview[12], SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxPrintPreview, "PrintPreview(printout, printoutForPrinting=None, data=None) -> None\n"
+PyDoc_STRVAR(doc_wxPrintPreview, "PrintPreview(printout, printoutForPrinting=nullptr, data=nullptr) -> None\n"
 "PrintPreview(printout, printoutForPrinting, data) -> None\n"
 "\n"
 "Objects of this class manage the print preview process.");

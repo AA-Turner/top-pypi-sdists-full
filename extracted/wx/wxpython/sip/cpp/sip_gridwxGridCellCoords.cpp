@@ -205,6 +205,41 @@ static PyObject *meth_wxGridCellCoords_Set(PyObject *sipSelf, PyObject *sipArgs,
 }
 
 
+PyDoc_STRVAR(doc_wxGridCellCoords_IsFullySpecified, "IsFullySpecified() -> bool\n"
+"\n"
+"Returns true if neither the row nor column are invalid (-1).");
+
+extern "C" {static PyObject *meth_wxGridCellCoords_IsFullySpecified(PyObject *, PyObject *);}
+static PyObject *meth_wxGridCellCoords_IsFullySpecified(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxGridCellCoords *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxGridCellCoords, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->IsFullySpecified();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_GridCellCoords, sipName_IsFullySpecified, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxGridCellCoords_Get, "Get() -> (row,col)\n"
 "\n"
 "Return the row and col properties as a tuple.");
@@ -482,14 +517,15 @@ static PyMethodDef methods_wxGridCellCoords[] = {
     {sipName_Get, meth_wxGridCellCoords_Get, METH_VARARGS, doc_wxGridCellCoords_Get},
     {sipName_GetCol, meth_wxGridCellCoords_GetCol, METH_VARARGS, doc_wxGridCellCoords_GetCol},
     {sipName_GetRow, meth_wxGridCellCoords_GetRow, METH_VARARGS, doc_wxGridCellCoords_GetRow},
+    {sipName_IsFullySpecified, meth_wxGridCellCoords_IsFullySpecified, METH_VARARGS, doc_wxGridCellCoords_IsFullySpecified},
     {sipName_Set, SIP_MLMETH_CAST(meth_wxGridCellCoords_Set), METH_VARARGS|METH_KEYWORDS, doc_wxGridCellCoords_Set},
     {sipName_SetCol, SIP_MLMETH_CAST(meth_wxGridCellCoords_SetCol), METH_VARARGS|METH_KEYWORDS, doc_wxGridCellCoords_SetCol},
     {sipName_SetRow, SIP_MLMETH_CAST(meth_wxGridCellCoords_SetRow), METH_VARARGS|METH_KEYWORDS, doc_wxGridCellCoords_SetRow}
 };
 
 sipVariableDef variables_wxGridCellCoords[] = {
-    {PropertyVariable, sipName_Row, &methods_wxGridCellCoords[2], &methods_wxGridCellCoords[5], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Col, &methods_wxGridCellCoords[1], &methods_wxGridCellCoords[4], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Row, &methods_wxGridCellCoords[2], &methods_wxGridCellCoords[6], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Col, &methods_wxGridCellCoords[1], &methods_wxGridCellCoords[5], SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxGridCellCoords, "GridCellCoords() -> None\n"
@@ -511,7 +547,7 @@ sipClassTypeDef sipTypeDef__grid_wxGridCellCoords = {
     {
         sipNameNr_GridCellCoords,
         {0, 0, 1},
-        6, methods_wxGridCellCoords,
+        7, methods_wxGridCellCoords,
         0, SIP_NULLPTR,
         2, variables_wxGridCellCoords,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

@@ -1,0 +1,198 @@
+[build-system]
+requires = [
+    "setuptools>=65.0.0",
+    "wheel",
+    # Required for the optional mypyc-compiled build (ENABLE_MYPYC=true); harmless
+    # for the default pure-Python build. Pinned to match the dev/test toolchain.
+    "mypy==1.13.0",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "matrice_common"
+dynamic = ["version"]
+description = "Common server utilities for Matrice.ai services"
+readme = "README.md"
+authors = [{ name = "Matrice.ai", email = "dipendra@matrice.ai" }]
+license = {text = "MIT"}
+requires-python = ">=3.8"
+# Runtime dependencies are intentionally NOT declared as hard `dependencies`
+# to avoid TestPyPI dependency-backtracking issues. In Docker images these
+# packages are pre-installed via requirements.txt, so the default install
+# stays lightweight. For a standalone install that pulls the runtime stack,
+# use the `runtime` extra:  pip install matrice_common[runtime]
+# (see [project.optional-dependencies] below).
+keywords = ["matrice", "common", "utilities", "mypyc", "compiled"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Typing :: Typed",
+]
+
+[project.optional-dependencies]
+# Optional runtime stack for standalone (non-Docker) installs:
+#   pip install matrice_common[runtime]
+# Versions are pinned to the org-approved set (matrice-ai/.github
+# APPROVED_DEPS-python.toml, enforce_versions=true) so the wheel metadata
+# passes the dependency-approval gate.
+#
+# The following runtime clients are intentionally NOT declared here because
+# they are not (yet) in the org APPROVED_DEPS allow-list. They are still
+# imported by the codebase and are provided by the deployment Docker image at
+# runtime (installed alongside the SDK), mirroring the sibling SDKs
+# (py_streaming/py_matrice) which likewise omit them from wheel metadata:
+#   redis, aioredis, confluent-kafka, aiokafka, imagehash
+runtime = [
+    "httpx==0.28.1",
+    "requests==2.33.1",
+    "Pillow==12.3.0",
+    "python-dateutil==2.9.0.post0",
+    "kafka-python==2.3.1",
+    "msgpack==1.2.1",
+    "python-dotenv==1.2.2",
+]
+dev = [
+    "pytest==9.0.3",
+    "pytest-cov==6.0.0",
+    "pytest-asyncio>=0.21",
+    "pytest-timeout>=2.3",
+    "pytest-xdist>=3.5",
+    "fakeredis>=2.20",
+    "respx>=0.20",
+    "ruff==0.11.12",
+    "bandit[toml]==1.9.4",
+    "mypy==1.13.0",
+    "pre-commit==4.2.0",
+    "pip-audit==2.7.3",
+    "safety==3.2.11",
+    # Runtime stream clients — needed at import time so the stream modules
+    # (kafka_stream/redis_stream/...) load during test collection. All are in
+    # the org APPROVED_DEPS-python.toml; test/dev-only, kept out of wheel metadata.
+    "redis>=4.0",
+    "confluent-kafka>=1.9",
+    "aiokafka>=0.8",
+    "kafka-python==2.3.1",
+    "python-dateutil==2.9.0.post0",
+    # Array backend exercised by the stream/databus coverage suites (numpy frame
+    # producers, header probing). In org APPROVED_DEPS-python.toml; test/dev-only.
+    "numpy==2.4.4",
+    # Needed at import/collection time so the rpc + shm/databus coverage suites
+    # RUN (not skip) — otherwise their changed lines miss the new-code coverage
+    # gate. Both in org APPROVED_DEPS-python.toml; test/dev-only.
+    "aiohttp==3.14.1",
+    "opencv-python-headless==4.13.0.92",
+]
+
+# ---------------------------------------------------------------------------
+# Coverage scope for the fast suite.
+# Measured against the PURE-PYTHON build: the mypyc `.so` artifacts under
+# src/**/ must be removed before a run (see tests/conftest.py which asserts
+# they are gone) so coverage.py sees the `.py` source execute.
+# The denominator omits tests, package plumbing, generated stubs, CLI/debug
+# entrypoints and the hardware/CUDA-only modules that cannot run without a GPU.
+# ---------------------------------------------------------------------------
+[tool.coverage.run]
+branch = false
+source = ["src/matrice_common"]
+omit = [
+    "*/tests/*",
+    "*/__init__.py",
+    "*/__main__.py",
+    "*/*.pyi",
+    "src/matrice_common/debug/*",
+    "src/matrice_common/diagnostics/*",
+    # hardware / CUDA-only modules (no GPU in the fast suite)
+    "src/matrice_common/stream/cuda_shm_ring_buffer.py",
+    "src/matrice_common/stream/gpu_placement_registry.py",
+    "src/matrice_common/stream/gpu_camera_map.py",
+    "src/matrice_common/stream/device_topology.py",
+    "src/matrice_common/lifecycle/cuda_finalize.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+[tool.mypy]
+follow_imports = "skip"
+ignore_missing_imports = true
+warn_unused_ignores = false
+show_error_codes = true
+exclude = ['\.pyi$']
+
+[[tool.mypy.overrides]]
+module = "matrice_common.*"
+ignore_errors = true
+
+# Incrementally re-enable type checking for modules verified clean.
+# These override the broad `matrice_common.*` ignore above (more specific wins).
+[[tool.mypy.overrides]]
+module = [
+    "matrice_common.logging_config",
+    "matrice_common.lifecycle.*",
+    "matrice_common.diagnostics.*",
+]
+ignore_errors = false
+
+[tool.ruff]
+line-length = 120
+target-version = "py38"
+extend-exclude = [
+    "build",
+    "dist",
+    "*.egg-info",
+    ".venv",
+    "venv",
+    "src/matrice_common/stream/matrice_stream_usage_example.py",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "E402",  # module level import not at top (needed for lazy imports)
+    "E731",  # do not assign a lambda expression
+    "E741",  # ambiguous variable name
+    "F401",  # unused imports (allowed in __init__.py and type stubs)
+    "F403",  # star imports
+    "F405",  # may be undefined from star imports
+    "F811",  # redefinition (common in optional imports)
+    "F821",  # undefined name (optional deps)
+    "F841",  # unused local variable (in test try/except blocks)
+    "W605",  # invalid escape sequence
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"]
+"tests/**/*.py" = ["F401", "F811", "F841", "E402"]
+"**/*.pyi" = ["F401", "F403", "F405", "E501"]
+
+[tool.ruff.format]
+line-ending = "lf"
+
+[tool.bandit]
+exclude_dirs = ["tests", "build", "dist", ".venv", "venv"]
+skips = [
+    "B101",  # assert_used (common in dev/debug code)
+    "B110",  # try_except_pass (acceptable for best-effort cleanup)
+    "B311",  # random not for security
+    "B404",  # subprocess import (used for FFmpeg)
+    "B603",  # subprocess without shell=True (args are controlled)
+    "B607",  # start_process_with_partial_path
+]

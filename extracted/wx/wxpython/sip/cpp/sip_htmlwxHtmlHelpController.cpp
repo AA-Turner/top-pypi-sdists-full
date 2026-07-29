@@ -1708,7 +1708,7 @@ static void *init_type_wxHtmlHelpController(sipSimpleWrapper *sipSelf, PyObject 
 
     {
         int style = wxHF_DEFAULT_STYLE;
-        ::wxWindow* parentWindow = 0;
+        ::wxWindow* parentWindow = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_style,
@@ -1773,7 +1773,7 @@ static void *init_type_wxHtmlHelpController(sipSimpleWrapper *sipSelf, PyObject 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxHtmlHelpController[] = {{19, 0, 1}};
+static sipEncodedTypeDef supers_wxHtmlHelpController[] = {{20, 0, 1}};
 
 
 static PyMethodDef methods_wxHtmlHelpController[] = {
@@ -1812,7 +1812,7 @@ sipVariableDef variables_wxHtmlHelpController[] = {
     {PropertyVariable, sipName_Dialog, &methods_wxHtmlHelpController[10], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxHtmlHelpController, "HtmlHelpController(style=HF_DEFAULT_STYLE, parentWindow=None) -> None\n"
+PyDoc_STRVAR(doc_wxHtmlHelpController, "HtmlHelpController(style=HF_DEFAULT_STYLE, parentWindow=nullptr) -> None\n"
 "HtmlHelpController(parentWindow, style=HF_DEFAULT_STYLE) -> None\n"
 "\n"
 "This help controller provides an easy way of displaying HTML help in\n"

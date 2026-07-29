@@ -218,7 +218,7 @@ static void *init_type_wxTextAttrDimensionConverter(sipSimpleWrapper *, PyObject
     ::wxTextAttrDimensionConverter *sipCpp = SIP_NULLPTR;
 
     {
-        ::wxDC* dc;
+        ::wxReadOnlyDC* dc;
         double scale = 1;
         const ::wxSize& parentSizedef = wxDefaultSize;
         const ::wxSize* parentSize = &parentSizedef;
@@ -230,7 +230,7 @@ static void *init_type_wxTextAttrDimensionConverter(sipSimpleWrapper *, PyObject
             sipName_parentSize,
         };
 
-        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, sipKwdList, sipUnused, "J9|dJ1", sipType_wxDC, &dc, &scale, sipType_wxSize, &parentSize, &parentSizeState))
+        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, sipKwdList, sipUnused, "J9|dJ1", sipType_wxReadOnlyDC, &dc, &scale, sipType_wxSize, &parentSize, &parentSizeState))
         {
             PyErr_Clear();
 

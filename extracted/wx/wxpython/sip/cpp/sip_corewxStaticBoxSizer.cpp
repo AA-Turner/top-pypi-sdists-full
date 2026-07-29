@@ -94,9 +94,9 @@ void sipwxStaticBoxSizer::RepositionChildren(const ::wxSize& minSize)
         return;
     }
 
-    extern void sipVH__core_106(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxSize&);
+    extern void sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxSize&);
 
-    sipVH__core_106(sipGILState, 0, sipPySelf, sipMeth, minSize);
+    sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, minSize);
 }
 
 bool sipwxStaticBoxSizer::InformFirstDirection(int direction, int size, int availableOtherDir)
@@ -109,9 +109,9 @@ bool sipwxStaticBoxSizer::InformFirstDirection(int direction, int size, int avai
     if (!sipMeth)
         return ::wxStaticBoxSizer::InformFirstDirection(direction, size, availableOtherDir);
 
-    extern bool sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern bool sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
 
-    return sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
+    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
 }
 
 ::wxSize sipwxStaticBoxSizer::CalcMin()
@@ -361,7 +361,7 @@ static void *init_type_wxStaticBoxSizer(sipSimpleWrapper *sipSelf, PyObject *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxStaticBoxSizer[] = {{44, 255, 1}};
+static sipEncodedTypeDef supers_wxStaticBoxSizer[] = {{46, 255, 1}};
 
 
 static PyMethodDef methods_wxStaticBoxSizer[] = {

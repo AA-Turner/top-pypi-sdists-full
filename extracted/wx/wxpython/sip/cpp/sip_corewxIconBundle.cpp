@@ -620,7 +620,7 @@ static void *init_type_wxIconBundle(sipSimpleWrapper *sipSelf, PyObject *sipArgs
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxIconBundle[] = {{226, 255, 1}};
+static sipEncodedTypeDef supers_wxIconBundle[] = {{234, 255, 1}};
 
 
 static PyMethodDef methods_wxIconBundle[] = {

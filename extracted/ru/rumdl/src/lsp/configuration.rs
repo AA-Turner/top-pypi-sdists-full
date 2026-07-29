@@ -4,15 +4,41 @@
 //! and rule enable/disable overrides from editor settings.
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use anyhow::Result;
 use tower_lsp::lsp_types::*;
 
-use crate::config::{Config, MARKDOWNLINT_CONFIG_FILES, RUMDL_CONFIG_FILES};
+use crate::config::{
+    Config, ConfigValidated, DiscoveredConfigError, MARKDOWNLINT_CONFIG_FILES, RUMDL_CONFIG_FILES, SourcedConfig,
+    editorconfig,
+};
 use crate::rule::Rule;
 
 use super::server::{ConfigCacheEntry, RumdlLanguageServer};
 use super::types::{ConfigurationPreference, LspRuleSettings, RumdlLspConfig};
+
+/// A project config that loaded, and where it came from.
+struct LoadedProjectConfig {
+    config: Config,
+    /// Present only when the config opts into `.editorconfig` reading.
+    sourced: Option<Arc<SourcedConfig<ConfigValidated>>>,
+    path: PathBuf,
+}
+
+/// Outcome of walking a file's project-config candidates.
+enum ResolvedProjectConfig {
+    /// A candidate loaded. Boxed so the variant does not dominate the enum's size.
+    Loaded(Box<LoadedProjectConfig>),
+    /// No candidate applies to this file, so the config loaded at startup governs it.
+    NotFound,
+    /// A candidate applies but cannot be loaded, because the user config it merges
+    /// onto is broken. `rumdl check` exits with a config error here. The server
+    /// cannot exit, and any substitute - a config from further up the tree, or the
+    /// one discovery found at startup - would lint against a ruleset that exists
+    /// nowhere on disk, so the answer is defaults.
+    Unresolvable,
+}
 
 /// Collect candidate project-config file paths by walking up from `search_dir`,
 /// nearest directory first.
@@ -378,7 +404,10 @@ impl RumdlLanguageServer {
                 let loaded_files = sourced_config.loaded_files.clone();
                 let discovery_warnings = sourced_config.discovery_warnings.clone();
                 // Use into_validated_unchecked since LSP doesn't need validation warnings
-                *self.rumdl_config.write().await = sourced_config.into_validated_unchecked().into();
+                let validated = sourced_config.into_validated_unchecked();
+                let config: crate::config::Config = validated.clone().into();
+                *self.rumdl_sourced.write().await = sourced_for_editorconfig(&config, validated);
+                *self.rumdl_config.write().await = config;
 
                 // Surface shadowed-config collisions (e.g. `rumdl.toml` ignored next to
                 // `.rumdl.toml`) so editor users learn which file is winning.
@@ -406,6 +435,7 @@ impl RumdlLanguageServer {
                     self.client.log_message(MessageType::WARNING, &message).await;
                 }
                 // Use default configuration
+                *self.rumdl_sourced.write().await = None;
                 *self.rumdl_config.write().await = crate::config::Config::default();
             }
         }
@@ -414,6 +444,22 @@ impl RumdlLanguageServer {
     /// Reload rumdl configuration from files (with client notification)
     pub(super) async fn reload_configuration(&self) {
         self.load_configuration(true).await;
+    }
+
+    /// Whether any config this server resolved reads `.editorconfig` files.
+    ///
+    /// The opt-in can come from a directory config, which only per-file
+    /// resolution knows about, so the cache answers alongside the fallback: an
+    /// entry keeps its sourced form exactly when its config opted in.
+    pub(crate) async fn reads_editorconfig(&self) -> bool {
+        if self.rumdl_config.read().await.global.editorconfig {
+            return true;
+        }
+        self.config_cache
+            .read()
+            .await
+            .values()
+            .any(|entry| entry.sourced.is_some())
     }
 
     /// Load configuration for LSP - similar to CLI loading but returns Result
@@ -438,12 +484,26 @@ impl RumdlLanguageServer {
     /// `src/config/loading.rs::load_with_discovery_impl`) and ensures that a distributed
     /// ruleset is not silently overridden by `.rumdl.toml` files in the user's project.
     pub(crate) async fn resolve_config_for_file(&self, file_path: &std::path::Path) -> Config {
+        self.resolve_config_for_file_impl(file_path, None, None).await
+    }
+
+    /// Internal implementation that accepts the user-config directory and the home
+    /// directory for testing, mirroring `SourcedConfig::load_with_discovery_impl`.
+    /// Both are resolved from the platform when not given.
+    pub(crate) async fn resolve_config_for_file_impl(
+        &self,
+        file_path: &std::path::Path,
+        user_config_dir: Option<&std::path::Path>,
+        home_dir_override: Option<&std::path::Path>,
+    ) -> Config {
         if self.cli_config_path.is_some() || self.config.read().await.config_path.is_some() {
             log::debug!(
                 "Explicit config path set; bypassing per-file discovery for {}",
                 file_path.display()
             );
-            return self.rumdl_config.read().await.clone();
+            let config = self.rumdl_config.read().await.clone();
+            let sourced = self.rumdl_sourced.read().await.clone();
+            return with_editorconfig(config, sourced.as_deref(), file_path);
         }
 
         // Get the directory to start searching from
@@ -472,7 +532,7 @@ impl RumdlLanguageServer {
                             "Config cache hit for directory: {} (loaded from: global/user fallback)",
                             search_dir.display(),
                         );
-                        return entry.config.clone();
+                        return with_editorconfig(entry.config.clone(), entry.sourced.as_deref(), file_path);
                     }
                 } else {
                     let source_owned: String;
@@ -487,7 +547,7 @@ impl RumdlLanguageServer {
                         search_dir.display(),
                         source
                     );
-                    return entry.config.clone();
+                    return with_editorconfig(entry.config.clone(), entry.sourced.as_deref(), file_path);
                 }
             }
         }
@@ -510,48 +570,117 @@ impl RumdlLanguageServer {
         // Resolve the home-directory boundary so a user-level `~/.rumdl.toml` is not
         // mistaken for a project config; it stays a user-config fallback instead,
         // preserving the platform user-config directory's precedence over the dotfile.
-        let home_dir = {
+        let home_dir = home_dir_override.map(std::path::Path::to_path_buf).or_else(|| {
             use etcetera::{BaseStrategy, choose_base_strategy};
             choose_base_strategy().ok().map(|s| s.home_dir().to_path_buf())
-        };
+        });
 
         // Walk upward from the file's directory, bounded by the workspace root and the
         // home directory. Candidates are nearest-first; load the first that parses so a
         // malformed nearer config falls through to the next one up, mirroring the CLI.
         let candidates = collect_project_config_candidates(&search_dir, workspace_root.as_deref(), home_dir.as_deref());
 
-        let mut found_config: Option<(Config, Option<PathBuf>)> = None;
+        // These candidates were discovered, not named by the user, so they load through
+        // the discovery loader: it keeps the user config as a base under a markdownlint
+        // project config, which is what `rumdl check` resolves for the same file. The
+        // explicit-config loader is standalone and belongs to the `--config` path above.
+        let mut resolution = ResolvedProjectConfig::NotFound;
         for config_path in candidates {
-            if let Some(config_path_str) = config_path.to_str() {
-                if let Ok(sourced) = Self::load_config_for_lsp(Some(config_path_str)) {
+            match crate::config::SourcedConfig::load_discovered(&config_path, user_config_dir, home_dir.as_deref()) {
+                Ok(sourced) => {
                     log::debug!("Found config file: {}", config_path.display());
-                    found_config = Some((sourced.into_validated_unchecked().into(), Some(config_path)));
+                    let validated = sourced.into_validated_unchecked();
+                    let config: Config = validated.clone().into();
+                    resolution = ResolvedProjectConfig::Loaded(Box::new(LoadedProjectConfig {
+                        sourced: sourced_for_editorconfig(&config, validated),
+                        config,
+                        path: config_path,
+                    }));
                     break;
                 }
-            } else {
-                log::warn!("Skipping config file with non-UTF-8 path: {}", config_path.display());
+                Err(DiscoveredConfigError::ProjectConfig(e)) => {
+                    log::debug!("Skipping unloadable config {}: {e}", config_path.display());
+                }
+                Err(DiscoveredConfigError::UserConfig(e)) => {
+                    log::warn!(
+                        "Cannot resolve {} for {}: {e}. Using default rules until the user config is fixed.",
+                        config_path.display(),
+                        file_path.display()
+                    );
+                    resolution = ResolvedProjectConfig::Unresolvable;
+                    break;
+                }
             }
         }
 
+        // The user config lives outside the workspace, so nothing this server watches
+        // changes when it is repaired. Answering with defaults and skipping the cache
+        // keeps the file linting on the next resolution instead of for the session.
+        if matches!(resolution, ResolvedProjectConfig::Unresolvable) {
+            return Config::default();
+        }
+
         // Use found config or fall back to global/user config loaded at initialization
-        let (config, config_file) = if let Some((cfg, path)) = found_config {
-            (cfg, path)
-        } else {
-            log::debug!("No project config found; using global/user fallback config");
-            let fallback = self.rumdl_config.read().await.clone();
-            (fallback, None)
+        let (config, sourced, config_file) = match resolution {
+            ResolvedProjectConfig::Loaded(loaded) => {
+                let LoadedProjectConfig { config, sourced, path } = *loaded;
+                (config, sourced, Some(path))
+            }
+            _ => {
+                log::debug!("No project config found; using global/user fallback config");
+                let fallback = self.rumdl_config.read().await.clone();
+                let sourced = self.rumdl_sourced.read().await.clone();
+                (fallback, sourced, None)
+            }
         };
 
         // Cache the result
         let from_global = config_file.is_none();
         let entry = ConfigCacheEntry {
             config: config.clone(),
+            sourced: sourced.clone(),
             config_file,
             from_global_fallback: from_global,
         };
 
         self.config_cache.write().await.insert(search_dir, entry);
 
-        config
+        with_editorconfig(config, sourced.as_deref(), file_path)
     }
+}
+
+/// Keep a config's sourced form only when it opts into `.editorconfig` reading.
+///
+/// Layering `.editorconfig` in needs to know which settings a rumdl config set,
+/// which only the sourced form records. Every other server drops it rather than
+/// hold a second copy of the configuration for its whole session.
+fn sourced_for_editorconfig(
+    config: &Config,
+    sourced: SourcedConfig<ConfigValidated>,
+) -> Option<Arc<SourcedConfig<ConfigValidated>>> {
+    config.global.editorconfig.then(|| Arc::new(sourced))
+}
+
+/// Layer the `.editorconfig` properties that apply to `file_path` onto a config.
+///
+/// A `sourced` of `None` means the configuration never opted in, so this is the
+/// identity. Properties rumdl read but does not act on are logged rather than
+/// sent to the client: a divergence is a property of the project's settings, not
+/// of the file being edited, so it would otherwise repeat on every keystroke.
+fn with_editorconfig(config: Config, sourced: Option<&SourcedConfig<ConfigValidated>>, file_path: &Path) -> Config {
+    let Some(sourced) = sourced else {
+        return config;
+    };
+
+    let resolution = editorconfig::resolve(file_path);
+    for warning in &resolution.warnings {
+        log::warn!("{}", warning.message);
+    }
+    if resolution.settings.is_empty() {
+        return config;
+    }
+
+    let mut sourced = sourced.clone();
+    editorconfig::apply(&mut sourced, &resolution.settings, resolution.origin.as_deref());
+    sourced.into()
 }

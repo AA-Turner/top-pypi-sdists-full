@@ -5,6 +5,13 @@ import click
 import yaml
 from yaml.loader import SafeLoader
 
+from anyscale.commands.doc_metadata import (
+    command_metadata,
+    CommandExample,
+    ReleaseStatus,
+)
+from anyscale.commands.output_format import OutputFormat
+from anyscale.commands.util import AnyscaleCommand
 from anyscale.controllers.config_controller import ConfigController
 from anyscale.util import generate_slug
 
@@ -20,9 +27,26 @@ def migrate_cli() -> None:
     pass
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Convert a Ray cluster YAML into a cluster environment and compute config.",
+            command="anyscale migrate convert cluster.yaml --cloud my-cloud",
+        ),
+    ],
+)
 @migrate_cli.command(
     name="convert",
-    help="Converts a Ray cluster YAML into a cluster environment and compute config.",
+    short_help="Convert a Ray cluster YAML into a cluster environment and compute config.",
+    help=(
+        "Convert a Ray cluster YAML into a cluster environment and compute config.\n\n"
+        "Takes one positional argument: the path to the Ray cluster YAML file. "
+        "Writes cluster-env.yaml and compute-config.yaml to the current directory."
+    ),
+    cls=AnyscaleCommand,
 )
 @click.argument("cluster-yaml-file", type=click.File("rb"), required=True)
 @click.option("--cloud", help="Cloud to create compute_config for.", required=False)
@@ -60,8 +84,26 @@ def config_convert(
     )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Upload a converted cluster environment and compute config.",
+            command="anyscale migrate upload-configs cluster-env.yaml compute-config.yaml -n my-configs",
+        ),
+    ],
+)
 @migrate_cli.command(
-    name="upload-configs", help="Uploads both the cluster-env and compute-config.",
+    name="upload-configs",
+    short_help="Upload both the cluster environment and compute config.",
+    help=(
+        "Upload both the cluster environment and compute config.\n\n"
+        "Takes two positional arguments: the cluster environment YAML file and "
+        "the compute config YAML file, in that order."
+    ),
+    cls=AnyscaleCommand,
 )
 @click.argument("cluster-env-yaml-file", type=click.File("rb"), required=True)
 @click.argument("compute-config-yaml-file", type=click.File("rb"), required=True)

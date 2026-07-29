@@ -1,0 +1,140 @@
+[package]
+# PyO3 wrapper crate. Built by maturin into the `kglite` wheel.
+# Pure-Rust engine lives in the sibling `kglite` crate (`crates/kglite/`).
+# Polars pattern: `polars` (core) + `py-polars` (wrapper).
+name = "kglite-py"
+version.workspace = true
+edition = "2021"
+# Inherited from the `kglite-cli` path dependency below, which needs
+# 1.89.0 for rustyline. Not published to crates.io, but the wheel is
+# built from source, so the floor is real for anyone building it.
+rust-version = "1.89.0"
+authors = ["Kristian dF Kollsgård <kkollsg@gmail.com>"]
+description = "PyO3 wrapper for kglite — Python bindings around the pure-Rust kglite knowledge graph engine."
+readme = "README.md"
+repository = "https://github.com/kkollsga/kglite"
+license = "MIT"
+# NOT for crates.io. This crate is the source for the Python wheel
+# (built by maturin → `pip install kglite`). Rust embedders depend
+# on the sibling `kglite` crate directly (which is published to
+# crates.io). Publishing this would be redundant + confusing — the
+# wheel is the right artifact for Python users, and Rust users want
+# the no-pyo3 path.
+publish = false
+
+# `python-extension` toggles pyo3's extension-module feature so the
+# wheel build (via maturin) and the kglite-mcp-server binary build
+# (via plain cargo) can share the same kglite-py rlib. Maturin is
+# wired to enable it; cargo build leaves it off.
+[features]
+# `mcp-server` is on by default so the shipped wheel is feature-identical
+# to before this split. It exists as a separate feature purely so
+# diagnostic variant wheels can drop it (via `--no-default-features`) to
+# bisect the pyarrow-24 coexistence SIGSEGV. The OKF + RDF format loaders
+# are enabled unconditionally via the `kglite_core` dep's feature list.
+default = ["abi3", "mcp-server"]
+python-extension = ["pyo3/extension-module"]
+# Single-cdylib-for-many-Pythons mode. On by default so existing
+# `cargo build` / `cargo install` / `maturin develop` flows behave
+# exactly as before. The wheel-build workflow disables this with
+# `--no-default-features --features python-extension` to produce
+# per-Python-version wheels alongside the bundled binary.
+abi3 = ["pyo3/abi3-py310"]
+# Bundled in-process MCP server (`_run_mcp_server` + the `kglite-mcp-server`
+# console script). On by default; a diagnostic build drops it.
+mcp-server = ["dep:kglite-mcp-server"]
+# Rust-native embedder backend (BAAI/bge-m3 et al via fastembed-rs).
+# Propagates to the core crate always; to the bundled server only when the
+# `mcp-server` feature pulls it in (weak-dep `?` syntax).
+fastembed = ["kglite_core/fastembed", "kglite-mcp-server?/fastembed"]
+
+[lib]
+# `name = "kglite_py"` avoids a workspace rlib filename collision
+# with the core crate's `libkglite.rlib`. The wheel's .so file
+# name is controlled by `pyproject.toml`'s `[tool.maturin]
+# module-name = "kglite.kglite"` so `kglite/__init__.py`'s
+# `from .kglite import *` continues to find the extension.
+name = "kglite_py"
+crate-type = ["cdylib", "rlib"]
+# Disable rustdoc's auto-compilation of code blocks. The user-facing
+# `/// Example::` blocks throughout `src/graph/pyapi/*.rs` are Python
+# snippets rendered by Sphinx for the published Python API docs — they're
+# never valid Rust, so rustdoc's default doctest harness fails on every
+# single-quoted string. There's no Rust API surface that needs doctest
+# coverage here either; the `#[pyclass]` types are exercised through
+# Python tests.
+doctest = false
+
+[dependencies]
+# `abi3-py310` is feature-gated so the wheel-build can opt in/out:
+# - On (default-on via `abi3` feature): single cdylib for Python 3.10+.
+# - Off (when bundling kglite-mcp-server into per-Python-version
+#   wheels): the wheel-build workflow disables this so each wheel is
+#   tagged for a single Python version.
+pyo3 = { version = "0.29", features = ["multiple-pymethods", "chrono"] }
+
+# Pure-Rust kglite engine. Phase G.3a moved the engine here; this
+# crate wraps it for the Python boundary.
+#
+# `package = "kglite", ... as "kglite_core"`: the dep is the
+# kglite engine crate, but we name it `kglite_core` inside this
+# crate's source to avoid an extern-crate collision with this
+# crate's own `[lib] name = "kglite"` (the cdylib that becomes
+# the wheel's `kglite.abi3.so`).
+# The OKF + RDF format loaders are enabled unconditionally — they are
+# pure-Rust parsers (no network code) that the wheel always ships.
+kglite_core = { package = "kglite", path = "../kglite", features = ["okf", "rdf"] }
+
+# Shared CLI implementation. The standalone `kglite-cli` package builds the
+# same crate as a libpython-free binary; the main Python wheel calls its Rust
+# library through `_run_cli`, so `pip install kglite` also installs the
+# `kglite` command without a second wheel or a duplicated engine build.
+kglite-cli = { path = "../kglite-cli" }
+
+# The MCP server, hosted in-process. This is a pure-Rust lib (no pyo3,
+# no libpython link) depending on the SAME `kglite` core crate as
+# `kglite_core` above — cargo unifies them to one engine build, so the
+# wheel gains the server without duplicating the engine or shipping a
+# second wheel. A thin PyO3 wrapper (`_run_mcp_server`) calls its `run`
+# inside `py.detach(...)`; the `kglite-mcp-server` console script drives
+# that, so `pip install kglite` ships the server natively.
+# default-features = false keeps fastembed opt-in (mirrors the core dep);
+# this crate's `fastembed` feature propagates to it.
+# `optional = true`: pulled in by this crate's `mcp-server` feature
+# (default-on). A diagnostic variant drops it via `--no-default-features`.
+kglite-mcp-server = { path = "../kglite-mcp-server", default-features = false, optional = true }
+
+# 0.10.25: dropped the `mcp-methods` (and its `anyhow`) dependency. They
+# backed the `kglite._mcp_internal` bridge (pyo3 wrappers in the former
+# `src/mcp_tools.rs`) used only by the Python MCP server, which was retired
+# this release — the MCP server is now the standalone `kglite-mcp-server`
+# Rust binary (which depends on mcp-methods on its own). The wheel no longer
+# links mcp-methods or its transitive deps.
+
+serde_json = "1.0.150"
+petgraph = { version = "0.8.3", features = ["serde-1"] }
+chrono = { version = "0.4.45", features = ["serde"] }
+# 1.10 is a real minimum: tokenizers 0.22 requires regex ^1.10, and the
+# `std` feature tracing-subscriber needs only exists from 1.3.0. Cargo
+# unifies the version workspace-wide, so a bare "1" let
+# direct-minimal-versions select regex 1.0.0 for the whole tree.
+regex = "1.10"
+# 0.1.49 is a real MINIMUM, not a floor-by-habit: the `v2` feature that
+# pins us to the mimalloc v2 line was added in 0.1.49. Declaring plain
+# "0.1" let a consumer resolve 0.1.9 and fail with "mimalloc does not
+# have that feature". Found by the minimal-versions CI job.
+mimalloc = { version = "0.1.49", default-features = false, features = ["v2"] }
+# Scoped SIGINT (Ctrl-C) handler so long Cypher queries are interruptible
+# from a REPL/notebook (src/util.rs::EnterKg). Unix-only; the handler just
+# flips an AtomicBool the engine polls.
+[target.'cfg(unix)'.dependencies]
+# 0.2.182 is the tight floor for the workspace-unified tree, not a
+# guess: rustyline 18 (via kglite-cli) requires ^0.2.182 and nix 0.31
+# requires ^0.2.181, and cargo unifies libc across all members. It is
+# higher than the `kglite` engine alone needs -- overstating is the
+# benign direction (a clear resolution error, not a mystery compile
+# failure), but note it if you ever split the workspace.
+libc = "0.2.182"
+
+[dev-dependencies]
+tempfile = "3.10.0"

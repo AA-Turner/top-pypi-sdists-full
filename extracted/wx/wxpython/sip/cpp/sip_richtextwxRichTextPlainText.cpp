@@ -20,6 +20,7 @@
         #include <wx/dc.h>
         #include <wx/gdicmn.h>
         #include <wx/gdicmn.h>
+        #include <wx/dc.h>
         #include <wx/richtext/richtextbuffer.h>
         #include <wx/richtext/richtextbuffer.h>
         #include <wx/richtext/richtextbuffer.h>
@@ -44,11 +45,11 @@ public:
      */
 protected:
     bool Draw(::wxDC&, ::wxRichTextDrawingContext&, const ::wxRichTextRange&, const ::wxRichTextSelection&, const ::wxRect&, int, int) SIP_OVERRIDE;
-    bool Layout(::wxDC&, ::wxRichTextDrawingContext&, const ::wxRect&, const ::wxRect&, int) SIP_OVERRIDE;
-    int HitTest(::wxDC&, ::wxRichTextDrawingContext&, const ::wxPoint&, long&, ::wxRichTextObject**, ::wxRichTextObject**, int) SIP_OVERRIDE;
-    bool FindPosition(::wxDC&, ::wxRichTextDrawingContext&, long, ::wxPoint&, int*, bool) SIP_OVERRIDE;
+    bool Layout(::wxReadOnlyDC&, ::wxRichTextDrawingContext&, const ::wxRect&, const ::wxRect&, int) SIP_OVERRIDE;
+    int HitTest(::wxReadOnlyDC&, ::wxRichTextDrawingContext&, const ::wxPoint&, long&, ::wxRichTextObject**, ::wxRichTextObject**, int) SIP_OVERRIDE;
+    bool FindPosition(::wxReadOnlyDC&, ::wxRichTextDrawingContext&, long, ::wxPoint&, int*, bool) SIP_OVERRIDE;
     ::wxSize GetBestSize() const SIP_OVERRIDE;
-    bool GetRangeSize(const ::wxRichTextRange&, ::wxSize&, int&, ::wxDC&, ::wxRichTextDrawingContext&, int, const ::wxPoint&, const ::wxSize&, ::wxArrayInt*) const SIP_OVERRIDE;
+    bool GetRangeSize(const ::wxRichTextRange&, ::wxSize&, int&, ::wxReadOnlyDC&, ::wxRichTextDrawingContext&, int, const ::wxPoint&, const ::wxSize&, ::wxArrayInt*) const SIP_OVERRIDE;
     ::wxRichTextObject* DoSplit(long) SIP_OVERRIDE;
     void CalculateRange(long, long&) SIP_OVERRIDE;
     bool DeleteRange(const ::wxRichTextRange&) SIP_OVERRIDE;
@@ -94,8 +95,8 @@ protected:
     int GetRightMargin() const SIP_OVERRIDE;
     int GetTopMargin() const SIP_OVERRIDE;
     int GetBottomMargin() const SIP_OVERRIDE;
-    ::wxRect GetAvailableContentArea(::wxDC&, ::wxRichTextDrawingContext&, const ::wxRect&) const SIP_OVERRIDE;
-    bool LayoutToBestSize(::wxDC&, ::wxRichTextDrawingContext&, ::wxRichTextBuffer*, const ::wxRichTextAttr&, const ::wxRichTextAttr&, const ::wxRect&, const ::wxRect&, int) SIP_OVERRIDE;
+    ::wxRect GetAvailableContentArea(::wxReadOnlyDC&, ::wxRichTextDrawingContext&, const ::wxRect&) const SIP_OVERRIDE;
+    bool LayoutToBestSize(::wxReadOnlyDC&, ::wxRichTextDrawingContext&, ::wxRichTextBuffer*, const ::wxRichTextAttr&, const ::wxRichTextAttr&, const ::wxRect&, const ::wxRect&, int) SIP_OVERRIDE;
     bool AdjustAttributes(::wxRichTextAttr&, ::wxRichTextDrawingContext&) SIP_OVERRIDE;
     bool IsTopLevel() const SIP_OVERRIDE;
     void Show(bool) SIP_OVERRIDE;
@@ -142,7 +143,7 @@ bool sipwxRichTextPlainText::Draw(::wxDC& dc, ::wxRichTextDrawingContext& contex
     return sipVH__richtext_0(sipGILState, 0, sipPySelf, sipMeth, dc, context, range, selection, rect, descent, style);
 }
 
-bool sipwxRichTextPlainText::Layout(::wxDC& dc, ::wxRichTextDrawingContext& context, const ::wxRect& rect, const ::wxRect& parentRect, int style)
+bool sipwxRichTextPlainText::Layout(::wxReadOnlyDC& dc, ::wxRichTextDrawingContext& context, const ::wxRect& rect, const ::wxRect& parentRect, int style)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -152,12 +153,12 @@ bool sipwxRichTextPlainText::Layout(::wxDC& dc, ::wxRichTextDrawingContext& cont
     if (!sipMeth)
         return ::wxRichTextPlainText::Layout(dc, context, rect, parentRect, style);
 
-    extern bool sipVH__richtext_1(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxRichTextDrawingContext&, const ::wxRect&, const ::wxRect&, int);
+    extern bool sipVH__richtext_1(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxReadOnlyDC&, ::wxRichTextDrawingContext&, const ::wxRect&, const ::wxRect&, int);
 
     return sipVH__richtext_1(sipGILState, 0, sipPySelf, sipMeth, dc, context, rect, parentRect, style);
 }
 
-int sipwxRichTextPlainText::HitTest(::wxDC& dc, ::wxRichTextDrawingContext& context, const ::wxPoint& pt, long& textPosition, ::wxRichTextObject**obj, ::wxRichTextObject**contextObj, int flags)
+int sipwxRichTextPlainText::HitTest(::wxReadOnlyDC& dc, ::wxRichTextDrawingContext& context, const ::wxPoint& pt, long& textPosition, ::wxRichTextObject**obj, ::wxRichTextObject**contextObj, int flags)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -167,12 +168,12 @@ int sipwxRichTextPlainText::HitTest(::wxDC& dc, ::wxRichTextDrawingContext& cont
     if (!sipMeth)
         return ::wxRichTextPlainText::HitTest(dc, context, pt, textPosition, obj, contextObj, flags);
 
-    extern int sipVH__richtext_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxRichTextDrawingContext&, const ::wxPoint&, long&, ::wxRichTextObject**, ::wxRichTextObject**, int);
+    extern int sipVH__richtext_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxReadOnlyDC&, ::wxRichTextDrawingContext&, const ::wxPoint&, long&, ::wxRichTextObject**, ::wxRichTextObject**, int);
 
     return sipVH__richtext_2(sipGILState, 0, sipPySelf, sipMeth, dc, context, pt, textPosition, obj, contextObj, flags);
 }
 
-bool sipwxRichTextPlainText::FindPosition(::wxDC& dc, ::wxRichTextDrawingContext& context, long index, ::wxPoint& pt, int*height, bool forceLineStart)
+bool sipwxRichTextPlainText::FindPosition(::wxReadOnlyDC& dc, ::wxRichTextDrawingContext& context, long index, ::wxPoint& pt, int*height, bool forceLineStart)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -182,7 +183,7 @@ bool sipwxRichTextPlainText::FindPosition(::wxDC& dc, ::wxRichTextDrawingContext
     if (!sipMeth)
         return ::wxRichTextPlainText::FindPosition(dc, context, index, pt, height, forceLineStart);
 
-    extern bool sipVH__richtext_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxRichTextDrawingContext&, long, ::wxPoint&, int*, bool);
+    extern bool sipVH__richtext_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxReadOnlyDC&, ::wxRichTextDrawingContext&, long, ::wxPoint&, int*, bool);
 
     return sipVH__richtext_3(sipGILState, 0, sipPySelf, sipMeth, dc, context, index, pt, height, forceLineStart);
 }
@@ -202,7 +203,7 @@ bool sipwxRichTextPlainText::FindPosition(::wxDC& dc, ::wxRichTextDrawingContext
     return sipVH__richtext_4(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-bool sipwxRichTextPlainText::GetRangeSize(const ::wxRichTextRange& range, ::wxSize& size, int& descent, ::wxDC& dc, ::wxRichTextDrawingContext& context, int flags, const ::wxPoint& position, const ::wxSize& parentSize, ::wxArrayInt*partialExtents) const
+bool sipwxRichTextPlainText::GetRangeSize(const ::wxRichTextRange& range, ::wxSize& size, int& descent, ::wxReadOnlyDC& dc, ::wxRichTextDrawingContext& context, int flags, const ::wxPoint& position, const ::wxSize& parentSize, ::wxArrayInt*partialExtents) const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -212,7 +213,7 @@ bool sipwxRichTextPlainText::GetRangeSize(const ::wxRichTextRange& range, ::wxSi
     if (!sipMeth)
         return ::wxRichTextPlainText::GetRangeSize(range, size, descent, dc, context, flags, position, parentSize, partialExtents);
 
-    extern bool sipVH__richtext_5(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxRichTextRange&, ::wxSize&, int&, ::wxDC&, ::wxRichTextDrawingContext&, int, const ::wxPoint&, const ::wxSize&, ::wxArrayInt*);
+    extern bool sipVH__richtext_5(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxRichTextRange&, ::wxSize&, int&, ::wxReadOnlyDC&, ::wxRichTextDrawingContext&, int, const ::wxPoint&, const ::wxSize&, ::wxArrayInt*);
 
     return sipVH__richtext_5(sipGILState, 0, sipPySelf, sipMeth, range, size, descent, dc, context, flags, position, parentSize, partialExtents);
 }
@@ -919,7 +920,7 @@ int sipwxRichTextPlainText::GetBottomMargin() const
     return sipVH__richtext_10(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxRect sipwxRichTextPlainText::GetAvailableContentArea(::wxDC& dc, ::wxRichTextDrawingContext& context, const ::wxRect& outerRect) const
+::wxRect sipwxRichTextPlainText::GetAvailableContentArea(::wxReadOnlyDC& dc, ::wxRichTextDrawingContext& context, const ::wxRect& outerRect) const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -929,12 +930,12 @@ int sipwxRichTextPlainText::GetBottomMargin() const
     if (!sipMeth)
         return ::wxRichTextPlainText::GetAvailableContentArea(dc, context, outerRect);
 
-    extern ::wxRect sipVH__richtext_30(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxRichTextDrawingContext&, const ::wxRect&);
+    extern ::wxRect sipVH__richtext_30(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxReadOnlyDC&, ::wxRichTextDrawingContext&, const ::wxRect&);
 
     return sipVH__richtext_30(sipGILState, 0, sipPySelf, sipMeth, dc, context, outerRect);
 }
 
-bool sipwxRichTextPlainText::LayoutToBestSize(::wxDC& dc, ::wxRichTextDrawingContext& context, ::wxRichTextBuffer*buffer, const ::wxRichTextAttr& parentAttr, const ::wxRichTextAttr& attr, const ::wxRect& availableParentSpace, const ::wxRect& availableContainerSpace, int style)
+bool sipwxRichTextPlainText::LayoutToBestSize(::wxReadOnlyDC& dc, ::wxRichTextDrawingContext& context, ::wxRichTextBuffer*buffer, const ::wxRichTextAttr& parentAttr, const ::wxRichTextAttr& attr, const ::wxRect& availableParentSpace, const ::wxRect& availableContainerSpace, int style)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -944,7 +945,7 @@ bool sipwxRichTextPlainText::LayoutToBestSize(::wxDC& dc, ::wxRichTextDrawingCon
     if (!sipMeth)
         return ::wxRichTextPlainText::LayoutToBestSize(dc, context, buffer, parentAttr, attr, availableParentSpace, availableContainerSpace, style);
 
-    extern bool sipVH__richtext_31(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxRichTextDrawingContext&, ::wxRichTextBuffer*, const ::wxRichTextAttr&, const ::wxRichTextAttr&, const ::wxRect&, const ::wxRect&, int);
+    extern bool sipVH__richtext_31(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxReadOnlyDC&, ::wxRichTextDrawingContext&, ::wxRichTextBuffer*, const ::wxRichTextAttr&, const ::wxRichTextAttr&, const ::wxRect&, const ::wxRect&, int);
 
     return sipVH__richtext_31(sipGILState, 0, sipPySelf, sipMeth, dc, context, buffer, parentAttr, attr, availableParentSpace, availableContainerSpace, style);
 }
@@ -1100,7 +1101,7 @@ static PyObject *meth_wxRichTextPlainText_Layout(PyObject *sipSelf, PyObject *si
     bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
 
     {
-        ::wxDC* dc;
+        ::wxReadOnlyDC* dc;
         ::wxRichTextDrawingContext* context;
         const ::wxRect* rect;
         int rectState = 0;
@@ -1117,7 +1118,7 @@ static PyObject *meth_wxRichTextPlainText_Layout(PyObject *sipSelf, PyObject *si
             sipName_style,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J9J1J1i", &sipSelf, sipType_wxRichTextPlainText, &sipCpp, sipType_wxDC, &dc, sipType_wxRichTextDrawingContext, &context, sipType_wxRect, &rect, &rectState, sipType_wxRect, &parentRect, &parentRectState, &style))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J9J1J1i", &sipSelf, sipType_wxRichTextPlainText, &sipCpp, sipType_wxReadOnlyDC, &dc, sipType_wxRichTextDrawingContext, &context, sipType_wxRect, &rect, &rectState, sipType_wxRect, &parentRect, &parentRectState, &style))
         {
             bool sipRes;
 
@@ -1142,7 +1143,7 @@ static PyObject *meth_wxRichTextPlainText_Layout(PyObject *sipSelf, PyObject *si
 }
 
 
-PyDoc_STRVAR(doc_wxRichTextPlainText_GetRangeSize, "GetRangeSize(range, size, descent, dc, context, flags, position=wx.Point(0,0), parentSize=wx.DefaultSize, partialExtents=None) -> bool\n"
+PyDoc_STRVAR(doc_wxRichTextPlainText_GetRangeSize, "GetRangeSize(range, size, descent, dc, context, flags, position=wx.Point(0,0), parentSize=wx.DefaultSize, partialExtents=nullptr) -> bool\n"
 "\n"
 "Returns the object size for the given range.");
 
@@ -1158,7 +1159,7 @@ static PyObject *meth_wxRichTextPlainText_GetRangeSize(PyObject *sipSelf, PyObje
         ::wxSize* size;
         int sizeState = 0;
         int descent;
-        ::wxDC* dc;
+        ::wxReadOnlyDC* dc;
         ::wxRichTextDrawingContext* context;
         int flags;
         const ::wxPoint& positiondef = wxPoint(0, 0);
@@ -1167,7 +1168,7 @@ static PyObject *meth_wxRichTextPlainText_GetRangeSize(PyObject *sipSelf, PyObje
         const ::wxSize& parentSizedef = wxDefaultSize;
         const ::wxSize* parentSize = &parentSizedef;
         int parentSizeState = 0;
-        ::wxArrayInt* partialExtents = 0;
+        ::wxArrayInt* partialExtents = nullptr;
         int partialExtentsState = 0;
         const ::wxRichTextPlainText *sipCpp;
 
@@ -1182,7 +1183,7 @@ static PyObject *meth_wxRichTextPlainText_GetRangeSize(PyObject *sipSelf, PyObje
             sipName_partialExtents,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1J1J9J9i|J1J1J0", &sipSelf, sipType_wxRichTextPlainText, &sipCpp, sipType_wxRichTextRange, &range, &rangeState, sipType_wxSize, &size, &sizeState, sipType_wxDC, &dc, sipType_wxRichTextDrawingContext, &context, &flags, sipType_wxPoint, &position, &positionState, sipType_wxSize, &parentSize, &parentSizeState, sipType_wxArrayInt, &partialExtents, &partialExtentsState))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1J1J9J9i|J1J1J0", &sipSelf, sipType_wxRichTextPlainText, &sipCpp, sipType_wxRichTextRange, &range, &rangeState, sipType_wxSize, &size, &sizeState, sipType_wxReadOnlyDC, &dc, sipType_wxRichTextDrawingContext, &context, &flags, sipType_wxPoint, &position, &positionState, sipType_wxSize, &parentSize, &parentSizeState, sipType_wxArrayInt, &partialExtents, &partialExtentsState))
         {
             bool sipRes;
 
@@ -1974,8 +1975,8 @@ static void *init_type_wxRichTextPlainText(sipSimpleWrapper *sipSelf, PyObject *
         const ::wxString& textdef = wxEmptyString;
         const ::wxString* text = &textdef;
         int textState = 0;
-        ::wxRichTextObject* parent = 0;
-        ::wxRichTextAttr* style = 0;
+        ::wxRichTextObject* parent = nullptr;
+        ::wxRichTextAttr* style = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_text,
@@ -2067,7 +2068,7 @@ sipVariableDef variables_wxRichTextPlainText[] = {
     {PropertyVariable, sipName_Text, &methods_wxRichTextPlainText[10], &methods_wxRichTextPlainText[17], SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxRichTextPlainText, "RichTextPlainText(text='', parent=None, style=None) -> None\n"
+PyDoc_STRVAR(doc_wxRichTextPlainText, "RichTextPlainText(text='', parent=nullptr, style=nullptr) -> None\n"
 "RichTextPlainText(obj) -> None\n"
 "\n"
 "This object represents a single piece of text.");

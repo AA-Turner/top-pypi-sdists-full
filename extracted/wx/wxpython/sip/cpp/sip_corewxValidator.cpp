@@ -75,9 +75,9 @@ bool sipwxValidator::Validate(::wxWindow*parent)
     if (!sipMeth)
         return ::wxValidator::Validate(parent);
 
-    extern bool sipVH__core_139(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*);
+    extern bool sipVH__core_138(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*);
 
-    return sipVH__core_139(sipGILState, 0, sipPySelf, sipMeth, parent);
+    return sipVH__core_138(sipGILState, 0, sipPySelf, sipMeth, parent);
 }
 
 bool sipwxValidator::TransferToWindow()
@@ -123,9 +123,9 @@ void sipwxValidator::SetWindow(::wxWindow*window)
         return;
     }
 
-    extern void sipVH__core_138(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*);
+    extern void sipVH__core_137(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*);
 
-    sipVH__core_138(sipGILState, 0, sipPySelf, sipMeth, window);
+    sipVH__core_137(sipGILState, 0, sipPySelf, sipMeth, window);
 }
 
 ::wxObject* sipwxValidator::Clone() const
@@ -138,9 +138,9 @@ void sipwxValidator::SetWindow(::wxWindow*window)
     if (!sipMeth)
         return ::wxValidator::Clone();
 
-    extern ::wxObject* sipVH__core_137(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxObject* sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_137(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxValidator::ProcessEvent(::wxEvent& event)
@@ -153,9 +153,9 @@ bool sipwxValidator::ProcessEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxValidator::ProcessEvent(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxValidator::TryBefore(::wxEvent& event)
@@ -168,9 +168,9 @@ bool sipwxValidator::TryBefore(::wxEvent& event)
     if (!sipMeth)
         return ::wxValidator::TryBefore(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxValidator::TryAfter(::wxEvent& event)
@@ -183,9 +183,9 @@ bool sipwxValidator::TryAfter(::wxEvent& event)
     if (!sipMeth)
         return ::wxValidator::TryAfter(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxValidator::sipProtectVirt_TryBefore(bool sipSelfWasArg, ::wxEvent& event)
@@ -672,7 +672,7 @@ static void *init_type_wxValidator(sipSimpleWrapper *sipSelf, PyObject *sipArgs,
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxValidator[] = {{158, 255, 1}};
+static sipEncodedTypeDef supers_wxValidator[] = {{165, 255, 1}};
 
 
 static PyMethodDef methods_wxValidator[] = {

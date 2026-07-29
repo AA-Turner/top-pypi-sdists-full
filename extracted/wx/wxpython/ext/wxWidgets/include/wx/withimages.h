@@ -12,11 +12,11 @@
 
 #include "wx/defs.h"
 #include "wx/bmpbndl.h"
+#include "wx/event.h"
 #include "wx/icon.h"
 #include "wx/imaglist.h"
 #include "wx/vector.h"
-
-class WXDLLIMPEXP_FWD_CORE wxWindow;
+#include "wx/window.h"
 
 // ----------------------------------------------------------------------------
 // wxWithImages: mix-in for classes using indices for image access
@@ -34,7 +34,7 @@ public:
 
     wxWithImages()
     {
-        m_imageList = NULL;
+        m_imageList = nullptr;
         m_ownsImageList = false;
     }
 
@@ -49,7 +49,7 @@ public:
         if ( !m_images.empty() )
         {
             // Cast is safe, we don't risk having more than INT_MAX images.
-            return static_cast<int>(m_images.size());
+            return wxSsize(m_images);
         }
 
         return m_imageList ? m_imageList->GetImageCount() : 0;
@@ -75,6 +75,15 @@ public:
     void SetImages(const Images& images)
     {
         m_images = images;
+
+        // Setting the images overrides any image list set before, especially
+        // because we may have set it ourselves if GetUpdatedImageListFor() was
+        // called and we don't want to remain with the outdated image list now
+        // (if the new images are not empty, this would happen only slightly
+        // later when the image list is updated again, but if they are empty,
+        // it's not going to happen at all).
+        FreeIfNeeded();
+        m_imageList = nullptr;
 
         OnImagesChanged();
     }
@@ -106,7 +115,7 @@ public:
     // Avoid using it if possible.
     void TakeOwnership() { m_ownsImageList = true; }
 
-    // Get pointer (may be NULL) to the associated image list.
+    // Get pointer (may be null) to the associated image list.
     wxImageList* GetImageList() const { return m_imageList; }
 
     // This helper function can be used from OnImagesChanged() if the derived
@@ -129,34 +138,57 @@ public:
         return m_imageList;
     }
 
-#if wxABI_VERSION >= 30202
-    // Return logical size of the image to use or (0, 0) if there are none.
-    wxSize GetImageLogicalSize(const wxWindow* window, int iconIndex) const
+    // Return physical bitmap size that should be used for all images.
+    //
+    // Returns (0, 0) if we don't have any images.
+    wxSize GetImageSize(const wxWindow* window) const
     {
         wxSize size;
 
-        if ( iconIndex != NO_IMAGE )
+        if ( !m_images.empty() )
         {
-            if ( !m_images.empty() )
+            // This is a micro-optimization: if we have an image list here, we
+            // must have created it ourselves, as e.g. wxGenericTreeCtrl does,
+            // and then we must already have determined the correct size to use
+            // for the current window DPI and can just return it.
+            if ( m_imageList )
             {
-                size = m_images.at(iconIndex).GetPreferredLogicalSizeFor(window);
-            }
-            else if ( m_imageList )
-            {
-                // All images in the image list are of the same size.
+                // Note that we shouldn't scale it by DPI factor here because
+                // we had already taken it into account when (re)creating it.
                 size = m_imageList->GetSize();
             }
+            else
+            {
+                // Otherwise we need to compute the best size here ourselves.
+                size = wxBitmapBundle::GetConsensusSizeFor(window, m_images);
+            }
+        }
+        else if ( m_imageList )
+        {
+            // But if we have just the user-provided image list, we need to
+            // scale its size by the DPI scale because the bitmaps from it will
+            // be scaled when they are drawn (they should have scaling factor
+            // of 1, as for anything else wxBitmapBundle must be used).
+            size = m_imageList->GetSize() * window->GetDPIScaleFactor();
         }
 
         return size;
     }
 
+    // Return logical bitmap size that should be used for all images.
+    //
+    // Returns (0, 0) if we don't have any images.
+    wxSize GetImageLogicalSize(const wxWindow* window) const
+    {
+        return window->FromPhys(GetImageSize(window));
+    }
+
     // Overload provided to facilitate transition from the existing code using
     // wxImageList::GetSize() -- don't use it in the new code.
-    void GetImageLogicalSize(const wxWindow* window, int iconIndex,
+    void GetImageLogicalSize(const wxWindow* window,
                              int& width, int& height) const
     {
-        const wxSize size = GetImageLogicalSize(window, iconIndex);
+        const wxSize size = GetImageLogicalSize(window);
         width = size.x;
         height = size.y;
     }
@@ -172,7 +204,23 @@ public:
         {
             if ( !m_images.empty() )
             {
-                bitmap = m_images.at(iconIndex).GetBitmapFor(window);
+                // Note that it's not enough to just use GetBitmapFor() here to
+                // choose the bitmap of the size most appropriate for the window
+                // DPI as we need it to be of the same size as the other images
+                // used in the same control, so we have to use fixed size here.
+                const wxSize size = GetImageSize(window);
+
+                bitmap = m_images.at(iconIndex).GetBitmap(size);
+
+                // We also may need to adjust the scale factor to ensure that
+                // this bitmap takes the same space as all the others, as
+                // GetBitmap() may set it wrong in this case.
+                const wxSize logicalSize = window->FromPhys(size);
+
+                if ( bitmap.GetLogicalSize() != logicalSize )
+                {
+                    bitmap.SetScaleFactor(size.y / logicalSize.y);
+                }
             }
             else if ( m_imageList )
             {
@@ -191,9 +239,17 @@ public:
 
         return bitmap;
     }
-#endif // wxABI_VERSION >= 3.2.2
 
 protected:
+    // This is the same as HasImages() for all controls except for wxTreeCtrl
+    // which has a special "state image list" in addition to the normal one and
+    // this function takes it into account, unlike HasImages() itself, which
+    // doesn't and can't be modified to do so for compatibility reasons.
+    virtual bool HasAnyImages() const
+    {
+        return HasImages();
+    }
+
     // This function is called when the images associated with the control
     // change, due to either SetImages() or SetImageList() being called.
     //
@@ -206,7 +262,7 @@ protected:
     // and simply calls OnImagesChanged() to refresh the images when it happens.
     void WXHandleDPIChanged(wxDPIChangedEvent& event)
     {
-        if ( HasImages() )
+        if ( HasAnyImages() )
             OnImagesChanged();
 
         event.Skip();
@@ -214,7 +270,7 @@ protected:
 
 
     // Return true if we have a valid image list.
-    bool HasImageList() const { return m_imageList != NULL; }
+    bool HasImageList() const { return m_imageList != nullptr; }
 
     // Return the image with the given index from the image list.
     //
@@ -274,7 +330,7 @@ private:
         if ( m_ownsImageList )
         {
             delete m_imageList;
-            m_imageList = NULL;
+            m_imageList = nullptr;
 
             // We don't own it any more.
             m_ownsImageList = false;
@@ -285,7 +341,7 @@ private:
     // The images we use: if this vector is not empty, m_imageList is not used.
     Images m_images;
 
-    // The associated image list or NULL.
+    // The associated image list or nullptr.
     wxImageList* m_imageList;
 
     // False by default, if true then we delete m_imageList.

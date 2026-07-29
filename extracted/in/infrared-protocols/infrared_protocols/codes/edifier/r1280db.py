@@ -1,7 +1,4 @@
-"""Command codes for Edifier R1280DB speakers.
-
-Shared command set used by R1280DB, R2730DB, RC10D1, and R2000DB.
-"""
+"""Command codes for Edifier R1280DB speakers."""
 
 from enum import IntEnum
 

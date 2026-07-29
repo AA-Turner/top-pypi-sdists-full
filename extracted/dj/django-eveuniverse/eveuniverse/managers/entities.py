@@ -229,6 +229,7 @@ class EveEntityManagerBase(EveUniverseEntityModelManager):
         enabled_sections: Optional[Iterable[str]] = None,
         task_priority: Optional[int] = None,
     ) -> Tuple[Any, bool]:
+        # pylint: disable=unused-argument
         """gets or creates an EvEntity object.
 
         The object is automatically fetched from ESI if it does not exist (blocking)
@@ -273,6 +274,7 @@ class EveEntityManagerBase(EveUniverseEntityModelManager):
         enabled_sections: Optional[Iterable[str]] = None,
         task_priority: Optional[int] = None,
     ) -> Tuple[Any, bool]:
+        # pylint: disable=unused-argument
         """Update or create an EveEntity object by fetching it from ESI (blocking).
 
         Args:

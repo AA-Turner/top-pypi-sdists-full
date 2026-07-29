@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: neuro-san
-Version: 0.6.84
+Version: 0.6.85
 Summary: NeuroAI data-driven System for multi-Agent Networks - client, library and server
 Author-email: Dan Fink <Daniel.Fink@cognizant.com>
 License-Expression: Apache-2.0
@@ -19,7 +19,6 @@ Requires-Dist: leaf-common>=1.2.49
 Requires-Dist: leaf-server-common>=0.1.25
 Requires-Dist: pyhocon>=0.3.60
 Requires-Dist: pyOpenSSL>=24.0.0
-Requires-Dist: boto3>=1.34.51
 Requires-Dist: botocore>=1.34.51
 Requires-Dist: aiobotocore>=3.7.0
 Requires-Dist: idna>=3.6
@@ -29,8 +28,6 @@ Requires-Dist: aiofiles>=25.1.0
 Requires-Dist: ruamel.yaml>=0.18.6
 Requires-Dist: langchain<2.0,>=1.2.0
 Requires-Dist: langchain-core<2.0,>=1.4.0
-Requires-Dist: langchain-classic<2.0,>=1.0.0
-Requires-Dist: langchain-community<1.0,>=0.4
 Requires-Dist: bs4<0.1,>=0.0.2
 Requires-Dist: pydantic<3.0,>=2.9.2
 Requires-Dist: langchain-openai<2.0,>=1.0.0
@@ -40,7 +37,6 @@ Requires-Dist: tornado>=6.4.2
 Requires-Dist: jsonschema>=4.19.0
 Requires-Dist: janus>=2.0.0
 Requires-Dist: watchdog>=6.0.0
-Requires-Dist: validators>=0.22.0
 Requires-Dist: timedinput>=0.1.1
 Requires-Dist: json-repair<1.0,>=0.47.3
 Requires-Dist: croniter>=6.2.2

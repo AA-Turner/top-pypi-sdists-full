@@ -47,8 +47,8 @@ public:
 protected:
     ::wxColour GetColour(int) const SIP_OVERRIDE;
     int GetCustomColourIndex() const SIP_OVERRIDE;
-    ::wxString ColourToString(const ::wxColour&, int, int) const SIP_OVERRIDE;
-    ::wxString GetValueAsString(int) const SIP_OVERRIDE;
+    ::wxString ColourToString(const ::wxColour&, int, ::wxPGPropValFormatFlags) const SIP_OVERRIDE;
+    ::wxString GetValueAsString(::wxPGPropValFormatFlags) const SIP_OVERRIDE;
     void OnValidationFailure(::wxPGVariant&) SIP_OVERRIDE;
     ::wxPGEditorDialogAdapter* GetEditorDialog() const SIP_OVERRIDE;
     ::wxPGVariant DoGetAttribute(const ::wxString&) const SIP_OVERRIDE;
@@ -62,9 +62,9 @@ protected:
     ::wxPGVariant ChildChanged(::wxPGVariant&, int, ::wxPGVariant&) const SIP_OVERRIDE;
     bool OnEvent(::wxPropertyGrid*, ::wxWindow*, ::wxEvent&) SIP_OVERRIDE;
     ::wxSize OnMeasureImage(int) const SIP_OVERRIDE;
-    ::wxString ValueToString(::wxPGVariant&, int) const SIP_OVERRIDE;
-    bool IntToValue(::wxPGVariant&, int, int) const SIP_OVERRIDE;
-    bool StringToValue(::wxPGVariant&, const ::wxString&, int) const SIP_OVERRIDE;
+    ::wxString ValueToString(::wxPGVariant&, ::wxPGPropValFormatFlags) const SIP_OVERRIDE;
+    bool IntToValue(::wxPGVariant&, int, ::wxPGPropValFormatFlags) const SIP_OVERRIDE;
+    bool StringToValue(::wxPGVariant&, const ::wxString&, ::wxPGPropValFormatFlags) const SIP_OVERRIDE;
     bool ValidateValue(::wxPGVariant&, ::wxPGValidationInfo&) const SIP_OVERRIDE;
     ::wxPGVariant DoGetValue() const SIP_OVERRIDE;
     void OnSetValue() SIP_OVERRIDE;
@@ -105,9 +105,9 @@ sipwxSystemColourProperty::~sipwxSystemColourProperty()
     if (!sipMeth)
         return ::wxSystemColourProperty::GetColour(index);
 
-    extern ::wxColour sipVH__propgrid_86(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern ::wxColour sipVH__propgrid_85(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    return sipVH__propgrid_86(sipGILState, 0, sipPySelf, sipMeth, index);
+    return sipVH__propgrid_85(sipGILState, 0, sipPySelf, sipMeth, index);
 }
 
 int sipwxSystemColourProperty::GetCustomColourIndex() const
@@ -120,12 +120,12 @@ int sipwxSystemColourProperty::GetCustomColourIndex() const
     if (!sipMeth)
         return ::wxSystemColourProperty::GetCustomColourIndex();
 
-    extern int sipVH__propgrid_16(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern int sipVH__propgrid_15(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_16(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_15(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxString sipwxSystemColourProperty::ColourToString(const ::wxColour& col, int index, int argFlags) const
+::wxString sipwxSystemColourProperty::ColourToString(const ::wxColour& col, int index, ::wxPGPropValFormatFlags flags) const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -133,14 +133,14 @@ int sipwxSystemColourProperty::GetCustomColourIndex() const
     sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[2]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ColourToString);
 
     if (!sipMeth)
-        return ::wxSystemColourProperty::ColourToString(col, index, argFlags);
+        return ::wxSystemColourProperty::ColourToString(col, index, flags);
 
-    extern ::wxString sipVH__propgrid_85(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxColour&, int, int);
+    extern ::wxString sipVH__propgrid_84(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxColour&, int, ::wxPGPropValFormatFlags);
 
-    return sipVH__propgrid_85(sipGILState, 0, sipPySelf, sipMeth, col, index, argFlags);
+    return sipVH__propgrid_84(sipGILState, 0, sipPySelf, sipMeth, col, index, flags);
 }
 
-::wxString sipwxSystemColourProperty::GetValueAsString(int argFlags) const
+::wxString sipwxSystemColourProperty::GetValueAsString(::wxPGPropValFormatFlags flags) const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -148,11 +148,11 @@ int sipwxSystemColourProperty::GetCustomColourIndex() const
     sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[3]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetValueAsString);
 
     if (!sipMeth)
-        return ::wxSystemColourProperty::GetValueAsString(argFlags);
+        return ::wxSystemColourProperty::GetValueAsString(flags);
 
-    extern ::wxString sipVH__propgrid_21(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern ::wxString sipVH__propgrid_20(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGPropValFormatFlags);
 
-    return sipVH__propgrid_21(sipGILState, 0, sipPySelf, sipMeth, argFlags);
+    return sipVH__propgrid_20(sipGILState, 0, sipPySelf, sipMeth, flags);
 }
 
 void sipwxSystemColourProperty::OnValidationFailure(::wxPGVariant& pendingValue)
@@ -168,9 +168,9 @@ void sipwxSystemColourProperty::OnValidationFailure(::wxPGVariant& pendingValue)
         return;
     }
 
-    extern void sipVH__propgrid_20(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGVariant&);
+    extern void sipVH__propgrid_19(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGVariant&);
 
-    sipVH__propgrid_20(sipGILState, 0, sipPySelf, sipMeth, pendingValue);
+    sipVH__propgrid_19(sipGILState, 0, sipPySelf, sipMeth, pendingValue);
 }
 
 ::wxPGEditorDialogAdapter* sipwxSystemColourProperty::GetEditorDialog() const
@@ -183,9 +183,9 @@ void sipwxSystemColourProperty::OnValidationFailure(::wxPGVariant& pendingValue)
     if (!sipMeth)
         return ::wxSystemColourProperty::GetEditorDialog();
 
-    extern ::wxPGEditorDialogAdapter* sipVH__propgrid_19(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPGEditorDialogAdapter* sipVH__propgrid_18(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_19(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_18(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxPGVariant sipwxSystemColourProperty::DoGetAttribute(const ::wxString& name) const
@@ -198,9 +198,9 @@ void sipwxSystemColourProperty::OnValidationFailure(::wxPGVariant& pendingValue)
     if (!sipMeth)
         return ::wxSystemColourProperty::DoGetAttribute(name);
 
-    extern ::wxPGVariant sipVH__propgrid_18(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&);
+    extern ::wxPGVariant sipVH__propgrid_17(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&);
 
-    return sipVH__propgrid_18(sipGILState, 0, sipPySelf, sipMeth, name);
+    return sipVH__propgrid_17(sipGILState, 0, sipPySelf, sipMeth, name);
 }
 
 bool sipwxSystemColourProperty::DoSetAttribute(const ::wxString& name, ::wxPGVariant& value)
@@ -213,9 +213,9 @@ bool sipwxSystemColourProperty::DoSetAttribute(const ::wxString& name, ::wxPGVar
     if (!sipMeth)
         return ::wxSystemColourProperty::DoSetAttribute(name, value);
 
-    extern bool sipVH__propgrid_17(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, ::wxPGVariant&);
+    extern bool sipVH__propgrid_16(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, ::wxPGVariant&);
 
-    return sipVH__propgrid_17(sipGILState, 0, sipPySelf, sipMeth, name, value);
+    return sipVH__propgrid_16(sipGILState, 0, sipPySelf, sipMeth, name, value);
 }
 
 void sipwxSystemColourProperty::RefreshChildren()
@@ -231,9 +231,9 @@ void sipwxSystemColourProperty::RefreshChildren()
         return;
     }
 
-    extern void sipVH__propgrid_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern void sipVH__propgrid_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    sipVH__propgrid_3(sipGILState, 0, sipPySelf, sipMeth);
+    sipVH__propgrid_2(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 int sipwxSystemColourProperty::GetChoiceSelection() const
@@ -246,9 +246,9 @@ int sipwxSystemColourProperty::GetChoiceSelection() const
     if (!sipMeth)
         return ::wxSystemColourProperty::GetChoiceSelection();
 
-    extern int sipVH__propgrid_16(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern int sipVH__propgrid_15(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_16(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_15(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxPGCellRenderer* sipwxSystemColourProperty::GetCellRenderer(int column) const
@@ -261,9 +261,9 @@ int sipwxSystemColourProperty::GetChoiceSelection() const
     if (!sipMeth)
         return ::wxSystemColourProperty::GetCellRenderer(column);
 
-    extern ::wxPGCellRenderer* sipVH__propgrid_15(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern ::wxPGCellRenderer* sipVH__propgrid_14(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    return sipVH__propgrid_15(sipGILState, 0, sipPySelf, sipMeth, column);
+    return sipVH__propgrid_14(sipGILState, 0, sipPySelf, sipMeth, column);
 }
 
 void sipwxSystemColourProperty::OnCustomPaint(::wxDC& dc, const ::wxRect& rect, ::wxPGPaintData& paintdata)
@@ -279,9 +279,9 @@ void sipwxSystemColourProperty::OnCustomPaint(::wxDC& dc, const ::wxRect& rect, 
         return;
     }
 
-    extern void sipVH__propgrid_14(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, const ::wxRect&, ::wxPGPaintData&);
+    extern void sipVH__propgrid_13(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, const ::wxRect&, ::wxPGPaintData&);
 
-    sipVH__propgrid_14(sipGILState, 0, sipPySelf, sipMeth, dc, rect, paintdata);
+    sipVH__propgrid_13(sipGILState, 0, sipPySelf, sipMeth, dc, rect, paintdata);
 }
 
 ::wxValidator* sipwxSystemColourProperty::DoGetValidator() const
@@ -294,9 +294,9 @@ void sipwxSystemColourProperty::OnCustomPaint(::wxDC& dc, const ::wxRect& rect, 
     if (!sipMeth)
         return ::wxSystemColourProperty::DoGetValidator();
 
-    extern ::wxValidator* sipVH__propgrid_13(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxValidator* sipVH__propgrid_12(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_13(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_12(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 const ::wxPGEditor* sipwxSystemColourProperty::DoGetEditorClass() const
@@ -309,9 +309,9 @@ const ::wxPGEditor* sipwxSystemColourProperty::DoGetEditorClass() const
     if (!sipMeth)
         return ::wxSystemColourProperty::DoGetEditorClass();
 
-    extern const ::wxPGEditor* sipVH__propgrid_12(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern const ::wxPGEditor* sipVH__propgrid_11(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_12(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_11(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxPGVariant sipwxSystemColourProperty::ChildChanged(::wxPGVariant& thisValue, int childIndex, ::wxPGVariant& childValue) const
@@ -324,9 +324,9 @@ const ::wxPGEditor* sipwxSystemColourProperty::DoGetEditorClass() const
     if (!sipMeth)
         return ::wxSystemColourProperty::ChildChanged(thisValue, childIndex, childValue);
 
-    extern ::wxPGVariant sipVH__propgrid_11(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGVariant&, int, ::wxPGVariant&);
+    extern ::wxPGVariant sipVH__propgrid_10(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGVariant&, int, ::wxPGVariant&);
 
-    return sipVH__propgrid_11(sipGILState, 0, sipPySelf, sipMeth, thisValue, childIndex, childValue);
+    return sipVH__propgrid_10(sipGILState, 0, sipPySelf, sipMeth, thisValue, childIndex, childValue);
 }
 
 bool sipwxSystemColourProperty::OnEvent(::wxPropertyGrid*propgrid, ::wxWindow*wnd_primary, ::wxEvent& event)
@@ -339,9 +339,9 @@ bool sipwxSystemColourProperty::OnEvent(::wxPropertyGrid*propgrid, ::wxWindow*wn
     if (!sipMeth)
         return ::wxSystemColourProperty::OnEvent(propgrid, wnd_primary, event);
 
-    extern bool sipVH__propgrid_10(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPropertyGrid*, ::wxWindow*, ::wxEvent&);
+    extern bool sipVH__propgrid_9(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPropertyGrid*, ::wxWindow*, ::wxEvent&);
 
-    return sipVH__propgrid_10(sipGILState, 0, sipPySelf, sipMeth, propgrid, wnd_primary, event);
+    return sipVH__propgrid_9(sipGILState, 0, sipPySelf, sipMeth, propgrid, wnd_primary, event);
 }
 
 ::wxSize sipwxSystemColourProperty::OnMeasureImage(int item) const
@@ -354,12 +354,12 @@ bool sipwxSystemColourProperty::OnEvent(::wxPropertyGrid*propgrid, ::wxWindow*wn
     if (!sipMeth)
         return ::wxSystemColourProperty::OnMeasureImage(item);
 
-    extern ::wxSize sipVH__propgrid_9(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern ::wxSize sipVH__propgrid_8(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    return sipVH__propgrid_9(sipGILState, 0, sipPySelf, sipMeth, item);
+    return sipVH__propgrid_8(sipGILState, 0, sipPySelf, sipMeth, item);
 }
 
-::wxString sipwxSystemColourProperty::ValueToString(::wxPGVariant& value, int argFlags) const
+::wxString sipwxSystemColourProperty::ValueToString(::wxPGVariant& value, ::wxPGPropValFormatFlags flags) const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -367,14 +367,14 @@ bool sipwxSystemColourProperty::OnEvent(::wxPropertyGrid*propgrid, ::wxWindow*wn
     sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[17]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ValueToString);
 
     if (!sipMeth)
-        return ::wxSystemColourProperty::ValueToString(value, argFlags);
+        return ::wxSystemColourProperty::ValueToString(value, flags);
 
-    extern ::wxString sipVH__propgrid_8(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGVariant&, int);
+    extern ::wxString sipVH__propgrid_7(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGVariant&, ::wxPGPropValFormatFlags);
 
-    return sipVH__propgrid_8(sipGILState, 0, sipPySelf, sipMeth, value, argFlags);
+    return sipVH__propgrid_7(sipGILState, 0, sipPySelf, sipMeth, value, flags);
 }
 
-bool sipwxSystemColourProperty::IntToValue(::wxPGVariant& variant, int number, int argFlags) const
+bool sipwxSystemColourProperty::IntToValue(::wxPGVariant& variant, int number, ::wxPGPropValFormatFlags flags) const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -382,14 +382,14 @@ bool sipwxSystemColourProperty::IntToValue(::wxPGVariant& variant, int number, i
     sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[18]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_IntToValue);
 
     if (!sipMeth)
-        return ::wxSystemColourProperty::IntToValue(variant, number, argFlags);
+        return ::wxSystemColourProperty::IntToValue(variant, number, flags);
 
-    extern bool sipVH__propgrid_7(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGVariant&, int, int);
+    extern bool sipVH__propgrid_6(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGVariant&, int, ::wxPGPropValFormatFlags);
 
-    return sipVH__propgrid_7(sipGILState, 0, sipPySelf, sipMeth, variant, number, argFlags);
+    return sipVH__propgrid_6(sipGILState, 0, sipPySelf, sipMeth, variant, number, flags);
 }
 
-bool sipwxSystemColourProperty::StringToValue(::wxPGVariant& variant, const ::wxString& text, int argFlags) const
+bool sipwxSystemColourProperty::StringToValue(::wxPGVariant& variant, const ::wxString& text, ::wxPGPropValFormatFlags flags) const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -397,11 +397,11 @@ bool sipwxSystemColourProperty::StringToValue(::wxPGVariant& variant, const ::wx
     sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[19]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_StringToValue);
 
     if (!sipMeth)
-        return ::wxSystemColourProperty::StringToValue(variant, text, argFlags);
+        return ::wxSystemColourProperty::StringToValue(variant, text, flags);
 
-    extern bool sipVH__propgrid_6(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGVariant&, const ::wxString&, int);
+    extern bool sipVH__propgrid_5(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGVariant&, const ::wxString&, ::wxPGPropValFormatFlags);
 
-    return sipVH__propgrid_6(sipGILState, 0, sipPySelf, sipMeth, variant, text, argFlags);
+    return sipVH__propgrid_5(sipGILState, 0, sipPySelf, sipMeth, variant, text, flags);
 }
 
 bool sipwxSystemColourProperty::ValidateValue(::wxPGVariant& value, ::wxPGValidationInfo& validationInfo) const
@@ -414,9 +414,9 @@ bool sipwxSystemColourProperty::ValidateValue(::wxPGVariant& value, ::wxPGValida
     if (!sipMeth)
         return ::wxSystemColourProperty::ValidateValue(value, validationInfo);
 
-    extern bool sipVH__propgrid_5(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGVariant&, ::wxPGValidationInfo&);
+    extern bool sipVH__propgrid_4(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGVariant&, ::wxPGValidationInfo&);
 
-    return sipVH__propgrid_5(sipGILState, 0, sipPySelf, sipMeth, value, validationInfo);
+    return sipVH__propgrid_4(sipGILState, 0, sipPySelf, sipMeth, value, validationInfo);
 }
 
 ::wxPGVariant sipwxSystemColourProperty::DoGetValue() const
@@ -429,9 +429,9 @@ bool sipwxSystemColourProperty::ValidateValue(::wxPGVariant& value, ::wxPGValida
     if (!sipMeth)
         return ::wxSystemColourProperty::DoGetValue();
 
-    extern ::wxPGVariant sipVH__propgrid_4(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPGVariant sipVH__propgrid_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_4(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_3(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxSystemColourProperty::OnSetValue()
@@ -447,9 +447,9 @@ void sipwxSystemColourProperty::OnSetValue()
         return;
     }
 
-    extern void sipVH__propgrid_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern void sipVH__propgrid_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    sipVH__propgrid_3(sipGILState, 0, sipPySelf, sipMeth);
+    sipVH__propgrid_2(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 int sipwxSystemColourProperty::GetIndexForValue(int value) const
@@ -462,9 +462,9 @@ int sipwxSystemColourProperty::GetIndexForValue(int value) const
     if (!sipMeth)
         return ::wxSystemColourProperty::GetIndexForValue(value);
 
-    extern int sipVH__propgrid_71(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern int sipVH__propgrid_70(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    return sipVH__propgrid_71(sipGILState, 0, sipPySelf, sipMeth, value);
+    return sipVH__propgrid_70(sipGILState, 0, sipPySelf, sipMeth, value);
 }
 
 
@@ -503,10 +503,10 @@ static PyObject *meth_wxSystemColourProperty_OnSetValue(PyObject *sipSelf, PyObj
 }
 
 
-PyDoc_STRVAR(doc_wxSystemColourProperty_IntToValue, "IntToValue(number, argFlags=0) -> Tuple[bool, PGVariant]\n"
+PyDoc_STRVAR(doc_wxSystemColourProperty_IntToValue, "IntToValue(number, flags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]\n"
 "\n"
-"Converts integer (possibly a choice selection) into wxVariant value\n"
-"appropriate for this property.");
+"If wxPGPropValFormatFlags::FullValue is not set in flags, then the\n"
+"value is interpreted as index to choices list.");
 
 extern "C" {static PyObject *meth_wxSystemColourProperty_IntToValue(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxSystemColourProperty_IntToValue(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -517,15 +517,15 @@ static PyObject *meth_wxSystemColourProperty_IntToValue(PyObject *sipSelf, PyObj
     {
         ::wxPGVariant* variant;
         int number;
-        int argFlags = 0;
+        ::wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null;
         const ::wxSystemColourProperty *sipCpp;
 
         static const char *sipKwdList[] = {
             sipName_number,
-            sipName_argFlags,
+            sipName_flags,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi|i", &sipSelf, sipType_wxSystemColourProperty, &sipCpp, &number, &argFlags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi|E", &sipSelf, sipType_wxSystemColourProperty, &sipCpp, &number, sipType_wxPGPropValFormatFlags, &flags))
         {
             bool sipRes;
             variant = new ::wxPGVariant();
@@ -533,7 +533,7 @@ static PyObject *meth_wxSystemColourProperty_IntToValue(PyObject *sipSelf, PyObj
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = (sipSelfWasArg ? sipCpp->::wxSystemColourProperty::IntToValue(*variant, number, argFlags) : sipCpp->IntToValue(*variant, number, argFlags));
+            sipRes = (sipSelfWasArg ? sipCpp->::wxSystemColourProperty::IntToValue(*variant, number, flags) : sipCpp->IntToValue(*variant, number, flags));
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
@@ -549,7 +549,7 @@ static PyObject *meth_wxSystemColourProperty_IntToValue(PyObject *sipSelf, PyObj
 }
 
 
-PyDoc_STRVAR(doc_wxSystemColourProperty_ColourToString, "ColourToString(col, index, argFlags=0) -> str\n"
+PyDoc_STRVAR(doc_wxSystemColourProperty_ColourToString, "ColourToString(col, index, flags=PGPropValFormatFlags.Null) -> str\n"
 "\n"
 "Override in derived class to customize how colours are printed as\n"
 "strings.");
@@ -564,23 +564,23 @@ static PyObject *meth_wxSystemColourProperty_ColourToString(PyObject *sipSelf, P
         const ::wxColour* col;
         int colState = 0;
         int index;
-        int argFlags = 0;
+        ::wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null;
         const ::wxSystemColourProperty *sipCpp;
 
         static const char *sipKwdList[] = {
             sipName_col,
             sipName_index,
-            sipName_argFlags,
+            sipName_flags,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1i|i", &sipSelf, sipType_wxSystemColourProperty, &sipCpp, sipType_wxColour, &col, &colState, &index, &argFlags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1i|E", &sipSelf, sipType_wxSystemColourProperty, &sipCpp, sipType_wxColour, &col, &colState, &index, sipType_wxPGPropValFormatFlags, &flags))
         {
             ::wxString*sipRes;
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxString((sipSelfWasArg ? sipCpp->::wxSystemColourProperty::ColourToString(*col, index, argFlags) : sipCpp->ColourToString(*col, index, argFlags)));
+            sipRes = new ::wxString((sipSelfWasArg ? sipCpp->::wxSystemColourProperty::ColourToString(*col, index, flags) : sipCpp->ColourToString(*col, index, flags)));
             Py_END_ALLOW_THREADS
             sipReleaseType(const_cast< ::wxColour *>(col), sipType_wxColour, colState);
 
@@ -634,7 +634,7 @@ static PyObject *meth_wxSystemColourProperty_GetCustomColourIndex(PyObject *sipS
 }
 
 
-PyDoc_STRVAR(doc_wxSystemColourProperty_ValueToString, "ValueToString(value, argFlags=0) -> str\n"
+PyDoc_STRVAR(doc_wxSystemColourProperty_ValueToString, "ValueToString(value, flags=PGPropValFormatFlags.Null) -> str\n"
 "\n"
 "Converts property value into a text representation.");
 
@@ -647,22 +647,22 @@ static PyObject *meth_wxSystemColourProperty_ValueToString(PyObject *sipSelf, Py
     {
         ::wxPGVariant* value;
         int valueState = 0;
-        int argFlags = 0;
+        ::wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null;
         const ::wxSystemColourProperty *sipCpp;
 
         static const char *sipKwdList[] = {
             sipName_value,
-            sipName_argFlags,
+            sipName_flags,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|i", &sipSelf, sipType_wxSystemColourProperty, &sipCpp, sipType_wxPGVariant, &value, &valueState, &argFlags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|E", &sipSelf, sipType_wxSystemColourProperty, &sipCpp, sipType_wxPGVariant, &value, &valueState, sipType_wxPGPropValFormatFlags, &flags))
         {
             ::wxString*sipRes;
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxString((sipSelfWasArg ? sipCpp->::wxSystemColourProperty::ValueToString(*value, argFlags) : sipCpp->ValueToString(*value, argFlags)));
+            sipRes = new ::wxString((sipSelfWasArg ? sipCpp->::wxSystemColourProperty::ValueToString(*value, flags) : sipCpp->ValueToString(*value, flags)));
             Py_END_ALLOW_THREADS
             sipReleaseType(value, sipType_wxPGVariant, valueState);
 
@@ -679,7 +679,7 @@ static PyObject *meth_wxSystemColourProperty_ValueToString(PyObject *sipSelf, Py
 }
 
 
-PyDoc_STRVAR(doc_wxSystemColourProperty_StringToValue, "StringToValue(text, argFlags=0) -> Tuple[bool, PGVariant]\n"
+PyDoc_STRVAR(doc_wxSystemColourProperty_StringToValue, "StringToValue(text, flags=PGPropValFormatFlags.Null) -> Tuple[bool, PGVariant]\n"
 "\n"
 "Converts text into wxVariant value appropriate for this property.");
 
@@ -693,15 +693,15 @@ static PyObject *meth_wxSystemColourProperty_StringToValue(PyObject *sipSelf, Py
         ::wxPGVariant* variant;
         const ::wxString* text;
         int textState = 0;
-        int argFlags = 0;
+        ::wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null;
         const ::wxSystemColourProperty *sipCpp;
 
         static const char *sipKwdList[] = {
             sipName_text,
-            sipName_argFlags,
+            sipName_flags,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|i", &sipSelf, sipType_wxSystemColourProperty, &sipCpp, sipType_wxString, &text, &textState, &argFlags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|E", &sipSelf, sipType_wxSystemColourProperty, &sipCpp, sipType_wxString, &text, &textState, sipType_wxPGPropValFormatFlags, &flags))
         {
             bool sipRes;
             variant = new ::wxPGVariant();
@@ -709,7 +709,7 @@ static PyObject *meth_wxSystemColourProperty_StringToValue(PyObject *sipSelf, Py
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = (sipSelfWasArg ? sipCpp->::wxSystemColourProperty::StringToValue(*variant, *text, argFlags) : sipCpp->StringToValue(*variant, *text, argFlags));
+            sipRes = (sipSelfWasArg ? sipCpp->::wxSystemColourProperty::StringToValue(*variant, *text, flags) : sipCpp->StringToValue(*variant, *text, flags));
             Py_END_ALLOW_THREADS
             sipReleaseType(const_cast< ::wxString *>(text), sipType_wxString, textState);
 
@@ -908,7 +908,9 @@ static PyObject *meth_wxSystemColourProperty_OnCustomPaint(PyObject *sipSelf, Py
 }
 
 
-PyDoc_STRVAR(doc_wxSystemColourProperty_QueryColourFromUser, "QueryColourFromUser(variant) -> bool");
+PyDoc_STRVAR(doc_wxSystemColourProperty_QueryColourFromUser, "QueryColourFromUser(variant) -> bool\n"
+"\n"
+"Helper function to show the colour dialog.");
 
 extern "C" {static PyObject *meth_wxSystemColourProperty_QueryColourFromUser(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxSystemColourProperty_QueryColourFromUser(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -989,7 +991,7 @@ static PyObject *meth_wxSystemColourProperty_GetColour(PyObject *sipSelf, PyObje
 }
 
 
-PyDoc_STRVAR(doc_wxSystemColourProperty_GetVal, "GetVal(pVariant=None) -> ColourPropertyValue");
+PyDoc_STRVAR(doc_wxSystemColourProperty_GetVal, "GetVal(pVariant=nullptr) -> ColourPropertyValue");
 
 extern "C" {static PyObject *meth_wxSystemColourProperty_GetVal(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxSystemColourProperty_GetVal(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -997,7 +999,7 @@ static PyObject *meth_wxSystemColourProperty_GetVal(PyObject *sipSelf, PyObject 
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        const ::wxPGVariant* pVariant = 0;
+        const ::wxPGVariant* pVariant = nullptr;
         int pVariantState = 0;
         const ::wxSystemColourProperty *sipCpp;
 

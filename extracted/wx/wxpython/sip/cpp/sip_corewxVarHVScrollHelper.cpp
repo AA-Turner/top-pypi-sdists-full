@@ -13,6 +13,42 @@
         #include <wx/position.h>
         #include <wx/gdicmn.h>
         #include <wx/gdicmn.h>
+    unsigned long _wxVarHVScrollHelper_GetFirstVisibleLine(wxVarHVScrollHelper* self)
+    {
+        return self->GetVisibleRowsBegin();
+    }
+    unsigned long _wxVarHVScrollHelper_GetLastVisibleLine(wxVarHVScrollHelper* self)
+    {
+        return self->GetVisibleRowsEnd();
+    }
+    unsigned long _wxVarHVScrollHelper_GetLineCount(wxVarHVScrollHelper* self)
+    {
+        return self->GetRowCount();
+    }
+    void _wxVarHVScrollHelper_SetLineCount(wxVarHVScrollHelper* self, unsigned long count)
+    {
+        self->SetRowCount(count);
+    }
+    void _wxVarHVScrollHelper_RefreshLine(wxVarHVScrollHelper* self, unsigned long line)
+    {
+        self->RefreshRow(line);
+    }
+    void _wxVarHVScrollHelper_RefreshLines(wxVarHVScrollHelper* self, unsigned long from_, unsigned long to_)
+    {
+        self->RefreshRows(from_, to_);
+    }
+    bool _wxVarHVScrollHelper_ScrollToLine(wxVarHVScrollHelper* self, unsigned long line)
+    {
+        return self->ScrollToRow(line);
+    }
+    bool _wxVarHVScrollHelper_ScrollLines(wxVarHVScrollHelper* self, int lines)
+    {
+        return self->ScrollRows(lines);
+    }
+    bool _wxVarHVScrollHelper_ScrollPages(wxVarHVScrollHelper* self, int pages)
+    {
+        return self->ScrollRowPages(pages);
+    }
 
 
 class sipwxVarHVScrollHelper : public ::wxVarHVScrollHelper
@@ -95,9 +131,9 @@ void sipwxVarHVScrollHelper::RefreshRowsColumns(const ::wxPosition& from, const 
         return;
     }
 
-    extern void sipVH__core_150(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxPosition&, const ::wxPosition&);
+    extern void sipVH__core_149(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxPosition&, const ::wxPosition&);
 
-    sipVH__core_150(sipGILState, 0, sipPySelf, sipMeth, from, to);
+    sipVH__core_149(sipGILState, 0, sipPySelf, sipMeth, from, to);
 }
 
 void sipwxVarHVScrollHelper::RefreshRowsColumns(size_t fromRow, size_t toRow, size_t fromColumn, size_t toColumn)
@@ -113,9 +149,9 @@ void sipwxVarHVScrollHelper::RefreshRowsColumns(size_t fromRow, size_t toRow, si
         return;
     }
 
-    extern void sipVH__core_149(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, size_t, size_t, size_t);
+    extern void sipVH__core_148(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, size_t, size_t, size_t);
 
-    sipVH__core_149(sipGILState, 0, sipPySelf, sipMeth, fromRow, toRow, fromColumn, toColumn);
+    sipVH__core_148(sipGILState, 0, sipPySelf, sipMeth, fromRow, toRow, fromColumn, toColumn);
 }
 
 void sipwxVarHVScrollHelper::RefreshRowColumn(const ::wxPosition& pos)
@@ -131,9 +167,9 @@ void sipwxVarHVScrollHelper::RefreshRowColumn(const ::wxPosition& pos)
         return;
     }
 
-    extern void sipVH__core_148(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxPosition&);
+    extern void sipVH__core_147(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxPosition&);
 
-    sipVH__core_148(sipGILState, 0, sipPySelf, sipMeth, pos);
+    sipVH__core_147(sipGILState, 0, sipPySelf, sipMeth, pos);
 }
 
 void sipwxVarHVScrollHelper::RefreshRowColumn(size_t row, size_t column)
@@ -149,9 +185,9 @@ void sipwxVarHVScrollHelper::RefreshRowColumn(size_t row, size_t column)
         return;
     }
 
-    extern void sipVH__core_144(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, size_t);
+    extern void sipVH__core_143(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, size_t);
 
-    sipVH__core_144(sipGILState, 0, sipPySelf, sipMeth, row, column);
+    sipVH__core_143(sipGILState, 0, sipPySelf, sipMeth, row, column);
 }
 
 void sipwxVarHVScrollHelper::RefreshColumn(size_t column)
@@ -167,9 +203,9 @@ void sipwxVarHVScrollHelper::RefreshColumn(size_t column)
         return;
     }
 
-    extern void sipVH__core_146(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
+    extern void sipVH__core_145(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
 
-    sipVH__core_146(sipGILState, 0, sipPySelf, sipMeth, column);
+    sipVH__core_145(sipGILState, 0, sipPySelf, sipMeth, column);
 }
 
 void sipwxVarHVScrollHelper::RefreshColumns(size_t from_, size_t to_)
@@ -185,9 +221,9 @@ void sipwxVarHVScrollHelper::RefreshColumns(size_t from_, size_t to_)
         return;
     }
 
-    extern void sipVH__core_144(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, size_t);
+    extern void sipVH__core_143(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, size_t);
 
-    sipVH__core_144(sipGILState, 0, sipPySelf, sipMeth, from_, to_);
+    sipVH__core_143(sipGILState, 0, sipPySelf, sipMeth, from_, to_);
 }
 
 bool sipwxVarHVScrollHelper::ScrollColumnPages(int pages)
@@ -200,9 +236,9 @@ bool sipwxVarHVScrollHelper::ScrollColumnPages(int pages)
     if (!sipMeth)
         return ::wxVarHVScrollHelper::ScrollColumnPages(pages);
 
-    extern bool sipVH__core_147(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern bool sipVH__core_146(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    return sipVH__core_147(sipGILState, 0, sipPySelf, sipMeth, pages);
+    return sipVH__core_146(sipGILState, 0, sipPySelf, sipMeth, pages);
 }
 
 bool sipwxVarHVScrollHelper::ScrollColumns(int columns)
@@ -215,9 +251,9 @@ bool sipwxVarHVScrollHelper::ScrollColumns(int columns)
     if (!sipMeth)
         return ::wxVarHVScrollHelper::ScrollColumns(columns);
 
-    extern bool sipVH__core_147(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern bool sipVH__core_146(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    return sipVH__core_147(sipGILState, 0, sipPySelf, sipMeth, columns);
+    return sipVH__core_146(sipGILState, 0, sipPySelf, sipMeth, columns);
 }
 
 ::wxCoord sipwxVarHVScrollHelper::EstimateTotalWidth() const
@@ -230,9 +266,9 @@ bool sipwxVarHVScrollHelper::ScrollColumns(int columns)
     if (!sipMeth)
         return ::wxVarHVScrollHelper::EstimateTotalWidth();
 
-    extern ::wxCoord sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxCoord sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxVarHVScrollHelper::OnGetColumnsWidthHint(size_t columnMin, size_t columnMax) const
@@ -248,9 +284,9 @@ void sipwxVarHVScrollHelper::OnGetColumnsWidthHint(size_t columnMin, size_t colu
         return;
     }
 
-    extern void sipVH__core_144(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, size_t);
+    extern void sipVH__core_143(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, size_t);
 
-    sipVH__core_144(sipGILState, 0, sipPySelf, sipMeth, columnMin, columnMax);
+    sipVH__core_143(sipGILState, 0, sipPySelf, sipMeth, columnMin, columnMax);
 }
 
 ::wxCoord sipwxVarHVScrollHelper::OnGetColumnWidth(size_t column) const
@@ -263,9 +299,9 @@ void sipwxVarHVScrollHelper::OnGetColumnsWidthHint(size_t columnMin, size_t colu
     if (!sipMeth)
         return 0;
 
-    extern ::wxCoord sipVH__core_145(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
+    extern ::wxCoord sipVH__core_144(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
 
-    return sipVH__core_145(sipGILState, 0, sipPySelf, sipMeth, column);
+    return sipVH__core_144(sipGILState, 0, sipPySelf, sipMeth, column);
 }
 
 void sipwxVarHVScrollHelper::RefreshRow(size_t row)
@@ -281,9 +317,9 @@ void sipwxVarHVScrollHelper::RefreshRow(size_t row)
         return;
     }
 
-    extern void sipVH__core_146(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
+    extern void sipVH__core_145(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
 
-    sipVH__core_146(sipGILState, 0, sipPySelf, sipMeth, row);
+    sipVH__core_145(sipGILState, 0, sipPySelf, sipMeth, row);
 }
 
 void sipwxVarHVScrollHelper::RefreshRows(size_t from_, size_t to_)
@@ -299,9 +335,9 @@ void sipwxVarHVScrollHelper::RefreshRows(size_t from_, size_t to_)
         return;
     }
 
-    extern void sipVH__core_144(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, size_t);
+    extern void sipVH__core_143(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, size_t);
 
-    sipVH__core_144(sipGILState, 0, sipPySelf, sipMeth, from_, to_);
+    sipVH__core_143(sipGILState, 0, sipPySelf, sipMeth, from_, to_);
 }
 
 bool sipwxVarHVScrollHelper::ScrollRowPages(int pages)
@@ -314,9 +350,9 @@ bool sipwxVarHVScrollHelper::ScrollRowPages(int pages)
     if (!sipMeth)
         return ::wxVarHVScrollHelper::ScrollRowPages(pages);
 
-    extern bool sipVH__core_147(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern bool sipVH__core_146(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    return sipVH__core_147(sipGILState, 0, sipPySelf, sipMeth, pages);
+    return sipVH__core_146(sipGILState, 0, sipPySelf, sipMeth, pages);
 }
 
 bool sipwxVarHVScrollHelper::ScrollRows(int rows)
@@ -329,9 +365,9 @@ bool sipwxVarHVScrollHelper::ScrollRows(int rows)
     if (!sipMeth)
         return ::wxVarHVScrollHelper::ScrollRows(rows);
 
-    extern bool sipVH__core_147(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern bool sipVH__core_146(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    return sipVH__core_147(sipGILState, 0, sipPySelf, sipMeth, rows);
+    return sipVH__core_146(sipGILState, 0, sipPySelf, sipMeth, rows);
 }
 
 void sipwxVarHVScrollHelper::OnGetRowsHeightHint(size_t rowMin, size_t rowMax) const
@@ -347,9 +383,9 @@ void sipwxVarHVScrollHelper::OnGetRowsHeightHint(size_t rowMin, size_t rowMax) c
         return;
     }
 
-    extern void sipVH__core_144(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, size_t);
+    extern void sipVH__core_143(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, size_t);
 
-    sipVH__core_144(sipGILState, 0, sipPySelf, sipMeth, rowMin, rowMax);
+    sipVH__core_143(sipGILState, 0, sipPySelf, sipMeth, rowMin, rowMax);
 }
 
 ::wxCoord sipwxVarHVScrollHelper::EstimateTotalHeight() const
@@ -362,9 +398,9 @@ void sipwxVarHVScrollHelper::OnGetRowsHeightHint(size_t rowMin, size_t rowMax) c
     if (!sipMeth)
         return ::wxVarHVScrollHelper::EstimateTotalHeight();
 
-    extern ::wxCoord sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxCoord sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxCoord sipwxVarHVScrollHelper::OnGetRowHeight(size_t row) const
@@ -377,9 +413,9 @@ void sipwxVarHVScrollHelper::OnGetRowsHeightHint(size_t rowMin, size_t rowMax) c
     if (!sipMeth)
         return 0;
 
-    extern ::wxCoord sipVH__core_145(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
+    extern ::wxCoord sipVH__core_144(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
 
-    return sipVH__core_145(sipGILState, 0, sipPySelf, sipMeth, row);
+    return sipVH__core_144(sipGILState, 0, sipPySelf, sipMeth, row);
 }
 
 ::wxCoord sipwxVarHVScrollHelper::sipProtectVirt_EstimateTotalWidth(bool sipSelfWasArg) const
@@ -1235,6 +1271,380 @@ static PyObject *meth_wxVarHVScrollHelper_SetRowColumnCount(PyObject *sipSelf, P
 }
 
 
+PyDoc_STRVAR(doc_wxVarHVScrollHelper_GetFirstVisibleLine, "GetFirstVisibleLine() -> int\n"
+"\n"
+"Deprecated compatibility helper.");
+
+extern "C" {static PyObject *meth_wxVarHVScrollHelper_GetFirstVisibleLine(PyObject *, PyObject *);}
+static PyObject *meth_wxVarHVScrollHelper_GetFirstVisibleLine(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxVarHVScrollHelper *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxVarHVScrollHelper, &sipCpp))
+        {
+            unsigned long sipRes = 0;
+            int sipIsErr = 0;
+
+            if (sipDeprecated(sipName_VarHVScrollHelper, sipName_GetFirstVisibleLine) < 0)
+                return SIP_NULLPTR;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxVarHVScrollHelper_GetFirstVisibleLine(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return PyLong_FromUnsignedLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_VarHVScrollHelper, sipName_GetFirstVisibleLine, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxVarHVScrollHelper_GetLastVisibleLine, "GetLastVisibleLine() -> int\n"
+"\n"
+"Deprecated compatibility helper.");
+
+extern "C" {static PyObject *meth_wxVarHVScrollHelper_GetLastVisibleLine(PyObject *, PyObject *);}
+static PyObject *meth_wxVarHVScrollHelper_GetLastVisibleLine(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxVarHVScrollHelper *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxVarHVScrollHelper, &sipCpp))
+        {
+            unsigned long sipRes = 0;
+            int sipIsErr = 0;
+
+            if (sipDeprecated(sipName_VarHVScrollHelper, sipName_GetLastVisibleLine) < 0)
+                return SIP_NULLPTR;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxVarHVScrollHelper_GetLastVisibleLine(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return PyLong_FromUnsignedLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_VarHVScrollHelper, sipName_GetLastVisibleLine, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxVarHVScrollHelper_GetLineCount, "GetLineCount() -> int\n"
+"\n"
+"Deprecated compatibility helper.");
+
+extern "C" {static PyObject *meth_wxVarHVScrollHelper_GetLineCount(PyObject *, PyObject *);}
+static PyObject *meth_wxVarHVScrollHelper_GetLineCount(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxVarHVScrollHelper *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxVarHVScrollHelper, &sipCpp))
+        {
+            unsigned long sipRes = 0;
+            int sipIsErr = 0;
+
+            if (sipDeprecated(sipName_VarHVScrollHelper, sipName_GetLineCount) < 0)
+                return SIP_NULLPTR;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxVarHVScrollHelper_GetLineCount(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return PyLong_FromUnsignedLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_VarHVScrollHelper, sipName_GetLineCount, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxVarHVScrollHelper_SetLineCount, "SetLineCount(count) -> None\n"
+"\n"
+"Deprecated compatibility helper.");
+
+extern "C" {static PyObject *meth_wxVarHVScrollHelper_SetLineCount(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxVarHVScrollHelper_SetLineCount(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        unsigned long count;
+        ::wxVarHVScrollHelper *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_count,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bm", &sipSelf, sipType_wxVarHVScrollHelper, &sipCpp, &count))
+        {
+            int sipIsErr = 0;
+
+            if (sipDeprecated(sipName_VarHVScrollHelper, sipName_SetLineCount) < 0)
+                return SIP_NULLPTR;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        _wxVarHVScrollHelper_SetLineCount(sipCpp, count);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_VarHVScrollHelper, sipName_SetLineCount, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxVarHVScrollHelper_RefreshLine, "RefreshLine(line) -> None\n"
+"\n"
+"Deprecated compatibility helper.");
+
+extern "C" {static PyObject *meth_wxVarHVScrollHelper_RefreshLine(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxVarHVScrollHelper_RefreshLine(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        unsigned long line;
+        ::wxVarHVScrollHelper *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_line,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bm", &sipSelf, sipType_wxVarHVScrollHelper, &sipCpp, &line))
+        {
+            int sipIsErr = 0;
+
+            if (sipDeprecated(sipName_VarHVScrollHelper, sipName_RefreshLine) < 0)
+                return SIP_NULLPTR;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        _wxVarHVScrollHelper_RefreshLine(sipCpp, line);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_VarHVScrollHelper, sipName_RefreshLine, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxVarHVScrollHelper_RefreshLines, "RefreshLines(from_, to_) -> None\n"
+"\n"
+"Deprecated compatibility helper.");
+
+extern "C" {static PyObject *meth_wxVarHVScrollHelper_RefreshLines(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxVarHVScrollHelper_RefreshLines(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        unsigned long from_;
+        unsigned long to_;
+        ::wxVarHVScrollHelper *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_from_,
+            sipName_to_,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bmm", &sipSelf, sipType_wxVarHVScrollHelper, &sipCpp, &from_, &to_))
+        {
+            int sipIsErr = 0;
+
+            if (sipDeprecated(sipName_VarHVScrollHelper, sipName_RefreshLines) < 0)
+                return SIP_NULLPTR;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        _wxVarHVScrollHelper_RefreshLines(sipCpp, from_, to_);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_VarHVScrollHelper, sipName_RefreshLines, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxVarHVScrollHelper_ScrollToLine, "ScrollToLine(line) -> bool\n"
+"\n"
+"Deprecated compatibility helper.");
+
+extern "C" {static PyObject *meth_wxVarHVScrollHelper_ScrollToLine(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxVarHVScrollHelper_ScrollToLine(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        unsigned long line;
+        ::wxVarHVScrollHelper *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_line,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bm", &sipSelf, sipType_wxVarHVScrollHelper, &sipCpp, &line))
+        {
+            bool sipRes = 0;
+            int sipIsErr = 0;
+
+            if (sipDeprecated(sipName_VarHVScrollHelper, sipName_ScrollToLine) < 0)
+                return SIP_NULLPTR;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxVarHVScrollHelper_ScrollToLine(sipCpp, line);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_VarHVScrollHelper, sipName_ScrollToLine, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxVarHVScrollHelper_ScrollLines, "ScrollLines(lines) -> bool\n"
+"\n"
+"Deprecated compatibility helper.");
+
+extern "C" {static PyObject *meth_wxVarHVScrollHelper_ScrollLines(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxVarHVScrollHelper_ScrollLines(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int lines;
+        ::wxVarHVScrollHelper *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_lines,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxVarHVScrollHelper, &sipCpp, &lines))
+        {
+            bool sipRes = 0;
+            int sipIsErr = 0;
+
+            if (sipDeprecated(sipName_VarHVScrollHelper, sipName_ScrollLines) < 0)
+                return SIP_NULLPTR;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxVarHVScrollHelper_ScrollLines(sipCpp, lines);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_VarHVScrollHelper, sipName_ScrollLines, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxVarHVScrollHelper_ScrollPages, "ScrollPages(pages) -> bool\n"
+"\n"
+"Deprecated compatibility helper.");
+
+extern "C" {static PyObject *meth_wxVarHVScrollHelper_ScrollPages(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxVarHVScrollHelper_ScrollPages(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int pages;
+        ::wxVarHVScrollHelper *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_pages,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxVarHVScrollHelper, &sipCpp, &pages))
+        {
+            bool sipRes = 0;
+            int sipIsErr = 0;
+
+            if (sipDeprecated(sipName_VarHVScrollHelper, sipName_ScrollPages) < 0)
+                return SIP_NULLPTR;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxVarHVScrollHelper_ScrollPages(sipCpp, pages);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_VarHVScrollHelper, sipName_ScrollPages, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 extern "C" {static PyObject *meth_wxVarHVScrollHelper_OnGetUnitsSizeHint(PyObject *, PyObject *);}
 static PyObject *meth_wxVarHVScrollHelper_OnGetUnitsSizeHint(PyObject *, PyObject *)
 {
@@ -1396,7 +1806,7 @@ static void *init_type_wxVarHVScrollHelper(sipSimpleWrapper *sipSelf, PyObject *
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxVarHVScrollHelper[] = {{623, 255, 0}, {620, 255, 1}};
+static sipEncodedTypeDef supers_wxVarHVScrollHelper[] = {{645, 255, 0}, {642, 255, 1}};
 
 
 static PyMethodDef methods_wxVarHVScrollHelper[] = {
@@ -1404,6 +1814,9 @@ static PyMethodDef methods_wxVarHVScrollHelper[] = {
     {sipName_EstimateTotalHeight, meth_wxVarHVScrollHelper_EstimateTotalHeight, METH_VARARGS, SIP_NULLPTR},
     {sipName_EstimateTotalSize, meth_wxVarHVScrollHelper_EstimateTotalSize, METH_VARARGS, SIP_NULLPTR},
     {sipName_EstimateTotalWidth, meth_wxVarHVScrollHelper_EstimateTotalWidth, METH_VARARGS, SIP_NULLPTR},
+    {sipName_GetFirstVisibleLine, meth_wxVarHVScrollHelper_GetFirstVisibleLine, METH_VARARGS, doc_wxVarHVScrollHelper_GetFirstVisibleLine},
+    {sipName_GetLastVisibleLine, meth_wxVarHVScrollHelper_GetLastVisibleLine, METH_VARARGS, doc_wxVarHVScrollHelper_GetLastVisibleLine},
+    {sipName_GetLineCount, meth_wxVarHVScrollHelper_GetLineCount, METH_VARARGS, doc_wxVarHVScrollHelper_GetLineCount},
     {sipName_GetNonOrientationTargetSize, meth_wxVarHVScrollHelper_GetNonOrientationTargetSize, METH_VARARGS, SIP_NULLPTR},
     {sipName_GetOrientation, meth_wxVarHVScrollHelper_GetOrientation, METH_VARARGS, SIP_NULLPTR},
     {sipName_GetOrientationTargetSize, meth_wxVarHVScrollHelper_GetOrientationTargetSize, METH_VARARGS, SIP_NULLPTR},
@@ -1417,17 +1830,26 @@ static PyMethodDef methods_wxVarHVScrollHelper[] = {
     {sipName_OnGetRowsHeightHint, SIP_MLMETH_CAST(meth_wxVarHVScrollHelper_OnGetRowsHeightHint), METH_VARARGS|METH_KEYWORDS, SIP_NULLPTR},
     {sipName_OnGetUnitSize, meth_wxVarHVScrollHelper_OnGetUnitSize, METH_VARARGS, SIP_NULLPTR},
     {sipName_OnGetUnitsSizeHint, meth_wxVarHVScrollHelper_OnGetUnitsSizeHint, METH_VARARGS, SIP_NULLPTR},
+    {sipName_RefreshLine, SIP_MLMETH_CAST(meth_wxVarHVScrollHelper_RefreshLine), METH_VARARGS|METH_KEYWORDS, doc_wxVarHVScrollHelper_RefreshLine},
+    {sipName_RefreshLines, SIP_MLMETH_CAST(meth_wxVarHVScrollHelper_RefreshLines), METH_VARARGS|METH_KEYWORDS, doc_wxVarHVScrollHelper_RefreshLines},
     {sipName_RefreshRowColumn, SIP_MLMETH_CAST(meth_wxVarHVScrollHelper_RefreshRowColumn), METH_VARARGS|METH_KEYWORDS, doc_wxVarHVScrollHelper_RefreshRowColumn},
     {sipName_RefreshRowsColumns, SIP_MLMETH_CAST(meth_wxVarHVScrollHelper_RefreshRowsColumns), METH_VARARGS|METH_KEYWORDS, doc_wxVarHVScrollHelper_RefreshRowsColumns},
+    {sipName_ScrollLines, SIP_MLMETH_CAST(meth_wxVarHVScrollHelper_ScrollLines), METH_VARARGS|METH_KEYWORDS, doc_wxVarHVScrollHelper_ScrollLines},
+    {sipName_ScrollPages, SIP_MLMETH_CAST(meth_wxVarHVScrollHelper_ScrollPages), METH_VARARGS|METH_KEYWORDS, doc_wxVarHVScrollHelper_ScrollPages},
+    {sipName_ScrollToLine, SIP_MLMETH_CAST(meth_wxVarHVScrollHelper_ScrollToLine), METH_VARARGS|METH_KEYWORDS, doc_wxVarHVScrollHelper_ScrollToLine},
     {sipName_ScrollToRowColumn, SIP_MLMETH_CAST(meth_wxVarHVScrollHelper_ScrollToRowColumn), METH_VARARGS|METH_KEYWORDS, doc_wxVarHVScrollHelper_ScrollToRowColumn},
+    {sipName_SetLineCount, SIP_MLMETH_CAST(meth_wxVarHVScrollHelper_SetLineCount), METH_VARARGS|METH_KEYWORDS, doc_wxVarHVScrollHelper_SetLineCount},
     {sipName_SetRowColumnCount, SIP_MLMETH_CAST(meth_wxVarHVScrollHelper_SetRowColumnCount), METH_VARARGS|METH_KEYWORDS, doc_wxVarHVScrollHelper_SetRowColumnCount},
     {sipName_VirtualHitTest, SIP_MLMETH_CAST(meth_wxVarHVScrollHelper_VirtualHitTest), METH_VARARGS|METH_KEYWORDS, doc_wxVarHVScrollHelper_VirtualHitTest}
 };
 
 sipVariableDef variables_wxVarHVScrollHelper[] = {
-    {PropertyVariable, sipName_VisibleEnd, &methods_wxVarHVScrollHelper[9], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_VisibleBegin, &methods_wxVarHVScrollHelper[8], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_RowColumnCount, &methods_wxVarHVScrollHelper[7], &methods_wxVarHVScrollHelper[20], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_VisibleEnd, &methods_wxVarHVScrollHelper[12], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_VisibleBegin, &methods_wxVarHVScrollHelper[11], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_RowColumnCount, &methods_wxVarHVScrollHelper[10], &methods_wxVarHVScrollHelper[29], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_LineCount, &methods_wxVarHVScrollHelper[6], &methods_wxVarHVScrollHelper[28], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_LastVisibleLine, &methods_wxVarHVScrollHelper[5], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_FirstVisibleLine, &methods_wxVarHVScrollHelper[4], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxVarHVScrollHelper, "VarHVScrollHelper(winToScroll) -> None\n"
@@ -1450,9 +1872,9 @@ sipClassTypeDef sipTypeDef__core_wxVarHVScrollHelper = {
     {
         sipNameNr_VarHVScrollHelper,
         {0, 0, 1},
-        22, methods_wxVarHVScrollHelper,
+        31, methods_wxVarHVScrollHelper,
         0, SIP_NULLPTR,
-        3, variables_wxVarHVScrollHelper,
+        6, variables_wxVarHVScrollHelper,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxVarHVScrollHelper,

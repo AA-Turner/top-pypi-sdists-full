@@ -496,6 +496,7 @@ class PdfDocument:
         exclude_layers: list[str] | None = None,
         exclude_inks: list[str] | None = None,
         extract_tables: bool = True,
+        include_artifacts: bool = True,
     ) -> str:
         """
         Extract text from a page.
@@ -512,6 +513,15 @@ class PdfDocument:
         The scoped (``region``) and filtered (``exclude_*``) paths run
         their normal pipeline and ignore this flag, since those surfaces
         are already scoped and lack a table-detection hot spot.
+        include_artifacts (bool, optional): Include content tagged
+        `/Artifact` (running headers/footers, page numbers,
+        watermarks; ISO 32000-1:2008 §14.8.2.2.1). Default **True**,
+        matching `extract_words`/`extract_text_lines` — flipping the
+        default would surface as a content regression on PDFs whose
+        running-artifact heuristic over-triggers on real content
+        (e.g. a repeated footer that carries a section identifier).
+        Pass `False` to get the spec-correct behavior. Like
+        `extract_tables`, applies to whole-page extraction only.
 
         Note:
         When ``exclude_layers`` or ``exclude_inks`` are specified, the same
@@ -768,8 +778,17 @@ class PdfDocument:
         detect_headings: bool = True,
         include_images: bool = False,
         image_output_dir: str | None = None,
+        include_artifacts: bool = True,
     ) -> str:
-        """Convert page to plain text."""
+        """
+        Convert page to plain text.
+
+        Args:
+        include_artifacts (bool, optional): Include content tagged
+        `/Artifact` (running headers/footers, page numbers,
+        watermarks; ISO 32000-1:2008 §14.8.2.2.1). Default **True**
+        — see `PdfDocument.extract_text` for the full rationale.
+        """
 
     def to_plain_text_all(
         self,
@@ -777,8 +796,15 @@ class PdfDocument:
         detect_headings: bool = True,
         include_images: bool = False,
         image_output_dir: str | None = None,
+        include_artifacts: bool = True,
     ) -> str:
-        """Convert all pages to plain text."""
+        """
+        Convert all pages to plain text.
+
+        Args:
+        include_artifacts (bool, optional): See `PdfDocument.extract_text`.
+        Default **True**.
+        """
 
     def to_markdown(
         self,
@@ -789,8 +815,15 @@ class PdfDocument:
         image_output_dir: str | None = None,
         embed_images: bool = True,
         include_form_fields: bool = True,
+        include_artifacts: bool = True,
     ) -> str:
-        """Convert page to Markdown."""
+        """
+        Convert page to Markdown.
+
+        Args:
+        include_artifacts (bool, optional): See `PdfDocument.extract_text`.
+        Default **True**.
+        """
 
     def to_html(
         self,
@@ -802,7 +835,14 @@ class PdfDocument:
         embed_images: bool = True,
         include_form_fields: bool = True,
     ) -> str:
-        """Convert page to HTML."""
+        """
+        Convert page to HTML.
+
+        Note: unlike `extract_text`/`to_markdown`/`to_plain_text`, this
+        always includes content tagged `/Artifact` — there is no
+        `include_artifacts` toggle here because there is nothing to
+        toggle off.
+        """
 
     def to_markdown_all(
         self,
@@ -812,8 +852,15 @@ class PdfDocument:
         image_output_dir: str | None = None,
         embed_images: bool = True,
         include_form_fields: bool = True,
+        include_artifacts: bool = True,
     ) -> str:
-        """Convert all pages to Markdown."""
+        """
+        Convert all pages to Markdown.
+
+        Args:
+        include_artifacts (bool, optional): See `PdfDocument.extract_text`.
+        Default **True**.
+        """
 
     def to_html_all(
         self,
@@ -1072,6 +1119,18 @@ class PdfDocument:
         max_results: int = 0,
     ) -> t.Any:
         """Search page text."""
+
+    def prepare_search(self) -> None:
+        """
+        Build the search index for every page up front, instead of the lazy
+        per-page build `search()`/`search_page()` otherwise do on first use.
+        """
+
+    def clear_search_index(self) -> None:
+        """
+        Drop the cached search index, if any, freeing its memory.
+        `search()`/`search_page()` rebuild it lazily on next use.
+        """
 
     def extract_images(
         self, page: int, region: tuple[float, float, float, float] | None = None
@@ -1720,6 +1779,7 @@ class Page:
         image_output_dir: str | None = None,
         embed_images: bool = True,
         include_form_fields: bool = True,
+        include_artifacts: bool = True,
     ) -> str: ...
     def plain_text(
         self,
@@ -1727,6 +1787,7 @@ class Page:
         detect_headings: bool = True,
         include_images: bool = False,
         image_output_dir: str | None = None,
+        include_artifacts: bool = True,
     ) -> str: ...
     def html(
         self,

@@ -2,7 +2,6 @@
 // Name:        wx/msw/init.h
 // Purpose:     Windows-specific wxEntry() overload
 // Author:      Julian Smart
-// Modified by:
 // Created:     01/02/97
 // Copyright:   (c) Julian Smart
 // Licence:     wxWindows licence
@@ -37,21 +36,32 @@ typedef char *wxCmdLineArgType;
 // parameters passed to WinMain() instead of those passed to main()
 extern WXDLLIMPEXP_CORE bool
     wxEntryStart(HINSTANCE hInstance,
-                HINSTANCE hPrevInstance = NULL,
-                wxCmdLineArgType pCmdLine = NULL,
+                HINSTANCE hPrevInstance = nullptr,
+                wxCmdLineArgType pCmdLine = nullptr,
                 int nCmdShow = SW_SHOWNORMAL);
 
 extern WXDLLIMPEXP_CORE int
     wxEntry(HINSTANCE hInstance,
-            HINSTANCE hPrevInstance = NULL,
-            wxCmdLineArgType pCmdLine = NULL,
+            HINSTANCE hPrevInstance = nullptr,
+            wxCmdLineArgType pCmdLine = nullptr,
             int nCmdShow = SW_SHOWNORMAL);
 
+#ifdef _In_
+    #define wxIN _In_
+#else
+    #define wxIN
+#endif
+#ifdef _In_opt_
+    #define wxIN_OPT _In_opt_
+#else
+    #define wxIN_OPT
+#endif
+
 #define wxIMPLEMENT_WXWIN_MAIN                                              \
-    extern "C" int WINAPI WinMain(HINSTANCE hInstance,                      \
-                                  HINSTANCE hPrevInstance,                  \
-                                  wxCmdLineArgType lpCmdLine,               \
-                                  int nCmdShow)                             \
+    extern "C" int WINAPI WinMain(wxIN HINSTANCE hInstance,                 \
+                                  wxIN_OPT HINSTANCE hPrevInstance,         \
+                                  wxIN wxCmdLineArgType lpCmdLine,          \
+                                  wxIN int nCmdShow)                        \
     {                                                                       \
         wxDISABLE_DEBUG_SUPPORT();                                          \
                                                                             \

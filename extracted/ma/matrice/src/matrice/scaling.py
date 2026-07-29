@@ -1,5 +1,9 @@
 """Module providing scaling functionality."""
 
+INSTANCE_ID_NOT_SET_ERROR = (
+    "Instance id not set for this instance. Cannot perform the operation for job-scheduler without instance id"
+)
+
 
 class _Scaling:
     """This is a private class used internally."""
@@ -21,7 +25,7 @@ class _Scaling:
     def get_downscaled_ids(self):
         if self.instance_id is None:
             raise ValueError(
-                "Instance id not set for this instance. Cannot perform the operation for job-scheduler without instance id"
+                INSTANCE_ID_NOT_SET_ERROR
             )
         path = f"/v1/scaling/down_scaled_ids/{self.instance_id}"
         resp = self.rpc.get(path=path)
@@ -34,7 +38,7 @@ class _Scaling:
     def stop_instance(self):
         if self.instance_id is None:
             raise ValueError(
-                "Instance id not set for this instance. Cannot perform the operation for job-scheduler without instance id"
+                INSTANCE_ID_NOT_SET_ERROR
             )
         path = "/v1/scaling/compute_instance/stop"
         resp = self.rpc.put(
@@ -54,36 +58,36 @@ class _Scaling:
         self,
         service_provider="",
         action_record_id="",
-        isRunning=True,
+        is_running=True,
         status="",
         docker_start_time=None,
         action_duration=0,
-        cpuUtilisation=0.0,
-        gpuUtilisation=0.0,
-        memoryUtilisation=0.0,
-        gpuMemoryUsed=0,
-        createdAt=None,
-        updatedAt=None,
+        cpu_utilisation=0.0,
+        gpu_utilisation=0.0,
+        memory_utilisation=0.0,
+        gpu_memory_used=0,
+        created_at=None,
+        updated_at=None,
     ):
         if self.instance_id is None:
             raise ValueError(
-                "Instance id not set for this instance. Cannot perform the operation for job-scheduler without instance id"
+                INSTANCE_ID_NOT_SET_ERROR
             )
         path = "/v1/compute/update_action_status"
         payload_scaling = {
             "instanceID": self.instance_id,
             "serviceProvider": service_provider,
             "actionRecordId": action_record_id,
-            "isRunning": isRunning,
+            "isRunning": is_running,
             "status": status,
             "dockerContainerStartTime": docker_start_time,
-            "cpuUtilisation": cpuUtilisation,
-            "gpuUtilisation": gpuUtilisation,
-            "memoryUtilisation": memoryUtilisation,
-            "gpuMemoryUsed": gpuMemoryUsed,
+            "cpuUtilisation": cpu_utilisation,
+            "gpuUtilisation": gpu_utilisation,
+            "memoryUtilisation": memory_utilisation,
+            "gpuMemoryUsed": gpu_memory_used,
             "actionDuration": action_duration,
-            "createdAt": createdAt,
-            "updatedAt": updatedAt,
+            "createdAt": created_at,
+            "updatedAt": updated_at,
         }
         resp = self.rpc.put(path=path, payload=payload_scaling)
         return self.handle_response(
@@ -97,7 +101,7 @@ class _Scaling:
         action_record_id,
         action_type,
         service_name,
-        stepCode,
+        step_code,
         status,
         status_description,
     ):
@@ -106,7 +110,7 @@ class _Scaling:
             "_id": action_record_id,
             "action": action_type,
             "serviceName": service_name,
-            "stepCode": stepCode,
+            "stepCode": step_code,
             "status": status,
             "statusDescription": status_description,
         }
@@ -115,7 +119,7 @@ class _Scaling:
     def get_shutdown_details(self):
         if self.instance_id is None:
             raise ValueError(
-                "Instance id not set for this instance. Cannot perform the operation for job-scheduler without instance id"
+                INSTANCE_ID_NOT_SET_ERROR
             )
         path = f"/v1/compute/get_shutdown_details/{self.instance_id}"
         resp = self.rpc.get(path=path)
@@ -128,7 +132,7 @@ class _Scaling:
     def get_tasks_details(self):
         if self.instance_id is None:
             raise ValueError(
-                "Instance id not set for this instance. Cannot perform the operation for job-scheduler without instance id"
+                INSTANCE_ID_NOT_SET_ERROR
             )
         path = f"/v1/project/action/instance/{self.instance_id}/action_details"
         resp = self.rpc.get(path=path)

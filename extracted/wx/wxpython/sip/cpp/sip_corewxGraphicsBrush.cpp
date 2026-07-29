@@ -116,7 +116,7 @@ static void *init_type_wxGraphicsBrush(sipSimpleWrapper *, PyObject *sipArgs, Py
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGraphicsBrush[] = {{246, 255, 1}};
+static sipEncodedTypeDef supers_wxGraphicsBrush[] = {{254, 255, 1}};
 
 PyDoc_STRVAR(doc_wxGraphicsBrush, "A wxGraphicsBrush is a native representation of a brush.");
 

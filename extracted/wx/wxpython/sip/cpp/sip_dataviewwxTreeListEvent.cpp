@@ -317,7 +317,7 @@ static void *init_type_wxTreeListEvent(sipSimpleWrapper *sipSelf, PyObject *sipA
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxTreeListEvent[] = {{25, 0, 1}};
+static sipEncodedTypeDef supers_wxTreeListEvent[] = {{26, 0, 1}};
 
 
 static PyMethodDef methods_wxTreeListEvent[] = {

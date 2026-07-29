@@ -88,9 +88,9 @@ bool sipwxMenu::ProcessEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxMenu::ProcessEvent(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxMenu::TryBefore(::wxEvent& event)
@@ -103,9 +103,9 @@ bool sipwxMenu::TryBefore(::wxEvent& event)
     if (!sipMeth)
         return ::wxMenu::TryBefore(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxMenu::TryAfter(::wxEvent& event)
@@ -118,9 +118,9 @@ bool sipwxMenu::TryAfter(::wxEvent& event)
     if (!sipMeth)
         return ::wxMenu::TryAfter(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxMenu::sipProtectVirt_TryBefore(bool sipSelfWasArg, ::wxEvent& event)
@@ -1940,7 +1940,7 @@ static PyObject *meth_wxMenu_SetTitle(PyObject *sipSelf, PyObject *sipArgs, PyOb
 }
 
 
-PyDoc_STRVAR(doc_wxMenu_UpdateUI, "UpdateUI(source=None) -> None\n"
+PyDoc_STRVAR(doc_wxMenu_UpdateUI, "UpdateUI(source=nullptr) -> None\n"
 "\n"
 "Update the state of all menu items, recursively, by generating\n"
 "wxEVT_UPDATE_UI events for them.");
@@ -1951,7 +1951,7 @@ static PyObject *meth_wxMenu_UpdateUI(PyObject *sipSelf, PyObject *sipArgs, PyOb
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        ::wxEvtHandler* source = 0;
+        ::wxEvtHandler* source = nullptr;
         ::wxMenu *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -2485,7 +2485,7 @@ static void *init_type_wxMenu(sipSimpleWrapper *sipSelf, PyObject *sipArgs, PyOb
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxMenu[] = {{158, 255, 1}};
+static sipEncodedTypeDef supers_wxMenu[] = {{165, 255, 1}};
 
 
 static PyMethodDef methods_wxMenu[] = {

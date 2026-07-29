@@ -552,7 +552,7 @@ static void *init_type_wxGridEditorCreatedEvent(sipSimpleWrapper *sipSelf, PyObj
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGridEditorCreatedEvent[] = {{5, 0, 1}};
+static sipEncodedTypeDef supers_wxGridEditorCreatedEvent[] = {{6, 0, 1}};
 
 
 static PyMethodDef methods_wxGridEditorCreatedEvent[] = {

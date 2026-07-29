@@ -12,6 +12,9 @@
         #include <wx/window.h>
         #include <wx/gdicmn.h>
         #include <wx/gdicmn.h>
+        #include <wx/access.h>
+        #include <wx/textctrl.h>
+        #include <wx/textctrl.h>
         #include <wx/textctrl.h>
         #include <wx/textcompleter.h>
         #include <wx/window.h>
@@ -28,15 +31,16 @@
         #include <wx/gdicmn.h>
         #include <wx/event.h>
         #include <wx/validate.h>
+        #include <wx/dc.h>
         #include <wx/event.h>
         #include <wx/event.h>
         #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -75,6 +79,15 @@
                     wxPyBLOCK_THREADS( rv = wxPyMakeBuffer((void*)ptr, len, true) );
                     return rv;
     }
+    wxAccessible* _wxStyledTextCtrl_CreateAccessible(wxStyledTextCtrl* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
     void _wxStyledTextCtrl_write(wxStyledTextCtrl* self, const wxString* text)
     {
         self->AppendText(*text);
@@ -110,7 +123,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -164,7 +176,6 @@ protected:
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
@@ -207,7 +218,7 @@ private:
     sipwxStyledTextCtrl(const sipwxStyledTextCtrl &);
     sipwxStyledTextCtrl &operator = (const sipwxStyledTextCtrl &);
 
-    char sipPyMethods[77];
+    char sipPyMethods[76];
 };
 
 sipwxStyledTextCtrl::sipwxStyledTextCtrl(::wxWindow*parent, ::wxWindowID id, const ::wxPoint& pos, const ::wxSize& size, long style, const ::wxString& name): ::wxStyledTextCtrl(parent, id, pos, size, style, name), sipPySelf(SIP_NULLPTR)
@@ -918,27 +929,12 @@ void sipwxStyledTextCtrl::DoFreeze()
     sipVH__stc_8(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxStyledTextCtrl::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[42]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxStyledTextCtrl::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__stc_16(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__stc_16(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 ::wxBorder sipwxStyledTextCtrl::GetDefaultBorder() const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[43]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[42]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
 
     if (!sipMeth)
         return ::wxStyledTextCtrl::GetDefaultBorder();
@@ -953,7 +949,7 @@ void sipwxStyledTextCtrl::DoSetWindowVariant(::wxWindowVariant variant)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[44], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[43], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
 
     if (!sipMeth)
     {
@@ -971,7 +967,7 @@ void sipwxStyledTextCtrl::DoMoveWindow(int x, int y, int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[45], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[44], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
 
     if (!sipMeth)
     {
@@ -989,7 +985,7 @@ void sipwxStyledTextCtrl::DoSetSizeHints(int minW, int minH, int maxW, int maxH,
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[46], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[45], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
 
     if (!sipMeth)
     {
@@ -1007,7 +1003,7 @@ void sipwxStyledTextCtrl::DoSetClientSize(int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[47], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[46], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
 
     if (!sipMeth)
     {
@@ -1025,7 +1021,7 @@ void sipwxStyledTextCtrl::DoSetSize(int x, int y, int width, int height, int siz
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[48], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[47], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
 
     if (!sipMeth)
     {
@@ -1043,7 +1039,7 @@ void sipwxStyledTextCtrl::DoGetClientSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[49]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[48]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
 
     if (!sipMeth)
     {
@@ -1061,7 +1057,7 @@ void sipwxStyledTextCtrl::DoGetSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[50]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[49]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
 
     if (!sipMeth)
     {
@@ -1079,7 +1075,7 @@ void sipwxStyledTextCtrl::DoGetPosition(int*x, int*y) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[51]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[50]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
 
     if (!sipMeth)
     {
@@ -1097,7 +1093,7 @@ void sipwxStyledTextCtrl::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[52], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[51], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
 
     if (!sipMeth)
     {
@@ -1115,7 +1111,7 @@ void sipwxStyledTextCtrl::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[53], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[52], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
 
     if (!sipMeth)
         return ::wxStyledTextCtrl::GetMainWindowOfCompositeControl();
@@ -1130,7 +1126,7 @@ void sipwxStyledTextCtrl::OnInternalIdle()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[54], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[53], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
 
     if (!sipMeth)
     {
@@ -1148,7 +1144,7 @@ void sipwxStyledTextCtrl::InitDialog()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[55], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[54], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
 
     if (!sipMeth)
     {
@@ -1166,7 +1162,7 @@ void sipwxStyledTextCtrl::InheritAttributes()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[56], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[55], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
 
     if (!sipMeth)
     {
@@ -1184,7 +1180,7 @@ bool sipwxStyledTextCtrl::Destroy()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[57], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[56], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
 
     if (!sipMeth)
         return ::wxStyledTextCtrl::Destroy();
@@ -1199,7 +1195,7 @@ bool sipwxStyledTextCtrl::Validate()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[58], &sipPySelf, SIP_NULLPTR, sipName_Validate);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[57], &sipPySelf, SIP_NULLPTR, sipName_Validate);
 
     if (!sipMeth)
         return ::wxStyledTextCtrl::Validate();
@@ -1214,7 +1210,7 @@ bool sipwxStyledTextCtrl::TransferDataToWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[59], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[58], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
 
     if (!sipMeth)
         return ::wxStyledTextCtrl::TransferDataToWindow();
@@ -1229,7 +1225,7 @@ bool sipwxStyledTextCtrl::TransferDataFromWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[60], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[59], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
 
     if (!sipMeth)
         return ::wxStyledTextCtrl::TransferDataFromWindow();
@@ -1244,7 +1240,7 @@ void sipwxStyledTextCtrl::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[61], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[60], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
 
     if (!sipMeth)
     {
@@ -1262,7 +1258,7 @@ void sipwxStyledTextCtrl::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[62], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[61], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
 
     if (!sipMeth)
         return ::wxStyledTextCtrl::GetValidator();
@@ -1277,7 +1273,7 @@ bool sipwxStyledTextCtrl::ShouldInheritColours() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[63]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[62]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
 
     if (!sipMeth)
         return ::wxStyledTextCtrl::ShouldInheritColours();
@@ -1292,7 +1288,7 @@ bool sipwxStyledTextCtrl::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[64], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[63], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
 
     if (!sipMeth)
         return ::wxStyledTextCtrl::HasTransparentBackground();
@@ -1307,7 +1303,7 @@ bool sipwxStyledTextCtrl::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[65]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[64]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
 
     if (!sipMeth)
         return ::wxStyledTextCtrl::GetClientAreaOrigin();
@@ -1322,7 +1318,7 @@ bool sipwxStyledTextCtrl::InformFirstDirection(int direction, int size, int avai
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[66], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[65], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
 
     if (!sipMeth)
         return ::wxStyledTextCtrl::InformFirstDirection(direction, size, availableOtherDir);
@@ -1337,7 +1333,7 @@ void sipwxStyledTextCtrl::EnableVisibleFocus(bool enabled)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[67], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[66], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
 
     if (!sipMeth)
     {
@@ -1355,7 +1351,7 @@ void sipwxStyledTextCtrl::SetCanFocus(bool canFocus)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[68], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[67], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
 
     if (!sipMeth)
     {
@@ -1373,7 +1369,7 @@ bool sipwxStyledTextCtrl::AcceptsFocusRecursively() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[69]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[68]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
 
     if (!sipMeth)
         return ::wxStyledTextCtrl::AcceptsFocusRecursively();
@@ -1388,7 +1384,7 @@ bool sipwxStyledTextCtrl::AcceptsFocusFromKeyboard() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[70]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[69]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
 
     if (!sipMeth)
         return ::wxStyledTextCtrl::AcceptsFocusFromKeyboard();
@@ -1403,7 +1399,7 @@ bool sipwxStyledTextCtrl::AcceptsFocus() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[71]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[70]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
 
     if (!sipMeth)
         return ::wxStyledTextCtrl::AcceptsFocus();
@@ -1418,7 +1414,7 @@ bool sipwxStyledTextCtrl::TryAfter(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[72], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[71], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
 
     if (!sipMeth)
         return ::wxStyledTextCtrl::TryAfter(event);
@@ -1433,7 +1429,7 @@ bool sipwxStyledTextCtrl::TryBefore(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[73], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[72], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
 
     if (!sipMeth)
         return ::wxStyledTextCtrl::TryBefore(event);
@@ -1448,7 +1444,7 @@ bool sipwxStyledTextCtrl::ProcessEvent(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[74], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[73], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
 
     if (!sipMeth)
         return ::wxStyledTextCtrl::ProcessEvent(event);
@@ -1463,7 +1459,7 @@ void sipwxStyledTextCtrl::AddChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[75], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[74], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
 
     if (!sipMeth)
     {
@@ -1481,7 +1477,7 @@ void sipwxStyledTextCtrl::RemoveChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[76], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[75], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
 
     if (!sipMeth)
     {
@@ -1562,11 +1558,6 @@ void sipwxStyledTextCtrl::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, 
 ::wxBorder sipwxStyledTextCtrl::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxControl::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxStyledTextCtrl::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxControl::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxStyledTextCtrl::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -2121,40 +2112,6 @@ static PyObject *meth_wxStyledTextCtrl_GetDefaultBorder(PyObject *sipSelf, PyObj
     }
 
     sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_GetDefaultBorder, doc_wxStyledTextCtrl_GetDefaultBorder);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxStyledTextCtrl_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxStyledTextCtrl_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxStyledTextCtrl_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxStyledTextCtrl *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_GetDefaultBorderForControl, doc_wxStyledTextCtrl_GetDefaultBorderForControl);
 
     return SIP_NULLPTR;
 }
@@ -5687,7 +5644,8 @@ static PyObject *meth_wxStyledTextCtrl_GetSelectedText(PyObject *sipSelf, PyObje
 
 PyDoc_STRVAR(doc_wxStyledTextCtrl_HideSelection, "HideSelection(hide) -> None\n"
 "\n"
-"Draw the selection in normal style or with selection highlighted.");
+"Draw the selection either highlighted or in normal (non-highlighted)\n"
+"style.");
 
 extern "C" {static PyObject *meth_wxStyledTextCtrl_HideSelection(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxStyledTextCtrl_HideSelection(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -5934,7 +5892,7 @@ static PyObject *meth_wxStyledTextCtrl_TextHeight(PyObject *sipSelf, PyObject *s
 
     {
         int line;
-        ::wxStyledTextCtrl *sipCpp;
+        const ::wxStyledTextCtrl *sipCpp;
 
         static const char *sipKwdList[] = {
             sipName_line,
@@ -7171,7 +7129,7 @@ static PyObject *meth_wxStyledTextCtrl_ClearSelections(PyObject *sipSelf, PyObje
 }
 
 
-PyDoc_STRVAR(doc_wxStyledTextCtrl_AddSelection, "AddSelection(caret, anchor) -> int\n"
+PyDoc_STRVAR(doc_wxStyledTextCtrl_AddSelection, "AddSelection(caret, anchor) -> None\n"
 "\n"
 "Add a selection.");
 
@@ -7192,18 +7150,17 @@ static PyObject *meth_wxStyledTextCtrl_AddSelection(PyObject *sipSelf, PyObject 
 
         if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bii", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &caret, &anchor))
         {
-            int sipRes;
-
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->AddSelection(caret, anchor);
+            sipCpp->AddSelection(caret, anchor);
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
                 return 0;
 
-            return PyLong_FromLong(sipRes);
+            Py_INCREF(Py_None);
+            return Py_None;
         }
     }
 
@@ -8185,7 +8142,7 @@ static PyObject *meth_wxStyledTextCtrl_GetVirtualSpaceOptions(PyObject *sipSelf,
 
 PyDoc_STRVAR(doc_wxStyledTextCtrl_SetRectangularSelectionModifier, "SetRectangularSelectionModifier(modifier) -> None\n"
 "\n"
-"On GTK+, allow selecting the modifier key to use for mouse-based\n"
+"On GTK, allow selecting the modifier key to use for mouse-based\n"
 "rectangular selection.");
 
 extern "C" {static PyObject *meth_wxStyledTextCtrl_SetRectangularSelectionModifier(PyObject *, PyObject *, PyObject *);}
@@ -14415,7 +14372,7 @@ static PyObject *meth_wxStyledTextCtrl_SetMarginCount(PyObject *sipSelf, PyObjec
 
 PyDoc_STRVAR(doc_wxStyledTextCtrl_GetMarginCount, "GetMarginCount() -> int\n"
 "\n"
-"How many margins are there?.");
+"Returns the count of margins.");
 
 extern "C" {static PyObject *meth_wxStyledTextCtrl_GetMarginCount(PyObject *, PyObject *);}
 static PyObject *meth_wxStyledTextCtrl_GetMarginCount(PyObject *sipSelf, PyObject *sipArgs)
@@ -15582,6 +15539,90 @@ static PyObject *meth_wxStyledTextCtrl_AnnotationGetStyleOffset(PyObject *sipSel
 }
 
 
+PyDoc_STRVAR(doc_wxStyledTextCtrl_MarkerHandleFromLine, "MarkerHandleFromLine(line, which) -> int\n"
+"\n"
+"Retrieve marker handles of a line.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_MarkerHandleFromLine(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_MarkerHandleFromLine(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int line;
+        int which;
+        ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_line,
+            sipName_which,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bii", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &line, &which))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->MarkerHandleFromLine(line, which);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_MarkerHandleFromLine, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_MarkerNumberFromLine, "MarkerNumberFromLine(line, which) -> int\n"
+"\n"
+"Retrieve marker number of a marker handle.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_MarkerNumberFromLine(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_MarkerNumberFromLine(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int line;
+        int which;
+        ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_line,
+            sipName_which,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bii", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &line, &which))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->MarkerNumberFromLine(line, which);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_MarkerNumberFromLine, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxStyledTextCtrl_GetBufferedDraw, "GetBufferedDraw() -> bool\n"
 "\n"
 "Is drawing done first into a buffer or direct to the screen?");
@@ -15652,6 +15693,80 @@ static PyObject *meth_wxStyledTextCtrl_SetBufferedDraw(PyObject *sipSelf, PyObje
     }
 
     sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_SetBufferedDraw, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_SetTabMinimumWidth, "SetTabMinimumWidth(pixels) -> None\n"
+"\n"
+"Set the minimum visual width of a tab.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_SetTabMinimumWidth(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_SetTabMinimumWidth(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int pixels;
+        ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_pixels,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &pixels))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetTabMinimumWidth(pixels);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_SetTabMinimumWidth, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_GetTabMinimumWidth, "GetTabMinimumWidth() -> int\n"
+"\n"
+"Get the minimum visual width of a tab.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_GetTabMinimumWidth(PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_GetTabMinimumWidth(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxStyledTextCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetTabMinimumWidth();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_GetTabMinimumWidth, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -15734,7 +15849,7 @@ static PyObject *meth_wxStyledTextCtrl_GetIMEInteraction(PyObject *sipSelf, PyOb
 
 PyDoc_STRVAR(doc_wxStyledTextCtrl_SetIMEInteraction, "SetIMEInteraction(imeInteraction) -> None\n"
 "\n"
-"Choose to display the IME in a winow or inline.");
+"Choose to display the IME in a window or inline.");
 
 extern "C" {static PyObject *meth_wxStyledTextCtrl_SetIMEInteraction(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxStyledTextCtrl_SetIMEInteraction(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -15766,6 +15881,196 @@ static PyObject *meth_wxStyledTextCtrl_SetIMEInteraction(PyObject *sipSelf, PyOb
     }
 
     sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_SetIMEInteraction, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_SetCharacterCategoryOptimization, "SetCharacterCategoryOptimization(countCharacters) -> None\n"
+"\n"
+"Set the number of characters to have directly indexed categories.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_SetCharacterCategoryOptimization(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_SetCharacterCategoryOptimization(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int countCharacters;
+        ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_countCharacters,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &countCharacters))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetCharacterCategoryOptimization(countCharacters);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_SetCharacterCategoryOptimization, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_GetCharacterCategoryOptimization, "GetCharacterCategoryOptimization() -> int\n"
+"\n"
+"Get the number of characters to have directly indexed categories.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_GetCharacterCategoryOptimization(PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_GetCharacterCategoryOptimization(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxStyledTextCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetCharacterCategoryOptimization();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_GetCharacterCategoryOptimization, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_GetCaretLineFrame, "GetCaretLineFrame() -> int\n"
+"\n"
+"Retrieve the caret line frame width.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_GetCaretLineFrame(PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_GetCaretLineFrame(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxStyledTextCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetCaretLineFrame();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_GetCaretLineFrame, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_SetCaretLineFrame, "SetCaretLineFrame(width) -> None\n"
+"\n"
+"Display the caret line framed.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_SetCaretLineFrame(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_SetCaretLineFrame(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int width;
+        ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_width,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &width))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetCaretLineFrame(width);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_SetCaretLineFrame, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_CountCodeUnits, "CountCodeUnits(start, end) -> int\n"
+"\n"
+"Count code units between two positions.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_CountCodeUnits(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_CountCodeUnits(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int start;
+        int end;
+        ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_start,
+            sipName_end,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bii", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &start, &end))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->CountCodeUnits(start, end);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_CountCodeUnits, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -15807,6 +16112,265 @@ static PyObject *meth_wxStyledTextCtrl_GetCodePage(PyObject *sipSelf, PyObject *
 }
 
 
+PyDoc_STRVAR(doc_wxStyledTextCtrl_SetTargetStartVirtualSpace, "SetTargetStartVirtualSpace(space) -> None\n"
+"\n"
+"Sets the virtual space of the target start.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_SetTargetStartVirtualSpace(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_SetTargetStartVirtualSpace(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int space;
+        ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_space,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &space))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetTargetStartVirtualSpace(space);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_SetTargetStartVirtualSpace, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_GetTargetStartVirtualSpace, "GetTargetStartVirtualSpace() -> int\n"
+"\n"
+"Get the virtual space of the target start.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_GetTargetStartVirtualSpace(PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_GetTargetStartVirtualSpace(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxStyledTextCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetTargetStartVirtualSpace();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_GetTargetStartVirtualSpace, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_SetTargetEndVirtualSpace, "SetTargetEndVirtualSpace(space) -> None\n"
+"\n"
+"Sets the virtual space of the target end.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_SetTargetEndVirtualSpace(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_SetTargetEndVirtualSpace(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int space;
+        ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_space,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &space))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetTargetEndVirtualSpace(space);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_SetTargetEndVirtualSpace, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_GetTargetEndVirtualSpace, "GetTargetEndVirtualSpace() -> int\n"
+"\n"
+"Get the virtual space of the target end.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_GetTargetEndVirtualSpace(PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_GetTargetEndVirtualSpace(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxStyledTextCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetTargetEndVirtualSpace();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_GetTargetEndVirtualSpace, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_FoldDisplayTextGetStyle, "FoldDisplayTextGetStyle() -> int\n"
+"\n"
+"Get the style of fold display text.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_FoldDisplayTextGetStyle(PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_FoldDisplayTextGetStyle(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxStyledTextCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->FoldDisplayTextGetStyle();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_FoldDisplayTextGetStyle, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_SetDefaultFoldDisplayText, "SetDefaultFoldDisplayText(text) -> None\n"
+"\n"
+"Set the default fold display text.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_SetDefaultFoldDisplayText(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_SetDefaultFoldDisplayText(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxString* text;
+        int textState = 0;
+        ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_text,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, sipType_wxString, &text, &textState))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetDefaultFoldDisplayText(*text);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxString *>(text), sipType_wxString, textState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_SetDefaultFoldDisplayText, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_GetDefaultFoldDisplayText, "GetDefaultFoldDisplayText() -> str\n"
+"\n"
+"Get the default fold display text.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_GetDefaultFoldDisplayText(PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_GetDefaultFoldDisplayText(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxStyledTextCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp))
+        {
+            ::wxString*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxString(sipCpp->GetDefaultFoldDisplayText());
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxString, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_GetDefaultFoldDisplayText, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxStyledTextCtrl_SetLayoutCache, "SetLayoutCache(cacheMode) -> None\n"
 "\n"
 "Sets the degree of caching of layout information.");
@@ -15841,82 +16405,6 @@ static PyObject *meth_wxStyledTextCtrl_SetLayoutCache(PyObject *sipSelf, PyObjec
     }
 
     sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_SetLayoutCache, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxStyledTextCtrl_GetTwoPhaseDraw, "GetTwoPhaseDraw() -> bool\n"
-"\n"
-"Is drawing done in two phases with backgrounds drawn before\n"
-"foregrounds?");
-
-extern "C" {static PyObject *meth_wxStyledTextCtrl_GetTwoPhaseDraw(PyObject *, PyObject *);}
-static PyObject *meth_wxStyledTextCtrl_GetTwoPhaseDraw(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxStyledTextCtrl *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp))
-        {
-            bool sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->GetTwoPhaseDraw();
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return PyBool_FromLong(sipRes);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_GetTwoPhaseDraw, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxStyledTextCtrl_SetTwoPhaseDraw, "SetTwoPhaseDraw(twoPhase) -> None\n"
-"\n"
-"In twoPhaseDraw mode, drawing is performed in two phases, first the\n"
-"background and then the foreground.");
-
-extern "C" {static PyObject *meth_wxStyledTextCtrl_SetTwoPhaseDraw(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxStyledTextCtrl_SetTwoPhaseDraw(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        bool twoPhase;
-        ::wxStyledTextCtrl *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_twoPhase,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bb", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &twoPhase))
-        {
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->SetTwoPhaseDraw(twoPhase);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_SetTwoPhaseDraw, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -16071,6 +16559,306 @@ static PyObject *meth_wxStyledTextCtrl_GetFontQuality(PyObject *sipSelf, PyObjec
 }
 
 
+PyDoc_STRVAR(doc_wxStyledTextCtrl_SetAccessibility, "SetAccessibility(accessibility) -> None\n"
+"\n"
+"Enable or disable accessibility.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_SetAccessibility(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_SetAccessibility(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int accessibility;
+        ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_accessibility,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &accessibility))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetAccessibility(accessibility);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_SetAccessibility, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_GetAccessibility, "GetAccessibility() -> int\n"
+"\n"
+"Report accessibility status.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_GetAccessibility(PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_GetAccessibility(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxStyledTextCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetAccessibility();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_GetAccessibility, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_LineReverse, "LineReverse() -> None\n"
+"\n"
+"Reverse order of selected lines.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_LineReverse(PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_LineReverse(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxStyledTextCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->LineReverse();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_LineReverse, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_BraceMatchNext, "BraceMatchNext(pos, startPos) -> int\n"
+"\n"
+"Similar to BraceMatch, but matching starts at the explicit start\n"
+"position.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_BraceMatchNext(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_BraceMatchNext(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int pos;
+        int startPos;
+        ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_pos,
+            sipName_startPos,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bii", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &pos, &startPos))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->BraceMatchNext(pos, startPos);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_BraceMatchNext, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_GetMultiEdgeColumn, "GetMultiEdgeColumn(which) -> int\n"
+"\n"
+"Get multi edge positions.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_GetMultiEdgeColumn(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_GetMultiEdgeColumn(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int which;
+        const ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_which,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &which))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetMultiEdgeColumn(which);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_GetMultiEdgeColumn, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_GetDocumentOptions, "GetDocumentOptions() -> int\n"
+"\n"
+"Get which document options are set.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_GetDocumentOptions(PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_GetDocumentOptions(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxStyledTextCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetDocumentOptions();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_GetDocumentOptions, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_SetCommandEvents, "SetCommandEvents(commandEvents) -> None\n"
+"\n"
+"Set whether command events are sent to the container.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_SetCommandEvents(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_SetCommandEvents(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        bool commandEvents;
+        ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_commandEvents,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bb", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &commandEvents))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetCommandEvents(commandEvents);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_SetCommandEvents, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_GetCommandEvents, "GetCommandEvents() -> bool\n"
+"\n"
+"Get whether command events are sent to the container.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_GetCommandEvents(PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_GetCommandEvents(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxStyledTextCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetCommandEvents();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_GetCommandEvents, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxStyledTextCtrl_SetSTCFocus, "SetSTCFocus(focus) -> None\n"
 "\n"
 "Change internal focus flag.");
@@ -16145,6 +16933,165 @@ static PyObject *meth_wxStyledTextCtrl_GetSTCFocus(PyObject *sipSelf, PyObject *
 }
 
 
+PyDoc_STRVAR(doc_wxStyledTextCtrl_PositionRelativeCodeUnits, "PositionRelativeCodeUnits(pos, relative) -> int\n"
+"\n"
+"Given a valid document position, return a position that differs in a\n"
+"number of UTF-16 code units.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_PositionRelativeCodeUnits(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_PositionRelativeCodeUnits(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int pos;
+        int relative;
+        ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_pos,
+            sipName_relative,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bii", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &pos, &relative))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->PositionRelativeCodeUnits(pos, relative);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_PositionRelativeCodeUnits, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_GetMoveExtendsSelection, "GetMoveExtendsSelection() -> bool\n"
+"\n"
+"Get whether or not regular caret moves will extend or reduce the\n"
+"selection.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_GetMoveExtendsSelection(PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_GetMoveExtendsSelection(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxStyledTextCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetMoveExtendsSelection();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_GetMoveExtendsSelection, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_GetSelectionNStartVirtualSpace, "GetSelectionNStartVirtualSpace(selection) -> int\n"
+"\n"
+"Returns the virtual space at the start of the selection.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_GetSelectionNStartVirtualSpace(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_GetSelectionNStartVirtualSpace(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int selection;
+        const ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_selection,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &selection))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetSelectionNStartVirtualSpace(selection);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_GetSelectionNStartVirtualSpace, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_GetSelectionNEndVirtualSpace, "GetSelectionNEndVirtualSpace(selection) -> int\n"
+"\n"
+"Returns the virtual space at the end of the selection.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_GetSelectionNEndVirtualSpace(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_GetSelectionNEndVirtualSpace(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int selection;
+        const ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_selection,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &selection))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetSelectionNEndVirtualSpace(selection);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_GetSelectionNEndVirtualSpace, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxStyledTextCtrl_SetTechnology, "SetTechnology(technology) -> None\n"
 "\n"
 "Set the technology used.");
@@ -16214,6 +17161,631 @@ static PyObject *meth_wxStyledTextCtrl_GetTechnology(PyObject *sipSelf, PyObject
     }
 
     sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_GetTechnology, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_EOLAnnotationSetText, "EOLAnnotationSetText(line, text) -> None\n"
+"\n"
+"Set the end of line annotation text for a line.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_EOLAnnotationSetText(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_EOLAnnotationSetText(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int line;
+        const ::wxString* text;
+        int textState = 0;
+        ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_line,
+            sipName_text,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BiJ1", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &line, sipType_wxString, &text, &textState))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->EOLAnnotationSetText(line, *text);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxString *>(text), sipType_wxString, textState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_EOLAnnotationSetText, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_EOLAnnotationGetText, "EOLAnnotationGetText(line) -> str\n"
+"\n"
+"Get the end of line annotation text for a line.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_EOLAnnotationGetText(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_EOLAnnotationGetText(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int line;
+        const ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_line,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &line))
+        {
+            ::wxString*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxString(sipCpp->EOLAnnotationGetText(line));
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxString, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_EOLAnnotationGetText, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_EOLAnnotationSetStyle, "EOLAnnotationSetStyle(line, style) -> None\n"
+"\n"
+"Set the style number for the end of line annotations for a line.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_EOLAnnotationSetStyle(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_EOLAnnotationSetStyle(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int line;
+        int style;
+        ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_line,
+            sipName_style,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bii", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &line, &style))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->EOLAnnotationSetStyle(line, style);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_EOLAnnotationSetStyle, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_EOLAnnotationGetStyle, "EOLAnnotationGetStyle(line) -> int\n"
+"\n"
+"Get the style number for the end of line annotations for a line.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_EOLAnnotationGetStyle(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_EOLAnnotationGetStyle(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int line;
+        const ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_line,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &line))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->EOLAnnotationGetStyle(line);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_EOLAnnotationGetStyle, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_EOLAnnotationClearAll, "EOLAnnotationClearAll() -> None\n"
+"\n"
+"Clear the end of annotations from all lines.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_EOLAnnotationClearAll(PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_EOLAnnotationClearAll(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxStyledTextCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->EOLAnnotationClearAll();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_EOLAnnotationClearAll, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_EOLAnnotationSetVisible, "EOLAnnotationSetVisible(visible) -> None\n"
+"\n"
+"Set the visibility for the end of line annotations for a view.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_EOLAnnotationSetVisible(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_EOLAnnotationSetVisible(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int visible;
+        ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_visible,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &visible))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->EOLAnnotationSetVisible(visible);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_EOLAnnotationSetVisible, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_EOLAnnotationGetVisible, "EOLAnnotationGetVisible() -> int\n"
+"\n"
+"Get the visibility for the end of line annotations for a view.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_EOLAnnotationGetVisible(PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_EOLAnnotationGetVisible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxStyledTextCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->EOLAnnotationGetVisible();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_EOLAnnotationGetVisible, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_EOLAnnotationSetStyleOffset, "EOLAnnotationSetStyleOffset(style) -> None\n"
+"\n"
+"Get the start of the range of style numbers used for end of line\n"
+"annotations.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_EOLAnnotationSetStyleOffset(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_EOLAnnotationSetStyleOffset(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int style;
+        ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_style,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &style))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->EOLAnnotationSetStyleOffset(style);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_EOLAnnotationSetStyleOffset, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_EOLAnnotationGetStyleOffset, "EOLAnnotationGetStyleOffset() -> int\n"
+"\n"
+"Get the start of the range of style numbers used for end of line\n"
+"annotations.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_EOLAnnotationGetStyleOffset(PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_EOLAnnotationGetStyleOffset(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxStyledTextCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->EOLAnnotationGetStyleOffset();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_EOLAnnotationGetStyleOffset, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_GetNamedStyles, "GetNamedStyles() -> int\n"
+"\n"
+"Retrieve the number of named styles for the lexer.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_GetNamedStyles(PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_GetNamedStyles(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxStyledTextCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetNamedStyles();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_GetNamedStyles, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_NameOfStyle, "NameOfStyle(style) -> str\n"
+"\n"
+"Retrieve the name of a style.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_NameOfStyle(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_NameOfStyle(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int style;
+        const ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_style,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &style))
+        {
+            ::wxString*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxString(sipCpp->NameOfStyle(style));
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxString, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_NameOfStyle, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_TagsOfStyle, "TagsOfStyle(style) -> str\n"
+"\n"
+"Retrieve a ' ' separated list of style tags like \"literal quoted\n"
+"string\".");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_TagsOfStyle(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_TagsOfStyle(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int style;
+        const ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_style,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &style))
+        {
+            ::wxString*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxString(sipCpp->TagsOfStyle(style));
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxString, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_TagsOfStyle, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_DescriptionOfStyle, "DescriptionOfStyle(style) -> str\n"
+"\n"
+"Retrieve a description of a style.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_DescriptionOfStyle(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_DescriptionOfStyle(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int style;
+        const ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_style,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &style))
+        {
+            ::wxString*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxString(sipCpp->DescriptionOfStyle(style));
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxString, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_DescriptionOfStyle, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_SetILexer, "SetILexer(ilexer) -> None\n"
+"\n"
+"Set the lexer from an ILexer*.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_SetILexer(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_SetILexer(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        void* ilexer;
+        ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_ilexer,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bv", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &ilexer))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetILexer(ilexer);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_SetILexer, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_GetTwoPhaseDraw, "GetTwoPhaseDraw() -> bool\n"
+"\n"
+"Is drawing done in two phases with backgrounds drawn before\n"
+"foregrounds?");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_GetTwoPhaseDraw(PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_GetTwoPhaseDraw(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxStyledTextCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp))
+        {
+            bool sipRes;
+
+            if (sipDeprecated(sipName_StyledTextCtrl, sipName_GetTwoPhaseDraw) < 0)
+                return SIP_NULLPTR;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetTwoPhaseDraw();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_GetTwoPhaseDraw, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_SetTwoPhaseDraw, "SetTwoPhaseDraw(twoPhase) -> None\n"
+"\n"
+"In twoPhaseDraw mode, drawing is performed in two phases, first the\n"
+"background and then the foreground.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_SetTwoPhaseDraw(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_SetTwoPhaseDraw(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        bool twoPhase;
+        ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_twoPhase,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bb", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &twoPhase))
+        {
+            if (sipDeprecated(sipName_StyledTextCtrl, sipName_SetTwoPhaseDraw) < 0)
+                return SIP_NULLPTR;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetTwoPhaseDraw(twoPhase);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_SetTwoPhaseDraw, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -18669,7 +20241,7 @@ static PyObject *meth_wxStyledTextCtrl_GetIndicatorValue(PyObject *sipSelf, PyOb
 
 PyDoc_STRVAR(doc_wxStyledTextCtrl_IndicatorFillRange, "IndicatorFillRange(start, lengthFill) -> None\n"
 "\n"
-"Turn an indicator on over a range.");
+"Turn a indicator on over a range.");
 
 extern "C" {static PyObject *meth_wxStyledTextCtrl_IndicatorFillRange(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxStyledTextCtrl_IndicatorFillRange(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -18710,7 +20282,7 @@ static PyObject *meth_wxStyledTextCtrl_IndicatorFillRange(PyObject *sipSelf, PyO
 
 PyDoc_STRVAR(doc_wxStyledTextCtrl_IndicatorClearRange, "IndicatorClearRange(start, lengthClear) -> None\n"
 "\n"
-"Turn an indicator off over a range.");
+"Turn a indicator off over a range.");
 
 extern "C" {static PyObject *meth_wxStyledTextCtrl_IndicatorClearRange(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxStyledTextCtrl_IndicatorClearRange(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -19079,7 +20651,7 @@ static PyObject *meth_wxStyledTextCtrl_IndicatorGetOutlineAlpha(PyObject *sipSel
 
 PyDoc_STRVAR(doc_wxStyledTextCtrl_AutoCompShow, "AutoCompShow(lengthEntered, itemList) -> None\n"
 "\n"
-"Display an auto-completion list.");
+"Display a auto-completion list.");
 
 extern "C" {static PyObject *meth_wxStyledTextCtrl_AutoCompShow(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxStyledTextCtrl_AutoCompShow(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -24950,7 +26522,7 @@ static PyObject *meth_wxStyledTextCtrl_VisibleFromDocLine(PyObject *sipSelf, PyO
 
     {
         int docLine;
-        ::wxStyledTextCtrl *sipCpp;
+        const ::wxStyledTextCtrl *sipCpp;
 
         static const char *sipKwdList[] = {
             sipName_docLine,
@@ -24991,7 +26563,7 @@ static PyObject *meth_wxStyledTextCtrl_DocLineFromVisible(PyObject *sipSelf, PyO
 
     {
         int displayLine;
-        ::wxStyledTextCtrl *sipCpp;
+        const ::wxStyledTextCtrl *sipCpp;
 
         static const char *sipKwdList[] = {
             sipName_displayLine,
@@ -28400,6 +29972,41 @@ static PyObject *meth_wxStyledTextCtrl_GetCurrentLine(PyObject *sipSelf, PyObjec
 }
 
 
+PyDoc_STRVAR(doc_wxStyledTextCtrl_GetDisplayLineCount, "GetDisplayLineCount() -> int\n"
+"\n"
+"Returns the total number of display lines.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_GetDisplayLineCount(PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_GetDisplayLineCount(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxStyledTextCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetDisplayLineCount();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_GetDisplayLineCount, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxStyledTextCtrl_StyleSetSpec, "StyleSetSpec(styleNum, spec) -> None\n"
 "\n"
 "Extract style settings from a spec-string which is composed of one or\n"
@@ -29235,7 +30842,7 @@ static PyObject *meth_wxStyledTextCtrl_DoDropText(PyObject *sipSelf, PyObject *s
 
 PyDoc_STRVAR(doc_wxStyledTextCtrl_SetUseAntiAliasing, "SetUseAntiAliasing(useAA) -> None\n"
 "\n"
-"Specify whether anti-aliased fonts should be used.");
+"Specify whether anti-aliasing should be used when rendering text.");
 
 extern "C" {static PyObject *meth_wxStyledTextCtrl_SetUseAntiAliasing(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxStyledTextCtrl_SetUseAntiAliasing(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -29274,7 +30881,7 @@ static PyObject *meth_wxStyledTextCtrl_SetUseAntiAliasing(PyObject *sipSelf, PyO
 
 PyDoc_STRVAR(doc_wxStyledTextCtrl_GetUseAntiAliasing, "GetUseAntiAliasing() -> bool\n"
 "\n"
-"Returns the current UseAntiAliasing setting.");
+"Returns whether anti-aliasing is enabled by font quality setting.");
 
 extern "C" {static PyObject *meth_wxStyledTextCtrl_GetUseAntiAliasing(PyObject *, PyObject *);}
 static PyObject *meth_wxStyledTextCtrl_GetUseAntiAliasing(PyObject *sipSelf, PyObject *sipArgs)
@@ -30907,6 +32514,84 @@ static PyObject *meth_wxStyledTextCtrl_HitTest(PyObject *sipSelf, PyObject *sipA
 }
 
 
+PyDoc_STRVAR(doc_wxStyledTextCtrl_SetMirrorCtrl, "SetMirrorCtrl(mirrorCtrl) -> None\n"
+"\n"
+"Specify a control to synchronize with this control.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_SetMirrorCtrl(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_SetMirrorCtrl(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxStyledTextCtrl* mirrorCtrl;
+        ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_mirrorCtrl,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, sipType_wxStyledTextCtrl, &mirrorCtrl))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetMirrorCtrl(mirrorCtrl);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_SetMirrorCtrl, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_SetCustomDrawn, "SetCustomDrawn(customDrawn) -> None\n"
+"\n"
+"Indicate that custom drawing is done on top of this control.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_SetCustomDrawn(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_SetCustomDrawn(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        bool customDrawn;
+        ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_customDrawn,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bb", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, &customDrawn))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetCustomDrawn(customDrawn);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_SetCustomDrawn, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxStyledTextCtrl_GetLibraryVersionInfo, "GetLibraryVersionInfo() -> VersionInfo\n"
 "\n"
 "Returns the version of the Scintilla library used by this control.");
@@ -31677,6 +33362,161 @@ static PyObject *meth_wxStyledTextCtrl_GetDefaultStyle(PyObject *sipSelf, PyObje
 }
 
 
+PyDoc_STRVAR(doc_wxStyledTextCtrl_IsRTFSupported, "IsRTFSupported() -> bool\n"
+"\n"
+"Returns true if text controls support reading and writing RTF (Rich\n"
+"Text Format).");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_IsRTFSupported(PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_IsRTFSupported(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxStyledTextCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->IsRTFSupported();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_IsRTFSupported, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_GetRTFValue, "GetRTFValue() -> str\n"
+"\n"
+"Returns the content of a multiline text control as RTF (Rich Text\n"
+"Formatted) text.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_GetRTFValue(PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_GetRTFValue(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxStyledTextCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp))
+        {
+            ::wxString*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxString(sipCpp->GetRTFValue());
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxString, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_GetRTFValue, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_SetRTFValue, "SetRTFValue(val) -> None\n"
+"\n"
+"Sets the content of a multiline text control from an RTF (Rich Text\n"
+"Formatted) buffer.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_SetRTFValue(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_SetRTFValue(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxString* val;
+        int valState = 0;
+        ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_val,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, sipType_wxString, &val, &valState))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetRTFValue(*val);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxString *>(val), sipType_wxString, valState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_SetRTFValue, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_SearchText, "SearchText(search) -> TextSearchResult\n"
+"\n"
+"Searches for a string in the control, using the provided search\n"
+"options.");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_SearchText(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_SearchText(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxTextSearch* search;
+        const ::wxStyledTextCtrl *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_search,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp, sipType_wxTextSearch, &search))
+        {
+            ::wxTextSearchResult*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxTextSearchResult(sipCpp->SearchText(*search));
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxTextSearchResult, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_SearchText, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxStyledTextCtrl_PositionToCoords, "PositionToCoords(pos) -> Point\n"
 "\n"
 "Converts given text position to client coordinates in pixels.");
@@ -31751,6 +33591,39 @@ static PyObject *meth_wxStyledTextCtrl_SetModified(PyObject *sipSelf, PyObject *
     }
 
     sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_SetModified, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStyledTextCtrl_CreateAccessible, "CreateAccessible() -> Accessible");
+
+extern "C" {static PyObject *meth_wxStyledTextCtrl_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxStyledTextCtrl_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxStyledTextCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStyledTextCtrl, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxStyledTextCtrl_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StyledTextCtrl, sipName_CreateAccessible, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -31973,7 +33846,7 @@ static void *init_type_wxStyledTextCtrl(sipSimpleWrapper *sipSelf, PyObject *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxStyledTextCtrl[] = {{6, 0, 1}};
+static sipEncodedTypeDef supers_wxStyledTextCtrl[] = {{7, 0, 1}};
 
 
 static PyMethodDef methods_wxStyledTextCtrl[] = {
@@ -32046,6 +33919,7 @@ static PyMethodDef methods_wxStyledTextCtrl[] = {
     {sipName_BraceHighlight, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_BraceHighlight), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_BraceHighlight},
     {sipName_BraceHighlightIndicator, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_BraceHighlightIndicator), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_BraceHighlightIndicator},
     {sipName_BraceMatch, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_BraceMatch), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_BraceMatch},
+    {sipName_BraceMatchNext, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_BraceMatchNext), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_BraceMatchNext},
     {sipName_CallTipActive, meth_wxStyledTextCtrl_CallTipActive, METH_VARARGS, doc_wxStyledTextCtrl_CallTipActive},
     {sipName_CallTipCancel, meth_wxStyledTextCtrl_CallTipCancel, METH_VARARGS, doc_wxStyledTextCtrl_CallTipCancel},
     {sipName_CallTipPosAtStart, meth_wxStyledTextCtrl_CallTipPosAtStart, METH_VARARGS, doc_wxStyledTextCtrl_CallTipPosAtStart},
@@ -32094,7 +33968,9 @@ static PyMethodDef methods_wxStyledTextCtrl[] = {
     {sipName_CopyRange, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_CopyRange), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_CopyRange},
     {sipName_CopyText, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_CopyText), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_CopyText},
     {sipName_CountCharacters, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_CountCharacters), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_CountCharacters},
+    {sipName_CountCodeUnits, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_CountCodeUnits), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_CountCodeUnits},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_Create), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_Create},
+    {sipName_CreateAccessible, meth_wxStyledTextCtrl_CreateAccessible, METH_VARARGS, doc_wxStyledTextCtrl_CreateAccessible},
     {sipName_CreateDocument, meth_wxStyledTextCtrl_CreateDocument, METH_VARARGS, doc_wxStyledTextCtrl_CreateDocument},
     {sipName_CreateLoader, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_CreateLoader), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_CreateLoader},
     {sipName_Cut, meth_wxStyledTextCtrl_Cut, METH_VARARGS, doc_wxStyledTextCtrl_Cut},
@@ -32108,6 +33984,7 @@ static PyMethodDef methods_wxStyledTextCtrl[] = {
     {sipName_DeleteRange, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_DeleteRange), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_DeleteRange},
     {sipName_DescribeKeyWordSets, meth_wxStyledTextCtrl_DescribeKeyWordSets, METH_VARARGS, doc_wxStyledTextCtrl_DescribeKeyWordSets},
     {sipName_DescribeProperty, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_DescribeProperty), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_DescribeProperty},
+    {sipName_DescriptionOfStyle, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_DescriptionOfStyle), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_DescriptionOfStyle},
     {sipName_DiscardEdits, meth_wxStyledTextCtrl_DiscardEdits, METH_VARARGS, doc_wxStyledTextCtrl_DiscardEdits},
     {sipName_DistanceToSecondaryStyles, meth_wxStyledTextCtrl_DistanceToSecondaryStyles, METH_VARARGS, doc_wxStyledTextCtrl_DistanceToSecondaryStyles},
     {sipName_DoDragEnter, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_DoDragEnter), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_DoDragEnter},
@@ -32133,6 +34010,15 @@ static PyMethodDef methods_wxStyledTextCtrl[] = {
     {sipName_DocumentStart, meth_wxStyledTextCtrl_DocumentStart, METH_VARARGS, doc_wxStyledTextCtrl_DocumentStart},
     {sipName_DocumentStartExtend, meth_wxStyledTextCtrl_DocumentStartExtend, METH_VARARGS, doc_wxStyledTextCtrl_DocumentStartExtend},
     {sipName_DropSelectionN, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_DropSelectionN), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_DropSelectionN},
+    {sipName_EOLAnnotationClearAll, meth_wxStyledTextCtrl_EOLAnnotationClearAll, METH_VARARGS, doc_wxStyledTextCtrl_EOLAnnotationClearAll},
+    {sipName_EOLAnnotationGetStyle, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_EOLAnnotationGetStyle), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_EOLAnnotationGetStyle},
+    {sipName_EOLAnnotationGetStyleOffset, meth_wxStyledTextCtrl_EOLAnnotationGetStyleOffset, METH_VARARGS, doc_wxStyledTextCtrl_EOLAnnotationGetStyleOffset},
+    {sipName_EOLAnnotationGetText, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_EOLAnnotationGetText), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_EOLAnnotationGetText},
+    {sipName_EOLAnnotationGetVisible, meth_wxStyledTextCtrl_EOLAnnotationGetVisible, METH_VARARGS, doc_wxStyledTextCtrl_EOLAnnotationGetVisible},
+    {sipName_EOLAnnotationSetStyle, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_EOLAnnotationSetStyle), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_EOLAnnotationSetStyle},
+    {sipName_EOLAnnotationSetStyleOffset, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_EOLAnnotationSetStyleOffset), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_EOLAnnotationSetStyleOffset},
+    {sipName_EOLAnnotationSetText, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_EOLAnnotationSetText), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_EOLAnnotationSetText},
+    {sipName_EOLAnnotationSetVisible, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_EOLAnnotationSetVisible), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_EOLAnnotationSetVisible},
     {sipName_EditToggleOvertype, meth_wxStyledTextCtrl_EditToggleOvertype, METH_VARARGS, doc_wxStyledTextCtrl_EditToggleOvertype},
     {sipName_EmptyUndoBuffer, meth_wxStyledTextCtrl_EmptyUndoBuffer, METH_VARARGS, doc_wxStyledTextCtrl_EmptyUndoBuffer},
     {sipName_EndUndoAction, meth_wxStyledTextCtrl_EndUndoAction, METH_VARARGS, doc_wxStyledTextCtrl_EndUndoAction},
@@ -32144,12 +34030,14 @@ static PyMethodDef methods_wxStyledTextCtrl[] = {
     {sipName_FindText, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_FindText), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_FindText},
     {sipName_FoldAll, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_FoldAll), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_FoldAll},
     {sipName_FoldChildren, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_FoldChildren), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_FoldChildren},
+    {sipName_FoldDisplayTextGetStyle, meth_wxStyledTextCtrl_FoldDisplayTextGetStyle, METH_VARARGS, doc_wxStyledTextCtrl_FoldDisplayTextGetStyle},
     {sipName_FoldDisplayTextSetStyle, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_FoldDisplayTextSetStyle), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_FoldDisplayTextSetStyle},
     {sipName_FoldLine, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_FoldLine), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_FoldLine},
     {sipName_ForceUpper, meth_wxStyledTextCtrl_ForceUpper, METH_VARARGS, doc_wxStyledTextCtrl_ForceUpper},
     {sipName_FormFeed, meth_wxStyledTextCtrl_FormFeed, METH_VARARGS, doc_wxStyledTextCtrl_FormFeed},
     {sipName_FormatRange, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_FormatRange), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_FormatRange},
     {sipName_FreeSubStyles, meth_wxStyledTextCtrl_FreeSubStyles, METH_VARARGS, doc_wxStyledTextCtrl_FreeSubStyles},
+    {sipName_GetAccessibility, meth_wxStyledTextCtrl_GetAccessibility, METH_VARARGS, doc_wxStyledTextCtrl_GetAccessibility},
     {sipName_GetAdditionalCaretForeground, meth_wxStyledTextCtrl_GetAdditionalCaretForeground, METH_VARARGS, doc_wxStyledTextCtrl_GetAdditionalCaretForeground},
     {sipName_GetAdditionalCaretsBlink, meth_wxStyledTextCtrl_GetAdditionalCaretsBlink, METH_VARARGS, doc_wxStyledTextCtrl_GetAdditionalCaretsBlink},
     {sipName_GetAdditionalCaretsVisible, meth_wxStyledTextCtrl_GetAdditionalCaretsVisible, METH_VARARGS, doc_wxStyledTextCtrl_GetAdditionalCaretsVisible},
@@ -32163,6 +34051,7 @@ static PyMethodDef methods_wxStyledTextCtrl[] = {
     {sipName_GetCaretForeground, meth_wxStyledTextCtrl_GetCaretForeground, METH_VARARGS, doc_wxStyledTextCtrl_GetCaretForeground},
     {sipName_GetCaretLineBackAlpha, meth_wxStyledTextCtrl_GetCaretLineBackAlpha, METH_VARARGS, doc_wxStyledTextCtrl_GetCaretLineBackAlpha},
     {sipName_GetCaretLineBackground, meth_wxStyledTextCtrl_GetCaretLineBackground, METH_VARARGS, doc_wxStyledTextCtrl_GetCaretLineBackground},
+    {sipName_GetCaretLineFrame, meth_wxStyledTextCtrl_GetCaretLineFrame, METH_VARARGS, doc_wxStyledTextCtrl_GetCaretLineFrame},
     {sipName_GetCaretLineVisible, meth_wxStyledTextCtrl_GetCaretLineVisible, METH_VARARGS, doc_wxStyledTextCtrl_GetCaretLineVisible},
     {sipName_GetCaretLineVisibleAlways, meth_wxStyledTextCtrl_GetCaretLineVisibleAlways, METH_VARARGS, doc_wxStyledTextCtrl_GetCaretLineVisibleAlways},
     {sipName_GetCaretPeriod, meth_wxStyledTextCtrl_GetCaretPeriod, METH_VARARGS, doc_wxStyledTextCtrl_GetCaretPeriod},
@@ -32170,21 +34059,25 @@ static PyMethodDef methods_wxStyledTextCtrl[] = {
     {sipName_GetCaretStyle, meth_wxStyledTextCtrl_GetCaretStyle, METH_VARARGS, doc_wxStyledTextCtrl_GetCaretStyle},
     {sipName_GetCaretWidth, meth_wxStyledTextCtrl_GetCaretWidth, METH_VARARGS, doc_wxStyledTextCtrl_GetCaretWidth},
     {sipName_GetCharAt, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_GetCharAt), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_GetCharAt},
+    {sipName_GetCharacterCategoryOptimization, meth_wxStyledTextCtrl_GetCharacterCategoryOptimization, METH_VARARGS, doc_wxStyledTextCtrl_GetCharacterCategoryOptimization},
     {sipName_GetCharacterPointer, meth_wxStyledTextCtrl_GetCharacterPointer, METH_VARARGS, doc_wxStyledTextCtrl_GetCharacterPointer},
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_GetClassDefaultAttributes},
     {sipName_GetCodePage, meth_wxStyledTextCtrl_GetCodePage, METH_VARARGS, doc_wxStyledTextCtrl_GetCodePage},
     {sipName_GetColumn, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_GetColumn), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_GetColumn},
+    {sipName_GetCommandEvents, meth_wxStyledTextCtrl_GetCommandEvents, METH_VARARGS, doc_wxStyledTextCtrl_GetCommandEvents},
     {sipName_GetControlCharSymbol, meth_wxStyledTextCtrl_GetControlCharSymbol, METH_VARARGS, doc_wxStyledTextCtrl_GetControlCharSymbol},
     {sipName_GetCurLine, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_GetCurLine), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_GetCurLine},
     {sipName_GetCurLineRaw, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_GetCurLineRaw), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_GetCurLineRaw},
     {sipName_GetCurrentLine, meth_wxStyledTextCtrl_GetCurrentLine, METH_VARARGS, doc_wxStyledTextCtrl_GetCurrentLine},
     {sipName_GetCurrentPos, meth_wxStyledTextCtrl_GetCurrentPos, METH_VARARGS, doc_wxStyledTextCtrl_GetCurrentPos},
     {sipName_GetDefaultBorder, meth_wxStyledTextCtrl_GetDefaultBorder, METH_VARARGS, SIP_NULLPTR},
-    {sipName_GetDefaultBorderForControl, meth_wxStyledTextCtrl_GetDefaultBorderForControl, METH_VARARGS, SIP_NULLPTR},
+    {sipName_GetDefaultFoldDisplayText, meth_wxStyledTextCtrl_GetDefaultFoldDisplayText, METH_VARARGS, doc_wxStyledTextCtrl_GetDefaultFoldDisplayText},
     {sipName_GetDefaultStyle, meth_wxStyledTextCtrl_GetDefaultStyle, METH_VARARGS, doc_wxStyledTextCtrl_GetDefaultStyle},
     {sipName_GetDirectFunction, meth_wxStyledTextCtrl_GetDirectFunction, METH_VARARGS, doc_wxStyledTextCtrl_GetDirectFunction},
     {sipName_GetDirectPointer, meth_wxStyledTextCtrl_GetDirectPointer, METH_VARARGS, doc_wxStyledTextCtrl_GetDirectPointer},
+    {sipName_GetDisplayLineCount, meth_wxStyledTextCtrl_GetDisplayLineCount, METH_VARARGS, doc_wxStyledTextCtrl_GetDisplayLineCount},
     {sipName_GetDocPointer, meth_wxStyledTextCtrl_GetDocPointer, METH_VARARGS, doc_wxStyledTextCtrl_GetDocPointer},
+    {sipName_GetDocumentOptions, meth_wxStyledTextCtrl_GetDocumentOptions, METH_VARARGS, doc_wxStyledTextCtrl_GetDocumentOptions},
     {sipName_GetEOLMode, meth_wxStyledTextCtrl_GetEOLMode, METH_VARARGS, doc_wxStyledTextCtrl_GetEOLMode},
     {sipName_GetEdgeColour, meth_wxStyledTextCtrl_GetEdgeColour, METH_VARARGS, doc_wxStyledTextCtrl_GetEdgeColour},
     {sipName_GetEdgeColumn, meth_wxStyledTextCtrl_GetEdgeColumn, METH_VARARGS, doc_wxStyledTextCtrl_GetEdgeColumn},
@@ -32256,8 +34149,11 @@ static PyMethodDef methods_wxStyledTextCtrl[] = {
     {sipName_GetMouseDwellTime, meth_wxStyledTextCtrl_GetMouseDwellTime, METH_VARARGS, doc_wxStyledTextCtrl_GetMouseDwellTime},
     {sipName_GetMouseSelectionRectangularSwitch, meth_wxStyledTextCtrl_GetMouseSelectionRectangularSwitch, METH_VARARGS, doc_wxStyledTextCtrl_GetMouseSelectionRectangularSwitch},
     {sipName_GetMouseWheelCaptures, meth_wxStyledTextCtrl_GetMouseWheelCaptures, METH_VARARGS, doc_wxStyledTextCtrl_GetMouseWheelCaptures},
+    {sipName_GetMoveExtendsSelection, meth_wxStyledTextCtrl_GetMoveExtendsSelection, METH_VARARGS, doc_wxStyledTextCtrl_GetMoveExtendsSelection},
+    {sipName_GetMultiEdgeColumn, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_GetMultiEdgeColumn), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_GetMultiEdgeColumn},
     {sipName_GetMultiPaste, meth_wxStyledTextCtrl_GetMultiPaste, METH_VARARGS, doc_wxStyledTextCtrl_GetMultiPaste},
     {sipName_GetMultipleSelection, meth_wxStyledTextCtrl_GetMultipleSelection, METH_VARARGS, doc_wxStyledTextCtrl_GetMultipleSelection},
+    {sipName_GetNamedStyles, meth_wxStyledTextCtrl_GetNamedStyles, METH_VARARGS, doc_wxStyledTextCtrl_GetNamedStyles},
     {sipName_GetNextTabStop, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_GetNextTabStop), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_GetNextTabStop},
     {sipName_GetNumberOfLines, meth_wxStyledTextCtrl_GetNumberOfLines, METH_VARARGS, doc_wxStyledTextCtrl_GetNumberOfLines},
     {sipName_GetOvertype, meth_wxStyledTextCtrl_GetOvertype, METH_VARARGS, doc_wxStyledTextCtrl_GetOvertype},
@@ -32272,6 +34168,7 @@ static PyMethodDef methods_wxStyledTextCtrl[] = {
     {sipName_GetPropertyExpanded, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_GetPropertyExpanded), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_GetPropertyExpanded},
     {sipName_GetPropertyInt, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_GetPropertyInt), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_GetPropertyInt},
     {sipName_GetPunctuationChars, meth_wxStyledTextCtrl_GetPunctuationChars, METH_VARARGS, doc_wxStyledTextCtrl_GetPunctuationChars},
+    {sipName_GetRTFValue, meth_wxStyledTextCtrl_GetRTFValue, METH_VARARGS, doc_wxStyledTextCtrl_GetRTFValue},
     {sipName_GetRange, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_GetRange), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_GetRange},
     {sipName_GetRangePointer, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_GetRangePointer), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_GetRangePointer},
     {sipName_GetReadOnly, meth_wxStyledTextCtrl_GetReadOnly, METH_VARARGS, doc_wxStyledTextCtrl_GetReadOnly},
@@ -32299,7 +34196,9 @@ static PyMethodDef methods_wxStyledTextCtrl[] = {
     {sipName_GetSelectionNCaret, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_GetSelectionNCaret), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_GetSelectionNCaret},
     {sipName_GetSelectionNCaretVirtualSpace, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_GetSelectionNCaretVirtualSpace), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_GetSelectionNCaretVirtualSpace},
     {sipName_GetSelectionNEnd, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_GetSelectionNEnd), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_GetSelectionNEnd},
+    {sipName_GetSelectionNEndVirtualSpace, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_GetSelectionNEndVirtualSpace), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_GetSelectionNEndVirtualSpace},
     {sipName_GetSelectionNStart, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_GetSelectionNStart), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_GetSelectionNStart},
+    {sipName_GetSelectionNStartVirtualSpace, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_GetSelectionNStartVirtualSpace), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_GetSelectionNStartVirtualSpace},
     {sipName_GetSelectionStart, meth_wxStyledTextCtrl_GetSelectionStart, METH_VARARGS, doc_wxStyledTextCtrl_GetSelectionStart},
     {sipName_GetSelections, meth_wxStyledTextCtrl_GetSelections, METH_VARARGS, doc_wxStyledTextCtrl_GetSelections},
     {sipName_GetStatus, meth_wxStyledTextCtrl_GetStatus, METH_VARARGS, doc_wxStyledTextCtrl_GetStatus},
@@ -32315,10 +34214,13 @@ static PyMethodDef methods_wxStyledTextCtrl[] = {
     {sipName_GetSubStylesStart, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_GetSubStylesStart), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_GetSubStylesStart},
     {sipName_GetTabDrawMode, meth_wxStyledTextCtrl_GetTabDrawMode, METH_VARARGS, doc_wxStyledTextCtrl_GetTabDrawMode},
     {sipName_GetTabIndents, meth_wxStyledTextCtrl_GetTabIndents, METH_VARARGS, doc_wxStyledTextCtrl_GetTabIndents},
+    {sipName_GetTabMinimumWidth, meth_wxStyledTextCtrl_GetTabMinimumWidth, METH_VARARGS, doc_wxStyledTextCtrl_GetTabMinimumWidth},
     {sipName_GetTabWidth, meth_wxStyledTextCtrl_GetTabWidth, METH_VARARGS, doc_wxStyledTextCtrl_GetTabWidth},
     {sipName_GetTag, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_GetTag), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_GetTag},
     {sipName_GetTargetEnd, meth_wxStyledTextCtrl_GetTargetEnd, METH_VARARGS, doc_wxStyledTextCtrl_GetTargetEnd},
+    {sipName_GetTargetEndVirtualSpace, meth_wxStyledTextCtrl_GetTargetEndVirtualSpace, METH_VARARGS, doc_wxStyledTextCtrl_GetTargetEndVirtualSpace},
     {sipName_GetTargetStart, meth_wxStyledTextCtrl_GetTargetStart, METH_VARARGS, doc_wxStyledTextCtrl_GetTargetStart},
+    {sipName_GetTargetStartVirtualSpace, meth_wxStyledTextCtrl_GetTargetStartVirtualSpace, METH_VARARGS, doc_wxStyledTextCtrl_GetTargetStartVirtualSpace},
     {sipName_GetTargetText, meth_wxStyledTextCtrl_GetTargetText, METH_VARARGS, doc_wxStyledTextCtrl_GetTargetText},
     {sipName_GetTargetTextRaw, meth_wxStyledTextCtrl_GetTargetTextRaw, METH_VARARGS, doc_wxStyledTextCtrl_GetTargetTextRaw},
     {sipName_GetTechnology, meth_wxStyledTextCtrl_GetTechnology, METH_VARARGS, doc_wxStyledTextCtrl_GetTechnology},
@@ -32388,6 +34290,7 @@ static PyMethodDef methods_wxStyledTextCtrl[] = {
     {sipName_IsEditable, meth_wxStyledTextCtrl_IsEditable, METH_VARARGS, doc_wxStyledTextCtrl_IsEditable},
     {sipName_IsEmpty, meth_wxStyledTextCtrl_IsEmpty, METH_VARARGS, doc_wxStyledTextCtrl_IsEmpty},
     {sipName_IsModified, meth_wxStyledTextCtrl_IsModified, METH_VARARGS, doc_wxStyledTextCtrl_IsModified},
+    {sipName_IsRTFSupported, meth_wxStyledTextCtrl_IsRTFSupported, METH_VARARGS, doc_wxStyledTextCtrl_IsRTFSupported},
     {sipName_IsRangeWord, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_IsRangeWord), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_IsRangeWord},
     {sipName_LineCopy, meth_wxStyledTextCtrl_LineCopy, METH_VARARGS, doc_wxStyledTextCtrl_LineCopy},
     {sipName_LineCut, meth_wxStyledTextCtrl_LineCut, METH_VARARGS, doc_wxStyledTextCtrl_LineCut},
@@ -32405,6 +34308,7 @@ static PyMethodDef methods_wxStyledTextCtrl[] = {
     {sipName_LineEndWrapExtend, meth_wxStyledTextCtrl_LineEndWrapExtend, METH_VARARGS, doc_wxStyledTextCtrl_LineEndWrapExtend},
     {sipName_LineFromPosition, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_LineFromPosition), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_LineFromPosition},
     {sipName_LineLength, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_LineLength), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_LineLength},
+    {sipName_LineReverse, meth_wxStyledTextCtrl_LineReverse, METH_VARARGS, doc_wxStyledTextCtrl_LineReverse},
     {sipName_LineScroll, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_LineScroll), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_LineScroll},
     {sipName_LineScrollDown, meth_wxStyledTextCtrl_LineScrollDown, METH_VARARGS, doc_wxStyledTextCtrl_LineScrollDown},
     {sipName_LineScrollUp, meth_wxStyledTextCtrl_LineScrollUp, METH_VARARGS, doc_wxStyledTextCtrl_LineScrollUp},
@@ -32438,8 +34342,10 @@ static PyMethodDef methods_wxStyledTextCtrl[] = {
     {sipName_MarkerDeleteHandle, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_MarkerDeleteHandle), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_MarkerDeleteHandle},
     {sipName_MarkerEnableHighlight, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_MarkerEnableHighlight), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_MarkerEnableHighlight},
     {sipName_MarkerGet, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_MarkerGet), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_MarkerGet},
+    {sipName_MarkerHandleFromLine, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_MarkerHandleFromLine), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_MarkerHandleFromLine},
     {sipName_MarkerLineFromHandle, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_MarkerLineFromHandle), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_MarkerLineFromHandle},
     {sipName_MarkerNext, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_MarkerNext), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_MarkerNext},
+    {sipName_MarkerNumberFromLine, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_MarkerNumberFromLine), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_MarkerNumberFromLine},
     {sipName_MarkerPrevious, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_MarkerPrevious), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_MarkerPrevious},
     {sipName_MarkerSetAlpha, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_MarkerSetAlpha), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_MarkerSetAlpha},
     {sipName_MarkerSetBackground, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_MarkerSetBackground), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_MarkerSetBackground},
@@ -32452,6 +34358,7 @@ static PyMethodDef methods_wxStyledTextCtrl[] = {
     {sipName_MultiEdgeClearAll, meth_wxStyledTextCtrl_MultiEdgeClearAll, METH_VARARGS, doc_wxStyledTextCtrl_MultiEdgeClearAll},
     {sipName_MultipleSelectAddEach, meth_wxStyledTextCtrl_MultipleSelectAddEach, METH_VARARGS, doc_wxStyledTextCtrl_MultipleSelectAddEach},
     {sipName_MultipleSelectAddNext, meth_wxStyledTextCtrl_MultipleSelectAddNext, METH_VARARGS, doc_wxStyledTextCtrl_MultipleSelectAddNext},
+    {sipName_NameOfStyle, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_NameOfStyle), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_NameOfStyle},
     {sipName_NewLine, meth_wxStyledTextCtrl_NewLine, METH_VARARGS, doc_wxStyledTextCtrl_NewLine},
     {sipName_PageDown, meth_wxStyledTextCtrl_PageDown, METH_VARARGS, doc_wxStyledTextCtrl_PageDown},
     {sipName_PageDownExtend, meth_wxStyledTextCtrl_PageDownExtend, METH_VARARGS, doc_wxStyledTextCtrl_PageDownExtend},
@@ -32471,6 +34378,7 @@ static PyMethodDef methods_wxStyledTextCtrl[] = {
     {sipName_PositionFromPoint, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_PositionFromPoint), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_PositionFromPoint},
     {sipName_PositionFromPointClose, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_PositionFromPointClose), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_PositionFromPointClose},
     {sipName_PositionRelative, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_PositionRelative), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_PositionRelative},
+    {sipName_PositionRelativeCodeUnits, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_PositionRelativeCodeUnits), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_PositionRelativeCodeUnits},
     {sipName_PositionToCoords, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_PositionToCoords), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_PositionToCoords},
     {sipName_PositionToXY, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_PositionToXY), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_PositionToXY},
     {sipName_PrivateLexerCall, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_PrivateLexerCall), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_PrivateLexerCall},
@@ -32504,12 +34412,14 @@ static PyMethodDef methods_wxStyledTextCtrl[] = {
     {sipName_SearchInTarget, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SearchInTarget), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SearchInTarget},
     {sipName_SearchNext, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SearchNext), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SearchNext},
     {sipName_SearchPrev, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SearchPrev), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SearchPrev},
+    {sipName_SearchText, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SearchText), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SearchText},
     {sipName_SelectAll, meth_wxStyledTextCtrl_SelectAll, METH_VARARGS, doc_wxStyledTextCtrl_SelectAll},
     {sipName_SelectNone, meth_wxStyledTextCtrl_SelectNone, METH_VARARGS, doc_wxStyledTextCtrl_SelectNone},
     {sipName_SelectionDuplicate, meth_wxStyledTextCtrl_SelectionDuplicate, METH_VARARGS, doc_wxStyledTextCtrl_SelectionDuplicate},
     {sipName_SelectionIsRectangle, meth_wxStyledTextCtrl_SelectionIsRectangle, METH_VARARGS, doc_wxStyledTextCtrl_SelectionIsRectangle},
     {sipName_SendDestroyEvent, meth_wxStyledTextCtrl_SendDestroyEvent, METH_VARARGS, SIP_NULLPTR},
     {sipName_SendMsg, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SendMsg), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SendMsg},
+    {sipName_SetAccessibility, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetAccessibility), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetAccessibility},
     {sipName_SetAdditionalCaretForeground, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetAdditionalCaretForeground), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetAdditionalCaretForeground},
     {sipName_SetAdditionalCaretsBlink, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetAdditionalCaretsBlink), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetAdditionalCaretsBlink},
     {sipName_SetAdditionalCaretsVisible, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetAdditionalCaretsVisible), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetAdditionalCaretsVisible},
@@ -32524,16 +34434,21 @@ static PyMethodDef methods_wxStyledTextCtrl[] = {
     {sipName_SetCaretForeground, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetCaretForeground), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetCaretForeground},
     {sipName_SetCaretLineBackAlpha, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetCaretLineBackAlpha), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetCaretLineBackAlpha},
     {sipName_SetCaretLineBackground, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetCaretLineBackground), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetCaretLineBackground},
+    {sipName_SetCaretLineFrame, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetCaretLineFrame), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetCaretLineFrame},
     {sipName_SetCaretLineVisible, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetCaretLineVisible), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetCaretLineVisible},
     {sipName_SetCaretLineVisibleAlways, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetCaretLineVisibleAlways), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetCaretLineVisibleAlways},
     {sipName_SetCaretPeriod, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetCaretPeriod), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetCaretPeriod},
     {sipName_SetCaretSticky, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetCaretSticky), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetCaretSticky},
     {sipName_SetCaretStyle, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetCaretStyle), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetCaretStyle},
     {sipName_SetCaretWidth, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetCaretWidth), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetCaretWidth},
+    {sipName_SetCharacterCategoryOptimization, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetCharacterCategoryOptimization), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetCharacterCategoryOptimization},
     {sipName_SetCharsDefault, meth_wxStyledTextCtrl_SetCharsDefault, METH_VARARGS, doc_wxStyledTextCtrl_SetCharsDefault},
     {sipName_SetCodePage, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetCodePage), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetCodePage},
+    {sipName_SetCommandEvents, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetCommandEvents), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetCommandEvents},
     {sipName_SetControlCharSymbol, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetControlCharSymbol), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetControlCharSymbol},
     {sipName_SetCurrentPos, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetCurrentPos), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetCurrentPos},
+    {sipName_SetCustomDrawn, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetCustomDrawn), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetCustomDrawn},
+    {sipName_SetDefaultFoldDisplayText, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetDefaultFoldDisplayText), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetDefaultFoldDisplayText},
     {sipName_SetDefaultStyle, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetDefaultStyle), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetDefaultStyle},
     {sipName_SetDocPointer, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetDocPointer), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetDocPointer},
     {sipName_SetEOLMode, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetEOLMode), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetEOLMode},
@@ -32559,6 +34474,7 @@ static PyMethodDef methods_wxStyledTextCtrl[] = {
     {sipName_SetHotspotActiveForeground, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetHotspotActiveForeground), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetHotspotActiveForeground},
     {sipName_SetHotspotActiveUnderline, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetHotspotActiveUnderline), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetHotspotActiveUnderline},
     {sipName_SetHotspotSingleLine, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetHotspotSingleLine), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetHotspotSingleLine},
+    {sipName_SetILexer, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetILexer), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetILexer},
     {sipName_SetIMEInteraction, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetIMEInteraction), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetIMEInteraction},
     {sipName_SetIdentifier, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetIdentifier), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetIdentifier},
     {sipName_SetIdentifiers, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetIdentifiers), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetIdentifiers},
@@ -32590,6 +34506,7 @@ static PyMethodDef methods_wxStyledTextCtrl[] = {
     {sipName_SetMarginWidth, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetMarginWidth), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetMarginWidth},
     {sipName_SetMargins, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetMargins), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetMargins},
     {sipName_SetMaxLength, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetMaxLength), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetMaxLength},
+    {sipName_SetMirrorCtrl, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetMirrorCtrl), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetMirrorCtrl},
     {sipName_SetModEventMask, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetModEventMask), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetModEventMask},
     {sipName_SetModified, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetModified), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetModified},
     {sipName_SetMouseDownCaptures, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetMouseDownCaptures), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetMouseDownCaptures},
@@ -32607,6 +34524,7 @@ static PyMethodDef methods_wxStyledTextCtrl[] = {
     {sipName_SetPrintWrapMode, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetPrintWrapMode), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetPrintWrapMode},
     {sipName_SetProperty, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetProperty), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetProperty},
     {sipName_SetPunctuationChars, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetPunctuationChars), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetPunctuationChars},
+    {sipName_SetRTFValue, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetRTFValue), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetRTFValue},
     {sipName_SetReadOnly, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetReadOnly), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetReadOnly},
     {sipName_SetRectangularSelectionAnchor, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetRectangularSelectionAnchor), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetRectangularSelectionAnchor},
     {sipName_SetRectangularSelectionAnchorVirtualSpace, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetRectangularSelectionAnchorVirtualSpace), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetRectangularSelectionAnchorVirtualSpace},
@@ -32641,10 +34559,13 @@ static PyMethodDef methods_wxStyledTextCtrl[] = {
     {sipName_SetStyling, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetStyling), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetStyling},
     {sipName_SetTabDrawMode, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetTabDrawMode), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetTabDrawMode},
     {sipName_SetTabIndents, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetTabIndents), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetTabIndents},
+    {sipName_SetTabMinimumWidth, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetTabMinimumWidth), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetTabMinimumWidth},
     {sipName_SetTabWidth, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetTabWidth), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetTabWidth},
     {sipName_SetTargetEnd, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetTargetEnd), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetTargetEnd},
+    {sipName_SetTargetEndVirtualSpace, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetTargetEndVirtualSpace), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetTargetEndVirtualSpace},
     {sipName_SetTargetRange, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetTargetRange), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetTargetRange},
     {sipName_SetTargetStart, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetTargetStart), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetTargetStart},
+    {sipName_SetTargetStartVirtualSpace, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetTargetStartVirtualSpace), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetTargetStartVirtualSpace},
     {sipName_SetTechnology, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetTechnology), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetTechnology},
     {sipName_SetText, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetText), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetText},
     {sipName_SetTextRaw, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_SetTextRaw), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_SetTextRaw},
@@ -32722,6 +34643,7 @@ static PyMethodDef methods_wxStyledTextCtrl[] = {
     {sipName_StyleSetWeight, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_StyleSetWeight), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_StyleSetWeight},
     {sipName_SwapMainAnchorCaret, meth_wxStyledTextCtrl_SwapMainAnchorCaret, METH_VARARGS, doc_wxStyledTextCtrl_SwapMainAnchorCaret},
     {sipName_Tab, meth_wxStyledTextCtrl_Tab, METH_VARARGS, doc_wxStyledTextCtrl_Tab},
+    {sipName_TagsOfStyle, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_TagsOfStyle), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_TagsOfStyle},
     {sipName_TargetFromSelection, meth_wxStyledTextCtrl_TargetFromSelection, METH_VARARGS, doc_wxStyledTextCtrl_TargetFromSelection},
     {sipName_TargetWholeDocument, meth_wxStyledTextCtrl_TargetWholeDocument, METH_VARARGS, doc_wxStyledTextCtrl_TargetWholeDocument},
     {sipName_TextHeight, SIP_MLMETH_CAST(meth_wxStyledTextCtrl_TextHeight), METH_VARARGS|METH_KEYWORDS, doc_wxStyledTextCtrl_TextHeight},
@@ -32768,152 +34690,165 @@ static PyMethodDef methods_wxStyledTextCtrl[] = {
 };
 
 sipVariableDef variables_wxStyledTextCtrl[] = {
-    {PropertyVariable, sipName_Zoom, &methods_wxStyledTextCtrl[369], &methods_wxStyledTextCtrl[696], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_XOffset, &methods_wxStyledTextCtrl[368], &methods_wxStyledTextCtrl[694], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_WrapVisualFlagsLocation, &methods_wxStyledTextCtrl[367], &methods_wxStyledTextCtrl[692], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_WrapVisualFlags, &methods_wxStyledTextCtrl[366], &methods_wxStyledTextCtrl[691], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_WrapStartIndent, &methods_wxStyledTextCtrl[365], &methods_wxStyledTextCtrl[690], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_WrapMode, &methods_wxStyledTextCtrl[364], &methods_wxStyledTextCtrl[689], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_WrapIndentMode, &methods_wxStyledTextCtrl[363], &methods_wxStyledTextCtrl[688], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_WordChars, &methods_wxStyledTextCtrl[362], &methods_wxStyledTextCtrl[687], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_WhitespaceSize, &methods_wxStyledTextCtrl[361], &methods_wxStyledTextCtrl[686], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_WhitespaceChars, &methods_wxStyledTextCtrl[360], &methods_wxStyledTextCtrl[684], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_VirtualSpaceOptions, &methods_wxStyledTextCtrl[359], &methods_wxStyledTextCtrl[681], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ViewWhiteSpace, &methods_wxStyledTextCtrl[358], &methods_wxStyledTextCtrl[680], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ViewEOL, &methods_wxStyledTextCtrl[357], &methods_wxStyledTextCtrl[679], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Value, &methods_wxStyledTextCtrl[356], &methods_wxStyledTextCtrl[678], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_UseVerticalScrollBar, &methods_wxStyledTextCtrl[355], &methods_wxStyledTextCtrl[676], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_UseTabs, &methods_wxStyledTextCtrl[354], &methods_wxStyledTextCtrl[675], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_UseHorizontalScrollBar, &methods_wxStyledTextCtrl[353], &methods_wxStyledTextCtrl[674], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_UseAntiAliasing, &methods_wxStyledTextCtrl[352], &methods_wxStyledTextCtrl[673], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_UndoCollection, &methods_wxStyledTextCtrl[351], &methods_wxStyledTextCtrl[672], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_TwoPhaseDraw, &methods_wxStyledTextCtrl[350], &methods_wxStyledTextCtrl[671], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_TextRaw, &methods_wxStyledTextCtrl[349], &methods_wxStyledTextCtrl[670], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_TextLength, &methods_wxStyledTextCtrl[346], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Text, &methods_wxStyledTextCtrl[345], &methods_wxStyledTextCtrl[669], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Technology, &methods_wxStyledTextCtrl[344], &methods_wxStyledTextCtrl[668], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_TargetTextRaw, &methods_wxStyledTextCtrl[343], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_TargetText, &methods_wxStyledTextCtrl[342], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_TargetStart, &methods_wxStyledTextCtrl[341], &methods_wxStyledTextCtrl[667], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_TargetEnd, &methods_wxStyledTextCtrl[340], &methods_wxStyledTextCtrl[665], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_TabWidth, &methods_wxStyledTextCtrl[338], &methods_wxStyledTextCtrl[664], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_TabIndents, &methods_wxStyledTextCtrl[337], &methods_wxStyledTextCtrl[663], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_TabDrawMode, &methods_wxStyledTextCtrl[336], &methods_wxStyledTextCtrl[662], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SubStyleBases, &methods_wxStyledTextCtrl[333], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_StyleBitsNeeded, &methods_wxStyledTextCtrl[330], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_StyleBits, &methods_wxStyledTextCtrl[329], &methods_wxStyledTextCtrl[659], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_StringSelection, &methods_wxStyledTextCtrl[326], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Status, &methods_wxStyledTextCtrl[325], &methods_wxStyledTextCtrl[657], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Selections, &methods_wxStyledTextCtrl[324], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelectionStart, &methods_wxStyledTextCtrl[323], &methods_wxStyledTextCtrl[656], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelectionMode, &methods_wxStyledTextCtrl[316], &methods_wxStyledTextCtrl[649], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelectionEnd, &methods_wxStyledTextCtrl[315], &methods_wxStyledTextCtrl[648], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelectionEmpty, &methods_wxStyledTextCtrl[314], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelectedTextRaw, &methods_wxStyledTextCtrl[312], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelectedText, &methods_wxStyledTextCtrl[311], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelEOLFilled, &methods_wxStyledTextCtrl[310], &methods_wxStyledTextCtrl[645], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelAlpha, &methods_wxStyledTextCtrl[309], &methods_wxStyledTextCtrl[643], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SearchFlags, &methods_wxStyledTextCtrl[308], &methods_wxStyledTextCtrl[642], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ScrollWidthTracking, &methods_wxStyledTextCtrl[307], &methods_wxStyledTextCtrl[641], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ScrollWidth, &methods_wxStyledTextCtrl[306], &methods_wxStyledTextCtrl[640], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_STCFocus, &methods_wxStyledTextCtrl[305], &methods_wxStyledTextCtrl[638], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_STCCursor, &methods_wxStyledTextCtrl[304], &methods_wxStyledTextCtrl[637], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_RectangularSelectionModifier, &methods_wxStyledTextCtrl[302], &methods_wxStyledTextCtrl[635], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_RectangularSelectionCaretVirtualSpace, &methods_wxStyledTextCtrl[301], &methods_wxStyledTextCtrl[634], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_RectangularSelectionCaret, &methods_wxStyledTextCtrl[300], &methods_wxStyledTextCtrl[633], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_RectangularSelectionAnchorVirtualSpace, &methods_wxStyledTextCtrl[299], &methods_wxStyledTextCtrl[632], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_RectangularSelectionAnchor, &methods_wxStyledTextCtrl[298], &methods_wxStyledTextCtrl[631], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ReadOnly, &methods_wxStyledTextCtrl[297], &methods_wxStyledTextCtrl[630], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_RangePointer, &methods_wxStyledTextCtrl[296], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_PunctuationChars, &methods_wxStyledTextCtrl[294], &methods_wxStyledTextCtrl[629], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_PrintWrapMode, &methods_wxStyledTextCtrl[290], &methods_wxStyledTextCtrl[627], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_PrintMagnification, &methods_wxStyledTextCtrl[289], &methods_wxStyledTextCtrl[626], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_PrintColourMode, &methods_wxStyledTextCtrl[288], &methods_wxStyledTextCtrl[625], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_PositionCacheSize, &methods_wxStyledTextCtrl[286], &methods_wxStyledTextCtrl[624], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_PhasesDraw, &methods_wxStyledTextCtrl[285], &methods_wxStyledTextCtrl[623], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_PasteConvertEndings, &methods_wxStyledTextCtrl[284], &methods_wxStyledTextCtrl[622], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Overtype, &methods_wxStyledTextCtrl[283], &methods_wxStyledTextCtrl[621], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_NumberOfLines, &methods_wxStyledTextCtrl[282], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_MultipleSelection, &methods_wxStyledTextCtrl[280], &methods_wxStyledTextCtrl[620], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_MultiPaste, &methods_wxStyledTextCtrl[279], &methods_wxStyledTextCtrl[619], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_MouseWheelCaptures, &methods_wxStyledTextCtrl[278], &methods_wxStyledTextCtrl[618], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_MouseSelectionRectangularSwitch, &methods_wxStyledTextCtrl[277], &methods_wxStyledTextCtrl[617], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_MouseDwellTime, &methods_wxStyledTextCtrl[276], &methods_wxStyledTextCtrl[616], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_MouseDownCaptures, &methods_wxStyledTextCtrl[275], &methods_wxStyledTextCtrl[615], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Modify, &methods_wxStyledTextCtrl[274], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ModEventMask, &methods_wxStyledTextCtrl[273], &methods_wxStyledTextCtrl[613], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_MaxLineState, &methods_wxStyledTextCtrl[272], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Margins, &methods_wxStyledTextCtrl[270], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_MarginRight, &methods_wxStyledTextCtrl[266], &methods_wxStyledTextCtrl[607], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_MarginOptions, &methods_wxStyledTextCtrl[265], &methods_wxStyledTextCtrl[606], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_MarginLeft, &methods_wxStyledTextCtrl[263], &methods_wxStyledTextCtrl[604], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_MarginCount, &methods_wxStyledTextCtrl[261], &methods_wxStyledTextCtrl[602], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_MainSelection, &methods_wxStyledTextCtrl[259], &methods_wxStyledTextCtrl[600], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_LineEndTypesSupported, &methods_wxStyledTextCtrl[249], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_LineEndTypesAllowed, &methods_wxStyledTextCtrl[248], &methods_wxStyledTextCtrl[597], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_LineEndTypesActive, &methods_wxStyledTextCtrl[247], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_LineCount, &methods_wxStyledTextCtrl[245], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_LexerLanguage, &methods_wxStyledTextCtrl[242], &methods_wxStyledTextCtrl[596], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Lexer, &methods_wxStyledTextCtrl[241], &methods_wxStyledTextCtrl[595], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Length, &methods_wxStyledTextCtrl[240], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_LayoutCache, &methods_wxStyledTextCtrl[239], &methods_wxStyledTextCtrl[594], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_LastPosition, &methods_wxStyledTextCtrl[238], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_LastKeydownProcessed, &methods_wxStyledTextCtrl[237], &methods_wxStyledTextCtrl[593], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_InsertionPoint, &methods_wxStyledTextCtrl[235], &methods_wxStyledTextCtrl[590], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_IndicatorValue, &methods_wxStyledTextCtrl[234], &methods_wxStyledTextCtrl[589], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_IndicatorCurrent, &methods_wxStyledTextCtrl[233], &methods_wxStyledTextCtrl[588], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_IndentationGuides, &methods_wxStyledTextCtrl[232], &methods_wxStyledTextCtrl[587], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Indent, &methods_wxStyledTextCtrl[231], &methods_wxStyledTextCtrl[586], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_IdleStyling, &methods_wxStyledTextCtrl[230], &methods_wxStyledTextCtrl[585], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Identifier, &methods_wxStyledTextCtrl[229], &methods_wxStyledTextCtrl[583], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_IMEInteraction, &methods_wxStyledTextCtrl[228], &methods_wxStyledTextCtrl[582], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_HotspotSingleLine, &methods_wxStyledTextCtrl[227], &methods_wxStyledTextCtrl[581], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_HotspotActiveUnderline, &methods_wxStyledTextCtrl[226], &methods_wxStyledTextCtrl[580], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_HotspotActiveForeground, &methods_wxStyledTextCtrl[225], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_HotspotActiveBackground, &methods_wxStyledTextCtrl[224], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Hint, &methods_wxStyledTextCtrl[223], &methods_wxStyledTextCtrl[577], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_HighlightGuide, &methods_wxStyledTextCtrl[222], &methods_wxStyledTextCtrl[576], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_GapPosition, &methods_wxStyledTextCtrl[221], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_FontQuality, &methods_wxStyledTextCtrl[220], &methods_wxStyledTextCtrl[574], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_FirstVisibleLine, &methods_wxStyledTextCtrl[216], &methods_wxStyledTextCtrl[568], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ExtraDescent, &methods_wxStyledTextCtrl[215], &methods_wxStyledTextCtrl[567], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ExtraAscent, &methods_wxStyledTextCtrl[214], &methods_wxStyledTextCtrl[566], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_EndStyled, &methods_wxStyledTextCtrl[213], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_EndAtLastLine, &methods_wxStyledTextCtrl[212], &methods_wxStyledTextCtrl[565], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_EdgeMode, &methods_wxStyledTextCtrl[211], &methods_wxStyledTextCtrl[562], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_EdgeColumn, &methods_wxStyledTextCtrl[210], &methods_wxStyledTextCtrl[561], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_EdgeColour, &methods_wxStyledTextCtrl[209], &methods_wxStyledTextCtrl[560], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_EOLMode, &methods_wxStyledTextCtrl[208], &methods_wxStyledTextCtrl[559], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DocPointer, &methods_wxStyledTextCtrl[207], &methods_wxStyledTextCtrl[558], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DirectPointer, &methods_wxStyledTextCtrl[206], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DirectFunction, &methods_wxStyledTextCtrl[205], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DefaultStyle, &methods_wxStyledTextCtrl[204], &methods_wxStyledTextCtrl[557], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CurrentPos, &methods_wxStyledTextCtrl[201], &methods_wxStyledTextCtrl[556], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CurrentLine, &methods_wxStyledTextCtrl[200], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CurLineRaw, &methods_wxStyledTextCtrl[199], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CurLine, &methods_wxStyledTextCtrl[198], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ControlCharSymbol, &methods_wxStyledTextCtrl[197], &methods_wxStyledTextCtrl[555], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CodePage, &methods_wxStyledTextCtrl[195], &methods_wxStyledTextCtrl[554], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CharacterPointer, &methods_wxStyledTextCtrl[193], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CaretWidth, &methods_wxStyledTextCtrl[191], &methods_wxStyledTextCtrl[552], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CaretStyle, &methods_wxStyledTextCtrl[190], &methods_wxStyledTextCtrl[551], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CaretSticky, &methods_wxStyledTextCtrl[189], &methods_wxStyledTextCtrl[550], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CaretPeriod, &methods_wxStyledTextCtrl[188], &methods_wxStyledTextCtrl[549], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CaretLineVisibleAlways, &methods_wxStyledTextCtrl[187], &methods_wxStyledTextCtrl[548], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CaretLineVisible, &methods_wxStyledTextCtrl[186], &methods_wxStyledTextCtrl[547], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CaretLineBackground, &methods_wxStyledTextCtrl[185], &methods_wxStyledTextCtrl[546], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CaretLineBackAlpha, &methods_wxStyledTextCtrl[184], &methods_wxStyledTextCtrl[545], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CaretForeground, &methods_wxStyledTextCtrl[183], &methods_wxStyledTextCtrl[544], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_BufferedDraw, &methods_wxStyledTextCtrl[182], &methods_wxStyledTextCtrl[543], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_BackSpaceUnIndents, &methods_wxStyledTextCtrl[181], &methods_wxStyledTextCtrl[542], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_AutomaticFold, &methods_wxStyledTextCtrl[180], &methods_wxStyledTextCtrl[541], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Anchor, &methods_wxStyledTextCtrl[179], &methods_wxStyledTextCtrl[540], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_AllLinesVisible, &methods_wxStyledTextCtrl[178], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_AdditionalSelectionTyping, &methods_wxStyledTextCtrl[177], &methods_wxStyledTextCtrl[539], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_AdditionalSelAlpha, &methods_wxStyledTextCtrl[176], &methods_wxStyledTextCtrl[536], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_AdditionalCaretsVisible, &methods_wxStyledTextCtrl[175], &methods_wxStyledTextCtrl[535], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_AdditionalCaretsBlink, &methods_wxStyledTextCtrl[174], &methods_wxStyledTextCtrl[534], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_AdditionalCaretForeground, &methods_wxStyledTextCtrl[173], &methods_wxStyledTextCtrl[533], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Zoom, &methods_wxStyledTextCtrl[398], &methods_wxStyledTextCtrl[744], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_XOffset, &methods_wxStyledTextCtrl[397], &methods_wxStyledTextCtrl[742], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_WrapVisualFlagsLocation, &methods_wxStyledTextCtrl[396], &methods_wxStyledTextCtrl[740], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_WrapVisualFlags, &methods_wxStyledTextCtrl[395], &methods_wxStyledTextCtrl[739], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_WrapStartIndent, &methods_wxStyledTextCtrl[394], &methods_wxStyledTextCtrl[738], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_WrapMode, &methods_wxStyledTextCtrl[393], &methods_wxStyledTextCtrl[737], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_WrapIndentMode, &methods_wxStyledTextCtrl[392], &methods_wxStyledTextCtrl[736], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_WordChars, &methods_wxStyledTextCtrl[391], &methods_wxStyledTextCtrl[735], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_WhitespaceSize, &methods_wxStyledTextCtrl[390], &methods_wxStyledTextCtrl[734], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_WhitespaceChars, &methods_wxStyledTextCtrl[389], &methods_wxStyledTextCtrl[732], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_VirtualSpaceOptions, &methods_wxStyledTextCtrl[388], &methods_wxStyledTextCtrl[729], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ViewWhiteSpace, &methods_wxStyledTextCtrl[387], &methods_wxStyledTextCtrl[728], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ViewEOL, &methods_wxStyledTextCtrl[386], &methods_wxStyledTextCtrl[727], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Value, &methods_wxStyledTextCtrl[385], &methods_wxStyledTextCtrl[726], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_UseVerticalScrollBar, &methods_wxStyledTextCtrl[384], &methods_wxStyledTextCtrl[724], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_UseTabs, &methods_wxStyledTextCtrl[383], &methods_wxStyledTextCtrl[723], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_UseHorizontalScrollBar, &methods_wxStyledTextCtrl[382], &methods_wxStyledTextCtrl[722], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_UseAntiAliasing, &methods_wxStyledTextCtrl[381], &methods_wxStyledTextCtrl[721], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_UndoCollection, &methods_wxStyledTextCtrl[380], &methods_wxStyledTextCtrl[720], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TwoPhaseDraw, &methods_wxStyledTextCtrl[379], &methods_wxStyledTextCtrl[719], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TextRaw, &methods_wxStyledTextCtrl[378], &methods_wxStyledTextCtrl[718], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TextLength, &methods_wxStyledTextCtrl[375], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Text, &methods_wxStyledTextCtrl[374], &methods_wxStyledTextCtrl[717], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Technology, &methods_wxStyledTextCtrl[373], &methods_wxStyledTextCtrl[716], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TargetTextRaw, &methods_wxStyledTextCtrl[372], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TargetText, &methods_wxStyledTextCtrl[371], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TargetStartVirtualSpace, &methods_wxStyledTextCtrl[370], &methods_wxStyledTextCtrl[715], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TargetStart, &methods_wxStyledTextCtrl[369], &methods_wxStyledTextCtrl[714], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TargetEndVirtualSpace, &methods_wxStyledTextCtrl[368], &methods_wxStyledTextCtrl[712], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TargetEnd, &methods_wxStyledTextCtrl[367], &methods_wxStyledTextCtrl[711], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TabWidth, &methods_wxStyledTextCtrl[365], &methods_wxStyledTextCtrl[710], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TabMinimumWidth, &methods_wxStyledTextCtrl[364], &methods_wxStyledTextCtrl[709], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TabIndents, &methods_wxStyledTextCtrl[363], &methods_wxStyledTextCtrl[708], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TabDrawMode, &methods_wxStyledTextCtrl[362], &methods_wxStyledTextCtrl[707], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SubStyleBases, &methods_wxStyledTextCtrl[359], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_StyleBitsNeeded, &methods_wxStyledTextCtrl[356], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_StyleBits, &methods_wxStyledTextCtrl[355], &methods_wxStyledTextCtrl[704], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_StringSelection, &methods_wxStyledTextCtrl[352], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Status, &methods_wxStyledTextCtrl[351], &methods_wxStyledTextCtrl[702], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Selections, &methods_wxStyledTextCtrl[350], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelectionStart, &methods_wxStyledTextCtrl[349], &methods_wxStyledTextCtrl[701], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelectionMode, &methods_wxStyledTextCtrl[340], &methods_wxStyledTextCtrl[694], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelectionEnd, &methods_wxStyledTextCtrl[339], &methods_wxStyledTextCtrl[693], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelectionEmpty, &methods_wxStyledTextCtrl[338], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelectedTextRaw, &methods_wxStyledTextCtrl[336], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelectedText, &methods_wxStyledTextCtrl[335], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelEOLFilled, &methods_wxStyledTextCtrl[334], &methods_wxStyledTextCtrl[690], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelAlpha, &methods_wxStyledTextCtrl[333], &methods_wxStyledTextCtrl[688], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SearchFlags, &methods_wxStyledTextCtrl[332], &methods_wxStyledTextCtrl[687], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ScrollWidthTracking, &methods_wxStyledTextCtrl[331], &methods_wxStyledTextCtrl[686], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ScrollWidth, &methods_wxStyledTextCtrl[330], &methods_wxStyledTextCtrl[685], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_STCFocus, &methods_wxStyledTextCtrl[329], &methods_wxStyledTextCtrl[683], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_STCCursor, &methods_wxStyledTextCtrl[328], &methods_wxStyledTextCtrl[682], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_RectangularSelectionModifier, &methods_wxStyledTextCtrl[326], &methods_wxStyledTextCtrl[680], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_RectangularSelectionCaretVirtualSpace, &methods_wxStyledTextCtrl[325], &methods_wxStyledTextCtrl[679], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_RectangularSelectionCaret, &methods_wxStyledTextCtrl[324], &methods_wxStyledTextCtrl[678], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_RectangularSelectionAnchorVirtualSpace, &methods_wxStyledTextCtrl[323], &methods_wxStyledTextCtrl[677], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_RectangularSelectionAnchor, &methods_wxStyledTextCtrl[322], &methods_wxStyledTextCtrl[676], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ReadOnly, &methods_wxStyledTextCtrl[321], &methods_wxStyledTextCtrl[675], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_RangePointer, &methods_wxStyledTextCtrl[320], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_RTFValue, &methods_wxStyledTextCtrl[318], &methods_wxStyledTextCtrl[674], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_PunctuationChars, &methods_wxStyledTextCtrl[317], &methods_wxStyledTextCtrl[673], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_PrintWrapMode, &methods_wxStyledTextCtrl[313], &methods_wxStyledTextCtrl[671], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_PrintMagnification, &methods_wxStyledTextCtrl[312], &methods_wxStyledTextCtrl[670], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_PrintColourMode, &methods_wxStyledTextCtrl[311], &methods_wxStyledTextCtrl[669], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_PositionCacheSize, &methods_wxStyledTextCtrl[309], &methods_wxStyledTextCtrl[668], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_PhasesDraw, &methods_wxStyledTextCtrl[308], &methods_wxStyledTextCtrl[667], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_PasteConvertEndings, &methods_wxStyledTextCtrl[307], &methods_wxStyledTextCtrl[666], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Overtype, &methods_wxStyledTextCtrl[306], &methods_wxStyledTextCtrl[665], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_NumberOfLines, &methods_wxStyledTextCtrl[305], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_NamedStyles, &methods_wxStyledTextCtrl[303], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_MultipleSelection, &methods_wxStyledTextCtrl[302], &methods_wxStyledTextCtrl[664], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_MultiPaste, &methods_wxStyledTextCtrl[301], &methods_wxStyledTextCtrl[663], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_MoveExtendsSelection, &methods_wxStyledTextCtrl[299], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_MouseWheelCaptures, &methods_wxStyledTextCtrl[298], &methods_wxStyledTextCtrl[662], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_MouseSelectionRectangularSwitch, &methods_wxStyledTextCtrl[297], &methods_wxStyledTextCtrl[661], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_MouseDwellTime, &methods_wxStyledTextCtrl[296], &methods_wxStyledTextCtrl[660], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_MouseDownCaptures, &methods_wxStyledTextCtrl[295], &methods_wxStyledTextCtrl[659], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Modify, &methods_wxStyledTextCtrl[294], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ModEventMask, &methods_wxStyledTextCtrl[293], &methods_wxStyledTextCtrl[657], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_MaxLineState, &methods_wxStyledTextCtrl[292], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Margins, &methods_wxStyledTextCtrl[290], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_MarginRight, &methods_wxStyledTextCtrl[286], &methods_wxStyledTextCtrl[650], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_MarginOptions, &methods_wxStyledTextCtrl[285], &methods_wxStyledTextCtrl[649], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_MarginLeft, &methods_wxStyledTextCtrl[283], &methods_wxStyledTextCtrl[647], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_MarginCount, &methods_wxStyledTextCtrl[281], &methods_wxStyledTextCtrl[645], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_MainSelection, &methods_wxStyledTextCtrl[279], &methods_wxStyledTextCtrl[643], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_LineEndTypesSupported, &methods_wxStyledTextCtrl[269], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_LineEndTypesAllowed, &methods_wxStyledTextCtrl[268], &methods_wxStyledTextCtrl[640], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_LineEndTypesActive, &methods_wxStyledTextCtrl[267], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_LineCount, &methods_wxStyledTextCtrl[265], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_LexerLanguage, &methods_wxStyledTextCtrl[262], &methods_wxStyledTextCtrl[639], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Lexer, &methods_wxStyledTextCtrl[261], &methods_wxStyledTextCtrl[638], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Length, &methods_wxStyledTextCtrl[260], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_LayoutCache, &methods_wxStyledTextCtrl[259], &methods_wxStyledTextCtrl[637], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_LastPosition, &methods_wxStyledTextCtrl[258], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_LastKeydownProcessed, &methods_wxStyledTextCtrl[257], &methods_wxStyledTextCtrl[636], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_InsertionPoint, &methods_wxStyledTextCtrl[255], &methods_wxStyledTextCtrl[633], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_IndicatorValue, &methods_wxStyledTextCtrl[254], &methods_wxStyledTextCtrl[632], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_IndicatorCurrent, &methods_wxStyledTextCtrl[253], &methods_wxStyledTextCtrl[631], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_IndentationGuides, &methods_wxStyledTextCtrl[252], &methods_wxStyledTextCtrl[630], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Indent, &methods_wxStyledTextCtrl[251], &methods_wxStyledTextCtrl[629], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_IdleStyling, &methods_wxStyledTextCtrl[250], &methods_wxStyledTextCtrl[628], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Identifier, &methods_wxStyledTextCtrl[249], &methods_wxStyledTextCtrl[626], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_IMEInteraction, &methods_wxStyledTextCtrl[248], &methods_wxStyledTextCtrl[625], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_HotspotSingleLine, &methods_wxStyledTextCtrl[247], &methods_wxStyledTextCtrl[623], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_HotspotActiveUnderline, &methods_wxStyledTextCtrl[246], &methods_wxStyledTextCtrl[622], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_HotspotActiveForeground, &methods_wxStyledTextCtrl[245], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_HotspotActiveBackground, &methods_wxStyledTextCtrl[244], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Hint, &methods_wxStyledTextCtrl[243], &methods_wxStyledTextCtrl[619], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_HighlightGuide, &methods_wxStyledTextCtrl[242], &methods_wxStyledTextCtrl[618], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_GapPosition, &methods_wxStyledTextCtrl[241], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_FontQuality, &methods_wxStyledTextCtrl[240], &methods_wxStyledTextCtrl[616], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_FirstVisibleLine, &methods_wxStyledTextCtrl[236], &methods_wxStyledTextCtrl[610], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ExtraDescent, &methods_wxStyledTextCtrl[235], &methods_wxStyledTextCtrl[609], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ExtraAscent, &methods_wxStyledTextCtrl[234], &methods_wxStyledTextCtrl[608], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_EndStyled, &methods_wxStyledTextCtrl[233], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_EndAtLastLine, &methods_wxStyledTextCtrl[232], &methods_wxStyledTextCtrl[607], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_EdgeMode, &methods_wxStyledTextCtrl[231], &methods_wxStyledTextCtrl[604], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_EdgeColumn, &methods_wxStyledTextCtrl[230], &methods_wxStyledTextCtrl[603], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_EdgeColour, &methods_wxStyledTextCtrl[229], &methods_wxStyledTextCtrl[602], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_EOLMode, &methods_wxStyledTextCtrl[228], &methods_wxStyledTextCtrl[601], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DocumentOptions, &methods_wxStyledTextCtrl[227], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DocPointer, &methods_wxStyledTextCtrl[226], &methods_wxStyledTextCtrl[600], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DisplayLineCount, &methods_wxStyledTextCtrl[225], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DirectPointer, &methods_wxStyledTextCtrl[224], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DirectFunction, &methods_wxStyledTextCtrl[223], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DefaultStyle, &methods_wxStyledTextCtrl[222], &methods_wxStyledTextCtrl[599], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DefaultFoldDisplayText, &methods_wxStyledTextCtrl[221], &methods_wxStyledTextCtrl[598], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CurrentPos, &methods_wxStyledTextCtrl[219], &methods_wxStyledTextCtrl[596], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CurrentLine, &methods_wxStyledTextCtrl[218], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CurLineRaw, &methods_wxStyledTextCtrl[217], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CurLine, &methods_wxStyledTextCtrl[216], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ControlCharSymbol, &methods_wxStyledTextCtrl[215], &methods_wxStyledTextCtrl[595], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CommandEvents, &methods_wxStyledTextCtrl[214], &methods_wxStyledTextCtrl[594], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CodePage, &methods_wxStyledTextCtrl[212], &methods_wxStyledTextCtrl[593], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CharacterPointer, &methods_wxStyledTextCtrl[210], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CharacterCategoryOptimization, &methods_wxStyledTextCtrl[209], &methods_wxStyledTextCtrl[591], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CaretWidth, &methods_wxStyledTextCtrl[207], &methods_wxStyledTextCtrl[590], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CaretStyle, &methods_wxStyledTextCtrl[206], &methods_wxStyledTextCtrl[589], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CaretSticky, &methods_wxStyledTextCtrl[205], &methods_wxStyledTextCtrl[588], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CaretPeriod, &methods_wxStyledTextCtrl[204], &methods_wxStyledTextCtrl[587], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CaretLineVisibleAlways, &methods_wxStyledTextCtrl[203], &methods_wxStyledTextCtrl[586], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CaretLineVisible, &methods_wxStyledTextCtrl[202], &methods_wxStyledTextCtrl[585], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CaretLineFrame, &methods_wxStyledTextCtrl[201], &methods_wxStyledTextCtrl[584], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CaretLineBackground, &methods_wxStyledTextCtrl[200], &methods_wxStyledTextCtrl[583], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CaretLineBackAlpha, &methods_wxStyledTextCtrl[199], &methods_wxStyledTextCtrl[582], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CaretForeground, &methods_wxStyledTextCtrl[198], &methods_wxStyledTextCtrl[581], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_BufferedDraw, &methods_wxStyledTextCtrl[197], &methods_wxStyledTextCtrl[580], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_BackSpaceUnIndents, &methods_wxStyledTextCtrl[196], &methods_wxStyledTextCtrl[579], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_AutomaticFold, &methods_wxStyledTextCtrl[195], &methods_wxStyledTextCtrl[578], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Anchor, &methods_wxStyledTextCtrl[194], &methods_wxStyledTextCtrl[577], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_AllLinesVisible, &methods_wxStyledTextCtrl[193], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_AdditionalSelectionTyping, &methods_wxStyledTextCtrl[192], &methods_wxStyledTextCtrl[576], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_AdditionalSelAlpha, &methods_wxStyledTextCtrl[191], &methods_wxStyledTextCtrl[573], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_AdditionalCaretsVisible, &methods_wxStyledTextCtrl[190], &methods_wxStyledTextCtrl[572], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_AdditionalCaretsBlink, &methods_wxStyledTextCtrl[189], &methods_wxStyledTextCtrl[571], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_AdditionalCaretForeground, &methods_wxStyledTextCtrl[188], &methods_wxStyledTextCtrl[570], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Accessibility, &methods_wxStyledTextCtrl[187], &methods_wxStyledTextCtrl[569], SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxStyledTextCtrl, "StyledTextCtrl(parent, id=ID_ANY, pos=DefaultPosition, size=DefaultSize, style=0, name=STCNameStr) -> None\n"
@@ -32936,9 +34871,9 @@ sipClassTypeDef sipTypeDef__stc_wxStyledTextCtrl = {
     {
         sipNameNr_StyledTextCtrl,
         {0, 0, 1},
-        788, methods_wxStyledTextCtrl,
+        837, methods_wxStyledTextCtrl,
         0, SIP_NULLPTR,
-        146, variables_wxStyledTextCtrl,
+        159, variables_wxStyledTextCtrl,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxStyledTextCtrl,

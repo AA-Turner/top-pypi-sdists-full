@@ -678,7 +678,7 @@ static void *init_type_wxImageList(sipSimpleWrapper *, PyObject *sipArgs, PyObje
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxImageList[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxImageList[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxImageList[] = {

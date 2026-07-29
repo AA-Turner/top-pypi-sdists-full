@@ -2,7 +2,6 @@
 // Name:        src/osx/stattext_osx.cpp
 // Purpose:     wxStaticText
 // Author:      Stefan Csomor
-// Modified by:
 // Created:     04/01/98
 // Copyright:   (c) Stefan Csomor
 // Licence:     wxWindows licence
@@ -34,9 +33,9 @@ bool wxStaticText::Create( wxWindow *parent,
     const wxSize& size,
     long style,
     const wxString& name )
-{    
+{
     DontCreatePeer();
-    
+
     if ( !wxControl::Create( parent, id, pos, size, style, wxDefaultValidator, name ) )
         return false;
 
@@ -58,10 +57,8 @@ bool wxStaticText::Create( wxWindow *parent,
 
 void wxStaticText::SetLabel(const wxString& label)
 {
-    if ( label == m_labelOrig )
+    if ( !UpdateLabelOrig(label) )
         return;
-
-    m_labelOrig = label;
 
     // middle/end ellipsization is handled by the OS:
     if ( HasFlag(wxST_ELLIPSIZE_END) || HasFlag(wxST_ELLIPSIZE_MIDDLE)
@@ -101,7 +98,7 @@ bool wxStaticText::SetFont(const wxFont& font)
 void wxStaticText::WXSetVisibleLabel(const wxString& label)
 {
     m_label = RemoveMnemonics(label);
-    GetPeer()->SetLabel(m_label , GetFont().GetEncoding() );
+    GetPeer()->SetLabel(m_label);
 }
 
 #if wxUSE_MARKUP && wxOSX_USE_COCOA

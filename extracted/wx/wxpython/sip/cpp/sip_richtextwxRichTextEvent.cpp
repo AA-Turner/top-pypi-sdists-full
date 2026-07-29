@@ -831,7 +831,7 @@ static void *init_type_wxRichTextEvent(sipSimpleWrapper *sipSelf, PyObject *sipA
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxRichTextEvent[] = {{41, 0, 1}};
+static sipEncodedTypeDef supers_wxRichTextEvent[] = {{42, 0, 1}};
 
 
 static PyMethodDef methods_wxRichTextEvent[] = {

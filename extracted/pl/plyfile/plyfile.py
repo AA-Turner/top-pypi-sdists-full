@@ -1,4 +1,4 @@
-#   Copyright 2014-2025 Darsh Ranjan and plyfile authors.
+#   Copyright 2014-2026 Darsh Ranjan and plyfile authors.
 #
 #   This file is part of python-plyfile.
 #
@@ -515,10 +515,10 @@ class PlyElement(object):
             list_prop_names = set(p.name for p in self.properties
                                   if isinstance(p, PlyListProperty))
             can_mmap_lists = list_prop_names <= set(known_list_len)
-            if mmap and _can_mmap(stream) and can_mmap_lists:
+            mmap_mode = mmap if isinstance(mmap, str) else 'c'
+            if mmap and _can_mmap(stream, mmap_mode) and can_mmap_lists:
                 # Loading the data is straightforward.  We will memory
-                # map the file in copy-on-write mode.
-                mmap_mode = mmap if isinstance(mmap, str) else 'c'
+                # map the file in the requested mode.
                 self._read_mmap(stream, byte_order, mmap_mode,
                                 known_list_len)
             else:
@@ -1434,7 +1434,7 @@ def _write_array(stream, array):
     stream.write(array.tobytes())
 
 
-def _can_mmap(stream):
+def _can_mmap(stream, mmap_mode='c'):
     """
     Determine if a readable stream can be memory-mapped, using some good
     heuristics.
@@ -1442,6 +1442,7 @@ def _can_mmap(stream):
     Parameters
     ----------
     stream : open binary file
+    mmap_mode : {'c', 'r', 'r+'}
 
     Returns
     -------
@@ -1450,7 +1451,7 @@ def _can_mmap(stream):
     try:
         pos = stream.tell()
         try:
-            _np.memmap(stream, 'u1', 'c')
+            _np.memmap(stream, 'u1', mmap_mode)
             stream.seek(pos)
             return True
         except Exception:

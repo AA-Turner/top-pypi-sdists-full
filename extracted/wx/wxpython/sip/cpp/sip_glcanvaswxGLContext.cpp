@@ -143,6 +143,38 @@ static PyObject *meth_wxGLContext_SetCurrent(PyObject *sipSelf, PyObject *sipArg
 }
 
 
+PyDoc_STRVAR(doc_wxGLContext_ClearCurrent, "ClearCurrent() -> None\n"
+"\n"
+"Clears any currently set context.");
+
+extern "C" {static PyObject *meth_wxGLContext_ClearCurrent(PyObject *, PyObject *);}
+static PyObject *meth_wxGLContext_ClearCurrent(PyObject *, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        if (sipParseArgs(&sipParseErr, sipArgs, ""))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            ::wxGLContext::ClearCurrent();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_GLContext, sipName_ClearCurrent, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 /* Cast a pointer to a type somewhere in its inheritance hierarchy. */
 extern "C" {static void *cast_wxGLContext(void *, const sipTypeDef *);}
 static void *cast_wxGLContext(void *sipCppV, const sipTypeDef *targetType)
@@ -194,8 +226,8 @@ static void *init_type_wxGLContext(sipSimpleWrapper *sipSelf, PyObject *sipArgs,
 
     {
         ::wxGLCanvas* win;
-        const ::wxGLContext* other = 0;
-        const ::wxGLContextAttrs* ctxAttrs = 0;
+        const ::wxGLContext* other = nullptr;
+        const ::wxGLContextAttrs* ctxAttrs = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_win,
@@ -230,15 +262,16 @@ static void *init_type_wxGLContext(sipSimpleWrapper *sipSelf, PyObject *sipArgs,
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGLContext[] = {{4, 0, 1}};
+static sipEncodedTypeDef supers_wxGLContext[] = {{5, 0, 1}};
 
 
 static PyMethodDef methods_wxGLContext[] = {
+    {sipName_ClearCurrent, meth_wxGLContext_ClearCurrent, METH_VARARGS, doc_wxGLContext_ClearCurrent},
     {sipName_IsOK, meth_wxGLContext_IsOK, METH_VARARGS, doc_wxGLContext_IsOK},
     {sipName_SetCurrent, SIP_MLMETH_CAST(meth_wxGLContext_SetCurrent), METH_VARARGS|METH_KEYWORDS, doc_wxGLContext_SetCurrent}
 };
 
-PyDoc_STRVAR(doc_wxGLContext, "GLContext(win, other=None, ctxAttrs=None) -> None\n"
+PyDoc_STRVAR(doc_wxGLContext, "GLContext(win, other=nullptr, ctxAttrs=nullptr) -> None\n"
 "\n"
 "An instance of a wxGLContext represents the state of an OpenGL state\n"
 "machine and the connection between OpenGL and the system.");
@@ -257,7 +290,7 @@ sipClassTypeDef sipTypeDef__glcanvas_wxGLContext = {
     {
         sipNameNr_GLContext,
         {0, 0, 1},
-        2, methods_wxGLContext,
+        3, methods_wxGLContext,
         0, SIP_NULLPTR,
         0, SIP_NULLPTR,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

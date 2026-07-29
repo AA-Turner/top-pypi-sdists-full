@@ -12,7 +12,7 @@
 
 
 
-PyDoc_STRVAR(doc_wxPGValidationInfo_GetFailureBehavior, "GetFailureBehavior() -> int");
+PyDoc_STRVAR(doc_wxPGValidationInfo_GetFailureBehavior, "GetFailureBehavior() -> PGVFBFlags");
 
 extern "C" {static PyObject *meth_wxPGValidationInfo_GetFailureBehavior(PyObject *, PyObject *);}
 static PyObject *meth_wxPGValidationInfo_GetFailureBehavior(PyObject *sipSelf, PyObject *sipArgs)
@@ -24,7 +24,7 @@ static PyObject *meth_wxPGValidationInfo_GetFailureBehavior(PyObject *sipSelf, P
 
         if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxPGValidationInfo, &sipCpp))
         {
-            ::byte sipRes;
+            ::wxPGVFBFlags sipRes;
 
             PyErr_Clear();
 
@@ -35,7 +35,7 @@ static PyObject *meth_wxPGValidationInfo_GetFailureBehavior(PyObject *sipSelf, P
             if (PyErr_Occurred())
                 return 0;
 
-            return PyLong_FromUnsignedLong(sipRes);
+            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxPGVFBFlags);
         }
     }
 
@@ -90,7 +90,7 @@ static PyObject *meth_wxPGValidationInfo_GetValue(PyObject *sipSelf, PyObject *s
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        ::wxPGValidationInfo *sipCpp;
+        const ::wxPGValidationInfo *sipCpp;
 
         if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxPGValidationInfo, &sipCpp))
         {
@@ -99,13 +99,13 @@ static PyObject *meth_wxPGValidationInfo_GetValue(PyObject *sipSelf, PyObject *s
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = &sipCpp->GetValue();
+            sipRes = new ::wxPGVariant(sipCpp->GetValue());
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
                 return 0;
 
-            return sipConvertFromType(sipRes, sipType_wxPGVariant, SIP_NULLPTR);
+            return sipConvertFromNewType(sipRes, sipType_wxPGVariant, SIP_NULLPTR);
         }
     }
 
@@ -125,14 +125,14 @@ static PyObject *meth_wxPGValidationInfo_SetFailureBehavior(PyObject *sipSelf, P
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        ::byte failureBehavior;
+        ::wxPGVFBFlags failureBehavior;
         ::wxPGValidationInfo *sipCpp;
 
         static const char *sipKwdList[] = {
             sipName_failureBehavior,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BM", &sipSelf, sipType_wxPGValidationInfo, &sipCpp, &failureBehavior))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BE", &sipSelf, sipType_wxPGValidationInfo, &sipCpp, sipType_wxPGVFBFlags, &failureBehavior))
         {
             PyErr_Clear();
 

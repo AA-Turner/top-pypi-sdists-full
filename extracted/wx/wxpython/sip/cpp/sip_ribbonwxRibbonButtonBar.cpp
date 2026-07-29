@@ -13,6 +13,7 @@
         #include <wx/gdicmn.h>
         #include <wx/gdicmn.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/validate.h>
         #include <wx/bitmap.h>
@@ -22,15 +23,15 @@
         #include <wx/dc.h>
         #include <wx/event.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -45,6 +46,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
+    wxAccessible* _wxRibbonButtonBar_CreateAccessible(wxRibbonButtonBar* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxRibbonButtonBar : public ::wxRibbonButtonBar
@@ -74,7 +84,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -120,7 +129,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -133,7 +141,7 @@ private:
     sipwxRibbonButtonBar(const sipwxRibbonButtonBar &);
     sipwxRibbonButtonBar &operator = (const sipwxRibbonButtonBar &);
 
-    char sipPyMethods[39];
+    char sipPyMethods[38];
 };
 
 sipwxRibbonButtonBar::sipwxRibbonButtonBar(): ::wxRibbonButtonBar(), sipPySelf(SIP_NULLPTR)
@@ -712,27 +720,12 @@ void sipwxRibbonButtonBar::DoSetWindowVariant(::wxWindowVariant variant)
     return sipVH__ribbon_16(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxRibbonButtonBar::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxRibbonButtonBar::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__ribbon_16(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__ribbon_16(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 void sipwxRibbonButtonBar::DoFreeze()
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -750,7 +743,7 @@ void sipwxRibbonButtonBar::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -768,7 +761,7 @@ void sipwxRibbonButtonBar::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxRibbonButtonBar::DoGetBestSize();
@@ -783,7 +776,7 @@ void sipwxRibbonButtonBar::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxRibbonButtonBar::DoGetBestClientSize();
@@ -871,11 +864,6 @@ void sipwxRibbonButtonBar::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg,
 ::wxBorder sipwxRibbonButtonBar::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxRibbonButtonBar::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxRibbonButtonBar::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxRibbonButtonBar::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxRibbonButtonBar::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -1768,7 +1756,7 @@ static PyObject *meth_wxRibbonButtonBar_GetItem(PyObject *sipSelf, PyObject *sip
 
 PyDoc_STRVAR(doc_wxRibbonButtonBar_GetItemById, "GetItemById(id) -> RibbonButtonBarButtonBase\n"
 "\n"
-"Returns the first button having a given id or NULL if none matches.");
+"Returns the first button having a given id or nullptr if none matches.");
 
 extern "C" {static PyObject *meth_wxRibbonButtonBar_GetItemById(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxRibbonButtonBar_GetItemById(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -2330,7 +2318,7 @@ static PyObject *meth_wxRibbonButtonBar_SetButtonMaxSizeClass(PyObject *sipSelf,
 
 PyDoc_STRVAR(doc_wxRibbonButtonBar_GetActiveItem, "GetActiveItem() -> RibbonButtonBarButtonBase\n"
 "\n"
-"Returns the active item of the button bar or NULL if there is none.");
+"Returns the active item of the button bar or nullptr if there is none.");
 
 extern "C" {static PyObject *meth_wxRibbonButtonBar_GetActiveItem(PyObject *, PyObject *);}
 static PyObject *meth_wxRibbonButtonBar_GetActiveItem(PyObject *sipSelf, PyObject *sipArgs)
@@ -2365,7 +2353,8 @@ static PyObject *meth_wxRibbonButtonBar_GetActiveItem(PyObject *sipSelf, PyObjec
 
 PyDoc_STRVAR(doc_wxRibbonButtonBar_GetHoveredItem, "GetHoveredItem() -> RibbonButtonBarButtonBase\n"
 "\n"
-"Returns the hovered item of the button bar or NULL if there is none.");
+"Returns the hovered item of the button bar or nullptr if there is\n"
+"none.");
 
 extern "C" {static PyObject *meth_wxRibbonButtonBar_GetHoveredItem(PyObject *, PyObject *);}
 static PyObject *meth_wxRibbonButtonBar_GetHoveredItem(PyObject *sipSelf, PyObject *sipArgs)
@@ -3675,40 +3664,6 @@ static PyObject *meth_wxRibbonButtonBar_GetDefaultBorder(PyObject *sipSelf, PyOb
 }
 
 
-PyDoc_STRVAR(doc_wxRibbonButtonBar_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxRibbonButtonBar_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxRibbonButtonBar_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxRibbonButtonBar *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRibbonButtonBar, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_RibbonButtonBar, sipName_GetDefaultBorderForControl, doc_wxRibbonButtonBar_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxRibbonButtonBar_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxRibbonButtonBar_DoFreeze(PyObject *, PyObject *);}
@@ -3882,6 +3837,39 @@ static PyObject *meth_wxRibbonButtonBar_TryAfter(PyObject *sipSelf, PyObject *si
     }
 
     sipNoMethod(sipParseErr, sipName_RibbonButtonBar, sipName_TryAfter, doc_wxRibbonButtonBar_TryAfter);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxRibbonButtonBar_CreateAccessible, "CreateAccessible() -> wx.Accessible");
+
+extern "C" {static PyObject *meth_wxRibbonButtonBar_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxRibbonButtonBar_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxRibbonButtonBar *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRibbonButtonBar, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxRibbonButtonBar_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_RibbonButtonBar, sipName_CreateAccessible, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -4074,6 +4062,7 @@ static PyMethodDef methods_wxRibbonButtonBar[] = {
     {sipName_AddToggleButton, SIP_MLMETH_CAST(meth_wxRibbonButtonBar_AddToggleButton), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonButtonBar_AddToggleButton},
     {sipName_ClearButtons, meth_wxRibbonButtonBar_ClearButtons, METH_VARARGS, doc_wxRibbonButtonBar_ClearButtons},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxRibbonButtonBar_Create), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonButtonBar_Create},
+    {sipName_CreateAccessible, meth_wxRibbonButtonBar_CreateAccessible, METH_VARARGS, doc_wxRibbonButtonBar_CreateAccessible},
     {sipName_DeleteButton, SIP_MLMETH_CAST(meth_wxRibbonButtonBar_DeleteButton), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonButtonBar_DeleteButton},
     {sipName_Destroy, meth_wxRibbonButtonBar_Destroy, METH_VARARGS, doc_wxRibbonButtonBar_Destroy},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxRibbonButtonBar_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonButtonBar_DoEnable},
@@ -4098,7 +4087,6 @@ static PyMethodDef methods_wxRibbonButtonBar[] = {
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxRibbonButtonBar_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonButtonBar_GetClassDefaultAttributes},
     {sipName_GetClientAreaOrigin, meth_wxRibbonButtonBar_GetClientAreaOrigin, METH_VARARGS, doc_wxRibbonButtonBar_GetClientAreaOrigin},
     {sipName_GetDefaultBorder, meth_wxRibbonButtonBar_GetDefaultBorder, METH_VARARGS, doc_wxRibbonButtonBar_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxRibbonButtonBar_GetDefaultBorderForControl, METH_VARARGS, doc_wxRibbonButtonBar_GetDefaultBorderForControl},
     {sipName_GetHoveredItem, meth_wxRibbonButtonBar_GetHoveredItem, METH_VARARGS, doc_wxRibbonButtonBar_GetHoveredItem},
     {sipName_GetItem, SIP_MLMETH_CAST(meth_wxRibbonButtonBar_GetItem), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonButtonBar_GetItem},
     {sipName_GetItemById, SIP_MLMETH_CAST(meth_wxRibbonButtonBar_GetItemById), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonButtonBar_GetItemById},
@@ -4142,8 +4130,8 @@ static PyMethodDef methods_wxRibbonButtonBar[] = {
 sipVariableDef variables_wxRibbonButtonBar[] = {
     {PropertyVariable, sipName_ShowToolTipsForDisabled, &methods_wxRibbonButtonBar[42], &methods_wxRibbonButtonBar[64], SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_HoveredItem, &methods_wxRibbonButtonBar[35], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ButtonCount, &methods_wxRibbonButtonBar[30], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ActiveItem, &methods_wxRibbonButtonBar[29], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ButtonCount, &methods_wxRibbonButtonBar[31], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ActiveItem, &methods_wxRibbonButtonBar[30], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxRibbonButtonBar, "RibbonButtonBar() -> None\n"

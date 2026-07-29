@@ -305,7 +305,13 @@ required_resources:
         - Memory -> memory
         - anyscale_tpu_hosts -> tpu_hosts
 
-        Also converts memory from bytes (int) to human-readable format (e.g., '8Gi').
+        Memory is preserved in its original representation (raw bytes as an
+        ``int`` from the API model, or a Kubernetes quantity string). It is
+        intentionally NOT converted to a rounded human-readable string here:
+        the bytes -> "120.3Gi" -> bytes round-trip loses precision, which made
+        ``HeadNodeConfig._validate_resources`` report logical > physical for
+        physically-identical fractional-GiB values (CI-2220). ``to_dict()``
+        still formats memory for user-facing output.
         """
         # Key mapping from API model (lowercase) to user model (mixed case)
         key_mapping = {
@@ -318,18 +324,13 @@ required_resources:
 
         normalized = {}
         for k, v in d.items():
-            # Skip None values
+            # Skip None values.
             if v is None:
                 continue
-            # Map to expected key name, or keep original if not in mapping
-            normalized_key = key_mapping.get(k, k)
-            # Convert memory from bytes to human-readable format
-            normalized_value = (
-                _format_bytes_to_memory_string(v)
-                if normalized_key == "memory" and isinstance(v, int)
-                else v
-            )
-            normalized[normalized_key] = normalized_value
+            # Map to the expected key name, or keep original if not in mapping.
+            # NOTE: memory is preserved as-is (see docstring / CI-2220); do not
+            # round-trip it through _format_bytes_to_memory_string.
+            normalized[key_mapping.get(k, k)] = v
 
         return cls(**normalized)
 

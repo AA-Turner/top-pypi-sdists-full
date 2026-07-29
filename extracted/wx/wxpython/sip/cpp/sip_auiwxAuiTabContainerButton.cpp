@@ -103,7 +103,7 @@ static PyObject *varget_wxAuiTabContainerButton_bitmap(void *sipSelf, PyObject *
     ::wxBitmapBundle*sipVal;
     ::wxAuiTabContainerButton *sipCpp = reinterpret_cast< ::wxAuiTabContainerButton *>(sipSelf);
 
-    sipPy = sipGetReference(sipPySelf, -1);
+    sipPy = sipGetReference(sipPySelf, -3);
 
     if (sipPy)
         return sipPy;
@@ -114,8 +114,8 @@ static PyObject *varget_wxAuiTabContainerButton_bitmap(void *sipSelf, PyObject *
 
     if (sipPy)
     {
-        sipKeepReference(sipPy, -21, sipPySelf);
-        sipKeepReference(sipPySelf, -1, sipPy);
+        sipKeepReference(sipPy, -23, sipPySelf);
+        sipKeepReference(sipPySelf, -3, sipPy);
     }
 
     return sipPy;
@@ -179,7 +179,7 @@ static PyObject *varget_wxAuiTabContainerButton_disBitmap(void *sipSelf, PyObjec
     ::wxBitmapBundle*sipVal;
     ::wxAuiTabContainerButton *sipCpp = reinterpret_cast< ::wxAuiTabContainerButton *>(sipSelf);
 
-    sipPy = sipGetReference(sipPySelf, -2);
+    sipPy = sipGetReference(sipPySelf, -4);
 
     if (sipPy)
         return sipPy;
@@ -190,8 +190,8 @@ static PyObject *varget_wxAuiTabContainerButton_disBitmap(void *sipSelf, PyObjec
 
     if (sipPy)
     {
-        sipKeepReference(sipPy, -22, sipPySelf);
-        sipKeepReference(sipPySelf, -2, sipPy);
+        sipKeepReference(sipPy, -24, sipPySelf);
+        sipKeepReference(sipPySelf, -4, sipPy);
     }
 
     return sipPy;
@@ -284,7 +284,7 @@ static PyObject *varget_wxAuiTabContainerButton_rect(void *sipSelf, PyObject *si
     ::wxRect*sipVal;
     ::wxAuiTabContainerButton *sipCpp = reinterpret_cast< ::wxAuiTabContainerButton *>(sipSelf);
 
-    sipPy = sipGetReference(sipPySelf, -3);
+    sipPy = sipGetReference(sipPySelf, -5);
 
     if (sipPy)
         return sipPy;
@@ -295,8 +295,8 @@ static PyObject *varget_wxAuiTabContainerButton_rect(void *sipSelf, PyObject *si
 
     if (sipPy)
     {
-        sipKeepReference(sipPy, -23, sipPySelf);
-        sipKeepReference(sipPySelf, -3, sipPy);
+        sipKeepReference(sipPy, -25, sipPySelf);
+        sipKeepReference(sipPySelf, -5, sipPy);
     }
 
     return sipPy;

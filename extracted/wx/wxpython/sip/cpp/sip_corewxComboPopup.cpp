@@ -100,9 +100,9 @@ void sipwxComboPopup::PaintComboControl(::wxDC& dc, const ::wxRect& rect)
         return;
     }
 
-    extern void sipVH__core_184(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, const ::wxRect&);
+    extern void sipVH__core_183(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, const ::wxRect&);
 
-    sipVH__core_184(sipGILState, 0, sipPySelf, sipMeth, dc, rect);
+    sipVH__core_183(sipGILState, 0, sipPySelf, sipMeth, dc, rect);
 }
 
 void sipwxComboPopup::OnPopup()
@@ -154,9 +154,9 @@ void sipwxComboPopup::OnComboKeyEvent(::wxKeyEvent& event)
         return;
     }
 
-    extern void sipVH__core_183(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxKeyEvent&);
+    extern void sipVH__core_182(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxKeyEvent&);
 
-    sipVH__core_183(sipGILState, 0, sipPySelf, sipMeth, event);
+    sipVH__core_182(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 void sipwxComboPopup::OnComboDoubleClick()
@@ -235,9 +235,9 @@ void sipwxComboPopup::Init()
     if (!sipMeth)
         return 0;
 
-    extern ::wxWindow* sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxWindow* sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxSize sipwxComboPopup::GetAdjustedSize(int minWidth, int prefHeight, int maxHeight)
@@ -250,9 +250,9 @@ void sipwxComboPopup::Init()
     if (!sipMeth)
         return ::wxComboPopup::GetAdjustedSize(minWidth, prefHeight, maxHeight);
 
-    extern ::wxSize sipVH__core_182(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern ::wxSize sipVH__core_181(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
 
-    return sipVH__core_182(sipGILState, 0, sipPySelf, sipMeth, minWidth, prefHeight, maxHeight);
+    return sipVH__core_181(sipGILState, 0, sipPySelf, sipMeth, minWidth, prefHeight, maxHeight);
 }
 
 bool sipwxComboPopup::FindItem(const ::wxString& item, ::wxString*trueItem)
@@ -265,9 +265,9 @@ bool sipwxComboPopup::FindItem(const ::wxString& item, ::wxString*trueItem)
     if (!sipMeth)
         return ::wxComboPopup::FindItem(item, trueItem);
 
-    extern bool sipVH__core_181(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, ::wxString*);
+    extern bool sipVH__core_180(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, ::wxString*);
 
-    return sipVH__core_181(sipGILState, 0, sipPySelf, sipMeth, item, trueItem);
+    return sipVH__core_180(sipGILState, 0, sipPySelf, sipMeth, item, trueItem);
 }
 
 void sipwxComboPopup::DestroyPopup()
@@ -298,9 +298,9 @@ bool sipwxComboPopup::Create(::wxWindow*parent)
     if (!sipMeth)
         return 0;
 
-    extern bool sipVH__core_139(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*);
+    extern bool sipVH__core_138(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*);
 
-    return sipVH__core_139(sipGILState, 0, sipPySelf, sipMeth, parent);
+    return sipVH__core_138(sipGILState, 0, sipPySelf, sipMeth, parent);
 }
 
 
@@ -421,7 +421,7 @@ static PyObject *meth_wxComboPopup_Dismiss(PyObject *sipSelf, PyObject *sipArgs)
 }
 
 
-PyDoc_STRVAR(doc_wxComboPopup_FindItem, "FindItem(item, trueItem=None) -> bool\n"
+PyDoc_STRVAR(doc_wxComboPopup_FindItem, "FindItem(item, trueItem=nullptr) -> bool\n"
 "\n"
 "Implement to customize matching of value string to an item container\n"
 "entry.");
@@ -435,7 +435,7 @@ static PyObject *meth_wxComboPopup_FindItem(PyObject *sipSelf, PyObject *sipArgs
     {
         const ::wxString* item;
         int itemState = 0;
-        ::wxString* trueItem = 0;
+        ::wxString* trueItem = nullptr;
         int trueItemState = 0;
         ::wxComboPopup *sipCpp;
 

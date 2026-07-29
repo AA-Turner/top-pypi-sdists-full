@@ -2452,7 +2452,10 @@ def _cmd_status(args) -> None:
         try:
             from clawmetry import entitlements as _ent_st
             _e = _ent_st.get_entitlement(force=True)
-            _entitled = bool(_e.is_paid() and not _e.expired())
+            # is_paid / expired are properties — calling them raised and the
+            # fallback silently reported the stale cloud plan ("FREE plan")
+            # under a valid trial key (founder live-hit 2026-07-28, twice).
+            _entitled = bool(_e.is_paid and not _e.expired)
             _plan = _e.tier or ""
         except Exception:
             # Fallback: the old cloud-plan cache read (entitlements missing
@@ -2478,18 +2481,30 @@ def _cmd_status(args) -> None:
         except Exception:
             _det = []
         print("  Runtimes:")
-        print("    🦞 OpenClaw            ✅ syncing  (free)")
+        # OpenClaw line is DETECTION-GATED: this used to print
+        # "OpenClaw syncing" unconditionally, telling a machine with no
+        # OpenClaw install that OpenClaw was detected and syncing (founder
+        # live-hit 2026-07-28). Wording: "watching (local)" is the local
+        # DuckDB ingest that renders the dashboard; "syncing" is reserved
+        # for the separate Cloud sync line above — one word per concept.
+        try:
+            import dashboard as _dash_det
+            _oc_present = bool(_dash_det._detect_openclaw_install())
+        except Exception:
+            _oc_present = False
+        if _oc_present:
+            print("    🦞 OpenClaw            ✅ watching (local)  (free)")
         try:
             from clawmetry.adapters.nemo import NemoClawAdapter as _NCA
             _nemo = _NCA().detect()
             if _nemo.detected:
-                print("    ⚡ NemoClaw            ✅ syncing  (free)")
+                print("    ⚡ NemoClaw            ✅ watching (local)  (free)")
         except Exception:
             pass
         for _r in _det:
             _n = int(_r.get("sessionCount") or 0)
             _nm = _r.get("displayName") or _r.get("name") or "runtime"
-            _state = "✅ syncing" if _entitled else "○ detected, NOT syncing"
+            _state = "✅ watching (local)" if _entitled else "○ detected, NOT watched"
             print(f"    • {_nm:<18} {_state}  ({_n} session{'s' if _n != 1 else ''})")
         if not _prover:
             print("    ⚠ Claude Code / Codex / Cursor / Aider / Goose / opencode / Qwen — NOT syncing")
@@ -2500,9 +2515,12 @@ def _cmd_status(args) -> None:
                 print("      → paid runtimes need a Trial/Pro account. The daemon auto-downloads the")
                 print("        runtime pack on start once entitled — link your account in the dashboard.")
         elif _det and not _entitled:
-            print(f"    clawmetry-pro {_prover} installed and detecting the above — but your account")
-            print(f"      is on the FREE plan ({_plan or 'free'}), so paid runtimes are NOT synced to")
-            print("      the cloud. Link to a Trial/Pro account (the dashboard prompts you) to sync them.")
+            print(f"    clawmetry-pro {_prover} installed and detecting the above — but this node")
+            print(f"      has no active Trial/Pro entitlement ({_plan or 'free'}), so paid runtimes")
+            print("      are not watched. Start the free trial from the dashboard to turn them on.")
+        elif _det and _entitled:
+            _lbl = {"trial": "Trial"}.get((_plan or "").lower(), _plan or "entitled")
+            print(f"    clawmetry-pro {_prover} watching the above locally ({_lbl} plan).")
         elif _prover and not _det:
             print(f"    clawmetry-pro {_prover} installed — no other runtimes found on this machine yet.")
     except Exception:
@@ -3743,6 +3761,65 @@ def _cmd_update() -> None:
         sys.exit(1)
 
 
+def _read_key_from_file(path: str) -> tuple[bool, str, str]:
+    """Read a license key from ``path`` for ``--file <path>``.
+
+    Returns ``(ok, key, message)``. On success ``key`` is the trimmed contents
+    (leading/trailing whitespace and a single trailing newline are stripped —
+    the same shape ``activate()`` / ``inspect_key()`` accept) and ``message``
+    is empty. On failure ``key`` is empty and ``message`` is a human-readable
+    reason (missing file, unreadable, empty). Never raises: every OS error is
+    caught and surfaced through ``message`` so the caller can render the same
+    ``ok=false`` envelope both branches already use for a missing positional
+    key. Kept as a module-level helper so the ``activate`` shortcut and
+    ``license activate|verify`` share ONE reader — a bug fix in either lands
+    for all three subcommands, and tests can exercise the reader once.
+    """
+    if not path:
+        return False, "", "Usage: --file <path> requires a path"
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            raw = fh.read()
+    except FileNotFoundError:
+        return False, "", f"--file: not found: {path}"
+    except IsADirectoryError:
+        return False, "", f"--file: is a directory, expected a file: {path}"
+    except PermissionError:
+        return False, "", f"--file: permission denied: {path}"
+    except OSError as exc:
+        return False, "", f"--file: could not read {path}: {exc}"
+    key = (raw or "").strip()
+    if not key:
+        return False, "", f"--file: {path} is empty"
+    return True, key, ""
+
+
+def _resolve_activate_key(args) -> tuple[bool, str, str]:
+    """Resolve the license key from either ``args.key`` (positional) or
+    ``args.file`` (``--file <path>``). Exactly one must be supplied — passing
+    both is refused so a wrapper does not silently prefer one over the other
+    on a mistake, and passing neither is refused with the same "Usage:" line
+    the file-less path used before this flag existed.
+
+    Returns ``(ok, key, message)`` matching :func:`_read_key_from_file` so the
+    caller renders the same ``ok=false`` envelope regardless of which error
+    branch fired.
+    """
+    file_path = (getattr(args, "file", None) or "").strip()
+    key = (getattr(args, "key", None) or "").strip()
+    if file_path and key:
+        return (
+            False,
+            "",
+            "Usage: pass either <KEY> or --file <path>, not both",
+        )
+    if file_path:
+        return _read_key_from_file(file_path)
+    if key:
+        return True, key, ""
+    return False, "", "Usage: clawmetry activate <KEY>  (or --file <path>)"
+
+
 def _cmd_activate(args) -> None:
     """clawmetry activate <KEY> — install a self-hosted Pro/Enterprise license.
 
@@ -3752,11 +3829,22 @@ def _cmd_activate(args) -> None:
     what ``clawmetry license activate <KEY> --json`` emits
     (``{action: "activate", ok, message}``) so a script that already parses
     the license subcommand does not need to branch on which spelling ran.
+
+    ``--file <path>`` reads the key from a file instead of the command line,
+    keeping the raw token out of shell history / ``ps`` listings. Exactly one
+    of the positional key and ``--file`` must be supplied.
     """
     from clawmetry import license as _lic
 
     as_json = bool(getattr(args, "as_json", False))
-    ok, msg = _lic.activate(args.key, node_id=_lic._node_id(), actor="cli")
+    ok_read, key, read_msg = _resolve_activate_key(args)
+    if not ok_read:
+        if as_json:
+            _license_json_dump({"action": "activate", "ok": False, "message": read_msg})
+        else:
+            print(f"❌  {read_msg}")
+        sys.exit(1)
+    ok, msg = _lic.activate(key, node_id=_lic._node_id(), actor="cli")
     if as_json:
         _license_json_dump({"action": "activate", "ok": bool(ok), "message": msg})
         if not ok:
@@ -3769,6 +3857,29 @@ def _cmd_activate(args) -> None:
         print(f"❌  {msg}")
         print("    Need a key? Buy a self-hosted license at https://clawmetry.com/pricing")
         sys.exit(1)
+
+
+def _resolve_license_action_key(args, action: str) -> tuple[bool, str, str]:
+    """Same contract as :func:`_resolve_activate_key` but for ``clawmetry
+    license <activate|verify>``, whose positional key is bound to
+    ``license_key`` (not ``key``) by argparse. The ``action`` string just
+    picks the ``Usage:`` line that best names the subcommand — the rest of
+    the logic mirrors the shortcut resolver so a bug in either lands for
+    both spellings.
+    """
+    file_path = (getattr(args, "file", None) or "").strip()
+    key = (getattr(args, "license_key", None) or "").strip()
+    if file_path and key:
+        return (
+            False,
+            "",
+            "Usage: pass either <KEY> or --file <path>, not both",
+        )
+    if file_path:
+        return _read_key_from_file(file_path)
+    if key:
+        return True, key, ""
+    return False, "", f"Usage: clawmetry license {action} <KEY>  (or --file <path>)"
 
 
 def _license_json_dump(payload: dict) -> None:
@@ -3800,19 +3911,23 @@ def _cmd_license(args) -> None:
     as_json = bool(getattr(args, "as_json", False))
 
     if action == "activate":
-        key = getattr(args, "license_key", None) or ""
-        if not key:
+        # ``license_key`` is the positional arg; ``file`` is the ``--file`` flag.
+        # _resolve_license_action_key() normalises the two into a single trimmed
+        # key or an ok=false envelope so the activate/verify branches share ONE
+        # reader (matches the top-level ``clawmetry activate`` shortcut).
+        ok_read, key, read_msg = _resolve_license_action_key(args, "activate")
+        if not ok_read:
             if as_json:
                 _license_json_dump({
                     "action": "activate",
                     "ok": False,
-                    "message": "Usage: clawmetry license activate <KEY>",
+                    "message": read_msg,
                 })
             else:
-                print("❌  Usage: clawmetry license activate <KEY>")
+                print(f"❌  {read_msg}")
             sys.exit(1)
         from clawmetry import license as _lic
-        ok, msg = _lic.activate(key.strip(), node_id=_lic._node_id(), actor="cli")
+        ok, msg = _lic.activate(key, node_id=_lic._node_id(), actor="cli")
         if as_json:
             _license_json_dump({"action": "activate", "ok": bool(ok), "message": msg})
             if not ok:
@@ -3878,21 +3993,21 @@ def _cmd_license(args) -> None:
     elif action == "verify":
         # Dry-run: verify a key OFFLINE and show what it would unlock,
         # WITHOUT writing anything to disk. Useful for support and pre-flight.
-        key = getattr(args, "license_key", None) or ""
-        if not key:
+        ok_read, key, read_msg = _resolve_license_action_key(args, "verify")
+        if not ok_read:
             if as_json:
                 _license_json_dump({
                     "action": "verify",
                     "ok": False,
                     "status": "usage",
                     "inspection": None,
-                    "message": "Usage: clawmetry license verify <KEY>",
+                    "message": read_msg,
                 })
             else:
-                print("❌  Usage: clawmetry license verify <KEY>")
+                print(f"❌  {read_msg}")
             sys.exit(1)
         from clawmetry import license as _lic
-        info = _lic.inspect_key(key.strip())
+        info = _lic.inspect_key(key)
         if as_json:
             if info is None:
                 _license_json_dump({
@@ -5689,7 +5804,26 @@ def main() -> None:
     p_activate = sub.add_parser(
         "activate", help="Activate a self-hosted Pro/Enterprise license key"
     )
-    p_activate.add_argument("key", help="License key (CLAW1.…)")
+    # ``key`` is nargs="?" now that ``--file <path>`` is accepted; the CLI
+    # handler refuses the "neither supplied" branch itself so the same
+    # ``ok=false`` envelope surfaces in both --json and human paths.
+    p_activate.add_argument(
+        "key",
+        nargs="?",
+        default=None,
+        help="License key (CLAW1.…) — omit when using --file",
+    )
+    p_activate.add_argument(
+        "--file",
+        dest="file",
+        default=None,
+        metavar="PATH",
+        help=(
+            "Read the license key from PATH instead of the command line "
+            "(keeps the raw token out of shell history and `ps` listings). "
+            "Mutually exclusive with the positional <KEY>."
+        ),
+    )
     p_activate.add_argument(
         "--json",
         action="store_true",
@@ -5715,7 +5849,19 @@ def main() -> None:
         "license_key",
         nargs="?",
         default=None,
-        help="License key (CLAW1.…) — required for 'activate' / 'verify'",
+        help="License key (CLAW1.…) — required for 'activate' / 'verify' unless --file is used",
+    )
+    p_license.add_argument(
+        "--file",
+        dest="file",
+        default=None,
+        metavar="PATH",
+        help=(
+            "For 'activate' / 'verify': read the license key from PATH "
+            "instead of the command line (keeps the raw token out of shell "
+            "history and `ps` listings). Mutually exclusive with the "
+            "positional <KEY>."
+        ),
     )
     p_license.add_argument(
         "--json",

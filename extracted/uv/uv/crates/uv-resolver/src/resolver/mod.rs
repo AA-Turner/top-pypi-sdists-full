@@ -515,12 +515,10 @@ impl<InstalledPackages: InstalledPackagesProvider> ResolverState<InstalledPackag
                         .expect("a package was chosen but we don't have a term");
                     let range = term_intersection.unwrap_positive();
 
-                    // In a specific environment, an implicit registry candidate is stable for a
-                    // given range. Avoid repeating candidate selection when PubGrub revisits an
-                    // identical decision after backtracking.
-                    let cache_selected_version = state.env.marker_environment().is_some()
-                        && url.is_none()
-                        && index.is_none();
+                    // Within a fixed resolver environment, an implicit registry candidate is
+                    // stable for a given range and pre-release policy. Avoid repeating candidate
+                    // selection when PubGrub revisits an identical decision after backtracking.
+                    let cache_selected_version = url.is_none() && index.is_none();
                     let decision = if cache_selected_version
                         && let Some((selected_range, version)) =
                             state.selected_versions.get(&next_id)
@@ -1704,7 +1702,7 @@ impl<InstalledPackages: InstalledPackagesProvider> ResolverState<InstalledPackag
         // ...and the non-local version has greater platform support...
         let mut remainder = {
             let mut remainder = base_dist.implied_markers();
-            remainder.and(dist.implied_markers().negate());
+            remainder = remainder.and(dist.implied_markers().negate());
             remainder
         };
         if remainder.is_false() {
@@ -1773,7 +1771,7 @@ impl<InstalledPackages: InstalledPackagesProvider> ResolverState<InstalledPackag
             if dist.implied_markers().is_disjoint(sys_platform)
                 && !remainder.is_disjoint(sys_platform)
             {
-                remainder.or(sys_platform);
+                remainder = remainder.or(sys_platform);
             }
         }
 
@@ -2259,12 +2257,12 @@ impl<InstalledPackages: InstalledPackagesProvider> ResolverState<InstalledPackag
                 ) {
                     let requirement = match requirement {
                         Cow::Owned(mut requirement) => {
-                            requirement.marker.and(marker);
+                            requirement.marker = requirement.marker.and(marker);
                             requirement
                         }
                         Cow::Borrowed(requirement) => {
                             let mut marker = marker;
-                            marker.and(requirement.marker);
+                            marker = marker.and(requirement.marker);
                             Requirement {
                                 name: requirement.name.clone(),
                                 extras: requirement.extras.clone(),
@@ -2338,6 +2336,35 @@ impl<InstalledPackages: InstalledPackagesProvider> ResolverState<InstalledPackag
                     .excludes
                     .contains_for_package(exclusion_package, &requirement.name)
             })
+            .map(move |mut requirement| {
+                // Split the marker into production and optional components. If we have e.g.
+                // `foo; sys_platform == 'win32' or extra == 'feature'`
+                // we split it into
+                // `foo; sys_platform == 'win32'` (production) when `extra` is `None`,
+                // `foo; extra == 'feature'` (optional) when `extra` is `Some("feature")`.
+                // The requirements are then separately tracked in production and optional
+                // dependencies respectively.
+
+                let marker = match extra {
+                    Some(extra) => requirement
+                        .marker
+                        .simplify_extras(slice::from_ref(extra))
+                        .simplify_not_extras_with(|candidate| candidate != extra)
+                        .and(
+                            requirement
+                                .marker
+                                .simplify_not_extras_with(|_| true)
+                                .negate(),
+                        ),
+                    None => requirement.marker.simplify_not_extras_with(|_| true),
+                };
+
+                if requirement.marker != marker {
+                    requirement.to_mut().marker = marker;
+                }
+
+                requirement
+            })
             .filter(move |requirement| {
                 Self::is_requirement_applicable(
                     requirement,
@@ -2370,15 +2397,10 @@ impl<InstalledPackages: InstalledPackagesProvider> ResolverState<InstalledPackag
         // If the requirement isn't relevant for the current platform, skip it.
         match extra {
             Some(source_extra) => {
-                // Only include requirements that are relevant for the current extra.
-                if requirement.evaluate_markers(env.marker_environment(), &[]) {
+                if !requirement.evaluate_markers(env.marker_environment(), &[]) {
                     return false;
                 }
-                if !requirement
-                    .evaluate_markers(env.marker_environment(), slice::from_ref(source_extra))
-                {
-                    return false;
-                }
+
                 if !env.included_by_group(ConflictItemRef::from((&requirement.name, source_extra)))
                 {
                     return false;
@@ -2439,7 +2461,7 @@ impl<InstalledPackages: InstalledPackagesProvider> ResolverState<InstalledPackag
                         Cow::Borrowed(constraint)
                     } else {
                         let mut marker = constraint.marker;
-                        marker.and(requirement.marker);
+                        marker = marker.and(requirement.marker);
 
                         if marker.is_false() {
                             trace!(
@@ -2463,7 +2485,7 @@ impl<InstalledPackages: InstalledPackagesProvider> ResolverState<InstalledPackag
                     let requires_python = python_requirement.target();
 
                     let mut marker = constraint.marker;
-                    marker.and(requirement.marker);
+                    marker = marker.and(requirement.marker);
 
                     if marker.is_false() {
                         trace!(
@@ -2727,8 +2749,7 @@ impl<InstalledPackages: InstalledPackagesProvider> ResolverState<InstalledPackag
                     }
                 };
 
-                // We don't have access to the fork state when prefetching, so assume that
-                // pre-release versions are allowed.
+                // We don't have access to the fork state when prefetching.
                 let env = ResolverEnvironment::universal(vec![]);
 
                 // Try to find a compatible version. If there aren't any compatible versions,
@@ -3452,6 +3473,7 @@ impl ForkState {
     /// If the fork should be dropped (e.g., because its markers can never be true for its
     /// Python requirement), then this returns `None`.
     fn with_env(mut self, env: ResolverEnvironment) -> Self {
+        self.selected_versions.clear();
         self.env = env;
         // If the fork contains a narrowed Python requirement, apply it.
         if let Some(req) = self.env.narrow_python_requirement(&self.python_requirement) {
@@ -4479,11 +4501,11 @@ fn find_environments(id: Id<PubGrubPackage>, state: &State<UvDependencyProvider>
             }
 
             let mut next_environment = state.package_store[*child].marker();
-            next_environment.and(current_environment);
+            next_environment = next_environment.and(current_environment);
 
             let entry = environments.entry(*child).or_insert(MarkerTree::FALSE);
             let mut combined = *entry;
-            combined.or(next_environment);
+            combined = combined.or(next_environment);
             if combined != *entry {
                 *entry = combined;
                 queue.push_back(*child);

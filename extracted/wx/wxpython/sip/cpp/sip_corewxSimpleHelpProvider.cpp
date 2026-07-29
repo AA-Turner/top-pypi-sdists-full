@@ -68,9 +68,9 @@ sipwxSimpleHelpProvider::~sipwxSimpleHelpProvider()
     if (!sipMeth)
         return ::wxSimpleHelpProvider::GetHelp(window);
 
-    extern ::wxString sipVH__core_210(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxWindowBase*);
+    extern ::wxString sipVH__core_209(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxWindowBase*);
 
-    return sipVH__core_210(sipGILState, 0, sipPySelf, sipMeth, window);
+    return sipVH__core_209(sipGILState, 0, sipPySelf, sipMeth, window);
 }
 
 void sipwxSimpleHelpProvider::AddHelp(::wxWindowBase*window, const ::wxString& text)
@@ -86,9 +86,9 @@ void sipwxSimpleHelpProvider::AddHelp(::wxWindowBase*window, const ::wxString& t
         return;
     }
 
-    extern void sipVH__core_205(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*, const ::wxString&);
+    extern void sipVH__core_204(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*, const ::wxString&);
 
-    sipVH__core_205(sipGILState, 0, sipPySelf, sipMeth, window, text);
+    sipVH__core_204(sipGILState, 0, sipPySelf, sipMeth, window, text);
 }
 
 void sipwxSimpleHelpProvider::AddHelp(::wxWindowID id, const ::wxString& text)
@@ -104,9 +104,9 @@ void sipwxSimpleHelpProvider::AddHelp(::wxWindowID id, const ::wxString& text)
         return;
     }
 
-    extern void sipVH__core_206(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowID, const ::wxString&);
+    extern void sipVH__core_205(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowID, const ::wxString&);
 
-    sipVH__core_206(sipGILState, 0, sipPySelf, sipMeth, id, text);
+    sipVH__core_205(sipGILState, 0, sipPySelf, sipMeth, id, text);
 }
 
 void sipwxSimpleHelpProvider::RemoveHelp(::wxWindowBase*window)
@@ -122,9 +122,9 @@ void sipwxSimpleHelpProvider::RemoveHelp(::wxWindowBase*window)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, window);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, window);
 }
 
 bool sipwxSimpleHelpProvider::ShowHelp(::wxWindowBase*window)
@@ -137,9 +137,9 @@ bool sipwxSimpleHelpProvider::ShowHelp(::wxWindowBase*window)
     if (!sipMeth)
         return ::wxSimpleHelpProvider::ShowHelp(window);
 
-    extern bool sipVH__core_208(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern bool sipVH__core_207(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    return sipVH__core_208(sipGILState, 0, sipPySelf, sipMeth, window);
+    return sipVH__core_207(sipGILState, 0, sipPySelf, sipMeth, window);
 }
 
 bool sipwxSimpleHelpProvider::ShowHelpAtPoint(::wxWindowBase*window, const ::wxPoint& point, ::wxHelpEvent::Origin origin)
@@ -152,9 +152,9 @@ bool sipwxSimpleHelpProvider::ShowHelpAtPoint(::wxWindowBase*window, const ::wxP
     if (!sipMeth)
         return ::wxSimpleHelpProvider::ShowHelpAtPoint(window, point, origin);
 
-    extern bool sipVH__core_209(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*, const ::wxPoint&, ::wxHelpEvent::Origin);
+    extern bool sipVH__core_208(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*, const ::wxPoint&, ::wxHelpEvent::Origin);
 
-    return sipVH__core_209(sipGILState, 0, sipPySelf, sipMeth, window, point, origin);
+    return sipVH__core_208(sipGILState, 0, sipPySelf, sipMeth, window, point, origin);
 }
 
 
@@ -307,7 +307,7 @@ static void *init_type_wxSimpleHelpProvider(sipSimpleWrapper *sipSelf, PyObject 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxSimpleHelpProvider[] = {{267, 255, 1}};
+static sipEncodedTypeDef supers_wxSimpleHelpProvider[] = {{275, 255, 1}};
 
 
 static PyMethodDef methods_wxSimpleHelpProvider[] = {

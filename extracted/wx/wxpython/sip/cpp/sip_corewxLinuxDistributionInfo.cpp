@@ -274,6 +274,72 @@ static int varset_wxLinuxDistributionInfo_Id(void *sipSelf, PyObject *sipPy, PyO
 }
 
 
+extern "C" {static PyObject *varget_wxLinuxDistributionInfo_ParentCodeName(void *, PyObject *, PyObject *);}
+static PyObject *varget_wxLinuxDistributionInfo_ParentCodeName(void *sipSelf, PyObject *, PyObject *)
+{
+    ::wxString*sipVal;
+    ::wxLinuxDistributionInfo *sipCpp = reinterpret_cast< ::wxLinuxDistributionInfo *>(sipSelf);
+
+    sipVal = &sipCpp->ParentCodeName;
+
+    return sipConvertFromType(sipVal, sipType_wxString, SIP_NULLPTR);
+}
+
+
+extern "C" {static int varset_wxLinuxDistributionInfo_ParentCodeName(void *, PyObject *, PyObject *);}
+static int varset_wxLinuxDistributionInfo_ParentCodeName(void *sipSelf, PyObject *sipPy, PyObject *)
+{
+    ::wxString*sipVal;
+    ::wxLinuxDistributionInfo *sipCpp = reinterpret_cast< ::wxLinuxDistributionInfo *>(sipSelf);
+
+    int sipIsErr = 0;
+    int sipValState;
+    sipVal = reinterpret_cast< ::wxString *>(sipForceConvertToType(sipPy, sipType_wxString, SIP_NULLPTR, SIP_NOT_NONE, &sipValState, &sipIsErr));
+
+    if (sipIsErr)
+        return -1;
+
+    sipCpp->ParentCodeName = *sipVal;
+
+    sipReleaseType(sipVal, sipType_wxString, sipValState);
+
+    return 0;
+}
+
+
+extern "C" {static PyObject *varget_wxLinuxDistributionInfo_ParentName(void *, PyObject *, PyObject *);}
+static PyObject *varget_wxLinuxDistributionInfo_ParentName(void *sipSelf, PyObject *, PyObject *)
+{
+    ::wxString*sipVal;
+    ::wxLinuxDistributionInfo *sipCpp = reinterpret_cast< ::wxLinuxDistributionInfo *>(sipSelf);
+
+    sipVal = &sipCpp->ParentName;
+
+    return sipConvertFromType(sipVal, sipType_wxString, SIP_NULLPTR);
+}
+
+
+extern "C" {static int varset_wxLinuxDistributionInfo_ParentName(void *, PyObject *, PyObject *);}
+static int varset_wxLinuxDistributionInfo_ParentName(void *sipSelf, PyObject *sipPy, PyObject *)
+{
+    ::wxString*sipVal;
+    ::wxLinuxDistributionInfo *sipCpp = reinterpret_cast< ::wxLinuxDistributionInfo *>(sipSelf);
+
+    int sipIsErr = 0;
+    int sipValState;
+    sipVal = reinterpret_cast< ::wxString *>(sipForceConvertToType(sipPy, sipType_wxString, SIP_NULLPTR, SIP_NOT_NONE, &sipValState, &sipIsErr));
+
+    if (sipIsErr)
+        return -1;
+
+    sipCpp->ParentName = *sipVal;
+
+    sipReleaseType(sipVal, sipType_wxString, sipValState);
+
+    return 0;
+}
+
+
 extern "C" {static PyObject *varget_wxLinuxDistributionInfo_Release(void *, PyObject *, PyObject *);}
 static PyObject *varget_wxLinuxDistributionInfo_Release(void *sipSelf, PyObject *, PyObject *)
 {
@@ -310,11 +376,12 @@ sipVariableDef variables_wxLinuxDistributionInfo[] = {
     {InstanceVariable, sipName_CodeName, (PyMethodDef *)varget_wxLinuxDistributionInfo_CodeName, (PyMethodDef *)varset_wxLinuxDistributionInfo_CodeName, SIP_NULLPTR, SIP_NULLPTR},
     {InstanceVariable, sipName_Description, (PyMethodDef *)varget_wxLinuxDistributionInfo_Description, (PyMethodDef *)varset_wxLinuxDistributionInfo_Description, SIP_NULLPTR, SIP_NULLPTR},
     {InstanceVariable, sipName_Id, (PyMethodDef *)varget_wxLinuxDistributionInfo_Id, (PyMethodDef *)varset_wxLinuxDistributionInfo_Id, SIP_NULLPTR, SIP_NULLPTR},
+    {InstanceVariable, sipName_ParentCodeName, (PyMethodDef *)varget_wxLinuxDistributionInfo_ParentCodeName, (PyMethodDef *)varset_wxLinuxDistributionInfo_ParentCodeName, SIP_NULLPTR, SIP_NULLPTR},
+    {InstanceVariable, sipName_ParentName, (PyMethodDef *)varget_wxLinuxDistributionInfo_ParentName, (PyMethodDef *)varset_wxLinuxDistributionInfo_ParentName, SIP_NULLPTR, SIP_NULLPTR},
     {InstanceVariable, sipName_Release, (PyMethodDef *)varget_wxLinuxDistributionInfo_Release, (PyMethodDef *)varset_wxLinuxDistributionInfo_Release, SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxLinuxDistributionInfo, "A structure containing information about a Linux distribution as\n"
-"returned by the lsb_release utility.");
+PyDoc_STRVAR(doc_wxLinuxDistributionInfo, "A structure containing information about a Linux distribution.");
 
 
 sipClassTypeDef sipTypeDef__core_wxLinuxDistributionInfo = {
@@ -332,7 +399,7 @@ sipClassTypeDef sipTypeDef__core_wxLinuxDistributionInfo = {
         {0, 0, 1},
         0, SIP_NULLPTR,
         0, SIP_NULLPTR,
-        4, variables_wxLinuxDistributionInfo,
+        6, variables_wxLinuxDistributionInfo,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxLinuxDistributionInfo,

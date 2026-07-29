@@ -94,7 +94,7 @@ static void *init_type_wxGridUpdateLocker(sipSimpleWrapper *, PyObject *sipArgs,
     ::wxGridUpdateLocker *sipCpp = SIP_NULLPTR;
 
     {
-        ::wxGrid* grid = 0;
+        ::wxGrid* grid = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_grid,
@@ -126,7 +126,7 @@ static PyMethodDef methods_wxGridUpdateLocker[] = {
     {sipName_Create, SIP_MLMETH_CAST(meth_wxGridUpdateLocker_Create), METH_VARARGS|METH_KEYWORDS, doc_wxGridUpdateLocker_Create}
 };
 
-PyDoc_STRVAR(doc_wxGridUpdateLocker, "GridUpdateLocker(grid=None) -> None\n"
+PyDoc_STRVAR(doc_wxGridUpdateLocker, "GridUpdateLocker(grid=nullptr) -> None\n"
 "\n"
 "This small class can be used to prevent wxGrid from redrawing during\n"
 "its lifetime by calling wxGrid::BeginBatch() in its constructor and\n"

@@ -4,8 +4,118 @@
 
 #include "../image/horse.xpm"
 
+
+
+
+MyMouseFrame::MyMouseFrame()
+    : wxFrame(nullptr, wxID_ANY, "Mouse events")
+{
+    // Create controls
+    MyMousePanel* myPanel = new MyMousePanel(this);
+    myPanel->SetMinSize(FromDIP(wxSize(100, 200)));
+    myPanel->SetBackgroundColour( *wxLIGHT_GREY );
+    m_logText = new wxTextCtrl(this, wxID_ANY, wxEmptyString,
+                               wxDefaultPosition, wxDefaultSize,
+                               wxTE_MULTILINE|wxTE_READONLY|wxTE_RICH);
+
+    // Add controls to sizer
+    wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
+    sizer->Add(myPanel, wxSizerFlags().Expand());
+    sizer->Add(m_logText, wxSizerFlags(1).Expand());
+    SetSizer(sizer);
+
+    // Log to the text control
+    m_logOld = wxLog::SetActiveTarget(new wxLogTextCtrl(m_logText));
+
+    SetClientSize(FromDIP(wxSize(600, 800)));
+
+    Bind(wxEVT_CLOSE_WINDOW, &MyMouseFrame::OnQuit, this);
+}
+
+void MyMouseFrame::OnQuit(wxCloseEvent& WXUNUSED(event))
+{
+    delete wxLog::SetActiveTarget(m_logOld);
+    Destroy();
+}
+
+MyMousePanel::MyMousePanel(MyMouseFrame *parent)
+    : wxPanel(parent, wxID_ANY)
+{
+    // Event handlers
+    Bind(wxEVT_LEFT_DOWN, &MyMousePanel::OnLeftDown, this);
+    Bind(wxEVT_LEFT_UP, &MyMousePanel::OnLeftUp, this);
+    Bind(wxEVT_LEFT_DCLICK, &MyMousePanel::OnLeftDClick, this);
+    Bind(wxEVT_RIGHT_DOWN, &MyMousePanel::OnRightDown, this);
+    Bind(wxEVT_RIGHT_UP, &MyMousePanel::OnRightUp, this);
+    Bind(wxEVT_RIGHT_DCLICK, &MyMousePanel::OnRightDClick, this);
+    Bind(wxEVT_ENTER_WINDOW, &MyMousePanel::OnEnter, this);
+    Bind(wxEVT_LEAVE_WINDOW, &MyMousePanel::OnLeave, this);
+}
+
+void
+MyMousePanel::DoLogMouseEvent(const wxMouseEvent& event,
+                              const wxString& eventName)
+{
+    wxString msg = eventName;
+
+    wxString down;
+    if (event.LeftIsDown())
+        down += " left";
+    if (event.MiddleIsDown())
+        down += " middle";
+    if (event.RightIsDown())
+        down += " right";
+
+    if (down.empty())
+        down = " none";
+
+    wxLogMessage("%s (buttons down:%s)", msg, down);
+}
+
+void MyMousePanel::OnLeftDown(wxMouseEvent& event)
+{
+    DoLogMouseEvent(event, "wxEVT_LEFT_DOWN");
+}
+
+void MyMousePanel::OnLeftUp(wxMouseEvent& event)
+{
+    DoLogMouseEvent(event, "wxEVT_LEFT_UP");
+}
+
+void MyMousePanel::OnRightDown(wxMouseEvent& event)
+{
+    DoLogMouseEvent(event, "wxEVT_RIGHT_DOWN");
+}
+
+void MyMousePanel::OnRightUp(wxMouseEvent& event)
+{
+    DoLogMouseEvent(event, "wxEVT_RIGHT_UP");
+}
+
+void MyMousePanel::OnLeftDClick(wxMouseEvent& event)
+{
+    DoLogMouseEvent(event, "wxEVT_LEFT_DCLICK");
+}
+
+void MyMousePanel::OnRightDClick(wxMouseEvent& event)
+{
+    DoLogMouseEvent(event, "wxEVT_RIGHT_DCLICK");
+}
+
+void MyMousePanel::OnEnter(wxMouseEvent& event)
+{
+    DoLogMouseEvent(event, "wxEVT_ENTER_WINDDOW");
+}
+
+void MyMousePanel::OnLeave(wxMouseEvent& event)
+{
+    DoLogMouseEvent(event, "wxEVT_LEAVE_WINDDOW");
+}
+
+// --------------------------------------------------------------------
+
 MyGestureFrame::MyGestureFrame()
-    : wxFrame(NULL, wxID_ANY, "Multi-touch Gestures", wxDefaultPosition, wxSize(800, 600))
+    : wxFrame(nullptr, wxID_ANY, "Multi-touch Gestures", wxDefaultPosition, wxSize(800, 600))
 {
     // Create controls
     MyGesturePanel *myPanel = new MyGesturePanel(this);
@@ -83,7 +193,7 @@ void MyGesturePanel::OnPaint(wxPaintEvent& WXUNUSED(event))
 
     wxGCDC dc(paintDC);
     dc.SetTransformMatrix(m_affineMatrix);
-    dc.DrawBitmap(m_bitmap, wxRound(m_translateDistance.m_x), wxRound(m_translateDistance.m_y));
+    dc.DrawBitmap(m_bitmap, 0, 0);
 }
 
 void MyGesturePanel::OnPan(wxPanGestureEvent& event)
@@ -102,13 +212,11 @@ void MyGesturePanel::OnPan(wxPanGestureEvent& event)
     // Transform the distance using the transpose of the matrix,
     // in order to translate the image to match the screen coordinates
     wxMatrix2D m;
-    m_affineMatrix.Get(&m, NULL);
+    wxPoint2DDouble tr;
 
-    wxPoint2DDouble deltaD(m.m_11 * delta.x + m.m_12 * delta.y,
-                           m.m_21 * delta.x + m.m_22 * delta.y);
-
-    // Add it to the total translation
-    m_translateDistance += deltaD;
+    m_affineMatrix.Get(&m, &tr);
+    tr += event.GetDelta();
+    m_affineMatrix.Set(m, tr);
 
     if ( event.IsGestureEnd() )
     {
@@ -125,19 +233,31 @@ void MyGesturePanel::OnZoom(wxZoomGestureEvent& event)
         wxLogMessage("Zoom gesture started");
 
         m_lastZoomFactor = 1.0;
+        m_lastGesturePos = event.GetPosition();
     }
 
     wxLogMessage("Zoom gesture performed with zoom center at (%d, %d) and zoom Factor = %f",
         event.GetPosition().x, event.GetPosition().y, event.GetZoomFactor());
 
-    const wxPoint& zoomCenter = event.GetPosition();
+    const wxPoint &evtPos = event.GetPosition();
+    double factor = event.GetZoomFactor() / m_lastZoomFactor;
 
-    // Translate to zoom center
-    m_affineMatrix.Translate(zoomCenter.x, zoomCenter.y);
-    // Scale
-    m_affineMatrix.Scale(event.GetZoomFactor() / m_lastZoomFactor, event.GetZoomFactor() / m_lastZoomFactor);
-    // Translate back
-    m_affineMatrix.Translate(-zoomCenter.x, -zoomCenter.y);
+    wxMatrix2D m;
+    wxPoint2DDouble tr;
+    m_affineMatrix.Get(&m, &tr);
+
+    tr -= m_lastGesturePos;
+
+    wxAffineMatrix2D inv = m_affineMatrix;
+    inv.Invert();
+    tr = inv.TransformDistance(tr);
+    m_affineMatrix.Scale(factor, factor);
+    tr = m_affineMatrix.TransformDistance(tr);
+
+    tr += evtPos;
+
+    m_affineMatrix.Get(&m, nullptr);
+    m_affineMatrix.Set(m, tr);
 
     if ( event.IsGestureEnd() )
     {
@@ -145,6 +265,7 @@ void MyGesturePanel::OnZoom(wxZoomGestureEvent& event)
     }
 
     m_lastZoomFactor = event.GetZoomFactor();
+    m_lastGesturePos = evtPos;
 
     Refresh();
 }
@@ -161,14 +282,25 @@ void MyGesturePanel::OnRotate(wxRotateGestureEvent& event)
     wxLogMessage("Rotate gesture performed with rotation center at (%d, %d) and cumulative rotation angle = %f",
         event.GetPosition().x, event.GetPosition().y, event.GetRotationAngle());
 
-    const wxPoint& rotationCenter = event.GetPosition();
+    const wxPoint& evtPos = event.GetPosition();
 
-    // Translate to rotation center
-    m_affineMatrix.Translate(rotationCenter.x, rotationCenter.y);
-    // Rotate
+    wxMatrix2D m;
+    wxPoint2DDouble tr;
+
+    m_affineMatrix.Get(&m, &tr);
+
+    tr -= evtPos;
+
+    wxAffineMatrix2D inv = m_affineMatrix;
+    inv.Invert();
+    tr = inv.TransformDistance(tr);
     m_affineMatrix.Rotate(event.GetRotationAngle() - m_lastRotationAngle);
-    // Translate back
-    m_affineMatrix.Translate(-rotationCenter.x, -rotationCenter.y);
+    tr = m_affineMatrix.TransformDistance(tr);
+
+    tr += evtPos;
+
+    m_affineMatrix.Get(&m, nullptr);
+    m_affineMatrix.Set(m, tr);
 
     if ( event.IsGestureEnd() )
     {

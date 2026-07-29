@@ -786,6 +786,7 @@ class TokenScope(str, Enum):
     NHI_WRITE_VAULT = "nhi:write-vault"
     NHI_SEND_INVENTORY = "nhi:send-inventory"
     ENDPOINTS_SEND = "endpoints:send"
+    AI_DISCOVER_SEND = "ai-discover:send"
     CUSTOM_TAGS_READ = "custom_tags:read"
     CUSTOM_TAGS_WRITE = "custom_tags:write"
     SECRET_READ = "secrets:read"
@@ -1786,10 +1787,32 @@ UserInfo.SCHEMA = UserInfoSchema()
 
 
 @dataclass
+class AgentInfo(FromDictMixin, ToDictMixin):
+    name: str
+    # Whether the ggshield AI hooks are installed for this agent (globally).
+    hooks_installed: bool
+    hooks_command: Optional[str] = None
+
+
+class AgentInfoSchema(BaseSchema):
+    name = fields.Str(required=True)
+    hooks_installed = fields.Bool(required=True)
+    hooks_command = fields.Str(load_default=None, dump_default=None)
+
+    @post_load
+    def make_agent_info(self, data: Dict[str, Any], **kwargs: Any):
+        return AgentInfo(**data)
+
+
+AgentInfo.SCHEMA = AgentInfoSchema()
+
+
+@dataclass
 class AIDiscovery(FromDictWithBase):
     user: UserInfo
     discovery_duration: float  # in seconds
     servers: List[MCPServer] = field(default_factory=list)
+    agents: List[AgentInfo] = field(default_factory=list)
 
 
 class AIDiscoverySchema(BaseSchema):
@@ -1797,6 +1820,9 @@ class AIDiscoverySchema(BaseSchema):
     discovery_duration = fields.Float(required=True)
     servers = fields.List(
         fields.Nested(MCPServerSchema), load_default=[], dump_default=[]
+    )
+    agents = fields.List(
+        fields.Nested(AgentInfoSchema), load_default=[], dump_default=[]
     )
 
     @post_load
@@ -1873,3 +1899,22 @@ class MCPActivityBulkResponseSchema(BaseSchema):
 
 
 MCPActivityBulkResponse.SCHEMA = MCPActivityBulkResponseSchema()
+
+
+@dataclass
+class AgentActivityResponse(FromDictWithBase):
+    ingested: int
+    # Records the server could not scan for secrets and dropped (never stored).
+    dropped: int = 0
+
+
+class AgentActivityResponseSchema(BaseSchema):
+    ingested = fields.Int(required=True)
+    dropped = fields.Int(load_default=0)
+
+    @post_load
+    def make_agent_activity_response(self, data: Dict[str, Any], **kwargs: Any):
+        return AgentActivityResponse(**data)
+
+
+AgentActivityResponse.SCHEMA = AgentActivityResponseSchema()

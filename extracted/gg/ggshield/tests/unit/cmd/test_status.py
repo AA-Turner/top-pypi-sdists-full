@@ -1,16 +1,19 @@
 import json
+import re
 from unittest import mock
 
 import jsonschema
 import pytest
+import requests.exceptions
 from pygitguardian.models import APITokensResponse, Detail, HealthCheckResponse
 from pytest_voluptuous import S
-from voluptuous.validators import All, In, Match
+from voluptuous.validators import All, Contains, In, Match
 
 from ggshield.__main__ import cli
 from ggshield.core.config.config import ConfigSource
+from ggshield.core.errors import ExitCode
 from ggshield.utils.os import cd
-from tests.unit.conftest import assert_invoke_ok, my_vcr
+from tests.unit.conftest import assert_invoke_exited_with, assert_invoke_ok, my_vcr
 
 
 def test_quota(cli_fs_runner, quota_json_schema):
@@ -20,7 +23,7 @@ def test_quota(cli_fs_runner, quota_json_schema):
         result = cli_fs_runner.invoke(cli, cmd, color=False)
         assert_invoke_ok(result)
 
-    dct = json.loads(result.output)
+    dct = json.loads(result.stdout)
     jsonschema.validate(dct, quota_json_schema)
 
     assert dct["count"] + dct["remaining"] == dct["limit"]
@@ -33,7 +36,7 @@ def test_api_status(cli_fs_runner, api_status_json_schema):
         result = cli_fs_runner.invoke(cli, cmd, color=False)
         assert_invoke_ok(result)
 
-    dct = json.loads(result.output)
+    dct = json.loads(result.stdout)
     jsonschema.validate(dct, api_status_json_schema)
 
     assert (
@@ -47,8 +50,12 @@ def test_api_status(cli_fs_runner, api_status_json_schema):
                     "secrets_engine_version": Match(r"\d\.\d{1,3}\.\d"),
                     "instance_source": In(x.name for x in ConfigSource),
                     "api_key_source": In(x.name for x in ConfigSource),
-                    "token_scopes": ["scan"],
-                    "workspace_id": 1,
+                    # Neither is pinned to the recorded value: the release
+                    # process re-records the cassettes, so both depend on the
+                    # releaser's token. Its scopes are a superset of "scan":
+                    # the honeytoken tests need `honeytokens:write` to record.
+                    "token_scopes": All([str], Contains("scan")),
+                    "workspace_id": int,
                 }
             )
         )
@@ -97,7 +104,7 @@ def test_api_status_sources(_, __, hs_mock, cli_fs_runner, tmp_path, monkeypatch
                 cmd.extend(["--instance", instance])
             result = cli_fs_runner.invoke(cli, cmd, color=False, env=env)
 
-        json_res = json.loads(result.output)
+        json_res = json.loads(result.stdout)
         return json_res["instance_source"], json_res["api_key_source"]
 
     env: dict[str, str | None] = {
@@ -208,7 +215,7 @@ def test_api_status_shows_workspace_id(cli_fs_runner):
     with my_vcr.use_cassette("test_health_check"):
         result = cli_fs_runner.invoke(cli, ["api-status"], color=False)
     assert_invoke_ok(result)
-    assert "Workspace ID: 1" in result.output
+    assert re.search(r"^Workspace ID: \d+$", result.output, re.MULTILINE)
 
     lines = result.output.splitlines()
     api_url_index = next(
@@ -238,3 +245,32 @@ def test_api_status_scopes_omitted_on_error(
     assert_invoke_ok(result)
     assert "Token scopes:" not in result.output
     assert "Workspace ID:" not in result.output
+
+
+@mock.patch(
+    "pygitguardian.GGClient.api_tokens",
+    side_effect=requests.exceptions.JSONDecodeError(
+        "Expecting value: line 1 column 1 (char 0)",
+        "<!doctype html><html><body>GitGuardian</body></html>",
+        0,
+    ),
+)
+@mock.patch(
+    "pygitguardian.GGClient.health_check",
+    return_value=HealthCheckResponse(detail="Valid API key.", status_code=200),
+)
+def test_api_status_reports_clean_error_on_non_json_body(
+    health_check_mock, api_tokens_mock, cli_fs_runner
+):
+    """
+    GIVEN an instance URL that returns a non-JSON 2xx body (e.g. the SPA HTML),
+        so api_tokens() would raise a raw JSONDecodeError
+    WHEN running api-status
+    THEN the command fails with a clean, actionable error mentioning the
+        instance URL, not a raw JSONDecodeError traceback
+    """
+    result = cli_fs_runner.invoke(cli, ["api-status"], color=False)
+
+    assert_invoke_exited_with(result, ExitCode.UNEXPECTED_ERROR)
+    assert "instance URL" in result.output
+    assert not isinstance(result.exception, requests.exceptions.JSONDecodeError)

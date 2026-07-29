@@ -16,7 +16,7 @@ from db_contrib_tool.clients.resmoke_proxy import ResmokeProxy
 from db_contrib_tool.config import (
     CONTINUOUS_RELEASE_ALIAS,
     LTS_RELEASE_ALIAS,
-    PATCH_RELEASE_ALIAS,
+    LAST_PATCH_RELEASE_ALIAS,
     SETUP_REPRO_ENV_CONFIG,
     SETUP_REPRO_ENV_CONFIG_FILE,
     SetupReproEnvConfig,
@@ -392,7 +392,7 @@ def massage_versions(
     """
     versions = []
     for version in input_versions:
-        if version in [LTS_RELEASE_ALIAS, CONTINUOUS_RELEASE_ALIAS, PATCH_RELEASE_ALIAS]:
+        if version in [LTS_RELEASE_ALIAS, CONTINUOUS_RELEASE_ALIAS, LAST_PATCH_RELEASE_ALIAS]:
             versions.append(f"{version}={version}")
         else:
             versions.append(version)
@@ -404,7 +404,7 @@ def massage_versions(
         versions.append(f"{CONTINUOUS_RELEASE_ALIAS}={CONTINUOUS_RELEASE_ALIAS}")
 
     if install_last_patch:
-        versions.append(f"{PATCH_RELEASE_ALIAS}={PATCH_RELEASE_ALIAS}")
+        versions.append(f"{LAST_PATCH_RELEASE_ALIAS}={LAST_PATCH_RELEASE_ALIAS}")
 
     if len(versions) == 0:
         versions = [

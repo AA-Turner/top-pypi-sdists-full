@@ -20,7 +20,7 @@ import warnings
 from contextlib import contextmanager
 from dataclasses import replace
 from functools import partial, reduce
-from typing import Literal, Optional
+from typing import Literal, Optional, Union
 
 import packaging.version
 import torch
@@ -175,6 +175,30 @@ class LoraModel(BaseTuner):
         if peft_config.layer_replication:
             replicate_layers(model, peft_config.layer_replication)
 
+    def _check_new_adapter_config(self, config: LoraConfig) -> None:
+        super()._check_new_adapter_config(config)
+
+        # Multiple adapters that use `target_parameters` are supported, but they must all target the same set of
+        # parameters. The reason is that the targeted parameters are wrapped with (possibly nested) lora.ParamWrapper
+        # layers, and which parameter a LoRA weight belongs to is encoded by its position in that nesting. If different
+        # adapters targeted different parameters, the nesting (and thus the state_dict keys) would differ between
+        # adapters, which is not supported.
+        target_parameters = getattr(config, "target_parameters", None)
+        if not target_parameters:
+            return
+
+        target_parameters = set(target_parameters)  # set is okay as we don't support str for this arg
+        for adapter_name, other_conf in self.peft_config.items():
+            if other_conf is config:
+                continue
+            other_target_parameters = getattr(other_conf, "target_parameters", None)
+            if other_target_parameters and (set(other_target_parameters) != target_parameters):
+                raise ValueError(
+                    "When using multiple adapters with `target_parameters`, all adapters must target the same set of "
+                    f"parameters, but got {sorted(target_parameters)} for the new adapter and "
+                    f"{sorted(other_target_parameters)} for adapter '{adapter_name}'."
+                )
+
     def _create_and_replace(
         self,
         lora_config,
@@ -188,18 +212,6 @@ class LoraModel(BaseTuner):
     ) -> None:
         if current_key is None:
             raise ValueError("Current Key shouldn't be `None`")
-
-        if lora_config.target_parameters:
-            # Right now, unfortunately, we don't support multiple adapters with target_parameters on the same model.
-            other_configs_use_target_params = any(
-                conf.target_parameters for key, conf in self.peft_config.items() if key != adapter_name
-            )
-            if other_configs_use_target_params:
-                raise ValueError(
-                    f"Adding a LoRA config with `target_parameters={lora_config.target_parameters}` but there are "
-                    "already other LoRA adapters on this model that use `target_parameters`. At the moment, only "
-                    "one LoRA adapter per model with `target_parameters` is allowed."
-                )
 
         # Regexp matching - Find key which matches current target_name in patterns provided
         r_key = get_pattern_key(lora_config.rank_pattern.keys(), current_key)
@@ -318,7 +330,7 @@ class LoraModel(BaseTuner):
                         device_mesh,
                     )
                 else:  # embedding_rowwise
-                    # TP hooks are  handled in the `_embed` method in lora/layer.py where they are explicitely called.
+                    # TP hooks are  handled in the `_embed` method in lora/layer.py where they are explicitly called.
                     # Here we simply register the TP plans.
                     tp_plan_keys.append(f"{generic_key}.base_layer.weight")
                     tp_plan_keys.append(f"{generic_key}.lora_embedding_A.{adapter_name}")
@@ -369,7 +381,7 @@ class LoraModel(BaseTuner):
 
         if lora_config._custom_modules:
             # Experimental custom LoRA module support. Allows users to pass a custom mapping for unsupported layer
-            # types by impelementing their own LoRA layers.
+            # types by implementing their own LoRA layers.
             def dynamic_dispatch_func(target, adapter_name, config, **kwargs):
                 new_module = None
 
@@ -522,10 +534,10 @@ class LoraModel(BaseTuner):
                 # When there is beam search, the inputs are repeated n times, thus we repeat each adapter name n times and
                 # then flatten the nested list. For encoder-decoder models, this extended list should not be applied to the
                 # encoder part. Further below, the original argument is thus restored for the encoder.
-                adapter_names = sum(([n] * kwargs["num_beams"] for n in adapter_names), [])
+                adapter_names = [n for n in adapter_names for _ in range(kwargs["num_beams"])]
 
             for module in self.modules():
-                if isinstance(module, LoraLayer) or isinstance(module, AuxiliaryTrainingWrapper):
+                if isinstance(module, (LoraLayer, AuxiliaryTrainingWrapper)):
                     pre_forward = partial(_adapter_names_pre_forward_hook, adapter_names=adapter_names)
                     handle = module.register_forward_pre_hook(pre_forward, with_kwargs=True)
                     hook_handles.append(handle)
@@ -535,7 +547,7 @@ class LoraModel(BaseTuner):
                 # For encoder-decoder models, even when applying beam search, the encoder part of the model should not use
                 # the extended adapter_names. This is because the encoder still uses the original, non-extended samples.
                 for module in encoder.modules():
-                    if isinstance(module, LoraLayer) or isinstance(module, AuxiliaryTrainingWrapper):
+                    if isinstance(module, (LoraLayer, AuxiliaryTrainingWrapper)):
                         # Add another hook to overwrite the kwargs with the original adapter names -- this is easier than
                         # trying to exclude the encoder.
                         pre_forward = partial(_adapter_names_pre_forward_hook, adapter_names=original_adapter_names)
@@ -907,10 +919,21 @@ class LoraModel(BaseTuner):
         return lora_deltas
 
     def subtract_mutated_init(self, output_state_dict: dict[str, torch.Tensor], adapter_name: str, kwargs=None):
-        """
-        This function can calculate the updates of the PiSSA/CorDA/OLoRA by comparing the parameters of the
+        r"""
+        This function can calculate the updates of PiSSA/CorDA/OLoRA by comparing the parameters of the
         PiSSA/CorDA/OLoRA adapter in `output_state_dict` with the initial values of PiSSA/CorDA/OLoRA in
         `adapter_name`, thus converting PiSSA/CorDA/OLoRA to LoRA.
+
+        Methods like PiSSA remove a portion of the model base weights for training and therefore are not easily
+        swapped. But if you know both the initial pre-training and the post-training weights, you can compute the
+        \Delta W and use that as a LoRA adapter.
+
+        Compute steps:
+
+        - $W = W_{res} + A_0 B_0$ (PiSSA init)
+        - $W + \Delta W = W_{res} + A B$ (PiSSA after training)
+        - $\Delta W = W_{res} + AB - W = W_{res} + AB - W_{res} - A_0 B_0$ (Deriving dW for LoRA)
+        - $\Delta W = AB - A_0 B_0$
         """
         for name, param in self.model.named_parameters():
             if (
@@ -943,6 +966,59 @@ class LoraModel(BaseTuner):
                 )
 
         return tensors_lora
+
+    def _get_monteclora_loss(self, adapter_names: Optional[Union[str, list[str]]] = None) -> torch.Tensor | float:
+        """
+        Compute the MonteCLoRA variational regularization loss.
+
+        Iterates over all `LoraLayer` modules in the model and, for each layer, collects the KL-divergence and entropy
+        components from the `MontecloraSampler`s that correspond to the requested adapters. The aggregated loss is
+        normalized by the number of contributing samplers. Returns `0.0` if no matching MonteCLoRA samplers are present
+        (e.g. MonteCLoRA is not used, or none of the requested adapters use MonteCLoRA).
+
+        Only samplers belonging to `adapter_names` are considered. This matters when multiple LoRA adapters are
+        attached to the model but only a subset is active: the regularization loss is then computed only for those
+        adapters. By default (`adapter_names=None`) the model's currently active adapters are used.
+
+        Typical usage during training (after computing the task loss):
+
+        ```py
+        task_loss = ...  # standard loss from the model
+        monteclora_loss = model._get_monteclora_loss()
+        total_loss = task_loss + monteclora_loss
+        ```
+
+        Args:
+            adapter_names (`str` or `list[str]`, *optional*):
+                Name(s) of the adapter(s) to include in the loss computation. If `None` (the default), the model's
+                currently active adapters (`self.active_adapters`) are used.
+
+        Returns:
+            The normalized variational loss as a tensor (or `0.0` if no matching MonteCLoRA samplers are present).
+        """
+        if adapter_names is None:
+            adapter_names = self.active_adapters
+        elif isinstance(adapter_names, str):
+            adapter_names = [adapter_names]
+
+        var_loss_sum: torch.Tensor | float = 0.0
+        num_monte_layers = 0
+        for module in self.modules():
+            if not isinstance(module, LoraLayer):
+                continue
+            samplers = getattr(module, "lora_monteclora_sampler", None)
+            if samplers is None:
+                continue
+            for adapter_name in adapter_names:
+                if adapter_name not in samplers:
+                    continue
+                kl_loss, entropy_loss = samplers[adapter_name].get_variational_loss()
+                var_loss_sum = var_loss_sum + kl_loss + entropy_loss
+                num_monte_layers += 1
+
+        if num_monte_layers == 0:
+            return 0.0
+        return var_loss_sum / num_monte_layers
 
     def _add_modules_to_save_to_tie(self, peft_config: LoraConfig, tied_weight_keys: list[str]):
         """

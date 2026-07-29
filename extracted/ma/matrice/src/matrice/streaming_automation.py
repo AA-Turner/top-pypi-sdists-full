@@ -20,6 +20,9 @@ from matrice.camera_management import CameraManagement
 from matrice.inference_pipeline_management import InferencePipelineManagement
 from matrice.streaming_gateway_management import StreamingGatewayManagement
 
+UNEXPECTED_RESPONSE_FORMAT = "Unexpected response format"
+UNKNOWN_ERROR = "Unknown error"
+
 
 class CameraInfo(TypedDict):
     location_name: Optional[str]
@@ -378,7 +381,7 @@ class StreamingAutomation:
 
         # Check for other protocols
         path_lower = path.lower()
-        if any(path_lower.startswith(proto) for proto in ["http://", "https://", "s3://"]):
+        if path_lower.split("://", 1)[0] in ("http", "https", "s3"):
             return "FILE"
 
         # Default to RTSP
@@ -432,7 +435,7 @@ class StreamingAutomation:
             }
 
         try:
-            data, error, message = self.gateway_mgmt.create_streaming_gateway(
+            data, error, _ = self.gateway_mgmt.create_streaming_gateway(
                 gateway_name=gateway_name,
                 description=description,
                 compute_alias=compute_alias,
@@ -477,7 +480,7 @@ class StreamingAutomation:
         """
         try:
             # Note: page parameter is 0-indexed here but 1-indexed in management class
-            data, error, message = self.gateway_mgmt.list_streaming_gateways(
+            data, error, _ = self.gateway_mgmt.list_streaming_gateways(
                 page=page + 1,
                 limit=page_size,  # Convert to 1-indexed
             )
@@ -490,7 +493,7 @@ class StreamingAutomation:
                 items = data.get("items", [])
                 return items, None
             else:
-                return None, "Unexpected response format"
+                return None, UNEXPECTED_RESPONSE_FORMAT
         except Exception as e:
             return None, str(e)
 
@@ -508,7 +511,7 @@ class StreamingAutomation:
         tuple : (success, error_message)
         """
         try:
-            data, error, message = self.gateway_mgmt.start_streaming_gateway(gateway_id)
+            _, error, _ = self.gateway_mgmt.start_streaming_gateway(gateway_id)
 
             if error:
                 return False, error
@@ -633,7 +636,7 @@ class StreamingAutomation:
         tuple : (presigned_url, error_message)
         """
         try:
-            presigned_url, error, message = self.camera_mgmt.get_presigned_url_for_video(file_name)
+            presigned_url, error, _ = self.camera_mgmt.get_presigned_url_for_video(file_name)
 
             if error:
                 return None, error
@@ -667,7 +670,7 @@ class StreamingAutomation:
             return cached_url, None
 
         try:
-            s3_url, error, message = self.camera_mgmt.upload_video_file(video_path, file_name)
+            s3_url, error, _ = self.camera_mgmt.upload_video_file(video_path, file_name)
 
             if error or not s3_url:
                 return None, error or "Upload returned empty URL"
@@ -704,7 +707,7 @@ class StreamingAutomation:
         tuple : (list of created/existing cameras, error_message)
         """
         try:
-            result_cameras, error, message = self.camera_mgmt.create_camera_streams_batch(cameras)
+            result_cameras, error, _ = self.camera_mgmt.create_camera_streams_batch(cameras)
 
             if error:
                 return None, error
@@ -739,7 +742,7 @@ class StreamingAutomation:
         tuple : (list of cameras, error_message)
         """
         try:
-            cameras, error, message = self.camera_mgmt.get_camera_streams_with_filters(
+            cameras, error, _ = self.camera_mgmt.get_camera_streams_with_filters(
                 camera_group_id=None,  # Camera group removed - always pass None
                 page=page,
                 limit=limit,
@@ -887,7 +890,7 @@ class StreamingAutomation:
                 else:
                     return None, f"Unexpected response format: data is {type(data).__name__}, not dict"
             else:
-                return None, resp.get("message", "Unknown error")
+                return None, resp.get("message", UNKNOWN_ERROR)
         except Exception as e:
             return None, str(e)
 
@@ -952,7 +955,7 @@ class StreamingAutomation:
                 else:
                     return None, f"Unexpected response format: data is {type(data).__name__}, not dict"
             else:
-                return None, resp.get("message", "Unknown error")
+                return None, resp.get("message", UNKNOWN_ERROR)
         except Exception as e:
             return None, str(e)
 
@@ -989,9 +992,9 @@ class StreamingAutomation:
                 if isinstance(servers, list):
                     return servers, None
                 else:
-                    return None, "Unexpected response format"
+                    return None, UNEXPECTED_RESPONSE_FORMAT
             else:
-                return None, resp.get("message", "Unknown error")
+                return None, resp.get("message", UNKNOWN_ERROR)
         except Exception as e:
             return None, str(e)
 
@@ -1052,7 +1055,7 @@ class StreamingAutomation:
             # Use session user_id if not provided
             if not user_id:
                 user_id = getattr(self.session, "user_id", "") or ""
-            data, error, message = self.pipeline_mgmt.create_inference_pipeline(
+            data, error, _ = self.pipeline_mgmt.create_inference_pipeline(
                 name=name,
                 project_id=project_id,
                 cameras=cameras,
@@ -1107,7 +1110,7 @@ class StreamingAutomation:
         """
         try:
             # Note: page_number is 0-indexed here but 1-indexed in management class
-            data, error, message = self.pipeline_mgmt.list_inference_pipelines(
+            data, error, _ = self.pipeline_mgmt.list_inference_pipelines(
                 project_id=project_id,
                 page=page_number + 1,  # Convert to 1-indexed
                 limit=page_size,
@@ -1123,7 +1126,7 @@ class StreamingAutomation:
                 items = data.get("items", [])
                 return items, None
             else:
-                return None, "Unexpected response format"
+                return None, UNEXPECTED_RESPONSE_FORMAT
         except Exception as e:
             return None, str(e)
 
@@ -1147,7 +1150,7 @@ class StreamingAutomation:
         tuple : (success, error_message)
         """
         try:
-            data, error, message = self.pipeline_mgmt.start_inference_pipeline(
+            _, error, _ = self.pipeline_mgmt.start_inference_pipeline(
                 pipeline_id=pipeline_id,
                 compute_alias=compute_alias,
                 cluster_name=cluster_name,
@@ -1293,6 +1296,189 @@ class StreamingAutomation:
         # Cast to Dict to match function annotation without changing logic
         return cast(Dict[str, Any], results)
 
+    def _normalize_camera_for_setup(
+        self,
+        camera: Dict[str, Any],
+        lan_id: str,
+        cluster_name: str,
+        results: "_AutoSetupResults",
+    ) -> Optional[Dict[str, Any]]:
+        """Normalize a single camera dict for auto setup.
+
+        Returns the normalized camera dict, or None if the camera should be
+        skipped (e.g. local video upload failed).
+        """
+        # Generate default camera name using UUID if not provided
+        cam_unique_id = str(uuid.uuid4())[:8]
+        default_camera_name = f"camera-{cam_unique_id}"
+
+        normalized: Dict[str, Any] = {
+            "accountNumber": self.account_number,
+            "lanId": lan_id,
+            "clusterName": cluster_name,
+        }
+
+        # Copy existing fields - try multiple field name variations
+        camera_name = None
+        for key in ["cameraName", "camera_name", "name"]:
+            if key in camera and camera[key]:
+                camera_name = str(camera[key])
+                break
+
+        # Use provided name or auto-generate
+        normalized["cameraName"] = camera_name or default_camera_name
+
+        # Get the path/URL from various possible fields
+        path = (
+            camera.get("cameraFeedPath")
+            or camera.get("camera_feed_path")
+            or camera.get("simulationVideoPath")
+            or camera.get("simulation_video_path")
+            or camera.get("video_path")
+            or camera.get("video_url")
+            or camera.get("rtsp_url")
+            or camera.get("url")
+            or camera.get("path")
+            or camera.get("feed_path")
+            or camera.get("stream_url")
+            or ""
+        )
+
+        # Auto-detect protocol type if not provided
+        protocol_type = camera.get("protocolType") or camera.get("protocol_type") or camera.get("protocol")
+        if not protocol_type and path:
+            protocol_type = self._detect_protocol_type(str(path))
+        elif not protocol_type:
+            protocol_type = "RTSP"  # Default
+
+        # Handle local video file upload
+        if protocol_type == "FILE" and path:
+            if self._is_local_file(str(path)):
+                # Check cache first
+                abs_path = str(Path(str(path)).resolve())
+                if abs_path in self._video_upload_cache:
+                    # Use cached S3 URL
+                    path = self._video_upload_cache[abs_path]
+                    print(f"  Using cached S3 URL: {path}")
+                else:
+                    # Upload the video (upload_video will cache it)
+                    print(f"  Uploading local video file: {path}")
+                    # Generate unique filename using UUID to avoid conflicts
+                    file_unique_id = str(uuid.uuid4())[:8]
+                    original_name = Path(str(path)).name
+                    file_name = f"video-{file_unique_id}-{original_name}"
+
+                    s3_url, error = self.upload_video(str(path), file_name)
+                    if error or not s3_url:
+                        results["errors"].append(f"Failed to upload video '{path}': {error or 'unknown error'}")
+                        print(f"  Failed to upload video: {error}")
+                        # Skip this camera
+                        return None
+                    else:
+                        path = s3_url
+                        print(f"  Uploaded to: {s3_url}")
+
+        normalized["protocolType"] = str(protocol_type)
+
+        # Add protocol-specific fields
+        if protocol_type == "RTSP":
+            normalized["cameraFeedPath"] = str(path)
+        elif protocol_type == "FILE":
+            normalized["simulationVideoPath"] = str(path)
+
+        # Add default stream settings - use provided or sensible defaults
+        if "defaultStreamSettings" in camera and camera["defaultStreamSettings"]:
+            normalized["defaultStreamSettings"] = camera["defaultStreamSettings"]
+        elif "stream_settings" in camera and camera["stream_settings"]:
+            normalized["defaultStreamSettings"] = camera["stream_settings"]
+        else:
+            # Auto-generate sensible default stream settings
+            normalized["defaultStreamSettings"] = {
+                "width": 640,
+                "height": 480,
+                "streamingFPS": 10,
+                "aspectRatio": "16:9",
+                "videoQuality": 80,
+            }
+
+        return normalized
+
+    def _resolve_default_application_ids(
+        self,
+        application_names: Optional[List[str]],
+        results: "_AutoSetupResults",
+    ) -> List[Dict[str, str]]:
+        """Resolve a list of application names into ``_idApplication`` dicts."""
+        default_application_ids: List[Dict[str, str]] = []
+        if application_names:
+            for app_name in application_names:
+                app, error = self.find_application_by_name(app_name)
+                if error or not app:
+                    results["errors"].append(f"Failed to find application '{app_name}': {error or 'not found'}")
+                    continue
+                app_id = app.get("_id") or app.get("id")
+                if isinstance(app_id, str):
+                    default_application_ids.append({"_idApplication": app_id})
+                else:
+                    results["errors"].append(f"Application '{app_name}' missing ID")
+        return default_application_ids
+
+    def _build_pipeline_cameras(
+        self,
+        parsed_cameras: List[Dict[str, Any]],
+        default_application_ids: List[Dict[str, str]],
+        results: "_AutoSetupResults",
+    ) -> List[Dict[str, Any]]:
+        """Build the cameras array for a pipeline using per-camera or default apps."""
+        pipeline_cameras: List[Dict[str, Any]] = []
+        for idx, camera_id in enumerate(results["camera_ids"]):
+            # Check if this camera has specific apps
+            camera_apps: Optional[List[Dict[str, str]]] = None
+            if idx < len(parsed_cameras):
+                original_camera = parsed_cameras[idx]
+                camera_specific_apps = original_camera.get("apps") or original_camera.get("applications")
+
+                if camera_specific_apps:
+                    # Parse camera-specific apps
+                    if isinstance(camera_specific_apps, str):
+                        # Comma-separated or single app name
+                        if "," in camera_specific_apps:
+                            camera_specific_apps = [app.strip() for app in camera_specific_apps.split(",")]
+                        else:
+                            camera_specific_apps = [camera_specific_apps]
+
+                    # Convert app names to IDs
+                    camera_app_ids: List[Dict[str, str]] = []
+                    for app_name in camera_specific_apps:
+                        if (
+                            isinstance(app_name, dict)
+                            and "_idApplication" in app_name
+                            and isinstance(app_name["_idApplication"], str)
+                        ):
+                            camera_app_ids.append({"_idApplication": app_name["_idApplication"]})
+                        elif isinstance(app_name, str):
+                            app, error = self.find_application_by_name(app_name)
+                            if error or not app:
+                                results["errors"].append(
+                                    f"Failed to find application '{app_name}' for camera {idx + 1}: {error or 'not found'}"
+                                )
+                                continue
+                            app_id = app.get("_id") or app.get("id")
+                            if isinstance(app_id, str):
+                                camera_app_ids.append({"_idApplication": app_id})
+                            else:
+                                results["errors"].append(f"Application '{app_name}' missing ID")
+
+                    if camera_app_ids:
+                        camera_apps = camera_app_ids
+
+            # Use camera-specific apps or default apps
+            apps_to_use = camera_apps if camera_apps else default_application_ids
+
+            if apps_to_use:
+                pipeline_cameras.append({"cameraId": camera_id, "applications": apps_to_use})
+        return pipeline_cameras
+
     def auto_setup_from_cameras(
         self,
         cameras: Union[str, Dict, List[Dict]],
@@ -1387,101 +1573,10 @@ class StreamingAutomation:
 
         # 1. Normalize cameras - ensure they have required fields and auto-upload videos
         normalized_cameras: List[Dict[str, Any]] = []
-        for idx, camera in enumerate(parsed_cameras):
-            # Generate default camera name using UUID if not provided
-            cam_unique_id = str(uuid.uuid4())[:8]
-            default_camera_name = f"camera-{cam_unique_id}"
-
-            normalized: Dict[str, Any] = {
-                "accountNumber": self.account_number,
-                "lanId": lan_id,
-                "clusterName": cluster_name,
-            }
-
-            # Copy existing fields - try multiple field name variations
-            camera_name = None
-            for key in ["cameraName", "camera_name", "name"]:
-                if key in camera and camera[key]:
-                    camera_name = str(camera[key])
-                    break
-
-            # Use provided name or auto-generate
-            normalized["cameraName"] = camera_name or default_camera_name
-
-            # Get the path/URL from various possible fields
-            path = (
-                camera.get("cameraFeedPath")
-                or camera.get("camera_feed_path")
-                or camera.get("simulationVideoPath")
-                or camera.get("simulation_video_path")
-                or camera.get("video_path")
-                or camera.get("video_url")
-                or camera.get("rtsp_url")
-                or camera.get("url")
-                or camera.get("path")
-                or camera.get("feed_path")
-                or camera.get("stream_url")
-                or ""
-            )
-
-            # Auto-detect protocol type if not provided
-            protocol_type = camera.get("protocolType") or camera.get("protocol_type") or camera.get("protocol")
-            if not protocol_type and path:
-                protocol_type = self._detect_protocol_type(str(path))
-            elif not protocol_type:
-                protocol_type = "RTSP"  # Default
-
-            # Handle local video file upload
-            if protocol_type == "FILE" and path:
-                if self._is_local_file(str(path)):
-                    # Check cache first
-                    abs_path = str(Path(str(path)).resolve())
-                    if abs_path in self._video_upload_cache:
-                        # Use cached S3 URL
-                        path = self._video_upload_cache[abs_path]
-                        print(f"  Using cached S3 URL: {path}")
-                    else:
-                        # Upload the video (upload_video will cache it)
-                        print(f"  Uploading local video file: {path}")
-                        # Generate unique filename using UUID to avoid conflicts
-                        file_unique_id = str(uuid.uuid4())[:8]
-                        original_name = Path(str(path)).name
-                        file_name = f"video-{file_unique_id}-{original_name}"
-
-                        s3_url, error = self.upload_video(str(path), file_name)
-                        if error or not s3_url:
-                            results["errors"].append(f"Failed to upload video '{path}': {error or 'unknown error'}")
-                            print(f"  Failed to upload video: {error}")
-                            # Skip this camera
-                            continue
-                        else:
-                            path = s3_url
-                            print(f"  Uploaded to: {s3_url}")
-
-            normalized["protocolType"] = str(protocol_type)
-
-            # Add protocol-specific fields
-            if protocol_type == "RTSP":
-                normalized["cameraFeedPath"] = str(path)
-            elif protocol_type == "FILE":
-                normalized["simulationVideoPath"] = str(path)
-
-            # Add default stream settings - use provided or sensible defaults
-            if "defaultStreamSettings" in camera and camera["defaultStreamSettings"]:
-                normalized["defaultStreamSettings"] = camera["defaultStreamSettings"]
-            elif "stream_settings" in camera and camera["stream_settings"]:
-                normalized["defaultStreamSettings"] = camera["stream_settings"]
-            else:
-                # Auto-generate sensible default stream settings
-                normalized["defaultStreamSettings"] = {
-                    "width": 640,
-                    "height": 480,
-                    "streamingFPS": 10,
-                    "aspectRatio": "16:9",
-                    "videoQuality": 80,
-                }
-
-            normalized_cameras.append(normalized)
+        for camera in parsed_cameras:
+            normalized = self._normalize_camera_for_setup(camera, lan_id, cluster_name, results)
+            if normalized is not None:
+                normalized_cameras.append(normalized)
 
         # 2. Create cameras
         created_cameras, error = self.create_cameras(normalized_cameras)
@@ -1512,67 +1607,10 @@ class StreamingAutomation:
 
         if has_any_apps or application_names:
             # Build default application IDs
-            default_application_ids: List[Dict[str, str]] = []
-            if application_names:
-                for app_name in application_names:
-                    app, error = self.find_application_by_name(app_name)
-                    if error or not app:
-                        results["errors"].append(f"Failed to find application '{app_name}': {error or 'not found'}")
-                        continue
-                    app_id = app.get("_id") or app.get("id")
-                    if isinstance(app_id, str):
-                        default_application_ids.append({"_idApplication": app_id})
-                    else:
-                        results["errors"].append(f"Application '{app_name}' missing ID")
+            default_application_ids = self._resolve_default_application_ids(application_names, results)
 
             # Build cameras array for pipeline with per-camera or default apps
-            pipeline_cameras: List[Dict[str, Any]] = []
-            for idx, camera_id in enumerate(results["camera_ids"]):
-                # Check if this camera has specific apps
-                camera_apps: Optional[List[Dict[str, str]]] = None
-                if idx < len(parsed_cameras):
-                    original_camera = parsed_cameras[idx]
-                    camera_specific_apps = original_camera.get("apps") or original_camera.get("applications")
-
-                    if camera_specific_apps:
-                        # Parse camera-specific apps
-                        if isinstance(camera_specific_apps, str):
-                            # Comma-separated or single app name
-                            if "," in camera_specific_apps:
-                                camera_specific_apps = [app.strip() for app in camera_specific_apps.split(",")]
-                            else:
-                                camera_specific_apps = [camera_specific_apps]
-
-                        # Convert app names to IDs
-                        camera_app_ids: List[Dict[str, str]] = []
-                        for app_name in camera_specific_apps:
-                            if (
-                                isinstance(app_name, dict)
-                                and "_idApplication" in app_name
-                                and isinstance(app_name["_idApplication"], str)
-                            ):
-                                camera_app_ids.append({"_idApplication": app_name["_idApplication"]})
-                            elif isinstance(app_name, str):
-                                app, error = self.find_application_by_name(app_name)
-                                if error or not app:
-                                    results["errors"].append(
-                                        f"Failed to find application '{app_name}' for camera {idx + 1}: {error or 'not found'}"
-                                    )
-                                    continue
-                                app_id = app.get("_id") or app.get("id")
-                                if isinstance(app_id, str):
-                                    camera_app_ids.append({"_idApplication": app_id})
-                                else:
-                                    results["errors"].append(f"Application '{app_name}' missing ID")
-
-                        if camera_app_ids:
-                            camera_apps = camera_app_ids
-
-                # Use camera-specific apps or default apps
-                apps_to_use = camera_apps if camera_apps else default_application_ids
-
-                if apps_to_use:
-                    pipeline_cameras.append({"cameraId": camera_id, "applications": apps_to_use})
+            pipeline_cameras = self._build_pipeline_cameras(parsed_cameras, default_application_ids, results)
 
             if pipeline_cameras:
                 # Auto-generate pipeline name using UUID
@@ -1775,7 +1813,7 @@ class StreamingAutomation:
         ...     compute_alias="inference-compute-01"
         ... )
         """
-        result, error, message = self.pipeline_mgmt.add_cameras_and_applications_to_pipeline(
+        result, error, _ = self.pipeline_mgmt.add_cameras_and_applications_to_pipeline(
             pipeline_id=pipeline_id,
             cameras=cameras,
             compute_alias=compute_alias,

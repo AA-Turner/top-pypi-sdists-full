@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rstcheck
-Version: 6.2.5
+Version: 6.3.0
 Summary: Checks syntax of reStructuredText and code blocks nested within it
 Author-email: Steven Myint <git@stevenmyint.com>
 Maintainer-email: Christian Riedel <cielquan@protonmail.com>
@@ -10,11 +10,11 @@ Project-URL: Repository, https://github.com/rstcheck/rstcheck
 Project-URL: Changelog, https://github.com/rstcheck/rstcheck/blob/main/CHANGELOG.md
 Keywords: restructuredtext,rst,linter,static-analysis
 Classifier: Topic :: Software Development :: Quality Assurance
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS.rst
-Requires-Dist: rstcheck-core>=1.1
+Requires-Dist: rstcheck-core>=1.3.1
 Requires-Dist: typer>=0.12.0
 Provides-Extra: sphinx
 Requires-Dist: sphinx>=6.0; extra == "sphinx"
@@ -32,7 +32,7 @@ Requires-Dist: sphinx>=6.0; extra == "docs"
 Requires-Dist: myst-parser>=3; extra == "docs"
 Requires-Dist: sphinx-rtd-theme>=1.2; extra == "docs"
 Requires-Dist: sphinxcontrib-spelling>=7.3; extra == "docs"
-Requires-Dist: sphinx-click>=4.0.3; extra == "docs"
+Requires-Dist: sphinxcontrib-typer>=0.9.1; extra == "docs"
 Requires-Dist: sphinx-autobuild>=2021.3.14; extra == "docs"
 Provides-Extra: type-check
 Requires-Dist: mypy>=1.0; extra == "type-check"
@@ -86,6 +86,26 @@ To use pyproject.toml for configuration::
 To add sphinx support::
 
     $ pip install rstcheck[sphinx]
+
+Pre-commit Hook with Extras
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To use ``rstcheck`` in a Git pre-commit hook with optional features:
+
+1. Install pre-commit::
+
+     pip install pre-commit
+
+2. Add to ``.pre-commit-config.yaml``::
+
+     - repo: https://github.com/rstcheck/rstcheck
+       rev: main # should be replaced with the current verison
+       hooks:
+         - id: rstcheck
+           additional_dependencies: ['rstcheck[sphinx,toml]']
+
+3. Run ``pre-commit install`` to activate.
+
 
 
 Supported languages in code blocks

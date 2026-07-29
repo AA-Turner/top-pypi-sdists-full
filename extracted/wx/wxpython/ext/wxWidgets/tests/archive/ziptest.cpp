@@ -15,7 +15,10 @@
 #if wxUSE_STREAMS && wxUSE_ZIPSTREAM
 
 #include "archivetest.h"
+#include "wx/mstream.h"
 #include "wx/zipstrm.h"
+
+#include <memory>
 
 using std::string;
 
@@ -38,19 +41,19 @@ public:
     { }
 
 protected:
-    void OnCreateArchive(wxZipOutputStream& zip) wxOVERRIDE;
+    void OnCreateArchive(wxZipOutputStream& zip) override;
 
-    void OnArchiveExtracted(wxZipInputStream& zip, int expectedTotal) wxOVERRIDE;
+    void OnArchiveExtracted(wxZipInputStream& zip, int expectedTotal) override;
 
     void OnCreateEntry(wxZipOutputStream& zip,
                        TestEntry& testEntry,
-                       wxZipEntry *entry) wxOVERRIDE;
+                       wxZipEntry *entry) override;
 
     void OnEntryExtracted(wxZipEntry& entry,
                           const TestEntry& testEntry,
-                          wxZipInputStream *arc) wxOVERRIDE;
+                          wxZipInputStream *arc) override;
 
-    void OnSetNotifier(EntryT& entry) wxOVERRIDE;
+    void OnSetNotifier(EntryT& entry) override;
 
     int m_count;
     wxString m_comment;
@@ -132,7 +135,7 @@ void ZipTestCase::OnEntryExtracted(wxZipEntry& entry,
 class ZipNotifier : public wxZipNotifier
 {
 public:
-    void OnEntryUpdated(wxZipEntry& entry) wxOVERRIDE;
+    void OnEntryUpdated(wxZipEntry& entry) override;
 };
 
 void ZipNotifier::OnEntryUpdated(wxZipEntry& entry)
@@ -162,7 +165,7 @@ public:
     { }
 
 protected:
-    void runTest() wxOVERRIDE;
+    void runTest() override;
     int m_options;
     int m_id;
 };
@@ -183,8 +186,8 @@ void ZipPipeTestCase::runTest()
     TestInputStream in(out, m_id % ((m_options & PipeIn) ? 4 : 3));
     wxZipInputStream zip(in);
 
-    wxScopedPtr<wxZipEntry> entry(zip.GetNextEntry());
-    CPPUNIT_ASSERT(entry.get() != NULL);
+    std::unique_ptr<wxZipEntry> entry(zip.GetNextEntry());
+    CPPUNIT_ASSERT(entry.get() != nullptr);
 
     if ((m_options & PipeIn) == 0)
         CPPUNIT_ASSERT(entry->GetSize() != wxInvalidOffset);
@@ -209,12 +212,12 @@ class ziptest : public ArchiveTestSuite
 public:
     ziptest();
 
-    void runTest() wxOVERRIDE { DoRunTest(); }
+    void runTest() override { DoRunTest(); }
 
 protected:
     CppUnit::Test *makeTest(string descr, int options,
                             bool genericInterface, const wxString& archiver,
-                            const wxString& unarchiver) wxOVERRIDE;
+                            const wxString& unarchiver) override;
 };
 
 ziptest::ziptest()
@@ -233,7 +236,7 @@ CppUnit::Test *ziptest::makeTest(
 {
     // unzip doesn't support piping in the zip
     if ((options & PipeIn) && !unarchiver.empty())
-        return NULL;
+        return nullptr;
 
     if (genericInterface)
     {
@@ -247,5 +250,52 @@ CppUnit::Test *ziptest::makeTest(
 
 CPPUNIT_TEST_SUITE_REGISTRATION(ziptest);
 CPPUNIT_TEST_SUITE_NAMED_REGISTRATION(ziptest, "archive/zip");
+
+TEST_CASE("Zip::BadZip64ExtraField", "[zip][error]")
+{
+    // wxZipEntry::LoadExtraInfo() used to handle a ZIP64 extra field (Header
+    // ID = 1) that was too short to provide the 64-bit values the surrounding
+    // header had asked for by calling wxZipHeader::Read64() anyway. Read64()
+    // does not bounds-check against m_size, so it returned uninitialised
+    // bytes from the wxZipHeader stack object's 64-byte m_data array, which
+    // then ended up in m_Size, m_CompressedSize or m_Offset and was exposed
+    // to callers through GetSize() / GetCompressedSize() / GetOffset().
+    //
+    // The central directory entry below sets compressed size and uncompressed
+    // size to the ZIP64 sentinel 0xffffffff but pairs them with a zero-length
+    // ZIP64 extra field. After the fix the size fields are left at the
+    // sentinel value rather than overwritten with whatever Read64() happened
+    // to scrape off the stack.
+    static const unsigned char data[] = {
+        // Local file header for entry "a"
+        'P','K',0x03,0x04, 0x14,0x00, 0x00,0x00, 0x00,0x00,
+        0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,
+        0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,
+        0x01,0x00, 0x00,0x00, 'a',
+        // Central directory entry
+        'P','K',0x01,0x02, 0x14,0x00, 0x14,0x00, 0x00,0x00, 0x00,0x00,
+        0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,
+        0xff,0xff,0xff,0xff, 0xff,0xff,0xff,0xff,
+        0x01,0x00, 0x04,0x00, 0x00,0x00, 0x00,0x00, 0x00,0x00,
+        0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00,
+        'a',
+        // Extra field: ID=1 (ZIP64), fieldLen=0
+        0x01,0x00, 0x00,0x00,
+        // End of central directory record
+        'P','K',0x05,0x06, 0x00,0x00, 0x00,0x00, 0x01,0x00, 0x01,0x00,
+        0x33,0x00,0x00,0x00, 0x1f,0x00,0x00,0x00,
+        0x00,0x00,
+    };
+
+    wxMemoryInputStream mis(data, sizeof(data));
+    wxZipInputStream zip(mis);
+    std::unique_ptr<wxZipEntry> entry(zip.GetNextEntry());
+    REQUIRE( entry );
+    // Without the validation in LoadExtraInfo() the eight bytes returned by
+    // Read64() are uninitialised: assert the ZIP64 sentinel is left alone so
+    // that the malformed extra field cannot poison the entry's size fields.
+    CHECK( entry->GetSize() == wxFileOffset(0xffffffff) );
+    CHECK( entry->GetCompressedSize() == wxFileOffset(0xffffffff) );
+}
 
 #endif // wxUSE_STREAMS && wxUSE_ZIPSTREAM

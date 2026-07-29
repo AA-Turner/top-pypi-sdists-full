@@ -10,7 +10,7 @@
 #include "sipAPI_core.h"
         #include <wx/busyinfo.h>
         #include <wx/colour.h>
-        #include <wx/icon.h>
+        #include <wx/bmpbndl.h>
         #include <wx/window.h>
 
 
@@ -64,14 +64,15 @@ static PyObject *meth_wxBusyInfoFlags_Icon(PyObject *sipSelf, PyObject *sipArgs,
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        const ::wxIcon* icon;
+        const ::wxBitmapBundle* icon;
+        int iconState = 0;
         ::wxBusyInfoFlags *sipCpp;
 
         static const char *sipKwdList[] = {
             sipName_icon,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9", &sipSelf, sipType_wxBusyInfoFlags, &sipCpp, sipType_wxIcon, &icon))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxBusyInfoFlags, &sipCpp, sipType_wxBitmapBundle, &icon, &iconState))
         {
             ::wxBusyInfoFlags*sipRes;
 
@@ -80,6 +81,7 @@ static PyObject *meth_wxBusyInfoFlags_Icon(PyObject *sipSelf, PyObject *sipArgs,
             Py_BEGIN_ALLOW_THREADS
             sipRes = &sipCpp->Icon(*icon);
             Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxBitmapBundle *>(icon), sipType_wxBitmapBundle, iconState);
 
             if (PyErr_Occurred())
                 return 0;

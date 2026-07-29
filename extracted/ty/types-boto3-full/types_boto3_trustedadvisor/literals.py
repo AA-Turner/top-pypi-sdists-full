@@ -29,6 +29,7 @@ __all__ = (
     "ListOrganizationRecommendationResourcesPaginatorName",
     "ListOrganizationRecommendationsPaginatorName",
     "ListRecommendationResourcesPaginatorName",
+    "ListRecommendationsForResourcePaginatorName",
     "ListRecommendationsPaginatorName",
     "PaginatorName",
     "RecommendationLanguageType",
@@ -58,6 +59,7 @@ ListOrganizationRecommendationResourcesPaginatorName = Literal[
 ]
 ListOrganizationRecommendationsPaginatorName = Literal["list_organization_recommendations"]
 ListRecommendationResourcesPaginatorName = Literal["list_recommendation_resources"]
+ListRecommendationsForResourcePaginatorName = Literal["list_recommendations_for_resource"]
 ListRecommendationsPaginatorName = Literal["list_recommendations"]
 RecommendationLanguageType = Literal[
     "de", "en", "es", "fr", "id", "it", "ja", "ko", "pt_BR", "zh", "zh_TW"
@@ -543,6 +545,7 @@ PaginatorName = Literal[
     "list_organization_recommendations",
     "list_recommendation_resources",
     "list_recommendations",
+    "list_recommendations_for_resource",
 ]
 RegionName = Literal[
     "ap-northeast-2", "ap-southeast-2", "eu-west-1", "us-east-1", "us-east-2", "us-west-2"

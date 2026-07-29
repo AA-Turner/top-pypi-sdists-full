@@ -53,7 +53,7 @@ static void dealloc_wxGDIObject(sipSimpleWrapper *sipSelf)
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGDIObject[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxGDIObject[] = {{400, 255, 1}};
 
 PyDoc_STRVAR(doc_wxGDIObject, "GDIObject() -> None\n"
 "\n"

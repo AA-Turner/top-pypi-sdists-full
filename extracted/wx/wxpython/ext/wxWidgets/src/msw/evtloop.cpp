@@ -2,7 +2,6 @@
 // Name:        src/msw/evtloop.cpp
 // Purpose:     implements wxEventLoop for wxMSW port
 // Author:      Vadim Zeitlin
-// Modified by:
 // Created:     01.06.01
 // Copyright:   (c) 2001 Vadim Zeitlin <zeitlin@dptmaths.ens-cachan.fr>
 // Licence:     wxWindows licence
@@ -34,19 +33,18 @@
 
 #include "wx/tooltip.h"
 #if wxUSE_THREADS
-    // define the list of MSG strutures
-    WX_DECLARE_LIST(MSG, wxMsgList);
-
-    #include "wx/listimpl.cpp"
-
-    WX_DEFINE_LIST(wxMsgList)
+    #include <list>
+    using wxMsgList = std::list<MSG>;
 #endif // wxUSE_THREADS
+
+// This is defined in src/msw/window.cpp.
+extern WPARAM wxVKBlockedByKeyboardHook;
 
 // ============================================================================
 // GUI wxEventLoop implementation
 // ============================================================================
 
-wxWindowMSW *wxGUIEventLoop::ms_winCritical = NULL;
+wxWindowMSW *wxGUIEventLoop::ms_winCritical = nullptr;
 
 bool wxGUIEventLoop::IsChildOfCriticalWindow(wxWindowMSW *win)
 {
@@ -67,32 +65,10 @@ bool wxGUIEventLoop::PreProcessMessage(WXMSG *msg)
     wxWindow *wndThis = wxGetWindowFromHWND((WXHWND)hwnd);
     wxWindow *wnd;
 
-    // this might happen if we're in a modeless dialog, or if a wx control has
-    // children which themselves were not created by wx (i.e. wxActiveX control children)
+    // this might happen a wx control has children which themselves were not
+    // created by wx (i.e. wxActiveX control children)
     if ( !wndThis )
-    {
-        while ( hwnd && (::GetWindowLong(hwnd, GWL_STYLE) & WS_CHILD ))
-        {
-            hwnd = ::GetParent(hwnd);
-
-            // If the control has a wx parent, break and give the parent a chance
-            // to process the window message
-            wndThis = wxGetWindowFromHWND((WXHWND)hwnd);
-            if (wndThis != NULL)
-                break;
-        }
-
-        if ( !wndThis )
-        {
-            // this may happen if the event occurred in a standard modeless dialog (the
-            // only example of which I know of is the find/replace dialog) - then call
-            // IsDialogMessage() to make TAB navigation in it work
-
-            // NOTE: IsDialogMessage() just eats all the messages (i.e. returns true for
-            // them) if we call it for the control itself
-            return hwnd && ::IsDialogMessage(hwnd, msg) != 0;
-        }
-    }
+        return false;
 
     if ( !AllowProcessing(wndThis) )
     {
@@ -100,22 +76,10 @@ bool wxGUIEventLoop::PreProcessMessage(WXMSG *msg)
         // stop an endless stream of WM_PAINTs which would have resulted if we
         // didn't validate the invalidated part of the window
         if ( msg->message == WM_PAINT )
-            ::ValidateRect(hwnd, NULL);
+            ::ValidateRect(hwnd, nullptr);
 
         return true;
     }
-
-#if wxUSE_TOOLTIPS
-    // we must relay WM_MOUSEMOVE events to the tooltip ctrl if we want it to
-    // popup the tooltip bubbles
-    if ( msg->message == WM_MOUSEMOVE )
-    {
-        // we should do it if one of window children has an associated tooltip
-        // (and not just if the window has a tooltip itself)
-        if ( wndThis->HasToolTips() )
-            wxToolTip::RelayEvent((WXMSG *)msg);
-    }
-#endif // wxUSE_TOOLTIPS
 
     // allow the window to prevent certain messages from being
     // translated/processed (this is currently used by wxTextCtrl to always
@@ -156,6 +120,26 @@ bool wxGUIEventLoop::PreProcessMessage(WXMSG *msg)
 
 void wxGUIEventLoop::ProcessMessage(WXMSG *msg)
 {
+    // Workaround for the workaround for the problem of IME hanging if it
+    // doesn't get all keyboard messages in wxKeyboardHook(): as we can't
+    // afford to ignore the keyboard event at Windows level, we ignore it here
+    // instead.
+    if ( msg->message == WM_KEYDOWN && wxVKBlockedByKeyboardHook )
+    {
+        if ( msg->wParam == wxVKBlockedByKeyboardHook )
+        {
+            wxVKBlockedByKeyboardHook = 0;
+            return;
+        }
+        else
+        {
+            // This shouldn't normally happen.
+            wxLogDebug("Unexpected WM_KEYDOWN for %x after hook blocked %x",
+                       static_cast<unsigned>(msg->wParam),
+                       static_cast<unsigned>(wxVKBlockedByKeyboardHook));
+        }
+    }
+
     // give us the chance to preprocess the message first
     if ( !PreProcessMessage(msg) )
     {
@@ -189,8 +173,7 @@ bool wxGUIEventLoop::Dispatch()
         // the message will be processed twice
         if ( !wxIsWaitingForThread() || msg.message != WM_COMMAND )
         {
-            MSG* pMsg = new MSG(msg);
-            s_aSavedMessages.Append(pMsg);
+            s_aSavedMessages.push_back(msg);
         }
 
         return true;
@@ -206,16 +189,9 @@ bool wxGUIEventLoop::Dispatch()
         {
             s_hadGuiLock = true;
 
-            wxMsgList::compatibility_iterator node = s_aSavedMessages.GetFirst();
-            while (node)
+            for ( ; !s_aSavedMessages.empty(); s_aSavedMessages.pop_front() )
             {
-                MSG* pMsg = node->GetData();
-                s_aSavedMessages.Erase(node);
-
-                ProcessMessage(pMsg);
-                delete pMsg;
-
-                node = s_aSavedMessages.GetFirst();
+                ProcessMessage(&s_aSavedMessages.front());
             }
         }
     }
@@ -250,11 +226,10 @@ void wxGUIEventLoop::OnNextIteration()
 // Yield to incoming messages
 // ----------------------------------------------------------------------------
 
-#include <wx/arrimpl.cpp>
-WX_DEFINE_OBJARRAY(wxMSGArray);
-
 void wxGUIEventLoop::DoYieldFor(long eventsToProcess)
 {
+    std::vector<MSG> msgsToProcess;
+
     // we don't want to process WM_QUIT from here - it should be processed in
     // the main event loop in order to stop it
     MSG msg;
@@ -298,6 +273,7 @@ void wxGUIEventLoop::DoYieldFor(long eventsToProcess)
 
         // choose a wxEventCategory for this Windows message
         bool processNow;
+        bool processLater = true;
         switch (msg.message)
         {
             case WM_NCMOUSEMOVE:
@@ -363,6 +339,18 @@ void wxGUIEventLoop::DoYieldFor(long eventsToProcess)
 
             case WM_TIMER:
                 processNow = (eventsToProcess & wxEVT_CATEGORY_TIMER) != 0;
+
+                // Timer messages are synthesized by Windows whenever there are
+                // no other messages and so will keep accumulating in the queue
+                // if we don't process them, so to prevent this from happening,
+                // don't put them back into the queue, as this would result in
+                // it growing with each call to this function, which is
+                // especially bad if it's called in a loop, as it happens in
+                // wxGenericProgressDialog.
+                //
+                // This is not ideal, as events from one off timers will be
+                // lost, but it's better than the alternative.
+                processLater = false;
                 break;
 
             default:
@@ -394,9 +382,13 @@ void wxGUIEventLoop::DoYieldFor(long eventsToProcess)
         }
         else
         {
-            // remove the message and store it
-            ::GetMessage(&msg, NULL, 0, 0);
-            m_arrMSG.Add(msg);
+            // remove the message from the queue to ensure that we don't loop
+            // forever here in any case
+            ::GetMessage(&msg, nullptr, 0, 0);
+
+            // and perhaps save it for processing later
+            if ( processLater )
+                msgsToProcess.push_back(msg);
         }
     }
 
@@ -404,11 +396,8 @@ void wxGUIEventLoop::DoYieldFor(long eventsToProcess)
 
     // put back unprocessed events in the queue
     DWORD id = GetCurrentThreadId();
-    for (size_t i=0; i<m_arrMSG.GetCount(); i++)
+    for ( const auto& m : msgsToProcess )
     {
-        PostThreadMessage(id, m_arrMSG[i].message,
-                          m_arrMSG[i].wParam, m_arrMSG[i].lParam);
+        PostThreadMessage(id, m.message, m.wParam, m.lParam);
     }
-
-    m_arrMSG.Clear();
 }

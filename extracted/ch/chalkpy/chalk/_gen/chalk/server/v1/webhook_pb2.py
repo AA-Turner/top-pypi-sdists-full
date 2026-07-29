@@ -19,7 +19,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x1d\x63halk/server/v1/webhook.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\x87\x03\n\x07Webhook\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12%\n\x0e\x65nvironment_id\x18\x02 \x01(\tR\renvironmentId\x12\x17\n\x07team_id\x18\x03 \x01(\tR\x06teamId\x12\x12\n\x04name\x18\x04 \x01(\tR\x04name\x12\x10\n\x03url\x18\x05 \x01(\tR\x03url\x12$\n\rsubscriptions\x18\x06 \x03(\tR\rsubscriptions\x12\x1b\n\x06secret\x18\x07 \x01(\tH\x00R\x06secret\x88\x01\x01\x12\x36\n\x07headers\x18\x08 \x01(\x0b\x32\x17.google.protobuf.StructH\x01R\x07headers\x88\x01\x01\x12\x39\n\ncreated_at\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x39\n\nupdated_at\x18\n \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAtB\t\n\x07_secretB\n\n\x08_headers"\xf5\x01\n\x14\x43reateWebhookRequest\x12%\n\x0e\x65nvironment_id\x18\x01 \x01(\tR\renvironmentId\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n\x03url\x18\x03 \x01(\tR\x03url\x12$\n\rsubscriptions\x18\x04 \x03(\tR\rsubscriptions\x12\x1b\n\x06secret\x18\x05 \x01(\tH\x00R\x06secret\x88\x01\x01\x12\x36\n\x07headers\x18\x06 \x01(\x0b\x32\x17.google.protobuf.StructH\x01R\x07headers\x88\x01\x01\x42\t\n\x07_secretB\n\n\x08_headers"K\n\x15\x43reateWebhookResponse\x12\x32\n\x07webhook\x18\x01 \x01(\x0b\x32\x18.chalk.server.v1.WebhookR\x07webhook"\xf9\x01\n\x14UpdateWebhookRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01\x12\x15\n\x03url\x18\x03 \x01(\tH\x01R\x03url\x88\x01\x01\x12$\n\rsubscriptions\x18\x04 \x03(\tR\rsubscriptions\x12\x1b\n\x06secret\x18\x05 \x01(\tH\x02R\x06secret\x88\x01\x01\x12\x36\n\x07headers\x18\x06 \x01(\x0b\x32\x17.google.protobuf.StructH\x03R\x07headers\x88\x01\x01\x42\x07\n\x05_nameB\x06\n\x04_urlB\t\n\x07_secretB\n\n\x08_headers"K\n\x15UpdateWebhookResponse\x12\x32\n\x07webhook\x18\x01 \x01(\x0b\x32\x18.chalk.server.v1.WebhookR\x07webhook"&\n\x14\x44\x65leteWebhookRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"K\n\x15\x44\x65leteWebhookResponse\x12\x32\n\x07webhook\x18\x01 \x01(\x0b\x32\x18.chalk.server.v1.WebhookR\x07webhook"#\n\x11GetWebhookRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"H\n\x12GetWebhookResponse\x12\x32\n\x07webhook\x18\x01 \x01(\x0b\x32\x18.chalk.server.v1.WebhookR\x07webhook"<\n\x13ListWebhooksRequest\x12%\n\x0e\x65nvironment_id\x18\x01 \x01(\tR\renvironmentId"L\n\x14ListWebhooksResponse\x12\x34\n\x08webhooks\x18\x01 \x03(\x0b\x32\x18.chalk.server.v1.WebhookR\x08webhooks"$\n\x12TestWebhookRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"u\n\x13TestWebhookResponse\x12\x18\n\x07success\x18\x01 \x01(\x08R\x07success\x12\x1f\n\x0bstatus_code\x18\x02 \x01(\x05R\nstatusCode\x12#\n\rerror_message\x18\x03 \x01(\tR\x0c\x65rrorMessage2\xe2\x04\n\x0eWebhookService\x12\x63\n\rCreateWebhook\x12%.chalk.server.v1.CreateWebhookRequest\x1a&.chalk.server.v1.CreateWebhookResponse"\x03\x80}\x05\x12\x63\n\rUpdateWebhook\x12%.chalk.server.v1.UpdateWebhookRequest\x1a&.chalk.server.v1.UpdateWebhookResponse"\x03\x80}\x05\x12\x63\n\rDeleteWebhook\x12%.chalk.server.v1.DeleteWebhookRequest\x1a&.chalk.server.v1.DeleteWebhookResponse"\x03\x80}\x05\x12]\n\nGetWebhook\x12".chalk.server.v1.GetWebhookRequest\x1a#.chalk.server.v1.GetWebhookResponse"\x06\x90\x02\x01\x80}\x06\x12\x63\n\x0cListWebhooks\x12$.chalk.server.v1.ListWebhooksRequest\x1a%.chalk.server.v1.ListWebhooksResponse"\x06\x90\x02\x01\x80}\x06\x12]\n\x0bTestWebhook\x12#.chalk.server.v1.TestWebhookRequest\x1a$.chalk.server.v1.TestWebhookResponse"\x03\x80}\x05\x42\x95\x01\n\x13\x63om.chalk.server.v1B\x0cWebhookProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n\x1d\x63halk/server/v1/webhook.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xa5\x01\n\x19WebhookSubscriptionFilter\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x46\n\ncomparator\x18\x02 \x01(\x0e\x32&.chalk.server.v1.WebhookComparatorKindR\ncomparator\x12.\n\x06values\x18\x03 \x03(\x0b\x32\x16.google.protobuf.ValueR\x06values"\x7f\n\x13WebhookSubscription\x12"\n\x0csubscription\x18\x01 \x01(\tR\x0csubscription\x12\x44\n\x07\x66ilters\x18\x02 \x03(\x0b\x32*.chalk.server.v1.WebhookSubscriptionFilterR\x07\x66ilters"j\n$WebhookSubscriptionFilterOptionValue\x12\x14\n\x05label\x18\x01 \x01(\tR\x05label\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value"\xab\x01\n\x1fWebhookSubscriptionFilterOption\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12O\n\x07options\x18\x02 \x03(\x0b\x32\x35.chalk.server.v1.WebhookSubscriptionFilterOptionValueR\x07options\x12%\n\x0e\x61llow_freeform\x18\x03 \x01(\x08R\rallowFreeform"\xef\x03\n\x07Webhook\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12%\n\x0e\x65nvironment_id\x18\x02 \x01(\tR\renvironmentId\x12\x17\n\x07team_id\x18\x03 \x01(\tR\x06teamId\x12\x12\n\x04name\x18\x04 \x01(\tR\x04name\x12\x10\n\x03url\x18\x05 \x01(\tR\x03url\x12(\n\rsubscriptions\x18\x06 \x03(\tB\x02\x18\x01R\rsubscriptions\x12\x1b\n\x06secret\x18\x07 \x01(\tH\x00R\x06secret\x88\x01\x01\x12\x36\n\x07headers\x18\x08 \x01(\x0b\x32\x17.google.protobuf.StructH\x01R\x07headers\x88\x01\x01\x12\x39\n\ncreated_at\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x39\n\nupdated_at\x18\n \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x62\n\x1asubscriptions_with_filters\x18\x0b \x03(\x0b\x32$.chalk.server.v1.WebhookSubscriptionR\x18subscriptionsWithFiltersB\t\n\x07_secretB\n\n\x08_headers"\xdd\x02\n\x14\x43reateWebhookRequest\x12%\n\x0e\x65nvironment_id\x18\x01 \x01(\tR\renvironmentId\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n\x03url\x18\x03 \x01(\tR\x03url\x12(\n\rsubscriptions\x18\x04 \x03(\tB\x02\x18\x01R\rsubscriptions\x12\x1b\n\x06secret\x18\x05 \x01(\tH\x00R\x06secret\x88\x01\x01\x12\x36\n\x07headers\x18\x06 \x01(\x0b\x32\x17.google.protobuf.StructH\x01R\x07headers\x88\x01\x01\x12\x62\n\x1asubscriptions_with_filters\x18\x07 \x03(\x0b\x32$.chalk.server.v1.WebhookSubscriptionR\x18subscriptionsWithFiltersB\t\n\x07_secretB\n\n\x08_headers"K\n\x15\x43reateWebhookResponse\x12\x32\n\x07webhook\x18\x01 \x01(\x0b\x32\x18.chalk.server.v1.WebhookR\x07webhook"\xe1\x02\n\x14UpdateWebhookRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01\x12\x15\n\x03url\x18\x03 \x01(\tH\x01R\x03url\x88\x01\x01\x12(\n\rsubscriptions\x18\x04 \x03(\tB\x02\x18\x01R\rsubscriptions\x12\x1b\n\x06secret\x18\x05 \x01(\tH\x02R\x06secret\x88\x01\x01\x12\x36\n\x07headers\x18\x06 \x01(\x0b\x32\x17.google.protobuf.StructH\x03R\x07headers\x88\x01\x01\x12\x62\n\x1asubscriptions_with_filters\x18\x07 \x03(\x0b\x32$.chalk.server.v1.WebhookSubscriptionR\x18subscriptionsWithFiltersB\x07\n\x05_nameB\x06\n\x04_urlB\t\n\x07_secretB\n\n\x08_headers"K\n\x15UpdateWebhookResponse\x12\x32\n\x07webhook\x18\x01 \x01(\x0b\x32\x18.chalk.server.v1.WebhookR\x07webhook"&\n\x14\x44\x65leteWebhookRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"K\n\x15\x44\x65leteWebhookResponse\x12\x32\n\x07webhook\x18\x01 \x01(\x0b\x32\x18.chalk.server.v1.WebhookR\x07webhook"#\n\x11GetWebhookRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"H\n\x12GetWebhookResponse\x12\x32\n\x07webhook\x18\x01 \x01(\x0b\x32\x18.chalk.server.v1.WebhookR\x07webhook"<\n\x13ListWebhooksRequest\x12%\n\x0e\x65nvironment_id\x18\x01 \x01(\tR\renvironmentId"L\n\x14ListWebhooksResponse\x12\x34\n\x08webhooks\x18\x01 \x03(\x0b\x32\x18.chalk.server.v1.WebhookR\x08webhooks"$\n\x12TestWebhookRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"u\n\x13TestWebhookResponse\x12\x18\n\x07success\x18\x01 \x01(\x08R\x07success\x12\x1f\n\x0bstatus_code\x18\x02 \x01(\x05R\nstatusCode\x12#\n\rerror_message\x18\x03 \x01(\tR\x0c\x65rrorMessage"P\n*GetWebhookSubscriptionFilterOptionsRequest\x12"\n\x0csubscription\x18\x01 \x01(\tR\x0csubscription"y\n+GetWebhookSubscriptionFilterOptionsResponse\x12J\n\x07options\x18\x01 \x03(\x0b\x32\x30.chalk.server.v1.WebhookSubscriptionFilterOptionR\x07options*\xa5\x01\n\x15WebhookComparatorKind\x12\'\n#WEBHOOK_COMPARATOR_KIND_UNSPECIFIED\x10\x00\x12\x1e\n\x1aWEBHOOK_COMPARATOR_KIND_EQ\x10\x01\x12\x1f\n\x1bWEBHOOK_COMPARATOR_KIND_NEQ\x10\x02\x12"\n\x1eWEBHOOK_COMPARATOR_KIND_ONE_OF\x10\x03\x32\x8d\x06\n\x0eWebhookService\x12\x63\n\rCreateWebhook\x12%.chalk.server.v1.CreateWebhookRequest\x1a&.chalk.server.v1.CreateWebhookResponse"\x03\x80}\x05\x12\x63\n\rUpdateWebhook\x12%.chalk.server.v1.UpdateWebhookRequest\x1a&.chalk.server.v1.UpdateWebhookResponse"\x03\x80}\x05\x12\x63\n\rDeleteWebhook\x12%.chalk.server.v1.DeleteWebhookRequest\x1a&.chalk.server.v1.DeleteWebhookResponse"\x03\x80}\x05\x12]\n\nGetWebhook\x12".chalk.server.v1.GetWebhookRequest\x1a#.chalk.server.v1.GetWebhookResponse"\x06\x90\x02\x01\x80}\x06\x12\x63\n\x0cListWebhooks\x12$.chalk.server.v1.ListWebhooksRequest\x1a%.chalk.server.v1.ListWebhooksResponse"\x06\x90\x02\x01\x80}\x06\x12]\n\x0bTestWebhook\x12#.chalk.server.v1.TestWebhookRequest\x1a$.chalk.server.v1.TestWebhookResponse"\x03\x80}\x05\x12\xa8\x01\n#GetWebhookSubscriptionFilterOptions\x12;.chalk.server.v1.GetWebhookSubscriptionFilterOptionsRequest\x1a<.chalk.server.v1.GetWebhookSubscriptionFilterOptionsResponse"\x06\x90\x02\x01\x80}\x06\x42\x95\x01\n\x13\x63om.chalk.server.v1B\x0cWebhookProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -30,6 +30,12 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals[
         "DESCRIPTOR"
     ]._serialized_options = b"\n\023com.chalk.server.v1B\014WebhookProtoP\001Z\022server/v1;serverv1\242\002\003CSX\252\002\017Chalk.Server.V1\312\002\017Chalk\\Server\\V1\342\002\033Chalk\\Server\\V1\\GPBMetadata\352\002\021Chalk::Server::V1"
+    _globals["_WEBHOOK"].fields_by_name["subscriptions"]._options = None
+    _globals["_WEBHOOK"].fields_by_name["subscriptions"]._serialized_options = b"\030\001"
+    _globals["_CREATEWEBHOOKREQUEST"].fields_by_name["subscriptions"]._options = None
+    _globals["_CREATEWEBHOOKREQUEST"].fields_by_name["subscriptions"]._serialized_options = b"\030\001"
+    _globals["_UPDATEWEBHOOKREQUEST"].fields_by_name["subscriptions"]._options = None
+    _globals["_UPDATEWEBHOOKREQUEST"].fields_by_name["subscriptions"]._serialized_options = b"\030\001"
     _globals["_WEBHOOKSERVICE"].methods_by_name["CreateWebhook"]._options = None
     _globals["_WEBHOOKSERVICE"].methods_by_name["CreateWebhook"]._serialized_options = b"\200}\005"
     _globals["_WEBHOOKSERVICE"].methods_by_name["UpdateWebhook"]._options = None
@@ -42,32 +48,50 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_WEBHOOKSERVICE"].methods_by_name["ListWebhooks"]._serialized_options = b"\220\002\001\200}\006"
     _globals["_WEBHOOKSERVICE"].methods_by_name["TestWebhook"]._options = None
     _globals["_WEBHOOKSERVICE"].methods_by_name["TestWebhook"]._serialized_options = b"\200}\005"
-    _globals["_WEBHOOK"]._serialized_start = 147
-    _globals["_WEBHOOK"]._serialized_end = 538
-    _globals["_CREATEWEBHOOKREQUEST"]._serialized_start = 541
-    _globals["_CREATEWEBHOOKREQUEST"]._serialized_end = 786
-    _globals["_CREATEWEBHOOKRESPONSE"]._serialized_start = 788
-    _globals["_CREATEWEBHOOKRESPONSE"]._serialized_end = 863
-    _globals["_UPDATEWEBHOOKREQUEST"]._serialized_start = 866
-    _globals["_UPDATEWEBHOOKREQUEST"]._serialized_end = 1115
-    _globals["_UPDATEWEBHOOKRESPONSE"]._serialized_start = 1117
-    _globals["_UPDATEWEBHOOKRESPONSE"]._serialized_end = 1192
-    _globals["_DELETEWEBHOOKREQUEST"]._serialized_start = 1194
-    _globals["_DELETEWEBHOOKREQUEST"]._serialized_end = 1232
-    _globals["_DELETEWEBHOOKRESPONSE"]._serialized_start = 1234
-    _globals["_DELETEWEBHOOKRESPONSE"]._serialized_end = 1309
-    _globals["_GETWEBHOOKREQUEST"]._serialized_start = 1311
-    _globals["_GETWEBHOOKREQUEST"]._serialized_end = 1346
-    _globals["_GETWEBHOOKRESPONSE"]._serialized_start = 1348
-    _globals["_GETWEBHOOKRESPONSE"]._serialized_end = 1420
-    _globals["_LISTWEBHOOKSREQUEST"]._serialized_start = 1422
-    _globals["_LISTWEBHOOKSREQUEST"]._serialized_end = 1482
-    _globals["_LISTWEBHOOKSRESPONSE"]._serialized_start = 1484
-    _globals["_LISTWEBHOOKSRESPONSE"]._serialized_end = 1560
-    _globals["_TESTWEBHOOKREQUEST"]._serialized_start = 1562
-    _globals["_TESTWEBHOOKREQUEST"]._serialized_end = 1598
-    _globals["_TESTWEBHOOKRESPONSE"]._serialized_start = 1600
-    _globals["_TESTWEBHOOKRESPONSE"]._serialized_end = 1717
-    _globals["_WEBHOOKSERVICE"]._serialized_start = 1720
-    _globals["_WEBHOOKSERVICE"]._serialized_end = 2330
+    _globals["_WEBHOOKSERVICE"].methods_by_name["GetWebhookSubscriptionFilterOptions"]._options = None
+    _globals["_WEBHOOKSERVICE"].methods_by_name[
+        "GetWebhookSubscriptionFilterOptions"
+    ]._serialized_options = b"\220\002\001\200}\006"
+    _globals["_WEBHOOKCOMPARATORKIND"]._serialized_start = 2816
+    _globals["_WEBHOOKCOMPARATORKIND"]._serialized_end = 2981
+    _globals["_WEBHOOKSUBSCRIPTIONFILTER"]._serialized_start = 147
+    _globals["_WEBHOOKSUBSCRIPTIONFILTER"]._serialized_end = 312
+    _globals["_WEBHOOKSUBSCRIPTION"]._serialized_start = 314
+    _globals["_WEBHOOKSUBSCRIPTION"]._serialized_end = 441
+    _globals["_WEBHOOKSUBSCRIPTIONFILTEROPTIONVALUE"]._serialized_start = 443
+    _globals["_WEBHOOKSUBSCRIPTIONFILTEROPTIONVALUE"]._serialized_end = 549
+    _globals["_WEBHOOKSUBSCRIPTIONFILTEROPTION"]._serialized_start = 552
+    _globals["_WEBHOOKSUBSCRIPTIONFILTEROPTION"]._serialized_end = 723
+    _globals["_WEBHOOK"]._serialized_start = 726
+    _globals["_WEBHOOK"]._serialized_end = 1221
+    _globals["_CREATEWEBHOOKREQUEST"]._serialized_start = 1224
+    _globals["_CREATEWEBHOOKREQUEST"]._serialized_end = 1573
+    _globals["_CREATEWEBHOOKRESPONSE"]._serialized_start = 1575
+    _globals["_CREATEWEBHOOKRESPONSE"]._serialized_end = 1650
+    _globals["_UPDATEWEBHOOKREQUEST"]._serialized_start = 1653
+    _globals["_UPDATEWEBHOOKREQUEST"]._serialized_end = 2006
+    _globals["_UPDATEWEBHOOKRESPONSE"]._serialized_start = 2008
+    _globals["_UPDATEWEBHOOKRESPONSE"]._serialized_end = 2083
+    _globals["_DELETEWEBHOOKREQUEST"]._serialized_start = 2085
+    _globals["_DELETEWEBHOOKREQUEST"]._serialized_end = 2123
+    _globals["_DELETEWEBHOOKRESPONSE"]._serialized_start = 2125
+    _globals["_DELETEWEBHOOKRESPONSE"]._serialized_end = 2200
+    _globals["_GETWEBHOOKREQUEST"]._serialized_start = 2202
+    _globals["_GETWEBHOOKREQUEST"]._serialized_end = 2237
+    _globals["_GETWEBHOOKRESPONSE"]._serialized_start = 2239
+    _globals["_GETWEBHOOKRESPONSE"]._serialized_end = 2311
+    _globals["_LISTWEBHOOKSREQUEST"]._serialized_start = 2313
+    _globals["_LISTWEBHOOKSREQUEST"]._serialized_end = 2373
+    _globals["_LISTWEBHOOKSRESPONSE"]._serialized_start = 2375
+    _globals["_LISTWEBHOOKSRESPONSE"]._serialized_end = 2451
+    _globals["_TESTWEBHOOKREQUEST"]._serialized_start = 2453
+    _globals["_TESTWEBHOOKREQUEST"]._serialized_end = 2489
+    _globals["_TESTWEBHOOKRESPONSE"]._serialized_start = 2491
+    _globals["_TESTWEBHOOKRESPONSE"]._serialized_end = 2608
+    _globals["_GETWEBHOOKSUBSCRIPTIONFILTEROPTIONSREQUEST"]._serialized_start = 2610
+    _globals["_GETWEBHOOKSUBSCRIPTIONFILTEROPTIONSREQUEST"]._serialized_end = 2690
+    _globals["_GETWEBHOOKSUBSCRIPTIONFILTEROPTIONSRESPONSE"]._serialized_start = 2692
+    _globals["_GETWEBHOOKSUBSCRIPTIONFILTEROPTIONSRESPONSE"]._serialized_end = 2813
+    _globals["_WEBHOOKSERVICE"]._serialized_start = 2984
+    _globals["_WEBHOOKSERVICE"]._serialized_end = 3765
 # @@protoc_insertion_point(module_scope)

@@ -12,7 +12,7 @@
 
 
 
-PyDoc_STRVAR(doc_wxPowerResource_Acquire, "Acquire(kind, reason=\"\") -> bool\n"
+PyDoc_STRVAR(doc_wxPowerResource_Acquire, "Acquire(kind, reason=\"\", blockKind=POWER_PREVENT) -> bool\n"
 "\n"
 "Acquire a power resource for the application.");
 
@@ -26,20 +26,22 @@ static PyObject *meth_wxPowerResource_Acquire(PyObject *, PyObject *sipArgs, PyO
         const ::wxString& reasondef = wxString();
         const ::wxString* reason = &reasondef;
         int reasonState = 0;
+        ::wxPowerBlockKind blockKind = wxPOWER_PREVENT;
 
         static const char *sipKwdList[] = {
             sipName_kind,
             sipName_reason,
+            sipName_blockKind,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "E|J1", sipType_wxPowerResourceKind, &kind, sipType_wxString, &reason, &reasonState))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "E|J1E", sipType_wxPowerResourceKind, &kind, sipType_wxString, &reason, &reasonState, sipType_wxPowerBlockKind, &blockKind))
         {
             bool sipRes;
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = ::wxPowerResource::Acquire(kind, *reason);
+            sipRes = ::wxPowerResource::Acquire(kind, *reason, blockKind);
             Py_END_ALLOW_THREADS
             sipReleaseType(const_cast< ::wxString *>(reason), sipType_wxString, reasonState);
 

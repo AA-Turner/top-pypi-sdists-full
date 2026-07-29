@@ -411,7 +411,7 @@ class TinyB:
         sql_condition: Optional[str] = None,
         format: str = "csv",
         replace_options: Optional[Set[str]] = None,
-    ):
+    ) -> Dict[str, Any]:
         params = {"name": table_name, "url": url, "mode": mode, "debug": "blocks_block_log", "format": format}
 
         if sql_condition:
@@ -437,58 +437,37 @@ class TinyB:
         datasource_name: str,
         file: Union[str, Path],
         mode: str = "append",
-        status_callback=None,
+        status_callback=None,  # noqa: ARG002 - kept for v0 caller compatibility
         sql_condition: Optional[str] = None,
         format: str = "csv",
         replace_options: Optional[Set[str]] = None,
-        use_v1: bool = False,
     ):
-        params = {"name": datasource_name, "mode": mode, "format": format, "debug": "blocks_block_log"}
-
-        if sql_condition:
-            params["replace_condition"] = sql_condition
-        if replace_options:
-            for option in list(replace_options):
-                params[option] = "true"
-
+        # V1 returns the import job immediately, so waiting and progress reporting
+        # belong to the caller.
         async with aiofiles.open(file, "rb") as content:
             file_content = await content.read()
-
-        if use_v1:
-            v1_params = {"format": format}
-            if sql_condition:
-                v1_params["replace_condition"] = sql_condition
-            if replace_options:
-                for option in list(replace_options):
-                    v1_params[option] = "true"
-            content_types = {
-                "csv": "text/csv",
-                "ndjson": "application/x-ndjson",
-                "parquet": "application/vnd.apache.parquet",
-            }
-            headers = {"Content-Type": content_types[format]}
-            if str(file).endswith(".gz"):
-                headers["Content-Encoding"] = "gzip"
-            return await self._req(
-                f"/v1/datasources/{quote(datasource_name, safe='')}/{mode}?{urlencode(v1_params, safe='')}",
-                data=file_content,
-                headers=headers,
-                method="POST",
-            )
-
-        if format == "csv":
-            files = {"csv": ("csv", file_content)}
-        else:
-            files = {"ndjson": ("ndjson", file_content)}
-
+        v1_params = {"format": format}
+        if sql_condition:
+            v1_params["replace_condition"] = sql_condition
+        if replace_options:
+            for option in list(replace_options):
+                v1_params[option] = "true"
+        content_types = {
+            "csv": "text/csv",
+            "ndjson": "application/x-ndjson",
+            "parquet": "application/vnd.apache.parquet",
+        }
+        headers = {"Content-Type": content_types[format]}
+        if str(file).endswith(".gz"):
+            headers["Content-Encoding"] = "gzip"
         res = await self._req(
-            f"v0/datasources?{urlencode(params, safe='')}",
-            files=files,
+            f"/v1/datasources/{quote(datasource_name, safe='')}/{mode}?{urlencode(v1_params, safe='')}",
+            data=file_content,
+            headers=headers,
             method="POST",
         )
-        if status_callback:
-            status_callback(res)
-
+        if not isinstance(res, dict):
+            raise RuntimeError("We couldn't confirm that your import started. Please try again.")
         return res
 
     async def datasource_truncate(self, datasource_name: str):

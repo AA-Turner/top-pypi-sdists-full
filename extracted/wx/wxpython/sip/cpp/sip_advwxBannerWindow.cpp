@@ -13,20 +13,21 @@
         #include <wx/gdicmn.h>
         #include <wx/gdicmn.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/validate.h>
         #include <wx/colour.h>
         #include <wx/bmpbndl.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -41,6 +42,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
+    wxAccessible* _wxBannerWindow_CreateAccessible(wxBannerWindow* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxBannerWindow : public ::wxBannerWindow
@@ -68,7 +78,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -114,7 +123,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -127,7 +135,7 @@ private:
     sipwxBannerWindow(const sipwxBannerWindow &);
     sipwxBannerWindow &operator = (const sipwxBannerWindow &);
 
-    char sipPyMethods[39];
+    char sipPyMethods[38];
 };
 
 sipwxBannerWindow::sipwxBannerWindow(): ::wxBannerWindow(), sipPySelf(SIP_NULLPTR)
@@ -706,27 +714,12 @@ void sipwxBannerWindow::DoSetWindowVariant(::wxWindowVariant variant)
     return sipVH__adv_25(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxBannerWindow::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxBannerWindow::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__adv_25(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__adv_25(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 void sipwxBannerWindow::DoFreeze()
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -744,7 +737,7 @@ void sipwxBannerWindow::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -762,7 +755,7 @@ void sipwxBannerWindow::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxBannerWindow::DoGetBestSize();
@@ -777,7 +770,7 @@ void sipwxBannerWindow::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxBannerWindow::DoGetBestClientSize();
@@ -855,11 +848,6 @@ void sipwxBannerWindow::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, ::
 ::wxBorder sipwxBannerWindow::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxBannerWindow::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxBannerWindow::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxBannerWindow::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxBannerWindow::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -2324,40 +2312,6 @@ static PyObject *meth_wxBannerWindow_GetDefaultBorder(PyObject *sipSelf, PyObjec
 }
 
 
-PyDoc_STRVAR(doc_wxBannerWindow_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxBannerWindow_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxBannerWindow_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxBannerWindow *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxBannerWindow, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_BannerWindow, sipName_GetDefaultBorderForControl, doc_wxBannerWindow_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxBannerWindow_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxBannerWindow_DoFreeze(PyObject *, PyObject *);}
@@ -2531,6 +2485,39 @@ static PyObject *meth_wxBannerWindow_TryAfter(PyObject *sipSelf, PyObject *sipAr
     }
 
     sipNoMethod(sipParseErr, sipName_BannerWindow, sipName_TryAfter, doc_wxBannerWindow_TryAfter);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxBannerWindow_CreateAccessible, "CreateAccessible() -> wx.Accessible");
+
+extern "C" {static PyObject *meth_wxBannerWindow_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxBannerWindow_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxBannerWindow *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxBannerWindow, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxBannerWindow_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_BannerWindow, sipName_CreateAccessible, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -2716,7 +2703,7 @@ static void *init_type_wxBannerWindow(sipSimpleWrapper *sipSelf, PyObject *sipAr
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxBannerWindow[] = {{61, 0, 1}};
+static sipEncodedTypeDef supers_wxBannerWindow[] = {{62, 0, 1}};
 
 
 static PyMethodDef methods_wxBannerWindow[] = {
@@ -2725,6 +2712,7 @@ static PyMethodDef methods_wxBannerWindow[] = {
     {sipName_AcceptsFocusRecursively, meth_wxBannerWindow_AcceptsFocusRecursively, METH_VARARGS, doc_wxBannerWindow_AcceptsFocusRecursively},
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxBannerWindow_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxBannerWindow_AddChild},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxBannerWindow_Create), METH_VARARGS|METH_KEYWORDS, doc_wxBannerWindow_Create},
+    {sipName_CreateAccessible, meth_wxBannerWindow_CreateAccessible, METH_VARARGS, doc_wxBannerWindow_CreateAccessible},
     {sipName_Destroy, meth_wxBannerWindow_Destroy, METH_VARARGS, doc_wxBannerWindow_Destroy},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxBannerWindow_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxBannerWindow_DoEnable},
     {sipName_DoFreeze, meth_wxBannerWindow_DoFreeze, METH_VARARGS, doc_wxBannerWindow_DoFreeze},
@@ -2743,7 +2731,6 @@ static PyMethodDef methods_wxBannerWindow[] = {
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxBannerWindow_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxBannerWindow_GetClassDefaultAttributes},
     {sipName_GetClientAreaOrigin, meth_wxBannerWindow_GetClientAreaOrigin, METH_VARARGS, doc_wxBannerWindow_GetClientAreaOrigin},
     {sipName_GetDefaultBorder, meth_wxBannerWindow_GetDefaultBorder, METH_VARARGS, doc_wxBannerWindow_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxBannerWindow_GetDefaultBorderForControl, METH_VARARGS, doc_wxBannerWindow_GetDefaultBorderForControl},
     {sipName_GetMainWindowOfCompositeControl, meth_wxBannerWindow_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxBannerWindow_GetMainWindowOfCompositeControl},
     {sipName_GetValidator, meth_wxBannerWindow_GetValidator, METH_VARARGS, doc_wxBannerWindow_GetValidator},
     {sipName_HasTransparentBackground, meth_wxBannerWindow_HasTransparentBackground, METH_VARARGS, doc_wxBannerWindow_HasTransparentBackground},

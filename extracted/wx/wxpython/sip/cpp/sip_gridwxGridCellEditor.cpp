@@ -862,7 +862,7 @@ static PyObject *meth_wxGridCellEditor_SetSize(PyObject *sipSelf, PyObject *sipA
 }
 
 
-PyDoc_STRVAR(doc_wxGridCellEditor_Show, "Show(show, attr=None) -> None\n"
+PyDoc_STRVAR(doc_wxGridCellEditor_Show, "Show(show, attr=nullptr) -> None\n"
 "\n"
 "Show or hide the edit control, use the specified attributes to set colours/fonts for it.");
 
@@ -874,7 +874,7 @@ static PyObject *meth_wxGridCellEditor_Show(PyObject *sipSelf, PyObject *sipArgs
 
     {
         bool show;
-        ::wxGridCellAttr* attr = 0;
+        ::wxGridCellAttr* attr = nullptr;
         ::wxGridCellEditor *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -1384,7 +1384,7 @@ static void *init_type_wxGridCellEditor(sipSimpleWrapper *sipSelf, PyObject *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGridCellEditor[] = {{26, 0, 0}, {22, 0, 1}};
+static sipEncodedTypeDef supers_wxGridCellEditor[] = {{27, 0, 0}, {23, 0, 1}};
 
 
 static PyMethodDef methods_wxGridCellEditor[] = {

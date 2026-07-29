@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pygeodesy
-Version: 26.7.21
+Version: 26.7.27
 Summary: Pure Python geodesy tools
 Home-page: https://GitHub.com/mrJean1/PyGeodesy
 Author: Jean M. Brouwers
@@ -170,7 +170,7 @@ PyCodeStyle_ (formerly Pep8) and McCabe_ using Python 2.7.18, both in 64-bit on 
 
 For a summary of all *Karney*-based functionality in ``pygeodesy``, see module karney_.
 
-*Last updated: July 21, 2026.*
+*Last updated: July 27, 2026.*
 
 License
 =======

@@ -15,6 +15,7 @@
         #include <wx/validate.h>
         #include <wx/gdicmn.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/dialog.h>
         #include <wx/iconbndl.h>
         #include <wx/icon.h>
@@ -25,14 +26,14 @@
         #include <wx/region.h>
         #include <wx/graphics.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -47,6 +48,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
+    wxAccessible* _wxProgressDialog_CreateAccessible(wxProgressDialog* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxProgressDialog : public ::wxProgressDialog
@@ -73,7 +83,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -120,7 +129,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -134,7 +142,7 @@ private:
     sipwxProgressDialog(const sipwxProgressDialog &);
     sipwxProgressDialog &operator = (const sipwxProgressDialog &);
 
-    char sipPyMethods[41];
+    char sipPyMethods[40];
 };
 
 sipwxProgressDialog::sipwxProgressDialog(const ::wxString& title, const ::wxString& message, int maximum, ::wxWindow*parent, int style): ::wxProgressDialog(title, message, maximum, parent, style), sipPySelf(SIP_NULLPTR)
@@ -157,9 +165,9 @@ sipwxProgressDialog::~sipwxProgressDialog()
     if (!sipMeth)
         return ::wxProgressDialog::GetContentWindow();
 
-    extern ::wxWindow* sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxWindow* sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxProgressDialog::RemoveChild(::wxWindowBase*child)
@@ -175,9 +183,9 @@ void sipwxProgressDialog::RemoveChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 void sipwxProgressDialog::AddChild(::wxWindowBase*child)
@@ -193,9 +201,9 @@ void sipwxProgressDialog::AddChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 bool sipwxProgressDialog::ProcessEvent(::wxEvent& event)
@@ -208,9 +216,9 @@ bool sipwxProgressDialog::ProcessEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxProgressDialog::ProcessEvent(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxProgressDialog::TryBefore(::wxEvent& event)
@@ -223,9 +231,9 @@ bool sipwxProgressDialog::TryBefore(::wxEvent& event)
     if (!sipMeth)
         return ::wxProgressDialog::TryBefore(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxProgressDialog::TryAfter(::wxEvent& event)
@@ -238,9 +246,9 @@ bool sipwxProgressDialog::TryAfter(::wxEvent& event)
     if (!sipMeth)
         return ::wxProgressDialog::TryAfter(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxProgressDialog::AcceptsFocus() const
@@ -301,9 +309,9 @@ void sipwxProgressDialog::SetCanFocus(bool canFocus)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, canFocus);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, canFocus);
 }
 
 void sipwxProgressDialog::EnableVisibleFocus(bool enabled)
@@ -319,9 +327,9 @@ void sipwxProgressDialog::EnableVisibleFocus(bool enabled)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enabled);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enabled);
 }
 
 bool sipwxProgressDialog::InformFirstDirection(int direction, int size, int availableOtherDir)
@@ -334,9 +342,9 @@ bool sipwxProgressDialog::InformFirstDirection(int direction, int size, int avai
     if (!sipMeth)
         return ::wxProgressDialog::InformFirstDirection(direction, size, availableOtherDir);
 
-    extern bool sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern bool sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
 
-    return sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
+    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
 }
 
 ::wxPoint sipwxProgressDialog::GetClientAreaOrigin() const
@@ -349,9 +357,9 @@ bool sipwxProgressDialog::InformFirstDirection(int direction, int size, int avai
     if (!sipMeth)
         return ::wxProgressDialog::GetClientAreaOrigin();
 
-    extern ::wxPoint sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPoint sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxProgressDialog::HasTransparentBackground()
@@ -394,9 +402,9 @@ bool sipwxProgressDialog::ShouldInheritColours() const
     if (!sipMeth)
         return ::wxProgressDialog::GetValidator();
 
-    extern ::wxValidator* sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxValidator* sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxProgressDialog::SetValidator(const ::wxValidator& validator)
@@ -412,9 +420,9 @@ void sipwxProgressDialog::SetValidator(const ::wxValidator& validator)
         return;
     }
 
-    extern void sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
+    extern void sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
 
-    sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth, validator);
+    sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth, validator);
 }
 
 bool sipwxProgressDialog::TransferDataFromWindow()
@@ -541,9 +549,9 @@ void sipwxProgressDialog::OnInternalIdle()
     if (!sipMeth)
         return ::wxProgressDialog::GetMainWindowOfCompositeControl();
 
-    extern ::wxWindow* sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxWindow* sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxProgressDialog::DoEnable(bool enable)
@@ -559,9 +567,9 @@ void sipwxProgressDialog::DoEnable(bool enable)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enable);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enable);
 }
 
 void sipwxProgressDialog::DoGetPosition(int*x, int*y) const
@@ -577,9 +585,9 @@ void sipwxProgressDialog::DoGetPosition(int*x, int*y) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, x, y);
 }
 
 void sipwxProgressDialog::DoGetSize(int*width, int*height) const
@@ -595,9 +603,9 @@ void sipwxProgressDialog::DoGetSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxProgressDialog::DoGetClientSize(int*width, int*height) const
@@ -613,9 +621,9 @@ void sipwxProgressDialog::DoGetClientSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxProgressDialog::DoSetSize(int x, int y, int width, int height, int sizeFlags)
@@ -631,9 +639,9 @@ void sipwxProgressDialog::DoSetSize(int x, int y, int width, int height, int siz
         return;
     }
 
-    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
+    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
 
-    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
+    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
 }
 
 void sipwxProgressDialog::DoSetClientSize(int width, int height)
@@ -649,9 +657,9 @@ void sipwxProgressDialog::DoSetClientSize(int width, int height)
         return;
     }
 
-    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
+    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
 
-    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxProgressDialog::DoSetSizeHints(int minW, int minH, int maxW, int maxH, int incW, int incH)
@@ -667,9 +675,9 @@ void sipwxProgressDialog::DoSetSizeHints(int minW, int minH, int maxW, int maxH,
         return;
     }
 
-    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
+    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
 
-    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
+    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
 }
 
 void sipwxProgressDialog::DoMoveWindow(int x, int y, int width, int height)
@@ -685,9 +693,9 @@ void sipwxProgressDialog::DoMoveWindow(int x, int y, int width, int height)
         return;
     }
 
-    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
+    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
 
-    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
+    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
 }
 
 void sipwxProgressDialog::DoSetWindowVariant(::wxWindowVariant variant)
@@ -703,9 +711,9 @@ void sipwxProgressDialog::DoSetWindowVariant(::wxWindowVariant variant)
         return;
     }
 
-    extern void sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
+    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
 
-    sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth, variant);
+    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, variant);
 }
 
 ::wxBorder sipwxProgressDialog::GetDefaultBorder() const
@@ -718,24 +726,9 @@ void sipwxProgressDialog::DoSetWindowVariant(::wxWindowVariant variant)
     if (!sipMeth)
         return ::wxProgressDialog::GetDefaultBorder();
 
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxBorder sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
-}
-
-::wxBorder sipwxProgressDialog::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[35]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxProgressDialog::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxProgressDialog::DoFreeze()
@@ -743,7 +736,7 @@ void sipwxProgressDialog::DoFreeze()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -761,7 +754,7 @@ void sipwxProgressDialog::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -779,7 +772,7 @@ void sipwxProgressDialog::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxProgressDialog::DoGetBestSize();
@@ -794,7 +787,7 @@ void sipwxProgressDialog::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[39]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxProgressDialog::DoGetBestClientSize();
@@ -809,7 +802,7 @@ bool sipwxProgressDialog::ShouldPreventAppExit() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[40]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldPreventAppExit);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[39]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldPreventAppExit);
 
     if (!sipMeth)
         return ::wxProgressDialog::ShouldPreventAppExit();
@@ -887,11 +880,6 @@ void sipwxProgressDialog::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, 
 ::wxBorder sipwxProgressDialog::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxProgressDialog::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxProgressDialog::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxProgressDialog::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxProgressDialog::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -1293,6 +1281,39 @@ static PyObject *meth_wxProgressDialog_Update(PyObject *sipSelf, PyObject *sipAr
     }
 
     sipNoMethod(sipParseErr, sipName_ProgressDialog, sipName_Update, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxProgressDialog_CreateAccessible, "CreateAccessible() -> Accessible");
+
+extern "C" {static PyObject *meth_wxProgressDialog_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxProgressDialog_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxProgressDialog *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxProgressDialog, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxProgressDialog_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_ProgressDialog, sipName_CreateAccessible, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -2539,40 +2560,6 @@ static PyObject *meth_wxProgressDialog_GetDefaultBorder(PyObject *sipSelf, PyObj
 }
 
 
-PyDoc_STRVAR(doc_wxProgressDialog_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxProgressDialog_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxProgressDialog_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxProgressDialog *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxProgressDialog, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_ProgressDialog, sipName_GetDefaultBorderForControl, doc_wxProgressDialog_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxProgressDialog_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxProgressDialog_DoFreeze(PyObject *, PyObject *);}
@@ -2807,7 +2794,7 @@ static void *init_type_wxProgressDialog(sipSimpleWrapper *sipSelf, PyObject *sip
         const ::wxString* message;
         int messageState = 0;
         int maximum = 100;
-        ::wxWindow* parent = 0;
+        ::wxWindow* parent = nullptr;
         int style = wxPD_APP_MODAL|wxPD_AUTO_HIDE;
 
         static const char *sipKwdList[] = {
@@ -2847,7 +2834,7 @@ static void *init_type_wxProgressDialog(sipSimpleWrapper *sipSelf, PyObject *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxProgressDialog[] = {{233, 255, 1}};
+static sipEncodedTypeDef supers_wxProgressDialog[] = {{241, 255, 1}};
 
 
 static PyMethodDef methods_wxProgressDialog[] = {
@@ -2855,6 +2842,7 @@ static PyMethodDef methods_wxProgressDialog[] = {
     {sipName_AcceptsFocusFromKeyboard, meth_wxProgressDialog_AcceptsFocusFromKeyboard, METH_VARARGS, doc_wxProgressDialog_AcceptsFocusFromKeyboard},
     {sipName_AcceptsFocusRecursively, meth_wxProgressDialog_AcceptsFocusRecursively, METH_VARARGS, doc_wxProgressDialog_AcceptsFocusRecursively},
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxProgressDialog_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxProgressDialog_AddChild},
+    {sipName_CreateAccessible, meth_wxProgressDialog_CreateAccessible, METH_VARARGS, doc_wxProgressDialog_CreateAccessible},
     {sipName_Destroy, meth_wxProgressDialog_Destroy, METH_VARARGS, doc_wxProgressDialog_Destroy},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxProgressDialog_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxProgressDialog_DoEnable},
     {sipName_DoFreeze, meth_wxProgressDialog_DoFreeze, METH_VARARGS, doc_wxProgressDialog_DoFreeze},
@@ -2873,7 +2861,6 @@ static PyMethodDef methods_wxProgressDialog[] = {
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxProgressDialog_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxProgressDialog_GetClassDefaultAttributes},
     {sipName_GetClientAreaOrigin, meth_wxProgressDialog_GetClientAreaOrigin, METH_VARARGS, doc_wxProgressDialog_GetClientAreaOrigin},
     {sipName_GetDefaultBorder, meth_wxProgressDialog_GetDefaultBorder, METH_VARARGS, doc_wxProgressDialog_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxProgressDialog_GetDefaultBorderForControl, METH_VARARGS, doc_wxProgressDialog_GetDefaultBorderForControl},
     {sipName_GetMainWindowOfCompositeControl, meth_wxProgressDialog_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxProgressDialog_GetMainWindowOfCompositeControl},
     {sipName_GetMessage, meth_wxProgressDialog_GetMessage, METH_VARARGS, doc_wxProgressDialog_GetMessage},
     {sipName_GetRange, meth_wxProgressDialog_GetRange, METH_VARARGS, doc_wxProgressDialog_GetRange},
@@ -2909,7 +2896,7 @@ sipVariableDef variables_wxProgressDialog[] = {
     {PropertyVariable, sipName_Message, &methods_wxProgressDialog[24], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxProgressDialog, "ProgressDialog(title, message, maximum=100, parent=None, style=PD_APP_MODAL|PD_AUTO_HIDE) -> None\n"
+PyDoc_STRVAR(doc_wxProgressDialog, "ProgressDialog(title, message, maximum=100, parent=nullptr, style=PD_APP_MODAL|PD_AUTO_HIDE) -> None\n"
 "\n"
 "If supported by the platform this class will provide the platform's\n"
 "native progress dialog, else it will simply be the\n"

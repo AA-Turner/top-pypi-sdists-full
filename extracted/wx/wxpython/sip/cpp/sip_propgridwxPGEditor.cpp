@@ -86,9 +86,9 @@ bool sipwxPGEditor::CanContainCustomImage() const
     if (!sipMeth)
         return ::wxPGEditor::CanContainCustomImage();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPGEditor::OnFocus(::wxPGProperty*property, ::wxWindow*wnd) const
@@ -104,9 +104,9 @@ void sipwxPGEditor::OnFocus(::wxPGProperty*property, ::wxWindow*wnd) const
         return;
     }
 
-    extern void sipVH__propgrid_24(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGProperty*, ::wxWindow*);
+    extern void sipVH__propgrid_23(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGProperty*, ::wxWindow*);
 
-    sipVH__propgrid_24(sipGILState, 0, sipPySelf, sipMeth, property, wnd);
+    sipVH__propgrid_23(sipGILState, 0, sipPySelf, sipMeth, property, wnd);
 }
 
 void sipwxPGEditor::DeleteItem(::wxWindow*ctrl, int index) const
@@ -122,9 +122,9 @@ void sipwxPGEditor::DeleteItem(::wxWindow*ctrl, int index) const
         return;
     }
 
-    extern void sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*, int);
+    extern void sipVH__propgrid_31(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*, int);
 
-    sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth, ctrl, index);
+    sipVH__propgrid_31(sipGILState, 0, sipPySelf, sipMeth, ctrl, index);
 }
 
 int sipwxPGEditor::InsertItem(::wxWindow*ctrl, const ::wxString& label, int index) const
@@ -137,9 +137,9 @@ int sipwxPGEditor::InsertItem(::wxWindow*ctrl, const ::wxString& label, int inde
     if (!sipMeth)
         return ::wxPGEditor::InsertItem(ctrl, label, index);
 
-    extern int sipVH__propgrid_31(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*, const ::wxString&, int);
+    extern int sipVH__propgrid_30(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*, const ::wxString&, int);
 
-    return sipVH__propgrid_31(sipGILState, 0, sipPySelf, sipMeth, ctrl, label, index);
+    return sipVH__propgrid_30(sipGILState, 0, sipPySelf, sipMeth, ctrl, label, index);
 }
 
 void sipwxPGEditor::SetControlIntValue(::wxPGProperty*property, ::wxWindow*ctrl, int value) const
@@ -155,9 +155,9 @@ void sipwxPGEditor::SetControlIntValue(::wxPGProperty*property, ::wxWindow*ctrl,
         return;
     }
 
-    extern void sipVH__propgrid_30(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGProperty*, ::wxWindow*, int);
+    extern void sipVH__propgrid_29(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGProperty*, ::wxWindow*, int);
 
-    sipVH__propgrid_30(sipGILState, 0, sipPySelf, sipMeth, property, ctrl, value);
+    sipVH__propgrid_29(sipGILState, 0, sipPySelf, sipMeth, property, ctrl, value);
 }
 
 void sipwxPGEditor::SetControlStringValue(::wxPGProperty*property, ::wxWindow*ctrl, const ::wxString& txt) const
@@ -173,9 +173,9 @@ void sipwxPGEditor::SetControlStringValue(::wxPGProperty*property, ::wxWindow*ct
         return;
     }
 
-    extern void sipVH__propgrid_29(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGProperty*, ::wxWindow*, const ::wxString&);
+    extern void sipVH__propgrid_28(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGProperty*, ::wxWindow*, const ::wxString&);
 
-    sipVH__propgrid_29(sipGILState, 0, sipPySelf, sipMeth, property, ctrl, txt);
+    sipVH__propgrid_28(sipGILState, 0, sipPySelf, sipMeth, property, ctrl, txt);
 }
 
 void sipwxPGEditor::SetControlAppearance(::wxPropertyGrid*pg, ::wxPGProperty*property, ::wxWindow*ctrl, const ::wxPGCell& appearance, const ::wxPGCell& oldAppearance, bool unspecified) const
@@ -191,9 +191,9 @@ void sipwxPGEditor::SetControlAppearance(::wxPropertyGrid*pg, ::wxPGProperty*pro
         return;
     }
 
-    extern void sipVH__propgrid_28(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPropertyGrid*, ::wxPGProperty*, ::wxWindow*, const ::wxPGCell&, const ::wxPGCell&, bool);
+    extern void sipVH__propgrid_27(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPropertyGrid*, ::wxPGProperty*, ::wxWindow*, const ::wxPGCell&, const ::wxPGCell&, bool);
 
-    sipVH__propgrid_28(sipGILState, 0, sipPySelf, sipMeth, pg, property, ctrl, appearance, oldAppearance, unspecified);
+    sipVH__propgrid_27(sipGILState, 0, sipPySelf, sipMeth, pg, property, ctrl, appearance, oldAppearance, unspecified);
 }
 
 void sipwxPGEditor::SetValueToUnspecified(::wxPGProperty*property, ::wxWindow*ctrl) const
@@ -209,9 +209,9 @@ void sipwxPGEditor::SetValueToUnspecified(::wxPGProperty*property, ::wxWindow*ct
         return;
     }
 
-    extern void sipVH__propgrid_24(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGProperty*, ::wxWindow*);
+    extern void sipVH__propgrid_23(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGProperty*, ::wxWindow*);
 
-    sipVH__propgrid_24(sipGILState, 0, sipPySelf, sipMeth, property, ctrl);
+    sipVH__propgrid_23(sipGILState, 0, sipPySelf, sipMeth, property, ctrl);
 }
 
 bool sipwxPGEditor::GetValueFromControl(::wxVariant& variant, ::wxPGProperty*property, ::wxWindow*ctrl) const
@@ -224,9 +224,9 @@ bool sipwxPGEditor::GetValueFromControl(::wxVariant& variant, ::wxPGProperty*pro
     if (!sipMeth)
         return ::wxPGEditor::GetValueFromControl(variant, property, ctrl);
 
-    extern bool sipVH__propgrid_27(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxVariant&, ::wxPGProperty*, ::wxWindow*);
+    extern bool sipVH__propgrid_26(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxVariant&, ::wxPGProperty*, ::wxWindow*);
 
-    return sipVH__propgrid_27(sipGILState, 0, sipPySelf, sipMeth, variant, property, ctrl);
+    return sipVH__propgrid_26(sipGILState, 0, sipPySelf, sipMeth, variant, property, ctrl);
 }
 
 bool sipwxPGEditor::OnEvent(::wxPropertyGrid*propgrid, ::wxPGProperty*property, ::wxWindow*wnd_primary, ::wxEvent& event) const
@@ -239,9 +239,9 @@ bool sipwxPGEditor::OnEvent(::wxPropertyGrid*propgrid, ::wxPGProperty*property, 
     if (!sipMeth)
         return 0;
 
-    extern bool sipVH__propgrid_26(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPropertyGrid*, ::wxPGProperty*, ::wxWindow*, ::wxEvent&);
+    extern bool sipVH__propgrid_25(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPropertyGrid*, ::wxPGProperty*, ::wxWindow*, ::wxEvent&);
 
-    return sipVH__propgrid_26(sipGILState, 0, sipPySelf, sipMeth, propgrid, property, wnd_primary, event);
+    return sipVH__propgrid_25(sipGILState, 0, sipPySelf, sipMeth, propgrid, property, wnd_primary, event);
 }
 
 void sipwxPGEditor::DrawValue(::wxDC& dc, const ::wxRect& rect, ::wxPGProperty*property, const ::wxString& text) const
@@ -257,9 +257,9 @@ void sipwxPGEditor::DrawValue(::wxDC& dc, const ::wxRect& rect, ::wxPGProperty*p
         return;
     }
 
-    extern void sipVH__propgrid_25(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, const ::wxRect&, ::wxPGProperty*, const ::wxString&);
+    extern void sipVH__propgrid_24(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, const ::wxRect&, ::wxPGProperty*, const ::wxString&);
 
-    sipVH__propgrid_25(sipGILState, 0, sipPySelf, sipMeth, dc, rect, property, text);
+    sipVH__propgrid_24(sipGILState, 0, sipPySelf, sipMeth, dc, rect, property, text);
 }
 
 void sipwxPGEditor::UpdateControl(::wxPGProperty*property, ::wxWindow*ctrl) const
@@ -272,9 +272,9 @@ void sipwxPGEditor::UpdateControl(::wxPGProperty*property, ::wxWindow*ctrl) cons
     if (!sipMeth)
         return;
 
-    extern void sipVH__propgrid_24(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGProperty*, ::wxWindow*);
+    extern void sipVH__propgrid_23(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGProperty*, ::wxWindow*);
 
-    sipVH__propgrid_24(sipGILState, 0, sipPySelf, sipMeth, property, ctrl);
+    sipVH__propgrid_23(sipGILState, 0, sipPySelf, sipMeth, property, ctrl);
 }
 
 ::wxPGWindowList sipwxPGEditor::CreateControls(::wxPropertyGrid*propgrid, ::wxPGProperty*property, const ::wxPoint& pos, const ::wxSize& size) const
@@ -287,9 +287,9 @@ void sipwxPGEditor::UpdateControl(::wxPGProperty*property, ::wxWindow*ctrl) cons
     if (!sipMeth)
         return ::wxPGWindowList(static_cast< ::wxWindow*>(0));
 
-    extern ::wxPGWindowList sipVH__propgrid_23(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPropertyGrid*, ::wxPGProperty*, const ::wxPoint&, const ::wxSize&);
+    extern ::wxPGWindowList sipVH__propgrid_22(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPropertyGrid*, ::wxPGProperty*, const ::wxPoint&, const ::wxSize&);
 
-    return sipVH__propgrid_23(sipGILState, 0, sipPySelf, sipMeth, propgrid, property, pos, size);
+    return sipVH__propgrid_22(sipGILState, 0, sipPySelf, sipMeth, propgrid, property, pos, size);
 }
 
 ::wxString sipwxPGEditor::GetName() const
@@ -302,9 +302,9 @@ void sipwxPGEditor::UpdateControl(::wxPGProperty*property, ::wxWindow*ctrl) cons
     if (!sipMeth)
         return ::wxPGEditor::GetName();
 
-    extern ::wxString sipVH__propgrid_22(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxString sipVH__propgrid_21(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_22(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_21(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
@@ -1036,7 +1036,7 @@ static void *init_type_wxPGEditor(sipSimpleWrapper *sipSelf, PyObject *sipArgs, 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxPGEditor[] = {{20, 0, 1}};
+static sipEncodedTypeDef supers_wxPGEditor[] = {{21, 0, 1}};
 
 
 static PyMethodDef methods_wxPGEditor[] = {

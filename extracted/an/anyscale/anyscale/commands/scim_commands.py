@@ -14,6 +14,12 @@ from rich.table import Table
 from anyscale._private.anyscale_client import AnyscaleClient
 from anyscale.cli_logger import BlockLogger
 from anyscale.commands import command_examples
+from anyscale.commands.doc_metadata import (
+    command_metadata,
+    CommandExample,
+    ReleaseStatus,
+)
+from anyscale.commands.output_format import OutputFormat
 from anyscale.commands.util import AnyscaleCommand
 
 
@@ -81,10 +87,22 @@ def scim_cli() -> None:
     pass
 
 
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Preview the permission changes without applying them.",
+            command="anyscale scim enforce-groups --dry-run",
+            output_raw=command_examples.SCIM_ENFORCE_GROUP_PERMISSIONS_EXAMPLE,
+        ),
+    ],
+)
 @scim_cli.command(
     name="enforce-groups",
+    short_help="Enforce SCIM-based user group permissions.",
     cls=AnyscaleCommand,
-    example=command_examples.SCIM_ENFORCE_GROUP_PERMISSIONS_EXAMPLE,
     is_beta=True,
 )
 @click.option(
@@ -200,10 +218,22 @@ def _analyze_permissions(result: Dict) -> List[Dict]:
     return warnings
 
 
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Check for SCIM users with incomplete permission setup.",
+            command="anyscale scim check-permissions",
+            output_raw=command_examples.SCIM_CHECK_PERMISSIONS_EXAMPLE,
+        ),
+    ],
+)
 @scim_cli.command(
     name="check-permissions",
+    short_help="Check for SCIM users with incomplete permission setup.",
     cls=AnyscaleCommand,
-    example=command_examples.SCIM_CHECK_PERMISSIONS_EXAMPLE,
     is_beta=True,
 )
 def check_permissions() -> None:

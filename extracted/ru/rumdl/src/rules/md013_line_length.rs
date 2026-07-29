@@ -61,6 +61,7 @@ impl MD013LineLength {
                 code_spans: true,
                 tables,
                 headings,
+                math_blocks: true,
                 paragraphs: true,  // Default to true for backwards compatibility
                 blockquotes: true, // Default to true for backwards compatibility
                 strict,
@@ -262,6 +263,13 @@ impl Rule for MD013LineLength {
                 }
                 if let Some(headings) = obj.get("headings").and_then(serde_json::Value::as_bool) {
                     config.headings = headings;
+                }
+                if let Some(math_blocks) = obj
+                    .get("math_blocks")
+                    .or_else(|| obj.get("math-blocks"))
+                    .and_then(serde_json::Value::as_bool)
+                {
+                    config.math_blocks = math_blocks;
                 }
                 if let Some(blockquotes) = obj.get("blockquotes").and_then(serde_json::Value::as_bool) {
                     config.blockquotes = blockquotes;
@@ -516,6 +524,7 @@ impl Rule for MD013LineLength {
                     || (!effective_config.code_blocks
                         && ctx.line_info(line_number).is_some_and(|info| info.in_code_block))
                     || (!effective_config.tables && table_lines_set.contains(&line_number))
+                    || (!effective_config.math_blocks && self.line_is_display_math(line_number, ctx))
                     || ctx.line_info(line_number).is_some_and(|info| info.in_html_block)
                     || ctx.line_info(line_number).is_some_and(|info| info.in_html_comment)
                     || ctx.line_info(line_number).is_some_and(|info| info.in_esm_block)
@@ -726,11 +735,120 @@ impl Rule for MD013LineLength {
 }
 
 impl MD013LineLength {
+    /// True when `line_num` (1-indexed) sits inside a `$$` span covering more
+    /// than one line, as seen by the byte-level math parser.
+    fn line_in_multiline_math_span(&self, line_num: usize, ctx: &crate::lint_context::LintContext) -> bool {
+        ctx.math_spans()
+            .iter()
+            .any(|span| span.is_display && span.end_line > span.line && (span.line..=span.end_line).contains(&line_num))
+    }
+
+    /// True when `line_num` (1-indexed) holds nothing but display math, whether
+    /// that is one line of a multi-line block, a delimiter line, or a whole line
+    /// that is a single complete `$$...$$` span. This is what `math-blocks =
+    /// false` exempts from the length check.
+    ///
+    /// rumdl models math twice and the two models miss different containers, so
+    /// this consults both. `math_spans()` is byte-level and sees a block opened on
+    /// a list marker line (`- $$`), which the line-level map cannot because that
+    /// line does not begin with `$$`. `LineInfo::in_math_block` is line-level and
+    /// sees a four-space-indented block inside a footnote, which the byte-level
+    /// parser reads as an indented code block. Taking the union only ever adds
+    /// coverage: neither signal fires on ordinary prose, and an unmatched `$$`
+    /// opener is flagged by neither, so a stray delimiter cannot exempt the rest
+    /// of the document.
+    fn line_is_display_math(&self, line_num: usize, ctx: &crate::lint_context::LintContext) -> bool {
+        self.line_holds_only_multiline_math(line_num, ctx)
+            || ctx.line_info(line_num).is_some_and(|info| info.in_math_block)
+    }
+
+    /// True when a multi-line `$$` span covers `line_num` (1-indexed) and the line
+    /// holds nothing besides that math.
+    ///
+    /// A delimiter line can carry Markdown outside the delimiter: `$$ trailing
+    /// prose` closes a block and then continues in prose, and `leading prose $$`
+    /// opens one at the end of a sentence. That prose is ordinary text and counts
+    /// toward the line's length like any other, so exempting the whole line would
+    /// hide arbitrarily long prose behind a delimiter. The line-level map already
+    /// leaves such mixed lines unflagged; this is the byte-level half of the same
+    /// judgement.
+    fn line_holds_only_multiline_math(&self, line_num: usize, ctx: &crate::lint_context::LintContext) -> bool {
+        let Some(info) = ctx.line_info(line_num) else {
+            return false;
+        };
+        let line = info.content(ctx.content);
+
+        ctx.math_spans().iter().any(|span| {
+            if !span.is_display || span.end_line <= span.line || !(span.line..=span.end_line).contains(&line_num) {
+                return false;
+            }
+            if line_num == span.line {
+                let before = line.get(..span.byte_offset.saturating_sub(info.byte_offset));
+                if !before.is_none_or(|before| Self::only_structure_precedes_math(before, info)) {
+                    return false;
+                }
+            }
+            if line_num == span.end_line {
+                let after = line.get(span.byte_end.saturating_sub(info.byte_offset)..);
+                if !after.is_none_or(|after| after.trim().is_empty()) {
+                    return false;
+                }
+            }
+            true
+        })
+    }
+
+    /// True when the text before a block's opening delimiter is only the structure
+    /// the block sits in: indentation, a blockquote marker, or the list marker
+    /// introducing it. Such a block still owns its whole line.
+    fn only_structure_precedes_math(before: &str, info: &crate::lint_context::LineInfo) -> bool {
+        let after_marker =
+            crate::utils::blockquote::parse_blockquote_prefix(before).map_or(before, |prefix| prefix.content);
+        if after_marker.trim().is_empty() {
+            return true;
+        }
+        info.list_item.as_ref().is_some_and(|item| {
+            let mut chars = before.chars();
+            chars.by_ref().take(item.content_column).count() == item.content_column && chars.as_str().trim().is_empty()
+        })
+    }
+
+    /// True when `line_num` (1-indexed) falls inside a display-math block that
+    /// spans more than one line.
+    ///
+    /// Line breaks carry meaning inside such a block: a TeX `%` comment runs to
+    /// the end of its line, so joining the lines pulls whatever followed on later
+    /// lines into the comment and drops it from the rendered equation, which can
+    /// also leave an environment unclosed. Reflow therefore leaves these blocks
+    /// alone regardless of the `math_blocks` setting, which governs only whether
+    /// their length is reported.
+    ///
+    /// This is `line_is_display_math` minus the case of a whole line that is one
+    /// complete `$$...$$` span: such a line is a single atomic element reflow can
+    /// move around freely, and only a multi-line block has meaningful internal
+    /// line breaks.
+    fn line_in_multiline_math_block(&self, line_num: usize, ctx: &crate::lint_context::LintContext) -> bool {
+        self.line_in_multiline_math_span(line_num, ctx)
+            || ctx.line_info(line_num).is_some_and(|info| {
+                info.in_math_block && !Self::is_self_contained_display_math_line(info.content(ctx.content))
+            })
+    }
+
+    /// True when `line` is a whole line holding exactly one closed `$$...$$` span.
+    fn is_self_contained_display_math_line(line: &str) -> bool {
+        let trimmed = line.trim();
+        let inner = crate::utils::blockquote::parse_blockquote_prefix(trimmed).map_or(trimmed, |p| p.content.trim());
+        inner.strip_prefix("$$").is_some_and(|rest| rest.contains("$$"))
+    }
+
     /// True when `line_num` (1-based) sits inside a structure whose lines must be
     /// preserved verbatim (code block, front matter, HTML/JSX/MDX block, MkDocs
-    /// container, div marker, ...). Used to keep blockquote reflow from touching
-    /// quoted-looking text embedded in such structures.
+    /// container, div marker, multi-line math block, ...). Used to keep blockquote
+    /// reflow from touching quoted-looking text embedded in such structures.
     fn line_in_verbatim_context(&self, line_num: usize, ctx: &crate::lint_context::LintContext) -> bool {
+        if self.line_in_multiline_math_block(line_num, ctx) {
+            return true;
+        }
         ctx.line_info(line_num).is_some_and(|info| {
             info.in_code_block
                 || info.in_front_matter
@@ -1584,6 +1702,15 @@ impl MD013LineLength {
                         continue;
                     }
 
+                    // A multi-line display-math block is verbatim: its line breaks
+                    // carry meaning (see `line_in_multiline_math_block`).
+                    if self.line_in_multiline_math_block(i + 1, ctx) {
+                        fn_lines.push(FnLineType::Verbatim(strip_fn_indent(next), indent));
+                        last_consumed = i;
+                        i += 1;
+                        continue;
+                    }
+
                     // Indented code block: indent >= FN_INDENT + 4 (= 8 spaces)
                     if indent >= FN_INDENT + 4 {
                         fn_lines.push(FnLineType::Verbatim(strip_fn_indent(next), indent));
@@ -2093,6 +2220,19 @@ impl MD013LineLength {
 
                         // Use pre-computed in_code_block from ctx
                         if line_info.in_code_block {
+                            list_item_lines.push(LineType::CodeBlock(
+                                line_info.content(ctx.content)[indent..].to_string(),
+                                indent,
+                            ));
+                            i += 1;
+                            continue;
+                        }
+
+                        // A multi-line display-math block inside the item is verbatim:
+                        // its line breaks carry meaning (see
+                        // `line_in_multiline_math_block`), so reuse the code-block
+                        // carrier to re-emit it unchanged.
+                        if self.line_in_multiline_math_block(i + 1, ctx) {
                             list_item_lines.push(LineType::CodeBlock(
                                 line_info.content(ctx.content)[indent..].to_string(),
                                 indent,
@@ -3196,6 +3336,7 @@ impl MD013LineLength {
                     || is_snippet_block_delimiter(next_line)
                     || ctx.line_info(next_line_num).is_some_and(|info| info.is_div_marker)
                     || is_html_only_line(next_line)
+                    || self.line_in_multiline_math_block(next_line_num, ctx)
                     || (!config.strict && is_standalone_link_or_image_line(next_line))
                 {
                     break;
@@ -3275,6 +3416,20 @@ impl MD013LineLength {
             if contains_snippets {
                 // Don't reflow Snippets blocks - skip this paragraph
                 i = paragraph_start + paragraph_lines.len();
+                continue;
+            }
+
+            // Leave a line of a multi-line display-math block as it is, where
+            // joining lines would corrupt the equation (see
+            // `line_in_multiline_math_block`). Only the first line has to be
+            // asked about: such a line ends the paragraph above it, so a
+            // paragraph reaching here holds one only when it starts on one.
+            //
+            // Only that line is passed over, not the rest of what was collected
+            // with it: prose written directly under the closing delimiter is an
+            // ordinary paragraph and still reflows.
+            if self.line_in_multiline_math_block(paragraph_start + 1, ctx) {
+                i = paragraph_start + 1;
                 continue;
             }
 

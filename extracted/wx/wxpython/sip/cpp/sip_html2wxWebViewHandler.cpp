@@ -24,6 +24,8 @@ public:
      * this class.
      */
 protected:
+    ::wxString GetVirtualHost() const SIP_OVERRIDE;
+    void SetVirtualHost(const ::wxString&) SIP_OVERRIDE;
     ::wxString GetSecurityURL() const SIP_OVERRIDE;
     void SetSecurityURL(const ::wxString&) SIP_OVERRIDE;
     ::wxString GetName() const SIP_OVERRIDE;
@@ -36,7 +38,7 @@ private:
     sipwxWebViewHandler(const sipwxWebViewHandler &);
     sipwxWebViewHandler &operator = (const sipwxWebViewHandler &);
 
-    char sipPyMethods[4];
+    char sipPyMethods[6];
 };
 
 sipwxWebViewHandler::sipwxWebViewHandler(const ::wxString& scheme): ::wxWebViewHandler(scheme), sipPySelf(SIP_NULLPTR)
@@ -54,12 +56,45 @@ sipwxWebViewHandler::~sipwxWebViewHandler()
     sipInstanceDestroyedEx(&sipPySelf);
 }
 
+::wxString sipwxWebViewHandler::GetVirtualHost() const
+{
+    sip_gilstate_t sipGILState;
+    PyObject *sipMeth;
+
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[0]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetVirtualHost);
+
+    if (!sipMeth)
+        return ::wxWebViewHandler::GetVirtualHost();
+
+    extern ::wxString sipVH__html2_1(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+
+    return sipVH__html2_1(sipGILState, 0, sipPySelf, sipMeth);
+}
+
+void sipwxWebViewHandler::SetVirtualHost(const ::wxString& host)
+{
+    sip_gilstate_t sipGILState;
+    PyObject *sipMeth;
+
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[1], &sipPySelf, SIP_NULLPTR, sipName_SetVirtualHost);
+
+    if (!sipMeth)
+    {
+        ::wxWebViewHandler::SetVirtualHost(host);
+        return;
+    }
+
+    extern void sipVH__html2_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&);
+
+    sipVH__html2_2(sipGILState, 0, sipPySelf, sipMeth, host);
+}
+
 ::wxString sipwxWebViewHandler::GetSecurityURL() const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[0]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetSecurityURL);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[2]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetSecurityURL);
 
     if (!sipMeth)
         return ::wxWebViewHandler::GetSecurityURL();
@@ -74,7 +109,7 @@ void sipwxWebViewHandler::SetSecurityURL(const ::wxString& url)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[1], &sipPySelf, SIP_NULLPTR, sipName_SetSecurityURL);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[3], &sipPySelf, SIP_NULLPTR, sipName_SetSecurityURL);
 
     if (!sipMeth)
     {
@@ -92,7 +127,7 @@ void sipwxWebViewHandler::SetSecurityURL(const ::wxString& url)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[2]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetName);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[4]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetName);
 
     if (!sipMeth)
         return ::wxWebViewHandler::GetName();
@@ -107,10 +142,10 @@ void sipwxWebViewHandler::SetSecurityURL(const ::wxString& url)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[3], &sipPySelf, sipName_WebViewHandler, sipName_GetFile);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[5], &sipPySelf, SIP_NULLPTR, sipName_GetFile);
 
     if (!sipMeth)
-        return 0;
+        return ::wxWebViewHandler::GetFile(uri);
 
     extern ::wxFSFile* sipVH__html2_0(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&);
 
@@ -124,7 +159,7 @@ extern "C" {static PyObject *meth_wxWebViewHandler_GetFile(PyObject *, PyObject 
 static PyObject *meth_wxWebViewHandler_GetFile(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
 {
     PyObject *sipParseErr = SIP_NULLPTR;
-    PyObject *sipOrigSelf = sipSelf;
+    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
 
     {
         const ::wxString* uri;
@@ -139,16 +174,10 @@ static PyObject *meth_wxWebViewHandler_GetFile(PyObject *sipSelf, PyObject *sipA
         {
             ::wxFSFile*sipRes;
 
-            if (!sipOrigSelf)
-            {
-                sipAbstractMethod(sipName_WebViewHandler, sipName_GetFile);
-                return SIP_NULLPTR;
-            }
-
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->GetFile(*uri);
+            sipRes = (sipSelfWasArg ? sipCpp->::wxWebViewHandler::GetFile(*uri) : sipCpp->GetFile(*uri));
             Py_END_ALLOW_THREADS
             sipReleaseType(const_cast< ::wxString *>(uri), sipType_wxString, uriState);
 
@@ -275,6 +304,83 @@ static PyObject *meth_wxWebViewHandler_GetSecurityURL(PyObject *sipSelf, PyObjec
 }
 
 
+PyDoc_STRVAR(doc_wxWebViewHandler_SetVirtualHost, "SetVirtualHost(host) -> None\n"
+"\n"
+"When using the edge backend handler urls are https urls with a virtual\n"
+"host.");
+
+extern "C" {static PyObject *meth_wxWebViewHandler_SetVirtualHost(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxWebViewHandler_SetVirtualHost(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
+
+    {
+        const ::wxString* host;
+        int hostState = 0;
+        ::wxWebViewHandler *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_host,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxWebViewHandler, &sipCpp, sipType_wxString, &host, &hostState))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            (sipSelfWasArg ? sipCpp->::wxWebViewHandler::SetVirtualHost(*host) : sipCpp->SetVirtualHost(*host));
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxString *>(host), sipType_wxString, hostState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_WebViewHandler, sipName_SetVirtualHost, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxWebViewHandler_GetVirtualHost, "GetVirtualHost() -> str");
+
+extern "C" {static PyObject *meth_wxWebViewHandler_GetVirtualHost(PyObject *, PyObject *);}
+static PyObject *meth_wxWebViewHandler_GetVirtualHost(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
+
+    {
+        const ::wxWebViewHandler *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxWebViewHandler, &sipCpp))
+        {
+            ::wxString*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxString((sipSelfWasArg ? sipCpp->::wxWebViewHandler::GetVirtualHost() : sipCpp->GetVirtualHost()));
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxString, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_WebViewHandler, sipName_GetVirtualHost, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 /* Call the instance's destructor. */
 extern "C" {static void release_wxWebViewHandler(void *, int);}
 static void release_wxWebViewHandler(void *sipCppV, int sipState)
@@ -287,6 +393,20 @@ static void release_wxWebViewHandler(void *sipCppV, int sipState)
         delete reinterpret_cast< ::wxWebViewHandler *>(sipCppV);
 
     Py_END_ALLOW_THREADS
+}
+
+
+extern "C" {static void assign_wxWebViewHandler(void *, Py_ssize_t, void *);}
+static void assign_wxWebViewHandler(void *sipDst, Py_ssize_t sipDstIdx, void *sipSrc)
+{
+    reinterpret_cast< ::wxWebViewHandler *>(sipDst)[sipDstIdx] = *reinterpret_cast< ::wxWebViewHandler *>(sipSrc);
+}
+
+
+extern "C" {static void *copy_wxWebViewHandler(const void *, Py_ssize_t);}
+static void *copy_wxWebViewHandler(const void *sipSrc, Py_ssize_t sipSrcIdx)
+{
+    return new ::wxWebViewHandler(reinterpret_cast<const ::wxWebViewHandler *>(sipSrc)[sipSrcIdx]);
 }
 
 
@@ -360,11 +480,14 @@ static PyMethodDef methods_wxWebViewHandler[] = {
     {sipName_GetFile, SIP_MLMETH_CAST(meth_wxWebViewHandler_GetFile), METH_VARARGS|METH_KEYWORDS, doc_wxWebViewHandler_GetFile},
     {sipName_GetName, meth_wxWebViewHandler_GetName, METH_VARARGS, doc_wxWebViewHandler_GetName},
     {sipName_GetSecurityURL, meth_wxWebViewHandler_GetSecurityURL, METH_VARARGS, doc_wxWebViewHandler_GetSecurityURL},
-    {sipName_SetSecurityURL, SIP_MLMETH_CAST(meth_wxWebViewHandler_SetSecurityURL), METH_VARARGS|METH_KEYWORDS, doc_wxWebViewHandler_SetSecurityURL}
+    {sipName_GetVirtualHost, meth_wxWebViewHandler_GetVirtualHost, METH_VARARGS, doc_wxWebViewHandler_GetVirtualHost},
+    {sipName_SetSecurityURL, SIP_MLMETH_CAST(meth_wxWebViewHandler_SetSecurityURL), METH_VARARGS|METH_KEYWORDS, doc_wxWebViewHandler_SetSecurityURL},
+    {sipName_SetVirtualHost, SIP_MLMETH_CAST(meth_wxWebViewHandler_SetVirtualHost), METH_VARARGS|METH_KEYWORDS, doc_wxWebViewHandler_SetVirtualHost}
 };
 
 sipVariableDef variables_wxWebViewHandler[] = {
-    {PropertyVariable, sipName_SecurityURL, &methods_wxWebViewHandler[2], &methods_wxWebViewHandler[3], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_VirtualHost, &methods_wxWebViewHandler[3], &methods_wxWebViewHandler[5], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SecurityURL, &methods_wxWebViewHandler[2], &methods_wxWebViewHandler[4], SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_Name, &methods_wxWebViewHandler[1], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
@@ -379,7 +502,7 @@ sipClassTypeDef sipTypeDef__html2_wxWebViewHandler = {
         -1,
         SIP_NULLPTR,
         SIP_NULLPTR,
-        SIP_TYPE_ABSTRACT|SIP_TYPE_CLASS,
+        SIP_TYPE_CLASS,
         sipNameNr_wxWebViewHandler,
         SIP_NULLPTR,
         SIP_NULLPTR,
@@ -387,9 +510,9 @@ sipClassTypeDef sipTypeDef__html2_wxWebViewHandler = {
     {
         sipNameNr_WebViewHandler,
         {0, 0, 1},
-        4, methods_wxWebViewHandler,
+        6, methods_wxWebViewHandler,
         0, SIP_NULLPTR,
-        2, variables_wxWebViewHandler,
+        3, variables_wxWebViewHandler,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxWebViewHandler,
@@ -403,9 +526,9 @@ sipClassTypeDef sipTypeDef__html2_wxWebViewHandler = {
     SIP_NULLPTR,
     SIP_NULLPTR,
     dealloc_wxWebViewHandler,
+    assign_wxWebViewHandler,
     SIP_NULLPTR,
-    SIP_NULLPTR,
-    SIP_NULLPTR,
+    copy_wxWebViewHandler,
     release_wxWebViewHandler,
     SIP_NULLPTR,
     SIP_NULLPTR,

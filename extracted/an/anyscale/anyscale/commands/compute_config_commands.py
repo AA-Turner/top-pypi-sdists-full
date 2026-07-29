@@ -10,9 +10,21 @@ import anyscale
 from anyscale.cli_logger import BlockLogger
 from anyscale.cloud_utils import get_cloud_id_and_name
 from anyscale.commands import command_examples
+from anyscale.commands.doc_metadata import (
+    command_metadata,
+    CommandExample,
+    ReleaseStatus,
+)
+from anyscale.commands.output_format import (
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    OutputFormat,
+    print_output,
+)
 from anyscale.commands.util import AnyscaleCommand
 from anyscale.compute_config.models import (
     compute_config_type_from_yaml,
+    ComputeConfig,
     ComputeConfigVersion,
 )
 from anyscale.controllers.base_controller import BaseController
@@ -66,8 +78,21 @@ def compute_config_cli() -> None:
     pass
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Create a compute config from a YAML file.",
+            command="anyscale compute-config create -f config.yaml",
+            output_raw=command_examples.COMPUTE_CONFIG_CREATE_EXAMPLE,
+        ),
+    ],
+)
 @compute_config_cli.command(
     name="create",
+    short_help="Create a new version of a compute config from a YAML file.",
     help=(
         "Create a new version of a compute config from a YAML file.\n\n"
         "(1) To use the **new schema** defined at "
@@ -80,7 +105,6 @@ def compute_config_cli() -> None:
         "`anyscale compute-config create old_schema_config.yaml`\n\n"
     ),
     cls=AnyscaleCommand,
-    example=command_examples.COMPUTE_CONFIG_CREATE_EXAMPLE,
 )
 @click.argument("compute-config-file", type=click.File("rb"), required=False)
 @click.option(
@@ -120,11 +144,27 @@ def create_compute_config(
         )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Archive a compute config by name.",
+            command="anyscale compute-config archive -n my-compute-config",
+            output_raw=command_examples.COMPUTE_CONFIG_ARCHIVE_EXAMPLE,
+        ),
+    ],
+)
 @compute_config_cli.command(
     name="archive",
-    help=("Archive all versions of a specified compute config.\n\n"),
+    short_help="Archive all versions of a specified compute config.",
+    help=(
+        "Archive all versions of a specified compute config.\n\n"
+        "Specify the compute config by name (-n/--name) or by ID (--id), "
+        "one of which is required."
+    ),
     cls=AnyscaleCommand,
-    example=command_examples.COMPUTE_CONFIG_ARCHIVE_EXAMPLE,
 )
 @click.argument("compute-config-name", type=str, required=False)
 @click.option(
@@ -152,8 +192,36 @@ def archive_compute_config(
     anyscale.compute_config.archive(name=name, _id=cc_id)
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to [TEXT, JSON] when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="List compute configs created by the current user.",
+            command="anyscale compute-config list",
+            output_raw=command_examples.COMPUTE_CONFIG_LIST_EXAMPLE,
+            output_instance={
+                "results": [
+                    {
+                        "id": "cpt_abc123",
+                        "name": "my-compute-config",
+                        "cloud_id": "cld_abc123",
+                        "version": 1,
+                        "created_at": "2026-01-15T08:00:00+00:00",
+                        "last_modified_at": "2026-01-15T08:00:00+00:00",
+                        "url": "https://console.anyscale.com/configurations/cluster-computes/cpt_abc123",
+                    }
+                ],
+                "metadata": {"count": 1, "next_token": None},
+            },
+        ),
+    ],
+)
 @compute_config_cli.command(
     name="list",
+    short_help="List compute configurations.",
     help=(
         "List compute configurations with filtering, sorting, and pagination.\n\n"
         "By default, only compute configs created by the current user are returned. "
@@ -161,7 +229,6 @@ def archive_compute_config(
         "Use --max-items to control page size and --next-token for pagination."
     ),
     cls=AnyscaleCommand,
-    example=command_examples.COMPUTE_CONFIG_LIST_EXAMPLE,
 )
 @click.option(
     "-n",
@@ -223,6 +290,16 @@ def archive_compute_config(
     help="Sort order. Default: asc (ascending)",
 )
 @click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
+@click.option(
     "--json",
     "output_json",
     is_flag=True,
@@ -239,9 +316,11 @@ def list_compute_configs(  # noqa: A001, PLR0913
     cloud_name: Optional[str],
     sort_by: str,
     sort_order: str,
+    output_format: str,
     output_json: bool,
 ):
     """List compute configurations with filtering, sorting, and pagination options."""
+    output_json = output_json or output_format == OutputFormat.JSON.value
     # Validate mutual exclusion: cloud_id and cloud_name cannot be used together
     if cloud_id and cloud_name:
         raise click.ClickException(
@@ -314,15 +393,36 @@ def list_compute_configs(  # noqa: A001, PLR0913
         )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Get the latest version of a compute config by name.",
+            command="anyscale compute-config get -n my-compute-config",
+            output_raw=command_examples.COMPUTE_CONFIG_GET_EXAMPLE,
+            output_instance=lambda: ComputeConfigVersion(
+                name="my-compute-config:1",
+                id="cpt_8hzsv1t4jvb6kwjhfqbfjw5i6b",
+                config=ComputeConfig(cloud="my-cloud"),
+            ),
+        ),
+    ],
+    output_schema=ComputeConfigVersion,
+)
 @compute_config_cli.command(
     name="get",
+    short_help="Get the details of a compute config.",
     help=(
         "Get the details of a compute config.\n\n"
         "The name can contain an optional version, e.g., 'name:version'. "
         "If no version is provided, the latest one will be returned.\n\n"
+        "Specify the compute config by name (-n/--name) or by ID (--id), "
+        "one of which is required."
     ),
     cls=AnyscaleCommand,
-    example=command_examples.COMPUTE_CONFIG_GET_EXAMPLE,
 )
 @click.argument("compute-config-name", required=False)
 @click.option(
@@ -359,6 +459,16 @@ def list_compute_configs(  # noqa: A001, PLR0913
     default=False,
     help="Output the config in the old format: https://docs.anyscale.com/reference/compute-config-api#computeconfig.",
 )
+@click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result. Ignored with --old-format.",
+)
 def get_compute_config(
     name: Optional[str],
     compute_config_name: Optional[str],
@@ -367,6 +477,7 @@ def get_compute_config(
     cloud_id: Optional[str],
     cloud_name: Optional[str],
     old_format: bool,
+    output_format: str,
 ):
     """Get details of a specific compute configuration."""
     # Validate mutual exclusion: cloud_id and cloud_name cannot be used together
@@ -403,6 +514,9 @@ def get_compute_config(
         config: ComputeConfigVersion = anyscale.compute_config.get(
             name=name, _id=cc_id, cloud=cloud_filter, include_archived=include_archived,
         )
-        stream = StringIO()
-        yaml.dump(config.to_dict(), stream, sort_keys=False)
-        print(stream.getvalue(), end="")
+        if output_format != OutputFormat.TEXT.value:
+            print_output(config, output_format)
+        else:
+            stream = StringIO()
+            yaml.dump(config.to_dict(), stream, sort_keys=False)
+            print(stream.getvalue(), end="")

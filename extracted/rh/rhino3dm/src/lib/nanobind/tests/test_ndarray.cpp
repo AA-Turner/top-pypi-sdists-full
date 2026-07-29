@@ -299,35 +299,6 @@ NB_MODULE(test_ndarray_ext, m) {
                                                                 deleter);
     });
 
-    m.def("ret_jax", []() {
-        float *f = new float[8] { 1, 2, 3, 4, 5, 6, 7, 8 };
-        size_t shape[2] = { 2, 4 };
-
-        nb::capsule deleter(f, [](void *data) noexcept {
-           destruct_count++;
-           delete[] (float *) data;
-        });
-
-        return nb::ndarray<nb::jax, float, nb::shape<2, 4>>(f, 2, shape,
-                                                            deleter);
-    });
-
-    m.def("ret_tensorflow", []() {
-        struct alignas(256) Buf {
-            float f[8];
-        };
-        Buf *buf = new Buf({ 1, 2, 3, 4, 5, 6, 7, 8 });
-        size_t shape[2] = { 2, 4 };
-
-        nb::capsule deleter(buf, [](void *data) noexcept {
-           destruct_count++;
-           delete (Buf *) data;
-        });
-
-        return nb::ndarray<nb::tensorflow, float, nb::shape<2, 4>>(buf->f, 2, shape,
-                                                                   deleter);
-    });
-
     m.def("ret_array_scalar", []() {
             float* f = new float[1] { 1 };
             size_t shape[1] = {};
@@ -492,4 +463,35 @@ NB_MODULE(test_ndarray_ext, m) {
         float f[] { 1, 2, 3 };
         return Vector3f(f).cast();
     });
+
+    // Fix issue reported in discussion #930
+    struct Wrapper {
+        nb::ndarray<float> value;
+
+        static int tp_traverse(PyObject* self, visitproc visit, void* arg) {
+            Wrapper* w = nb::inst_ptr<Wrapper>(self);
+            nb::handle value = nb::find(w->value);
+            Py_VISIT(value.ptr());
+#if PY_VERSION_HEX >= 0x03090000
+            Py_VISIT(Py_TYPE(self));
+#endif
+            return 0;
+        }
+
+        static int tp_clear(PyObject* self) {
+            Wrapper* w = nb::inst_ptr<Wrapper>(self);
+            w->value = {};
+            return 0;
+        }
+    };
+
+    PyType_Slot wrapper_slots[] = {
+        {Py_tp_traverse, (void*)Wrapper::tp_traverse},
+        {Py_tp_clear, (void*)Wrapper::tp_clear},
+        {0, 0},
+    };
+
+    nb::class_<Wrapper>(m, "Wrapper", nb::type_slots(wrapper_slots))
+        .def(nb::init<nb::ndarray<float>>())
+        .def_rw("value", &Wrapper::value);
 }

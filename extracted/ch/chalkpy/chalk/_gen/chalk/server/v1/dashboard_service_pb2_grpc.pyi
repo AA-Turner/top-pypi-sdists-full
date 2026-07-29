@@ -12,8 +12,12 @@ from chalk._gen.chalk.server.v1.dashboard_service_pb2 import (
     CreateDashboardResponse,
     DeleteDashboardRequest,
     DeleteDashboardResponse,
+    ExportDashboardRequest,
+    ExportDashboardResponse,
     GetDashboardRequest,
     GetDashboardResponse,
+    ImportDashboardRequest,
+    ImportDashboardResponse,
     ListDashboardsRequest,
     ListDashboardsResponse,
     UpdateDashboardRequest,
@@ -48,6 +52,14 @@ class DashboardServiceStub:
         DeleteDashboardRequest,
         DeleteDashboardResponse,
     ]
+    ExportDashboard: UnaryUnaryMultiCallable[
+        ExportDashboardRequest,
+        ExportDashboardResponse,
+    ]
+    ImportDashboard: UnaryUnaryMultiCallable[
+        ImportDashboardRequest,
+        ImportDashboardResponse,
+    ]
 
 class DashboardServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -80,5 +92,17 @@ class DashboardServiceServicer(metaclass=ABCMeta):
         request: DeleteDashboardRequest,
         context: ServicerContext,
     ) -> DeleteDashboardResponse: ...
+    @abstractmethod
+    def ExportDashboard(
+        self,
+        request: ExportDashboardRequest,
+        context: ServicerContext,
+    ) -> ExportDashboardResponse: ...
+    @abstractmethod
+    def ImportDashboard(
+        self,
+        request: ImportDashboardRequest,
+        context: ServicerContext,
+    ) -> ImportDashboardResponse: ...
 
 def add_DashboardServiceServicer_to_server(servicer: DashboardServiceServicer, server: Server) -> None: ...

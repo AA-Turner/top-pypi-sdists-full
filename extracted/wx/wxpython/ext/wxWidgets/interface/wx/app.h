@@ -9,8 +9,7 @@
 /**
     @class wxAppConsole
 
-    This class is essential for writing console-only or hybrid apps without
-    having to define @c wxUSE_GUI=0.
+    This class us used instead of wxApp for console applications.
 
     It is used to:
     @li set and get application-wide properties (see wxAppConsole::CreateTraits
@@ -30,6 +29,8 @@
     Use wxDECLARE_APP(appClass) in a header file if you want the ::wxGetApp() function
     (which returns a reference to your application object) to be visible to other
     files.
+
+    Note that setting @c wxUSE_GUI=0 makes wxApp identical to this class.
 
     @library{wxbase}
     @category{appmanagement}
@@ -97,7 +98,7 @@ public:
         by OnRun() and which dispatches all events sent from the native toolkit
         to the application (except when new event loops are temporarily set-up).
         The returned value maybe @NULL. Put initialization code which needs a
-        non-@NULL main event loop into OnEventLoopEnter().
+        non-null main event loop into OnEventLoopEnter().
     */
     wxEventLoopBase* GetMainLoop() const;
 
@@ -284,8 +285,7 @@ public:
         @param line
             the line number in this file where the assert occurred
         @param func
-            the name of the function where the assert occurred, may be
-            empty if the compiler doesn't support C99 \__FUNCTION__
+            the name of the function where the assert occurred
         @param cond
             the condition of the failed assert in text form
         @param msg
@@ -364,6 +364,9 @@ public:
 
         The return value of this function is currently ignored, return the same
         value as returned by the base class method if you override it.
+
+        NOTE: The base class method performs some cleanup - call it at the end
+        of your method if you override it.
     */
     virtual int OnExit();
 
@@ -389,8 +392,24 @@ public:
         that the function returns @true.
 
         Notice that if you want to use the command line processing provided by
-        wxWidgets you have to call the base class version in the derived class
-        OnInit().
+        wxWidgets (see OnInitCmdLine() and OnCmdLineParsed() functions) you
+        have to call the base class version in the derived class OnInit(),
+        e.g.:
+
+        @code
+        bool MyApp::OnInit() {
+            if ( !wxApp::OnInit() ) {
+                // The most likely reason for the error here is that incorrect
+                // command line arguments have been specified, so just exit:
+                // error message has already been given.
+                return false;
+            }
+
+            // Perform any additional initialization here.
+
+            return true;
+        }
+        @endcode
 
         Return @true to continue processing, @false to exit the application
         immediately. In the latter case, you may want to call SetErrorExitCode()
@@ -412,14 +431,23 @@ public:
     virtual void OnInitCmdLine(wxCmdLineParser& parser);
 
     /**
-        This virtual function is where the execution of a program written in wxWidgets
-        starts. The default implementation just enters the main loop and starts
-        handling the events until it terminates, either because ExitMainLoop() has
-        been explicitly called or because the last frame has been deleted and
-        GetExitOnFrameDelete() flag is @true (this is the default).
+        Virtual function executing the application's main event loop.
 
-        The return value of this function becomes the exit code of the program, so it
-        should return 0 in case of successful termination.
+        For the GUI applications, it is typically not necessary to override
+        this function, as the default implementation, which enters the main
+        event loop and dispatches all events until ExitMainLoop() is called
+        (either explicitly or because the last top level window was closed),
+        rarely needs to be customized.
+
+        For the console applications not using event loops, this function can
+        be used as the equivalent of the traditional @c main() function by
+        putting most of the program logic here.
+
+        The return value of this function becomes the exit code of the program,
+        so it should return 0 in case of successful termination.
+
+        Note that this function is not called at all if OnInit() had returned
+        @false.
     */
     virtual int OnRun();
 
@@ -489,18 +517,38 @@ public:
 
         Any unhandled exceptions thrown from (overridden versions of) OnInit()
         and OnExit() methods as well as any exceptions thrown from inside the
-        main loop and re-thrown by OnUnhandledException() will result in a call
+        main loop and re-thrown by OnExceptionInMainLoop() will result in a call
         to this function.
 
         By the time this function is called, the program is already about to
         exit and the exception can't be handled nor ignored any more, override
-        OnUnhandledException() or use explicit @c try/catch blocks around
+        OnExceptionInMainLoop() or use explicit @c try/catch blocks around
         OnInit() body to be able to handle the exception earlier.
 
         The default implementation dumps information about the exception using
         wxMessageOutputBest.
+
+        @note This function should _not_ throw any exceptions itself.
     */
     virtual void OnUnhandledException();
+
+    /**
+        Call OnUnhandledException() on the current wxTheApp object if it exists.
+
+        This function is used by wxWidgets itself and is usually not meant to
+        be called by the application code. If you do call it, it must be done
+        from a `catch` clause of a `try` block, i.e. there must be a currently
+        handled exception.
+
+        The function checks if ::wxTheApp is not @NULL and if it is, calls
+        OnUnhandledException() on it.
+
+        Additionally, if this call results in an exception, it is caught and
+        wxAppConsole::OnUnhandledException() is called.
+
+        @since 3.3.0
+     */
+    static void CallOnUnhandledException();
 
     /**
         Method to store exceptions not handled by OnExceptionInMainLoop().
@@ -711,8 +759,53 @@ public:
     void SetAppName(const wxString& name);
 
     /**
-        Sets the class name of the application. This may be used in a platform specific
-        manner to refer to the application.
+        Sets the class name of the application.
+
+        The class name is used in a platform specific manner. Currently it is
+        used as "Application User Model ID" under Windows (see [Microsoft
+        documentation][microsoft-docs]), "app ID" when using wxGTK 3.24.22 or
+        later with Wayland (see [Wayland documentation][wayland-docs]) and is
+        unused under the other platforms.
+
+        [microsoft-docs]: https://learn.microsoft.com/en-us/windows/win32/shell/appids
+        [wayland-docs]: https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:set_app_id
+
+        When it is used, the class name purpose is to allow the system to
+        handle all windows with the same ID as belonging to the same
+        application, e.g. to group them together in the taskbar (so the value
+        set here is used by wxTaskBarJumpList constructor). By default the
+        application executable name is used as its ID, so it is not necessary
+        to set the class name, but it may be useful to do it to specify a more
+        unique string (typically by using a reverse domain name notation with
+        the domain unique to the application vendor) or by specifying the same
+        ID in different applications that should be handled as a single one at
+        UI level.
+
+        @note Under Windows setting the application user model ID changes some
+        functionality available by default, notably Shift middle clicking the
+        application icon in the taskbar doesn't open a new instance of the
+        application any more and most recently used files list maintained by
+        the shell doesn't work any longer. Application that need to keep this
+        working need to use `SHGetPropertyStoreForWindow()` and
+        `SHAddToRecentDocs()` functions to provide the necessary support for it.
+
+        Please note that SetClassName() must be called as early as possible and
+        definitely before creating any top-level windows to have an effect.
+        Typically it should be called in the constructor of the class derived
+        from wxApp, e.g.
+
+        @code
+        class MyApp : public wxApp
+        {
+        public:
+            MyApp() {
+                // Constructor shouldn't perform any non-trivial initialization
+                // as the GUI is not available yet, but this function is fine
+                // to call.
+                SetClassName("com.example.myapp");
+            }
+        };
+        @endcode
 
         @see GetClassName()
     */
@@ -770,20 +863,64 @@ public:
         be called from OnInit() itself or other virtual functions called from
         it, for example OnCmdLineError().
 
-        By default, the exit code depends on the compiler being used, e.g. it
-        is @c 255 with typical Unix compilers (gcc, clang) and @c 127 with
-        MSVC, so it is recommended to call this function to set a consistent
-        exit code, e.g. @c 2 which is a de facto standard exit code if command
-        line parsing fails.
+        By default, the exit code is @c 255 which indicates a generic error,
+        so it is may be useful to call this function to set a more precise exit
+        code, e.g. @c 2 which is a de facto standard exit code if command line
+        parsing fails.
+
+        Please also note that in the previous versions of wxWidgets this exit
+        code was @c -1, which corresponds to either @c 255 or @c 127 depending
+        on the platform and compiler used, so you may want to call this
+        function with @c -1 argument if you need to preserve compatibility with
+        the old behaviour.
 
         SetErrorExitCode() can be overridden by the application to perform
         additional actions, but the overridden version should call the base
         class version to update the value returned by GetErrorExitCode() and
         actually used when exiting the application.
 
-        @since 3.2.7
+        @see SetFatalErrorExitCode()
+
+        @since 3.3.0
      */
-    void SetErrorExitCode(int code);
+    virtual void SetErrorExitCode(int code);
+
+    /**
+        Allows to set a custom process exit code if a fatal error happens.
+
+        If the program can't continue due to a fatal error, such as receiving
+        an unhandled exception or failing to initialize the graphical
+        environment for the GUI applications, it terminates with the default
+        fatal error exit code which is @c 255.
+
+        This function can be used to change this default value to something
+        else, e.g. @c -1 which used to be returned in the previous versions of
+        wxWidgets (and corresponds to either @c 255 or @c 127 depending on the
+        platform and compiler used) if compatibility is important.
+
+        Notice that it has to be called as early as possible to take effect
+        even during the early application initialization, e.g.
+
+        @code
+        struct FatalErrorCodeInitializer {
+            FatalErrorCodeInitializer() {
+                wxApp::SetFatalErrorExitCode(3); // same as abort()
+            }
+        };
+
+        // Create a global variable to call SetFatalErrorExitCode() in its ctor.
+        static FatalErrorCodeInitializer s_fatalErrorCodeInitializer;
+        @endcode
+
+        Note that this function doesn't change the exit code returned if
+        OnInit() returns @false, so if you change the default value of this
+        exit code you may want to call SetErrorExitCode() to change the other
+        one too.
+
+        @since 3.3.0
+     */
+    static void SetFatalErrorExitCode(int code);
+
 
     /**
         Number of command line arguments (after environment-specific processing).
@@ -989,6 +1126,69 @@ public:
     */
     bool ProcessMessage(WXMSG* msg);
 
+
+    /**
+        Possible parameters for SetAppearance().
+
+        @since 3.3.0
+    */
+    enum class Appearance
+    {
+        System, ///< Use system default appearance.
+        Light,  ///< Use light appearance.
+        Dark    ///< Use dark appearance.
+    };
+
+    /**
+        Possible values returned by SetAppearance().
+
+        @since 3.3.0
+    */
+    enum class AppearanceResult
+    {
+        Failure,     ///< Changing the appearance failed.
+        Ok,          ///< Appearance was successfully changed.
+        CannotChange ///< Appearance can't be changed any more.
+    };
+
+    /**
+        Request using either system default or explicitly light or dark theme
+        for the application.
+
+        Under GTK and macOS applications use the system default appearance by
+        default, and so it is only useful to call this function with either
+        Appearance::Light or Appearance::Dark parameters if you need to
+        override the default system appearance. The effect of calling this
+        function is immediate, i.e. this function returns
+        AppearanceResult::Ok, and affects all the existing windows as well
+        as any windows created after this call.
+
+        Under MSW, the default appearance is always light and the applications
+        that want to follow the system appearance need to explicitly call this
+        function with Appearance::System parameter in order to do it. Please
+        note using dark appearance under MSW requires using non-documented
+        system functions and has several known limitations, please see
+        MSWEnableDarkMode() for more details. Also, on this platform the
+        appearance can be only set before any windows are created and calling
+        this function too late will return AppearanceResult::CannotChange.
+
+        Note that to query the current appearance, you can use
+        wxSystemAppearance, see wxSystemSettings::GetAppearance().
+
+        @return AppearanceResult::Ok if the appearance was successfully
+            changed or had been already set to the requested value,
+            AppearanceResult::CannotChange if the appearance can't be changed
+            any more because it's too late to do it but could be changed if
+            done immediately on next program launch (only returned by wxMSW
+            currently) or AppearanceResult::Failure if changing the appearance
+            failed for some other reason, e.g. because `GTK_THEME` is defined
+            when using wxGTK of this function is not implemented at all for
+            the current platform.
+
+        @since 3.3.0
+    */
+    AppearanceResult SetAppearance(Appearance appearance);
+
     /**
         Set display mode to use. This is only used in framebuffer wxWidgets
         ports such as wxDFB.
@@ -1028,7 +1228,7 @@ public:
         first frame or dialog (or better, any wxTopLevelWindow) in its top-level
         window list, when it needs to use the top window.
         If you previously called SetTopWindow() and now you need to restore this
-        automatic behaviour you can call @code wxApp::SetTopWindow(NULL) @endcode.
+        automatic behaviour you can call `wxApp::SetTopWindow(nullptr)`.
 
         @param window
             The new top window.
@@ -1065,6 +1265,11 @@ public:
 
         This function can be called to suppress GTK diagnostic messages that
         are output on the standard error stream by default.
+
+        If @c WXSUPPRESS_GTK_DIAGNOSTICS environment variable is set to a
+        non-zero value, wxWidgets automatically calls this function on program
+        startup with the value of this variable as @a flags if it's a number or
+        with the default flags value otherwise.
 
         The default value of the argument disables all messages, but you
         can pass in a mask flag to specifically disable only particular
@@ -1205,6 +1410,53 @@ public:
 
     ///@}
 
+    /**
+        @name MSW-specific functions
+    */
+    //@{
+
+    /**
+        Enable experimental dark mode support for MSW applications.
+
+        This function uses @e undocumented, and unsupported by Microsoft,
+        functions to enable dark mode support for the desktop applications
+        under Windows 10 versions later than v1809 (which includes Windows 10
+        LTSC 2019) and all Windows 11 versions. Please note that dark mode
+        testing under versions of Windows earlier than 20H1 (i.e. v2004) has
+        been limited, make sure to test your application especially carefully
+        if you target these versions and want to enable dark mode support.
+
+        Note that dark mode can also be enabled by setting the "msw.dark-mode"
+        @ref wxSystemOptions "system option" via an environment variable from
+        outside the application or by calling SetAppearance() with either
+        `System` or `Dark` parameter.
+
+        Known limitations of dark mode support include:
+
+        - The following dialogs wrapping common windows dialogs don't support
+          dark mode: wxColourDialog, wxFindReplaceDialog, wxFontDialog,
+          wxPageSetupDialog, wxPrintDialog.
+        - wxTimePickerCtrl, wxDatePickerCtrl and wxCalendarCtrl don't support dark mode
+          and use the same (light) background as by default in it.
+
+        @param flags Can include @c wxApp::DarkMode_Always to force enabling
+            dark mode for the application, even if the system doesn't use the
+            dark mode by default. Otherwise dark mode is only used if it is the
+            default mode for the applications on the current system.
+        @param settings If specified, allows to customize dark mode appearance.
+            Please see wxDarkModeSettings documentation for more information.
+
+        @return @true if dark mode support was enabled, @false if it couldn't
+            be done, most likely because the system doesn't support dark mode.
+
+        @onlyfor{wxmsw}
+
+        @since 3.3.0
+     */
+    bool
+    MSWEnableDarkMode(int flags = 0, wxDarkModeSettings* settings = nullptr);
+
+    //@}
 };
 
 
@@ -1445,7 +1697,7 @@ bool wxYield();
 
     @header{wx/app.h}
 */
-bool wxSafeYield(wxWindow* win = NULL, bool onlyIfNeeded = false);
+bool wxSafeYield(wxWindow* win = nullptr, bool onlyIfNeeded = false);
 
 /**
     This function initializes wxWidgets in a platform-dependent way. Use this if you
@@ -1484,8 +1736,8 @@ int wxEntry(int& argc, wxChar** argv);
     @header{wx/app.h}
 */
 int wxEntry(HINSTANCE hInstance,
-            HINSTANCE hPrevInstance = NULL,
-            char* pCmdLine = NULL,
+            HINSTANCE hPrevInstance = nullptr,
+            char* pCmdLine = nullptr,
             int nCmdShow = SW_SHOWNORMAL);
 
 ///@}

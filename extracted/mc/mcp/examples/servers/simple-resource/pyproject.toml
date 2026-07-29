@@ -4,11 +4,7 @@ version = "0.1.0"
 description = "A simple MCP server exposing sample text resources"
 readme = "README.md"
 requires-python = ">=3.10"
-authors = [{ name = "Anthropic, PBC." }]
-maintainers = [
-    { name = "David Soria Parra", email = "davidsp@anthropic.com" },
-    { name = "Justin Spahr-Summers", email = "justin@anthropic.com" },
-]
+authors = [{ name = "Model Context Protocol a Series of LF Projects, LLC." }]
 keywords = ["mcp", "llm", "automation", "web", "fetch"]
 license = { text = "MIT" }
 classifiers = [
@@ -18,7 +14,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
 ]
-dependencies = ["anyio>=4.5", "click>=8.2.0", "httpx>=0.27", "mcp"]
+dependencies = ["anyio>=4.5", "click>=8.2.0", "httpx2>=2.5.0", "mcp"]
 
 [project.scripts]
 mcp-simple-resource = "mcp_simple_resource.server:main"

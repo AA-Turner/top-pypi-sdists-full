@@ -360,7 +360,7 @@ static void *init_type_wxSystemOptions(sipSimpleWrapper *, PyObject *sipArgs, Py
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxSystemOptions[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxSystemOptions[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxSystemOptions[] = {

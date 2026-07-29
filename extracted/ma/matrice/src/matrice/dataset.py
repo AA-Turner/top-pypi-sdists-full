@@ -8,6 +8,9 @@ import sys
 import requests
 from matrice_common.utils import handle_response
 
+APPLICATION_JSON = "application/json"
+DATASET_ID_NOT_SET_ERROR = "Dataset id not set for this dataset. Cannot perform the operation for dataset without dataset id"
+
 
 def get_dataset_size_in_mb_from_url(session, url, project_id):
     """
@@ -44,7 +47,7 @@ def get_dataset_size_in_mb_from_url(session, url, project_id):
     """
     path = f"/v1/dataset/get_dataset_size_in_mb_from_url?projectId={project_id}"
     requested_payload = {"datasetUrl": url}
-    headers = {"Content-Type": "application/json"}
+    headers = {"Content-Type": APPLICATION_JSON}
     resp = session.rpc.post(
         path=path,
         headers=headers,
@@ -216,7 +219,7 @@ class Dataset:
         self.rpc = session.rpc
         assert dataset_id or dataset_name, "Either dataset_id or dataset_name must be provided"
         if dataset_name is not None:
-            dataset_by_name, err, msg = self._get_dataset_by_name()
+            dataset_by_name, _, _ = self._get_dataset_by_name()
             if self.dataset_id is None:
                 if dataset_by_name is None:
                     raise ValueError(f"Dataset with name '{self.dataset_name}' not found.")
@@ -225,7 +228,7 @@ class Dataset:
                 fetched_dataset_id = dataset_by_name["_id"]
                 if fetched_dataset_id != self.dataset_id:
                     raise ValueError("Provided dataset_id does not match the dataset id of the provided dataset_name.")
-        self.dataset_details, error, message = self._get_details()
+        self.dataset_details, _, _ = self._get_details()
         self.dataset_id = self.dataset_details["_id"]
         self.dataset_name = self.dataset_details["name"]
         self.version_status = self.dataset_details.get("stats", [{}])[0].get("versionStatus")
@@ -297,9 +300,9 @@ class Dataset:
         - `_get_dataset_by_name()` is used if `dataset_name` is set to fetch the dataset by its
             name.
         """
-        id = self.dataset_id
+        dataset_id = self.dataset_id
         name = self.dataset_name
-        if id:
+        if dataset_id:
             try:
                 return self._get_dataset()
             except Exception as e:
@@ -374,7 +377,7 @@ class Dataset:
         >>> }
         """
         if self.dataset_id is None:
-            print("Dataset id not set for this dataset. Cannot perform the operation for dataset without dataset id")
+            print(DATASET_ID_NOT_SET_ERROR)
             sys.exit(0)
         path = f"/v1/dataset/{self.dataset_id}/version/{dataset_version}/summary?projectId={self.project_id}"
         resp = self.rpc.get(path=path)
@@ -437,7 +440,7 @@ class Dataset:
         >>> }
         """
         if self.dataset_id is None:
-            print("Dataset id not set for this dataset. Cannot perform the operation for dataset without dataset id")
+            print(DATASET_ID_NOT_SET_ERROR)
             sys.exit(0)
         path = f"/v1/dataset/{self.dataset_id}?projectId={self.project_id}"
         resp = self.rpc.get(path=path)
@@ -495,7 +498,7 @@ class Dataset:
         >>> ]
         """
         if self.dataset_id is None:
-            print("Dataset id not set for this dataset. Cannot perform the operation for dataset without dataset id")
+            print(DATASET_ID_NOT_SET_ERROR)
             sys.exit(0)
         path = f"/v1/dataset/{self.dataset_id}/version/{dataset_version}/categories?projectId={self.project_id}"
         resp = self.rpc.get(path=path)
@@ -549,7 +552,7 @@ class Dataset:
         >>>     pprint(items)
         """
         if self.dataset_id is None:
-            print("Dataset id not set for this dataset. Cannot perform the operation for dataset without dataset id")
+            print(DATASET_ID_NOT_SET_ERROR)
             sys.exit(0)
         path = f"v1/dataset/{self.dataset_id}/version/{dataset_version}/v2/item?Size={page_size}&pageNumber={page_number}&projectId={self.project_id}"
         resp = self.rpc.get(path=path)
@@ -603,7 +606,7 @@ class Dataset:
         >>>     pprint(items)
         """
         if self.dataset_id is None:
-            print("Dataset id not set for this dataset. Cannot perform the operation for dataset without dataset id")
+            print(DATASET_ID_NOT_SET_ERROR)
             sys.exit(0)
         path = f"v1/dataset/{self.dataset_id}/version/{dataset_version}/v2/item?Size={page_size}&pageNumber={page_number}&projectId={self.project_id}"
         resp = self.rpc.get(path=path)
@@ -666,7 +669,7 @@ class Dataset:
         >>> ]
         """
         if self.dataset_id is None:
-            print("Dataset id not set for this dataset. Cannot perform the operation for dataset without dataset id")
+            print(DATASET_ID_NOT_SET_ERROR)
             sys.exit(0)
         path = f"/v1/dataset/get_processed_versions?projectId={self.project_id}"
         resp = self.rpc.get(path=path)
@@ -714,7 +717,7 @@ class Dataset:
         >>>     'Valid Spilts'
         """
         if self.dataset_id is None:
-            print("Dataset id not set for this dataset. Cannot perform the operation for dataset without dataset id")
+            print(DATASET_ID_NOT_SET_ERROR)
             sys.exit(0)
         path = f"/v1/dataset/check_valid_spilts/{self.dataset_id}/{dataset_version}?projectId={self.project_id}"
         resp = self.rpc.get(path=path)
@@ -831,10 +834,10 @@ class Dataset:
         >>> }
         """
         if self.dataset_id is None:
-            print("Dataset id not set for this dataset. Cannot perform the operation for dataset without dataset id")
+            print(DATASET_ID_NOT_SET_ERROR)
             sys.exit(0)
         path = f"/v1/dataset/{self.dataset_id}?projectId={self.project_id}"
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         body = {"name": updated_name}
         resp = self.rpc.put(
             path=path,
@@ -886,12 +889,12 @@ class Dataset:
         >>>     pprint(response)
         """
         if self.dataset_id is None:
-            print("Dataset id not set for this dataset. Cannot perform the operation for dataset without dataset id")
+            print(DATASET_ID_NOT_SET_ERROR)
             sys.exit(0)
         path = (
             f"/v1/dataset/{self.dataset_id}/version/{dataset_version}/item/{item_id}/label?projectId={self.project_id}"
         )
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         body = {"labelId": label_id}
         resp = self.rpc.put(
             path=path,
@@ -967,7 +970,7 @@ class Dataset:
         >>>     pprint(response)
         """
         if self.dataset_id is None:
-            print("Dataset id not set for this dataset. Cannot perform the operation for dataset without dataset id")
+            print(DATASET_ID_NOT_SET_ERROR)
             sys.exit(0)
         dataset_resp, err, message = self._get_dataset()
         if err is not None:
@@ -988,7 +991,7 @@ class Dataset:
             break
         is_created_new = new_dataset_version == old_dataset_version
         path = f"v1/dataset/{self.dataset_id}/import?project={self.project_id}"
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         body = {
             "source": source,
             "sourceUrl": source_url,
@@ -1097,7 +1100,7 @@ class Dataset:
         >>>     pprint(response)
         """
         if self.dataset_id is None:
-            print("Dataset id not set for this dataset. Cannot perform the operation for dataset without dataset id")
+            print(DATASET_ID_NOT_SET_ERROR)
             sys.exit(0)
         dataset_resp, err, message = self._get_dataset()
         if err is not None:
@@ -1113,11 +1116,9 @@ class Dataset:
                 err = None
                 message = f"Only the dataset versions with complete status can be updated. Version {old_dataset_version} of the dataset doesn't have status complete."
                 return resp, err, message
-            if version_description == "" and old_dataset_version == new_dataset_version:
-                version_description = stat["versionDescription"]
             break
         path = f"/v2/dataset/split_data/{self.dataset_id}?projectId={self.project_id}"
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         body = {
             "trainNum": train_num,
             "testNum": test_num,
@@ -1238,11 +1239,11 @@ class Dataset:
         >>>     pprint(response)
         """
         if self.dataset_id is None:
-            print("Dataset id not set for this dataset. Cannot perform the operation for dataset without dataset id")
+            print(DATASET_ID_NOT_SET_ERROR)
             sys.exit(0)
         path = f"/v1/dataset/version/{dataset_version}/dataset_item_classification?projectId={self.project_id}&datasetId={self.dataset_id}"
         requested_payload = {"datasetItemIds": dataset_item_ids}
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         resp = self.rpc.delete(
             path=path,
             headers=headers,
@@ -1292,11 +1293,11 @@ class Dataset:
         >>>     pprint(response)
         """
         if self.dataset_id is None:
-            print("Dataset id not set for this dataset. Cannot perform the operation for dataset without dataset id")
+            print(DATASET_ID_NOT_SET_ERROR)
             sys.exit(0)
         path = f"/v1/dataset/version/{dataset_version}/dataset_item_detection?projectId={self.project_id}&datasetId={self.dataset_id}"
         requested_payload = {"datasetItemIds": dataset_item_ids}
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         resp = self.rpc.delete(
             path=path,
             headers=headers,
@@ -1342,7 +1343,7 @@ class Dataset:
         >>>     pprint(response)
         """
         if self.dataset_id is None:
-            print("Dataset id not set for this dataset. Cannot perform the operation for dataset without dataset id")
+            print(DATASET_ID_NOT_SET_ERROR)
             sys.exit(0)
         path = f"/v1/dataset/{self.dataset_id}/version/{dataset_version}?projectId={self.project_id}"
         resp = self.rpc.delete(path=path)
@@ -1382,7 +1383,7 @@ class Dataset:
         >>>     pprint(response)
         """
         if self.dataset_id is None:
-            print("Dataset id not set for this dataset. Cannot perform the operation for dataset without dataset id")
+            print(DATASET_ID_NOT_SET_ERROR)
             sys.exit(0)
         path = f"/v1/dataset/{self.dataset_id}?projectId={self.project_id}"
         resp = self.rpc.delete(path=path)

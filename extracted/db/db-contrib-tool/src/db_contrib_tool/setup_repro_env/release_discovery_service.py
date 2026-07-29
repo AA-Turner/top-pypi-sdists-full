@@ -165,6 +165,34 @@ class ReleaseDiscoveryService:
         elif request.request_type == RequestType.MONGO_PATCH_VERSION:
             return releases.versions.get(request.identifier)
 
+        elif request.request_type == RequestType.MONGO_LAST_PATCH_VERSION:
+            release = releases.versions.get(request.identifier)
+            if release is not None:
+                return release
+
+            # Exact tag may not be published yet. Fall back to the latest published patch in the
+            # same series, bounded to versions at or before the requested tag so we never select
+            # something published after the commit under test (which may not be branch HEAD).
+            requested = parse(request.identifier)
+            series = ".".join(request.identifier.split(".")[:2])
+            fallback_version = self.get_latest_version(
+                [
+                    version
+                    for version in releases.versions.keys()
+                    if version.startswith(series) and parse(version) <= requested
+                ]
+            )
+            if fallback_version is not None:
+                LOGGER.warning(
+                    "Exact last-patch version not published; falling back to latest published "
+                    "patch in series",
+                    requested_version=request.identifier,
+                    resolved_version=fallback_version,
+                )
+                return releases.versions.get(fallback_version)
+
+            return None
+
         elif request.request_type == RequestType.GIT_COMMIT:
             return releases.git_hashes.get(request.identifier)
 

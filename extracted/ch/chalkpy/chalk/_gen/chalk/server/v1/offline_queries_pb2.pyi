@@ -218,6 +218,7 @@ class OfflineQueryMeta(_message.Message):
         "query_name",
         "query_name_version",
         "job_queue_stats",
+        "resource_group",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
@@ -258,6 +259,7 @@ class OfflineQueryMeta(_message.Message):
     QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
     QUERY_NAME_VERSION_FIELD_NUMBER: _ClassVar[int]
     JOB_QUEUE_STATS_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
     id: int
     operation_id: str
     environment_id: str
@@ -297,6 +299,7 @@ class OfflineQueryMeta(_message.Message):
     query_name: str
     query_name_version: str
     job_queue_stats: OfflineQueryJobQueueStats
+    resource_group: str
     def __init__(
         self,
         id: _Optional[int] = ...,
@@ -338,6 +341,7 @@ class OfflineQueryMeta(_message.Message):
         query_name: _Optional[str] = ...,
         query_name_version: _Optional[str] = ...,
         job_queue_stats: _Optional[_Union[OfflineQueryJobQueueStats, _Mapping]] = ...,
+        resource_group: _Optional[str] = ...,
     ) -> None: ...
 
 class OfflineQueryJobQueueStats(_message.Message):
@@ -394,6 +398,12 @@ class ListOfflineQueriesRequest(_message.Message):
         "evaluation_run_id_filter",
         "query_name",
         "query_name_version",
+        "resource_groups",
+        "agent_ids",
+        "branch_filters",
+        "kind_filters",
+        "status_filters",
+        "query_names",
     )
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
@@ -408,6 +418,12 @@ class ListOfflineQueriesRequest(_message.Message):
     EVALUATION_RUN_ID_FILTER_FIELD_NUMBER: _ClassVar[int]
     QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
     QUERY_NAME_VERSION_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUPS_FIELD_NUMBER: _ClassVar[int]
+    AGENT_IDS_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_FILTERS_FIELD_NUMBER: _ClassVar[int]
+    KIND_FILTERS_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FILTERS_FIELD_NUMBER: _ClassVar[int]
+    QUERY_NAMES_FIELD_NUMBER: _ClassVar[int]
     cursor: str
     limit: int
     start_date: str
@@ -421,6 +437,12 @@ class ListOfflineQueriesRequest(_message.Message):
     evaluation_run_id_filter: str
     query_name: str
     query_name_version: str
+    resource_groups: _containers.RepeatedScalarFieldContainer[str]
+    agent_ids: _containers.RepeatedScalarFieldContainer[str]
+    branch_filters: _containers.RepeatedScalarFieldContainer[str]
+    kind_filters: _containers.RepeatedScalarFieldContainer[OfflineQueryKind]
+    status_filters: _containers.RepeatedScalarFieldContainer[OfflineQueryStatus]
+    query_names: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         cursor: _Optional[str] = ...,
@@ -436,6 +458,12 @@ class ListOfflineQueriesRequest(_message.Message):
         evaluation_run_id_filter: _Optional[str] = ...,
         query_name: _Optional[str] = ...,
         query_name_version: _Optional[str] = ...,
+        resource_groups: _Optional[_Iterable[str]] = ...,
+        agent_ids: _Optional[_Iterable[str]] = ...,
+        branch_filters: _Optional[_Iterable[str]] = ...,
+        kind_filters: _Optional[_Iterable[_Union[OfflineQueryKind, str]]] = ...,
+        status_filters: _Optional[_Iterable[_Union[OfflineQueryStatus, str]]] = ...,
+        query_names: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class ListOfflineQueriesResponse(_message.Message):
@@ -461,6 +489,18 @@ class GetOfflineQueryResponse(_message.Message):
     OFFLINE_QUERY_FIELD_NUMBER: _ClassVar[int]
     offline_query: OfflineQueryMeta
     def __init__(self, offline_query: _Optional[_Union[OfflineQueryMeta, _Mapping]] = ...) -> None: ...
+
+class GetOfflineQueryRequestBodyRequest(_message.Message):
+    __slots__ = ("offline_query_id",)
+    OFFLINE_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
+    offline_query_id: str
+    def __init__(self, offline_query_id: _Optional[str] = ...) -> None: ...
+
+class GetOfflineQueryRequestBodyResponse(_message.Message):
+    __slots__ = ("request_body_json_string",)
+    REQUEST_BODY_JSON_STRING_FIELD_NUMBER: _ClassVar[int]
+    request_body_json_string: str
+    def __init__(self, request_body_json_string: _Optional[str] = ...) -> None: ...
 
 class ListOfflineQueryShardsFilters(_message.Message):
     __slots__ = ("status", "shard_id")
@@ -616,6 +656,276 @@ class GetOfflineQueryProfileSummaryResponse(_message.Message):
         warnings: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
+class OfflineQueryUtilizationStats(_message.Message):
+    __slots__ = ("peak", "average", "min", "sample_count")
+    PEAK_FIELD_NUMBER: _ClassVar[int]
+    AVERAGE_FIELD_NUMBER: _ClassVar[int]
+    MIN_FIELD_NUMBER: _ClassVar[int]
+    SAMPLE_COUNT_FIELD_NUMBER: _ClassVar[int]
+    peak: float
+    average: float
+    min: float
+    sample_count: int
+    def __init__(
+        self,
+        peak: _Optional[float] = ...,
+        average: _Optional[float] = ...,
+        min: _Optional[float] = ...,
+        sample_count: _Optional[int] = ...,
+    ) -> None: ...
+
+class OfflineQueryPodInfo(_message.Message):
+    __slots__ = (
+        "pod_name",
+        "resource_group",
+        "node_name",
+        "instance_type",
+        "node_cpu",
+        "node_memory",
+        "cpu_request",
+        "memory_request",
+    )
+    POD_NAME_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    NODE_NAME_FIELD_NUMBER: _ClassVar[int]
+    INSTANCE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    NODE_CPU_FIELD_NUMBER: _ClassVar[int]
+    NODE_MEMORY_FIELD_NUMBER: _ClassVar[int]
+    CPU_REQUEST_FIELD_NUMBER: _ClassVar[int]
+    MEMORY_REQUEST_FIELD_NUMBER: _ClassVar[int]
+    pod_name: str
+    resource_group: str
+    node_name: str
+    instance_type: str
+    node_cpu: str
+    node_memory: str
+    cpu_request: str
+    memory_request: str
+    def __init__(
+        self,
+        pod_name: _Optional[str] = ...,
+        resource_group: _Optional[str] = ...,
+        node_name: _Optional[str] = ...,
+        instance_type: _Optional[str] = ...,
+        node_cpu: _Optional[str] = ...,
+        node_memory: _Optional[str] = ...,
+        cpu_request: _Optional[str] = ...,
+        memory_request: _Optional[str] = ...,
+    ) -> None: ...
+
+class OfflineQueryUtilizationSummary(_message.Message):
+    __slots__ = (
+        "operation_id",
+        "query_name",
+        "status",
+        "created_at",
+        "completed_at",
+        "cpu",
+        "memory",
+        "disk",
+        "warnings",
+        "resource_groups",
+        "pods",
+    )
+    OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
+    QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    COMPLETED_AT_FIELD_NUMBER: _ClassVar[int]
+    CPU_FIELD_NUMBER: _ClassVar[int]
+    MEMORY_FIELD_NUMBER: _ClassVar[int]
+    DISK_FIELD_NUMBER: _ClassVar[int]
+    WARNINGS_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUPS_FIELD_NUMBER: _ClassVar[int]
+    PODS_FIELD_NUMBER: _ClassVar[int]
+    operation_id: str
+    query_name: str
+    status: OfflineQueryStatus
+    created_at: _timestamp_pb2.Timestamp
+    completed_at: _timestamp_pb2.Timestamp
+    cpu: OfflineQueryUtilizationStats
+    memory: OfflineQueryUtilizationStats
+    disk: OfflineQueryUtilizationStats
+    warnings: _containers.RepeatedScalarFieldContainer[str]
+    resource_groups: _containers.RepeatedScalarFieldContainer[str]
+    pods: _containers.RepeatedCompositeFieldContainer[OfflineQueryPodInfo]
+    def __init__(
+        self,
+        operation_id: _Optional[str] = ...,
+        query_name: _Optional[str] = ...,
+        status: _Optional[_Union[OfflineQueryStatus, str]] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        completed_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        cpu: _Optional[_Union[OfflineQueryUtilizationStats, _Mapping]] = ...,
+        memory: _Optional[_Union[OfflineQueryUtilizationStats, _Mapping]] = ...,
+        disk: _Optional[_Union[OfflineQueryUtilizationStats, _Mapping]] = ...,
+        warnings: _Optional[_Iterable[str]] = ...,
+        resource_groups: _Optional[_Iterable[str]] = ...,
+        pods: _Optional[_Iterable[_Union[OfflineQueryPodInfo, _Mapping]]] = ...,
+    ) -> None: ...
+
+class GetOfflineQueryUtilizationSummariesRequest(_message.Message):
+    __slots__ = ("start_time", "end_time", "limit")
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    limit: int
+    def __init__(
+        self,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        limit: _Optional[int] = ...,
+    ) -> None: ...
+
+class GetOfflineQueryUtilizationSummariesResponse(_message.Message):
+    __slots__ = ("summaries", "warnings", "truncated")
+    SUMMARIES_FIELD_NUMBER: _ClassVar[int]
+    WARNINGS_FIELD_NUMBER: _ClassVar[int]
+    TRUNCATED_FIELD_NUMBER: _ClassVar[int]
+    summaries: _containers.RepeatedCompositeFieldContainer[OfflineQueryUtilizationSummary]
+    warnings: _containers.RepeatedScalarFieldContainer[str]
+    truncated: bool
+    def __init__(
+        self,
+        summaries: _Optional[_Iterable[_Union[OfflineQueryUtilizationSummary, _Mapping]]] = ...,
+        warnings: _Optional[_Iterable[str]] = ...,
+        truncated: bool = ...,
+    ) -> None: ...
+
+class ResourceGroupUtilizationBucket(_message.Message):
+    __slots__ = ("bucket_start", "cpu", "memory", "disk")
+    BUCKET_START_FIELD_NUMBER: _ClassVar[int]
+    CPU_FIELD_NUMBER: _ClassVar[int]
+    MEMORY_FIELD_NUMBER: _ClassVar[int]
+    DISK_FIELD_NUMBER: _ClassVar[int]
+    bucket_start: _timestamp_pb2.Timestamp
+    cpu: OfflineQueryUtilizationStats
+    memory: OfflineQueryUtilizationStats
+    disk: OfflineQueryUtilizationStats
+    def __init__(
+        self,
+        bucket_start: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        cpu: _Optional[_Union[OfflineQueryUtilizationStats, _Mapping]] = ...,
+        memory: _Optional[_Union[OfflineQueryUtilizationStats, _Mapping]] = ...,
+        disk: _Optional[_Union[OfflineQueryUtilizationStats, _Mapping]] = ...,
+    ) -> None: ...
+
+class ResourceGroupUtilizationSeries(_message.Message):
+    __slots__ = ("resource_group", "buckets", "warnings")
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    BUCKETS_FIELD_NUMBER: _ClassVar[int]
+    WARNINGS_FIELD_NUMBER: _ClassVar[int]
+    resource_group: str
+    buckets: _containers.RepeatedCompositeFieldContainer[ResourceGroupUtilizationBucket]
+    warnings: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        resource_group: _Optional[str] = ...,
+        buckets: _Optional[_Iterable[_Union[ResourceGroupUtilizationBucket, _Mapping]]] = ...,
+        warnings: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
+
+class GetResourceGroupUtilizationTimeseriesRequest(_message.Message):
+    __slots__ = ("start_time", "end_time", "bucket_duration", "resource_groups")
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    BUCKET_DURATION_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUPS_FIELD_NUMBER: _ClassVar[int]
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    bucket_duration: str
+    resource_groups: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        bucket_duration: _Optional[str] = ...,
+        resource_groups: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
+
+class GetResourceGroupUtilizationTimeseriesResponse(_message.Message):
+    __slots__ = ("series", "warnings", "bucket_duration")
+    SERIES_FIELD_NUMBER: _ClassVar[int]
+    WARNINGS_FIELD_NUMBER: _ClassVar[int]
+    BUCKET_DURATION_FIELD_NUMBER: _ClassVar[int]
+    series: _containers.RepeatedCompositeFieldContainer[ResourceGroupUtilizationSeries]
+    warnings: _containers.RepeatedScalarFieldContainer[str]
+    bucket_duration: str
+    def __init__(
+        self,
+        series: _Optional[_Iterable[_Union[ResourceGroupUtilizationSeries, _Mapping]]] = ...,
+        warnings: _Optional[_Iterable[str]] = ...,
+        bucket_duration: _Optional[str] = ...,
+    ) -> None: ...
+
+class ResourceGroupJobBucket(_message.Message):
+    __slots__ = ("bucket_start", "shard_count", "query_count", "cpu_request_cores", "memory_request_bytes")
+    BUCKET_START_FIELD_NUMBER: _ClassVar[int]
+    SHARD_COUNT_FIELD_NUMBER: _ClassVar[int]
+    QUERY_COUNT_FIELD_NUMBER: _ClassVar[int]
+    CPU_REQUEST_CORES_FIELD_NUMBER: _ClassVar[int]
+    MEMORY_REQUEST_BYTES_FIELD_NUMBER: _ClassVar[int]
+    bucket_start: _timestamp_pb2.Timestamp
+    shard_count: int
+    query_count: int
+    cpu_request_cores: float
+    memory_request_bytes: float
+    def __init__(
+        self,
+        bucket_start: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        shard_count: _Optional[int] = ...,
+        query_count: _Optional[int] = ...,
+        cpu_request_cores: _Optional[float] = ...,
+        memory_request_bytes: _Optional[float] = ...,
+    ) -> None: ...
+
+class ResourceGroupJobSeries(_message.Message):
+    __slots__ = ("resource_group", "buckets")
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    BUCKETS_FIELD_NUMBER: _ClassVar[int]
+    resource_group: str
+    buckets: _containers.RepeatedCompositeFieldContainer[ResourceGroupJobBucket]
+    def __init__(
+        self,
+        resource_group: _Optional[str] = ...,
+        buckets: _Optional[_Iterable[_Union[ResourceGroupJobBucket, _Mapping]]] = ...,
+    ) -> None: ...
+
+class GetResourceGroupJobTimeseriesRequest(_message.Message):
+    __slots__ = ("start_time", "end_time", "bucket_duration", "resource_groups")
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    BUCKET_DURATION_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUPS_FIELD_NUMBER: _ClassVar[int]
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    bucket_duration: str
+    resource_groups: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        bucket_duration: _Optional[str] = ...,
+        resource_groups: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
+
+class GetResourceGroupJobTimeseriesResponse(_message.Message):
+    __slots__ = ("series", "warnings", "bucket_duration")
+    SERIES_FIELD_NUMBER: _ClassVar[int]
+    WARNINGS_FIELD_NUMBER: _ClassVar[int]
+    BUCKET_DURATION_FIELD_NUMBER: _ClassVar[int]
+    series: _containers.RepeatedCompositeFieldContainer[ResourceGroupJobSeries]
+    warnings: _containers.RepeatedScalarFieldContainer[str]
+    bucket_duration: str
+    def __init__(
+        self,
+        series: _Optional[_Iterable[_Union[ResourceGroupJobSeries, _Mapping]]] = ...,
+        warnings: _Optional[_Iterable[str]] = ...,
+        bucket_duration: _Optional[str] = ...,
+    ) -> None: ...
+
 class CreateOfflineQueryJobRequest(_message.Message):
     __slots__ = ("offline_query_request",)
     OFFLINE_QUERY_REQUEST_FIELD_NUMBER: _ClassVar[int]
@@ -728,19 +1038,23 @@ class CancelAsyncOfflineQueryResponse(_message.Message):
     def __init__(self) -> None: ...
 
 class BatchProgress(_message.Message):
-    __slots__ = ("total", "computed", "failed", "start", "end", "total_duration_s")
+    __slots__ = ("total", "computed", "failed", "start", "end", "total_duration_s", "stored_online", "stored_offline")
     TOTAL_FIELD_NUMBER: _ClassVar[int]
     COMPUTED_FIELD_NUMBER: _ClassVar[int]
     FAILED_FIELD_NUMBER: _ClassVar[int]
     START_FIELD_NUMBER: _ClassVar[int]
     END_FIELD_NUMBER: _ClassVar[int]
     TOTAL_DURATION_S_FIELD_NUMBER: _ClassVar[int]
+    STORED_ONLINE_FIELD_NUMBER: _ClassVar[int]
+    STORED_OFFLINE_FIELD_NUMBER: _ClassVar[int]
     total: str
     computed: str
     failed: str
     start: _timestamp_pb2.Timestamp
     end: _timestamp_pb2.Timestamp
     total_duration_s: float
+    stored_online: str
+    stored_offline: str
     def __init__(
         self,
         total: _Optional[str] = ...,
@@ -749,6 +1063,8 @@ class BatchProgress(_message.Message):
         start: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         end: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         total_duration_s: _Optional[float] = ...,
+        stored_online: _Optional[str] = ...,
+        stored_offline: _Optional[str] = ...,
     ) -> None: ...
 
 class ChunkReport(_message.Message):

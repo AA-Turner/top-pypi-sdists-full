@@ -266,7 +266,7 @@ static PyObject *varget_wxAuiDockUIPart_rect(void *sipSelf, PyObject *sipPySelf,
     ::wxRect*sipVal;
     ::wxAuiDockUIPart *sipCpp = reinterpret_cast< ::wxAuiDockUIPart *>(sipSelf);
 
-    sipPy = sipGetReference(sipPySelf, -6);
+    sipPy = sipGetReference(sipPySelf, -8);
 
     if (sipPy)
         return sipPy;
@@ -277,8 +277,8 @@ static PyObject *varget_wxAuiDockUIPart_rect(void *sipSelf, PyObject *sipPySelf,
 
     if (sipPy)
     {
-        sipKeepReference(sipPy, -26, sipPySelf);
-        sipKeepReference(sipPySelf, -6, sipPy);
+        sipKeepReference(sipPy, -28, sipPySelf);
+        sipKeepReference(sipPySelf, -8, sipPy);
     }
 
     return sipPy;

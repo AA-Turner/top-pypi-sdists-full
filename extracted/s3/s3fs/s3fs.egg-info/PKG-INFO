@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: s3fs
-Version: 2026.6.0
+Version: 2026.7.0
 Summary: Convenient Filesystem interface over S3
 Home-page: http://github.com/fsspec/s3fs/
 Maintainer: Martin Durant
@@ -20,7 +20,7 @@ Requires-Python: >= 3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: aiobotocore<4.0.0,>=2.19.0
-Requires-Dist: fsspec<2026.6.1,>=2026.6.0
+Requires-Dist: fsspec<2026.7.1,>=2026.7.0
 Requires-Dist: aiohttp!=4.0.0a0,!=4.0.0a1,>=3.9.0
 Dynamic: classifier
 Dynamic: description

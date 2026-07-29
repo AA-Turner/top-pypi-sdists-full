@@ -25,11 +25,16 @@ from openmed.core import model_registry, quality_gates
 from openmed.core import policy as policy_module
 from openmed.core.audit import AuditSignature, stable_hash
 from openmed.core.labels import normalize_label
-from openmed.core.pii_i18n import SUPPORTED_LANGUAGES
+from openmed.core.pii_i18n import (
+    DEFAULT_MODEL_PLACEHOLDER_LANGUAGES,
+    SUPPORTED_LANGUAGES,
+)
 from openmed.core.thresholds import (
     DEFAULT_MEMBERSHIP_ADVANTAGE_CEILING,
     load_thresholds,
     profile_recall_floor,
+    profile_script_leakage_ceiling,
+    profile_script_recall_floors,
     validate_threshold_matrix,
 )
 from openmed.eval.fairness import DEFAULT_ZERO_SHOT_LEAKAGE_FLOOR
@@ -53,6 +58,16 @@ RELEASABLE = "RELEASABLE"
 QUARANTINED = "QUARANTINED"
 FLAKINESS_GATE = "flakiness"
 SURROGATE_QUALITY_GATE = "surrogate_quality"
+CROSS_SCRIPT_GATE = "cross_script"
+I18N_THROUGHPUT_GATE = "i18n_throughput"
+I18N_THROUGHPUT_REGRESSION_THRESHOLD = 0.20
+I18N_THROUGHPUT_BASELINE_FAMILY = "i18n-throughput"
+I18N_THROUGHPUT_BASELINE_FORMAT = "pattern-only"
+I18N_THROUGHPUT_LANGUAGES = ("zh", "hi", "ta")
+I18N_THROUGHPUT_METRICS = (
+    "segmentation_chars_per_second",
+    "deidentify_spans_per_second",
+)
 
 G1A_V16_RECALL_FLOOR = 0.990
 G1A_V20_RECALL_FLOOR = 0.995
@@ -66,6 +81,12 @@ G11_CRITICAL_RECALL_FLOOR = 0.999
 G9_STRICT_RE_F1_FLOOR = 0.850
 G9_RELAXED_RE_F1_FLOOR = 0.900
 RESIDUAL_LEAKAGE_SOFT_CEILING = 0.005
+PER_LANGUAGE_RESIDUAL_LEAKAGE_CEILINGS: Mapping[str, float] = {
+    "as": 0.0,
+    "mr": 0.0,
+    "or": 0.0,
+    "ta": 0.0,
+}
 
 _SIGNATURE_ALGORITHM = "HMAC-SHA256"
 _DEFAULT_SIGNING_KEY = "openmed-release-gate-local-key"
@@ -266,6 +287,122 @@ class GateCheck:
         )
 
 
+def evaluate_i18n_throughput_gate(
+    report: Mapping[str, Any],
+    baseline: Mapping[str, Any],
+) -> GateCheck:
+    """Compare zh/hi/ta steady-state throughput with committed baselines.
+
+    Cold-start metrics remain visible in the benchmark report but are not gated
+    because process and filesystem cache state makes them unsuitable for a
+    stable release threshold.
+    """
+
+    failures: list[str] = []
+    violations: dict[str, Any] = {}
+    try:
+        baseline_store.validate_baseline_store(baseline)
+    except Exception as exc:
+        return GateCheck(
+            I18N_THROUGHPUT_GATE,
+            False,
+            reason=f"invalid throughput baseline store: {exc}",
+        )
+
+    if report.get("artifact_type") != "openmed.eval.i18n_throughput":
+        return GateCheck(
+            I18N_THROUGHPUT_GATE,
+            False,
+            reason="candidate is not an i18n throughput report",
+        )
+    languages = report.get("languages")
+    if not isinstance(languages, Mapping):
+        return GateCheck(
+            I18N_THROUGHPUT_GATE,
+            False,
+            reason="candidate throughput report has no languages object",
+        )
+
+    for language in I18N_THROUGHPUT_LANGUAGES:
+        observed_metrics = languages.get(language)
+        if not isinstance(observed_metrics, Mapping):
+            failures.append(f"{language}.languages (missing)")
+            continue
+        key = baseline_store.baseline_key(
+            I18N_THROUGHPUT_BASELINE_FAMILY,
+            language,
+            I18N_THROUGHPUT_BASELINE_FORMAT,
+        )
+        entry = baseline["entries"].get(key)
+        if not isinstance(entry, Mapping):
+            failures.append(f"{language}.baseline (missing)")
+            continue
+        entry_metadata = entry.get("metadata")
+        threshold = (
+            entry_metadata.get("regression_threshold")
+            if isinstance(entry_metadata, Mapping)
+            else None
+        )
+        if (
+            not isinstance(threshold, (int, float))
+            or isinstance(threshold, bool)
+            or not math.isclose(
+                float(threshold),
+                I18N_THROUGHPUT_REGRESSION_THRESHOLD,
+                rel_tol=0.0,
+                abs_tol=1e-12,
+            )
+        ):
+            failures.append(
+                f"{language}.regression_threshold "
+                f"(expected {I18N_THROUGHPUT_REGRESSION_THRESHOLD:.2f})"
+            )
+            continue
+
+        baseline_metrics = entry.get("metrics")
+        if not isinstance(baseline_metrics, Mapping):
+            failures.append(f"{language}.baseline.metrics (missing)")
+            continue
+        for metric in I18N_THROUGHPUT_METRICS:
+            baseline_value = _positive_finite_number(baseline_metrics.get(metric))
+            observed_value = _positive_finite_number(observed_metrics.get(metric))
+            metric_key = f"{language}.{metric}"
+            if baseline_value is None:
+                failures.append(f"{metric_key} (invalid baseline)")
+                continue
+            if observed_value is None:
+                failures.append(f"{metric_key} (invalid candidate)")
+                continue
+
+            minimum = baseline_value * (1.0 - I18N_THROUGHPUT_REGRESSION_THRESHOLD)
+            if observed_value < minimum:
+                drop = (baseline_value - observed_value) / baseline_value
+                failures.append(
+                    f"{metric_key} observed {observed_value:.3f}, minimum {minimum:.3f}"
+                )
+                violations[metric_key] = {
+                    "baseline": baseline_value,
+                    "observed": observed_value,
+                    "minimum": minimum,
+                    "drop_fraction": drop,
+                    "regression_threshold": I18N_THROUGHPUT_REGRESSION_THRESHOLD,
+                }
+
+    return GateCheck(
+        I18N_THROUGHPUT_GATE,
+        not failures,
+        reason="ok"
+        if not failures
+        else "throughput regression: " + "; ".join(failures),
+        details={
+            "languages": list(I18N_THROUGHPUT_LANGUAGES),
+            "metrics": list(I18N_THROUGHPUT_METRICS),
+            "regression_threshold": I18N_THROUGHPUT_REGRESSION_THRESHOLD,
+            "violations": violations,
+        },
+    )
+
+
 @dataclass
 class GateReport:
     """Signed release-gate decision and evidence payload."""
@@ -294,10 +431,14 @@ class GateReport:
     stability_summary: Mapping[str, Any] = field(default_factory=dict)
     repro_hash: str = ""
     signature: AuditSignature | None = None
+    per_script_recall: Mapping[str, float] = field(default_factory=dict)
+    per_script_leakage: Mapping[str, float] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.per_label_recall = _float_map(self.per_label_recall)
         self.per_label_precision = _float_map(self.per_label_precision)
+        self.per_script_recall = _numeric_map(self.per_script_recall)
+        self.per_script_leakage = _numeric_map(self.per_script_leakage)
         self.blocked_formats = tuple(self.blocked_formats)
         self.gate_results = tuple(self.gate_results)
         self.stability_summary = _mapping(self.stability_summary)
@@ -337,6 +478,9 @@ class GateReport:
             "target_leakage_rate": float(self.target_leakage_rate),
             "blocked_formats": list(self.blocked_formats),
         }
+        if self.per_script_recall or self.per_script_leakage:
+            payload["per_script_recall"] = _numeric_map(self.per_script_recall)
+            payload["per_script_leakage"] = _numeric_map(self.per_script_leakage)
         if self.stability_summary:
             payload["stability_summary"] = _plain(self.stability_summary)
         if include_repro_hash:
@@ -405,6 +549,8 @@ class GateReport:
             eval_set_hash=str(data.get("eval_set_hash", "")),
             leakage_fixture_hash=str(data.get("leakage_fixture_hash", "")),
             decision=str(data.get("decision", QUARANTINED)),
+            per_script_recall=_mapping(data.get("per_script_recall")),
+            per_script_leakage=_mapping(data.get("per_script_leakage")),
             gate_results=tuple(
                 GateCheck.from_dict(item)
                 for item in data.get("gate_results", [])
@@ -544,6 +690,9 @@ class ReleaseGate:
 
         per_label_recall, recall_denominators = _per_label_recall(metrics, metadata)
         per_label_precision = _per_label_precision(metrics, metadata)
+        per_script_recall, per_script_leakage, script_denominators = (
+            _per_script_metrics(metrics, metadata)
+        )
         critical_leakage_count = _critical_leakage_count(metrics, metadata)
         residual_leakage_rate = _residual_leakage_rate(metrics, metadata)
         quant_delta_result = evaluate_quant_recall_delta(
@@ -577,6 +726,17 @@ class ReleaseGate:
         )
         checks.append(self._g1b_check(per_label_recall, recall_denominators))
         checks.append(self._g2_check(per_label_recall, recall_denominators))
+        checks.append(
+            _cross_script_check(
+                per_script_recall,
+                per_script_leakage,
+                script_denominators,
+                threshold_profile=(
+                    profile.threshold_profile if profile is not None else ""
+                ),
+                threshold_matrix=threshold_matrix,
+            )
+        )
         checks.append(_adversarial_recall_under_attack_check(metrics, metadata))
         checks.append(_g3_check(critical_leakage_count))
         checks.append(_g11_critical_finding_recall_check(metrics, metadata))
@@ -599,6 +759,7 @@ class ReleaseGate:
                 target_leakage=target_leakage,
             )
         )
+        checks.append(_per_language_residual_leakage_check(metrics, metadata))
         checks.append(_membership_leakage_check(metrics, metadata))
         checks.append(_g8_check(metadata))
         checks.append(_surrogate_quality_release_check(metrics, metadata))
@@ -614,6 +775,7 @@ class ReleaseGate:
         if federated_check is not None:
             checks.append(federated_check)
         checks.append(_k_floor_check(metrics, metadata))
+        checks.append(_structured_release_risk_check(metrics, metadata))
 
         blocked_formats = tuple(
             sorted(
@@ -642,6 +804,8 @@ class ReleaseGate:
             eval_set_hash=identity["eval_set_hash"],
             leakage_fixture_hash=identity["leakage_fixture_hash"],
             decision=decision,
+            per_script_recall=per_script_recall,
+            per_script_leakage=per_script_leakage,
             gate_results=tuple(checks),
             policy=(profile.name if profile is not None else policy_name),
             threshold_profile=(
@@ -798,6 +962,8 @@ def apply_flakiness_quarantine(
         eval_set_hash=report.eval_set_hash,
         leakage_fixture_hash=report.leakage_fixture_hash,
         decision=decision,
+        per_script_recall=report.per_script_recall,
+        per_script_leakage=report.per_script_leakage,
         gate_results=tuple(checks),
         policy=report.policy,
         threshold_profile=report.threshold_profile,
@@ -831,25 +997,30 @@ def evaluate_surrogate_quality_gate(
             ),
         )
     elif report is not None:
+        configured_fixture = (
+            report.get("fixture_path") if isinstance(report, Mapping) else None
+        )
+        resolved_fixture = (
+            fixture_path
+            if fixture_path is not None
+            else (
+                configured_fixture
+                if isinstance(configured_fixture, (str, Path))
+                else DEFAULT_SURROGATE_QUALITY_FIXTURE
+            )
+        )
         quality_report = evaluate_surrogate_quality(
             report.get("records") if isinstance(report, Mapping) else report,
-            fixture_path=(
-                fixture_path
-                if fixture_path is not None
-                else (
-                    report.get("fixture_path")
-                    if isinstance(report, Mapping)
-                    else DEFAULT_SURROGATE_QUALITY_FIXTURE
-                )
-            ),
+            fixture_path=resolved_fixture,
             min_pass_rate=(
                 min_pass_rate
                 if min_pass_rate is not None
                 else (
-                    float(report.get("min_pass_rate"))
-                    if isinstance(report, Mapping) and report.get("min_pass_rate")
-                    else DEFAULT_SURROGATE_QUALITY_PASS_RATE
+                    _optional_float(report.get("min_pass_rate"))
+                    if isinstance(report, Mapping)
+                    else None
                 )
+                or DEFAULT_SURROGATE_QUALITY_PASS_RATE
             ),
         )
     else:
@@ -1119,7 +1290,9 @@ def _manifest_surface_mismatches(
 
     supported_languages = _string_set(metadata.get("supported_languages"))
     if not supported_languages and default_manifest:
-        supported_languages = set(SUPPORTED_LANGUAGES)
+        supported_languages = set(SUPPORTED_LANGUAGES) - set(
+            DEFAULT_MODEL_PLACEHOLDER_LANGUAGES
+        )
     if supported_languages:
         manifest_languages = _manifest_pii_languages(rows)
         if manifest_languages != supported_languages:
@@ -1191,10 +1364,10 @@ def _is_android_onnx_source_row(row: Mapping[str, Any]) -> bool:
     repo_id = str(row.get("repo_id") or "").strip()
     if not repo_id or repo_id.startswith("OpenMed/privacy-filter-"):
         return False
-    if _normalise_dimension(row.get("task")) != "token-classification":
+    if _normalise_dimension(str(row.get("task") or "")) != "token-classification":
         return False
     if (
-        _normalise_dimension(row.get("architecture"))
+        _normalise_dimension(str(row.get("architecture") or ""))
         in _ANDROID_UNSUPPORTED_ARCHITECTURES
     ):
         return False
@@ -1567,17 +1740,9 @@ def _abstention_advisory_check(
                 "critical": _optional_float(residual_risk.get("critical")) or 0.0,
                 "by_label": _float_map(residual_risk.get("by_label")),
                 "by_language": _numeric_map(residual_risk.get("by_language")),
-                "bootstrap": dict(
-                    residual_risk.get("bootstrap")
-                    if isinstance(residual_risk.get("bootstrap"), Mapping)
-                    else {}
-                ),
+                "bootstrap": _mapping(residual_risk.get("bootstrap")),
             },
-            "route_counts": dict(
-                abstention.get("route_counts")
-                if isinstance(abstention.get("route_counts"), Mapping)
-                else {}
-            ),
+            "route_counts": _mapping(abstention.get("route_counts")),
         },
     )
 
@@ -1750,6 +1915,93 @@ def _recall_floor_check(
         details={
             "floor": floor,
             "applicable_labels": applicable,
+            "violations": violations,
+        },
+    )
+
+
+def _cross_script_check(
+    per_script_recall: Mapping[str, float],
+    per_script_leakage: Mapping[str, float],
+    denominators: Mapping[str, int],
+    *,
+    threshold_profile: str,
+    threshold_matrix: Mapping[str, Any] | None,
+) -> GateCheck:
+    if threshold_matrix is None or not threshold_profile:
+        return GateCheck(
+            CROSS_SCRIPT_GATE,
+            False,
+            reason="per-script thresholds could not be resolved",
+        )
+
+    try:
+        recall_floors = profile_script_recall_floors(
+            threshold_profile,
+            matrix=threshold_matrix,
+        )
+        leakage_ceiling = profile_script_leakage_ceiling(
+            threshold_profile,
+            matrix=threshold_matrix,
+        )
+    except Exception as exc:
+        return GateCheck(
+            CROSS_SCRIPT_GATE,
+            False,
+            reason=f"could not resolve per-script thresholds: {exc}",
+        )
+
+    applicable = tuple(
+        sorted(
+            script
+            for script in recall_floors
+            if denominators.get(script, 0) > 0
+            and (script in per_script_recall or script in per_script_leakage)
+        )
+    )
+    violations: dict[str, dict[str, float | str]] = {}
+    diagnostics: list[str] = []
+    for script in applicable:
+        observed_recall = per_script_recall.get(script)
+        observed_leakage = per_script_leakage.get(script)
+        floor = recall_floors[script]
+        script_violations: dict[str, float | str] = {}
+        if observed_recall is None:
+            script_violations["recall"] = "missing"
+            script_violations["recall_floor"] = floor
+            diagnostics.append(f"{script} recall is missing (floor {floor:.4f})")
+        elif observed_recall + 1e-12 < floor:
+            script_violations["recall"] = observed_recall
+            script_violations["recall_floor"] = floor
+            diagnostics.append(
+                f"{script} recall {observed_recall:.4f} is below {floor:.4f}"
+            )
+        if observed_leakage is None:
+            script_violations["leakage_rate"] = "missing"
+            script_violations["leakage_ceiling"] = leakage_ceiling
+            diagnostics.append(
+                f"{script} leakage is missing (ceiling {leakage_ceiling:.4f})"
+            )
+        elif observed_leakage > leakage_ceiling + 1e-12:
+            script_violations["leakage_rate"] = observed_leakage
+            script_violations["leakage_ceiling"] = leakage_ceiling
+            diagnostics.append(
+                f"{script} leakage {observed_leakage:.4f} exceeds {leakage_ceiling:.4f}"
+            )
+        if script_violations:
+            violations[script] = script_violations
+
+    return GateCheck(
+        CROSS_SCRIPT_GATE,
+        not violations,
+        reason=("ok" if not violations else "; ".join(diagnostics)),
+        details={
+            "applicable_scripts": applicable,
+            "recall_floors": recall_floors,
+            "leakage_ceiling": leakage_ceiling,
+            "per_script_recall": per_script_recall,
+            "per_script_leakage": per_script_leakage,
+            "total_graphemes_by_script": denominators,
             "violations": violations,
         },
     )
@@ -2088,7 +2340,12 @@ def _g5_check(
             details={"missing": missing, "budget": budget},
         )
 
-    observed = {"p50_ms": p50_ms, "p95_ms": p95_ms, "ram_mb": ram_mb}
+    assert p50_ms is not None and p95_ms is not None and ram_mb is not None
+    observed = {
+        "p50_ms": float(p50_ms),
+        "p95_ms": float(p95_ms),
+        "ram_mb": float(ram_mb),
+    }
     violations = {
         key: {"observed": observed[key], "limit": budget[key]}
         for key in budget
@@ -2168,6 +2425,60 @@ def _g7_check(
                 baseline_entry.get("key") if baseline_entry is not None else None
             ),
             "target_leakage": target_leakage,
+            "violations": violations,
+        },
+    )
+
+
+def _per_language_residual_leakage_check(
+    metrics: Mapping[str, Any],
+    metadata: Mapping[str, Any],
+) -> GateCheck:
+    """Enforce language-pack-specific leakage ceilings when evidence is present."""
+
+    observed: dict[str, float] = {}
+    denominators: dict[str, int] = {}
+    denominator_languages: set[str] = set()
+    for payload in _leakage_payloads(metrics, metadata):
+        for language, raw_rate in _mapping(payload.get("by_language")).items():
+            rate = _optional_float(raw_rate)
+            if rate is not None:
+                key = str(language)
+                observed[key] = max(observed.get(key, 0.0), rate)
+        totals = _mapping(payload.get("total_chars_by_language"))
+        denominator_languages.update(str(language) for language in totals)
+        for language, raw_total in totals.items():
+            total = _optional_int(raw_total)
+            if total is not None:
+                key = str(language)
+                denominators[key] = max(denominators.get(key, 0), total)
+
+    evaluated = {
+        language: observed[language]
+        for language in PER_LANGUAGE_RESIDUAL_LEAKAGE_CEILINGS
+        if language in observed
+        and (language not in denominator_languages or denominators.get(language, 0) > 0)
+    }
+    violations = {
+        language: {
+            "observed": rate,
+            "limit": PER_LANGUAGE_RESIDUAL_LEAKAGE_CEILINGS[language],
+            "total_chars": denominators.get(language),
+        }
+        for language, rate in sorted(evaluated.items())
+        if rate > PER_LANGUAGE_RESIDUAL_LEAKAGE_CEILINGS[language]
+    }
+    return GateCheck(
+        "per_language_residual_leakage",
+        not violations,
+        reason=(
+            "not applicable"
+            if not evaluated
+            else ("ok" if not violations else "per-language leakage ceiling exceeded")
+        ),
+        details={
+            "ceilings": dict(PER_LANGUAGE_RESIDUAL_LEAKAGE_CEILINGS),
+            "evaluated": evaluated,
             "violations": violations,
         },
     )
@@ -2814,6 +3125,172 @@ def evaluate_federated_boundary_gate(
     )
 
 
+def evaluate_release_risk_evidence(
+    evidence: Any,
+) -> GateCheck:
+    """Verify one aggregate expert-review evidence bundle.
+
+    This is a technical integrity and configured-threshold check. Passing it
+    does not constitute an Expert Determination or authorize a data release.
+    """
+
+    if evidence is None:
+        return GateCheck(
+            "structured_release_risk",
+            False,
+            reason="release-risk evidence is required",
+            details={"integrity_verified": False},
+        )
+    return _structured_release_risk_check(
+        {"structured_release_risk_evidence": evidence},
+        {},
+    )
+
+
+def _structured_release_risk_check(
+    metrics: Mapping[str, Any],
+    metadata: Mapping[str, Any],
+) -> GateCheck:
+    raw_evidence = _first_value(
+        metadata.get("structured_release_risk_evidence"),
+        metrics.get("structured_release_risk_evidence"),
+        metadata.get("expert_review_evidence"),
+        metrics.get("expert_review_evidence"),
+    )
+    if raw_evidence is None:
+        return GateCheck(
+            "structured_release_risk",
+            True,
+            reason="not applicable",
+        )
+
+    if hasattr(raw_evidence, "to_dict") and callable(raw_evidence.to_dict):
+        raw_evidence = raw_evidence.to_dict()
+    if not isinstance(raw_evidence, Mapping):
+        return GateCheck(
+            "structured_release_risk",
+            False,
+            reason="release-risk evidence is malformed or fails integrity checks",
+            details={"integrity_verified": False},
+        )
+
+    try:
+        from openmed.compliance import ExpertReviewEvidenceReport
+
+        evidence = ExpertReviewEvidenceReport.from_dict(raw_evidence)
+    except (KeyError, TypeError, ValueError):
+        # Do not echo parser errors: an invalid payload may contain raw data.
+        return GateCheck(
+            "structured_release_risk",
+            False,
+            reason="release-risk evidence is malformed or fails integrity checks",
+            details={"integrity_verified": False},
+        )
+
+    model = evidence.privacy_models
+    post = evidence.post_metrics
+    violations: dict[str, Any] = {}
+    if not evidence.search.optimality_proven:
+        violations["search_optimality_proven"] = False
+    elif not evidence.search.complete and evidence.schema_version < 3:
+        violations["search_optimality_proof"] = (
+            "schema_version_3_required_for_pruned_proof"
+        )
+    if model.achieved_k < model.configured_k:
+        violations["k_anonymity"] = {
+            "configured": model.configured_k,
+            "achieved": model.achieved_k,
+        }
+    if evidence.sensitive_attributes and (
+        model.l_variant is None or model.t_variant is None
+    ):
+        violations["sensitive_attribute_models"] = {
+            "l_diversity_present": model.l_variant is not None,
+            "t_closeness_present": model.t_variant is not None,
+        }
+    if (
+        model.configured_l is not None
+        and model.achieved_l is not None
+        and model.achieved_l < model.configured_l
+    ):
+        violations["l_diversity"] = {
+            "variant": model.l_variant,
+            "configured": model.configured_l,
+            "achieved": model.achieved_l,
+        }
+    if (
+        model.configured_t is not None
+        and model.achieved_t is not None
+        and model.achieved_t > model.configured_t + 1e-12
+    ):
+        violations["t_closeness"] = {
+            "variant": model.t_variant,
+            "configured": model.configured_t,
+            "achieved": model.achieved_t,
+        }
+    post_violation_counts = {
+        "k_class_count": post.k_violating_class_count,
+        "l_class_count": post.l_violating_class_count,
+        "t_class_count": post.t_violating_class_count,
+        "any_class_count": post.any_violating_class_count,
+        "privacy_unit_count": post.violating_privacy_unit_count,
+    }
+    if any(post_violation_counts.values()):
+        violations["post_transform_violations"] = post_violation_counts
+    if evidence.composition.risk_status in {"increase_observed", "inconclusive"}:
+        violations["composition_risk_status"] = "no_material_increase_observed_required"
+    if evidence.composition.release_count == 1 and (
+        evidence.composition.longitudinal_linkage_assessed
+        or evidence.composition.prior_release_overlap_assessed
+        or evidence.composition.risk_status != "not_assessed"
+    ):
+        violations["composition_review"] = {
+            "single_release_requires_unassessed_status": True
+        }
+    elif evidence.composition.release_count > 1:
+        composition_violations: dict[str, Any] = {}
+        if not evidence.composition.longitudinal_linkage_assessed:
+            composition_violations["longitudinal_linkage_assessed"] = False
+        if not evidence.composition.prior_release_overlap_assessed:
+            composition_violations["prior_release_overlap_assessed"] = False
+        if evidence.composition.risk_status != "no_material_increase_observed":
+            composition_violations["risk_status"] = (
+                "no_material_increase_observed_required"
+            )
+        if composition_violations:
+            violations["composition_review"] = composition_violations
+
+    return GateCheck(
+        "structured_release_risk",
+        not violations,
+        reason=(
+            "ok"
+            if not violations
+            else "release-risk evidence violates its configured technical policy"
+        ),
+        details={
+            "integrity_verified": True,
+            "search_complete": evidence.search.complete,
+            "search_optimality_proven": evidence.search.optimality_proven,
+            "configured_k": model.configured_k,
+            "achieved_k": model.achieved_k,
+            "l_variant": model.l_variant,
+            "configured_l": model.configured_l,
+            "achieved_l": model.achieved_l,
+            "t_variant": model.t_variant,
+            "configured_t": model.configured_t,
+            "achieved_t": model.achieved_t,
+            "privacy_unit": evidence.assumptions.privacy_unit,
+            "released_dataset_digest": evidence.digests.dataset,
+            "policy_digest": evidence.digests.policy,
+            "evidence_integrity_hash": evidence.integrity_hash,
+            "composition_status": evidence.composition.risk_status,
+            "qualified_expert_review_required": True,
+            "violations": violations,
+        },
+    )
+
+
 def _k_floor_evidence(
     metrics: Mapping[str, Any],
     metadata: Mapping[str, Any],
@@ -2958,6 +3435,52 @@ def _per_label_precision(
         if value is not None:
             result["OVERALL"] = value
     return result
+
+
+def _per_script_metrics(
+    metrics: Mapping[str, Any],
+    metadata: Mapping[str, Any],
+) -> tuple[dict[str, float], dict[str, float], dict[str, int]]:
+    recall = _numeric_map(
+        _first_mapping(
+            metadata.get("per_script_recall"),
+            metrics.get("per_script_recall"),
+            _nested(metrics, "recall_slices", "by_script"),
+            _nested(metrics, "character_recall", "by_script"),
+        )
+    )
+    leakage = _numeric_map(
+        _first_mapping(
+            metadata.get("per_script_leakage"),
+            metrics.get("per_script_leakage"),
+            _nested(metrics, "leakage", "by_script"),
+            _nested(metrics, "leakage_rate", "by_script"),
+        )
+    )
+    denominators = _first_mapping(
+        metadata.get("total_graphemes_by_script"),
+        metadata.get("total_chars_by_script"),
+        _nested(metrics, "recall_slices", "total_graphemes_by_script"),
+        _nested(metrics, "recall_slices", "total_chars_by_script"),
+        _nested(metrics, "leakage", "total_graphemes_by_script"),
+        _nested(metrics, "leakage", "total_chars_by_script"),
+    )
+    parsed_denominators = {
+        str(script): int(value)
+        for script, value in denominators.items()
+        if _optional_int(value) is not None
+    }
+    scripts = set(recall) | set(leakage)
+    for script in scripts:
+        if script not in recall and script in leakage:
+            recall[script] = max(0.0, 1.0 - leakage[script])
+        if script not in leakage and script in recall:
+            leakage[script] = max(0.0, 1.0 - recall[script])
+    return (
+        {key: recall[key] for key in sorted(recall)},
+        {key: leakage[key] for key in sorted(leakage)},
+        {key: parsed_denominators[key] for key in sorted(parsed_denominators)},
+    )
 
 
 def _critical_leakage_count(
@@ -3357,10 +3880,14 @@ def build_arg_parser() -> argparse.ArgumentParser:
             "benchmark report and fail closed on any gate failure."
         )
     )
-    parser.add_argument(
+    candidate_group = parser.add_mutually_exclusive_group(required=True)
+    candidate_group.add_argument(
         "--candidate",
-        required=True,
         help="Path to a candidate BenchmarkReport JSON payload.",
+    )
+    candidate_group.add_argument(
+        "--throughput-candidate",
+        help="Path to a zh/hi/ta throughput benchmark JSON payload.",
     )
     parser.add_argument(
         "--baseline",
@@ -3420,6 +3947,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = build_arg_parser()
     args = parser.parse_args(argv)
 
+    if args.throughput_candidate:
+        return _run_i18n_throughput_gate_cli(args)
+
     candidate_path = Path(args.candidate)
     if not candidate_path.is_file():
         print(
@@ -3468,12 +3998,54 @@ def main(argv: Sequence[str] | None = None) -> int:
     return 0
 
 
+def _run_i18n_throughput_gate_cli(args: argparse.Namespace) -> int:
+    candidate_path = Path(args.throughput_candidate)
+    if not candidate_path.is_file():
+        print(
+            f"Throughput candidate report not found: {candidate_path}.",
+            file=sys.stderr,
+        )
+        return 2
+
+    try:
+        candidate = _read_json_file(candidate_path)
+        baseline = baseline_store.load_baseline_store(args.baseline_store)
+        check = evaluate_i18n_throughput_gate(candidate, baseline)
+    except Exception as exc:
+        print(f"throughput gate evaluation failed: {exc}", file=sys.stderr)
+        return 2
+
+    payload = {
+        "schema_version": 1,
+        "artifact_type": "openmed.eval.i18n_throughput_gate",
+        "decision": RELEASABLE if check.passed else QUARANTINED,
+        "gate_result": check.to_dict(),
+    }
+    output_path = Path(args.output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    print(json.dumps(payload, sort_keys=True))
+    return 0 if check.passed else 1
+
+
 def _read_json_file(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as handle:
         payload = json.load(handle)
     if not isinstance(payload, Mapping):
         raise ValueError(f"{path} must contain a JSON object")
     return dict(payload)
+
+
+def _positive_finite_number(value: Any) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    if not math.isfinite(number) or number <= 0.0:
+        return None
+    return number
 
 
 def _open_or_update_tracking_issue(
@@ -3620,6 +4192,7 @@ def _tracking_issue_body(
 
 
 __all__ = [
+    "CROSS_SCRIPT_GATE",
     "G1A_V16_RECALL_FLOOR",
     "G1A_V20_RECALL_FLOOR",
     "G1B_RECALL_FLOOR",

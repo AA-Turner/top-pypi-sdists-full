@@ -20,6 +20,16 @@ class IntegrationsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_integrations__pb2.ListIntegrationsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_integrations__pb2.ListIntegrationsResponse.FromString,
         )
+        self.ListDatasourcePermissionTags = channel.unary_unary(
+            "/chalk.server.v1.IntegrationsService/ListDatasourcePermissionTags",
+            request_serializer=chalk_dot_server_dot_v1_dot_integrations__pb2.ListDatasourcePermissionTagsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_integrations__pb2.ListDatasourcePermissionTagsResponse.FromString,
+        )
+        self.GetDatasourcePermissionTag = channel.unary_unary(
+            "/chalk.server.v1.IntegrationsService/GetDatasourcePermissionTag",
+            request_serializer=chalk_dot_server_dot_v1_dot_integrations__pb2.GetDatasourcePermissionTagRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_integrations__pb2.GetDatasourcePermissionTagResponse.FromString,
+        )
         self.ListIntegrationsAndSecrets = channel.unary_unary(
             "/chalk.server.v1.IntegrationsService/ListIntegrationsAndSecrets",
             request_serializer=chalk_dot_server_dot_v1_dot_integrations__pb2.ListIntegrationsAndSecretsRequest.SerializeToString,
@@ -55,6 +65,16 @@ class IntegrationsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_integrations__pb2.DeleteIntegrationRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_integrations__pb2.DeleteIntegrationResponse.FromString,
         )
+        self.UpsertDatasourcePermissionTag = channel.unary_unary(
+            "/chalk.server.v1.IntegrationsService/UpsertDatasourcePermissionTag",
+            request_serializer=chalk_dot_server_dot_v1_dot_integrations__pb2.UpsertDatasourcePermissionTagRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_integrations__pb2.UpsertDatasourcePermissionTagResponse.FromString,
+        )
+        self.DeleteDatasourcePermissionTag = channel.unary_unary(
+            "/chalk.server.v1.IntegrationsService/DeleteDatasourcePermissionTag",
+            request_serializer=chalk_dot_server_dot_v1_dot_integrations__pb2.DeleteDatasourcePermissionTagRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_integrations__pb2.DeleteDatasourcePermissionTagResponse.FromString,
+        )
         self.TestIntegration = channel.unary_unary(
             "/chalk.server.v1.IntegrationsService/TestIntegration",
             request_serializer=chalk_dot_server_dot_v1_dot_integrations__pb2.TestIntegrationRequest.SerializeToString,
@@ -66,6 +86,18 @@ class IntegrationsServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def ListIntegrations(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListDatasourcePermissionTags(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetDatasourcePermissionTag(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -113,6 +145,18 @@ class IntegrationsServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def UpsertDatasourcePermissionTag(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteDatasourcePermissionTag(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def TestIntegration(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -126,6 +170,16 @@ def add_IntegrationsServiceServicer_to_server(servicer, server):
             servicer.ListIntegrations,
             request_deserializer=chalk_dot_server_dot_v1_dot_integrations__pb2.ListIntegrationsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_integrations__pb2.ListIntegrationsResponse.SerializeToString,
+        ),
+        "ListDatasourcePermissionTags": grpc.unary_unary_rpc_method_handler(
+            servicer.ListDatasourcePermissionTags,
+            request_deserializer=chalk_dot_server_dot_v1_dot_integrations__pb2.ListDatasourcePermissionTagsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_integrations__pb2.ListDatasourcePermissionTagsResponse.SerializeToString,
+        ),
+        "GetDatasourcePermissionTag": grpc.unary_unary_rpc_method_handler(
+            servicer.GetDatasourcePermissionTag,
+            request_deserializer=chalk_dot_server_dot_v1_dot_integrations__pb2.GetDatasourcePermissionTagRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_integrations__pb2.GetDatasourcePermissionTagResponse.SerializeToString,
         ),
         "ListIntegrationsAndSecrets": grpc.unary_unary_rpc_method_handler(
             servicer.ListIntegrationsAndSecrets,
@@ -162,6 +216,16 @@ def add_IntegrationsServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_integrations__pb2.DeleteIntegrationRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_integrations__pb2.DeleteIntegrationResponse.SerializeToString,
         ),
+        "UpsertDatasourcePermissionTag": grpc.unary_unary_rpc_method_handler(
+            servicer.UpsertDatasourcePermissionTag,
+            request_deserializer=chalk_dot_server_dot_v1_dot_integrations__pb2.UpsertDatasourcePermissionTagRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_integrations__pb2.UpsertDatasourcePermissionTagResponse.SerializeToString,
+        ),
+        "DeleteDatasourcePermissionTag": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteDatasourcePermissionTag,
+            request_deserializer=chalk_dot_server_dot_v1_dot_integrations__pb2.DeleteDatasourcePermissionTagRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_integrations__pb2.DeleteDatasourcePermissionTagResponse.SerializeToString,
+        ),
         "TestIntegration": grpc.unary_unary_rpc_method_handler(
             servicer.TestIntegration,
             request_deserializer=chalk_dot_server_dot_v1_dot_integrations__pb2.TestIntegrationRequest.FromString,
@@ -195,6 +259,64 @@ class IntegrationsService(object):
             "/chalk.server.v1.IntegrationsService/ListIntegrations",
             chalk_dot_server_dot_v1_dot_integrations__pb2.ListIntegrationsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_integrations__pb2.ListIntegrationsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListDatasourcePermissionTags(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.IntegrationsService/ListDatasourcePermissionTags",
+            chalk_dot_server_dot_v1_dot_integrations__pb2.ListDatasourcePermissionTagsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_integrations__pb2.ListDatasourcePermissionTagsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetDatasourcePermissionTag(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.IntegrationsService/GetDatasourcePermissionTag",
+            chalk_dot_server_dot_v1_dot_integrations__pb2.GetDatasourcePermissionTagRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_integrations__pb2.GetDatasourcePermissionTagResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -398,6 +520,64 @@ class IntegrationsService(object):
             "/chalk.server.v1.IntegrationsService/DeleteIntegration",
             chalk_dot_server_dot_v1_dot_integrations__pb2.DeleteIntegrationRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_integrations__pb2.DeleteIntegrationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpsertDatasourcePermissionTag(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.IntegrationsService/UpsertDatasourcePermissionTag",
+            chalk_dot_server_dot_v1_dot_integrations__pb2.UpsertDatasourcePermissionTagRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_integrations__pb2.UpsertDatasourcePermissionTagResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteDatasourcePermissionTag(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.IntegrationsService/DeleteDatasourcePermissionTag",
+            chalk_dot_server_dot_v1_dot_integrations__pb2.DeleteDatasourcePermissionTagRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_integrations__pb2.DeleteDatasourcePermissionTagResponse.FromString,
             options,
             channel_credentials,
             insecure,

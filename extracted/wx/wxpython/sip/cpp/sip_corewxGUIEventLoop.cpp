@@ -33,7 +33,6 @@ protected:
     int Run() SIP_OVERRIDE;
     bool IsOk() const SIP_OVERRIDE;
     void Exit(int) SIP_OVERRIDE;
-    void ScheduleExit(int) SIP_OVERRIDE;
     bool Pending() const SIP_OVERRIDE;
     bool Dispatch() SIP_OVERRIDE;
     int DispatchTimeout(unsigned long) SIP_OVERRIDE;
@@ -50,7 +49,7 @@ private:
     sipwxGUIEventLoop(const sipwxGUIEventLoop &);
     sipwxGUIEventLoop &operator = (const sipwxGUIEventLoop &);
 
-    char sipPyMethods[13];
+    char sipPyMethods[12];
 };
 
 sipwxGUIEventLoop::sipwxGUIEventLoop(): ::wxGUIEventLoop(), sipPySelf(SIP_NULLPTR)
@@ -73,9 +72,9 @@ bool sipwxGUIEventLoop::YieldFor(long eventsToProcess)
     if (!sipMeth)
         return ::wxGUIEventLoop::YieldFor(eventsToProcess);
 
-    extern bool sipVH__core_116(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, long);
+    extern bool sipVH__core_115(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, long);
 
-    return sipVH__core_116(sipGILState, 0, sipPySelf, sipMeth, eventsToProcess);
+    return sipVH__core_115(sipGILState, 0, sipPySelf, sipMeth, eventsToProcess);
 }
 
 int sipwxGUIEventLoop::Run()
@@ -88,9 +87,9 @@ int sipwxGUIEventLoop::Run()
     if (!sipMeth)
         return ::wxGUIEventLoop::Run();
 
-    extern int sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern int sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxGUIEventLoop::IsOk() const
@@ -121,27 +120,9 @@ void sipwxGUIEventLoop::Exit(int rc)
         return;
     }
 
-    extern void sipVH__core_113(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern void sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    sipVH__core_113(sipGILState, 0, sipPySelf, sipMeth, rc);
-}
-
-void sipwxGUIEventLoop::ScheduleExit(int rc)
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[4], &sipPySelf, SIP_NULLPTR, sipName_ScheduleExit);
-
-    if (!sipMeth)
-    {
-        ::wxGUIEventLoop::ScheduleExit(rc);
-        return;
-    }
-
-    extern void sipVH__core_113(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
-
-    sipVH__core_113(sipGILState, 0, sipPySelf, sipMeth, rc);
+    sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth, rc);
 }
 
 bool sipwxGUIEventLoop::Pending() const
@@ -149,7 +130,7 @@ bool sipwxGUIEventLoop::Pending() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[5]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_Pending);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[4]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_Pending);
 
     if (!sipMeth)
         return ::wxGUIEventLoop::Pending();
@@ -164,7 +145,7 @@ bool sipwxGUIEventLoop::Dispatch()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[6], &sipPySelf, SIP_NULLPTR, sipName_Dispatch);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[5], &sipPySelf, SIP_NULLPTR, sipName_Dispatch);
 
     if (!sipMeth)
         return ::wxGUIEventLoop::Dispatch();
@@ -179,14 +160,14 @@ int sipwxGUIEventLoop::DispatchTimeout(unsigned long timeout)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[7], &sipPySelf, SIP_NULLPTR, sipName_DispatchTimeout);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[6], &sipPySelf, SIP_NULLPTR, sipName_DispatchTimeout);
 
     if (!sipMeth)
         return ::wxGUIEventLoop::DispatchTimeout(timeout);
 
-    extern int sipVH__core_114(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, unsigned long);
+    extern int sipVH__core_113(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, unsigned long);
 
-    return sipVH__core_114(sipGILState, 0, sipPySelf, sipMeth, timeout);
+    return sipVH__core_113(sipGILState, 0, sipPySelf, sipMeth, timeout);
 }
 
 void sipwxGUIEventLoop::WakeUp()
@@ -194,7 +175,7 @@ void sipwxGUIEventLoop::WakeUp()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[8], &sipPySelf, SIP_NULLPTR, sipName_WakeUp);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[7], &sipPySelf, SIP_NULLPTR, sipName_WakeUp);
 
     if (!sipMeth)
     {
@@ -212,7 +193,7 @@ bool sipwxGUIEventLoop::ProcessIdle()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[9], &sipPySelf, SIP_NULLPTR, sipName_ProcessIdle);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[8], &sipPySelf, SIP_NULLPTR, sipName_ProcessIdle);
 
     if (!sipMeth)
         return ::wxGUIEventLoop::ProcessIdle();
@@ -227,7 +208,7 @@ bool sipwxGUIEventLoop::IsYielding() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[10]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_IsYielding);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[9]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_IsYielding);
 
     if (!sipMeth)
         return ::wxGUIEventLoop::IsYielding();
@@ -242,14 +223,14 @@ bool sipwxGUIEventLoop::IsEventAllowedInsideYield(::wxEventCategory cat) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[11]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_IsEventAllowedInsideYield);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[10]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_IsEventAllowedInsideYield);
 
     if (!sipMeth)
         return ::wxGUIEventLoop::IsEventAllowedInsideYield(cat);
 
-    extern bool sipVH__core_115(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEventCategory);
+    extern bool sipVH__core_114(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEventCategory);
 
-    return sipVH__core_115(sipGILState, 0, sipPySelf, sipMeth, cat);
+    return sipVH__core_114(sipGILState, 0, sipPySelf, sipMeth, cat);
 }
 
 void sipwxGUIEventLoop::OnExit()
@@ -257,7 +238,7 @@ void sipwxGUIEventLoop::OnExit()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[12], &sipPySelf, SIP_NULLPTR, sipName_OnExit);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[11], &sipPySelf, SIP_NULLPTR, sipName_OnExit);
 
     if (!sipMeth)
     {
@@ -380,44 +361,6 @@ static PyObject *meth_wxGUIEventLoop_Exit(PyObject *sipSelf, PyObject *sipArgs, 
     }
 
     sipNoMethod(sipParseErr, sipName_GUIEventLoop, sipName_Exit, doc_wxGUIEventLoop_Exit);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxGUIEventLoop_ScheduleExit, "ScheduleExit(self, rc: int = 0)");
-
-extern "C" {static PyObject *meth_wxGUIEventLoop_ScheduleExit(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxGUIEventLoop_ScheduleExit(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        int rc = 0;
-        ::wxGUIEventLoop *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_rc,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "B|i", &sipSelf, sipType_wxGUIEventLoop, &sipCpp, &rc))
-        {
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            (sipSelfWasArg ? sipCpp->::wxGUIEventLoop::ScheduleExit(rc) : sipCpp->ScheduleExit(rc));
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_GUIEventLoop, sipName_ScheduleExit, doc_wxGUIEventLoop_ScheduleExit);
 
     return SIP_NULLPTR;
 }
@@ -691,7 +634,7 @@ static void *init_type_wxGUIEventLoop(sipSimpleWrapper *sipSelf, PyObject *sipAr
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGUIEventLoop[] = {{156, 255, 1}};
+static sipEncodedTypeDef supers_wxGUIEventLoop[] = {{163, 255, 1}};
 
 
 static PyMethodDef methods_wxGUIEventLoop[] = {
@@ -701,7 +644,6 @@ static PyMethodDef methods_wxGUIEventLoop[] = {
     {sipName_OnExit, meth_wxGUIEventLoop_OnExit, METH_VARARGS, SIP_NULLPTR},
     {sipName_Pending, meth_wxGUIEventLoop_Pending, METH_VARARGS, doc_wxGUIEventLoop_Pending},
     {sipName_Run, meth_wxGUIEventLoop_Run, METH_VARARGS, doc_wxGUIEventLoop_Run},
-    {sipName_ScheduleExit, SIP_MLMETH_CAST(meth_wxGUIEventLoop_ScheduleExit), METH_VARARGS|METH_KEYWORDS, doc_wxGUIEventLoop_ScheduleExit},
     {sipName_WakeUp, meth_wxGUIEventLoop_WakeUp, METH_VARARGS, doc_wxGUIEventLoop_WakeUp},
     {sipName_YieldFor, SIP_MLMETH_CAST(meth_wxGUIEventLoop_YieldFor), METH_VARARGS|METH_KEYWORDS, doc_wxGUIEventLoop_YieldFor}
 };
@@ -724,7 +666,7 @@ sipClassTypeDef sipTypeDef__core_wxGUIEventLoop = {
     {
         sipNameNr_GUIEventLoop,
         {0, 0, 1},
-        9, methods_wxGUIEventLoop,
+        8, methods_wxGUIEventLoop,
         0, SIP_NULLPTR,
         0, SIP_NULLPTR,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

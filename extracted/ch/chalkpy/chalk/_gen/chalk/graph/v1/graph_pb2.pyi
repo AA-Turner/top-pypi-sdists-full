@@ -1153,6 +1153,7 @@ class Resolver(_message.Message):
         "incremental_settings",
         "runtime_contract",
         "handle_duplicate_outputs",
+        "max_batch_size",
         "underscore_expr",
         "lazyframe_expr",
     )
@@ -1189,6 +1190,7 @@ class Resolver(_message.Message):
     INCREMENTAL_SETTINGS_FIELD_NUMBER: _ClassVar[int]
     RUNTIME_CONTRACT_FIELD_NUMBER: _ClassVar[int]
     HANDLE_DUPLICATE_OUTPUTS_FIELD_NUMBER: _ClassVar[int]
+    MAX_BATCH_SIZE_FIELD_NUMBER: _ClassVar[int]
     UNDERSCORE_EXPR_FIELD_NUMBER: _ClassVar[int]
     LAZYFRAME_EXPR_FIELD_NUMBER: _ClassVar[int]
     fqn: str
@@ -1224,6 +1226,7 @@ class Resolver(_message.Message):
     incremental_settings: IncrementalSettings
     runtime_contract: str
     handle_duplicate_outputs: str
+    max_batch_size: int
     underscore_expr: _expression_pb2.LogicalExprNode
     lazyframe_expr: _expression_pb2.LogicalExprNode
     def __init__(
@@ -1261,6 +1264,7 @@ class Resolver(_message.Message):
         incremental_settings: _Optional[_Union[IncrementalSettings, _Mapping]] = ...,
         runtime_contract: _Optional[str] = ...,
         handle_duplicate_outputs: _Optional[str] = ...,
+        max_batch_size: _Optional[int] = ...,
         underscore_expr: _Optional[_Union[_expression_pb2.LogicalExprNode, _Mapping]] = ...,
         lazyframe_expr: _Optional[_Union[_expression_pb2.LogicalExprNode, _Mapping]] = ...,
     ) -> None: ...
@@ -1422,6 +1426,7 @@ class StreamResolver(_message.Message):
         "deduplication_strategy",
         "customer_metrics_tags",
         "excluded_aggregation_fqns",
+        "source_full",
     )
     class FeatureExpressionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -1461,6 +1466,7 @@ class StreamResolver(_message.Message):
     DEDUPLICATION_STRATEGY_FIELD_NUMBER: _ClassVar[int]
     CUSTOMER_METRICS_TAGS_FIELD_NUMBER: _ClassVar[int]
     EXCLUDED_AGGREGATION_FQNS_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_FULL_FIELD_NUMBER: _ClassVar[int]
     fqn: str
     params: _containers.RepeatedCompositeFieldContainer[StreamResolverParam]
     outputs: _containers.RepeatedCompositeFieldContainer[ResolverOutput]
@@ -1489,6 +1495,7 @@ class StreamResolver(_message.Message):
     deduplication_strategy: DeduplicationStrategy
     customer_metrics_tags: _containers.RepeatedScalarFieldContainer[str]
     excluded_aggregation_fqns: _containers.RepeatedScalarFieldContainer[str]
+    source_full: _sources_pb2_1.StreamSource
     def __init__(
         self,
         fqn: _Optional[str] = ...,
@@ -1519,6 +1526,7 @@ class StreamResolver(_message.Message):
         deduplication_strategy: _Optional[_Union[DeduplicationStrategy, _Mapping]] = ...,
         customer_metrics_tags: _Optional[_Iterable[str]] = ...,
         excluded_aggregation_fqns: _Optional[_Iterable[str]] = ...,
+        source_full: _Optional[_Union[_sources_pb2_1.StreamSource, _Mapping]] = ...,
     ) -> None: ...
 
 class StreamMessageHeaderEqualityCheck(_message.Message):
@@ -1536,7 +1544,7 @@ class StreamHeaderFilter(_message.Message):
     def __init__(self, equality_check: _Optional[_Union[StreamMessageHeaderEqualityCheck, _Mapping]] = ...) -> None: ...
 
 class StreamResolverMessageProducerParsed(_message.Message):
-    __slots__ = ("send_to", "output_features", "transformations", "format", "message_key")
+    __slots__ = ("send_to", "output_features", "transformations", "format", "message_key", "send_to_full")
     class TransformationsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -1552,11 +1560,13 @@ class StreamResolverMessageProducerParsed(_message.Message):
     TRANSFORMATIONS_FIELD_NUMBER: _ClassVar[int]
     FORMAT_FIELD_NUMBER: _ClassVar[int]
     MESSAGE_KEY_FIELD_NUMBER: _ClassVar[int]
+    SEND_TO_FULL_FIELD_NUMBER: _ClassVar[int]
     send_to: _sources_pb2_1.StreamSourceReference
     output_features: _containers.RepeatedScalarFieldContainer[str]
     transformations: _containers.MessageMap[str, FeatureExpression]
     format: str
     message_key: str
+    send_to_full: _sources_pb2_1.StreamSource
     def __init__(
         self,
         send_to: _Optional[_Union[_sources_pb2_1.StreamSourceReference, _Mapping]] = ...,
@@ -1564,6 +1574,7 @@ class StreamResolverMessageProducerParsed(_message.Message):
         transformations: _Optional[_Mapping[str, FeatureExpression]] = ...,
         format: _Optional[str] = ...,
         message_key: _Optional[str] = ...,
+        send_to_full: _Optional[_Union[_sources_pb2_1.StreamSource, _Mapping]] = ...,
     ) -> None: ...
 
 class ResolverState(_message.Message):

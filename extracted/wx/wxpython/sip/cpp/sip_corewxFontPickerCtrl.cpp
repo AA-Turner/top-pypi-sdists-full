@@ -15,6 +15,7 @@
         #include <wx/gdicmn.h>
         #include <wx/validate.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/colour.h>
         #include <wx/control.h>
@@ -22,15 +23,15 @@
         #include <wx/dc.h>
         #include <wx/event.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -44,6 +45,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
+    wxAccessible* _wxFontPickerCtrl_CreateAccessible(wxFontPickerCtrl* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxFontPickerCtrl : public ::wxFontPickerCtrl
@@ -74,7 +84,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -120,7 +129,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -137,7 +145,7 @@ private:
     sipwxFontPickerCtrl(const sipwxFontPickerCtrl &);
     sipwxFontPickerCtrl &operator = (const sipwxFontPickerCtrl &);
 
-    char sipPyMethods[43];
+    char sipPyMethods[42];
 };
 
 sipwxFontPickerCtrl::sipwxFontPickerCtrl(): ::wxFontPickerCtrl(), sipPySelf(SIP_NULLPTR)
@@ -168,9 +176,9 @@ void sipwxFontPickerCtrl::RemoveChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 void sipwxFontPickerCtrl::AddChild(::wxWindowBase*child)
@@ -186,9 +194,9 @@ void sipwxFontPickerCtrl::AddChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 bool sipwxFontPickerCtrl::ProcessEvent(::wxEvent& event)
@@ -201,9 +209,9 @@ bool sipwxFontPickerCtrl::ProcessEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxFontPickerCtrl::ProcessEvent(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxFontPickerCtrl::TryBefore(::wxEvent& event)
@@ -216,9 +224,9 @@ bool sipwxFontPickerCtrl::TryBefore(::wxEvent& event)
     if (!sipMeth)
         return ::wxFontPickerCtrl::TryBefore(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxFontPickerCtrl::TryAfter(::wxEvent& event)
@@ -231,9 +239,9 @@ bool sipwxFontPickerCtrl::TryAfter(::wxEvent& event)
     if (!sipMeth)
         return ::wxFontPickerCtrl::TryAfter(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxFontPickerCtrl::AcceptsFocus() const
@@ -294,9 +302,9 @@ void sipwxFontPickerCtrl::SetCanFocus(bool canFocus)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, canFocus);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, canFocus);
 }
 
 void sipwxFontPickerCtrl::EnableVisibleFocus(bool enabled)
@@ -312,9 +320,9 @@ void sipwxFontPickerCtrl::EnableVisibleFocus(bool enabled)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enabled);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enabled);
 }
 
 bool sipwxFontPickerCtrl::InformFirstDirection(int direction, int size, int availableOtherDir)
@@ -327,9 +335,9 @@ bool sipwxFontPickerCtrl::InformFirstDirection(int direction, int size, int avai
     if (!sipMeth)
         return ::wxFontPickerCtrl::InformFirstDirection(direction, size, availableOtherDir);
 
-    extern bool sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern bool sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
 
-    return sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
+    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
 }
 
 ::wxPoint sipwxFontPickerCtrl::GetClientAreaOrigin() const
@@ -342,9 +350,9 @@ bool sipwxFontPickerCtrl::InformFirstDirection(int direction, int size, int avai
     if (!sipMeth)
         return ::wxFontPickerCtrl::GetClientAreaOrigin();
 
-    extern ::wxPoint sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPoint sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxFontPickerCtrl::HasTransparentBackground()
@@ -387,9 +395,9 @@ bool sipwxFontPickerCtrl::ShouldInheritColours() const
     if (!sipMeth)
         return ::wxFontPickerCtrl::GetValidator();
 
-    extern ::wxValidator* sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxValidator* sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxFontPickerCtrl::SetValidator(const ::wxValidator& validator)
@@ -405,9 +413,9 @@ void sipwxFontPickerCtrl::SetValidator(const ::wxValidator& validator)
         return;
     }
 
-    extern void sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
+    extern void sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
 
-    sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth, validator);
+    sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth, validator);
 }
 
 bool sipwxFontPickerCtrl::TransferDataFromWindow()
@@ -534,9 +542,9 @@ void sipwxFontPickerCtrl::OnInternalIdle()
     if (!sipMeth)
         return ::wxFontPickerCtrl::GetMainWindowOfCompositeControl();
 
-    extern ::wxWindow* sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxWindow* sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxFontPickerCtrl::DoEnable(bool enable)
@@ -552,9 +560,9 @@ void sipwxFontPickerCtrl::DoEnable(bool enable)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enable);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enable);
 }
 
 void sipwxFontPickerCtrl::DoGetPosition(int*x, int*y) const
@@ -570,9 +578,9 @@ void sipwxFontPickerCtrl::DoGetPosition(int*x, int*y) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, x, y);
 }
 
 void sipwxFontPickerCtrl::DoGetSize(int*width, int*height) const
@@ -588,9 +596,9 @@ void sipwxFontPickerCtrl::DoGetSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxFontPickerCtrl::DoGetClientSize(int*width, int*height) const
@@ -606,9 +614,9 @@ void sipwxFontPickerCtrl::DoGetClientSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxFontPickerCtrl::DoSetSize(int x, int y, int width, int height, int sizeFlags)
@@ -624,9 +632,9 @@ void sipwxFontPickerCtrl::DoSetSize(int x, int y, int width, int height, int siz
         return;
     }
 
-    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
+    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
 
-    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
+    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
 }
 
 void sipwxFontPickerCtrl::DoSetClientSize(int width, int height)
@@ -642,9 +650,9 @@ void sipwxFontPickerCtrl::DoSetClientSize(int width, int height)
         return;
     }
 
-    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
+    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
 
-    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxFontPickerCtrl::DoSetSizeHints(int minW, int minH, int maxW, int maxH, int incW, int incH)
@@ -660,9 +668,9 @@ void sipwxFontPickerCtrl::DoSetSizeHints(int minW, int minH, int maxW, int maxH,
         return;
     }
 
-    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
+    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
 
-    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
+    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
 }
 
 void sipwxFontPickerCtrl::DoMoveWindow(int x, int y, int width, int height)
@@ -678,9 +686,9 @@ void sipwxFontPickerCtrl::DoMoveWindow(int x, int y, int width, int height)
         return;
     }
 
-    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
+    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
 
-    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
+    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
 }
 
 void sipwxFontPickerCtrl::DoSetWindowVariant(::wxWindowVariant variant)
@@ -696,9 +704,9 @@ void sipwxFontPickerCtrl::DoSetWindowVariant(::wxWindowVariant variant)
         return;
     }
 
-    extern void sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
+    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
 
-    sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth, variant);
+    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, variant);
 }
 
 ::wxBorder sipwxFontPickerCtrl::GetDefaultBorder() const
@@ -711,24 +719,9 @@ void sipwxFontPickerCtrl::DoSetWindowVariant(::wxWindowVariant variant)
     if (!sipMeth)
         return ::wxFontPickerCtrl::GetDefaultBorder();
 
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxBorder sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
-}
-
-::wxBorder sipwxFontPickerCtrl::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxFontPickerCtrl::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxFontPickerCtrl::DoFreeze()
@@ -736,7 +729,7 @@ void sipwxFontPickerCtrl::DoFreeze()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -754,7 +747,7 @@ void sipwxFontPickerCtrl::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -772,7 +765,7 @@ void sipwxFontPickerCtrl::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxFontPickerCtrl::DoGetBestSize();
@@ -787,7 +780,7 @@ void sipwxFontPickerCtrl::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxFontPickerCtrl::DoGetBestClientSize();
@@ -802,7 +795,7 @@ void sipwxFontPickerCtrl::UpdatePickerFromTextCtrl()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[39], &sipPySelf, SIP_NULLPTR, sipName_UpdatePickerFromTextCtrl);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_UpdatePickerFromTextCtrl);
 
     if (!sipMeth)
     {
@@ -820,7 +813,7 @@ void sipwxFontPickerCtrl::UpdateTextCtrlFromPicker()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[40], &sipPySelf, SIP_NULLPTR, sipName_UpdateTextCtrlFromPicker);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[39], &sipPySelf, SIP_NULLPTR, sipName_UpdateTextCtrlFromPicker);
 
     if (!sipMeth)
     {
@@ -838,14 +831,14 @@ long sipwxFontPickerCtrl::GetTextCtrlStyle(long style) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[41]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetTextCtrlStyle);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[40]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetTextCtrlStyle);
 
     if (!sipMeth)
         return ::wxFontPickerCtrl::GetTextCtrlStyle(style);
 
-    extern long sipVH__core_180(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, long);
+    extern long sipVH__core_179(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, long);
 
-    return sipVH__core_180(sipGILState, 0, sipPySelf, sipMeth, style);
+    return sipVH__core_179(sipGILState, 0, sipPySelf, sipMeth, style);
 }
 
 long sipwxFontPickerCtrl::GetPickerStyle(long style) const
@@ -853,14 +846,14 @@ long sipwxFontPickerCtrl::GetPickerStyle(long style) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[42]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetPickerStyle);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[41]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetPickerStyle);
 
     if (!sipMeth)
         return ::wxFontPickerCtrl::GetPickerStyle(style);
 
-    extern long sipVH__core_180(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, long);
+    extern long sipVH__core_179(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, long);
 
-    return sipVH__core_180(sipGILState, 0, sipPySelf, sipMeth, style);
+    return sipVH__core_179(sipGILState, 0, sipPySelf, sipMeth, style);
 }
 
 void sipwxFontPickerCtrl::sipProtect_SendDestroyEvent()
@@ -946,11 +939,6 @@ void sipwxFontPickerCtrl::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, 
 ::wxBorder sipwxFontPickerCtrl::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxFontPickerCtrl::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxFontPickerCtrl::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxFontPickerCtrl::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxFontPickerCtrl::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -2695,40 +2683,6 @@ static PyObject *meth_wxFontPickerCtrl_GetDefaultBorder(PyObject *sipSelf, PyObj
 }
 
 
-PyDoc_STRVAR(doc_wxFontPickerCtrl_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxFontPickerCtrl_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxFontPickerCtrl_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxFontPickerCtrl *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxFontPickerCtrl, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_FontPickerCtrl, sipName_GetDefaultBorderForControl, doc_wxFontPickerCtrl_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxFontPickerCtrl_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxFontPickerCtrl_DoFreeze(PyObject *, PyObject *);}
@@ -2902,6 +2856,39 @@ static PyObject *meth_wxFontPickerCtrl_TryAfter(PyObject *sipSelf, PyObject *sip
     }
 
     sipNoMethod(sipParseErr, sipName_FontPickerCtrl, sipName_TryAfter, doc_wxFontPickerCtrl_TryAfter);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxFontPickerCtrl_CreateAccessible, "CreateAccessible() -> Accessible");
+
+extern "C" {static PyObject *meth_wxFontPickerCtrl_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxFontPickerCtrl_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxFontPickerCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxFontPickerCtrl, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxFontPickerCtrl_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_FontPickerCtrl, sipName_CreateAccessible, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -3157,7 +3144,7 @@ static void *init_type_wxFontPickerCtrl(sipSimpleWrapper *sipSelf, PyObject *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxFontPickerCtrl[] = {{418, 255, 1}};
+static sipEncodedTypeDef supers_wxFontPickerCtrl[] = {{426, 255, 1}};
 
 
 static PyMethodDef methods_wxFontPickerCtrl[] = {
@@ -3166,6 +3153,7 @@ static PyMethodDef methods_wxFontPickerCtrl[] = {
     {sipName_AcceptsFocusRecursively, meth_wxFontPickerCtrl_AcceptsFocusRecursively, METH_VARARGS, doc_wxFontPickerCtrl_AcceptsFocusRecursively},
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxFontPickerCtrl_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxFontPickerCtrl_AddChild},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxFontPickerCtrl_Create), METH_VARARGS|METH_KEYWORDS, doc_wxFontPickerCtrl_Create},
+    {sipName_CreateAccessible, meth_wxFontPickerCtrl_CreateAccessible, METH_VARARGS, doc_wxFontPickerCtrl_CreateAccessible},
     {sipName_Destroy, meth_wxFontPickerCtrl_Destroy, METH_VARARGS, doc_wxFontPickerCtrl_Destroy},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxFontPickerCtrl_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxFontPickerCtrl_DoEnable},
     {sipName_DoFreeze, meth_wxFontPickerCtrl_DoFreeze, METH_VARARGS, doc_wxFontPickerCtrl_DoFreeze},
@@ -3184,7 +3172,6 @@ static PyMethodDef methods_wxFontPickerCtrl[] = {
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxFontPickerCtrl_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxFontPickerCtrl_GetClassDefaultAttributes},
     {sipName_GetClientAreaOrigin, meth_wxFontPickerCtrl_GetClientAreaOrigin, METH_VARARGS, doc_wxFontPickerCtrl_GetClientAreaOrigin},
     {sipName_GetDefaultBorder, meth_wxFontPickerCtrl_GetDefaultBorder, METH_VARARGS, doc_wxFontPickerCtrl_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxFontPickerCtrl_GetDefaultBorderForControl, METH_VARARGS, doc_wxFontPickerCtrl_GetDefaultBorderForControl},
     {sipName_GetMainWindowOfCompositeControl, meth_wxFontPickerCtrl_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxFontPickerCtrl_GetMainWindowOfCompositeControl},
     {sipName_GetMaxPointSize, meth_wxFontPickerCtrl_GetMaxPointSize, METH_VARARGS, doc_wxFontPickerCtrl_GetMaxPointSize},
     {sipName_GetMinPointSize, meth_wxFontPickerCtrl_GetMinPointSize, METH_VARARGS, doc_wxFontPickerCtrl_GetMinPointSize},

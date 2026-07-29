@@ -1,4 +1,6 @@
+from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.utils.v1 import sensitive_pb2 as _sensitive_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -14,28 +16,47 @@ from typing import (
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class SecretScopeType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    SECRET_SCOPE_TYPE_UNSPECIFIED: _ClassVar[SecretScopeType]
+    SECRET_SCOPE_TYPE_ENVIRONMENT: _ClassVar[SecretScopeType]
+    SECRET_SCOPE_TYPE_SANDBOX: _ClassVar[SecretScopeType]
+    SECRET_SCOPE_TYPE_SCALING_GROUP: _ClassVar[SecretScopeType]
+    SECRET_SCOPE_TYPE_FUNCTION: _ClassVar[SecretScopeType]
+    SECRET_SCOPE_TYPE_NOTEBOOK: _ClassVar[SecretScopeType]
+
 class SecretSource(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     SECRET_SOURCE_UNSPECIFIED: _ClassVar[SecretSource]
     SECRET_SOURCE_MANAGED: _ClassVar[SecretSource]
     SECRET_SOURCE_EXTERNAL: _ClassVar[SecretSource]
 
+SECRET_SCOPE_TYPE_UNSPECIFIED: SecretScopeType
+SECRET_SCOPE_TYPE_ENVIRONMENT: SecretScopeType
+SECRET_SCOPE_TYPE_SANDBOX: SecretScopeType
+SECRET_SCOPE_TYPE_SCALING_GROUP: SecretScopeType
+SECRET_SCOPE_TYPE_FUNCTION: SecretScopeType
+SECRET_SCOPE_TYPE_NOTEBOOK: SecretScopeType
 SECRET_SOURCE_UNSPECIFIED: SecretSource
 SECRET_SOURCE_MANAGED: SecretSource
 SECRET_SOURCE_EXTERNAL: SecretSource
 
 class Secret(_message.Message):
-    __slots__ = ("id", "name", "updated_at", "integration_id", "source")
+    __slots__ = ("id", "name", "updated_at", "integration_id", "source", "scope", "granted_scopes")
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
     INTEGRATION_ID_FIELD_NUMBER: _ClassVar[int]
     SOURCE_FIELD_NUMBER: _ClassVar[int]
+    SCOPE_FIELD_NUMBER: _ClassVar[int]
+    GRANTED_SCOPES_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     updated_at: _timestamp_pb2.Timestamp
     integration_id: str
     source: SecretSource
+    scope: SecretScope
+    granted_scopes: _containers.RepeatedCompositeFieldContainer[SecretScope]
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -43,7 +64,17 @@ class Secret(_message.Message):
         updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         integration_id: _Optional[str] = ...,
         source: _Optional[_Union[SecretSource, str]] = ...,
+        scope: _Optional[_Union[SecretScope, _Mapping]] = ...,
+        granted_scopes: _Optional[_Iterable[_Union[SecretScope, _Mapping]]] = ...,
     ) -> None: ...
+
+class SecretScope(_message.Message):
+    __slots__ = ("type", "ref")
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    REF_FIELD_NUMBER: _ClassVar[int]
+    type: SecretScopeType
+    ref: str
+    def __init__(self, type: _Optional[_Union[SecretScopeType, str]] = ..., ref: _Optional[str] = ...) -> None: ...
 
 class SecretValue(_message.Message):
     __slots__ = ("name", "value", "source")
@@ -93,8 +124,10 @@ class SecretWithValue(_message.Message):
     ) -> None: ...
 
 class ListSecretsRequest(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("include_scoped",)
+    INCLUDE_SCOPED_FIELD_NUMBER: _ClassVar[int]
+    include_scoped: bool
+    def __init__(self, include_scoped: bool = ...) -> None: ...
 
 class ListSecretsResponse(_message.Message):
     __slots__ = ("secrets",)
@@ -115,18 +148,21 @@ class GetSecretValueResponse(_message.Message):
     def __init__(self, secret_value: _Optional[_Union[SecretValue, _Mapping]] = ...) -> None: ...
 
 class UpsertSecretRequest(_message.Message):
-    __slots__ = ("name", "value", "config")
+    __slots__ = ("name", "value", "config", "scope")
     NAME_FIELD_NUMBER: _ClassVar[int]
     VALUE_FIELD_NUMBER: _ClassVar[int]
     CONFIG_FIELD_NUMBER: _ClassVar[int]
+    SCOPE_FIELD_NUMBER: _ClassVar[int]
     name: str
     value: str
     config: SecretConfigValue
+    scope: SecretScope
     def __init__(
         self,
         name: _Optional[str] = ...,
         value: _Optional[str] = ...,
         config: _Optional[_Union[SecretConfigValue, _Mapping]] = ...,
+        scope: _Optional[_Union[SecretScope, _Mapping]] = ...,
     ) -> None: ...
 
 class UpsertSecretResponse(_message.Message):
@@ -136,10 +172,12 @@ class UpsertSecretResponse(_message.Message):
     def __init__(self, secrets: _Optional[_Iterable[_Union[Secret, _Mapping]]] = ...) -> None: ...
 
 class DeleteSecretRequest(_message.Message):
-    __slots__ = ("name",)
+    __slots__ = ("name", "scope")
     NAME_FIELD_NUMBER: _ClassVar[int]
+    SCOPE_FIELD_NUMBER: _ClassVar[int]
     name: str
-    def __init__(self, name: _Optional[str] = ...) -> None: ...
+    scope: SecretScope
+    def __init__(self, name: _Optional[str] = ..., scope: _Optional[_Union[SecretScope, _Mapping]] = ...) -> None: ...
 
 class DeleteSecretResponse(_message.Message):
     __slots__ = ("secrets",)

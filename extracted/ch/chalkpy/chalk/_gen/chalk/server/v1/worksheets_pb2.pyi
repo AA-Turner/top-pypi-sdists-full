@@ -192,7 +192,17 @@ class WorksheetContentInput(_message.Message):
     ) -> None: ...
 
 class WorksheetNode(_message.Message):
-    __slots__ = ("id", "space_id", "environment_id", "kind", "parent_node_id", "name", "state")
+    __slots__ = (
+        "id",
+        "space_id",
+        "environment_id",
+        "kind",
+        "parent_node_id",
+        "name",
+        "state",
+        "total_view_count",
+        "viewer_last_viewed_at",
+    )
     ID_FIELD_NUMBER: _ClassVar[int]
     SPACE_ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -200,6 +210,8 @@ class WorksheetNode(_message.Message):
     PARENT_NODE_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     STATE_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_VIEW_COUNT_FIELD_NUMBER: _ClassVar[int]
+    VIEWER_LAST_VIEWED_AT_FIELD_NUMBER: _ClassVar[int]
     id: str
     space_id: str
     environment_id: str
@@ -207,6 +219,8 @@ class WorksheetNode(_message.Message):
     parent_node_id: str
     name: str
     state: WorksheetNodeState
+    total_view_count: int
+    viewer_last_viewed_at: _timestamp_pb2.Timestamp
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -216,6 +230,8 @@ class WorksheetNode(_message.Message):
         parent_node_id: _Optional[str] = ...,
         name: _Optional[str] = ...,
         state: _Optional[_Union[WorksheetNodeState, str]] = ...,
+        total_view_count: _Optional[int] = ...,
+        viewer_last_viewed_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
 class WorksheetCommit(_message.Message):

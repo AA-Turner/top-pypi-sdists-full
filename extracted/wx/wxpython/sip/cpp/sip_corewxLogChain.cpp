@@ -316,7 +316,7 @@ static PyObject *meth_wxLogChain_DetachOldLog(PyObject *sipSelf, PyObject *sipAr
 PyDoc_STRVAR(doc_wxLogChain_GetOldLog, "GetOldLog() -> Log\n"
 "\n"
 "Returns the pointer to the previously active log target (which may be\n"
-"NULL).");
+"nullptr).");
 
 extern "C" {static PyObject *meth_wxLogChain_GetOldLog(PyObject *, PyObject *);}
 static PyObject *meth_wxLogChain_GetOldLog(PyObject *sipSelf, PyObject *sipArgs)
@@ -427,7 +427,7 @@ static PyObject *meth_wxLogChain_PassMessages(PyObject *sipSelf, PyObject *sipAr
 
 PyDoc_STRVAR(doc_wxLogChain_SetLog, "SetLog(logger) -> None\n"
 "\n"
-"Sets another log target to use (may be NULL).");
+"Sets another log target to use (may be nullptr).");
 
 extern "C" {static PyObject *meth_wxLogChain_SetLog(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxLogChain_SetLog(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -545,7 +545,7 @@ static void *init_type_wxLogChain(sipSimpleWrapper *sipSelf, PyObject *sipArgs, 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxLogChain[] = {{330, 255, 1}};
+static sipEncodedTypeDef supers_wxLogChain[] = {{337, 255, 1}};
 
 
 static PyMethodDef methods_wxLogChain[] = {

@@ -65,9 +65,9 @@ sipwxSpinEvent::~sipwxSpinEvent()
     if (!sipMeth)
         return ::wxSpinEvent::Clone();
 
-    extern ::wxEvent* sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEvent* sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxEventCategory sipwxSpinEvent::GetEventCategory() const
@@ -80,9 +80,9 @@ sipwxSpinEvent::~sipwxSpinEvent()
     if (!sipMeth)
         return ::wxSpinEvent::GetEventCategory();
 
-    extern ::wxEventCategory sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEventCategory sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
@@ -293,7 +293,7 @@ static void *init_type_wxSpinEvent(sipSimpleWrapper *sipSelf, PyObject *sipArgs,
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxSpinEvent[] = {{390, 255, 1}};
+static sipEncodedTypeDef supers_wxSpinEvent[] = {{398, 255, 1}};
 
 
 static PyMethodDef methods_wxSpinEvent[] = {

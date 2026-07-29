@@ -57,6 +57,8 @@ void wxMemoryDCImpl::DoSelect( const wxBitmap& bitmap )
     m_qtPixmap = bitmap.GetHandle();
     if ( bitmap.IsOk() && !m_qtPixmap->isNull() )
     {
+        m_contentScaleFactor = bitmap.GetScaleFactor();
+
         // apply mask before drawing
         wxMask *mask = bitmap.GetMask();
         if ( mask && mask->GetHandle() )
@@ -65,9 +67,31 @@ void wxMemoryDCImpl::DoSelect( const wxBitmap& bitmap )
         // start drawing on the intermediary device:
         m_ok = m_qtPainter->begin( m_qtPixmap );
 
+        if (m_qtPainter->device()->depth() > 1)
+        {
+            m_qtPainter->setRenderHints(QPainter::Antialiasing,
+                                        true);
+        }
+
         SetPen(m_pen);
         SetBrush(m_brush);
         SetFont(m_font);
+    }
+}
+
+void wxMemoryDCImpl::DoGetSize( int *width, int *height ) const
+{
+    if ( m_selected.IsOk() )
+    {
+        if ( width )
+            *width = m_selected.GetWidth();
+        if ( height )
+            *height = m_selected.GetHeight();
+    }
+    else
+    {
+        if ( width ) *width = 0;
+        if ( height ) *height = 0;
     }
 }
 
@@ -86,4 +110,23 @@ const wxBitmap& wxMemoryDCImpl::GetSelectedBitmap() const
 wxBitmap& wxMemoryDCImpl::GetSelectedBitmap()
 {
     return m_selected;
+}
+
+void wxMemoryDCImpl::SetLayoutDirection(wxLayoutDirection dir)
+{
+    const auto layoutDir = GetLayoutDirection();
+
+    if ( layoutDir != dir )
+    {
+        if ( layoutDir == wxLayout_RightToLeft || dir == wxLayout_RightToLeft )
+        {
+            int w;
+            GetSize(&w, nullptr);
+
+            m_qtPainter->translate(w, 0);
+            m_qtPainter->scale(-1, 1);
+        }
+
+        wxQtDCImpl::SetLayoutDirection(dir);
+    }
 }

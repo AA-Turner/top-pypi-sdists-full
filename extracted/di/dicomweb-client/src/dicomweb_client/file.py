@@ -2066,11 +2066,11 @@ class _DatabaseManager:
                 )
                 file_path = self.base_dir.joinpath(rel_file_path)
                 successes.append((ds, file_path, file_content))
-            except Exception as error:
-                logger.error(
+            except BaseException:
+                logger.exception(
                     f'failed to store instance "{ds.SOPInstanceUID}" '
                     f'of series "{ds.SeriesInstanceUID}" '
-                    f'of study "{ds.StudyInstanceUID}": {error}'
+                    f'of study "{ds.StudyInstanceUID}".'
                 )
                 failures.append(ds)
 
@@ -2778,14 +2778,14 @@ class DICOMfileClient:
         )
         try:
             for (
-                study_instance_uid,
+                _,
                 series_instance_uid,
             ) in self._db_manager.get_series_identifiers(
                 study_instance_uid=study_instance_uid
             ):
                 for (
-                    study_instance_uid,
-                    series_instance_uid,
+                    _,
+                    _,
                     sop_instance_uid,
                 ) in self._db_manager.get_instance_identifiers(
                     study_instance_uid=study_instance_uid,
@@ -3288,6 +3288,7 @@ class DICOMfileClient:
             sop_instance_uid=sop_instance_uid
         )
         url += '/metadata'
+        image_file_pointer = None
         try:
             file_path = self._db_manager.get_instance_file_path(
                 study_instance_uid,
@@ -3316,7 +3317,6 @@ class DICOMfileClient:
                 frame_index=frame_index,
                 transfer_syntax_uid=transfer_syntax_uid
             )
-            image_file_pointer.close()
 
             # TODO: ICC Profile
             codec_name, codec_kwargs = self._get_image_codec_parameters(
@@ -3358,6 +3358,9 @@ class DICOMfileClient:
                 url=url,
                 reason=str(error)
             )
+        finally:
+            if image_file_pointer is not None:
+                image_file_pointer.close()
 
     def _check_media_types_for_instance_frames(
         self,
@@ -3551,6 +3554,7 @@ class DICOMfileClient:
             sop_instance_uid=sop_instance_uid
         )
         url += '/frames'
+        image_file_pointer = None
         try:
             file_path = self._db_manager.get_instance_file_path(
                 study_instance_uid,
@@ -3641,8 +3645,6 @@ class DICOMfileClient:
                 else:
                     yield frame
 
-            image_file_pointer.close()
-
         except requests.HTTPError:
             raise
         except Exception as error:
@@ -3651,6 +3653,9 @@ class DICOMfileClient:
                 url=url,
                 reason=str(error)
             )
+        finally:
+            if image_file_pointer is not None:
+                image_file_pointer.close()
 
     def retrieve_instance_frames(
         self,
@@ -3695,6 +3700,7 @@ class DICOMfileClient:
             sop_instance_uid=sop_instance_uid
         )
         url += '/frames/{}'.format(','.join([str(n) for n in frame_numbers]))
+        image_file_pointer = None
         try:
             file_path = self._db_manager.get_instance_file_path(
                 study_instance_uid,
@@ -3785,7 +3791,6 @@ class DICOMfileClient:
                 else:
                     retrieved_frames.append(frame)
 
-            image_file_pointer.close()
             return retrieved_frames
 
         except requests.HTTPError:
@@ -3796,6 +3801,9 @@ class DICOMfileClient:
                 url=url,
                 reason=str(error)
             )
+        finally:
+            if image_file_pointer is not None:
+                image_file_pointer.close()
 
     def retrieve_instance_frames_rendered(
         self,
@@ -3851,6 +3859,7 @@ class DICOMfileClient:
         url += f'/frames/{frame_number}/rendered'
         if params is not None:
             url += build_query_string(params)
+        image_file_pointer = None
         try:
             file_path = self._db_manager.get_instance_file_path(
                 study_instance_uid,
@@ -3874,7 +3883,6 @@ class DICOMfileClient:
                 frame_index=frame_index,
                 transfer_syntax_uid=transfer_syntax_uid
             )
-            image_file_pointer.close()
 
             # TODO: ICC Profile
             codec_name, codec_kwargs = self._get_image_codec_parameters(
@@ -3918,6 +3926,9 @@ class DICOMfileClient:
                 url=url,
                 reason=str(error)
             )
+        finally:
+            if image_file_pointer is not None:
+                image_file_pointer.close()
 
     def _get_image_codec_parameters(
         self,

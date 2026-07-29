@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: PyXB-X
-Version: 1.2.6.3
+Version: 1.2.6.4
 Summary: PyXB-X ("pixbix") is a pure Python package that generates Python source code for classes that correspond to data structures defined by XMLSchema.
 Home-page: http://pyxb.sourceforge.net
 Author: Peter A. Bigot
@@ -22,6 +22,15 @@ Classifier: Programming Language :: Python :: 3.8
 Provides: PyXB
 License-File: LICENSE
 License-File: NOTICE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides
+Dynamic: summary
 
 PyXB is a pure `Python <http://www.python.org>`_ package that generates
 Python code for classes that correspond to data structures defined by

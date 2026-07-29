@@ -27,6 +27,7 @@ class Primitive(_message.Message):
         "timestamp_value",
         "arrow_schema",
         "arrow_field",
+        "arrow_type",
         "list_value",
         "unordered_dict_value",
     )
@@ -41,6 +42,7 @@ class Primitive(_message.Message):
     TIMESTAMP_VALUE_FIELD_NUMBER: _ClassVar[int]
     ARROW_SCHEMA_FIELD_NUMBER: _ClassVar[int]
     ARROW_FIELD_FIELD_NUMBER: _ClassVar[int]
+    ARROW_TYPE_FIELD_NUMBER: _ClassVar[int]
     LIST_VALUE_FIELD_NUMBER: _ClassVar[int]
     UNORDERED_DICT_VALUE_FIELD_NUMBER: _ClassVar[int]
     null_value: PrimitiveNullOpt
@@ -54,6 +56,7 @@ class Primitive(_message.Message):
     timestamp_value: _timestamp_pb2.Timestamp
     arrow_schema: _arrow_pb2.Schema
     arrow_field: _arrow_pb2.Field
+    arrow_type: _arrow_pb2.ArrowType
     list_value: PrimitiveList
     unordered_dict_value: PrimitiveUnorderedDict
     def __init__(
@@ -69,6 +72,7 @@ class Primitive(_message.Message):
         timestamp_value: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         arrow_schema: _Optional[_Union[_arrow_pb2.Schema, _Mapping]] = ...,
         arrow_field: _Optional[_Union[_arrow_pb2.Field, _Mapping]] = ...,
+        arrow_type: _Optional[_Union[_arrow_pb2.ArrowType, _Mapping]] = ...,
         list_value: _Optional[_Union[PrimitiveList, _Mapping]] = ...,
         unordered_dict_value: _Optional[_Union[PrimitiveUnorderedDict, _Mapping]] = ...,
     ) -> None: ...

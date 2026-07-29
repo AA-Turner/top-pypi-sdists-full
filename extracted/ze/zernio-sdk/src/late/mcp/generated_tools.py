@@ -2733,8 +2733,8 @@ def register_generated_tools(mcp, _get_client):
                 goal: Required on legacy and multi-creative shapes; the attach shape inherits it from the ad set. Available goals vary by platform.
 
         **Meta**
-        - `conversions`: OUTCOME_SALES. Requires `promotedObject.pixelId` and `promotedObject.customEventType` with a commerce event such as PURCHASE or START_TRIAL.
-        - `lead_conversion`: OUTCOME_LEADS optimizing website pixel leads. Same pixel and event fields, but with a leads-class event such as LEAD, SUBMIT_APPLICATION, SCHEDULE or CONTACT. Meta gates conversion events by objective, so leads-class events are rejected under `conversions`.
+        - `conversions`: OUTCOME_SALES. Requires `promotedObject.pixelId` and `promotedObject.customEventType` with a commerce event such as PURCHASE or START_TRIAL, or `promotedObject.customConversionId` to optimise against a Custom Conversion instead.
+        - `lead_conversion`: OUTCOME_LEADS optimizing website pixel leads. Same pixel and event fields, but with a leads-class event such as LEAD, SUBMIT_APPLICATION, SCHEDULE or CONTACT (or `promotedObject.customConversionId` to optimise against a Custom Conversion instead). Meta gates conversion events by objective, so leads-class events are rejected under `conversions`.
         - `lead_generation`: OUTCOME_LEADS with instant forms. Requires `leadGenFormId`. `promotedObject.pageId` is optional and auto-filled from the connected Page.
         - `app_promotion`: requires `promotedObject.applicationId` and `promotedObject.objectStoreUrl`.
         - `catalog_sales`: Advantage+ catalog ads, for example vehicle inventory. Requires `promotedObject.productSetId`, `promotedObject.pixelId` and `promotedObject.customEventType`. Builds a catalog TEMPLATE creative from the copy fields, which may carry template tags like {{product.name}} or {{vehicle.make}}. No imageUrl or video is sent; Meta renders the visuals per catalog item. Discover catalogs via GET /v1/ads/catalogs and product sets via GET /v1/ads/catalogs/{catalogId}/product-sets. Single shape only, no creatives[], adSetId, dynamicCreative or placementAssets.
@@ -2986,7 +2986,7 @@ def register_generated_tools(mcp, _get_client):
         Required for goals whose ad-set optimization_goal points at a specific
         event/page/app (without it Meta rejects the ad-set create with
         `error_subcode: 1815430` "Please select a promoted object for your ad set"):
-          - `goal: conversions` (OFFSITE_CONVERSIONS): requires `pixelId` + `customEventType`
+          - `goal: conversions` / `lead_conversion` (OFFSITE_CONVERSIONS): requires `pixelId` + `customEventType`, or `customConversionId` when optimising against a Custom Conversion (the conversion carries its own event definition)
           - `goal: app_promotion` (APP_INSTALLS): requires `applicationId` + `objectStoreUrl`
           - `goal: lead_generation` (LEAD_GENERATION): `pageId` is auto-filled from the connected Page when omitted
 
@@ -12366,6 +12366,7 @@ def register_generated_tools(mcp, _get_client):
         phone_numbers: list[str] | None,
         brand: dict[str, Any] | None = None,
         campaign: dict[str, Any] | None = None,
+        messaging_brand_name: str | None = None,
         wizard_values: dict[str, Any] | None = None,
         resubmit_request_id: str | None = None,
         toll_free: dict[str, Any] | None = None,
@@ -12384,6 +12385,7 @@ def register_generated_tools(mcp, _get_client):
         name the registered brand and carry the disclosures — submissions
         that don't are rewritten to the compliant template before the
         campaign is filed.
+                messaging_brand_name: DBA / trade name used to brand message content (samples and auto-replies) when it differs from the legal name, e.g. a sole proprietor texting under a business name. The legal `brand.displayName` is still what the carrier vets.
                 wizard_values: Raw dashboard-wizard answers, stored only to prefill edit-and-resubmit. API integrators can omit.
                 resubmit_request_id: Resubmit a registration that was returned for changes — updates it in place instead of creating a new one.
                 toll_free: Required for toll_free."""
@@ -12394,6 +12396,7 @@ def register_generated_tools(mcp, _get_client):
                 phone_numbers=phone_numbers,
                 brand=brand,
                 campaign=campaign,
+                messaging_brand_name=messaging_brand_name,
                 wizard_values=wizard_values,
                 resubmit_request_id=resubmit_request_id,
                 toll_free=toll_free,
@@ -12419,6 +12422,42 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.sms.list_sms_registrations(
                 include_deactivated=include_deactivated
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Pre-check a carrier registration",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def sms_preflight_sms_registration(
+        registration_type: str,
+        brand: dict[str, Any] | None,
+        campaign: dict[str, Any] | None,
+        phone_numbers: list[str] | None = None,
+        messaging_brand_name: str | None = None,
+    ) -> str:
+        """Pre-check a carrier registration
+
+        Args:
+            registration_type: (required)
+            phone_numbers
+            brand: Same shape as the registration `brand`. (required)
+            campaign: Same shape as the registration `campaign`. (required)
+            messaging_brand_name"""
+        client = _get_client()
+        try:
+            response = client.sms.preflight_sms_registration(
+                registration_type=registration_type,
+                phone_numbers=phone_numbers,
+                brand=brand,
+                campaign=campaign,
+                messaging_brand_name=messaging_brand_name,
             )
             return _format_response(response)
         except Exception as e:
@@ -12536,6 +12575,32 @@ def register_generated_tools(mcp, _get_client):
                 message_flow=message_flow,
                 sample1=sample1,
                 sample2=sample2,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Reply to a change request",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def sms_respond_to_sms_registration_review(
+        id: str, note: str | None = None, files: list[str] | None = None
+    ) -> str:
+        """Reply to a change request
+
+        Args:
+            id: (required)
+            note: Answer for the reviewer. Required when no files are sent.
+            files: Hosted document URLs returned by POST /v1/sms/opt-in-proof."""
+        client = _get_client()
+        try:
+            response = client.sms.respond_to_sms_registration_review(
+                id=id, note=note, files=files
             )
             return _format_response(response)
         except Exception as e:
@@ -13089,6 +13154,54 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.twitter_engagement.unfollow_user(
                 account_id=account_id, target_user_id=target_user_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Search recent tweets",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def twitter_engagement_search_tweets(
+        account_id: str,
+        query: str,
+        limit: int = 10,
+        since_id: str | None = None,
+        until_id: str | None = None,
+        start_time: str | None = None,
+        end_time: str | None = None,
+        cursor: str | None = None,
+        sort_order: str = "recency",
+    ) -> str:
+        """Search recent tweets
+
+        Args:
+            account_id: The social account ID (required)
+            query: X search query, max 512 characters. Operators are passed through unchanged; X rejects malformed queries with a 400. (required)
+            limit: Results per page. X requires a minimum of 10; values below 10 are rejected.
+            since_id: Only return tweets with an ID greater than (more recent than) this numeric tweet ID. Non-numeric values are rejected with 400.
+            until_id: Only return tweets with an ID less than (older than) this numeric tweet ID. Non-numeric values are rejected with 400.
+            start_time: Oldest UTC timestamp (ISO 8601, inclusive), within the last 7 days
+            end_time: Newest UTC timestamp (ISO 8601, exclusive), within the last 7 days
+            cursor: Pagination cursor from a previous response
+            sort_order"""
+        client = _get_client()
+        try:
+            response = client.twitter_engagement.search_tweets(
+                account_id=account_id,
+                query=query,
+                limit=limit,
+                since_id=since_id,
+                until_id=until_id,
+                start_time=start_time,
+                end_time=end_time,
+                cursor=cursor,
+                sort_order=sort_order,
             )
             return _format_response(response)
         except Exception as e:

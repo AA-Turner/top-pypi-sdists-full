@@ -971,7 +971,7 @@ class OperatorVerifier:
         """Extract role name from IAM role ARN."""
         try:
             if ":role/" in role_arn:
-                return role_arn.split(":role/")[-1]
+                return role_arn.rsplit(":role/", maxsplit=1)[-1]
             return None
         except (ValueError, IndexError):
             return None
@@ -982,7 +982,9 @@ class OperatorVerifier:
         """Extract role name from assumed role ARN."""
         try:
             if ":assumed-role/" in assumed_role_arn:
-                parts = assumed_role_arn.split(":assumed-role/")[-1].split("/")
+                parts = assumed_role_arn.rsplit(":assumed-role/", maxsplit=1)[-1].split(
+                    "/"
+                )
                 if len(parts) >= 1:
                     return parts[0]  # Role name is first part after assumed-role/
             return None

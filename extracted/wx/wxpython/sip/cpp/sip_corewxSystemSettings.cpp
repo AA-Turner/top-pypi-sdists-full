@@ -95,7 +95,7 @@ static PyObject *meth_wxSystemSettings_GetFont(PyObject *, PyObject *sipArgs, Py
 }
 
 
-PyDoc_STRVAR(doc_wxSystemSettings_GetMetric, "GetMetric(index, win=None) -> int\n"
+PyDoc_STRVAR(doc_wxSystemSettings_GetMetric, "GetMetric(index, win=nullptr) -> int\n"
 "\n"
 "Returns the value of a system metric, or -1 if the metric is not\n"
 "supported on the current system.");
@@ -107,7 +107,7 @@ static PyObject *meth_wxSystemSettings_GetMetric(PyObject *, PyObject *sipArgs, 
 
     {
         ::wxSystemMetric index;
-        ::wxWindow* win = 0;
+        ::wxWindow* win = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_index,

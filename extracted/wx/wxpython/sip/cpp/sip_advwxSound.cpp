@@ -477,7 +477,7 @@ static void *init_type_wxSound(sipSimpleWrapper *sipSelf, PyObject *sipArgs, PyO
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxSound[] = {{40, 0, 1}};
+static sipEncodedTypeDef supers_wxSound[] = {{41, 0, 1}};
 
 
 /* Define this type's Python slots. */

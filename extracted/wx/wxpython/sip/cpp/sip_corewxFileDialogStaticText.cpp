@@ -98,7 +98,7 @@ static void dealloc_wxFileDialogStaticText(sipSimpleWrapper *sipSelf)
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxFileDialogStaticText[] = {{171, 255, 1}};
+static sipEncodedTypeDef supers_wxFileDialogStaticText[] = {{179, 255, 1}};
 
 
 static PyMethodDef methods_wxFileDialogStaticText[] = {

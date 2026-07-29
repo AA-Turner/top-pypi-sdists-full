@@ -462,7 +462,7 @@ static void *init_type_wxBitmapBundleImpl(sipSimpleWrapper *sipSelf, PyObject *s
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxBitmapBundleImpl[] = {{477, 255, 1}};
+static sipEncodedTypeDef supers_wxBitmapBundleImpl[] = {{491, 255, 1}};
 
 
 static PyMethodDef methods_wxBitmapBundleImpl[] = {

@@ -1,5 +1,5 @@
 /* zconf.h -- configuration of the zlib compression library
- * Copyright (C) 1995-2016 Jean-loup Gailly, Mark Adler
+ * Copyright (C) 1995-2026 Jean-loup Gailly, Mark Adler
  * For conditions of distribution and use, see copyright notice in zlib.h
  */
 
@@ -8,8 +8,8 @@
 #ifndef ZCONF_H
 #define ZCONF_H
 
-#ifdef __APPLE__
-/* use wxWidgets' configure */
+/* use wxWidgets' configure results, notably HAVE_UNISTD_H */
+#if defined(__APPLE__) || defined(wxHAVE_SETUP_H)
 #include "wx/setup.h"
 #endif
 
@@ -22,15 +22,6 @@
 #if defined(Z_PREFIX_) && !defined(Z_PREFIX)
 #  define Z_PREFIX 1
 #endif
-
-/*
- * If you *really* need a unique prefix for all types and library functions,
- * compile with -DZ_PREFIX. The "standard" zlib should be compiled without it.
- * Even better than compiling with -DZ_PREFIX would be to use configure to set
- * this permanently in zconf.h using "./configure --zprefix".
- */
-#ifdef Z_PREFIX     /* may be set to #if 1 by ./configure */
-#  define Z_PREFIX_SET
 
 #define ZLIB_CONCAT2(x, y) x ## y
 #define ZLIB_CONCAT(x, y) ZLIB_CONCAT2(x, y)
@@ -51,6 +42,15 @@
  */
 #define Z_ADD_PREFIX_STD(name) ZLIB_CONCAT(z_, name)
 
+/*
+ * If you *really* need a unique prefix for all types and library functions,
+ * compile with -DZ_PREFIX. The "standard" zlib should be compiled without it.
+ * Even better than compiling with -DZ_PREFIX would be to use configure to set
+ * this permanently in zconf.h using "./configure --zprefix".
+ */
+#ifdef Z_PREFIX     /* may be set to #if 1 by ./configure */
+#  define Z_PREFIX_SET
+
 /* all linked symbols and init macros */
 #  define _dist_code            Z_ADD_PREFIX(_dist_code)
 #  define _length_code          Z_ADD_PREFIX(_length_code)
@@ -67,7 +67,10 @@
 #  ifndef Z_SOLO
 #    define compress              Z_ADD_PREFIX(compress)
 #    define compress2             Z_ADD_PREFIX(compress2)
+#    define compress_z            Z_ADD_PREFIX(compress_z)
+#    define compress2_z           Z_ADD_PREFIX(compress2_z)
 #    define compressBound         Z_ADD_PREFIX(compressBound)
+#    define compressBound_z       Z_ADD_PREFIX(compressBound_z)
 #  endif
 #  define crc32                 Z_ADD_PREFIX(crc32)
 #  define crc32_combine         Z_ADD_PREFIX(crc32_combine)
@@ -78,6 +81,7 @@
 #  define crc32_z               Z_ADD_PREFIX(crc32_z)
 #  define deflate               Z_ADD_PREFIX(deflate)
 #  define deflateBound          Z_ADD_PREFIX(deflateBound)
+#  define deflateBound_z        Z_ADD_PREFIX(deflateBound_z)
 #  define deflateCopy           Z_ADD_PREFIX(deflateCopy)
 #  define deflateEnd            Z_ADD_PREFIX(deflateEnd)
 #  define deflateGetDictionary  Z_ADD_PREFIX(deflateGetDictionary)
@@ -93,6 +97,7 @@
 #  define deflateSetDictionary  Z_ADD_PREFIX(deflateSetDictionary)
 #  define deflateSetHeader      Z_ADD_PREFIX(deflateSetHeader)
 #  define deflateTune           Z_ADD_PREFIX(deflateTune)
+#  define deflateUsed           Z_ADD_PREFIX(deflateUsed)
 #  define deflate_copyright     Z_ADD_PREFIX(deflate_copyright)
 #  define get_crc_table         Z_ADD_PREFIX(get_crc_table)
 #  ifndef Z_SOLO
@@ -162,9 +167,12 @@
 #  define inflate_copyright     Z_ADD_PREFIX(inflate_copyright)
 #  define inflate_fast          Z_ADD_PREFIX(inflate_fast)
 #  define inflate_table         Z_ADD_PREFIX(inflate_table)
+#  define inflate_fixed         Z_ADD_PREFIX(inflate_fixed)
 #  ifndef Z_SOLO
 #    define uncompress            Z_ADD_PREFIX(uncompress)
 #    define uncompress2           Z_ADD_PREFIX(uncompress2)
+#    define uncompress_z          Z_ADD_PREFIX(uncompress_z)
+#    define uncompress2_z         Z_ADD_PREFIX(uncompress2_z)
 #  endif
 #  define zError                Z_ADD_PREFIX(zError)
 #  ifndef Z_SOLO
@@ -202,6 +210,7 @@
 
 /* variable from zutil.h */
 #  define z_errmsg              Z_ADD_PREFIX(z_errmsg)
+
 #endif
 
 #if defined(__MSDOS__) && !defined(MSDOS)
@@ -270,14 +279,20 @@
 #  endif
 #endif
 
-#if defined(ZLIB_CONST) && !defined(z_const)
-#  define z_const const
-#else
-#  define z_const
+#ifndef z_const
+#  ifdef ZLIB_CONST
+#    define z_const const
+#  else
+#    define z_const
+#  endif
 #endif
 
 #ifdef Z_SOLO
-   typedef unsigned long z_size_t;
+#  ifdef _WIN64
+     typedef unsigned long long z_size_t;
+#  else
+     typedef unsigned long z_size_t;
+#  endif
 #else
 #  define z_longlong long long
 #  if defined(NO_SIZE_T)
@@ -329,14 +344,6 @@
 #    define OF(args)  args
 #  else
 #    define OF(args)  ()
-#  endif
-#endif
-
-#ifndef Z_ARG /* function prototypes for stdarg */
-#  if defined(STDC) || defined(Z_HAVE_STDARG_H)
-#    define Z_ARG(args)  args
-#  else
-#    define Z_ARG(args)  ()
 #  endif
 #endif
 
@@ -473,12 +480,16 @@ typedef uLong FAR uLongf;
    typedef unsigned long z_crc_t;
 #endif
 
-#ifdef HAVE_UNISTD_H    /* may be set to #if 1 by ./configure */
+#ifdef HAVE_UNISTD_H
+#if HAVE_UNISTD_H-0     /* may be set to #if 1 by ./configure */
 #  define Z_HAVE_UNISTD_H
 #endif
+#endif
 
-#ifdef HAVE_STDARG_H    /* may be set to #if 1 by ./configure */
+#ifdef HAVE_STDARG_H
+#if HAVE_STDARG_H-0     /* may be set to #if 1 by ./configure */
 #  define Z_HAVE_STDARG_H
+#endif
 #endif
 
 #ifdef STDC
@@ -510,12 +521,8 @@ typedef uLong FAR uLongf;
 #endif
 
 #ifndef Z_HAVE_UNISTD_H
-#  ifdef __WATCOMC__
-#    define Z_HAVE_UNISTD_H
-#  endif
-#endif
-#ifndef Z_HAVE_UNISTD_H
-#  if defined(_LARGEFILE64_SOURCE) && !defined(_WIN32)
+#  if defined(__WATCOMC__) || defined(__GO32__) || \
+      (defined(_LARGEFILE64_SOURCE) && !defined(_WIN32))
 #    define Z_HAVE_UNISTD_H
 #  endif
 #endif
@@ -554,6 +561,8 @@ typedef uLong FAR uLongf;
 #  define adler32_combine       Z_ADD_PREFIX_STD(adler32_combine)
 #  undef crc32_combine
 #  define crc32_combine         Z_ADD_PREFIX_STD(crc32_combine)
+#  undef crc32_combine_gen
+#  define crc32_combine_gen     Z_ADD_PREFIX_STD(crc32_combine_gen)
 #  ifndef Z_SOLO
 #    undef gzoffset
 #    define gzoffset              Z_ADD_PREFIX_STD(gzoffset)
@@ -573,17 +582,19 @@ typedef uLong FAR uLongf;
 #endif
 
 #ifndef z_off_t
-#  define z_off_t long
+#  define z_off_t long long
 #endif
 
 #if !defined(_WIN32) && defined(Z_LARGE64)
 #  define z_off64_t off64_t
+#elif defined(__MINGW32__)
+#  define z_off64_t long long
+#elif defined(_WIN32) && !defined(__GNUC__)
+#  define z_off64_t __int64
+#elif defined(__GO32__)
+#  define z_off64_t offset_t
 #else
-#  if defined(_WIN32) && !defined(__GNUC__) && !defined(Z_SOLO)
-#    define z_off64_t __int64
-#  else
-#    define z_off64_t z_off_t
-#  endif
+#  define z_off64_t z_off_t
 #endif
 
 /* MVS linker does not support external names larger than 8 bytes */

@@ -2,7 +2,6 @@
 // Name:        event.cpp
 // Purpose:     wxWidgets sample demonstrating different event usage
 // Author:      Vadim Zeitlin
-// Modified by:
 // Created:     31.01.01
 // Copyright:   (c) 2001-2009 Vadim Zeitlin
 // Licence:     wxWindows licence
@@ -48,7 +47,7 @@ wxDEFINE_EVENT(wxEVT_MY_CUSTOM_COMMAND, wxCommandEvent);
     DECLARE_EVENT_TABLE_ENTRY( \
         wxEVT_MY_CUSTOM_COMMAND, id, wxID_ANY, \
         wxCommandEventHandler(fn), \
-        (wxObject *) NULL \
+        nullptr \
     ),
 
 // ----------------------------------------------------------------------------
@@ -65,7 +64,7 @@ public:
     // this one is called on application startup and is a good place for the app
     // initialization (doing it here and not in the ctor allows to have an error
     // return: if OnInit() returns false, the application terminates)
-    virtual bool OnInit() wxOVERRIDE;
+    virtual bool OnInit() override;
 
     // these are regular event handlers used to highlight the events handling
     // order
@@ -74,7 +73,7 @@ public:
 
     // we override wxAppConsole::FilterEvent used to highlight the events
     // handling order
-    virtual int FilterEvent(wxEvent& event) wxOVERRIDE;
+    virtual int FilterEvent(wxEvent& event) override;
 
 private:
     wxDECLARE_EVENT_TABLE();
@@ -142,6 +141,9 @@ public:
     void OnClickDynamicHandlerButton(wxCommandEvent& event);
     void OnClickStaticHandlerFrame(wxCommandEvent& event);
 
+    // Mouse
+    void OnMouseEvents(wxCommandEvent& event);
+
     // Gesture
     void OnGesture(wxCommandEvent& event);
 
@@ -183,6 +185,7 @@ private:
     MyEvtTestButton *m_testBtn;
 
     wxWindowRef m_gestureFrame;
+    wxWindowRef m_mouseFrame;
 
 
     // any class wishing to process wxWidgets events must use this macro
@@ -228,6 +231,7 @@ enum
     Event_Custom,
     Event_Test,
     Event_Gesture,
+    Event_Mouse,
     Event_NewEventClass
 };
 
@@ -261,6 +265,7 @@ wxBEGIN_EVENT_TABLE(MyFrame, wxFrame)
     EVT_MENU(Event_Push, MyFrame::OnPushEventHandler)
     EVT_MENU(Event_Pop, MyFrame::OnPopEventHandler)
     EVT_MENU(Event_Gesture, MyFrame::OnGesture)
+    EVT_MENU(Event_Mouse, MyFrame::OnMouseEvents)
     EVT_MENU(Event_NewEventClass, MyFrame::OnNewEventClass)
 
     EVT_UPDATE_UI(Event_Pop, MyFrame::OnUpdateUIPop)
@@ -359,13 +364,13 @@ void MyApp::OnClickStaticHandlerApp(wxCommandEvent& event)
 
 // frame constructor
 MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
-       : wxFrame(NULL, wxID_ANY, title, pos, size)
+       : wxFrame(nullptr, wxID_ANY, title, pos, size)
 {
     SetIcon(wxICON(sample));
 
     // init members
     m_nPush = 0;
-    m_btnDynamic = NULL;
+    m_btnDynamic = nullptr;
 
     // create a menu bar
     wxMenu *menuFile = new wxMenu;
@@ -393,6 +398,8 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
                       "Generate a custom event");
     menuEvent->Append(Event_Gesture, "&Gesture events\tCtrl-G",
                     "Gesture event");
+    menuEvent->Append(Event_Mouse, "&Mouse events\tCtrl-M",
+                    "Mouse event");
     menuEvent->Append(Event_NewEventClass, "&New wxEvent class demo\tCtrl-N",
                     "Demonstrates a new wxEvent-derived class");
 
@@ -460,6 +467,10 @@ void MyFrame::OnQuit(wxCommandEvent& WXUNUSED(event))
 {
     if ( m_gestureFrame )
         m_gestureFrame->Close(true);
+
+    if ( m_mouseFrame )
+        m_mouseFrame->Close(true);
+
     Close(true);
 }
 
@@ -593,6 +604,19 @@ void MyFrame::OnGesture(wxCommandEvent& WXUNUSED(event))
     {
         m_gestureFrame = new MyGestureFrame();
         m_gestureFrame->Show(true);
+    }
+}
+
+void MyFrame::OnMouseEvents(wxCommandEvent& WXUNUSED(event))
+{
+    if ( m_mouseFrame )
+    {
+        m_mouseFrame->Raise();
+    }
+    else
+    {
+        m_mouseFrame = new MyMouseFrame();
+        m_mouseFrame->Show(true);
     }
 }
 

@@ -827,7 +827,7 @@ static void *init_type_wxBrush(sipSimpleWrapper *, PyObject *sipArgs, PyObject *
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxBrush[] = {{226, 255, 1}};
+static sipEncodedTypeDef supers_wxBrush[] = {{234, 255, 1}};
 
 
 /* Define this type's Python slots. */

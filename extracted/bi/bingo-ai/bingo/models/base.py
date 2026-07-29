@@ -150,16 +150,26 @@ class BaseModel:
             if isinstance(item, dict):
                 role = str(item.get("role", "user"))
                 content = item.get("content", "")
+                tool_call_id = item.get("tool_call_id")
+                tool_calls = item.get("tool_calls")
+                name = item.get("name")
             else:
                 role = str(item.role)
                 content = item.content
+                tool_call_id = getattr(item, "tool_call_id", None)
+                tool_calls = getattr(item, "tool_calls", None)
+                name = getattr(item, "name", None)
             if isinstance(content, list):
                 content = "".join(
                     str(block.get("text", "")) if isinstance(block, dict) else str(block)
                     for block in content
                 )
-            if role in ("system", "user", "assistant") and content:
-                normalized.append(Message(role=role, content=str(content)))
+            if role in ("system", "user", "assistant", "tool"):
+                msg = Message(role=role, content=str(content) if content else "")
+                msg.tool_call_id = tool_call_id
+                msg.tool_calls = tool_calls
+                msg.name = name
+                normalized.append(msg)
         return normalized
 
     def _failure_from_response(
@@ -453,7 +463,17 @@ class BaseModel:
             if system:
                 msgs.append({"role": "system", "content": system})
         for message in normalized:
-            if message.content:
+            if message.role == "tool":
+                msgs.append({
+                    "role": "tool",
+                    "tool_call_id": message.tool_call_id or "",
+                    "content": message.content or "",
+                })
+            elif message.role == "assistant" and message.tool_calls:
+                msg_dict = {"role": "assistant", "content": message.content or None}
+                msg_dict["tool_calls"] = message.tool_calls
+                msgs.append(msg_dict)
+            elif message.content:
                 msgs.append({"role": message.role, "content": message.content})
 
         payload = {
@@ -469,19 +489,9 @@ class BaseModel:
             payload["tools"] = to_openai_format(tools)
             payload["tool_choice"] = "auto"
 
-        # DeepSeek V4 Pro 특화 파라미터
         if self.config.provider == "deepseek":
             payload["temperature"] = min(self.config.temperature, 0.6)
-            # ── DeepSeek Prompt Prefix Caching ──────────────────────────────
-            # DeepSeek supports server-side prefix caching:
-            # The first N tokens of a repeated prefix are served from cache
-            # at ~10% of the normal token price.
-            # Enabling this flag tells the API to match and reuse the cached prefix.
             payload["prefix_caching"] = True
-
-        # OpenAI: automatic prompt cache (no explicit param needed).
-        # Messages are already structured so the static system prompt
-        # always comes first → maximizes automatic cache hit ratio.
 
         return payload
 

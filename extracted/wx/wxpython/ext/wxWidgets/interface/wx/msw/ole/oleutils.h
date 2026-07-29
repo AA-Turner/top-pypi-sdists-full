@@ -253,7 +253,7 @@ public:
     range.PutProperty("Value", wxVariant(new wxVariantDataSafeArray(safeArray.Detach())));
     @endcode
 
-    If you want to receive a @c SAFEARRAY in a wxVariant as a result of an wxAutomationObject
+    If you want to receive a @c SAFEARRAY in a wxVariant as a result of a wxAutomationObject
     call:
         -# Call wxAutomationObject::SetConvertVariantFlags() with parameter
            ::wxOleConvertVariant_ReturnSafeArrays (otherwise the data would be
@@ -331,7 +331,7 @@ public:
     /**
         Constructor initializes the object to @a value.
     */
-    explicit wxVariantDataSafeArray(SAFEARRAY* value = NULL);
+    explicit wxVariantDataSafeArray(SAFEARRAY* value = nullptr);
 
     /**
         Returns the stored array.

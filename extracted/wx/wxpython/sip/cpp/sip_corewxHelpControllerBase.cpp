@@ -85,9 +85,9 @@ void sipwxHelpControllerBase::SetViewer(const ::wxString& viewer, long flags)
         return;
     }
 
-    extern void sipVH__core_204(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, long);
+    extern void sipVH__core_203(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, long);
 
-    sipVH__core_204(sipGILState, 0, sipPySelf, sipMeth, viewer, flags);
+    sipVH__core_203(sipGILState, 0, sipPySelf, sipMeth, viewer, flags);
 }
 
 void sipwxHelpControllerBase::SetParentWindow(::wxWindow*parentWindow)
@@ -103,9 +103,9 @@ void sipwxHelpControllerBase::SetParentWindow(::wxWindow*parentWindow)
         return;
     }
 
-    extern void sipVH__core_138(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*);
+    extern void sipVH__core_137(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*);
 
-    sipVH__core_138(sipGILState, 0, sipPySelf, sipMeth, parentWindow);
+    sipVH__core_137(sipGILState, 0, sipPySelf, sipMeth, parentWindow);
 }
 
 void sipwxHelpControllerBase::SetFrameParameters(const ::wxString& titleFormat, const ::wxSize& size, const ::wxPoint& pos, bool newFrameEachTime)
@@ -121,9 +121,9 @@ void sipwxHelpControllerBase::SetFrameParameters(const ::wxString& titleFormat, 
         return;
     }
 
-    extern void sipVH__core_203(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, const ::wxSize&, const ::wxPoint&, bool);
+    extern void sipVH__core_202(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, const ::wxSize&, const ::wxPoint&, bool);
 
-    sipVH__core_203(sipGILState, 0, sipPySelf, sipMeth, titleFormat, size, pos, newFrameEachTime);
+    sipVH__core_202(sipGILState, 0, sipPySelf, sipMeth, titleFormat, size, pos, newFrameEachTime);
 }
 
 bool sipwxHelpControllerBase::Quit()
@@ -184,9 +184,9 @@ bool sipwxHelpControllerBase::KeywordSearch(const ::wxString& keyWord, ::wxHelpS
     if (!sipMeth)
         return 0;
 
-    extern bool sipVH__core_202(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, ::wxHelpSearchMode);
+    extern bool sipVH__core_201(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, ::wxHelpSearchMode);
 
-    return sipVH__core_202(sipGILState, 0, sipPySelf, sipMeth, keyWord, mode);
+    return sipVH__core_201(sipGILState, 0, sipPySelf, sipMeth, keyWord, mode);
 }
 
 bool sipwxHelpControllerBase::Initialize(const ::wxString& file)
@@ -214,9 +214,9 @@ bool sipwxHelpControllerBase::Initialize(const ::wxString& file)
     if (!sipMeth)
         return ::wxHelpControllerBase::GetParentWindow();
 
-    extern ::wxWindow* sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxWindow* sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxFrame* sipwxHelpControllerBase::GetFrameParameters(::wxSize*size, ::wxPoint*pos, bool*newFrameEachTime)
@@ -229,9 +229,9 @@ bool sipwxHelpControllerBase::Initialize(const ::wxString& file)
     if (!sipMeth)
         return ::wxHelpControllerBase::GetFrameParameters(size, pos, newFrameEachTime);
 
-    extern ::wxFrame* sipVH__core_201(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxSize*, ::wxPoint*, bool*);
+    extern ::wxFrame* sipVH__core_200(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxSize*, ::wxPoint*, bool*);
 
-    return sipVH__core_201(sipGILState, 0, sipPySelf, sipMeth, size, pos, newFrameEachTime);
+    return sipVH__core_200(sipGILState, 0, sipPySelf, sipMeth, size, pos, newFrameEachTime);
 }
 
 bool sipwxHelpControllerBase::DisplayTextPopup(const ::wxString& text, const ::wxPoint& pos)
@@ -244,9 +244,9 @@ bool sipwxHelpControllerBase::DisplayTextPopup(const ::wxString& text, const ::w
     if (!sipMeth)
         return ::wxHelpControllerBase::DisplayTextPopup(text, pos);
 
-    extern bool sipVH__core_200(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, const ::wxPoint&);
+    extern bool sipVH__core_199(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, const ::wxPoint&);
 
-    return sipVH__core_200(sipGILState, 0, sipPySelf, sipMeth, text, pos);
+    return sipVH__core_199(sipGILState, 0, sipPySelf, sipMeth, text, pos);
 }
 
 bool sipwxHelpControllerBase::DisplaySection(int sectionNo)
@@ -259,9 +259,9 @@ bool sipwxHelpControllerBase::DisplaySection(int sectionNo)
     if (!sipMeth)
         return 0;
 
-    extern bool sipVH__core_147(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern bool sipVH__core_146(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    return sipVH__core_147(sipGILState, 0, sipPySelf, sipMeth, sectionNo);
+    return sipVH__core_146(sipGILState, 0, sipPySelf, sipMeth, sectionNo);
 }
 
 bool sipwxHelpControllerBase::DisplaySection(const ::wxString& section)
@@ -289,9 +289,9 @@ bool sipwxHelpControllerBase::DisplayContextPopup(int contextId)
     if (!sipMeth)
         return ::wxHelpControllerBase::DisplayContextPopup(contextId);
 
-    extern bool sipVH__core_147(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern bool sipVH__core_146(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    return sipVH__core_147(sipGILState, 0, sipPySelf, sipMeth, contextId);
+    return sipVH__core_146(sipGILState, 0, sipPySelf, sipMeth, contextId);
 }
 
 bool sipwxHelpControllerBase::DisplayContents()
@@ -319,9 +319,9 @@ bool sipwxHelpControllerBase::DisplayBlock(long blockNo)
     if (!sipMeth)
         return 0;
 
-    extern bool sipVH__core_116(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, long);
+    extern bool sipVH__core_115(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, long);
 
-    return sipVH__core_116(sipGILState, 0, sipPySelf, sipMeth, blockNo);
+    return sipVH__core_115(sipGILState, 0, sipPySelf, sipMeth, blockNo);
 }
 
 
@@ -1073,7 +1073,7 @@ static void *init_type_wxHelpControllerBase(sipSimpleWrapper *sipSelf, PyObject 
     sipwxHelpControllerBase *sipCpp = SIP_NULLPTR;
 
     {
-        ::wxWindow* parentWindow = 0;
+        ::wxWindow* parentWindow = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_parentWindow,
@@ -1119,7 +1119,7 @@ static void *init_type_wxHelpControllerBase(sipSimpleWrapper *sipSelf, PyObject 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxHelpControllerBase[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxHelpControllerBase[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxHelpControllerBase[] = {
@@ -1145,7 +1145,7 @@ sipVariableDef variables_wxHelpControllerBase[] = {
     {PropertyVariable, sipName_FrameParameters, &methods_wxHelpControllerBase[5], &methods_wxHelpControllerBase[12], SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxHelpControllerBase, "HelpControllerBase(parentWindow=None) -> None\n"
+PyDoc_STRVAR(doc_wxHelpControllerBase, "HelpControllerBase(parentWindow=nullptr) -> None\n"
 "\n"
 "This is the abstract base class a family of classes by which\n"
 "applications may invoke a help viewer to provide on-line help.");

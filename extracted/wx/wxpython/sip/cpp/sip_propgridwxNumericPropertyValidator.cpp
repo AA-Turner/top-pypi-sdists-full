@@ -75,9 +75,9 @@ bool sipwxNumericPropertyValidator::TryAfter(::wxEvent& event)
     if (!sipMeth)
         return ::wxNumericPropertyValidator::TryAfter(event);
 
-    extern bool sipVH__propgrid_49(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__propgrid_48(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__propgrid_49(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__propgrid_48(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxNumericPropertyValidator::TryBefore(::wxEvent& event)
@@ -90,9 +90,9 @@ bool sipwxNumericPropertyValidator::TryBefore(::wxEvent& event)
     if (!sipMeth)
         return ::wxNumericPropertyValidator::TryBefore(event);
 
-    extern bool sipVH__propgrid_49(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__propgrid_48(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__propgrid_49(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__propgrid_48(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxNumericPropertyValidator::ProcessEvent(::wxEvent& event)
@@ -105,9 +105,9 @@ bool sipwxNumericPropertyValidator::ProcessEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxNumericPropertyValidator::ProcessEvent(event);
 
-    extern bool sipVH__propgrid_49(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__propgrid_48(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__propgrid_49(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__propgrid_48(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 ::wxObject* sipwxNumericPropertyValidator::Clone() const
@@ -120,9 +120,9 @@ bool sipwxNumericPropertyValidator::ProcessEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxNumericPropertyValidator::Clone();
 
-    extern ::wxObject* sipVH__propgrid_70(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxObject* sipVH__propgrid_69(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_70(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_69(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxNumericPropertyValidator::SetWindow(::wxWindow*window)
@@ -138,9 +138,9 @@ void sipwxNumericPropertyValidator::SetWindow(::wxWindow*window)
         return;
     }
 
-    extern void sipVH__propgrid_69(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*);
+    extern void sipVH__propgrid_68(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*);
 
-    sipVH__propgrid_69(sipGILState, 0, sipPySelf, sipMeth, window);
+    sipVH__propgrid_68(sipGILState, 0, sipPySelf, sipMeth, window);
 }
 
 bool sipwxNumericPropertyValidator::TransferFromWindow()
@@ -153,9 +153,9 @@ bool sipwxNumericPropertyValidator::TransferFromWindow()
     if (!sipMeth)
         return ::wxNumericPropertyValidator::TransferFromWindow();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxNumericPropertyValidator::TransferToWindow()
@@ -168,9 +168,9 @@ bool sipwxNumericPropertyValidator::TransferToWindow()
     if (!sipMeth)
         return ::wxNumericPropertyValidator::TransferToWindow();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxNumericPropertyValidator::Validate(::wxWindow*parent)
@@ -183,9 +183,9 @@ bool sipwxNumericPropertyValidator::Validate(::wxWindow*parent)
     if (!sipMeth)
         return ::wxNumericPropertyValidator::Validate(parent);
 
-    extern bool sipVH__propgrid_63(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*);
+    extern bool sipVH__propgrid_62(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*);
 
-    return sipVH__propgrid_63(sipGILState, 0, sipPySelf, sipMeth, parent);
+    return sipVH__propgrid_62(sipGILState, 0, sipPySelf, sipMeth, parent);
 }
 
 bool sipwxNumericPropertyValidator::sipProtectVirt_TryBefore(bool sipSelfWasArg, ::wxEvent& event)
@@ -407,7 +407,7 @@ static void *init_type_wxNumericPropertyValidator(sipSimpleWrapper *sipSelf, PyO
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxNumericPropertyValidator[] = {{36, 0, 1}};
+static sipEncodedTypeDef supers_wxNumericPropertyValidator[] = {{38, 0, 1}};
 
 
 static PyMethodDef methods_wxNumericPropertyValidator[] = {

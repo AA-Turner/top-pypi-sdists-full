@@ -755,7 +755,7 @@ def extract_versions_from_image_name(image_name: str) -> Tuple[str, str]:
         The (python version, ray version), e.g. ("py38", "1.11.1")
     """
     # e.g. 1.11.1-py32-gpu
-    image_version = image_name.split(":")[-1]
+    image_version = image_name.rsplit(":", maxsplit=1)[-1]
     parts = image_version.split("-")
     # e.g. 1.11.1
 

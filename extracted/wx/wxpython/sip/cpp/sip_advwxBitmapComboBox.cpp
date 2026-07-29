@@ -14,21 +14,22 @@
         #include <wx/gdicmn.h>
         #include <wx/validate.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/bmpbndl.h>
         #include <wx/bitmap.h>
         #include <wx/dc.h>
         #include <wx/event.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -45,6 +46,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/textcompleter.h>
+    wxAccessible* _wxBitmapComboBox_CreateAccessible(wxBitmapComboBox* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
     void _wxBitmapComboBox_SetTextSelection(wxBitmapComboBox* self, long from_, long to_)
     {
         self->SetSelection(from_, to_);
@@ -76,7 +86,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -109,7 +118,6 @@ protected:
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
@@ -152,7 +160,7 @@ private:
     sipwxBitmapComboBox(const sipwxBitmapComboBox &);
     sipwxBitmapComboBox &operator = (const sipwxBitmapComboBox &);
 
-    char sipPyMethods[56];
+    char sipPyMethods[55];
 };
 
 sipwxBitmapComboBox::sipwxBitmapComboBox(): ::wxBitmapComboBox(), sipPySelf(SIP_NULLPTR)
@@ -517,27 +525,12 @@ void sipwxBitmapComboBox::DoFreeze()
     sipVH__adv_4(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxBitmapComboBox::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[21]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxBitmapComboBox::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__adv_25(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__adv_25(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 ::wxBorder sipwxBitmapComboBox::GetDefaultBorder() const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[22]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[21]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
 
     if (!sipMeth)
         return ::wxBitmapComboBox::GetDefaultBorder();
@@ -552,7 +545,7 @@ void sipwxBitmapComboBox::DoSetWindowVariant(::wxWindowVariant variant)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[22], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
 
     if (!sipMeth)
     {
@@ -570,7 +563,7 @@ void sipwxBitmapComboBox::DoMoveWindow(int x, int y, int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[24], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
 
     if (!sipMeth)
     {
@@ -588,7 +581,7 @@ void sipwxBitmapComboBox::DoSetSizeHints(int minW, int minH, int maxW, int maxH,
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[25], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[24], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
 
     if (!sipMeth)
     {
@@ -606,7 +599,7 @@ void sipwxBitmapComboBox::DoSetClientSize(int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[26], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[25], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
 
     if (!sipMeth)
     {
@@ -624,7 +617,7 @@ void sipwxBitmapComboBox::DoSetSize(int x, int y, int width, int height, int siz
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[27], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[26], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
 
     if (!sipMeth)
     {
@@ -642,7 +635,7 @@ void sipwxBitmapComboBox::DoGetClientSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[28]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[27]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
 
     if (!sipMeth)
     {
@@ -660,7 +653,7 @@ void sipwxBitmapComboBox::DoGetSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[29]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[28]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
 
     if (!sipMeth)
     {
@@ -678,7 +671,7 @@ void sipwxBitmapComboBox::DoGetPosition(int*x, int*y) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[30]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[29]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
 
     if (!sipMeth)
     {
@@ -696,7 +689,7 @@ void sipwxBitmapComboBox::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[31], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[30], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
 
     if (!sipMeth)
     {
@@ -714,7 +707,7 @@ void sipwxBitmapComboBox::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[32], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[31], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
 
     if (!sipMeth)
         return ::wxBitmapComboBox::GetMainWindowOfCompositeControl();
@@ -729,7 +722,7 @@ void sipwxBitmapComboBox::OnInternalIdle()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[33], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[32], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
 
     if (!sipMeth)
     {
@@ -747,7 +740,7 @@ void sipwxBitmapComboBox::InitDialog()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[33], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
 
     if (!sipMeth)
     {
@@ -765,7 +758,7 @@ void sipwxBitmapComboBox::InheritAttributes()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
 
     if (!sipMeth)
     {
@@ -783,7 +776,7 @@ bool sipwxBitmapComboBox::Destroy()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
 
     if (!sipMeth)
         return ::wxBitmapComboBox::Destroy();
@@ -798,7 +791,7 @@ bool sipwxBitmapComboBox::Validate()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_Validate);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_Validate);
 
     if (!sipMeth)
         return ::wxBitmapComboBox::Validate();
@@ -813,7 +806,7 @@ bool sipwxBitmapComboBox::TransferDataToWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
 
     if (!sipMeth)
         return ::wxBitmapComboBox::TransferDataToWindow();
@@ -828,7 +821,7 @@ bool sipwxBitmapComboBox::TransferDataFromWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[39], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
 
     if (!sipMeth)
         return ::wxBitmapComboBox::TransferDataFromWindow();
@@ -843,7 +836,7 @@ void sipwxBitmapComboBox::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[40], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[39], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
 
     if (!sipMeth)
     {
@@ -861,7 +854,7 @@ void sipwxBitmapComboBox::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[41], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[40], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
 
     if (!sipMeth)
         return ::wxBitmapComboBox::GetValidator();
@@ -876,7 +869,7 @@ bool sipwxBitmapComboBox::ShouldInheritColours() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[42]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[41]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
 
     if (!sipMeth)
         return ::wxBitmapComboBox::ShouldInheritColours();
@@ -891,7 +884,7 @@ bool sipwxBitmapComboBox::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[43], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[42], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
 
     if (!sipMeth)
         return ::wxBitmapComboBox::HasTransparentBackground();
@@ -906,7 +899,7 @@ bool sipwxBitmapComboBox::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[44]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[43]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
 
     if (!sipMeth)
         return ::wxBitmapComboBox::GetClientAreaOrigin();
@@ -921,7 +914,7 @@ bool sipwxBitmapComboBox::InformFirstDirection(int direction, int size, int avai
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[45], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[44], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
 
     if (!sipMeth)
         return ::wxBitmapComboBox::InformFirstDirection(direction, size, availableOtherDir);
@@ -936,7 +929,7 @@ void sipwxBitmapComboBox::EnableVisibleFocus(bool enabled)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[46], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[45], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
 
     if (!sipMeth)
     {
@@ -954,7 +947,7 @@ void sipwxBitmapComboBox::SetCanFocus(bool canFocus)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[47], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[46], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
 
     if (!sipMeth)
     {
@@ -972,7 +965,7 @@ bool sipwxBitmapComboBox::AcceptsFocusRecursively() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[48]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[47]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
 
     if (!sipMeth)
         return ::wxBitmapComboBox::AcceptsFocusRecursively();
@@ -987,7 +980,7 @@ bool sipwxBitmapComboBox::AcceptsFocusFromKeyboard() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[49]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[48]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
 
     if (!sipMeth)
         return ::wxBitmapComboBox::AcceptsFocusFromKeyboard();
@@ -1002,7 +995,7 @@ bool sipwxBitmapComboBox::AcceptsFocus() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[50]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[49]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
 
     if (!sipMeth)
         return ::wxBitmapComboBox::AcceptsFocus();
@@ -1017,7 +1010,7 @@ bool sipwxBitmapComboBox::TryAfter(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[51], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[50], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
 
     if (!sipMeth)
         return ::wxBitmapComboBox::TryAfter(event);
@@ -1032,7 +1025,7 @@ bool sipwxBitmapComboBox::TryBefore(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[52], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[51], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
 
     if (!sipMeth)
         return ::wxBitmapComboBox::TryBefore(event);
@@ -1047,7 +1040,7 @@ bool sipwxBitmapComboBox::ProcessEvent(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[53], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[52], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
 
     if (!sipMeth)
         return ::wxBitmapComboBox::ProcessEvent(event);
@@ -1062,7 +1055,7 @@ void sipwxBitmapComboBox::AddChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[54], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[53], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
 
     if (!sipMeth)
     {
@@ -1080,7 +1073,7 @@ void sipwxBitmapComboBox::RemoveChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[55], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[54], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
 
     if (!sipMeth)
     {
@@ -1163,11 +1156,6 @@ void sipwxBitmapComboBox::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, 
     return (sipSelfWasArg ? ::wxBitmapComboBox::GetDefaultBorder() : GetDefaultBorder());
 }
 
-::wxBorder sipwxBitmapComboBox::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxBitmapComboBox::GetDefaultBorderForControl() : GetDefaultBorderForControl());
-}
-
 void sipwxBitmapComboBox::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
 {
     (sipSelfWasArg ? ::wxBitmapComboBox::DoFreeze() : DoFreeze());
@@ -1228,7 +1216,7 @@ static PyObject *meth_wxBitmapComboBox_SendDestroyEvent(PyObject *sipSelf, PyObj
 }
 
 
-PyDoc_STRVAR(doc_wxBitmapComboBox_Append, "Append(item, bitmap=wx.NullBitmap) -> int\n"
+PyDoc_STRVAR(doc_wxBitmapComboBox_Append, "Append(item, bitmap=wx.BitmapBundle()) -> int\n"
 "Append(item, bitmap, clientData) -> int\n"
 "\n"
 "Adds the item to the end of the combo box.\n"
@@ -1242,8 +1230,9 @@ static PyObject *meth_wxBitmapComboBox_Append(PyObject *sipSelf, PyObject *sipAr
     {
         const ::wxString* item;
         int itemState = 0;
-        const ::wxBitmap& bitmapdef = wxNullBitmap;
-        const ::wxBitmap* bitmap = &bitmapdef;
+        const ::wxBitmapBundle& bitmapdef = wxBitmapBundle();
+        const ::wxBitmapBundle* bitmap = &bitmapdef;
+        int bitmapState = 0;
         ::wxBitmapComboBox *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -1251,7 +1240,7 @@ static PyObject *meth_wxBitmapComboBox_Append(PyObject *sipSelf, PyObject *sipAr
             sipName_bitmap,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|J9", &sipSelf, sipType_wxBitmapComboBox, &sipCpp, sipType_wxString, &item, &itemState, sipType_wxBitmap, &bitmap))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|J1", &sipSelf, sipType_wxBitmapComboBox, &sipCpp, sipType_wxString, &item, &itemState, sipType_wxBitmapBundle, &bitmap, &bitmapState))
         {
             int sipRes;
 
@@ -1261,6 +1250,7 @@ static PyObject *meth_wxBitmapComboBox_Append(PyObject *sipSelf, PyObject *sipAr
             sipRes = sipCpp->Append(*item, *bitmap);
             Py_END_ALLOW_THREADS
             sipReleaseType(const_cast< ::wxString *>(item), sipType_wxString, itemState);
+            sipReleaseType(const_cast< ::wxBitmapBundle *>(bitmap), sipType_wxBitmapBundle, bitmapState);
 
             if (PyErr_Occurred())
                 return 0;
@@ -1272,7 +1262,8 @@ static PyObject *meth_wxBitmapComboBox_Append(PyObject *sipSelf, PyObject *sipAr
     {
         const ::wxString* item;
         int itemState = 0;
-        const ::wxBitmap* bitmap;
+        const ::wxBitmapBundle* bitmap;
+        int bitmapState = 0;
         ::wxClientData* clientData;
         int clientDataState = 0;
         ::wxBitmapComboBox *sipCpp;
@@ -1283,7 +1274,7 @@ static PyObject *meth_wxBitmapComboBox_Append(PyObject *sipSelf, PyObject *sipAr
             sipName_clientData,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1J9J2", &sipSelf, sipType_wxBitmapComboBox, &sipCpp, sipType_wxString, &item, &itemState, sipType_wxBitmap, &bitmap, sipType_wxClientData, &clientData, &clientDataState))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1J1J2", &sipSelf, sipType_wxBitmapComboBox, &sipCpp, sipType_wxString, &item, &itemState, sipType_wxBitmapBundle, &bitmap, &bitmapState, sipType_wxClientData, &clientData, &clientDataState))
         {
             int sipRes;
 
@@ -1293,6 +1284,7 @@ static PyObject *meth_wxBitmapComboBox_Append(PyObject *sipSelf, PyObject *sipAr
             sipRes = sipCpp->Append(*item, *bitmap, clientData);
             Py_END_ALLOW_THREADS
             sipReleaseType(const_cast< ::wxString *>(item), sipType_wxString, itemState);
+            sipReleaseType(const_cast< ::wxBitmapBundle *>(bitmap), sipType_wxBitmapBundle, bitmapState);
             sipReleaseType(clientData, sipType_wxClientData, clientDataState);
 
             if (PyErr_Occurred())
@@ -1475,7 +1467,8 @@ static PyObject *meth_wxBitmapComboBox_Insert(PyObject *sipSelf, PyObject *sipAr
     {
         const ::wxString* item;
         int itemState = 0;
-        const ::wxBitmap* bitmap;
+        const ::wxBitmapBundle* bitmap;
+        int bitmapState = 0;
         uint pos;
         ::wxBitmapComboBox *sipCpp;
 
@@ -1485,7 +1478,7 @@ static PyObject *meth_wxBitmapComboBox_Insert(PyObject *sipSelf, PyObject *sipAr
             sipName_pos,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1J9u", &sipSelf, sipType_wxBitmapComboBox, &sipCpp, sipType_wxString, &item, &itemState, sipType_wxBitmap, &bitmap, &pos))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1J1u", &sipSelf, sipType_wxBitmapComboBox, &sipCpp, sipType_wxString, &item, &itemState, sipType_wxBitmapBundle, &bitmap, &bitmapState, &pos))
         {
             int sipRes;
 
@@ -1495,6 +1488,7 @@ static PyObject *meth_wxBitmapComboBox_Insert(PyObject *sipSelf, PyObject *sipAr
             sipRes = sipCpp->Insert(*item, *bitmap, pos);
             Py_END_ALLOW_THREADS
             sipReleaseType(const_cast< ::wxString *>(item), sipType_wxString, itemState);
+            sipReleaseType(const_cast< ::wxBitmapBundle *>(bitmap), sipType_wxBitmapBundle, bitmapState);
 
             if (PyErr_Occurred())
                 return 0;
@@ -1506,7 +1500,8 @@ static PyObject *meth_wxBitmapComboBox_Insert(PyObject *sipSelf, PyObject *sipAr
     {
         const ::wxString* item;
         int itemState = 0;
-        const ::wxBitmap* bitmap;
+        const ::wxBitmapBundle* bitmap;
+        int bitmapState = 0;
         uint pos;
         ::wxClientData* clientData;
         int clientDataState = 0;
@@ -1519,7 +1514,7 @@ static PyObject *meth_wxBitmapComboBox_Insert(PyObject *sipSelf, PyObject *sipAr
             sipName_clientData,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1J9uJ2", &sipSelf, sipType_wxBitmapComboBox, &sipCpp, sipType_wxString, &item, &itemState, sipType_wxBitmap, &bitmap, &pos, sipType_wxClientData, &clientData, &clientDataState))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1J1uJ2", &sipSelf, sipType_wxBitmapComboBox, &sipCpp, sipType_wxString, &item, &itemState, sipType_wxBitmapBundle, &bitmap, &bitmapState, &pos, sipType_wxClientData, &clientData, &clientDataState))
         {
             int sipRes;
 
@@ -1529,6 +1524,7 @@ static PyObject *meth_wxBitmapComboBox_Insert(PyObject *sipSelf, PyObject *sipAr
             sipRes = sipCpp->Insert(*item, *bitmap, pos, clientData);
             Py_END_ALLOW_THREADS
             sipReleaseType(const_cast< ::wxString *>(item), sipType_wxString, itemState);
+            sipReleaseType(const_cast< ::wxBitmapBundle *>(bitmap), sipType_wxBitmapBundle, bitmapState);
             sipReleaseType(clientData, sipType_wxClientData, clientDataState);
 
             if (PyErr_Occurred())
@@ -2790,40 +2786,6 @@ static PyObject *meth_wxBitmapComboBox_GetDefaultBorder(PyObject *sipSelf, PyObj
 }
 
 
-PyDoc_STRVAR(doc_wxBitmapComboBox_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxBitmapComboBox_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxBitmapComboBox_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxBitmapComboBox *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxBitmapComboBox, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_BitmapComboBox, sipName_GetDefaultBorderForControl, doc_wxBitmapComboBox_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxBitmapComboBox_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxBitmapComboBox_DoFreeze(PyObject *, PyObject *);}
@@ -2997,6 +2959,39 @@ static PyObject *meth_wxBitmapComboBox_TryAfter(PyObject *sipSelf, PyObject *sip
     }
 
     sipNoMethod(sipParseErr, sipName_BitmapComboBox, sipName_TryAfter, doc_wxBitmapComboBox_TryAfter);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxBitmapComboBox_CreateAccessible, "CreateAccessible() -> wx.Accessible");
+
+extern "C" {static PyObject *meth_wxBitmapComboBox_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxBitmapComboBox_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxBitmapComboBox *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxBitmapComboBox, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxBitmapComboBox_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_BitmapComboBox, sipName_CreateAccessible, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -3788,7 +3783,7 @@ static void *init_type_wxBitmapComboBox(sipSimpleWrapper *sipSelf, PyObject *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxBitmapComboBox[] = {{15, 0, 0}, {55, 0, 0}, {32, 0, 1}};
+static sipEncodedTypeDef supers_wxBitmapComboBox[] = {{16, 0, 0}, {56, 0, 0}, {33, 0, 1}};
 
 
 static PyMethodDef methods_wxBitmapComboBox[] = {
@@ -3798,6 +3793,7 @@ static PyMethodDef methods_wxBitmapComboBox[] = {
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxBitmapComboBox_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxBitmapComboBox_AddChild},
     {sipName_Append, SIP_MLMETH_CAST(meth_wxBitmapComboBox_Append), METH_VARARGS|METH_KEYWORDS, doc_wxBitmapComboBox_Append},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxBitmapComboBox_Create), METH_VARARGS|METH_KEYWORDS, doc_wxBitmapComboBox_Create},
+    {sipName_CreateAccessible, meth_wxBitmapComboBox_CreateAccessible, METH_VARARGS, doc_wxBitmapComboBox_CreateAccessible},
     {sipName_Destroy, meth_wxBitmapComboBox_Destroy, METH_VARARGS, doc_wxBitmapComboBox_Destroy},
     {sipName_Dismiss, meth_wxBitmapComboBox_Dismiss, METH_VARARGS, doc_wxBitmapComboBox_Dismiss},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxBitmapComboBox_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxBitmapComboBox_DoEnable},
@@ -3820,7 +3816,6 @@ static PyMethodDef methods_wxBitmapComboBox[] = {
     {sipName_GetClientAreaOrigin, meth_wxBitmapComboBox_GetClientAreaOrigin, METH_VARARGS, doc_wxBitmapComboBox_GetClientAreaOrigin},
     {sipName_GetCount, meth_wxBitmapComboBox_GetCount, METH_VARARGS, doc_wxBitmapComboBox_GetCount},
     {sipName_GetDefaultBorder, meth_wxBitmapComboBox_GetDefaultBorder, METH_VARARGS, doc_wxBitmapComboBox_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxBitmapComboBox_GetDefaultBorderForControl, METH_VARARGS, doc_wxBitmapComboBox_GetDefaultBorderForControl},
     {sipName_GetInsertionPoint, meth_wxBitmapComboBox_GetInsertionPoint, METH_VARARGS, doc_wxBitmapComboBox_GetInsertionPoint},
     {sipName_GetItemBitmap, SIP_MLMETH_CAST(meth_wxBitmapComboBox_GetItemBitmap), METH_VARARGS|METH_KEYWORDS, doc_wxBitmapComboBox_GetItemBitmap},
     {sipName_GetMainWindowOfCompositeControl, meth_wxBitmapComboBox_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxBitmapComboBox_GetMainWindowOfCompositeControl},
@@ -3859,8 +3854,8 @@ static PyMethodDef methods_wxBitmapComboBox[] = {
 sipVariableDef variables_wxBitmapComboBox[] = {
     {PropertyVariable, sipName_Selection, &methods_wxBitmapComboBox[32], &methods_wxBitmapComboBox[51], SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_InsertionPoint, &methods_wxBitmapComboBox[29], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Count, &methods_wxBitmapComboBox[26], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_BitmapSize, &methods_wxBitmapComboBox[23], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Count, &methods_wxBitmapComboBox[27], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_BitmapSize, &methods_wxBitmapComboBox[24], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxBitmapComboBox, "BitmapComboBox() -> None\n"

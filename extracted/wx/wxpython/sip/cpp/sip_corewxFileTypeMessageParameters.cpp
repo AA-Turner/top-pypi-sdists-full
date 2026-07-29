@@ -68,9 +68,9 @@ sipwxFileType_MessageParameters::~sipwxFileType_MessageParameters()
     if (!sipMeth)
         return ::wxFileType::MessageParameters::GetParamValue(name);
 
-    extern ::wxString sipVH__core_231(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&);
+    extern ::wxString sipVH__core_230(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&);
 
-    return sipVH__core_231(sipGILState, 0, sipPySelf, sipMeth, name);
+    return sipVH__core_230(sipGILState, 0, sipPySelf, sipMeth, name);
 }
 
 
@@ -352,7 +352,7 @@ sipClassTypeDef sipTypeDef__core_wxFileType_MessageParameters = {
     },
     {
         sipNameNr_MessageParameters,
-        {191, 255, 0},
+        {199, 255, 0},
         3, methods_wxFileType_MessageParameters,
         0, SIP_NULLPTR,
         2, variables_wxFileType_MessageParameters,

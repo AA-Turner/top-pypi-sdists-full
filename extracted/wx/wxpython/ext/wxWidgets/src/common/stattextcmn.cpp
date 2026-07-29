@@ -67,7 +67,6 @@ wxFLAGS_MEMBER(wxBORDER)
 // standard window styles
 wxFLAGS_MEMBER(wxTAB_TRAVERSAL)
 wxFLAGS_MEMBER(wxCLIP_CHILDREN)
-wxFLAGS_MEMBER(wxTRANSPARENT_WINDOW)
 wxFLAGS_MEMBER(wxWANTS_CHARS)
 wxFLAGS_MEMBER(wxFULL_REPAINT_ON_RESIZE)
 wxFLAGS_MEMBER(wxALWAYS_SHOW_SB )
@@ -100,25 +99,48 @@ wxCONSTRUCTOR_6( wxStaticText, wxWindow*, Parent, wxWindowID, Id, \
 // wxTextWrapper
 // ----------------------------------------------------------------------------
 
-struct wxTextWrapperWidthComparator
+namespace
 {
-    bool operator()(int w1, int w2) const { return w1 <= w2; }
-};
+
+bool IsBreakableWhiteSpace(wxUniChar ch)
+{
+    // We don't take "\r" into account here as it's not supposed to be present
+    // in the labels and "\n" is not present because Wrap() splits text on it.
+    switch ( ch.GetValue() )
+    {
+        case ' ':
+        case '\t':
+        case 0x2000: // en quad
+        case 0x2001: // em quad
+        case 0x2002: // en space
+        case 0x2003: // em space
+        case 0x2004: // three-per-em space
+        case 0x2005: // four-per-em space
+        case 0x2006: // six-per-em space
+        case 0x2008: // punctuation space
+        case 0x2009: // thin space
+        case 0x200A: // hair space
+        case 0x200B: // zero width space
+            return true;
+    }
+
+    return false;
+}
+
+} // anonymous namespace
 
 void wxTextWrapper::Wrap(wxWindow *win, const wxString& text, int widthMax)
 {
-    const wxClientDC dc(win);
+    const wxInfoDC dc(win);
 
-    const wxArrayString ls = wxSplit(text, '\n', '\0');
-    for ( wxArrayString::const_iterator i = ls.begin(); i != ls.end(); ++i )
+    bool hadFirst = false;
+    for ( auto line : wxSplit(text, '\n', '\0') )
     {
-        wxString line = *i;
-
-        if ( i != ls.begin() )
-        {
-            // Do this even if the line is empty, except if it's the first one.
+        // Call OnNewLine() for every new line in any case.
+        if ( !hadFirst )
+            hadFirst = true;
+        else
             OnNewLine();
-        }
 
         // Is this a special case when wrapping is disabled?
         if ( widthMax < 0 )
@@ -140,7 +162,7 @@ void wxTextWrapper::Wrap(wxWindow *win, const wxString& text, int widthMax)
                    widths.begin(),
                    widths.end(),
                    widthMax,
-                   wxTextWrapperWidthComparator()
+                   [](int w1, int w2) { return w1 <= w2; }
                 ) - widths.begin();
 
             // Does the entire remaining line fit?
@@ -151,7 +173,7 @@ void wxTextWrapper::Wrap(wxWindow *win, const wxString& text, int widthMax)
             }
 
             // If the overflowing character is a space, we can break right here.
-            if ( line[posEnd] == ' ' )
+            if ( IsBreakableWhiteSpace(line[posEnd]) )
             {
                 DoOutputLine(line.substr(0, posEnd));
                 line = line.substr(posEnd + 1);
@@ -159,20 +181,35 @@ void wxTextWrapper::Wrap(wxWindow *win, const wxString& text, int widthMax)
             }
 
             // Find the last word to chop off.
-            size_t posSpace = line.rfind(' ', posEnd);
-            if ( posSpace == wxString::npos )
+            //
+            // "Word" is defined here as just a sequence of non-space chars.
+            //
+            // TODO: Implement real Unicode word break algorithm.
+            size_t posSpace = posEnd;
+            for ( ;; posSpace-- )
             {
-                // No spaces, so can't wrap, output until the end of the word
-                // which is defined here as just a sequence of non-space chars.
-                //
-                // TODO: Implement real Unicode word break algorithm.
-                posSpace = line.find(' ', posEnd);
-                if ( posSpace == wxString::npos )
+                if ( posSpace == 0 )
                 {
-                    // No more spaces at all, output the rest of the line.
-                    DoOutputLine(line);
+                    // No spaces, so can't wrap, output until the end of the word.
+                    posSpace = posEnd;
+                    for ( ;; )
+                    {
+                        if ( ++posSpace == line.length() )
+                        {
+                            // No more spaces at all, output the rest of the line.
+                            DoOutputLine(line);
+                            return;
+                        }
+
+                        if ( IsBreakableWhiteSpace(line[posSpace]) )
+                            break;
+                    }
+
                     break;
                 }
+
+                if ( IsBreakableWhiteSpace(line[posSpace]) )
+                    break;
             }
 
             // Output the part that fits.
@@ -200,12 +237,12 @@ public:
     }
 
 protected:
-    virtual void OnOutputLine(const wxString& line) wxOVERRIDE
+    virtual void OnOutputLine(const wxString& line) override
     {
         m_text += line;
     }
 
-    virtual void OnNewLine() wxOVERRIDE
+    virtual void OnNewLine() override
     {
         m_text += wxT('\n');
     }
@@ -221,8 +258,81 @@ private:
 
 void wxStaticTextBase::Wrap(int width)
 {
+    if (width == m_currentWrap)
+        return;
+
+    m_currentWrap = width;
+
+    // Allow for repeated calls to Wrap() with different values by storing the
+    // original label, before wrapping it. We also need to preserve the value
+    // of the unwrapped label if it's already set because the calls to
+    // SetLabel() (including from inside wxLabelWrapper) reset it.
+    auto const unwrappedLabel = m_unwrappedLabel.empty()
+                                    ? GetLabel()
+                                    : m_unwrappedLabel;
+    if ( !m_unwrappedLabel.empty() )
+    {
+        // This is tricky: we can't pass m_unwrappedLabel itself to SetLabel()
+        // because it can/will be reset to empty string by this call before it
+        // is used. So pass a copy of it which is not affected by the changes
+        // to m_unwrappedLabel.
+        SetLabel( unwrappedLabel );
+    }
     wxLabelWrapper wrapper;
     wrapper.WrapLabel(this, width);
+    InvalidateBestSize();
+
+    m_unwrappedLabel = unwrappedLabel;
+}
+
+wxSize
+wxStaticTextBase::GetMinSizeFromKnownDirection(int direction,
+                                               int size,
+                                               int WXUNUSED(availableOtherDir))
+{
+    if ( !HasFlag(wxST_WRAP) || direction != wxHORIZONTAL )
+        return wxDefaultSize;
+
+    // Wrap at the given width to compute the required size.
+    const int style = GetWindowStyleFlag();
+    if ( !(style & wxST_NO_AUTORESIZE) )
+        SetWindowStyleFlag( style | wxST_NO_AUTORESIZE );
+
+    Wrap( size );
+
+    if ( !(style & wxST_NO_AUTORESIZE) )
+        SetWindowStyleFlag( style );
+
+    // Now compute the best size for the wrapped label.
+    int numLines = 0;
+    int maxLineWidth = 0;
+    for ( auto line : wxSplit(GetLabel(), '\n', '\0') )
+    {
+        const int w = GetTextExtent(line).x;
+        if ( w > maxLineWidth )
+            maxLineWidth = w;
+
+        ++numLines;
+    }
+
+    return wxSize( maxLineWidth, numLines*GetCharHeight() );
+}
+
+void wxStaticTextBase::SetWindowStyleFlag(long style)
+{
+    // Check if wxST_WRAP is being cleared.
+    if ( HasFlag(wxST_WRAP) && !(style & wxST_WRAP) )
+    {
+        // And unwrap the label in this case.
+        if ( m_currentWrap )
+        {
+            SetLabel(m_unwrappedLabel);
+            m_unwrappedLabel.clear();
+            m_currentWrap = 0;
+        }
+    }
+
+    wxControl::SetWindowStyleFlag(style);
 }
 
 void wxStaticTextBase::AutoResizeIfNecessary()
@@ -243,6 +353,20 @@ void wxStaticTextBase::AutoResizeIfNecessary()
     InvalidateBestSize();
 
     SetSize(GetBestSize());
+}
+
+bool wxStaticTextBase::UpdateLabelOrig(const wxString& label)
+{
+    if ( label == m_labelOrig )
+        return false;
+
+    m_labelOrig = label;
+
+    // We need to clear the existing unwrapped label as it doesn't correspond
+    // to the new value of the actual label any longer.
+    m_unwrappedLabel.clear();
+
+    return true;
 }
 
 // ----------------------------------------------------------------------------
@@ -290,7 +414,7 @@ wxString wxStaticTextBase::Ellipsize(const wxString& label) const
         return label;
     }
 
-    wxClientDC dc(const_cast<wxStaticTextBase*>(this));
+    wxInfoDC dc(const_cast<wxStaticTextBase*>(this));
 
     wxEllipsizeMode mode;
     if ( HasFlag(wxST_ELLIPSIZE_START) )

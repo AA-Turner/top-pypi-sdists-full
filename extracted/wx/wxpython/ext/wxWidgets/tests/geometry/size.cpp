@@ -51,3 +51,29 @@ TEST_CASE("wxSize::Operators", "[size]")
 
     CHECK( wxSize(6, 9) / 1.5 == wxSize(4, 6) );
 }
+
+TEST_CASE("wxSize::Functions", "[size]")
+{
+    CHECK( wxSize(10, 10).IsAtLeast(wxDefaultSize) );
+    CHECK( wxSize(10, 10).IsAtLeast(wxSize()) );
+    CHECK( wxSize(10, 10).IsAtLeast(wxSize(10, 5)) );
+    CHECK( wxSize(10, 10).IsAtLeast(wxSize(10, 10)) );
+
+    CHECK_FALSE( wxSize(10, 10).IsAtLeast(wxSize(11, 10)) );
+    CHECK_FALSE( wxSize(10, 10).IsAtLeast(wxSize(10, 11)) );
+    CHECK_FALSE( wxSize(10, 10).IsAtLeast(wxSize(11, 11)) );
+    CHECK_FALSE( wxDefaultSize.IsAtLeast(wxSize()) );
+
+    CHECK(wxSize{ 0, 0 }.IsFullySpecified());
+    // default should be 0, 0, which is fully specified (but empty)
+    CHECK(wxSize{}.IsFullySpecified());
+    CHECK_FALSE(wxSize{ wxDefaultCoord , wxDefaultCoord }.IsFullySpecified());
+    CHECK_FALSE(wxSize{ 0, wxDefaultCoord }.IsFullySpecified());
+    CHECK_FALSE(wxSize{ wxDefaultCoord, 0 }.IsFullySpecified());
+
+    CHECK( wxSize().IsEmpty() );
+    CHECK( wxSize(0, 1).IsEmpty() );
+    CHECK( wxSize(1, 0).IsEmpty() );
+    CHECK( wxDefaultSize.IsEmpty() );
+    CHECK_FALSE( wxSize(1, 1).IsEmpty() );
+}

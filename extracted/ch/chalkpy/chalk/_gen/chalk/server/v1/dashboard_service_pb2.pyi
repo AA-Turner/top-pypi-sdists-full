@@ -88,18 +88,21 @@ class GetDashboardResponse(_message.Message):
     ) -> None: ...
 
 class ListDashboardsRequest(_message.Message):
-    __slots__ = ("limit", "cursor", "read_mask")
+    __slots__ = ("limit", "cursor", "read_mask", "search")
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     READ_MASK_FIELD_NUMBER: _ClassVar[int]
+    SEARCH_FIELD_NUMBER: _ClassVar[int]
     limit: int
     cursor: str
     read_mask: _field_mask_pb2.FieldMask
+    search: str
     def __init__(
         self,
         limit: _Optional[int] = ...,
         cursor: _Optional[str] = ...,
         read_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
+        search: _Optional[str] = ...,
     ) -> None: ...
 
 class ListDashboardsResponse(_message.Message):
@@ -150,3 +153,33 @@ class DeleteDashboardRequest(_message.Message):
 class DeleteDashboardResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class ExportDashboardRequest(_message.Message):
+    __slots__ = ("dashboard_id",)
+    DASHBOARD_ID_FIELD_NUMBER: _ClassVar[int]
+    dashboard_id: str
+    def __init__(self, dashboard_id: _Optional[str] = ...) -> None: ...
+
+class ExportDashboardResponse(_message.Message):
+    __slots__ = ("dashboard_json_string",)
+    DASHBOARD_JSON_STRING_FIELD_NUMBER: _ClassVar[int]
+    dashboard_json_string: str
+    def __init__(self, dashboard_json_string: _Optional[str] = ...) -> None: ...
+
+class ImportDashboardRequest(_message.Message):
+    __slots__ = ("dashboard_json_string", "name", "dry_run")
+    DASHBOARD_JSON_STRING_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DRY_RUN_FIELD_NUMBER: _ClassVar[int]
+    dashboard_json_string: str
+    name: str
+    dry_run: bool
+    def __init__(
+        self, dashboard_json_string: _Optional[str] = ..., name: _Optional[str] = ..., dry_run: bool = ...
+    ) -> None: ...
+
+class ImportDashboardResponse(_message.Message):
+    __slots__ = ("dashboard",)
+    DASHBOARD_FIELD_NUMBER: _ClassVar[int]
+    dashboard: _dashboard_pb2.Dashboard
+    def __init__(self, dashboard: _Optional[_Union[_dashboard_pb2.Dashboard, _Mapping]] = ...) -> None: ...

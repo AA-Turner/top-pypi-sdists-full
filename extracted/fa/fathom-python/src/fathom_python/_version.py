@@ -3,10 +3,10 @@
 import importlib.metadata
 
 __title__: str = "fathom-python"
-__version__: str = "0.0.42"
+__version__: str = "0.0.43"
 __openapi_doc_version__: str = "1.0.0"
 __gen_version__: str = "2.762.0"
-__user_agent__: str = "speakeasy-sdk/python 0.0.42 2.762.0 1.0.0 fathom-python"
+__user_agent__: str = "speakeasy-sdk/python 0.0.43 2.762.0 1.0.0 fathom-python"
 
 try:
     if __package__ is not None:

@@ -3720,9 +3720,10 @@ reflow-mode = "semantic-line-breaks"
 
     let uri = Url::from_file_path(&test_md_path).unwrap();
 
-    // Simulate what resolve_config_for_file does: load config from the pyproject.toml
-    let config_path_str = pyproject_path.to_str().unwrap();
-    let sourced = RumdlLanguageServer::load_config_for_lsp(Some(config_path_str)).expect("Should load config");
+    // Load the pyproject.toml the way resolve_config_for_file loads a config it
+    // discovered, so this exercises the production loader rather than a lookalike.
+    let sourced =
+        crate::config::SourcedConfig::load_discovered(&pyproject_path, None, None).expect("Should load config");
     let file_config: crate::config::Config = sourced.into_validated_unchecked().into();
 
     // Verify the config loaded correctly
@@ -8327,6 +8328,475 @@ async fn test_lsp_cli_resolver_parity_on_fixtures() {
             cli_path,
         );
     }
+}
+
+/// Regression test for #751: the LSP resolved every discovered config through the
+/// *explicit*-config entry point, which is standalone by design. That is right for
+/// a config the user named with `--config`, but a discovered markdownlint config is
+/// the one case where the CLI keeps the user config as a base, since the
+/// markdownlint format cannot express rumdl's own settings. The server therefore
+/// resolved a different config than `rumdl check` on the same file, and reported
+/// different diagnostics.
+///
+/// Both fixtures compare against the CLI's own result rather than a hardcoded one,
+/// so the rumdl-native fixture is a live negative control: a fix that merged the
+/// user config into every discovered config would fail it.
+///
+/// Mutates the process cwd to run the CLI half, so it runs serially.
+#[tokio::test]
+#[serial_test::serial]
+async fn test_lsp_matches_cli_values_under_a_discovered_config() {
+    use crate::config::{Config, SourcedConfig};
+    use std::fs;
+    use tempfile::tempdir;
+
+    // (fixture name, project config filename, contents, expected MD007 indent).
+    // MD007 is set only by the user config, so its resolved value is exactly
+    // "was the user config used as a base".
+    let fixtures: &[(&str, &str, &str, Option<usize>)] = &[
+        (
+            "markdownlint_project_config",
+            ".markdownlint.json",
+            r#"{ "MD004": { "style": "asterisk" } }"#,
+            Some(4),
+        ),
+        (
+            "rumdl_project_config",
+            ".rumdl.toml",
+            "[MD004]\nstyle = \"asterisk\"\n",
+            None,
+        ),
+    ];
+
+    for (name, config_name, config_body, expected_indent) in fixtures {
+        let temp = tempdir().unwrap();
+        let root = temp.path().canonicalize().unwrap();
+        let project = root.join("project");
+        let sub = project.join("sub");
+        let user_config_dir = root.join("xdg");
+        let home_dir = root.join("fakehome");
+
+        fs::create_dir_all(&sub).unwrap();
+        fs::create_dir_all(project.join(".git")).unwrap(); // bound both walks here
+        fs::create_dir_all(user_config_dir.join("rumdl")).unwrap();
+        fs::create_dir_all(&home_dir).unwrap();
+        fs::write(
+            user_config_dir.join("rumdl").join("rumdl.toml"),
+            "[MD007]\nindent = 4\n",
+        )
+        .unwrap();
+        fs::write(project.join(config_name), config_body).unwrap();
+
+        let md_file = sub.join("test.md");
+        fs::write(&md_file, "").unwrap();
+
+        // CLI resolution: discovery walks up from the process cwd.
+        let prev_cwd = std::env::current_dir().unwrap();
+        std::env::set_current_dir(&sub).unwrap();
+        let cli_sourced =
+            SourcedConfig::load_with_discovery_impl(None, None, false, Some(&user_config_dir), Some(&home_dir));
+        std::env::set_current_dir(&prev_cwd).unwrap();
+        let cli_config: Config = cli_sourced
+            .expect("CLI config should load")
+            .into_validated_unchecked()
+            .into();
+
+        // LSP resolution: its own walk up from the file, workspace root = project.
+        let server = create_test_server();
+        {
+            let mut roots = server.workspace_roots.write().await;
+            roots.push(project.clone());
+        }
+        let lsp_config = server
+            .resolve_config_for_file_impl(&md_file, Some(&user_config_dir), Some(&home_dir))
+            .await;
+
+        // Positive control: the markdownlint fixture must actually reach the user
+        // config, or the parity assertion below would hold vacuously.
+        assert_eq!(
+            crate::config::get_rule_config_value::<usize>(&cli_config, "MD007", "indent"),
+            *expected_indent,
+            "fixture `{name}`: the CLI itself did not behave as the fixture assumes"
+        );
+        assert_eq!(
+            crate::config::get_rule_config_value::<usize>(&lsp_config, "MD007", "indent"),
+            *expected_indent,
+            "fixture `{name}`: LSP resolved MD007 differently than the CLI"
+        );
+        assert_eq!(
+            crate::config::get_rule_config_value::<String>(&lsp_config, "MD004", "style"),
+            Some("asterisk".to_string()),
+            "fixture `{name}`: the project config's own settings must still apply"
+        );
+        assert_eq!(
+            serde_json::to_value(&lsp_config).unwrap(),
+            serde_json::to_value(&cli_config).unwrap(),
+            "fixture `{name}`: LSP and CLI must resolve the same configuration"
+        );
+    }
+}
+
+/// A broken user config makes a nearer markdownlint config unresolvable, since
+/// that is the one project config rumdl merges onto the user config. The server
+/// must not answer with a config from further up the tree: `rumdl check` refuses
+/// to run at all in this state, so silently substituting the parent's rules would
+/// have the editor lint against a ruleset that exists nowhere on disk.
+#[tokio::test]
+async fn test_resolve_config_does_not_substitute_a_parent_config_when_the_user_config_is_broken() {
+    use std::fs;
+    use tempfile::tempdir;
+
+    let temp = tempdir().unwrap();
+    let root = temp.path().canonicalize().unwrap();
+    let project = root.join("project");
+    let sub = project.join("sub");
+    let user_config_dir = root.join("xdg");
+    let home_dir = root.join("fakehome");
+
+    fs::create_dir_all(&sub).unwrap();
+    fs::create_dir_all(user_config_dir.join("rumdl")).unwrap();
+    fs::create_dir_all(&home_dir).unwrap();
+    fs::write(
+        user_config_dir.join("rumdl").join("rumdl.toml"),
+        "this is not valid toml {{{\n",
+    )
+    .unwrap();
+
+    // A parent config that resolves fine, so substituting it would look like success.
+    fs::write(project.join(".rumdl.toml"), "[MD004]\nstyle = \"dash\"\n").unwrap();
+    // The nearer config, which needs the broken user config as its base.
+    fs::write(
+        sub.join(".markdownlint.json"),
+        r#"{ "MD004": { "style": "asterisk" } }"#,
+    )
+    .unwrap();
+
+    let md_file = sub.join("test.md");
+    fs::write(&md_file, "").unwrap();
+
+    let server = create_test_server();
+    {
+        let mut roots = server.workspace_roots.write().await;
+        roots.push(project.clone());
+    }
+    // Startup discovery runs from the workspace root, where the parent config is
+    // rumdl-native and so resolves standalone. That leaves the parent's rules in
+    // `rumdl_config`, which is the second route by which they could reach this file.
+    {
+        let mut startup = server.rumdl_config.write().await;
+        *startup = crate::config::SourcedConfig::load_with_discovery_impl(
+            Some(&project.join(".rumdl.toml").to_string_lossy()),
+            None,
+            true,
+            Some(&user_config_dir),
+            Some(&home_dir),
+        )
+        .expect("the parent config resolves standalone")
+        .into_validated_unchecked()
+        .into();
+        assert_eq!(
+            crate::config::get_rule_config_value::<String>(&startup, "MD004", "style"),
+            Some("dash".to_string()),
+            "precondition: the startup config carries the parent's rules"
+        );
+    }
+
+    let config = server
+        .resolve_config_for_file_impl(&md_file, Some(&user_config_dir), Some(&home_dir))
+        .await;
+
+    assert_eq!(
+        crate::config::get_rule_config_value::<String>(&config, "MD004", "style"),
+        None,
+        "resolution should stop at the unresolvable config, not reach for the parent's rules"
+    );
+}
+
+/// A config that cannot be resolved is a temporary state the user fixes outside the
+/// workspace, so nothing the server watches changes when they do. Caching it would
+/// pin the file to defaults for the rest of the session.
+#[tokio::test]
+async fn test_resolve_config_retries_after_a_broken_user_config_is_fixed() {
+    use std::fs;
+    use tempfile::tempdir;
+
+    let temp = tempdir().unwrap();
+    let root = temp.path().canonicalize().unwrap();
+    let project = root.join("project");
+    // The unresolvable config sits above the file's own directory, so a cache entry
+    // keyed on that directory would never notice it.
+    let deep = project.join("sub").join("deep");
+    let user_config_dir = root.join("xdg");
+    let home_dir = root.join("fakehome");
+
+    fs::create_dir_all(&deep).unwrap();
+    fs::create_dir_all(user_config_dir.join("rumdl")).unwrap();
+    fs::create_dir_all(&home_dir).unwrap();
+
+    let user_config = user_config_dir.join("rumdl").join("rumdl.toml");
+    fs::write(&user_config, "this is not valid toml {{{\n").unwrap();
+    fs::write(
+        project.join("sub").join(".markdownlint.json"),
+        r#"{ "MD004": { "style": "asterisk" } }"#,
+    )
+    .unwrap();
+
+    let md_file = deep.join("test.md");
+    fs::write(&md_file, "").unwrap();
+
+    let server = create_test_server();
+    {
+        let mut roots = server.workspace_roots.write().await;
+        roots.push(project.clone());
+    }
+
+    let broken = server
+        .resolve_config_for_file_impl(&md_file, Some(&user_config_dir), Some(&home_dir))
+        .await;
+    assert_eq!(
+        crate::config::get_rule_config_value::<String>(&broken, "MD004", "style"),
+        None,
+        "precondition: the config cannot be resolved while the user config is broken"
+    );
+
+    fs::write(&user_config, "[MD007]\nindent = 4\n").unwrap();
+
+    let fixed = server
+        .resolve_config_for_file_impl(&md_file, Some(&user_config_dir), Some(&home_dir))
+        .await;
+    assert_eq!(
+        crate::config::get_rule_config_value::<String>(&fixed, "MD004", "style"),
+        Some("asterisk".to_string()),
+        "the config should resolve as soon as the user config parses again"
+    );
+}
+
+/// Control for the test above: with a valid user config, the same tree resolves to
+/// the nearer markdownlint config. Without this, the assertion above would also
+/// pass if the walk never reached that config in the first place.
+#[tokio::test]
+async fn test_resolve_config_uses_the_nearer_markdownlint_config_when_the_user_config_loads() {
+    use std::fs;
+    use tempfile::tempdir;
+
+    let temp = tempdir().unwrap();
+    let root = temp.path().canonicalize().unwrap();
+    let project = root.join("project");
+    let sub = project.join("sub");
+    let user_config_dir = root.join("xdg");
+    let home_dir = root.join("fakehome");
+
+    fs::create_dir_all(&sub).unwrap();
+    fs::create_dir_all(user_config_dir.join("rumdl")).unwrap();
+    fs::create_dir_all(&home_dir).unwrap();
+    fs::write(
+        user_config_dir.join("rumdl").join("rumdl.toml"),
+        "[MD007]\nindent = 4\n",
+    )
+    .unwrap();
+
+    fs::write(project.join(".rumdl.toml"), "[MD004]\nstyle = \"dash\"\n").unwrap();
+    fs::write(
+        sub.join(".markdownlint.json"),
+        r#"{ "MD004": { "style": "asterisk" } }"#,
+    )
+    .unwrap();
+
+    let md_file = sub.join("test.md");
+    fs::write(&md_file, "").unwrap();
+
+    let server = create_test_server();
+    {
+        let mut roots = server.workspace_roots.write().await;
+        roots.push(project.clone());
+    }
+
+    let config = server
+        .resolve_config_for_file_impl(&md_file, Some(&user_config_dir), Some(&home_dir))
+        .await;
+
+    assert_eq!(
+        crate::config::get_rule_config_value::<String>(&config, "MD004", "style"),
+        Some("asterisk".to_string()),
+        "the nearer markdownlint config should win over the parent rumdl config"
+    );
+    assert_eq!(
+        crate::config::get_rule_config_value::<usize>(&config, "MD007", "indent"),
+        Some(4),
+        "and it should carry the user config as its base"
+    );
+}
+
+/// The editor must resolve the same configuration `rumdl check` does, so a
+/// project that opts into `.editorconfig` gets those settings here too.
+#[tokio::test]
+async fn test_resolve_config_applies_editorconfig_when_the_project_opts_in() {
+    use std::fs;
+    use tempfile::tempdir;
+
+    let temp = tempdir().unwrap();
+    let root = temp.path().canonicalize().unwrap();
+    let project = root.join("project");
+    let user_config_dir = root.join("xdg");
+    let home_dir = root.join("fakehome");
+
+    fs::create_dir_all(&project).unwrap();
+    fs::create_dir_all(user_config_dir.join("rumdl")).unwrap();
+    fs::create_dir_all(&home_dir).unwrap();
+
+    fs::write(project.join(".rumdl.toml"), "[global]\neditorconfig = true\n").unwrap();
+    fs::write(
+        project.join(".editorconfig"),
+        "root = true\n[*.md]\nmax_line_length = 111\nindent_size = 4\n",
+    )
+    .unwrap();
+
+    let md_file = project.join("test.md");
+    fs::write(&md_file, "").unwrap();
+
+    let server = create_test_server();
+    {
+        let mut roots = server.workspace_roots.write().await;
+        roots.push(project.clone());
+    }
+
+    let config = server
+        .resolve_config_for_file_impl(&md_file, Some(&user_config_dir), Some(&home_dir))
+        .await;
+
+    assert_eq!(config.global.line_length.get(), 111, "max_line_length should apply");
+    assert_eq!(
+        crate::config::get_rule_config_value::<usize>(&config, "MD007", "indent"),
+        Some(4),
+        "indent_size should apply"
+    );
+}
+
+/// The config cache is keyed by directory, but `.editorconfig` sections can name
+/// a single file. Two neighbours must still resolve to their own settings.
+#[tokio::test]
+async fn test_resolve_config_applies_editorconfig_sections_per_file() {
+    use std::fs;
+    use tempfile::tempdir;
+
+    let temp = tempdir().unwrap();
+    let root = temp.path().canonicalize().unwrap();
+    let project = root.join("project");
+    let user_config_dir = root.join("xdg");
+    let home_dir = root.join("fakehome");
+
+    fs::create_dir_all(&project).unwrap();
+    fs::create_dir_all(user_config_dir.join("rumdl")).unwrap();
+    fs::create_dir_all(&home_dir).unwrap();
+
+    fs::write(project.join(".rumdl.toml"), "[global]\neditorconfig = true\n").unwrap();
+    fs::write(
+        project.join(".editorconfig"),
+        "root = true\n[narrow.md]\nmax_line_length = 40\n[wide.md]\nmax_line_length = 120\n",
+    )
+    .unwrap();
+
+    let narrow = project.join("narrow.md");
+    let wide = project.join("wide.md");
+    fs::write(&narrow, "").unwrap();
+    fs::write(&wide, "").unwrap();
+
+    let server = create_test_server();
+    {
+        let mut roots = server.workspace_roots.write().await;
+        roots.push(project.clone());
+    }
+
+    // Resolve the cached directory entry first, so the second file is answered
+    // from the cache: that is where a per-directory answer would leak.
+    let narrow_config = server
+        .resolve_config_for_file_impl(&narrow, Some(&user_config_dir), Some(&home_dir))
+        .await;
+    let wide_config = server
+        .resolve_config_for_file_impl(&wide, Some(&user_config_dir), Some(&home_dir))
+        .await;
+
+    assert_eq!(narrow_config.global.line_length.get(), 40);
+    assert_eq!(
+        wide_config.global.line_length.get(),
+        120,
+        "a cache hit must not reuse the neighbour's section"
+    );
+}
+
+/// Build a project whose config opts into `.editorconfig` when asked to, and a
+/// server that has already resolved the file's config once.
+#[cfg(test)]
+async fn server_with_resolved_editorconfig_project(opt_in: bool) -> (tempfile::TempDir, RumdlLanguageServer, PathBuf) {
+    use std::fs;
+
+    let temp = tempfile::tempdir().unwrap();
+    let project = temp.path().canonicalize().unwrap();
+
+    let rumdl_toml = if opt_in {
+        "[global]\neditorconfig = true\n"
+    } else {
+        "[global]\n"
+    };
+    fs::write(project.join(".rumdl.toml"), rumdl_toml).unwrap();
+    fs::write(
+        project.join(".editorconfig"),
+        "root = true\n[*.md]\nmax_line_length = 40\n",
+    )
+    .unwrap();
+    let md_file = project.join("doc.md");
+    fs::write(&md_file, "# Title\n").unwrap();
+
+    let server = create_test_server();
+    server.workspace_roots.write().await.push(project.clone());
+    server.resolve_config_for_file(&md_file).await;
+    assert!(
+        !server.config_cache.read().await.is_empty(),
+        "the resolved config is what the change under test has to invalidate"
+    );
+
+    (temp, server, project)
+}
+
+fn editorconfig_changed(project: &std::path::Path) -> DidChangeWatchedFilesParams {
+    DidChangeWatchedFilesParams {
+        changes: vec![FileEvent {
+            uri: Url::from_file_path(project.join(".editorconfig")).unwrap(),
+            typ: FileChangeType::CHANGED,
+        }],
+    }
+}
+
+/// An `.editorconfig` edit changes what the editor should report, so it has to
+/// invalidate the cached configs the way any other config file does.
+#[tokio::test]
+async fn test_editorconfig_change_invalidates_the_config_cache() {
+    use tower_lsp::LanguageServer;
+
+    let (_temp, server, project) = server_with_resolved_editorconfig_project(true).await;
+
+    server.did_change_watched_files(editorconfig_changed(&project)).await;
+
+    assert!(
+        server.config_cache.read().await.is_empty(),
+        "an opted-in workspace must re-resolve after its .editorconfig changes"
+    );
+}
+
+/// Without the opt-in the file supplies nothing, so an edit to it cannot change
+/// a result and must not throw away work.
+#[tokio::test]
+async fn test_editorconfig_change_is_ignored_without_the_opt_in() {
+    use tower_lsp::LanguageServer;
+
+    let (_temp, server, project) = server_with_resolved_editorconfig_project(false).await;
+
+    server.did_change_watched_files(editorconfig_changed(&project)).await;
+
+    assert!(
+        !server.config_cache.read().await.is_empty(),
+        "a file rumdl does not read cannot invalidate anything"
+    );
 }
 
 /// Regression test for rumdl-vscode#115: an opt-in rule enabled via

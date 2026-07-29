@@ -636,7 +636,7 @@ static void *init_type_wxRichTextFormattingDialogFactory(sipSimpleWrapper *sipSe
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxRichTextFormattingDialogFactory[] = {{42, 0, 1}};
+static sipEncodedTypeDef supers_wxRichTextFormattingDialogFactory[] = {{43, 0, 1}};
 
 
 static PyMethodDef methods_wxRichTextFormattingDialogFactory[] = {

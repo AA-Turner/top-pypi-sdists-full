@@ -117,9 +117,7 @@ static int slot_wxRichTextFileHandlerList___contains__(PyObject *sipSelf, PyObje
         if (sipParseArgs(&sipParseErr, sipArg, "1J8", sipType_wxRichTextFileHandler, &obj))
         {
             int sipRes = 0;
-        wxRichTextFileHandlerList::compatibility_iterator node;
-        node = sipCpp->Find((wxRichTextFileHandler*)obj);
-        sipRes = node != NULL;
+        sipRes = sipCpp->Member((wxRichTextFileHandler*)obj);
 
             return sipRes;
         }

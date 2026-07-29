@@ -8,7 +8,7 @@
 
 
 /** @class wxPGInDialogValidator
-    @ingroup classes
+    @ingroup group_class_propgrid
     Creates and manages a temporary wxTextCtrl for validation purposes.
     Uses wxPropertyGrid's current editor, if available.
 */
@@ -28,10 +28,8 @@ public:
 // Property classes
 // -----------------------------------------------------------------------
 
-#define wxPG_PROP_PASSWORD  wxPG_PROP_CLASS_SPECIFIC_2
-
 /** @class wxStringProperty
-    @ingroup classes
+    @ingroup group_class_propgrid
     Basic property with string value.
 
     <b>Supported special attributes:</b>
@@ -47,13 +45,13 @@ class wxStringProperty : public wxPGProperty
 public:
     wxStringProperty( const wxString& label = wxPG_LABEL,
                       const wxString& name = wxPG_LABEL,
-                      const wxString& value = wxEmptyString );
+                      const wxString& value = wxString() );
     virtual ~wxStringProperty();
 
-    virtual wxString ValueToString( wxVariant& value, int argFlags = 0 ) const;
-    virtual bool StringToValue( wxVariant& variant,
-                                const wxString& text,
-                                int argFlags = 0 ) const;
+    virtual wxString ValueToString(wxVariant& value,
+                                   wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
+    virtual bool StringToValue(wxVariant& variant, const wxString& text,
+                               wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
 
     virtual bool DoSetAttribute( const wxString& name, wxVariant& value );
 
@@ -65,19 +63,19 @@ public:
 
 /** Constants used with NumericValidation<>().
 */
-enum wxPGNumericValidationConstants
+enum class wxPGNumericValidationMode
 {
     /** Instead of modifying the value, show an error message.
     */
-    wxPG_PROPERTY_VALIDATION_ERROR_MESSAGE      = 0,
+    ErrorMessage,
 
     /** Modify value, but stick with the limitations.
     */
-    wxPG_PROPERTY_VALIDATION_SATURATE           = 1,
+    Saturate,
 
     /** Modify value, wrap around on overflow.
     */
-    wxPG_PROPERTY_VALIDATION_WRAP               = 2
+    Wrap
 };
 
 
@@ -96,12 +94,12 @@ public:
     };
 
     wxNumericPropertyValidator( NumericType numericType, int base = 10 );
-    virtual ~wxNumericPropertyValidator() { }
+    virtual ~wxNumericPropertyValidator() = default;
     virtual bool Validate(wxWindow* parent);
 };
 
 /** @class wxNumericProperty
-    @ingroup classes
+    @ingroup group_class_propgrid
 
     This is an abstract class which serves as a base class for numeric properties,
     like wxIntProperty, wxUIntProperty, wxFloatProperty.
@@ -164,7 +162,7 @@ protected:
 
 
 /** @class wxIntProperty
-    @ingroup classes
+    @ingroup group_class_propgrid
     Basic property with integer value.
 
     Seamlessly supports 64-bit integer (wxLongLong) on overflow.
@@ -217,15 +215,14 @@ public:
     wxIntProperty( const wxString& label,
                    const wxString& name,
                    const wxLongLong& value );
-    virtual wxString ValueToString( wxVariant& value, int argFlags = 0 ) const;
-    virtual bool StringToValue( wxVariant& variant,
-                                const wxString& text,
-                                int argFlags = 0 ) const;
+    virtual wxString ValueToString(wxVariant& value,
+                                   wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
+    virtual bool StringToValue(wxVariant& variant, const wxString& text,
+                               wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
     virtual bool ValidateValue( wxVariant& value,
                                 wxPGValidationInfo& validationInfo ) const;
-    virtual bool IntToValue( wxVariant& variant,
-                             int number,
-                             int argFlags = 0 ) const;
+    virtual bool IntToValue(wxVariant& variant, int number,
+                            wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
     static wxValidator* GetClassValidator();
     virtual wxValidator* DoGetValidator() const;
     virtual wxVariant AddSpinStepValue(long stepScale) const;
@@ -233,7 +230,7 @@ public:
 
 
 /** @class wxUIntProperty
-    @ingroup classes
+    @ingroup group_class_propgrid
     Basic property with unsigned integer value.
     Seamlessly supports 64-bit integer (wxULongLong) on overflow.
 
@@ -262,17 +259,16 @@ public:
     wxUIntProperty( const wxString& label,
                     const wxString& name,
                     const wxULongLong& value );
-    virtual wxString ValueToString( wxVariant& value, int argFlags = 0 ) const;
-    virtual bool StringToValue( wxVariant& variant,
-                                const wxString& text,
-                                int argFlags = 0 ) const;
+    virtual wxString ValueToString(wxVariant& value,
+                                   wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
+    virtual bool StringToValue(wxVariant& variant, const wxString& text,
+                               wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
     virtual bool DoSetAttribute( const wxString& name, wxVariant& value );
     virtual bool ValidateValue( wxVariant& value,
                                 wxPGValidationInfo& validationInfo ) const;
     virtual wxValidator* DoGetValidator () const;
-    virtual bool IntToValue( wxVariant& variant,
-                             int number,
-                             int argFlags = 0 ) const;
+    virtual bool IntToValue(wxVariant& variant, int number,
+                            wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
     virtual wxVariant AddSpinStepValue(long stepScale) const;
 
 protected:
@@ -283,7 +279,7 @@ protected:
 
 
 /** @class wxFloatProperty
-    @ingroup classes
+    @ingroup group_class_propgrid
     Basic property with double-precision floating point value.
 
     <b>Supported special attributes:</b>
@@ -301,10 +297,10 @@ public:
                      double value = 0.0 );
     virtual ~wxFloatProperty();
 
-    virtual wxString ValueToString( wxVariant& value, int argFlags = 0 ) const;
-    virtual bool StringToValue( wxVariant& variant,
-                                const wxString& text,
-                                int argFlags = 0 ) const;
+    virtual wxString ValueToString(wxVariant& value,
+                                   wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
+    virtual bool StringToValue(wxVariant& variant, const wxString& text,
+                               wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
     virtual bool DoSetAttribute( const wxString& name, wxVariant& value );
     virtual bool ValidateValue( wxVariant& value,
                                 wxPGValidationInfo& validationInfo ) const;
@@ -320,7 +316,7 @@ protected:
 
 
 /** @class wxBoolProperty
-    @ingroup classes
+    @ingroup group_class_propgrid
     Basic property with boolean value.
 
     <b>Supported special attributes:</b>
@@ -337,23 +333,18 @@ public:
                     bool value = false );
     virtual ~wxBoolProperty();
 
-    virtual wxString ValueToString( wxVariant& value, int argFlags = 0 ) const;
-    virtual bool StringToValue( wxVariant& variant,
-                                const wxString& text,
-                                int argFlags = 0 ) const;
-    virtual bool IntToValue( wxVariant& variant,
-                             int number, int argFlags = 0 ) const;
+    virtual wxString ValueToString(wxVariant& value,
+                                   wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
+    virtual bool StringToValue(wxVariant& variant, const wxString& text,
+                               wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
+    virtual bool IntToValue(wxVariant& variant, int number,
+                            wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
     virtual bool DoSetAttribute( const wxString& name, wxVariant& value );
 };
 
 
-
-// If set, then selection of choices is static and should not be
-// changed (i.e. returns NULL in GetPropertyChoices).
-#define wxPG_PROP_STATIC_CHOICES    wxPG_PROP_CLASS_SPECIFIC_1
-
 /** @class wxEnumProperty
-    @ingroup classes
+    @ingroup group_class_propgrid
     You can derive custom properties with choices from this class. See
     wxBaseEnumProperty for remarks.
 
@@ -368,8 +359,8 @@ class wxEnumProperty : public wxPGProperty
 public:
     wxEnumProperty( const wxString& label = wxPG_LABEL,
                     const wxString& name = wxPG_LABEL,
-                    const wxChar* const* labels = NULL,
-                    const long* values = NULL,
+                    const wxChar* const* labels = nullptr,
+                    const long* values = nullptr,
                     int value = 0 );
 
     wxEnumProperty( const wxString& label,
@@ -396,18 +387,18 @@ public:
     size_t GetItemCount() const;
 
     virtual void OnSetValue();
-    virtual wxString ValueToString( wxVariant& value, int argFlags = 0 ) const;
-    virtual bool StringToValue( wxVariant& variant,
-                                const wxString& text,
-                                int argFlags = 0 ) const;
+    virtual wxString ValueToString(wxVariant& value,
+                                   wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
+    virtual bool StringToValue(wxVariant& variant, const wxString& text,
+                               wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
     virtual bool ValidateValue( wxVariant& value,
                                 wxPGValidationInfo& validationInfo ) const;
 
-    // If wxPG_FULL_VALUE is not set in flags, then the value is interpreted
-    // as index to choices list. Otherwise, it is actual value.
-    virtual bool IntToValue( wxVariant& variant,
-                             int number,
-                             int argFlags = 0 ) const;
+    /** If wxPGPropValFormatFlags::FullValue is not set in flags, then the value is interpreted
+        as index to choices list. Otherwise, it is actual value.
+    */
+    virtual bool IntToValue(wxVariant& variant, int number,
+                            wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
 
     //
     // Additional virtuals
@@ -425,19 +416,16 @@ protected:
     int GetIndex() const;
     void SetIndex( int index );
 
-    bool ValueFromString_( wxVariant& value,
-                           const wxString& text,
-                           int argFlags ) const;
-    bool ValueFromInt_( wxVariant& value, int intVal, int argFlags ) const;
-
-    static void ResetNextIndex();
-
+    bool ValueFromString_(wxVariant& value, int* pIndex, const wxString& text,
+                          wxPGPropValFormatFlags flags) const;
+    bool ValueFromInt_(wxVariant& value, int* pIndex, int intVal,
+                       wxPGPropValFormatFlags flags) const;
 };
 
 
 
 /** @class wxEditEnumProperty
-    @ingroup classes
+    @ingroup group_class_propgrid
     wxEnumProperty with wxString value and writable combo box editor.
 
     @remarks
@@ -458,12 +446,12 @@ public:
                         const wxString& name = wxPG_LABEL,
                         const wxArrayString& labels = wxArrayString(),
                         const wxArrayInt& values = wxArrayInt(),
-                        const wxString& value = wxEmptyString );
+                        const wxString& value = wxString() );
 
     wxEditEnumProperty( const wxString& label,
                         const wxString& name,
                         wxPGChoices& choices,
-                        const wxString& value = wxEmptyString );
+                        const wxString& value = wxString() );
 
     // Special constructor for caching choices (used by derived class)
     wxEditEnumProperty( const wxString& label,
@@ -475,12 +463,17 @@ public:
 
     virtual ~wxEditEnumProperty();
 
+    void OnSetValue() override;
+    bool StringToValue(wxVariant& variant, const wxString& text,
+                       wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
+    bool ValidateValue(wxVariant& value,
+                       wxPGValidationInfo& validationInfo) const;
 };
 
 
 
 /** @class wxFlagsProperty
-    @ingroup classes
+    @ingroup group_class_propgrid
     Represents a bit set that fits in a long integer. wxBoolProperty
     sub-properties are created for editing individual bits. Textctrl is created
     to manually edit the flags as a text; a continuous sequence of spaces,
@@ -496,7 +489,7 @@ public:
     wxFlagsProperty( const wxString& label,
                      const wxString& name,
                      const wxChar* const* labels,
-                     const long* values = NULL,
+                     const long* values = nullptr,
                      long value = 0 );
 
     wxFlagsProperty( const wxString& label,
@@ -513,41 +506,29 @@ public:
     virtual ~wxFlagsProperty ();
 
     virtual void OnSetValue();
-    virtual wxString ValueToString( wxVariant& value, int argFlags = 0 ) const;
-    virtual bool StringToValue( wxVariant& variant,
-                                const wxString& text,
-                                int flags ) const;
+    virtual wxString ValueToString(wxVariant& value,
+                                   wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
+    virtual bool StringToValue(wxVariant& variant, const wxString& text,
+                               wxPGPropValFormatFlags flags) const;
     virtual wxVariant ChildChanged( wxVariant& thisValue,
                                     int childIndex,
                                     wxVariant& childValue ) const;
     virtual void RefreshChildren();
     virtual bool DoSetAttribute( const wxString& name, wxVariant& value );
 
-    // GetChoiceSelection needs to overridden since m_choices is
-    // used and value is integer, but it is not index.
     virtual int GetChoiceSelection() const;
 
-    // helpers
     size_t GetItemCount() const;
     const wxString& GetLabel( size_t ind ) const;
 
 protected:
-    // Used to detect if choices have been changed
-    wxPGChoicesData*        m_oldChoicesData;
-
-    // Needed to properly mark changed sub-properties
-    long                    m_oldValue;
-
-    // Converts string id to a relevant bit.
     long IdToBit( const wxString& id ) const;
-
-    // Creates children and sets value.
-    void Init();
+    void Init(long value);
 };
 
 
 /** @class wxEditorDialogProperty
-    @ingroup classes
+    @ingroup group_class_propgrid
 
     This is an abstract class which serves as a base class for the properties
     having a button triggering an editor dialog, like e.g. wxLongStringProperty,
@@ -595,11 +576,8 @@ protected:
 };
 
 
-// Indicates first bit usable by derived properties.
-#define wxPG_PROP_SHOW_FULL_FILENAME  wxPG_PROP_CLASS_SPECIFIC_1
-
 /** @class wxFileProperty
-    @ingroup classes
+    @ingroup group_class_propgrid
     Like wxLongStringProperty, but the button triggers file selector instead.
 
     <b>Supported special attributes:</b>
@@ -620,14 +598,14 @@ public:
 
     wxFileProperty( const wxString& label = wxPG_LABEL,
                     const wxString& name = wxPG_LABEL,
-                    const wxString& value = wxEmptyString );
+                    const wxString& value = wxString() );
     virtual ~wxFileProperty ();
 
     virtual void OnSetValue();
-    virtual wxString ValueToString( wxVariant& value, int argFlags = 0 ) const;
-    virtual bool StringToValue( wxVariant& variant,
-                                const wxString& text,
-                                int argFlags = 0 ) const;
+    virtual wxString ValueToString(wxVariant& value,
+                                   wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
+    virtual bool StringToValue(wxVariant& variant, const wxString& text,
+                               wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
     virtual bool DoSetAttribute( const wxString& name, wxVariant& value );
 
     static wxValidator* GetClassValidator();
@@ -648,10 +626,8 @@ protected:
 };
 
 
-#define wxPG_PROP_ACTIVE_BTN    wxPG_PROP_CLASS_SPECIFIC_1
-
 /** @class wxLongStringProperty
-    @ingroup classes
+    @ingroup group_class_propgrid
     Like wxStringProperty, but has a button that triggers a small text
     editor dialog.
 
@@ -664,13 +640,13 @@ public:
 
     wxLongStringProperty( const wxString& label = wxPG_LABEL,
                           const wxString& name = wxPG_LABEL,
-                          const wxString& value = wxEmptyString );
+                          const wxString& value = wxString() );
     virtual ~wxLongStringProperty();
 
-    virtual wxString ValueToString( wxVariant& value, int argFlags = 0 ) const;
-    virtual bool StringToValue( wxVariant& variant,
-                                const wxString& text,
-                                int argFlags = 0 ) const;
+    virtual wxString ValueToString(wxVariant& value,
+                                   wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
+    virtual bool StringToValue(wxVariant& variant, const wxString& text,
+                               wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
 
 protected:
     virtual bool DisplayEditorDialog(wxPropertyGrid* pg, wxVariant& value);
@@ -678,7 +654,7 @@ protected:
 
 
 /** @class wxDirProperty
-    @ingroup classes
+    @ingroup group_class_propgrid
     Like wxLongStringProperty, but the button triggers directory selector
     instead.
 
@@ -690,12 +666,13 @@ class wxDirProperty : public wxEditorDialogProperty
 public:
     wxDirProperty( const wxString& label = wxPG_LABEL,
                    const wxString& name = wxPG_LABEL,
-                   const wxString& value = wxEmptyString );
+                   const wxString& value = wxString() );
     virtual ~wxDirProperty();
 
-    virtual wxString ValueToString(wxVariant& value, int argFlags = 0) const;
+    virtual wxString ValueToString(wxVariant& value,
+                                   wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
     virtual bool StringToValue(wxVariant& variant, const wxString& text,
-                               int argFlags = 0) const;
+                               wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
     virtual wxValidator* DoGetValidator() const;
 
 protected:
@@ -703,15 +680,8 @@ protected:
 };
 
 
-// wxBoolProperty specific flags
-#define wxPG_PROP_USE_CHECKBOX      wxPG_PROP_CLASS_SPECIFIC_1
-// DCC = Double Click Cycles
-#define wxPG_PROP_USE_DCC           wxPG_PROP_CLASS_SPECIFIC_2
-
-
-
 /** @class wxArrayStringProperty
-    @ingroup classes
+    @ingroup group_class_propgrid
     Property that manages a list of strings.
 
     <b>Supported special attributes:</b>
@@ -727,10 +697,10 @@ public:
     virtual ~wxArrayStringProperty();
 
     virtual void OnSetValue();
-    virtual wxString ValueToString( wxVariant& value, int argFlags = 0 ) const;
-    virtual bool StringToValue( wxVariant& variant,
-                                const wxString& text,
-                                int argFlags = 0 ) const;
+    virtual wxString ValueToString(wxVariant& value,
+                                   wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
+    virtual bool StringToValue(wxVariant& variant, const wxString& text,
+                               wxPGPropValFormatFlags flags = wxPGPropValFormatFlags::Null) const;
     virtual bool DoSetAttribute( const wxString& name, wxVariant& value );
 
     /**
@@ -863,7 +833,7 @@ class wxPGArrayStringEditorDialog : public wxPGArrayEditorDialog
 {
 public:
     wxPGArrayStringEditorDialog();
-    virtual ~wxPGArrayStringEditorDialog() { }
+    virtual ~wxPGArrayStringEditorDialog() = default;
 
     void Init();
 
@@ -887,4 +857,3 @@ protected:
     virtual void ArrayRemoveAt( int index );
     virtual void ArraySwap( size_t first, size_t second );
 };
-

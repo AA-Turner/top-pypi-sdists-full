@@ -3,6 +3,18 @@ from typing import List, Optional, Tuple
 
 import click
 
+from anyscale.commands.doc_metadata import (
+    command_metadata,
+    CommandExample,
+    ReleaseStatus,
+)
+from anyscale.commands.output_format import (
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    OutputFormat,
+    print_output,
+)
+from anyscale.commands.util import AnyscaleCommand
 import anyscale.skills
 from anyscale.skills.errors import (
     AlreadyInstalledError,
@@ -12,10 +24,13 @@ from anyscale.skills.errors import (
 )
 from anyscale.skills.models import (
     CatalogEntry,
+    ConfigDir,
     InstalledMetadata,
+    InstalledSkillsOutput,
     Platform,
     PlatformMetadata,
     PLATFORMS,
+    SkillsListOutput,
     SkillsListResult,
     TermsStatus,
 )
@@ -39,7 +54,9 @@ def _print_catalog(catalog: List[CatalogEntry]) -> None:
         click.echo(f"  /{entry.name}{suffix}")
 
 
-def _print_diff(added: List[CatalogEntry], removed: List[CatalogEntry]) -> None:
+def _print_diff(
+    added: List[CatalogEntry], removed: List[CatalogEntry], updated: List[CatalogEntry],
+) -> None:
     for entry in added:
         tags = ["new"]
         if _is_unsupported(entry):
@@ -47,6 +64,8 @@ def _print_diff(added: List[CatalogEntry], removed: List[CatalogEntry]) -> None:
         click.echo(f"  + /{entry.name}  {', '.join(tags)}")
     for entry in removed:
         click.echo(f"  - /{entry.name}  removed")
+    for entry in updated:
+        click.echo(f"  ~ /{entry.name}  updated")
 
 
 def _fmt_skill_count(n: int) -> str:
@@ -63,7 +82,9 @@ def _print_installed_section(metadata: Optional[InstalledMetadata]) -> None:
     if metadata is None:
         click.echo("Not installed.")
         return
-    platforms_str = ", ".join(metadata.platforms)
+    platforms_str = ", ".join(
+        PLATFORMS[p].display if p in PLATFORMS else p.value for p in metadata.platforms
+    )
     file_count = sum(
         len(info.skills_files) + len(info.hooks_files)
         for info in metadata.platforms.values()
@@ -90,8 +111,19 @@ def _print_update_section(info: SkillsListResult) -> None:
         click.echo(
             f"Update available: v{metadata.version} -> v{info.available_version}"
         )
-        if info.added or info.removed:
-            _print_diff(info.added, info.removed)
+        has_changes = bool(
+            info.added
+            or info.removed
+            or info.updated
+            or info.added_platforms
+            or info.removed_platforms
+        )
+        if has_changes:
+            _print_diff(info.added, info.removed, info.updated)
+            if info.added_platforms:
+                click.echo(f"  Added support for {', '.join(info.added_platforms)}")
+            if info.removed_platforms:
+                click.echo(f"  Removed support for {', '.join(info.removed_platforms)}")
         else:
             click.echo("  (no skill changes, version bump only)")
         click.echo("")
@@ -99,7 +131,7 @@ def _print_update_section(info: SkillsListResult) -> None:
 
 
 def _install_cmd(platforms: List[Platform], version: str) -> str:
-    flags = "".join(f" -p {platform}" for platform in platforms)
+    flags = "".join(f" -p {platform.value}" for platform in platforms)
     return f"anyscale skills install{flags} -v {version}"
 
 
@@ -114,13 +146,22 @@ def _prompt_terms_acceptance(terms: TermsStatus) -> bool:
     return click.confirm("Do you accept the terms above?", default=False)
 
 
+def _display_dir(config_dir: ConfigDir) -> str:
+    """Resolve a ConfigDir, re-compressing a leading $HOME back to ~ for display."""
+    resolved = config_dir.resolve()
+    home = os.path.expanduser("~")
+    if resolved == home or resolved.startswith(home + os.sep):
+        return "~" + resolved[len(home) :]
+    return resolved
+
+
 def _platform_prompt_label(meta: PlatformMetadata) -> str:
     """Show hooks_dir alone when skills_dir nests under it; both otherwise."""
-    skills = os.path.expanduser(meta.skills_dir)
-    hooks = os.path.expanduser(meta.hooks_dir)
+    skills = meta.skills_dir.resolve()
+    hooks = meta.hooks_dir.resolve()
     if skills == hooks or skills.startswith(hooks + os.sep):
-        return meta.hooks_dir
-    return f"{meta.skills_dir}, {meta.hooks_dir}"
+        return _display_dir(meta.hooks_dir)
+    return f"{_display_dir(meta.skills_dir)}, {_display_dir(meta.hooks_dir)}"
 
 
 def _prompt_platform_selection(
@@ -157,20 +198,111 @@ def _prompt_platform_selection(
 
 @click.group(
     "skills",
-    short_help="Manage Anyscale agent skills for AI coding assistants",
+    short_help="Manage Anyscale agent skills for AI coding assistants.",
     help="Install, update, and list Anyscale agent skills for AI coding assistants (Claude Code, Cursor etc).",
 )
 def skills_cli() -> None:
     pass
 
 
-@skills_cli.command(name="list", help="List available Anyscale agent skills.")
+def _build_list_output(info: SkillsListResult) -> SkillsListOutput:
+    """Curate SkillsListResult for structured output: no local paths/checksums."""
+    installed = None
+    if info.installed is not None:
+        installed = InstalledSkillsOutput(
+            version=info.installed.version,
+            platforms=[p.value for p in info.installed.platforms],
+            installed_at=info.installed.installed_at,
+        )
+    return SkillsListOutput(
+        available_version=info.available_version,
+        up_to_date=info.up_to_date,
+        installed=installed,
+        available_catalog=info.available_catalog,
+    )
+
+
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to [TEXT, JSON, YAML] when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="List installed and available Anyscale agent skills.",
+            command="anyscale skills list",
+            output_raw=(
+                "$ anyscale skills list\n"
+                "Not installed.\n"
+                "\n"
+                "Available: v0.3.0 (3 skills)\n"
+                "  /anyscale-platform-ask\n"
+                "  /anyscale-platform-run\n"
+                "  /anyscale-workload-ray-data\n"
+                "\n"
+                "Run 'anyscale skills install' to get started."
+            ),
+            output_instance=lambda: SkillsListOutput(
+                available_version="0.3.0",
+                up_to_date=False,
+                installed=None,
+                available_catalog=[
+                    CatalogEntry(
+                        name="anyscale-platform-ask",
+                        type="skill",
+                        description="Answer a question about Ray or Anyscale.",
+                        platforms=["claude-code", "cursor", "codex"],
+                    ),
+                    CatalogEntry(
+                        name="anyscale-platform-run",
+                        type="skill",
+                        description="Launch an Anyscale workspace, job, or service.",
+                        platforms=["claude-code", "cursor", "codex"],
+                    ),
+                    CatalogEntry(
+                        name="anyscale-workload-ray-data",
+                        type="skill",
+                        description="Run batch inference on a dataset.",
+                        platforms=["claude-code", "cursor", "codex"],
+                    ),
+                ],
+            ),
+        ),
+    ],
+    output_schema=SkillsListOutput,
+)
+@skills_cli.command(
+    name="list",
+    short_help="List available Anyscale agent skills.",
+    help=(
+        "List available Anyscale agent skills.\n\n"
+        "Shows what is currently installed, whether an update is available, and "
+        "the skill catalog for the latest (or a specific) version."
+    ),
+    cls=AnyscaleCommand,
+)
 @click.option("--version", "-v", help="List skills for a specific version.")
-def skills_list(version: Optional[str]) -> None:
+@click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice(
+        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
+def skills_list(version: Optional[str], output_format: str) -> None:
     try:
         info = anyscale.skills.list(version=version)
     except ValueError as e:
         raise click.ClickException(str(e)) from None
+
+    if output_format != OutputFormat.TEXT.value:
+        print_output(_build_list_output(info), output_format)
+        return
 
     if version is not None:
         _print_version_catalog(info.available_version, info.available_catalog)
@@ -181,7 +313,27 @@ def skills_list(version: Optional[str]) -> None:
     _print_update_section(info)
 
 
-@skills_cli.command(name="install", help="Install Anyscale agent skills.")
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Install the latest skills for a platform, accepting the terms of use.",
+            command="anyscale skills install -p claude-code --accept-terms",
+        ),
+    ],
+)
+@skills_cli.command(
+    name="install",
+    short_help="Install Anyscale agent skills.",
+    help=(
+        "Install Anyscale agent skills.\n\n"
+        "Prompts for a target platform and terms acceptance when not provided via "
+        "flags. All platforms must be on the same skills version."
+    ),
+    cls=AnyscaleCommand,
+)
 @click.option("--version", "-v", help="Specific version to install.")
 @click.option(
     "--platform",
@@ -288,8 +440,22 @@ def skills_install(
     click.echo(f"Successfully installed Anyscale skills v{installed_version}.")
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Update installed skills to the latest version.",
+            command="anyscale skills update",
+        ),
+    ],
+)
 @skills_cli.command(
-    name="update", help="Update Anyscale agent skills to the latest version."
+    name="update",
+    short_help="Update Anyscale agent skills to the latest version.",
+    help="Update Anyscale agent skills to the latest version.",
+    cls=AnyscaleCommand,
 )
 @click.option(
     "--force",
@@ -330,7 +496,23 @@ def skills_update(force: bool, accept_terms: bool) -> None:
     click.echo(f"Successfully updated Anyscale skills to v{updated_version}.")
 
 
-@skills_cli.command(name="terms", help="View Anyscale agent skills terms of use.")
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="View the skills terms of use and acceptance status.",
+            command="anyscale skills terms",
+        ),
+    ],
+)
+@skills_cli.command(
+    name="terms",
+    short_help="View Anyscale agent skills terms of use.",
+    help="View Anyscale agent skills terms of use.",
+    cls=AnyscaleCommand,
+)
 @click.option(
     "--version",
     "-v",

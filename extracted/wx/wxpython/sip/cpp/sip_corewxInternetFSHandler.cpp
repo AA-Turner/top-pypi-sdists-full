@@ -557,7 +557,7 @@ static void *init_type_wxInternetFSHandler(sipSimpleWrapper *sipSelf, PyObject *
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxInternetFSHandler[] = {{186, 255, 1}};
+static sipEncodedTypeDef supers_wxInternetFSHandler[] = {{194, 255, 1}};
 
 
 static PyMethodDef methods_wxInternetFSHandler[] = {

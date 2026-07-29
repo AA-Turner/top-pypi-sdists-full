@@ -1,6 +1,6 @@
 /////////////////////////////////////////////////////////////////////////////
 // Name:        wx/qt/colour.h
-// Purpose:     wxColour class implementation for wxQt
+// Purpose:     wxColourImpl class for wxQt
 // Author:      Kolya Kosenko
 // Created:     2010-05-12
 // Copyright:   (c) 2010 Kolya Kosenko
@@ -12,35 +12,35 @@
 
 class QColor;
 
-class WXDLLIMPEXP_CORE wxWARN_UNUSED wxColour : public wxColourBase
+class WXDLLIMPEXP_CORE wxColourImpl : public wxColourBase
 {
 public:
-    DEFINE_STD_WXCOLOUR_CONSTRUCTORS
-    wxColour(const QColor& color);
+    wxColourImpl() = default;
+    wxColourImpl(const QColor& color);
 
-    virtual bool IsOk() const wxOVERRIDE { return m_valid; }
+    virtual bool IsOk() const override { return m_valid; }
 
-    ChannelType Red()   const wxOVERRIDE { return m_red;   }
-    ChannelType Green() const wxOVERRIDE { return m_green; }
-    ChannelType Blue()  const wxOVERRIDE { return m_blue;  }
-    ChannelType Alpha() const wxOVERRIDE { return m_alpha; }
+    ChannelType Red()   const override { return m_red;   }
+    ChannelType Green() const override { return m_green; }
+    ChannelType Blue()  const override { return m_blue;  }
+    ChannelType Alpha() const override { return m_alpha; }
 
-    bool operator==(const wxColour& color) const;
-    bool operator!=(const wxColour& color) const;
+    bool operator==(const wxColourImpl& color) const;
+    bool operator!=(const wxColourImpl& color) const;
 
     int GetPixel() const;
 
     QColor GetQColor() const;
 
 protected:
-    void Init();
-    virtual void InitRGBA(ChannelType r, ChannelType g, ChannelType b, ChannelType a) wxOVERRIDE;
+    virtual void InitRGBA(ChannelType r, ChannelType g, ChannelType b, ChannelType a) override;
 
 private:
-    ChannelType m_red, m_green, m_blue, m_alpha;
-    bool m_valid;
-
-    wxDECLARE_DYNAMIC_CLASS(wxColour);
+    ChannelType m_red = 0,
+                m_green = 0,
+                m_blue = 0,
+                m_alpha = wxALPHA_TRANSPARENT;
+    bool m_valid = false;
 };
 
 #endif // _WX_QT_COLOUR_H_

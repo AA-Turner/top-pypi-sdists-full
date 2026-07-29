@@ -40,13 +40,13 @@
 
     Note that the scaling factor of the bitmap determines the scaling factor
     used by this device context, so when using a memory device context as a
-    back buffer for a window, you should typically create the bitmap using the
-    same scale factor as used by the window, e.g.
+    back buffer for a window, you should create the bitmap using the same scale
+    factor as the one used by the window itself, e.g.
     @code
     void MyWindow::OnPaint(wxPaintEvent&)
     {
         wxBitmap bmp;
-        bmp.CreateWithDIPSize(GetClientSize(), GetDPIScaleFactor());
+        bmp.CreateWithLogicalSize(GetClientSize(), GetDPIScaleFactor());
         {
             wxMemoryDC memdc(bmp);
             ... use memdc to draw on the bitmap ...
@@ -82,6 +82,10 @@ public:
         dc in wxMSW, the argument is ignored in the other ports. If @a dc is
         @NULL, a device context compatible with the screen is created, just as
         with the default constructor.
+
+        Note that the DPI scaling factor is @e not inherited from @a dc, but
+        is determined by the scaling factor of the bitmap selected into this
+        device context later.
      */
     wxMemoryDC(wxDC *dc);
 
@@ -108,6 +112,10 @@ public:
         If the bitmap is already selected in this device context, nothing is
         done. If it is selected in another context, the function asserts and
         drawing on the bitmap won't work correctly.
+
+        Note that this function changes the scale factor of this device context
+        (as returned by wxDC::GetContentScaleFactor()) to be the same as the
+        bitmap scale factor (as returned by wxBitmap::GetScaleFactor()).
     */
     void SelectObject(wxBitmap& bitmap);
 

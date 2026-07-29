@@ -10,6 +10,8 @@ from matrice_common.utils import (
     handle_response,
 )
 
+APPLICATION_JSON = "application/json"
+
 
 class ExportedModel:
     """
@@ -80,7 +82,7 @@ class ExportedModel:
             self.total_models = summary_data.get("total", 0)
         else:
             print(f"Error fetching summary: {self.summary_response.get('message')}")
-        details_response, err, msg = self.get_details()
+        details_response, _, _ = self.get_details()
         self.details = details_response
         self.model_train_id = details_response.get("_idModelTrain")
         self.model_train_name = details_response.get("modelTrainName")
@@ -136,9 +138,9 @@ class ExportedModel:
         >>> else:
         >>>     print(f"Model Export Details: {details}")
         """
-        id = self.model_export_id
+        model_export_id = self.model_export_id
         name = self.model_export_name
-        if id:
+        if model_export_id:
             try:
                 return self._get_model_export_by_id()
             except Exception as e:
@@ -241,7 +243,7 @@ class ExportedModel:
             "modelExportId": self.model_export_id,
             "name": updated_name,
         }
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         path = f"/v1/model/{self.model_export_id}/update_modelExport_name"
         resp = self.rpc.put(
             path=path,
@@ -325,11 +327,11 @@ class ExportedModel:
         >>> else:
         >>>     print(f"Evaluation added: {eval_result}")
         """
-        model_info, err, msg = self.get_details()
+        model_info, _, _ = self.get_details()
         runtime_framework = model_info["exportFormat"]
-        model_train_info, err, msg = self.get_trained_model()
+        _, _, _ = self.get_trained_model()
         path = "/v1/model/add_model_eval"
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         model_payload = {
             "_idModel": self.model_export_id,
             "_idProject": self.project_id,
@@ -416,7 +418,7 @@ class ExportedModel:
         >>>     print(f"Evaluation result: {eval_result}")
         """
         path = "/v1/model/get_eval_result"
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         model_payload = {
             "_idDataset": dataset_id,
             "_idModel": self.model_export_id,
@@ -488,7 +490,7 @@ class ExportedModel:
             print("Model id not set for this model. Cannot perform the operation for model without model id")
             sys.exit(0)
         path = "/v1/model/get_model_download_path"
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         model_payload = {
             "modelID": self.model_export_id,
             "modelType": "exported",

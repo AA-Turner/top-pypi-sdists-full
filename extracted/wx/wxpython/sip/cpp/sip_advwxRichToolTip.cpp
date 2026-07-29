@@ -249,7 +249,7 @@ static PyObject *meth_wxRichToolTip_SetTitleFont(PyObject *sipSelf, PyObject *si
 }
 
 
-PyDoc_STRVAR(doc_wxRichToolTip_ShowFor, "ShowFor(win, rect=None) -> None\n"
+PyDoc_STRVAR(doc_wxRichToolTip_ShowFor, "ShowFor(win, rect=nullptr) -> None\n"
 "\n"
 "Show the tooltip for the given window and optionally specify where to\n"
 "show the tooltip.");
@@ -261,7 +261,7 @@ static PyObject *meth_wxRichToolTip_ShowFor(PyObject *sipSelf, PyObject *sipArgs
 
     {
         ::wxWindow* win;
-        const ::wxRect* rect = 0;
+        const ::wxRect* rect = nullptr;
         int rectState = 0;
         ::wxRichToolTip *sipCpp;
 

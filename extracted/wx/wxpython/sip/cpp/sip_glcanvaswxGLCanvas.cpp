@@ -15,19 +15,20 @@
         #include <wx/gdicmn.h>
         #include <wx/palette.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/validate.h>
         #include <wx/glcanvas.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -42,13 +43,30 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
-    bool _wxGLCanvas_CreateSurface(wxGLCanvas* self)
+    int _wxGLCanvas_GetGLXVersion()
     {
-        #if wxUSE_GLCANVAS_EGL
-            return self->CreateSurface();
+        #if wxHAS_GLX
+            return wxGLCanvas::GetGLXVersion();
         #else
             wxPyRaiseNotImplemented();
-            return false;
+            return 0;
+        #endif
+    }
+    void _wxGLCanvas_PreferGLX()
+    {
+        #if wxHAS_GLX
+            wxGLCanvas::PreferGLX();
+        #else
+            wxPyRaiseNotImplemented();
+        #endif
+    }
+    wxAccessible* _wxGLCanvas_CreateAccessible(wxGLCanvas* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
         #endif
     }
 
@@ -56,6 +74,7 @@
 class sipwxGLCanvas : public ::wxGLCanvas
 {
 public:
+    sipwxGLCanvas();
     sipwxGLCanvas(::wxWindow*, const ::wxGLAttributes&, ::wxWindowID, const ::wxPoint&, const ::wxSize&, long, const ::wxString&, const ::wxPalette&);
     sipwxGLCanvas(::wxWindow*, ::wxWindowID, const int*, const ::wxPoint&, const ::wxSize&, long, const ::wxString&, const ::wxPalette&);
     virtual ~sipwxGLCanvas();
@@ -78,7 +97,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -124,7 +142,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -137,8 +154,13 @@ private:
     sipwxGLCanvas(const sipwxGLCanvas &);
     sipwxGLCanvas &operator = (const sipwxGLCanvas &);
 
-    char sipPyMethods[39];
+    char sipPyMethods[38];
 };
+
+sipwxGLCanvas::sipwxGLCanvas(): ::wxGLCanvas(), sipPySelf(SIP_NULLPTR)
+{
+    memset(sipPyMethods, 0, sizeof (sipPyMethods));
+}
 
 sipwxGLCanvas::sipwxGLCanvas(::wxWindow*parent, const ::wxGLAttributes& dispAttrs, ::wxWindowID id, const ::wxPoint& pos, const ::wxSize& size, long style, const ::wxString& name, const ::wxPalette& palette): ::wxGLCanvas(parent, dispAttrs, id, pos, size, style, name, palette), sipPySelf(SIP_NULLPTR)
 {
@@ -716,27 +738,12 @@ void sipwxGLCanvas::DoSetWindowVariant(::wxWindowVariant variant)
     return sipVH__glcanvas_3(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxGLCanvas::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxGLCanvas::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__glcanvas_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__glcanvas_3(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 void sipwxGLCanvas::DoFreeze()
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -754,7 +761,7 @@ void sipwxGLCanvas::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -772,7 +779,7 @@ void sipwxGLCanvas::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxGLCanvas::DoGetBestSize();
@@ -787,7 +794,7 @@ void sipwxGLCanvas::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxGLCanvas::DoGetBestClientSize();
@@ -867,11 +874,6 @@ void sipwxGLCanvas::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, ::wxWi
     return (sipSelfWasArg ? ::wxGLCanvas::GetDefaultBorder() : GetDefaultBorder());
 }
 
-::wxBorder sipwxGLCanvas::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxGLCanvas::GetDefaultBorderForControl() : GetDefaultBorderForControl());
-}
-
 void sipwxGLCanvas::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
 {
     (sipSelfWasArg ? ::wxGLCanvas::DoFreeze() : DoFreeze());
@@ -932,36 +934,36 @@ static PyObject *meth_wxGLCanvas_SendDestroyEvent(PyObject *sipSelf, PyObject *s
 }
 
 
-PyDoc_STRVAR(doc_wxGLCanvas_CreateSurface, "CreateSurface() -> bool\n"
+PyDoc_STRVAR(doc_wxGLCanvas_GetSwapInterval, "GetSwapInterval() -> int\n"
 "\n"
-"Re-creates EGLSurface.");
+"Return the current swap interval.");
 
-extern "C" {static PyObject *meth_wxGLCanvas_CreateSurface(PyObject *, PyObject *);}
-static PyObject *meth_wxGLCanvas_CreateSurface(PyObject *sipSelf, PyObject *sipArgs)
+extern "C" {static PyObject *meth_wxGLCanvas_GetSwapInterval(PyObject *, PyObject *);}
+static PyObject *meth_wxGLCanvas_GetSwapInterval(PyObject *sipSelf, PyObject *sipArgs)
 {
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        ::wxGLCanvas *sipCpp;
+        const ::wxGLCanvas *sipCpp;
 
         if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxGLCanvas, &sipCpp))
         {
-            bool sipRes = 0;
-            int sipIsErr = 0;
-        PyErr_Clear();
-        Py_BEGIN_ALLOW_THREADS
-        sipRes = _wxGLCanvas_CreateSurface(sipCpp);
-        Py_END_ALLOW_THREADS
-        if (PyErr_Occurred()) sipIsErr = 1;
+            int sipRes;
 
-            if (sipIsErr)
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetSwapInterval();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
                 return 0;
 
-            return PyBool_FromLong(sipRes);
+            return PyLong_FromLong(sipRes);
         }
     }
 
-    sipNoMethod(sipParseErr, sipName_GLCanvas, sipName_CreateSurface, SIP_NULLPTR);
+    sipNoMethod(sipParseErr, sipName_GLCanvas, sipName_GetSwapInterval, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -1051,6 +1053,46 @@ static PyObject *meth_wxGLCanvas_SetCurrent(PyObject *sipSelf, PyObject *sipArgs
 }
 
 
+PyDoc_STRVAR(doc_wxGLCanvas_SetSwapInterval, "SetSwapInterval(interval) -> SwapInterval\n"
+"\n"
+"Set swap interval to the specified value.");
+
+extern "C" {static PyObject *meth_wxGLCanvas_SetSwapInterval(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxGLCanvas_SetSwapInterval(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int interval;
+        ::wxGLCanvas *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_interval,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxGLCanvas, &sipCpp, &interval))
+        {
+            ::wxGLCanvas::SwapInterval sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->SetSwapInterval(interval);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxGLCanvas_SwapInterval);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_GLCanvas, sipName_SetSwapInterval, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxGLCanvas_SwapBuffers, "SwapBuffers() -> bool\n"
 "\n"
 "Swaps the double-buffer of this window, making the back-buffer the\n"
@@ -1083,6 +1125,39 @@ static PyObject *meth_wxGLCanvas_SwapBuffers(PyObject *sipSelf, PyObject *sipArg
     }
 
     sipNoMethod(sipParseErr, sipName_GLCanvas, sipName_SwapBuffers, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxGLCanvas_GetGLXVersion, "GetGLXVersion() -> int\n"
+"\n"
+"Return the version of GLX being used or 0 if not using GLX.");
+
+extern "C" {static PyObject *meth_wxGLCanvas_GetGLXVersion(PyObject *, PyObject *);}
+static PyObject *meth_wxGLCanvas_GetGLXVersion(PyObject *, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        if (sipParseArgs(&sipParseErr, sipArgs, ""))
+        {
+            int sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxGLCanvas_GetGLXVersion();
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_GLCanvas, sipName_GetGLXVersion, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -1186,6 +1261,41 @@ static PyObject *meth_wxGLCanvas_IsExtensionSupported(PyObject *, PyObject *sipA
     }
 
     sipNoMethod(sipParseErr, sipName_GLCanvas, sipName_IsExtensionSupported, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxGLCanvas_PreferGLX, "PreferGLX() -> None\n"
+"\n"
+"Prefer using GLX over other OpenGL implementations on Unix-like\n"
+"systems where multiple implementations are available (such as GLX and\n"
+"EGL).");
+
+extern "C" {static PyObject *meth_wxGLCanvas_PreferGLX(PyObject *, PyObject *);}
+static PyObject *meth_wxGLCanvas_PreferGLX(PyObject *, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        if (sipParseArgs(&sipParseErr, sipArgs, ""))
+        {
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        _wxGLCanvas_PreferGLX();
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_GLCanvas, sipName_PreferGLX, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -2394,40 +2504,6 @@ static PyObject *meth_wxGLCanvas_GetDefaultBorder(PyObject *sipSelf, PyObject *s
 }
 
 
-PyDoc_STRVAR(doc_wxGLCanvas_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxGLCanvas_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxGLCanvas_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxGLCanvas *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxGLCanvas, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_GLCanvas, sipName_GetDefaultBorderForControl, doc_wxGLCanvas_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxGLCanvas_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxGLCanvas_DoFreeze(PyObject *, PyObject *);}
@@ -2606,6 +2682,39 @@ static PyObject *meth_wxGLCanvas_TryAfter(PyObject *sipSelf, PyObject *sipArgs, 
 }
 
 
+PyDoc_STRVAR(doc_wxGLCanvas_CreateAccessible, "CreateAccessible() -> Accessible");
+
+extern "C" {static PyObject *meth_wxGLCanvas_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxGLCanvas_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxGLCanvas *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxGLCanvas, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxGLCanvas_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_GLCanvas, sipName_CreateAccessible, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxGLCanvas_GetClassDefaultAttributes, "GetClassDefaultAttributes(variant=WINDOW_VARIANT_NORMAL) -> VisualAttributes");
 
 extern "C" {static PyObject *meth_wxGLCanvas_GetClassDefaultAttributes(PyObject *, PyObject *, PyObject *);}
@@ -2676,6 +2785,20 @@ static void release_wxGLCanvas(void *sipCppV, int sipState)
 }
 
 
+extern "C" {static void *array_wxGLCanvas(Py_ssize_t);}
+static void *array_wxGLCanvas(Py_ssize_t sipNrElem)
+{
+    return new ::wxGLCanvas[sipNrElem];
+}
+
+
+extern "C" {static void array_delete_wxGLCanvas(void *);}
+static void array_delete_wxGLCanvas(void *sipCpp)
+{
+    delete[] reinterpret_cast< ::wxGLCanvas *>(sipCpp);
+}
+
+
 extern "C" {static void dealloc_wxGLCanvas(sipSimpleWrapper *);}
 static void dealloc_wxGLCanvas(sipSimpleWrapper *sipSelf)
 {
@@ -2693,6 +2816,29 @@ extern "C" {static void *init_type_wxGLCanvas(sipSimpleWrapper *, PyObject *, Py
 static void *init_type_wxGLCanvas(sipSimpleWrapper *sipSelf, PyObject *sipArgs, PyObject *sipKwds, PyObject **sipUnused, PyObject **sipOwner, PyObject **sipParseErr)
 {
     sipwxGLCanvas *sipCpp = SIP_NULLPTR;
+
+    {
+        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, SIP_NULLPTR, sipUnused, ""))
+        {
+        if (!wxPyCheckForApp()) return NULL;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp = new sipwxGLCanvas();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+            {
+                delete sipCpp;
+                return SIP_NULLPTR;
+            }
+
+            sipCpp->sipPySelf = sipSelf;
+
+            return sipCpp;
+        }
+    }
 
     {
         ::wxWindow* parent;
@@ -2800,7 +2946,7 @@ static void *init_type_wxGLCanvas(sipSimpleWrapper *sipSelf, PyObject *sipArgs, 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGLCanvas[] = {{12, 0, 1}};
+static sipEncodedTypeDef supers_wxGLCanvas[] = {{13, 0, 1}};
 
 
 static PyMethodDef methods_wxGLCanvas[] = {
@@ -2808,7 +2954,7 @@ static PyMethodDef methods_wxGLCanvas[] = {
     {sipName_AcceptsFocusFromKeyboard, meth_wxGLCanvas_AcceptsFocusFromKeyboard, METH_VARARGS, doc_wxGLCanvas_AcceptsFocusFromKeyboard},
     {sipName_AcceptsFocusRecursively, meth_wxGLCanvas_AcceptsFocusRecursively, METH_VARARGS, doc_wxGLCanvas_AcceptsFocusRecursively},
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxGLCanvas_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxGLCanvas_AddChild},
-    {sipName_CreateSurface, meth_wxGLCanvas_CreateSurface, METH_VARARGS, doc_wxGLCanvas_CreateSurface},
+    {sipName_CreateAccessible, meth_wxGLCanvas_CreateAccessible, METH_VARARGS, doc_wxGLCanvas_CreateAccessible},
     {sipName_Destroy, meth_wxGLCanvas_Destroy, METH_VARARGS, doc_wxGLCanvas_Destroy},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxGLCanvas_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxGLCanvas_DoEnable},
     {sipName_DoFreeze, meth_wxGLCanvas_DoFreeze, METH_VARARGS, doc_wxGLCanvas_DoFreeze},
@@ -2827,8 +2973,9 @@ static PyMethodDef methods_wxGLCanvas[] = {
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxGLCanvas_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxGLCanvas_GetClassDefaultAttributes},
     {sipName_GetClientAreaOrigin, meth_wxGLCanvas_GetClientAreaOrigin, METH_VARARGS, doc_wxGLCanvas_GetClientAreaOrigin},
     {sipName_GetDefaultBorder, meth_wxGLCanvas_GetDefaultBorder, METH_VARARGS, doc_wxGLCanvas_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxGLCanvas_GetDefaultBorderForControl, METH_VARARGS, doc_wxGLCanvas_GetDefaultBorderForControl},
+    {sipName_GetGLXVersion, meth_wxGLCanvas_GetGLXVersion, METH_VARARGS, doc_wxGLCanvas_GetGLXVersion},
     {sipName_GetMainWindowOfCompositeControl, meth_wxGLCanvas_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxGLCanvas_GetMainWindowOfCompositeControl},
+    {sipName_GetSwapInterval, meth_wxGLCanvas_GetSwapInterval, METH_VARARGS, doc_wxGLCanvas_GetSwapInterval},
     {sipName_GetValidator, meth_wxGLCanvas_GetValidator, METH_VARARGS, doc_wxGLCanvas_GetValidator},
     {sipName_HasTransparentBackground, meth_wxGLCanvas_HasTransparentBackground, METH_VARARGS, doc_wxGLCanvas_HasTransparentBackground},
     {sipName_InformFirstDirection, SIP_MLMETH_CAST(meth_wxGLCanvas_InformFirstDirection), METH_VARARGS|METH_KEYWORDS, doc_wxGLCanvas_InformFirstDirection},
@@ -2837,12 +2984,14 @@ static PyMethodDef methods_wxGLCanvas[] = {
     {sipName_IsDisplaySupported, SIP_MLMETH_CAST(meth_wxGLCanvas_IsDisplaySupported), METH_VARARGS|METH_KEYWORDS, doc_wxGLCanvas_IsDisplaySupported},
     {sipName_IsExtensionSupported, SIP_MLMETH_CAST(meth_wxGLCanvas_IsExtensionSupported), METH_VARARGS|METH_KEYWORDS, doc_wxGLCanvas_IsExtensionSupported},
     {sipName_OnInternalIdle, meth_wxGLCanvas_OnInternalIdle, METH_VARARGS, doc_wxGLCanvas_OnInternalIdle},
+    {sipName_PreferGLX, meth_wxGLCanvas_PreferGLX, METH_VARARGS, doc_wxGLCanvas_PreferGLX},
     {sipName_ProcessEvent, SIP_MLMETH_CAST(meth_wxGLCanvas_ProcessEvent), METH_VARARGS|METH_KEYWORDS, doc_wxGLCanvas_ProcessEvent},
     {sipName_RemoveChild, SIP_MLMETH_CAST(meth_wxGLCanvas_RemoveChild), METH_VARARGS|METH_KEYWORDS, doc_wxGLCanvas_RemoveChild},
     {sipName_SendDestroyEvent, meth_wxGLCanvas_SendDestroyEvent, METH_VARARGS, SIP_NULLPTR},
     {sipName_SetCanFocus, SIP_MLMETH_CAST(meth_wxGLCanvas_SetCanFocus), METH_VARARGS|METH_KEYWORDS, doc_wxGLCanvas_SetCanFocus},
     {sipName_SetColour, SIP_MLMETH_CAST(meth_wxGLCanvas_SetColour), METH_VARARGS|METH_KEYWORDS, doc_wxGLCanvas_SetColour},
     {sipName_SetCurrent, SIP_MLMETH_CAST(meth_wxGLCanvas_SetCurrent), METH_VARARGS|METH_KEYWORDS, doc_wxGLCanvas_SetCurrent},
+    {sipName_SetSwapInterval, SIP_MLMETH_CAST(meth_wxGLCanvas_SetSwapInterval), METH_VARARGS|METH_KEYWORDS, doc_wxGLCanvas_SetSwapInterval},
     {sipName_SetValidator, SIP_MLMETH_CAST(meth_wxGLCanvas_SetValidator), METH_VARARGS|METH_KEYWORDS, doc_wxGLCanvas_SetValidator},
     {sipName_ShouldInheritColours, meth_wxGLCanvas_ShouldInheritColours, METH_VARARGS, doc_wxGLCanvas_ShouldInheritColours},
     {sipName_SwapBuffers, meth_wxGLCanvas_SwapBuffers, METH_VARARGS, doc_wxGLCanvas_SwapBuffers},
@@ -2853,7 +3002,30 @@ static PyMethodDef methods_wxGLCanvas[] = {
     {sipName_Validate, meth_wxGLCanvas_Validate, METH_VARARGS, doc_wxGLCanvas_Validate}
 };
 
-PyDoc_STRVAR(doc_wxGLCanvas, "GLCanvas(parent, dispAttrs, id=ID_ANY, pos=DefaultPosition, size=DefaultSize, style=0, name=GLCanvasName, palette=NullPalette) -> None\n"
+static sipEnumMemberDef enummembers_wxGLCanvas[] = {
+    {sipName_NonAdaptive, static_cast<int>(::wxGLCanvas::SwapInterval::NonAdaptive), 3},
+    {sipName_NotSet, static_cast<int>(::wxGLCanvas::SwapInterval::NotSet), 3},
+    {sipName_Set, static_cast<int>(::wxGLCanvas::SwapInterval::Set), 3},
+};
+
+
+extern "C" {static PyObject *varget_wxGLCanvas_DefaultSwapInterval(void *, PyObject *, PyObject *);}
+static PyObject *varget_wxGLCanvas_DefaultSwapInterval(void *sipSelf, PyObject *, PyObject *)
+{
+    int sipVal;
+    ::wxGLCanvas *sipCpp = reinterpret_cast< ::wxGLCanvas *>(sipSelf);
+
+    sipVal = sipCpp->DefaultSwapInterval;
+
+    return PyLong_FromLong(sipVal);
+}
+
+sipVariableDef variables_wxGLCanvas[] = {
+    {InstanceVariable, sipName_DefaultSwapInterval, (PyMethodDef *)varget_wxGLCanvas_DefaultSwapInterval, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+};
+
+PyDoc_STRVAR(doc_wxGLCanvas, "GLCanvas() -> None\n"
+"GLCanvas(parent, dispAttrs, id=ID_ANY, pos=DefaultPosition, size=DefaultSize, style=0, name=GLCanvasName, palette=NullPalette) -> None\n"
 "GLCanvas(parent, id=wx.ID_ANY, attribList=None, pos=wx.DefaultPosition, size=wx.DefaultSize, style=0, name='GLCanvas', palette=wx.NullPalette)\n"
 "\n"
 "wxGLCanvas is a class for displaying OpenGL graphics.");
@@ -2872,9 +3044,9 @@ sipClassTypeDef sipTypeDef__glcanvas_wxGLCanvas = {
     {
         sipNameNr_GLCanvas,
         {0, 0, 1},
-        47, methods_wxGLCanvas,
-        0, SIP_NULLPTR,
-        0, SIP_NULLPTR,
+        50, methods_wxGLCanvas,
+        3, enummembers_wxGLCanvas,
+        1, variables_wxGLCanvas,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxGLCanvas,
@@ -2889,7 +3061,7 @@ sipClassTypeDef sipTypeDef__glcanvas_wxGLCanvas = {
     SIP_NULLPTR,
     dealloc_wxGLCanvas,
     SIP_NULLPTR,
-    SIP_NULLPTR,
+    array_wxGLCanvas,
     SIP_NULLPTR,
     release_wxGLCanvas,
     cast_wxGLCanvas,
@@ -2899,6 +3071,6 @@ sipClassTypeDef sipTypeDef__glcanvas_wxGLCanvas = {
     SIP_NULLPTR,
     SIP_NULLPTR,
     SIP_NULLPTR,
-    SIP_NULLPTR,
+    array_delete_wxGLCanvas,
     sizeof (::wxGLCanvas),
 };

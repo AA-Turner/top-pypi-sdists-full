@@ -66,9 +66,9 @@ sipwxPyEvent::~sipwxPyEvent()
     if (!sipMeth)
         return ::wxPyEvent::Clone();
 
-    extern ::wxEvent* sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEvent* sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxEventCategory sipwxPyEvent::GetEventCategory() const
@@ -81,9 +81,9 @@ sipwxPyEvent::~sipwxPyEvent()
     if (!sipMeth)
         return ::wxPyEvent::GetEventCategory();
 
-    extern ::wxEventCategory sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEventCategory sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
@@ -325,7 +325,7 @@ static void *init_type_wxPyEvent(sipSimpleWrapper *sipSelf, PyObject *sipArgs, P
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxPyEvent[] = {{151, 255, 1}};
+static sipEncodedTypeDef supers_wxPyEvent[] = {{158, 255, 1}};
 
 
 /* Define this type's Python slots. */

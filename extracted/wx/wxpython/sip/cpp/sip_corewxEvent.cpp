@@ -653,7 +653,7 @@ static void dealloc_wxEvent(sipSimpleWrapper *sipSelf)
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxEvent[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxEvent[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxEvent[] = {

@@ -117,9 +117,7 @@ static int slot_wxRichTextActionList___contains__(PyObject *sipSelf, PyObject *s
         if (sipParseArgs(&sipParseErr, sipArg, "1J8", sipType_wxRichTextAction, &obj))
         {
             int sipRes = 0;
-        wxRichTextActionList::compatibility_iterator node;
-        node = sipCpp->Find((wxRichTextAction*)obj);
-        sipRes = node != NULL;
+        sipRes = sipCpp->Member((wxRichTextAction*)obj);
 
             return sipRes;
         }

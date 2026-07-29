@@ -173,7 +173,9 @@ class ModelBase(metaclass=ModelBaseType):
         # First, manually convert any nested ModelBase objects to dicts
         # because asdict() would convert them to dicts using raw field values
         converted_fields: Dict[str, Any] = {}
-        for field in fields(self):
+        # The dataclasses functions want a statically-known dataclass; every
+        # concrete ModelBase subclass is one, but the base type is not.
+        for field in fields(self):  # type: ignore[arg-type]
             value = getattr(self, field.name)
 
             if isinstance(value, ModelBase):
@@ -210,7 +212,7 @@ class ModelBase(metaclass=ModelBaseType):
 
             return d
 
-        return asdict(self, dict_factory=maybe_exclude_nones)
+        return asdict(self, dict_factory=maybe_exclude_nones)  # type: ignore[call-overload]
 
     def options(self: TModelBase, **kwargs) -> TModelBase:
         """Return a copy of the model with the provided fields updated.
@@ -221,7 +223,7 @@ class ModelBase(metaclass=ModelBaseType):
             field.name: kwargs.pop(field.name)
             if field.name in kwargs
             else getattr(self, field.name)
-            for field in fields(self)
+            for field in fields(self)  # type: ignore[arg-type]
         }
         if len(kwargs) > 0:
             raise ValueError(
@@ -374,7 +376,7 @@ class ResultIterator(Generic[RT]):
         results = await asyncio.gather(*tasks, return_exceptions=True)
         processed: List[RT] = []
         for idx, res in enumerate(results):
-            if isinstance(res, Exception):
+            if isinstance(res, BaseException):
                 raise RuntimeError(f"async parse failed on item {idx}: {res}") from res
             processed.append(res)
         return processed

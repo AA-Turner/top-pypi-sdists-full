@@ -8,6 +8,18 @@
  */
 
 #include "sipAPI_aui.h"
+    #include <vector>
+    #include <algorithm>
+
+    
+#include <wx/aui/auibook.h>
+
+inline bool operator==(const wxAuiNotebookPage& a, const wxAuiNotebookPage& b) {
+
+    if (a.window != b.window) return false;
+    
+    return true;
+}
         #include <wx/aui/auibook.h>
 
 
@@ -28,7 +40,7 @@ static PyObject *meth_wxAuiNotebookPageArray_append(PyObject *sipSelf, PyObject 
 
         if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9", &sipSelf, sipType_wxAuiNotebookPageArray, &sipCpp, sipType_wxAuiNotebookPage, &obj))
         {
-        sipCpp->Add(*obj);
+        sipCpp->push_back(*obj);
 
             Py_INCREF(Py_None);
             return Py_None;
@@ -60,13 +72,15 @@ static PyObject *meth_wxAuiNotebookPageArray_index(PyObject *sipSelf, PyObject *
         {
             int sipRes = 0;
             sipErrorState sipError = sipErrorNone;
-        int idx = sipCpp->Index(*obj, false);
-        if (idx == wxNOT_FOUND) {
+        auto it = std::find(sipCpp->begin(), sipCpp->end(), *obj);
+
+        if (it == sipCpp->end()) {
             sipError = sipErrorFail;
-            wxPyErr_SetString(PyExc_ValueError,
-                              "sequence.index(x): x not in sequence");
-            }
-        sipRes = idx;
+            PyErr_SetString(PyExc_ValueError, "sequence.index(x): x not in sequence");
+        }
+        else {
+            sipRes = std::distance(sipCpp->begin(), it);
+        }
 
             if (sipError == sipErrorFail)
                 return 0;
@@ -102,8 +116,8 @@ static int slot_wxAuiNotebookPageArray___contains__(PyObject *sipSelf, PyObject 
         if (sipParseArgs(&sipParseErr, sipArg, "1J9", sipType_wxAuiNotebookPage, &obj))
         {
             int sipRes = 0;
-        int idx = sipCpp->Index(*obj, false);
-        sipRes = idx != wxNOT_FOUND;
+        auto it = std::find(sipCpp->begin(), sipCpp->end(), *obj);
+        sipRes = (it != sipCpp->end());
 
             return sipRes;
         }
@@ -133,10 +147,10 @@ static PyObject *slot_wxAuiNotebookPageArray___getitem__(PyObject *sipSelf, PyOb
             ::wxAuiNotebookPage*sipRes = 0;
             sipErrorState sipError = sipErrorNone;
             if (0 > index)
-                index += sipCpp->GetCount();
+                index += sipCpp->size();
 
-            if ((index < sipCpp->GetCount()) && (0 <= index)) {
-                sipRes = &sipCpp->Item(index);
+            if ((index < sipCpp->size()) && (0 <= index)) {
+                sipRes = &sipCpp->at(index);
             }
             else {
                 wxPyErr_SetString(PyExc_IndexError, "sequence index out of range");
@@ -173,7 +187,7 @@ static Py_ssize_t slot_wxAuiNotebookPageArray___len__(PyObject *sipSelf)
     {
         {
             Py_ssize_t sipRes = 0;
-        sipRes = sipCpp->GetCount();
+        sipRes = sipCpp->size();
 
             return sipRes;
         }

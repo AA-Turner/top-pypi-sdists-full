@@ -33,7 +33,7 @@ use uv_distribution_filename::{SourceDistExtension, WheelFilename};
 use uv_distribution_types::{
     BuildInfo, BuildVariables, BuildableSource, ConfigSettings, DirectorySourceUrl,
     ExtraBuildRequirement, GitDirectorySourceUrl, GitPathSourceUrl, HashPolicy, Hashed, IndexUrl,
-    PathSourceUrl, RequirementSource, RequiresPython, SourceDist, SourceUrl,
+    PathSourceUrl, RemoteSource, RequirementSource, RequiresPython, SourceDist, SourceUrl,
 };
 use uv_extract::hash::Hasher;
 use uv_fs::{Simplified, rename_with_retry, write_atomic};
@@ -974,8 +974,6 @@ impl<'a, T: BuildContext> SourceDistributionBuilder<'a, T> {
         };
 
         let download = |response| {
-            let query_url = url.clone();
-
             async {
                 // At this point, we're seeing a new or updated source distribution. Initialize a
                 // new revision, to collect the source and built artifacts.
@@ -985,11 +983,13 @@ impl<'a, T: BuildContext> SourceDistributionBuilder<'a, T> {
                 debug!("Downloading source distribution: {source}");
                 let entry = cache_shard.shard(revision.id()).entry(SOURCE);
                 let algorithms = http_hash_algorithms(hashes);
-                let hashes = self
-                    .download_archive(query_url, response, source, ext, entry.path(), &algorithms)
+                let (hashes, size) = self
+                    .download_archive(response, source, ext, entry.path(), &algorithms)
                     .await?;
 
-                Ok(revision.with_hashes(HashDigests::from(hashes)))
+                Ok(revision
+                    .with_hashes(HashDigests::from(hashes))
+                    .with_size(size))
             }
             .boxed_local()
             .instrument(info_span!("download", source_dist = %source))
@@ -1010,8 +1010,25 @@ impl<'a, T: BuildContext> SourceDistributionBuilder<'a, T> {
                 CachedClientError::Client(err) => Error::Client(err),
             })?;
 
-        // If the archive is missing the required hashes, force a refresh.
-        if revision.has_digests(hashes) {
+        let expected_size = match source {
+            BuildableSource::Dist(SourceDist::Registry(dist)) if dist.size_is_authoritative => {
+                dist.size()
+            }
+            BuildableSource::Dist(SourceDist::DirectUrl(dist)) => dist.size(),
+            _ => None,
+        };
+        if let (Some(expected), Some(actual)) = (expected_size, revision.size())
+            && expected != actual
+        {
+            return Err(Error::MismatchedSize {
+                distribution: source.to_string(),
+                expected,
+                actual,
+            });
+        }
+
+        // If the archive is missing the required hashes or size, force a refresh.
+        if revision.has_digests(hashes) && (expected_size.is_none() || revision.size().is_some()) {
             Ok(revision)
         } else {
             client
@@ -2749,8 +2766,6 @@ impl<'a, T: BuildContext> SourceDistributionBuilder<'a, T> {
         };
 
         let download = |response| {
-            let query_url = url.clone();
-
             async {
                 // Take the union of the requested and existing hash algorithms.
                 let algorithms = {
@@ -2763,15 +2778,18 @@ impl<'a, T: BuildContext> SourceDistributionBuilder<'a, T> {
                     algorithms
                 };
 
-                let hashes = self
-                    .download_archive(query_url, response, source, ext, entry.path(), &algorithms)
+                let (hashes, size) = self
+                    .download_archive(response, source, ext, entry.path(), &algorithms)
                     .await?;
                 for existing in revision.hashes() {
                     if !hashes.contains(existing) {
                         return Err(Error::CacheHeal(source.to_string(), existing.algorithm()));
                     }
                 }
-                Ok(revision.clone().with_hashes(HashDigests::from(hashes)))
+                Ok(revision
+                    .clone()
+                    .with_hashes(HashDigests::from(hashes))
+                    .with_size(size))
             }
             .boxed_local()
             .instrument(info_span!("download", source_dist = %source))
@@ -2798,13 +2816,12 @@ impl<'a, T: BuildContext> SourceDistributionBuilder<'a, T> {
     /// Download and unzip a source distribution into the cache from an HTTP response.
     async fn download_archive(
         &self,
-        query_url: DisplaySafeUrl,
         response: Response,
         source: &BuildableSource<'_>,
         ext: SourceDistExtension,
         target: &Path,
         algorithms: &[HashAlgorithm],
-    ) -> Result<Vec<HashDigest>, Error> {
+    ) -> Result<(Vec<HashDigest>, u64), Error> {
         let temp_dir = tempfile::tempdir_in(
             self.build_context
                 .cache()
@@ -2827,16 +2844,34 @@ impl<'a, T: BuildContext> SourceDistributionBuilder<'a, T> {
 
         // Download and unzip the source distribution into a temporary directory.
         let span = info_span!("download_source_dist", source_dist = %source);
-        uv_extract::stream::archive(query_url, &mut hasher, ext, temp_dir.path())
+        uv_extract::stream::archive(&mut hasher, ext, temp_dir.path())
             .await
             .map_err(|err| Error::Extract(source.to_string(), err))?;
         drop(span);
 
-        // If necessary, exhaust the reader to compute the hash.
-        if !algorithms.is_empty() {
+        let expected_size = match source {
+            BuildableSource::Dist(SourceDist::Registry(dist)) if dist.size_is_authoritative => {
+                dist.size()
+            }
+            BuildableSource::Dist(SourceDist::DirectUrl(dist)) => dist.size(),
+            _ => None,
+        };
+
+        // If necessary, exhaust the reader to compute the hash or validate the archive size.
+        if !algorithms.is_empty() || expected_size.is_some() {
             hasher.finish().await.map_err(Error::HashExhaustion)?;
         }
+        if let Some(expected) = expected_size
+            && hasher.bytes_read() != expected
+        {
+            return Err(Error::MismatchedSize {
+                distribution: source.to_string(),
+                expected,
+                actual: hasher.bytes_read(),
+            });
+        }
 
+        let size = hasher.bytes_read();
         let hashes = hashers.into_iter().map(HashDigest::from).collect();
 
         // Extract the top-level directory.
@@ -2864,7 +2899,7 @@ impl<'a, T: BuildContext> SourceDistributionBuilder<'a, T> {
             }
         }
 
-        Ok(hashes)
+        Ok((hashes, size))
     }
 
     /// Extract a local archive, and store it at the given [`CacheEntry`].
@@ -2896,7 +2931,7 @@ impl<'a, T: BuildContext> SourceDistributionBuilder<'a, T> {
         let mut hasher = uv_extract::hash::HashReader::new(reader, &mut hashers);
 
         // Unzip the archive into a temporary directory.
-        uv_extract::stream::archive(path.display(), &mut hasher, ext, &temp_dir.path())
+        uv_extract::stream::archive(&mut hasher, ext, &temp_dir.path())
             .await
             .map_err(|err| Error::Extract(temp_dir.path().to_string_lossy().into_owned(), err))?;
 

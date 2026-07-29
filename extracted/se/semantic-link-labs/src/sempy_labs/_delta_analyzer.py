@@ -41,8 +41,9 @@ from sempy_labs._ui_components import (
     render_header_html as _ui_render_header_html,
     render_attribution_html as _ui_render_attribution_html,
     theme_toggle_script as _ui_theme_toggle_script,
+    fullscreen_toggle_script as _ui_fullscreen_toggle_script,
+    ProgressBar as _ProgressBar,
 )
-from tqdm.auto import tqdm
 
 
 @log
@@ -76,6 +77,7 @@ def delta_analyzer(
     schema: Optional[str] = None,
     visualize: bool = True,
     dark_mode: bool = False,
+    _show_progress: bool = True,
 ) -> Dict[str, pd.DataFrame]:
     """
     Analyzes a delta table and shows the results in dictionary containing a set of 5 dataframes. If 'export' is set to True, the results will be saved to delta tables in the lakehouse attached to the notebook.
@@ -125,6 +127,9 @@ def delta_analyzer(
     # Must calculate column stats if calculating cardinality
     if not skip_cardinality:
         column_stats = True
+
+    if '.' in table_name:
+        schema, table_name = table_name.split('.', 1)
 
     prefix = "SLL_DeltaAnalyzer_"
     now = datetime.now()
@@ -214,12 +219,16 @@ def delta_analyzer(
         if file_info[0] in common_file_paths
     ]
 
-    for idx, (file_path, file_size) in enumerate(
-        bar := tqdm(latest_version_files), start=1
-    ):
+    progress_bar = _ProgressBar(
+        total=len(latest_version_files),
+        title="Analyzing parquet files",
+        dark_mode=dark_mode,
+    )
+    for idx, (file_path, file_size) in enumerate(latest_version_files, start=1):
         file_name = os.path.basename(file_path)
-        bar.set_description(
-            f"Analyzing the '{file_name}' parquet file ({idx}/{num_latest_files})..."
+        progress_bar.update(
+            idx,
+            f"Analyzing '{file_name}' ({idx}/{num_latest_files})",
         )
 
         relative_path = file_path.split("Tables/")[1]
@@ -307,6 +316,11 @@ def delta_analyzer(
             else:
                 row_group_df = pd.DataFrame(new_data, index=[0])
 
+    progress_bar.close(
+        f"Analyzed {len(latest_version_files):,} parquet file"
+        f"{'s' if len(latest_version_files) != 1 else ''}."
+    )
+
     avg_rows_per_row_group = row_count / row_groups
 
     # Generate summary dataframe
@@ -355,6 +369,7 @@ def delta_analyzer(
                     function=function,
                     lakehouse=lakehouse,
                     workspace=workspace,
+                    schema_name=schema,
                 )
 
                 if "Cardinality" not in column_df.columns:
@@ -381,7 +396,11 @@ def delta_analyzer(
             column_df["Compressed Size"] / column_df["Table Size"] * 100.0
         )
     if not skip_cardinality and column_stats:
-        column_df["Cardinality"] = column_df["Cardinality"].fillna(0).astype(int)
+        column_df["Cardinality"] = (
+            pd.to_numeric(column_df["Cardinality"], errors="coerce")
+            .fillna(0)
+            .astype(int)
+        )
         column_df["Cardinality Of Total Rows"] = (
             column_df["Cardinality"] / column_df["Total Table Rows"] * 100.0
         )
@@ -463,6 +482,7 @@ def _display_delta_analyzer_ui(
     uid = uuid.uuid4().hex[:8]
     root_selector = f".da-{uid}-root"
     theme_btn_id = f"da-theme-{uid}"
+    fullscreen_btn_id = f"da-fs-{uid}"
 
     _skip_cols = {
         "Workspace Name",
@@ -697,6 +717,7 @@ def _display_delta_analyzer_ui(
         workspace_name=subtitle_workspace or None,
         theme_btn_id=theme_btn_id,
         dark_mode=dark_mode,
+        fullscreen_btn_id=fullscreen_btn_id,
     )
     ui_header_css_scoped = _ui_scoped_header_css(root_selector)
     ui_attribution_css_scoped = _ui_scoped_attribution_css(root_selector)
@@ -734,6 +755,39 @@ def _display_delta_analyzer_ui(
         }}
         .da-{uid}-root.da-dark {{
             {_UI_DARK_VARS}
+        }}
+        /* ── Fullscreen overlay ── */
+        .da-{uid}-root.da-fs {{
+            position: fixed;
+            inset: 0;
+            z-index: 2147483000;
+            width: 100vw;
+            height: 100vh;
+            max-width: none;
+            margin: 0;
+            padding: 0;
+            overflow: auto;
+            background: var(--da-bg);
+        }}
+        /* Native fullscreen (when the host grants it) — fill the screen and drop
+           the framing chrome. */
+        .da-{uid}-root:fullscreen,
+        .da-{uid}-root:-webkit-full-screen {{
+            width: 100vw;
+            height: 100vh;
+            max-width: none;
+            margin: 0;
+            overflow: auto;
+            background: var(--da-bg);
+        }}
+        .da-{uid}-root.da-fs .da-{uid}-container {{
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
+            min-height: 100%;
+        }}
+        .da-{uid}-root.da-fs .da-{uid}-table-wrap {{
+            max-height: calc(100vh - 260px);
         }}
         .da-{uid}-root *, .da-{uid}-root *::before, .da-{uid}-root *::after {{
             box-sizing: border-box;
@@ -1169,7 +1223,13 @@ def _display_delta_analyzer_ui(
         dark_class="da-dark",
     )
 
-    display(HTML(full_html + theme_script))
+    fullscreen_script = _ui_fullscreen_toggle_script(
+        btn_id=fullscreen_btn_id,
+        root_selector=root_selector,
+        fs_class="da-fs",
+    )
+
+    display(HTML(full_html + theme_script + fullscreen_script))
 
 
 @log

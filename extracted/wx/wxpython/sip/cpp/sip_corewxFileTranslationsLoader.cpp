@@ -321,7 +321,7 @@ static void *init_type_wxFileTranslationsLoader(sipSimpleWrapper *sipSelf, PyObj
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxFileTranslationsLoader[] = {{601, 255, 1}};
+static sipEncodedTypeDef supers_wxFileTranslationsLoader[] = {{622, 255, 1}};
 
 
 static PyMethodDef methods_wxFileTranslationsLoader[] = {

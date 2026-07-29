@@ -87,6 +87,8 @@ mod debug_response;
 #[cfg(feature = "admin")]
 mod events;
 #[cfg(feature = "admin")]
+pub(crate) mod experiments;
+#[cfg(feature = "admin")]
 mod general;
 #[cfg(feature = "admin")]
 pub mod governance;
@@ -134,6 +136,8 @@ pub mod workflows;
 mod analytics_tests;
 #[cfg(all(test, feature = "admin"))]
 mod basic_endpoint_tests;
+#[cfg(all(test, feature = "admin-persist-sqlite"))]
+mod experiments_tests;
 #[cfg(feature = "admin")]
 mod handlers;
 #[cfg(all(test, feature = "admin"))]

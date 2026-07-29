@@ -9,6 +9,7 @@
 
 #include "sipAPI_core.h"
         #include <wx/graphics.h>
+        #include <wx/geometry.h>
         #include <wx/graphics.h>
         #include <wx/object.h>
         #include <wx/object.h>
@@ -372,7 +373,8 @@ static PyObject *meth_wxGraphicsMatrix_Set(PyObject *sipSelf, PyObject *sipArgs,
 
 PyDoc_STRVAR(doc_wxGraphicsMatrix_TransformDistance, "TransformDistance(dx, dy) -> Tuple[float, float]\n"
 "\n"
-"Applies this matrix to a distance (ie.");
+"Applies this matrix to a distance (i.e., performs all transforms\n"
+"except translations).");
 
 extern "C" {static PyObject *meth_wxGraphicsMatrix_TransformDistance(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsMatrix_TransformDistance(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -451,8 +453,10 @@ static PyObject *meth_wxGraphicsMatrix_TransformPoint(PyObject *sipSelf, PyObjec
 
 
 PyDoc_STRVAR(doc_wxGraphicsMatrix_Translate, "Translate(dx, dy) -> None\n"
+"Translate(pt) -> None\n"
 "\n"
-"Translates this matrix.");
+"Translates this matrix.\n"
+"");
 
 extern "C" {static PyObject *meth_wxGraphicsMatrix_Translate(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsMatrix_Translate(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -476,6 +480,32 @@ static PyObject *meth_wxGraphicsMatrix_Translate(PyObject *sipSelf, PyObject *si
             Py_BEGIN_ALLOW_THREADS
             sipCpp->Translate(dx, dy);
             Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    {
+        const ::wxPoint2D* pt;
+        int ptState = 0;
+        ::wxGraphicsMatrix *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_pt,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxGraphicsMatrix, &sipCpp, sipType_wxPoint2DDouble, &pt, &ptState))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->Translate(*pt);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxPoint2D *>(pt), sipType_wxPoint2DDouble, ptState);
 
             if (PyErr_Occurred())
                 return 0;
@@ -592,7 +622,7 @@ static void *init_type_wxGraphicsMatrix(sipSimpleWrapper *, PyObject *sipArgs, P
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGraphicsMatrix[] = {{246, 255, 1}};
+static sipEncodedTypeDef supers_wxGraphicsMatrix[] = {{254, 255, 1}};
 
 
 static PyMethodDef methods_wxGraphicsMatrix[] = {

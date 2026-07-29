@@ -116,7 +116,7 @@ static void *init_type_wxGraphicsFont(sipSimpleWrapper *, PyObject *sipArgs, PyO
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGraphicsFont[] = {{246, 255, 1}};
+static sipEncodedTypeDef supers_wxGraphicsFont[] = {{254, 255, 1}};
 
 PyDoc_STRVAR(doc_wxGraphicsFont, "A wxGraphicsFont is a native representation of a font.");
 

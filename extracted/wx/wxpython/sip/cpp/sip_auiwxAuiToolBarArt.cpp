@@ -13,6 +13,7 @@
         #include <wx/gdicmn.h>
         #include <wx/dc.h>
         #include <wx/aui/auibar.h>
+        #include <wx/dc.h>
         #include <wx/gdicmn.h>
         #include <wx/font.h>
 
@@ -32,8 +33,9 @@ protected:
     int ShowDropDown(::wxWindow*, const ::wxAuiToolBarItemArray&) SIP_OVERRIDE;
     void SetElementSize(int, int) SIP_OVERRIDE;
     int GetElementSize(int) SIP_OVERRIDE;
-    ::wxSize GetToolSize(::wxDC&, ::wxWindow*, const ::wxAuiToolBarItem&) SIP_OVERRIDE;
-    ::wxSize GetLabelSize(::wxDC&, ::wxWindow*, const ::wxAuiToolBarItem&) SIP_OVERRIDE;
+    int GetElementSizeForWindow(int, const ::wxWindow*) SIP_OVERRIDE;
+    ::wxSize GetToolSize(::wxReadOnlyDC&, ::wxWindow*, const ::wxAuiToolBarItem&) SIP_OVERRIDE;
+    ::wxSize GetLabelSize(::wxReadOnlyDC&, ::wxWindow*, const ::wxAuiToolBarItem&) SIP_OVERRIDE;
     void DrawOverflowButton(::wxDC&, ::wxWindow*, const ::wxRect&, int) SIP_OVERRIDE;
     void DrawGripper(::wxDC&, ::wxWindow*, const ::wxRect&) SIP_OVERRIDE;
     void DrawSeparator(::wxDC&, ::wxWindow*, const ::wxRect&) SIP_OVERRIDE;
@@ -43,6 +45,8 @@ protected:
     void DrawLabel(::wxDC&, ::wxWindow*, const ::wxAuiToolBarItem&, const ::wxRect&) SIP_OVERRIDE;
     void DrawPlainBackground(::wxDC&, ::wxWindow*, const ::wxRect&) SIP_OVERRIDE;
     void DrawBackground(::wxDC&, ::wxWindow*, const ::wxRect&) SIP_OVERRIDE;
+    ::wxAuiTextDirection GetTextDirection() const SIP_OVERRIDE;
+    void SetTextDirection(::wxAuiTextDirection) SIP_OVERRIDE;
     int GetTextOrientation() SIP_OVERRIDE;
     void SetTextOrientation(int) SIP_OVERRIDE;
     ::wxFont GetFont() SIP_OVERRIDE;
@@ -58,7 +62,7 @@ private:
     sipwxAuiToolBarArt(const sipwxAuiToolBarArt &);
     sipwxAuiToolBarArt &operator = (const sipwxAuiToolBarArt &);
 
-    char sipPyMethods[21];
+    char sipPyMethods[24];
 };
 
 sipwxAuiToolBarArt::sipwxAuiToolBarArt(): ::wxAuiToolBarArt(), sipPySelf(SIP_NULLPTR)
@@ -86,12 +90,12 @@ int sipwxAuiToolBarArt::ShowDropDown(::wxWindow*wnd, const ::wxAuiToolBarItemArr
     if (!sipMeth)
         return 0;
 
-    extern int sipVH__aui_48(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*, const ::wxAuiToolBarItemArray&);
+    extern int sipVH__aui_52(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*, const ::wxAuiToolBarItemArray&);
 
-    return sipVH__aui_48(sipGILState, 0, sipPySelf, sipMeth, wnd, items);
+    return sipVH__aui_52(sipGILState, 0, sipPySelf, sipMeth, wnd, items);
 }
 
-void sipwxAuiToolBarArt::SetElementSize(int element_id, int size)
+void sipwxAuiToolBarArt::SetElementSize(int elementId, int size)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -103,10 +107,10 @@ void sipwxAuiToolBarArt::SetElementSize(int element_id, int size)
 
     extern void sipVH__aui_21(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
 
-    sipVH__aui_21(sipGILState, 0, sipPySelf, sipMeth, element_id, size);
+    sipVH__aui_21(sipGILState, 0, sipPySelf, sipMeth, elementId, size);
 }
 
-int sipwxAuiToolBarArt::GetElementSize(int element_id)
+int sipwxAuiToolBarArt::GetElementSize(int elementId)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -118,37 +122,52 @@ int sipwxAuiToolBarArt::GetElementSize(int element_id)
 
     extern int sipVH__aui_34(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    return sipVH__aui_34(sipGILState, 0, sipPySelf, sipMeth, element_id);
+    return sipVH__aui_34(sipGILState, 0, sipPySelf, sipMeth, elementId);
 }
 
-::wxSize sipwxAuiToolBarArt::GetToolSize(::wxDC& dc, ::wxWindow*wnd, const ::wxAuiToolBarItem& item)
+int sipwxAuiToolBarArt::GetElementSizeForWindow(int elementId, const ::wxWindow*window)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[3], &sipPySelf, sipName_AuiToolBarArt, sipName_GetToolSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[3], &sipPySelf, SIP_NULLPTR, sipName_GetElementSizeForWindow);
 
     if (!sipMeth)
-        return ::wxSize();
+        return ::wxAuiToolBarArt::GetElementSizeForWindow(elementId, window);
 
-    extern ::wxSize sipVH__aui_47(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxWindow*, const ::wxAuiToolBarItem&);
+    extern int sipVH__aui_51(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, const ::wxWindow*);
 
-    return sipVH__aui_47(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, item);
+    return sipVH__aui_51(sipGILState, 0, sipPySelf, sipMeth, elementId, window);
 }
 
-::wxSize sipwxAuiToolBarArt::GetLabelSize(::wxDC& dc, ::wxWindow*wnd, const ::wxAuiToolBarItem& item)
+::wxSize sipwxAuiToolBarArt::GetToolSize(::wxReadOnlyDC& dc, ::wxWindow*wnd, const ::wxAuiToolBarItem& item)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[4], &sipPySelf, sipName_AuiToolBarArt, sipName_GetLabelSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[4], &sipPySelf, sipName_AuiToolBarArt, sipName_GetToolSize);
 
     if (!sipMeth)
         return ::wxSize();
 
-    extern ::wxSize sipVH__aui_47(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxWindow*, const ::wxAuiToolBarItem&);
+    extern ::wxSize sipVH__aui_50(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxReadOnlyDC&, ::wxWindow*, const ::wxAuiToolBarItem&);
 
-    return sipVH__aui_47(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, item);
+    return sipVH__aui_50(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, item);
+}
+
+::wxSize sipwxAuiToolBarArt::GetLabelSize(::wxReadOnlyDC& dc, ::wxWindow*wnd, const ::wxAuiToolBarItem& item)
+{
+    sip_gilstate_t sipGILState;
+    PyObject *sipMeth;
+
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[5], &sipPySelf, sipName_AuiToolBarArt, sipName_GetLabelSize);
+
+    if (!sipMeth)
+        return ::wxSize();
+
+    extern ::wxSize sipVH__aui_50(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxReadOnlyDC&, ::wxWindow*, const ::wxAuiToolBarItem&);
+
+    return sipVH__aui_50(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, item);
 }
 
 void sipwxAuiToolBarArt::DrawOverflowButton(::wxDC& dc, ::wxWindow*wnd, const ::wxRect& rect, int state)
@@ -156,14 +175,14 @@ void sipwxAuiToolBarArt::DrawOverflowButton(::wxDC& dc, ::wxWindow*wnd, const ::
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[5], &sipPySelf, sipName_AuiToolBarArt, sipName_DrawOverflowButton);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[6], &sipPySelf, sipName_AuiToolBarArt, sipName_DrawOverflowButton);
 
     if (!sipMeth)
         return;
 
-    extern void sipVH__aui_46(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxWindow*, const ::wxRect&, int);
+    extern void sipVH__aui_49(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxWindow*, const ::wxRect&, int);
 
-    sipVH__aui_46(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, rect, state);
+    sipVH__aui_49(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, rect, state);
 }
 
 void sipwxAuiToolBarArt::DrawGripper(::wxDC& dc, ::wxWindow*wnd, const ::wxRect& rect)
@@ -171,14 +190,14 @@ void sipwxAuiToolBarArt::DrawGripper(::wxDC& dc, ::wxWindow*wnd, const ::wxRect&
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[6], &sipPySelf, sipName_AuiToolBarArt, sipName_DrawGripper);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[7], &sipPySelf, sipName_AuiToolBarArt, sipName_DrawGripper);
 
     if (!sipMeth)
         return;
 
-    extern void sipVH__aui_44(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxWindow*, const ::wxRect&);
+    extern void sipVH__aui_47(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxWindow*, const ::wxRect&);
 
-    sipVH__aui_44(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, rect);
+    sipVH__aui_47(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, rect);
 }
 
 void sipwxAuiToolBarArt::DrawSeparator(::wxDC& dc, ::wxWindow*wnd, const ::wxRect& rect)
@@ -186,14 +205,14 @@ void sipwxAuiToolBarArt::DrawSeparator(::wxDC& dc, ::wxWindow*wnd, const ::wxRec
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[7], &sipPySelf, sipName_AuiToolBarArt, sipName_DrawSeparator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[8], &sipPySelf, sipName_AuiToolBarArt, sipName_DrawSeparator);
 
     if (!sipMeth)
         return;
 
-    extern void sipVH__aui_44(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxWindow*, const ::wxRect&);
+    extern void sipVH__aui_47(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxWindow*, const ::wxRect&);
 
-    sipVH__aui_44(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, rect);
+    sipVH__aui_47(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, rect);
 }
 
 void sipwxAuiToolBarArt::DrawControlLabel(::wxDC& dc, ::wxWindow*wnd, const ::wxAuiToolBarItem& item, const ::wxRect& rect)
@@ -201,14 +220,14 @@ void sipwxAuiToolBarArt::DrawControlLabel(::wxDC& dc, ::wxWindow*wnd, const ::wx
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[8], &sipPySelf, sipName_AuiToolBarArt, sipName_DrawControlLabel);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[9], &sipPySelf, sipName_AuiToolBarArt, sipName_DrawControlLabel);
 
     if (!sipMeth)
         return;
 
-    extern void sipVH__aui_45(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxWindow*, const ::wxAuiToolBarItem&, const ::wxRect&);
+    extern void sipVH__aui_48(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxWindow*, const ::wxAuiToolBarItem&, const ::wxRect&);
 
-    sipVH__aui_45(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, item, rect);
+    sipVH__aui_48(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, item, rect);
 }
 
 void sipwxAuiToolBarArt::DrawDropDownButton(::wxDC& dc, ::wxWindow*wnd, const ::wxAuiToolBarItem& item, const ::wxRect& rect)
@@ -216,14 +235,14 @@ void sipwxAuiToolBarArt::DrawDropDownButton(::wxDC& dc, ::wxWindow*wnd, const ::
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[9], &sipPySelf, sipName_AuiToolBarArt, sipName_DrawDropDownButton);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[10], &sipPySelf, sipName_AuiToolBarArt, sipName_DrawDropDownButton);
 
     if (!sipMeth)
         return;
 
-    extern void sipVH__aui_45(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxWindow*, const ::wxAuiToolBarItem&, const ::wxRect&);
+    extern void sipVH__aui_48(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxWindow*, const ::wxAuiToolBarItem&, const ::wxRect&);
 
-    sipVH__aui_45(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, item, rect);
+    sipVH__aui_48(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, item, rect);
 }
 
 void sipwxAuiToolBarArt::DrawButton(::wxDC& dc, ::wxWindow*wnd, const ::wxAuiToolBarItem& item, const ::wxRect& rect)
@@ -231,14 +250,14 @@ void sipwxAuiToolBarArt::DrawButton(::wxDC& dc, ::wxWindow*wnd, const ::wxAuiToo
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[10], &sipPySelf, sipName_AuiToolBarArt, sipName_DrawButton);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[11], &sipPySelf, sipName_AuiToolBarArt, sipName_DrawButton);
 
     if (!sipMeth)
         return;
 
-    extern void sipVH__aui_45(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxWindow*, const ::wxAuiToolBarItem&, const ::wxRect&);
+    extern void sipVH__aui_48(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxWindow*, const ::wxAuiToolBarItem&, const ::wxRect&);
 
-    sipVH__aui_45(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, item, rect);
+    sipVH__aui_48(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, item, rect);
 }
 
 void sipwxAuiToolBarArt::DrawLabel(::wxDC& dc, ::wxWindow*wnd, const ::wxAuiToolBarItem& item, const ::wxRect& rect)
@@ -246,14 +265,14 @@ void sipwxAuiToolBarArt::DrawLabel(::wxDC& dc, ::wxWindow*wnd, const ::wxAuiTool
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[11], &sipPySelf, sipName_AuiToolBarArt, sipName_DrawLabel);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[12], &sipPySelf, sipName_AuiToolBarArt, sipName_DrawLabel);
 
     if (!sipMeth)
         return;
 
-    extern void sipVH__aui_45(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxWindow*, const ::wxAuiToolBarItem&, const ::wxRect&);
+    extern void sipVH__aui_48(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxWindow*, const ::wxAuiToolBarItem&, const ::wxRect&);
 
-    sipVH__aui_45(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, item, rect);
+    sipVH__aui_48(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, item, rect);
 }
 
 void sipwxAuiToolBarArt::DrawPlainBackground(::wxDC& dc, ::wxWindow*wnd, const ::wxRect& rect)
@@ -261,14 +280,14 @@ void sipwxAuiToolBarArt::DrawPlainBackground(::wxDC& dc, ::wxWindow*wnd, const :
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[12], &sipPySelf, sipName_AuiToolBarArt, sipName_DrawPlainBackground);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[13], &sipPySelf, sipName_AuiToolBarArt, sipName_DrawPlainBackground);
 
     if (!sipMeth)
         return;
 
-    extern void sipVH__aui_44(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxWindow*, const ::wxRect&);
+    extern void sipVH__aui_47(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxWindow*, const ::wxRect&);
 
-    sipVH__aui_44(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, rect);
+    sipVH__aui_47(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, rect);
 }
 
 void sipwxAuiToolBarArt::DrawBackground(::wxDC& dc, ::wxWindow*wnd, const ::wxRect& rect)
@@ -276,14 +295,47 @@ void sipwxAuiToolBarArt::DrawBackground(::wxDC& dc, ::wxWindow*wnd, const ::wxRe
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[13], &sipPySelf, sipName_AuiToolBarArt, sipName_DrawBackground);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[14], &sipPySelf, sipName_AuiToolBarArt, sipName_DrawBackground);
 
     if (!sipMeth)
         return;
 
-    extern void sipVH__aui_44(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxWindow*, const ::wxRect&);
+    extern void sipVH__aui_47(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxWindow*, const ::wxRect&);
 
-    sipVH__aui_44(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, rect);
+    sipVH__aui_47(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, rect);
+}
+
+::wxAuiTextDirection sipwxAuiToolBarArt::GetTextDirection() const
+{
+    sip_gilstate_t sipGILState;
+    PyObject *sipMeth;
+
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[15]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetTextDirection);
+
+    if (!sipMeth)
+        return ::wxAuiToolBarArt::GetTextDirection();
+
+    extern ::wxAuiTextDirection sipVH__aui_46(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+
+    return sipVH__aui_46(sipGILState, 0, sipPySelf, sipMeth);
+}
+
+void sipwxAuiToolBarArt::SetTextDirection(::wxAuiTextDirection direction)
+{
+    sip_gilstate_t sipGILState;
+    PyObject *sipMeth;
+
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[16], &sipPySelf, SIP_NULLPTR, sipName_SetTextDirection);
+
+    if (!sipMeth)
+    {
+        ::wxAuiToolBarArt::SetTextDirection(direction);
+        return;
+    }
+
+    extern void sipVH__aui_45(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxAuiTextDirection);
+
+    sipVH__aui_45(sipGILState, 0, sipPySelf, sipMeth, direction);
 }
 
 int sipwxAuiToolBarArt::GetTextOrientation()
@@ -291,14 +343,14 @@ int sipwxAuiToolBarArt::GetTextOrientation()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[14], &sipPySelf, sipName_AuiToolBarArt, sipName_GetTextOrientation);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[17], &sipPySelf, sipName_AuiToolBarArt, sipName_GetTextOrientation);
 
     if (!sipMeth)
         return 0;
 
-    extern int sipVH__aui_43(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern int sipVH__aui_44(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__aui_43(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__aui_44(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxAuiToolBarArt::SetTextOrientation(int orientation)
@@ -306,14 +358,14 @@ void sipwxAuiToolBarArt::SetTextOrientation(int orientation)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[15], &sipPySelf, sipName_AuiToolBarArt, sipName_SetTextOrientation);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[18], &sipPySelf, sipName_AuiToolBarArt, sipName_SetTextOrientation);
 
     if (!sipMeth)
         return;
 
-    extern void sipVH__aui_42(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern void sipVH__aui_43(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    sipVH__aui_42(sipGILState, 0, sipPySelf, sipMeth, orientation);
+    sipVH__aui_43(sipGILState, 0, sipPySelf, sipMeth, orientation);
 }
 
 ::wxFont sipwxAuiToolBarArt::GetFont()
@@ -321,14 +373,14 @@ void sipwxAuiToolBarArt::SetTextOrientation(int orientation)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[16], &sipPySelf, sipName_AuiToolBarArt, sipName_GetFont);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[19], &sipPySelf, sipName_AuiToolBarArt, sipName_GetFont);
 
     if (!sipMeth)
         return ::wxFont();
 
-    extern ::wxFont sipVH__aui_41(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxFont sipVH__aui_42(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__aui_41(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__aui_42(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxAuiToolBarArt::SetFont(const ::wxFont& font)
@@ -336,14 +388,14 @@ void sipwxAuiToolBarArt::SetFont(const ::wxFont& font)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[17], &sipPySelf, sipName_AuiToolBarArt, sipName_SetFont);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[20], &sipPySelf, sipName_AuiToolBarArt, sipName_SetFont);
 
     if (!sipMeth)
         return;
 
-    extern void sipVH__aui_40(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxFont&);
+    extern void sipVH__aui_41(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxFont&);
 
-    sipVH__aui_40(sipGILState, 0, sipPySelf, sipMeth, font);
+    sipVH__aui_41(sipGILState, 0, sipPySelf, sipMeth, font);
 }
 
 uint sipwxAuiToolBarArt::GetFlags()
@@ -351,14 +403,14 @@ uint sipwxAuiToolBarArt::GetFlags()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[18], &sipPySelf, sipName_AuiToolBarArt, sipName_GetFlags);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[21], &sipPySelf, sipName_AuiToolBarArt, sipName_GetFlags);
 
     if (!sipMeth)
         return 0;
 
-    extern uint sipVH__aui_39(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern uint sipVH__aui_40(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__aui_39(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__aui_40(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxAuiToolBarArt::SetFlags(uint flags)
@@ -366,14 +418,14 @@ void sipwxAuiToolBarArt::SetFlags(uint flags)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[19], &sipPySelf, sipName_AuiToolBarArt, sipName_SetFlags);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[22], &sipPySelf, sipName_AuiToolBarArt, sipName_SetFlags);
 
     if (!sipMeth)
         return;
 
-    extern void sipVH__aui_38(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, uint);
+    extern void sipVH__aui_39(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, uint);
 
-    sipVH__aui_38(sipGILState, 0, sipPySelf, sipMeth, flags);
+    sipVH__aui_39(sipGILState, 0, sipPySelf, sipMeth, flags);
 }
 
 ::wxAuiToolBarArt* sipwxAuiToolBarArt::Clone()
@@ -381,14 +433,14 @@ void sipwxAuiToolBarArt::SetFlags(uint flags)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[20], &sipPySelf, sipName_AuiToolBarArt, sipName_Clone);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, sipName_AuiToolBarArt, sipName_Clone);
 
     if (!sipMeth)
         return 0;
 
-    extern ::wxAuiToolBarArt* sipVH__aui_37(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxAuiToolBarArt* sipVH__aui_38(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__aui_37(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__aui_38(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
@@ -679,6 +731,82 @@ static PyObject *meth_wxAuiToolBarArt_GetTextOrientation(PyObject *sipSelf, PyOb
     }
 
     sipNoMethod(sipParseErr, sipName_AuiToolBarArt, sipName_GetTextOrientation, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxAuiToolBarArt_SetTextDirection, "SetTextDirection(direction) -> None\n"
+"\n"
+"Set the text direction for rendering text.");
+
+extern "C" {static PyObject *meth_wxAuiToolBarArt_SetTextDirection(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAuiToolBarArt_SetTextDirection(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
+
+    {
+        ::wxAuiTextDirection direction;
+        ::wxAuiToolBarArt *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_direction,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BE", &sipSelf, sipType_wxAuiToolBarArt, &sipCpp, sipType_wxAuiTextDirection, &direction))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            (sipSelfWasArg ? sipCpp->::wxAuiToolBarArt::SetTextDirection(direction) : sipCpp->SetTextDirection(direction));
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiToolBarArt, sipName_SetTextDirection, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxAuiToolBarArt_GetTextDirection, "GetTextDirection() -> AuiTextDirection\n"
+"\n"
+"Return the direction used for rendering text.");
+
+extern "C" {static PyObject *meth_wxAuiToolBarArt_GetTextDirection(PyObject *, PyObject *);}
+static PyObject *meth_wxAuiToolBarArt_GetTextDirection(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
+
+    {
+        const ::wxAuiToolBarArt *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxAuiToolBarArt, &sipCpp))
+        {
+            ::wxAuiTextDirection sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = (sipSelfWasArg ? sipCpp->::wxAuiToolBarArt::GetTextDirection() : sipCpp->GetTextDirection());
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxAuiTextDirection);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiToolBarArt, sipName_GetTextDirection, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -1144,7 +1272,9 @@ static PyObject *meth_wxAuiToolBarArt_DrawOverflowButton(PyObject *sipSelf, PyOb
 }
 
 
-PyDoc_STRVAR(doc_wxAuiToolBarArt_GetLabelSize, "GetLabelSize(dc, wnd, item) -> wx.Size");
+PyDoc_STRVAR(doc_wxAuiToolBarArt_GetLabelSize, "GetLabelSize(dc, wnd, item) -> wx.Size\n"
+"\n"
+"Return the size of the label for the given item.");
 
 extern "C" {static PyObject *meth_wxAuiToolBarArt_GetLabelSize(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxAuiToolBarArt_GetLabelSize(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1153,7 +1283,7 @@ static PyObject *meth_wxAuiToolBarArt_GetLabelSize(PyObject *sipSelf, PyObject *
     PyObject *sipOrigSelf = sipSelf;
 
     {
-        ::wxDC* dc;
+        ::wxReadOnlyDC* dc;
         ::wxWindow* wnd;
         const ::wxAuiToolBarItem* item;
         ::wxAuiToolBarArt *sipCpp;
@@ -1164,7 +1294,7 @@ static PyObject *meth_wxAuiToolBarArt_GetLabelSize(PyObject *sipSelf, PyObject *
             sipName_item,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J9", &sipSelf, sipType_wxAuiToolBarArt, &sipCpp, sipType_wxDC, &dc, sipType_wxWindow, &wnd, sipType_wxAuiToolBarItem, &item))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J9", &sipSelf, sipType_wxAuiToolBarArt, &sipCpp, sipType_wxReadOnlyDC, &dc, sipType_wxWindow, &wnd, sipType_wxAuiToolBarItem, &item))
         {
             ::wxSize*sipRes;
 
@@ -1193,7 +1323,9 @@ static PyObject *meth_wxAuiToolBarArt_GetLabelSize(PyObject *sipSelf, PyObject *
 }
 
 
-PyDoc_STRVAR(doc_wxAuiToolBarArt_GetToolSize, "GetToolSize(dc, wnd, item) -> wx.Size");
+PyDoc_STRVAR(doc_wxAuiToolBarArt_GetToolSize, "GetToolSize(dc, wnd, item) -> wx.Size\n"
+"\n"
+"Return the size of the given item.");
 
 extern "C" {static PyObject *meth_wxAuiToolBarArt_GetToolSize(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxAuiToolBarArt_GetToolSize(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1202,7 +1334,7 @@ static PyObject *meth_wxAuiToolBarArt_GetToolSize(PyObject *sipSelf, PyObject *s
     PyObject *sipOrigSelf = sipSelf;
 
     {
-        ::wxDC* dc;
+        ::wxReadOnlyDC* dc;
         ::wxWindow* wnd;
         const ::wxAuiToolBarItem* item;
         ::wxAuiToolBarArt *sipCpp;
@@ -1213,7 +1345,7 @@ static PyObject *meth_wxAuiToolBarArt_GetToolSize(PyObject *sipSelf, PyObject *s
             sipName_item,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J9", &sipSelf, sipType_wxAuiToolBarArt, &sipCpp, sipType_wxDC, &dc, sipType_wxWindow, &wnd, sipType_wxAuiToolBarItem, &item))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J9", &sipSelf, sipType_wxAuiToolBarArt, &sipCpp, sipType_wxReadOnlyDC, &dc, sipType_wxWindow, &wnd, sipType_wxAuiToolBarItem, &item))
         {
             ::wxSize*sipRes;
 
@@ -1242,7 +1374,52 @@ static PyObject *meth_wxAuiToolBarArt_GetToolSize(PyObject *sipSelf, PyObject *s
 }
 
 
-PyDoc_STRVAR(doc_wxAuiToolBarArt_GetElementSize, "GetElementSize(element_id) -> int");
+PyDoc_STRVAR(doc_wxAuiToolBarArt_GetElementSizeForWindow, "GetElementSizeForWindow(elementId, window) -> int\n"
+"\n"
+"Get the element size scaled by the DPI of the given window.");
+
+extern "C" {static PyObject *meth_wxAuiToolBarArt_GetElementSizeForWindow(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAuiToolBarArt_GetElementSizeForWindow(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
+
+    {
+        int elementId;
+        const ::wxWindow* window;
+        ::wxAuiToolBarArt *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_elementId,
+            sipName_window,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BiJ8", &sipSelf, sipType_wxAuiToolBarArt, &sipCpp, &elementId, sipType_wxWindow, &window))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = (sipSelfWasArg ? sipCpp->::wxAuiToolBarArt::GetElementSizeForWindow(elementId, window) : sipCpp->GetElementSizeForWindow(elementId, window));
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiToolBarArt, sipName_GetElementSizeForWindow, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxAuiToolBarArt_GetElementSize, "GetElementSize(elementId) -> int\n"
+"\n"
+"Returns the size of the given element in DIPs.");
 
 extern "C" {static PyObject *meth_wxAuiToolBarArt_GetElementSize(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxAuiToolBarArt_GetElementSize(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1251,14 +1428,14 @@ static PyObject *meth_wxAuiToolBarArt_GetElementSize(PyObject *sipSelf, PyObject
     PyObject *sipOrigSelf = sipSelf;
 
     {
-        int element_id;
+        int elementId;
         ::wxAuiToolBarArt *sipCpp;
 
         static const char *sipKwdList[] = {
-            sipName_element_id,
+            sipName_elementId,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxAuiToolBarArt, &sipCpp, &element_id))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxAuiToolBarArt, &sipCpp, &elementId))
         {
             int sipRes;
 
@@ -1271,7 +1448,7 @@ static PyObject *meth_wxAuiToolBarArt_GetElementSize(PyObject *sipSelf, PyObject
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->GetElementSize(element_id);
+            sipRes = sipCpp->GetElementSize(elementId);
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
@@ -1287,7 +1464,9 @@ static PyObject *meth_wxAuiToolBarArt_GetElementSize(PyObject *sipSelf, PyObject
 }
 
 
-PyDoc_STRVAR(doc_wxAuiToolBarArt_SetElementSize, "SetElementSize(element_id, size) -> None");
+PyDoc_STRVAR(doc_wxAuiToolBarArt_SetElementSize, "SetElementSize(elementId, size) -> None\n"
+"\n"
+"Sets the size of the given element in DIPs.");
 
 extern "C" {static PyObject *meth_wxAuiToolBarArt_SetElementSize(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxAuiToolBarArt_SetElementSize(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1296,16 +1475,16 @@ static PyObject *meth_wxAuiToolBarArt_SetElementSize(PyObject *sipSelf, PyObject
     PyObject *sipOrigSelf = sipSelf;
 
     {
-        int element_id;
+        int elementId;
         int size;
         ::wxAuiToolBarArt *sipCpp;
 
         static const char *sipKwdList[] = {
-            sipName_element_id,
+            sipName_elementId,
             sipName_size,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bii", &sipSelf, sipType_wxAuiToolBarArt, &sipCpp, &element_id, &size))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bii", &sipSelf, sipType_wxAuiToolBarArt, &sipCpp, &elementId, &size))
         {
             if (!sipOrigSelf)
             {
@@ -1316,7 +1495,7 @@ static PyObject *meth_wxAuiToolBarArt_SetElementSize(PyObject *sipSelf, PyObject
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipCpp->SetElementSize(element_id, size);
+            sipCpp->SetElementSize(elementId, size);
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
@@ -1333,7 +1512,9 @@ static PyObject *meth_wxAuiToolBarArt_SetElementSize(PyObject *sipSelf, PyObject
 }
 
 
-PyDoc_STRVAR(doc_wxAuiToolBarArt_ShowDropDown, "ShowDropDown(wnd, items) -> int");
+PyDoc_STRVAR(doc_wxAuiToolBarArt_ShowDropDown, "ShowDropDown(wnd, items) -> int\n"
+"\n"
+"Show a drop down menu with the given items.");
 
 extern "C" {static PyObject *meth_wxAuiToolBarArt_ShowDropDown(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxAuiToolBarArt_ShowDropDown(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1465,27 +1646,32 @@ static PyMethodDef methods_wxAuiToolBarArt[] = {
     {sipName_DrawPlainBackground, SIP_MLMETH_CAST(meth_wxAuiToolBarArt_DrawPlainBackground), METH_VARARGS|METH_KEYWORDS, doc_wxAuiToolBarArt_DrawPlainBackground},
     {sipName_DrawSeparator, SIP_MLMETH_CAST(meth_wxAuiToolBarArt_DrawSeparator), METH_VARARGS|METH_KEYWORDS, doc_wxAuiToolBarArt_DrawSeparator},
     {sipName_GetElementSize, SIP_MLMETH_CAST(meth_wxAuiToolBarArt_GetElementSize), METH_VARARGS|METH_KEYWORDS, doc_wxAuiToolBarArt_GetElementSize},
+    {sipName_GetElementSizeForWindow, SIP_MLMETH_CAST(meth_wxAuiToolBarArt_GetElementSizeForWindow), METH_VARARGS|METH_KEYWORDS, doc_wxAuiToolBarArt_GetElementSizeForWindow},
     {sipName_GetFlags, meth_wxAuiToolBarArt_GetFlags, METH_VARARGS, doc_wxAuiToolBarArt_GetFlags},
     {sipName_GetFont, meth_wxAuiToolBarArt_GetFont, METH_VARARGS, doc_wxAuiToolBarArt_GetFont},
     {sipName_GetLabelSize, SIP_MLMETH_CAST(meth_wxAuiToolBarArt_GetLabelSize), METH_VARARGS|METH_KEYWORDS, doc_wxAuiToolBarArt_GetLabelSize},
+    {sipName_GetTextDirection, meth_wxAuiToolBarArt_GetTextDirection, METH_VARARGS, doc_wxAuiToolBarArt_GetTextDirection},
     {sipName_GetTextOrientation, meth_wxAuiToolBarArt_GetTextOrientation, METH_VARARGS, doc_wxAuiToolBarArt_GetTextOrientation},
     {sipName_GetToolSize, SIP_MLMETH_CAST(meth_wxAuiToolBarArt_GetToolSize), METH_VARARGS|METH_KEYWORDS, doc_wxAuiToolBarArt_GetToolSize},
     {sipName_SetElementSize, SIP_MLMETH_CAST(meth_wxAuiToolBarArt_SetElementSize), METH_VARARGS|METH_KEYWORDS, doc_wxAuiToolBarArt_SetElementSize},
     {sipName_SetFlags, SIP_MLMETH_CAST(meth_wxAuiToolBarArt_SetFlags), METH_VARARGS|METH_KEYWORDS, doc_wxAuiToolBarArt_SetFlags},
     {sipName_SetFont, SIP_MLMETH_CAST(meth_wxAuiToolBarArt_SetFont), METH_VARARGS|METH_KEYWORDS, doc_wxAuiToolBarArt_SetFont},
+    {sipName_SetTextDirection, SIP_MLMETH_CAST(meth_wxAuiToolBarArt_SetTextDirection), METH_VARARGS|METH_KEYWORDS, doc_wxAuiToolBarArt_SetTextDirection},
     {sipName_SetTextOrientation, SIP_MLMETH_CAST(meth_wxAuiToolBarArt_SetTextOrientation), METH_VARARGS|METH_KEYWORDS, doc_wxAuiToolBarArt_SetTextOrientation},
     {sipName_ShowDropDown, SIP_MLMETH_CAST(meth_wxAuiToolBarArt_ShowDropDown), METH_VARARGS|METH_KEYWORDS, doc_wxAuiToolBarArt_ShowDropDown}
 };
 
 sipVariableDef variables_wxAuiToolBarArt[] = {
-    {PropertyVariable, sipName_TextOrientation, &methods_wxAuiToolBarArt[14], &methods_wxAuiToolBarArt[19], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Font, &methods_wxAuiToolBarArt[12], &methods_wxAuiToolBarArt[18], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Flags, &methods_wxAuiToolBarArt[11], &methods_wxAuiToolBarArt[17], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TextOrientation, &methods_wxAuiToolBarArt[16], &methods_wxAuiToolBarArt[22], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TextDirection, &methods_wxAuiToolBarArt[15], &methods_wxAuiToolBarArt[21], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Font, &methods_wxAuiToolBarArt[13], &methods_wxAuiToolBarArt[20], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Flags, &methods_wxAuiToolBarArt[12], &methods_wxAuiToolBarArt[19], SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxAuiToolBarArt, "AuiToolBarArt() -> None\n"
 "\n"
-"wxAuiToolBarArt is part of the wxAUI class framework.");
+"wxAuiToolBarArt is part of the wxAUI class framework and is the base\n"
+"class defining the interface for rendering wxAuiToolBar.");
 
 
 sipClassTypeDef sipTypeDef__aui_wxAuiToolBarArt = {
@@ -1501,9 +1687,9 @@ sipClassTypeDef sipTypeDef__aui_wxAuiToolBarArt = {
     {
         sipNameNr_AuiToolBarArt,
         {0, 0, 1},
-        21, methods_wxAuiToolBarArt,
+        24, methods_wxAuiToolBarArt,
         0, SIP_NULLPTR,
-        3, variables_wxAuiToolBarArt,
+        4, variables_wxAuiToolBarArt,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxAuiToolBarArt,

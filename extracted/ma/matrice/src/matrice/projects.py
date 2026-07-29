@@ -13,6 +13,12 @@ from matrice.dataset import Dataset
 from matrice.exported_model import ExportedModel
 from matrice.models import Model
 
+APPLICATION_JSON = "application/json"
+ACTION_LOGS_FETCHED_MESSAGE = "Action logs fected succesfully"
+ACTION_LOGS_FETCH_ERROR = "Could not fetch action logs"
+MODEL_TRAIN_LIST_FETCHED_MESSAGE = "Model train list fetched successfully"
+MODEL_TRAIN_LIST_FETCH_ERROR = "Could not fetch models train list"
+
 
 class Projects:
     """
@@ -64,11 +70,11 @@ class Projects:
         self.project_id = project_id
         self.rpc = session.rpc
         if project_name:
-            project_info, error, message = self._get_project_by_name()
+            project_info, error, _ = self._get_project_by_name()
         else:
-            project_info, error, message = self._get_a_project_by_id()
+            project_info, error, _ = self._get_a_project_by_id()
         if error:
-            raise Exception(f"Error fetching project info: {error}")
+            raise RuntimeError(f"Error fetching project info: {error}")
         else:
             if not project_info["isDisabled"]:
                 self.status = "enabled"
@@ -378,8 +384,8 @@ class Projects:
         resp = self.rpc.get(path=path)
         return handle_response(
             resp,
-            "Action logs fected succesfully",
-            "Could not fetch action logs",
+            ACTION_LOGS_FETCHED_MESSAGE,
+            ACTION_LOGS_FETCH_ERROR,
         )
 
     def get_latest_action_record(self, service_id):
@@ -411,8 +417,8 @@ class Projects:
         resp = self.rpc.get(path=path)
         return handle_response(
             resp,
-            "Action logs fected succesfully",
-            "Could not fetch action logs",
+            ACTION_LOGS_FETCHED_MESSAGE,
+            ACTION_LOGS_FETCH_ERROR,
         )
 
     def _create_dataset(
@@ -689,7 +695,7 @@ class Projects:
             "modelType": "",
             "modelId": "",
         }
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         resp = self.rpc.post(
             path=path,
             headers=headers,
@@ -701,7 +707,7 @@ class Projects:
             "An error occurred while trying to create new annotation",
         )
         annotation_id = resp["_id"]
-        service_id, action_id = self._get_service_and_action_ids(resp, error, message)
+        _, action_id = self._get_service_and_action_ids(resp, error, message)
         return Annotation(self.session, annotation_id, ann_title), Action(self.session, action_id)
 
     def add_models_for_training(
@@ -816,7 +822,7 @@ class Projects:
             for model_config in model_train_configs
         ]
         path = f"/v1/model/add_model_train_list?projectId={self.project_id}"
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         resp = self.rpc.post(
             path=path,
             headers=headers,
@@ -875,7 +881,7 @@ class Projects:
             print("No model exists with the given model train id")
             sys.exit(0)
         path = f"/v1/model/{model_train_id}/add_model_export?projectId={self.project_id}"
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         model_payload = {
             "_idProject": self.project_id,
             "_idModelTrain": model_train_id,
@@ -1147,7 +1153,7 @@ class Projects:
         }
         if create_deployment_config:
             body.update(create_deployment_config)
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         path = f"/v1/deployment?projectId={self.project_id}"
         resp = self.rpc.post(
             path=path,
@@ -1296,14 +1302,14 @@ class Projects:
         >>>     print(success_message)
         """
         if enable:
-            type = "enable"
+            action_type = "enable"
         else:
-            type = "disable"
+            action_type = "disable"
         _, error, _ = self._get_a_project_by_id()
         if error:
             print("Project is not found")
             sys.exit(1)
-        path = f"/v1/project/enable-disable-project/{type}/{self.project_id}"
+        path = f"/v1/project/enable-disable-project/{action_type}/{self.project_id}"
         resp = self.rpc.put(path=path)
         return handle_response(
             resp,
@@ -1339,8 +1345,8 @@ class Projects:
         resp = self.rpc.get(path=path)
         return handle_response(
             resp,
-            "Action logs fected succesfully",
-            "Could not fetch action logs",
+            ACTION_LOGS_FETCHED_MESSAGE,
+            ACTION_LOGS_FETCH_ERROR,
         )
 
     def list_collaborators(self):
@@ -1436,7 +1442,7 @@ class Projects:
         ...     print("User invited successfully")
         """
         path = "/v1/user/project/invite"
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         body = {
             "_idProject": self.project_id,
             "email": email,
@@ -1493,7 +1499,7 @@ class Projects:
         ...     print("Permissions updated successfully")
         """
         path = f"/v1/user/project/{self.project_id}/collaborators/{collaborator_id}?projectId={self.project_id}"
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": APPLICATION_JSON}
         body = {
             "version": permissions[0],
             "isProjectAdmin": permissions[1],
@@ -1589,7 +1595,7 @@ class Projects:
         """
         path = f"/v2/dataset/list/{self.project_id}?pageSize={page_size}&pageNumber={page_number}"
         resp = self.rpc.get(path=path)
-        data, error, message = handle_response(
+        data, error, _ = handle_response(
             resp,
             "Dataset list fetched successfully",
             "Could not fetch dataset list",
@@ -1633,7 +1639,7 @@ class Projects:
         """
         path = f"/v1/annotations/v2?projectId={self.project_id}&pageSize={page_size}&pageNumber={page_number}"
         resp = self.rpc.get(path=path)
-        data, error, message = handle_response(
+        data, error, _ = handle_response(
             resp,
             "Annotations fetched successfully",
             "Could not fetch annotations",
@@ -1677,10 +1683,10 @@ class Projects:
         """
         path = f"/v1/model/model_train?projectId={self.project_id}&pageSize={page_size}&pageNumber={page_number}"
         resp = self.rpc.get(path=path)
-        data, error, message = handle_response(
+        data, error, _ = handle_response(
             resp,
-            "Model train list fetched successfully",
-            "Could not fetch models train list",
+            MODEL_TRAIN_LIST_FETCHED_MESSAGE,
+            MODEL_TRAIN_LIST_FETCH_ERROR,
         )
         if error:
             return {}, error
@@ -1716,10 +1722,10 @@ class Projects:
             f"/v1/model/get_model_exports/v2?projectId={self.project_id}&pageSize={page_size}&pageNumber={page_number}"
         )
         resp = self.rpc.get(path=path)
-        data, error, message = handle_response(
+        data, error, _ = handle_response(
             resp,
-            "Model train list fetched successfully",
-            "Could not fetch models train list",
+            MODEL_TRAIN_LIST_FETCHED_MESSAGE,
+            MODEL_TRAIN_LIST_FETCH_ERROR,
         )
         if error:
             return {}, error
@@ -1761,10 +1767,10 @@ class Projects:
         print(self.project_id)
         path = f"/v1/inference/list_drift_monitorings?pageSize={page_size}&pageNumber={page_number}&projectId={self.project_id}"
         resp = self.rpc.get(path=path)
-        data, error, message = handle_response(
+        data, error, _ = handle_response(
             resp,
-            "Model train list fetched successfully",
-            "Could not fetch models train list",
+            MODEL_TRAIN_LIST_FETCHED_MESSAGE,
+            MODEL_TRAIN_LIST_FETCH_ERROR,
         )
         if error:
             return {}, error
@@ -1984,7 +1990,7 @@ class Projects:
         """
         path = f"/v1/dataset/get_dataset_status?projectId={self.project_id}"
         resp = self.rpc.get(path=path)
-        data, error, message = handle_response(
+        data, error, _ = handle_response(
             resp,
             "Successfully fetched dataset status summary",
             "An error occurred while fetching dataset status summary",
@@ -2010,7 +2016,7 @@ class Projects:
         """
         path = f"/v1/annotations/summary?projectId={self.project_id}"
         resp = self.rpc.get(path=path)
-        data, error, message = handle_response(
+        data, error, _ = handle_response(
             resp,
             "Successfully fetched annotations status summary",
             "An error occurred while fetching annotations status summary",
@@ -2036,7 +2042,7 @@ class Projects:
         """
         path = f"/v1/model/summary?projectId={self.project_id}"
         resp = self.rpc.get(path=path)
-        data, error, message = handle_response(
+        data, error, _ = handle_response(
             resp,
             "Successfully fetched model status summary",
             "An error occurred while fetching model status summary",
@@ -2063,7 +2069,7 @@ class Projects:
         """
         path = f"/v1/model/summaryExported?projectId={self.project_id}"
         resp = self.rpc.get(path=path)
-        data, error, message = handle_response(
+        data, error, _ = handle_response(
             resp,
             "Successfully fetched model export status summary",
             "An error occurred while fetching model export status summary",
@@ -2090,7 +2096,7 @@ class Projects:
         """
         path = f"/v1/inference/summary?projectId={self.project_id}"
         resp = self.rpc.get(path=path)
-        data, error, message = handle_response(
+        data, error, _ = handle_response(
             resp,
             "Successfully fetched deployment status summary",
             "An error occurred while fetching deployment status summary",

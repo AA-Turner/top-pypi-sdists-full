@@ -28,6 +28,7 @@ __all__ = (
     "ListOrganizationRecommendationResourcesPaginatorName",
     "ListOrganizationRecommendationsPaginatorName",
     "ListRecommendationResourcesPaginatorName",
+    "ListRecommendationsForResourcePaginatorName",
     "ListRecommendationsPaginatorName",
     "PaginatorName",
     "RecommendationLanguageType",
@@ -56,6 +57,7 @@ ListOrganizationRecommendationResourcesPaginatorName = Literal[
 ]
 ListOrganizationRecommendationsPaginatorName = Literal["list_organization_recommendations"]
 ListRecommendationResourcesPaginatorName = Literal["list_recommendation_resources"]
+ListRecommendationsForResourcePaginatorName = Literal["list_recommendations_for_resource"]
 ListRecommendationsPaginatorName = Literal["list_recommendations"]
 RecommendationLanguageType = Literal[
     "de", "en", "es", "fr", "id", "it", "ja", "ko", "pt_BR", "zh", "zh_TW"
@@ -297,8 +299,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -325,6 +325,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -392,10 +394,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -428,6 +430,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -455,6 +458,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -476,7 +480,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -497,6 +500,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -539,6 +543,7 @@ PaginatorName = Literal[
     "list_organization_recommendations",
     "list_recommendation_resources",
     "list_recommendations",
+    "list_recommendations_for_resource",
 ]
 RegionName = Literal[
     "ap-northeast-2", "ap-southeast-2", "eu-west-1", "us-east-1", "us-east-2", "us-west-2"

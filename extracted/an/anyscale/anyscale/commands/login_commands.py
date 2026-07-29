@@ -8,6 +8,13 @@ import click
 from anyscale.api import ApiClientWrapperInternal
 from anyscale.cli_logger import BlockLogger
 from anyscale.client import openapi_client
+from anyscale.commands.doc_metadata import (
+    command_metadata,
+    CommandExample,
+    ReleaseStatus,
+)
+from anyscale.commands.output_format import OutputFormat
+from anyscale.commands.util import AnyscaleCommand
 from anyscale.controllers.auth_controller import AuthController
 from anyscale.shared_anyscale_utils.conf import ANYSCALE_HOST
 
@@ -22,7 +29,20 @@ def get_unauthenticated_openapi_client():
     return openapi_client.DefaultApi(ApiClientWrapperInternal(conf))
 
 
-@click.command(name="login", help="Log in to Anyscale using a URL.")
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(description="Log in to Anyscale.", command="anyscale login",),
+    ],
+)
+@click.command(
+    name="login",
+    short_help="Log in to Anyscale using a URL.",
+    help="Log in to Anyscale using a URL.",
+    cls=AnyscaleCommand,
+)
 @click.option(
     "--no-expire", is_flag=True, default=False, help="Do not expire the token.",
 )
@@ -94,8 +114,21 @@ def anyscale_login(no_expire: bool, expire_in_days: int, no_browser: bool) -> No
     log.info("Failed to log in to Anyscale. Please try again.")
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Log out from Anyscale.", command="anyscale logout",
+        ),
+    ],
+)
 @click.command(
-    name="logout", help="Log out from Anyscale. You CLI token will be revoked."
+    name="logout",
+    short_help="Log out from Anyscale. Your CLI token will be revoked.",
+    help="Log out from Anyscale. Your CLI token will be revoked.",
+    cls=AnyscaleCommand,
 )
 def anyscale_logout() -> None:
     AuthController().remove(ask=False)

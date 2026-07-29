@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vcs-versioning
-Version: 2.2.2
+Version: 2.2.3
 Summary: the blessed package to manage your versions by vcs metadata
 Author-email: Ronny Pfannschmidt <opensource@ronnypfannschmidt.de>
 License: MIT
@@ -20,7 +20,7 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: packaging>=20
+Requires-Dist: packaging>=26.2
 Requires-Dist: tomli>=1; python_version < "3.11"
 Requires-Dist: typing-extensions>=4.1; python_version < "3.11"
 Dynamic: license-file

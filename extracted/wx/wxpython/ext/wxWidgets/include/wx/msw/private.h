@@ -4,7 +4,6 @@
 //              wxWidgets itself, it may contain identifiers which don't start
 //              with "wx".
 // Author:      Julian Smart
-// Modified by:
 // Created:     01/02/97
 // Copyright:   (c) Julian Smart
 // Licence:     wxWindows licence
@@ -35,7 +34,7 @@ class WXDLLIMPEXP_FWD_CORE wxWindowBase;
 #endif
 
 // Many MSW functions have parameters which are "reserved". Passing them this
-// constant is more clear than just using "0" or "NULL".
+// constant is more clear than just using "0" or "nullptr".
 #define wxRESERVED_PARAM    0
 
 // ---------------------------------------------------------------------------
@@ -57,8 +56,6 @@ extern WXDLLIMPEXP_DATA_CORE(HFONT) wxSTATUS_LINE_FONT;
 // ---------------------------------------------------------------------------
 // global data
 // ---------------------------------------------------------------------------
-
-extern WXDLLIMPEXP_DATA_BASE(HINSTANCE) wxhInstance;
 
 extern "C"
 {
@@ -198,6 +195,23 @@ struct WinStruct : public T
     }
 };
 
+// Life wouldn't be fun if Windows didn't call the size member differently in
+// different structs, so define the equivalent of the above for the ones where
+// it's called dwSize.
+//
+// When we can require C++17 or preferably C++20 we could merge this with
+// WinStruct by detecting the presence of cbSize/dwSize member using SFINAE,
+// but for now just define it separately to keep things simple.
+template <class T>
+struct WinStructWordSize : public T
+{
+    WinStructWordSize()
+    {
+        wxZeroMemory(*this);
+
+        this->dwSize = sizeof(T);
+    }
+};
 
 // Macros for converting wxString to the type expected by API functions.
 //
@@ -316,6 +330,12 @@ extern HICON wxBitmapToHICON(const wxBitmap& bmp);
 extern
 HCURSOR wxBitmapToHCURSOR(const wxBitmap& bmp, int hotSpotX, int hotSpotY);
 
+// Return DPI for the given window.
+//
+// Implemented in src/msw/window.cpp.
+wxSize wxGetWindowDPI(HWND hwnd);
+
+// Also implemented in src/msw/window.cpp.
 extern int wxGetSystemMetrics(int nIndex, const wxWindow* win);
 
 extern bool wxSystemParametersInfo(UINT uiAction, UINT uiParam,
@@ -391,6 +411,21 @@ inline RECT wxGetClientRect(HWND hwnd)
     return rect;
 }
 
+// Call MapWindowPoints() on a RECT: because a RECT is (intentionally) laid out
+// as 2 consecutive POINTs, the cast below is valid but we still prefer to hide
+// it in this function instead of writing it out in the rest of the code.
+inline void wxMapWindowPoints(HWND hwndFrom, HWND hwndTo, RECT* rc)
+{
+    ::MapWindowPoints(hwndFrom, hwndTo, reinterpret_cast<POINT *>(rc), 2);
+}
+
+// For consistency also provide an overload taking a POINT, even if this one is
+// even more trivial.
+inline void wxMapWindowPoints(HWND hwndFrom, HWND hwndTo, POINT* pt)
+{
+    ::MapWindowPoints(hwndFrom, hwndTo, pt, 1);
+}
+
 // ---------------------------------------------------------------------------
 // small helper classes
 // ---------------------------------------------------------------------------
@@ -426,38 +461,46 @@ private:
 
 #endif // __WXMSW__
 
-// create an instance of this class and use it as the HDC for screen, will
-// automatically release the DC going out of scope
-class ScreenHDC
+// RAII helper for releasing an HDC in its dtor.
+class AutoHDC
 {
 public:
-    ScreenHDC() { m_hdc = ::GetDC(NULL);    }
-   ~ScreenHDC() { ::ReleaseDC(NULL, m_hdc); }
+    ~AutoHDC() { if ( m_hdc ) { ::ReleaseDC(m_hwnd, m_hdc); } }
 
     operator HDC() const { return m_hdc; }
 
+protected:
+    AutoHDC(HWND hwnd, HDC hdc) : m_hwnd(hwnd), m_hdc(hdc) { }
+
 private:
+    HWND m_hwnd;
     HDC m_hdc;
 
-    wxDECLARE_NO_COPY_CLASS(ScreenHDC);
+    wxDECLARE_NO_COPY_CLASS(AutoHDC);
 };
 
-// the same as ScreenHDC but for window DCs (and if HWND is NULL, then exactly
-// the same as it)
-class WindowHDC
+// create an instance of this class and use it as the HDC for screen, will
+// automatically release the DC going out of scope
+class ScreenHDC : public AutoHDC
 {
 public:
-    WindowHDC() : m_hwnd(NULL), m_hdc(NULL) { }
-    WindowHDC(HWND hwnd) { m_hdc = ::GetDC(m_hwnd = hwnd); }
-   ~WindowHDC() { if ( m_hdc ) { ::ReleaseDC(m_hwnd, m_hdc); } }
+    ScreenHDC() : AutoHDC(nullptr, ::GetDC(nullptr)) { }
+};
 
-    operator HDC() const { return m_hdc; }
+// the same as ScreenHDC but for client part of the window (if HWND is null,
+// then it's exactly the same as ScreenHDC)
+class ClientHDC : public AutoHDC
+{
+public:
+    ClientHDC() : AutoHDC(nullptr, nullptr) { }
+    explicit ClientHDC(HWND hwnd) : AutoHDC(hwnd, ::GetDC(hwnd)) { }
+};
 
-private:
-   HWND m_hwnd;
-   HDC m_hdc;
-
-   wxDECLARE_NO_COPY_CLASS(WindowHDC);
+// same as ClientHDC but includes the non-client part of the window
+class WindowHDC : public AutoHDC
+{
+public:
+    explicit WindowHDC(HWND hwnd) : AutoHDC(hwnd, ::GetWindowDC(hwnd)) { }
 };
 
 // the same as ScreenHDC but for memory DCs: creates the HDC compatible with
@@ -465,7 +508,7 @@ private:
 class MemoryHDC
 {
 public:
-    MemoryHDC(HDC hdc = NULL) { m_hdc = ::CreateCompatibleDC(hdc); }
+    MemoryHDC(HDC hdc = nullptr) { m_hdc = ::CreateCompatibleDC(hdc); }
    ~MemoryHDC() { ::DeleteDC(m_hdc); }
 
     operator HDC() const { return m_hdc; }
@@ -491,7 +534,7 @@ private:
     void DoInit(HGDIOBJ hgdiobj) { m_hgdiobj = ::SelectObject(m_hdc, hgdiobj); }
 
 public:
-    SelectInHDC() : m_hdc(NULL), m_hgdiobj(NULL) { }
+    SelectInHDC() : m_hdc(nullptr), m_hgdiobj(nullptr) { }
     SelectInHDC(HDC hdc, HGDIOBJ hgdiobj) : m_hdc(hdc) { DoInit(hgdiobj); }
 
     void Init(HDC hdc, HGDIOBJ hgdiobj)
@@ -506,7 +549,7 @@ public:
     ~SelectInHDC() { if ( m_hdc ) ::SelectObject(m_hdc, m_hgdiobj); }
 
     // return true if the object was successfully selected
-    operator bool() const { return m_hgdiobj != NULL; }
+    operator bool() const { return m_hgdiobj != nullptr; }
 
 private:
     HDC m_hdc;
@@ -519,7 +562,7 @@ private:
 class AutoGDIObject
 {
 protected:
-    AutoGDIObject() { m_gdiobj = NULL; }
+    AutoGDIObject() { m_gdiobj = nullptr; }
     AutoGDIObject(HGDIOBJ gdiobj) : m_gdiobj(gdiobj) { }
     ~AutoGDIObject() { if ( m_gdiobj ) ::DeleteObject(m_gdiobj); }
 
@@ -601,7 +644,7 @@ class MonoBitmap : public AutoHBITMAP
 {
 public:
     MonoBitmap(int w, int h)
-        : AutoHBITMAP(::CreateBitmap(w, h, 1, 1, NULL))
+        : AutoHBITMAP(::CreateBitmap(w, h, 1, 1, nullptr))
     {
     }
 };
@@ -657,7 +700,7 @@ public:
 
     ~HDCClipper()
     {
-        ::SelectClipRgn(m_hdc, NULL);
+        ::SelectClipRgn(m_hdc, nullptr);
     }
 
 private:
@@ -703,7 +746,7 @@ public:
     // default ctor, call Init() later
     GlobalPtr()
     {
-        m_hGlobal = NULL;
+        m_hGlobal = nullptr;
     }
 
     // allocates a block of given size
@@ -733,7 +776,7 @@ public:
     HGLOBAL Release()
     {
         HGLOBAL h = m_hGlobal;
-        m_hGlobal = NULL;
+        m_hGlobal = nullptr;
         return h;
     }
 
@@ -753,15 +796,15 @@ class GlobalPtrLock
 {
 public:
     // default ctor, use Init() later -- should only be used if the HGLOBAL can
-    // be NULL (in which case Init() shouldn't be called)
+    // be null (in which case Init() shouldn't be called)
     GlobalPtrLock()
     {
-        m_hGlobal = NULL;
-        m_ptr = NULL;
+        m_hGlobal = nullptr;
+        m_ptr = nullptr;
     }
 
     // initialize the object, may be only called if we were created using the
-    // default ctor; HGLOBAL must not be NULL
+    // default ctor; HGLOBAL must not be null
     void Init(HGLOBAL hGlobal)
     {
         m_hGlobal = hGlobal;
@@ -775,7 +818,7 @@ public:
         }
     }
 
-    // initialize the object, HGLOBAL must not be NULL
+    // initialize the object, HGLOBAL must not be null
     GlobalPtrLock(HGLOBAL hGlobal)
     {
         Init(hGlobal);
@@ -827,13 +870,13 @@ public:
     bool IsRegistered() const { return m_registered == 1; }
 
     // try to register the class if not done yet, return true on success
-    bool Register(const WNDCLASS& wc)
+    bool Register(const WNDCLASSW& wc)
     {
         // we should only be called if we hadn't been initialized yet
         wxASSERT_MSG( m_registered == -1,
                         wxT("calling ClassRegistrar::Register() twice?") );
 
-        m_registered = ::RegisterClass(&wc) ? 1 : 0;
+        m_registered = ::RegisterClassW(&wc) ? 1 : 0;
         if ( !IsRegistered() )
         {
             wxLogLastError(wxT("RegisterClassEx()"));
@@ -855,7 +898,7 @@ public:
     {
         if ( IsRegistered() )
         {
-            if ( !::UnregisterClass(m_clsname.t_str(), wxGetInstance()) )
+            if ( !::UnregisterClassW(m_clsname.wc_str(), wxGetInstance()) )
             {
                 wxLogLastError(wxT("UnregisterClass"));
             }
@@ -929,7 +972,7 @@ private:
 inline wxString wxGetFullModuleName(HMODULE hmod)
 {
     wxString fullname;
-    if ( !::GetModuleFileName
+    if ( !::GetModuleFileNameW
             (
                 hmod,
                 wxStringBuffer(fullname, MAX_PATH),
@@ -1021,6 +1064,16 @@ WXDLLIMPEXP_CORE wxFont wxCreateFontFromLogFont(const LOGFONT *logFont);
 WXDLLIMPEXP_CORE void wxGetCharSize(WXHWND wnd, int *x, int *y, const wxFont& the_font);
 WXDLLIMPEXP_CORE wxFontEncoding wxGetFontEncFromCharSet(int charset);
 
+// Helper function to check if the facename might be truncated: if it is,
+// wxGetMSWFaceNameFromHFONT() should be used to get the full name.
+inline bool wxIsFaceNamePossiblyTruncated(const wxString& facename)
+{
+    return facename.size() == LF_FACESIZE - 1;
+}
+
+// Get full face name (i.e. possibly longer than LF_FACESIZE) from an HFONT.
+wxString wxGetMSWFaceNameFromHFONT(HFONT hFont);
+
 inline void wxSetWindowFont(HWND hwnd, const wxFont& font)
 {
     ::SendMessage(hwnd, WM_SETFONT,
@@ -1048,7 +1101,7 @@ extern WXDLLIMPEXP_CORE int wxGetWindowId(WXHWND hWnd);
 //
 // wndProc parameter is unused and only kept for compatibility
 extern WXDLLIMPEXP_CORE
-bool wxCheckWindowWndProc(WXHWND hWnd, WXWNDPROC wndProc = NULL);
+bool wxCheckWindowWndProc(WXHWND hWnd, WXWNDPROC wndProc = nullptr);
 
 // Does this window style specify any border?
 inline bool wxStyleHasBorder(long style)
@@ -1135,19 +1188,34 @@ inline wxLayoutDirection wxGetEditLayoutDirection(WXHWND hWnd)
                                     : wxLayout_LeftToRight;
 }
 
+// Check if WM_SETTINGCHANGE notifies about the system colours change.
+inline bool wxIsSystemColourChange(LPARAM lParam)
+{
+    // Note that "ImmersiveColorSet" is set both when switching between
+    // light and dark themes and also when changing high contrast mode,
+    // for which an additional message with "WindowsThemeElement" is
+    // also sent, but we don't need to check for it as handling this
+    // one is enough
+    if ( !lParam )
+       return false;
+
+    auto* const what = reinterpret_cast<const TCHAR*>(lParam);
+    return wxStrcmp(what, wxT("ImmersiveColorSet")) == 0;
+}
+
 // ----------------------------------------------------------------------------
 // functions mapping HWND to wxWindow
 // ----------------------------------------------------------------------------
 
 // this function simply checks whether the given hwnd corresponds to a wxWindow
-// and returns either that window if it does or NULL otherwise
+// and returns either that window if it does or nullptr otherwise
 extern WXDLLIMPEXP_CORE wxWindow* wxFindWinFromHandle(HWND hwnd);
 
 // find the window for HWND which is part of some wxWindow, i.e. unlike
 // wxFindWinFromHandle() above it will also work for "sub controls" of a
 // wxWindow.
 //
-// returns the wxWindow corresponding to the given HWND or NULL.
+// returns the wxWindow corresponding to the given HWND or nullptr.
 extern WXDLLIMPEXP_CORE wxWindow *wxGetWindowFromHWND(WXHWND hwnd);
 
 // Get the size of an icon

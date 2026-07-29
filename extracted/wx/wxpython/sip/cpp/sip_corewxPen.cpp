@@ -105,7 +105,7 @@ static PyObject *meth_wxPen_SetColour(PyObject *sipSelf, PyObject *sipArgs, PyOb
 PyDoc_STRVAR(doc_wxPen_GetCap, "GetCap() -> PenCap\n"
 "\n"
 "Returns the pen cap style, which may be one of wxCAP_ROUND,\n"
-"wxCAP_PROJECTING and wxCAP_BUTT.");
+"wxCAP_PROJECTING or wxCAP_BUTT.");
 
 extern "C" {static PyObject *meth_wxPen_GetCap(PyObject *, PyObject *);}
 static PyObject *meth_wxPen_GetCap(PyObject *sipSelf, PyObject *sipArgs)
@@ -246,7 +246,7 @@ static PyObject *meth_wxPen_GetDashes(PyObject *sipSelf, PyObject *sipArgs)
 PyDoc_STRVAR(doc_wxPen_GetJoin, "GetJoin() -> PenJoin\n"
 "\n"
 "Returns the pen join style, which may be one of wxJOIN_BEVEL,\n"
-"wxJOIN_ROUND and wxJOIN_MITER.");
+"wxJOIN_ROUND or wxJOIN_MITER.");
 
 extern "C" {static PyObject *meth_wxPen_GetJoin(PyObject *, PyObject *);}
 static PyObject *meth_wxPen_GetJoin(PyObject *sipSelf, PyObject *sipArgs)
@@ -492,7 +492,7 @@ static PyObject *meth_wxPen_IsTransparent(PyObject *sipSelf, PyObject *sipArgs)
 PyDoc_STRVAR(doc_wxPen_SetCap, "SetCap(capStyle) -> None\n"
 "\n"
 "Sets the pen cap style, which may be one of wxCAP_ROUND,\n"
-"wxCAP_PROJECTING and wxCAP_BUTT.");
+"wxCAP_PROJECTING or wxCAP_BUTT.");
 
 extern "C" {static PyObject *meth_wxPen_SetCap(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxPen_SetCap(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -616,7 +616,7 @@ static PyObject *meth_wxPen_SetDashes(PyObject *sipSelf, PyObject *sipArgs, PyOb
 PyDoc_STRVAR(doc_wxPen_SetJoin, "SetJoin(join_style) -> None\n"
 "\n"
 "Sets the pen join style, which may be one of wxJOIN_BEVEL,\n"
-"wxJOIN_ROUND and wxJOIN_MITER.");
+"wxJOIN_ROUND or wxJOIN_MITER.");
 
 extern "C" {static PyObject *meth_wxPen_SetJoin(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxPen_SetJoin(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1065,7 +1065,7 @@ static void *init_type_wxPen(sipSimpleWrapper *, PyObject *sipArgs, PyObject *si
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxPen[] = {{226, 255, 1}};
+static sipEncodedTypeDef supers_wxPen[] = {{234, 255, 1}};
 
 
 /* Define this type's Python slots. */
@@ -1115,7 +1115,7 @@ PyDoc_STRVAR(doc_wxPen, "Pen() -> None\n"
 "Pen(colour, width=1, style=PENSTYLE_SOLID) -> None\n"
 "Pen(pen) -> None\n"
 "\n"
-"A pen is a drawing tool for drawing outlines.");
+"A pen is a tool for drawing outlines.");
 
 
 sipClassTypeDef sipTypeDef__core_wxPen = {

@@ -279,6 +279,7 @@ class ValuesExecution(google.protobuf.message.Message):
     VALUES_HASH_FIELD_NUMBER: builtins.int
     SEMANTIC_EXTRAS_FIELD_NUMBER: builtins.int
     LABELS_FIELD_NUMBER: builtins.int
+    DBT_NODE_STATE_FIELD_NUMBER: builtins.int
     target_table: builtins.str
     dialect: builtins.str
     default_catalog: builtins.str
@@ -287,6 +288,8 @@ class ValuesExecution(google.protobuf.message.Message):
     def semantic_extras(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]: ...
     @property
     def labels(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]: ...
+    @property
+    def dbt_node_state(self) -> query_cache_protobuf.query_cache.shared_pb2.DbtNodeState: ...
     def __init__(
         self,
         *,
@@ -296,8 +299,11 @@ class ValuesExecution(google.protobuf.message.Message):
         values_hash: builtins.str = ...,
         semantic_extras: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
         labels: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
+        dbt_node_state: query_cache_protobuf.query_cache.shared_pb2.DbtNodeState | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["default_catalog", b"default_catalog", "dialect", b"dialect", "labels", b"labels", "semantic_extras", b"semantic_extras", "target_table", b"target_table", "values_hash", b"values_hash"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_dbt_node_state", b"_dbt_node_state", "dbt_node_state", b"dbt_node_state"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_dbt_node_state", b"_dbt_node_state", "dbt_node_state", b"dbt_node_state", "default_catalog", b"default_catalog", "dialect", b"dialect", "labels", b"labels", "semantic_extras", b"semantic_extras", "target_table", b"target_table", "values_hash", b"values_hash"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_dbt_node_state", b"_dbt_node_state"]) -> typing.Literal["dbt_node_state"] | None: ...
 
 global___ValuesExecution = ValuesExecution
 

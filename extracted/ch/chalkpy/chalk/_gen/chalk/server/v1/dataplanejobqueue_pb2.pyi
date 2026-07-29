@@ -35,6 +35,7 @@ class JobQueueKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     JOB_QUEUE_KIND_SCRIPT_TASK: _ClassVar[JobQueueKind]
     JOB_QUEUE_KIND_CHALKSQL_RUN: _ClassVar[JobQueueKind]
     JOB_QUEUE_KIND_DATAFRAME_RUN: _ClassVar[JobQueueKind]
+    JOB_QUEUE_KIND_FILL_WIDE_TABLES: _ClassVar[JobQueueKind]
 
 JOB_QUEUE_STATE_UNSPECIFIED: JobQueueState
 JOB_QUEUE_STATE_SCHEDULED: JobQueueState
@@ -50,6 +51,7 @@ JOB_QUEUE_KIND_SCHEDULED_QUERY: JobQueueKind
 JOB_QUEUE_KIND_SCRIPT_TASK: JobQueueKind
 JOB_QUEUE_KIND_CHALKSQL_RUN: JobQueueKind
 JOB_QUEUE_KIND_DATAFRAME_RUN: JobQueueKind
+JOB_QUEUE_KIND_FILL_WIDE_TABLES: JobQueueKind
 
 class JobQueueItem(_message.Message):
     __slots__ = (

@@ -9,6 +9,7 @@
 
 #include "sipAPI_aui.h"
         #include <wx/aui/auibar.h>
+        #include <wx/object.h>
         #include <wx/gdicmn.h>
         #include <wx/bitmap.h>
         #include <wx/bmpbndl.h>
@@ -1279,7 +1280,9 @@ static PyObject *meth_wxAuiToolBarItem_IsSticky(PyObject *sipSelf, PyObject *sip
 }
 
 
-PyDoc_STRVAR(doc_wxAuiToolBarItem_SetUserData, "SetUserData(l) -> None");
+PyDoc_STRVAR(doc_wxAuiToolBarItem_SetUserData, "SetUserData(userData) -> None\n"
+"\n"
+"Associates a number with the item.");
 
 extern "C" {static PyObject *meth_wxAuiToolBarItem_SetUserData(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxAuiToolBarItem_SetUserData(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1287,19 +1290,19 @@ static PyObject *meth_wxAuiToolBarItem_SetUserData(PyObject *sipSelf, PyObject *
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        long l;
+        long userData;
         ::wxAuiToolBarItem *sipCpp;
 
         static const char *sipKwdList[] = {
-            sipName_l,
+            sipName_userData,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bl", &sipSelf, sipType_wxAuiToolBarItem, &sipCpp, &l))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bl", &sipSelf, sipType_wxAuiToolBarItem, &sipCpp, &userData))
         {
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipCpp->SetUserData(l);
+            sipCpp->SetUserData(userData);
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
@@ -1316,7 +1319,9 @@ static PyObject *meth_wxAuiToolBarItem_SetUserData(PyObject *sipSelf, PyObject *
 }
 
 
-PyDoc_STRVAR(doc_wxAuiToolBarItem_GetUserData, "GetUserData() -> int");
+PyDoc_STRVAR(doc_wxAuiToolBarItem_GetUserData, "GetUserData() -> int\n"
+"\n"
+"Get number associated with the item.");
 
 extern "C" {static PyObject *meth_wxAuiToolBarItem_GetUserData(PyObject *, PyObject *);}
 static PyObject *meth_wxAuiToolBarItem_GetUserData(PyObject *sipSelf, PyObject *sipArgs)
@@ -1344,6 +1349,80 @@ static PyObject *meth_wxAuiToolBarItem_GetUserData(PyObject *sipSelf, PyObject *
     }
 
     sipNoMethod(sipParseErr, sipName_AuiToolBarItem, sipName_GetUserData, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxAuiToolBarItem_SetClientData, "SetClientData(clientData) -> None\n"
+"\n"
+"Associates a wxObject with the item.");
+
+extern "C" {static PyObject *meth_wxAuiToolBarItem_SetClientData(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAuiToolBarItem_SetClientData(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxObject* clientData;
+        ::wxAuiToolBarItem *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_clientData,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8", &sipSelf, sipType_wxAuiToolBarItem, &sipCpp, sipType_wxObject, &clientData))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetClientData(clientData);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiToolBarItem, sipName_SetClientData, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxAuiToolBarItem_GetClientData, "GetClientData() -> wx.Object\n"
+"\n"
+"Get wxObject associated with the item.");
+
+extern "C" {static PyObject *meth_wxAuiToolBarItem_GetClientData(PyObject *, PyObject *);}
+static PyObject *meth_wxAuiToolBarItem_GetClientData(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxAuiToolBarItem *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxAuiToolBarItem, &sipCpp))
+        {
+            ::wxObject*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetClientData();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxObject, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiToolBarItem, sipName_GetClientData, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -1562,6 +1641,7 @@ static PyMethodDef methods_wxAuiToolBarItem[] = {
     {sipName_CanBeToggled, meth_wxAuiToolBarItem_CanBeToggled, METH_VARARGS, doc_wxAuiToolBarItem_CanBeToggled},
     {sipName_GetAlignment, meth_wxAuiToolBarItem_GetAlignment, METH_VARARGS, doc_wxAuiToolBarItem_GetAlignment},
     {sipName_GetBitmap, meth_wxAuiToolBarItem_GetBitmap, METH_VARARGS, doc_wxAuiToolBarItem_GetBitmap},
+    {sipName_GetClientData, meth_wxAuiToolBarItem_GetClientData, METH_VARARGS, doc_wxAuiToolBarItem_GetClientData},
     {sipName_GetDisabledBitmap, meth_wxAuiToolBarItem_GetDisabledBitmap, METH_VARARGS, doc_wxAuiToolBarItem_GetDisabledBitmap},
     {sipName_GetHoverBitmap, meth_wxAuiToolBarItem_GetHoverBitmap, METH_VARARGS, doc_wxAuiToolBarItem_GetHoverBitmap},
     {sipName_GetId, meth_wxAuiToolBarItem_GetId, METH_VARARGS, doc_wxAuiToolBarItem_GetId},
@@ -1582,6 +1662,7 @@ static PyMethodDef methods_wxAuiToolBarItem[] = {
     {sipName_SetActive, SIP_MLMETH_CAST(meth_wxAuiToolBarItem_SetActive), METH_VARARGS|METH_KEYWORDS, doc_wxAuiToolBarItem_SetActive},
     {sipName_SetAlignment, SIP_MLMETH_CAST(meth_wxAuiToolBarItem_SetAlignment), METH_VARARGS|METH_KEYWORDS, doc_wxAuiToolBarItem_SetAlignment},
     {sipName_SetBitmap, SIP_MLMETH_CAST(meth_wxAuiToolBarItem_SetBitmap), METH_VARARGS|METH_KEYWORDS, doc_wxAuiToolBarItem_SetBitmap},
+    {sipName_SetClientData, SIP_MLMETH_CAST(meth_wxAuiToolBarItem_SetClientData), METH_VARARGS|METH_KEYWORDS, doc_wxAuiToolBarItem_SetClientData},
     {sipName_SetDisabledBitmap, SIP_MLMETH_CAST(meth_wxAuiToolBarItem_SetDisabledBitmap), METH_VARARGS|METH_KEYWORDS, doc_wxAuiToolBarItem_SetDisabledBitmap},
     {sipName_SetHasDropDown, SIP_MLMETH_CAST(meth_wxAuiToolBarItem_SetHasDropDown), METH_VARARGS|METH_KEYWORDS, doc_wxAuiToolBarItem_SetHasDropDown},
     {sipName_SetHoverBitmap, SIP_MLMETH_CAST(meth_wxAuiToolBarItem_SetHoverBitmap), METH_VARARGS|METH_KEYWORDS, doc_wxAuiToolBarItem_SetHoverBitmap},
@@ -1601,22 +1682,23 @@ static PyMethodDef methods_wxAuiToolBarItem[] = {
 };
 
 sipVariableDef variables_wxAuiToolBarItem[] = {
-    {PropertyVariable, sipName_Window, &methods_wxAuiToolBarItem[17], &methods_wxAuiToolBarItem[39], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_UserData, &methods_wxAuiToolBarItem[16], &methods_wxAuiToolBarItem[38], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_State, &methods_wxAuiToolBarItem[15], &methods_wxAuiToolBarItem[36], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SpacerPixels, &methods_wxAuiToolBarItem[14], &methods_wxAuiToolBarItem[35], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SizerItem, &methods_wxAuiToolBarItem[13], &methods_wxAuiToolBarItem[34], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ShortHelp, &methods_wxAuiToolBarItem[12], &methods_wxAuiToolBarItem[33], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Proportion, &methods_wxAuiToolBarItem[11], &methods_wxAuiToolBarItem[32], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_MinSize, &methods_wxAuiToolBarItem[10], &methods_wxAuiToolBarItem[31], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_LongHelp, &methods_wxAuiToolBarItem[9], &methods_wxAuiToolBarItem[30], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Label, &methods_wxAuiToolBarItem[8], &methods_wxAuiToolBarItem[29], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Kind, &methods_wxAuiToolBarItem[7], &methods_wxAuiToolBarItem[28], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Id, &methods_wxAuiToolBarItem[6], &methods_wxAuiToolBarItem[27], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_HoverBitmap, &methods_wxAuiToolBarItem[5], &methods_wxAuiToolBarItem[26], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DisabledBitmap, &methods_wxAuiToolBarItem[4], &methods_wxAuiToolBarItem[24], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Bitmap, &methods_wxAuiToolBarItem[3], &methods_wxAuiToolBarItem[23], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Alignment, &methods_wxAuiToolBarItem[2], &methods_wxAuiToolBarItem[22], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Window, &methods_wxAuiToolBarItem[18], &methods_wxAuiToolBarItem[41], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_UserData, &methods_wxAuiToolBarItem[17], &methods_wxAuiToolBarItem[40], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_State, &methods_wxAuiToolBarItem[16], &methods_wxAuiToolBarItem[38], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SpacerPixels, &methods_wxAuiToolBarItem[15], &methods_wxAuiToolBarItem[37], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SizerItem, &methods_wxAuiToolBarItem[14], &methods_wxAuiToolBarItem[36], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ShortHelp, &methods_wxAuiToolBarItem[13], &methods_wxAuiToolBarItem[35], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Proportion, &methods_wxAuiToolBarItem[12], &methods_wxAuiToolBarItem[34], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_MinSize, &methods_wxAuiToolBarItem[11], &methods_wxAuiToolBarItem[33], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_LongHelp, &methods_wxAuiToolBarItem[10], &methods_wxAuiToolBarItem[32], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Label, &methods_wxAuiToolBarItem[9], &methods_wxAuiToolBarItem[31], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Kind, &methods_wxAuiToolBarItem[8], &methods_wxAuiToolBarItem[30], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Id, &methods_wxAuiToolBarItem[7], &methods_wxAuiToolBarItem[29], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_HoverBitmap, &methods_wxAuiToolBarItem[6], &methods_wxAuiToolBarItem[28], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DisabledBitmap, &methods_wxAuiToolBarItem[5], &methods_wxAuiToolBarItem[26], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ClientData, &methods_wxAuiToolBarItem[4], &methods_wxAuiToolBarItem[25], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Bitmap, &methods_wxAuiToolBarItem[3], &methods_wxAuiToolBarItem[24], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Alignment, &methods_wxAuiToolBarItem[2], &methods_wxAuiToolBarItem[23], SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxAuiToolBarItem, "AuiToolBarItem() -> None\n"
@@ -1639,9 +1721,9 @@ sipClassTypeDef sipTypeDef__aui_wxAuiToolBarItem = {
     {
         sipNameNr_AuiToolBarItem,
         {0, 0, 1},
-        40, methods_wxAuiToolBarItem,
+        42, methods_wxAuiToolBarItem,
         0, SIP_NULLPTR,
-        16, variables_wxAuiToolBarItem,
+        17, variables_wxAuiToolBarItem,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxAuiToolBarItem,

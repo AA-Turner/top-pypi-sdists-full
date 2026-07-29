@@ -26,10 +26,20 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from raindrop.client import Raindrop
+    from raindrop.handoff import TraceContext
     from raindrop.interaction import Interaction
     from raindrop.models import Attachment
+    from raindrop.subagent import SubagentDispatch, SubagentRun
 
-__all__ = ["Raindrop", "Interaction", "Attachment"]
+__all__ = [
+    "Raindrop",
+    "Interaction",
+    "Attachment",
+    # Detached async sub-agents (see raindrop.handoff for the contract).
+    "TraceContext",
+    "SubagentDispatch",
+    "SubagentRun",
+]
 
 
 def __getattr__(name: str) -> Any:
@@ -45,4 +55,12 @@ def __getattr__(name: str) -> Any:
         from raindrop.models import Attachment
 
         return Attachment
+    if name == "TraceContext":
+        from raindrop.handoff import TraceContext
+
+        return TraceContext
+    if name in ("SubagentDispatch", "SubagentRun"):
+        from raindrop import subagent
+
+        return getattr(subagent, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -46,6 +46,7 @@ from slither.utils.output import (
     output_to_json,
     output_to_sarif,
     output_to_zip,
+    set_exclude_location,
 )
 from slither.utils.output_capture import StandardOutputCapture
 
@@ -83,7 +84,11 @@ def process_single(
     if args.sarif_triage:
         slither.sarif_triage = args.sarif_triage
 
-    return _process(slither, detector_classes, printer_classes)
+    # Enable unused ignore tracking if requested
+    if args.warn_unused_ignores:
+        slither.warn_unused_ignores = True
+
+    return _process(slither, detector_classes, printer_classes, args.warn_unused_ignores)
 
 
 def process_all(
@@ -120,6 +125,7 @@ def _process(
     slither: Slither,
     detector_classes: list[type[AbstractDetector]],
     printer_classes: list[type[AbstractPrinter]],
+    warn_unused_ignores: bool = False,
 ) -> tuple[Slither, list[dict], list[Output], int]:
     for detector_cls in detector_classes:
         slither.register_detector(detector_cls)
@@ -137,6 +143,33 @@ def _process(
         detector_resultss = [x for x in detector_resultss if x]  # remove empty results
         detector_results = [item for sublist in detector_resultss for item in sublist]  # flatten
         results_detectors.extend(detector_results)
+
+        # Report unused ignore comments if enabled
+        if warn_unused_ignores:
+            unused_ignores = slither.get_unused_ignore_comments()
+            for unused in unused_ignores:
+                comment_type = unused["comment_type"]
+                if comment_type == "next-line":
+                    directive = "slither-disable-next-line"
+                else:
+                    directive = f"slither-disable-{comment_type}"
+                unused_dets = ",".join(unused["unused_detectors"])
+                logger.warning(
+                    f"Unused {directive} directive for {unused_dets} at "
+                    f"{unused['file']}#{unused['line']}"
+                )
+            # Add unused ignores to JSON output for structured output support
+            if unused_ignores:
+                results_detectors.append(
+                    {
+                        "check": "unused-ignore-directive",
+                        "impact": "Informational",
+                        "confidence": "High",
+                        "description": f"Found {len(unused_ignores)} unused slither-disable directive(s)",
+                        "elements": [],
+                        "unused_ignores": unused_ignores,
+                    }
+                )
 
     else:
         printer_results = slither.run_printers()
@@ -283,7 +316,8 @@ def parse_filter_paths(args: argparse.Namespace, filter_path: bool) -> list[str]
 
 
 def parse_args(
-    detector_classes: list[type[AbstractDetector]], printer_classes: list[type[AbstractPrinter]]
+    detector_classes: list[type[AbstractDetector]],
+    printer_classes: list[type[AbstractPrinter]],
 ) -> argparse.Namespace:
     usage = "slither target [flag]\n"
     usage += "\ntarget can be:\n"
@@ -409,6 +443,13 @@ def parse_args(
     )
 
     group_detector.add_argument(
+        "--exclude-location",
+        help="Exclude file location (filename and lines) from detector messages",
+        action="store_true",
+        default=defaults_flag_in_config["exclude_location"],
+    )
+
+    group_detector.add_argument(
         "--include-detectors",
         help="Comma-separated list of detectors that should be included",
         action="store",
@@ -460,6 +501,13 @@ def parse_args(
         help="Show all the findings",
         action="store_true",
         default=defaults_flag_in_config["show_ignored_findings"],
+    )
+
+    group_detector.add_argument(
+        "--warn-unused-ignores",
+        help="Warn about slither-disable comments that do not suppress any findings",
+        action="store_true",
+        default=defaults_flag_in_config["warn_unused_ignores"],
     )
 
     group_checklist.add_argument(
@@ -560,7 +608,7 @@ def parse_args(
 
     group_misc.add_argument(
         "--config-file",
-        help="Provide a config file (default: slither.config.json)",
+        help="Provide a config file (default: slither.config.json or slither.conf.json)",
         action="store",
         dest="config_file",
         default=None,
@@ -645,6 +693,13 @@ def parse_args(
     parser.add_argument(
         "--perf",
         help=argparse.SUPPRESS,
+        action="store_true",
+        default=False,
+    )
+
+    parser.add_argument(
+        "--timing",
+        help="Print phase-level timing breakdown",
         action="store_true",
         default=False,
     )
@@ -777,8 +832,19 @@ def main_impl(
         cp = cProfile.Profile()
         cp.enable()
 
+    # Enable phase timing if requested
+    if args.timing:
+        from slither.utils.timing import PhaseTimer
+
+        timer = PhaseTimer.get()
+        timer.reset()  # Clear accumulated data from previous runs
+        timer.enabled = True
+
     # Set colorization option
     set_colorization_enabled(False if args.disable_color else sys.stdout.isatty())
+
+    # Set whether to exclude location info from detector messages
+    set_exclude_location(args.exclude_location)
 
     # Define some variables for potential JSON output
     json_results: dict[str, Any] = {}
@@ -819,7 +885,12 @@ def main_impl(
         logger_level = logging.getLogger(l_name)
         logger_level.setLevel(l_level)
 
-    console_handler = logging.StreamHandler()
+    # Output to stdout for better Unix CLI compatibility, but use stderr when
+    # JSON/SARIF is being output to stdout to avoid mixing logs with structured output
+    if outputting_json_stdout or outputting_sarif_stdout:
+        console_handler = logging.StreamHandler(sys.stderr)
+    else:
+        console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.INFO)
 
     console_handler.setFormatter(FormatterCryticCompile())
@@ -894,6 +965,12 @@ def main_impl(
                 _, printers = get_detectors_and_printers()
                 json_results["list-printers"] = output_printers_json(printers)
 
+            # Add timing data to JSON if requested
+            if "timing" in args.json_types and args.timing:
+                from slither.utils.timing import PhaseTimer
+
+                json_results["timing"] = PhaseTimer.get().report()
+
         # Output our results to markdown if we wish to compile a checklist.
         if args.checklist:
             output_results_to_markdown(
@@ -934,7 +1011,9 @@ def main_impl(
     if outputting_sarif:
         StandardOutputCapture.disable()
         output_to_sarif(
-            None if outputting_sarif_stdout else args.sarif, json_results, detector_classes
+            None if outputting_sarif_stdout else args.sarif,
+            json_results,
+            detector_classes,
         )
 
     if outputting_zip:
@@ -944,6 +1023,13 @@ def main_impl(
         cp.disable()
         stats = pstats.Stats(cp).sort_stats("cumtime")
         stats.print_stats()
+
+    if args.timing:
+        from slither.utils.timing import PhaseTimer
+
+        # Skip text output when JSON goes to stdout to avoid corruption
+        if not outputting_json_stdout:
+            print("\n" + PhaseTimer.get().report_text())
 
     fail_on = FailOnLevel(args.fail_on)
     if fail_on == FailOnLevel.HIGH:

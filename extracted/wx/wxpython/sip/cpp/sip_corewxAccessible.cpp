@@ -758,7 +758,7 @@ static PyObject *meth_wxAccessible_GetName(PyObject *sipSelf, PyObject *sipArgs,
 
 PyDoc_STRVAR(doc_wxAccessible_GetParent, "GetParent() -> Tuple[AccStatus, Accessible]\n"
 "\n"
-"Returns the parent of this object, or NULL.");
+"Returns the parent of this object, or nullptr.");
 
 extern "C" {static PyObject *meth_wxAccessible_GetParent(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxAccessible_GetParent(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1276,7 +1276,7 @@ static void *init_type_wxAccessible(sipSimpleWrapper *sipSelf, PyObject *sipArgs
     sipwxAccessible *sipCpp = SIP_NULLPTR;
 
     {
-        ::wxWindow* win = 0;
+        ::wxWindow* win = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_win,
@@ -1307,7 +1307,7 @@ static void *init_type_wxAccessible(sipSimpleWrapper *sipSelf, PyObject *sipArgs
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxAccessible[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxAccessible[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxAccessible[] = {
@@ -1338,7 +1338,7 @@ sipVariableDef variables_wxAccessible[] = {
     {PropertyVariable, sipName_Window, &methods_wxAccessible[15], &methods_wxAccessible[20], SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxAccessible, "Accessible(win=None) -> None\n"
+PyDoc_STRVAR(doc_wxAccessible, "Accessible(win=nullptr) -> None\n"
 "\n"
 "The wxAccessible class allows wxWidgets applications, and wxWidgets\n"
 "itself, to return extended information about user interface elements\n"

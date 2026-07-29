@@ -1,3 +1,4 @@
+from chalk._gen.chalk.artifacts.v1 import alert_channel_pb2 as _alert_channel_pb2
 from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.server.v1 import incident_pb2 as _incident_pb2
@@ -17,13 +18,6 @@ from typing import (
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
-class AlertChannelKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
-    __slots__ = ()
-    ALERT_CHANNEL_KIND_UNSPECIFIED: _ClassVar[AlertChannelKind]
-    ALERT_CHANNEL_KIND_SLACK_CHANNEL: _ClassVar[AlertChannelKind]
-    ALERT_CHANNEL_KIND_PAGERDUTY_SERVICE: _ClassVar[AlertChannelKind]
-    ALERT_CHANNEL_KIND_INCIDENTIO_SERVICE: _ClassVar[AlertChannelKind]
-
 class PagerDutySeverity(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     PAGER_DUTY_SEVERITY_UNSPECIFIED: _ClassVar[PagerDutySeverity]
@@ -39,10 +33,6 @@ class PagerDutyEventAction(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     PAGER_DUTY_EVENT_ACTION_ACKNOWLEDGE: _ClassVar[PagerDutyEventAction]
     PAGER_DUTY_EVENT_ACTION_RESOLVE: _ClassVar[PagerDutyEventAction]
 
-ALERT_CHANNEL_KIND_UNSPECIFIED: AlertChannelKind
-ALERT_CHANNEL_KIND_SLACK_CHANNEL: AlertChannelKind
-ALERT_CHANNEL_KIND_PAGERDUTY_SERVICE: AlertChannelKind
-ALERT_CHANNEL_KIND_INCIDENTIO_SERVICE: AlertChannelKind
 PAGER_DUTY_SEVERITY_UNSPECIFIED: PagerDutySeverity
 PAGER_DUTY_SEVERITY_INFO: PagerDutySeverity
 PAGER_DUTY_SEVERITY_WARNING: PagerDutySeverity
@@ -450,7 +440,7 @@ class AlertChannel(_message.Message):
     SUBSCRIPTIONS_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
-    entity_kind: AlertChannelKind
+    entity_kind: _alert_channel_pb2.AlertChannelKind
     entity_id: str
     created_at: _timestamp_pb2.Timestamp
     updated_at: _timestamp_pb2.Timestamp
@@ -460,7 +450,7 @@ class AlertChannel(_message.Message):
         self,
         id: _Optional[str] = ...,
         name: _Optional[str] = ...,
-        entity_kind: _Optional[_Union[AlertChannelKind, str]] = ...,
+        entity_kind: _Optional[_Union[_alert_channel_pb2.AlertChannelKind, str]] = ...,
         entity_id: _Optional[str] = ...,
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
@@ -500,14 +490,14 @@ class AddAlertChannelEntry(_message.Message):
     CHANNEL_NAME_FIELD_NUMBER: _ClassVar[int]
     DEFAULT_FIELD_NUMBER: _ClassVar[int]
     SUBSCRIPTIONS_FIELD_NUMBER: _ClassVar[int]
-    entity_kind: AlertChannelKind
+    entity_kind: _alert_channel_pb2.AlertChannelKind
     entity_id: str
     channel_name: str
     default: bool
     subscriptions: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
-        entity_kind: _Optional[_Union[AlertChannelKind, str]] = ...,
+        entity_kind: _Optional[_Union[_alert_channel_pb2.AlertChannelKind, str]] = ...,
         entity_id: _Optional[str] = ...,
         channel_name: _Optional[str] = ...,
         default: bool = ...,
@@ -523,7 +513,7 @@ class EditAlertChannelEntry(_message.Message):
     DEFAULT_FIELD_NUMBER: _ClassVar[int]
     SUBSCRIPTIONS_FIELD_NUMBER: _ClassVar[int]
     id: str
-    entity_kind: AlertChannelKind
+    entity_kind: _alert_channel_pb2.AlertChannelKind
     entity_id: str
     channel_name: str
     default: bool
@@ -531,7 +521,7 @@ class EditAlertChannelEntry(_message.Message):
     def __init__(
         self,
         id: _Optional[str] = ...,
-        entity_kind: _Optional[_Union[AlertChannelKind, str]] = ...,
+        entity_kind: _Optional[_Union[_alert_channel_pb2.AlertChannelKind, str]] = ...,
         entity_id: _Optional[str] = ...,
         channel_name: _Optional[str] = ...,
         default: bool = ...,

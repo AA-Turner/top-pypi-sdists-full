@@ -16,7 +16,8 @@ strings (HTML / CSS / JS) so they can be embedded in ``IPython.display.HTML``
 output, an ``anywidget`` widget, or any other surface that renders raw HTML.
 """
 
-from typing import Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
+import uuid
 
 # ---------------------------------------------------------------------------
 # Icons (monochrome SVGs that use currentColor)
@@ -72,6 +73,52 @@ ICONS: dict[str, str] = {
         'stroke-linejoin="round" aria-hidden="true">'
         '<circle cx="4" cy="8" r="2.5"/><circle cx="12" cy="8" r="2.5"/>'
         '<line x1="6.5" y1="8" x2="9.5" y2="8"/></svg>'
+    ),
+    "calculated_table": (
+        '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" '
+        'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<rect x="2.5" y="3" width="11" height="10" rx="1.8"/>'
+        '<path d="M2.5 6.75h11"/>'
+        '<path d="M9.7 8.1c-1.1-.4-1.9.1-2.1 1.1l-.7 3.6M6.3 9.9h3"/></svg>'
+    ),
+    "calculation_group": (
+        '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" '
+        'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<rect x="3" y="1.5" width="10" height="13" rx="2"/>'
+        '<rect x="5" y="3.4" width="6" height="2.3" rx="0.6"/>'
+        '<path d="M5.5 8.5h.01M8 8.5h.01M10.5 8.5h.01M5.5 10.7h.01M8 10.7h.01'
+        'M10.5 10.7h.01M5.5 12.9h.01M8 12.9h.01M10.5 12.9h.01"/></svg>'
+    ),
+    "date_table": (
+        '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" '
+        'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<rect x="2.5" y="3.5" width="11" height="10" rx="1.8"/>'
+        '<path d="M2.5 6.75h11"/>'
+        '<path d="M5.5 2v2.6M10.5 2v2.6"/>'
+        '<path d="M5.2 9.2h.01M8 9.2h.01M10.8 9.2h.01M5.2 11.4h.01'
+        'M8 11.4h.01"/></svg>'
+    ),
+    "field_parameter": (
+        '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" '
+        'stroke="currentColor" stroke-width="1.35" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<rect x="1.6" y="2" width="8.6" height="8.6" rx="1.2"/>'
+        '<path d="M1.6 4.85h8.6M1.6 7.75h8.6"/>'
+        '<path d="M4.5 2v8.6M7.4 2v8.6"/>'
+        '<path d="M10.8 11.45c.1-1 .9-1.55 1.65-1.4.8.16 1.15.98.72 '
+        '1.7-.27.45-.72.55-.72 1.25"/>'
+        '<path d="M12.45 14.5h.01"/></svg>'
+    ),
+    "calculated_column": (
+        '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" '
+        'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<rect x="5" y="2.5" width="6" height="11" rx="1.8"/>'
+        '<path stroke-width="1.3" d="M9.6 5.4c-.4-1.3-1.8-1.3-2.2.2l-1.2 5.8'
+        'M6.3 8h2.8"/></svg>'
     ),
     # UI icons --------------------------------------------------------------
     "sun": (
@@ -132,6 +179,17 @@ ICONS: dict[str, str] = {
         '<circle cx="8" cy="8" r="1.5"/>'
         '<circle cx="13" cy="8" r="1.5"/></svg>'
     ),
+    # Delta Analyzer badge: a delta (triangle) with mini bars — marks stats
+    # sourced from the Delta Analyzer, distinct from the plain data-bars icon.
+    "delta_stats": (
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" '
+        'stroke="currentColor" stroke-width="2" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<path d="M12 4 20.5 20 3.5 20 Z"/>'
+        '<line x1="9" y1="17.5" x2="9" y2="15"/>'
+        '<line x1="12" y1="17.5" x2="12" y2="12.5"/>'
+        '<line x1="15" y1="17.5" x2="15" y2="14.5"/></svg>'
+    ),
     "sync": (
         '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" '
         'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '
@@ -148,6 +206,28 @@ ICONS: dict[str, str] = {
         '<path d="M11.5 2.5l2 2L5 13H3v-2z"/>'
         '<path d="M10 4l2 2"/></svg>'
     ),
+    # Vertipaq Analyzer: a database cylinder examined by a magnifying glass,
+    # mirroring the VertiPaq Analyzer mark (same drawing as the Tools app's
+    # semantic model explorer sub-tool icon).
+    "vertipaq": (
+        '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" '
+        'stroke="currentColor" stroke-width="1.3" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<ellipse cx="8" cy="3.3" rx="5.3" ry="1.7"/>'
+        '<path d="M2.7 3.3v9.4c0 .94 2.37 1.7 5.3 1.7s5.3-.76 5.3-1.7V3.3"/>'
+        '<circle cx="7" cy="7.4" r="3.1"/>'
+        '<path d="M5.4 6.5a2.1 2.1 0 0 0-.2 2.3"/>'
+        '<path d="M9.3 9.7 12.6 13"/></svg>'
+    ),
+    "swap": (
+        '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" '
+        'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<path d="M3 5.5h9"/>'
+        '<path d="M9.5 3l2.5 2.5L9.5 8"/>'
+        '<path d="M13 10.5H4"/>'
+        '<path d="M6.5 8L4 10.5 6.5 13"/></svg>'
+    ),
     "link": (
         '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" '
         'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '
@@ -163,6 +243,16 @@ ICONS: dict[str, str] = {
         '<ellipse cx="8" cy="3.5" rx="5" ry="1.8"/>'
         '<path d="M3 3.5v9c0 1 2.24 1.8 5 1.8s5-.8 5-1.8v-9"/>'
         '<path d="M3 8c0 1 2.24 1.8 5 1.8s5-.8 5-1.8"/></svg>'
+    ),
+    "database_zap": (
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" '
+        'stroke="currentColor" stroke-width="2" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<ellipse cx="12" cy="5" rx="9" ry="3"/>'
+        '<path d="M3 5V19A9 3 0 0 0 15 21.84"/>'
+        '<path d="M21 5V8"/>'
+        '<path d="M21 12L18 17H22L19 22"/>'
+        '<path d="M3 12A9 3 0 0 0 14.59 14.87"/></svg>'
     ),
     "report": (
         '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" '
@@ -235,6 +325,18 @@ ICONS: dict[str, str] = {
         '<rect x="9.5" y="9" width="4.5" height="4.5" rx="1"/>'
         '<path d="M4.25 7v2.25a1.5 1.5 0 0 0 1.5 1.5h3.75"/></svg>'
     ),
+    "expand_rows": (
+        '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" '
+        'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<path d="M5 6.5l3-3 3 3"/><path d="M5 9.5l3 3 3-3"/></svg>'
+    ),
+    "collapse_rows": (
+        '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" '
+        'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<path d="M5 4l3 3 3-3"/><path d="M5 12l3-3 3 3"/></svg>'
+    ),
     "scan": (
         '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" '
         'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '
@@ -244,6 +346,17 @@ ICONS: dict[str, str] = {
         '<path d="M13.5 11v1.5a1 1 0 0 1-1 1H11"/>'
         '<path d="M5 13.5H3.5a1 1 0 0 1-1-1V11"/>'
         '<circle cx="8" cy="8" r="2"/></svg>'
+    ),
+    "scan_search": (
+        '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" '
+        'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<path d="M2.5 5V3.5A1 1 0 0 1 3.5 2.5H5"/>'
+        '<path d="M11 2.5h1.5a1 1 0 0 1 1 1V5"/>'
+        '<path d="M13.5 11v1.5a1 1 0 0 1-1 1H11"/>'
+        '<path d="M5 13.5H3.5a1 1 0 0 1-1-1V11"/>'
+        '<circle cx="7.2" cy="7.2" r="2.2"/>'
+        '<path d="M8.9 8.9L11 11"/></svg>'
     ),
     "fullscreen": (
         '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" '
@@ -279,12 +392,126 @@ ICONS: dict[str, str] = {
         '<path d="M11.6 2.6a3 3 0 0 0-3.85 3.85l-4.9 4.9a1.25 1.25 0 0 0 '
         '1.77 1.77l4.9-4.9a3 3 0 0 0 3.85-3.85l-1.9 1.9-1.47-.3-.3-1.47z"/></svg>'
     ),
+    "eye": (
+        '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" '
+        'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<path d="M1.5 8s2.4-4 6.5-4 6.5 4 6.5 4-2.4 4-6.5 4-6.5-4-6.5-4z"/>'
+        '<circle cx="8" cy="8" r="1.9"/></svg>'
+    ),
+    "eye_off": (
+        '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" '
+        'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<path d="M6.3 3.7A6.9 6.9 0 0 1 8 3.5c4.1 0 6.5 4 6.5 4a12 12 0 0 1-2 2.5"/>'
+        '<path d="M11.2 11.2A6.6 6.6 0 0 1 8 12c-4.1 0-6.5-4-6.5-4a12 12 0 0 1 '
+        '3.2-3.4"/>'
+        '<path d="M6.7 6.7a1.9 1.9 0 0 0 2.6 2.6"/>'
+        '<path d="M2 2l12 12"/></svg>'
+    ),
+    "wand": (
+        '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" '
+        'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<path d="M9.6 4.3l2.1 2.1-7 7-2.1-2.1z"/>'
+        '<path d="M11 2.9l.5 1.1 1.1.5-1.1.5-.5 1.1-.5-1.1L9.4 4.5l1.1-.5z"/>'
+        '<path d="M13.4 8.1l.35.8.8.35-.8.35-.35.8-.35-.8-.8-.35.8-.35z"/>'
+        '<path d="M4.3 2.2l.35.8.8.35-.8.35-.35.8-.35-.8-.8-.35.8-.35z"/></svg>'
+    ),
     "undo": (
         '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" '
         'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '
         'stroke-linejoin="round" aria-hidden="true">'
         '<path d="M6 4L3 7l3 3"/>'
         '<path d="M3 7h6a3.5 3.5 0 0 1 0 7H5.5"/></svg>'
+    ),
+    "error_circle": (
+        '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" '
+        'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<circle cx="8" cy="8" r="6"/>'
+        '<path d="M6 6l4 4M10 6l-4 4"/></svg>'
+    ),
+    "check": (
+        '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" '
+        'stroke="currentColor" stroke-width="2.2" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<path d="M3.2 8.4l3.2 3.2 6.4-7"/></svg>'
+    ),
+    "sliders": (
+        '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" '
+        'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<circle cx="4.5" cy="5" r="1.9"/><path d="M6.8 5h6.7"/>'
+        '<circle cx="11.5" cy="11" r="1.9"/><path d="M9.2 11H2.5"/></svg>'
+    ),
+    "info": (
+        '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" '
+        'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<circle cx="8" cy="8" r="6"/>'
+        '<path d="M8 7.4v3.2M8 5.2h.01"/></svg>'
+    ),
+    "shield_check": (
+        '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" '
+        'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<path d="M8 1.8l5 1.9v4.1c0 3-2.1 5.2-5 6.4-2.9-1.2-5-3.4-5-6.4V3.7z"/>'
+        '<path d="M5.9 7.9l1.5 1.5 2.7-3"/></svg>'
+    ),
+    "activity": (
+        '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" '
+        'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<path d="M1.5 8h3l1.8-4.8 3 9.6L11.1 8h3.4"/></svg>'
+    ),
+    "code": (
+        '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" '
+        'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<path d="M5.4 4.5L2 8l3.4 3.5"/><path d="M10.6 4.5L14 8l-3.4 3.5"/>'
+        '<path d="M9.2 3l-2.4 10"/></svg>'
+    ),
+    "settings": (
+        '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" '
+        'stroke="currentColor" stroke-width="1.4" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<circle cx="8" cy="8" r="2.1"/>'
+        '<path d="M12.9 9.8a1.1 1.1 0 0 0 .22 1.21l.04.04a1.33 1.33 0 1 1-1.88 1.88'
+        "l-.04-.04a1.1 1.1 0 0 0-1.21-.22 1.1 1.1 0 0 0-.67 1v.11a1.33 1.33 0 1 1-2.66 0"
+        "v-.06a1.1 1.1 0 0 0-.72-1 1.1 1.1 0 0 0-1.21.22l-.04.04a1.33 1.33 0 1 1-1.88-1.88"
+        "l.04-.04a1.1 1.1 0 0 0 .22-1.21 1.1 1.1 0 0 0-1-.67h-.11a1.33 1.33 0 1 1 0-2.66"
+        "h.06a1.1 1.1 0 0 0 1-.72 1.1 1.1 0 0 0-.22-1.21l-.04-.04a1.33 1.33 0 1 1 1.88-1.88"
+        "l.04.04a1.1 1.1 0 0 0 1.21.22h.05a1.1 1.1 0 0 0 .67-1v-.11a1.33 1.33 0 1 1 2.66 0"
+        "v.06a1.1 1.1 0 0 0 .67 1 1.1 1.1 0 0 0 1.21-.22l.04-.04a1.33 1.33 0 1 1 1.88 1.88"
+        "l-.04.04a1.1 1.1 0 0 0-.22 1.21v.05a1.1 1.1 0 0 0 1 .67h.11a1.33 1.33 0 1 1 0 2.66"
+        'h-.06a1.1 1.1 0 0 0-1 .67z"/></svg>'
+    ),
+    "text_type": (
+        '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" '
+        'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<path d="M3 4.2V3h10v1.2"/><path d="M8 3v10"/><path d="M6 13h4"/></svg>'
+    ),
+    "play": (
+        '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" '
+        'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<path d="M4.5 3.2l8 4.8-8 4.8z"/></svg>'
+    ),
+    "upload": (
+        '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" '
+        'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<path d="M2.5 10.5v2a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-2"/>'
+        '<path d="M5.2 5.2L8 2.4l2.8 2.8"/><path d="M8 2.6v7.6"/></svg>'
+    ),
+    "download": (
+        '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" '
+        'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">'
+        '<path d="M2.5 10.5v2a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-2"/>'
+        '<path d="M5.2 7.4L8 10.2l2.8-2.8"/><path d="M8 10v-7.6"/></svg>'
     ),
 }
 
@@ -334,6 +561,247 @@ DARK_THEME_VARS: str = """\
 
 
 # ---------------------------------------------------------------------------
+# Searchable single-select (the standard workspace / semantic model picker)
+# ---------------------------------------------------------------------------
+# Every tool which asks the user to pick a workspace, a semantic model or any
+# other long list must use this control rather than a plain <select>, so that
+# the list can always be filtered by typing.
+SEARCH_SELECT_CSS: str = """\
+.slls-ss { position: relative; display: flex; width: 100%; }
+.slls-ss-btn {
+    appearance: none; -webkit-appearance: none; width: 100%;
+    background: var(--ui-bg); border: 1px solid var(--ui-border-strong);
+    border-radius: 10px; padding: 10px 12px; font-size: 14px; font-family: inherit;
+    color: var(--ui-text); cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+    transition: border-color 120ms ease;
+}
+.slls-ss-btn:hover:not(:disabled) { border-color: var(--ui-text-tertiary); }
+.slls-ss-btn:focus-visible { outline: none; border-color: var(--ui-accent); }
+.slls-ss-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.slls-ss-value { flex: 1 1 auto; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slls-ss-value.slls-ss-placeholder { color: var(--ui-text-tertiary); }
+.slls-ss-caret { display: inline-flex; flex-shrink: 0; color: var(--ui-text-tertiary); transform: rotate(90deg); transition: transform 140ms ease; }
+.slls-ss-caret svg { display: block; width: 15px; height: 15px; }
+.slls-ss.slls-ss-open .slls-ss-caret { transform: rotate(-90deg); }
+.slls-ss-panel {
+    display: none; position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 70;
+    min-width: 240px; padding: 6px; background: var(--ui-bg-solid);
+    border: 1px solid var(--ui-border); border-radius: 12px; box-shadow: var(--ui-shadow-lg);
+}
+.slls-ss.slls-ss-open .slls-ss-panel { display: block; }
+.slls-ss-searchwrap { position: relative; display: flex; align-items: center; margin-bottom: 5px; }
+.slls-ss-searchicon { position: absolute; left: 10px; display: inline-flex; color: var(--ui-text-tertiary); pointer-events: none; }
+.slls-ss-searchicon svg { display: block; width: 15px; height: 15px; }
+.slls-ss-search {
+    width: 100%; appearance: none; background: var(--ui-bg-secondary);
+    border: 1px solid transparent; border-radius: 8px; padding: 7px 10px 7px 32px;
+    font-size: 13px; font-family: inherit; color: var(--ui-text);
+}
+.slls-ss-search::placeholder { color: var(--ui-text-tertiary); }
+.slls-ss-search:focus { outline: none; border-color: var(--ui-accent); }
+.slls-ss-list { max-height: 240px; overflow-y: auto; }
+.slls-ss-opt {
+    display: block; width: 100%; padding: 7px 10px; border: none; background: transparent;
+    color: var(--ui-text); font-family: inherit; font-size: 13px; text-align: left;
+    border-radius: 7px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.slls-ss-opt:hover, .slls-ss-opt.slls-ss-active { background: var(--ui-surface-2); }
+.slls-ss-opt.slls-ss-selected { color: var(--ui-accent); font-weight: 500; }
+.slls-ss-empty { padding: 9px 10px; font-size: 12.5px; color: var(--ui-text-tertiary); }
+"""
+
+# JavaScript defining ``createSearchSelect(options)``. Embed this inside a
+# widget's ESM module (or inside its ``render`` function) and call it to build a
+# picker. ``options`` accepts ``placeholder``, ``searchPlaceholder``,
+# ``ariaLabel``, ``emptyLabel`` and ``onChange``; the returned controller
+# exposes ``el``, ``value``, ``label``, ``focus()``, ``setOptions(items, value)``,
+# ``setEmptyLabel(text)`` and ``setDisabled(flag)``.
+SEARCH_SELECT_JS: str = """\
+const __sllsSsOpen = new Set();
+document.addEventListener("click", () => { for (const close of __sllsSsOpen) close(); });
+
+function createSearchSelect(config) {
+    const cfg = config || {};
+    const MAX_LIST_HEIGHT = 240, MIN_LIST_HEIGHT = 120;
+    let placeholder = cfg.placeholder || "Select\\u2026";
+    let emptyLabel = cfg.emptyLabel || "No items";
+    const onChange = cfg.onChange || function () {};
+
+    const wrap = document.createElement("div");
+    wrap.className = "slls-ss";
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "slls-ss-btn";
+    btn.setAttribute("aria-haspopup", "listbox");
+    if (cfg.ariaLabel) btn.setAttribute("aria-label", cfg.ariaLabel);
+    const valueLabel = document.createElement("span");
+    valueLabel.className = "slls-ss-value";
+    btn.appendChild(valueLabel);
+    const caret = document.createElement("span");
+    caret.className = "slls-ss-caret";
+    caret.innerHTML = `__SLLS_SS_CARET__`;
+    btn.appendChild(caret);
+    wrap.appendChild(btn);
+
+    const panel = document.createElement("div");
+    panel.className = "slls-ss-panel";
+    const searchWrap = document.createElement("div");
+    searchWrap.className = "slls-ss-searchwrap";
+    const searchIcon = document.createElement("span");
+    searchIcon.className = "slls-ss-searchicon";
+    searchIcon.innerHTML = `__SLLS_SS_SEARCH__`;
+    searchWrap.appendChild(searchIcon);
+    const search = document.createElement("input");
+    search.className = "slls-ss-search";
+    search.type = "search";
+    search.placeholder = cfg.searchPlaceholder || "Search\\u2026";
+    search.setAttribute("aria-label", cfg.searchPlaceholder || "Search");
+    searchWrap.appendChild(search);
+    panel.appendChild(searchWrap);
+    const list = document.createElement("div");
+    list.className = "slls-ss-list";
+    list.setAttribute("role", "listbox");
+    panel.appendChild(list);
+    wrap.appendChild(panel);
+
+    let options = [];
+    let value = "";
+    let disabled = false;
+    // Index into the currently filtered options, for keyboard navigation.
+    let activeIndex = -1;
+    let shown = [];
+
+    function clearNode(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+    function close() {
+        wrap.classList.remove("slls-ss-open");
+        btn.setAttribute("aria-expanded", "false");
+        activeIndex = -1;
+    }
+    function open() {
+        for (const other of __sllsSsOpen) if (other !== close) other();
+        wrap.classList.add("slls-ss-open");
+        btn.setAttribute("aria-expanded", "true");
+        search.value = "";
+        // The list always drops downward and is capped to the room below the
+        // control, so it scrolls instead of overflowing the widget.
+        const rect = btn.getBoundingClientRect();
+        const room = window.innerHeight - rect.bottom - 70;
+        list.style.maxHeight = `${Math.max(MIN_LIST_HEIGHT, Math.min(MAX_LIST_HEIGHT, room))}px`;
+        activeIndex = -1;
+        renderList();
+        setActive(shown.findIndex((o) => o.value === value));
+        search.focus();
+    }
+    __sllsSsOpen.add(close);
+
+    function selectedOption() { return options.find((o) => o.value === value) || null; }
+    function renderValue() {
+        const option = selectedOption();
+        valueLabel.textContent = option ? option.label : (options.length === 0 ? emptyLabel : placeholder);
+        valueLabel.classList.toggle("slls-ss-placeholder", !option);
+        valueLabel.title = option ? option.label : "";
+        btn.disabled = disabled || options.length === 0;
+    }
+    function setActive(index) {
+        const rows = list.querySelectorAll(".slls-ss-opt");
+        if (rows.length === 0) { activeIndex = -1; return; }
+        activeIndex = Math.max(0, Math.min(index, rows.length - 1));
+        rows.forEach((row, i) => row.classList.toggle("slls-ss-active", i === activeIndex));
+        rows[activeIndex].scrollIntoView({ block: "nearest" });
+    }
+    function commit(option) {
+        const changed = value !== option.value;
+        value = option.value;
+        renderValue();
+        close();
+        btn.focus();
+        if (changed) onChange(option);
+    }
+    function renderList() {
+        clearNode(list);
+        const term = search.value.trim().toLowerCase();
+        shown = term ? options.filter((o) => o.label.toLowerCase().includes(term)) : options;
+        if (shown.length === 0) {
+            const empty = document.createElement("div");
+            empty.className = "slls-ss-empty";
+            empty.textContent = options.length === 0 ? emptyLabel : "No matches";
+            list.appendChild(empty);
+            activeIndex = -1;
+            return;
+        }
+        for (const option of shown) {
+            const row = document.createElement("button");
+            row.type = "button";
+            row.tabIndex = -1;
+            row.className = "slls-ss-opt" + (option.value === value ? " slls-ss-selected" : "");
+            row.setAttribute("role", "option");
+            row.setAttribute("aria-selected", String(option.value === value));
+            row.textContent = option.label;
+            row.title = option.label;
+            row.addEventListener("click", () => commit(option));
+            list.appendChild(row);
+        }
+        if (activeIndex >= 0) setActive(activeIndex);
+    }
+
+    btn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        if (wrap.classList.contains("slls-ss-open")) close(); else open();
+    });
+    btn.addEventListener("keydown", (ev) => {
+        if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+            ev.preventDefault();
+            if (!wrap.classList.contains("slls-ss-open")) open();
+        }
+    });
+    panel.addEventListener("click", (ev) => ev.stopPropagation());
+    search.addEventListener("input", () => { activeIndex = -1; renderList(); setActive(0); });
+    search.addEventListener("keydown", (ev) => {
+        if (ev.key === "ArrowDown") { ev.preventDefault(); setActive(activeIndex + 1); }
+        else if (ev.key === "ArrowUp") { ev.preventDefault(); setActive(activeIndex <= 0 ? 0 : activeIndex - 1); }
+        else if (ev.key === "Home") { ev.preventDefault(); setActive(0); }
+        else if (ev.key === "End") { ev.preventDefault(); setActive(shown.length - 1); }
+        else if (ev.key === "Enter") {
+            ev.preventDefault();
+            if (activeIndex >= 0 && shown[activeIndex]) commit(shown[activeIndex]);
+        } else if (ev.key === "Escape" || ev.key === "Tab") {
+            // Collapse first so Esc/Tab continue on to the surrounding UI rather
+            // than stepping through the option list.
+            ev.stopPropagation();
+            ev.preventDefault();
+            close();
+            btn.focus();
+        }
+    });
+
+    renderValue();
+
+    return {
+        el: wrap,
+        get value() { return value; },
+        get label() { const o = selectedOption(); return o ? o.label : ""; },
+        focus() { btn.focus(); },
+        setOptions(next, nextValue) {
+            options = next || [];
+            if (nextValue !== undefined) value = nextValue;
+            if (!options.some((o) => o.value === value)) value = "";
+            renderValue();
+            renderList();
+        },
+        setEmptyLabel(text) { emptyLabel = text; renderValue(); renderList(); },
+        setPlaceholder(text) { placeholder = text; renderValue(); },
+        setDisabled(flag) { disabled = !!flag; if (disabled) close(); renderValue(); },
+    };
+}
+"""
+
+SEARCH_SELECT_JS = SEARCH_SELECT_JS.replace(
+    "__SLLS_SS_CARET__", ICONS["caret_right"]
+).replace("__SLLS_SS_SEARCH__", ICONS["search"])
+
+
+# ---------------------------------------------------------------------------
 # Reusable header (title + dataset/workspace subtitle + theme toggle)
 # ---------------------------------------------------------------------------
 HEADER_CSS: str = """\
@@ -348,10 +816,22 @@ HEADER_CSS: str = """\
     color: var(--ui-text);
 }
 .sl-header * { box-sizing: border-box; }
+.sl-head-spacer { flex: 1 1 auto; }
+.sl-title-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: var(--ui-accent-soft);
+    color: var(--ui-accent);
+    flex-shrink: 0;
+}
+.sl-title-icon svg { display: block; width: 19px; height: 19px; }
 .sl-titlewrap {
     display: flex;
     flex-direction: column;
-    margin-right: auto;
     min-width: 0;
 }
 .sl-title {
@@ -460,6 +940,8 @@ def render_header_html(
     theme_btn_id: Optional[str] = None,
     dark_mode: bool = False,
     fullscreen_btn_id: Optional[str] = None,
+    title_icon: Optional[str] = None,
+    extra_buttons: Optional[List[Dict[str, str]]] = None,
 ) -> str:
     """Render the standard widget header as HTML.
 
@@ -481,6 +963,13 @@ def render_header_html(
         If provided, includes a full-screen toggle button with this DOM id,
         placed immediately to the left of the theme toggle button. Pair with
         :func:`fullscreen_toggle_script` to wire up behavior.
+    title_icon : str, default=None
+        Optional SVG markup (e.g. an entry from :data:`ICONS`) rendered in an
+        accent-colored badge to the left of the title.
+    extra_buttons : list[dict[str, str]], default=None
+        Optional extra icon buttons rendered immediately to the right of the
+        title. Each dict accepts ``id``, ``icon`` (SVG markup), ``title`` and an
+        optional ``cls`` appended to the button's classes.
 
     Returns
     -------
@@ -490,6 +979,8 @@ def render_header_html(
         custom properties) on the page.
     """
     parts = ['<div class="sl-header">']
+    if title_icon:
+        parts.append(f'<span class="sl-title-icon">{title_icon}</span>')
     parts.append('<div class="sl-titlewrap">')
     parts.append(f'<div class="sl-title">{_escape_html(title)}</div>')
 
@@ -503,6 +994,17 @@ def render_header_html(
         parts.append(f'<div class="sl-subtitle">{sub}</div>')
 
     parts.append("</div>")  # titlewrap
+
+    for btn in extra_buttons or []:
+        cls = f"sl-theme-btn {btn.get('cls', '')}".strip()
+        label = btn.get("title", "")
+        parts.append(
+            f'<button type="button" class="{cls}" id="{btn.get("id", "")}" '
+            f'title="{label}" aria-label="{label}">{btn.get("icon", "")}</button>'
+        )
+
+    # Pushes the full-screen / theme buttons to the right edge.
+    parts.append('<div class="sl-head-spacer"></div>')
 
     if fullscreen_btn_id:
         fs_icon = ICONS["fullscreen"]
@@ -590,13 +1092,17 @@ def fullscreen_toggle_script(
     ``fs_class`` on the root as a CSS-overlay fallback for hosts that reject the
     native request.
 
-    The native request is issued directly in the click handler, before any DOM
-    mutation, so the browser's user-activation requirement is satisfied (moving
-    the element around beforehand can cause the request to be silently
-    rejected). A sized placeholder is inserted to reserve the widget's original
-    footprint so an auto-height output iframe (VS Code / Fabric) does not
-    collapse — which would otherwise clip the overlay fallback and make the UI
-    appear to vanish.
+    The overlay class and a sized placeholder are applied first, and the native
+    Fullscreen request is issued immediately afterwards within the same click
+    handler. Requesting native fullscreen *before* mutating the DOM causes
+    Chromium to abort the just-issued request (it then silently falls back to
+    the iframe-bound CSS overlay), so the mutate-then-request ordering — which
+    matches the working anywidget tools — is used instead. The widget is never
+    re-parented (moving it across the DOM does disturb the user activation the
+    Fullscreen API requires). A sized placeholder is inserted to reserve the
+    widget's original footprint so an auto-height output iframe (VS Code /
+    Fabric) does not collapse — which would otherwise clip the overlay fallback
+    and make the UI appear to vanish.
 
     The button icon swaps between the enter/exit glyphs and pressing
     ``Escape`` exits.
@@ -663,11 +1169,16 @@ def fullscreen_toggle_script(
         render();
     }}
     function requestNative() {{
-        // Request true (native) fullscreen directly in the click gesture and
-        // before any DOM mutation, so the browser honors the user activation.
-        // Notebook output frames generally carry allow="fullscreen"; when the
-        // request is rejected the CSS overlay applied by setFs() is the
-        // guaranteed fallback.
+        // Request true (native) fullscreen within the click gesture so the
+        // browser honors the user activation. This is called AFTER the overlay
+        // class + placeholder have been applied (see the click handler): the
+        // working anywidget tools (perspective_editor, lineage_view) also
+        // mutate the DOM first and then request, whereas requesting *before*
+        // the mutation causes Chromium to abort the just-issued request and
+        // silently fall back to the (iframe-bound) CSS overlay. Notebook output
+        // frames generally carry allow="fullscreen"; when the request is
+        // rejected the CSS overlay applied by setFs() is the guaranteed
+        // fallback.
         var req = root.requestFullscreen || root.webkitRequestFullscreen
             || root.mozRequestFullScreen || root.msRequestFullscreen;
         if (req) {{
@@ -684,8 +1195,8 @@ def fullscreen_toggle_script(
         }}
     }}
     btn.addEventListener('click', function() {{
-        if (isOn()) {{ exitNative(); setFs(false); }}
-        else {{ requestNative(); setFs(true); }}
+        if (isOn()) {{ setFs(false); exitNative(); }}
+        else {{ setFs(true); requestNative(); }}
     }});
     // If the user leaves native fullscreen (Esc / F11), drop the overlay too.
     function onFsChange() {{
@@ -776,3 +1287,204 @@ def render_attribution_html(
             )
     body = " &bull; ".join(parts)
     return f'<div class="sl-attribution">{body}</div>'
+
+
+# ---------------------------------------------------------------------------
+# Reusable progress bar (in-place updating HTML progress indicator)
+# ---------------------------------------------------------------------------
+class ProgressBar:
+    """A modern, theme-aware HTML/CSS progress bar for notebook output.
+
+    Renders an in-place updating progress bar that matches the visual
+    language of the interactive Semantic Link Labs widgets (shared theme
+    tokens, typography, radii, and motion). Use it as a drop-in replacement
+    for text-based progress indicators (e.g. ``tqdm``) inside long-running
+    loops that run in a notebook cell.
+
+    The bar is displayed as soon as the instance is created and updated in
+    place via :meth:`update`. Call :meth:`close` when the work is done to
+    stop the animation and show the final state.
+
+    Parameters
+    ----------
+    total : int
+        The total number of steps the loop will perform. If ``0`` (or less),
+        the bar renders as complete.
+    title : str, default="Processing…"
+        The label shown above the bar.
+    dark_mode : bool, default=False
+        If True, renders the bar with the dark color palette. A CSS overlay
+        keeps the bar consistent with the surrounding widgets.
+    """
+
+    def __init__(
+        self,
+        total: int,
+        title: str = "Processing…",
+        dark_mode: bool = False,
+    ) -> None:
+        self._total = max(int(total), 0)
+        self._title = title
+        self._dark_mode = dark_mode
+        self._uid = uuid.uuid4().hex[:8]
+        self._current = 0
+        self._closed = False
+        self._handle = self._display(self._render(0, ""))
+
+    @staticmethod
+    def _display(html: str):
+        try:
+            from IPython.display import display, HTML
+
+            return display(HTML(html), display_id=True)
+        except Exception:
+            return None
+
+    def _render(self, current: int, description: str) -> str:
+        uid = self._uid
+        if self._total > 0:
+            pct = min(max(current / self._total * 100.0, 0.0), 100.0)
+        else:
+            pct = 100.0
+        count_text = (
+            f"{current:,} / {self._total:,} &middot; {pct:.0f}%"
+            if self._total > 0
+            else f"{pct:.0f}%"
+        )
+        desc = _escape_html(description) if description else "&nbsp;"
+        root_cls = f"slpb-{uid}-root" + (" slpb-dark" if self._dark_mode else "")
+        return f"""
+<style>
+    .slpb-{uid}-root {{
+        {LIGHT_THEME_VARS}
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
+                     'Helvetica Neue', Helvetica, Arial, sans-serif;
+        box-sizing: border-box;
+        max-width: 1200px;
+        margin: 12px auto;
+        padding: 16px 18px;
+        background: var(--ui-bg);
+        border: 1px solid var(--ui-border);
+        border-radius: 12px;
+        box-shadow: var(--ui-shadow-sm);
+        color: var(--ui-text);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }}
+    .slpb-{uid}-root.slpb-dark {{
+        {DARK_THEME_VARS}
+    }}
+    .slpb-{uid}-root *, .slpb-{uid}-root *::before, .slpb-{uid}-root *::after {{
+        box-sizing: border-box;
+    }}
+    .slpb-{uid}-head {{
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+    }}
+    .slpb-{uid}-title {{
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        color: var(--ui-text);
+    }}
+    .slpb-{uid}-count {{
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--ui-text-secondary);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }}
+    .slpb-{uid}-track {{
+        position: relative;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--ui-bg-secondary);
+        border: 1px solid var(--ui-border);
+        overflow: hidden;
+    }}
+    .slpb-{uid}-fill {{
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        border-radius: 999px;
+        background: linear-gradient(90deg, var(--ui-accent), var(--ui-accent-hover));
+        transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }}
+    .slpb-{uid}-fill::after {{
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 999px;
+        background-image: linear-gradient(90deg,
+            rgba(255, 255, 255, 0) 0%,
+            rgba(255, 255, 255, 0.28) 50%,
+            rgba(255, 255, 255, 0) 100%);
+        background-size: 200% 100%;
+        animation: slpb-{uid}-shimmer 1.2s linear infinite;
+    }}
+    @keyframes slpb-{uid}-shimmer {{
+        0% {{ background-position: 200% 0; }}
+        100% {{ background-position: -200% 0; }}
+    }}
+    .slpb-{uid}-desc {{
+        margin-top: 9px;
+        font-size: 12px;
+        color: var(--ui-text-tertiary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }}
+</style>
+<div class="{root_cls}">
+    <div class="slpb-{uid}-head">
+        <span class="slpb-{uid}-title">{_escape_html(self._title)}</span>
+        <span class="slpb-{uid}-count">{count_text}</span>
+    </div>
+    <div class="slpb-{uid}-track">
+        <div class="slpb-{uid}-fill" style="width:{pct:.1f}%"></div>
+    </div>
+    <div class="slpb-{uid}-desc">{desc}</div>
+</div>
+"""
+
+    def update(self, current: int, description: str = "") -> None:
+        """Advance the bar to ``current`` and optionally update the caption.
+
+        Parameters
+        ----------
+        current : int
+            The number of completed steps.
+        description : str, default=""
+            Optional caption shown beneath the bar (e.g. the item currently
+            being processed).
+        """
+        if self._closed:
+            return
+        self._current = current
+        html = self._render(current, description)
+        if self._handle is not None:
+            self._handle.update(_HTML(html))
+
+    def close(self, description: str = "") -> None:
+        """Remove the progress bar from the output once the work is done.
+
+        Parameters
+        ----------
+        description : str, default=""
+            Unused; accepted for backward compatibility.
+        """
+        if self._closed:
+            return
+        self._closed = True
+        if self._handle is not None:
+            self._handle.update(_HTML(""))
+
+
+def _HTML(html: str):
+    from IPython.display import HTML
+
+    return HTML(html)

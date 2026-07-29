@@ -66,9 +66,9 @@ void sipwxModalDialogHook::Exit(::wxDialog*dialog)
         return;
     }
 
-    extern void sipVH__core_248(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDialog*);
+    extern void sipVH__core_247(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDialog*);
 
-    sipVH__core_248(sipGILState, 0, sipPySelf, sipMeth, dialog);
+    sipVH__core_247(sipGILState, 0, sipPySelf, sipMeth, dialog);
 }
 
 int sipwxModalDialogHook::Enter(::wxDialog*dialog)
@@ -81,9 +81,9 @@ int sipwxModalDialogHook::Enter(::wxDialog*dialog)
     if (!sipMeth)
         return 0;
 
-    extern int sipVH__core_247(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDialog*);
+    extern int sipVH__core_246(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDialog*);
 
-    return sipVH__core_247(sipGILState, 0, sipPySelf, sipMeth, dialog);
+    return sipVH__core_246(sipGILState, 0, sipPySelf, sipMeth, dialog);
 }
 
 int sipwxModalDialogHook::sipProtect_Enter(::wxDialog*dialog)
@@ -160,6 +160,39 @@ static PyObject *meth_wxModalDialogHook_Unregister(PyObject *sipSelf, PyObject *
     }
 
     sipNoMethod(sipParseErr, sipName_ModalDialogHook, sipName_Unregister, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxModalDialogHook_GetOpenCount, "GetOpenCount() -> int\n"
+"\n"
+"Return the number of currently open modal dialogs.");
+
+extern "C" {static PyObject *meth_wxModalDialogHook_GetOpenCount(PyObject *, PyObject *);}
+static PyObject *meth_wxModalDialogHook_GetOpenCount(PyObject *, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        if (sipParseArgs(&sipParseErr, sipArgs, ""))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = ::wxModalDialogHook::GetOpenCount();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_ModalDialogHook, sipName_GetOpenCount, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -313,6 +346,7 @@ static void *init_type_wxModalDialogHook(sipSimpleWrapper *sipSelf, PyObject *si
 static PyMethodDef methods_wxModalDialogHook[] = {
     {sipName_Enter, SIP_MLMETH_CAST(meth_wxModalDialogHook_Enter), METH_VARARGS|METH_KEYWORDS, doc_wxModalDialogHook_Enter},
     {sipName_Exit, SIP_MLMETH_CAST(meth_wxModalDialogHook_Exit), METH_VARARGS|METH_KEYWORDS, doc_wxModalDialogHook_Exit},
+    {sipName_GetOpenCount, meth_wxModalDialogHook_GetOpenCount, METH_VARARGS, doc_wxModalDialogHook_GetOpenCount},
     {sipName_Register, meth_wxModalDialogHook_Register, METH_VARARGS, doc_wxModalDialogHook_Register},
     {sipName_Unregister, meth_wxModalDialogHook_Unregister, METH_VARARGS, doc_wxModalDialogHook_Unregister}
 };
@@ -335,7 +369,7 @@ sipClassTypeDef sipTypeDef__core_wxModalDialogHook = {
     {
         sipNameNr_ModalDialogHook,
         {0, 0, 1},
-        4, methods_wxModalDialogHook,
+        5, methods_wxModalDialogHook,
         0, SIP_NULLPTR,
         0, SIP_NULLPTR,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

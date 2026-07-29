@@ -20,7 +20,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n chalk/server/v1/github_app.proto\x12\x0f\x63halk.server.v1\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1e\x63halk/utils/v1/sensitive.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xcf\x03\n\x0fGitHubAppConfig\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n\x07team_id\x18\x02 \x01(\tR\x06teamId\x12\x15\n\x06\x61pp_id\x18\x03 \x01(\x03R\x05\x61ppId\x12\x19\n\x08\x61pp_slug\x18\x04 \x01(\tR\x07\x61ppSlug\x12\x1b\n\tclient_id\x18\x05 \x01(\tR\x08\x63lientId\x12\x37\n\x15private_key_secret_id\x18\x06 \x01(\tB\x04\xd8\xa1\'\x01R\x12privateKeySecretId\x12\x35\n\x11webhook_secret_id\x18\x07 \x01(\tB\x04\xd8\xa1\'\x01H\x00R\x0fwebhookSecretId\x88\x01\x01\x12\x33\n\x10\x63lient_secret_id\x18\x08 \x01(\tB\x04\xd8\xa1\'\x01H\x01R\x0e\x63lientSecretId\x88\x01\x01\x12\x39\n\ncreated_at\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x39\n\nupdated_at\x18\n \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAtB\x14\n\x12_webhook_secret_idB\x13\n\x11_client_secret_id"\xcf\x04\n\x15GitHubAppInstallation\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n\x07team_id\x18\x02 \x01(\tR\x06teamId\x12\'\n\x0finstallation_id\x18\x03 \x01(\x03R\x0einstallationId\x12#\n\raccount_login\x18\x04 \x01(\tR\x0c\x61\x63\x63ountLogin\x12!\n\x0c\x61\x63\x63ount_type\x18\x05 \x01(\tR\x0b\x61\x63\x63ountType\x12\x36\n\x14repository_selection\x18\x06 \x01(\tH\x00R\x13repositorySelection\x88\x01\x01\x12"\n\navatar_url\x18\x07 \x01(\tH\x01R\tavatarUrl\x88\x01\x01\x12\x34\n\x14installed_by_user_id\x18\x08 \x01(\tH\x02R\x11installedByUserId\x88\x01\x01\x12\x42\n\x0csuspended_at\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x03R\x0bsuspendedAt\x88\x01\x01\x12\x39\n\ncreated_at\x18\n \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x39\n\nupdated_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAtB\x17\n\x15_repository_selectionB\r\n\x0b_avatar_urlB\x17\n\x15_installed_by_user_idB\x0f\n\r_suspended_at"\xc5\x01\n\x10GitHubRepository\x12\x0e\n\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x1b\n\tfull_name\x18\x03 \x01(\tR\x08\x66ullName\x12\x14\n\x05owner\x18\x04 \x01(\tR\x05owner\x12\x18\n\x07private\x18\x05 \x01(\x08R\x07private\x12%\n\x0e\x64\x65\x66\x61ult_branch\x18\x06 \x01(\tR\rdefaultBranch\x12\x19\n\x08html_url\x18\x07 \x01(\tR\x07htmlUrl"\xad\x03\n\x11GitHubPullRequest\x12\x0e\n\x02id\x18\x01 \x01(\x03R\x02id\x12\x16\n\x06number\x18\x02 \x01(\x05R\x06number\x12\x14\n\x05title\x18\x03 \x01(\tR\x05title\x12\x14\n\x05state\x18\x04 \x01(\tR\x05state\x12\x19\n\x08html_url\x18\x05 \x01(\tR\x07htmlUrl\x12\x1d\n\nuser_login\x18\x06 \x01(\tR\tuserLogin\x12\x19\n\x08head_ref\x18\x07 \x01(\tR\x07headRef\x12\x19\n\x08\x62\x61se_ref\x18\x08 \x01(\tR\x07\x62\x61seRef\x12\x39\n\ncreated_at\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12>\n\nupdated_at\x18\n \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\tupdatedAt\x88\x01\x01\x12<\n\tmerged_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x08mergedAt\x88\x01\x01\x42\r\n\x0b_updated_atB\x0c\n\n_merged_at"\x9b\x02\n\x1cUpsertGitHubAppConfigRequest\x12\x15\n\x06\x61pp_id\x18\x01 \x01(\x03R\x05\x61ppId\x12\x19\n\x08\x61pp_slug\x18\x02 \x01(\tR\x07\x61ppSlug\x12\x1b\n\tclient_id\x18\x03 \x01(\tR\x08\x63lientId\x12%\n\x0bprivate_key\x18\x04 \x01(\tB\x04\xd8\xa1\'\x01R\nprivateKey\x12\x30\n\x0ewebhook_secret\x18\x05 \x01(\tB\x04\xd8\xa1\'\x01H\x00R\rwebhookSecret\x88\x01\x01\x12.\n\rclient_secret\x18\x06 \x01(\tB\x04\xd8\xa1\'\x01H\x01R\x0c\x63lientSecret\x88\x01\x01\x42\x11\n\x0f_webhook_secretB\x10\n\x0e_client_secret"Y\n\x1dUpsertGitHubAppConfigResponse\x12\x38\n\x06\x63onfig\x18\x01 \x01(\x0b\x32 .chalk.server.v1.GitHubAppConfigR\x06\x63onfig"\x1b\n\x19GetGitHubAppConfigRequest"f\n\x1aGetGitHubAppConfigResponse\x12=\n\x06\x63onfig\x18\x01 \x01(\x0b\x32 .chalk.server.v1.GitHubAppConfigH\x00R\x06\x63onfig\x88\x01\x01\x42\t\n\x07_config"\x1e\n\x1c\x44\x65leteGitHubAppConfigRequest"\x1f\n\x1d\x44\x65leteGitHubAppConfigResponse"\x1f\n\x1dGetGitHubAppInstallUrlRequest"2\n\x1eGetGitHubAppInstallUrlResponse\x12\x10\n\x03url\x18\x01 \x01(\tR\x03url"\x88\x01\n$CompleteGitHubAppInstallationRequest\x12\'\n\x0finstallation_id\x18\x01 \x01(\x03R\x0einstallationId\x12&\n\x0csetup_action\x18\x02 \x01(\tH\x00R\x0bsetupAction\x88\x01\x01\x42\x0f\n\r_setup_action"s\n%CompleteGitHubAppInstallationResponse\x12J\n\x0cinstallation\x18\x01 \x01(\x0b\x32&.chalk.server.v1.GitHubAppInstallationR\x0cinstallation"#\n!ListGitHubAppInstallationsRequest"r\n"ListGitHubAppInstallationsResponse\x12L\n\rinstallations\x18\x01 \x03(\x0b\x32&.chalk.server.v1.GitHubAppInstallationR\rinstallations"4\n"DeleteGitHubAppInstallationRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"%\n#DeleteGitHubAppInstallationResponse"#\n!SyncGitHubAppInstallationsRequest"r\n"SyncGitHubAppInstallationsResponse\x12L\n\rinstallations\x18\x01 \x03(\x0b\x32&.chalk.server.v1.GitHubAppInstallationR\rinstallations"\x97\x01\n\x1dListGitHubRepositoriesRequest\x12\'\n\x0finstallation_id\x18\x01 \x01(\tR\x0einstallationId\x12\x17\n\x04page\x18\x02 \x01(\x05H\x00R\x04page\x88\x01\x01\x12\x1e\n\x08per_page\x18\x03 \x01(\x05H\x01R\x07perPage\x88\x01\x01\x42\x07\n\x05_pageB\x0b\n\t_per_page"g\n\x1eListGitHubRepositoriesResponse\x12\x45\n\x0crepositories\x18\x01 \x03(\x0b\x32!.chalk.server.v1.GitHubRepositoryR\x0crepositories"\xe6\x01\n\x1dListGitHubPullRequestsRequest\x12\'\n\x0finstallation_id\x18\x01 \x01(\tR\x0einstallationId\x12\x14\n\x05owner\x18\x02 \x01(\tR\x05owner\x12\x12\n\x04repo\x18\x03 \x01(\tR\x04repo\x12\x19\n\x05state\x18\x04 \x01(\tH\x00R\x05state\x88\x01\x01\x12\x17\n\x04page\x18\x05 \x01(\x05H\x01R\x04page\x88\x01\x01\x12\x1e\n\x08per_page\x18\x06 \x01(\x05H\x02R\x07perPage\x88\x01\x01\x42\x08\n\x06_stateB\x07\n\x05_pageB\x0b\n\t_per_page"i\n\x1eListGitHubPullRequestsResponse\x12G\n\rpull_requests\x18\x01 \x03(\x0b\x32".chalk.server.v1.GitHubPullRequestR\x0cpullRequests2\xad\x0c\n\x10GitHubAppService\x12\xa7\x01\n\x15UpsertGitHubAppConfig\x12-.chalk.server.v1.UpsertGitHubAppConfigRequest\x1a..chalk.server.v1.UpsertGitHubAppConfigResponse"/\x90\x02\x02\x80}\n\x8a\xd3\x0e%\x08\x02\x12!Upserted GitHub App configuration\x12u\n\x12GetGitHubAppConfig\x12*.chalk.server.v1.GetGitHubAppConfigRequest\x1a+.chalk.server.v1.GetGitHubAppConfigResponse"\x06\x90\x02\x01\x80}\n\x12\xa3\x01\n\x15\x44\x65leteGitHubAppConfig\x12-.chalk.server.v1.DeleteGitHubAppConfigRequest\x1a..chalk.server.v1.DeleteGitHubAppConfigResponse"+\x80}\n\x8a\xd3\x0e$\x08\x02\x12 Deleted GitHub App configuration\x12\x81\x01\n\x16GetGitHubAppInstallUrl\x12..chalk.server.v1.GetGitHubAppInstallUrlRequest\x1a/.chalk.server.v1.GetGitHubAppInstallUrlResponse"\x06\x90\x02\x01\x80}\x02\x12\xbc\x01\n\x1d\x43ompleteGitHubAppInstallation\x12\x35.chalk.server.v1.CompleteGitHubAppInstallationRequest\x1a\x36.chalk.server.v1.CompleteGitHubAppInstallationResponse",\x80}\x02\x8a\xd3\x0e%\x08\x02\x12!Completed GitHub App installation\x12\x8d\x01\n\x1aListGitHubAppInstallations\x12\x32.chalk.server.v1.ListGitHubAppInstallationsRequest\x1a\x33.chalk.server.v1.ListGitHubAppInstallationsResponse"\x06\x90\x02\x01\x80}\x02\x12\xb6\x01\n\x1b\x44\x65leteGitHubAppInstallation\x12\x33.chalk.server.v1.DeleteGitHubAppInstallationRequest\x1a\x34.chalk.server.v1.DeleteGitHubAppInstallationResponse",\x80}\n\x8a\xd3\x0e%\x08\x02\x12!Deleted a GitHub App installation\x12\xbd\x01\n\x1aSyncGitHubAppInstallations\x12\x32.chalk.server.v1.SyncGitHubAppInstallationsRequest\x1a\x33.chalk.server.v1.SyncGitHubAppInstallationsResponse"6\x80}\n\x8a\xd3\x0e/\x08\x02\x12+Synced GitHub App installations from GitHub\x12\x81\x01\n\x16ListGitHubRepositories\x12..chalk.server.v1.ListGitHubRepositoriesRequest\x1a/.chalk.server.v1.ListGitHubRepositoriesResponse"\x06\x90\x02\x01\x80}\x02\x12\x81\x01\n\x16ListGitHubPullRequests\x12..chalk.server.v1.ListGitHubPullRequestsRequest\x1a/.chalk.server.v1.ListGitHubPullRequestsResponse"\x06\x90\x02\x01\x80}\x02\x42\x97\x01\n\x13\x63om.chalk.server.v1B\x0eGithubAppProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n chalk/server/v1/github_app.proto\x12\x0f\x63halk.server.v1\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1e\x63halk/utils/v1/sensitive.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xcf\x03\n\x0fGitHubAppConfig\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n\x07team_id\x18\x02 \x01(\tR\x06teamId\x12\x15\n\x06\x61pp_id\x18\x03 \x01(\x03R\x05\x61ppId\x12\x19\n\x08\x61pp_slug\x18\x04 \x01(\tR\x07\x61ppSlug\x12\x1b\n\tclient_id\x18\x05 \x01(\tR\x08\x63lientId\x12\x37\n\x15private_key_secret_id\x18\x06 \x01(\tB\x04\xd8\xa1\'\x01R\x12privateKeySecretId\x12\x35\n\x11webhook_secret_id\x18\x07 \x01(\tB\x04\xd8\xa1\'\x01H\x00R\x0fwebhookSecretId\x88\x01\x01\x12\x33\n\x10\x63lient_secret_id\x18\x08 \x01(\tB\x04\xd8\xa1\'\x01H\x01R\x0e\x63lientSecretId\x88\x01\x01\x12\x39\n\ncreated_at\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x39\n\nupdated_at\x18\n \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAtB\x14\n\x12_webhook_secret_idB\x13\n\x11_client_secret_id"\xcf\x04\n\x15GitHubAppInstallation\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n\x07team_id\x18\x02 \x01(\tR\x06teamId\x12\'\n\x0finstallation_id\x18\x03 \x01(\x03R\x0einstallationId\x12#\n\raccount_login\x18\x04 \x01(\tR\x0c\x61\x63\x63ountLogin\x12!\n\x0c\x61\x63\x63ount_type\x18\x05 \x01(\tR\x0b\x61\x63\x63ountType\x12\x36\n\x14repository_selection\x18\x06 \x01(\tH\x00R\x13repositorySelection\x88\x01\x01\x12"\n\navatar_url\x18\x07 \x01(\tH\x01R\tavatarUrl\x88\x01\x01\x12\x34\n\x14installed_by_user_id\x18\x08 \x01(\tH\x02R\x11installedByUserId\x88\x01\x01\x12\x42\n\x0csuspended_at\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x03R\x0bsuspendedAt\x88\x01\x01\x12\x39\n\ncreated_at\x18\n \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x39\n\nupdated_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAtB\x17\n\x15_repository_selectionB\r\n\x0b_avatar_urlB\x17\n\x15_installed_by_user_idB\x0f\n\r_suspended_at"\xc5\x01\n\x10GitHubRepository\x12\x0e\n\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x1b\n\tfull_name\x18\x03 \x01(\tR\x08\x66ullName\x12\x14\n\x05owner\x18\x04 \x01(\tR\x05owner\x12\x18\n\x07private\x18\x05 \x01(\x08R\x07private\x12%\n\x0e\x64\x65\x66\x61ult_branch\x18\x06 \x01(\tR\rdefaultBranch\x12\x19\n\x08html_url\x18\x07 \x01(\tR\x07htmlUrl"\xe1\x02\n\x15GitHubProjectRepoLink\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n\x07team_id\x18\x02 \x01(\tR\x06teamId\x12\x1d\n\nproject_id\x18\x03 \x01(\tR\tprojectId\x12\'\n\x0finstallation_id\x18\x04 \x01(\tR\x0einstallationId\x12\x1d\n\nrepo_owner\x18\x05 \x01(\tR\trepoOwner\x12\x1b\n\trepo_name\x18\x06 \x01(\tR\x08repoName\x12%\n\x0e\x64\x65\x66\x61ult_branch\x18\x07 \x01(\tR\rdefaultBranch\x12\x39\n\ncreated_at\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x39\n\nupdated_at\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt"_\n\x0cGitHubBranch\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x1d\n\ncommit_sha\x18\x02 \x01(\tR\tcommitSha\x12\x1c\n\tprotected\x18\x03 \x01(\x08R\tprotected"\xad\x03\n\x11GitHubPullRequest\x12\x0e\n\x02id\x18\x01 \x01(\x03R\x02id\x12\x16\n\x06number\x18\x02 \x01(\x05R\x06number\x12\x14\n\x05title\x18\x03 \x01(\tR\x05title\x12\x14\n\x05state\x18\x04 \x01(\tR\x05state\x12\x19\n\x08html_url\x18\x05 \x01(\tR\x07htmlUrl\x12\x1d\n\nuser_login\x18\x06 \x01(\tR\tuserLogin\x12\x19\n\x08head_ref\x18\x07 \x01(\tR\x07headRef\x12\x19\n\x08\x62\x61se_ref\x18\x08 \x01(\tR\x07\x62\x61seRef\x12\x39\n\ncreated_at\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12>\n\nupdated_at\x18\n \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\tupdatedAt\x88\x01\x01\x12<\n\tmerged_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x08mergedAt\x88\x01\x01\x42\r\n\x0b_updated_atB\x0c\n\n_merged_at"\x9b\x02\n\x1cUpsertGitHubAppConfigRequest\x12\x15\n\x06\x61pp_id\x18\x01 \x01(\x03R\x05\x61ppId\x12\x19\n\x08\x61pp_slug\x18\x02 \x01(\tR\x07\x61ppSlug\x12\x1b\n\tclient_id\x18\x03 \x01(\tR\x08\x63lientId\x12%\n\x0bprivate_key\x18\x04 \x01(\tB\x04\xd8\xa1\'\x01R\nprivateKey\x12\x30\n\x0ewebhook_secret\x18\x05 \x01(\tB\x04\xd8\xa1\'\x01H\x00R\rwebhookSecret\x88\x01\x01\x12.\n\rclient_secret\x18\x06 \x01(\tB\x04\xd8\xa1\'\x01H\x01R\x0c\x63lientSecret\x88\x01\x01\x42\x11\n\x0f_webhook_secretB\x10\n\x0e_client_secret"Y\n\x1dUpsertGitHubAppConfigResponse\x12\x38\n\x06\x63onfig\x18\x01 \x01(\x0b\x32 .chalk.server.v1.GitHubAppConfigR\x06\x63onfig"\x1b\n\x19GetGitHubAppConfigRequest"f\n\x1aGetGitHubAppConfigResponse\x12=\n\x06\x63onfig\x18\x01 \x01(\x0b\x32 .chalk.server.v1.GitHubAppConfigH\x00R\x06\x63onfig\x88\x01\x01\x42\t\n\x07_config"\x1e\n\x1c\x44\x65leteGitHubAppConfigRequest"\x1f\n\x1d\x44\x65leteGitHubAppConfigResponse"\x1f\n\x1dGetGitHubAppInstallUrlRequest"2\n\x1eGetGitHubAppInstallUrlResponse\x12\x10\n\x03url\x18\x01 \x01(\tR\x03url"\x88\x01\n$CompleteGitHubAppInstallationRequest\x12\'\n\x0finstallation_id\x18\x01 \x01(\x03R\x0einstallationId\x12&\n\x0csetup_action\x18\x02 \x01(\tH\x00R\x0bsetupAction\x88\x01\x01\x42\x0f\n\r_setup_action"s\n%CompleteGitHubAppInstallationResponse\x12J\n\x0cinstallation\x18\x01 \x01(\x0b\x32&.chalk.server.v1.GitHubAppInstallationR\x0cinstallation"#\n!ListGitHubAppInstallationsRequest"r\n"ListGitHubAppInstallationsResponse\x12L\n\rinstallations\x18\x01 \x03(\x0b\x32&.chalk.server.v1.GitHubAppInstallationR\rinstallations"4\n"DeleteGitHubAppInstallationRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"%\n#DeleteGitHubAppInstallationResponse"#\n!SyncGitHubAppInstallationsRequest"r\n"SyncGitHubAppInstallationsResponse\x12L\n\rinstallations\x18\x01 \x03(\x0b\x32&.chalk.server.v1.GitHubAppInstallationR\rinstallations"\x97\x01\n\x1dListGitHubRepositoriesRequest\x12\'\n\x0finstallation_id\x18\x01 \x01(\tR\x0einstallationId\x12\x17\n\x04page\x18\x02 \x01(\x05H\x00R\x04page\x88\x01\x01\x12\x1e\n\x08per_page\x18\x03 \x01(\x05H\x01R\x07perPage\x88\x01\x01\x42\x07\n\x05_pageB\x0b\n\t_per_page"g\n\x1eListGitHubRepositoriesResponse\x12\x45\n\x0crepositories\x18\x01 \x03(\x0b\x32!.chalk.server.v1.GitHubRepositoryR\x0crepositories"\xe6\x01\n\x1dListGitHubPullRequestsRequest\x12\'\n\x0finstallation_id\x18\x01 \x01(\tR\x0einstallationId\x12\x14\n\x05owner\x18\x02 \x01(\tR\x05owner\x12\x12\n\x04repo\x18\x03 \x01(\tR\x04repo\x12\x19\n\x05state\x18\x04 \x01(\tH\x00R\x05state\x88\x01\x01\x12\x17\n\x04page\x18\x05 \x01(\x05H\x01R\x04page\x88\x01\x01\x12\x1e\n\x08per_page\x18\x06 \x01(\x05H\x02R\x07perPage\x88\x01\x01\x42\x08\n\x06_stateB\x07\n\x05_pageB\x0b\n\t_per_page"i\n\x1eListGitHubPullRequestsResponse\x12G\n\rpull_requests\x18\x01 \x03(\x0b\x32".chalk.server.v1.GitHubPullRequestR\x0cpullRequests"\xe9\x01\n$LinkProjectToGitHubRepositoryRequest\x12\x1d\n\nproject_id\x18\x01 \x01(\tR\tprojectId\x12\'\n\x0finstallation_id\x18\x02 \x01(\tR\x0einstallationId\x12\x1d\n\nrepo_owner\x18\x03 \x01(\tR\trepoOwner\x12\x1b\n\trepo_name\x18\x04 \x01(\tR\x08repoName\x12*\n\x0e\x64\x65\x66\x61ult_branch\x18\x05 \x01(\tH\x00R\rdefaultBranch\x88\x01\x01\x42\x11\n\x0f_default_branch"c\n%LinkProjectToGitHubRepositoryResponse\x12:\n\x04link\x18\x01 \x01(\x0b\x32&.chalk.server.v1.GitHubProjectRepoLinkR\x04link"I\n(UnlinkProjectFromGitHubRepositoryRequest\x12\x1d\n\nproject_id\x18\x01 \x01(\tR\tprojectId"+\n)UnlinkProjectFromGitHubRepositoryResponse"@\n\x1fGetProjectGitHubRepoLinkRequest\x12\x1d\n\nproject_id\x18\x01 \x01(\tR\tprojectId"l\n GetProjectGitHubRepoLinkResponse\x12?\n\x04link\x18\x01 \x01(\x0b\x32&.chalk.server.v1.GitHubProjectRepoLinkH\x00R\x04link\x88\x01\x01\x42\x07\n\x05_link"#\n!ListProjectGitHubRepoLinksRequest"b\n"ListProjectGitHubRepoLinksResponse\x12<\n\x05links\x18\x01 \x03(\x0b\x32&.chalk.server.v1.GitHubProjectRepoLinkR\x05links"\xbd\x01\n\x19ListGitHubBranchesRequest\x12\'\n\x0finstallation_id\x18\x01 \x01(\tR\x0einstallationId\x12\x14\n\x05owner\x18\x02 \x01(\tR\x05owner\x12\x12\n\x04repo\x18\x03 \x01(\tR\x04repo\x12\x17\n\x04page\x18\x04 \x01(\x05H\x00R\x04page\x88\x01\x01\x12\x1e\n\x08per_page\x18\x05 \x01(\x05H\x01R\x07perPage\x88\x01\x01\x42\x07\n\x05_pageB\x0b\n\t_per_page"W\n\x1aListGitHubBranchesResponse\x12\x39\n\x08\x62ranches\x18\x01 \x03(\x0b\x32\x1d.chalk.server.v1.GitHubBranchR\x08\x62ranches"\x95\x01\n!GetGitHubRepositoryArchiveRequest\x12\'\n\x0finstallation_id\x18\x01 \x01(\tR\x0einstallationId\x12\x14\n\x05owner\x18\x02 \x01(\tR\x05owner\x12\x12\n\x04repo\x18\x03 \x01(\tR\x04repo\x12\x15\n\x03ref\x18\x04 \x01(\tH\x00R\x03ref\x88\x01\x01\x42\x06\n\x04_ref"8\n"GetGitHubRepositoryArchiveResponse\x12\x12\n\x04\x64\x61ta\x18\x01 \x01(\x0cR\x04\x64\x61ta2\xf2\x13\n\x10GitHubAppService\x12\xa7\x01\n\x15UpsertGitHubAppConfig\x12-.chalk.server.v1.UpsertGitHubAppConfigRequest\x1a..chalk.server.v1.UpsertGitHubAppConfigResponse"/\x90\x02\x02\x80}\n\x8a\xd3\x0e%\x08\x02\x12!Upserted GitHub App configuration\x12u\n\x12GetGitHubAppConfig\x12*.chalk.server.v1.GetGitHubAppConfigRequest\x1a+.chalk.server.v1.GetGitHubAppConfigResponse"\x06\x90\x02\x01\x80}\n\x12\xa3\x01\n\x15\x44\x65leteGitHubAppConfig\x12-.chalk.server.v1.DeleteGitHubAppConfigRequest\x1a..chalk.server.v1.DeleteGitHubAppConfigResponse"+\x80}\n\x8a\xd3\x0e$\x08\x02\x12 Deleted GitHub App configuration\x12\x81\x01\n\x16GetGitHubAppInstallUrl\x12..chalk.server.v1.GetGitHubAppInstallUrlRequest\x1a/.chalk.server.v1.GetGitHubAppInstallUrlResponse"\x06\x90\x02\x01\x80}\x02\x12\xbc\x01\n\x1d\x43ompleteGitHubAppInstallation\x12\x35.chalk.server.v1.CompleteGitHubAppInstallationRequest\x1a\x36.chalk.server.v1.CompleteGitHubAppInstallationResponse",\x80}\x02\x8a\xd3\x0e%\x08\x02\x12!Completed GitHub App installation\x12\x8d\x01\n\x1aListGitHubAppInstallations\x12\x32.chalk.server.v1.ListGitHubAppInstallationsRequest\x1a\x33.chalk.server.v1.ListGitHubAppInstallationsResponse"\x06\x90\x02\x01\x80}\x02\x12\xb6\x01\n\x1b\x44\x65leteGitHubAppInstallation\x12\x33.chalk.server.v1.DeleteGitHubAppInstallationRequest\x1a\x34.chalk.server.v1.DeleteGitHubAppInstallationResponse",\x80}\n\x8a\xd3\x0e%\x08\x02\x12!Deleted a GitHub App installation\x12\xbd\x01\n\x1aSyncGitHubAppInstallations\x12\x32.chalk.server.v1.SyncGitHubAppInstallationsRequest\x1a\x33.chalk.server.v1.SyncGitHubAppInstallationsResponse"6\x80}\n\x8a\xd3\x0e/\x08\x02\x12+Synced GitHub App installations from GitHub\x12\x81\x01\n\x16ListGitHubRepositories\x12..chalk.server.v1.ListGitHubRepositoriesRequest\x1a/.chalk.server.v1.ListGitHubRepositoriesResponse"\x06\x90\x02\x01\x80}\x02\x12\x81\x01\n\x16ListGitHubPullRequests\x12..chalk.server.v1.ListGitHubPullRequestsRequest\x1a/.chalk.server.v1.ListGitHubPullRequestsResponse"\x06\x90\x02\x01\x80}\x02\x12u\n\x12ListGitHubBranches\x12*.chalk.server.v1.ListGitHubBranchesRequest\x1a+.chalk.server.v1.ListGitHubBranchesResponse"\x06\x90\x02\x01\x80}\x02\x12\x8f\x01\n\x1aGetGitHubRepositoryArchive\x12\x32.chalk.server.v1.GetGitHubRepositoryArchiveRequest\x1a\x33.chalk.server.v1.GetGitHubRepositoryArchiveResponse"\x06\x90\x02\x01\x80}\x02\x30\x01\x12\xc5\x01\n\x1dLinkProjectToGitHubRepository\x12\x35.chalk.server.v1.LinkProjectToGitHubRepositoryRequest\x1a\x36.chalk.server.v1.LinkProjectToGitHubRepositoryResponse"5\x90\x02\x02\x88}\x1a\x8a\xd3\x0e+\x08\x02\x12\'Linked a project to a GitHub repository\x12\xd7\x01\n!UnlinkProjectFromGitHubRepository\x12\x39.chalk.server.v1.UnlinkProjectFromGitHubRepositoryRequest\x1a:.chalk.server.v1.UnlinkProjectFromGitHubRepositoryResponse";\x90\x02\x02\x88}\x1a\x8a\xd3\x0e\x31\x08\x02\x12-Unlinked a project from its GitHub repository\x12\x87\x01\n\x18GetProjectGitHubRepoLink\x12\x30.chalk.server.v1.GetProjectGitHubRepoLinkRequest\x1a\x31.chalk.server.v1.GetProjectGitHubRepoLinkResponse"\x06\x90\x02\x01\x80}\x02\x12\x8d\x01\n\x1aListProjectGitHubRepoLinks\x12\x32.chalk.server.v1.ListProjectGitHubRepoLinksRequest\x1a\x33.chalk.server.v1.ListProjectGitHubRepoLinksResponse"\x06\x90\x02\x01\x80}\x02\x42\x97\x01\n\x13\x63om.chalk.server.v1B\x0eGithubAppProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -81,54 +81,106 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_GITHUBAPPSERVICE"].methods_by_name[
         "ListGitHubPullRequests"
     ]._serialized_options = b"\220\002\001\200}\002"
+    _globals["_GITHUBAPPSERVICE"].methods_by_name["ListGitHubBranches"]._options = None
+    _globals["_GITHUBAPPSERVICE"].methods_by_name["ListGitHubBranches"]._serialized_options = b"\220\002\001\200}\002"
+    _globals["_GITHUBAPPSERVICE"].methods_by_name["GetGitHubRepositoryArchive"]._options = None
+    _globals["_GITHUBAPPSERVICE"].methods_by_name[
+        "GetGitHubRepositoryArchive"
+    ]._serialized_options = b"\220\002\001\200}\002"
+    _globals["_GITHUBAPPSERVICE"].methods_by_name["LinkProjectToGitHubRepository"]._options = None
+    _globals["_GITHUBAPPSERVICE"].methods_by_name[
+        "LinkProjectToGitHubRepository"
+    ]._serialized_options = b"\220\002\002\210}\032\212\323\016+\010\002\022'Linked a project to a GitHub repository"
+    _globals["_GITHUBAPPSERVICE"].methods_by_name["UnlinkProjectFromGitHubRepository"]._options = None
+    _globals["_GITHUBAPPSERVICE"].methods_by_name[
+        "UnlinkProjectFromGitHubRepository"
+    ]._serialized_options = (
+        b"\220\002\002\210}\032\212\323\0161\010\002\022-Unlinked a project from its GitHub repository"
+    )
+    _globals["_GITHUBAPPSERVICE"].methods_by_name["GetProjectGitHubRepoLink"]._options = None
+    _globals["_GITHUBAPPSERVICE"].methods_by_name[
+        "GetProjectGitHubRepoLink"
+    ]._serialized_options = b"\220\002\001\200}\002"
+    _globals["_GITHUBAPPSERVICE"].methods_by_name["ListProjectGitHubRepoLinks"]._options = None
+    _globals["_GITHUBAPPSERVICE"].methods_by_name[
+        "ListProjectGitHubRepoLinks"
+    ]._serialized_options = b"\220\002\001\200}\002"
     _globals["_GITHUBAPPCONFIG"]._serialized_start = 179
     _globals["_GITHUBAPPCONFIG"]._serialized_end = 642
     _globals["_GITHUBAPPINSTALLATION"]._serialized_start = 645
     _globals["_GITHUBAPPINSTALLATION"]._serialized_end = 1236
     _globals["_GITHUBREPOSITORY"]._serialized_start = 1239
     _globals["_GITHUBREPOSITORY"]._serialized_end = 1436
-    _globals["_GITHUBPULLREQUEST"]._serialized_start = 1439
-    _globals["_GITHUBPULLREQUEST"]._serialized_end = 1868
-    _globals["_UPSERTGITHUBAPPCONFIGREQUEST"]._serialized_start = 1871
-    _globals["_UPSERTGITHUBAPPCONFIGREQUEST"]._serialized_end = 2154
-    _globals["_UPSERTGITHUBAPPCONFIGRESPONSE"]._serialized_start = 2156
-    _globals["_UPSERTGITHUBAPPCONFIGRESPONSE"]._serialized_end = 2245
-    _globals["_GETGITHUBAPPCONFIGREQUEST"]._serialized_start = 2247
-    _globals["_GETGITHUBAPPCONFIGREQUEST"]._serialized_end = 2274
-    _globals["_GETGITHUBAPPCONFIGRESPONSE"]._serialized_start = 2276
-    _globals["_GETGITHUBAPPCONFIGRESPONSE"]._serialized_end = 2378
-    _globals["_DELETEGITHUBAPPCONFIGREQUEST"]._serialized_start = 2380
-    _globals["_DELETEGITHUBAPPCONFIGREQUEST"]._serialized_end = 2410
-    _globals["_DELETEGITHUBAPPCONFIGRESPONSE"]._serialized_start = 2412
-    _globals["_DELETEGITHUBAPPCONFIGRESPONSE"]._serialized_end = 2443
-    _globals["_GETGITHUBAPPINSTALLURLREQUEST"]._serialized_start = 2445
-    _globals["_GETGITHUBAPPINSTALLURLREQUEST"]._serialized_end = 2476
-    _globals["_GETGITHUBAPPINSTALLURLRESPONSE"]._serialized_start = 2478
-    _globals["_GETGITHUBAPPINSTALLURLRESPONSE"]._serialized_end = 2528
-    _globals["_COMPLETEGITHUBAPPINSTALLATIONREQUEST"]._serialized_start = 2531
-    _globals["_COMPLETEGITHUBAPPINSTALLATIONREQUEST"]._serialized_end = 2667
-    _globals["_COMPLETEGITHUBAPPINSTALLATIONRESPONSE"]._serialized_start = 2669
-    _globals["_COMPLETEGITHUBAPPINSTALLATIONRESPONSE"]._serialized_end = 2784
-    _globals["_LISTGITHUBAPPINSTALLATIONSREQUEST"]._serialized_start = 2786
-    _globals["_LISTGITHUBAPPINSTALLATIONSREQUEST"]._serialized_end = 2821
-    _globals["_LISTGITHUBAPPINSTALLATIONSRESPONSE"]._serialized_start = 2823
-    _globals["_LISTGITHUBAPPINSTALLATIONSRESPONSE"]._serialized_end = 2937
-    _globals["_DELETEGITHUBAPPINSTALLATIONREQUEST"]._serialized_start = 2939
-    _globals["_DELETEGITHUBAPPINSTALLATIONREQUEST"]._serialized_end = 2991
-    _globals["_DELETEGITHUBAPPINSTALLATIONRESPONSE"]._serialized_start = 2993
-    _globals["_DELETEGITHUBAPPINSTALLATIONRESPONSE"]._serialized_end = 3030
-    _globals["_SYNCGITHUBAPPINSTALLATIONSREQUEST"]._serialized_start = 3032
-    _globals["_SYNCGITHUBAPPINSTALLATIONSREQUEST"]._serialized_end = 3067
-    _globals["_SYNCGITHUBAPPINSTALLATIONSRESPONSE"]._serialized_start = 3069
-    _globals["_SYNCGITHUBAPPINSTALLATIONSRESPONSE"]._serialized_end = 3183
-    _globals["_LISTGITHUBREPOSITORIESREQUEST"]._serialized_start = 3186
-    _globals["_LISTGITHUBREPOSITORIESREQUEST"]._serialized_end = 3337
-    _globals["_LISTGITHUBREPOSITORIESRESPONSE"]._serialized_start = 3339
-    _globals["_LISTGITHUBREPOSITORIESRESPONSE"]._serialized_end = 3442
-    _globals["_LISTGITHUBPULLREQUESTSREQUEST"]._serialized_start = 3445
-    _globals["_LISTGITHUBPULLREQUESTSREQUEST"]._serialized_end = 3675
-    _globals["_LISTGITHUBPULLREQUESTSRESPONSE"]._serialized_start = 3677
-    _globals["_LISTGITHUBPULLREQUESTSRESPONSE"]._serialized_end = 3782
-    _globals["_GITHUBAPPSERVICE"]._serialized_start = 3785
-    _globals["_GITHUBAPPSERVICE"]._serialized_end = 5366
+    _globals["_GITHUBPROJECTREPOLINK"]._serialized_start = 1439
+    _globals["_GITHUBPROJECTREPOLINK"]._serialized_end = 1792
+    _globals["_GITHUBBRANCH"]._serialized_start = 1794
+    _globals["_GITHUBBRANCH"]._serialized_end = 1889
+    _globals["_GITHUBPULLREQUEST"]._serialized_start = 1892
+    _globals["_GITHUBPULLREQUEST"]._serialized_end = 2321
+    _globals["_UPSERTGITHUBAPPCONFIGREQUEST"]._serialized_start = 2324
+    _globals["_UPSERTGITHUBAPPCONFIGREQUEST"]._serialized_end = 2607
+    _globals["_UPSERTGITHUBAPPCONFIGRESPONSE"]._serialized_start = 2609
+    _globals["_UPSERTGITHUBAPPCONFIGRESPONSE"]._serialized_end = 2698
+    _globals["_GETGITHUBAPPCONFIGREQUEST"]._serialized_start = 2700
+    _globals["_GETGITHUBAPPCONFIGREQUEST"]._serialized_end = 2727
+    _globals["_GETGITHUBAPPCONFIGRESPONSE"]._serialized_start = 2729
+    _globals["_GETGITHUBAPPCONFIGRESPONSE"]._serialized_end = 2831
+    _globals["_DELETEGITHUBAPPCONFIGREQUEST"]._serialized_start = 2833
+    _globals["_DELETEGITHUBAPPCONFIGREQUEST"]._serialized_end = 2863
+    _globals["_DELETEGITHUBAPPCONFIGRESPONSE"]._serialized_start = 2865
+    _globals["_DELETEGITHUBAPPCONFIGRESPONSE"]._serialized_end = 2896
+    _globals["_GETGITHUBAPPINSTALLURLREQUEST"]._serialized_start = 2898
+    _globals["_GETGITHUBAPPINSTALLURLREQUEST"]._serialized_end = 2929
+    _globals["_GETGITHUBAPPINSTALLURLRESPONSE"]._serialized_start = 2931
+    _globals["_GETGITHUBAPPINSTALLURLRESPONSE"]._serialized_end = 2981
+    _globals["_COMPLETEGITHUBAPPINSTALLATIONREQUEST"]._serialized_start = 2984
+    _globals["_COMPLETEGITHUBAPPINSTALLATIONREQUEST"]._serialized_end = 3120
+    _globals["_COMPLETEGITHUBAPPINSTALLATIONRESPONSE"]._serialized_start = 3122
+    _globals["_COMPLETEGITHUBAPPINSTALLATIONRESPONSE"]._serialized_end = 3237
+    _globals["_LISTGITHUBAPPINSTALLATIONSREQUEST"]._serialized_start = 3239
+    _globals["_LISTGITHUBAPPINSTALLATIONSREQUEST"]._serialized_end = 3274
+    _globals["_LISTGITHUBAPPINSTALLATIONSRESPONSE"]._serialized_start = 3276
+    _globals["_LISTGITHUBAPPINSTALLATIONSRESPONSE"]._serialized_end = 3390
+    _globals["_DELETEGITHUBAPPINSTALLATIONREQUEST"]._serialized_start = 3392
+    _globals["_DELETEGITHUBAPPINSTALLATIONREQUEST"]._serialized_end = 3444
+    _globals["_DELETEGITHUBAPPINSTALLATIONRESPONSE"]._serialized_start = 3446
+    _globals["_DELETEGITHUBAPPINSTALLATIONRESPONSE"]._serialized_end = 3483
+    _globals["_SYNCGITHUBAPPINSTALLATIONSREQUEST"]._serialized_start = 3485
+    _globals["_SYNCGITHUBAPPINSTALLATIONSREQUEST"]._serialized_end = 3520
+    _globals["_SYNCGITHUBAPPINSTALLATIONSRESPONSE"]._serialized_start = 3522
+    _globals["_SYNCGITHUBAPPINSTALLATIONSRESPONSE"]._serialized_end = 3636
+    _globals["_LISTGITHUBREPOSITORIESREQUEST"]._serialized_start = 3639
+    _globals["_LISTGITHUBREPOSITORIESREQUEST"]._serialized_end = 3790
+    _globals["_LISTGITHUBREPOSITORIESRESPONSE"]._serialized_start = 3792
+    _globals["_LISTGITHUBREPOSITORIESRESPONSE"]._serialized_end = 3895
+    _globals["_LISTGITHUBPULLREQUESTSREQUEST"]._serialized_start = 3898
+    _globals["_LISTGITHUBPULLREQUESTSREQUEST"]._serialized_end = 4128
+    _globals["_LISTGITHUBPULLREQUESTSRESPONSE"]._serialized_start = 4130
+    _globals["_LISTGITHUBPULLREQUESTSRESPONSE"]._serialized_end = 4235
+    _globals["_LINKPROJECTTOGITHUBREPOSITORYREQUEST"]._serialized_start = 4238
+    _globals["_LINKPROJECTTOGITHUBREPOSITORYREQUEST"]._serialized_end = 4471
+    _globals["_LINKPROJECTTOGITHUBREPOSITORYRESPONSE"]._serialized_start = 4473
+    _globals["_LINKPROJECTTOGITHUBREPOSITORYRESPONSE"]._serialized_end = 4572
+    _globals["_UNLINKPROJECTFROMGITHUBREPOSITORYREQUEST"]._serialized_start = 4574
+    _globals["_UNLINKPROJECTFROMGITHUBREPOSITORYREQUEST"]._serialized_end = 4647
+    _globals["_UNLINKPROJECTFROMGITHUBREPOSITORYRESPONSE"]._serialized_start = 4649
+    _globals["_UNLINKPROJECTFROMGITHUBREPOSITORYRESPONSE"]._serialized_end = 4692
+    _globals["_GETPROJECTGITHUBREPOLINKREQUEST"]._serialized_start = 4694
+    _globals["_GETPROJECTGITHUBREPOLINKREQUEST"]._serialized_end = 4758
+    _globals["_GETPROJECTGITHUBREPOLINKRESPONSE"]._serialized_start = 4760
+    _globals["_GETPROJECTGITHUBREPOLINKRESPONSE"]._serialized_end = 4868
+    _globals["_LISTPROJECTGITHUBREPOLINKSREQUEST"]._serialized_start = 4870
+    _globals["_LISTPROJECTGITHUBREPOLINKSREQUEST"]._serialized_end = 4905
+    _globals["_LISTPROJECTGITHUBREPOLINKSRESPONSE"]._serialized_start = 4907
+    _globals["_LISTPROJECTGITHUBREPOLINKSRESPONSE"]._serialized_end = 5005
+    _globals["_LISTGITHUBBRANCHESREQUEST"]._serialized_start = 5008
+    _globals["_LISTGITHUBBRANCHESREQUEST"]._serialized_end = 5197
+    _globals["_LISTGITHUBBRANCHESRESPONSE"]._serialized_start = 5199
+    _globals["_LISTGITHUBBRANCHESRESPONSE"]._serialized_end = 5286
+    _globals["_GETGITHUBREPOSITORYARCHIVEREQUEST"]._serialized_start = 5289
+    _globals["_GETGITHUBREPOSITORYARCHIVEREQUEST"]._serialized_end = 5438
+    _globals["_GETGITHUBREPOSITORYARCHIVERESPONSE"]._serialized_start = 5440
+    _globals["_GETGITHUBREPOSITORYARCHIVERESPONSE"]._serialized_end = 5496
+    _globals["_GITHUBAPPSERVICE"]._serialized_start = 5499
+    _globals["_GITHUBAPPSERVICE"]._serialized_end = 8045
 # @@protoc_insertion_point(module_scope)

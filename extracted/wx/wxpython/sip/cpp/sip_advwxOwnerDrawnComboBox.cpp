@@ -17,22 +17,24 @@
         #include <wx/gdicmn.h>
         #include <wx/combo.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/bmpbndl.h>
         #include <wx/textctrl.h>
         #include <wx/bitmap.h>
         #include <wx/event.h>
+        #include <wx/dc.h>
+        #include <wx/event.h>
         #include <wx/event.h>
         #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -47,6 +49,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/textcompleter.h>
+    wxAccessible* _wxOwnerDrawnComboBox_CreateAccessible(wxOwnerDrawnComboBox* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxOwnerDrawnComboBox : public ::wxOwnerDrawnComboBox
@@ -75,7 +86,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -138,7 +148,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -169,7 +178,7 @@ private:
     sipwxOwnerDrawnComboBox(const sipwxOwnerDrawnComboBox &);
     sipwxOwnerDrawnComboBox &operator = (const sipwxOwnerDrawnComboBox &);
 
-    char sipPyMethods[68];
+    char sipPyMethods[67];
 };
 
 sipwxOwnerDrawnComboBox::sipwxOwnerDrawnComboBox(): ::wxOwnerDrawnComboBox(), sipPySelf(SIP_NULLPTR)
@@ -930,27 +939,12 @@ void sipwxOwnerDrawnComboBox::DoSetWindowVariant(::wxWindowVariant variant)
     return sipVH__adv_25(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxOwnerDrawnComboBox::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[45]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxOwnerDrawnComboBox::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__adv_25(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__adv_25(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 void sipwxOwnerDrawnComboBox::DoFreeze()
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[46], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[45], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -968,7 +962,7 @@ void sipwxOwnerDrawnComboBox::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[47], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[46], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -986,7 +980,7 @@ void sipwxOwnerDrawnComboBox::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[48]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[47]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxOwnerDrawnComboBox::DoGetBestSize();
@@ -1001,7 +995,7 @@ void sipwxOwnerDrawnComboBox::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[49]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[48]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxOwnerDrawnComboBox::DoGetBestClientSize();
@@ -1016,7 +1010,7 @@ void sipwxOwnerDrawnComboBox::Undo()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[50], &sipPySelf, SIP_NULLPTR, sipName_Undo);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[49], &sipPySelf, SIP_NULLPTR, sipName_Undo);
 
     if (!sipMeth)
     {
@@ -1034,7 +1028,7 @@ void sipwxOwnerDrawnComboBox::Redo()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[51], &sipPySelf, SIP_NULLPTR, sipName_Redo);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[50], &sipPySelf, SIP_NULLPTR, sipName_Redo);
 
     if (!sipMeth)
     {
@@ -1052,7 +1046,7 @@ void sipwxOwnerDrawnComboBox::Paste()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[52], &sipPySelf, SIP_NULLPTR, sipName_Paste);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[51], &sipPySelf, SIP_NULLPTR, sipName_Paste);
 
     if (!sipMeth)
     {
@@ -1070,7 +1064,7 @@ void sipwxOwnerDrawnComboBox::Cut()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[53], &sipPySelf, SIP_NULLPTR, sipName_Cut);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[52], &sipPySelf, SIP_NULLPTR, sipName_Cut);
 
     if (!sipMeth)
     {
@@ -1088,7 +1082,7 @@ void sipwxOwnerDrawnComboBox::Copy()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[54], &sipPySelf, SIP_NULLPTR, sipName_Copy);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[53], &sipPySelf, SIP_NULLPTR, sipName_Copy);
 
     if (!sipMeth)
     {
@@ -1106,7 +1100,7 @@ bool sipwxOwnerDrawnComboBox::CanUndo() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[55]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_CanUndo);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[54]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_CanUndo);
 
     if (!sipMeth)
         return ::wxOwnerDrawnComboBox::CanUndo();
@@ -1121,7 +1115,7 @@ bool sipwxOwnerDrawnComboBox::CanRedo() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[56]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_CanRedo);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[55]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_CanRedo);
 
     if (!sipMeth)
         return ::wxOwnerDrawnComboBox::CanRedo();
@@ -1136,7 +1130,7 @@ bool sipwxOwnerDrawnComboBox::CanPaste() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[57]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_CanPaste);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[56]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_CanPaste);
 
     if (!sipMeth)
         return ::wxOwnerDrawnComboBox::CanPaste();
@@ -1151,7 +1145,7 @@ bool sipwxOwnerDrawnComboBox::CanCut() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[58]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_CanCut);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[57]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_CanCut);
 
     if (!sipMeth)
         return ::wxOwnerDrawnComboBox::CanCut();
@@ -1166,7 +1160,7 @@ bool sipwxOwnerDrawnComboBox::CanCopy() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[59]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_CanCopy);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[58]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_CanCopy);
 
     if (!sipMeth)
         return ::wxOwnerDrawnComboBox::CanCopy();
@@ -1181,7 +1175,7 @@ void sipwxOwnerDrawnComboBox::Dismiss()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[60], &sipPySelf, SIP_NULLPTR, sipName_Dismiss);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[59], &sipPySelf, SIP_NULLPTR, sipName_Dismiss);
 
     if (!sipMeth)
     {
@@ -1199,7 +1193,7 @@ bool sipwxOwnerDrawnComboBox::IsKeyPopupToggle(const ::wxKeyEvent& event) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[61]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_IsKeyPopupToggle);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[60]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_IsKeyPopupToggle);
 
     if (!sipMeth)
         return ::wxOwnerDrawnComboBox::IsKeyPopupToggle(event);
@@ -1214,7 +1208,7 @@ void sipwxOwnerDrawnComboBox::HidePopup(bool generateEvent)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[62], &sipPySelf, SIP_NULLPTR, sipName_HidePopup);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[61], &sipPySelf, SIP_NULLPTR, sipName_HidePopup);
 
     if (!sipMeth)
     {
@@ -1232,7 +1226,7 @@ void sipwxOwnerDrawnComboBox::OnButtonClick()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[63], &sipPySelf, SIP_NULLPTR, sipName_OnButtonClick);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[62], &sipPySelf, SIP_NULLPTR, sipName_OnButtonClick);
 
     if (!sipMeth)
     {
@@ -1250,7 +1244,7 @@ void sipwxOwnerDrawnComboBox::ShowPopup()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[64], &sipPySelf, SIP_NULLPTR, sipName_ShowPopup);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[63], &sipPySelf, SIP_NULLPTR, sipName_ShowPopup);
 
     if (!sipMeth)
     {
@@ -1268,7 +1262,7 @@ bool sipwxOwnerDrawnComboBox::AnimateShow(const ::wxRect& rect, int flags)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[65], &sipPySelf, SIP_NULLPTR, sipName_AnimateShow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[64], &sipPySelf, SIP_NULLPTR, sipName_AnimateShow);
 
     if (!sipMeth)
         return ::wxOwnerDrawnComboBox::AnimateShow(rect, flags);
@@ -1283,7 +1277,7 @@ void sipwxOwnerDrawnComboBox::DoSetPopupControl(::wxComboPopup*popup)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[66], &sipPySelf, SIP_NULLPTR, sipName_DoSetPopupControl);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[65], &sipPySelf, SIP_NULLPTR, sipName_DoSetPopupControl);
 
     if (!sipMeth)
     {
@@ -1301,7 +1295,7 @@ void sipwxOwnerDrawnComboBox::DoShowPopup(const ::wxRect& rect, int flags)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[67], &sipPySelf, SIP_NULLPTR, sipName_DoShowPopup);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[66], &sipPySelf, SIP_NULLPTR, sipName_DoShowPopup);
 
     if (!sipMeth)
     {
@@ -1387,11 +1381,6 @@ void sipwxOwnerDrawnComboBox::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasA
 ::wxBorder sipwxOwnerDrawnComboBox::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxOwnerDrawnComboBox::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxOwnerDrawnComboBox::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxOwnerDrawnComboBox::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxOwnerDrawnComboBox::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -2950,40 +2939,6 @@ static PyObject *meth_wxOwnerDrawnComboBox_GetDefaultBorder(PyObject *sipSelf, P
 }
 
 
-PyDoc_STRVAR(doc_wxOwnerDrawnComboBox_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxOwnerDrawnComboBox_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxOwnerDrawnComboBox_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxOwnerDrawnComboBox *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxOwnerDrawnComboBox, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_OwnerDrawnComboBox, sipName_GetDefaultBorderForControl, doc_wxOwnerDrawnComboBox_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxOwnerDrawnComboBox_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxOwnerDrawnComboBox_DoFreeze(PyObject *, PyObject *);}
@@ -3157,6 +3112,39 @@ static PyObject *meth_wxOwnerDrawnComboBox_TryAfter(PyObject *sipSelf, PyObject 
     }
 
     sipNoMethod(sipParseErr, sipName_OwnerDrawnComboBox, sipName_TryAfter, doc_wxOwnerDrawnComboBox_TryAfter);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxOwnerDrawnComboBox_CreateAccessible, "CreateAccessible() -> wx.Accessible");
+
+extern "C" {static PyObject *meth_wxOwnerDrawnComboBox_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxOwnerDrawnComboBox_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxOwnerDrawnComboBox *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxOwnerDrawnComboBox, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxOwnerDrawnComboBox_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_OwnerDrawnComboBox, sipName_CreateAccessible, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -3832,7 +3820,7 @@ static void *init_type_wxOwnerDrawnComboBox(sipSimpleWrapper *sipSelf, PyObject 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxOwnerDrawnComboBox[] = {{12, 0, 0}, {32, 0, 1}};
+static sipEncodedTypeDef supers_wxOwnerDrawnComboBox[] = {{13, 0, 0}, {33, 0, 1}};
 
 
 static PyMethodDef methods_wxOwnerDrawnComboBox[] = {
@@ -3842,6 +3830,7 @@ static PyMethodDef methods_wxOwnerDrawnComboBox[] = {
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxOwnerDrawnComboBox_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxOwnerDrawnComboBox_AddChild},
     {sipName_AnimateShow, SIP_MLMETH_CAST(meth_wxOwnerDrawnComboBox_AnimateShow), METH_VARARGS|METH_KEYWORDS, SIP_NULLPTR},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxOwnerDrawnComboBox_Create), METH_VARARGS|METH_KEYWORDS, doc_wxOwnerDrawnComboBox_Create},
+    {sipName_CreateAccessible, meth_wxOwnerDrawnComboBox_CreateAccessible, METH_VARARGS, doc_wxOwnerDrawnComboBox_CreateAccessible},
     {sipName_Destroy, meth_wxOwnerDrawnComboBox_Destroy, METH_VARARGS, doc_wxOwnerDrawnComboBox_Destroy},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxOwnerDrawnComboBox_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxOwnerDrawnComboBox_DoEnable},
     {sipName_DoFreeze, meth_wxOwnerDrawnComboBox_DoFreeze, METH_VARARGS, doc_wxOwnerDrawnComboBox_DoFreeze},
@@ -3863,7 +3852,6 @@ static PyMethodDef methods_wxOwnerDrawnComboBox[] = {
     {sipName_GetClientAreaOrigin, meth_wxOwnerDrawnComboBox_GetClientAreaOrigin, METH_VARARGS, doc_wxOwnerDrawnComboBox_GetClientAreaOrigin},
     {sipName_GetCount, meth_wxOwnerDrawnComboBox_GetCount, METH_VARARGS, doc_wxOwnerDrawnComboBox_GetCount},
     {sipName_GetDefaultBorder, meth_wxOwnerDrawnComboBox_GetDefaultBorder, METH_VARARGS, doc_wxOwnerDrawnComboBox_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxOwnerDrawnComboBox_GetDefaultBorderForControl, METH_VARARGS, doc_wxOwnerDrawnComboBox_GetDefaultBorderForControl},
     {sipName_GetMainWindowOfCompositeControl, meth_wxOwnerDrawnComboBox_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxOwnerDrawnComboBox_GetMainWindowOfCompositeControl},
     {sipName_GetSelection, meth_wxOwnerDrawnComboBox_GetSelection, METH_VARARGS, doc_wxOwnerDrawnComboBox_GetSelection},
     {sipName_GetString, SIP_MLMETH_CAST(meth_wxOwnerDrawnComboBox_GetString), METH_VARARGS|METH_KEYWORDS, doc_wxOwnerDrawnComboBox_GetString},

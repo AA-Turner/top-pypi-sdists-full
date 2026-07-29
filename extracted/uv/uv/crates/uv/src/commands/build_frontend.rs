@@ -711,6 +711,13 @@ async fn build_package(
         }
     };
 
+    if matches!(build_action, BuildAction::DirectBuild | BuildAction::List) {
+        debug!(
+            "Using bundled `uv_build` backend for `{}`",
+            source.path().user_display()
+        );
+    }
+
     // Prepare some common arguments for the build.
     let dist = None;
     let subdirectory = None;
@@ -773,7 +780,7 @@ async fn build_package(
             let ext = SourceDistExtension::from_path(path.as_path())
                 .map_err(|err| Error::InvalidSourceDistExt(path.user_display().to_string(), err))?;
             let temp_dir = tempfile::tempdir_in(cache.bucket(CacheBucket::SourceDistributions))?;
-            uv_extract::stream::archive(path.display(), reader, ext, temp_dir.path()).await?;
+            uv_extract::stream::archive(reader, ext, temp_dir.path()).await?;
 
             // Extract the top-level directory from the archive.
             let extracted = match uv_extract::strip_component(temp_dir.path()) {
@@ -880,8 +887,7 @@ async fn build_package(
                 Error::InvalidSourceDistExt(source.path().user_display().to_string(), err)
             })?;
             let temp_dir = tempfile::tempdir_in(&output_dir)?;
-            uv_extract::stream::archive(source.path().display(), reader, ext, temp_dir.path())
-                .await?;
+            uv_extract::stream::archive(reader, ext, temp_dir.path()).await?;
 
             // If the source distribution has a normalized filename, check its identity.
             let source_dist = source
@@ -985,7 +991,7 @@ async fn build_sdist(
                 printer.stderr(),
                 "{}",
                 format!(
-                    "{}Building {} (uv build backend)...",
+                    "{}Building {}...",
                     source.message_prefix(),
                     build_kind_message
                 )
@@ -1094,7 +1100,7 @@ async fn build_wheel(
                 printer.stderr(),
                 "{}",
                 format!(
-                    "{}Building {} (uv build backend)...",
+                    "{}Building {}...",
                     source.message_prefix(),
                     build_kind_message
                 )

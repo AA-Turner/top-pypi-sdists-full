@@ -25,9 +25,18 @@
 #include "wx/clipbrd.h"
 #include "wx/dataobj.h"
 #include "wx/panel.h"
-#include "wx/scopedptr.h"
 
 #include "asserthelper.h"
+#include "waitfor.h"
+
+#include <memory>
+
+// gcc 16.0 gives many bogus warnings about array subscripts being out of
+// bounds in basic_string.h, so disable them for this particular version as it
+// looks like a compiler bug.
+#if wxCHECK_GCC_VERSION(16, 0) && !wxCHECK_GCC_VERSION(16, 2)
+wxGCC_WARNING_SUPPRESS(array-bounds)
+#endif
 
 // ----------------------------------------------------------------------------
 // the tests
@@ -43,10 +52,10 @@ TEST_CASE("GUI::DisplaySize", "[guifuncs]")
     CHECK( sz.x == w );
     CHECK( sz.y == h );
 
-    // test that passing NULL works as expected, e.g. doesn't crash
-    wxDisplaySize(NULL, NULL);
-    wxDisplaySize(&w, NULL);
-    wxDisplaySize(NULL, &h);
+    // test that passing nullptr works as expected, e.g. doesn't crash
+    wxDisplaySize(nullptr, nullptr);
+    wxDisplaySize(&w, nullptr);
+    wxDisplaySize(nullptr, &h);
 
     CHECK( sz.x == w );
     CHECK( sz.y == h );
@@ -89,6 +98,34 @@ TEST_CASE("GUI::URLDataObject", "[guifuncs][clipboard]")
     wxURLDataObject dobj2;
     REQUIRE( wxTheClipboard->GetData(dobj2) );
     CHECK( dobj2.GetURL() == url );
+}
+
+TEST_CASE("GUI::HTMLDataObject", "[guifuncs][clipboard]")
+{
+    const wxString text("<h1>Hello clipboard!</h1>");
+
+    wxHTMLDataObject* const dobj = new wxHTMLDataObject(text);
+    CHECK( dobj->GetHTML() == text );
+
+    wxClipboardLocker lockClip;
+    CHECK( wxTheClipboard->SetData(dobj) );
+    wxTheClipboard->Flush();
+
+    wxHTMLDataObject dobj2;
+    REQUIRE( wxTheClipboard->GetData(dobj2) );
+    CHECK( dobj2.GetHTML() == text );
+}
+
+// This disabled by default test allows to check that we retrieve HTML data
+// from the system clipboard correctly.
+TEST_CASE("GUI::ShowHTML", "[.]")
+{
+    wxClipboardLocker lockClip;
+
+    wxHTMLDataObject dobj;
+    REQUIRE( wxTheClipboard->GetData(dobj) );
+
+    WARN("Clipboard contents:\n---start---\n" << dobj.GetHTML() << "\n---end--");
 }
 
 TEST_CASE("GUI::DataFormatCompare", "[guifuncs][dataformat]")
@@ -142,21 +179,47 @@ TEST_CASE("GUI::ClientToScreen", "[guifuncs]")
     wxWindow* const tlw = wxTheApp->GetTopWindow();
     REQUIRE( tlw );
 
-    wxScopedPtr<wxPanel> const
+    SECTION("Right to left layout [RTL]") { }
+    {
+        tlw->SetLayoutDirection(wxLayout_RightToLeft);
+    }
+
+    SECTION("Left to right layout [LTR]")
+    {
+        tlw->SetLayoutDirection(wxLayout_LeftToRight);
+    }
+
+    tlw->Refresh();
+    tlw->Update();
+    wxYield();
+
+    std::unique_ptr<wxPanel> const
         p1(new wxPanel(tlw, wxID_ANY, wxPoint(0, 0), wxSize(100, 50)));
-    wxScopedPtr<wxPanel> const
+    std::unique_ptr<wxPanel> const
         p2(new wxPanel(tlw, wxID_ANY, wxPoint(0, 50), wxSize(100, 50)));
     wxWindow* const
         b = new wxWindow(p2.get(), wxID_ANY, wxPoint(10, 10), wxSize(30, 10));
 
     // We need this to realize the windows created above under wxGTK.
-    wxYield();
+    YieldForAWhile();
 
     const wxPoint tlwOrig = tlw->ClientToScreen(wxPoint(0, 0));
+    const int xx = tlw->GetLayoutDirection() == wxLayout_RightToLeft ? -10 : 10;
 
-    CHECK( p2->ClientToScreen(wxPoint(0, 0)) == tlwOrig + wxPoint(0, 50) );
+    wxPoint c2sCoords = p2->ClientToScreen(wxPoint(0, 0));
+    wxPoint c2sCoordsExpected = tlwOrig + wxPoint(0, 50);
 
-    CHECK( b->ClientToScreen(wxPoint(0, 0)) == tlwOrig + wxPoint(10, 60) );
+    CHECK( c2sCoords == c2sCoordsExpected );
+
+    c2sCoords = b->ClientToScreen(wxPoint(0, 0));
+    c2sCoordsExpected = tlwOrig + wxPoint(xx, 60);
+
+    CHECK( c2sCoords == c2sCoordsExpected );
+
+    // Ensure that "ScreenToClient(ClientToScreen(coords)) == coords" is also true.
+    c2sCoords = b->ScreenToClient(c2sCoords);
+    c2sCoordsExpected = wxPoint(0, 0);
+    CHECK( c2sCoords == c2sCoordsExpected );
 }
 
 namespace
@@ -194,10 +257,10 @@ TEST_CASE("GUI::FindWindowAtPoint", "[guifuncs]")
     // assertion messages.
     parent->SetLabel("parent");
 
-    wxScopedPtr<wxWindow> btn1(new TestButton(parent, "1", wxPoint(10, 10)));
-    wxScopedPtr<wxWindow> btn2(new TestButton(parent, "2", wxPoint(10, 90)));
+    std::unique_ptr<wxWindow> btn1(new TestButton(parent, "1", wxPoint(10, 10)));
+    std::unique_ptr<wxWindow> btn2(new TestButton(parent, "2", wxPoint(10, 90)));
 
-    // No need to use wxScopedPtr<> for this one, it will be deleted by btn2.
+    // No need to use std::unique_ptr<> for this one, it will be deleted by btn2.
     wxWindow* btn3 = new TestButton(btn2.get(), "3", wxPoint(20, 20));
 
     // We need this to realize the windows created above under wxGTK.
@@ -231,9 +294,9 @@ TEST_CASE("GUI::FindWindowAtPoint", "[guifuncs]")
 
 TEST_CASE("wxWindow::Dump", "[window]")
 {
-    CHECK_NOTHROW( wxDumpWindow(NULL) );
+    CHECK_NOTHROW( wxDumpWindow(nullptr) );
 
-    wxScopedPtr<wxButton>
+    std::unique_ptr<wxButton>
         button(new wxButton(wxTheApp->GetTopWindow(), wxID_ANY, "bloordyblop"));
 
     const std::string s = wxDumpWindow(button.get()).utf8_string();

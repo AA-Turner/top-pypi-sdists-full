@@ -762,7 +762,7 @@ static int convertTo_wxOutputStream(PyObject *sipPy, void **sipCppPtrV, int *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxOutputStream[] = {{550, 255, 1}};
+static sipEncodedTypeDef supers_wxOutputStream[] = {{566, 255, 1}};
 
 
 static PyMethodDef methods_wxOutputStream[] = {

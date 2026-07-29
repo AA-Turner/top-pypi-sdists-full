@@ -29,6 +29,7 @@
 #include "wx/generic/private/richtooltip.h"
 #include "wx/msw/private.h"
 #include "wx/msw/uxtheme.h"
+#include "wx/msw/private/darkmode.h"
 
 // Provide definitions missing from some compilers SDK headers.
 
@@ -66,14 +67,15 @@ public:
     wxRichToolTipMSWImpl(const wxString& title, const wxString& message) :
         wxRichToolTipGenericImpl(title, message)
     {
-        // So far so good...
-        m_canUseNative = true;
+        // We can't use native tooltips in dark mode as they use light mode
+        // colours.
+        m_canUseNative = !wxMSWDarkMode::IsActive();
 
         m_ttiIcon = TTI_NONE;
     }
 
     virtual void SetBackgroundColour(const wxColour& col,
-                                     const wxColour& colEnd) wxOVERRIDE
+                                     const wxColour& colEnd) override
     {
         // Setting background colour is not supported either.
         m_canUseNative = false;
@@ -81,7 +83,7 @@ public:
         wxRichToolTipGenericImpl::SetBackgroundColour(col, colEnd);
     }
 
-    virtual void SetCustomIcon(const wxBitmapBundle& icon) wxOVERRIDE
+    virtual void SetCustomIcon(const wxBitmapBundle& icon) override
     {
         // Custom icons are not supported by EM_SHOWBALLOONTIP.
         m_canUseNative = false;
@@ -89,7 +91,7 @@ public:
         wxRichToolTipGenericImpl::SetCustomIcon(icon);
     }
 
-    virtual void SetStandardIcon(int icon) wxOVERRIDE
+    virtual void SetStandardIcon(int icon) override
     {
         wxRichToolTipGenericImpl::SetStandardIcon(icon);
         if ( !m_canUseNative )
@@ -120,7 +122,7 @@ public:
     }
 
     virtual void SetTimeout(unsigned millisecondsTimeout,
-                            unsigned millisecondsDelay) wxOVERRIDE
+                            unsigned millisecondsDelay) override
     {
         // We don't support changing the timeout or the delay
         // (maybe TTM_SETDELAYTIME could be used for this?).
@@ -130,7 +132,7 @@ public:
                                              millisecondsDelay);
     }
 
-    virtual void SetTipKind(wxTipKind tipKind) wxOVERRIDE
+    virtual void SetTipKind(wxTipKind tipKind) override
     {
         // Setting non-default tip is not supported.
         if ( tipKind != wxTipKind_Auto )
@@ -139,7 +141,7 @@ public:
         wxRichToolTipGenericImpl::SetTipKind(tipKind);
     }
 
-    virtual void SetTitleFont(const wxFont& font) wxOVERRIDE
+    virtual void SetTitleFont(const wxFont& font) override
     {
         // Setting non-default font is not supported.
         m_canUseNative = false;
@@ -147,7 +149,7 @@ public:
         wxRichToolTipGenericImpl::SetTitleFont(font);
     }
 
-    virtual void ShowFor(wxWindow* win, const wxRect* rect) wxOVERRIDE
+    virtual void ShowFor(wxWindow* win, const wxRect* rect) override
     {
         // TODO: We could use native tooltip control to show native balloon
         //       tooltips for any window but right now we use the simple

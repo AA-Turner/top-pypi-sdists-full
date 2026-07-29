@@ -78,9 +78,8 @@ html_theme_options = {
     "badge_branch": "master",
     "show_powered_by": False,
     "sidebar_collapse": True,
-    "extra_nav_links": {
-        "Report Issues": "https://gitlab.com/ErikKalkoken/django-eveuniverse/-/issues",
-    },
+    "github_user": "AllianceAuth-Apps",
+    "github_repo": "django-eveuniverse",
 }
 
 

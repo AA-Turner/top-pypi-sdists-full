@@ -53,17 +53,20 @@ class BranchWithLatestDeployment(_message.Message):
         "latest_deployment_created",
         "latest_deployment_updated",
         "latest_deployment_id",
+        "latest_deployment_triggered_by",
     )
     BRANCH_FIELD_NUMBER: _ClassVar[int]
     LATEST_DEPLOYMENT_STATUS_FIELD_NUMBER: _ClassVar[int]
     LATEST_DEPLOYMENT_CREATED_FIELD_NUMBER: _ClassVar[int]
     LATEST_DEPLOYMENT_UPDATED_FIELD_NUMBER: _ClassVar[int]
     LATEST_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    LATEST_DEPLOYMENT_TRIGGERED_BY_FIELD_NUMBER: _ClassVar[int]
     branch: Branch
     latest_deployment_status: _deployment_pb2.DeploymentStatus
     latest_deployment_created: _timestamp_pb2.Timestamp
     latest_deployment_updated: _timestamp_pb2.Timestamp
     latest_deployment_id: str
+    latest_deployment_triggered_by: str
     def __init__(
         self,
         branch: _Optional[_Union[Branch, _Mapping]] = ...,
@@ -71,6 +74,7 @@ class BranchWithLatestDeployment(_message.Message):
         latest_deployment_created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         latest_deployment_updated: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         latest_deployment_id: _Optional[str] = ...,
+        latest_deployment_triggered_by: _Optional[str] = ...,
     ) -> None: ...
 
 class GetBranchWithLatestDeploymentRequest(_message.Message):

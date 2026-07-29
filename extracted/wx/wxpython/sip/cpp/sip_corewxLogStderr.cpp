@@ -353,7 +353,7 @@ static void *init_type_wxLogStderr(sipSimpleWrapper *sipSelf, PyObject *sipArgs,
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxLogStderr[] = {{330, 255, 1}};
+static sipEncodedTypeDef supers_wxLogStderr[] = {{337, 255, 1}};
 
 
 static PyMethodDef methods_wxLogStderr[] = {

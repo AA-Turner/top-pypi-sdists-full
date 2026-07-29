@@ -141,6 +141,9 @@ static PyObject *meth_wxLocale_AddCatalog(PyObject *sipSelf, PyObject *sipArgs, 
         {
             bool sipRes;
 
+            if (sipDeprecated(sipName_Locale, sipName_AddCatalog) < 0)
+                return SIP_NULLPTR;
+
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
@@ -762,7 +765,7 @@ static PyObject *meth_wxLocale_FindLanguageInfo(PyObject *, PyObject *sipArgs, P
 PyDoc_STRVAR(doc_wxLocale_GetLanguageInfo, "GetLanguageInfo(lang) -> LanguageInfo\n"
 "\n"
 "Returns a pointer to wxLanguageInfo structure containing information\n"
-"about the given language or NULL if this language is unknown.");
+"about the given language or nullptr if this language is unknown.");
 
 extern "C" {static PyObject *meth_wxLocale_GetLanguageInfo(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxLocale_GetLanguageInfo(PyObject *, PyObject *sipArgs, PyObject *sipKwds)

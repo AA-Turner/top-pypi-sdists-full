@@ -32,6 +32,7 @@ from .paginator import (
     ListOrganizationRecommendationResourcesPaginator,
     ListOrganizationRecommendationsPaginator,
     ListRecommendationResourcesPaginator,
+    ListRecommendationsForResourcePaginator,
     ListRecommendationsPaginator,
 )
 from .type_defs import (
@@ -52,6 +53,8 @@ from .type_defs import (
     ListOrganizationRecommendationsResponseTypeDef,
     ListRecommendationResourcesRequestTypeDef,
     ListRecommendationResourcesResponseTypeDef,
+    ListRecommendationsForResourceRequestTypeDef,
+    ListRecommendationsForResourceResponseTypeDef,
     ListRecommendationsRequestTypeDef,
     ListRecommendationsResponseTypeDef,
     UpdateOrganizationRecommendationLifecycleRequestTypeDef,
@@ -198,6 +201,16 @@ class TrustedAdvisorPublicAPIClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_trustedadvisor/client/#list_recommendations)
         """
 
+    def list_recommendations_for_resource(
+        self, **kwargs: Unpack[ListRecommendationsForResourceRequestTypeDef]
+    ) -> ListRecommendationsForResourceResponseTypeDef:
+        """
+        List all Trusted Advisor recommendations for a given AWS resource ARN.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/trustedadvisor/client/list_recommendations_for_resource.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_trustedadvisor/client/#list_recommendations_for_resource)
+        """
+
     def update_organization_recommendation_lifecycle(
         self, **kwargs: Unpack[UpdateOrganizationRecommendationLifecycleRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -266,6 +279,17 @@ class TrustedAdvisorPublicAPIClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_recommendation_resources"]
     ) -> ListRecommendationResourcesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/trustedadvisor/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_trustedadvisor/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_recommendations_for_resource"]
+    ) -> ListRecommendationsForResourcePaginator:
         """
         Create a paginator for an operation.
 

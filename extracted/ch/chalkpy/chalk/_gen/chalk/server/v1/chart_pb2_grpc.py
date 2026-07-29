@@ -15,6 +15,26 @@ class ChartsServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.ListRawMetrics = channel.unary_unary(
+            "/chalk.server.v1.ChartsService/ListRawMetrics",
+            request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.ListRawMetricsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.ListRawMetricsResponse.FromString,
+        )
+        self.GetRawMetricLabelNames = channel.unary_unary(
+            "/chalk.server.v1.ChartsService/GetRawMetricLabelNames",
+            request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetRawMetricLabelNamesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetRawMetricLabelNamesResponse.FromString,
+        )
+        self.GetRawMetricLabelValues = channel.unary_unary(
+            "/chalk.server.v1.ChartsService/GetRawMetricLabelValues",
+            request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetRawMetricLabelValuesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetRawMetricLabelValuesResponse.FromString,
+        )
+        self.QueryRawMetrics = channel.unary_unary(
+            "/chalk.server.v1.ChartsService/QueryRawMetrics",
+            request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.QueryRawMetricsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.QueryRawMetricsResponse.FromString,
+        )
         self.ListCharts = channel.unary_unary(
             "/chalk.server.v1.ChartsService/ListCharts",
             request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.ListChartsRequest.SerializeToString,
@@ -89,6 +109,35 @@ class ChartsServiceStub(object):
 
 class ChartsServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
+
+    def ListRawMetrics(self, request, context):
+        """ListRawMetrics, GetRawMetricLabelValues and QueryRawMetrics expose the raw
+        VictoriaMetrics series behind an environment's charts. They are gated on
+        PERMISSION_CHALK_ADMIN (granted implicitly to @chalk.ai agents) because VM
+        series names and labels are an internal implementation detail rather than a
+        stable customer-facing surface.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetRawMetricLabelNames(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetRawMetricLabelValues(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def QueryRawMetrics(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
     def ListCharts(self, request, context):
         """Missing associated documentation comment in .proto file."""
@@ -177,6 +226,26 @@ class ChartsServiceServicer(object):
 
 def add_ChartsServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+        "ListRawMetrics": grpc.unary_unary_rpc_method_handler(
+            servicer.ListRawMetrics,
+            request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.ListRawMetricsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.ListRawMetricsResponse.SerializeToString,
+        ),
+        "GetRawMetricLabelNames": grpc.unary_unary_rpc_method_handler(
+            servicer.GetRawMetricLabelNames,
+            request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetRawMetricLabelNamesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetRawMetricLabelNamesResponse.SerializeToString,
+        ),
+        "GetRawMetricLabelValues": grpc.unary_unary_rpc_method_handler(
+            servicer.GetRawMetricLabelValues,
+            request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetRawMetricLabelValuesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetRawMetricLabelValuesResponse.SerializeToString,
+        ),
+        "QueryRawMetrics": grpc.unary_unary_rpc_method_handler(
+            servicer.QueryRawMetrics,
+            request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.QueryRawMetricsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.QueryRawMetricsResponse.SerializeToString,
+        ),
         "ListCharts": grpc.unary_unary_rpc_method_handler(
             servicer.ListCharts,
             request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.ListChartsRequest.FromString,
@@ -255,6 +324,122 @@ def add_ChartsServiceServicer_to_server(servicer, server):
 # This class is part of an EXPERIMENTAL API.
 class ChartsService(object):
     """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def ListRawMetrics(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ChartsService/ListRawMetrics",
+            chalk_dot_server_dot_v1_dot_chart__pb2.ListRawMetricsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_chart__pb2.ListRawMetricsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetRawMetricLabelNames(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ChartsService/GetRawMetricLabelNames",
+            chalk_dot_server_dot_v1_dot_chart__pb2.GetRawMetricLabelNamesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_chart__pb2.GetRawMetricLabelNamesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetRawMetricLabelValues(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ChartsService/GetRawMetricLabelValues",
+            chalk_dot_server_dot_v1_dot_chart__pb2.GetRawMetricLabelValuesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_chart__pb2.GetRawMetricLabelValuesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def QueryRawMetrics(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ChartsService/QueryRawMetrics",
+            chalk_dot_server_dot_v1_dot_chart__pb2.QueryRawMetricsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_chart__pb2.QueryRawMetricsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
 
     @staticmethod
     def ListCharts(

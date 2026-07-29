@@ -20,7 +20,6 @@ class sipwxClipboard : public ::wxClipboard
 {
 public:
     sipwxClipboard();
-    sipwxClipboard(const ::wxClipboard&);
     virtual ~sipwxClipboard();
 
     /*
@@ -54,11 +53,6 @@ sipwxClipboard::sipwxClipboard(): ::wxClipboard(), sipPySelf(SIP_NULLPTR)
     memset(sipPyMethods, 0, sizeof (sipPyMethods));
 }
 
-sipwxClipboard::sipwxClipboard(const ::wxClipboard& a0): ::wxClipboard(a0), sipPySelf(SIP_NULLPTR)
-{
-    memset(sipPyMethods, 0, sizeof (sipPyMethods));
-}
-
 sipwxClipboard::~sipwxClipboard()
 {
     sipInstanceDestroyedEx(&sipPySelf);
@@ -77,9 +71,9 @@ void sipwxClipboard::UsePrimarySelection(bool primary)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, primary);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, primary);
 }
 
 bool sipwxClipboard::SetData(::wxDataObject*data)
@@ -92,9 +86,9 @@ bool sipwxClipboard::SetData(::wxDataObject*data)
     if (!sipMeth)
         return ::wxClipboard::SetData(data);
 
-    extern bool sipVH__core_93(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject*);
+    extern bool sipVH__core_92(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject*);
 
-    return sipVH__core_93(sipGILState, 0, sipPySelf, sipMeth, data);
+    return sipVH__core_92(sipGILState, 0, sipPySelf, sipMeth, data);
 }
 
 bool sipwxClipboard::Open()
@@ -122,9 +116,9 @@ bool sipwxClipboard::IsSupported(const ::wxDataFormat& format)
     if (!sipMeth)
         return ::wxClipboard::IsSupported(format);
 
-    extern bool sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxDataFormat&);
+    extern bool sipVH__core_94(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxDataFormat&);
 
-    return sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, format);
+    return sipVH__core_94(sipGILState, 0, sipPySelf, sipMeth, format);
 }
 
 bool sipwxClipboard::IsOpened() const
@@ -152,9 +146,9 @@ bool sipwxClipboard::GetData(::wxDataObject& data)
     if (!sipMeth)
         return ::wxClipboard::GetData(data);
 
-    extern bool sipVH__core_94(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject&);
+    extern bool sipVH__core_93(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject&);
 
-    return sipVH__core_94(sipGILState, 0, sipPySelf, sipMeth, data);
+    return sipVH__core_93(sipGILState, 0, sipPySelf, sipMeth, data);
 }
 
 bool sipwxClipboard::Flush()
@@ -218,9 +212,9 @@ bool sipwxClipboard::AddData(::wxDataObject*data)
     if (!sipMeth)
         return ::wxClipboard::AddData(data);
 
-    extern bool sipVH__core_93(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject*);
+    extern bool sipVH__core_92(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject*);
 
-    return sipVH__core_93(sipGILState, 0, sipPySelf, sipMeth, data);
+    return sipVH__core_92(sipGILState, 0, sipPySelf, sipMeth, data);
 }
 
 
@@ -726,20 +720,6 @@ static void array_delete_wxClipboard(void *sipCpp)
 }
 
 
-extern "C" {static void assign_wxClipboard(void *, Py_ssize_t, void *);}
-static void assign_wxClipboard(void *sipDst, Py_ssize_t sipDstIdx, void *sipSrc)
-{
-    reinterpret_cast< ::wxClipboard *>(sipDst)[sipDstIdx] = *reinterpret_cast< ::wxClipboard *>(sipSrc);
-}
-
-
-extern "C" {static void *copy_wxClipboard(const void *, Py_ssize_t);}
-static void *copy_wxClipboard(const void *sipSrc, Py_ssize_t sipSrcIdx)
-{
-    return new ::wxClipboard(reinterpret_cast<const ::wxClipboard *>(sipSrc)[sipSrcIdx]);
-}
-
-
 extern "C" {static void dealloc_wxClipboard(sipSimpleWrapper *);}
 static void dealloc_wxClipboard(sipSimpleWrapper *sipSelf)
 {
@@ -781,27 +761,12 @@ static void *init_type_wxClipboard(sipSimpleWrapper *sipSelf, PyObject *sipArgs,
         }
     }
 
-    {
-        const ::wxClipboard* a0;
-
-        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, SIP_NULLPTR, sipUnused, "J9", sipType_wxClipboard, &a0))
-        {
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp = new sipwxClipboard(*a0);
-            Py_END_ALLOW_THREADS
-
-            sipCpp->sipPySelf = sipSelf;
-
-            return sipCpp;
-        }
-    }
-
     return SIP_NULLPTR;
 }
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxClipboard[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxClipboard[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxClipboard[] = {
@@ -853,9 +818,9 @@ sipClassTypeDef sipTypeDef__core_wxClipboard = {
     SIP_NULLPTR,
     SIP_NULLPTR,
     dealloc_wxClipboard,
-    assign_wxClipboard,
+    SIP_NULLPTR,
     array_wxClipboard,
-    copy_wxClipboard,
+    SIP_NULLPTR,
     release_wxClipboard,
     cast_wxClipboard,
     SIP_NULLPTR,

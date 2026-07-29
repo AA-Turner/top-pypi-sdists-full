@@ -401,7 +401,7 @@ class PrivateJobSDK(WorkloadSDK):
         self,
         prod_job_config: ProductionJobConfig,
         name: str,
-        project: str,
+        project: Optional[str],
         decorated_connections: Optional[List] = None,
     ) -> JobConfig:
         """Convert ProductionJobConfig to user-facing JobConfig."""

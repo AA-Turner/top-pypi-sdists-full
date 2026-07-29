@@ -11,7 +11,8 @@
 #ifndef _WX_UNIX_GSOCKUNX_H_
 #define _WX_UNIX_GSOCKUNX_H_
 
-#include <unistd.h>
+#include "wx/private/sockettype.h"
+
 #include <sys/ioctl.h>
 
 // Under older (Open)Solaris versions FIONBIO is declared in this header only.
@@ -22,8 +23,6 @@
 #endif
 
 #include "wx/private/fdiomanager.h"
-
-#define wxCloseSocket close
 
 class wxSocketImplUnix : public wxSocketImpl,
                          public wxFDIOHandler
@@ -36,9 +35,7 @@ public:
         m_fds[1] = -1;
     }
 
-    virtual wxSocketError GetLastError() const wxOVERRIDE;
-
-    virtual void ReenableEvents(wxSocketEventFlags flags) wxOVERRIDE
+    virtual void ReenableEvents(wxSocketEventFlags flags) override
     {
         // Events are only ever used for non-blocking sockets.
         if ( GetSocketFlags() & wxSOCKET_BLOCK )
@@ -59,7 +56,7 @@ public:
         EnableEvents(flags);
     }
 
-    virtual void UpdateBlockingState() wxOVERRIDE
+    virtual void UpdateBlockingState() override
     {
         // Make this int and not bool to allow passing it to ioctl().
         int isNonBlocking = (GetSocketFlags() & wxSOCKET_BLOCK) == 0;
@@ -69,13 +66,15 @@ public:
     }
 
     // wxFDIOHandler methods
-    virtual void OnReadWaiting() wxOVERRIDE;
-    virtual void OnWriteWaiting() wxOVERRIDE;
-    virtual void OnExceptionWaiting() wxOVERRIDE;
-    virtual bool IsOk() const wxOVERRIDE { return m_fd != INVALID_SOCKET; }
+    virtual void OnReadWaiting() override;
+    virtual void OnWriteWaiting() override;
+    virtual void OnExceptionWaiting() override;
+    virtual bool IsOk() const override { return m_fd != INVALID_SOCKET; }
 
 private:
-    virtual void DoClose() wxOVERRIDE
+    virtual wxSocketError GetLastError() const override;
+
+    virtual void DoClose() override
     {
         DisableEvents();
 
@@ -111,26 +110,26 @@ private:
 };
 
 // A version of wxSocketManager which uses FDs for socket IO: it is used by
-// Unix console applications and some X11-like ports (wxGTK and wxMotif but not
+// Unix console applications and some X11-like ports (wxGTK and wxQt but not
 // wxX11 currently) which implement their own port-specific wxFDIOManagers
 class wxSocketFDBasedManager : public wxSocketManager
 {
 public:
     wxSocketFDBasedManager()
     {
-        m_fdioManager = NULL;
+        m_fdioManager = nullptr;
     }
 
-    virtual bool OnInit() wxOVERRIDE;
-    virtual void OnExit() wxOVERRIDE { }
+    virtual bool OnInit() override;
+    virtual void OnExit() override { }
 
-    virtual wxSocketImpl *CreateSocket(wxSocketBase& wxsocket) wxOVERRIDE
+    virtual wxSocketImpl *CreateSocket(wxSocketBase& wxsocket) override
     {
         return new wxSocketImplUnix(wxsocket);
     }
 
-    virtual void Install_Callback(wxSocketImpl *socket_, wxSocketNotify event) wxOVERRIDE;
-    virtual void Uninstall_Callback(wxSocketImpl *socket_, wxSocketNotify event) wxOVERRIDE;
+    virtual void Install_Callback(wxSocketImpl *socket_, wxSocketNotify event) override;
+    virtual void Uninstall_Callback(wxSocketImpl *socket_, wxSocketNotify event) override;
 
 protected:
     // get the FD index corresponding to the given wxSocketNotify

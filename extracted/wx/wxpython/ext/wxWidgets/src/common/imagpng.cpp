@@ -35,6 +35,10 @@
 // For memcpy
 #include <string.h>
 
+#include <unordered_map>
+
+#define wxIMAGE_OPTION_PNG_DESCRIPTION_KEY "Description"
+
 // ----------------------------------------------------------------------------
 // local functions
 // ----------------------------------------------------------------------------
@@ -103,10 +107,10 @@ struct wxPNGImageData
 {
     wxPNGImageData()
     {
-        lines = NULL;
-        m_buf = NULL;
-        info_ptr = (png_infop) NULL;
-        png_ptr = (png_structp) NULL;
+        lines = nullptr;
+        m_buf = nullptr;
+        info_ptr = (png_infop) nullptr;
+        png_ptr = (png_structp) nullptr;
         ok = false;
     }
 
@@ -145,9 +149,9 @@ struct wxPNGImageData
         if ( png_ptr )
         {
             if ( info_ptr )
-                png_destroy_read_struct( &png_ptr, &info_ptr, (png_infopp) NULL );
+                png_destroy_read_struct( &png_ptr, &info_ptr, (png_infopp) nullptr );
             else
-                png_destroy_read_struct( &png_ptr, (png_infopp) NULL, (png_infopp) NULL );
+                png_destroy_read_struct( &png_ptr, (png_infopp) nullptr, (png_infopp) nullptr );
         }
     }
 
@@ -184,10 +188,10 @@ static void PNGLINKAGEMODE wx_PNG_stream_writer( png_structp png_ptr, png_bytep 
 static void
 PNGLINKAGEMODE wx_PNG_warning(png_structp png_ptr, png_const_charp message)
 {
-    wxPNGInfoStruct *info = png_ptr ? WX_PNG_INFO(png_ptr) : NULL;
+    wxPNGInfoStruct *info = png_ptr ? WX_PNG_INFO(png_ptr) : nullptr;
     if ( !info || info->verbose )
     {
-        wxLogWarning( wxString::FromAscii(message) );
+        wxLogWarning( wxString::FromUTF8(message) );
     }
 }
 
@@ -196,7 +200,7 @@ PNGLINKAGEMODE wx_PNG_warning(png_structp png_ptr, png_const_charp message)
 static void
 PNGLINKAGEMODE wx_PNG_error(png_structp png_ptr, png_const_charp message)
 {
-    wx_PNG_warning(NULL, message);
+    wx_PNG_warning(nullptr, message);
 
     // we're not using libpng built-in jump buffer (see comment before
     // wxPNGInfoStruct above) so we have to return ourselves, otherwise libpng
@@ -249,7 +253,7 @@ void CopyDataFromPNG(wxImage *image,
                      png_uint_32 height)
 {
     // allocated on demand if we have any non-opaque pixels
-    unsigned char *alpha = NULL;
+    unsigned char *alpha = nullptr;
 
     unsigned char *ptrDst = image->GetData();
     {
@@ -301,7 +305,7 @@ wxPNGImageData::DoLoadPNGFile(wxImage* image, wxPNGInfoStruct& wxinfo)
     png_ptr = png_create_read_struct
                           (
                             PNG_LIBPNG_VER_STRING,
-                            NULL,
+                            nullptr,
                             wx_PNG_error,
                             wx_PNG_warning
                           );
@@ -320,7 +324,7 @@ wxPNGImageData::DoLoadPNGFile(wxImage* image, wxPNGInfoStruct& wxinfo)
         return;
 
     png_read_info( png_ptr, info_ptr );
-    png_get_IHDR( png_ptr, info_ptr, &width, &height, &bit_depth, &color_type, NULL, NULL, NULL );
+    png_get_IHDR( png_ptr, info_ptr, &width, &height, &bit_depth, &color_type, nullptr, nullptr, nullptr );
 
     png_set_expand(png_ptr);
     png_set_gray_to_rgb(png_ptr);
@@ -336,16 +340,50 @@ wxPNGImageData::DoLoadPNGFile(wxImage* image, wxPNGInfoStruct& wxinfo)
         (color_type & PNG_COLOR_MASK_ALPHA) ||
         png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS);
 
-    if (!Alloc(width, height, needCopy ? NULL : image->GetData()))
+    if (!Alloc(width, height, needCopy ? nullptr : image->GetData()))
         return;
 
     png_read_image( png_ptr, lines );
+
+    // load "Description" text chunk
+    png_textp text_ptr;
+    const int num_comments = png_get_text( png_ptr, info_ptr, &text_ptr, nullptr );
+    for (int i = 0; i < num_comments; ++i)
+    {
+        const wxString& key = wxString::From8BitData(text_ptr[i].key);
+        if (key == wxIMAGE_OPTION_PNG_DESCRIPTION_KEY)
+        {
+            wxString description;
+            switch (text_ptr[i].compression)
+            {
+            case PNG_TEXT_COMPRESSION_zTXt:
+            case PNG_TEXT_COMPRESSION_NONE:
+                // tEXt chunk: uses Latin-1 encoding.
+                description = wxString::From8BitData(text_ptr[i].text);
+                break;
+
+            case PNG_ITXT_COMPRESSION_zTXt:
+            case PNG_ITXT_COMPRESSION_NONE:
+                // iTXt chunk: uses UTF-8 encoding.
+                description = wxString::FromUTF8(text_ptr[i].text);
+                break;
+
+            default:
+                // Invalid type, should we report it? Probably not worth it.
+                break;
+            }
+
+            if (!description.empty())
+                image->SetOption(wxIMAGE_OPTION_PNG_DESCRIPTION, description);
+        }
+    }
+
     png_read_end( png_ptr, info_ptr );
 
 #if wxUSE_PALETTE
     if (color_type == PNG_COLOR_TYPE_PALETTE)
     {
-        png_colorp palette = NULL;
+        png_colorp palette = nullptr;
         int numPalette = 0;
 
         (void) png_get_PLTE(png_ptr, info_ptr, &palette, &numPalette);
@@ -452,7 +490,7 @@ wxPNGHandler::LoadFile(wxImage *image,
 // SaveFile() palette helpers
 // ----------------------------------------------------------------------------
 
-typedef wxLongToLongHashMap PaletteMap;
+using PaletteMap = std::unordered_map<unsigned long, long>;
 
 static unsigned long PaletteMakeKey(const png_color_8& clr)
 {
@@ -500,7 +538,7 @@ bool wxPNGHandler::SaveFile( wxImage *image, wxOutputStream& stream, bool verbos
     png_structp png_ptr = png_create_write_struct
                           (
                             PNG_LIBPNG_VER_STRING,
-                            NULL,
+                            nullptr,
                             wx_PNG_error,
                             wx_PNG_warning
                           );
@@ -514,9 +552,9 @@ bool wxPNGHandler::SaveFile( wxImage *image, wxOutputStream& stream, bool verbos
     }
 
     png_infop info_ptr = png_create_info_struct(png_ptr);
-    if (info_ptr == NULL)
+    if (info_ptr == nullptr)
     {
-        png_destroy_write_struct( &png_ptr, (png_infopp)NULL );
+        png_destroy_write_struct( &png_ptr, (png_infopp)nullptr );
         if (verbose)
         {
            wxLogError(_("Couldn't save PNG image."));
@@ -526,7 +564,7 @@ bool wxPNGHandler::SaveFile( wxImage *image, wxOutputStream& stream, bool verbos
 
     if (setjmp(wxinfo.jmpbuf))
     {
-        png_destroy_write_struct( &png_ptr, (png_infopp)NULL );
+        png_destroy_write_struct( &png_ptr, (png_infopp)nullptr );
         if (verbose)
         {
            wxLogError(_("Couldn't save PNG image."));
@@ -536,7 +574,7 @@ bool wxPNGHandler::SaveFile( wxImage *image, wxOutputStream& stream, bool verbos
 
     // NB: please see the comment near wxPNGInfoStruct declaration for
     //     explanation why this line is mandatory
-    png_set_write_fn( png_ptr, &wxinfo, wx_PNG_stream_writer, NULL);
+    png_set_write_fn( png_ptr, &wxinfo, wx_PNG_stream_writer, nullptr);
 
     const int iHeight = image->GetHeight();
     const int iWidth = image->GetWidth();
@@ -620,11 +658,11 @@ bool wxPNGHandler::SaveFile( wxImage *image, wxOutputStream& stream, bool verbos
             {
                 wxASSERT(PaletteFind(palette, mask) == 0);
                 png_trans[0] = 0;
-                png_set_tRNS(png_ptr, info_ptr, png_trans, 1, NULL);
+                png_set_tRNS(png_ptr, info_ptr, png_trans, 1, nullptr);
             }
             else if (pAlpha && !bHasMask)
             {
-                png_set_tRNS(png_ptr, info_ptr, png_trans, palette.size(), NULL);
+                png_set_tRNS(png_ptr, info_ptr, png_trans, palette.size(), nullptr);
             }
         }
     }
@@ -735,6 +773,24 @@ bool wxPNGHandler::SaveFile( wxImage *image, wxOutputStream& stream, bool verbos
         png_set_pHYs( png_ptr, info_ptr, resX, resY, PNG_RESOLUTION_METER );
 
     png_set_sBIT( png_ptr, info_ptr, &sig_bit );
+
+    // save "Description" text chunk
+    if (image->HasOption(wxIMAGE_OPTION_PNG_DESCRIPTION))
+    {
+        const wxString& description = image->GetOption(wxIMAGE_OPTION_PNG_DESCRIPTION);
+
+        png_text text;
+        text.key = const_cast<char*>(wxIMAGE_OPTION_PNG_DESCRIPTION_KEY);
+        text.lang = nullptr;
+        text.lang_key = nullptr;
+        text.compression = PNG_ITXT_COMPRESSION_NONE;
+        const auto& buf = description.utf8_str();
+        text.text = const_cast<char*>(buf.data());
+        text.itxt_length = buf.length();
+        text.text_length = 0;
+        png_set_text( png_ptr, info_ptr, &text, 1 );
+    }
+
     png_write_info( png_ptr, info_ptr );
     png_set_shift( png_ptr, &sig_bit );
     png_set_packing( png_ptr );
@@ -743,12 +799,12 @@ bool wxPNGHandler::SaveFile( wxImage *image, wxOutputStream& stream, bool verbos
         data = (unsigned char *)malloc( image->GetWidth() * iElements );
     if ( !data )
     {
-        png_destroy_write_struct( &png_ptr, (png_infopp)NULL );
+        png_destroy_write_struct( &png_ptr, (png_infopp)nullptr );
         return false;
     }
 
     const unsigned char *
-        pAlpha = (const unsigned char *)(bHasAlpha ? image->GetAlpha() : NULL);
+        pAlpha = (const unsigned char *)(bHasAlpha ? image->GetAlpha() : nullptr);
 
     const unsigned char *pColors = image->GetData();
 
@@ -849,14 +905,29 @@ bool wxPNGHandler::SaveFile( wxImage *image, wxOutputStream& stream, bool verbos
 {
     // The version string seems to always have a leading space and a trailing
     // new line, get rid of them both.
-    wxString str = png_get_header_version(NULL) + 1;
-    str.Replace("\n", "");
+    wxString str = png_get_header_version(nullptr);
+    str.Trim(true).Trim(false);
+
+    wxString copyRight = png_get_copyright(nullptr);
+    copyRight.Trim(true).Trim(false);
+    // The copyright string may include the version info in the first line.
+    // If it does, then remove it.
+    if (copyRight.starts_with("libpng"))
+    {
+        size_t firstNewLine = copyRight.find(L'\n');
+        if (firstNewLine != wxString::npos)
+        {
+            copyRight.erase(0, firstNewLine + 1);
+        }
+    }
 
     return wxVersionInfo("libpng",
                          PNG_LIBPNG_VER_MAJOR,
                          PNG_LIBPNG_VER_MINOR,
                          PNG_LIBPNG_VER_RELEASE,
-                         str);
+                         PNG_LIBPNG_VER_BUILD,
+                         str,
+                         copyRight);
 }
 
 #endif  // wxUSE_LIBPNG

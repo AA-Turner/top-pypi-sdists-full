@@ -763,6 +763,113 @@ static PyObject *meth_wxColour_IsSolid(PyObject *sipSelf, PyObject *sipArgs)
 }
 
 
+PyDoc_STRVAR(doc_wxColour_IsTransparent, "IsTransparent() -> bool\n"
+"\n"
+"Returns true if the color is completely transparent (i.e., no\n"
+"opacity).");
+
+extern "C" {static PyObject *meth_wxColour_IsTransparent(PyObject *, PyObject *);}
+static PyObject *meth_wxColour_IsTransparent(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxColour *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxColour, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->IsTransparent();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Colour, sipName_IsTransparent, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxColour_IsOpaque, "IsOpaque() -> bool\n"
+"\n"
+"Returns true if the color is completely opaque (i.e., full opacity).");
+
+extern "C" {static PyObject *meth_wxColour_IsOpaque(PyObject *, PyObject *);}
+static PyObject *meth_wxColour_IsOpaque(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxColour *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxColour, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->IsOpaque();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Colour, sipName_IsOpaque, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxColour_IsTranslucent, "IsTranslucent() -> bool\n"
+"\n"
+"Returns true if the color has some translucency (not fully opaque, but\n"
+"not transparent either).");
+
+extern "C" {static PyObject *meth_wxColour_IsTranslucent(PyObject *, PyObject *);}
+static PyObject *meth_wxColour_IsTranslucent(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxColour *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxColour, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->IsTranslucent();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Colour, sipName_IsTranslucent, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxColour_MakeDisabled, "MakeDisabled(brightness=255) -> Colour\n"
 "MakeDisabled(r, g, b, brightness=255) -> Tuple[int, int, int]\n"
 "\n"
@@ -1551,7 +1658,7 @@ static int convertTo_wxColour(PyObject *sipPy, void **sipCppPtrV, int *sipIsErr,
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxColour[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxColour[] = {{400, 255, 1}};
 
 
 /* Define this type's Python slots. */
@@ -1580,7 +1687,10 @@ static PyMethodDef methods_wxColour[] = {
     {sipName_GetRed, meth_wxColour_GetRed, METH_VARARGS, doc_wxColour_GetRed},
     {sipName_Green, meth_wxColour_Green, METH_VARARGS, doc_wxColour_Green},
     {sipName_IsOk, meth_wxColour_IsOk, METH_VARARGS, doc_wxColour_IsOk},
+    {sipName_IsOpaque, meth_wxColour_IsOpaque, METH_VARARGS, doc_wxColour_IsOpaque},
     {sipName_IsSolid, meth_wxColour_IsSolid, METH_VARARGS, doc_wxColour_IsSolid},
+    {sipName_IsTranslucent, meth_wxColour_IsTranslucent, METH_VARARGS, doc_wxColour_IsTranslucent},
+    {sipName_IsTransparent, meth_wxColour_IsTransparent, METH_VARARGS, doc_wxColour_IsTransparent},
     {sipName_MakeDisabled, SIP_MLMETH_CAST(meth_wxColour_MakeDisabled), METH_VARARGS|METH_KEYWORDS, doc_wxColour_MakeDisabled},
     {sipName_MakeGrey, SIP_MLMETH_CAST(meth_wxColour_MakeGrey), METH_VARARGS|METH_KEYWORDS, doc_wxColour_MakeGrey},
     {sipName_MakeMono, SIP_MLMETH_CAST(meth_wxColour_MakeMono), METH_VARARGS|METH_KEYWORDS, doc_wxColour_MakeMono},
@@ -1596,9 +1706,9 @@ sipVariableDef variables_wxColour[] = {
     {PropertyVariable, sipName_alpha, &methods_wxColour[0], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_blue, &methods_wxColour[2], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_green, &methods_wxColour[14], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_red, &methods_wxColour[20], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_RGBA, &methods_wxColour[12], &methods_wxColour[23], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_RGB, &methods_wxColour[11], &methods_wxColour[22], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_red, &methods_wxColour[23], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_RGBA, &methods_wxColour[12], &methods_wxColour[26], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_RGB, &methods_wxColour[11], &methods_wxColour[25], SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_Pixel, &methods_wxColour[10], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
@@ -1625,7 +1735,7 @@ sipClassTypeDef sipTypeDef__core_wxColour = {
     {
         sipNameNr_Colour,
         {0, 0, 1},
-        26, methods_wxColour,
+        29, methods_wxColour,
         0, SIP_NULLPTR,
         7, variables_wxColour,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

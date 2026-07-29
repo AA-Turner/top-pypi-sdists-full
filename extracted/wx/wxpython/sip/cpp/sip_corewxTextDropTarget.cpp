@@ -61,9 +61,9 @@ bool sipwxTextDropTarget::OnDropText(::wxCoord x, ::wxCoord y, const ::wxString&
     if (!sipMeth)
         return 0;
 
-    extern bool sipVH__core_91(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxCoord, ::wxCoord, const ::wxString&);
+    extern bool sipVH__core_90(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxCoord, ::wxCoord, const ::wxString&);
 
-    return sipVH__core_91(sipGILState, 0, sipPySelf, sipMeth, x, y, data);
+    return sipVH__core_90(sipGILState, 0, sipPySelf, sipMeth, x, y, data);
 }
 
 bool sipwxTextDropTarget::GetData()
@@ -91,9 +91,9 @@ bool sipwxTextDropTarget::GetData()
     if (!sipMeth)
         return ::wxTextDropTarget::OnData(x, y, def);
 
-    extern ::wxDragResult sipVH__core_89(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxCoord, ::wxCoord, ::wxDragResult);
+    extern ::wxDragResult sipVH__core_88(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxCoord, ::wxCoord, ::wxDragResult);
 
-    return sipVH__core_89(sipGILState, 0, sipPySelf, sipMeth, x, y, def);
+    return sipVH__core_88(sipGILState, 0, sipPySelf, sipMeth, x, y, def);
 }
 
 ::wxDragResult sipwxTextDropTarget::OnDragOver(::wxCoord x, ::wxCoord y, ::wxDragResult defResult)
@@ -106,9 +106,9 @@ bool sipwxTextDropTarget::GetData()
     if (!sipMeth)
         return ::wxTextDropTarget::OnDragOver(x, y, defResult);
 
-    extern ::wxDragResult sipVH__core_89(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxCoord, ::wxCoord, ::wxDragResult);
+    extern ::wxDragResult sipVH__core_88(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxCoord, ::wxCoord, ::wxDragResult);
 
-    return sipVH__core_89(sipGILState, 0, sipPySelf, sipMeth, x, y, defResult);
+    return sipVH__core_88(sipGILState, 0, sipPySelf, sipMeth, x, y, defResult);
 }
 
 bool sipwxTextDropTarget::OnDrop(::wxCoord x, ::wxCoord y)
@@ -121,9 +121,9 @@ bool sipwxTextDropTarget::OnDrop(::wxCoord x, ::wxCoord y)
     if (!sipMeth)
         return ::wxTextDropTarget::OnDrop(x, y);
 
-    extern bool sipVH__core_90(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxCoord, ::wxCoord);
+    extern bool sipVH__core_89(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxCoord, ::wxCoord);
 
-    return sipVH__core_90(sipGILState, 0, sipPySelf, sipMeth, x, y);
+    return sipVH__core_89(sipGILState, 0, sipPySelf, sipMeth, x, y);
 }
 
 ::wxDragResult sipwxTextDropTarget::OnEnter(::wxCoord x, ::wxCoord y, ::wxDragResult defResult)
@@ -136,9 +136,9 @@ bool sipwxTextDropTarget::OnDrop(::wxCoord x, ::wxCoord y)
     if (!sipMeth)
         return ::wxTextDropTarget::OnEnter(x, y, defResult);
 
-    extern ::wxDragResult sipVH__core_89(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxCoord, ::wxCoord, ::wxDragResult);
+    extern ::wxDragResult sipVH__core_88(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxCoord, ::wxCoord, ::wxDragResult);
 
-    return sipVH__core_89(sipGILState, 0, sipPySelf, sipMeth, x, y, defResult);
+    return sipVH__core_88(sipGILState, 0, sipPySelf, sipMeth, x, y, defResult);
 }
 
 void sipwxTextDropTarget::OnLeave()
@@ -374,7 +374,7 @@ static void *init_type_wxTextDropTarget(sipSimpleWrapper *sipSelf, PyObject *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxTextDropTarget[] = {{144, 255, 1}};
+static sipEncodedTypeDef supers_wxTextDropTarget[] = {{151, 255, 1}};
 
 
 static PyMethodDef methods_wxTextDropTarget[] = {

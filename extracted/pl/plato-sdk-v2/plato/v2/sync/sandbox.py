@@ -11,11 +11,11 @@ import json
 import logging
 import os
 import shutil
-import signal
 import subprocess
 import tempfile
 import time
 import uuid
+from contextlib import suppress
 from pathlib import Path
 from typing import Literal, cast
 from urllib.parse import quote
@@ -88,6 +88,13 @@ from plato.v1.models.sandbox import PlatoConfig
 from plato.v2._wait_for_ready import is_terminal_status, poll_until_ready_sync
 from plato.v2.async_.flow_executor import FlowExecutor
 from plato.v2.models import SandboxState
+from plato.v2.sandbox_store import (
+    HEARTBEAT_PROC_MARKER,
+    SandboxStore,
+    heartbeat_log_path,
+    slugify,
+    stop_heartbeat,
+)
 from plato.v2.types import Env, EnvFromArtifact, EnvFromResource, EnvFromSimulator, SimConfigCompute
 
 logger = logging.getLogger(__name__)
@@ -156,6 +163,7 @@ def _generate_ssh_config(
     ssh_host: str = "sandbox",
     provider: str | None = None,
     mesh_ip: str | None = None,
+    name: str | None = None,
 ) -> str:
     """Generate SSH config file for easy access via gateway.
 
@@ -168,6 +176,11 @@ def _generate_ssh_config(
             no NAT round-trip.
         working_dir: Working directory for .plato/.
         ssh_host: Host alias in config.
+        name: Sandbox slot name. When given, the config is written to
+            ``.plato/ssh_config_<name>`` (so sibling sandboxes in one working
+            directory don't overwrite each other's) and ``.plato/ssh_config``
+            is pointed at it, keeping the documented
+            ``ssh -F .plato/ssh_config sandbox`` working for the current slot.
         provider: Hypervisor backing the job ("firecracker", "qemu", or None
             when unknown). Determines the ``User`` line — see
             :func:`~plato.utils.subprocess.ssh_user_for_provider`. ``None`` falls back to ``root``.
@@ -194,6 +207,9 @@ def _generate_ssh_config(
     ssh_port = 22
     sni = f"{job_id}--{ssh_port}.{gateway_host}"
     ssh_user = ssh_user_for_provider(provider)
+    # Both aliases resolve to the same VM, so `ssh -F .plato/ssh_config sandbox`
+    # (documented everywhere) and `ssh -F .plato/ssh_config_<name> <name>` work.
+    host_aliases = f"{ssh_host} {name}" if name and name != ssh_host else ssh_host
 
     if mesh_ip:
         config_content = f"""# Plato Sandbox SSH Config (mesh-direct)
@@ -201,7 +217,7 @@ def _generate_ssh_config(
 # Connects to the VM's WireGuard mesh IP directly (same-session mesh).
 # NOTE: Run SSH commands from workspace root for relative paths to resolve
 
-Host {ssh_host}
+Host {host_aliases}
     HostName {mesh_ip}
     Port {ssh_port}
     User {ssh_user}
@@ -215,7 +231,7 @@ Host {ssh_host}
 # Generated for job: {job_id}
 # NOTE: Run SSH commands from workspace root for relative paths to resolve
 
-Host {ssh_host}
+Host {host_aliases}
     HostName {job_id}
     User {ssh_user}
     IdentityFile {relative_key_path}
@@ -225,10 +241,13 @@ Host {ssh_host}
     ProxyCommand {gateway_proxy_command(gateway_host, sni)}
 """
 
-    plato_dir = _get_plato_dir(working_dir)
-    plato_dir.mkdir(mode=0o700, exist_ok=True)
+    store = SandboxStore(working_dir or Path.cwd())
+    store.plato_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
 
-    config_path = plato_dir / "ssh_config"
+    # Per-slot file; `.plato/ssh_config` is a symlink the store repoints at
+    # whichever slot is current (on save, on `use`, and on stop), so it never
+    # drifts to a sandbox you did not select or one that is gone.
+    config_path = store.ssh_config_path(name) if name else store.ssh_config_file
     config_path.write_text(config_content)
 
     return str(config_path)
@@ -266,23 +285,61 @@ def _run_ssh_command(
 # =============================================================================
 
 
-def _start_heartbeat_process(session_id: str, api_key: str) -> int | None:
+#: A session that answers 404/410 is gone for good, so the heartbeat exits
+#: instead of POSTing into the void forever. Small enough that a clobbered or
+#: crashed CLI leaks a process for minutes rather than days, large enough to
+#: ride out a backend blip.
+_HEARTBEAT_GONE_STREAK = 5
+#: Failures of any other kind (network down, 5xx) get a much longer rope —
+#: killing a heartbeat over a flaky wifi hop would take the VM down with it.
+_HEARTBEAT_ERROR_STREAK = 120
+#: Seconds between beats. The backend expires a session after ~2 minutes
+#: without one, so this only ever wants shortening (tests do exactly that).
+_HEARTBEAT_INTERVAL_ENV = "PLATO_HEARTBEAT_INTERVAL_SECONDS"
+_HEARTBEAT_INTERVAL_DEFAULT = 30.0
+
+
+def _start_heartbeat_process(session_id: str, api_key: str, slot_path: str | Path) -> int | None:
     """Start a background process that sends heartbeats.
 
     Uses only stdlib (urllib) to work on any machine without dependencies.
 
+    The process is detached (survives the terminal) but it is *owned by its
+    slot file*, which it re-reads before every beat, and it exits on its own
+    when any of these say the sandbox is over:
+
+    - the slot file is gone or records ``stopped_at`` (a ``stop``, a
+      ``--remove``, even an ``rm -rf`` of the working directory)
+    - the slot's ``session_id`` changed (the name was reused)
+    - the slot's ``expires_at`` has passed — the idle lease. Commands that use
+      the sandbox push ``expires_at`` forward, so an actively-used sandbox
+      stays alive and an abandoned one dies at most ``--timeout`` after the
+      last touch. An immortal orphan is impossible by construction.
+    - the backend answers 404/410 repeatedly (the session is already gone)
+
+    Because the slot file is the kill switch, stopping a sandbox never
+    requires *finding* this process; the recorded pid is only used to kill it
+    a beat sooner than it would exit anyway.
+
     Returns:
         PID of the background process, or None if failed.
     """
-    log_file = f"/tmp/plato_heartbeat_{session_id}.log"
+    log_file = str(heartbeat_log_path(session_id))
     base_url = os.getenv("PLATO_BASE_URL", "https://plato.so")
     # Strip trailing /api if present to avoid double /api/api in URL
     if base_url.endswith("/api"):
         base_url = base_url[:-4]
     base_url = base_url.rstrip("/")
+    try:
+        interval = float(os.getenv(_HEARTBEAT_INTERVAL_ENV, _HEARTBEAT_INTERVAL_DEFAULT))
+    except ValueError:
+        interval = _HEARTBEAT_INTERVAL_DEFAULT
 
     # Use only stdlib - no external dependencies
     heartbeat_script = f"""
+# {HEARTBEAT_PROC_MARKER}: identifies this process as a Plato sandbox heartbeat.
+import os
+import sys
 import time
 import json
 import urllib.request
@@ -290,9 +347,15 @@ import urllib.error
 from datetime import datetime
 
 session_id = "{session_id}"
-api_key = "{api_key}"
+# Read from the environment rather than the script body: argv is world-readable
+# in `ps`, and this key would otherwise be printed to every user on the box.
+api_key = os.environ.pop("PLATO_HEARTBEAT_API_KEY", "")
 base_url = "{base_url}"
 log_file = "{log_file}"
+slot_path = {json.dumps(str(slot_path))}
+GONE_STREAK = {_HEARTBEAT_GONE_STREAK}
+ERROR_STREAK = {_HEARTBEAT_ERROR_STREAK}
+INTERVAL = {interval}
 
 def log(msg):
     timestamp = datetime.now().isoformat()
@@ -300,11 +363,45 @@ def log(msg):
         f.write(f"[{{timestamp}}] {{msg}}\\n")
         f.flush()
 
+def slot_verdict(missing_streak):
+    # The slot file owns this process. Only a *definitive* signal may end it:
+    # the file being gone twice in a row (writes are atomic renames, but be
+    # cheap insurance against an unlink+rewrite editor), a recorded stop, the
+    # name now holding a different session, or the lease running out. An
+    # unreadable or corrupt file keeps the sandbox alive — never kill a VM
+    # over a parse error.
+    try:
+        with open(slot_path) as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        return ("slot file gone" if missing_streak + 1 >= 2 else None), missing_streak + 1
+    except Exception:
+        return None, 0
+    if not isinstance(data, dict):
+        return None, 0
+    if data.get("stopped_at"):
+        return "slot stopped", 0
+    sid = data.get("session_id")
+    if sid and sid != session_id:
+        return "slot reused for another session", 0
+    expires_at = data.get("expires_at")
+    if expires_at and time.time() >= float(expires_at):
+        return "lease expired (idle past --timeout; any sandbox command renews it)", 0
+    return None, 0
+
 log(f"Heartbeat process started for session {{session_id}}")
 log(f"URL: {{base_url}}/api/v2/sessions/{{session_id}}/heartbeat")
+log(f"Owned by slot file: {{slot_path}}")
 
 heartbeat_count = 0
+gone_streak = 0
+error_streak = 0
+missing_streak = 0
 while True:
+    reason, missing_streak = slot_verdict(missing_streak)
+    if reason:
+        log(f"{{reason}} - exiting; the backend reaps the session on heartbeat loss")
+        sys.exit(0)
     heartbeat_count += 1
     try:
         url = f"{{base_url}}/api/v2/sessions/{{session_id}}/heartbeat"
@@ -320,11 +417,27 @@ while True:
             result = json.loads(body)
             success = result.get("success", False)
             log(f"Heartbeat #{{heartbeat_count}}: status={{status}}, success={{success}}")
+        gone_streak = 0
+        error_streak = 0
     except urllib.error.HTTPError as e:
         log(f"Heartbeat #{{heartbeat_count}}: HTTP {{e.code}} - {{e.reason}}")
+        error_streak += 1
+        # 404/410 mean the session no longer exists: nothing left to keep
+        # alive, so exit instead of outliving the sandbox forever.
+        if e.code in (404, 410):
+            gone_streak += 1
+            if gone_streak >= GONE_STREAK:
+                log(f"Session gone ({{e.code}}) {{gone_streak}}x in a row - exiting")
+                sys.exit(0)
+        else:
+            gone_streak = 0
     except Exception as e:
         log(f"Heartbeat #{{heartbeat_count}} EXCEPTION: {{type(e).__name__}}: {{e}}")
-    time.sleep(30)
+        error_streak += 1
+    if error_streak >= ERROR_STREAK:
+        log(f"{{error_streak}} consecutive failures - exiting")
+        sys.exit(0)
+    time.sleep(INTERVAL)
 """
 
     try:
@@ -334,25 +447,18 @@ while True:
             stderr=subprocess.DEVNULL,
             stdin=subprocess.DEVNULL,
             start_new_session=True,
+            env={**os.environ, "PLATO_HEARTBEAT_API_KEY": api_key},
         )
         return process.pid
     except Exception:
         return None
 
 
-def _stop_heartbeat_process(pid: int) -> bool:
-    """Stop the heartbeat process.
-
-    Returns:
-        True if stopped successfully.
-    """
-    try:
-        os.kill(pid, signal.SIGTERM)
-        return True
-    except ProcessLookupError:
-        return True
-    except Exception:
-        return False
+#: Killing a heartbeat is :func:`plato.v2.sandbox_store.stop_heartbeat` — a
+#: verified SIGTERM (the pid must carry the heartbeat marker in its argv, so a
+#: recycled pid is never killed). It is a courtesy for immediacy only: the
+#: heartbeat's slot file is its kill switch and it exits on its own within a
+#: beat of the slot being stopped or removed.
 
 
 class SyncResult(BaseModel):
@@ -706,6 +812,7 @@ class SandboxClient:
         base_url: str | None = None,
         timeout: float = DEFAULT_TIMEOUT,
         console: Console = Console(),
+        sandbox_name: str | None = None,
     ):
         self.api_key = api_key or os.environ.get("PLATO_API_KEY")
         if not self.api_key:
@@ -717,6 +824,10 @@ class SandboxClient:
         self.base_url = url.rstrip("/")
         self.console = console
         self.working_dir = working_dir
+        self.store = SandboxStore(working_dir)
+        # Slot these operations act on (``--name`` / ``$PLATO_SANDBOX``);
+        # None means whichever slot ``.plato/current`` points at.
+        self.sandbox_name = sandbox_name
 
         self._http = httpx.Client(
             base_url=self.base_url,
@@ -754,12 +865,17 @@ class SandboxClient:
         provider: str | None = None,
         chronos_session_id: str | None = None,
         attach_strict: bool = True,
+        name: str | None = None,
     ) -> SandboxState:
         """Start a sandbox environment.
 
         Uses Plato SDK v2 internally for session creation.
 
         Args:
+            name: Slot to store this sandbox under in ``.plato/sandboxes/``.
+                Defaults to the simulator name, suffixed if that slot is taken,
+                so a second start in the same working directory gets its own
+                slot instead of overwriting the first one.
             mode: Start mode - "blank", "simulator", or "artifact".
             simulator_name: Simulator name.
             artifact_id: Artifact UUID.
@@ -907,28 +1023,6 @@ class SandboxClient:
             self.console.print(
                 f"[green]Env added:[/green] {job_id} (alias={env_config.alias}) [dim]({elapsed:.1f}s)[/dim]"
             )
-
-            # Step 2 (attached): wait for just our job — the shared session's
-            # other envs are none of our business.
-            self.console.print("[yellow]Waiting for VM to start...[/yellow]")
-            step_start = time.time()
-            job_ready_response = poll_until_ready_sync(
-                lambda per_call: jobs_wait_for_ready.sync(
-                    client=self._http,
-                    job_id=added_job_id,
-                    timeout=per_call,
-                    x_api_key=self.api_key,
-                ),
-                timeout=timeout,
-            )
-            if not job_ready_response.ready:
-                reason = job_ready_response.error or (
-                    "terminal status" if is_terminal_status(job_ready_response) else "timeout"
-                )
-                raise RuntimeError(f"VM failed to start: {reason}")
-            # The backend adds the job to the session mesh and ready-wait
-            # blocks until it has joined, so the mesh IP is usable now.
-            sandbox_mesh_ip = job_ready_response.mesh_ip
         else:
             # Step 1: Create session
             self.console.print("[yellow]Creating session...[/yellow]")
@@ -957,279 +1051,395 @@ class SandboxClient:
             else:
                 raise RuntimeError("No environments created in session")
 
-            # Step 2: Wait for VM
-            self.console.print("[yellow]Waiting for VM to start...[/yellow]")
-            step_start = time.time()
-            ready_response = poll_until_ready_sync(
-                lambda per_call: sessions_wait_for_ready.sync(
-                    client=self._http,
-                    session_id=session_id,
-                    timeout=per_call,
-                    x_api_key=self.api_key,
-                ),
-                timeout=timeout,
-            )
-            if not ready_response.ready:
-                errors = []
-                if ready_response.results:
-                    for jid, result in ready_response.results.items():
-                        if not result.ready:
-                            errors.append(f"{jid}: {result.error or 'Unknown error'}")
-                reason = (
-                    ", ".join(errors)
-                    if errors
-                    else ("terminal status" if is_terminal_status(ready_response) else "timeout")
-                )
-                raise RuntimeError(f"VM failed to start: {reason}")
-
             job_id = response.envs[0].job_id if response.envs else None
             if not job_id:
                 raise ValueError("No job ID found")
 
-        elapsed = time.time() - step_start
-        self.console.print(f"[green]VM ready:[/green] {job_id} [dim]({elapsed:.1f}s)[/dim]")
-
-        # Step 3: Connect network
-        network_connected = False
-        if attached:
-            # The backend auto-joined the job to the session's WireGuard mesh
-            # (Chronos sessions always have one); a session-level connect here
-            # would mutate network state for every env in the shared session.
-            network_connected = sandbox_mesh_ip is not None
-            if sandbox_mesh_ip:
-                self.console.print(f"[green]Joined session mesh:[/green] {sandbox_mesh_ip}")
-            else:
-                self.console.print("[dim]No mesh IP reported; session network may be absent[/dim]")
-        elif connect_network:
-            self.console.print("[yellow]Connecting network...[/yellow]")
-            step_start = time.time()
-            connect_response = sessions_connect_network.sync(
-                client=self._http,
-                session_id=session_id,
-                x_api_key=self.api_key,
-            )
-            network_connected = connect_response.get("success", False)
-            elapsed = time.time() - step_start
-            self.console.print(f"[green]Network connected:[/green] {network_connected} [dim]({elapsed:.1f}s)[/dim]")
-        else:
-            self.console.print("[dim]Skipping network connection (--no-network)[/dim]")
-
-        # For artifact mode, we need to get simulator_name from session details BEFORE generating public URL
-        # Note: get_session_details returns a dict, not a Pydantic model
-        if not simulator_name:
-            session_details = get_session_details.sync(
-                client=self._http,
-                session_id=session_id,
-                x_api_key=self.api_key,
-            )
-            jobs = (
-                session_details.get("jobs")
-                if isinstance(session_details, dict)
-                else getattr(session_details, "jobs", None)
-            )
-            for j in jobs or []:
-                if isinstance(j, dict):
-                    jid = j.get("job_id") or j.get("public_id")
-                    service = j.get("service")
-                else:
-                    jid = getattr(j, "job_id", None) or getattr(j, "public_id", None)
-                    service = getattr(j, "service", None)
-                if attached:
-                    # A shared session has other envs, so "first job with a
-                    # service" would pick someone else's — match ours by id.
-                    if jid == job_id and service:
-                        simulator_name = service
-                        break
-                elif service:
-                    simulator_name = service
-                    break
-            if not simulator_name:
-                raise ValueError(f"No simulator name found in session details for job ID {job_id}")
-
-        # Get public URL with router target formatting (logic inlined)
-        public_url = None
+        # The session (and its job) now exists remotely — record it locally
+        # *before* the long wait for the VM. The slot is a write-ahead intent
+        # record: from this point there is no window in which a running VM has
+        # no local trace, so a crash anywhere below leaves a slot that `list`
+        # shows, `stop -n` tears down, and whose heartbeat exits on its own.
+        # Failure handling collapses to the one shared teardown path.
+        slot_name: str | None = None
+        heartbeat_pid: int | None = None
         try:
-            urls: list[str | None] = []
-            if attached:
-                job_url_response = jobs_public_url.sync(
-                    client=self._http,
-                    job_id=job_id,
-                    x_api_key=self.api_key,
+            if not simulator_name and mode == "artifact":
+                # Best-effort, purely for a friendlier slot name: the job
+                # record carries its service from creation, but if the lookup
+                # fails the slot is just named after the mode.
+                with suppress(Exception):
+                    simulator_name = self._lookup_simulator_name(session_id, job_id, attached)
+            slot_name = self.store.claim(slugify(name) if name else slugify(simulator_name or mode))
+            if name and slot_name != slugify(name):
+                self.console.print(
+                    f"[yellow]Slot '{slugify(name)}' was claimed by a concurrent start; using '{slot_name}'[/yellow]"
                 )
-                if job_url_response:
-                    urls.append(job_url_response.url)
+            started_at = time.time()
+            # make_current=False: the slot must be findable (list, stop -n,
+            # the heartbeat) from the moment the session exists, but `current`
+            # — what another terminal's bare `ssh`/`stop`/`status` acts on —
+            # must keep meaning the previous, *usable* sandbox until this one
+            # is ready. The final save below flips it.
+            self.store.save(
+                slot_name,
+                {
+                    "session_id": session_id,
+                    "job_id": job_id,
+                    "mode": mode,
+                    "simulator_name": simulator_name,
+                    "dataset": dataset,
+                    "attached": attached,
+                    "chronos_session_id": chronos_session_id if attached else None,
+                    "created_at": started_at,
+                    "expires_at": started_at + timeout,
+                    "timeout": timeout,
+                },
+                make_current=False,
+            )
+
+            # Start the heartbeat now, so even the boot wait is covered.
+            # Attached sandboxes skip it: the Chronos runtime already
+            # heartbeats the shared session, and their lifetime should be
+            # bound to that session, not to a local process.
+            if attached:
+                self.console.print("[dim]Skipping local heartbeat — lifecycle owned by the Chronos session[/dim]")
             else:
-                url_response = sessions_get_public_url.sync(
+                heartbeat_pid = _start_heartbeat_process(session_id, self.api_key, self.store.path(slot_name))
+                if heartbeat_pid:
+                    self.store.update(slot_name, heartbeat_pid=heartbeat_pid)
+                    self.console.print(f"[green]Heartbeat started[/green] (pid={heartbeat_pid})")
+                else:
+                    self.console.print("[dim]Heartbeat failed to start[/dim]")
+
+            # Step 2: wait for the VM. Attached waits on just our job — the
+            # shared session's other envs are none of our business.
+            self.console.print("[yellow]Waiting for VM to start...[/yellow]")
+            step_start = time.time()
+            if attached:
+                # Dedicated str-typed local: `job_id` is assigned in both
+                # branches, which voids narrowing inside the lambda's closure.
+                wait_job_id: str = str(job_id)
+                job_ready_response = poll_until_ready_sync(
+                    lambda per_call: jobs_wait_for_ready.sync(
+                        client=self._http,
+                        job_id=wait_job_id,
+                        timeout=per_call,
+                        x_api_key=self.api_key,
+                    ),
+                    timeout=timeout,
+                )
+                if not job_ready_response.ready:
+                    reason = job_ready_response.error or (
+                        "terminal status" if is_terminal_status(job_ready_response) else "timeout"
+                    )
+                    raise RuntimeError(f"VM failed to start: {reason}")
+                # The backend adds the job to the session mesh and ready-wait
+                # blocks until it has joined, so the mesh IP is usable now.
+                sandbox_mesh_ip = job_ready_response.mesh_ip
+            else:
+                ready_response = poll_until_ready_sync(
+                    lambda per_call: sessions_wait_for_ready.sync(
+                        client=self._http,
+                        session_id=session_id,
+                        timeout=per_call,
+                        x_api_key=self.api_key,
+                    ),
+                    timeout=timeout,
+                )
+                if not ready_response.ready:
+                    errors = []
+                    if ready_response.results:
+                        for jid, result in ready_response.results.items():
+                            if not result.ready:
+                                errors.append(f"{jid}: {result.error or 'Unknown error'}")
+                    reason = (
+                        ", ".join(errors)
+                        if errors
+                        else ("terminal status" if is_terminal_status(ready_response) else "timeout")
+                    )
+                    raise RuntimeError(f"VM failed to start: {reason}")
+
+            elapsed = time.time() - step_start
+            self.console.print(f"[green]VM ready:[/green] {job_id} [dim]({elapsed:.1f}s)[/dim]")
+
+            # Step 3: Connect network
+            network_connected = False
+            if attached:
+                # The backend auto-joined the job to the session's WireGuard mesh
+                # (Chronos sessions always have one); a session-level connect here
+                # would mutate network state for every env in the shared session.
+                network_connected = sandbox_mesh_ip is not None
+                if sandbox_mesh_ip:
+                    self.console.print(f"[green]Joined session mesh:[/green] {sandbox_mesh_ip}")
+                else:
+                    self.console.print("[dim]No mesh IP reported; session network may be absent[/dim]")
+            elif connect_network:
+                self.console.print("[yellow]Connecting network...[/yellow]")
+                step_start = time.time()
+                connect_response = sessions_connect_network.sync(
                     client=self._http,
                     session_id=session_id,
                     x_api_key=self.api_key,
                 )
-                if url_response and url_response.results:
-                    urls.extend(
-                        result.url if hasattr(result, "url") else str(result)
-                        for result in url_response.results.values()
-                    )
-            for url in urls:
-                if not url:
-                    raise ValueError(f"No public URL found in result dict for job ID {job_id}")
-                if "_plato_router_target=" not in url and simulator_name:
-                    target_param = f"_plato_router_target={simulator_name}.web.plato.so"
-                    if "?" in url:
-                        url = f"{url}&{target_param}"
-                    else:
-                        url = f"{url}?{target_param}"
-                public_url = url
-            elapsed = time.time() - step_start
-            self.console.print(f"[green]Public URL:[/green] {public_url} [dim]({elapsed:.1f}s)[/dim]")
-        except Exception as e:
-            self.console.print(f"[dim]Public URL not available: {e}[/dim]")
+                network_connected = connect_response.get("success", False)
+                elapsed = time.time() - step_start
+                self.console.print(f"[green]Network connected:[/green] {network_connected} [dim]({elapsed:.1f}s)[/dim]")
+            else:
+                self.console.print("[dim]Skipping network connection (--no-network)[/dim]")
 
-        # Setup SSH. Look up provider so the generated ssh_config uses the
-        # right User — root for firecracker/Linux, plato for QEMU/Windows.
-        # Falls back to root when the field is missing (older API rollouts),
-        # which keeps the legacy firecracker path working.
-        # If the caller passed --provider explicitly, use that; otherwise look
-        # it up from job info (covers artifact/simulator modes where the
-        # provider is determined by the backend).
-        self.console.print("[yellow]Setting up SSH...[/yellow]")
-        step_start = time.time()
-        ssh_config_path = None
-        try:
-            if provider is None:
-                try:
-                    job_info = jobs_get_job_info.sync(
+            # Artifact mode needs simulator_name for the public URL; required
+            # from here even if the best-effort lookup above was skipped.
+            if not simulator_name:
+                simulator_name = self._lookup_simulator_name(session_id, job_id, attached)
+                if not simulator_name:
+                    raise ValueError(f"No simulator name found in session details for job ID {job_id}")
+
+            # Get public URL with router target formatting (logic inlined)
+            public_url = None
+            try:
+                urls: list[str | None] = []
+                if attached:
+                    job_url_response = jobs_public_url.sync(
                         client=self._http,
                         job_id=job_id,
                         x_api_key=self.api_key,
                     )
-                    provider = getattr(job_info, "provider", None) or (
-                        job_info.model_dump().get("provider") if hasattr(job_info, "model_dump") else None
+                    if job_url_response:
+                        urls.append(job_url_response.url)
+                else:
+                    url_response = sessions_get_public_url.sync(
+                        client=self._http,
+                        session_id=session_id,
+                        x_api_key=self.api_key,
                     )
-                except Exception as e:
-                    # Non-fatal: provider lookup failure → fall through with root user.
-                    self.console.print(f"[dim]Provider lookup failed (defaulting to firecracker): {e}[/dim]")
-
-            install_user = ssh_user_for_provider(provider)
-            public_key, private_key_path = _generate_ssh_key_pair(session_id[:8], Path(self.working_dir))
-
-            # ``username`` is advisory — the v2 add_ssh_key endpoint enforces
-            # the correct user server-side, but we send the right value so
-            # audit logs match what actually gets provisioned on the guest.
-            add_key_request = AddSSHKeyRequest(public_key=public_key, username=install_user)
-            if attached:
-                # Job-scoped: the session-level endpoint would install the key
-                # on every VM in the shared session.
-                key_response = jobs_add_ssh_key.sync(
-                    client=self._http,
-                    job_id=job_id,
-                    body=add_key_request,
-                    x_api_key=self.api_key,
-                )
-                key_added = key_response.success
-            else:
-                add_response = sessions_add_ssh_key.sync(
-                    client=self._http,
-                    session_id=session_id,
-                    body=add_key_request,
-                    x_api_key=self.api_key,
-                )
-                key_added = add_response.success
-
-            if key_added:
-                ssh_config_path = _generate_ssh_config(
-                    job_id,
-                    private_key_path,
-                    Path(self.working_dir),
-                    provider=provider,
-                    mesh_ip=sandbox_mesh_ip,
-                )
+                    if url_response and url_response.results:
+                        urls.extend(
+                            result.url if hasattr(result, "url") else str(result)
+                            for result in url_response.results.values()
+                        )
+                for url in urls:
+                    if not url:
+                        raise ValueError(f"No public URL found in result dict for job ID {job_id}")
+                    if "_plato_router_target=" not in url and simulator_name:
+                        target_param = f"_plato_router_target={simulator_name}.web.plato.so"
+                        if "?" in url:
+                            url = f"{url}&{target_param}"
+                        else:
+                            url = f"{url}?{target_param}"
+                    public_url = url
                 elapsed = time.time() - step_start
-                self.console.print(
-                    f"[green]SSH configured:[/green] ssh -F .plato/ssh_config sandbox [dim]({elapsed:.1f}s)[/dim]"
-                )
-            else:
-                self.console.print("[dim]SSH key upload failed[/dim]")
-        except Exception as e:
-            self.console.print(f"[dim]SSH setup failed: {e}[/dim]")
+                self.console.print(f"[green]Public URL:[/green] {public_url} [dim]({elapsed:.1f}s)[/dim]")
+            except Exception as e:
+                self.console.print(f"[dim]Public URL not available: {e}[/dim]")
 
-        # Start heartbeat. Attached sandboxes skip it: the Chronos runtime
-        # already heartbeats the shared session, and its lifetime should be
-        # bound to that session, not to a local process.
-        heartbeat_pid = None
-        if attached:
-            self.console.print("[dim]Skipping local heartbeat — lifecycle owned by the Chronos session[/dim]")
-        else:
-            self.console.print("[yellow]Starting heartbeat...[/yellow]")
+            # Setup SSH. Look up provider so the generated ssh_config uses the
+            # right User — root for firecracker/Linux, plato for QEMU/Windows.
+            # Falls back to root when the field is missing (older API rollouts),
+            # which keeps the legacy firecracker path working.
+            # If the caller passed --provider explicitly, use that; otherwise look
+            # it up from job info (covers artifact/simulator modes where the
+            # provider is determined by the backend).
+            private_key_path: str | None = None
+            ssh_config_path: str | None = None
+            self.console.print("[yellow]Setting up SSH...[/yellow]")
             step_start = time.time()
-            heartbeat_pid = _start_heartbeat_process(session_id, self.api_key)
-            elapsed = time.time() - step_start
-            if heartbeat_pid:
-                self.console.print(
-                    f"[green]Heartbeat started[/green] (pid={heartbeat_pid}) [dim]({elapsed:.1f}s)[/dim]"
-                )
-            else:
-                self.console.print("[dim]Heartbeat failed to start[/dim]")
-
-        # Convert absolute paths to relative for state storage
-        def _to_relative(abs_path: str | None) -> str | None:
-            if not abs_path or not self.working_dir:
-                return abs_path
             try:
-                return str(Path(abs_path).relative_to(self.working_dir))
-            except ValueError:
-                return abs_path  # Keep absolute if not relative to working_dir
+                if provider is None:
+                    try:
+                        job_info = jobs_get_job_info.sync(
+                            client=self._http,
+                            job_id=job_id,
+                            x_api_key=self.api_key,
+                        )
+                        provider = getattr(job_info, "provider", None) or (
+                            job_info.model_dump().get("provider") if hasattr(job_info, "model_dump") else None
+                        )
+                    except Exception as e:
+                        # Non-fatal: provider lookup failure → fall through with root user.
+                        self.console.print(f"[dim]Provider lookup failed (defaulting to firecracker): {e}[/dim]")
 
-        # Update internal state
-        rel_ssh_config = _to_relative(ssh_config_path)
-        ssh_host = "sandbox" if ssh_config_path else None
-        sandbox_state = SandboxState(
+                install_user = ssh_user_for_provider(provider)
+                public_key, private_key_path = _generate_ssh_key_pair(
+                    f"{slot_name}_{job_id[:8]}", Path(self.working_dir)
+                )
+
+                # ``username`` is advisory — the v2 add_ssh_key endpoint enforces
+                # the correct user server-side, but we send the right value so
+                # audit logs match what actually gets provisioned on the guest.
+                add_key_request = AddSSHKeyRequest(public_key=public_key, username=install_user)
+                if attached:
+                    # Job-scoped: the session-level endpoint would install the key
+                    # on every VM in the shared session.
+                    key_response = jobs_add_ssh_key.sync(
+                        client=self._http,
+                        job_id=job_id,
+                        body=add_key_request,
+                        x_api_key=self.api_key,
+                    )
+                    key_added = key_response.success
+                else:
+                    add_response = sessions_add_ssh_key.sync(
+                        client=self._http,
+                        session_id=session_id,
+                        body=add_key_request,
+                        x_api_key=self.api_key,
+                    )
+                    key_added = add_response.success
+
+                if key_added:
+                    ssh_config_path = _generate_ssh_config(
+                        job_id,
+                        private_key_path,
+                        Path(self.working_dir),
+                        provider=provider,
+                        mesh_ip=sandbox_mesh_ip,
+                        name=slot_name,
+                    )
+                    elapsed = time.time() - step_start
+                    self.console.print(
+                        f"[green]SSH configured:[/green] ssh -F .plato/ssh_config {slot_name} [dim]({elapsed:.1f}s)[/dim]"
+                    )
+                else:
+                    self.console.print("[dim]SSH key upload failed[/dim]")
+            except Exception as e:
+                self.console.print(f"[dim]SSH setup failed: {e}[/dim]")
+
+            # Convert absolute paths to relative for state storage
+            def _to_relative(abs_path: str | None) -> str | None:
+                if not abs_path or not self.working_dir:
+                    return abs_path
+                try:
+                    return str(Path(abs_path).relative_to(self.working_dir))
+                except ValueError:
+                    return abs_path  # Keep absolute if not relative to working_dir
+
+            # Update internal state. created_at/expires_at come from the intent
+            # record written before the boot wait, so the lease starts counting
+            # from creation — using commands push expires_at forward from here.
+            rel_ssh_config = _to_relative(ssh_config_path)
+            ssh_host = "sandbox" if ssh_config_path else None
+            sandbox_state = SandboxState(
+                name=slot_name,
+                session_id=session_id,
+                job_id=job_id,
+                public_url=public_url,
+                mode=mode,
+                ssh_config_path=rel_ssh_config,
+                ssh_host=ssh_host,
+                ssh_command=f"ssh -F {rel_ssh_config} {ssh_host}" if rel_ssh_config else None,
+                ssh_key_path=_to_relative(private_key_path),
+                heartbeat_pid=heartbeat_pid,
+                simulator_name=simulator_name,
+                dataset=dataset,
+                provider=provider,
+                network_connected=network_connected,
+                attached=attached,
+                chronos_session_id=chronos_session_id if attached else None,
+                mesh_ip=sandbox_mesh_ip,
+                created_at=started_at,
+                expires_at=started_at + timeout,
+                timeout=timeout,
+            )
+            if mode == "artifact":
+                sandbox_state.artifact_id = artifact_id
+            elif mode == "simulator":
+                sandbox_state.tag = tag
+            elif mode == "blank":
+                sandbox_state.cpus = cpus
+                sandbox_state.memory = memory
+                sandbox_state.disk = disk
+                sandbox_state.app_port = app_port
+                sandbox_state.messaging_port = messaging_port
+            elif mode == "config":
+                assert config_cpus is not None
+                assert config_memory is not None
+                assert config_disk is not None
+                assert config_app_port is not None
+                assert config_messaging_port is not None
+                sandbox_state.cpus = config_cpus
+                sandbox_state.memory = config_memory
+                sandbox_state.disk = config_disk
+                sandbox_state.app_port = config_app_port
+                sandbox_state.messaging_port = config_messaging_port
+
+            # Save into the named slot; this also repoints .plato/state.json at
+            # it and keeps this directory in the machine-wide index so
+            # `list --all` and `gc` can find it from anywhere.
+            self.store.save(slot_name, sandbox_state.model_dump())
+
+            total_elapsed = time.time() - total_start
+            self.console.print("")
+            self.console.print(
+                f"[bold green]Sandbox ready![/bold green] [dim](slot: {slot_name}, total: {total_elapsed:.1f}s)[/dim]"
+            )
+
+            return sandbox_state
+        except BaseException:
+            self._teardown_failed_start(slot_name, session_id, job_id, attached)
+            raise
+
+    def _teardown_failed_start(
+        self,
+        slot_name: str | None,
+        session_id: str | None,
+        job_id: str | None,
+        attached: bool,
+    ) -> None:
+        """Undo a start that failed (or was Ctrl-C'd) after the session existed.
+
+        Because the slot was written before anything slow happened, this is
+        just the ordinary teardown: close the remote half, then run the same
+        local cleanup `stop` uses. Best-effort throughout — a cleanup error
+        must not replace the failure the caller actually needs to see — and
+        anything it misses self-resolves: the heartbeat exits on its own once
+        the slot is gone (or its lease runs out), and the next command's
+        reconcile clears the rest.
+        """
+        self.console.print("[yellow]Start failed — cleaning up the partially created sandbox[/yellow]")
+        if session_id:
+            try:
+                if attached and job_id:
+                    # Closing the shared session would take the owning Chronos
+                    # session's other envs down with it.
+                    self.remove_env(session_id=session_id, job_id=job_id)
+                elif not attached:
+                    sessions_close.sync(client=self._http, session_id=session_id, x_api_key=self.api_key)
+            except Exception as exc:
+                self.console.print(
+                    f"[red]Could not close session {session_id}: {exc}. "
+                    f"Stop it with `plato sandbox stop --session-id {session_id}`[/red]"
+                )
+        if slot_name:
+            with suppress(Exception):
+                self.store.stop_local(slot_name, remove=True)
+
+    def _lookup_simulator_name(self, session_id: str, job_id: str | None, attached: bool) -> str | None:
+        """Our job's service name from session details (artifact mode learns it late)."""
+        # Note: get_session_details returns a dict, not a Pydantic model
+        session_details = get_session_details.sync(
+            client=self._http,
             session_id=session_id,
-            job_id=job_id,
-            public_url=public_url,
-            mode=mode,
-            ssh_config_path=rel_ssh_config,
-            ssh_host=ssh_host,
-            ssh_command=f"ssh -F {rel_ssh_config} {ssh_host}" if rel_ssh_config else None,
-            heartbeat_pid=heartbeat_pid,
-            simulator_name=simulator_name,
-            dataset=dataset,
-            provider=provider,
-            network_connected=network_connected,
-            attached=attached,
-            chronos_session_id=chronos_session_id if attached else None,
-            mesh_ip=sandbox_mesh_ip,
+            x_api_key=self.api_key,
         )
-        if mode == "artifact":
-            sandbox_state.artifact_id = artifact_id
-        elif mode == "simulator":
-            sandbox_state.tag = tag
-        elif mode == "blank":
-            sandbox_state.cpus = cpus
-            sandbox_state.memory = memory
-            sandbox_state.disk = disk
-            sandbox_state.app_port = app_port
-            sandbox_state.messaging_port = messaging_port
-        elif mode == "config":
-            assert config_cpus is not None
-            assert config_memory is not None
-            assert config_disk is not None
-            assert config_app_port is not None
-            assert config_messaging_port is not None
-            sandbox_state.cpus = config_cpus
-            sandbox_state.memory = config_memory
-            sandbox_state.disk = config_disk
-            sandbox_state.app_port = config_app_port
-            sandbox_state.messaging_port = config_messaging_port
-
-        # Save state to working_dir/.plato/state.json
-        with open(self.working_dir / self.PLATO_DIR / "state.json", "w") as f:
-            json.dump(sandbox_state.model_dump(), f)
-
-        total_elapsed = time.time() - total_start
-        self.console.print("")
-        self.console.print(f"[bold green]Sandbox ready![/bold green] [dim](total: {total_elapsed:.1f}s)[/dim]")
-
-        return sandbox_state
+        jobs = (
+            session_details.get("jobs") if isinstance(session_details, dict) else getattr(session_details, "jobs", None)
+        )
+        for j in jobs or []:
+            if isinstance(j, dict):
+                jid = j.get("job_id") or j.get("public_id")
+                service = j.get("service")
+            else:
+                jid = getattr(j, "job_id", None) or getattr(j, "public_id", None)
+                service = getattr(j, "service", None)
+            if attached:
+                # A shared session has other envs, so "first job with a
+                # service" would pick someone else's — match ours by id.
+                if jid == job_id and service:
+                    return str(service)
+            elif service:
+                return str(service)
+        return None
 
     def pull_config(self, artifact_id: str, dataset: str) -> dict[str, bool]:
         """Download plato-config.yml and flows.yml from the artifact API.
@@ -1338,14 +1548,20 @@ class SandboxClient:
         session_id: str,
         heartbeat_pid: int | None = None,
     ) -> CloseSessionResponse:
-        if heartbeat_pid:
-            _stop_heartbeat_process(heartbeat_pid)
+        """Close the session, then stop its heartbeat.
 
-        return sessions_close.sync(
+        In that order: killing the heartbeat first means a transient failure to
+        close leaves a VM that is still running with nothing keeping it alive,
+        so it dies ~2 minutes later for reasons the caller never sees.
+        """
+        response = sessions_close.sync(
             client=self._http,
             session_id=session_id,
             x_api_key=self.api_key,
         )
+        if heartbeat_pid:
+            stop_heartbeat(heartbeat_pid)
+        return response
 
     def remove_env(self, session_id: str, job_id: str) -> RemoveJobResponse:
         """Remove one env's job from a shared session without closing it.
@@ -1359,6 +1575,15 @@ class SandboxClient:
             body=RemoveJobRequest(job_id=job_id),
             x_api_key=self.api_key,
         )
+
+    def cleanup_slot(self, name: str, remove: bool = False) -> dict[str, bool]:
+        """Local teardown after a sandbox has been stopped remotely.
+
+        Delegates to :meth:`SandboxStore.stop_local` — the one local-teardown
+        path shared by ``stop``, ``--force``, slot reuse, failed starts and
+        ``gc``.
+        """
+        return self.store.stop_local(name, remove=remove)
 
     # CHECKED
     def status(self, session_id: str) -> SessionDetailsResponse:
@@ -1431,18 +1656,12 @@ class SandboxClient:
             x_api_key=self.api_key,
         )
 
-        # Save artifact_id to local state.json so it can be retrieved via `plato sandbox status`
+        # Save artifact_id to the sandbox slot so it can be retrieved via `plato sandbox status`
         if response.results:
             # Get the first successful artifact_id from results
             for job_id, result in response.results.items():
                 if result.success and result.artifact_id:
-                    state_path = self.working_dir / self.PLATO_DIR / "state.json"
-                    if state_path.exists():
-                        with open(state_path) as f:
-                            state = json.load(f)
-                        state["artifact_id"] = result.artifact_id
-                        with open(state_path, "w") as f:
-                            json.dump(state, f)
+                    self._record_artifact_id(result.artifact_id)
 
                     # Prefetch snapshot to all workers so VMs can boot from it immediately
                     self.console.print("[cyan]Prefetching snapshot to workers...[/cyan]")
@@ -1460,15 +1679,15 @@ class SandboxClient:
 
         return response
 
+    def _record_artifact_id(self, artifact_id: str) -> None:
+        """Record a fresh artifact on the sandbox slot this client is driving."""
+        name = self.store.resolve(self.sandbox_name)
+        if name and self.store.load(name) is not None:
+            self.store.update(name, artifact_id=artifact_id)
+
     def _record_and_prefetch_artifact(self, artifact_id: str) -> None:
-        """Save artifact_id to state.json and prefetch it to workers."""
-        state_path = self.working_dir / self.PLATO_DIR / "state.json"
-        if state_path.exists():
-            with open(state_path) as f:
-                state = json.load(f)
-            state["artifact_id"] = artifact_id
-            with open(state_path, "w") as f:
-                json.dump(state, f)
+        """Save artifact_id to the sandbox slot and prefetch it to workers."""
+        self._record_artifact_id(artifact_id)
 
         self.console.print("[cyan]Prefetching snapshot to workers...[/cyan]")
         try:
@@ -1691,12 +1910,9 @@ class SandboxClient:
         remote_path = f"/home/plato/worktree/{simulator}"
 
         # Load SSH config from state
-        state_file = self.working_dir / ".plato" / "state.json"
-        if not state_file.exists():
-            raise ValueError("No state file found - run 'plato sandbox start' first")
-
-        with open(state_file) as f:
-            state = json.load(f)
+        state = self.store.load(self.store.resolve(self.sandbox_name))
+        if state is None:
+            raise ValueError("No sandbox state found - run 'plato sandbox start' first")
 
         ssh_config_path = state.get("ssh_config_path")
         ssh_host = state.get("ssh_host", "sandbox")

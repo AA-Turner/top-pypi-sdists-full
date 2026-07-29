@@ -2,7 +2,6 @@
 // Name:        src/msw/slider.cpp
 // Purpose:     wxSlider, using trackbar control
 // Author:      Julian Smart
-// Modified by:
 // Created:     04/01/98
 // Copyright:   (c) Julian Smart 1998
 //                  Vadim Zeitlin 2004
@@ -51,8 +50,10 @@ enum
 // the gaps between the slider and the labels, in pixels
 const int HGAP = 5;
 const int VGAP = 4;
-// this value is arbitrary:
-const int TICK = 8;
+// these values are arbitrary:
+const int THUMB = 20;
+const int THUMB_BORDER = 2;
+const int TICK = 4;
 
 } // anonymous namespace
 
@@ -66,9 +67,9 @@ const int TICK = 8;
 
 void wxSlider::Init()
 {
-    m_labels = NULL;
+    m_labels = nullptr;
 
-    m_hBrushBg = NULL;
+    m_hBrushBg = nullptr;
 
     m_pageSize = 1;
     m_lineSize = 1;
@@ -149,13 +150,13 @@ bool wxSlider::Create(wxWindow *parent,
             HWND wnd = ::CreateWindow
                          (
                             wxT("STATIC"),
-                            NULL,
+                            nullptr,
                             WS_CHILD | WS_VISIBLE | SS_CENTER,
                             0, 0, 0, 0,
                             hwndParent,
                             (HMENU)wxUIntToPtr(lblid.GetValue()),
                             wxGetInstance(),
-                            NULL
+                            nullptr
                          );
 
             m_labels->Set(n, wnd, lblid);
@@ -176,15 +177,31 @@ bool wxSlider::Create(wxWindow *parent,
     SetValue(value);
     SetPageSize( wxMax(1, (maxValue - minValue)/10) );
 
-    // we need to position the labels correctly if we have them and if
-    // SetSize() hadn't been called before (when best size was determined by
-    // MSWCreateControl()) as in this case they haven't been put in place yet
-    if ( m_labels && size.x != wxDefaultCoord && size.y != wxDefaultCoord )
+    int len = 0;
+    if ( size.IsFullySpecified() )
     {
-        SetSize(size);
+        // we need to position the labels correctly if we have them and if
+        // SetSize() hadn't been called before (when best size was determined by
+        // MSWCreateControl()) as in this case they haven't been put in place yet
+        if ( m_labels )
+        {
+            SetSize(size);
+        }
+
+        // And use the thumb length appropriate for the initial size.
+        len = HasFlag(wxSL_VERTICAL) ? size.x : size.y;
+        if ( style & wxSL_TICKS )
+        {
+            len -= TICK;
+            if ( style & wxSL_BOTH )
+                len -= TICK;
+        }
+
+        len -= 2*THUMB_BORDER;
     }
 
-    Bind(wxEVT_DPI_CHANGED, &wxSlider::OnDPIChanged, this);
+    // Use the length consistent with what our DoGetBestSize() does by default.
+    SetThumbLength(len > 0 ? len : FromDIP(THUMB));
 
     return true;
 }
@@ -409,7 +426,7 @@ void wxSlider::DoMoveWindow(int x, int y, int width, int height)
     }
 
     const int thumbSize = GetThumbLength();
-    const int tickSize = FromDIP(TICK);
+    const int tickSize = TICK;
 
     int minLabelWidth,
         maxLabelWidth;
@@ -559,11 +576,9 @@ wxSize wxSlider::DoGetBestSize() const
     // this value is arbitrary:
     const int length = FromDIP(100);
 
-    // We need 2 extra pixels (which are not scaled by the DPI by the native
+    // We need extra pixels (which are not scaled by the DPI by the native
     // control) on either side to account for the focus rectangle.
-    const int thumbSize = GetThumbLength() + 4;
-
-    const int tickSize = FromDIP(TICK);
+    const int thumbSize = FromDIP(THUMB) + 2*THUMB_BORDER;
 
     int *width;
     wxSize size;
@@ -612,10 +627,10 @@ wxSize wxSlider::DoGetBestSize() const
     // need extra space to show ticks
     if ( HasFlag(wxSL_TICKS) )
     {
-        *width += tickSize;
+        *width += TICK;
         // and maybe twice as much if we show them on both sides
         if ( HasFlag(wxSL_BOTH) )
-            *width += tickSize;
+            *width += TICK;
     }
     return size;
 }
@@ -649,13 +664,14 @@ void wxSlider::MSWUpdateFontOnDPIChange(const wxSize& newDPI)
     }
 }
 
-void wxSlider::OnDPIChanged(wxDPIChangedEvent& event)
+void wxSlider::MSWBeforeDPIChangedEvent(const wxDPIChangedEvent& event)
 {
+    // We need to update the thumb before processing wxEVT_DPI_CHANGED in the
+    // user code, as it may update the slider size, which wouldn't work
+    // correctly if it still used the old thumb length.
     int thumbLen = GetThumbLength();
 
     SetThumbLength(event.ScaleX(thumbLen));
-
-    event.Skip();
 }
 
 // ----------------------------------------------------------------------------
@@ -793,17 +809,17 @@ void wxSlider::SetTick(int tickPos)
 
 WXHWND wxSlider::GetStaticMin() const
 {
-    return m_labels ? (WXHWND)(*m_labels)[SliderLabel_Min] : NULL;
+    return m_labels ? (WXHWND)(*m_labels)[SliderLabel_Min] : nullptr;
 }
 
 WXHWND wxSlider::GetStaticMax() const
 {
-    return m_labels ? (WXHWND)(*m_labels)[SliderLabel_Max] : NULL;
+    return m_labels ? (WXHWND)(*m_labels)[SliderLabel_Max] : nullptr;
 }
 
 WXHWND wxSlider::GetEditValue() const
 {
-    return m_labels ? (WXHWND)(*m_labels)[SliderLabel_Value] : NULL;
+    return m_labels ? (WXHWND)(*m_labels)[SliderLabel_Value] : nullptr;
 }
 
 WX_FORWARD_STD_METHODS_TO_SUBWINDOWS(wxSlider, wxSliderBase, m_labels)

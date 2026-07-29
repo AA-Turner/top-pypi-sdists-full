@@ -19,7 +19,7 @@ from pymc_extras.model.marginal.rewrites import (
     DEFAULT_MINIMIZER_KWARGS,
     LaplaceMarginalSubgraph,
     extract_marginal_subgraph,
-    marginal_rewrites_db,
+    marginal_ir_rewrites_db,
 )
 
 
@@ -186,8 +186,14 @@ def laplace_marginal(fgraph, node):
     # of the OpFromGraph (popped again by the logp implementation)
     inputs, outputs = extract_marginal_subgraph(node)
 
+    # Q may coincide with another boundary input (e.g. Q=tau where tau is also a
+    # parameter of the marginalized RV). OpFromGraph requires distinct inputs, and
+    # the inner graph never uses Q, so stand in a dummy variable for it.
+    *rest_inputs, Q = inputs
+    ofg_inputs = [*rest_inputs, Q.type()]
+
     typed_op = MarginalLaplaceRV(
-        inputs=inputs,
+        inputs=ofg_inputs,
         outputs=outputs,
         marginalized_name=op.marginalized_name,
         marginalized_dims=op.marginalized_dims,
@@ -201,4 +207,4 @@ def laplace_marginal(fgraph, node):
     return new_outputs[: len(node.outputs)]
 
 
-marginal_rewrites_db.register("laplace_marginal", laplace_marginal, "basic")
+marginal_ir_rewrites_db.register("laplace_marginal", laplace_marginal, "basic")

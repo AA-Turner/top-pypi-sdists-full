@@ -11,11 +11,13 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
+from enum import Enum
 import json
 import os
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Tuple, Type, Union, cast
 
+from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic_settings.sources import EnvSettingsSource, PydanticBaseSettingsSource
 
@@ -28,6 +30,10 @@ except ImportError:
     from pydantic_settings.sources.utils import parse_env_vars  # type: ignore[no-redef,unused-ignore]
 
 _RuntimeParamPayload = Union[str, float, bool, None]
+
+DEFAULT_DATAROBOT_ENDPOINT = "https://app.datarobot.com/api/v2"
+DEFAULT_MODEL_NAME_FOR_DEPLOYED_LLM = "datarobot-deployed-llm"
+DEFAULT_LLM_NAME = "llm"
 
 
 def getenv(name: str, default: Optional[str] = None) -> _RuntimeParamPayload:
@@ -166,23 +172,28 @@ class GetenvSettingsSource(EnvSettingsSource):  # type: ignore[misc,unused-ignor
 
 class DataRobotAppFrameworkBaseSettings(BaseSettings):  # type: ignore[misc,unused-ignore]
     """
-    Base settings class that uses custom source priority:
-    1. env variables (including Runtime Parameters)
-    2. .env file
-    3. file_secrets
-    4. pulumi_config.json (fallback)
+    Base settings class that reads each setting from the first source that defines it:
 
-    Sample usage:
+    1. Environment variables, including runtime parameters
+    2. The ``.env`` file
+    3. File secrets
+    4. ``pulumi_config.json`` (fallback)
 
-    class Config(DataRobotAppFrameworkBaseSettings):
-        my_variable: str = "default_value"
-        another_variable: Optional[int]
-    config = Config()
-    assert config.my_variable == "value_from_env_or_pulumi_or_default"
+    However a variable is set, it is picked up, so the same settings class works both
+    locally and once deployed in DataRobot. This covers credentials and plain variables
+    for runtime parameters in both custom applications and custom models.
 
-    Now, however the variable is set, it will pull it in working both locally and once
-    deployed in DataRobot to support credentials and basic variables for RuntimeParameters
-    in both Custom Applications and Custom Models.
+    Examples
+    --------
+    .. code-block:: python
+
+        class Config(DataRobotAppFrameworkBaseSettings):
+            my_variable: str = "default_value"
+            another_variable: Optional[int]
+
+
+        config = Config()
+        assert config.my_variable == "value_from_env_or_pulumi_or_default"
     """
 
     @classmethod
@@ -207,3 +218,167 @@ class DataRobotAppFrameworkBaseSettings(BaseSettings):  # type: ignore[misc,unus
         env_file=".env",
         extra="ignore",
     )
+
+    def resolve_datarobot_endpoint(self) -> str:
+        """Resolve the DataRobot endpoint from this config, or fall back to the public default."""
+        # This base class declares no fields of its own, so the resolvers read the
+        # subclass's fields through `getattr` with a default.
+        endpoint = getattr(self, "datarobot_endpoint", None)
+        return endpoint or DEFAULT_DATAROBOT_ENDPOINT
+
+    def resolve_datarobot_api_token(self) -> Optional[str]:
+        """Resolve the DataRobot API token from this config, treating an empty value as unset."""
+        return getattr(self, "datarobot_api_token", None) or None
+
+    def resolve_llm_config(self, name: str = DEFAULT_LLM_NAME) -> "LLMConfig":
+        """Build the config for one named LLM instance from this settings object.
+
+        Call this once per configured LLM to support more than one LLM in a single app.
+
+        Parameters
+        ----------
+        name : str
+            Name of the LLM component instance, used as the prefix of its
+            ``{name}_*`` fields. Defaults to ``"llm"``.
+
+        Returns
+        -------
+        LLMConfig
+            That instance's routing fields, combined with the endpoint and API token
+            resolved from this config.
+        """
+        return LLMConfig(
+            datarobot_endpoint=self.resolve_datarobot_endpoint(),
+            datarobot_api_token=self.resolve_datarobot_api_token(),
+            llm_deployment_id=getattr(self, f"{name}_deployment_id", None),
+            llm_nim_deployment_id=getattr(self, f"{name}_nim_deployment_id", None),
+            llm_use_datarobot_llm_gateway=getattr(self, f"{name}_use_datarobot_llm_gateway", True),
+            llm_default_model=getattr(self, f"{name}_default_model", None),
+        )
+
+
+class LLMType(str, Enum):
+    """How an :class:`LLMConfig` routes its requests."""
+
+    GATEWAY = "gateway"
+    DEPLOYMENT = "deployment"
+    NIM = "nim"
+    EXTERNAL = "external"
+
+
+_DATAROBOT_MODEL_PREFIX = "datarobot/"
+_API_V2_SUFFIX = "/api/v2"
+
+
+def _with_datarobot_prefix(model_name: str) -> str:
+    if model_name.startswith(_DATAROBOT_MODEL_PREFIX):
+        return model_name
+    return _DATAROBOT_MODEL_PREFIX + model_name
+
+
+def _without_datarobot_prefix(model_name: str) -> str:
+    if model_name.startswith(_DATAROBOT_MODEL_PREFIX):
+        return model_name[len(_DATAROBOT_MODEL_PREFIX) :]
+    return model_name
+
+
+def deployment_url(deployment_id: str, datarobot_endpoint: str) -> str:
+    return f"{datarobot_endpoint}/deployments/{deployment_id}/chat/completions"
+
+
+def llm_gateway_url(datarobot_endpoint: str) -> str:
+    if datarobot_endpoint.endswith(_API_V2_SUFFIX):
+        return datarobot_endpoint[: -len(_API_V2_SUFFIX)]
+    return datarobot_endpoint
+
+
+class LLMConfig(BaseModel):
+    """Resolved connection parameters for a single LLM instance.
+
+    An app can hold one of these per configured LLM. Each carries the routing fields
+    for its own LLM plus a copy of the DataRobot endpoint and API token, so building
+    a client from it never requires reading a global config.
+
+    Attributes
+    ----------
+    datarobot_endpoint : str or None
+        DataRobot API endpoint. Defaults to ``DEFAULT_DATAROBOT_ENDPOINT`` when unset.
+    datarobot_api_token : str or None
+        DataRobot API token used to authenticate LLM requests.
+    llm_deployment_id : str or None
+        ID of the deployment serving the LLM, when routing to a deployment.
+    llm_nim_deployment_id : str or None
+        ID of the deployment serving a NIM model, when routing to a NIM.
+    llm_use_datarobot_llm_gateway : bool
+        Whether to route through the DataRobot LLM gateway. Takes precedence over both
+        deployment IDs. Defaults to ``True``.
+    llm_default_model : str or None
+        Model name to request. Defaults to ``DEFAULT_MODEL_NAME_FOR_DEPLOYED_LLM``.
+
+    Notes
+    -----
+    This is intentionally a plain model rather than a
+    :class:`DataRobotAppFrameworkBaseSettings` subclass. The settings class is the
+    single app-wide source of configuration, so keeping ``LLMConfig`` separate is what
+    lets one app configure several LLMs, including fallbacks.
+    """
+
+    datarobot_endpoint: Optional[str] = None
+    datarobot_api_token: Optional[str] = None
+    llm_deployment_id: Optional[str] = None
+    llm_nim_deployment_id: Optional[str] = None
+    llm_use_datarobot_llm_gateway: bool = True
+    llm_default_model: Optional[str] = None
+
+    def get_llm_type(self) -> LLMType:
+        """Report which route this config uses, checking the routing fields in precedence order."""
+        if self.llm_use_datarobot_llm_gateway:
+            return LLMType.GATEWAY
+        elif self.llm_deployment_id:
+            return LLMType.DEPLOYMENT
+        elif self.llm_nim_deployment_id:
+            return LLMType.NIM
+        else:
+            return LLMType.EXTERNAL
+
+    def to_litellm_params(self) -> Dict[str, Any]:
+        """Render this config as a ``litellm_params`` entry for a ``litellm.Router`` model list.
+
+        Returns
+        -------
+        dict
+            The ``litellm`` connection parameters: ``model``, ``api_key``, and, for every
+            route other than an external provider, ``api_base``.
+        """
+        api_key = self.datarobot_api_token
+        endpoint = self.datarobot_endpoint or DEFAULT_DATAROBOT_ENDPOINT
+        model_name = self.llm_default_model or DEFAULT_MODEL_NAME_FOR_DEPLOYED_LLM
+        llm_type = self.get_llm_type()
+
+        if llm_type == LLMType.GATEWAY:
+            return {
+                "model": _with_datarobot_prefix(model_name),
+                "api_base": llm_gateway_url(endpoint),
+                "api_key": api_key,
+            }
+        elif llm_type == LLMType.DEPLOYMENT:
+            # get_llm_type only returns DEPLOYMENT when this field is set, but that
+            # narrowing does not survive the call, so assert it for mypy.
+            assert self.llm_deployment_id is not None
+            return {
+                "model": _with_datarobot_prefix(model_name),
+                "api_base": deployment_url(self.llm_deployment_id, endpoint),
+                "api_key": api_key,
+            }
+        elif llm_type == LLMType.NIM:
+            assert self.llm_nim_deployment_id is not None
+            return {
+                "model": _with_datarobot_prefix(model_name),
+                "api_base": deployment_url(self.llm_nim_deployment_id, endpoint),
+                "api_key": api_key,
+            }
+        else:  # EXTERNAL
+            return {
+                "model": _without_datarobot_prefix(model_name),
+                "api_key": api_key,
+            }

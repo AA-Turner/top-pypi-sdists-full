@@ -16,7 +16,7 @@ from db_contrib_tool.clients.resmoke_proxy import ResmokeProxy
 from db_contrib_tool.config import (
     CONTINUOUS_RELEASE_ALIAS,
     LTS_RELEASE_ALIAS,
-    PATCH_RELEASE_ALIAS,
+    LAST_PATCH_RELEASE_ALIAS,
     WINDOWS_BIN_PATHS_FILE,
     DownloadTarget,
 )
@@ -158,8 +158,8 @@ class SetupReproOrchestrator:
         elif version in [LTS_RELEASE_ALIAS, CONTINUOUS_RELEASE_ALIAS]:
             request_type = RequestType.MONGO_RELEASE_VERSION
             identifier = self._get_release_version(version)
-        elif version == PATCH_RELEASE_ALIAS:
-            request_type = RequestType.MONGO_PATCH_VERSION
+        elif version == LAST_PATCH_RELEASE_ALIAS:
+            request_type = RequestType.MONGO_LAST_PATCH_VERSION
             identifier = self._get_release_version(version)
         elif version in KNOWN_BRANCHES or BRANCH_RE.match(version):
             request_type = RequestType.GIT_BRANCH
@@ -172,9 +172,9 @@ class SetupReproOrchestrator:
         elif self.evg_service.query_version_existence(version):
             request_type = RequestType.EVG_VERSION
 
-        if bin_suffix in [LTS_RELEASE_ALIAS, CONTINUOUS_RELEASE_ALIAS, PATCH_RELEASE_ALIAS]:
+        if bin_suffix in [LTS_RELEASE_ALIAS, CONTINUOUS_RELEASE_ALIAS, LAST_PATCH_RELEASE_ALIAS]:
             resolved_version = self._get_release_version(bin_suffix)
-            if bin_suffix == PATCH_RELEASE_ALIAS:
+            if bin_suffix == LAST_PATCH_RELEASE_ALIAS:
                 # last-patch resolves to a full patch version (e.g. "9.0.0-rc1010"); use
                 # only the major.minor portion for the binary suffix (e.g. "9.0").
                 match = re.match(r"\d+\.\d+", resolved_version)
@@ -210,14 +210,14 @@ class SetupReproOrchestrator:
         :param version_alias: Alias like `last-lts`, `last-continuous`, `last-patch`.
         :return: Release version.
         """
-        if version_alias == PATCH_RELEASE_ALIAS:
+        if version_alias == LAST_PATCH_RELEASE_ALIAS:
             self.resmoke_proxy.enable_last_patch()
         multiversionconstants = self.resmoke_proxy.get_multiversion_constants()
 
         releases = {
             LTS_RELEASE_ALIAS: multiversionconstants.last_lts_fcv,
             CONTINUOUS_RELEASE_ALIAS: multiversionconstants.last_continuous_fcv,
-            PATCH_RELEASE_ALIAS: multiversionconstants.last_patch_version,
+            LAST_PATCH_RELEASE_ALIAS: multiversionconstants.last_patch_version,
         }
 
         release_version = releases[version_alias]

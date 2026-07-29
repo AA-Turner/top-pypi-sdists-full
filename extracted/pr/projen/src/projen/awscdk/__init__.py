@@ -453,8 +453,8 @@ class AwsCdkConstructLibrary(
         :param check_licenses: (experimental) Configure which licenses should be deemed acceptable for use by dependencies. This setting will cause the build to fail, if any prohibited or not allowed licenses ares encountered. Default: - no license checks are run during the build and all licenses will be accepted
         :param code_cov: (experimental) Define a GitHub workflow step for sending code coverage metrics to https://codecov.io/ Uses codecov/codecov-action@v5 By default, OIDC auth is used. Alternatively a token can be provided via ``codeCovTokenSecret``. Default: false
         :param code_cov_token_secret: (experimental) Define the secret name for a specified https://codecov.io/ token. Default: - OIDC auth is used
-        :param copyright_owner: (experimental) License copyright owner. Default: - defaults to the value of authorName or "" if ``authorName`` is undefined.
-        :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
+        :param copyright_owner: (experimental) License copyright owner. This value is only used if the selected license text contains the ``$copyright_owner`` placeholder. For example, it has no effect on the MPL-2.0 license text. Default: - defaults to the value of authorName or "" if ``authorName`` is undefined.
+        :param copyright_period: (experimental) The copyright years to put in the LICENSE file. This value is only used if the selected license text contains the ``$copyright_period`` placeholder. For example, it has no effect on the MPL-2.0 license text. Default: - current year
         :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
@@ -2103,8 +2103,8 @@ class AwsCdkTypeScriptApp(
         :param check_licenses: (experimental) Configure which licenses should be deemed acceptable for use by dependencies. This setting will cause the build to fail, if any prohibited or not allowed licenses ares encountered. Default: - no license checks are run during the build and all licenses will be accepted
         :param code_cov: (experimental) Define a GitHub workflow step for sending code coverage metrics to https://codecov.io/ Uses codecov/codecov-action@v5 By default, OIDC auth is used. Alternatively a token can be provided via ``codeCovTokenSecret``. Default: false
         :param code_cov_token_secret: (experimental) Define the secret name for a specified https://codecov.io/ token. Default: - OIDC auth is used
-        :param copyright_owner: (experimental) License copyright owner. Default: - defaults to the value of authorName or "" if ``authorName`` is undefined.
-        :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
+        :param copyright_owner: (experimental) License copyright owner. This value is only used if the selected license text contains the ``$copyright_owner`` placeholder. For example, it has no effect on the MPL-2.0 license text. Default: - defaults to the value of authorName or "" if ``authorName`` is undefined.
+        :param copyright_period: (experimental) The copyright years to put in the LICENSE file. This value is only used if the selected license text contains the ``$copyright_period`` placeholder. For example, it has no effect on the MPL-2.0 license text. Default: - current year
         :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
@@ -5668,8 +5668,8 @@ class AwsCdkConstructLibraryOptions(
         :param check_licenses: (experimental) Configure which licenses should be deemed acceptable for use by dependencies. This setting will cause the build to fail, if any prohibited or not allowed licenses ares encountered. Default: - no license checks are run during the build and all licenses will be accepted
         :param code_cov: (experimental) Define a GitHub workflow step for sending code coverage metrics to https://codecov.io/ Uses codecov/codecov-action@v5 By default, OIDC auth is used. Alternatively a token can be provided via ``codeCovTokenSecret``. Default: false
         :param code_cov_token_secret: (experimental) Define the secret name for a specified https://codecov.io/ token. Default: - OIDC auth is used
-        :param copyright_owner: (experimental) License copyright owner. Default: - defaults to the value of authorName or "" if ``authorName`` is undefined.
-        :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
+        :param copyright_owner: (experimental) License copyright owner. This value is only used if the selected license text contains the ``$copyright_owner`` placeholder. For example, it has no effect on the MPL-2.0 license text. Default: - defaults to the value of authorName or "" if ``authorName`` is undefined.
+        :param copyright_period: (experimental) The copyright years to put in the LICENSE file. This value is only used if the selected license text contains the ``$copyright_period`` placeholder. For example, it has no effect on the MPL-2.0 license text. Default: - current year
         :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
@@ -7736,6 +7736,10 @@ class AwsCdkConstructLibraryOptions(
     def copyright_owner(self) -> typing.Optional[builtins.str]:
         '''(experimental) License copyright owner.
 
+        This value is only used if the selected license text contains the
+        ``$copyright_owner`` placeholder. For example, it has no effect on the
+        MPL-2.0 license text.
+
         :default: - defaults to the value of authorName or "" if ``authorName`` is undefined.
 
         :stability: experimental
@@ -7746,6 +7750,10 @@ class AwsCdkConstructLibraryOptions(
     @builtins.property
     def copyright_period(self) -> typing.Optional[builtins.str]:
         '''(experimental) The copyright years to put in the LICENSE file.
+
+        This value is only used if the selected license text contains the
+        ``$copyright_period`` placeholder. For example, it has no effect on the
+        MPL-2.0 license text.
 
         :default: - current year
 
@@ -11548,8 +11556,8 @@ class AwsCdkTypeScriptAppOptions(
         :param check_licenses: (experimental) Configure which licenses should be deemed acceptable for use by dependencies. This setting will cause the build to fail, if any prohibited or not allowed licenses ares encountered. Default: - no license checks are run during the build and all licenses will be accepted
         :param code_cov: (experimental) Define a GitHub workflow step for sending code coverage metrics to https://codecov.io/ Uses codecov/codecov-action@v5 By default, OIDC auth is used. Alternatively a token can be provided via ``codeCovTokenSecret``. Default: false
         :param code_cov_token_secret: (experimental) Define the secret name for a specified https://codecov.io/ token. Default: - OIDC auth is used
-        :param copyright_owner: (experimental) License copyright owner. Default: - defaults to the value of authorName or "" if ``authorName`` is undefined.
-        :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
+        :param copyright_owner: (experimental) License copyright owner. This value is only used if the selected license text contains the ``$copyright_owner`` placeholder. For example, it has no effect on the MPL-2.0 license text. Default: - defaults to the value of authorName or "" if ``authorName`` is undefined.
+        :param copyright_period: (experimental) The copyright years to put in the LICENSE file. This value is only used if the selected license text contains the ``$copyright_period`` placeholder. For example, it has no effect on the MPL-2.0 license text. Default: - current year
         :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
@@ -13581,6 +13589,10 @@ class AwsCdkTypeScriptAppOptions(
     def copyright_owner(self) -> typing.Optional[builtins.str]:
         '''(experimental) License copyright owner.
 
+        This value is only used if the selected license text contains the
+        ``$copyright_owner`` placeholder. For example, it has no effect on the
+        MPL-2.0 license text.
+
         :default: - defaults to the value of authorName or "" if ``authorName`` is undefined.
 
         :stability: experimental
@@ -13591,6 +13603,10 @@ class AwsCdkTypeScriptAppOptions(
     @builtins.property
     def copyright_period(self) -> typing.Optional[builtins.str]:
         '''(experimental) The copyright years to put in the LICENSE file.
+
+        This value is only used if the selected license text contains the
+        ``$copyright_period`` placeholder. For example, it has no effect on the
+        MPL-2.0 license text.
 
         :default: - current year
 

@@ -1,10 +1,13 @@
 """Test for issue #552: stdio_client hangs on Windows."""
 
+import json
 import sys
 from textwrap import dedent
 
 import anyio
 import pytest
+from mcp_types import InitializeResult
+from mcp_types.version import LATEST_HANDSHAKE_VERSION
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
@@ -12,38 +15,31 @@ from mcp.client.stdio import stdio_client
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows-specific test")  # pragma: no cover
 @pytest.mark.anyio
-async def test_windows_stdio_client_with_session():
-    """
-    Test the exact scenario from issue #552: Using ClientSession with stdio_client.
+async def test_initialize_succeeds_and_shutdown_returns_after_the_server_exits_mid_session():
+    """Initialize completes and shutdown returns when the server exits mid-session.
 
-    This reproduces the original bug report where stdio_client hangs on Windows 11
-    when used with ClientSession.
+    This is the proactor pipe scenario that hung on Windows 11 (issue #552). The positive
+    assertion matters: a session that errors quickly would also "not hang".
     """
-    # Create a minimal MCP server that responds to initialization
-    server_script = dedent("""
+    # A minimal server: answer initialize correctly, then exit.
+    server_script = dedent(f"""
         import json
         import sys
 
-        # Read initialization request
         line = sys.stdin.readline()
+        request = json.loads(line)
 
-        # Send initialization response
-        response = {
+        response = {{
             "jsonrpc": "2.0",
-            "id": 1,
-            "result": {
-                "protocolVersion": "1.0",
-                "capabilities": {},
-                "serverInfo": {"name": "test-server", "version": "1.0"}
-            }
-        }
+            "id": request["id"],
+            "result": {{
+                "protocolVersion": {json.dumps(LATEST_HANDSHAKE_VERSION)},
+                "capabilities": {{}},
+                "serverInfo": {{"name": "test-server", "version": "1.0"}}
+            }}
+        }}
         print(json.dumps(response))
         sys.stdout.flush()
-
-        # Exit after a short delay
-        import time
-        time.sleep(0.1)
-        sys.exit(0)
     """).strip()
 
     params = StdioServerParameters(
@@ -51,14 +47,11 @@ async def test_windows_stdio_client_with_session():
         args=["-c", server_script],
     )
 
-    # This is the exact pattern from the bug report
     with anyio.fail_after(10):
-        try:
-            async with stdio_client(params) as (read, write):
-                async with ClientSession(read, write) as session:
-                    await session.initialize()
-                # Should exit ClientSession without hanging
-            # Should exit stdio_client without hanging
-        except Exception:
-            # Connection errors are expected when process exits
-            pass
+        async with stdio_client(params) as (read, write):
+            async with ClientSession(read, write) as session:
+                result = await session.initialize()
+                assert isinstance(result, InitializeResult)
+                assert result.server_info.name == "test-server"
+            # Exiting ClientSession and stdio_client must not hang even though the
+            # server process is already gone.

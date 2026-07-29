@@ -59012,7 +59012,10 @@ class EstimizeRelease(QuantConnect.Data.BaseData):
     """Financial releases for the specified company"""
 
     DATA_SOURCE_ID: int
-    """Data source ID"""
+    """
+    Data source ID. Also the protobuf sub type ID of this type,
+    which has to be unique across datasets.
+    """
 
     @property
     def id(self) -> str:
@@ -59158,6 +59161,14 @@ class EstimizeRelease(QuantConnect.Data.BaseData):
         """
         ...
 
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        
+        :returns: true.
+        """
+        ...
+
     def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
         Reader converts each line of the data source into BaseData objects.
@@ -59233,6 +59244,161 @@ class ExtractAlphaFiscalPeriod(System.Object):
     @property
     def quarterly(self) -> bool:
         """Returns true if the fiscal period is for a single quarter only"""
+        ...
+
+
+class EstimizeEstimateDataPoint(QuantConnect.Data.BaseData):
+    """
+    A single financial estimate made by one analyst for the specified company.
+    Analysts publish estimates independently, so several can share a timestamp and
+    are delivered to algorithms grouped in an EstimizeEstimate.
+    """
+
+    @property
+    def id(self) -> str:
+        """The unique identifier for the estimate"""
+        ...
+
+    @id.setter
+    def id(self, value: str) -> None:
+        ...
+
+    @property
+    def ticker(self) -> str:
+        """The ticker of the company being estimated"""
+        ...
+
+    @ticker.setter
+    def ticker(self, value: str) -> None:
+        ...
+
+    @property
+    def fiscal_year(self) -> int:
+        """The fiscal year of the quarter being estimated"""
+        ...
+
+    @fiscal_year.setter
+    def fiscal_year(self, value: int) -> None:
+        ...
+
+    @property
+    def fiscal_quarter(self) -> int:
+        """The fiscal quarter of the quarter being estimated"""
+        ...
+
+    @fiscal_quarter.setter
+    def fiscal_quarter(self, value: int) -> None:
+        ...
+
+    @property
+    def created_at(self) -> datetime.datetime:
+        """The time that the estimate was created (UTC)"""
+        ...
+
+    @created_at.setter
+    def created_at(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def eps(self) -> typing.Optional[float]:
+        """The estimated earnings per share for the company in the specified fiscal quarter"""
+        ...
+
+    @eps.setter
+    def eps(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def revenue(self) -> typing.Optional[float]:
+        """The estimated revenue for the company in the specified fiscal quarter"""
+        ...
+
+    @revenue.setter
+    def revenue(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def user_name(self) -> str:
+        """The unique identifier for the author of the estimate"""
+        ...
+
+    @user_name.setter
+    def user_name(self, value: str) -> None:
+        ...
+
+    @property
+    def analyst_id(self) -> str:
+        """The author of the estimate"""
+        ...
+
+    @analyst_id.setter
+    def analyst_id(self, value: str) -> None:
+        ...
+
+    @property
+    def flagged(self) -> bool:
+        """
+        A boolean value which indicates whether we have flagged this estimate internally as erroneous
+        (spam, wrong accounting standard, etc)
+        """
+        ...
+
+    @flagged.setter
+    def flagged(self, value: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Required for successful Json.NET deserialization"""
+        ...
+
+    @overload
+    def __init__(self, csv_line: str) -> None:
+        """
+        Creates a new instance from a CSV line
+        
+        :param csv_line: CSV line
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The DateTimeZone of this data type.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects.
+        
+        :param config: Subscription data config setup object
+        :param line: Content of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Estimize Estimate object.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Formats a string with the Estimize Estimate information."""
         ...
 
 
@@ -59381,8 +59547,8 @@ class ExtractAlphaTrueBeat(QuantConnect.Data.BaseData):
         ...
 
 
-class EstimizeConsensus(QuantConnect.Data.BaseData):
-    """Consensus of the specified release"""
+class EstimizeConsensus(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Consensuses of the specified release."""
 
     class ConsensusSource(IntEnum):
         """Source of the Consensus"""
@@ -59409,128 +59575,20 @@ class EstimizeConsensus(QuantConnect.Data.BaseData):
         """Consensus on revenue value"""
 
     DATA_SOURCE_ID: int
-    """Data source ID"""
+    """
+    Data source ID. Also the protobuf sub type ID of EstimizeConsensusDataPoint,
+    which has to be unique across datasets.
+    """
 
-    @property
-    def id(self) -> str:
-        """The unique identifier for the estimate"""
-        ...
-
-    @id.setter
-    def id(self, value: str) -> None:
-        ...
-
-    @property
-    def source(self) -> typing.Optional[QuantConnect.DataSource.EstimizeConsensus.ConsensusSource]:
-        """Consensus source (Wall Street or Estimize)"""
-        ...
-
-    @source.setter
-    def source(self, value: typing.Optional[QuantConnect.DataSource.EstimizeConsensus.ConsensusSource]) -> None:
-        ...
-
-    @property
-    def type(self) -> typing.Optional[QuantConnect.DataSource.EstimizeConsensus.ConsensusType]:
-        """Type of Consensus (EPS or Revenue)"""
-        ...
-
-    @type.setter
-    def type(self, value: typing.Optional[QuantConnect.DataSource.EstimizeConsensus.ConsensusType]) -> None:
-        ...
-
-    @property
-    def mean(self) -> typing.Optional[float]:
-        """The mean of the distribution of estimates (the "consensus")"""
-        ...
-
-    @mean.setter
-    def mean(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def value(self) -> float:
-        """The mean of the distribution of estimates (the "consensus")"""
-        ...
-
-    @property
-    def high(self) -> typing.Optional[float]:
-        """The highest estimate in the distribution"""
-        ...
-
-    @high.setter
-    def high(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def low(self) -> typing.Optional[float]:
-        """The lowest estimate in the distribution"""
-        ...
-
-    @low.setter
-    def low(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def standard_deviation(self) -> typing.Optional[float]:
-        """The standard deviation of the distribution"""
-        ...
-
-    @standard_deviation.setter
-    def standard_deviation(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def count(self) -> typing.Optional[int]:
-        """The number of estimates in the distribution"""
-        ...
-
-    @count.setter
-    def count(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def updated_at(self) -> datetime.datetime:
-        """The timestamp of this consensus (UTC)"""
-        ...
-
-    @updated_at.setter
-    def updated_at(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def fiscal_year(self) -> typing.Optional[int]:
-        """The fiscal year for the release"""
-        ...
-
-    @fiscal_year.setter
-    def fiscal_year(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def fiscal_quarter(self) -> typing.Optional[int]:
-        """The fiscal quarter for the release"""
-        ...
-
-    @fiscal_quarter.setter
-    def fiscal_quarter(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The timestamp of this consensus (UTC)"""
-        ...
-
-    @overload
     def __init__(self) -> None:
-        """Empty constructor required for successful Json.NET deserialization"""
+        """Creates a new instance"""
         ...
 
-    @overload
-    def __init__(self, csv_line: str) -> None:
+    def clone(self) -> QuantConnect.Data.BaseData:
         """
-        Creates an instance from CSV lines
+        Clones this instance
         
-        :param csv_line: CSV file
+        :returns: A new instance holding a copy of the consensuses.
         """
         ...
 
@@ -59553,15 +59611,24 @@ class EstimizeConsensus(QuantConnect.Data.BaseData):
         """
         ...
 
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        
+        :returns: true.
+        """
+        ...
+
     def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
-        Reader converts each line of the data source into BaseData objects.
+        Reader converts each line of the data source into a single consensus. Lines sharing
+        a timestamp are folded into one instance of this type by the engine.
         
         :param config: Subscription data config setup object
         :param line: Content of the source document
         :param date: Date of the requested data
         :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Estimize consensus object.
+        :returns: Estimize consensus data point.
         """
         ...
 
@@ -59574,7 +59641,7 @@ class EstimizeConsensus(QuantConnect.Data.BaseData):
         ...
 
     def to_string(self) -> str:
-        """Formats a string with the Estimize Estimate information."""
+        """Formats a string with the Estimize Consensus information."""
         ...
 
 
@@ -60063,11 +60130,12 @@ class ExtractAlphaInnovationModel(QuantConnect.Data.BaseData):
         ...
 
 
-class EstimizeEstimate(QuantConnect.Data.BaseData):
-    """Financial estimates for the specified company"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
+class EstimizeConsensusDataPoint(QuantConnect.Data.BaseData):
+    """
+    A single consensus of a release, for one source (Wall Street or Estimize) and
+    one metric (EPS or Revenue). Estimize publishes several of these for the same
+    instant, so they are delivered to algorithms grouped in an EstimizeConsensus.
+    """
 
     @property
     def id(self) -> str:
@@ -60079,100 +60147,178 @@ class EstimizeEstimate(QuantConnect.Data.BaseData):
         ...
 
     @property
-    def ticker(self) -> str:
-        """The ticker of the company being estimated"""
+    def source(self) -> typing.Optional[QuantConnect.DataSource.EstimizeConsensus.ConsensusSource]:
+        """Consensus source (Wall Street or Estimize)"""
         ...
 
-    @ticker.setter
-    def ticker(self, value: str) -> None:
+    @source.setter
+    def source(self, value: typing.Optional[QuantConnect.DataSource.EstimizeConsensus.ConsensusSource]) -> None:
         ...
 
     @property
-    def fiscal_year(self) -> int:
-        """The fiscal year of the quarter being estimated"""
+    def type(self) -> typing.Optional[QuantConnect.DataSource.EstimizeConsensus.ConsensusType]:
+        """Type of Consensus (EPS or Revenue)"""
+        ...
+
+    @type.setter
+    def type(self, value: typing.Optional[QuantConnect.DataSource.EstimizeConsensus.ConsensusType]) -> None:
+        ...
+
+    @property
+    def mean(self) -> typing.Optional[float]:
+        """The mean of the distribution of estimates (the "consensus")"""
+        ...
+
+    @mean.setter
+    def mean(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def value(self) -> float:
+        """The mean of the distribution of estimates (the "consensus")"""
+        ...
+
+    @property
+    def high(self) -> typing.Optional[float]:
+        """The highest estimate in the distribution"""
+        ...
+
+    @high.setter
+    def high(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def low(self) -> typing.Optional[float]:
+        """The lowest estimate in the distribution"""
+        ...
+
+    @low.setter
+    def low(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def standard_deviation(self) -> typing.Optional[float]:
+        """The standard deviation of the distribution"""
+        ...
+
+    @standard_deviation.setter
+    def standard_deviation(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def count(self) -> typing.Optional[int]:
+        """The number of estimates in the distribution"""
+        ...
+
+    @count.setter
+    def count(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def updated_at(self) -> datetime.datetime:
+        """The timestamp of this consensus (UTC)"""
+        ...
+
+    @updated_at.setter
+    def updated_at(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def fiscal_year(self) -> typing.Optional[int]:
+        """The fiscal year for the release"""
         ...
 
     @fiscal_year.setter
-    def fiscal_year(self, value: int) -> None:
+    def fiscal_year(self, value: typing.Optional[int]) -> None:
         ...
 
     @property
-    def fiscal_quarter(self) -> int:
-        """The fiscal quarter of the quarter being estimated"""
+    def fiscal_quarter(self) -> typing.Optional[int]:
+        """The fiscal quarter for the release"""
         ...
 
     @fiscal_quarter.setter
-    def fiscal_quarter(self, value: int) -> None:
+    def fiscal_quarter(self, value: typing.Optional[int]) -> None:
         ...
 
     @property
-    def created_at(self) -> datetime.datetime:
-        """The time that the estimate was created (UTC)"""
-        ...
-
-    @created_at.setter
-    def created_at(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def eps(self) -> typing.Optional[float]:
-        """The estimated earnings per share for the company in the specified fiscal quarter"""
-        ...
-
-    @eps.setter
-    def eps(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def revenue(self) -> typing.Optional[float]:
-        """The estimated revenue for the company in the specified fiscal quarter"""
-        ...
-
-    @revenue.setter
-    def revenue(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def user_name(self) -> str:
-        """The unique identifier for the author of the estimate"""
-        ...
-
-    @user_name.setter
-    def user_name(self, value: str) -> None:
-        ...
-
-    @property
-    def analyst_id(self) -> str:
-        """The author of the estimate"""
-        ...
-
-    @analyst_id.setter
-    def analyst_id(self, value: str) -> None:
-        ...
-
-    @property
-    def flagged(self) -> bool:
-        """
-        A boolean value which indicates whether we have flagged this estimate internally as erroneous
-        (spam, wrong accounting standard, etc)
-        """
-        ...
-
-    @flagged.setter
-    def flagged(self, value: bool) -> None:
+    def end_time(self) -> datetime.datetime:
+        """The timestamp of this consensus (UTC)"""
         ...
 
     @overload
     def __init__(self) -> None:
-        """Required for successful Json.NET deserialization"""
+        """Empty constructor required for successful Json.NET deserialization"""
         ...
 
     @overload
     def __init__(self, csv_line: str) -> None:
         """
-        Creates a new instance of EstimizeEstimate from a CSV line
+        Creates an instance from CSV lines
         
-        :param csv_line: CSV line
+        :param csv_line: CSV file
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The DateTimeZone of this data type.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects.
+        
+        :param config: Subscription data config setup object
+        :param line: Content of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Estimize consensus object.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Formats a string with the Estimize Consensus information."""
+        ...
+
+
+class EstimizeEstimate(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Financial estimates for the specified company."""
+
+    DATA_SOURCE_ID: int
+    """
+    Data source ID. Also the protobuf sub type ID of EstimizeEstimateDataPoint,
+    which has to be unique across datasets.
+    """
+
+    def __init__(self) -> None:
+        """Creates a new instance"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones this instance
+        
+        :returns: A new instance holding a copy of the estimates.
         """
         ...
 
@@ -60195,15 +60341,24 @@ class EstimizeEstimate(QuantConnect.Data.BaseData):
         """
         ...
 
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        
+        :returns: true.
+        """
+        ...
+
     def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
-        Reader converts each line of the data source into BaseData objects.
+        Reader converts each line of the data source into a single estimate. Lines sharing
+        a timestamp are folded into one instance of this type by the engine.
         
         :param config: Subscription data config setup object
         :param line: Content of the source document
         :param date: Date of the requested data
         :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Estimize Estimate object.
+        :returns: Estimize estimate data point.
         """
         ...
 

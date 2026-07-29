@@ -2,7 +2,6 @@
 // Name:        wx/stattext.h
 // Purpose:     wxStaticText base header
 // Author:      Julian Smart
-// Modified by:
 // Created:
 // Copyright:   (c) Julian Smart
 // Licence:     wxWindows licence
@@ -21,7 +20,7 @@
  * wxStaticText flags
  */
 #define wxST_NO_AUTORESIZE         0x0001
-// free 0x0002 bit
+#define wxST_WRAP                  0x0002
 #define wxST_ELLIPSIZE_START       0x0004
 #define wxST_ELLIPSIZE_MIDDLE      0x0008
 #define wxST_ELLIPSIZE_END         0x0010
@@ -34,7 +33,7 @@ extern WXDLLIMPEXP_DATA_CORE(const char) wxStaticTextNameStr[];
 class WXDLLIMPEXP_CORE wxStaticTextBase : public wxControl
 {
 public:
-    wxStaticTextBase() { }
+    wxStaticTextBase() = default;
 
     // wrap the text of the control so that no line is longer than the given
     // width (if possible: this function won't break words)
@@ -42,8 +41,15 @@ public:
     void Wrap(int width);
 
     // overridden base virtuals
-    virtual bool AcceptsFocus() const wxOVERRIDE { return false; }
-    virtual bool HasTransparentBackground() wxOVERRIDE { return true; }
+    virtual wxSize
+    GetMinSizeFromKnownDirection(int direction,
+                                 int size,
+                                 int availableOtherDir) override;
+
+    virtual bool AcceptsFocus() const override { return false; }
+    virtual bool HasTransparentBackground() override { return true; }
+
+    virtual void SetWindowStyleFlag(long style) override;
 
     bool IsEllipsized() const
     {
@@ -53,7 +59,7 @@ public:
 protected:      // functions required for wxST_ELLIPSIZE_* support
 
     // choose the default border for this window
-    virtual wxBorder GetDefaultBorder() const wxOVERRIDE { return wxBORDER_NONE; }
+    virtual wxBorder GetDefaultBorder() const override { return wxBORDER_NONE; }
 
     // Calls Ellipsize() on the real label if necessary. Unlike GetLabelText(),
     // keeps the mnemonics instead of removing them.
@@ -72,6 +78,23 @@ protected:      // functions required for wxST_ELLIPSIZE_* support
     // for the new size. Calls WXSetVisibleLabel() to actually update the
     // display.
     void UpdateLabel();
+
+    // This helper function must be called to update m_labelOrig instead of
+    // doing it directly.
+    //
+    // It returns false if the label didn't change.
+    bool UpdateLabelOrig(const wxString& label);
+
+
+    // If m_currentWrap is non-zero, contains the label value before wrapping it.
+    // This is used to allow re-wrapping it at different widths. Note that
+    // wxControlBase::m_labelOrig is changed when Wrap() is called and so can't
+    // be used.
+    wxString m_unwrappedLabel;
+
+    // The width at which the label is currently wrapped or 0 if not wrapped.
+    int m_currentWrap = 0;
+
 
     // These functions are platform-specific and must be implemented in the
     // platform-specific code. They must not use or update m_labelOrig.
@@ -100,12 +123,8 @@ private:
     #include "wx/univ/stattext.h"
 #elif defined(__WXMSW__)
     #include "wx/msw/stattext.h"
-#elif defined(__WXMOTIF__)
-    #include "wx/motif/stattext.h"
-#elif defined(__WXGTK20__)
-    #include "wx/gtk/stattext.h"
 #elif defined(__WXGTK__)
-    #include "wx/gtk1/stattext.h"
+    #include "wx/gtk/stattext.h"
 #elif defined(__WXMAC__)
     #include "wx/osx/stattext.h"
 #elif defined(__WXQT__)

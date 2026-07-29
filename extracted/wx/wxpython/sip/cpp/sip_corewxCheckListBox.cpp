@@ -14,21 +14,22 @@
         #include <wx/gdicmn.h>
         #include <wx/validate.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/font.h>
         #include <wx/colour.h>
         #include <wx/dc.h>
         #include <wx/event.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -47,6 +48,15 @@
         wxArrayInt* array = new wxArrayInt;
         self->GetSelections(*array);
         return array;
+    }
+    wxAccessible* _wxCheckListBox_CreateAccessible(wxCheckListBox* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
     }
 
 
@@ -75,7 +85,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -122,7 +131,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -143,7 +151,7 @@ private:
     sipwxCheckListBox(const sipwxCheckListBox &);
     sipwxCheckListBox &operator = (const sipwxCheckListBox &);
 
-    char sipPyMethods[48];
+    char sipPyMethods[47];
 };
 
 sipwxCheckListBox::sipwxCheckListBox(::wxWindow*parent, ::wxWindowID id, const ::wxPoint& pos, const ::wxSize& size, const ::wxArrayString& choices, long style, const ::wxValidator& validator, const ::wxString& name): ::wxCheckListBox(parent, id, pos, size, choices, style, validator, name), sipPySelf(SIP_NULLPTR)
@@ -171,9 +179,9 @@ bool sipwxCheckListBox::IsSelected(int n) const
     if (!sipMeth)
         return ::wxCheckListBox::IsSelected(n);
 
-    extern bool sipVH__core_147(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern bool sipVH__core_146(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    return sipVH__core_147(sipGILState, 0, sipPySelf, sipMeth, n);
+    return sipVH__core_146(sipGILState, 0, sipPySelf, sipMeth, n);
 }
 
 void sipwxCheckListBox::RemoveChild(::wxWindowBase*child)
@@ -189,9 +197,9 @@ void sipwxCheckListBox::RemoveChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 void sipwxCheckListBox::AddChild(::wxWindowBase*child)
@@ -207,9 +215,9 @@ void sipwxCheckListBox::AddChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 bool sipwxCheckListBox::ProcessEvent(::wxEvent& event)
@@ -222,9 +230,9 @@ bool sipwxCheckListBox::ProcessEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxCheckListBox::ProcessEvent(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxCheckListBox::TryBefore(::wxEvent& event)
@@ -237,9 +245,9 @@ bool sipwxCheckListBox::TryBefore(::wxEvent& event)
     if (!sipMeth)
         return ::wxCheckListBox::TryBefore(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxCheckListBox::TryAfter(::wxEvent& event)
@@ -252,9 +260,9 @@ bool sipwxCheckListBox::TryAfter(::wxEvent& event)
     if (!sipMeth)
         return ::wxCheckListBox::TryAfter(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxCheckListBox::AcceptsFocus() const
@@ -315,9 +323,9 @@ void sipwxCheckListBox::SetCanFocus(bool canFocus)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, canFocus);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, canFocus);
 }
 
 void sipwxCheckListBox::EnableVisibleFocus(bool enabled)
@@ -333,9 +341,9 @@ void sipwxCheckListBox::EnableVisibleFocus(bool enabled)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enabled);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enabled);
 }
 
 bool sipwxCheckListBox::InformFirstDirection(int direction, int size, int availableOtherDir)
@@ -348,9 +356,9 @@ bool sipwxCheckListBox::InformFirstDirection(int direction, int size, int availa
     if (!sipMeth)
         return ::wxCheckListBox::InformFirstDirection(direction, size, availableOtherDir);
 
-    extern bool sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern bool sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
 
-    return sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
+    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
 }
 
 ::wxPoint sipwxCheckListBox::GetClientAreaOrigin() const
@@ -363,9 +371,9 @@ bool sipwxCheckListBox::InformFirstDirection(int direction, int size, int availa
     if (!sipMeth)
         return ::wxCheckListBox::GetClientAreaOrigin();
 
-    extern ::wxPoint sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPoint sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxCheckListBox::HasTransparentBackground()
@@ -408,9 +416,9 @@ bool sipwxCheckListBox::ShouldInheritColours() const
     if (!sipMeth)
         return ::wxCheckListBox::GetValidator();
 
-    extern ::wxValidator* sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxValidator* sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxCheckListBox::SetValidator(const ::wxValidator& validator)
@@ -426,9 +434,9 @@ void sipwxCheckListBox::SetValidator(const ::wxValidator& validator)
         return;
     }
 
-    extern void sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
+    extern void sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
 
-    sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth, validator);
+    sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth, validator);
 }
 
 bool sipwxCheckListBox::TransferDataFromWindow()
@@ -555,9 +563,9 @@ void sipwxCheckListBox::OnInternalIdle()
     if (!sipMeth)
         return ::wxCheckListBox::GetMainWindowOfCompositeControl();
 
-    extern ::wxWindow* sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxWindow* sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxCheckListBox::DoEnable(bool enable)
@@ -573,9 +581,9 @@ void sipwxCheckListBox::DoEnable(bool enable)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enable);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enable);
 }
 
 void sipwxCheckListBox::DoGetPosition(int*x, int*y) const
@@ -591,9 +599,9 @@ void sipwxCheckListBox::DoGetPosition(int*x, int*y) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, x, y);
 }
 
 void sipwxCheckListBox::DoGetSize(int*width, int*height) const
@@ -609,9 +617,9 @@ void sipwxCheckListBox::DoGetSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxCheckListBox::DoGetClientSize(int*width, int*height) const
@@ -627,9 +635,9 @@ void sipwxCheckListBox::DoGetClientSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxCheckListBox::DoSetSize(int x, int y, int width, int height, int sizeFlags)
@@ -645,9 +653,9 @@ void sipwxCheckListBox::DoSetSize(int x, int y, int width, int height, int sizeF
         return;
     }
 
-    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
+    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
 
-    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
+    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
 }
 
 void sipwxCheckListBox::DoSetClientSize(int width, int height)
@@ -663,9 +671,9 @@ void sipwxCheckListBox::DoSetClientSize(int width, int height)
         return;
     }
 
-    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
+    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
 
-    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxCheckListBox::DoSetSizeHints(int minW, int minH, int maxW, int maxH, int incW, int incH)
@@ -681,9 +689,9 @@ void sipwxCheckListBox::DoSetSizeHints(int minW, int minH, int maxW, int maxH, i
         return;
     }
 
-    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
+    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
 
-    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
+    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
 }
 
 void sipwxCheckListBox::DoMoveWindow(int x, int y, int width, int height)
@@ -699,9 +707,9 @@ void sipwxCheckListBox::DoMoveWindow(int x, int y, int width, int height)
         return;
     }
 
-    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
+    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
 
-    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
+    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
 }
 
 void sipwxCheckListBox::DoSetWindowVariant(::wxWindowVariant variant)
@@ -717,9 +725,9 @@ void sipwxCheckListBox::DoSetWindowVariant(::wxWindowVariant variant)
         return;
     }
 
-    extern void sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
+    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
 
-    sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth, variant);
+    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, variant);
 }
 
 ::wxBorder sipwxCheckListBox::GetDefaultBorder() const
@@ -732,24 +740,9 @@ void sipwxCheckListBox::DoSetWindowVariant(::wxWindowVariant variant)
     if (!sipMeth)
         return ::wxCheckListBox::GetDefaultBorder();
 
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxBorder sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
-}
-
-::wxBorder sipwxCheckListBox::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[35]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxCheckListBox::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxCheckListBox::DoFreeze()
@@ -757,7 +750,7 @@ void sipwxCheckListBox::DoFreeze()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -775,7 +768,7 @@ void sipwxCheckListBox::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -793,7 +786,7 @@ void sipwxCheckListBox::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxCheckListBox::DoGetBestSize();
@@ -808,7 +801,7 @@ void sipwxCheckListBox::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[39]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxCheckListBox::DoGetBestClientSize();
@@ -823,14 +816,14 @@ uint sipwxCheckListBox::GetCount() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[40]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetCount);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[39]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetCount);
 
     if (!sipMeth)
         return ::wxCheckListBox::GetCount();
 
-    extern uint sipVH__core_151(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern uint sipVH__core_150(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_151(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_150(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxString sipwxCheckListBox::GetString(uint n) const
@@ -838,14 +831,14 @@ uint sipwxCheckListBox::GetCount() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[41]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetString);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[40]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetString);
 
     if (!sipMeth)
         return ::wxCheckListBox::GetString(n);
 
-    extern ::wxString sipVH__core_152(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, uint);
+    extern ::wxString sipVH__core_151(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, uint);
 
-    return sipVH__core_152(sipGILState, 0, sipPySelf, sipMeth, n);
+    return sipVH__core_151(sipGILState, 0, sipPySelf, sipMeth, n);
 }
 
 void sipwxCheckListBox::SetString(uint n, const ::wxString& s)
@@ -853,7 +846,7 @@ void sipwxCheckListBox::SetString(uint n, const ::wxString& s)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[42], &sipPySelf, SIP_NULLPTR, sipName_SetString);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[41], &sipPySelf, SIP_NULLPTR, sipName_SetString);
 
     if (!sipMeth)
     {
@@ -861,9 +854,9 @@ void sipwxCheckListBox::SetString(uint n, const ::wxString& s)
         return;
     }
 
-    extern void sipVH__core_153(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, uint, const ::wxString&);
+    extern void sipVH__core_152(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, uint, const ::wxString&);
 
-    sipVH__core_153(sipGILState, 0, sipPySelf, sipMeth, n, s);
+    sipVH__core_152(sipGILState, 0, sipPySelf, sipMeth, n, s);
 }
 
 int sipwxCheckListBox::FindString(const ::wxString& string, bool caseSensitive) const
@@ -871,14 +864,14 @@ int sipwxCheckListBox::FindString(const ::wxString& string, bool caseSensitive) 
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[43]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_FindString);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[42]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_FindString);
 
     if (!sipMeth)
         return ::wxCheckListBox::FindString(string, caseSensitive);
 
-    extern int sipVH__core_154(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, bool);
+    extern int sipVH__core_153(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, bool);
 
-    return sipVH__core_154(sipGILState, 0, sipPySelf, sipMeth, string, caseSensitive);
+    return sipVH__core_153(sipGILState, 0, sipPySelf, sipMeth, string, caseSensitive);
 }
 
 void sipwxCheckListBox::SetSelection(int n)
@@ -886,7 +879,7 @@ void sipwxCheckListBox::SetSelection(int n)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[44], &sipPySelf, SIP_NULLPTR, sipName_SetSelection);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[43], &sipPySelf, SIP_NULLPTR, sipName_SetSelection);
 
     if (!sipMeth)
     {
@@ -894,9 +887,9 @@ void sipwxCheckListBox::SetSelection(int n)
         return;
     }
 
-    extern void sipVH__core_113(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern void sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    sipVH__core_113(sipGILState, 0, sipPySelf, sipMeth, n);
+    sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth, n);
 }
 
 int sipwxCheckListBox::GetSelection() const
@@ -904,14 +897,14 @@ int sipwxCheckListBox::GetSelection() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[45]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetSelection);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[44]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetSelection);
 
     if (!sipMeth)
         return ::wxCheckListBox::GetSelection();
 
-    extern int sipVH__core_112(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern int sipVH__core_111(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_112(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_111(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxString sipwxCheckListBox::GetStringSelection() const
@@ -919,7 +912,7 @@ int sipwxCheckListBox::GetSelection() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[46]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetStringSelection);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[45]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetStringSelection);
 
     if (!sipMeth)
         return ::wxCheckListBox::GetStringSelection();
@@ -934,14 +927,14 @@ int sipwxCheckListBox::GetSelections(::wxArrayInt& aSelections) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[47]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetSelections);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[46]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetSelections);
 
     if (!sipMeth)
         return ::wxCheckListBox::GetSelections(aSelections);
 
-    extern int sipVH__core_164(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxArrayInt&);
+    extern int sipVH__core_163(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxArrayInt&);
 
-    return sipVH__core_164(sipGILState, 0, sipPySelf, sipMeth, aSelections);
+    return sipVH__core_163(sipGILState, 0, sipPySelf, sipMeth, aSelections);
 }
 
 void sipwxCheckListBox::sipProtect_SendDestroyEvent()
@@ -1012,11 +1005,6 @@ void sipwxCheckListBox::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, ::
 ::wxBorder sipwxCheckListBox::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxCheckListBox::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxCheckListBox::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxCheckListBox::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxCheckListBox::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -2498,40 +2486,6 @@ static PyObject *meth_wxCheckListBox_GetDefaultBorder(PyObject *sipSelf, PyObjec
 }
 
 
-PyDoc_STRVAR(doc_wxCheckListBox_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxCheckListBox_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxCheckListBox_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxCheckListBox *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxCheckListBox, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_CheckListBox, sipName_GetDefaultBorderForControl, doc_wxCheckListBox_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxCheckListBox_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxCheckListBox_DoFreeze(PyObject *, PyObject *);}
@@ -2705,6 +2659,39 @@ static PyObject *meth_wxCheckListBox_TryAfter(PyObject *sipSelf, PyObject *sipAr
     }
 
     sipNoMethod(sipParseErr, sipName_CheckListBox, sipName_TryAfter, doc_wxCheckListBox_TryAfter);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxCheckListBox_CreateAccessible, "CreateAccessible() -> Accessible");
+
+extern "C" {static PyObject *meth_wxCheckListBox_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxCheckListBox_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxCheckListBox *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxCheckListBox, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxCheckListBox_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_CheckListBox, sipName_CreateAccessible, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -3122,7 +3109,7 @@ static void *init_type_wxCheckListBox(sipSimpleWrapper *sipSelf, PyObject *sipAr
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxCheckListBox[] = {{316, 255, 1}};
+static sipEncodedTypeDef supers_wxCheckListBox[] = {{323, 255, 1}};
 
 
 static PyMethodDef methods_wxCheckListBox[] = {
@@ -3132,6 +3119,7 @@ static PyMethodDef methods_wxCheckListBox[] = {
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxCheckListBox_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxCheckListBox_AddChild},
     {sipName_Check, SIP_MLMETH_CAST(meth_wxCheckListBox_Check), METH_VARARGS|METH_KEYWORDS, doc_wxCheckListBox_Check},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxCheckListBox_Create), METH_VARARGS|METH_KEYWORDS, doc_wxCheckListBox_Create},
+    {sipName_CreateAccessible, meth_wxCheckListBox_CreateAccessible, METH_VARARGS, doc_wxCheckListBox_CreateAccessible},
     {sipName_Destroy, meth_wxCheckListBox_Destroy, METH_VARARGS, doc_wxCheckListBox_Destroy},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxCheckListBox_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxCheckListBox_DoEnable},
     {sipName_DoFreeze, meth_wxCheckListBox_DoFreeze, METH_VARARGS, doc_wxCheckListBox_DoFreeze},
@@ -3151,7 +3139,6 @@ static PyMethodDef methods_wxCheckListBox[] = {
     {sipName_GetClientAreaOrigin, meth_wxCheckListBox_GetClientAreaOrigin, METH_VARARGS, doc_wxCheckListBox_GetClientAreaOrigin},
     {sipName_GetCount, meth_wxCheckListBox_GetCount, METH_VARARGS, doc_wxCheckListBox_GetCount},
     {sipName_GetDefaultBorder, meth_wxCheckListBox_GetDefaultBorder, METH_VARARGS, doc_wxCheckListBox_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxCheckListBox_GetDefaultBorderForControl, METH_VARARGS, doc_wxCheckListBox_GetDefaultBorderForControl},
     {sipName_GetMainWindowOfCompositeControl, meth_wxCheckListBox_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxCheckListBox_GetMainWindowOfCompositeControl},
     {sipName_GetSelection, meth_wxCheckListBox_GetSelection, METH_VARARGS, doc_wxCheckListBox_GetSelection},
     {sipName_GetSelections, SIP_MLMETH_CAST(meth_wxCheckListBox_GetSelections), METH_VARARGS|METH_KEYWORDS, doc_wxCheckListBox_GetSelections},

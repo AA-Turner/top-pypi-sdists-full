@@ -526,7 +526,7 @@ static void *init_type_wxGridCellRenderer(sipSimpleWrapper *sipSelf, PyObject *s
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGridCellRenderer[] = {{26, 0, 0}, {22, 0, 1}};
+static sipEncodedTypeDef supers_wxGridCellRenderer[] = {{27, 0, 0}, {23, 0, 1}};
 
 
 static PyMethodDef methods_wxGridCellRenderer[] = {

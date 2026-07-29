@@ -66,9 +66,9 @@ sipwxPropertyGridEvent::~sipwxPropertyGridEvent()
     if (!sipMeth)
         return ::wxPropertyGridEvent::GetEventCategory();
 
-    extern ::wxEventCategory sipVH__propgrid_66(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEventCategory sipVH__propgrid_65(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_66(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_65(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxEvent* sipwxPropertyGridEvent::Clone() const
@@ -81,15 +81,15 @@ sipwxPropertyGridEvent::~sipwxPropertyGridEvent()
     if (!sipMeth)
         return ::wxPropertyGridEvent::Clone();
 
-    extern ::wxEvent* sipVH__propgrid_65(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEvent* sipVH__propgrid_64(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_65(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_64(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
 PyDoc_STRVAR(doc_wxPropertyGridEvent_CanVeto, "CanVeto() -> bool\n"
 "\n"
-"Returns true if you can veto the action that the event is signaling.");
+"Returns true if you can veto the action that the event is signalling.");
 
 extern "C" {static PyObject *meth_wxPropertyGridEvent_CanVeto(PyObject *, PyObject *);}
 static PyObject *meth_wxPropertyGridEvent_CanVeto(PyObject *sipSelf, PyObject *sipArgs)
@@ -228,7 +228,7 @@ static PyObject *meth_wxPropertyGridEvent_GetProperty(PyObject *sipSelf, PyObjec
 }
 
 
-PyDoc_STRVAR(doc_wxPropertyGridEvent_GetValidationFailureBehavior, "GetValidationFailureBehavior() -> int\n"
+PyDoc_STRVAR(doc_wxPropertyGridEvent_GetValidationFailureBehavior, "GetValidationFailureBehavior() -> PGVFBFlags\n"
 "\n"
 "Returns current validation failure flags.");
 
@@ -242,7 +242,7 @@ static PyObject *meth_wxPropertyGridEvent_GetValidationFailureBehavior(PyObject 
 
         if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxPropertyGridEvent, &sipCpp))
         {
-            ::byte sipRes;
+            ::wxPGVFBFlags sipRes;
 
             PyErr_Clear();
 
@@ -253,7 +253,7 @@ static PyObject *meth_wxPropertyGridEvent_GetValidationFailureBehavior(PyObject 
             if (PyErr_Occurred())
                 return 0;
 
-            return PyLong_FromUnsignedLong(sipRes);
+            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxPGVFBFlags);
         }
     }
 
@@ -456,14 +456,14 @@ static PyObject *meth_wxPropertyGridEvent_SetValidationFailureBehavior(PyObject 
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        ::byte flags;
+        ::wxPGVFBFlags flags;
         ::wxPropertyGridEvent *sipCpp;
 
         static const char *sipKwdList[] = {
             sipName_flags,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BM", &sipSelf, sipType_wxPropertyGridEvent, &sipCpp, &flags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BE", &sipSelf, sipType_wxPropertyGridEvent, &sipCpp, sipType_wxPGVFBFlags, &flags))
         {
             PyErr_Clear();
 
@@ -529,7 +529,7 @@ static PyObject *meth_wxPropertyGridEvent_SetValidationFailureMessage(PyObject *
 PyDoc_STRVAR(doc_wxPropertyGridEvent_Veto, "Veto(veto=True) -> None\n"
 "\n"
 "Call this from your event handler to veto action that the event is\n"
-"signaling.");
+"signalling.");
 
 extern "C" {static PyObject *meth_wxPropertyGridEvent_Veto(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxPropertyGridEvent_Veto(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -746,7 +746,7 @@ static void *init_type_wxPropertyGridEvent(sipSimpleWrapper *sipSelf, PyObject *
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxPropertyGridEvent[] = {{7, 0, 1}};
+static sipEncodedTypeDef supers_wxPropertyGridEvent[] = {{8, 0, 1}};
 
 
 static PyMethodDef methods_wxPropertyGridEvent[] = {

@@ -8,7 +8,8 @@
  */
 
 #include "sipAPI_core.h"
-        #include <wx/utils.h>
+        #include <wx/busycursor.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
 
 
@@ -95,6 +96,33 @@ static void *init_type_wxBusyCursor(sipSimpleWrapper *, PyObject *sipArgs, PyObj
     }
 
     {
+        const ::wxCursorBundle* cursors;
+
+        static const char *sipKwdList[] = {
+            sipName_cursors,
+        };
+
+        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, sipKwdList, sipUnused, "J9", sipType_wxCursorBundle, &cursors))
+        {
+        if (!wxPyCheckForApp()) return NULL;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp = new ::wxBusyCursor(*cursors);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+            {
+                delete sipCpp;
+                return SIP_NULLPTR;
+            }
+
+            return sipCpp;
+        }
+    }
+
+    {
         const ::wxBusyCursor* a0;
 
         if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, SIP_NULLPTR, sipUnused, "J9", sipType_wxBusyCursor, &a0))
@@ -111,6 +139,7 @@ static void *init_type_wxBusyCursor(sipSimpleWrapper *, PyObject *sipArgs, PyObj
 }
 
 PyDoc_STRVAR(doc_wxBusyCursor, "BusyCursor(cursor=HOURGLASS_CURSOR) -> None\n"
+"BusyCursor(cursors) -> None\n"
 "\n"
 "This class makes it easy to tell your user that the program is\n"
 "temporarily busy.");

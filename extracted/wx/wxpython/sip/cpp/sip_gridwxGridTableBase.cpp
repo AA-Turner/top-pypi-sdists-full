@@ -2442,7 +2442,7 @@ static void *init_type_wxGridTableBase(sipSimpleWrapper *sipSelf, PyObject *sipA
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGridTableBase[] = {{18, 0, 1}};
+static sipEncodedTypeDef supers_wxGridTableBase[] = {{19, 0, 1}};
 
 
 static PyMethodDef methods_wxGridTableBase[] = {

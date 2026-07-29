@@ -12,6 +12,42 @@
 
 
 
+PyDoc_STRVAR(doc_wxSystemAppearance_AreAppsDark, "AreAppsDark() -> bool\n"
+"\n"
+"Return true if the applications on this system use dark theme by\n"
+"default.");
+
+extern "C" {static PyObject *meth_wxSystemAppearance_AreAppsDark(PyObject *, PyObject *);}
+static PyObject *meth_wxSystemAppearance_AreAppsDark(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxSystemAppearance *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxSystemAppearance, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->AreAppsDark();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_SystemAppearance, sipName_AreAppsDark, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxSystemAppearance_GetName, "GetName() -> str\n"
 "\n"
 "Return the name if available or empty string otherwise.");
@@ -78,6 +114,41 @@ static PyObject *meth_wxSystemAppearance_IsDark(PyObject *sipSelf, PyObject *sip
     }
 
     sipNoMethod(sipParseErr, sipName_SystemAppearance, sipName_IsDark, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxSystemAppearance_IsSystemDark, "IsSystemDark() -> bool\n"
+"\n"
+"Return true if the system UI uses dark theme.");
+
+extern "C" {static PyObject *meth_wxSystemAppearance_IsSystemDark(PyObject *, PyObject *);}
+static PyObject *meth_wxSystemAppearance_IsSystemDark(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxSystemAppearance *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxSystemAppearance, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->IsSystemDark();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_SystemAppearance, sipName_IsSystemDark, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -178,13 +249,15 @@ static void *init_type_wxSystemAppearance(sipSimpleWrapper *, PyObject *sipArgs,
 
 
 static PyMethodDef methods_wxSystemAppearance[] = {
+    {sipName_AreAppsDark, meth_wxSystemAppearance_AreAppsDark, METH_VARARGS, doc_wxSystemAppearance_AreAppsDark},
     {sipName_GetName, meth_wxSystemAppearance_GetName, METH_VARARGS, doc_wxSystemAppearance_GetName},
     {sipName_IsDark, meth_wxSystemAppearance_IsDark, METH_VARARGS, doc_wxSystemAppearance_IsDark},
+    {sipName_IsSystemDark, meth_wxSystemAppearance_IsSystemDark, METH_VARARGS, doc_wxSystemAppearance_IsSystemDark},
     {sipName_IsUsingDarkBackground, meth_wxSystemAppearance_IsUsingDarkBackground, METH_VARARGS, doc_wxSystemAppearance_IsUsingDarkBackground}
 };
 
 sipVariableDef variables_wxSystemAppearance[] = {
-    {PropertyVariable, sipName_Name, &methods_wxSystemAppearance[0], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Name, &methods_wxSystemAppearance[1], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxSystemAppearance, "Provides information about the current system appearance.");
@@ -203,7 +276,7 @@ sipClassTypeDef sipTypeDef__core_wxSystemAppearance = {
     {
         sipNameNr_SystemAppearance,
         {0, 0, 1},
-        3, methods_wxSystemAppearance,
+        5, methods_wxSystemAppearance,
         0, SIP_NULLPTR,
         1, variables_wxSystemAppearance,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

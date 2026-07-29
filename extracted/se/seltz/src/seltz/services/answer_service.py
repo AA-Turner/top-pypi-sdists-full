@@ -22,8 +22,9 @@ def _build_answer_request(
     api_key: Optional[str],
     include_content: bool,
     scope: Union[str, Omit],
+    model: Union[str, Omit],
 ) -> AnswerRequest:
-    """Build an AnswerRequest, leaving scope unset when passed as OMIT.
+    """Build an AnswerRequest, leaving scope and model unset when passed as OMIT.
 
     Args:
         query (str):
@@ -40,6 +41,10 @@ def _build_answer_request(
             Restrict the grounding search to a specific scope (e.g. "news").
             Pass OMIT to leave the field unset on the request.
 
+        model (str, optional):
+            Select the answer tier (e.g. "seltz-pro").
+            Pass OMIT to leave the field unset on the request.
+
     Returns:
         AnswerRequest: The request message with any OMIT field left unset.
     """
@@ -53,6 +58,9 @@ def _build_answer_request(
     if not isinstance(scope, Omit):
         fields["scope"] = scope
 
+    if not isinstance(model, Omit):
+        fields["model"] = model
+
     return AnswerRequest(**fields)
 
 
@@ -62,8 +70,9 @@ def _build_answer_stream_request(
     api_key: Optional[str],
     include_content: bool,
     scope: Union[str, Omit],
+    model: Union[str, Omit],
 ) -> AnswerStreamRequest:
-    """Build an AnswerStreamRequest, leaving scope unset when passed as OMIT.
+    """Build an AnswerStreamRequest, leaving scope and model unset when passed as OMIT.
 
     Mirrors :func:`_build_answer_request`; the streaming RPC takes a distinct
     request message with the same fields (the public gRPC API keeps one message
@@ -84,6 +93,10 @@ def _build_answer_stream_request(
             Restrict the grounding search to a specific scope (e.g. "news").
             Pass OMIT to leave the field unset on the request.
 
+        model (str, optional):
+            Select the answer tier (e.g. "seltz-pro").
+            Pass OMIT to leave the field unset on the request.
+
     Returns:
         AnswerStreamRequest: The request message with any OMIT field left unset.
     """
@@ -96,6 +109,9 @@ def _build_answer_stream_request(
 
     if not isinstance(scope, Omit):
         fields["scope"] = scope
+
+    if not isinstance(model, Omit):
+        fields["model"] = model
 
     return AnswerStreamRequest(**fields)
 
@@ -122,6 +138,7 @@ class AnswerService:
         *,
         include_content: bool = False,
         scope: Union[str, Omit] = OMIT,
+        model: Union[str, Omit] = OMIT,
     ) -> AnswerResponse:
         """Generate a natural-language answer for a query.
 
@@ -136,6 +153,10 @@ class AnswerService:
             scope (str, optional):
                 Restrict the grounding search to a specific scope (e.g. "news").
                 Omitted from the request when not provided.
+
+            model (str, optional):
+                Select the answer tier (e.g. "seltz-pro").
+                Defaults to "seltz-base" when not provided.
 
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
@@ -153,6 +174,7 @@ class AnswerService:
             api_key=self._api_key,
             include_content=include_content,
             scope=scope,
+            model=model,
         )
 
         try:
@@ -171,6 +193,7 @@ class AnswerService:
         *,
         include_content: bool = False,
         scope: Union[str, Omit] = OMIT,
+        model: Union[str, Omit] = OMIT,
     ) -> Iterator[AnswerStreamResponse]:
         """Stream a natural-language answer for a query as it is generated.
 
@@ -193,6 +216,10 @@ class AnswerService:
                 Restrict the grounding search to a specific scope (e.g. "news").
                 Omitted from the request when not provided.
 
+            model (str, optional):
+                Select the answer tier (e.g. "seltz-pro").
+                Defaults to "seltz-base" when not provided.
+
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
             SeltzConnectionError: If the connection to the API fails.
@@ -210,6 +237,7 @@ class AnswerService:
             api_key=self._api_key,
             include_content=include_content,
             scope=scope,
+            model=model,
         )
 
         try:
@@ -245,6 +273,7 @@ class AsyncAnswerService:
         *,
         include_content: bool = False,
         scope: Union[str, Omit] = OMIT,
+        model: Union[str, Omit] = OMIT,
     ) -> AnswerResponse:
         """Generate a natural-language answer for a query.
 
@@ -259,6 +288,10 @@ class AsyncAnswerService:
             scope (str, optional):
                 Restrict the grounding search to a specific scope (e.g. "news").
                 Omitted from the request when not provided.
+
+            model (str, optional):
+                Select the answer tier (e.g. "seltz-pro").
+                Defaults to "seltz-base" when not provided.
 
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
@@ -276,6 +309,7 @@ class AsyncAnswerService:
             api_key=self._api_key,
             include_content=include_content,
             scope=scope,
+            model=model,
         )
 
         try:
@@ -294,6 +328,7 @@ class AsyncAnswerService:
         *,
         include_content: bool = False,
         scope: Union[str, Omit] = OMIT,
+        model: Union[str, Omit] = OMIT,
     ) -> AsyncIterator[AnswerStreamResponse]:
         """Stream a natural-language answer for a query as it is generated.
 
@@ -316,6 +351,10 @@ class AsyncAnswerService:
                 Restrict the grounding search to a specific scope (e.g. "news").
                 Omitted from the request when not provided.
 
+            model (str, optional):
+                Select the answer tier (e.g. "seltz-pro").
+                Defaults to "seltz-base" when not provided.
+
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
             SeltzConnectionError: If the connection to the API fails.
@@ -333,6 +372,7 @@ class AsyncAnswerService:
             api_key=self._api_key,
             include_content=include_content,
             scope=scope,
+            model=model,
         )
 
         try:

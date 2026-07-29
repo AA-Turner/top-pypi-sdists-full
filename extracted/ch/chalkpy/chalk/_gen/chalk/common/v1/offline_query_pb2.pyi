@@ -82,6 +82,9 @@ class OfflineQueryInputs(_message.Message):
         "sharded_inputs",
         "sharded_parquet_upload_inputs",
         "sql_input",
+        "uri_input",
+        "manifest_input",
+        "givens_parquet_filename_input",
     )
     class NoInputs(_message.Message):
         __slots__ = ()
@@ -93,12 +96,18 @@ class OfflineQueryInputs(_message.Message):
     SHARDED_INPUTS_FIELD_NUMBER: _ClassVar[int]
     SHARDED_PARQUET_UPLOAD_INPUTS_FIELD_NUMBER: _ClassVar[int]
     SQL_INPUT_FIELD_NUMBER: _ClassVar[int]
+    URI_INPUT_FIELD_NUMBER: _ClassVar[int]
+    MANIFEST_INPUT_FIELD_NUMBER: _ClassVar[int]
+    GIVENS_PARQUET_FILENAME_INPUT_FIELD_NUMBER: _ClassVar[int]
     feather_inputs: bytes
     no_inputs: OfflineQueryInputs.NoInputs
     single_inputs: OfflineQueryInput
     sharded_inputs: OfflineQueryInputSharded
     sharded_parquet_upload_inputs: OfflineQueryShardedParquetUploadInput
     sql_input: str
+    uri_input: OfflineQueryUriInput
+    manifest_input: OfflineQueryManifestInput
+    givens_parquet_filename_input: OfflineQueryGivensParquetFilename
     def __init__(
         self,
         feather_inputs: _Optional[bytes] = ...,
@@ -107,7 +116,103 @@ class OfflineQueryInputs(_message.Message):
         sharded_inputs: _Optional[_Union[OfflineQueryInputSharded, _Mapping]] = ...,
         sharded_parquet_upload_inputs: _Optional[_Union[OfflineQueryShardedParquetUploadInput, _Mapping]] = ...,
         sql_input: _Optional[str] = ...,
+        uri_input: _Optional[_Union[OfflineQueryUriInput, _Mapping]] = ...,
+        manifest_input: _Optional[_Union[OfflineQueryManifestInput, _Mapping]] = ...,
+        givens_parquet_filename_input: _Optional[_Union[OfflineQueryGivensParquetFilename, _Mapping]] = ...,
     ) -> None: ...
+
+class OfflineQueryFeatureName(_message.Message):
+    __slots__ = ("feature_name", "feature_names")
+    FEATURE_NAME_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_NAMES_FIELD_NUMBER: _ClassVar[int]
+    feature_name: str
+    feature_names: OfflineQueryStringList
+    def __init__(
+        self,
+        feature_name: _Optional[str] = ...,
+        feature_names: _Optional[_Union[OfflineQueryStringList, _Mapping]] = ...,
+    ) -> None: ...
+
+class OfflineQueryStringList(_message.Message):
+    __slots__ = ("values",)
+    VALUES_FIELD_NUMBER: _ClassVar[int]
+    values: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, values: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class OfflineQueryUriInput(_message.Message):
+    __slots__ = (
+        "parquet_uri",
+        "start_row",
+        "end_row",
+        "is_iceberg",
+        "iceberg_snapshot_id",
+        "iceberg_start_partition",
+        "iceberg_end_partition",
+        "iceberg_filter",
+        "aws_role_arn",
+        "aws_region",
+        "column_name_to_feature_name",
+    )
+    class ColumnNameToFeatureNameEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: OfflineQueryFeatureName
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[OfflineQueryFeatureName, _Mapping]] = ...
+        ) -> None: ...
+
+    PARQUET_URI_FIELD_NUMBER: _ClassVar[int]
+    START_ROW_FIELD_NUMBER: _ClassVar[int]
+    END_ROW_FIELD_NUMBER: _ClassVar[int]
+    IS_ICEBERG_FIELD_NUMBER: _ClassVar[int]
+    ICEBERG_SNAPSHOT_ID_FIELD_NUMBER: _ClassVar[int]
+    ICEBERG_START_PARTITION_FIELD_NUMBER: _ClassVar[int]
+    ICEBERG_END_PARTITION_FIELD_NUMBER: _ClassVar[int]
+    ICEBERG_FILTER_FIELD_NUMBER: _ClassVar[int]
+    AWS_ROLE_ARN_FIELD_NUMBER: _ClassVar[int]
+    AWS_REGION_FIELD_NUMBER: _ClassVar[int]
+    COLUMN_NAME_TO_FEATURE_NAME_FIELD_NUMBER: _ClassVar[int]
+    parquet_uri: str
+    start_row: int
+    end_row: int
+    is_iceberg: bool
+    iceberg_snapshot_id: int
+    iceberg_start_partition: int
+    iceberg_end_partition: int
+    iceberg_filter: str
+    aws_role_arn: str
+    aws_region: str
+    column_name_to_feature_name: _containers.MessageMap[str, OfflineQueryFeatureName]
+    def __init__(
+        self,
+        parquet_uri: _Optional[str] = ...,
+        start_row: _Optional[int] = ...,
+        end_row: _Optional[int] = ...,
+        is_iceberg: bool = ...,
+        iceberg_snapshot_id: _Optional[int] = ...,
+        iceberg_start_partition: _Optional[int] = ...,
+        iceberg_end_partition: _Optional[int] = ...,
+        iceberg_filter: _Optional[str] = ...,
+        aws_role_arn: _Optional[str] = ...,
+        aws_region: _Optional[str] = ...,
+        column_name_to_feature_name: _Optional[_Mapping[str, OfflineQueryFeatureName]] = ...,
+    ) -> None: ...
+
+class OfflineQueryManifestInput(_message.Message):
+    __slots__ = ("manifest_uri",)
+    MANIFEST_URI_FIELD_NUMBER: _ClassVar[int]
+    manifest_uri: str
+    def __init__(self, manifest_uri: _Optional[str] = ...) -> None: ...
+
+class OfflineQueryGivensParquetFilename(_message.Message):
+    __slots__ = ("filename", "version")
+    FILENAME_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    filename: str
+    version: int
+    def __init__(self, filename: _Optional[str] = ..., version: _Optional[int] = ...) -> None: ...
 
 class OfflineQueryWriteTo(_message.Message):
     __slots__ = ("uri",)

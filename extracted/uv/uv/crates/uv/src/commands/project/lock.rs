@@ -371,6 +371,10 @@ impl<'env> LockOperation<'env> {
 
     /// Perform a [`LockOperation`].
     pub(crate) async fn execute(self, target: LockTarget<'_>) -> Result<LockResult, ProjectError> {
+        if !matches!(&self.mode, LockMode::Frozen(_)) {
+            target.validate_upgrade_groups(&self.settings.upgrade)?;
+        }
+
         match self.mode {
             LockMode::Frozen(source) => {
                 // Read the existing lockfile, but don't attempt to lock the project.
@@ -675,8 +679,7 @@ async fn do_lock(
         if let Some(environments) = &environments {
             for [lhs, rhs] in environments.as_markers().array_windows() {
                 if !lhs.is_disjoint(*rhs) {
-                    let mut hint = lhs.negate();
-                    hint.and(*rhs);
+                    let hint = lhs.negate().and(*rhs);
 
                     let lhs = lhs
                         .contents()
@@ -705,8 +708,7 @@ async fn do_lock(
         // Ensure that the environments are disjoint.
         for [lhs, rhs] in required_environments.as_markers().array_windows() {
             if !lhs.is_disjoint(*rhs) {
-                let mut hint = lhs.negate();
-                hint.and(*rhs);
+                let hint = lhs.negate().and(*rhs);
 
                 let lhs = lhs
                     .contents()
@@ -940,6 +942,7 @@ async fn do_lock(
             &hasher,
             state.index(),
             &database,
+            preview,
             printer,
         )
         .await
@@ -952,6 +955,11 @@ async fn do_lock(
                 // Disabled builds are user policy errors. Static local projects are validated
                 // before this point, so reaching this case means validation genuinely needs
                 // metadata that cannot be obtained under `--no-build`.
+                return Err(ProjectError::Lock(err));
+            }
+            Err(ProjectError::Lock(err)) if err.is_not_pep625() => {
+                // A non-PEP 625-compliant sdist in the lockfile will also be rejected by a fresh
+                // resolve, so short-circuit rather than doing the extra work.
                 return Err(ProjectError::Lock(err));
             }
             Err(err) => {
@@ -1107,6 +1115,12 @@ async fn do_lock(
             .with_conflicts(conflicts)
             .with_required_environments(lock_required_environments.into_markers());
 
+            let lock = if preview.is_enabled(PreviewFeature::LockWithoutMetadata) {
+                lock.without_package_metadata()
+            } else {
+                lock
+            };
+
             let unchanged = if let Some(check_lockfile_contents) = check_lockfile_contents {
                 previous.is_some() && check_lockfile_contents == lock.to_toml()?.as_str()
             } else {
@@ -1163,6 +1177,7 @@ impl ValidatedLock {
         hasher: &HashStrategy,
         index: &InMemoryIndex,
         database: &DistributionDatabase<'_, Context>,
+        preview: Preview,
         printer: Printer,
     ) -> Result<Self, ProjectError> {
         // Perform checks in a deliberate order, such that the most extreme conditions are tested
@@ -1368,6 +1383,7 @@ impl ValidatedLock {
                 hasher,
                 index,
                 database,
+                preview.is_enabled(PreviewFeature::LockWithoutMetadata),
             )
             .await?
         {
@@ -1505,6 +1521,20 @@ impl ValidatedLock {
                 } else {
                     debug!(
                         "Resolving despite existing lockfile due to mismatched requirements for: `{name}`\n  Requested: {:?}\n  Existing: {:?}",
+                        expected, actual
+                    );
+                }
+                Ok(Self::Preferable(lock))
+            }
+            SatisfiesResult::MismatchedPackageDependencies(name, version, expected, actual) => {
+                if let Some(version) = version {
+                    debug!(
+                        "Resolving despite existing lockfile due to mismatched resolved dependencies for: `{name}=={version}`\n  Requested: {:?}\n  Existing: {:?}",
+                        expected, actual
+                    );
+                } else {
+                    debug!(
+                        "Resolving despite existing lockfile due to mismatched resolved dependencies for: `{name}`\n  Requested: {:?}\n  Existing: {:?}",
                         expected, actual
                     );
                 }

@@ -269,6 +269,76 @@ static PyObject *meth_wxGridEvent_GetRow(PyObject *sipSelf, PyObject *sipArgs)
 }
 
 
+PyDoc_STRVAR(doc_wxGridEvent_GetNewRow, "GetNewRow() -> int\n"
+"\n"
+"Target row for wxEVT_GRID_ROW_MOVE.");
+
+extern "C" {static PyObject *meth_wxGridEvent_GetNewRow(PyObject *, PyObject *);}
+static PyObject *meth_wxGridEvent_GetNewRow(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxGridEvent *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxGridEvent, &sipCpp))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetNewRow();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_GridEvent, sipName_GetNewRow, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxGridEvent_GetNewCol, "GetNewCol() -> int\n"
+"\n"
+"Target column for wxEVT_GRID_COL_MOVE.");
+
+extern "C" {static PyObject *meth_wxGridEvent_GetNewCol(PyObject *, PyObject *);}
+static PyObject *meth_wxGridEvent_GetNewCol(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxGridEvent *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxGridEvent, &sipCpp))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetNewCol();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_GridEvent, sipName_GetNewCol, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxGridEvent_MetaDown, "MetaDown() -> bool\n"
 "\n"
 "Returns true if the Meta key was down at the time of the event.");
@@ -544,7 +614,7 @@ static void *init_type_wxGridEvent(sipSimpleWrapper *sipSelf, PyObject *sipArgs,
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGridEvent[] = {{17, 0, 1}};
+static sipEncodedTypeDef supers_wxGridEvent[] = {{18, 0, 1}};
 
 
 static PyMethodDef methods_wxGridEvent[] = {
@@ -552,6 +622,8 @@ static PyMethodDef methods_wxGridEvent[] = {
     {sipName_Clone, meth_wxGridEvent_Clone, METH_VARARGS, doc_wxGridEvent_Clone},
     {sipName_ControlDown, meth_wxGridEvent_ControlDown, METH_VARARGS, doc_wxGridEvent_ControlDown},
     {sipName_GetCol, meth_wxGridEvent_GetCol, METH_VARARGS, doc_wxGridEvent_GetCol},
+    {sipName_GetNewCol, meth_wxGridEvent_GetNewCol, METH_VARARGS, doc_wxGridEvent_GetNewCol},
+    {sipName_GetNewRow, meth_wxGridEvent_GetNewRow, METH_VARARGS, doc_wxGridEvent_GetNewRow},
     {sipName_GetPosition, meth_wxGridEvent_GetPosition, METH_VARARGS, doc_wxGridEvent_GetPosition},
     {sipName_GetRow, meth_wxGridEvent_GetRow, METH_VARARGS, doc_wxGridEvent_GetRow},
     {sipName_MetaDown, meth_wxGridEvent_MetaDown, METH_VARARGS, doc_wxGridEvent_MetaDown},
@@ -560,8 +632,10 @@ static PyMethodDef methods_wxGridEvent[] = {
 };
 
 sipVariableDef variables_wxGridEvent[] = {
-    {PropertyVariable, sipName_Row, &methods_wxGridEvent[5], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Position, &methods_wxGridEvent[4], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Row, &methods_wxGridEvent[7], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Position, &methods_wxGridEvent[6], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_NewRow, &methods_wxGridEvent[5], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_NewCol, &methods_wxGridEvent[4], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_Col, &methods_wxGridEvent[3], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
@@ -584,9 +658,9 @@ sipClassTypeDef sipTypeDef__grid_wxGridEvent = {
     {
         sipNameNr_GridEvent,
         {0, 0, 1},
-        9, methods_wxGridEvent,
+        11, methods_wxGridEvent,
         0, SIP_NULLPTR,
-        3, variables_wxGridEvent,
+        5, variables_wxGridEvent,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxGridEvent,

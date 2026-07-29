@@ -25,6 +25,7 @@ JSON_OUTPUT_TYPES = [
     "printers",
     "list-detectors",
     "list-printers",
+    "timing",
 ]
 
 
@@ -54,6 +55,7 @@ defaults_flag_in_config = {
     "exclude_low": False,
     "exclude_medium": False,
     "exclude_high": False,
+    "exclude_location": False,
     "fail_on": FailOnLevel.PEDANTIC,
     "json": None,
     "sarif": None,
@@ -68,6 +70,7 @@ defaults_flag_in_config = {
     "zip": None,
     "zip_type": "lzma",
     "show_ignored_findings": False,
+    "warn_unused_ignores": False,
     "no_fail": False,
     "sarif_input": "export.sarif",
     "sarif_triage": "export.sarif.sarifexplorer",
@@ -76,13 +79,17 @@ defaults_flag_in_config = {
 }
 
 
+DEFAULT_CONFIG_FILENAMES = ("slither.config.json", "slither.conf.json")
+
+
 def read_config_file(args: argparse.Namespace) -> None:
     # No config file was provided as an argument
     if args.config_file is None:
-        # Check whether the default config file is present
-        if os.path.exists("slither.config.json"):
-            # The default file exists, use it
-            args.config_file = "slither.config.json"
+        # Check whether a default config file is present
+        for candidate in DEFAULT_CONFIG_FILENAMES:
+            if os.path.exists(candidate):
+                args.config_file = candidate
+                break
         else:
             return
 

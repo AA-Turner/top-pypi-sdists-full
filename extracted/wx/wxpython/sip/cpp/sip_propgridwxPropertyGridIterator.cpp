@@ -107,7 +107,7 @@ static void *init_type_wxPropertyGridIterator(sipSimpleWrapper *, PyObject *sipA
     {
         ::wxPropertyGridPageState* state;
         int flags = wxPG_ITERATE_DEFAULT;
-        ::wxPGProperty* property = 0;
+        ::wxPGProperty* property = nullptr;
         int dir = 1;
 
         static const char *sipKwdList[] = {
@@ -196,10 +196,10 @@ static void *init_type_wxPropertyGridIterator(sipSimpleWrapper *, PyObject *sipA
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxPropertyGridIterator[] = {{69, 255, 1}};
+static sipEncodedTypeDef supers_wxPropertyGridIterator[] = {{72, 255, 1}};
 
 PyDoc_STRVAR(doc_wxPropertyGridIterator, "PropertyGridIterator() -> None\n"
-"PropertyGridIterator(state, flags=PG_ITERATE_DEFAULT, property=None, dir=1) -> None\n"
+"PropertyGridIterator(state, flags=PG_ITERATE_DEFAULT, property=nullptr, dir=1) -> None\n"
 "PropertyGridIterator(state, flags, startPos, dir=0) -> None\n"
 "PropertyGridIterator(it) -> None");
 

@@ -338,9 +338,7 @@ Action: Apply ALL of the following throughout the exploitation session:
      Referer: (set to the target's own domain, not attacker-controlled)
   d) Payload fragmentation: split long payloads across multiple requests when WAF is active — use chunked transfer or parameter pollution rather than one large payload.
   e) Path normalization evasion: use %2f instead of /, mixed case paths on IIS (/Admin vs /admin), and trailing dot (/admin.) to avoid signature matching on exact paths.
-  f) VPN DNS bypass: if dig/host returns 198.18.x.x or 198.19.x.x (VPN spoofing), force public DNS resolution with `dig @8.8.8.8 +short <hostname>` and use --resolve flag in curl:
-     Example: curl --resolve example.com:443:1.2.3.4 https://example.com/
-     NEVER use 198.18.x.x IPs directly — they are VPN internal addresses and will fail or target wrong hosts.
+  f) VPN DNS bypass: if dig/host returns 198.18.x.x or 198.19.x.x (VPN spoofing), force public DNS resolution with `dig @8.8.8.8 +short <hostname>` and use the resolved IP for network-level attacks only (nmap, CVE exploits). For web attacks, always use the domain name directly.
 
 TRIGGER 9 — SSRF: URL parameter → internal network probe:
 Condition: any parameter that accepts a URL (url=, src=, path=, redirect=, next=, image=, fetch=, load=, uri=, link=) OR open redirect (302/301 to attacker-controlled domain confirmed).

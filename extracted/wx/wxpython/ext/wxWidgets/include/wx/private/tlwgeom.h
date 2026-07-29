@@ -27,10 +27,10 @@
 class wxTLWGeometryBase
 {
 public:
-    typedef wxTopLevelWindow::GeometrySerializer Serializer;
+    typedef wxTopLevelWindow::GeometryStore Store;
 
-    wxTLWGeometryBase() {}
-    virtual ~wxTLWGeometryBase() {}
+    wxTLWGeometryBase() = default;
+    virtual ~wxTLWGeometryBase() = default;
 
     // Initialize from the given window.
     virtual bool GetFrom(const wxTopLevelWindow* tlw) = 0;
@@ -40,8 +40,8 @@ public:
 
     // Serialize or deserialize the object by using the provided object for
     // writing/reading the values of the different fields of this object.
-    virtual bool Save(const Serializer& ser) const = 0;
-    virtual bool Restore(Serializer& ser) = 0;
+    virtual bool Save(Store& store) const = 0;
+    virtual bool Restore(const Store& store) = 0;
 };
 
 // ----------------------------------------------------------------------------
@@ -71,45 +71,45 @@ public:
         m_maximized = false;
     }
 
-    virtual bool Save(const Serializer& ser) const wxOVERRIDE
+    virtual bool Save(Store& store) const override
     {
-        if ( !ser.SaveField(wxPERSIST_TLW_X, m_rectScreen.x) ||
-             !ser.SaveField(wxPERSIST_TLW_Y, m_rectScreen.y) )
+        if ( !store.SaveValue(wxPERSIST_TLW_X, m_rectScreen.x) ||
+             !store.SaveValue(wxPERSIST_TLW_Y, m_rectScreen.y) )
             return false;
 
-        if ( !ser.SaveField(wxPERSIST_TLW_W, m_rectScreen.width) ||
-             !ser.SaveField(wxPERSIST_TLW_H, m_rectScreen.height) )
+        if ( !store.SaveValue(wxPERSIST_TLW_W, m_rectScreen.width) ||
+             !store.SaveValue(wxPERSIST_TLW_H, m_rectScreen.height) )
             return false;
 
-        if ( !ser.SaveField(wxPERSIST_TLW_MAXIMIZED, m_maximized) )
+        if ( !store.SaveValue(wxPERSIST_TLW_MAXIMIZED, m_maximized) )
             return false;
 
-        if ( !ser.SaveField(wxPERSIST_TLW_ICONIZED, m_iconized) )
+        if ( !store.SaveValue(wxPERSIST_TLW_ICONIZED, m_iconized) )
             return false;
 
         return true;
     }
 
-    virtual bool Restore(Serializer& ser) wxOVERRIDE
+    virtual bool Restore(const Store& store) override
     {
-        m_hasPos = ser.RestoreField(wxPERSIST_TLW_X, &m_rectScreen.x) &&
-                   ser.RestoreField(wxPERSIST_TLW_Y, &m_rectScreen.y);
+        m_hasPos = store.RestoreValue(wxPERSIST_TLW_X, &m_rectScreen.x) &&
+                   store.RestoreValue(wxPERSIST_TLW_Y, &m_rectScreen.y);
 
-        m_hasSize = ser.RestoreField(wxPERSIST_TLW_W, &m_rectScreen.width) &&
-                    ser.RestoreField(wxPERSIST_TLW_H, &m_rectScreen.height);
+        m_hasSize = store.RestoreValue(wxPERSIST_TLW_W, &m_rectScreen.width) &&
+                    store.RestoreValue(wxPERSIST_TLW_H, &m_rectScreen.height);
 
         int tmp;
-        if ( ser.RestoreField(wxPERSIST_TLW_MAXIMIZED, &tmp) )
+        if ( store.RestoreValue(wxPERSIST_TLW_MAXIMIZED, &tmp) )
             m_maximized = tmp != 0;
 
-        if ( ser.RestoreField(wxPERSIST_TLW_ICONIZED, &tmp) )
+        if ( store.RestoreValue(wxPERSIST_TLW_ICONIZED, &tmp) )
             m_iconized = tmp != 0;
 
         // If we restored at least something, return true.
         return m_hasPos || m_hasSize || m_maximized || m_iconized;
     }
 
-    virtual bool GetFrom(const wxTopLevelWindow* tlw) wxOVERRIDE
+    virtual bool GetFrom(const wxTopLevelWindow* tlw) override
     {
         m_rectScreen = tlw->GetScreenRect();
         m_hasPos =
@@ -120,7 +120,7 @@ public:
         return true;
     }
 
-    virtual bool ApplyTo(wxTopLevelWindow* tlw) wxOVERRIDE
+    virtual bool ApplyTo(wxTopLevelWindow* tlw) override
     {
         if ( m_hasPos )
         {
@@ -171,7 +171,7 @@ private:
 
 #endif // !__WXMSW__
 
-#ifdef __WXGTK20__
+#ifdef __WXGTK__
     #include "wx/gtk/private/tlwgeom.h"
 #elif defined(__WXMSW__)
     #include "wx/msw/private/tlwgeom.h"

@@ -20,11 +20,16 @@ from transformers import AutoModelForSeq2SeqLM, AutoModelForTokenClassification
 from peft import (
     AdaLoraConfig,
     AdamssConfig,
+    BeftConfig,
     BOFTConfig,
     C3AConfig,
+    DeftConfig,
     DeloraConfig,
     FourierFTConfig,
+    FrodConfig,
+    GloraConfig,
     GraloraConfig,
+    HiraConfig,
     HRAConfig,
     IA3Config,
     LilyConfig,
@@ -42,6 +47,7 @@ from peft import (
     ShiraConfig,
     TaskType,
     TinyLoraConfig,
+    UniLoraConfig,
     VBLoRAConfig,
     VeraConfig,
     WaveFTConfig,
@@ -69,6 +75,13 @@ ALL_CONFIGS = [
         },
     ),
     (
+        BeftConfig,
+        {
+            "target_modules": None,
+            "task_type": "SEQ_2_SEQ_LM",
+        },
+    ),
+    (
         BOFTConfig,
         {
             "target_modules": None,
@@ -81,6 +94,13 @@ ALL_CONFIGS = [
             "target_modules": None,
             "r": 2,
             "task_type": "SEQ_2_SEQ_LM",
+        },
+    ),
+    (
+        DeftConfig,
+        {
+            "task_type": "SEQ_2_SEQ_LM",
+            "target_modules": None,
         },
     ),
     (
@@ -100,7 +120,29 @@ ALL_CONFIGS = [
         },
     ),
     (
+        FrodConfig,
+        {
+            "target_modules": None,
+            "task_type": "SEQ_2_SEQ_LM",
+            "sparse_rate": 0.01,
+        },
+    ),
+    (
+        GloraConfig,
+        {
+            "target_modules": None,
+            "task_type": "SEQ_2_SEQ_LM",
+        },
+    ),
+    (
         GraloraConfig,
+        {
+            "target_modules": None,
+            "task_type": "SEQ_2_SEQ_LM",
+        },
+    ),
+    (
+        HiraConfig,
         {
             "target_modules": None,
             "task_type": "SEQ_2_SEQ_LM",
@@ -232,6 +274,14 @@ ALL_CONFIGS = [
         },
     ),
     (
+        UniLoraConfig,
+        {
+            "target_modules": None,
+            "theta_d_length": 257,
+            "task_type": "SEQ_2_SEQ_LM",
+        },
+    ),
+    (
         TinyLoraConfig,
         {
             "target_modules": None,
@@ -305,6 +355,16 @@ def _skip_osf_disable_adapter_test(config_cls):
         )
 
 
+def beft_tests(config_cls, model_id, config_kwargs):
+    config_name = config_cls.__name__.lower()
+    if config_name != "beftconfig":
+        return
+    elif "t5" in model_id.lower():
+        pytest.skip("Skip tests for T5 models because of no bias term")
+    else:
+        return
+
+
 class TestEncoderDecoderModels(PeftCommonTester):
     transformers_class = AutoModelForSeq2SeqLM
 
@@ -373,6 +433,7 @@ class TestEncoderDecoderModels(PeftCommonTester):
     @pytest.mark.parametrize("config_cls,config_kwargs", ALL_CONFIGS)
     def test_merge_layers(self, model_id, config_cls, config_kwargs):
         config_kwargs = set_init_weights_false(config_cls, config_kwargs)
+        beft_tests(config_cls, model_id, config_kwargs)
         self._test_merge_layers(model_id, config_cls, config_kwargs)
 
     @pytest.mark.parametrize("model_id", PEFT_ENCODER_DECODER_MODELS_TO_TEST)
@@ -468,6 +529,11 @@ class TestEncoderDecoderModels(PeftCommonTester):
         _skip_osf_disable_adapter_test(config_cls)
         config_kwargs = set_init_weights_false(config_cls, config_kwargs)
         self._test_disable_adapter(model_id, config_cls, config_kwargs)
+
+    @pytest.mark.parametrize("model_id", PEFT_ENCODER_DECODER_MODELS_TO_TEST)
+    @pytest.mark.parametrize("config_cls,config_kwargs", ALL_CONFIGS)
+    def test_get_base_model_state_dict(self, model_id, config_cls, config_kwargs):
+        self._test_get_base_model_state_dict(model_id, config_cls, config_kwargs.copy())
 
     def test_active_adapters_prompt_learning(self):
         model = AutoModelForSeq2SeqLM.from_pretrained(

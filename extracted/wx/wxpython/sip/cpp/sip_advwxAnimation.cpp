@@ -483,8 +483,8 @@ static PyObject *meth_wxAnimation_FindHandler(PyObject *, PyObject *sipArgs, PyO
 
 PyDoc_STRVAR(doc_wxAnimation_InitStandardHandlers, "InitStandardHandlers() -> None\n"
 "\n"
-"Load the stock animation decoders (currently GIF and ANI) into the\n"
-"list of decoders.");
+"Load the stock animation decoders (currently GIF, ANI and WebP) into\n"
+"the list of decoders.");
 
 extern "C" {static PyObject *meth_wxAnimation_InitStandardHandlers(PyObject *, PyObject *);}
 static PyObject *meth_wxAnimation_InitStandardHandlers(PyObject *, PyObject *sipArgs)
@@ -695,7 +695,7 @@ static void *init_type_wxAnimation(sipSimpleWrapper *, PyObject *sipArgs, PyObje
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxAnimation[] = {{40, 0, 1}};
+static sipEncodedTypeDef supers_wxAnimation[] = {{41, 0, 1}};
 
 
 static PyMethodDef methods_wxAnimation[] = {

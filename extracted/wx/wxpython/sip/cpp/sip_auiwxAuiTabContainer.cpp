@@ -17,6 +17,9 @@
         #include <wx/font.h>
         #include <wx/aui/auibook.h>
         #include <wx/aui/auibook.h>
+        #include <wx/gdicmn.h>
+        #include <wx/aui/auibook.h>
+            #include <wx/aui/auibook.h>
         #include <wx/aui/auibook.h>
 
 
@@ -64,7 +67,7 @@ static PyObject *meth_wxAuiTabContainer_SetArtProvider(PyObject *sipSelf, PyObje
             sipName_art,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8", &sipSelf, sipType_wxAuiTabContainer, &sipCpp, sipType_wxAuiTabArt, &art))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ:", &sipSelf, sipType_wxAuiTabContainer, &sipCpp, sipType_wxAuiTabArt, &art))
         {
             PyErr_Clear();
 
@@ -189,7 +192,47 @@ static PyObject *meth_wxAuiTabContainer_GetFlags(PyObject *sipSelf, PyObject *si
 }
 
 
-PyDoc_STRVAR(doc_wxAuiTabContainer_AddPage, "AddPage(page, info) -> bool");
+PyDoc_STRVAR(doc_wxAuiTabContainer_IsFlagSet, "IsFlagSet(flag) -> bool\n"
+"\n"
+"Returns true if the given flag is set.");
+
+extern "C" {static PyObject *meth_wxAuiTabContainer_IsFlagSet(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAuiTabContainer_IsFlagSet(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        uint flag;
+        const ::wxAuiTabContainer *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_flag,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bu", &sipSelf, sipType_wxAuiTabContainer, &sipCpp, &flag))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->IsFlagSet(flag);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiTabContainer, sipName_IsFlagSet, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxAuiTabContainer_AddPage, "AddPage(info) -> bool");
 
 extern "C" {static PyObject *meth_wxAuiTabContainer_AddPage(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxAuiTabContainer_AddPage(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -197,23 +240,21 @@ static PyObject *meth_wxAuiTabContainer_AddPage(PyObject *sipSelf, PyObject *sip
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        ::wxWindow* page;
         const ::wxAuiNotebookPage* info;
         ::wxAuiTabContainer *sipCpp;
 
         static const char *sipKwdList[] = {
-            sipName_page,
             sipName_info,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8J9", &sipSelf, sipType_wxAuiTabContainer, &sipCpp, sipType_wxWindow, &page, sipType_wxAuiNotebookPage, &info))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9", &sipSelf, sipType_wxAuiTabContainer, &sipCpp, sipType_wxAuiNotebookPage, &info))
         {
             bool sipRes;
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->AddPage(page, *info);
+            sipRes = sipCpp->AddPage(*info);
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
@@ -229,7 +270,7 @@ static PyObject *meth_wxAuiTabContainer_AddPage(PyObject *sipSelf, PyObject *sip
 }
 
 
-PyDoc_STRVAR(doc_wxAuiTabContainer_InsertPage, "InsertPage(page, info, idx) -> bool");
+PyDoc_STRVAR(doc_wxAuiTabContainer_InsertPage, "InsertPage(info, idx) -> bool");
 
 extern "C" {static PyObject *meth_wxAuiTabContainer_InsertPage(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxAuiTabContainer_InsertPage(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -237,25 +278,23 @@ static PyObject *meth_wxAuiTabContainer_InsertPage(PyObject *sipSelf, PyObject *
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        ::wxWindow* page;
         const ::wxAuiNotebookPage* info;
         size_t idx;
         ::wxAuiTabContainer *sipCpp;
 
         static const char *sipKwdList[] = {
-            sipName_page,
             sipName_info,
             sipName_idx,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8J9=", &sipSelf, sipType_wxAuiTabContainer, &sipCpp, sipType_wxWindow, &page, sipType_wxAuiNotebookPage, &info, &idx))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9=", &sipSelf, sipType_wxAuiTabContainer, &sipCpp, sipType_wxAuiNotebookPage, &info, &idx))
         {
             bool sipRes;
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->InsertPage(page, *info, idx);
+            sipRes = sipCpp->InsertPage(*info, idx);
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
@@ -349,6 +388,43 @@ static PyObject *meth_wxAuiTabContainer_RemovePage(PyObject *sipSelf, PyObject *
 }
 
 
+PyDoc_STRVAR(doc_wxAuiTabContainer_RemovePageAt, "RemovePageAt(idx) -> None");
+
+extern "C" {static PyObject *meth_wxAuiTabContainer_RemovePageAt(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAuiTabContainer_RemovePageAt(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        size_t idx;
+        ::wxAuiTabContainer *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_idx,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "B=", &sipSelf, sipType_wxAuiTabContainer, &sipCpp, &idx))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->RemovePageAt(idx);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiTabContainer, sipName_RemovePageAt, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxAuiTabContainer_SetActivePage, "SetActivePage(page) -> bool\n"
 "SetActivePage(page) -> bool\n"
 "");
@@ -359,7 +435,7 @@ static PyObject *meth_wxAuiTabContainer_SetActivePage(PyObject *sipSelf, PyObjec
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        ::wxWindow* page;
+        const ::wxWindow* page;
         ::wxAuiTabContainer *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -479,7 +555,7 @@ static PyObject *meth_wxAuiTabContainer_GetActivePage(PyObject *sipSelf, PyObjec
 }
 
 
-PyDoc_STRVAR(doc_wxAuiTabContainer_TabHitTest, "TabHitTest(x, y, hit) -> bool");
+PyDoc_STRVAR(doc_wxAuiTabContainer_TabHitTest, "TabHitTest(pt, flags=HitTest_Default) -> HitTestResult");
 
 extern "C" {static PyObject *meth_wxAuiTabContainer_TabHitTest(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxAuiTabContainer_TabHitTest(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -487,30 +563,31 @@ static PyObject *meth_wxAuiTabContainer_TabHitTest(PyObject *sipSelf, PyObject *
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        int x;
-        int y;
-        ::wxWindow* hit;
+        const ::wxPoint* pt;
+        int ptState = 0;
+        int flags = ::wxAuiTabContainer::HitTest_Default;
         const ::wxAuiTabContainer *sipCpp;
 
         static const char *sipKwdList[] = {
-            sipName_x,
-            sipName_y,
+            sipName_pt,
+            sipName_flags,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bii", &sipSelf, sipType_wxAuiTabContainer, &sipCpp, &x, &y))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|i", &sipSelf, sipType_wxAuiTabContainer, &sipCpp, sipType_wxPoint, &pt, &ptState, &flags))
         {
-            bool sipRes;
+            ::wxAuiTabContainer::HitTestResult*sipRes;
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->TabHitTest(x, y, &hit);
+            sipRes = new ::wxAuiTabContainer::HitTestResult(sipCpp->TabHitTest(*pt, flags));
             Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxPoint *>(pt), sipType_wxPoint, ptState);
 
             if (PyErr_Occurred())
                 return 0;
 
-            return sipBuildResult(0, "(bD)", sipRes, hit, sipType_wxWindow, SIP_NULLPTR);
+            return sipConvertFromNewType(sipRes, sipType_wxAuiTabContainer_HitTestResult, SIP_NULLPTR);
         }
     }
 
@@ -520,7 +597,7 @@ static PyObject *meth_wxAuiTabContainer_TabHitTest(PyObject *sipSelf, PyObject *
 }
 
 
-PyDoc_STRVAR(doc_wxAuiTabContainer_ButtonHitTest, "ButtonHitTest(x, y, hit) -> bool");
+PyDoc_STRVAR(doc_wxAuiTabContainer_ButtonHitTest, "ButtonHitTest(pt) -> AuiTabContainerButton");
 
 extern "C" {static PyObject *meth_wxAuiTabContainer_ButtonHitTest(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxAuiTabContainer_ButtonHitTest(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -528,30 +605,29 @@ static PyObject *meth_wxAuiTabContainer_ButtonHitTest(PyObject *sipSelf, PyObjec
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        int x;
-        int y;
-        ::wxAuiTabContainerButton* hit;
+        const ::wxPoint* pt;
+        int ptState = 0;
         const ::wxAuiTabContainer *sipCpp;
 
         static const char *sipKwdList[] = {
-            sipName_x,
-            sipName_y,
+            sipName_pt,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bii", &sipSelf, sipType_wxAuiTabContainer, &sipCpp, &x, &y))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxAuiTabContainer, &sipCpp, sipType_wxPoint, &pt, &ptState))
         {
-            bool sipRes;
+            const ::wxAuiTabContainerButton*sipRes;
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->ButtonHitTest(x, y, &hit);
+            sipRes = sipCpp->ButtonHitTest(*pt);
             Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxPoint *>(pt), sipType_wxPoint, ptState);
 
             if (PyErr_Occurred())
                 return 0;
 
-            return sipBuildResult(0, "(bD)", sipRes, hit, sipType_wxAuiTabContainerButton, SIP_NULLPTR);
+            return sipConvertFromType(const_cast< ::wxAuiTabContainerButton *>(sipRes), sipType_wxAuiTabContainerButton, SIP_NULLPTR);
         }
     }
 
@@ -703,39 +779,6 @@ static PyObject *meth_wxAuiTabContainer_GetPage(PyObject *sipSelf, PyObject *sip
     }
 
     sipNoMethod(sipParseErr, sipName_AuiTabContainer, sipName_GetPage, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxAuiTabContainer_GetPages, "GetPages() -> AuiNotebookPageArray");
-
-extern "C" {static PyObject *meth_wxAuiTabContainer_GetPages(PyObject *, PyObject *);}
-static PyObject *meth_wxAuiTabContainer_GetPages(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        ::wxAuiTabContainer *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxAuiTabContainer, &sipCpp))
-        {
-            ::wxAuiNotebookPageArray*sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = &sipCpp->GetPages();
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromType(sipRes, sipType_wxAuiNotebookPageArray, SIP_NULLPTR);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_AuiTabContainer, sipName_GetPages, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -962,7 +1005,7 @@ static PyObject *meth_wxAuiTabContainer_DoShowHide(PyObject *sipSelf, PyObject *
 }
 
 
-PyDoc_STRVAR(doc_wxAuiTabContainer_SetRect, "SetRect(rect, wnd=None) -> None");
+PyDoc_STRVAR(doc_wxAuiTabContainer_SetRect, "SetRect(rect, wnd=nullptr) -> None");
 
 extern "C" {static PyObject *meth_wxAuiTabContainer_SetRect(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxAuiTabContainer_SetRect(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -972,7 +1015,7 @@ static PyObject *meth_wxAuiTabContainer_SetRect(PyObject *sipSelf, PyObject *sip
     {
         const ::wxRect* rect;
         int rectState = 0;
-        ::wxWindow* wnd = 0;
+        ::wxWindow* wnd = nullptr;
         ::wxAuiTabContainer *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -1354,15 +1397,16 @@ static PyMethodDef methods_wxAuiTabContainer[] = {
     {sipName_GetIdxFromWindow, SIP_MLMETH_CAST(meth_wxAuiTabContainer_GetIdxFromWindow), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabContainer_GetIdxFromWindow},
     {sipName_GetPage, SIP_MLMETH_CAST(meth_wxAuiTabContainer_GetPage), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabContainer_GetPage},
     {sipName_GetPageCount, meth_wxAuiTabContainer_GetPageCount, METH_VARARGS, doc_wxAuiTabContainer_GetPageCount},
-    {sipName_GetPages, meth_wxAuiTabContainer_GetPages, METH_VARARGS, doc_wxAuiTabContainer_GetPages},
     {sipName_GetTabOffset, meth_wxAuiTabContainer_GetTabOffset, METH_VARARGS, doc_wxAuiTabContainer_GetTabOffset},
     {sipName_GetWindowFromIdx, SIP_MLMETH_CAST(meth_wxAuiTabContainer_GetWindowFromIdx), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabContainer_GetWindowFromIdx},
     {sipName_InsertPage, SIP_MLMETH_CAST(meth_wxAuiTabContainer_InsertPage), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabContainer_InsertPage},
+    {sipName_IsFlagSet, SIP_MLMETH_CAST(meth_wxAuiTabContainer_IsFlagSet), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabContainer_IsFlagSet},
     {sipName_IsTabVisible, SIP_MLMETH_CAST(meth_wxAuiTabContainer_IsTabVisible), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabContainer_IsTabVisible},
     {sipName_MakeTabVisible, SIP_MLMETH_CAST(meth_wxAuiTabContainer_MakeTabVisible), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabContainer_MakeTabVisible},
     {sipName_MovePage, SIP_MLMETH_CAST(meth_wxAuiTabContainer_MovePage), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabContainer_MovePage},
     {sipName_RemoveButton, SIP_MLMETH_CAST(meth_wxAuiTabContainer_RemoveButton), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabContainer_RemoveButton},
     {sipName_RemovePage, SIP_MLMETH_CAST(meth_wxAuiTabContainer_RemovePage), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabContainer_RemovePage},
+    {sipName_RemovePageAt, SIP_MLMETH_CAST(meth_wxAuiTabContainer_RemovePageAt), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabContainer_RemovePageAt},
     {sipName_SetActiveColour, SIP_MLMETH_CAST(meth_wxAuiTabContainer_SetActiveColour), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabContainer_SetActiveColour},
     {sipName_SetActivePage, SIP_MLMETH_CAST(meth_wxAuiTabContainer_SetActivePage), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabContainer_SetActivePage},
     {sipName_SetArtProvider, SIP_MLMETH_CAST(meth_wxAuiTabContainer_SetArtProvider), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabContainer_SetArtProvider},
@@ -1377,13 +1421,17 @@ static PyMethodDef methods_wxAuiTabContainer[] = {
     {sipName_TabHitTest, SIP_MLMETH_CAST(meth_wxAuiTabContainer_TabHitTest), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabContainer_TabHitTest}
 };
 
+static sipEnumMemberDef enummembers_wxAuiTabContainer[] = {
+    {sipName_HitTest_AllowAfterTab, static_cast<int>(::wxAuiTabContainer::HitTest_AllowAfterTab), 38},
+    {sipName_HitTest_Default, static_cast<int>(::wxAuiTabContainer::HitTest_Default), 38},
+};
+
 sipVariableDef variables_wxAuiTabContainer[] = {
-    {PropertyVariable, sipName_TabOffset, &methods_wxAuiTabContainer[11], &methods_wxAuiTabContainer[29], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Pages, &methods_wxAuiTabContainer[10], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TabOffset, &methods_wxAuiTabContainer[10], &methods_wxAuiTabContainer[30], SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_PageCount, &methods_wxAuiTabContainer[9], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Flags, &methods_wxAuiTabContainer[6], &methods_wxAuiTabContainer[23], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ArtProvider, &methods_wxAuiTabContainer[5], &methods_wxAuiTabContainer[21], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ActivePage, &methods_wxAuiTabContainer[4], &methods_wxAuiTabContainer[20], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Flags, &methods_wxAuiTabContainer[6], &methods_wxAuiTabContainer[24], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ArtProvider, &methods_wxAuiTabContainer[5], &methods_wxAuiTabContainer[22], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ActivePage, &methods_wxAuiTabContainer[4], &methods_wxAuiTabContainer[21], SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxAuiTabContainer, "AuiTabContainer() -> None\n"
@@ -1405,9 +1453,9 @@ sipClassTypeDef sipTypeDef__aui_wxAuiTabContainer = {
     {
         sipNameNr_AuiTabContainer,
         {0, 0, 1},
-        31, methods_wxAuiTabContainer,
-        0, SIP_NULLPTR,
-        6, variables_wxAuiTabContainer,
+        32, methods_wxAuiTabContainer,
+        2, enummembers_wxAuiTabContainer,
+        5, variables_wxAuiTabContainer,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxAuiTabContainer,

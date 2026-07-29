@@ -28,6 +28,8 @@ protected:
     ::wxString GetName() const SIP_OVERRIDE;
     void SetSecurityURL(const ::wxString&) SIP_OVERRIDE;
     ::wxString GetSecurityURL() const SIP_OVERRIDE;
+    void SetVirtualHost(const ::wxString&) SIP_OVERRIDE;
+    ::wxString GetVirtualHost() const SIP_OVERRIDE;
 
 public:
     sipSimpleWrapper *sipPySelf;
@@ -36,7 +38,7 @@ private:
     sipwxWebViewArchiveHandler(const sipwxWebViewArchiveHandler &);
     sipwxWebViewArchiveHandler &operator = (const sipwxWebViewArchiveHandler &);
 
-    char sipPyMethods[4];
+    char sipPyMethods[6];
 };
 
 sipwxWebViewArchiveHandler::sipwxWebViewArchiveHandler(const ::wxString& scheme): ::wxWebViewArchiveHandler(scheme), sipPySelf(SIP_NULLPTR)
@@ -111,6 +113,39 @@ void sipwxWebViewArchiveHandler::SetSecurityURL(const ::wxString& url)
 
     if (!sipMeth)
         return ::wxWebViewArchiveHandler::GetSecurityURL();
+
+    extern ::wxString sipVH__html2_1(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+
+    return sipVH__html2_1(sipGILState, 0, sipPySelf, sipMeth);
+}
+
+void sipwxWebViewArchiveHandler::SetVirtualHost(const ::wxString& host)
+{
+    sip_gilstate_t sipGILState;
+    PyObject *sipMeth;
+
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[4], &sipPySelf, SIP_NULLPTR, sipName_SetVirtualHost);
+
+    if (!sipMeth)
+    {
+        ::wxWebViewArchiveHandler::SetVirtualHost(host);
+        return;
+    }
+
+    extern void sipVH__html2_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&);
+
+    sipVH__html2_2(sipGILState, 0, sipPySelf, sipMeth, host);
+}
+
+::wxString sipwxWebViewArchiveHandler::GetVirtualHost() const
+{
+    sip_gilstate_t sipGILState;
+    PyObject *sipMeth;
+
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[5]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetVirtualHost);
+
+    if (!sipMeth)
+        return ::wxWebViewArchiveHandler::GetVirtualHost();
 
     extern ::wxString sipVH__html2_1(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
@@ -271,7 +306,7 @@ static void *init_type_wxWebViewArchiveHandler(sipSimpleWrapper *sipSelf, PyObje
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxWebViewArchiveHandler[] = {{6, 255, 1}};
+static sipEncodedTypeDef supers_wxWebViewArchiveHandler[] = {{8, 255, 1}};
 
 
 static PyMethodDef methods_wxWebViewArchiveHandler[] = {

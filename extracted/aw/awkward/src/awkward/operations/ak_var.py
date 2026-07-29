@@ -11,6 +11,7 @@ from awkward._layout import (
     ensure_same_backend,
     maybe_highlevel_to_lowlevel,
     maybe_posaxis,
+    promote_integral_to_float64,
 )
 from awkward._namedaxis import (
     NAMED_AXIS_KEY,
@@ -23,6 +24,21 @@ from awkward._regularize import regularize_axis
 __all__ = ("nanvar", "var")
 
 np = NumpyMetadata.instance()
+
+
+def _has_complex_leaf(layout) -> bool:
+    """True if any NumpyArray leaf is complex (dtype kind 'c')."""
+    found = False
+
+    def action(node, **kwargs):
+        nonlocal found
+        if node.is_numpy and node.dtype.kind == "c":
+            found = True
+            return node
+        return None
+
+    ak._do.recursively_apply(layout, action, return_array=False)
+    return found
 
 
 @high_level_function()
@@ -38,7 +54,32 @@ def var(
     behavior=None,
     attrs=None,
 ):
-    """
+    """Computes the variance over one or all levels of nesting.
+
+    Many types are supported, including all Awkward Arrays and Records. The
+    grouping is performed the same way as for reducers, though this operation is
+    not a reducer and has no identity. It is the same as NumPy's
+    [var](https://docs.scipy.org/doc/numpy/reference/generated/numpy.var.html)
+    if all lists at a given dimension have the same length and no None values,
+    but it generalizes to cases where they do not.
+
+    Passing all arguments to the reducers, the variance is calculated as::
+
+        ak.sum((x - ak.mean(x))**2 * weight) / ak.sum(weight)
+
+    If `ddof` is not zero, the above is further corrected by a factor of::
+
+        ak.sum(weight) / (ak.sum(weight) - ddof)
+
+    Even without `ddof`, #ak.var differs from #ak.moment with `n=2` because
+    the mean is subtracted from all points before summing their squares.
+
+    See #ak.sum for a complete description of handling nested lists and
+    missing values (None) in reducers, and #ak.mean for an example with another
+    non-reducer.
+
+    See also #ak.nanvar.
+
     Args:
         x: The data on which to compute the variance (anything #ak.to_layout recognizes).
         weight: Data that can be broadcasted to `x` to give each value a
@@ -72,30 +113,8 @@ def var(
         attrs (None or dict): Custom attributes for the output array, if
             high-level.
 
-    Computes the variance in each group of elements from `x` (many
-    types supported, including all Awkward Arrays and Records). The grouping
-    is performed the same way as for reducers, though this operation is not a
-    reducer and has no identity. It is the same as NumPy's
-    [var](https://docs.scipy.org/doc/numpy/reference/generated/numpy.var.html)
-    if all lists at a given dimension have the same length and no None values,
-    but it generalizes to cases where they do not.
-
-    Passing all arguments to the reducers, the variance is calculated as::
-
-        ak.sum((x - ak.mean(x))**2 * weight) / ak.sum(weight)
-
-    If `ddof` is not zero, the above is further corrected by a factor of::
-
-        ak.sum(weight) / (ak.sum(weight) - ddof)
-
-    Even without `ddof`, #ak.var differs from #ak.moment with `n=2` because
-    the mean is subtracted from all points before summing their squares.
-
-    See #ak.sum for a complete description of handling nested lists and
-    missing values (None) in reducers, and #ak.mean for an example with another
-    non-reducer.
-
-    See also #ak.nanvar.
+    Returns:
+        The variance in each group of elements from `x`.
     """
     # Dispatch
     yield x, weight
@@ -119,7 +138,16 @@ def nanvar(
     behavior=None,
     attrs=None,
 ):
-    """
+    """Computes the variance, treating NaN values as missing.
+
+    Equivalent to::
+
+        ak.var(ak.nan_to_none(array))
+
+    with all other arguments unchanged.
+
+    See also #ak.var.
+
     Args:
         x: The data on which to compute the variance (anything #ak.to_layout recognizes).
         weight: Data that can be broadcasted to `x` to give each value a
@@ -153,15 +181,8 @@ def nanvar(
         attrs (None or dict): Custom attributes for the output array, if
             high-level.
 
-    Like #ak.var, but treating NaN ("not a number") values as missing.
-
-    Equivalent to::
-
-        ak.var(ak.nan_to_none(array))
-
-    with all other arguments unchanged.
-
-    See also #ak.var.
+    Returns:
+        Like #ak.var, but treating NaN ("not a number") values as missing.
     """
     # Dispatch
     yield x, weight
@@ -205,65 +226,89 @@ def _impl(x, weight, ddof, axis, keepdims, mask_identity, highlevel, behavior, a
     axis = _named_axis_to_positional_axis(named_axis, axis)
     axis = regularize_axis(axis, none_allowed=True)
 
+    kw = {
+        "keepdims": True,
+        "mask_identity": True,
+        "highlevel": True,
+        "behavior": ctx.behavior,
+        "attrs": ctx.attrs,
+    }
+    is_complex = _has_complex_leaf(x.layout)
+
     with np.errstate(invalid="ignore", divide="ignore"):
         if weight is None:
-            sumw = ak.operations.ak_count._impl(
-                x,
-                axis,
-                keepdims=True,
-                mask_identity=True,
-                highlevel=True,
-                behavior=ctx.behavior,
-                attrs=ctx.attrs,
-            )
-            sumwx = ak.operations.ak_sum._impl(
-                x,
-                axis,
-                keepdims=True,
-                mask_identity=True,
-                highlevel=True,
-                behavior=ctx.behavior,
-                attrs=ctx.attrs,
-            )
-            sumwxx = ak.operations.ak_sum._impl(
-                x * x,
-                axis,
-                keepdims=True,
-                mask_identity=True,
-                highlevel=True,
-                behavior=ctx.behavior,
-                attrs=ctx.attrs,
-            )
+            sumw = ak.operations.ak_count._impl(x, axis, **kw)
         else:
-            sumw = ak.operations.ak_sum._impl(
-                x * 0 + weight,
-                axis,
-                keepdims=True,
-                mask_identity=True,
-                highlevel=True,
-                behavior=ctx.behavior,
-                attrs=ctx.attrs,
-            )
-            sumwx = ak.operations.ak_sum._impl(
-                x * weight,
-                axis,
-                keepdims=True,
-                mask_identity=True,
-                highlevel=True,
-                behavior=ctx.behavior,
-                attrs=ctx.attrs,
-            )
-            sumwxx = ak.operations.ak_sum._impl(
-                x * x * weight,
-                axis,
-                keepdims=True,
-                mask_identity=True,
-                highlevel=True,
-                behavior=ctx.behavior,
-                attrs=ctx.attrs,
-            )
-        mean = sumwx / sumw
-        out = sumwxx / sumw - mean * mean
+            sumw = ak.operations.ak_sum._impl(x * 0 + weight, axis, **kw)
+
+        # Two-pass, like NumPy and ak.covar: centre on the (float64) mean, then
+        # sum the squared deviations. This is numerically stable (the one-pass
+        # E[x**2]-E[x]**2 form catastrophically cancels) and overflow-safe, since
+        # the mean is float64 so the deviations are float64.
+        #
+        # Centring needs `x - xmean` to broadcast, which is undefined when the
+        # reduced axis is not the innermost one of a *ragged* array (short
+        # sublists cannot broadcast to the column width). There the one-pass form
+        # is used instead -- correct, and not a large-mean cancellation setting.
+        xmean = ak.operations.ak_mean._impl(x, weight, axis, **kw)
+        # Centring is an internal step; strip named axes from the mean so the
+        # subtraction is not rejected by the named-axis compatibility check (the
+        # output's named axis is propagated from `x`, not `xmean`).
+        xmean = ak.operations.ak_without_named_axis._impl(
+            xmean, highlevel=True, behavior=ctx.behavior, attrs=ctx.attrs
+        )
+        if axis is None:
+            # axis=None collapses to a scalar mean. Subtracting that scalar
+            # centres the flat content directly; broadcasting the length-1
+            # keepdims mean against a ragged array instead goes through awkward's
+            # nested broadcast, which is far slower and higher-memory and is the
+            # bulk of a large axis=None var/std. (Empty -> None mean -> one-pass.)
+            m_scalar = xmean[(0,) * xmean.ndim]
+            dev = None if m_scalar is None else (x - m_scalar)
+        else:
+            try:
+                dev = x - xmean
+            except ValueError:
+                dev = None
+
+        if dev is not None:
+            if is_complex:
+                # Variance of complex data is E[|x - mean|**2], a real number.
+                squared_dev = abs(dev) ** 2
+                if weight is not None:
+                    squared_dev = squared_dev * weight
+                sumwxx = ak.operations.ak_sum._impl(squared_dev, axis, **kw)
+            elif weight is None:
+                # float64 deviations -> fused sum-of-squares, no (x-mean)**2 buffer.
+                sumwxx = ak.operations.ak_sumofsquares._impl(dev, axis, **kw)
+            else:
+                sumwxx = ak.operations.ak_sum._impl(weight * dev * dev, axis, **kw)
+            out = sumwxx / sumw
+        else:
+            # One-pass fallback (non-innermost ragged axis). For complex data the
+            # variance is E[|x - mean|**2] = E[|x|**2] - |E[x]|**2, so the second
+            # moment and the mean-correction use the (real) squared modulus --
+            # matching NumPy and the innermost complex path, not E[x**2]-E[x]**2.
+            if weight is None:
+                sumwx = ak.operations.ak_sum._impl(x, axis, dtype=np.float64, **kw)
+                if is_complex:
+                    sumwxx = ak.operations.ak_sum._impl(abs(x) ** 2, axis, **kw)
+                else:
+                    sumwxx = ak.operations.ak_sumofsquares._impl(x, axis, **kw)
+            else:
+                xp = x if is_complex else promote_integral_to_float64(x)
+                sumwx = ak.operations.ak_sum._impl(
+                    xp * weight, axis, dtype=np.float64, **kw
+                )
+                if is_complex:
+                    sumwxx = ak.operations.ak_sum._impl(
+                        abs(xp) ** 2 * weight, axis, **kw
+                    )
+                else:
+                    sumwxx = ak.operations.ak_sum._impl(xp * xp * weight, axis, **kw)
+            mean = sumwx / sumw
+            out = sumwxx / sumw - (abs(mean) ** 2 if is_complex else mean * mean)
+
         if ddof != 0:
             out = out * (sumw / (sumw - ddof))
 

@@ -65,6 +65,7 @@ class ScheduledQueryRun(_message.Message):
         "status",
         "blocker_operation_id",
         "workflow_execution_id",
+        "has_errors",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -81,6 +82,7 @@ class ScheduledQueryRun(_message.Message):
     STATUS_FIELD_NUMBER: _ClassVar[int]
     BLOCKER_OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
     WORKFLOW_EXECUTION_ID_FIELD_NUMBER: _ClassVar[int]
+    HAS_ERRORS_FIELD_NUMBER: _ClassVar[int]
     id: int
     environment_id: str
     deployment_id: str
@@ -96,6 +98,7 @@ class ScheduledQueryRun(_message.Message):
     status: ScheduledQueryRunStatus
     blocker_operation_id: str
     workflow_execution_id: str
+    has_errors: bool
     def __init__(
         self,
         id: _Optional[int] = ...,
@@ -113,6 +116,7 @@ class ScheduledQueryRun(_message.Message):
         status: _Optional[_Union[ScheduledQueryRunStatus, str]] = ...,
         blocker_operation_id: _Optional[str] = ...,
         workflow_execution_id: _Optional[str] = ...,
+        has_errors: bool = ...,
     ) -> None: ...
 
 class GetScheduledQueryRunRequest(_message.Message):

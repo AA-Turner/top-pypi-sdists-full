@@ -1,6 +1,7 @@
 use std::process::Command;
 
 use assert_fs::prelude::*;
+use url::Url;
 use uv_static::EnvVars;
 
 use uv_test::{capture_uv_snapshot, diff_uv_snapshot, uv_snapshot};
@@ -48,6 +49,7 @@ fn pip_compile_baseline() {
             connectivity: Online,
             offline: Disabled,
             system_certs: false,
+            custom_certificates: [CERTIFICATES],
             http_proxy: None,
             https_proxy: None,
             no_proxy: None,
@@ -160,7 +162,7 @@ fn pip_compile_baseline() {
             strict: false,
             dependency_mode: Transitive,
             resolution: Highest,
-            prerelease: IfNecessaryOrExplicit,
+            prerelease: IfNecessary,
             fork_strategy: RequiresPython,
             dependency_metadata: DependencyMetadata(
                 {},
@@ -246,6 +248,7 @@ fn publish_resolved_settings() -> anyhow::Result<()> {
             connectivity: Online,
             offline: Disabled,
             system_certs: false,
+            custom_certificates: [CERTIFICATES],
             http_proxy: None,
             https_proxy: None,
             no_proxy: None,
@@ -412,6 +415,7 @@ fn pip_install_baseline() {
             connectivity: Online,
             offline: Disabled,
             system_certs: false,
+            custom_certificates: [CERTIFICATES],
             http_proxy: None,
             https_proxy: None,
             no_proxy: None,
@@ -522,7 +526,7 @@ fn pip_install_baseline() {
             strict: false,
             dependency_mode: Transitive,
             resolution: Highest,
-            prerelease: IfNecessaryOrExplicit,
+            prerelease: IfNecessary,
             fork_strategy: RequiresPython,
             dependency_metadata: DependencyMetadata(
                 {},
@@ -593,6 +597,7 @@ fn lock_baseline() {
             connectivity: Online,
             offline: Disabled,
             system_certs: false,
+            custom_certificates: [CERTIFICATES],
             http_proxy: None,
             https_proxy: None,
             no_proxy: None,
@@ -677,7 +682,7 @@ fn lock_baseline() {
             extra_build_variables: ExtraBuildVariables(
                 {},
             ),
-            prerelease: IfNecessaryOrExplicit,
+            prerelease: IfNecessary,
             resolution: Highest,
             sources: None,
             torch_backend: None,
@@ -713,6 +718,7 @@ fn version_baseline() {
             connectivity: Online,
             offline: Disabled,
             system_certs: false,
+            custom_certificates: [CERTIFICATES],
             http_proxy: None,
             https_proxy: None,
             no_proxy: None,
@@ -804,7 +810,7 @@ fn version_baseline() {
                 extra_build_variables: ExtraBuildVariables(
                     {},
                 ),
-                prerelease: IfNecessaryOrExplicit,
+                prerelease: IfNecessary,
                 resolution: Highest,
                 sources: None,
                 torch_backend: None,
@@ -848,6 +854,7 @@ fn tool_install_baseline() {
             connectivity: Online,
             offline: Disabled,
             system_certs: false,
+            custom_certificates: [CERTIFICATES],
             http_proxy: None,
             https_proxy: None,
             no_proxy: None,
@@ -969,7 +976,7 @@ fn tool_install_baseline() {
                 extra_build_variables: ExtraBuildVariables(
                     {},
                 ),
-                prerelease: IfNecessaryOrExplicit,
+                prerelease: IfNecessary,
                 resolution: Highest,
                 sources: None,
                 torch_backend: None,
@@ -1080,7 +1087,7 @@ fn resolve_uv_toml() -> anyhow::Result<()> {
              dependency_mode: Transitive,
     -        resolution: Highest,
     +        resolution: LowestDirect,
-             prerelease: IfNecessaryOrExplicit,
+             prerelease: IfNecessary,
              fork_strategy: RequiresPython,
              dependency_metadata: DependencyMetadata(
     ...
@@ -1108,7 +1115,7 @@ fn resolve_uv_toml() -> anyhow::Result<()> {
              dependency_mode: Transitive,
     -        resolution: LowestDirect,
     +        resolution: Highest,
-             prerelease: IfNecessaryOrExplicit,
+             prerelease: IfNecessary,
              fork_strategy: RequiresPython,
              dependency_metadata: DependencyMetadata(
     ...
@@ -1234,7 +1241,7 @@ fn resolve_pyproject_toml() -> anyhow::Result<()> {
              dependency_mode: Transitive,
     -        resolution: Highest,
     +        resolution: LowestDirect,
-             prerelease: IfNecessaryOrExplicit,
+             prerelease: IfNecessary,
              fork_strategy: RequiresPython,
              dependency_metadata: DependencyMetadata(
     ...
@@ -1613,7 +1620,7 @@ fn resolve_top_level() -> anyhow::Result<()> {
              dependency_mode: Transitive,
     -        resolution: Highest,
     +        resolution: LowestDirect,
-             prerelease: IfNecessaryOrExplicit,
+             prerelease: IfNecessary,
              fork_strategy: RequiresPython,
              dependency_metadata: DependencyMetadata(
     ...
@@ -1740,7 +1747,7 @@ fn resolve_top_level() -> anyhow::Result<()> {
              dependency_mode: Transitive,
     -        resolution: Highest,
     +        resolution: LowestDirect,
-             prerelease: IfNecessaryOrExplicit,
+             prerelease: IfNecessary,
              fork_strategy: RequiresPython,
              dependency_metadata: DependencyMetadata(
     ...
@@ -1789,7 +1796,7 @@ fn resolve_user_configuration() -> anyhow::Result<()> {
              dependency_mode: Transitive,
     -        resolution: Highest,
     +        resolution: LowestDirect,
-             prerelease: IfNecessaryOrExplicit,
+             prerelease: IfNecessary,
              fork_strategy: RequiresPython,
              dependency_metadata: DependencyMetadata(
     ...
@@ -1895,7 +1902,7 @@ fn resolve_system_configuration_can_be_disabled() -> anyhow::Result<()> {
              dependency_mode: Transitive,
     -        resolution: Highest,
     +        resolution: LowestDirect,
-             prerelease: IfNecessaryOrExplicit,
+             prerelease: IfNecessary,
              fork_strategy: RequiresPython,
              dependency_metadata: DependencyMetadata(
     ...
@@ -1967,7 +1974,7 @@ fn resolve_tool() -> anyhow::Result<()> {
     ...
                      {},
                  ),
-                 prerelease: IfNecessaryOrExplicit,
+                 prerelease: IfNecessary,
     -            resolution: Highest,
     +            resolution: LowestDirect,
                  sources: None,
@@ -2029,7 +2036,7 @@ fn resolve_poetry_toml() -> anyhow::Result<()> {
              dependency_mode: Transitive,
     -        resolution: Highest,
     +        resolution: LowestDirect,
-             prerelease: IfNecessaryOrExplicit,
+             prerelease: IfNecessary,
              fork_strategy: RequiresPython,
              dependency_metadata: DependencyMetadata(
     ...
@@ -2143,7 +2150,7 @@ fn resolve_both() -> anyhow::Result<()> {
              dependency_mode: Transitive,
     -        resolution: Highest,
     +        resolution: LowestDirect,
-             prerelease: IfNecessaryOrExplicit,
+             prerelease: IfNecessary,
              fork_strategy: RequiresPython,
              dependency_metadata: DependencyMetadata(
     ...
@@ -2277,7 +2284,7 @@ fn resolve_both_special_fields() -> anyhow::Result<()> {
              dependency_mode: Transitive,
     -        resolution: Highest,
     +        resolution: LowestDirect,
-             prerelease: IfNecessaryOrExplicit,
+             prerelease: IfNecessary,
              fork_strategy: RequiresPython,
              dependency_metadata: DependencyMetadata(
     ...
@@ -2621,7 +2628,7 @@ fn resolve_config_file() -> anyhow::Result<()> {
              dependency_mode: Transitive,
     -        resolution: Highest,
     +        resolution: LowestDirect,
-             prerelease: IfNecessaryOrExplicit,
+             prerelease: IfNecessary,
              fork_strategy: RequiresPython,
              dependency_metadata: DependencyMetadata(
     ...
@@ -2750,7 +2757,7 @@ fn resolve_skip_empty() -> anyhow::Result<()> {
              dependency_mode: Transitive,
     -        resolution: Highest,
     +        resolution: LowestDirect,
-             prerelease: IfNecessaryOrExplicit,
+             prerelease: IfNecessary,
              fork_strategy: RequiresPython,
              dependency_metadata: DependencyMetadata(
     ...
@@ -2826,6 +2833,160 @@ fn allow_insecure_host() -> anyhow::Result<()> {
     ...
     "#
     );
+
+    Ok(())
+}
+
+/// Resolve relative CLI indexes and find-links against the directory selected by `--directory`.
+#[test]
+#[cfg_attr(
+    windows,
+    ignore = "Configuration tests are not yet supported on Windows"
+)]
+fn resolve_relative_indexes_with_directory() -> anyhow::Result<()> {
+    let context = uv_test::test_context!("3.12");
+    context.temp_dir.child("project").create_dir_all()?;
+
+    // Add a configured index to ensure `--directory` does not rebase it.
+    let config_directory = context.temp_dir.child("configuration");
+    config_directory.create_dir_all()?;
+    let config_file = config_directory.child("uv.toml");
+    config_file.write_str(indoc::indoc! {r#"
+        [[index]]
+        name = "configured"
+        url = "./configured-index"
+    "#})?;
+
+    let absolute_index = context.temp_dir.child("absolute-index");
+    let absolute_find_links = context.temp_dir.child("absolute-find-links");
+    let file_url = Url::from_directory_path(context.temp_dir.child("file-index").path()).unwrap();
+
+    let show_settings = || {
+        let mut command = add_shared_args(context.pip_install());
+        command
+            .arg("tqdm")
+            .arg("--offline")
+            .arg("--config-file")
+            .arg(config_file.path())
+            .arg("--show-settings")
+            .arg("--index=index")
+            .arg("--index=local=./named-index")
+            .arg("--default-index=./default-index")
+            .arg("--index-url=./legacy-index")
+            .arg("--extra-index-url=./extra-index")
+            .arg("--find-links=./find-links")
+            .arg("--find-links")
+            .arg(absolute_find_links.path())
+            .arg("--index=https://test.pypi.org/simple")
+            .arg("--index")
+            .arg(absolute_index.path())
+            .arg("--index")
+            .arg(file_url.as_str());
+        command
+    };
+
+    // Capture CLI index paths before changing directories.
+    let original_directory = capture_uv_snapshot!(context.filters(), show_settings());
+
+    // Only relative CLI indexes and find-links should move into `project`.
+    diff_uv_snapshot!(context.filters(), &original_directory, show_settings()
+        .arg("--directory")
+        .arg("project"), @r#"
+    ...
+                                     password: None,
+                                     host: None,
+                                     port: None,
+    -                                path: "[TEMP_DIR]/default-index",
+    +                                path: "[TEMP_DIR]/project/default-index",
+                                     query: None,
+                                     fragment: None,
+                                 },
+    ...
+                                     password: None,
+                                     host: None,
+                                     port: None,
+    -                                path: "[TEMP_DIR]/index",
+    +                                path: "[TEMP_DIR]/project/index",
+                                     query: None,
+                                     fragment: None,
+                                 },
+    ...
+                                     password: None,
+                                     host: None,
+                                     port: None,
+    -                                path: "[TEMP_DIR]/named-index",
+    +                                path: "[TEMP_DIR]/project/named-index",
+                                     query: None,
+                                     fragment: None,
+                                 },
+    ...
+                                     password: None,
+                                     host: None,
+                                     port: None,
+    -                                path: "[TEMP_DIR]/extra-index",
+    +                                path: "[TEMP_DIR]/project/extra-index",
+                                     query: None,
+                                     fragment: None,
+                                 },
+    ...
+                                     password: None,
+                                     host: None,
+                                     port: None,
+    -                                path: "[TEMP_DIR]/legacy-index",
+    +                                path: "[TEMP_DIR]/project/legacy-index",
+                                     query: None,
+                                     fragment: None,
+                                 },
+    ...
+                                     password: None,
+                                     host: None,
+                                     port: None,
+    -                                path: "[TEMP_DIR]/find-links",
+    +                                path: "[TEMP_DIR]/project/find-links",
+                                     query: None,
+                                     fragment: None,
+                                 },
+    ...
+    "#);
+
+    let show_project_settings = || {
+        let mut command = add_shared_args(context.add());
+        command
+            .arg("tqdm")
+            .arg("--offline")
+            .arg("--config-file")
+            .arg(config_file.path())
+            .arg("--show-settings")
+            .arg("--index=local=./project-index");
+        command
+    };
+
+    let original_directory = capture_uv_snapshot!(context.filters(), show_project_settings());
+
+    // Project commands rebase indexes through a separate settings path.
+    diff_uv_snapshot!(context.filters(), &original_directory, show_project_settings()
+        .arg("--directory")
+        .arg("project"), @r#"
+    ...
+                             password: None,
+                             host: None,
+                             port: None,
+    -                        path: "[TEMP_DIR]/project-index",
+    +                        path: "[TEMP_DIR]/project/project-index",
+                             query: None,
+                             fragment: None,
+                         },
+    ...
+                                         password: None,
+                                         host: None,
+                                         port: None,
+    -                                    path: "[TEMP_DIR]/project-index",
+    +                                    path: "[TEMP_DIR]/project/project-index",
+                                         query: None,
+                                         fragment: None,
+                                     },
+    ...
+    "#);
 
     Ok(())
 }
@@ -3193,7 +3354,7 @@ fn preview_features() {
     +            PackageConflicts,
     +            ExtraBuildDependencies,
     +            DetectModuleConflicts,
-    +            Format,
+    +            FormatCommand,
     +            NativeAuth,
     +            S3Endpoint,
     +            CacheSize,
@@ -3211,14 +3372,14 @@ fn preview_features() {
     +            SpecialCondaEnvNames,
     +            RelocatableEnvsDefault,
     +            PublishRequireNormalized,
-    +            Audit,
+    +            AuditCommand,
     +            ProjectDirectoryMustExist,
     +            IndexExcludeNewer,
     +            AzureEndpoint,
     +            TomlBackwardsCompatibility,
     +            MalwareCheck,
     +            VenvSafeClear,
-    +            Check,
+    +            CheckCommand,
     +            PackagedInit,
     +            CentralizedProjectEnvs,
     +            ToolInstallLocks,
@@ -3226,6 +3387,7 @@ fn preview_features() {
     +            NoDistutilsPatch,
     +            IndexHashAlgorithm,
     +            LockfileFormatCheck,
+    +            LockWithoutMetadata,
     +        ],
          },
          python_preference: Managed,
@@ -3260,6 +3422,25 @@ fn preview_features() {
          python_downloads: Automatic,
     ...
     "
+    );
+
+    let canonical_command_features = capture_uv_snapshot!(
+        context.filters(),
+        add_shared_args(context.version())
+            .arg("--show-settings")
+            .arg("--preview-features")
+            .arg("format-command,audit-command,check-command")
+    );
+
+    // Preview feature aliases select the same settings as their canonical names.
+    diff_uv_snapshot!(
+        context.filters(),
+        &canonical_command_features,
+        add_shared_args(context.version())
+            .arg("--show-settings")
+            .arg("--preview-features")
+            .arg("format,audit,check"),
+        @""
     );
 
     diff_uv_snapshot!(
@@ -3482,7 +3663,7 @@ fn preview_precedence() -> anyhow::Result<()> {
          preview: Preview {
     -        flags: [],
     +        flags: [
-    +            Format,
+    +            FormatCommand,
     +        ],
          },
          python_preference: Managed,
@@ -3533,7 +3714,7 @@ fn preview_precedence() -> anyhow::Result<()> {
          show_settings: true,
          preview: Preview {
              flags: [
-    -            Format,
+    -            FormatCommand,
     +            Pylock,
              ],
          },
@@ -3652,7 +3833,7 @@ fn preview_features_uv_toml() -> anyhow::Result<()> {
          preview: Preview {
     -        flags: [],
     +        flags: [
-    +            Format,
+    +            FormatCommand,
     +        ],
          },
          python_preference: Managed,
@@ -3792,7 +3973,7 @@ fn preview_features_pyproject_toml() -> anyhow::Result<()> {
          preview: Preview {
     -        flags: [],
     +        flags: [
-    +            Format,
+    +            FormatCommand,
     +        ],
          },
          python_preference: Managed,
@@ -3924,7 +4105,7 @@ fn run_pep723_script_preview_features() -> anyhow::Result<()> {
          preview: Preview {
     -        flags: [],
     +        flags: [
-    +            Format,
+    +            FormatCommand,
     +        ],
          },
          python_preference: Managed,
@@ -4132,9 +4313,9 @@ fn system_certs_config_aliases() -> anyhow::Result<()> {
              offline: Disabled,
     -        system_certs: false,
     +        system_certs: true,
+             custom_certificates: [CERTIFICATES],
              http_proxy: None,
              https_proxy: None,
-             no_proxy: None,
     ...
     "
     );
@@ -4262,12 +4443,10 @@ fn upgrade_pip_cli_config_interaction() -> anyhow::Result<()> {
     -                        "sniffio",
     -                    ),
     -                },
-    -                {},
-    -            ),
-    +            strategy: All,
+    +            strategy: All(
+                     {},
+                 ),
                  constraints: {},
-             },
-             reinstall: None,
     ...
     "#
     );
@@ -4320,12 +4499,10 @@ fn upgrade_pip_cli_config_interaction() -> anyhow::Result<()> {
     -                        "sniffio",
     -                    ),
     -                },
-    -                {},
-    -            ),
-    +            strategy: All,
+    +            strategy: All(
+                     {},
+                 ),
                  constraints: {},
-             },
-             reinstall: None,
     ...
     "#
     );
@@ -4464,12 +4641,10 @@ fn upgrade_project_cli_config_interaction() -> anyhow::Result<()> {
     -                        "sniffio",
     -                    ),
     -                },
-    -                {},
-    -            ),
-    +            strategy: All,
+    +            strategy: All(
+                     {},
+                 ),
                  constraints: {},
-             },
-         },
     ...
     "#
     );
@@ -4524,12 +4699,10 @@ fn upgrade_project_cli_config_interaction() -> anyhow::Result<()> {
     -                        "sniffio",
     -                    ),
     -                },
-    -                {},
-    -            ),
-    +            strategy: All,
+    +            strategy: All(
+                     {},
+                 ),
                  constraints: {},
-             },
-         },
     ...
     "#
     );

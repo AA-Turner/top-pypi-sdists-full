@@ -13,22 +13,24 @@
         #include <wx/gdicmn.h>
         #include <wx/gdicmn.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/validate.h>
+        #include <wx/imaglist.h>
         #include <wx/ribbon/page.h>
         #include <wx/ribbon/art.h>
         #include <wx/dc.h>
         #include <wx/event.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -44,6 +46,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
+    wxAccessible* _wxRibbonBar_CreateAccessible(wxRibbonBar* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxRibbonBar : public ::wxRibbonBar
@@ -73,7 +84,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -119,7 +129,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -132,7 +141,7 @@ private:
     sipwxRibbonBar(const sipwxRibbonBar &);
     sipwxRibbonBar &operator = (const sipwxRibbonBar &);
 
-    char sipPyMethods[39];
+    char sipPyMethods[38];
 };
 
 sipwxRibbonBar::sipwxRibbonBar(): ::wxRibbonBar(), sipPySelf(SIP_NULLPTR)
@@ -711,27 +720,12 @@ void sipwxRibbonBar::DoSetWindowVariant(::wxWindowVariant variant)
     return sipVH__ribbon_16(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxRibbonBar::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxRibbonBar::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__ribbon_16(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__ribbon_16(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 void sipwxRibbonBar::DoFreeze()
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -749,7 +743,7 @@ void sipwxRibbonBar::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -767,7 +761,7 @@ void sipwxRibbonBar::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxRibbonBar::DoGetBestSize();
@@ -782,7 +776,7 @@ void sipwxRibbonBar::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxRibbonBar::DoGetBestClientSize();
@@ -870,11 +864,6 @@ void sipwxRibbonBar::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, ::wxW
 ::wxBorder sipwxRibbonBar::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxRibbonBar::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxRibbonBar::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxRibbonBar::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxRibbonBar::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -1303,6 +1292,46 @@ static PyObject *meth_wxRibbonBar_GetPage(PyObject *sipSelf, PyObject *sipArgs, 
     }
 
     sipNoMethod(sipParseErr, sipName_RibbonBar, sipName_GetPage, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxRibbonBar_GetPageById, "GetPageById(id) -> RibbonPage\n"
+"\n"
+"Get a page by window ID.");
+
+extern "C" {static PyObject *meth_wxRibbonBar_GetPageById(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxRibbonBar_GetPageById(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxWindowID id;
+        ::wxRibbonBar *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_id,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxRibbonBar, &sipCpp, &id))
+        {
+            ::wxRibbonPage*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetPageById(id);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxRibbonPage, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_RibbonBar, sipName_GetPageById, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -1897,6 +1926,120 @@ static PyObject *meth_wxRibbonBar_GetDisplayMode(PyObject *sipSelf, PyObject *si
     }
 
     sipNoMethod(sipParseErr, sipName_RibbonBar, sipName_GetDisplayMode, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxRibbonBar_HasMultiplePages, "HasMultiplePages() -> bool\n"
+"\n"
+"Returns whether the bar contains multiple pages.");
+
+extern "C" {static PyObject *meth_wxRibbonBar_HasMultiplePages(PyObject *, PyObject *);}
+static PyObject *meth_wxRibbonBar_HasMultiplePages(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxRibbonBar *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRibbonBar, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->HasMultiplePages();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_RibbonBar, sipName_HasMultiplePages, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxRibbonBar_HideIfExpanded, "HideIfExpanded() -> None\n"
+"\n"
+"Hide the panels if its display mode is wxRIBBON_BAR_EXPANDED.");
+
+extern "C" {static PyObject *meth_wxRibbonBar_HideIfExpanded(PyObject *, PyObject *);}
+static PyObject *meth_wxRibbonBar_HideIfExpanded(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxRibbonBar *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRibbonBar, &sipCpp))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->HideIfExpanded();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_RibbonBar, sipName_HideIfExpanded, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxRibbonBar_GetButtonImageList, "GetButtonImageList(size, initialCount=1) -> wx.ImageList\n"
+"\n"
+"Return the image list containing images of the given size, creating it\n"
+"if necessary.");
+
+extern "C" {static PyObject *meth_wxRibbonBar_GetButtonImageList(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxRibbonBar_GetButtonImageList(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxSize* size;
+        int sizeState = 0;
+        int initialCount = 1;
+        ::wxRibbonBar *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_size,
+            sipName_initialCount,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|i", &sipSelf, sipType_wxRibbonBar, &sipCpp, sipType_wxSize, &size, &sizeState, &initialCount))
+        {
+            ::wxImageList*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->GetButtonImageList(*size, initialCount);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(size, sipType_wxSize, sizeState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxImageList, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_RibbonBar, sipName_GetButtonImageList, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -3141,40 +3284,6 @@ static PyObject *meth_wxRibbonBar_GetDefaultBorder(PyObject *sipSelf, PyObject *
 }
 
 
-PyDoc_STRVAR(doc_wxRibbonBar_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxRibbonBar_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxRibbonBar_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxRibbonBar *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRibbonBar, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_RibbonBar, sipName_GetDefaultBorderForControl, doc_wxRibbonBar_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxRibbonBar_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxRibbonBar_DoFreeze(PyObject *, PyObject *);}
@@ -3348,6 +3457,39 @@ static PyObject *meth_wxRibbonBar_TryAfter(PyObject *sipSelf, PyObject *sipArgs,
     }
 
     sipNoMethod(sipParseErr, sipName_RibbonBar, sipName_TryAfter, doc_wxRibbonBar_TryAfter);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxRibbonBar_CreateAccessible, "CreateAccessible() -> wx.Accessible");
+
+extern "C" {static PyObject *meth_wxRibbonBar_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxRibbonBar_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxRibbonBar *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRibbonBar, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxRibbonBar_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_RibbonBar, sipName_CreateAccessible, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -3538,6 +3680,7 @@ static PyMethodDef methods_wxRibbonBar[] = {
     {sipName_ArePanelsShown, meth_wxRibbonBar_ArePanelsShown, METH_VARARGS, doc_wxRibbonBar_ArePanelsShown},
     {sipName_ClearPages, meth_wxRibbonBar_ClearPages, METH_VARARGS, doc_wxRibbonBar_ClearPages},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxRibbonBar_Create), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonBar_Create},
+    {sipName_CreateAccessible, meth_wxRibbonBar_CreateAccessible, METH_VARARGS, doc_wxRibbonBar_CreateAccessible},
     {sipName_DeletePage, SIP_MLMETH_CAST(meth_wxRibbonBar_DeletePage), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonBar_DeletePage},
     {sipName_Destroy, meth_wxRibbonBar_Destroy, METH_VARARGS, doc_wxRibbonBar_Destroy},
     {sipName_DismissExpandedPanel, meth_wxRibbonBar_DismissExpandedPanel, METH_VARARGS, doc_wxRibbonBar_DismissExpandedPanel},
@@ -3558,17 +3701,20 @@ static PyMethodDef methods_wxRibbonBar[] = {
     {sipName_DoThaw, meth_wxRibbonBar_DoThaw, METH_VARARGS, doc_wxRibbonBar_DoThaw},
     {sipName_EnableVisibleFocus, SIP_MLMETH_CAST(meth_wxRibbonBar_EnableVisibleFocus), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonBar_EnableVisibleFocus},
     {sipName_GetActivePage, meth_wxRibbonBar_GetActivePage, METH_VARARGS, doc_wxRibbonBar_GetActivePage},
+    {sipName_GetButtonImageList, SIP_MLMETH_CAST(meth_wxRibbonBar_GetButtonImageList), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonBar_GetButtonImageList},
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxRibbonBar_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonBar_GetClassDefaultAttributes},
     {sipName_GetClientAreaOrigin, meth_wxRibbonBar_GetClientAreaOrigin, METH_VARARGS, doc_wxRibbonBar_GetClientAreaOrigin},
     {sipName_GetDefaultBorder, meth_wxRibbonBar_GetDefaultBorder, METH_VARARGS, doc_wxRibbonBar_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxRibbonBar_GetDefaultBorderForControl, METH_VARARGS, doc_wxRibbonBar_GetDefaultBorderForControl},
     {sipName_GetDisplayMode, meth_wxRibbonBar_GetDisplayMode, METH_VARARGS, doc_wxRibbonBar_GetDisplayMode},
     {sipName_GetMainWindowOfCompositeControl, meth_wxRibbonBar_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxRibbonBar_GetMainWindowOfCompositeControl},
     {sipName_GetPage, SIP_MLMETH_CAST(meth_wxRibbonBar_GetPage), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonBar_GetPage},
+    {sipName_GetPageById, SIP_MLMETH_CAST(meth_wxRibbonBar_GetPageById), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonBar_GetPageById},
     {sipName_GetPageCount, meth_wxRibbonBar_GetPageCount, METH_VARARGS, doc_wxRibbonBar_GetPageCount},
     {sipName_GetPageNumber, SIP_MLMETH_CAST(meth_wxRibbonBar_GetPageNumber), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonBar_GetPageNumber},
     {sipName_GetValidator, meth_wxRibbonBar_GetValidator, METH_VARARGS, doc_wxRibbonBar_GetValidator},
+    {sipName_HasMultiplePages, meth_wxRibbonBar_HasMultiplePages, METH_VARARGS, doc_wxRibbonBar_HasMultiplePages},
     {sipName_HasTransparentBackground, meth_wxRibbonBar_HasTransparentBackground, METH_VARARGS, doc_wxRibbonBar_HasTransparentBackground},
+    {sipName_HideIfExpanded, meth_wxRibbonBar_HideIfExpanded, METH_VARARGS, doc_wxRibbonBar_HideIfExpanded},
     {sipName_HidePage, SIP_MLMETH_CAST(meth_wxRibbonBar_HidePage), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonBar_HidePage},
     {sipName_HidePanels, meth_wxRibbonBar_HidePanels, METH_VARARGS, doc_wxRibbonBar_HidePanels},
     {sipName_InformFirstDirection, SIP_MLMETH_CAST(meth_wxRibbonBar_InformFirstDirection), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonBar_InformFirstDirection},
@@ -3598,9 +3744,9 @@ static PyMethodDef methods_wxRibbonBar[] = {
 };
 
 sipVariableDef variables_wxRibbonBar[] = {
-    {PropertyVariable, sipName_PageCount, &methods_wxRibbonBar[35], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DisplayMode, &methods_wxRibbonBar[32], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ActivePage, &methods_wxRibbonBar[27], &methods_wxRibbonBar[52], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_PageCount, &methods_wxRibbonBar[37], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DisplayMode, &methods_wxRibbonBar[33], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ActivePage, &methods_wxRibbonBar[28], &methods_wxRibbonBar[56], SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxRibbonBar, "RibbonBar() -> None\n"
@@ -3622,7 +3768,7 @@ sipClassTypeDef sipTypeDef__ribbon_wxRibbonBar = {
     {
         sipNameNr_RibbonBar,
         {0, 0, 1},
-        65, methods_wxRibbonBar,
+        69, methods_wxRibbonBar,
         0, SIP_NULLPTR,
         3, variables_wxRibbonBar,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

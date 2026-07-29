@@ -32,7 +32,6 @@ def test_getting_release_notes(tmp_path: Path) -> None:
     assert get_release_notes(input_file=changelog) == expected
 
 
-
 def test_getting_release_notes_no_marker_line(tmp_path: Path) -> None:
     """Get release notes from existing changelog without a marker line.
 

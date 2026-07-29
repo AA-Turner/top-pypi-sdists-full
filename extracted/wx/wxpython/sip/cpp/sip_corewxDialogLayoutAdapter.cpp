@@ -62,9 +62,9 @@ bool sipwxDialogLayoutAdapter::DoLayoutAdaptation(::wxDialog*dialog)
     if (!sipMeth)
         return 0;
 
-    extern bool sipVH__core_191(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDialog*);
+    extern bool sipVH__core_190(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDialog*);
 
-    return sipVH__core_191(sipGILState, 0, sipPySelf, sipMeth, dialog);
+    return sipVH__core_190(sipGILState, 0, sipPySelf, sipMeth, dialog);
 }
 
 bool sipwxDialogLayoutAdapter::CanDoLayoutAdaptation(::wxDialog*dialog)
@@ -77,9 +77,9 @@ bool sipwxDialogLayoutAdapter::CanDoLayoutAdaptation(::wxDialog*dialog)
     if (!sipMeth)
         return 0;
 
-    extern bool sipVH__core_191(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDialog*);
+    extern bool sipVH__core_190(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDialog*);
 
-    return sipVH__core_191(sipGILState, 0, sipPySelf, sipMeth, dialog);
+    return sipVH__core_190(sipGILState, 0, sipPySelf, sipMeth, dialog);
 }
 
 

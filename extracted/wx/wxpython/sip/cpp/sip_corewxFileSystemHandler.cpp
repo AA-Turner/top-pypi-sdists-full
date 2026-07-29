@@ -281,7 +281,7 @@ static PyObject *meth_wxFileSystemHandler_FindNext(PyObject *sipSelf, PyObject *
 
 PyDoc_STRVAR(doc_wxFileSystemHandler_OpenFile, "OpenFile(fs, location) -> FSFile\n"
 "\n"
-"Opens the file and returns wxFSFile pointer or NULL if failed.");
+"Opens the file and returns wxFSFile pointer or nullptr if failed.");
 
 extern "C" {static PyObject *meth_wxFileSystemHandler_OpenFile(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxFileSystemHandler_OpenFile(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -625,7 +625,7 @@ static void *init_type_wxFileSystemHandler(sipSimpleWrapper *sipSelf, PyObject *
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxFileSystemHandler[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxFileSystemHandler[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxFileSystemHandler[] = {

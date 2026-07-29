@@ -4,12 +4,11 @@ build-backend = "uv_build"
 
 [project]
 name = "crytic-compile"
-version = "0.4.1"
+version = "0.4.2"
 description = "Util to facilitate smart contracts compilation."
 readme = "README.md"
 license = "AGPL-3.0-only"
 requires-python = ">=3.10,!=3.12.0"
-authors = [{ name = "Trail of Bits" }]
 classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -23,12 +22,21 @@ dependencies = [
     "solc-select>=1.0.4",
 ]
 
+[[project.authors]]
+name = "Trail of Bits"
+
 [project.urls]
 Homepage = "https://github.com/crytic/crytic-compile"
 
 [project.optional-dependencies]
-test = ["pytest", "pytest-cov"]
-lint = ["ruff>=0.8", "ty"]
+test = [
+    "pytest",
+    "pytest-cov",
+]
+lint = [
+    "ruff>=0.8",
+    "ty",
+]
 doc = ["pdoc"]
 dev = ["crytic-compile[test,lint,doc]"]
 
@@ -43,7 +51,13 @@ line-length = 100
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP"]
+select = [
+    "E",
+    "F",
+    "W",
+    "I",
+    "UP",
+]
 ignore = ["E501"]
 
 [tool.ruff.format]

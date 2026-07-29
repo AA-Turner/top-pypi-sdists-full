@@ -9,12 +9,11 @@ import re
 import time
 import uuid
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 from urllib.parse import urlparse
 
 import click
 import humanfriendly
-import requests
 from click import Context
 
 from tinybird.datafile.common import get_name_version
@@ -67,8 +66,6 @@ from tinybird.tb.modules.project import Project
 from tinybird.tb.modules.secret import save_secret_to_env_file
 from tinybird.tb.modules.telemetry import add_telemetry_event
 
-EXPERIMENTAL_FEATURE_USE_V1 = "use_v1"
-
 
 def _echo_v1_import_jobs_queued(job_ids: list[str], operation: str) -> None:
     for job_id in job_ids:
@@ -76,15 +73,28 @@ def _echo_v1_import_jobs_queued(job_ids: list[str], operation: str) -> None:
         click.echo(FeedbackManager.gray(message=f"Check status: tb job details {job_id}"))
 
 
-def _wait_for_v1_import_jobs(client: TinyB, job_ids: list[str], operation: str) -> None:
+def _wait_for_v1_import_jobs(client: TinyB, job_ids: list[str], operation: str) -> list[dict[str, Any]]:
+    jobs = []
     for job_id in job_ids:
         try:
-            wait_job(client, job_id, f"/v0/jobs/{job_id}", f"{operation} import")
+            job = wait_job(client, job_id, f"/v0/jobs/{job_id}", f"{operation} import")
         except CLIException:
             if _echo_v1_import_job_details(client, job_id):
                 raise click.exceptions.Exit(1)
             raise
-        click.echo(FeedbackManager.success(message=f"✓ {operation} import completed: {job_id}"))
+        jobs.append(job)
+    return jobs
+
+
+def _v1_import_row_counts(jobs: list[dict[str, Any]]) -> tuple[int, int]:
+    successful_rows = 0
+    quarantined_rows = 0
+    for job in jobs:
+        for block in job.get("blocks", []):
+            for process_return in block.get("process_return") or []:
+                successful_rows += process_return.get("lines", 0)
+                quarantined_rows += process_return.get("quarantine", 0)
+    return successful_rows, quarantined_rows
 
 
 def _echo_v1_import_job_details(client: TinyB, job_id: str) -> bool:
@@ -92,10 +102,37 @@ def _echo_v1_import_job_details(client: TinyB, job_id: str) -> bool:
         job = client.job(job_id)
     except Exception:
         return False
-    click.echo(FeedbackManager.info_job(job=job_id))
-    echo_safe_humanfriendly_tables_format_smart_table([job.values()], column_names=job.keys())
-    click.echo("\n")
+    _echo_v1_import_job_result(job_id, job)
     return True
+
+
+def _echo_v1_import_job_result(job_id: str, job: dict[str, Any]) -> None:
+    result: dict[str, Any] = {"job": job_id, "status": job.get("status", "unknown")}
+    rows = 0
+    quarantined_rows = 0
+    input_bytes = 0
+    processing_time = 0.0
+    for block in job.get("blocks", []):
+        for process_return in block.get("process_return") or []:
+            rows += process_return.get("lines", 0)
+            quarantined_rows += process_return.get("quarantine", 0)
+            input_bytes += process_return.get("bytes", 0)
+        processing_time += block.get("processing_time", 0)
+
+    if rows:
+        result["rows"] = rows
+    if quarantined_rows:
+        result["quarantined rows"] = quarantined_rows
+    if input_bytes:
+        result["input bytes"] = humanfriendly.format_size(input_bytes)
+    if processing_time:
+        result["processing time"] = f"{processing_time:.2f}s"
+    if errors := job.get("errors") or job.get("error"):
+        result["errors"] = ", ".join(errors) if isinstance(errors, list) else errors
+
+    click.echo("Import result")
+    echo_safe_humanfriendly_tables_format_smart_table([result.values()], column_names=list(result.keys()))
+    click.echo("\n")
 
 
 def _dynamodb_key_schema_sort_key(key_schema: dict[str, str]) -> int:
@@ -244,14 +281,12 @@ def datasource_ls(ctx: Context, match: Optional[str], format_: str):
 @click.option("--url", type=str, help="URL to append data from")
 @click.option("--file", type=str, help="Local file to append data from")
 @click.option("--events", type=str, help="Events to append data from")
-@click.option(
-    "--experimental",
-    type=click.Choice([EXPERIMENTAL_FEATURE_USE_V1]),
-    multiple=True,
-    help="Enable an experimental feature. May be specified multiple times.",
-)
 @click.option("--concurrency", help="How many files to submit concurrently", default=1, hidden=True)
-@click.option("--wait", is_flag=True, default=False, help="Wait for a v1 import job to finish.")
+@click.option(
+    "--wait/--no-wait",
+    default=True,
+    help="Wait for the import to finish (default); use --no-wait to only queue it.",
+)
 @click.pass_context
 def datasource_append(
     ctx: Context,
@@ -260,7 +295,6 @@ def datasource_append(
     url: str,
     file: str,
     events: str,
-    experimental: tuple[str, ...],
     concurrency: int,
     wait: bool,
 ):
@@ -277,9 +311,6 @@ def datasource_append(
     env: str = ctx.ensure_object(dict)["env"]
     client: TinyB = ctx.obj["client"]
     project: Project = ctx.ensure_object(dict)["project"]
-    use_v1 = EXPERIMENTAL_FEATURE_USE_V1 in experimental
-    if wait and not use_v1:
-        raise CLIDatasourceException("--wait requires --experimental=use_v1.")
 
     # If data is passed as argument, we detect if it's a JSON object, a URL or a file
     if data:
@@ -389,41 +420,31 @@ def datasource_append(
             raise CLIDatasourceException(FeedbackManager.error(message="Invalid ingestion option"))
 
     if events:
-        if use_v1:
-            raise CLIDatasourceException("--experimental=use_v1 only supports local files.")
         click.echo(FeedbackManager.highlight(message=f"\n» Sending events to {datasource_name}"))
-        events_params = {"name": datasource_name}
-        request_from = getattr(client, "request_from", None)
-        if request_from:
-            events_params["from"] = request_from
-        response = requests.post(
-            f"{client.host}/v0/events",
-            headers={"Authorization": f"Bearer {client.token}"},
-            params=events_params,
-            data=events,
-        )
-
-        try:
-            res = response.json()
-        except Exception:
-            raise CLIDatasourceException(FeedbackManager.error(message=response.text))
-
-        successful_rows = res["successful_rows"]
-        quarantined_rows = res["quarantined_rows"]
-        if successful_rows > 0:
-            click.echo(
-                FeedbackManager.success(
-                    message=f"✓ {successful_rows} row{'' if successful_rows == 1 else 's'} appended!"
-                )
+        response = client.datasource_append_events(datasource_name, events)
+        job_id = response.get("id") or response.get("import_id")
+        if not isinstance(job_id, str):
+            raise CLIDatasourceException("We couldn't confirm that your import started. Please try again.")
+        if wait:
+            successful_rows, quarantined_rows = _v1_import_row_counts(
+                _wait_for_v1_import_jobs(client, [job_id], "Append")
             )
-        if quarantined_rows > 0:
-            click.echo(
-                FeedbackManager.error(
-                    message=f"✗ {quarantined_rows} row{'' if quarantined_rows == 1 else 's'} went to quarantine"
+            if successful_rows > 0:
+                click.echo(
+                    FeedbackManager.success(
+                        message=f"✓ {successful_rows} row{'' if successful_rows == 1 else 's'} appended!"
+                    )
                 )
-            )
-            analyze_quarantine(datasource_name, project, client)
-            return
+            if quarantined_rows > 0:
+                click.echo(
+                    FeedbackManager.error(
+                        message=f"✗ {quarantined_rows} row{'' if quarantined_rows == 1 else 's'} went to quarantine"
+                    )
+                )
+                analyze_quarantine(datasource_name, project, client)
+                return
+        else:
+            _echo_v1_import_jobs_queued([job_id], "Append")
     else:
         click.echo(FeedbackManager.highlight(message=f"\n» Appending data to {datasource_name}"))
         try:
@@ -434,7 +455,7 @@ def datasource_append(
                 mode="append",
                 concurrency=concurrency,
                 silent=True,
-                use_v1=use_v1,
+                wait=wait,
             )
         except Exception as e:
             is_quarantined = "quarantine" in str(e)
@@ -444,10 +465,8 @@ def datasource_append(
                 return
             else:
                 raise e
-        if use_v1:
-            _echo_v1_import_jobs_queued(job_ids or [], "Append")
-            if wait:
-                _wait_for_v1_import_jobs(client, job_ids or [], "Append")
+        if job_ids:
+            _echo_v1_import_jobs_queued(job_ids, "Append")
         else:
             click.echo(FeedbackManager.success(message="✓ Rows appended!"))
 
@@ -457,12 +476,10 @@ def datasource_append(
 @click.argument("url", nargs=-1, required=True)
 @click.option("--sql-condition", default=None, help="SQL WHERE condition to replace data", hidden=True)
 @click.option("--skip-incompatible-partition-key", is_flag=True, default=False, hidden=True)
-@click.option("--wait", is_flag=True, default=False, help="Wait for a v1 import job to finish.")
 @click.option(
-    "--experimental",
-    type=click.Choice([EXPERIMENTAL_FEATURE_USE_V1]),
-    multiple=True,
-    help="Enable an experimental feature. May be specified multiple times.",
+    "--wait/--no-wait",
+    default=True,
+    help="Wait for the import to finish (default); use --no-wait to only queue it.",
 )
 @click.pass_context
 def datasource_replace(
@@ -471,7 +488,6 @@ def datasource_replace(
     url,
     sql_condition,
     skip_incompatible_partition_key,
-    experimental: tuple[str, ...],
     wait: bool,
 ):
     """
@@ -486,9 +502,7 @@ def datasource_replace(
     if skip_incompatible_partition_key:
         replace_options.add("skip_incompatible_partition_key")
     client: TinyB = ctx.obj["client"]
-    use_v1 = EXPERIMENTAL_FEATURE_USE_V1 in experimental
-    if wait and not use_v1:
-        raise CLIDatasourceException("--wait requires --experimental=use_v1.")
+    click.echo(FeedbackManager.highlight(message=f"\n» Replacing data in {datasource_name}..."))
     job_ids = push_data(
         client,
         datasource_name,
@@ -496,12 +510,14 @@ def datasource_replace(
         mode="replace",
         sql_condition=sql_condition,
         replace_options=replace_options,
-        use_v1=use_v1,
+        silent=True,
+        wait=wait,
     )
-    if use_v1:
-        _echo_v1_import_jobs_queued(job_ids or [], "Replace")
-        if wait:
-            _wait_for_v1_import_jobs(client, job_ids or [], "Replace")
+    if job_ids:
+        _echo_v1_import_jobs_queued(job_ids, "Replace")
+    else:
+        click.echo(FeedbackManager.success_replaced_datasource(datasource=datasource_name))
+        click.echo(FeedbackManager.success_progress_blocks())
 
 
 @datasource.command(name="analyze")

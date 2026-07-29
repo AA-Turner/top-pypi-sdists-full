@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import sys
 import threading
 import typing as t
@@ -10,7 +9,6 @@ from concurrent.futures import Future
 from dataclasses import dataclass, replace
 from datetime import datetime
 from functools import cached_property
-from pathlib import Path
 from time import perf_counter
 
 import agate
@@ -69,7 +67,10 @@ from dbt_state.utils import (
     DBT_VERSION,
 )
 from dbt_state.decision_logger import create_decision_logger, BaseDecisionLogger
-from dbt_state.node_hash_calculator import ModelNodeHashCalculator, create_node_hash_calculator
+from dbt_state.node_hash_calculator import (
+    ModelNodeHashCalculator,
+    create_node_hash_calculator,
+)
 from query_cache_common.constants import NO_OP_STATUS, SUPPORTED_DIALECT_TIME_TRAVEL_DEFAULTS
 from query_cache_common.models import shared_models
 from query_cache_common.models.services import (
@@ -1245,17 +1246,36 @@ class RunCache:
         }
         semantic_extras.update(self._persisted_docs_semantic_extras(node))
         last_modified_epoch = self._get_last_modified_epoch(self._node_to_table(node))
+
+        calculator = create_node_hash_calculator(node, self._manifest, self._config)
+
+        dbt_node_state = shared_models.DbtNodeState(
+            node_unique_id=node.unique_id,
+            target_name=self._config.target_name,
+            project_name=self._config.project_name,
+            resource_type=node.resource_type,
+            node_hash=calculator.calculate_node_hash(),
+            node_body_hash=calculator.node_body_hash,
+            node_configs_hash=calculator.node_configs_hash,
+            node_persisted_descriptions_hash=calculator.node_persisted_docs_hash,
+            node_macros_hash=calculator.node_macros_hash,
+            node_contract_hash=None,
+            profile_name=self._config.profile_name,
+            project_id=self._run_cache_config.dbt_project_id,
+        )
+
         return sql_service_models.SubmitValuesRequest(
             target_table=node.relation_name or "",
             dialect=self._adapter.type(),
             default_catalog=self._adapter_ext.default_catalog,
-            values_hash=self._compute_seed_values_hash(node),
+            values_hash=calculator.calculate_node_hash(),
             semantic_extras=semantic_extras,
             last_modified_epoch=last_modified_epoch,
             labels=self._get_request_labels(node),
             clone_time_travel_limit=self._clone_time_travel_limit,
             clone_table_properties=self._get_table_properties(node),
             clone_chain_depth_limit=self.clone_chain_depth_limit,
+            dbt_node_state=dbt_node_state,
         )
 
     def _emit_enriched_sql_prepared_telemetry(
@@ -1567,14 +1587,14 @@ class RunCache:
         an execution whenever the documentation changes. Returns an empty mapping when the
         node has no persisted docs.
         """
-        calculator = create_node_hash_calculator(node, self._manifest)
+        calculator = create_node_hash_calculator(node, self._manifest, self._config)
         docs_hash = calculator.node_persisted_docs_hash
         if docs_hash is None:
             return {}
         return {PERSISTED_DOCS_HASH_KEY: docs_hash}
 
     def _build_dbt_node_state(self, node: ModelOrSnapshotOrTestNode) -> shared_models.DbtNodeState:
-        calculator = create_node_hash_calculator(node, self._manifest)
+        calculator = create_node_hash_calculator(node, self._manifest, self._config)
 
         node_contract_hash: t.Optional[str] = None
         if isinstance(calculator, ModelNodeHashCalculator):
@@ -1687,14 +1707,6 @@ class RunCache:
     ) -> None:
         self._total_cache_hits += 1
         self._total_time_saved_ms += response.execution_runtime_ms or 0
-
-    def _compute_seed_values_hash(self, node: SeedNode) -> str:
-        seed_path = Path(self._config.project_root) / node.original_file_path
-        md5 = hashlib.md5(usedforsecurity=False)
-        with open(seed_path, "rb") as f:
-            for chunk in iter(lambda: f.read(_HASH_READ_CHUNK_SIZE), b""):
-                md5.update(chunk)
-        return md5.hexdigest()
 
     def _resolve_deps(self, node: ManifestSQLNode) -> t.Tuple[t.Set[str], t.Set[str]]:
         """Return model dependency IDs and source IDs, resolving transitively through ephemeral models."""

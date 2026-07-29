@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
+import os
 from typing import Any, ClassVar, Dict, List, Optional
 
 from anyscale._private.models import ModelBase
@@ -11,6 +12,36 @@ class Platform(str, Enum):
     CLAUDE_CODE = "claude-code"
     CURSOR = "cursor"
     CODEX = "codex"
+    COPILOT = "copilot"
+
+
+@dataclass(frozen=True)
+class ConfigDir:
+    """A config directory root that an env var may relocate."""
+
+    default: str
+    """Directory used when the env var is unset; a leading `~` is expanded."""
+
+    env_var: Optional[str] = None
+    """Env var that overrides `default` when set and non-empty; None means fixed."""
+
+    env_subpath: str = ""
+    """Subpath appended only under an override (`default` already includes it)."""
+
+    def resolve(self) -> str:
+        """Absolute dir, honoring env_var when set and non-empty."""
+        # Env values should be absolute: ~ is expanded here (CLI-side) but NOT by the shipped
+        # shell hook (${VAR:-$HOME/...}), so absolute values keep them in sync. A relative
+        # override is still normalized to absolute so metadata/cleanup don't depend on cwd.
+        override = os.environ.get(self.env_var) if self.env_var else None
+        if override:
+            base = os.path.expanduser(override)
+            resolved = (
+                os.path.join(base, self.env_subpath) if self.env_subpath else base
+            )
+        else:
+            resolved = os.path.expanduser(self.default)
+        return os.path.abspath(resolved)
 
 
 @dataclass(frozen=True)
@@ -18,8 +49,8 @@ class PlatformMetadata:
     """Static install layout for a supported skills CLI target."""
 
     display: str
-    skills_dir: str
-    hooks_dir: str
+    skills_dir: ConfigDir
+    hooks_dir: ConfigDir
     hooks_config: str
 
 
@@ -279,6 +310,34 @@ class SkillsListResult(ModelBase):
         default_factory=list,
         metadata={"docstring": "Catalog entries removed since the installed version."},
     )
+    updated: List[CatalogEntry] = field(
+        default_factory=list,
+        metadata={
+            "docstring": (
+                "Catalog entries whose description changed since the installed "
+                "version. Platform-list-only changes are not counted here; see "
+                "added_platforms / removed_platforms."
+            )
+        },
+    )
+    added_platforms: List[str] = field(
+        default_factory=list,
+        metadata={
+            "docstring": (
+                "Platforms newly supported by the available catalog (union "
+                "across all entries) since the installed version."
+            )
+        },
+    )
+    removed_platforms: List[str] = field(
+        default_factory=list,
+        metadata={
+            "docstring": (
+                "Platforms no longer supported by the available catalog since "
+                "the installed version."
+            )
+        },
+    )
 
     def _validate_installed(self, installed: Optional[InstalledMetadata]):
         pass
@@ -303,24 +362,111 @@ class SkillsListResult(ModelBase):
         if not isinstance(removed, list):
             raise TypeError("removed must be a list.")
 
+    def _validate_updated(self, updated: List[CatalogEntry]):
+        if not isinstance(updated, list):
+            raise TypeError("updated must be a list.")
+
+    def _validate_added_platforms(self, added_platforms: List[str]):
+        if not isinstance(added_platforms, list):
+            raise TypeError("added_platforms must be a list.")
+
+    def _validate_removed_platforms(self, removed_platforms: List[str]):
+        if not isinstance(removed_platforms, list):
+            raise TypeError("removed_platforms must be a list.")
+
+
+@dataclass(frozen=True)
+class InstalledSkillsOutput(ModelBase):
+    """Installed-state summary in `anyscale skills list` structured output."""
+
+    version: str = field(metadata={"docstring": "Installed version string."})
+    platforms: List[str] = field(
+        default_factory=list,
+        metadata={"docstring": "Platform names the skills are installed for."},
+    )
+    installed_at: Optional[str] = field(
+        default=None,
+        metadata={"docstring": "ISO-8601 install timestamp, if recorded."},
+    )
+
+    def _validate_version(self, version: str):
+        if not isinstance(version, str):
+            raise TypeError("version must be a string.")
+
+    def _validate_platforms(self, platforms: List[str]):
+        if not isinstance(platforms, list):
+            raise TypeError("platforms must be a list.")
+
+    def _validate_installed_at(self, installed_at: Optional[str]):
+        if installed_at is not None and not isinstance(installed_at, str):
+            raise TypeError("installed_at must be a string.")
+
+
+@dataclass(frozen=True)
+class SkillsListOutput(ModelBase):
+    """Structured output of `anyscale skills list`.
+
+    A curated view of SkillsListResult: what is installed, whether it is up to
+    date, and the available catalog.
+    """
+
+    available_version: str = field(
+        metadata={"docstring": "Latest (or requested) available version."},
+    )
+    up_to_date: bool = field(
+        metadata={"docstring": "Whether the installed version matches available."},
+    )
+    installed: Optional[InstalledSkillsOutput] = field(
+        default=None,
+        metadata={
+            "docstring": "Current installation summary, or None if not installed."
+        },
+    )
+    available_catalog: List[CatalogEntry] = field(
+        default_factory=list,
+        metadata={"docstring": "Catalog entries for the available version."},
+    )
+
+    def _validate_available_version(self, available_version: str):
+        if not isinstance(available_version, str):
+            raise TypeError("available_version must be a string.")
+
+    def _validate_up_to_date(self, up_to_date: bool):
+        if not isinstance(up_to_date, bool):
+            raise TypeError("up_to_date must be a bool.")
+
+    def _validate_installed(self, installed: Optional[InstalledSkillsOutput]):
+        pass
+
+    def _validate_available_catalog(self, available_catalog: List[CatalogEntry]):
+        if not isinstance(available_catalog, list):
+            raise TypeError("available_catalog must be a list.")
+
 
 PLATFORMS: Dict[Platform, PlatformMetadata] = {
     Platform.CLAUDE_CODE: PlatformMetadata(
         display="Claude Code",
-        skills_dir="~/.claude/skills",
-        hooks_dir="~/.claude",
+        skills_dir=ConfigDir("~/.claude/skills", "CLAUDE_CONFIG_DIR", "skills"),
+        hooks_dir=ConfigDir("~/.claude", "CLAUDE_CONFIG_DIR"),
         hooks_config="settings.json",
     ),
     Platform.CURSOR: PlatformMetadata(
         display="Cursor",
-        skills_dir="~/.cursor/skills",
-        hooks_dir="~/.cursor",
+        skills_dir=ConfigDir("~/.cursor/skills", "CURSOR_CONFIG_DIR", "skills"),
+        hooks_dir=ConfigDir("~/.cursor", "CURSOR_CONFIG_DIR"),
         hooks_config="hooks.json",
     ),
     Platform.CODEX: PlatformMetadata(
         display="Codex",
-        skills_dir="~/.agents/skills",
-        hooks_dir="~/.codex",
+        skills_dir=ConfigDir("~/.agents/skills"),
+        hooks_dir=ConfigDir("~/.codex", "CODEX_HOME"),
         hooks_config="hooks.json",
+    ),
+    Platform.COPILOT: PlatformMetadata(
+        display="GitHub Copilot",
+        # ~/.agents/skills is shared with Codex; COPILOT_HOME relocates only hooks.
+        skills_dir=ConfigDir("~/.agents/skills"),
+        hooks_dir=ConfigDir("~/.copilot", "COPILOT_HOME"),
+        hooks_config="settings.json",
     ),
 }

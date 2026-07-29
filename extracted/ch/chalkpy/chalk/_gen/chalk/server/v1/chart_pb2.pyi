@@ -726,3 +726,135 @@ class GetFormulaOptionsResponse(_message.Message):
     FORMULA_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     formula_options: MetricFormulaOption
     def __init__(self, formula_options: _Optional[_Union[MetricFormulaOption, _Mapping]] = ...) -> None: ...
+
+class RawMetricDescriptor(_message.Message):
+    __slots__ = ("name", "value_kind", "label_names", "series_count", "unit", "family_base_name")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    VALUE_KIND_FIELD_NUMBER: _ClassVar[int]
+    LABEL_NAMES_FIELD_NUMBER: _ClassVar[int]
+    SERIES_COUNT_FIELD_NUMBER: _ClassVar[int]
+    UNIT_FIELD_NUMBER: _ClassVar[int]
+    FAMILY_BASE_NAME_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    value_kind: _chart_pb2.RawMetricValueKind
+    label_names: _containers.RepeatedScalarFieldContainer[str]
+    series_count: int
+    unit: str
+    family_base_name: str
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        value_kind: _Optional[_Union[_chart_pb2.RawMetricValueKind, str]] = ...,
+        label_names: _Optional[_Iterable[str]] = ...,
+        series_count: _Optional[int] = ...,
+        unit: _Optional[str] = ...,
+        family_base_name: _Optional[str] = ...,
+    ) -> None: ...
+
+class ListRawMetricsRequest(_message.Message):
+    __slots__ = ("name_filter", "limit", "include_label_names")
+    NAME_FILTER_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_LABEL_NAMES_FIELD_NUMBER: _ClassVar[int]
+    name_filter: str
+    limit: int
+    include_label_names: bool
+    def __init__(
+        self, name_filter: _Optional[str] = ..., limit: _Optional[int] = ..., include_label_names: bool = ...
+    ) -> None: ...
+
+class ListRawMetricsResponse(_message.Message):
+    __slots__ = ("metrics", "total_matching_count")
+    METRICS_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_MATCHING_COUNT_FIELD_NUMBER: _ClassVar[int]
+    metrics: _containers.RepeatedCompositeFieldContainer[RawMetricDescriptor]
+    total_matching_count: int
+    def __init__(
+        self,
+        metrics: _Optional[_Iterable[_Union[RawMetricDescriptor, _Mapping]]] = ...,
+        total_matching_count: _Optional[int] = ...,
+    ) -> None: ...
+
+class GetRawMetricLabelNamesRequest(_message.Message):
+    __slots__ = ("metric_name",)
+    METRIC_NAME_FIELD_NUMBER: _ClassVar[int]
+    metric_name: str
+    def __init__(self, metric_name: _Optional[str] = ...) -> None: ...
+
+class GetRawMetricLabelNamesResponse(_message.Message):
+    __slots__ = ("label_names",)
+    LABEL_NAMES_FIELD_NUMBER: _ClassVar[int]
+    label_names: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, label_names: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class GetRawMetricLabelValuesRequest(_message.Message):
+    __slots__ = ("metric_name", "label_name", "limit")
+    METRIC_NAME_FIELD_NUMBER: _ClassVar[int]
+    LABEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    metric_name: str
+    label_name: str
+    limit: int
+    def __init__(
+        self, metric_name: _Optional[str] = ..., label_name: _Optional[str] = ..., limit: _Optional[int] = ...
+    ) -> None: ...
+
+class GetRawMetricLabelValuesResponse(_message.Message):
+    __slots__ = ("values",)
+    VALUES_FIELD_NUMBER: _ClassVar[int]
+    values: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, values: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class RawMetricsQueryPoint(_message.Message):
+    __slots__ = ("timestamp", "value")
+    TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    timestamp: _timestamp_pb2.Timestamp
+    value: float
+    def __init__(
+        self, timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., value: _Optional[float] = ...
+    ) -> None: ...
+
+class RawMetricsQuerySeries(_message.Message):
+    __slots__ = ("labels", "points")
+    class LabelsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    LABELS_FIELD_NUMBER: _ClassVar[int]
+    POINTS_FIELD_NUMBER: _ClassVar[int]
+    labels: _containers.ScalarMap[str, str]
+    points: _containers.RepeatedCompositeFieldContainer[RawMetricsQueryPoint]
+    def __init__(
+        self,
+        labels: _Optional[_Mapping[str, str]] = ...,
+        points: _Optional[_Iterable[_Union[RawMetricsQueryPoint, _Mapping]]] = ...,
+    ) -> None: ...
+
+class QueryRawMetricsRequest(_message.Message):
+    __slots__ = ("query", "start_time", "end_time", "step")
+    QUERY_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    STEP_FIELD_NUMBER: _ClassVar[int]
+    query: str
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    step: _duration_pb2.Duration
+    def __init__(
+        self,
+        query: _Optional[str] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        step: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+    ) -> None: ...
+
+class QueryRawMetricsResponse(_message.Message):
+    __slots__ = ("series",)
+    SERIES_FIELD_NUMBER: _ClassVar[int]
+    series: _containers.RepeatedCompositeFieldContainer[RawMetricsQuerySeries]
+    def __init__(self, series: _Optional[_Iterable[_Union[RawMetricsQuerySeries, _Mapping]]] = ...) -> None: ...

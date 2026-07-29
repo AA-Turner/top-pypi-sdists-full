@@ -63,7 +63,8 @@ static PyObject *meth_wxMimeTypesManager_AddFallbacks(PyObject *sipSelf, PyObjec
 PyDoc_STRVAR(doc_wxMimeTypesManager_GetFileTypeFromExtension, "GetFileTypeFromExtension(extension) -> FileType\n"
 "\n"
 "Gather information about the files with given extension and return the\n"
-"corresponding wxFileType object or NULL if the extension is unknown.");
+"corresponding wxFileType object or nullptr if the extension is\n"
+"unknown.");
 
 extern "C" {static PyObject *meth_wxMimeTypesManager_GetFileTypeFromExtension(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxMimeTypesManager_GetFileTypeFromExtension(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -106,7 +107,8 @@ static PyObject *meth_wxMimeTypesManager_GetFileTypeFromExtension(PyObject *sipS
 PyDoc_STRVAR(doc_wxMimeTypesManager_GetFileTypeFromMimeType, "GetFileTypeFromMimeType(mimeType) -> FileType\n"
 "\n"
 "Gather information about the files with given MIME type and return the\n"
-"corresponding wxFileType object or NULL if the MIME type is unknown.");
+"corresponding wxFileType object or nullptr if the MIME type is\n"
+"unknown.");
 
 extern "C" {static PyObject *meth_wxMimeTypesManager_GetFileTypeFromMimeType(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxMimeTypesManager_GetFileTypeFromMimeType(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -266,7 +268,7 @@ PyDoc_STRVAR(doc_wxMimeTypesManager_IsOfType, "IsOfType(mimeType, wildcard) -> b
 "\n"
 "This function returns true if either the given mimeType is exactly the\n"
 "same as wildcard or if it has the same category and the subtype of\n"
-"wildcard is '*'.");
+"wildcard is \"*\".");
 
 extern "C" {static PyObject *meth_wxMimeTypesManager_IsOfType(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxMimeTypesManager_IsOfType(PyObject *, PyObject *sipArgs, PyObject *sipKwds)

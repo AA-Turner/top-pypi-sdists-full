@@ -22,6 +22,7 @@ from anyscale.client.openapi_client.models.resource_tag_resource_type import (
     ResourceTagResourceType,
 )
 from anyscale.client.openapi_client.models.session_state import SessionState
+from anyscale.utils.name_utils import validate_resource_name
 from anyscale.utils.runtime_env import parse_requirements_file
 from anyscale.workspace.models import (
     UpdateWorkspaceConfig,
@@ -127,6 +128,13 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             raise ValueError("Workspace name must be configured")
 
         name = config.name
+        # Reject disallowed characters at the write boundary: a name outside the
+        # allowed set is written verbatim into the generated SSH `Host` alias, so
+        # `ssh`/Remote-SSH into the workspace later fails with "hostname contains
+        # invalid characters". The read path stays unvalidated, so a workspace
+        # with a legacy invalid name remains readable and renamable for
+        # remediation.
+        validate_resource_name(name)
 
         compute_config_id, cloud_id = self.resolve_compute_config_and_cloud_id(
             compute_config=config.compute_config, cloud=config.cloud,  # type: ignore
@@ -780,6 +788,15 @@ class PrivateWorkspaceSDK(WorkloadSDK):
 
         if not workspace:
             raise ValueError(f"Workspace with id '{id}' was not found.")
+
+        # Reject a disallowed rename at the write boundary, but only when the
+        # name actually changes. Re-supplying the current name (as a
+        # `get -o yaml` round-trip does) or omitting it means "keep current", so
+        # a workspace whose name predates the restriction stays updatable for
+        # remediation. Checked before the TERMINATED-state gate so a genuine bad
+        # rename still fails fast.
+        if config.name is not None and config.name != workspace.name:
+            validate_resource_name(config.name)
 
         current_status = self._get_workspace_status(id)
         if current_status != WorkspaceState.TERMINATED:

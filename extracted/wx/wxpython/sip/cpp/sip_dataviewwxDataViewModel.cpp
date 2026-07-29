@@ -1414,7 +1414,7 @@ static void *init_type_wxDataViewModel(sipSimpleWrapper *sipSelf, PyObject *sipA
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxDataViewModel[] = {{29, 0, 1}};
+static sipEncodedTypeDef supers_wxDataViewModel[] = {{30, 0, 1}};
 
 
 static PyMethodDef methods_wxDataViewModel[] = {

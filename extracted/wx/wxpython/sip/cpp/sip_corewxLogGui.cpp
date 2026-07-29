@@ -388,7 +388,7 @@ static void *init_type_wxLogGui(sipSimpleWrapper *sipSelf, PyObject *sipArgs, Py
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxLogGui[] = {{330, 255, 1}};
+static sipEncodedTypeDef supers_wxLogGui[] = {{337, 255, 1}};
 
 
 static PyMethodDef methods_wxLogGui[] = {

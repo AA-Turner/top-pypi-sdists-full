@@ -39,14 +39,26 @@ machinery.
 from __future__ import annotations
 
 import weakref
-from typing import Any, ContextManager, Dict, List, Literal, Optional, Union
+from typing import (
+    Any,
+    ContextManager,
+    Dict,
+    List,
+    Literal,
+    Mapping,
+    Optional,
+    Union,
+)
 
 from raindrop import _tracing as _rd_tracing
 from raindrop import analytics as _analytics
+from raindrop import subagent as _subagent
 from raindrop._state import ClientState
+from raindrop.handoff import TraceContext
 from raindrop.interaction import Interaction
 from raindrop.local_debugger import UNSET
 from raindrop.models import Attachment, PartialTrackAIEvent
+from raindrop.subagent import SubagentRun
 
 
 class Raindrop:
@@ -287,6 +299,71 @@ class Raindrop:
 
     def resume_interaction(self, event_id: str | None = None) -> Interaction:
         return _analytics.resume_interaction(event_id, state=self._state)
+
+    # -- detached sub-agents ---------------------------------------------------- #
+
+    def resume_subagent(
+        self,
+        *,
+        headers: Mapping[str, Any] | None = None,
+        parent: TraceContext | None = None,
+        user_id: str | None = None,
+        event: str | None = None,
+        name: str | None = None,
+        input: str | None = None,
+        convo_id: str | None = None,
+        event_id: str | None = None,
+        properties: Optional[Dict[str, Any]] = None,
+        model: str | None = None,
+    ) -> SubagentRun:
+        """Open this sub-agent's OWN event for a detached launch.
+
+        Pass the inbound request's headers; the carrier on them names the event
+        that launched this run and the event id it allocated for it::
+
+            with rd.resume_subagent(headers=request.headers) as run:
+                answer = do_work()
+                run.finish(output=answer)
+
+        Every span emitted while the run is open carries the reverse reference
+        back to the launcher, and leaving the block without reporting output
+        closes the event with an abort reason rather than silently producing no
+        event at all (which would pin the launcher's view on ``queued``).
+
+        A request with no carrier is not an error — the sub-agent was invoked
+        directly — and the run still reports as its own (unlinked) event, with
+        ``run.parent`` set to ``None``.
+
+        Identity arguments (``event_id``, ``convo_id``, ``user_id``, ``name``)
+        are the one place the carrier overrides rather than the other way
+        round. The launcher allocated them before dispatching and its own
+        record points at them, so a child that substitutes its own breaks the
+        link — most severely for ``event_id``, where the launcher would be left
+        pointing at an event that never appears. They apply when there is no
+        carrier, which is exactly when the sub-agent's own labels are right.
+
+        A user id is the one thing this cannot supply for you: it identifies
+        the launcher's user. A Raindrop-launched child gets it from the carrier;
+        anything else has to pass ``user_id``, or the run has no event to report
+        on and the launcher stays on ``queued`` (logged as a warning).
+
+        TRUST BOUNDARY: a carrier names the event this process will be
+        attributed to. Only resume from requests that came from inside your own
+        trust boundary (see :mod:`raindrop.handoff`).
+        """
+        return _subagent.resume_subagent(
+            headers=headers,
+            parent=parent,
+            user_id=user_id,
+            event=event,
+            name=name,
+            input=input,
+            convo_id=convo_id,
+            event_id=event_id,
+            properties=properties,
+            model=model,
+            state=self._state,
+        )
 
     # -- spans ----------------------------------------------------------------- #
 

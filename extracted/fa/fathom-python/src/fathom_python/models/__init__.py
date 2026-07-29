@@ -9,6 +9,12 @@ if TYPE_CHECKING:
     from .actionitem import ActionItem, ActionItemTypedDict
     from .assignee import Assignee, AssigneeTypedDict
     from .callbackresponse import CallbackResponse, CallbackResponseTypedDict
+    from .createrecordingdownloadop import (
+        CreateRecordingDownloadRequest,
+        CreateRecordingDownloadRequestBody,
+        CreateRecordingDownloadRequestBodyTypedDict,
+        CreateRecordingDownloadRequestTypedDict,
+    )
     from .createwebhookop import (
         CreateWebhookRequest,
         CreateWebhookRequestTypedDict,
@@ -20,6 +26,10 @@ if TYPE_CHECKING:
     from .crmmatches import CRMMatches, CRMMatchesTypedDict
     from .deletewebhookop import DeleteWebhookRequest, DeleteWebhookRequestTypedDict
     from .fathomuser import FathomUser, FathomUserTypedDict
+    from .getrecordingdownloadop import (
+        GetRecordingDownloadRequest,
+        GetRecordingDownloadRequestTypedDict,
+    )
     from .getrecordingsummaryop import (
         GetRecordingSummaryRequest,
         GetRecordingSummaryRequestTypedDict,
@@ -84,6 +94,16 @@ if TYPE_CHECKING:
         MeetingTypeListResponse,
         MeetingTypeListResponseTypedDict,
     )
+    from .recordingdownload import (
+        FailureReason,
+        RecordingDownload,
+        RecordingDownloadTypedDict,
+    )
+    from .recordingdownloadfile import (
+        RecordingDownloadFile,
+        RecordingDownloadFileTypedDict,
+    )
+    from .recordingdownloadstatus import RecordingDownloadStatus
     from .security import Security, SecurityTypedDict
     from .team import Team, TeamTypedDict
     from .teamlistresponse import TeamListResponse, TeamListResponseTypedDict
@@ -129,13 +149,20 @@ __all__ = [
     "CalendarInviteesDomainsType",
     "CallbackResponse",
     "CallbackResponseTypedDict",
+    "CreateRecordingDownloadRequest",
+    "CreateRecordingDownloadRequestBody",
+    "CreateRecordingDownloadRequestBodyTypedDict",
+    "CreateRecordingDownloadRequestTypedDict",
     "CreateWebhookRequest",
     "CreateWebhookRequestTypedDict",
     "CreateWebhookTriggeredFor",
     "DeleteWebhookRequest",
     "DeleteWebhookRequestTypedDict",
+    "FailureReason",
     "FathomUser",
     "FathomUserTypedDict",
+    "GetRecordingDownloadRequest",
+    "GetRecordingDownloadRequestTypedDict",
     "GetRecordingSummaryRequest",
     "GetRecordingSummaryRequestTypedDict",
     "GetRecordingSummaryResponse",
@@ -184,6 +211,11 @@ __all__ = [
     "MeetingTypeListResponseTypedDict",
     "MeetingTypeTypedDict",
     "MeetingTypedDict",
+    "RecordingDownload",
+    "RecordingDownloadFile",
+    "RecordingDownloadFileTypedDict",
+    "RecordingDownloadStatus",
+    "RecordingDownloadTypedDict",
     "Security",
     "SecurityTypedDict",
     "SettingsAccess",
@@ -226,6 +258,10 @@ _dynamic_imports: dict[str, str] = {
     "AssigneeTypedDict": ".assignee",
     "CallbackResponse": ".callbackresponse",
     "CallbackResponseTypedDict": ".callbackresponse",
+    "CreateRecordingDownloadRequest": ".createrecordingdownloadop",
+    "CreateRecordingDownloadRequestBody": ".createrecordingdownloadop",
+    "CreateRecordingDownloadRequestBodyTypedDict": ".createrecordingdownloadop",
+    "CreateRecordingDownloadRequestTypedDict": ".createrecordingdownloadop",
     "CreateWebhookRequest": ".createwebhookop",
     "CreateWebhookRequestTypedDict": ".createwebhookop",
     "CreateWebhookTriggeredFor": ".createwebhookop",
@@ -241,6 +277,8 @@ _dynamic_imports: dict[str, str] = {
     "DeleteWebhookRequestTypedDict": ".deletewebhookop",
     "FathomUser": ".fathomuser",
     "FathomUserTypedDict": ".fathomuser",
+    "GetRecordingDownloadRequest": ".getrecordingdownloadop",
+    "GetRecordingDownloadRequestTypedDict": ".getrecordingdownloadop",
     "GetRecordingSummaryRequest": ".getrecordingsummaryop",
     "GetRecordingSummaryRequestTypedDict": ".getrecordingsummaryop",
     "GetRecordingSummaryResponse": ".getrecordingsummaryop",
@@ -293,6 +331,12 @@ _dynamic_imports: dict[str, str] = {
     "Status": ".meetingtype",
     "MeetingTypeListResponse": ".meetingtypelistresponse",
     "MeetingTypeListResponseTypedDict": ".meetingtypelistresponse",
+    "FailureReason": ".recordingdownload",
+    "RecordingDownload": ".recordingdownload",
+    "RecordingDownloadTypedDict": ".recordingdownload",
+    "RecordingDownloadFile": ".recordingdownloadfile",
+    "RecordingDownloadFileTypedDict": ".recordingdownloadfile",
+    "RecordingDownloadStatus": ".recordingdownloadstatus",
     "Security": ".security",
     "SecurityTypedDict": ".security",
     "Team": ".team",

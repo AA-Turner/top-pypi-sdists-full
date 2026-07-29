@@ -1,3 +1,4 @@
+from datetime import datetime
 from io import StringIO
 from json import dumps as json_dumps
 import pathlib
@@ -12,11 +13,22 @@ import yaml
 from anyscale._private.models.image_uri import ImageURI
 from anyscale.cli_logger import BlockLogger
 from anyscale.commands import command_examples
+from anyscale.commands.doc_metadata import (
+    command_metadata,
+    CommandExample,
+    ReleaseStatus,
+)
 from anyscale.commands.list_util import (
     display_list,
     MAX_PAGE_SIZE,
     NON_INTERACTIVE_DEFAULT_MAX_ITEMS,
     validate_page_size,
+)
+from anyscale.commands.output_format import (
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    OutputFormat,
+    print_output,
 )
 from anyscale.commands.util import (
     AnyscaleCommand,
@@ -49,7 +61,7 @@ from anyscale.util import (
 log = BlockLogger()  # CLI Logger
 
 
-@click.group("service")
+@click.group("service", help="Deploy and manage Anyscale services.")
 def service_cli():
     pass
 
@@ -72,8 +84,24 @@ def _read_name_from_config_file(path: str):
     return config["name"]
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    option_docs={"--connection": {"status": ReleaseStatus.BETA}},
+    examples=[
+        CommandExample(
+            description="Deploy a service from a YAML config file.",
+            command="anyscale service deploy -f config.yaml",
+        ),
+        CommandExample(
+            description="Deploy a single application with an inline import path.",
+            command="anyscale service deploy main:app arg1=val1",
+        ),
+    ],
+)
 @service_cli.command(
-    name="deploy", help="Deploy or update a service.",
+    name="deploy", short_help="Deploy or update a service.", cls=AnyscaleCommand,
 )
 @click.argument("import_path", type=str, required=False, default=None)
 @click.argument("arguments", nargs=-1, required=False)
@@ -232,11 +260,11 @@ def _read_name_from_config_file(path: str):
     multiple=True,
     required=False,
     default=None,
-    help="[Beta] Third-party connection to associate with the service (e.g., Databricks). "
+    help="Third-party connection to associate with the service (e.g., Databricks). "
     "Format: type=TYPE,name=NAME. "
     "Example: --connection type=databricks,name=my-conn. "
     "Can be repeated for multiple connections. "
-    "This feature is in beta preview. Contact [Anyscale support](mailto:support@anyscale.com) to request enablement.",
+    "Contact [Anyscale support](mailto:support@anyscale.com) to request enablement.",
 )
 def deploy(  # noqa: PLR0912, PLR0913 C901
     config_file: List[str],
@@ -455,8 +483,53 @@ def deploy(  # noqa: PLR0912, PLR0913 C901
     )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Get the status of a service by name.",
+            command="anyscale service status -n my-service",
+            output_raw=(
+                "$ anyscale service status -n my-service\n"
+                "name: my-service\n"
+                "id: service2_uz6l8yhy2as5wrer3shzj6kh67\n"
+                "state: RUNNING\n"
+                "query_url: https://my-service-abc123.serve.anyscale.com/\n"
+                "primary_version:\n"
+                "  id: 601bd56c4b\n"
+                "  state: RUNNING\n"
+                "  weight: 100\n"
+            ),
+            output_instance=lambda: ServiceStatus(
+                name="my-service",
+                id="service2_uz6l8yhy2as5wrer3shzj6kh67",
+                state=ServiceState.RUNNING,
+                query_url="https://my-service-abc123.serve.anyscale.com/",
+                primary_version=ServiceVersionStatus(
+                    id="601bd56c4b",
+                    name="601bd56c4b",
+                    state="RUNNING",
+                    weight=100,
+                    created_at=datetime(2026, 5, 20, 12, 34, 56),
+                    config={"applications": [{"import_path": "main:app"}]},
+                ),
+            ),
+        ),
+    ],
+    output_schema=ServiceStatus,
+)
 @service_cli.command(
-    name="status", help="Get the status of a service.",
+    name="status",
+    short_help="Get the status of a service.",
+    help=(
+        "Get the status of a service.\n\n"
+        "Specify the service by name (-n/--name) or through a config file "
+        "(-f/--config-file), but not both."
+    ),
+    cls=AnyscaleCommand,
 )
 @click.option(
     "-n", "--name", required=False, default=None, type=str, help="Name of the service.",
@@ -484,6 +557,16 @@ def deploy(  # noqa: PLR0912, PLR0913 C901
     help="Named project to use for the service. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
 )
 @click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
+@click.option(
     "-j",
     "--json",
     is_flag=True,
@@ -502,6 +585,7 @@ def status(
     config_file: Optional[str],
     cloud: Optional[str],
     project: Optional[str],
+    output_format: str,
     json: bool,
     verbose: bool,
 ):
@@ -536,14 +620,36 @@ def status(
     if json:
         json_str = json_dumps(status_dict, indent=2, cls=AnyscaleJSONEncoder)
         console.print_json(json=json_str)
+    elif output_format != OutputFormat.TEXT.value:
+        # The structured contract is the same config-stripped dict as --json.
+        print_output(status_dict, output_format)
     else:
         stream = StringIO()
         yaml.dump(status_dict, stream, sort_keys=False)
         console.print(stream.getvalue(), end="")
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Wait for a service to reach the RUNNING state.",
+            command="anyscale service wait -n my-service",
+        ),
+    ],
+)
 @service_cli.command(
-    name="wait", help="Wait for a service to enter a target state.",
+    name="wait",
+    short_help="Wait for a service to enter a target state.",
+    help=(
+        "Wait for a service to enter a target state (default: RUNNING).\n\n"
+        "Specify the service by name (-n/--name) or through a config file "
+        "(-f/--config-file), but not both. The command exits with an error if "
+        "the timeout is reached."
+    ),
+    cls=AnyscaleCommand,
 )
 @click.option(
     "-n", "--name", required=False, default=None, type=str, help="Name of the service.",
@@ -761,11 +867,40 @@ def _format_service_output_data(svc: ServiceStatus) -> Dict[str, str]:
     }
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to [TEXT, JSON] when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="List running services sorted by creation time.",
+            command="anyscale service list --state running --sort -created_at",
+            output_raw=command_examples.SERVICE_LIST_EXAMPLE,
+            output_instance=[
+                {
+                    "name": "my-service",
+                    "id": "service2_uz6l8yhy2as5wrer3shzj6kh67",
+                    "state": "RUNNING",
+                    "query_url": "https://my-service-abc123.serve.anyscale.com/",
+                    "primary_version": {
+                        "id": "601bd56c4b",
+                        "name": "601bd56c4b",
+                        "state": "RUNNING",
+                        "weight": 100,
+                        "created_at": "2026-05-20T12:34:56",
+                    },
+                }
+            ],
+        ),
+    ],
+    output_schema=ServiceStatus,
+)
 @service_cli.command(
     name="list",
+    short_help="List services.",
     help="List services.",
     cls=AnyscaleCommand,
-    example=command_examples.SERVICE_LIST_EXAMPLE,
 )
 @click.option("--service-id", "--id", help="ID of the service to display.")
 @click.option("--name", "-n", help="Name of the service to display.")
@@ -848,6 +983,16 @@ def _format_service_output_data(svc: ServiceStatus) -> Dict[str, str]:
     help="Include full config in JSON output.",
 )
 @click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
+@click.option(
     "-j",
     "--json",
     "json_output",
@@ -867,11 +1012,14 @@ def list(  # noqa: PLR0913, A001
     max_items: Optional[int],
     page_size: int,
     sort: Optional[str],
+    output_format: str,
     json_output: bool,
     interactive: bool,
     verbose: bool,
 ):
     """List services based on the provided filters."""
+    json_output = json_output or output_format == OutputFormat.JSON.value
+
     if max_items is not None and interactive:
         raise click.UsageError("--max-items only allowed with --no-interactive")
 
@@ -964,11 +1112,28 @@ def service_tags_cli() -> None:
     pass
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Add tags to a service by name.",
+            command="anyscale service tags add --name my-service --tag team=platform --tag env=prod",
+            output_raw=command_examples.SERVICE_TAGS_ADD_EXAMPLE,
+        ),
+    ],
+)
 @service_tags_cli.command(
     name="add",
-    help="Add or update tags on a service.",
+    short_help="Add or update tags on a service.",
+    help=(
+        "Add or update tags on a service.\n\n"
+        "Specify the service by name (--name) or by ID (--service-id/--id), one of "
+        "which is required. Provide at least one --tag in key=value format, and repeat "
+        "--tag to set multiple. Existing tags with the same key are overwritten."
+    ),
     cls=AnyscaleCommand,
-    example=command_examples.SERVICE_TAGS_ADD_EXAMPLE,
 )
 @click.option("--service-id", "--id", help="ID of the service.")
 @click.option("--name", "-n", help="Name of the service.")
@@ -1000,11 +1165,28 @@ def add_tags(
     stderr.print(f"Tags updated for service '{ident}'.")
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Remove tags from a service by name.",
+            command="anyscale service tags remove --name my-service --key team --key env",
+            output_raw=command_examples.SERVICE_TAGS_REMOVE_EXAMPLE,
+        ),
+    ],
+)
 @service_tags_cli.command(
     name="remove",
-    help="Remove tags by key from a service.",
+    short_help="Remove tags by key from a service.",
+    help=(
+        "Remove tags by key from a service.\n\n"
+        "Specify the service by name (--name) or by ID (--service-id/--id), one of "
+        "which is required. Provide at least one --key to remove, and repeat --key to "
+        "remove multiple."
+    ),
     cls=AnyscaleCommand,
-    example=command_examples.SERVICE_TAGS_REMOVE_EXAMPLE,
 )
 @click.option("--service-id", "--id", help="ID of the service.")
 @click.option("--name", "-n", help="Name of the service.")
@@ -1031,22 +1213,51 @@ def remove_tags(
     stderr.print(f"Removed tag keys {key_list} from service '{ident}'.")
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="List the tags of a service by name.",
+            command="anyscale service tags list --name my-service",
+            output_raw=command_examples.SERVICE_TAGS_LIST_EXAMPLE,
+            output_instance={"team": "platform", "env": "prod"},
+        ),
+    ],
+)
 @service_tags_cli.command(
     name="list",
-    help="List tags for a service.",
+    short_help="List tags for a service.",
+    help=(
+        "List tags for a service.\n\n"
+        "Specify the service by name (--name) or by ID (--service-id/--id), one of "
+        "which is required."
+    ),
     cls=AnyscaleCommand,
-    example=command_examples.SERVICE_TAGS_LIST_EXAMPLE,
 )
 @click.option("--service-id", "--id", help="ID of the service.")
 @click.option("--name", "-n", help="Name of the service.")
 @click.option("--cloud", type=str, help="Cloud name (for name resolution).")
 @click.option("--project", type=str, help="Project name (for name resolution).")
+@click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
 @click.option("--json", "json_output", is_flag=True, default=False, help="JSON output.")
 def list_tags(
     service_id: Optional[str],
     name: Optional[str],
     cloud: Optional[str],
     project: Optional[str],
+    output_format: str,
     json_output: bool,
 ) -> None:
     if not service_id and not name:
@@ -1056,6 +1267,8 @@ def list_tags(
     )
     if json_output:
         Console().print_json(json=json_dumps(tag_map, indent=2))
+    elif output_format != OutputFormat.TEXT.value:
+        print_output(tag_map, output_format)
     else:
         stderr = Console(stderr=True)
         if not tag_map:
@@ -1066,7 +1279,26 @@ def list_tags(
 
 
 # TODO(mowen): Add cloud support for this when we refactor to new SDK method
-@service_cli.command(name="rollback", help="Roll back a service.")
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Roll back a service that is mid-rollout.",
+            command="anyscale service rollback -n my-service",
+        ),
+    ],
+)
+@service_cli.command(
+    name="rollback",
+    short_help="Roll back a service.",
+    help=(
+        "Roll back a service that is in a rollout.\n\n"
+        "Specify the service by name (-n/--name) or by ID (--service-id/--id)."
+    ),
+    cls=AnyscaleCommand,
+)
 @click.option(
     "--service-id", "--id", default=None, help="ID of service.",
 )
@@ -1093,7 +1325,33 @@ def rollback(
     service_controller.rollback(service_id, max_surge_percent)
 
 
-@service_cli.command(name="terminate", help="Terminate a service.")
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    option_docs={
+        "--service-config-file": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use `-f`/`--config-file` instead."},
+        },
+    },
+    examples=[
+        CommandExample(
+            description="Terminate a service by name.",
+            command="anyscale service terminate -n my-service",
+        ),
+    ],
+)
+@service_cli.command(
+    name="terminate",
+    short_help="Terminate a service.",
+    help=(
+        "Terminate a service.\n\n"
+        "Specify the service by name (-n/--name), by ID (--service-id/--id), or "
+        "through a config file (-f/--config-file)."
+    ),
+    cls=AnyscaleCommand,
+)
 @click.option(
     "--service-id", "--id", required=False, help="ID of service.",
 )
@@ -1102,19 +1360,26 @@ def rollback(
 @click.option(
     "-f",
     "--config-file",
+    help="Path to a YAML config file to read the service name from.",
+)
+@click.option(
     "--service-config-file",
-    help="Path to a YAML config file to read the name from. `--service-config-file` is deprecated, use `-f` or `--config-file`.",
+    "service_config_file",
+    help="Deprecated alias for `-f`/`--config-file`.",
 )
 def terminate(
     service_id: Optional[str],
     name: Optional[str],
     project_id: Optional[str],
     config_file: Optional[str],
+    service_config_file: Optional[str],
 ):
     """Terminate a service.
 
     This applies to both v1 and v2 services.
     """
+    # --service-config-file is a deprecated alias; the canonical flag wins if both are set.
+    config_file = config_file or service_config_file
     # TODO: Remove service_controller and use the sdk method. Need to update the sdk method
     # so that it can resolve either service name or config file to the service id.
     service_controller = ServiceController()
@@ -1134,11 +1399,26 @@ def terminate(
         log.error(f"Error terminating service: {e}")
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Archive a service by name.",
+            command="anyscale service archive --name my-service",
+            output_raw=command_examples.SERVICE_ARCHIVE_EXAMPLE,
+        ),
+    ],
+)
 @service_cli.command(
     name="archive",
-    help="Archive a service.",
+    short_help="Archive a service.",
+    help=(
+        "Archive a service.\n\n"
+        "Exactly one of --service-id/--id or --name must be provided."
+    ),
     cls=AnyscaleCommand,
-    example=command_examples.SERVICE_ARCHIVE_EXAMPLE,
 )
 @click.option(
     "--service-id", "--id", required=False, help="ID of service.",
@@ -1180,11 +1460,26 @@ def archive(
         log.error(f"Error archiving service: {e}")
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Delete a service by name.",
+            command="anyscale service delete --name my-service",
+            output_raw=command_examples.SERVICE_DELETE_EXAMPLE,
+        ),
+    ],
+)
 @service_cli.command(
     name="delete",
-    help="Delete a service.",
+    short_help="Delete a service.",
+    help=(
+        "Delete a service.\n\n"
+        "Exactly one of --service-id/--id or --name must be provided."
+    ),
     cls=AnyscaleCommand,
-    example=command_examples.SERVICE_DELETE_EXAMPLE,
 )
 @click.option(
     "--service-id", "--id", required=False, help="ID of service.",
@@ -1224,3 +1519,162 @@ def delete(
         log.info(f"Successfully deleted service: {identifier}")
     except Exception as e:  # noqa: BLE001
         log.error(f"Error deleting service: {e}")
+
+
+@service_cli.group(
+    "token", help="Manage bearer tokens for a service (zero-downtime rotation)."
+)
+def token_group() -> None:
+    pass
+
+
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Add a secondary bearer token for zero-downtime rotation.",
+            command="anyscale service token add --name my-service",
+        ),
+    ],
+)
+@token_group.command(
+    name="add",
+    short_help="Add a secondary bearer token to a service.",
+    help=(
+        "Add a secondary bearer token to a service for zero-downtime rotation.\n\n"
+        "Both the primary and the new secondary token authenticate while both are "
+        "set, so clients can migrate before the old token is removed. Specify the "
+        "service by name (-n/--name) or by ID (--service-id/--id)."
+    ),
+    cls=AnyscaleCommand,
+)
+@click.option(
+    "-n", "--name", required=False, default=None, type=str, help="Name of the service.",
+)
+@click.option(
+    "--service-id", "--id", help="ID of the service to generate a token for.",
+)
+@click.option(
+    "--cloud",
+    required=False,
+    default=None,
+    type=str,
+    help="The Anyscale Cloud of this workload. If not provided, the organization default will be used (or, if running in a workspace, the cloud of the workspace).",
+)
+@click.option(
+    "--project",
+    required=False,
+    default=None,
+    type=str,
+    help="Named project to use for the service. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
+)
+def token_add(
+    name: Optional[str],
+    service_id: Optional[str],
+    cloud: Optional[str],
+    project: Optional[str],
+):
+    """Add a secondary bearer token to a service for rotation."""
+
+    if (service_id and name) or (not service_id and not name):
+        log.error("Exactly one of '--id/--service-id' or '--name' must be provided.")
+        sys.exit(1)
+
+    try:
+        primary_auth_token, secondary_auth_token = anyscale.service.token_add(
+            name=name, service_id=service_id, cloud=cloud, project=project
+        )
+    except Exception as e:  # noqa: BLE001
+        log.error(f"Error adding token: {e}")
+        return
+
+    log.info(f"Primary token: {primary_auth_token}")
+    if secondary_auth_token is not None:
+        log.info(f"Secondary token: {secondary_auth_token}")
+    else:
+        log.info("No secondary token is set.")
+
+
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Delete a token; deleting the primary promotes the secondary.",
+            command="anyscale service token delete --name my-service --auth-token <token>",
+        ),
+    ],
+)
+@token_group.command(
+    name="delete",
+    short_help="Delete a bearer token from a service.",
+    help=(
+        "Delete a bearer token from a service during rotation.\n\n"
+        "If --auth-token is omitted, the secondary token is promoted to primary "
+        "(the old primary stops working). This requires a secondary token to "
+        "exist; otherwise the command fails and no token is deleted -- a service "
+        "is never left without a primary token. Specify the service by name "
+        "(-n/--name) or by ID (--service-id/--id)."
+    ),
+    cls=AnyscaleCommand,
+)
+@click.option(
+    "-n", "--name", required=False, default=None, type=str, help="Name of the service.",
+)
+@click.option(
+    "--service-id", "--id", help="ID of the service to delete a token for.",
+)
+@click.option(
+    "--cloud",
+    required=False,
+    default=None,
+    type=str,
+    help="The Anyscale Cloud of this workload. If not provided, the organization default will be used (or, if running in a workspace, the cloud of the workspace).",
+)
+@click.option(
+    "--project",
+    required=False,
+    default=None,
+    type=str,
+    help="Named project to use for the service. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
+)
+@click.option(
+    "--auth-token",
+    required=False,
+    default=None,
+    type=str,
+    help="Auth token to delete. If not provided, the secondary token is promoted to primary; this requires a secondary token to exist, otherwise the command fails and no token is deleted.",
+)
+def token_delete(
+    name: Optional[str],
+    service_id: Optional[str],
+    cloud: Optional[str],
+    project: Optional[str],
+    auth_token: Optional[str],
+):
+    """Delete a bearer token from a service."""
+
+    if (service_id and name) or (not service_id and not name):
+        log.error("Exactly one of '--id/--service-id' or '--name' must be provided.")
+        sys.exit(1)
+
+    try:
+        primary_auth_token, secondary_auth_token = anyscale.service.token_delete(
+            name=name,
+            service_id=service_id,
+            cloud=cloud,
+            project=project,
+            auth_token=auth_token,
+        )
+    except Exception as e:  # noqa: BLE001
+        log.error(f"Error deleting token: {e}")
+        return
+
+    log.info(f"Primary token: {primary_auth_token}")
+    if secondary_auth_token is not None:
+        log.info(f"Secondary token: {secondary_auth_token}")
+    else:
+        log.info("No secondary token is set.")

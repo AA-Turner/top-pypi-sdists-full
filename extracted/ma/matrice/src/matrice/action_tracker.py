@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import base64
 import gc
 import importlib
 import io
+import json
 import logging
 import math
 import os
@@ -27,7 +29,78 @@ from matrice.security_utils import redact_url, validate_download_url
 
 logger = logging.getLogger(__name__)
 
+# Canonical checkpoint file extension per export/runtime format. Used as a
+# fallback when the presigned download URL does not carry a real extension.
+# Keys are matched case-insensitively against the tracker's export format.
+_FORMAT_EXTENSIONS = {
+    "pytorch": ".pt",
+    "torchscript": ".torchscript",
+    "onnx": ".onnx",
+    "tensorrt": ".engine",
+    "trt": ".engine",
+    "tensorflow": ".pb",
+    "openvino": ".xml",
+}
+
+# Last-resort extension when neither the presigned URL nor the export format
+# reveals the checkpoint's true type.
+_DEFAULT_CHECKPOINT_EXTENSION = ".pt"
+
+# Extensions that claim a PyTorch checkpoint. The content-sniff safety net only
+# second-guesses these (a real PyTorch checkpoint is a ZIP archive); any other
+# extension is trusted as-is so a correctly-named non-PyTorch artifact is never renamed.
+_PYTORCH_CHECKPOINT_EXTENSIONS = (".pt", ".pth", ".torchscript")
+
 # TODO: Replace the usage of all of the other classes imported with direct API calls
+
+
+def _decode_jwt_claims(bearer_token):
+    """Decode a JWT's payload segment into a dict without verifying the signature.
+
+    The token is one we already hold and already send on every request, so there is
+    nothing to authenticate here — we only need to read a claim out of it. Returns an
+    empty dict for anything that is not a well-formed three-segment JWT.
+    """
+    if not bearer_token or not isinstance(bearer_token, str):
+        return {}
+    token = bearer_token.split(None, 1)[-1].strip()  # tolerate a "Bearer " prefix
+    segments = token.split(".")
+    if len(segments) != 3:
+        return {}
+    payload = segments[1]
+    # JWT uses unpadded base64url; urlsafe_b64decode requires the padding back.
+    payload += "=" * (-len(payload) % 4)
+    try:
+        claims = json.loads(base64.urlsafe_b64decode(payload.encode("ascii")))
+    except Exception:
+        return {}
+    return claims if isinstance(claims, dict) else {}
+
+
+def resolve_account_number(rpc):
+    """Best-effort ``user.accountNumber`` for *rpc*'s credentials.
+
+    The backend puts the account number in the auth token's ``user`` claim, so it is
+    already on the wire for every call — no extra request is needed. Returns ``""``
+    when the token is unavailable or carries no account number; callers must treat an
+    empty result as "unknown" rather than as a valid account.
+    """
+    if rpc is None:
+        return ""
+    auth = getattr(rpc, "AUTH_TOKEN", None)
+    if auth is None:
+        return ""
+    token = getattr(auth, "bearer_token", None)
+    if not token:
+        # No request has been made yet (the RPC refreshes lazily) — mint one.
+        try:
+            auth.set_bearer_token()
+        except Exception:
+            logger.warning("resolve_account_number: could not obtain a bearer token", exc_info=True)
+            return ""
+        token = getattr(auth, "bearer_token", None)
+    account_number = _decode_jwt_claims(token).get("user", {}).get("accountNumber")
+    return str(account_number) if account_number else ""
 
 
 class _dotdict(dict):
@@ -224,6 +297,33 @@ class ActionTracker:
             self.session.update(project_id=self.action_doc["_idProject"])
         except Exception as e:
             print("Update project error:", e)
+        self._backfill_account_number()
+
+    def _backfill_account_number(self):
+        """Fill in ``session.account_number`` when the caller could not supply one.
+
+        A tracker-owned session is built before any account context is known, so it
+        starts out with ``account_number=""``. Anything that later builds an
+        account-scoped path off that session then requests
+        ``/v1/inference/get_camerastream_by_acc_number/`` with an empty segment, whose
+        trailing slash falls through to be-inference's ``/v1/inference/:deploymentId``
+        route and fails with a misleading 412 (``GetDeployment:controller``). This is
+        the path ``matrice_analytics``' post-processor hits when it resolves camera
+        metadata off the session handed to it by the deployment server.
+        """
+        try:
+            if getattr(self.session, "account_number", ""):
+                return
+            # session.update() rebuilt the RPC, so self.rpc is stale by now.
+            account_number = resolve_account_number(getattr(self.session, "rpc", None))
+            if not account_number:
+                logger.warning(
+                    "Could not resolve an account number for this session; account-scoped API calls will be skipped"
+                )
+                return
+            self.session.account_number = account_number
+        except Exception:
+            logger.warning("Failed to backfill session account number", exc_info=True)
 
     @log_errors(raise_exception=True, log_error=False)
     def _init_project_info(self):
@@ -284,8 +384,64 @@ class ActionTracker:
                 self.checkpoint_path,
                 self.pretrained,
             ) = self.get_checkpoint_path(self.job_params)
+            # WORKAROUND (content-sniff safety net): the URL path names the local
+            # checkpoint from the stored object's key, which can be wrong (e.g. a
+            # TensorRT engine stored as ".pt", with backend metadata also mislabelling
+            # it "PyTorch"). Content is the only reliable signal, so — without changing
+            # how the URL path downloads — inspect the file's magic bytes and rename it
+            # to the true extension. Mirrors the inference SDK's checkpoint sniff so the
+            # file is correctly named at the download boundary for every consumer.
+            # Remove once the backend stores the correct runtime/extension.
+            self._correct_checkpoint_extension_by_content()
         except Exception as e:
             print("Get checkpoint error:", e)
+
+    def _file_is_zip(self, path):
+        """True if the file begins with the ZIP magic (``PK``).
+
+        A PyTorch checkpoint saved by ``torch.save`` is a ZIP archive, so this
+        distinguishes a genuine PyTorch checkpoint from a non-PyTorch artifact (e.g. a
+        TensorRT engine) that has been given a PyTorch extension. On read failure it
+        returns ``True`` (assume genuine) so the caller never renames a file it could
+        not inspect.
+        """
+        try:
+            with open(path, "rb") as f:
+                return f.read(2) == b"PK"
+        except OSError:
+            return True
+
+    def _correct_checkpoint_extension_by_content(self):
+        """WORKAROUND (safety net): fix a checkpoint that CLAIMS PyTorch but isn't.
+
+        Runs after ``get_checkpoint_path`` — it does NOT change how the URL path
+        downloads; it fixes the local filename afterward, renaming in place (no
+        re-download), so it also corrects a reused cached file. Content is authoritative
+        (unlike the backend's runtime metadata, which can be wrong).
+
+        Conservative by design, mirroring the inference SDK's factory sniff: it acts
+        ONLY on a file whose extension claims PyTorch (``.pt`` / ``.pth`` /
+        ``.torchscript``) but whose bytes are not a ZIP — that combination means a
+        non-PyTorch artifact (in practice a TensorRT engine) mislabelled as PyTorch, so
+        it is renamed to ``.engine``. Every other extension (``.engine`` / ``.onnx`` /
+        ``.plan`` / …) is left untouched: a ZIP-vs-not sniff cannot tell ``.onnx`` from
+        ``.engine``, so a correctly-named non-PyTorch file must never be renamed.
+        """
+        path = self.checkpoint_path
+        if not path or not os.path.isfile(path):
+            return
+        base, current_ext = os.path.splitext(path)
+        if current_ext.lower() not in _PYTORCH_CHECKPOINT_EXTENSIONS:
+            return
+        if self._file_is_zip(path):
+            return
+        corrected = base + ".engine"
+        try:
+            os.replace(path, corrected)
+            self.checkpoint_path = corrected
+            print(f"Corrected checkpoint extension by content sniff: {path} -> {corrected}")
+        except OSError as e:
+            print(f"Could not rename checkpoint {path} -> {corrected}: {e}")
 
     @log_errors(default_return=(None, False), raise_exception=True, log_error=False)
     def get_checkpoint_path(self, overrides=None):
@@ -344,7 +500,7 @@ class ActionTracker:
                 "checkpoint_value",
                 checkpoint_value,
             )
-        if checkpoint_value.lower().startswith(("http://", "https://")):
+        if checkpoint_value.lower().split("://", 1)[0] in ("http", "https"):
             checkpoint_type = "url"
         elif len(checkpoint_value) == 24:
             checkpoint_type = "model_id"
@@ -352,17 +508,23 @@ class ActionTracker:
             checkpoint_value = checkpoint_value.lower()
 
         if checkpoint_type == "model_id":
+            model_type = "trained" if not self.is_exported else "exported"
+            # Resolve the presigned URL first so the checkpoint is named with
+            # its real extension (e.g. .engine/.onnx) instead of assuming .pt.
+            presigned_url = self._get_model_download_url(checkpoint_value, model_type)
+            extension = self._resolve_checkpoint_extension(presigned_url, model_type)
             model_path = os.path.join(
                 checkpoint_dir,
-                f"{checkpoint_value}.pt",
+                f"{checkpoint_value}{extension}",
             )
             success = self.download_model(
                 model_path=model_path,
-                model_type=("trained" if not self.is_exported else "exported"),
+                model_type=model_type,
                 model_id=checkpoint_value,
+                presigned_url=presigned_url,
             )
             if not success:
-                raise Exception("Failed to download model")
+                raise RuntimeError("Failed to download model")
             return model_path, True
         elif checkpoint_type == "url":
             if not checkpoint_value:
@@ -408,10 +570,10 @@ class ActionTracker:
                 if os.path.exists(model_path) and os.path.getsize(model_path) > 0:
                     print(f"Download from URL failed with transient error ({e}), using cached file at {model_path}")
                     return model_path, True
-                raise Exception(f"Failed to download from URL: {str(e)}")
+                raise RuntimeError(f"Failed to download from URL: {str(e)}")
             except requests.HTTPError as e:
                 # Permanent HTTP error (4xx/5xx): surface it, do not use cache.
-                raise Exception(f"Failed to download from URL {redact_url(checkpoint_value)}: {e}")
+                raise RuntimeError(f"Failed to download from URL {redact_url(checkpoint_value)}: {e}")
         elif checkpoint_type in [
             "predefined",
             "pretrained",
@@ -458,7 +620,7 @@ class ActionTracker:
         return _dotdict(self.jobParams)
 
     @log_errors(raise_exception=False, log_error=True)
-    def update_status(self, stepCode, status, status_description):
+    def update_status(self, step_code, status, status_description):
         """
         Updates the status of the tracked action in the backend system.
 
@@ -489,7 +651,7 @@ class ActionTracker:
             "_id": self.action_id_str,
             "action": self.action_type,
             "serviceName": self.action_doc["serviceName"],
-            "stepCode": stepCode,
+            "stepCode": step_code,
             "status": status,
             "statusDescription": status_description,
         }
@@ -766,12 +928,87 @@ class ActionTracker:
             print(f"Error refreshing presigned URL: {str(e)}")
             return None
 
+    def _get_model_download_url(self, model_id, model_type):
+        """Fetch a presigned download URL for a model from the backend.
+
+        Parameters
+        ----------
+        model_id : str
+            The identifier of the model to download.
+        model_type : str
+            Either ``"trained"`` or ``"exported"``.
+
+        Returns
+        -------
+        str or None
+            The presigned download URL, or ``None`` when ``model_type`` is
+            neither ``"trained"`` nor ``"exported"``.
+        """
+        if model_type == "trained":
+            return self.rpc.post(
+                path="/v1/model/get_model_download_path",
+                payload={
+                    "modelID": model_id,
+                    "modelType": model_type,
+                    "expiryTimeInMinutes": 59,
+                },
+            )["data"]
+        if model_type == "exported":
+            return self.rpc.post(
+                path="/v1/model/get_model_download_path",
+                payload={
+                    "modelID": model_id,
+                    "modelType": model_type,
+                    "expiryTimeInMinutes": 59,
+                    "exportFormat": self.export_format,
+                },
+            )["data"]
+        print(f"model type is not trained or exported: {model_type}")
+        return None
+
+    def _resolve_checkpoint_extension(self, presigned_url, model_type="trained"):
+        """Determine the checkpoint's true file extension.
+
+        The extension is taken, in order of preference, from:
+
+        1. The object name in the presigned download URL, which preserves the
+           filename the training or export job actually uploaded.
+        2. A mapping from the export/runtime format to its canonical extension,
+           used for exported artifacts when the URL reveals no extension.
+        3. A default extension when neither source is conclusive.
+
+        Parameters
+        ----------
+        presigned_url : str
+            The presigned download URL to inspect.
+        model_type : str, optional
+            Either ``"trained"`` or ``"exported"``. Defaults to ``"trained"``.
+
+        Returns
+        -------
+        str
+            The file extension including the leading dot.
+        """
+        try:
+            filename = presigned_url.split("?", 1)[0].split("/")[-1]
+            extension = os.path.splitext(filename)[1]
+            if extension:
+                return extension
+        except (AttributeError, IndexError, TypeError):
+            pass
+        if model_type == "exported":
+            fmt = (self.export_format or "").lower()
+            if fmt in _FORMAT_EXTENSIONS:
+                return _FORMAT_EXTENSIONS[fmt]
+        return _DEFAULT_CHECKPOINT_EXTENSION
+
     @log_errors(default_return=False, raise_exception=True, log_error=True)
     def download_model(
         self,
         model_path,
         model_type="trained",
         model_id=None,
+        presigned_url=None,
     ):
         """Downloads a model from the backend system.
 
@@ -782,6 +1019,11 @@ class ActionTracker:
                 downloading.
         model_type : str, optional
             The type of the model ("trained" or "exported"). Defaults to "trained".
+        model_id : str, optional
+            The identifier of the model to download. Defaults to the tracker's model id.
+        presigned_url : str, optional
+            A presigned download URL to reuse. When omitted, one is fetched from the
+            backend. Supplying it avoids a redundant backend call.
 
         Returns
         -------
@@ -804,27 +1046,9 @@ class ActionTracker:
         if not model_id:
             model_id = self._idModel_str
         try:
-            if model_type == "trained":
-                presigned_url = self.rpc.post(
-                    path="/v1/model/get_model_download_path",
-                    payload={
-                        "modelID": model_id,
-                        "modelType": model_type,
-                        "expiryTimeInMinutes": 59,
-                    },
-                )["data"]
-            elif model_type == "exported":
-                presigned_url = self.rpc.post(
-                    path="/v1/model/get_model_download_path",
-                    payload={
-                        "modelID": model_id,
-                        "modelType": model_type,
-                        "expiryTimeInMinutes": 59,
-                        "exportFormat": self.export_format,
-                    },
-                )["data"]
-            else:
-                print(f"model type is not trained or exported: {model_type}")
+            if presigned_url is None:
+                presigned_url = self._get_model_download_url(model_id, model_type)
+            if not presigned_url:
                 return False
 
             response = requests.get(presigned_url, timeout=30)
@@ -967,7 +1191,7 @@ class ActionTracker:
             print(f"Exception in validate_evaluation_results: {str(e)}")
         try:
             url = "/v1/model/add_eval_results"
-            Payload = {
+            payload = {
                 "_idModel": self._idModel,
                 "_idDataset": self.action_details["_idDataset"],
                 "_idProject": self.action_doc["_idProject"],
@@ -977,7 +1201,7 @@ class ActionTracker:
                 "splitTypes": "",
                 "evalResults": list_of_result_dicts,
             }
-            self.rpc.post(path=url, payload=Payload)
+            self.rpc.post(path=url, payload=payload)
         except Exception as e:
             self.log_error(
                 __file__,
@@ -993,7 +1217,7 @@ class ActionTracker:
             sys.exit(1)
 
     @log_errors(default_return=False, raise_exception=True, log_error=True)
-    def add_index_to_category(self, indexToCat):
+    def add_index_to_category(self, index_to_cat):
         """Adds an index-to-category mapping to the model.
 
         This function is used to establish a relationship between numerical indices
@@ -1029,7 +1253,7 @@ class ActionTracker:
         >>> add_index_to_category(index_mapping)
         """
         url = f"/v1/model/{self._idModel}/update_index_to_cat"
-        payload = {"indexToCat": indexToCat}
+        payload = {"indexToCat": index_to_cat}
         self.rpc.put(path=url, payload=payload)
 
     @log_errors(default_return={}, raise_exception=True, log_error=False)
@@ -1085,8 +1309,8 @@ class ActionTracker:
         url = "/v1/model/model_train/" + str(self._idModel_str)
         if is_exported is not None or self.is_exported:
             url = f"/v1/model/get_model_train_by_export_id?exportId={self._idModel_str}"
-        modelTrain_doc = self.rpc.get(url)["data"]
-        self.index_to_category = modelTrain_doc.get("indexToCat", {})
+        model_train_doc = self.rpc.get(url)["data"]
+        self.index_to_category = model_train_doc.get("indexToCat", {})
         return self.index_to_category
 
     @log_errors(default_return={}, raise_exception=True, log_error=False)
@@ -1385,7 +1609,7 @@ class ActionTracker:
     ):
         # Imported lazily via importlib (see _clear_cache note).
         torch = importlib.import_module("torch")
-        ToPILImage = importlib.import_module("torchvision.transforms").ToPILImage
+        to_pil_image = importlib.import_module("torchvision.transforms").ToPILImage
 
         self.index_to_category = self.get_index_to_category(self.is_exported)
         if format_inputs:
@@ -1427,7 +1651,7 @@ class ActionTracker:
         ):
             try:
                 if not pil_images:
-                    image = ToPILImage()(image)
+                    image = to_pil_image()(image)
                 img_byte_arr = io.BytesIO()
                 image.save(
                     img_byte_arr,

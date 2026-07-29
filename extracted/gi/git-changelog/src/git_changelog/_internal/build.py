@@ -99,7 +99,7 @@ class Section:
 class Version:
     """A class to represent a changelog version."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0917
         self,
         tag: str = "",
         date: datetime.date | datetime.datetime | None = None,

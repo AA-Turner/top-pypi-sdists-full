@@ -14,21 +14,22 @@
         #include <wx/bmpbndl.h>
         #include <wx/window.h>
         #include <wx/bitmap.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/gdicmn.h>
         #include <wx/validate.h>
         #include <wx/window.h>
         #include <wx/gdicmn.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -71,7 +72,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -117,7 +117,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -133,7 +132,7 @@ private:
     sipwxWizardPageSimple(const sipwxWizardPageSimple &);
     sipwxWizardPageSimple &operator = (const sipwxWizardPageSimple &);
 
-    char sipPyMethods[42];
+    char sipPyMethods[41];
 };
 
 sipwxWizardPageSimple::sipwxWizardPageSimple(): ::wxWizardPageSimple(), sipPySelf(SIP_NULLPTR)
@@ -712,27 +711,12 @@ void sipwxWizardPageSimple::DoSetWindowVariant(::wxWindowVariant variant)
     return sipVH__adv_25(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxWizardPageSimple::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxWizardPageSimple::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__adv_25(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__adv_25(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 void sipwxWizardPageSimple::DoFreeze()
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -750,7 +734,7 @@ void sipwxWizardPageSimple::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -768,7 +752,7 @@ void sipwxWizardPageSimple::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxWizardPageSimple::DoGetBestSize();
@@ -783,7 +767,7 @@ void sipwxWizardPageSimple::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxWizardPageSimple::DoGetBestClientSize();
@@ -798,7 +782,7 @@ void sipwxWizardPageSimple::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[39]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetBitmap);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetBitmap);
 
     if (!sipMeth)
         return ::wxWizardPageSimple::GetBitmap();
@@ -813,7 +797,7 @@ void sipwxWizardPageSimple::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[40]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetNext);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[39]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetNext);
 
     if (!sipMeth)
         return ::wxWizardPageSimple::GetNext();
@@ -828,7 +812,7 @@ void sipwxWizardPageSimple::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[41]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetPrev);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[40]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetPrev);
 
     if (!sipMeth)
         return ::wxWizardPageSimple::GetPrev();
@@ -906,11 +890,6 @@ void sipwxWizardPageSimple::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg
 ::wxBorder sipwxWizardPageSimple::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxPanel::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxWizardPageSimple::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxPanel::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxWizardPageSimple::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -1470,40 +1449,6 @@ static PyObject *meth_wxWizardPageSimple_GetDefaultBorder(PyObject *sipSelf, PyO
 }
 
 
-PyDoc_STRVAR(doc_wxWizardPageSimple_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxWizardPageSimple_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxWizardPageSimple_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxWizardPageSimple *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxWizardPageSimple, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_WizardPageSimple, sipName_GetDefaultBorderForControl, doc_wxWizardPageSimple_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxWizardPageSimple_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxWizardPageSimple_DoFreeze(PyObject *, PyObject *);}
@@ -1682,7 +1627,7 @@ static PyObject *meth_wxWizardPageSimple_TryAfter(PyObject *sipSelf, PyObject *s
 }
 
 
-PyDoc_STRVAR(doc_wxWizardPageSimple_Create, "Create(parent=None, prev=None, next=None, bitmap=wx.BitmapBundle()) -> bool\n"
+PyDoc_STRVAR(doc_wxWizardPageSimple_Create, "Create(parent=nullptr, prev=nullptr, next=nullptr, bitmap=wx.BitmapBundle()) -> bool\n"
 "\n"
 "Creates the wizard page.");
 
@@ -1692,9 +1637,9 @@ static PyObject *meth_wxWizardPageSimple_Create(PyObject *sipSelf, PyObject *sip
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        ::wxWizard* parent = 0;
-        ::wxWizardPage* prev = 0;
-        ::wxWizardPage* next = 0;
+        ::wxWizard* parent = nullptr;
+        ::wxWizardPage* prev = nullptr;
+        ::wxWizardPage* next = nullptr;
         const ::wxBitmapBundle& bitmapdef = wxBitmapBundle();
         const ::wxBitmapBundle* bitmap = &bitmapdef;
         int bitmapState = 0;
@@ -2077,8 +2022,8 @@ static void *init_type_wxWizardPageSimple(sipSimpleWrapper *sipSelf, PyObject *s
 
     {
         ::wxWizard* parent;
-        ::wxWizardPage* prev = 0;
-        ::wxWizardPage* next = 0;
+        ::wxWizardPage* prev = nullptr;
+        ::wxWizardPage* next = nullptr;
         const ::wxBitmapBundle& bitmapdef = wxBitmapBundle();
         const ::wxBitmapBundle* bitmap = &bitmapdef;
         int bitmapState = 0;
@@ -2118,7 +2063,7 @@ static void *init_type_wxWizardPageSimple(sipSimpleWrapper *sipSelf, PyObject *s
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxWizardPageSimple[] = {{55, 255, 1}};
+static sipEncodedTypeDef supers_wxWizardPageSimple[] = {{58, 255, 1}};
 
 
 static PyMethodDef methods_wxWizardPageSimple[] = {
@@ -2139,7 +2084,6 @@ static PyMethodDef methods_wxWizardPageSimple[] = {
     {sipName_DoThaw, meth_wxWizardPageSimple_DoThaw, METH_VARARGS, SIP_NULLPTR},
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxWizardPageSimple_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxWizardPageSimple_GetClassDefaultAttributes},
     {sipName_GetDefaultBorder, meth_wxWizardPageSimple_GetDefaultBorder, METH_VARARGS, SIP_NULLPTR},
-    {sipName_GetDefaultBorderForControl, meth_wxWizardPageSimple_GetDefaultBorderForControl, METH_VARARGS, SIP_NULLPTR},
     {sipName_GetNext, meth_wxWizardPageSimple_GetNext, METH_VARARGS, doc_wxWizardPageSimple_GetNext},
     {sipName_GetPrev, meth_wxWizardPageSimple_GetPrev, METH_VARARGS, doc_wxWizardPageSimple_GetPrev},
     {sipName_HasTransparentBackground, meth_wxWizardPageSimple_HasTransparentBackground, METH_VARARGS, SIP_NULLPTR},
@@ -2152,7 +2096,7 @@ static PyMethodDef methods_wxWizardPageSimple[] = {
 };
 
 PyDoc_STRVAR(doc_wxWizardPageSimple, "WizardPageSimple() -> None\n"
-"WizardPageSimple(parent, prev=None, next=None, bitmap=wx.BitmapBundle()) -> None\n"
+"WizardPageSimple(parent, prev=nullptr, next=nullptr, bitmap=wx.BitmapBundle()) -> None\n"
 "\n"
 "wxWizardPageSimple is the simplest possible wxWizardPage\n"
 "implementation: it just returns the pointers given to its constructor\n"
@@ -2172,7 +2116,7 @@ sipClassTypeDef sipTypeDef__adv_wxWizardPageSimple = {
     {
         sipNameNr_WizardPageSimple,
         {0, 0, 1},
-        27, methods_wxWizardPageSimple,
+        26, methods_wxWizardPageSimple,
         0, SIP_NULLPTR,
         0, SIP_NULLPTR,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

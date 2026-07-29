@@ -202,7 +202,7 @@ static void *init_type_wxAuiNotebookEvent(sipSimpleWrapper *sipSelf, PyObject *s
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxAuiNotebookEvent[] = {{4, 0, 1}};
+static sipEncodedTypeDef supers_wxAuiNotebookEvent[] = {{5, 0, 1}};
 
 
 static PyMethodDef methods_wxAuiNotebookEvent[] = {

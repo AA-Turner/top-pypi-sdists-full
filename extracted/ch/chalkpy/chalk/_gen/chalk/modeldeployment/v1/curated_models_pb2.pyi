@@ -81,6 +81,8 @@ class DeployCuratedModelRequest(_message.Message):
         "min_replicas",
         "max_replicas",
         "target_cpu_utilization_percentage",
+        "enable_thinking",
+        "max_tokens",
     )
     CURATED_MODEL_ID_FIELD_NUMBER: _ClassVar[int]
     SCALING_GROUP_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -88,12 +90,16 @@ class DeployCuratedModelRequest(_message.Message):
     MIN_REPLICAS_FIELD_NUMBER: _ClassVar[int]
     MAX_REPLICAS_FIELD_NUMBER: _ClassVar[int]
     TARGET_CPU_UTILIZATION_PERCENTAGE_FIELD_NUMBER: _ClassVar[int]
+    ENABLE_THINKING_FIELD_NUMBER: _ClassVar[int]
+    MAX_TOKENS_FIELD_NUMBER: _ClassVar[int]
     curated_model_id: str
     scaling_group_name: str
     gpu: str
     min_replicas: int
     max_replicas: int
     target_cpu_utilization_percentage: int
+    enable_thinking: bool
+    max_tokens: int
     def __init__(
         self,
         curated_model_id: _Optional[str] = ...,
@@ -102,6 +108,8 @@ class DeployCuratedModelRequest(_message.Message):
         min_replicas: _Optional[int] = ...,
         max_replicas: _Optional[int] = ...,
         target_cpu_utilization_percentage: _Optional[int] = ...,
+        enable_thinking: bool = ...,
+        max_tokens: _Optional[int] = ...,
     ) -> None: ...
 
 class DeployCuratedModelResponse(_message.Message):

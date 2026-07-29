@@ -278,6 +278,40 @@ static PyObject *meth_wxLogBuffer_DoLogText(PyObject *sipSelf, PyObject *sipArgs
 }
 
 
+PyDoc_STRVAR(doc_wxLogBuffer_Clear, "Clear() -> None\n"
+"\n"
+"Clear all the messages in the buffer.");
+
+extern "C" {static PyObject *meth_wxLogBuffer_Clear(PyObject *, PyObject *);}
+static PyObject *meth_wxLogBuffer_Clear(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxLogBuffer *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxLogBuffer, &sipCpp))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->Clear();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_LogBuffer, sipName_Clear, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxLogBuffer_Flush, "Flush() -> None\n"
 "\n"
 "Shows all the messages collected so far to the user (using a message\n"
@@ -425,10 +459,11 @@ static void *init_type_wxLogBuffer(sipSimpleWrapper *sipSelf, PyObject *sipArgs,
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxLogBuffer[] = {{330, 255, 1}};
+static sipEncodedTypeDef supers_wxLogBuffer[] = {{337, 255, 1}};
 
 
 static PyMethodDef methods_wxLogBuffer[] = {
+    {sipName_Clear, meth_wxLogBuffer_Clear, METH_VARARGS, doc_wxLogBuffer_Clear},
     {sipName_DoLogRecord, SIP_MLMETH_CAST(meth_wxLogBuffer_DoLogRecord), METH_VARARGS|METH_KEYWORDS, SIP_NULLPTR},
     {sipName_DoLogText, SIP_MLMETH_CAST(meth_wxLogBuffer_DoLogText), METH_VARARGS|METH_KEYWORDS, SIP_NULLPTR},
     {sipName_DoLogTextAtLevel, SIP_MLMETH_CAST(meth_wxLogBuffer_DoLogTextAtLevel), METH_VARARGS|METH_KEYWORDS, SIP_NULLPTR},
@@ -437,7 +472,7 @@ static PyMethodDef methods_wxLogBuffer[] = {
 };
 
 sipVariableDef variables_wxLogBuffer[] = {
-    {PropertyVariable, sipName_Buffer, &methods_wxLogBuffer[4], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Buffer, &methods_wxLogBuffer[5], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxLogBuffer, "LogBuffer() -> None\n"
@@ -461,7 +496,7 @@ sipClassTypeDef sipTypeDef__core_wxLogBuffer = {
     {
         sipNameNr_LogBuffer,
         {0, 0, 1},
-        5, methods_wxLogBuffer,
+        6, methods_wxLogBuffer,
         0, SIP_NULLPTR,
         1, variables_wxLogBuffer,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

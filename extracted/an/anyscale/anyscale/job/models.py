@@ -9,6 +9,7 @@ from anyscale._private.models.integrations import (
 )
 from anyscale._private.workload import WorkloadConfig
 from anyscale.commands import command_examples
+from anyscale.commands.doc_metadata import ReleaseStatus
 from anyscale.shared_anyscale_utils.utils import INT_MAX
 
 
@@ -518,6 +519,9 @@ class JobSortOrder(ModelEnum):
 @dataclass(frozen=True)
 class JobStatus(ModelBase):
     """Current status of a job."""
+
+    __doc_status__ = ReleaseStatus.GA.value
+    __doc_since__ = "0.0.0"
 
     __doc_py_example__ = """\
 import anyscale

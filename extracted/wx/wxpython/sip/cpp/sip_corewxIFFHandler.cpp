@@ -405,7 +405,7 @@ static void *init_type_wxIFFHandler(sipSimpleWrapper *sipSelf, PyObject *sipArgs
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxIFFHandler[] = {{284, 255, 1}};
+static sipEncodedTypeDef supers_wxIFFHandler[] = {{291, 255, 1}};
 
 
 static PyMethodDef methods_wxIFFHandler[] = {

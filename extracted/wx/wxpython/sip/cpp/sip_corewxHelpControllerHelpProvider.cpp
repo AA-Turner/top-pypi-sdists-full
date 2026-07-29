@@ -63,9 +63,9 @@ bool sipwxHelpControllerHelpProvider::ShowHelpAtPoint(::wxWindowBase*window, con
     if (!sipMeth)
         return ::wxHelpControllerHelpProvider::ShowHelpAtPoint(window, point, origin);
 
-    extern bool sipVH__core_209(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*, const ::wxPoint&, ::wxHelpEvent::Origin);
+    extern bool sipVH__core_208(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*, const ::wxPoint&, ::wxHelpEvent::Origin);
 
-    return sipVH__core_209(sipGILState, 0, sipPySelf, sipMeth, window, point, origin);
+    return sipVH__core_208(sipGILState, 0, sipPySelf, sipMeth, window, point, origin);
 }
 
 bool sipwxHelpControllerHelpProvider::ShowHelp(::wxWindowBase*window)
@@ -78,9 +78,9 @@ bool sipwxHelpControllerHelpProvider::ShowHelp(::wxWindowBase*window)
     if (!sipMeth)
         return ::wxHelpControllerHelpProvider::ShowHelp(window);
 
-    extern bool sipVH__core_208(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern bool sipVH__core_207(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    return sipVH__core_208(sipGILState, 0, sipPySelf, sipMeth, window);
+    return sipVH__core_207(sipGILState, 0, sipPySelf, sipMeth, window);
 }
 
 void sipwxHelpControllerHelpProvider::RemoveHelp(::wxWindowBase*window)
@@ -96,9 +96,9 @@ void sipwxHelpControllerHelpProvider::RemoveHelp(::wxWindowBase*window)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, window);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, window);
 }
 
 void sipwxHelpControllerHelpProvider::AddHelp(::wxWindowID id, const ::wxString& text)
@@ -114,9 +114,9 @@ void sipwxHelpControllerHelpProvider::AddHelp(::wxWindowID id, const ::wxString&
         return;
     }
 
-    extern void sipVH__core_206(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowID, const ::wxString&);
+    extern void sipVH__core_205(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowID, const ::wxString&);
 
-    sipVH__core_206(sipGILState, 0, sipPySelf, sipMeth, id, text);
+    sipVH__core_205(sipGILState, 0, sipPySelf, sipMeth, id, text);
 }
 
 void sipwxHelpControllerHelpProvider::AddHelp(::wxWindowBase*window, const ::wxString& text)
@@ -132,9 +132,9 @@ void sipwxHelpControllerHelpProvider::AddHelp(::wxWindowBase*window, const ::wxS
         return;
     }
 
-    extern void sipVH__core_205(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*, const ::wxString&);
+    extern void sipVH__core_204(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*, const ::wxString&);
 
-    sipVH__core_205(sipGILState, 0, sipPySelf, sipMeth, window, text);
+    sipVH__core_204(sipGILState, 0, sipPySelf, sipMeth, window, text);
 }
 
 ::wxString sipwxHelpControllerHelpProvider::GetHelp(const ::wxWindowBase*window)
@@ -147,9 +147,9 @@ void sipwxHelpControllerHelpProvider::AddHelp(::wxWindowBase*window, const ::wxS
     if (!sipMeth)
         return ::wxHelpControllerHelpProvider::GetHelp(window);
 
-    extern ::wxString sipVH__core_210(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxWindowBase*);
+    extern ::wxString sipVH__core_209(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxWindowBase*);
 
-    return sipVH__core_210(sipGILState, 0, sipPySelf, sipMeth, window);
+    return sipVH__core_209(sipGILState, 0, sipPySelf, sipMeth, window);
 }
 
 
@@ -292,7 +292,7 @@ static void *init_type_wxHelpControllerHelpProvider(sipSimpleWrapper *sipSelf, P
     sipwxHelpControllerHelpProvider *sipCpp = SIP_NULLPTR;
 
     {
-        ::wxHelpControllerBase* hc = 0;
+        ::wxHelpControllerBase* hc = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_hc,
@@ -325,7 +325,7 @@ static void *init_type_wxHelpControllerHelpProvider(sipSimpleWrapper *sipSelf, P
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxHelpControllerHelpProvider[] = {{507, 255, 1}};
+static sipEncodedTypeDef supers_wxHelpControllerHelpProvider[] = {{522, 255, 1}};
 
 
 static PyMethodDef methods_wxHelpControllerHelpProvider[] = {
@@ -337,7 +337,7 @@ sipVariableDef variables_wxHelpControllerHelpProvider[] = {
     {PropertyVariable, sipName_HelpController, &methods_wxHelpControllerHelpProvider[0], &methods_wxHelpControllerHelpProvider[1], SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxHelpControllerHelpProvider, "HelpControllerHelpProvider(hc=None) -> None\n"
+PyDoc_STRVAR(doc_wxHelpControllerHelpProvider, "HelpControllerHelpProvider(hc=nullptr) -> None\n"
 "\n"
 "wxHelpControllerHelpProvider is an implementation of wxHelpProvider\n"
 "which supports both context identifiers and plain text help strings.");

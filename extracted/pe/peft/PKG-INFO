@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: peft
-Version: 0.19.1
+Version: 0.20.0
 Summary: Parameter-Efficient Fine-Tuning (PEFT)
 Home-page: https://github.com/huggingface/peft
 Author: The HuggingFace team
@@ -35,7 +35,7 @@ Requires-Dist: huggingface_hub>=0.25.0
 Provides-Extra: quality
 Requires-Dist: black; extra == "quality"
 Requires-Dist: hf-doc-builder; extra == "quality"
-Requires-Dist: ruff~=0.12.8; extra == "quality"
+Requires-Dist: ruff~=0.15.12; extra == "quality"
 Provides-Extra: docs-specific
 Requires-Dist: black; extra == "docs-specific"
 Requires-Dist: requests; extra == "docs-specific"
@@ -43,14 +43,14 @@ Requires-Dist: hf-doc-builder; extra == "docs-specific"
 Provides-Extra: dev
 Requires-Dist: black; extra == "dev"
 Requires-Dist: hf-doc-builder; extra == "dev"
-Requires-Dist: ruff~=0.12.8; extra == "dev"
+Requires-Dist: ruff~=0.15.12; extra == "dev"
 Requires-Dist: black; extra == "dev"
 Requires-Dist: requests; extra == "dev"
 Requires-Dist: hf-doc-builder; extra == "dev"
 Provides-Extra: test
 Requires-Dist: black; extra == "test"
 Requires-Dist: hf-doc-builder; extra == "test"
-Requires-Dist: ruff~=0.12.8; extra == "test"
+Requires-Dist: ruff~=0.15.12; extra == "test"
 Requires-Dist: black; extra == "test"
 Requires-Dist: requests; extra == "test"
 Requires-Dist: hf-doc-builder; extra == "test"
@@ -65,19 +65,6 @@ Requires-Dist: scikit-learn; extra == "test"
 Requires-Dist: protobuf; extra == "test"
 Requires-Dist: sentencepiece; extra == "test"
 Requires-Dist: torchvision; extra == "test"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 <!---
 Copyright 2023 The HuggingFace Team. All rights reserved.
@@ -86,7 +73,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+    https://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -120,6 +107,7 @@ pip install peft
 Prepare a model for training with a PEFT method such as LoRA by wrapping the base model and PEFT configuration with `get_peft_model`. For the bigscience/mt0-large model, you're only training 0.19% of the parameters!
 
 ```python
+import torch
 from transformers import AutoModelForCausalLM
 from peft import LoraConfig, TaskType, get_peft_model
 
@@ -143,6 +131,7 @@ model.save_pretrained("qwen2.5-3b-lora")
 To load a PEFT model for inference:
 
 ```python
+import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 
@@ -218,7 +207,7 @@ PEFT is directly integrated with [Transformers](https://huggingface.co/docs/tran
 from peft import LoraConfig
 model = ...  # transformers model
 peft_config = LoraConfig(...)
-model.add_adapter(lora_config, adapter_name="lora_1")
+model.add_adapter(peft_config, adapter_name="lora_1")
 ```
 
 To load a trained PEFT adapter, call `load_adapter`:

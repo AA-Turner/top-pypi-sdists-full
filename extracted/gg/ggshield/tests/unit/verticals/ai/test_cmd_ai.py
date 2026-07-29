@@ -4,11 +4,18 @@ from unittest.mock import MagicMock, patch
 
 import click
 from click.testing import CliRunner
-from pygitguardian.models import AIDiscovery, MCPConfiguration, MCPServer, UserInfo
+from pygitguardian.models import (
+    AgentInfo,
+    AIDiscovery,
+    MCPConfiguration,
+    MCPServer,
+    UserInfo,
+)
 
 from ggshield.__main__ import cli
 from ggshield.cmd.ai.discover import print_summary
 from ggshield.core.errors import APIKeyCheckError, MissingTokenError
+from ggshield.verticals.ai.agent_activity.orchestrator import AgentActivityReport
 from ggshield.verticals.ai.history import BackfillReport
 from ggshield.verticals.ai.models import Scope, Transport
 
@@ -30,8 +37,16 @@ def _user():
     )
 
 
-def _discovery(servers: Optional[List[MCPServer]] = None):
-    return AIDiscovery(user=_user(), servers=servers or [], discovery_duration=0.1)
+def _discovery(
+    servers: Optional[List[MCPServer]] = None,
+    agents: Optional[List[AgentInfo]] = None,
+):
+    return AIDiscovery(
+        user=_user(),
+        servers=servers or [],
+        agents=agents or [],
+        discovery_duration=0.1,
+    )
 
 
 def _server(
@@ -147,7 +162,9 @@ class TestAiHookCmd:
         )
 
         assert result.exit_code == 0
-        response = json.loads(result.output.strip().splitlines()[-1])
+        # These fail-open cases print a warning to stderr; on click < 8.2 the default
+        # runner merges it into stdout, so parse the JSON payload from the last line.
+        response = json.loads(result.stdout.strip().splitlines()[-1])
         assert response["continue"] is True
         assert "NOT scanned" in response["systemMessage"]
         assert "ggshield auth login" in response["systemMessage"]
@@ -173,7 +190,9 @@ class TestAiHookCmd:
         )
 
         assert result.exit_code == 0
-        response = json.loads(result.output.strip().splitlines()[-1])
+        # These fail-open cases print a warning to stderr; on click < 8.2 the default
+        # runner merges it into stdout, so parse the JSON payload from the last line.
+        response = json.loads(result.stdout.strip().splitlines()[-1])
         assert response["continue"] is True
         assert "NOT scanned" in response["systemMessage"]
 
@@ -246,7 +265,7 @@ class TestDiscoverCmd:
         result = runner.invoke(cli, ["ai", "discover", "--json"])
 
         assert result.exit_code == 0
-        parsed = json.loads(result.output)
+        parsed = json.loads(result.stdout)
         assert "agents" in parsed
         assert "servers" in parsed
 
@@ -372,7 +391,8 @@ class TestDiscoverCmd:
                         _config(agent="cursor", scope=Scope.USER),
                     ],
                 ),
-            ]
+            ],
+            agents=[AgentInfo(name="cursor", hooks_installed=True)],
         )
         mock_discover.return_value = discovery
         mock_submit.return_value = discovery
@@ -381,8 +401,8 @@ class TestDiscoverCmd:
         result = runner.invoke(cli, ["ai", "discover", "--json"])
 
         assert result.exit_code == 0
-        parsed = json.loads(result.output)
-        assert parsed["agents"] == ["Cursor"]
+        parsed = json.loads(result.stdout)
+        assert parsed["agents"] == [{"name": "Cursor", "hooks_installed": True}]
         assert len(parsed["servers"]) == 1
         assert parsed["servers"][0]["name"] == "My MCP"
         assert parsed["servers"][0]["installed_globally"] is True
@@ -396,7 +416,7 @@ class TestDiscoverCmd:
     @patch("ggshield.cmd.ai.discover.save_discovery_cache")
     @patch(
         "ggshield.cmd.ai.discover.backfill_mcp_history",
-        return_value=BackfillReport(parsed=3, ingested=3, duplicates=0),
+        return_value=BackfillReport(parsed=3, ingested=3),
     )
     def test_history_flag_invokes_backfill_and_surfaces_summary(
         self,
@@ -463,7 +483,7 @@ class TestDiscoverCmd:
     @patch("ggshield.cmd.ai.discover.save_discovery_cache")
     @patch(
         "ggshield.cmd.ai.discover.backfill_mcp_history",
-        return_value=BackfillReport(parsed=4, ingested=2, duplicates=1, skipped=1),
+        return_value=BackfillReport(parsed=4, ingested=2, skipped=1),
     )
     def test_json_output_includes_history_block(
         self,
@@ -477,13 +497,83 @@ class TestDiscoverCmd:
         result = runner.invoke(cli, ["ai", "discover", "--json", "--history"])
 
         assert result.exit_code == 0
-        parsed = json.loads(result.output)
+        parsed = json.loads(result.stdout)
         assert parsed["history"] == {
             "parsed": 4,
             "ingested": 2,
-            "duplicates": 1,
             "skipped": 1,
         }
+
+    @patch(
+        "ggshield.cmd.ai.discover.discover_ai_configuration",
+        return_value=_discovery(),
+    )
+    @patch("ggshield.cmd.ai.discover.create_client_from_config")
+    @patch("ggshield.cmd.ai.discover.submit_ai_discovery")
+    @patch("ggshield.cmd.ai.discover.save_discovery_cache")
+    @patch(
+        "ggshield.cmd.ai.discover.collect_agent_activity",
+        return_value=AgentActivityReport(parsed=7, ingested=7, failed_batches=0),
+    )
+    def test_activity_flag_collects_agent_activity(
+        self,
+        mock_collect: MagicMock,
+        mock_save: MagicMock,
+        mock_submit: MagicMock,
+        mock_client: MagicMock,
+        mock_discover: MagicMock,
+    ):
+        discovery = _discovery(
+            servers=[
+                _server(
+                    "my-mcp",
+                    display_name="My MCP",
+                    configurations=[_config(agent="cursor", scope=Scope.USER)],
+                )
+            ]
+        )
+        mock_submit.return_value = discovery
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["ai", "discover", "--activity"])
+        assert result.exit_code == 0, result.output
+        mock_collect.assert_called_once()
+        assert "7" in result.output
+
+    @patch(
+        "ggshield.cmd.ai.discover.discover_ai_configuration",
+        return_value=_discovery(),
+    )
+    @patch("ggshield.cmd.ai.discover.create_client_from_config")
+    @patch("ggshield.cmd.ai.discover.submit_ai_discovery")
+    @patch("ggshield.cmd.ai.discover.save_discovery_cache")
+    @patch(
+        "ggshield.cmd.ai.discover.collect_agent_activity",
+        return_value=AgentActivityReport(parsed=10, ingested=8, failed_batches=2),
+    )
+    def test_agent_activity_surfaces_failed_batches(
+        self,
+        mock_collect: MagicMock,
+        mock_save: MagicMock,
+        mock_submit: MagicMock,
+        mock_client: MagicMock,
+        mock_discover: MagicMock,
+    ):
+        discovery = _discovery(
+            servers=[
+                _server(
+                    "my-mcp",
+                    display_name="My MCP",
+                    configurations=[_config(agent="cursor", scope=Scope.USER)],
+                )
+            ]
+        )
+        mock_submit.return_value = discovery
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["ai", "discover", "--activity"])
+        assert result.exit_code == 0, result.output
+        assert "Failed batches: 2" in result.output
 
 
 # ---------------------------------------------------------------------------
@@ -505,7 +595,7 @@ class TestPrintSummary:
 
     def test_single_global_server(self):
         summary: Dict[str, Any] = {
-            "agents": ["Cursor"],
+            "agents": [{"name": "Cursor", "hooks_installed": True}],
             "servers": [
                 {
                     "name": "my-server",
@@ -523,10 +613,32 @@ class TestPrintSummary:
         assert "1 agent" in result.output
         assert "my-server" in result.output
         assert "Scope: user" in result.output
+        assert "hooks installed" in result.output
+
+    def test_agent_without_hooks_shows_no_hooks(self):
+        summary: Dict[str, Any] = {
+            "agents": [{"name": "Cursor", "hooks_installed": False}],
+            "servers": [
+                {
+                    "name": "my-server",
+                    "installed_globally": True,
+                    "projects": [],
+                }
+            ],
+        }
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            result = runner.invoke(
+                _echo_summary_cmd, args=[], input=json.dumps(summary)
+            )
+        assert "no hooks" in result.output
 
     def test_multiple_servers_with_projects(self):
         summary: Dict[str, Any] = {
-            "agents": ["Cursor", "Claude Code"],
+            "agents": [
+                {"name": "Cursor", "hooks_installed": True},
+                {"name": "Claude Code", "hooks_installed": False},
+            ],
             "servers": [
                 {
                     "name": "server-a",

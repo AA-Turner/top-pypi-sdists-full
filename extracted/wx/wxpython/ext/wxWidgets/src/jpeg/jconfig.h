@@ -83,6 +83,5 @@ typedef unsigned char boolean;
 #undef PROGRESS_REPORT
 
 #endif /* JPEG_CJPEG_DJPEG */
-#endif
-    /* _MSC_VER */
 
+#endif /* _WIN32 */

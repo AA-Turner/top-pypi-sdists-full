@@ -487,7 +487,7 @@ static PyObject *meth_wxXmlNode_GetContent(PyObject *sipSelf, PyObject *sipArgs)
 }
 
 
-PyDoc_STRVAR(doc_wxXmlNode_GetDepth, "GetDepth(grandparent=None) -> int\n"
+PyDoc_STRVAR(doc_wxXmlNode_GetDepth, "GetDepth(grandparent=nullptr) -> int\n"
 "\n"
 "Returns the number of nodes which separate this node from grandparent.");
 
@@ -497,7 +497,7 @@ static PyObject *meth_wxXmlNode_GetDepth(PyObject *sipSelf, PyObject *sipArgs, P
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        ::wxXmlNode* grandparent = 0;
+        const ::wxXmlNode* grandparent = nullptr;
         const ::wxXmlNode *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -636,8 +636,8 @@ static PyObject *meth_wxXmlNode_GetName(PyObject *sipSelf, PyObject *sipArgs)
 
 PyDoc_STRVAR(doc_wxXmlNode_GetNext, "GetNext() -> XmlNode\n"
 "\n"
-"Returns a pointer to the sibling of this node or NULL if there are no\n"
-"siblings.");
+"Returns a pointer to the sibling of this node or nullptr if there are\n"
+"no siblings.");
 
 extern "C" {static PyObject *meth_wxXmlNode_GetNext(PyObject *, PyObject *);}
 static PyObject *meth_wxXmlNode_GetNext(PyObject *sipSelf, PyObject *sipArgs)
@@ -708,8 +708,8 @@ static PyObject *meth_wxXmlNode_GetNodeContent(PyObject *sipSelf, PyObject *sipA
 
 PyDoc_STRVAR(doc_wxXmlNode_GetParent, "GetParent() -> XmlNode\n"
 "\n"
-"Returns a pointer to the parent of this node or NULL if this node has\n"
-"no parent.");
+"Returns a pointer to the parent of this node or nullptr if this node\n"
+"has no parent.");
 
 extern "C" {static PyObject *meth_wxXmlNode_GetParent(PyObject *, PyObject *);}
 static PyObject *meth_wxXmlNode_GetParent(PyObject *sipSelf, PyObject *sipArgs)
@@ -1278,8 +1278,8 @@ static void *init_type_wxXmlNode(sipSimpleWrapper *sipSelf, PyObject *sipArgs, P
         const ::wxString& contentdef = wxEmptyString;
         const ::wxString* content = &contentdef;
         int contentState = 0;
-        ::wxXmlAttribute* attrs = 0;
-        ::wxXmlNode* next = 0;
+        ::wxXmlAttribute* attrs = nullptr;
+        ::wxXmlNode* next = nullptr;
         int lineNo = -1;
 
         static const char *sipKwdList[] = {
@@ -1426,7 +1426,7 @@ sipVariableDef variables_wxXmlNode[] = {
     {PropertyVariable, sipName_Attributes, &methods_wxXmlNode[4], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxXmlNode, "XmlNode(parent, type, name, content='', attrs=None, next=None, lineNo=-1) -> None\n"
+PyDoc_STRVAR(doc_wxXmlNode, "XmlNode(parent, type, name, content='', attrs=nullptr, next=nullptr, lineNo=-1) -> None\n"
 "XmlNode(type, name, content='', lineNo=-1) -> None\n"
 "XmlNode(node) -> None\n"
 "\n"

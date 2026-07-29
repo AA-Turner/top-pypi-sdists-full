@@ -2679,7 +2679,7 @@ static void *init_type_wxPseudoDC(sipSimpleWrapper *, PyObject *sipArgs, PyObjec
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxPseudoDC[] = {{40, 0, 1}};
+static sipEncodedTypeDef supers_wxPseudoDC[] = {{41, 0, 1}};
 
 
 static PyMethodDef methods_wxPseudoDC[] = {

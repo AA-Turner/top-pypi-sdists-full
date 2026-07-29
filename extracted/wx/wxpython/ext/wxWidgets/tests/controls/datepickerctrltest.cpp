@@ -20,15 +20,14 @@
 #include "wx/uiaction.h"
 
 #include "testableframe.h"
-#include "testdate.h"
 
 class DatePickerCtrlTestCase : public CppUnit::TestCase
 {
 public:
     DatePickerCtrlTestCase() { }
 
-    void setUp() wxOVERRIDE;
-    void tearDown() wxOVERRIDE;
+    void setUp() override;
+    void tearDown() override;
 
 private:
     CPPUNIT_TEST_SUITE( DatePickerCtrlTestCase );
@@ -56,7 +55,7 @@ CPPUNIT_TEST_SUITE_NAMED_REGISTRATION( DatePickerCtrlTestCase, "DatePickerCtrlTe
 void DatePickerCtrlTestCase::setUp()
 {
     m_datepicker = new wxDatePickerCtrl(wxTheApp->GetTopWindow(), wxID_ANY);
-    m_button = NULL;
+    m_button = nullptr;
 }
 
 void DatePickerCtrlTestCase::tearDown()

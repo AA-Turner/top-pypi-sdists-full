@@ -131,7 +131,7 @@ static void dealloc_wxFileDialogChoice(sipSimpleWrapper *sipSelf)
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxFileDialogChoice[] = {{171, 255, 1}};
+static sipEncodedTypeDef supers_wxFileDialogChoice[] = {{179, 255, 1}};
 
 
 static PyMethodDef methods_wxFileDialogChoice[] = {

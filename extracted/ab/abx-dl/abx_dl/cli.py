@@ -68,6 +68,7 @@ from .models import (
 )
 from .orchestrator import compute_install_phase_timeout, compute_phase_timeout, create_bus, download, get_install_plugins, install_plugins
 from .output_files import OutputFile
+from .tables import binary_dependency_status, binary_dependency_table
 
 console = Console()
 stderr_console = Console(stderr=True)
@@ -101,10 +102,17 @@ def _source_checkout_root() -> Path | None:
 
 
 def _get_commit_hash() -> str | None:
-    for env_var in ("ABX_DL_COMMIT_HASH", "COMMIT_HASH"):
+    for env_var in ("ABX_DL_COMMIT_HASH",):
         env_commit_hash = os.environ.get(env_var, "").strip()
         if re.fullmatch(r"[0-9a-fA-F]{40}", env_commit_hash):
             return env_commit_hash
+
+    try:
+        packaged_commit_hash = (Path(__file__).resolve().parent / "COMMIT_SHA").read_text().strip()
+        if re.fullmatch(r"[0-9a-fA-F]{40}", packaged_commit_hash):
+            return packaged_commit_hash
+    except OSError:
+        pass
 
     def read_git_file(git_dir: Path, ref: str) -> str | None:
         try:
@@ -128,7 +136,11 @@ def _get_commit_hash() -> str | None:
         return None
 
     try:
-        git_dir = Path(__file__).resolve().parents[1] / ".git"
+        checkout_root = _source_checkout_root()
+        if checkout_root is None:
+            return None
+
+        git_dir = checkout_root / ".git"
         if git_dir.is_file():
             gitdir_path = git_dir.read_text().strip().removeprefix("gitdir:").strip()
             git_dir = Path(gitdir_path) if Path(gitdir_path).is_absolute() else git_dir.parent / gitdir_path
@@ -180,54 +192,6 @@ def _binary_display_path(path: object) -> str:
     return text
 
 
-def _build_plugin_binary_table(rows: list[dict[str, str]]) -> Table:
-    table = Table(title="Plugin Binaries", box=box.SIMPLE_HEAVY, expand=True)
-    table.add_column("Plugin", no_wrap=True, max_width=24)
-    table.add_column("State", no_wrap=True, width=8)
-    table.add_column("Status", justify="center", no_wrap=True, width=6)
-    table.add_column("Binary", no_wrap=True, max_width=28)
-    table.add_column("Version", no_wrap=True, width=16)
-    table.add_column("Provider", no_wrap=True, width=8)
-    table.add_column("Deps", overflow="fold", ratio=1)
-    table.add_column("Outputs", overflow="fold", ratio=1)
-    table.add_column("Info", overflow="fold", ratio=1)
-    table.add_column("Path", overflow="fold", ratio=1)
-    for row in rows:
-        table.add_row(
-            row["plugin"],
-            row["state"],
-            row["status"],
-            row["binary"],
-            row["version"],
-            row["provider"],
-            row.get("deps", "-"),
-            row.get("outputs", "-"),
-            row.get("info", "-"),
-            row["path"],
-            style=row.get("style"),
-        )
-    return table
-
-
-def _print_plugin_binary_row(row: dict[str, str]) -> None:
-    console.print(
-        "",
-        row["status"],
-        row["plugin"].ljust(24),
-        row["state"].ljust(8),
-        row["binary"].ljust(28),
-        row["version"].ljust(16),
-        row["provider"].ljust(8),
-        row.get("deps", "-").ljust(16),
-        row.get("outputs", "-").ljust(24),
-        row.get("info", "-"),
-        row["path"],
-        style=row.get("style"),
-        overflow="ignore",
-        crop=False,
-    )
-
-
 def _plugin_binary_row_dedupe_key(row: dict[str, str]) -> tuple[str, str, str, str, str, str] | None:
     if row["binary"] == "-":
         return None
@@ -238,7 +202,7 @@ def _plugin_binary_row_dedupe_key(row: dict[str, str]) -> tuple[str, str, str, s
         path = Path(path).expanduser().resolve(strict=False).as_posix()
     except OSError:
         path = str(path)
-    return (row["plugin"], row["state"], row["binary"], row["version"], row["provider"], path)
+    return (row["plugin"], row["status"], row["binary"], row["version"], row["provider"], path)
 
 
 @dataclass
@@ -1859,32 +1823,13 @@ def plugins(ctx, plugin_names: tuple[str, ...], do_install: bool, dry_run: bool,
         loaded_binaries = asyncio.run(resolve_declared_binaries())
         seen_binary_rows: set[tuple[str, str, str, str, str, str]] = set()
         live_enabled = console.is_terminal
-        live_cm = Live(_build_plugin_binary_table(rows), console=console, refresh_per_second=8) if live_enabled else nullcontext()
-        if not live_enabled:
-            console.print("[bold]Plugin Binaries[/bold]")
-            console.print(
-                "",
-                "Status",
-                "Plugin".ljust(24),
-                "State".ljust(8),
-                "Binary".ljust(28),
-                "Version".ljust(16),
-                "Provider".ljust(8),
-                "Deps".ljust(16),
-                "Outputs".ljust(24),
-                "Info",
-                "Path",
-            )
+        live_cm = Live(binary_dependency_table(rows), console=console, refresh_per_second=8) if live_enabled else nullcontext()
         all_ok = True
         with live_cm as live:
             for name in sorted(selected.keys()):
                 plugin = selected[name]
                 plugin_enabled = name in enabled_plugin_set
                 row_style = "" if plugin_enabled else "dim"
-                enabled_label = "enabled" if plugin_enabled else "disabled"
-                deps_label = _format_plugin_list(plugin.config.required_plugins)
-                outputs_label = _format_plugin_list(plugin.config.output_mimetypes)
-                info_label = plugin.config.description or "-"
 
                 if plugin.config.required_binaries:
                     for hydrated_spec in get_required_binary_requests(
@@ -1897,23 +1842,17 @@ def plugins(ctx, plugin_names: tuple[str, ...], do_install: bool, dry_run: bool,
                     ):
                         binary_signature = json.dumps(hydrated_spec, sort_keys=True, default=str)
                         binary = loaded_binaries[binary_signature]
-                        if binary is not None:
-                            status = "[green]✓[/green]" if plugin_enabled else "[grey53]-[/grey53]"
-                        else:
-                            status = "[red]X[/red]" if plugin_enabled else "[grey53]-[/grey53]"
+                        valid = binary is not None
+                        if not valid:
                             if plugin_enabled:
                                 all_ok = False
 
                         row = {
                             "plugin": name,
-                            "state": enabled_label,
-                            "status": status,
+                            "status": binary_dependency_status(enabled=plugin_enabled, valid=valid),
                             "binary": binary.name if binary is not None else str(hydrated_spec["name"]),
                             "version": str(binary.version or "-")[:15] if binary is not None else "-",
                             "provider": str(binary.binprovider or "-")[:8] if binary is not None else "-",
-                            "deps": deps_label,
-                            "outputs": outputs_label,
-                            "info": info_label,
                             "path": _binary_display_path(binary.abspath) if binary is not None else "-",
                             "style": row_style,
                         }
@@ -1924,28 +1863,22 @@ def plugins(ctx, plugin_names: tuple[str, ...], do_install: bool, dry_run: bool,
                             seen_binary_rows.add(row_key)
                         rows.append(row)
                         if live is not None:
-                            live.update(_build_plugin_binary_table(rows), refresh=True)
-                        else:
-                            _print_plugin_binary_row(row)
+                            live.update(binary_dependency_table(rows), refresh=True)
                 else:
                     row = {
                         "plugin": name,
-                        "state": enabled_label,
-                        "status": "[green]✓[/green]" if plugin_enabled else "[grey53]-[/grey53]",
+                        "status": binary_dependency_status(enabled=plugin_enabled, valid=True),
                         "binary": "-",
                         "version": "-",
                         "provider": "-",
-                        "deps": deps_label,
-                        "outputs": outputs_label,
-                        "info": info_label,
                         "path": "-",
                         "style": row_style,
                     }
                     rows.append(row)
                     if live is not None:
-                        live.update(_build_plugin_binary_table(rows), refresh=True)
-                    else:
-                        _print_plugin_binary_row(row)
+                        live.update(binary_dependency_table(rows), refresh=True)
+        if not live_enabled:
+            console.print(binary_dependency_table(rows))
 
         console.print(f"\n[dim]{len(selected)} plugins[/dim]")
 

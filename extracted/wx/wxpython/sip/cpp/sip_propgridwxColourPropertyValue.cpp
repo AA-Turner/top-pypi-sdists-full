@@ -317,7 +317,7 @@ static void *init_type_wxColourPropertyValue(sipSimpleWrapper *sipSelf, PyObject
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxColourPropertyValue[] = {{20, 0, 1}};
+static sipEncodedTypeDef supers_wxColourPropertyValue[] = {{21, 0, 1}};
 
 
 static PyMethodDef methods_wxColourPropertyValue[] = {

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ggshield
-Version: 1.52.2
+Version: 1.53.0
 Summary: Detect secrets from all sources using GitGuardian's brains
 Project-URL: Homepage, https://github.com/GitGuardian/ggshield
 Author-email: GitGuardian <support@gitguardian.com>
@@ -21,30 +21,32 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Security
 Requires-Python: >=3.9
 Requires-Dist: charset-normalizer~=3.1.0
-Requires-Dist: click~=8.1.0
+Requires-Dist: click<9,>=8.1.0
 Requires-Dist: configupdater<4,>=3.2
-Requires-Dist: cryptography~=43.0.1
+Requires-Dist: cryptography<49,>=43.0.1
 Requires-Dist: filelock>=3.19.1
 Requires-Dist: keyring<26,>=24.0.0
-Requires-Dist: marshmallow-dataclass~=8.7.0
+Requires-Dist: marshmallow-dataclass<9,>=8.7.0
 Requires-Dist: marshmallow<5,>=3.18
 Requires-Dist: notify-py>=0.3.43
-Requires-Dist: oauthlib~=3.2.1
+Requires-Dist: oauthlib<4,>=3.2.1
 Requires-Dist: packaging>=22.0
 Requires-Dist: platformdirs~=4.2
-Requires-Dist: pygitguardian~=1.32.0
-Requires-Dist: pyjwt~=2.6.0
-Requires-Dist: python-dotenv~=0.21.0
-Requires-Dist: pyyaml~=6.0.1
-Requires-Dist: requests~=2.32.0
+Requires-Dist: pygitguardian~=1.33.1
+Requires-Dist: pyjwt<3,>=2.13.0
+Requires-Dist: python-dotenv<2,>=0.21.0
+Requires-Dist: pyyaml<7,>=6.0.1
+Requires-Dist: requests<3,>=2.32.0
 Requires-Dist: rich~=13.0
 Requires-Dist: sigstore<5,>=4.0.0
 Requires-Dist: tomli>=2.4.0
 Requires-Dist: truststore>=0.10.1; python_version >= '3.10'
 Requires-Dist: typing-extensions~=4.14
+Requires-Dist: unearth>=0.18.2
 Requires-Dist: urllib3<3,>=2.2.2
 Description-Content-Type: text/markdown
 
@@ -73,6 +75,7 @@ Only metadata such as call time, request size and scan mode is stored from scans
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 - [Installation](#installation)
+  - [Install script (Recommended)](#install-script-recommended)
   - [macOS](#macos)
     - [Homebrew](#homebrew)
     - [Standalone .pkg package](#standalone-pkg-package)
@@ -80,6 +83,7 @@ Only metadata such as call time, request size and scan mode is stored from scans
     - [Deb and RPM packages](#deb-and-rpm-packages)
   - [Windows](#windows)
     - [Chocolatey](#chocolatey)
+    - [MSI installer](#msi-installer)
     - [Standalone .zip archive](#standalone-zip-archive)
   - [All operating systems](#all-operating-systems)
     - [Using pipx](#using-pipx)
@@ -89,6 +93,7 @@ Only metadata such as call time, request size and scan mode is stored from scans
   - [Manual setup](#manual-setup)
 - [Getting started](#getting-started)
   - [Secrets](#secrets)
+  - [Migrating a legacy configuration file](#migrating-a-legacy-configuration-file)
 - [Integrations](#integrations)
   - [AI coding assistants](#ai-coding-assistants)
 - [Learn more](#learn-more)
@@ -106,6 +111,39 @@ ggshield" section of the "Getting started" page of ggshield public
 documentation.
 -->
 
+## Install script (Recommended)
+
+The quickest way to install `ggshield`.
+
+Linux / macOS:
+
+```shell
+curl -sSfL \
+  https://raw.githubusercontent.com/GitGuardian/ggshield/main/scripts/install/install.sh | bash
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/GitGuardian/ggshield/main/scripts/install/install.ps1 | iex
+```
+
+Or, if you prefer `curl` (bundled with Windows 10+):
+
+```powershell
+curl.exe -sSL https://raw.githubusercontent.com/GitGuardian/ggshield/main/scripts/install/install.ps1 | powershell -NoProfile -ExecutionPolicy Bypass -Command -
+```
+
+The script accepts options such as `--instance` and `--plugin` (install a
+plugin). For the EU workspace or a self-hosted instance, set the
+`GITGUARDIAN_INSTANCE` environment variable (or pass `--instance <URL>`)
+before running.
+
+See [`scripts/install/README.md`](scripts/install/README.md) for the full list
+of options, the other install methods, and how to uninstall.
+
+The methods below install the CLI manually instead.
+
 ## macOS
 
 ### Homebrew
@@ -113,7 +151,7 @@ documentation.
 You can install `ggshield` using Homebrew:
 
 ```shell
-$ brew install ggshield
+brew install ggshield
 ```
 
 Upgrading is handled by Homebrew.
@@ -144,7 +182,15 @@ Upgrading is handled by the package manager.
 `ggshield` is available via the [Chocolatey package manager](https://chocolatey.org/packages/ggshield):
 
 ```shell
-$ choco install ggshield
+choco install ggshield
+```
+
+### MSI installer
+
+Download the MSI installer from the [`ggshield` release page](https://github.com/GitGuardian/ggshield/releases) and install it:
+
+```powershell
+msiexec /i ggshield-VERSION-x86_64-pc-windows-msvc.msi
 ```
 
 ### Standalone .zip archive
@@ -168,13 +214,13 @@ If you don't use our packaged versions of `ggshield`, please be aware that we fo
 The recommended way to install `ggshield` from PyPI is to use [pipx](https://pypa.github.io/pipx/), which will install it in an isolated environment:
 
 ```shell
-$ pipx install ggshield
+pipx install ggshield
 ```
 
 To upgrade your installation, run:
 
 ```shell
-$ pipx upgrade ggshield
+pipx upgrade ggshield
 ```
 
 ### Using pip
@@ -182,13 +228,13 @@ $ pipx upgrade ggshield
 You can also install `ggshield` from PyPI using pip, but this is not recommended because the installation is not isolated, so other applications or packages installed this way may affect your `ggshield` installation. This method will also not work if your Python installation is declared as externally managed (for example when using the system Python on operating systems like Debian 12):
 
 ```shell
-$ pip install --user ggshield
+pip install --user ggshield
 ```
 
 To upgrade your installation, run:
 
 ```shell
-$ pip install --user --upgrade ggshield
+pip install --user --upgrade ggshield
 ```
 
 # Initial setup
@@ -215,6 +261,22 @@ You can now use `ggshield` to search for secrets:
 - in Pypi packages (`pip` command must be available): `ggshield secret scan pypi flask`
 - and more, have a look at `ggshield secret scan --help` output for details.
 
+## Migrating a legacy configuration file
+
+If `ggshield` reports that your `.gitguardian.yaml` (or `.gitguardian.yml`) config file uses a deprecated format, migrate it to the latest version with:
+
+```shell
+ggshield config migrate
+```
+
+By default, this looks for the configuration file in the current directory, so run it from the directory containing the file. To run it from anywhere, point `ggshield` to the file explicitly:
+
+```shell
+ggshield --config-path path/to/.gitguardian.yaml config migrate
+```
+
+The previous version of the file is kept as a `.old` backup next to it.
+
 # Integrations
 
 You can integrate `ggshield` in your [CI/CD workflow](https://docs.gitguardian.com/ggshield-docs/integrations/overview#cicd-integrations-secrets-detection-in-your-cicd-workflow).
@@ -238,14 +300,16 @@ For more information, have a look at [the documentation](https://docs.gitguardia
 If no secrets have been found, the exit code will be 0:
 
 ```bash
-$ ggshield secret scan pre-commit
+ggshield secret scan pre-commit
 ```
 
 If a secret is found in your staged code or in your CI, you will have an alert giving you the filename where the secret has been found and a patch giving you the position of the secret in the file:
 
 ```shell
-$ ggshield secret scan pre-commit
+ggshield secret scan pre-commit
+```
 
+```
 2 incidents have been found in file production.rb
 
 11 | config.paperclip_defaults = {

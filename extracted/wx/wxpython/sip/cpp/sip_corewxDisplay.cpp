@@ -12,8 +12,8 @@
         #include <wx/window.h>
         #include <wx/gdicmn.h>
         #include <wx/gdicmn.h>
-        #include <wx/vidmode.h>
         #include <wx/gdicmn.h>
+        #include <wx/vidmode.h>
 
 
 PyDoc_STRVAR(doc_wxDisplay_ChangeMode, "ChangeMode(mode=DefaultVideoMode) -> bool\n"
@@ -312,6 +312,42 @@ static PyObject *meth_wxDisplay_GetPPI(PyObject *sipSelf, PyObject *sipArgs)
 }
 
 
+PyDoc_STRVAR(doc_wxDisplay_GetRawPPI, "GetRawPPI() -> Size\n"
+"\n"
+"Returns raw display resolution in pixels per inch, i.e. without\n"
+"applying any scaling.");
+
+extern "C" {static PyObject *meth_wxDisplay_GetRawPPI(PyObject *, PyObject *);}
+static PyObject *meth_wxDisplay_GetRawPPI(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxDisplay *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxDisplay, &sipCpp))
+        {
+            ::wxSize*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxSize(sipCpp->GetRawPPI());
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxSize, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Display, sipName_GetRawPPI, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxDisplay_GetScaleFactor, "GetScaleFactor() -> float\n"
 "\n"
 "Returns scaling factor used by this display.");
@@ -342,6 +378,41 @@ static PyObject *meth_wxDisplay_GetScaleFactor(PyObject *sipSelf, PyObject *sipA
     }
 
     sipNoMethod(sipParseErr, sipName_Display, sipName_GetScaleFactor, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxDisplay_IsConnected, "IsConnected() -> bool\n"
+"\n"
+"Returns true if the display has not been unplugged yet.");
+
+extern "C" {static PyObject *meth_wxDisplay_IsConnected(PyObject *, PyObject *);}
+static PyObject *meth_wxDisplay_IsConnected(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxDisplay *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxDisplay, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->IsConnected();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Display, sipName_IsConnected, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -454,6 +525,49 @@ static PyObject *meth_wxDisplay_GetFromPoint(PyObject *, PyObject *sipArgs, PyOb
     }
 
     sipNoMethod(sipParseErr, sipName_Display, sipName_GetFromPoint, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxDisplay_GetFromRect, "GetFromRect(rect) -> int\n"
+"\n"
+"Returns the index of the display with biggest intersection with the\n"
+"given rectangle or wxNOT_FOUND if the rectangle doesn't intersect any\n"
+"display.");
+
+extern "C" {static PyObject *meth_wxDisplay_GetFromRect(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxDisplay_GetFromRect(PyObject *, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxRect* rect;
+        int rectState = 0;
+
+        static const char *sipKwdList[] = {
+            sipName_rect,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "J1", sipType_wxRect, &rect, &rectState))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = ::wxDisplay::GetFromRect(*rect);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxRect *>(rect), sipType_wxRect, rectState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Display, sipName_GetFromRect, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -679,20 +793,23 @@ static PyMethodDef methods_wxDisplay[] = {
     {sipName_GetCurrentMode, meth_wxDisplay_GetCurrentMode, METH_VARARGS, doc_wxDisplay_GetCurrentMode},
     {sipName_GetDepth, meth_wxDisplay_GetDepth, METH_VARARGS, doc_wxDisplay_GetDepth},
     {sipName_GetFromPoint, SIP_MLMETH_CAST(meth_wxDisplay_GetFromPoint), METH_VARARGS|METH_KEYWORDS, doc_wxDisplay_GetFromPoint},
+    {sipName_GetFromRect, SIP_MLMETH_CAST(meth_wxDisplay_GetFromRect), METH_VARARGS|METH_KEYWORDS, doc_wxDisplay_GetFromRect},
     {sipName_GetFromWindow, SIP_MLMETH_CAST(meth_wxDisplay_GetFromWindow), METH_VARARGS|METH_KEYWORDS, doc_wxDisplay_GetFromWindow},
     {sipName_GetGeometry, meth_wxDisplay_GetGeometry, METH_VARARGS, doc_wxDisplay_GetGeometry},
     {sipName_GetModes, SIP_MLMETH_CAST(meth_wxDisplay_GetModes), METH_VARARGS|METH_KEYWORDS, doc_wxDisplay_GetModes},
     {sipName_GetName, meth_wxDisplay_GetName, METH_VARARGS, doc_wxDisplay_GetName},
     {sipName_GetPPI, meth_wxDisplay_GetPPI, METH_VARARGS, doc_wxDisplay_GetPPI},
+    {sipName_GetRawPPI, meth_wxDisplay_GetRawPPI, METH_VARARGS, doc_wxDisplay_GetRawPPI},
     {sipName_GetScaleFactor, meth_wxDisplay_GetScaleFactor, METH_VARARGS, doc_wxDisplay_GetScaleFactor},
     {sipName_GetStdPPI, meth_wxDisplay_GetStdPPI, METH_VARARGS, doc_wxDisplay_GetStdPPI},
     {sipName_GetStdPPIValue, meth_wxDisplay_GetStdPPIValue, METH_VARARGS, doc_wxDisplay_GetStdPPIValue},
+    {sipName_IsConnected, meth_wxDisplay_IsConnected, METH_VARARGS, doc_wxDisplay_IsConnected},
     {sipName_IsPrimary, meth_wxDisplay_IsPrimary, METH_VARARGS, doc_wxDisplay_IsPrimary}
 };
 
 sipVariableDef variables_wxDisplay[] = {
-    {PropertyVariable, sipName_Name, &methods_wxDisplay[9], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Geometry, &methods_wxDisplay[7], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Name, &methods_wxDisplay[10], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Geometry, &methods_wxDisplay[8], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_CurrentMode, &methods_wxDisplay[3], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_ClientArea, &methods_wxDisplay[1], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
@@ -718,7 +835,7 @@ sipClassTypeDef sipTypeDef__core_wxDisplay = {
     {
         sipNameNr_Display,
         {0, 0, 1},
-        15, methods_wxDisplay,
+        18, methods_wxDisplay,
         0, SIP_NULLPTR,
         4, variables_wxDisplay,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

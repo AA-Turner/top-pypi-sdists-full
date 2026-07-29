@@ -101,9 +101,9 @@ bool sipwxGenericDragImage::UpdateBackingFromWindow(::wxDC& windowDC, ::wxMemory
     if (!sipMeth)
         return ::wxGenericDragImage::UpdateBackingFromWindow(windowDC, destDC, sourceRect, destRect);
 
-    extern bool sipVH__core_216(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxMemoryDC&, const ::wxRect&, const ::wxRect&);
+    extern bool sipVH__core_215(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxMemoryDC&, const ::wxRect&, const ::wxRect&);
 
-    return sipVH__core_216(sipGILState, 0, sipPySelf, sipMeth, windowDC, destDC, sourceRect, destRect);
+    return sipVH__core_215(sipGILState, 0, sipPySelf, sipMeth, windowDC, destDC, sourceRect, destRect);
 }
 
 ::wxRect sipwxGenericDragImage::GetImageRect(const ::wxPoint& pos) const
@@ -116,9 +116,9 @@ bool sipwxGenericDragImage::UpdateBackingFromWindow(::wxDC& windowDC, ::wxMemory
     if (!sipMeth)
         return ::wxGenericDragImage::GetImageRect(pos);
 
-    extern ::wxRect sipVH__core_215(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxPoint&);
+    extern ::wxRect sipVH__core_214(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxPoint&);
 
-    return sipVH__core_215(sipGILState, 0, sipPySelf, sipMeth, pos);
+    return sipVH__core_214(sipGILState, 0, sipPySelf, sipMeth, pos);
 }
 
 bool sipwxGenericDragImage::DoDrawImage(::wxDC& dc, const ::wxPoint& pos) const
@@ -131,13 +131,13 @@ bool sipwxGenericDragImage::DoDrawImage(::wxDC& dc, const ::wxPoint& pos) const
     if (!sipMeth)
         return ::wxGenericDragImage::DoDrawImage(dc, pos);
 
-    extern bool sipVH__core_214(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, const ::wxPoint&);
+    extern bool sipVH__core_213(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, const ::wxPoint&);
 
-    return sipVH__core_214(sipGILState, 0, sipPySelf, sipMeth, dc, pos);
+    return sipVH__core_213(sipGILState, 0, sipPySelf, sipMeth, dc, pos);
 }
 
 
-PyDoc_STRVAR(doc_wxGenericDragImage_BeginDrag, "BeginDrag(hotspot, window, fullScreen=False, rect=None) -> bool\n"
+PyDoc_STRVAR(doc_wxGenericDragImage_BeginDrag, "BeginDrag(hotspot, window, fullScreen=False, rect=nullptr) -> bool\n"
 "BeginDrag(hotspot, window, boundingWindow) -> bool\n"
 "\n"
 "Start dragging the image, in a window or full screen.\n"
@@ -153,7 +153,7 @@ static PyObject *meth_wxGenericDragImage_BeginDrag(PyObject *sipSelf, PyObject *
         int hotspotState = 0;
         ::wxWindow* window;
         bool fullScreen = 0;
-        ::wxRect* rect = 0;
+        ::wxRect* rect = nullptr;
         int rectState = 0;
         ::wxGenericDragImage *sipCpp;
 
@@ -760,7 +760,7 @@ static void *init_type_wxGenericDragImage(sipSimpleWrapper *sipSelf, PyObject *s
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGenericDragImage[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxGenericDragImage[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxGenericDragImage[] = {

@@ -67,7 +67,7 @@ class AnyscaleTermManager(NamedTermManager):  # type: ignore
         # We should consider to upgrade terminado in the future and remove the overwriting.
         # The source that control the maxlen is here:
         # https://github.com/jupyter/terminado/blob/f586aca16a70bbb0d36bc5475345022d2b9ca587/terminado/management.py#LL48C14-L48C25
-        term.read_buffer = deque([], maxlen=TERMINAL_READ_BUFFER_MAXLEN)
+        term.read_buffer = deque(maxlen=TERMINAL_READ_BUFFER_MAXLEN)
 
         return name, term
 

@@ -46,6 +46,45 @@ static PyObject *meth_wxOverlay_Reset(PyObject *sipSelf, PyObject *sipArgs)
 }
 
 
+PyDoc_STRVAR(doc_wxOverlay_SetOpacity, "SetOpacity(alpha) -> None\n"
+"\n"
+"Sets or unsets constant opacity of the overlay window.");
+
+extern "C" {static PyObject *meth_wxOverlay_SetOpacity(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxOverlay_SetOpacity(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        int alpha;
+        ::wxOverlay *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_alpha,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxOverlay, &sipCpp, &alpha))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetOpacity(alpha);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Overlay, sipName_SetOpacity, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 /* Call the instance's destructor. */
 extern "C" {static void release_wxOverlay(void *, int);}
 static void release_wxOverlay(void *sipCppV, int)
@@ -111,13 +150,14 @@ static void *init_type_wxOverlay(sipSimpleWrapper *, PyObject *sipArgs, PyObject
 
 
 static PyMethodDef methods_wxOverlay[] = {
-    {sipName_Reset, meth_wxOverlay_Reset, METH_VARARGS, doc_wxOverlay_Reset}
+    {sipName_Reset, meth_wxOverlay_Reset, METH_VARARGS, doc_wxOverlay_Reset},
+    {sipName_SetOpacity, SIP_MLMETH_CAST(meth_wxOverlay_SetOpacity), METH_VARARGS|METH_KEYWORDS, doc_wxOverlay_SetOpacity}
 };
 
 PyDoc_STRVAR(doc_wxOverlay, "Overlay() -> None\n"
 "\n"
 "Creates an overlay over an existing window, allowing for manipulations\n"
-"like rubberbanding, etc.");
+"like rubber-banding, etc.");
 
 
 sipClassTypeDef sipTypeDef__core_wxOverlay = {
@@ -133,7 +173,7 @@ sipClassTypeDef sipTypeDef__core_wxOverlay = {
     {
         sipNameNr_Overlay,
         {0, 0, 1},
-        1, methods_wxOverlay,
+        2, methods_wxOverlay,
         0, SIP_NULLPTR,
         0, SIP_NULLPTR,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

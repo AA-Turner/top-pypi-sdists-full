@@ -152,7 +152,7 @@ static PyObject *meth_wxAcceleratorEntry_GetMenuItem(PyObject *sipSelf, PyObject
 }
 
 
-PyDoc_STRVAR(doc_wxAcceleratorEntry_Set, "Set(flags, keyCode, cmd, item=None) -> None\n"
+PyDoc_STRVAR(doc_wxAcceleratorEntry_Set, "Set(flags, keyCode, cmd, item=nullptr) -> None\n"
 "\n"
 "Sets the accelerator entry parameters.");
 
@@ -165,7 +165,7 @@ static PyObject *meth_wxAcceleratorEntry_Set(PyObject *sipSelf, PyObject *sipArg
         int flags;
         int keyCode;
         int cmd;
-        ::wxMenuItem* item = 0;
+        ::wxMenuItem* item = nullptr;
         ::wxAcceleratorEntry *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -476,7 +476,7 @@ static void *init_type_wxAcceleratorEntry(sipSimpleWrapper *, PyObject *sipArgs,
         int flags = 0;
         int keyCode = 0;
         int cmd = 0;
-        ::wxMenuItem* item = 0;
+        ::wxMenuItem* item = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_flags,
@@ -559,7 +559,7 @@ sipVariableDef variables_wxAcceleratorEntry[] = {
     {PropertyVariable, sipName_Command, &methods_wxAcceleratorEntry[1], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxAcceleratorEntry, "AcceleratorEntry(flags=0, keyCode=0, cmd=0, item=None) -> None\n"
+PyDoc_STRVAR(doc_wxAcceleratorEntry, "AcceleratorEntry(flags=0, keyCode=0, cmd=0, item=nullptr) -> None\n"
 "AcceleratorEntry(entry) -> None\n"
 "\n"
 "An object used by an application wishing to create an accelerator\n"

@@ -1,3 +1,4 @@
+from dbt.config.runtime import RuntimeConfig
 from abc import ABC, abstractmethod
 
 import typing as t
@@ -13,33 +14,52 @@ from dbt_state._typing import ModelOrSnapshotOrTestOrSeedNode
 from dbt.contracts.graph.nodes import (
     GenericTestNode,
     ModelNode,
+    SeedNode,
 )
+
+from pathlib import Path
+
+_HASH_READ_CHUNK_SIZE = 64 * 1024
 
 # Keys to exclude from the node config when calculating the hash.
 # ref: https://docs.getdbt.com/reference/node-selection/methods?version=2.0&name=Fusion#state
 _CONFIG_HASH_EXCLUDED_KEYS = frozenset({"alias", "schema", "database", "tags", "group"})
 
 
+def _calculate_hash(*args: object) -> str:
+    return hashlib.md5("".join(str(x) for x in args).encode()).hexdigest()
+
+
 class NodeHashCalculator(ABC):
     """Base calculator with shared hash component methods."""
 
-    def __init__(self, node: ModelOrSnapshotOrTestOrSeedNode, manifest: Manifest):
+    def __init__(
+        self, node: ModelOrSnapshotOrTestOrSeedNode, manifest: Manifest, config: RuntimeConfig
+    ) -> None:
         self.node = node
         self.manifest = manifest
+        self._config = config
+
+    def get_base_hash_parts(self) -> t.List[t.Any]:
+        """Return the common hash parts used by most node types."""
+        return [
+            self.node_body_hash,
+            self.node_configs_hash,
+            self.node_persisted_docs_hash,
+            self.node_macros_hash,
+            ".".join(self.node.fqn),
+        ]
 
     @abstractmethod
     def calculate_node_hash(self) -> str:
         """Subclasses define how to combine the components."""
-
-    def _calculate_hash(self, *args: object) -> str:
-        return hashlib.md5("".join(str(x) for x in args).encode()).hexdigest()
 
     @cached_property
     def node_body_hash(self) -> t.Optional[str]:
         raw_code = getattr(self.node, "raw_code", None)
         if not raw_code:
             return None
-        return self._calculate_hash(raw_code)
+        return _calculate_hash(raw_code)
 
     @cached_property
     def node_configs_hash(self) -> t.Optional[str]:
@@ -49,7 +69,7 @@ class NodeHashCalculator(ABC):
         filtered = {
             k: v for k, v in unrendered_config.items() if k not in _CONFIG_HASH_EXCLUDED_KEYS
         }
-        return self._calculate_hash(json.dumps(filtered, sort_keys=True))
+        return _calculate_hash(json.dumps(filtered, sort_keys=True))
 
     @cached_property
     def node_persisted_docs_hash(self) -> t.Optional[str]:
@@ -67,7 +87,7 @@ class NodeHashCalculator(ABC):
             }
         if not parts:
             return None
-        return self._calculate_hash(json.dumps(parts, sort_keys=True))
+        return _calculate_hash(json.dumps(parts, sort_keys=True))
 
     @cached_property
     def node_macros_hash(self) -> t.Optional[str]:
@@ -84,7 +104,7 @@ class NodeHashCalculator(ABC):
             if macro:
                 macro_sqls.append(macro.macro_sql)
 
-        return self._calculate_hash("".join(macro_sqls))
+        return _calculate_hash("".join(macro_sqls))
 
     def _get_all_macros(self) -> t.Set[str]:
         """
@@ -123,14 +143,8 @@ class DefaultNodeHashCalculator(NodeHashCalculator):
     """Default: SnapshotNode, SingularTestNode"""
 
     def calculate_node_hash(self) -> str:
-        parts = [
-            self.node_body_hash,
-            self.node_configs_hash,
-            self.node_persisted_docs_hash,
-            self.node_macros_hash,
-            ".".join(self.node.fqn),
-        ]
-        return self._calculate_hash(*(p for p in parts if p is not None))
+        parts = self.get_base_hash_parts()
+        return _calculate_hash(*(p for p in parts if p is not None))
 
 
 class ModelNodeHashCalculator(NodeHashCalculator):
@@ -150,7 +164,7 @@ class ModelNodeHashCalculator(NodeHashCalculator):
         else:
             contract_state = "enforced:false"
 
-        return self._calculate_hash(contract_state)
+        return _calculate_hash(contract_state)
 
     @cached_property
     def node_ref_representation_hash(self) -> t.Optional[str]:
@@ -161,19 +175,18 @@ class ModelNodeHashCalculator(NodeHashCalculator):
             "access": str(getattr(self.node, "access", None)),
             "deprecation_date": str(getattr(self.node, "deprecation_date", None)),
         }
-        return self._calculate_hash(json.dumps(parts, sort_keys=True))
+        return _calculate_hash(json.dumps(parts, sort_keys=True))
 
     def calculate_node_hash(self) -> str:
-        parts = [
-            self.node_body_hash,
-            self.node_configs_hash,
-            self.node_persisted_docs_hash,
-            self.node_macros_hash,
-            ".".join(self.node.fqn),
-            self.node_contract_hash,
-            self.node_ref_representation_hash,
-        ]
-        return self._calculate_hash(*(p for p in parts if p is not None))
+        parts = self.get_base_hash_parts()
+        # Extend with model-specific parts
+        parts.extend(
+            [
+                self.node_contract_hash,
+                self.node_ref_representation_hash,
+            ]
+        )
+        return _calculate_hash(*(p for p in parts if p is not None))
 
 
 class GenericTestNodeCalculator(NodeHashCalculator):
@@ -182,15 +195,31 @@ class GenericTestNodeCalculator(NodeHashCalculator):
             self.node_configs_hash,
             ".".join(self.node.fqn),
         ]
-        return self._calculate_hash(*(p for p in parts if p is not None))
+        return _calculate_hash(*(p for p in parts if p is not None))
+
+
+class SeedNodeHashCalculator(NodeHashCalculator):
+    @cached_property
+    def node_body_hash(self) -> t.Optional[str]:
+        seed_path = Path(self._config.project_root) / self.node.original_file_path
+        md5 = hashlib.md5(usedforsecurity=False)
+        with open(seed_path, "rb") as f:
+            for chunk in iter(lambda: f.read(_HASH_READ_CHUNK_SIZE), b""):
+                md5.update(chunk)
+        return md5.hexdigest()
+
+    def calculate_node_hash(self) -> str:
+        return self.node_body_hash if self.node_body_hash is not None else ""
 
 
 def create_node_hash_calculator(
-    node: ModelOrSnapshotOrTestOrSeedNode, manifest: Manifest
+    node: ModelOrSnapshotOrTestOrSeedNode, manifest: Manifest, config: RuntimeConfig
 ) -> NodeHashCalculator:
     """Factory function to create the appropriate calculator for a node type."""
     if isinstance(node, ModelNode):
-        return ModelNodeHashCalculator(node, manifest)
+        return ModelNodeHashCalculator(node, manifest, config)
     if isinstance(node, GenericTestNode):
-        return GenericTestNodeCalculator(node, manifest)
-    return DefaultNodeHashCalculator(node, manifest)
+        return GenericTestNodeCalculator(node, manifest, config)
+    if isinstance(node, SeedNode):
+        return SeedNodeHashCalculator(node, manifest, config)
+    return DefaultNodeHashCalculator(node, manifest, config)

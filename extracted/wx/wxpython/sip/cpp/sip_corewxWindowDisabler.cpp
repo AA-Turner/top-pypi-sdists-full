@@ -82,7 +82,7 @@ static void *init_type_wxWindowDisabler(sipSimpleWrapper *, PyObject *sipArgs, P
 
     {
         ::wxWindow* winToSkip;
-        ::wxWindow* winToSkip2 = 0;
+        ::wxWindow* winToSkip2 = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_winToSkip,
@@ -113,7 +113,7 @@ static void *init_type_wxWindowDisabler(sipSimpleWrapper *, PyObject *sipArgs, P
 }
 
 PyDoc_STRVAR(doc_wxWindowDisabler, "WindowDisabler(disable=True) -> None\n"
-"WindowDisabler(winToSkip, winToSkip2=None) -> None\n"
+"WindowDisabler(winToSkip, winToSkip2=nullptr) -> None\n"
 "\n"
 "This class disables all top level windows of the application (maybe\n"
 "with the exception of one of them) in its constructor and enables them\n"

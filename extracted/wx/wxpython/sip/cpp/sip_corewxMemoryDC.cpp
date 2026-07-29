@@ -17,16 +17,16 @@
         #include <wx/graphics.h>
         #include <wx/gdicmn.h>
         #include <wx/palette.h>
-        #include <wx/gdicmn.h>
         #include <wx/colour.h>
-        #include <wx/affinematrix2d.h>
         #include <wx/pen.h>
         #include "arrayholder.h"
         #include <wx/brush.h>
+        #include <wx/region.h>
+        #include <wx/gdicmn.h>
+        #include <wx/icon.h>
         #include <wx/font.h>
         #include <wx/dc.h>
-        #include <wx/region.h>
-        #include <wx/icon.h>
+        #include <wx/affinematrix2d.h>
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
@@ -329,7 +329,7 @@ static void *init_type_wxMemoryDC(sipSimpleWrapper *sipSelf, PyObject *sipArgs, 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxMemoryDC[] = {{101, 255, 1}};
+static sipEncodedTypeDef supers_wxMemoryDC[] = {{105, 255, 1}};
 
 
 static PyMethodDef methods_wxMemoryDC[] = {

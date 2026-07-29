@@ -793,7 +793,7 @@ class PrepareClusterBlock:
         # get cluster compute template
         if cluster_compute_name:
             compute_template_id = get_cluster_compute_from_name(
-                cluster_compute_name, self.api_client
+                cluster_compute_name, self.api_client, cloud_name=cloud_name
             ).id
         else:
             # If the user specifies _cluster_compute_dict use it, otherwise

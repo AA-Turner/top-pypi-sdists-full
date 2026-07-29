@@ -66,9 +66,9 @@ sipwxMenuEvent::~sipwxMenuEvent()
     if (!sipMeth)
         return ::wxMenuEvent::Clone();
 
-    extern ::wxEvent* sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEvent* sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxEventCategory sipwxMenuEvent::GetEventCategory() const
@@ -81,9 +81,9 @@ sipwxMenuEvent::~sipwxMenuEvent()
     if (!sipMeth)
         return ::wxMenuEvent::GetEventCategory();
 
-    extern ::wxEventCategory sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEventCategory sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
@@ -281,7 +281,7 @@ static void *init_type_wxMenuEvent(sipSimpleWrapper *sipSelf, PyObject *sipArgs,
     {
         ::wxEventType type = wxEVT_NULL;
         int id = 0;
-        ::wxMenu* menu = 0;
+        ::wxMenu* menu = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_type,
@@ -329,7 +329,7 @@ static void *init_type_wxMenuEvent(sipSimpleWrapper *sipSelf, PyObject *sipArgs,
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxMenuEvent[] = {{151, 255, 1}};
+static sipEncodedTypeDef supers_wxMenuEvent[] = {{158, 255, 1}};
 
 
 static PyMethodDef methods_wxMenuEvent[] = {
@@ -344,7 +344,7 @@ sipVariableDef variables_wxMenuEvent[] = {
     {PropertyVariable, sipName_Menu, &methods_wxMenuEvent[1], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxMenuEvent, "MenuEvent(type=wxEVT_NULL, id=0, menu=None) -> None\n"
+PyDoc_STRVAR(doc_wxMenuEvent, "MenuEvent(type=wxEVT_NULL, id=0, menu=nullptr) -> None\n"
 "\n"
 "This class is used for a variety of menu-related events.");
 

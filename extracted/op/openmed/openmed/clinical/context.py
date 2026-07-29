@@ -75,6 +75,11 @@ CERTAINTY_VALUES = (CERTAIN, UNCERTAIN)
 ContextCueCategory = Literal["historical", "hypothetical", "uncertainty", "negation"]
 ContextCueDirection = Literal["forward", "backward"]
 
+INDIA_CLINICAL_NER_DISCLAIMER = (
+    "India clinical NER output assists review and does not make clinical or "
+    "disclosure decisions."
+)
+
 _ENGLISH_CONTEXT_LEXICON = get_clinical_cue_lexicon("en")
 
 # Ported ConText temporal lexicon. Cues are matched case-insensitively and on
@@ -1204,7 +1209,12 @@ def resolve_span_context(
     modifier_hits: Any = None,
     language: str | None = None,
 ) -> ClinicalContextResult:
-    """Return all currently implemented ConText decision axes for ``span``."""
+    """Return all currently implemented ConText decision axes for ``span``.
+
+    Registered non-English languages use only their own cue pack. When that
+    pack has no matching cue, the axes degrade to recent, certain, and
+    affirmed; absent English cues never flip a Chinese or Hindi assertion.
+    """
 
     return ClinicalContextResult(
         temporality=resolve_temporality(span, modifier_hits, language=language),
@@ -1287,6 +1297,7 @@ __all__ = [
     "ClinicalAssertion",
     "ContextCueCategory",
     "ContextCueDirection",
+    "INDIA_CLINICAL_NER_DISCLAIMER",
     "ModifierHit",
     "clinical_context_lexicon_stats",
     "scan_context_cues",

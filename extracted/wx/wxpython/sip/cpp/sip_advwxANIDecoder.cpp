@@ -717,7 +717,7 @@ static void *init_type_wxANIDecoder(sipSimpleWrapper *sipSelf, PyObject *sipArgs
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxANIDecoder[] = {{4, 255, 1}};
+static sipEncodedTypeDef supers_wxANIDecoder[] = {{6, 255, 1}};
 
 
 static PyMethodDef methods_wxANIDecoder[] = {

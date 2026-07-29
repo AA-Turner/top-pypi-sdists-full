@@ -99,9 +99,9 @@ void sipwxFileDialogCustomizeHook::AddCustomControls(::wxFileDialogCustomize& cu
     if (!sipMeth)
         return;
 
-    extern void sipVH__core_192(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxFileDialogCustomize&);
+    extern void sipVH__core_191(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxFileDialogCustomize&);
 
-    sipVH__core_192(sipGILState, 0, sipPySelf, sipMeth, customizer);
+    sipVH__core_191(sipGILState, 0, sipPySelf, sipMeth, customizer);
 }
 
 

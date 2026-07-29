@@ -659,6 +659,13 @@ pub struct GlobalConfig {
     #[serde(default, alias = "extend_disable")]
     pub extend_disable: Vec<String>,
 
+    /// Whether to read settings from `.editorconfig` files (default: false).
+    /// When enabled, the `.editorconfig` properties that map onto rumdl
+    /// settings fill in anything no rumdl config sets, resolved per file so
+    /// section globs and nested `.editorconfig` files apply as written.
+    #[serde(default)]
+    pub editorconfig: bool,
+
     /// Whether the enable list was explicitly set (even if empty).
     /// Used to distinguish "no enable list configured" from "enable list is empty"
     /// (e.g., markdownlint `default: false` with no rules enabled).
@@ -694,6 +701,7 @@ impl Default for GlobalConfig {
             cache: true,
             extend_enable: Vec::new(),
             extend_disable: Vec::new(),
+            editorconfig: false,
             enable_is_explicit: false,
         }
     }
@@ -999,6 +1007,33 @@ pub enum ConfigError {
     /// Unknown preset name
     #[error("Unknown preset: {name}. Valid presets: default, google, relaxed")]
     UnknownPreset { name: String },
+}
+
+/// Why a config file found by discovery could not be loaded.
+///
+/// The two cases call for different handling. A discovered project file that
+/// cannot be parsed is local to one project and a caller may reasonably skip it
+/// and keep looking. A broken user config is machine-wide: every project that
+/// merges onto it resolves to something other than what the user configured, so
+/// it has to be surfaced instead of worked around.
+#[derive(Debug, thiserror::Error)]
+pub enum DiscoveredConfigError {
+    /// The discovered file itself is unusable.
+    #[error(transparent)]
+    ProjectConfig(ConfigError),
+
+    /// The discovered file is fine, but the user config it merges on top of is
+    /// unusable. Only a discovered markdownlint config has such a base.
+    #[error(transparent)]
+    UserConfig(ConfigError),
+}
+
+impl From<DiscoveredConfigError> for ConfigError {
+    fn from(error: DiscoveredConfigError) -> Self {
+        match error {
+            DiscoveredConfigError::ProjectConfig(error) | DiscoveredConfigError::UserConfig(error) => error,
+        }
+    }
 }
 
 /// Get a rule-specific configuration value

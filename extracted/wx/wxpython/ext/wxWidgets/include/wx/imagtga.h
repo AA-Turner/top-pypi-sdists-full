@@ -20,22 +20,22 @@
 class WXDLLIMPEXP_CORE wxTGAHandler : public wxImageHandler
 {
 public:
-    wxTGAHandler()
+    wxTGAHandler() : wxImageHandler(
+        wxT("TGA file"),
+        wxT("tga"),
+        wxBITMAP_TYPE_TGA,
+        wxT("image/tga"))
     {
-        m_name = wxT("TGA file");
-        m_extension = wxT("tga");
         m_altExtensions.Add(wxT("tpic"));
-        m_type = wxBITMAP_TYPE_TGA;
-        m_mime = wxT("image/tga");
     }
 
 #if wxUSE_STREAMS
     virtual bool LoadFile(wxImage* image, wxInputStream& stream,
-                            bool verbose = true, int index = -1) wxOVERRIDE;
+                            bool verbose = true, int index = -1) override;
     virtual bool SaveFile(wxImage* image, wxOutputStream& stream,
-                             bool verbose = true) wxOVERRIDE;
+                             bool verbose = true) override;
 protected:
-    virtual bool DoCanRead(wxInputStream& stream) wxOVERRIDE;
+    virtual bool DoCanRead(wxInputStream& stream) override;
 #endif // wxUSE_STREAMS
 
     wxDECLARE_DYNAMIC_CLASS(wxTGAHandler);

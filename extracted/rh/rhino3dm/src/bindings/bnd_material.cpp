@@ -103,7 +103,7 @@ static bool SetTextureHelper(ON_Material* material, const ON_Texture* texture, O
 {
   material->DeleteTexture(nullptr, t);
   ON_Texture tx(*texture);
-  tx.m_type = ON_Texture::TYPE::bitmap_texture;
+  tx.m_type = t;
   return material->AddTexture(tx);
 }
 
@@ -124,6 +124,13 @@ bool BND_Material::SetTransparencyTexture2(const BND_Texture& texture)
   return SetTextureHelper(m_material, texture.m_texture, ON_Texture::TYPE::transparency_texture);
 }
 
+
+bool BND_Material::SetTexture(const BND_Texture& texture)
+{
+  ON_Texture tx(*texture.m_texture);
+  m_material->DeleteTexture(nullptr, tx.m_type);
+  return m_material->AddTexture(tx);
+}
 
 bool BND_PhysicallyBasedMaterial::Supported() const
 {
@@ -198,6 +205,7 @@ void initMaterialBindings(rh3dmpymodule& m)
     .def("SetTransparencyTexture", &BND_Material::SetTransparencyTexture2, py::arg("texture"))
     .def_property_readonly("PhysicallyBased", &BND_Material::PhysicallyBased)
     .def("ToPhysicallyBased", &BND_Material::ToPhysicallyBased)
+    .def("SetTexture", &BND_Material::SetTexture, py::arg("texture"))
     ;
 }
 
@@ -268,6 +276,7 @@ void initMaterialBindings(void*)
     .function("getTransparencyTexture", &BND_Material::GetTransparencyTexture, allow_raw_pointers())
     .function("setTransparencyTextureFilename", &BND_Material::SetTransparencyTexture)
     .function("setTransparencyTexture", &BND_Material::SetTransparencyTexture2)
+    .function("setTexture", &BND_Material::SetTexture)
     .function("physicallyBased", &BND_Material::PhysicallyBased, allow_raw_pointers())
     .function("toPhysicallyBased", &BND_Material::ToPhysicallyBased)
     ;

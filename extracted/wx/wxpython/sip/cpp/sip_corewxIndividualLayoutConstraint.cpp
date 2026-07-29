@@ -1120,7 +1120,7 @@ static void *init_type_wxIndividualLayoutConstraint(sipSimpleWrapper *sipSelf, P
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxIndividualLayoutConstraint[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxIndividualLayoutConstraint[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxIndividualLayoutConstraint[] = {

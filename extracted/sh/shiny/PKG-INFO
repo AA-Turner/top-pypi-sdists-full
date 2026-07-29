@@ -1,16 +1,15 @@
 Metadata-Version: 2.4
 Name: shiny
-Version: 1.6.3
+Version: 1.7.0
 Summary: A web development framework for Python.
 Author-email: Winston Chang <winston@posit.co>
-License: MIT
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/posit-dev/py-shiny
 Project-URL: Documentation, https://shiny.posit.co/py/
 Project-URL: Repository, https://github.com/posit-dev/py-shiny
 Project-URL: Bug Tracker, https://github.com/posit-dev/py-shiny/issues
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -21,8 +20,8 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: typing-extensions>=4.10.0
-Requires-Dist: uvicorn>=0.16.0; platform_system != "Emscripten"
-Requires-Dist: starlette
+Requires-Dist: uvicorn>=0.23.0; platform_system != "Emscripten"
+Requires-Dist: starlette>=0.17.1
 Requires-Dist: websockets>=13.0
 Requires-Dist: htmltools>=0.7.0
 Requires-Dist: click>=8.1.4; platform_system != "Emscripten"
@@ -34,18 +33,19 @@ Requires-Dist: asgiref>=3.5.2
 Requires-Dist: packaging>=20.9
 Requires-Dist: watchfiles>=0.18.0; platform_system != "Emscripten"
 Requires-Dist: questionary>=2.0.0; platform_system != "Emscripten"
-Requires-Dist: prompt-toolkit; platform_system != "Emscripten"
+Requires-Dist: prompt-toolkit>=3.0.0; platform_system != "Emscripten"
 Requires-Dist: python-multipart>=0.0.7; platform_system != "Emscripten"
 Requires-Dist: setuptools; python_version >= "3.12"
 Requires-Dist: narwhals>=1.10.0
 Requires-Dist: orjson>=3.10.7
 Requires-Dist: shinychat>=0.1.0
-Requires-Dist: opentelemetry-api>=1.20.0
+Requires-Dist: opentelemetry-api>=1.24.0
 Provides-Extra: theme
 Requires-Dist: libsass>=0.23.0; extra == "theme"
 Requires-Dist: brand_yml>=0.2.0; extra == "theme"
 Provides-Extra: otel
-Requires-Dist: opentelemetry-sdk>=1.20.0; extra == "otel"
+Requires-Dist: opentelemetry-sdk>=1.24.0; extra == "otel"
+Requires-Dist: opentelemetry-distro[otlp]>=0.45b0; extra == "otel"
 Provides-Extra: test
 Requires-Dist: pytest>=6.2.4; extra == "test"
 Requires-Dist: pytest-asyncio>=0.17.2; extra == "test"
@@ -57,13 +57,14 @@ Requires-Dist: pytest-timeout; extra == "test"
 Requires-Dist: pytest-rerunfailures; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: coverage; extra == "test"
-Requires-Dist: syrupy>=4.7.1; extra == "test"
+Requires-Dist: syrupy>=5.5.1; extra == "test"
 Requires-Dist: psutil; extra == "test"
 Requires-Dist: astropy; extra == "test"
 Requires-Dist: suntime; extra == "test"
 Requires-Dist: timezonefinder; platform_system != "Windows" and extra == "test"
 Requires-Dist: ipyleaflet; extra == "test"
 Requires-Dist: shinywidgets; extra == "test"
+Requires-Dist: shinychat>=0.6.0; extra == "test"
 Requires-Dist: seaborn; extra == "test"
 Requires-Dist: plotnine; extra == "test"
 Requires-Dist: plotly; extra == "test"
@@ -86,7 +87,7 @@ Requires-Dist: polars; extra == "test"
 Requires-Dist: dask[dataframe]; extra == "test"
 Requires-Dist: pyarrow; extra == "test"
 Requires-Dist: pyarrow-stubs; extra == "test"
-Requires-Dist: opentelemetry-sdk>=1.20.0; extra == "test"
+Requires-Dist: opentelemetry-sdk>=1.24.0; extra == "test"
 Requires-Dist: logfire>=4.0.0; extra == "test"
 Provides-Extra: dev
 Requires-Dist: black>=26.1.0; extra == "dev"
@@ -96,6 +97,7 @@ Requires-Dist: Flake8-pyproject>=1.2.3; extra == "dev"
 Requires-Dist: isort>=5.10.1; extra == "dev"
 Requires-Dist: libsass>=0.23.0; extra == "dev"
 Requires-Dist: brand_yml>=0.2.0; extra == "dev"
+Requires-Dist: pyrefly>=1.1.1; extra == "dev"
 Requires-Dist: pyright>=1.1.407; extra == "dev"
 Requires-Dist: pre-commit>=2.15.0; extra == "dev"
 Requires-Dist: wheel; extra == "dev"
@@ -113,7 +115,7 @@ Provides-Extra: doc
 Requires-Dist: jupyter; extra == "doc"
 Requires-Dist: jupyter_client<8.0.0; extra == "doc"
 Requires-Dist: tabulate; extra == "doc"
-Requires-Dist: shinylive>=0.8.8; extra == "doc"
+Requires-Dist: shinylive>=0.8.10; extra == "doc"
 Requires-Dist: pydantic>=2.7.4; extra == "doc"
 Requires-Dist: quartodoc>=0.8.1; extra == "doc"
 Requires-Dist: griffe<2.0.0,>=1.3.2; extra == "doc"
@@ -154,21 +156,33 @@ If you have questions about Shiny for Python, or want to help us decide what to 
 
 ## Getting started
 
-To get started with shiny follow the [installation instructions](https://shiny.posit.co/py/docs/install-create-run.html) or just install it from pip.
+To get started with shiny follow the [installation instructions](https://shiny.posit.co/py/docs/install-create-run.html) or just install it with [uv](https://docs.astral.sh/uv/).
 
 ```sh
-pip install shiny
+uv pip install shiny
 ```
 
 To install the latest development version:
 
 ```sh
-# First install htmltools, then shiny
-pip install git+https://github.com/posit-dev/py-htmltools.git#egg=htmltools
-pip install git+https://github.com/posit-dev/py-shiny.git#egg=shiny
+uv pip install git+https://github.com/posit-dev/py-shiny.git
 ```
 
 You can create and run your first application with `shiny create`, the CLI will ask you which template you would like to use. You can either run the app with the Shiny extension, or call `shiny run app.py --reload --launch-browser`.
+
+### Agent Skills
+
+The `shiny` package ships bundled [Agent Skills](https://agentskills.io) — reference docs that teach coding agents (Claude Code, Cursor, and others) how to build, style, test, and debug Shiny for Python apps using shiny's public APIs. They are installed with the package, so once `shiny` is a dependency of your project you can make the skills available to your agent with [`library-skills`](https://library-skills.io):
+
+```sh
+# Claude Code (installs into .claude/skills):
+uvx library-skills --claude
+
+# Standard .agents/skills location (add --copy on Windows):
+uvx library-skills
+```
+
+`library-skills` symlinks the packaged skill into your project, so it stays in sync when you upgrade `shiny`. See `shiny skills --help` for more details.
 
 ## Development
 
@@ -188,7 +202,7 @@ git fetch --tags upstream
 Then install:
 
 ```sh
-pip install -e ".[dev,test,doc]"
+uv pip install -e ".[dev,test,doc]"
 ```
 
 Additionally, you can install pre-commit hooks which will automatically reformat and lint the code when you make a commit:
@@ -219,9 +233,9 @@ In a **separate** application directory, use can use `-e` to reference your loca
 
 ```sh
 # Rather than
-#   pip install shiny
+#   uv pip install shiny
 # run:
-pip install -e ../py-shiny --config-settings editable_mode=compat
+uv pip install -e ../py-shiny --config-settings editable_mode=compat
 ```
 
 See the [docs README](docs/README.md) for instructions on building the documentation locally.

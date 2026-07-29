@@ -17,6 +17,7 @@ from anyscale.client.openapi_client.models import (
     CloudDeployment,
     CloudProviders,
     ClusterManagementStackVersions,
+    ConnectorConfig,
     FileStorage,
     GCPConfig,
     KubernetesConfig,
@@ -25,14 +26,32 @@ from anyscale.client.openapi_client.models import (
     ObjectStorage,
 )
 from anyscale.client.openapi_client.models.compute_stack import ComputeStack
-from anyscale.cloud.models import CreateCloudCollaborator, CreateCloudCollaborators
+from anyscale.cloud.models import (
+    Cloud,
+    CloudInfo,
+    CloudProvider,
+    ComputeStack as CloudModelComputeStack,
+    CreateCloudCollaborator,
+    CreateCloudCollaborators,
+)
 from anyscale.cloud_utils import get_cloud_id_and_name, get_organization_id
 from anyscale.commands import command_examples
+from anyscale.commands.doc_metadata import (
+    command_metadata,
+    CommandExample,
+    ReleaseStatus,
+)
 from anyscale.commands.list_util import (
     display_list,
     MAX_PAGE_SIZE,
     NON_INTERACTIVE_DEFAULT_MAX_ITEMS,
     validate_page_size,
+)
+from anyscale.commands.output_format import (
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    OutputFormat,
+    print_output,
 )
 from anyscale.commands.setup_k8s import (
     setup_kubernetes_cloud,
@@ -222,7 +241,26 @@ def _format_cloud_output_data(cloud: Any) -> Dict[str, str]:
     }
 
 
-@cloud_cli.command(name="delete", help="Delete a cloud.")
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Delete a cloud by name.",
+            command="anyscale cloud delete -n my-cloud",
+        ),
+    ],
+)
+@cloud_cli.command(
+    name="delete",
+    short_help="Delete a cloud.",
+    help=(
+        "Delete a cloud.\n\n"
+        "Specify the cloud by name (-n/--name) or by ID (--cloud-id)."
+    ),
+    cls=AnyscaleCommand,
+)
 @click.argument("cloud-name", required=False)
 @click.option("--name", "-n", help="Delete cloud by name.", type=str)
 @click.option(
@@ -266,13 +304,26 @@ def cloud_delete(
     )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Set the default cloud for your organization.",
+            command="anyscale cloud set-default -n my-cloud",
+        ),
+    ],
+)
 @cloud_cli.command(
     name="set-default",
+    short_help="Set the default cloud for your organization.",
     help=(
-        "Sets default cloud for your organization. This operation can only be performed "
+        "Set the default cloud for your organization. This operation can only be performed "
         "by organization admins, and the default cloud must have organization level "
-        "permissions."
+        "permissions. Specify the cloud by name (-n/--name) or by ID (--cloud-id)."
     ),
+    cls=AnyscaleCommand,
 )
 @click.argument("cloud-name", required=False)
 @click.option("--name", "-n", help="Set cloud as default by name.", type=str)
@@ -304,7 +355,24 @@ def default_region(provider: str) -> str:
     return default_regions.get(provider, "default")
 
 
-@cloud_cli.command(name="setup", help="Set up a cloud provider.")
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Set up an AWS cloud with a Kubernetes compute stack.",
+            command="anyscale cloud setup --provider aws --region us-west-2 --name my-cloud --stack k8s",
+            output_raw=command_examples.CLOUD_SETUP_K8S_AWS_EXAMPLE,
+        ),
+    ],
+)
+@cloud_cli.command(
+    name="setup",
+    short_help="Set up a cloud provider.",
+    help="Set up a cloud provider.",
+    cls=AnyscaleCommand,
+)
 @click.option(
     "--provider",
     help="The cloud provider type.",
@@ -523,8 +591,33 @@ def setup_cloud(  # noqa: PLR0913
         )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="List the clouds in your Anyscale organization.",
+            command="anyscale cloud list",
+            output_instance=[
+                {
+                    "id": "cld_abc123",
+                    "name": "my-cloud",
+                    "provider": "AWS",
+                    "region": "us-west-2",
+                    "compute_stack": "VM",
+                    "is_default": True,
+                    "created_at": "2023-04-10T20:34:15.211510+00:00",
+                }
+            ],
+        ),
+    ],
+)
 @cloud_cli.command(
-    name="list", help=("List information about clouds in your Anyscale organization."),
+    name="list",
+    short_help="List information about clouds in your Anyscale organization.",
+    help="List information about clouds in your Anyscale organization.",
+    cls=AnyscaleCommand,
 )
 @click.option(
     "--name",
@@ -563,6 +656,16 @@ def setup_cloud(  # noqa: PLR0913
     help="Use interactive paging.",
 )
 @click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
+@click.option(
     "-j",
     "--json",
     "json_output",
@@ -576,8 +679,11 @@ def list_cloud(  # noqa: A001
     max_items: Optional[int],
     page_size: int,
     interactive: bool,
+    output_format: str,
     json_output: bool,
 ) -> None:
+    json_output = json_output or output_format == OutputFormat.JSON.value
+
     if max_items is not None and interactive:
         raise click.UsageError("--max-items only allowed with --no-interactive")
 
@@ -651,11 +757,23 @@ def cloud_config_group() -> None:
     pass
 
 
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Create a new cloud resource in an existing cloud.",
+            command="anyscale cloud resource create --cloud my-cloud -f resource.yaml",
+            output_raw=command_examples.CLOUD_RESOURCE_CREATE_EXAMPLE,
+        ),
+    ],
+)
 @cloud_resource_group.command(
     name="create",
+    short_help="Create a new cloud resource in an existing cloud.",
     help="Create a new cloud resource in an existing cloud.",
     cls=AnyscaleCommand,
-    example=command_examples.CLOUD_RESOURCE_CREATE_EXAMPLE,
     is_beta=True,
 )
 @click.option(
@@ -705,11 +823,23 @@ def cloud_resource_create(
         print(e)
 
 
+@command_metadata(
+    status=ReleaseStatus.ALPHA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Set up cloud resources for an existing cloud.",
+            command="anyscale cloud resource setup --provider aws --region us-west-2 --cloud my-cloud",
+            output_raw=command_examples.CLOUD_RESOURCE_SETUP_EXAMPLE,
+        ),
+    ],
+)
 @cloud_resource_group.command(
     name="setup",
+    short_help="Set up cloud resources for an existing cloud.",
     help="Set up cloud resources for an existing cloud.",
     cls=AnyscaleCommand,
-    example=command_examples.CLOUD_RESOURCE_SETUP_EXAMPLE,
     is_alpha=True,
 )
 @click.option(
@@ -866,11 +996,23 @@ def cloud_resource_setup(  # noqa: PLR0913
         raise click.ClickException(f"Unsupported stack: {stack}")
 
 
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Remove a cloud resource from an existing cloud.",
+            command="anyscale cloud resource delete --cloud my-cloud --resource my-resource",
+            output_raw=command_examples.CLOUD_RESOURCE_DELETE_EXAMPLE,
+        ),
+    ],
+)
 @cloud_resource_group.command(
     name="delete",
+    short_help="Remove a cloud resource from an existing cloud.",
     help="Remove a cloud resource from an existing cloud.",
     cls=AnyscaleCommand,
-    example=command_examples.CLOUD_RESOURCE_DELETE_EXAMPLE,
     is_beta=True,
 )
 @click.option(
@@ -896,8 +1038,25 @@ def cloud_resource_delete(cloud: str, resource: str, yes: bool,) -> None:
         print(e)
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Update a cloud by name.",
+            command="anyscale cloud update -n my-cloud",
+        ),
+    ],
+)
 @cloud_cli.command(
-    name="update", help=("Update a cloud."),
+    name="update",
+    short_help="Update a cloud.",
+    help=(
+        "Update a cloud.\n\n"
+        "Specify the cloud by name (-n/--name) or by ID (--cloud-id)."
+    ),
+    cls=AnyscaleCommand,
 )
 @click.argument("cloud-name", required=False)
 @click.option(
@@ -985,9 +1144,22 @@ def cloud_update(  # noqa: PLR0913
     )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Update storage CORS configuration for a cloud.",
+            command="anyscale cloud update-storage-cors -n my-cloud",
+        ),
+    ],
+)
 @cloud_cli.command(
     name="update-storage-cors",
+    short_help="Update CORS configuration on cloud storage to support Anyscale UI features.",
     help="Update CORS configuration on cloud storage to support Anyscale UI features. Works with both managed and customer-managed clouds. When a cloud resource is not specified, updates CORS for all cloud resources under the cloud.",
+    cls=AnyscaleCommand,
 )
 @click.argument("cloud-name", required=False)
 @click.option(
@@ -1049,7 +1221,29 @@ def cloud_update_storage_cors(
     )
 
 
-@cloud_config_group.command("get", help="Get the current configuration for a cloud.")
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Get the current configuration for a cloud.",
+            command="anyscale cloud config get -n my-cloud",
+            output_instance={
+                "cloud_deployment_id": "cldrsrc_abc123",
+                "cloud_provider": "AWS",
+                "compute_stack": "VM",
+                "dataplane_iam_mapping": {},
+            },
+        ),
+    ],
+)
+@cloud_config_group.command(
+    "get",
+    short_help="Get the current configuration for a cloud.",
+    help="Get the current configuration for a cloud.",
+    cls=AnyscaleCommand,
+)
 @click.argument("cloud-name", required=False)
 @click.option("--name", "-n", help="Get configuration of cloud by name.", type=str)
 @click.option(
@@ -1071,12 +1265,25 @@ def cloud_update_storage_cors(
     type=str,
     required=False,
 )
+@click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice(
+        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
 def cloud_config_get(
     cloud_name: Optional[str],
     name: Optional[str],
     cloud_id: Optional[str],
     resource: Optional[str],
     cloud_resource_id: Optional[str],
+    output_format: str,
 ) -> None:
     if cloud_name and name and cloud_name != name:
         raise click.ClickException(
@@ -1096,6 +1303,9 @@ def cloud_config_get(
         resource=resource,
         cloud_resource_id=cloud_resource_id,
     )
+    if output_format != OutputFormat.TEXT.value:
+        print_output(config.spec, output_format)
+        return
     stream = StringIO()
     yaml.dump(config.spec, stream)
     print(stream.getvalue())
@@ -1182,11 +1392,23 @@ def _handle_system_cluster_config(enable_system_cluster: Optional[bool]) -> None
         )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Update the configuration for a cloud.",
+            command="anyscale cloud config update -n my-cloud --enable-log-ingestion",
+            output_raw=command_examples.CLOUD_CONFIG_UPDATE_EXAMPLE,
+        ),
+    ],
+)
 @cloud_config_group.command(
     "update",
+    short_help="Update the current configuration for a cloud.",
     help="Update the current configuration for a cloud.",
     cls=AnyscaleCommand,
-    example=command_examples.CLOUD_CONFIG_UPDATE_EXAMPLE,
 )
 @click.argument("cloud-name", required=False)
 @click.option("--name", "-n", help="Update configuration of cloud by name.", type=str)
@@ -1289,8 +1511,22 @@ def cloud_config_update(  # noqa: PLR0913
         )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Register an AWS cloud with your own resources.",
+            command="anyscale cloud register --provider aws --region us-west-2 --name my-cloud",
+        ),
+    ],
+)
 @cloud_cli.command(
-    name="register", help="Register an anyscale cloud with your own resources."
+    name="register",
+    short_help="Register an Anyscale cloud with your own resources.",
+    help="Register an Anyscale cloud with your own resources.",
+    cls=AnyscaleCommand,
 )
 @click.option(
     "--provider",
@@ -1611,6 +1847,10 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
                 cloud_resource.kubernetes_config = KubernetesConfig(
                     **cloud_resource.kubernetes_config
                 )
+            if cloud_resource.connector_config:
+                cloud_resource.connector_config = ConnectorConfig(
+                    **cloud_resource.connector_config
+                )
 
         except Exception as e:  # noqa: BLE001
             raise click.ClickException(f"Failed to parse cloud resource: {e}")
@@ -1910,7 +2150,26 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
         )
 
 
-@cloud_cli.command(name="verify", help="Checks the healthiness of a cloud.")
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Verify the health of a cloud.",
+            command="anyscale cloud verify -n my-cloud",
+        ),
+    ],
+)
+@cloud_cli.command(
+    name="verify",
+    short_help="Check the health of a cloud.",
+    help=(
+        "Check the health of a cloud.\n\n"
+        "Specify the cloud by name (-n/--name) or by ID (--cloud-id)."
+    ),
+    cls=AnyscaleCommand,
+)
 @click.argument("cloud-name", required=False)
 @click.option("--name", "-n", help="Verify cloud by name.", type=str)
 @click.option(
@@ -1968,9 +2227,23 @@ def cloud_verify(
     )
 
 
+@command_metadata(
+    status=ReleaseStatus.DEPRECATED,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Edit the S3 bucket of a registered cloud.",
+            command="anyscale cloud edit -n my-cloud --aws-s3-id my-new-bucket",
+        ),
+    ],
+    deprecation_info={"message": "Use anyscale cloud update instead."},
+)
 @cloud_cli.command(
     name="edit",
-    help="DEPRECATED. Please use `anyscale cloud update` instead.\n\nEdit registered cloud resource on Anyscale. Only applicable for anyscale registered clouds.",
+    short_help="Edit a registered cloud.",
+    help="Use `anyscale cloud update` instead.\n\nEdit registered cloud resource on Anyscale. Only applicable for Anyscale registered clouds.",
+    cls=AnyscaleCommand,
 )
 @click.argument("cloud-name", required=False)
 @click.option("--name", "-n", help="Edit cloud by name.", type=str)
@@ -2108,11 +2381,23 @@ def cloud_edit(  # noqa: PLR0913
         )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Add collaborators to a cloud from a YAML file.",
+            command="anyscale cloud add-collaborators -c my-cloud --users-file collaborators.yaml",
+            output_raw=command_examples.CLOUD_ADD_COLLABORATORS_EXAMPLE,
+        ),
+    ],
+)
 @cloud_cli.command(
     name="add-collaborators",
+    short_help="Add collaborators to the cloud.",
     help="Add collaborators to the cloud.",
     cls=AnyscaleCommand,
-    example=command_examples.CLOUD_ADD_COLLABORATORS_EXAMPLE,
 )
 @click.option(
     "--cloud", "-c", help="Name of the cloud to add collaborators to.", required=True
@@ -2147,6 +2432,7 @@ def _get_cloud_info(
     name: Optional[str],
     output: Optional[str],
     include_status: bool,
+    output_format: str = OutputFormat.TEXT.value,
 ) -> None:
     """
     Internal helper to retrieve cloud information.
@@ -2156,6 +2442,8 @@ def _get_cloud_info(
     :param output: Optional file path to write output to.
     :param include_status: If True, include status fields (created_at, is_default,
         operator_status, operator_status_details). If False, these fields are hidden.
+    :param output_format: Structured output format for stdout; ignored when
+        writing to a file.
     """
     # Validate that exactly one of --name or --cloud-id is provided
     if (cloud_id and name) or (not cloud_id and not name):
@@ -2174,15 +2462,7 @@ def _get_cloud_info(
             cloud_id=cloud.id
         )
 
-        if include_status:
-            result = {
-                "name": cloud.name,
-                "id": cloud.id,
-                "created_at": cloud.created_at,
-                "is_default": cloud.is_default,
-                "resources": cloud_resources,
-            }
-        else:
+        if not include_status:
             # Remove status fields from cloud resources for cleaner output.
             # Use `anyscale cloud status` to see full status information.
             status_fields_to_hide = {
@@ -2195,27 +2475,56 @@ def _get_cloud_info(
                 for field in status_fields_to_hide:
                     resource.pop(field, None)
 
-            result = {
-                "name": cloud.name,
-                "id": cloud.id,
-                "resources": cloud_resources,
-            }
+        info = CloudInfo(
+            name=cloud.name,
+            id=cloud.id,
+            created_at=cloud.created_at if include_status else None,
+            is_default=cloud.is_default if include_status else None,
+            resources=cloud_resources,
+        )
+
+        # On status, keep None-valued keys (e.g. created_at) as explicit nulls.
+        # on get, omit them entirely,
+        # This matches the legacy hand-built dicts behaviour.
+        info_dict = info.to_dict(exclude_none=not include_status)
 
         if output:
             with open(output, "w") as f:
-                yaml.dump(result, f, sort_keys=False)
+                yaml.dump(info_dict, f, sort_keys=False)
+        elif output_format != OutputFormat.TEXT.value:
+            print_output(info_dict, output_format)
         else:
-            print(yaml.dump(result, sort_keys=False))
+            print(yaml.dump(info_dict, sort_keys=False))
 
     except ValueError as e:
         log.error(f"Error retrieving cloud: {e}")
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Get information about a cloud by name.",
+            command="anyscale cloud get -n my-cloud",
+            output_raw=command_examples.CLOUD_GET_CLOUD_EXAMPLE,
+            output_instance=lambda: CloudInfo(
+                name="my-cloud",
+                id="cld_kvedZWag2qA8i5BjxUevf5i7",
+                created_at=None,
+                is_default=None,
+                resources=[{"name": "my-cloud-resource", "provider": "AWS"}],
+            ),
+        ),
+    ],
+    output_schema=CloudInfo,
+)
 @cloud_cli.command(
     name="get",
+    short_help="Get information about a specific cloud.",
     help="Get information about a specific cloud.",
     cls=AnyscaleCommand,
-    example=command_examples.CLOUD_GET_CLOUD_EXAMPLE,
 )
 @click.option(
     "--name",
@@ -2238,8 +2547,20 @@ def _get_cloud_info(
     type=str,
     required=False,
 )
+@click.option(
+    "--output-format",
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result. Ignored when --output is provided.",
+)
 def get_cloud(
-    cloud_id: Optional[str], name: Optional[str], output: Optional[str]
+    cloud_id: Optional[str],
+    name: Optional[str],
+    output: Optional[str],
+    output_format: str,
 ) -> None:
     """
     Retrieve a cloud by its name or ID and display its details.
@@ -2250,14 +2571,42 @@ def get_cloud(
     :param cloud_id: The ID of the cloud to retrieve.
     :param name: The name of the cloud to retrieve.
     """
-    _get_cloud_info(cloud_id, name, output, include_status=False)
+    _get_cloud_info(
+        cloud_id, name, output, include_status=False, output_format=output_format
+    )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Get the full status of a cloud by name.",
+            command="anyscale cloud status -n my-cloud",
+            output_raw=command_examples.CLOUD_STATUS_EXAMPLE,
+            output_instance=lambda: CloudInfo(
+                name="my-cloud",
+                id="cld_kvedZWag2qA8i5BjxUevf5i7",
+                created_at=None,
+                is_default=True,
+                resources=[
+                    {
+                        "name": "my-cloud-resource",
+                        "provider": "AWS",
+                        "operator_status": "ACTIVE",
+                    }
+                ],
+            ),
+        ),
+    ],
+    output_schema=CloudInfo,
+)
 @cloud_cli.command(
     name="status",
+    short_help="Get full status information about a specific cloud including operator status.",
     help="Get full status information about a specific cloud including operator status.",
     cls=AnyscaleCommand,
-    example=command_examples.CLOUD_STATUS_EXAMPLE,
 )
 @click.option(
     "--name",
@@ -2280,8 +2629,20 @@ def get_cloud(
     type=str,
     required=False,
 )
+@click.option(
+    "--output-format",
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result. Ignored when --output is provided.",
+)
 def cloud_status(
-    cloud_id: Optional[str], name: Optional[str], output: Optional[str]
+    cloud_id: Optional[str],
+    name: Optional[str],
+    output: Optional[str],
+    output_format: str,
 ) -> None:
     """
     Retrieve full status information for a cloud including operator status details.
@@ -2293,16 +2654,49 @@ def cloud_status(
     :param cloud_id: The ID of the cloud to retrieve.
     :param name: The name of the cloud to retrieve.
     """
-    _get_cloud_info(cloud_id, name, output, include_status=True)
+    _get_cloud_info(
+        cloud_id, name, output, include_status=True, output_format=output_format
+    )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Get the default cloud for your organization.",
+            command="anyscale cloud get-default",
+            output_raw=command_examples.CLOUD_GET_DEFAULT_CLOUD_EXAMPLE,
+            output_instance=lambda: Cloud(
+                name="my-cloud",
+                id="cld_kvedZWag2qA8i5BjxUevf5i7",
+                provider=CloudProvider.AWS,
+                compute_stack=CloudModelComputeStack.VM,
+                region="us-west-2",
+                is_default=True,
+            ),
+        ),
+    ],
+    output_schema=Cloud,
+)
 @cloud_cli.command(
     name="get-default",
+    short_help="Get the default cloud for your organization.",
     help="Get the default cloud for your organization.",
     cls=AnyscaleCommand,
-    example=command_examples.CLOUD_GET_DEFAULT_CLOUD_EXAMPLE,
 )
-def get_default_cloud() -> None:
+@click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
+def get_default_cloud(output_format: str) -> None:
     """
     Retrieve and display the default cloud configured for your organization.
     """
@@ -2311,6 +2705,10 @@ def get_default_cloud() -> None:
 
         if not default_cloud:
             log.error("No default cloud found.")
+            return
+
+        if output_format != OutputFormat.TEXT.value:
+            print_output(default_cloud, output_format)
             return
 
         cloud_dict = (
@@ -2396,11 +2794,23 @@ def generate_jobs_report(
         log.error(f"Error generating jobs report: {e}")
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Terminate the system cluster of a cloud by ID.",
+            command="anyscale cloud terminate-system-cluster --cloud-id cld_abcdef",
+            output_raw=command_examples.CLOUD_TERMINATE_SYSTEM_CLUSTER_EXAMPLE,
+        ),
+    ],
+)
 @cloud_cli.command(
     name="terminate-system-cluster",
-    help="Terminate the system cluster for a specific given cloud.",
+    short_help="Terminate the system cluster for a specific cloud.",
+    help="Terminate the system cluster for a specific cloud.",
     cls=AnyscaleCommand,
-    example=command_examples.CLOUD_TERMINATE_SYSTEM_CLUSTER_EXAMPLE,
 )
 @click.option(
     "--cloud-id",

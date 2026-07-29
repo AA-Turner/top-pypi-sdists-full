@@ -9,6 +9,28 @@ from .constants import ON_PREMISE_API_URL_PATH_PREFIX
 GITGUARDIAN_DOMAINS = ["gitguardian.com", "gitguardian.tech"]
 
 
+def is_saas_netloc(netloc: str) -> bool:
+    """
+    Whether ``netloc`` is a GitGuardian-hosted (SaaS) instance.
+
+    SaaS instances are ``dashboard.*`` / ``api.*`` hosts under a gitguardian.com
+    or gitguardian.tech domain, and use a host swap to go between dashboard and
+    API URLs. Self-hosted instances use the ``/exposed`` path prefix instead —
+    even when deployed under a gitguardian domain, so the domain suffix alone is
+    not enough to identify SaaS.
+
+    Some SaaS deployments expose the dashboard/API as ``dashboard-<id>.*`` /
+    ``api-<id>.*`` hosts, which are SaaS-mode too, so the first label may also be
+    a ``dashboard-`` / ``api-`` prefix rather than the bare word.
+    """
+    if not any(netloc.endswith("." + domain) for domain in GITGUARDIAN_DOMAINS):
+        return False
+    first_label = netloc.split(".", 1)[0]
+    return first_label in ("dashboard", "api") or first_label.startswith(
+        ("dashboard-", "api-")
+    )
+
+
 def clean_url(url: str, warn: bool = False) -> ParseResult:
     """
     Take a dashboard or API URL and removes trailing slashes and useless /v1
@@ -34,7 +56,7 @@ def validate_instance_url(url: str, warn: bool = False) -> ParseResult:
         or parsed_url.netloc.startswith("127.0.0.1")
     ):
         raise UsageError(f"Invalid scheme for dashboard URL '{url}', expected HTTPS")
-    if any(parsed_url.netloc.endswith("." + domain) for domain in GITGUARDIAN_DOMAINS):
+    if is_saas_netloc(parsed_url.netloc):
         if parsed_url.path:
             raise UsageError(
                 f"Invalid dashboard URL '{url}', got an unexpected path '{parsed_url.path}'"
@@ -50,7 +72,7 @@ def dashboard_to_api_url(dashboard_url: str, warn: bool = False) -> str:
     """
     parsed_url = validate_instance_url(dashboard_url, warn=warn)
 
-    if any(parsed_url.netloc.endswith("." + domain) for domain in GITGUARDIAN_DOMAINS):
+    if is_saas_netloc(parsed_url.netloc):
         parsed_url = parsed_url._replace(
             netloc=parsed_url.netloc.replace("dashboard", "api")
         )
@@ -69,9 +91,7 @@ def api_to_dashboard_url(api_url: str, warn: bool = False) -> str:
     parsed_url = clean_url(api_url, warn=warn)
     if parsed_url.scheme != "https" and not parsed_url.netloc.startswith("localhost"):
         raise UsageError(f"Invalid scheme for API URL '{api_url}', expected HTTPS")
-    if any(
-        parsed_url.netloc.endswith("." + domain) for domain in GITGUARDIAN_DOMAINS
-    ):  # SaaS
+    if is_saas_netloc(parsed_url.netloc):  # SaaS
         if parsed_url.path:
             raise UsageError(
                 f"Invalid API URL '{api_url}', got an unexpected path '{parsed_url.path}'"

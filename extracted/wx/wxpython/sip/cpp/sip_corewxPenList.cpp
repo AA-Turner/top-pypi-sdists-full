@@ -16,8 +16,8 @@
 
 PyDoc_STRVAR(doc_wxPenList_FindOrCreatePen, "FindOrCreatePen(colour, width=1, style=PENSTYLE_SOLID) -> Pen\n"
 "\n"
-"Finds a pen with the specified attributes and returns it, else creates\n"
-"a new pen, adds it to the pen list, and returns it.");
+"Finds a pen with the specified attributes and returns it; otherwise,\n"
+"creates a new pen, adds it to the pen list, and returns it.");
 
 extern "C" {static PyObject *meth_wxPenList_FindOrCreatePen(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxPenList_FindOrCreatePen(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)

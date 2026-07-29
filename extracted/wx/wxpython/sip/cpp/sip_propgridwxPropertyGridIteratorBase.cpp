@@ -317,20 +317,6 @@ static void release_wxPropertyGridIteratorBase(void *sipCppV, int)
 }
 
 
-extern "C" {static void *array_wxPropertyGridIteratorBase(Py_ssize_t);}
-static void *array_wxPropertyGridIteratorBase(Py_ssize_t sipNrElem)
-{
-    return new ::wxPropertyGridIteratorBase[sipNrElem];
-}
-
-
-extern "C" {static void array_delete_wxPropertyGridIteratorBase(void *);}
-static void array_delete_wxPropertyGridIteratorBase(void *sipCpp)
-{
-    delete[] reinterpret_cast< ::wxPropertyGridIteratorBase *>(sipCpp);
-}
-
-
 extern "C" {static void assign_wxPropertyGridIteratorBase(void *, Py_ssize_t, void *);}
 static void assign_wxPropertyGridIteratorBase(void *sipDst, Py_ssize_t sipDstIdx, void *sipSrc)
 {
@@ -359,25 +345,6 @@ extern "C" {static void *init_type_wxPropertyGridIteratorBase(sipSimpleWrapper *
 static void *init_type_wxPropertyGridIteratorBase(sipSimpleWrapper *, PyObject *sipArgs, PyObject *sipKwds, PyObject **sipUnused, PyObject **, PyObject **sipParseErr)
 {
     ::wxPropertyGridIteratorBase *sipCpp = SIP_NULLPTR;
-
-    {
-        if (sipParseKwdArgs(sipParseErr, sipArgs, sipKwds, SIP_NULLPTR, sipUnused, ""))
-        {
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp = new ::wxPropertyGridIteratorBase();
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-            {
-                delete sipCpp;
-                return SIP_NULLPTR;
-            }
-
-            return sipCpp;
-        }
-    }
 
     {
         const ::wxPropertyGridIteratorBase* a0;
@@ -410,9 +377,7 @@ sipVariableDef variables_wxPropertyGridIteratorBase[] = {
     {PropertyVariable, sipName_Property, &methods_wxPropertyGridIteratorBase[2], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxPropertyGridIteratorBase, "PropertyGridIteratorBase() -> None\n"
-"\n"
-"Base for wxPropertyGridIterator classes.");
+PyDoc_STRVAR(doc_wxPropertyGridIteratorBase, "Base for wxPropertyGridIterator classes.");
 
 
 sipClassTypeDef sipTypeDef__propgrid_wxPropertyGridIteratorBase = {
@@ -445,7 +410,7 @@ sipClassTypeDef sipTypeDef__propgrid_wxPropertyGridIteratorBase = {
     SIP_NULLPTR,
     dealloc_wxPropertyGridIteratorBase,
     assign_wxPropertyGridIteratorBase,
-    array_wxPropertyGridIteratorBase,
+    SIP_NULLPTR,
     copy_wxPropertyGridIteratorBase,
     release_wxPropertyGridIteratorBase,
     SIP_NULLPTR,
@@ -455,6 +420,6 @@ sipClassTypeDef sipTypeDef__propgrid_wxPropertyGridIteratorBase = {
     SIP_NULLPTR,
     SIP_NULLPTR,
     SIP_NULLPTR,
-    array_delete_wxPropertyGridIteratorBase,
+    SIP_NULLPTR,
     sizeof (::wxPropertyGridIteratorBase),
 };

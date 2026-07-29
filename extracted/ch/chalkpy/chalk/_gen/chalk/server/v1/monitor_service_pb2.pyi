@@ -14,6 +14,22 @@ from typing import (
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class GetMonitorRequest(_message.Message):
+    __slots__ = ("monitor_id", "read_mask")
+    MONITOR_ID_FIELD_NUMBER: _ClassVar[int]
+    READ_MASK_FIELD_NUMBER: _ClassVar[int]
+    monitor_id: str
+    read_mask: _field_mask_pb2.FieldMask
+    def __init__(
+        self, monitor_id: _Optional[str] = ..., read_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...
+    ) -> None: ...
+
+class GetMonitorResponse(_message.Message):
+    __slots__ = ("monitor",)
+    MONITOR_FIELD_NUMBER: _ClassVar[int]
+    monitor: _monitor_pb2.Monitor
+    def __init__(self, monitor: _Optional[_Union[_monitor_pb2.Monitor, _Mapping]] = ...) -> None: ...
+
 class CreateMonitorRequest(_message.Message):
     __slots__ = ("monitor",)
     MONITOR_FIELD_NUMBER: _ClassVar[int]
@@ -21,6 +37,24 @@ class CreateMonitorRequest(_message.Message):
     def __init__(self, monitor: _Optional[_Union[_monitor_pb2.Monitor, _Mapping]] = ...) -> None: ...
 
 class CreateMonitorResponse(_message.Message):
+    __slots__ = ("monitor",)
+    MONITOR_FIELD_NUMBER: _ClassVar[int]
+    monitor: _monitor_pb2.Monitor
+    def __init__(self, monitor: _Optional[_Union[_monitor_pb2.Monitor, _Mapping]] = ...) -> None: ...
+
+class UpdateMonitorRequest(_message.Message):
+    __slots__ = ("monitor", "update_mask")
+    MONITOR_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_MASK_FIELD_NUMBER: _ClassVar[int]
+    monitor: _monitor_pb2.Monitor
+    update_mask: _field_mask_pb2.FieldMask
+    def __init__(
+        self,
+        monitor: _Optional[_Union[_monitor_pb2.Monitor, _Mapping]] = ...,
+        update_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
+    ) -> None: ...
+
+class UpdateMonitorResponse(_message.Message):
     __slots__ = ("monitor",)
     MONITOR_FIELD_NUMBER: _ClassVar[int]
     monitor: _monitor_pb2.Monitor

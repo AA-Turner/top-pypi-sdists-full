@@ -165,15 +165,40 @@ WEBVIEWIE_EMU_IE10 = _WebViewIE_EmulationLevel.WEBVIEWIE_EMU_IE10
 WEBVIEWIE_EMU_IE10_FORCE = _WebViewIE_EmulationLevel.WEBVIEWIE_EMU_IE10_FORCE
 WEBVIEWIE_EMU_IE11 = _WebViewIE_EmulationLevel.WEBVIEWIE_EMU_IE11
 WEBVIEWIE_EMU_IE11_FORCE = _WebViewIE_EmulationLevel.WEBVIEWIE_EMU_IE11_FORCE
+
+class _WebViewBrowsingDataTypes(IntEnum):
+    WEBVIEW_BROWSING_DATA_COOKIES = auto()
+    WEBVIEW_BROWSING_DATA_CACHE = auto()
+    WEBVIEW_BROWSING_DATA_DOM_STORAGE = auto()
+    WEBVIEW_BROWSING_DATA_OTHER = auto()
+    WEBVIEW_BROWSING_DATA_ALL = auto()
+WebViewBrowsingDataTypes: TypeAlias = Union[_WebViewBrowsingDataTypes, int]
+WEBVIEW_BROWSING_DATA_COOKIES = _WebViewBrowsingDataTypes.WEBVIEW_BROWSING_DATA_COOKIES
+WEBVIEW_BROWSING_DATA_CACHE = _WebViewBrowsingDataTypes.WEBVIEW_BROWSING_DATA_CACHE
+WEBVIEW_BROWSING_DATA_DOM_STORAGE = _WebViewBrowsingDataTypes.WEBVIEW_BROWSING_DATA_DOM_STORAGE
+WEBVIEW_BROWSING_DATA_OTHER = _WebViewBrowsingDataTypes.WEBVIEW_BROWSING_DATA_OTHER
+WEBVIEW_BROWSING_DATA_ALL = _WebViewBrowsingDataTypes.WEBVIEW_BROWSING_DATA_ALL
+
+class _WebViewPrintFlags(IntFlag):
+    WEBVIEW_PRINT_DEFAULT = auto()
+    WEBVIEW_PRINT_HIDE_HEADER_FOOTER = auto()
+WebViewPrintFlags: TypeAlias = Union[_WebViewPrintFlags, int]
+WEBVIEW_PRINT_DEFAULT = _WebViewPrintFlags.WEBVIEW_PRINT_DEFAULT
+WEBVIEW_PRINT_HIDE_HEADER_FOOTER = _WebViewPrintFlags.WEBVIEW_PRINT_HIDE_HEADER_FOOTER
+wxEVT_WEBVIEW_CREATED: int
 wxEVT_WEBVIEW_NAVIGATING: int
 wxEVT_WEBVIEW_NAVIGATED: int
 wxEVT_WEBVIEW_LOADED: int
 wxEVT_WEBVIEW_ERROR: int
 wxEVT_WEBVIEW_NEWWINDOW: int
+wxEVT_WEBVIEW_NEWWINDOW_FEATURES: int
 wxEVT_WEBVIEW_TITLE_CHANGED: int
 wxEVT_WEBVIEW_FULLSCREEN_CHANGED: int
 wxEVT_WEBVIEW_SCRIPT_MESSAGE_RECEIVED: int
 wxEVT_WEBVIEW_SCRIPT_RESULT: int
+wxEVT_WEBVIEW_WINDOW_CLOSE_REQUESTED: int
+wxEVT_WEBVIEW_BROWSING_DATA_CLEARED: int
+wxEVT_WEBVIEW_PDF_SAVED: int
 
 class WebViewHistoryItem:
     """
@@ -244,12 +269,29 @@ class WebViewHandler:
         """
         GetSecurityURL() -> str
         """
+
+    def SetVirtualHost(self, host: str) -> None:
+        """
+        SetVirtualHost(host) -> None
+        
+        When using the edge backend handler urls are https urls with a virtual
+        host.
+        """
+
+    def GetVirtualHost(self) -> str:
+        """
+        GetVirtualHost() -> str
+        """
     @property
     def Name(self) -> str: ...
     @property
     def SecurityURL(self) -> str: ...
     @SecurityURL.setter
     def SecurityURL(self, value: str, /) -> None: ...
+    @property
+    def VirtualHost(self) -> str: ...
+    @VirtualHost.setter
+    def VirtualHost(self, value: str, /) -> None: ...
 # end of class WebViewHandler
 
 
@@ -301,9 +343,117 @@ class WebViewFSHandler(WebViewHandler):
 # end of class WebViewFSHandler
 
 
+class WebViewConfiguration:
+    """
+    This class allows access to web view configuration options and
+    settings, that have to be specified before placing a webview in a
+    window with wxWebView::Create().
+    """
+
+    def GetNativeConfiguration(self) -> Any:
+        """
+        GetNativeConfiguration() -> Any
+        
+        Returns the pointer to the native configuration used during creation
+        of a wxWebView.
+        """
+
+    def GetBackend(self) -> str:
+        """
+        GetBackend() -> str
+        
+        Returns the backend identifier for which this configuration was
+        created.
+        """
+
+    def SetDataPath(self, path: str) -> None:
+        """
+        SetDataPath(path) -> None
+        
+        Set the data path for the webview.
+        """
+
+    def GetDataPath(self) -> str:
+        """
+        GetDataPath() -> str
+        
+        Returns the data path for the webview.
+        """
+
+    def EnablePersistentStorage(self, enable: bool) -> bool:
+        """
+        EnablePersistentStorage(enable) -> bool
+        
+        Allows to disable persistent storage for the webview.
+        """
+
+    @staticmethod
+    def DisableGPUAcceleration() -> bool:
+        """
+        DisableGPUAcceleration() -> bool
+        
+        Disables GPU hardware acceleration for all subsequently created web
+        views.
+        """
+    @property
+    def Backend(self) -> str: ...
+    @property
+    def DataPath(self) -> str: ...
+    @DataPath.setter
+    def DataPath(self, value: str, /) -> None: ...
+    @property
+    def NativeConfiguration(self) -> Any: ...
+# end of class WebViewConfiguration
+
+
+class WebViewFactory(wx.Object):
+    """
+    An abstract factory class for creating wxWebView backends.
+    """
+
+    @overload
+    def Create(self, parent: wx.Window, id: int, url: str=WebViewDefaultURLStr, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=0, name: str=WebViewNameStr) -> WebView:
+        ...
+
+    @overload
+    def Create(self) -> WebView:
+        """
+        Create() -> WebView
+        Create(parent, id, url=WebViewDefaultURLStr, pos=wx.DefaultPosition, size=wx.DefaultSize, style=0, name=WebViewNameStr) -> WebView
+        
+        Function to create a new wxWebView with two-step creation,
+        wxWebView::Create should be called on the returned object.
+        """
+
+    def CreateWithConfig(self, config: WebViewConfiguration) -> WebView:
+        """
+        CreateWithConfig(config) -> WebView
+        
+        Function to create a new wxWebView with two-step creation with a
+        wxWebViewConfiguration, wxWebView::Create should be called on the
+        returned object.
+        """
+
+    def IsAvailable(self) -> bool:
+        """
+        IsAvailable() -> bool
+        
+        Function to check if the backend is available at runtime.
+        """
+
+    def CreateConfiguration(self) -> WebViewConfiguration:
+        """
+        CreateConfiguration() -> WebViewConfiguration
+        
+        Create a wxWebViewConfiguration object for wxWebView instances created
+        by this factory.
+        """
+# end of class WebViewFactory
+
+
 class WebView(wx.Control):
     """
-    This control may be used to render web (HTML / CSS / javascript)
+    This control may be used to render web (HTML / CSS / JavaScript)
     documents.
     """
 
@@ -314,9 +464,9 @@ class WebView(wx.Control):
         Runs the given JavaScript code.
         """
 
-    def RunScriptAsync(self, javascript: str, clientData: Optional[Any]=None) -> None:
+    def RunScriptAsync(self, javascript: str, clientData: Any=nullptr) -> None:
         """
-        RunScriptAsync(javascript, clientData=None) -> None
+        RunScriptAsync(javascript, clientData=nullptr) -> None
         
         Runs the given JavaScript code asynchronously and returns the result
         via a wxEVT_WEBVIEW_SCRIPT_RESULT.
@@ -421,18 +571,25 @@ class WebView(wx.Control):
         Returns true if dev tools are available to the user.
         """
 
-    def SetUserAgent(self, userAgent: str) -> bool:
+    def ShowDevTools(self) -> bool:
         """
-        SetUserAgent(userAgent) -> bool
+        ShowDevTools() -> bool
         
-        Specify a custom user agent string for the web view.
+        Show the dev tools window.
         """
 
-    def GetUserAgent(self) -> str:
+    def EnableBrowserAcceleratorKeys(self, enable: bool=True) -> None:
         """
-        GetUserAgent() -> str
+        EnableBrowserAcceleratorKeys(enable=True) -> None
         
-        Returns the current user agent string for the web view.
+        Enable or disable if browser accelerator keys are enabled.
+        """
+
+    def AreBrowserAcceleratorKeysEnabled(self) -> bool:
+        """
+        AreBrowserAcceleratorKeysEnabled() -> bool
+        
+        Returns true if browser accelerator keys are enabled.
         """
 
     def CanGoBack(self) -> bool:
@@ -574,7 +731,7 @@ class WebView(wx.Control):
         """
         CanSetZoomType(type) -> bool
         
-        Retrieve whether the current HTML engine supports a zoom type.
+        Retrieve whether a zoom type is supported.
         """
 
     def GetZoom(self) -> WebViewZoom:
@@ -684,12 +841,31 @@ class WebView(wx.Control):
         Load a web page from a URL.
         """
 
+    @overload
+    def Print(self, printData: wx.PrintData, flags: int=WEBVIEW_PRINT_HIDE_HEADER_FOOTER) -> None:
+        ...
+
+    @overload
     def Print(self) -> None:
         """
         Print() -> None
+        Print(printData, flags=WEBVIEW_PRINT_HIDE_HEADER_FOOTER) -> None
         
-        Opens a print dialog so that the user may print the currently
-        displayed page.
+        Opens a print dialog (with the backend's default settings) so that the
+        user may print the currently displayed page.
+        """
+
+    @overload
+    def PrintToPDF(self, filePath: str, printData: wx.PrintData) -> bool:
+        ...
+
+    @overload
+    def PrintToPDF(self, filePath: str) -> bool:
+        """
+        PrintToPDF(filePath) -> bool
+        PrintToPDF(filePath, printData) -> bool
+        
+        Saves the currently displayed page as a PDF file to filePath.
         """
 
     def RegisterHandler(self, handler: WebViewHandler) -> None:
@@ -733,6 +909,39 @@ class WebView(wx.Control):
         Stop the current page loading process, if any.
         """
 
+    def SetUserAgent(self, userAgent: str) -> bool:
+        """
+        SetUserAgent(userAgent) -> bool
+        
+        Specify a custom user agent string for the web view.
+        """
+
+    def GetUserAgent(self) -> str:
+        """
+        GetUserAgent() -> str
+        
+        Returns the current user agent string for the web view.
+        """
+
+    def SetProxy(self, proxy: str) -> bool:
+        """
+        SetProxy(proxy) -> bool
+        
+        Set the proxy to use for all requests.
+        """
+
+    def ClearBrowsingData(self, types: int=WEBVIEW_BROWSING_DATA_ALL, since: wx.DateTime={}) -> bool:
+        """
+        ClearBrowsingData(types=WEBVIEW_BROWSING_DATA_ALL, since={}) -> bool
+        
+        Clears the browsing data of the web view.
+        """
+
+    @overload
+    @staticmethod
+    def New(config: WebViewConfiguration) -> WebView:
+        ...
+
     @overload
     @staticmethod
     def New(parent: wx.Window, id: int=wx.ID_ANY, url: str=WebViewDefaultURLStr, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, backend: str=WebViewBackendDefault, style: int=0, name: str=WebViewNameStr) -> WebView:
@@ -743,6 +952,7 @@ class WebView(wx.Control):
     def New(backend: str=WebViewBackendDefault) -> WebView:
         """
         New(backend=WebViewBackendDefault) -> WebView
+        New(config) -> WebView
         New(parent, id=wx.ID_ANY, url=WebViewDefaultURLStr, pos=wx.DefaultPosition, size=wx.DefaultSize, backend=WebViewBackendDefault, style=0, name=WebViewNameStr) -> WebView
         
         Factory function to create a new wxWebView with two-step creation,
@@ -765,12 +975,9 @@ class WebView(wx.Control):
         Allows to check if a specific backend is currently available.
         """
 
-    @staticmethod
-    def GetBackendVersionInfo(backend: str=WebViewBackendDefault) -> wx.VersionInfo:
+    def CreateAccessible(self) -> wx.Accessible:
         """
-        GetBackendVersionInfo(backend=WebViewBackendDefault) -> wx.VersionInfo
-        
-        Retrieve the version information about the backend implementation.
+        CreateAccessible() -> wx.Accessible
         """
 
     @staticmethod
@@ -881,11 +1088,25 @@ class WebViewEvent(wx.NotifyEvent):
         Get the name of the script handler.
         """
 
+    def GetTargetWindowFeatures(self) -> WebViewWindowFeatures:
+        """
+        GetTargetWindowFeatures() -> WebViewWindowFeatures
+        
+        Get information about the target window.
+        """
+
     def IsError(self) -> bool:
         """
         IsError() -> bool
         
-        Returns true the script execution failed.
+        Returns true if the operation failed.
+        """
+
+    def IsTargetMainFrame(self) -> bool:
+        """
+        IsTargetMainFrame() -> bool
+        
+        Returns true if the navigation target is the main frame.
         """
     @property
     def MessageHandler(self) -> str: ...
@@ -894,45 +1115,170 @@ class WebViewEvent(wx.NotifyEvent):
     @property
     def Target(self) -> str: ...
     @property
+    def TargetWindowFeatures(self) -> WebViewWindowFeatures: ...
+    @property
     def URL(self) -> str: ...
 # end of class WebViewEvent
 
 
-class WebViewFactory(wx.Object):
+class WebViewHandlerRequest:
     """
-    An abstract factory class for creating wxWebView backends.
+    A class giving access to various parameters of a webview request.
     """
 
-    @overload
-    def Create(self, parent: wx.Window, id: int, url: str=WebViewDefaultURLStr, pos: wx.Point=wx.DefaultPosition, size: wx.Size=wx.DefaultSize, style: int=0, name: str=WebViewNameStr) -> WebView:
-        ...
-
-    @overload
-    def Create(self) -> WebView:
+    def GetRawURI(self) -> str:
         """
-        Create() -> WebView
-        Create(parent, id, url=WebViewDefaultURLStr, pos=wx.DefaultPosition, size=wx.DefaultSize, style=0, name=WebViewNameStr) -> WebView
-        
-        Function to create a new wxWebView with two-step creation,
-        wxWebView::Create should be called on the returned object.
+        GetRawURI() -> str
         """
 
-    def IsAvailable(self) -> bool:
+    def GetURI(self) -> str:
         """
-        IsAvailable() -> bool
-        
-        Function to check if the backend is available at runtime.
+        GetURI() -> str
         """
 
-    def GetVersionInfo(self) -> wx.VersionInfo:
+    def GetData(self) -> wx.InputStream:
         """
-        GetVersionInfo() -> wx.VersionInfo
+        GetData() -> wx.InputStream
+        """
+
+    def GetMethod(self) -> str:
+        """
+        GetMethod() -> str
+        """
+
+    def GetHeader(self, name: str) -> str:
+        """
+        GetHeader(name) -> str
         
-        Retrieve the version information about this backend implementation.
+        Returns a header from the request or an empty string if the header
+        could not be found.
         """
     @property
-    def VersionInfo(self) -> wx.VersionInfo: ...
-# end of class WebViewFactory
+    def Data(self) -> wx.InputStream: ...
+    @property
+    def Method(self) -> str: ...
+    @property
+    def RawURI(self) -> str: ...
+    @property
+    def URI(self) -> str: ...
+# end of class WebViewHandlerRequest
+
+
+class WebViewHandlerResponse:
+    """
+    A class giving access to various webview response parameters.
+    """
+
+    def SetStatus(self, status: int) -> None:
+        """
+        SetStatus(status) -> None
+        
+        Sets the status code of the response.
+        """
+
+    def SetContentType(self, contentType: str) -> None:
+        """
+        SetContentType(contentType) -> None
+        
+        Sets the MIME type of the response.
+        """
+
+    def SetHeader(self, name: str, value: str) -> None:
+        """
+        SetHeader(name, value) -> None
+        
+        Sets a response header which will be sent to the web view.
+        """
+
+    def FinishWithError(self) -> None:
+        """
+        FinishWithError() -> None
+        
+        Finishes the request as an error.
+        """
+# end of class WebViewHandlerResponse
+
+
+class WebViewHandlerResponseData:
+    """
+    A class holding the response data.
+    """
+
+    def GetStream(self) -> wx.InputStream:
+        """
+        GetStream() -> wx.InputStream
+        """
+    @property
+    def Stream(self) -> wx.InputStream: ...
+# end of class WebViewHandlerResponseData
+
+
+class WebViewWindowFeatures:
+    """
+    A class describing the window information for a new child window.
+    """
+
+    def GetChildWebView(self) -> WebView:
+        """
+        GetChildWebView() -> WebView
+        
+        Get the child web view for the target window.
+        """
+
+    def GetPosition(self) -> wx.Point:
+        """
+        GetPosition() -> wx.Point
+        
+        Returns the position of the new window if specified by a window.open()
+        call.
+        """
+
+    def GetSize(self) -> wx.Size:
+        """
+        GetSize() -> wx.Size
+        
+        Returns the size of the new window if specified by a window.open()
+        call.
+        """
+
+    def ShouldDisplayMenuBar(self) -> bool:
+        """
+        ShouldDisplayMenuBar() -> bool
+        
+        Returns true if the target window is expected to display a menu bar as
+        specified by a window.open() call.
+        """
+
+    def ShouldDisplayStatusBar(self) -> bool:
+        """
+        ShouldDisplayStatusBar() -> bool
+        
+        Returns true if the target window is expected to display a status bar
+        as specified by a window.open() call.
+        """
+
+    def ShouldDisplayToolBar(self) -> bool:
+        """
+        ShouldDisplayToolBar() -> bool
+        
+        Returns true if the target window is expected to display a tool bar as
+        specified by a window.open() call.
+        """
+
+    def ShouldDisplayScrollBars(self) -> bool:
+        """
+        ShouldDisplayScrollBars() -> bool
+        
+        Returns true if the target window is expected to display scroll bars
+        as specified by a window.open() call.
+        """
+    @property
+    def ChildWebView(self) -> WebView: ...
+    @property
+    def Position(self) -> wx.Point: ...
+    @property
+    def Size(self) -> wx.Size: ...
+# end of class WebViewWindowFeatures
 
 USE_WEBVIEW: int
 

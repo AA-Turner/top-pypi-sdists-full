@@ -41,9 +41,26 @@ CHANGELOG_URL = "https://github.com/vivekchand/clawmetry/blob/main/CHANGELOG.md"
 
 def _env_auto_update_disabled():
     """Kill switch: ``CLAWMETRY_AUTO_UPDATE=0`` disables unattended upgrades
-    regardless of the stored config (fleet operators / CI / debugging)."""
+    regardless of the stored config (fleet operators / CI / debugging).
+
+    CI runners are implicitly disabled: an ephemeral runner must render the
+    code it was started with, never swap itself for the newest wheel mid-job.
+    The visual-diff harness proved why — whenever a [RELEASE] had just
+    published, the PR-branch dashboard (versioned one release behind) saw the
+    newer wheel on PyPI ~60s after boot, pip-updated, and exec-restarted in
+    the middle of the screenshot sweep; every subsequent page logged
+    ``base=200 head=0`` and the job failed. The failure rate tracked release
+    cadence, and the flywheel releases constantly (diagnosed 2026-07-29 after
+    three consecutive kills on #4181/#4182). ``CI`` is set by GitHub Actions,
+    GitLab, CircleCI, Travis, and Azure; explicit ``CLAWMETRY_AUTO_UPDATE=1``
+    re-arms it for anyone who genuinely wants in-CI self-update."""
     val = os.environ.get("CLAWMETRY_AUTO_UPDATE", "").strip().lower()
-    return val in ("0", "false", "no", "off")
+    if val in ("1", "true", "yes", "on"):
+        return False
+    if val in ("0", "false", "no", "off"):
+        return True
+    ci = os.environ.get("CI", "").strip().lower()
+    return ci not in ("", "0", "false")
 
 
 def _daemon_supervised():
@@ -114,27 +131,41 @@ def _restart_plan(role: str, platform: str, supervised: bool) -> str:
 def _respawn_cmdline() -> list:
     """The exact command line to relaunch THIS process. Console-script
     installs relaunch via the (freshly pip-rewritten) launcher exe; module
-    runs relaunch via the interpreter + argv."""
+    runs relaunch via the interpreter + argv.
+
+    Windows console-script quirk (live-hit on the FIRST otherwise-successful
+    unattended update, 2026-07-28): inside a process launched via
+    ``Scripts/clawmetry.exe``, ``sys.argv[0]`` is the EXTENSIONLESS
+    ``...\\Scripts\\clawmetry`` — no ``.exe`` suffix — so the suffix check
+    alone missed it, the fallback built ``python ...\\Scripts\\clawmetry``
+    (a file that does not exist on Windows), and the relaunch died with
+    Errno 2 after a perfect install. Probe ``argv0 + '.exe'`` too.
+    """
     argv0 = sys.argv[0] or ""
     if argv0.lower().endswith(".exe") and os.path.exists(argv0):
         return [argv0] + sys.argv[1:]
+    if os.name == "nt" and argv0 and os.path.exists(argv0 + ".exe"):
+        return [argv0 + ".exe"] + sys.argv[1:]
     return [sys.executable] + sys.argv
 
 
 def _schedule_windows_respawn(delay_secs: float = 5.0) -> None:
-    """Windows self-restart: spawn a tiny detached helper that waits for this
-    process to exit (freeing the port), relaunches the exact command line
-    detached, then exit this process.
+    """Windows self-update: hand everything to the OUT-OF-PROCESS helper.
 
-    Windows has no launchd/systemd to respawn us and ``os.execv`` there does
-    not replace the process (it forks a sibling and returns the console to
-    the shell), so the only reliable way onto the new wheel is a delayed
-    detached relaunch. Console-script installs relaunch via the (freshly
-    pip-rewritten) ``clawmetry.exe``; module runs relaunch via
-    ``sys.executable`` + argv. The relaunched process is detached from the
-    original console, so its output goes to ``~/.clawmetry/restart.log``
-    rather than the (possibly long-gone) terminal.
+    In-process pip cannot work on Windows while ANY process runs
+    ``Scripts/clawmetry.exe``: pip's overwrite hits WinError 32, and —
+    measured live on a Windows 10 box (2026-07-28) — even RENAMING the
+    running launcher is denied, so the pre-rename trick in
+    ``perform_self_update`` silently no-ops and every install attempt
+    fails into backoff. The reliable order is inverted:
+    exit first, THEN install. ``clawmetry.update_respawn`` (spawned
+    detached, running the old wheel's copy) waits for this pid to
+    terminate, runs pip, and relaunches the exact command line either
+    way. Output: ``~/.clawmetry/restart.log``.
+
+    ``delay_secs`` retained for signature compatibility (unused).
     """
+    del delay_secs
     if os.environ.get("PYTEST_CURRENT_TEST"):
         log.info("auto-update: windows respawn suppressed under pytest")
         return
@@ -149,21 +180,16 @@ def _schedule_windows_respawn(delay_secs: float = 5.0) -> None:
             except Exception:
                 pass
             log_path = os.path.join(log_dir, "restart.log")
-            helper_src = (
-                "import subprocess,sys,time\n"
-                "time.sleep(float(sys.argv[1]))\n"
-                "out=open(sys.argv[2],'ab',buffering=0)\n"
-                "subprocess.Popen(sys.argv[3:],creationflags=0x208,"
-                "close_fds=True,stdin=subprocess.DEVNULL,stdout=out,stderr=out)\n"
-            )
+            target = _pending_update_target.get("version") or "latest"
             subprocess.Popen(
-                [sys.executable, "-c", helper_src, str(delay_secs), log_path] + cmd,
+                [sys.executable, "-m", "clawmetry.update_respawn",
+                 str(os.getpid()), str(target), log_path] + cmd,
                 creationflags=flags, close_fds=True,
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
-            log.info("auto-update: windows respawn armed (delay=%.0fs) cmd=%s",
-                     delay_secs, cmd)
+            log.info("auto-update: windows out-of-process updater armed "
+                     "(target=%s) cmd=%s", target, cmd)
             os._exit(0)
         except Exception as exc:
             global _auto_update_in_progress
@@ -173,6 +199,35 @@ def _schedule_windows_respawn(delay_secs: float = 5.0) -> None:
     t = threading.Timer(2.0, _respawn)
     t.daemon = True
     t.start()
+
+
+# Target the Windows helper should install, stashed by _maybe_auto_update
+# right before it schedules the respawn (the helper runs pip AFTER this
+# process exits, so it cannot read process state).
+_pending_update_target: dict = {}
+
+
+def _record_update_attempt(target, outcome: str, detail: str = "") -> None:
+    """Persist the last auto-update attempt where a human can find it.
+
+    Both prior Windows failures were INVISIBLE: the dashboard's logger has
+    no stdout handler, so 'upgrade failed' warnings went nowhere and the
+    node just sat in backoff while /api/update-check/status said everything
+    was fine (founder: "are you doing end to end test at all??",
+    2026-07-28). The attempt row rides the same config table the status
+    endpoint already reads, so /api/update-check/status and `clawmetry
+    status` can answer "why is this node not updating" directly. Never
+    raises.
+    """
+    try:
+        _set_update_check_config({
+            "last_attempt_target": str(target),
+            "last_attempt_outcome": str(outcome),
+            "last_attempt_detail": str(detail)[-500:],
+            "last_attempt_at": str(time.time()),
+        })
+    except Exception as exc:
+        log.debug("update-attempt record failed: %s", exc)
 
 
 # Cross-process guard: on a standard install BOTH the daemon and the dashboard
@@ -630,7 +685,7 @@ def _maybe_auto_update(current, target, latest=None):
     if _auto_update_in_progress:
         return
     if _env_auto_update_disabled():
-        log.info("auto-update: disabled via CLAWMETRY_AUTO_UPDATE env")
+        log.info("auto-update: disabled (CLAWMETRY_AUTO_UPDATE=0 or CI env)")
         return
     cfg = _get_update_check_config()
     if not cfg.get("auto_update"):
@@ -667,6 +722,28 @@ def _maybe_auto_update(current, target, latest=None):
     log.info("auto-update: upgrading clawmetry v%s -> v%s (latest available v%s, "
              "role=%s, plan=%s)",
              current, target, latest or target, _process_role, plan)
+    _record_update_attempt(target, "started", f"role={_process_role} plan={plan}")
+    if plan == "respawn":
+        # Windows: NO in-process pip. While any process runs Scripts/
+        # clawmetry.exe, pip's overwrite fails with WinError 32 and even
+        # renaming the running launcher is denied (measured live 2026-07-28;
+        # the pre-rename in perform_self_update silently no-ops there, which
+        # is why every prior Windows auto-update failed straight into a
+        # 30-minute backoff, invisibly). The out-of-process helper
+        # (clawmetry.update_respawn) installs AFTER this process exits and
+        # relaunches it either way.
+        _pending_update_target["version"] = str(target)
+        _record_update_attempt(target, "handoff",
+                               "out-of-process helper armed; process exits")
+        # The lock is NOT released here: it rides through the handoff and the
+        # HELPER deletes it when its pip run finishes. Releasing before the
+        # handoff let the daemon's and dashboard's helpers pip CONCURRENTLY
+        # (live-hit on the 0.12.580 run, 2026-07-28: one helper's uninstall
+        # raced the other's install, WinError 32 + a metadata-bricked
+        # site-packages with ~lawmetry corpses). The 15-minute staleness
+        # window still breaks the lock if a helper dies before cleanup.
+        _schedule_windows_respawn()
+        return
     try:
         from routes.meta import perform_self_update
         payload, _status = perform_self_update(
@@ -676,6 +753,7 @@ def _maybe_auto_update(current, target, latest=None):
             _backoff = _retry_backoff_for_error(_err)
             log.warning("auto-update: upgrade failed, will retry in %.0fs: %s",
                         _backoff, payload)
+            _record_update_attempt(target, "failed", _err[-400:])
             _failed_update_attempts[str(target)] = time.monotonic() + _backoff
             if len(_failed_update_attempts) > 64:
                 _failed_update_attempts.pop(
@@ -686,11 +764,10 @@ def _maybe_auto_update(current, target, latest=None):
             _release_update_lock()
             return
         _failed_update_attempts.pop(str(target), None)
+        _record_update_attempt(target, "installed", f"plan={plan}")
         _release_update_lock()
         if plan == "exec":
             _schedule_exec_restart()
-        elif plan == "respawn":
-            _schedule_windows_respawn()
         elif plan == "defer":
             log.info("auto-update: installed v%s; restart deferred "
                      "(CLAWMETRY_NO_EXEC_RESTART set)", target)
@@ -829,10 +906,28 @@ def api_update_check_status():
     config = _get_update_check_config()
     latest = _get_latest_update_check()
 
+    # Last auto-update ATTEMPT (started/handoff/installed/failed + detail).
+    # Read straight from the config table: these keys are written by
+    # _record_update_attempt and are exactly the "why is this node not
+    # updating" answer that used to be invisible.
+    attempt = {}
+    try:
+        with _get_fleet_db_lock():
+            db = _get_fleet_db()
+            rows = db.execute(
+                "SELECT key, value FROM update_check_config "
+                "WHERE key LIKE 'last_attempt_%'"
+            ).fetchall()
+            db.close()
+        attempt = {r["key"]: r["value"] for r in rows}
+    except Exception:
+        attempt = {}
+
     result = {
         "config": config,
         "latest_check": latest,
         "show_banner": _should_show_update_banner(config, latest),
+        "last_attempt": attempt,
         "updater": {
             "role": _process_role,
             "check_interval_secs": (

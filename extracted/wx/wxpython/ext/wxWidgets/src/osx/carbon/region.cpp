@@ -110,18 +110,18 @@ wxRegion::wxRegion(const wxRect& rect)
 #if OSX_USE_SCANLINES
 
 /*
- 
+
  Copyright 1987, 1998  The Open Group
- 
+
  Permission to use, copy, modify, distribute, and sell this software and its
  documentation for any purpose is hereby granted without fee, provided that
  the above copyright notice appear in all copies and that both that
  copyright notice and this permission notice appear in supporting
  documentation.
- 
+
  The above copyright notice and this permission notice shall be included
  in all copies or substantial portions of the Software.
- 
+
  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
  OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
@@ -129,12 +129,12 @@ wxRegion::wxRegion(const wxRect& rect)
  OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  OTHER DEALINGS IN THE SOFTWARE.
- 
+
  Except as contained in this notice, the name of The Open Group shall
  not be used in advertising or otherwise to promote the sale, use or
  other dealings in this Software without prior written authorization
  from The Open Group.
- 
+
  */
 
 /* miscanfill.h */
@@ -457,7 +457,7 @@ miInsertEdgeInET(EdgeTable *ET, EdgeTableEntry *ETE,  int scanline,
     EdgeTableEntry *start, *prev;
     ScanLineList *pSLL, *pPrevSLL;
     ScanLineListBlock *tmpSLLBlock;
-    
+
     /*
      * find the right bucket to put the edge into
      */
@@ -468,7 +468,7 @@ miInsertEdgeInET(EdgeTable *ET, EdgeTableEntry *ETE,  int scanline,
         pPrevSLL = pSLL;
         pSLL = pSLL->next;
     }
-    
+
     /*
      * reassign pSLL (pointer to ScanLineList) if necessary
      */
@@ -481,22 +481,22 @@ miInsertEdgeInET(EdgeTable *ET, EdgeTableEntry *ETE,  int scanline,
             if (!tmpSLLBlock)
                 return FALSE;
             (*SLLBlock)->next = tmpSLLBlock;
-            tmpSLLBlock->next = (ScanLineListBlock *)NULL;
+            tmpSLLBlock->next = (ScanLineListBlock *)nullptr;
             *SLLBlock = tmpSLLBlock;
             *iSLLBlock = 0;
         }
         pSLL = &((*SLLBlock)->SLLs[(*iSLLBlock)++]);
-        
+
         pSLL->next = pPrevSLL->next;
-        pSLL->edgelist = (EdgeTableEntry *)NULL;
+        pSLL->edgelist = (EdgeTableEntry *)nullptr;
         pPrevSLL->next = pSLL;
     }
     pSLL->scanline = scanline;
-    
+
     /*
      * now insert the edge in the right bucket
      */
-    prev = (EdgeTableEntry *)NULL;
+    prev = (EdgeTableEntry *)nullptr;
     start = pSLL->edgelist;
     while (start && (start->bres.minor < ETE->bres.minor))
     {
@@ -504,7 +504,7 @@ miInsertEdgeInET(EdgeTable *ET, EdgeTableEntry *ETE,  int scanline,
         start = start->next;
     }
     ETE->next = start;
-    
+
     if (prev)
         prev->next = ETE;
     else
@@ -544,29 +544,29 @@ miCreateETandAET(int count, const wxPoint * pts, EdgeTable *ET, EdgeTableEntry *
     const wxPoint* top, *bottom;
     const wxPoint* PrevPt, *CurrPt;
     int iSLLBlock = 0;
-    
+
     int dy;
-    
+
     if (count < 2)  return TRUE;
-    
+
     /*
      *  initialize the Active Edge Table
      */
-    AET->next = (EdgeTableEntry *)NULL;
-    AET->back = (EdgeTableEntry *)NULL;
-    AET->nextWETE = (EdgeTableEntry *)NULL;
+    AET->next = (EdgeTableEntry *)nullptr;
+    AET->back = (EdgeTableEntry *)nullptr;
+    AET->nextWETE = (EdgeTableEntry *)nullptr;
     AET->bres.minor = INT_MIN;
-    
+
     /*
      *  initialize the Edge Table.
      */
-    ET->scanlines.next = (ScanLineList *)NULL;
+    ET->scanlines.next = (ScanLineList *)nullptr;
     ET->ymax = INT_MIN;
     ET->ymin = INT_MAX;
-    pSLLBlock->next = (ScanLineListBlock *)NULL;
-    
+    pSLLBlock->next = (ScanLineListBlock *)nullptr;
+
     PrevPt = &pts[count-1];
-    
+
     /*
      *  for each vertex in the array of points.
      *  In this loop we are dealing with two vertices at
@@ -575,45 +575,45 @@ miCreateETandAET(int count, const wxPoint * pts, EdgeTable *ET, EdgeTableEntry *
     while (count--)
     {
         CurrPt = pts++;
-        
+
         /*
          *  find out which point is above and which is below.
          */
         if (PrevPt->y > CurrPt->y)
         {
-            bottom = PrevPt, top = CurrPt;
+            bottom = PrevPt; top = CurrPt;
             pETEs->ClockWise = 0;
         }
         else
         {
-            bottom = CurrPt, top = PrevPt;
+            bottom = CurrPt; top = PrevPt;
             pETEs->ClockWise = 1;
         }
-        
+
         /*
          * don't add horizontal edges to the Edge table.
          */
         if (bottom->y != top->y)
         {
             pETEs->ymax = bottom->y-1;  /* -1 so we don't get last scanline */
-            
+
             /*
              *  initialize integer edge algorithm
              */
             dy = bottom->y - top->y;
             BRESINITPGONSTRUCT(dy, top->x, bottom->x, pETEs->bres);
-            
+
             if (!miInsertEdgeInET(ET, pETEs, top->y, &pSLLBlock, &iSLLBlock))
             {
                 miFreeStorage(pSLLBlock->next);
                 return FALSE;
             }
-            
+
             ET->ymax = wxMax(ET->ymax, PrevPt->y);
             ET->ymin = wxMin(ET->ymin, PrevPt->y);
             pETEs++;
         }
-        
+
         PrevPt = CurrPt;
     }
     return TRUE;
@@ -633,7 +633,7 @@ miloadAET(EdgeTableEntry *AET, EdgeTableEntry *ETEs)
 {
     EdgeTableEntry *pPrevAET;
     EdgeTableEntry *tmp;
-    
+
     pPrevAET = AET;
     AET = AET->next;
     while (ETEs)
@@ -650,7 +650,7 @@ miloadAET(EdgeTableEntry *AET, EdgeTableEntry *ETEs)
         ETEs->back = pPrevAET;
         pPrevAET->next = ETEs;
         pPrevAET = ETEs;
-        
+
         ETEs = tmp;
     }
 }
@@ -681,8 +681,8 @@ micomputeWAET(EdgeTableEntry *AET)
     EdgeTableEntry *pWETE;
     int inside = 1;
     int isInside = 0;
-    
-    AET->nextWETE = (EdgeTableEntry *)NULL;
+
+    AET->nextWETE = (EdgeTableEntry *)nullptr;
     pWETE = AET;
     AET = AET->next;
     while (AET)
@@ -691,7 +691,7 @@ micomputeWAET(EdgeTableEntry *AET)
             isInside++;
         else
             isInside--;
-        
+
         if ((!inside && !isInside) ||
             ( inside &&  isInside))
         {
@@ -701,7 +701,7 @@ micomputeWAET(EdgeTableEntry *AET)
         }
         AET = AET->next;
     }
-    pWETE->nextWETE = (EdgeTableEntry *)NULL;
+    pWETE->nextWETE = (EdgeTableEntry *)nullptr;
 }
 
 /*
@@ -720,7 +720,7 @@ miInsertionSort(EdgeTableEntry *AET)
     EdgeTableEntry *pETEinsert;
     EdgeTableEntry *pETEchaseBackTMP;
     int changed = 0;
-    
+
     AET = AET->next;
     while (AET)
     {
@@ -728,7 +728,7 @@ miInsertionSort(EdgeTableEntry *AET)
         pETEchase = AET;
         while (pETEchase->back->bres.minor > AET->bres.minor)
             pETEchase = pETEchase->back;
-        
+
         AET = AET->next;
         if (pETEchase != pETEinsert)
         {
@@ -753,8 +753,8 @@ static void
 miFreeStorage(ScanLineListBlock *pSLLBlock)
 {
     ScanLineListBlock   *tmpSLLBlock;
-    
-    while (pSLLBlock) 
+
+    while (pSLLBlock)
     {
         tmpSLLBlock = pSLLBlock->next;
         free(pSLLBlock);
@@ -786,10 +786,10 @@ scanFillGeneralPoly( wxRegion* rgn,
     EdgeTableEntry *pETEs;          /* Edge Table Entries buff */
     ScanLineListBlock SLLBlock;     /* header for ScanLineList */
     int fixWAET = 0;
-    
+
     if (count < 3)
         return(TRUE);
-    
+
     if(!(pETEs = (EdgeTableEntry *)
          malloc(sizeof(EdgeTableEntry) * count)))
         return(FALSE);
@@ -801,7 +801,7 @@ scanFillGeneralPoly( wxRegion* rgn,
         return(FALSE);
     }
     pSLL = ET.scanlines.next;
-    
+
     if (fillStyle == wxODDEVEN_RULE)
     {
         /*
@@ -820,7 +820,7 @@ scanFillGeneralPoly( wxRegion* rgn,
             }
             pPrevAET = &AET;
             pAET = AET.next;
-            
+
             /*
              *  for each active edge
              */
@@ -830,7 +830,7 @@ scanFillGeneralPoly( wxRegion* rgn,
                 ptsOut++->y = y;
                 *width++ = pAET->next->bres.minor - pAET->bres.minor;
                 nPts++;
-                
+
                 /*
                  *  send out the buffer when its full
                  */
@@ -838,7 +838,7 @@ scanFillGeneralPoly( wxRegion* rgn,
                 {
                     // (*pgc->ops->FillSpans)(dst, pgc,
                     //     nPts, FirstPoint, FirstWidth,1);
-                    
+
                     for ( int i = 0 ; i < nPts; ++i)
                     {
                         wxRect rect;
@@ -878,7 +878,7 @@ scanFillGeneralPoly( wxRegion* rgn,
             pPrevAET = &AET;
             pAET = AET.next;
             pWETE = pAET;
-            
+
             /*
              *  for each active edge
              */
@@ -895,7 +895,7 @@ scanFillGeneralPoly( wxRegion* rgn,
                     ptsOut++->y = y;
                     *width++ = pAET->nextWETE->bres.minor - pAET->bres.minor;
                     nPts++;
-                    
+
                     /*
                      *  send out the buffer
                      */
@@ -916,7 +916,7 @@ scanFillGeneralPoly( wxRegion* rgn,
                         width  = FirstWidth;
                         nPts = 0;
                     }
-                    
+
                     pWETE = pWETE->nextWETE;
                     while (pWETE != pAET)
                         EVALUATEEDGEWINDING(pAET, pPrevAET, y, fixWAET);
@@ -924,7 +924,7 @@ scanFillGeneralPoly( wxRegion* rgn,
                 }
                 EVALUATEEDGEWINDING(pAET, pPrevAET, y, fixWAET);
             }
-            
+
             /*
              *  reevaluate the Winding active edge table if we
              *  just had to resort it or if we just exited an edge.
@@ -936,7 +936,7 @@ scanFillGeneralPoly( wxRegion* rgn,
             }
         }
     }
-    
+
     /*
      *     Get any spans that we missed by buffering
      */
@@ -961,41 +961,41 @@ scanFillGeneralPoly( wxRegion* rgn,
 
 wxRegion::wxRegion(size_t n, const wxPoint *points, wxPolygonFillMode fillStyle)
 {
-    // Set the region to a polygon shape generically using a bitmap with the 
-    // polygon drawn on it. 
- 
-    m_refData = new wxRegionRefData(); 
-    
+    // Set the region to a polygon shape generically using a bitmap with the
+    // polygon drawn on it.
+
+    m_refData = new wxRegionRefData();
+
 #if OSX_USE_SCANLINES
     scanFillGeneralPoly(this,n,points,fillStyle);
 #else
-    wxCoord mx = 0; 
-    wxCoord my = 0; 
-    wxPoint p; 
-    size_t idx;     
-     
-    // Find the max size needed to draw the polygon 
-    for (idx=0; idx<n; idx++) 
-    { 
-        wxPoint pt = points[idx]; 
-        if (pt.x > mx) 
-            mx = pt.x; 
-        if (pt.y > my) 
-            my = pt.y; 
-    } 
- 
-    // Make the bitmap 
-    wxBitmap bmp(mx, my); 
-    wxMemoryDC dc(bmp); 
-    dc.SetBackground(*wxBLACK_BRUSH); 
-    dc.Clear(); 
-    dc.SetPen(*wxWHITE_PEN); 
-    dc.SetBrush(*wxWHITE_BRUSH); 
-    dc.DrawPolygon(n, (wxPoint*)points, 0, 0, fillStyle); 
-    dc.SelectObject(wxNullBitmap); 
-    bmp.SetMask(new wxMask(bmp, *wxBLACK)); 
- 
-    // Use it to set this region 
+    wxCoord mx = 0;
+    wxCoord my = 0;
+    wxPoint p;
+    size_t idx;
+
+    // Find the max size needed to draw the polygon
+    for (idx=0; idx<n; idx++)
+    {
+        wxPoint pt = points[idx];
+        if (pt.x > mx)
+            mx = pt.x;
+        if (pt.y > my)
+            my = pt.y;
+    }
+
+    // Make the bitmap
+    wxBitmap bmp(mx, my);
+    wxMemoryDC dc(bmp);
+    dc.SetBackground(*wxBLACK_BRUSH);
+    dc.Clear();
+    dc.SetPen(*wxWHITE_PEN);
+    dc.SetBrush(*wxWHITE_BRUSH);
+    dc.DrawPolygon(n, (wxPoint*)points, 0, 0, fillStyle);
+    dc.SelectObject(wxNullBitmap);
+    bmp.SetMask(new wxMask(bmp, *wxBLACK));
+
+    // Use it to set this region
     Union(bmp);
 #endif
 }
@@ -1048,12 +1048,12 @@ bool wxRegion::DoUnionWithRect(const wxRect& rect)
         m_refData = new wxRegionRefData(rect.x , rect.y , rect.width , rect.height);
         return true;
     }
-    
+
     AllocExclusive();
-    
+
     CGRect r = CGRectMake(rect.x , rect.y , rect.width , rect.height);
     HIShapeUnionWithRect(M_REGION , &r);
-    
+
     return true;
 }
 
@@ -1175,7 +1175,7 @@ bool wxRegion::IsEmpty() const
 WXHRGN wxRegion::GetWXHRGN() const
 {
     if ( !m_refData )
-        return NULL;
+        return nullptr;
 
     return M_REGION ;
 }
@@ -1227,7 +1227,7 @@ wxRegionContain wxRegion::DoContainsRect(const wxRect& r) const
  * Initialize empty iterator
  */
 wxRegionIterator::wxRegionIterator()
-    : m_current(0), m_numRects(0), m_rects(NULL)
+    : m_current(0), m_numRects(0), m_rects(nullptr)
 {
 }
 
@@ -1240,7 +1240,7 @@ wxRegionIterator::wxRegionIterator(const wxRegionIterator& iterator)
     : wxObject()
     , m_current(iterator.m_current)
     , m_numRects(0)
-    , m_rects(NULL)
+    , m_rects(nullptr)
 {
     SetRects(iterator.m_numRects, iterator.m_rects);
 }
@@ -1277,7 +1277,7 @@ void wxRegionIterator::SetRects(long numRects, wxRect *rects)
  */
 wxRegionIterator::wxRegionIterator(const wxRegion& region)
 {
-    m_rects = NULL;
+    m_rects = nullptr;
 
     Reset(region);
 }

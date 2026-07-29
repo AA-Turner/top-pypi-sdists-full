@@ -27,8 +27,13 @@ from transformers import (
 )
 
 from peft import LoraConfig, PeftModel, VeraConfig, get_peft_model
-from peft.import_utils import is_transformers_ge_v5_1_0
-from peft.utils.other import ModulesToSaveWrapper, _get_module_names_tied_with_embedding, _get_no_split_modules
+from peft.import_utils import is_transformers_ge_v5_1_0, is_transformers_ge_v5_6_0
+from peft.utils.other import (
+    ModulesToSaveWrapper,
+    _get_module_names_tied_with_embedding,
+    _get_no_split_modules,
+    prepare_model_for_kbit_training,
+)
 
 from .testing_utils import hub_online_once
 
@@ -272,6 +277,57 @@ class TestModulesToSaveAttributeAccess:
         model.base_model.model.lin1._active_adapter = "does-not-exist"
         with pytest.raises(AttributeError, match="has no attribute 'weight'"):
             model.lin1.weight
+
+
+class TestModulesToSaveKwargsOnlyForward:
+    """Regression test for #3191: modules listed in `modules_to_save` whose parent calls them with keyword arguments
+    only (e.g. Gemma's `vision_tower(pixel_values=...)`) used to crash with `TypeError: forward() missing 1 required
+    positional argument: 'x'` because the wrapper required a positional first arg. The wrapper now forwards `*args,
+    **kwargs` as-is.
+    """
+
+    @pytest.fixture
+    def model(self):
+        class KwargsOnly(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.lin = nn.Linear(8, 8)
+
+            def forward(self, *, pixel_values):
+                return self.lin(pixel_values)
+
+        class Outer(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.trunk = nn.Linear(8, 8)
+                self.vision = KwargsOnly()
+
+            def forward(self, x):
+                return self.vision(pixel_values=self.trunk(x))
+
+        return Outer()
+
+    def test_kwargs_only_forward_active_adapter(self, model):
+        config = LoraConfig(target_modules=["trunk"], modules_to_save=["vision"])
+        peft_model = get_peft_model(model, config)
+        # would previously raise TypeError about missing positional 'x'
+        out = peft_model(torch.randn(2, 8))
+        assert out.shape == (2, 8)
+
+    def test_kwargs_only_forward_disabled_adapter(self, model):
+        config = LoraConfig(target_modules=["trunk"], modules_to_save=["vision"])
+        peft_model = get_peft_model(model, config)
+        with peft_model.disable_adapter():
+            out = peft_model(torch.randn(2, 8))
+        assert out.shape == (2, 8)
+
+    def test_kwargs_only_forward_multi_adapter(self, model):
+        config = LoraConfig(target_modules=["trunk"], modules_to_save=["vision"])
+        peft_model = get_peft_model(model, config)
+        peft_model.add_adapter("other", config)
+        peft_model.set_adapter("other")
+        out = peft_model(torch.randn(2, 8))
+        assert out.shape == (2, 8)
 
 
 class TestModulesToSaveNameSubstringBug:
@@ -545,11 +601,30 @@ class TestGetNoSplitModules:
         if not is_transformers_ge_v5_1_0:
             # sanity check: just visiting the model itself is not enough:
             assert model._no_split_modules == []
-        else:
+            no_split_modules = _get_no_split_modules(model)
+            assert no_split_modules == {"CLIPEncoderLayer", "LlamaDecoderLayer"}
+        elif not is_transformers_ge_v5_6_0:
+            # TODO remove this once transformers <5.6.0 is not supported anymore
             assert model._no_split_modules == {"CLIPEncoderLayer", "LlamaDecoderLayer"}
-
-        no_split_modules = _get_no_split_modules(model)
-        assert no_split_modules == {"CLIPEncoderLayer", "LlamaDecoderLayer"}
+            no_split_modules = _get_no_split_modules(model)
+            assert no_split_modules == {"CLIPEncoderLayer", "LlamaDecoderLayer"}
+        else:
+            # in transformers > 5.5.0, the structure of the model was changed, see
+            # https://github.com/huggingface/transformers/pull/45361
+            # https://github.com/huggingface/transformers/pull/45448
+            assert model._no_split_modules == {
+                "CLIPEncoderLayer",
+                "CLIPTextEmbeddings",
+                "CLIPVisionEmbeddings",
+                "LlamaDecoderLayer",
+            }
+            no_split_modules = _get_no_split_modules(model)
+            assert no_split_modules == {
+                "CLIPEncoderLayer",
+                "CLIPTextEmbeddings",
+                "CLIPVisionEmbeddings",
+                "LlamaDecoderLayer",
+            }
 
 
 class TestGetModuleNamesTiedWithEmbedding:
@@ -634,11 +709,60 @@ class TestGetModuleNamesTiedWithEmbedding:
 
             assert expected == modules
 
+    @pytest.mark.parametrize("tied_weights_type", ["list", "mapping"])
+    @pytest.mark.parametrize("model_id", model_ids)
+    def test_get_modules_tied_returns_empty_when_tying_disabled(self, model_id, tied_weights_type):
+        # When tie_word_embeddings=False, no tied modules should be reported even if _tied_weights_keys exists
+        # Linked to origin issue #2944
+        with self.patch_model(model_id, tied_weights_type) as (model, _):
+            # Model has _tied_weights_keys (architectural capability) but tying is disabled
+            model.config.tie_word_embeddings = False
 
-# TODO for PEFT 0.20 remove this
-class TestLoftQDeprecation:
-    def test_nfquantizer_deprecation(self):
-        from peft.utils.loftq_utils import NFQuantizer
+            modules = _get_module_names_tied_with_embedding(model)
+            assert modules == []
 
-        with pytest.warns(match="NFQuantizer is deprecated") as record:
-            _ = NFQuantizer(device="cpu")
+
+class TestPrepareModelForKbitTraining:
+    """CPU tests for prepare_model_for_kbit_training.
+
+    GPU tests for this function (issue #3265 memory fix) live in test_common_gpu.py.
+    """
+
+    @pytest.fixture
+    def fp16_model(self):
+        model = nn.Sequential(
+            nn.Linear(64, 64),
+            nn.Linear(64, 64),
+            nn.Linear(64, 32),
+        ).to(torch.float16)
+        model.is_loaded_in_8bit = True
+        return model
+
+    def test_fp32_cast(self, fp16_model):
+        # all non-Params4bit fp16/bf16 params become fp32 after the call
+        for param in fp16_model.parameters():
+            assert param.dtype == torch.float16
+
+        prepare_model_for_kbit_training(fp16_model, use_gradient_checkpointing=False)
+
+        for param in fp16_model.parameters():
+            if param.__class__.__name__ != "Params4bit":
+                assert param.dtype == torch.float32
+
+    def test_auto_clear_cache_default(self, fp16_model):
+        # auto_clear_cache=True (default): empty_cache() is called after the fp32 casts
+        with (
+            patch("torch.cuda.is_available", return_value=True),
+            patch("torch.cuda.empty_cache") as mock_empty_cache,
+        ):
+            prepare_model_for_kbit_training(fp16_model, use_gradient_checkpointing=False)
+        mock_empty_cache.assert_called_once()
+
+    def test_auto_clear_cache_disabled(self, fp16_model):
+        # auto_clear_cache=False: empty_cache() is never called
+        with (
+            patch("torch.cuda.is_available", return_value=True),
+            patch("torch.cuda.empty_cache") as mock_empty_cache,
+        ):
+            prepare_model_for_kbit_training(fp16_model, use_gradient_checkpointing=False, auto_clear_cache=False)
+        mock_empty_cache.assert_not_called()

@@ -15,20 +15,21 @@
         #include <wx/gdicmn.h>
         #include <wx/toolbar.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/validate.h>
         #include <wx/html/helpctrl.h>
         #include <wx/config.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -44,6 +45,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
+    wxAccessible* _wxHtmlHelpWindow_CreateAccessible(wxHtmlHelpWindow* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxHtmlHelpWindow : public ::wxHtmlHelpWindow
@@ -71,7 +81,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -121,7 +130,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -134,7 +142,7 @@ private:
     sipwxHtmlHelpWindow(const sipwxHtmlHelpWindow &);
     sipwxHtmlHelpWindow &operator = (const sipwxHtmlHelpWindow &);
 
-    char sipPyMethods[39];
+    char sipPyMethods[38];
 };
 
 sipwxHtmlHelpWindow::sipwxHtmlHelpWindow(::wxHtmlHelpData*data): ::wxHtmlHelpWindow(data), sipPySelf(SIP_NULLPTR)
@@ -713,27 +721,12 @@ void sipwxHtmlHelpWindow::DoSetWindowVariant(::wxWindowVariant variant)
     return sipVH__html_46(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxHtmlHelpWindow::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxHtmlHelpWindow::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__html_46(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__html_46(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 void sipwxHtmlHelpWindow::DoFreeze()
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -751,7 +744,7 @@ void sipwxHtmlHelpWindow::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -769,7 +762,7 @@ void sipwxHtmlHelpWindow::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxHtmlHelpWindow::DoGetBestSize();
@@ -784,7 +777,7 @@ void sipwxHtmlHelpWindow::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxHtmlHelpWindow::DoGetBestClientSize();
@@ -862,11 +855,6 @@ void sipwxHtmlHelpWindow::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, 
 ::wxBorder sipwxHtmlHelpWindow::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxHtmlHelpWindow::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxHtmlHelpWindow::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxHtmlHelpWindow::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxHtmlHelpWindow::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -2669,40 +2657,6 @@ static PyObject *meth_wxHtmlHelpWindow_GetDefaultBorder(PyObject *sipSelf, PyObj
 }
 
 
-PyDoc_STRVAR(doc_wxHtmlHelpWindow_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxHtmlHelpWindow_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxHtmlHelpWindow_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxHtmlHelpWindow *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxHtmlHelpWindow, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_HtmlHelpWindow, sipName_GetDefaultBorderForControl, doc_wxHtmlHelpWindow_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxHtmlHelpWindow_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxHtmlHelpWindow_DoFreeze(PyObject *, PyObject *);}
@@ -2876,6 +2830,39 @@ static PyObject *meth_wxHtmlHelpWindow_TryAfter(PyObject *sipSelf, PyObject *sip
     }
 
     sipNoMethod(sipParseErr, sipName_HtmlHelpWindow, sipName_TryAfter, doc_wxHtmlHelpWindow_TryAfter);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxHtmlHelpWindow_CreateAccessible, "CreateAccessible() -> wx.Accessible");
+
+extern "C" {static PyObject *meth_wxHtmlHelpWindow_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxHtmlHelpWindow_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxHtmlHelpWindow *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxHtmlHelpWindow, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxHtmlHelpWindow_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_HtmlHelpWindow, sipName_CreateAccessible, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -3128,7 +3115,7 @@ static void *init_type_wxHtmlHelpWindow(sipSimpleWrapper *sipSelf, PyObject *sip
     sipwxHtmlHelpWindow *sipCpp = SIP_NULLPTR;
 
     {
-        ::wxHtmlHelpData* data = 0;
+        ::wxHtmlHelpData* data = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_data,
@@ -3167,7 +3154,7 @@ static void *init_type_wxHtmlHelpWindow(sipSimpleWrapper *sipSelf, PyObject *sip
         int sizeState = 0;
         int style = wxTAB_TRAVERSAL|wxBORDER_NONE;
         int helpStyle = wxHF_DEFAULT_STYLE;
-        ::wxHtmlHelpData* data = 0;
+        ::wxHtmlHelpData* data = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_parent,
@@ -3208,7 +3195,7 @@ static void *init_type_wxHtmlHelpWindow(sipSimpleWrapper *sipSelf, PyObject *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxHtmlHelpWindow[] = {{47, 0, 1}};
+static sipEncodedTypeDef supers_wxHtmlHelpWindow[] = {{48, 0, 1}};
 
 
 static PyMethodDef methods_wxHtmlHelpWindow[] = {
@@ -3218,6 +3205,7 @@ static PyMethodDef methods_wxHtmlHelpWindow[] = {
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxHtmlHelpWindow_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxHtmlHelpWindow_AddChild},
     {sipName_AddToolbarButtons, SIP_MLMETH_CAST(meth_wxHtmlHelpWindow_AddToolbarButtons), METH_VARARGS|METH_KEYWORDS, doc_wxHtmlHelpWindow_AddToolbarButtons},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxHtmlHelpWindow_Create), METH_VARARGS|METH_KEYWORDS, doc_wxHtmlHelpWindow_Create},
+    {sipName_CreateAccessible, meth_wxHtmlHelpWindow_CreateAccessible, METH_VARARGS, doc_wxHtmlHelpWindow_CreateAccessible},
     {sipName_CreateContents, meth_wxHtmlHelpWindow_CreateContents, METH_VARARGS, doc_wxHtmlHelpWindow_CreateContents},
     {sipName_CreateIndex, meth_wxHtmlHelpWindow_CreateIndex, METH_VARARGS, doc_wxHtmlHelpWindow_CreateIndex},
     {sipName_CreateSearch, meth_wxHtmlHelpWindow_CreateSearch, METH_VARARGS, doc_wxHtmlHelpWindow_CreateSearch},
@@ -3244,7 +3232,6 @@ static PyMethodDef methods_wxHtmlHelpWindow[] = {
     {sipName_GetController, meth_wxHtmlHelpWindow_GetController, METH_VARARGS, doc_wxHtmlHelpWindow_GetController},
     {sipName_GetData, meth_wxHtmlHelpWindow_GetData, METH_VARARGS, doc_wxHtmlHelpWindow_GetData},
     {sipName_GetDefaultBorder, meth_wxHtmlHelpWindow_GetDefaultBorder, METH_VARARGS, doc_wxHtmlHelpWindow_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxHtmlHelpWindow_GetDefaultBorderForControl, METH_VARARGS, doc_wxHtmlHelpWindow_GetDefaultBorderForControl},
     {sipName_GetMainWindowOfCompositeControl, meth_wxHtmlHelpWindow_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxHtmlHelpWindow_GetMainWindowOfCompositeControl},
     {sipName_GetValidator, meth_wxHtmlHelpWindow_GetValidator, METH_VARARGS, doc_wxHtmlHelpWindow_GetValidator},
     {sipName_HasTransparentBackground, meth_wxHtmlHelpWindow_HasTransparentBackground, METH_VARARGS, doc_wxHtmlHelpWindow_HasTransparentBackground},
@@ -3272,12 +3259,12 @@ static PyMethodDef methods_wxHtmlHelpWindow[] = {
 };
 
 sipVariableDef variables_wxHtmlHelpWindow[] = {
-    {PropertyVariable, sipName_Data, &methods_wxHtmlHelpWindow[30], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Controller, &methods_wxHtmlHelpWindow[29], &methods_wxHtmlHelpWindow[47], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Data, &methods_wxHtmlHelpWindow[31], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Controller, &methods_wxHtmlHelpWindow[30], &methods_wxHtmlHelpWindow[47], SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxHtmlHelpWindow, "HtmlHelpWindow(data=None) -> None\n"
-"HtmlHelpWindow(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=wx.TAB_TRAVERSAL|wx.BORDER_NONE, helpStyle=HF_DEFAULT_STYLE, data=None) -> None\n"
+PyDoc_STRVAR(doc_wxHtmlHelpWindow, "HtmlHelpWindow(data=nullptr) -> None\n"
+"HtmlHelpWindow(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=wx.TAB_TRAVERSAL|wx.BORDER_NONE, helpStyle=HF_DEFAULT_STYLE, data=nullptr) -> None\n"
 "\n"
 "This class is used by wxHtmlHelpController to display help within a\n"
 "frame or dialog, but you can use it yourself to create an embedded\n"

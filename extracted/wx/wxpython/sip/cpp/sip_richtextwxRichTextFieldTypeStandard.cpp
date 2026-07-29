@@ -19,6 +19,7 @@
         #include <wx/richtext/richtextbuffer.h>
         #include <wx/gdicmn.h>
         #include <wx/gdicmn.h>
+        #include <wx/dc.h>
         #include <wx/richtext/richtextbuffer.h>
         #include <wx/richtext/richtextbuffer.h>
         #include <wx/window.h>
@@ -42,8 +43,8 @@ public:
      */
 protected:
     bool Draw(::wxRichTextField*, ::wxDC&, ::wxRichTextDrawingContext&, const ::wxRichTextRange&, const ::wxRichTextSelection&, const ::wxRect&, int, int) SIP_OVERRIDE;
-    bool Layout(::wxRichTextField*, ::wxDC&, ::wxRichTextDrawingContext&, const ::wxRect&, const ::wxRect&, int) SIP_OVERRIDE;
-    bool GetRangeSize(::wxRichTextField*, const ::wxRichTextRange&, ::wxSize&, int&, ::wxDC&, ::wxRichTextDrawingContext&, int, const ::wxPoint&, const ::wxSize&, ::wxArrayInt*) const SIP_OVERRIDE;
+    bool Layout(::wxRichTextField*, ::wxReadOnlyDC&, ::wxRichTextDrawingContext&, const ::wxRect&, const ::wxRect&, int) SIP_OVERRIDE;
+    bool GetRangeSize(::wxRichTextField*, const ::wxRichTextRange&, ::wxSize&, int&, ::wxReadOnlyDC&, ::wxRichTextDrawingContext&, int, const ::wxPoint&, const ::wxSize&, ::wxArrayInt*) const SIP_OVERRIDE;
     bool CanEditProperties(::wxRichTextField*) const SIP_OVERRIDE;
     bool EditProperties(::wxRichTextField*, ::wxWindow*, ::wxRichTextBuffer*) SIP_OVERRIDE;
     ::wxString GetPropertiesMenuLabel(::wxRichTextField*) const SIP_OVERRIDE;
@@ -100,7 +101,7 @@ bool sipwxRichTextFieldTypeStandard::Draw(::wxRichTextField*obj, ::wxDC& dc, ::w
     return sipVH__richtext_75(sipGILState, 0, sipPySelf, sipMeth, obj, dc, context, range, selection, rect, descent, style);
 }
 
-bool sipwxRichTextFieldTypeStandard::Layout(::wxRichTextField*obj, ::wxDC& dc, ::wxRichTextDrawingContext& context, const ::wxRect& rect, const ::wxRect& parentRect, int style)
+bool sipwxRichTextFieldTypeStandard::Layout(::wxRichTextField*obj, ::wxReadOnlyDC& dc, ::wxRichTextDrawingContext& context, const ::wxRect& rect, const ::wxRect& parentRect, int style)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -110,12 +111,12 @@ bool sipwxRichTextFieldTypeStandard::Layout(::wxRichTextField*obj, ::wxDC& dc, :
     if (!sipMeth)
         return ::wxRichTextFieldTypeStandard::Layout(obj, dc, context, rect, parentRect, style);
 
-    extern bool sipVH__richtext_76(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxRichTextField*, ::wxDC&, ::wxRichTextDrawingContext&, const ::wxRect&, const ::wxRect&, int);
+    extern bool sipVH__richtext_76(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxRichTextField*, ::wxReadOnlyDC&, ::wxRichTextDrawingContext&, const ::wxRect&, const ::wxRect&, int);
 
     return sipVH__richtext_76(sipGILState, 0, sipPySelf, sipMeth, obj, dc, context, rect, parentRect, style);
 }
 
-bool sipwxRichTextFieldTypeStandard::GetRangeSize(::wxRichTextField*obj, const ::wxRichTextRange& range, ::wxSize& size, int& descent, ::wxDC& dc, ::wxRichTextDrawingContext& context, int flags, const ::wxPoint& position, const ::wxSize& parentSize, ::wxArrayInt*partialExtents) const
+bool sipwxRichTextFieldTypeStandard::GetRangeSize(::wxRichTextField*obj, const ::wxRichTextRange& range, ::wxSize& size, int& descent, ::wxReadOnlyDC& dc, ::wxRichTextDrawingContext& context, int flags, const ::wxPoint& position, const ::wxSize& parentSize, ::wxArrayInt*partialExtents) const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -125,7 +126,7 @@ bool sipwxRichTextFieldTypeStandard::GetRangeSize(::wxRichTextField*obj, const :
     if (!sipMeth)
         return ::wxRichTextFieldTypeStandard::GetRangeSize(obj, range, size, descent, dc, context, flags, position, parentSize, partialExtents);
 
-    extern bool sipVH__richtext_77(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxRichTextField*, const ::wxRichTextRange&, ::wxSize&, int&, ::wxDC&, ::wxRichTextDrawingContext&, int, const ::wxPoint&, const ::wxSize&, ::wxArrayInt*);
+    extern bool sipVH__richtext_77(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxRichTextField*, const ::wxRichTextRange&, ::wxSize&, int&, ::wxReadOnlyDC&, ::wxRichTextDrawingContext&, int, const ::wxPoint&, const ::wxSize&, ::wxArrayInt*);
 
     return sipVH__richtext_77(sipGILState, 0, sipPySelf, sipMeth, obj, range, size, descent, dc, context, flags, position, parentSize, partialExtents);
 }
@@ -351,7 +352,7 @@ static PyObject *meth_wxRichTextFieldTypeStandard_Layout(PyObject *sipSelf, PyOb
 
     {
         ::wxRichTextField* obj;
-        ::wxDC* dc;
+        ::wxReadOnlyDC* dc;
         ::wxRichTextDrawingContext* context;
         const ::wxRect* rect;
         int rectState = 0;
@@ -369,7 +370,7 @@ static PyObject *meth_wxRichTextFieldTypeStandard_Layout(PyObject *sipSelf, PyOb
             sipName_style,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8J9J9J1J1i", &sipSelf, sipType_wxRichTextFieldTypeStandard, &sipCpp, sipType_wxRichTextField, &obj, sipType_wxDC, &dc, sipType_wxRichTextDrawingContext, &context, sipType_wxRect, &rect, &rectState, sipType_wxRect, &parentRect, &parentRectState, &style))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8J9J9J1J1i", &sipSelf, sipType_wxRichTextFieldTypeStandard, &sipCpp, sipType_wxRichTextField, &obj, sipType_wxReadOnlyDC, &dc, sipType_wxRichTextDrawingContext, &context, sipType_wxRect, &rect, &rectState, sipType_wxRect, &parentRect, &parentRectState, &style))
         {
             bool sipRes;
 
@@ -394,7 +395,7 @@ static PyObject *meth_wxRichTextFieldTypeStandard_Layout(PyObject *sipSelf, PyOb
 }
 
 
-PyDoc_STRVAR(doc_wxRichTextFieldTypeStandard_GetRangeSize, "GetRangeSize(obj, range, size, descent, dc, context, flags, position=wx.Point(0,0), parentSize=wx.DefaultSize, partialExtents=None) -> bool\n"
+PyDoc_STRVAR(doc_wxRichTextFieldTypeStandard_GetRangeSize, "GetRangeSize(obj, range, size, descent, dc, context, flags, position=wx.Point(0,0), parentSize=wx.DefaultSize, partialExtents=nullptr) -> bool\n"
 "\n"
 "Returns the object size for the given range.");
 
@@ -411,7 +412,7 @@ static PyObject *meth_wxRichTextFieldTypeStandard_GetRangeSize(PyObject *sipSelf
         ::wxSize* size;
         int sizeState = 0;
         int descent;
-        ::wxDC* dc;
+        ::wxReadOnlyDC* dc;
         ::wxRichTextDrawingContext* context;
         int flags;
         const ::wxPoint& positiondef = wxPoint(0, 0);
@@ -420,7 +421,7 @@ static PyObject *meth_wxRichTextFieldTypeStandard_GetRangeSize(PyObject *sipSelf
         const ::wxSize& parentSizedef = wxDefaultSize;
         const ::wxSize* parentSize = &parentSizedef;
         int parentSizeState = 0;
-        ::wxArrayInt* partialExtents = 0;
+        ::wxArrayInt* partialExtents = nullptr;
         int partialExtentsState = 0;
         const ::wxRichTextFieldTypeStandard *sipCpp;
 
@@ -436,7 +437,7 @@ static PyObject *meth_wxRichTextFieldTypeStandard_GetRangeSize(PyObject *sipSelf
             sipName_partialExtents,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8J1J1J9J9i|J1J1J0", &sipSelf, sipType_wxRichTextFieldTypeStandard, &sipCpp, sipType_wxRichTextField, &obj, sipType_wxRichTextRange, &range, &rangeState, sipType_wxSize, &size, &sizeState, sipType_wxDC, &dc, sipType_wxRichTextDrawingContext, &context, &flags, sipType_wxPoint, &position, &positionState, sipType_wxSize, &parentSize, &parentSizeState, sipType_wxArrayInt, &partialExtents, &partialExtentsState))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8J1J1J9J9i|J1J1J0", &sipSelf, sipType_wxRichTextFieldTypeStandard, &sipCpp, sipType_wxRichTextField, &obj, sipType_wxRichTextRange, &range, &rangeState, sipType_wxSize, &size, &sizeState, sipType_wxReadOnlyDC, &dc, sipType_wxRichTextDrawingContext, &context, &flags, sipType_wxPoint, &position, &positionState, sipType_wxSize, &parentSize, &parentSizeState, sipType_wxArrayInt, &partialExtents, &partialExtentsState))
         {
             bool sipRes;
 
@@ -475,7 +476,7 @@ static PyObject *meth_wxRichTextFieldTypeStandard_GetSize(PyObject *sipSelf, PyO
 
     {
         ::wxRichTextField* obj;
-        ::wxDC* dc;
+        ::wxReadOnlyDC* dc;
         ::wxRichTextDrawingContext* context;
         int style;
         const ::wxRichTextFieldTypeStandard *sipCpp;
@@ -487,7 +488,7 @@ static PyObject *meth_wxRichTextFieldTypeStandard_GetSize(PyObject *sipSelf, PyO
             sipName_style,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8J9J9i", &sipSelf, sipType_wxRichTextFieldTypeStandard, &sipCpp, sipType_wxRichTextField, &obj, sipType_wxDC, &dc, sipType_wxRichTextDrawingContext, &context, &style))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8J9J9i", &sipSelf, sipType_wxRichTextFieldTypeStandard, &sipCpp, sipType_wxRichTextField, &obj, sipType_wxReadOnlyDC, &dc, sipType_wxRichTextDrawingContext, &context, &style))
         {
             ::wxSize*sipRes;
 

@@ -36,6 +36,13 @@ fn init() {
         readme = "README.md"
         requires-python = ">=3.12"
         dependencies = []
+
+        [project.scripts]
+        foo = "foo:main"
+
+        [build-system]
+        requires = ["uv_build>=[CURRENT_VERSION],<[NEXT_BREAKING]"]
+        build-backend = "uv_build"
         "#
         );
     });
@@ -102,7 +109,7 @@ fn init_bare() {
     });
 }
 
-/// Run `uv init --app` to create an application project
+/// Run `uv init --app` to create a packaged application project
 #[test]
 fn init_application() -> Result<()> {
     let context = uv_test::test_context!("3.12");
@@ -111,7 +118,7 @@ fn init_application() -> Result<()> {
     child.create_dir_all()?;
 
     let pyproject_toml = child.join("pyproject.toml");
-    let main_py = child.join("main.py");
+    let init_py = child.join("src").join("foo").join("__init__.py");
 
     uv_snapshot!(context.filters(), context.init().current_dir(&child).arg("--app"), @"
     exit_code: 0 (success)
@@ -132,27 +139,30 @@ fn init_application() -> Result<()> {
         readme = "README.md"
         requires-python = ">=3.12"
         dependencies = []
+
+        [project.scripts]
+        foo = "foo:main"
+
+        [build-system]
+        requires = ["uv_build>=[CURRENT_VERSION],<[NEXT_BREAKING]"]
+        build-backend = "uv_build"
         "#
         );
     });
 
-    let hello = fs_err::read_to_string(main_py)?;
+    let init = fs_err::read_to_string(init_py)?;
     insta::with_settings!({
         filters => context.filters(),
     }, {
         assert_snapshot!(
-            hello, @r#"
-        def main():
+            init, @r#"
+        def main() -> None:
             print("Hello from foo!")
-
-
-        if __name__ == "__main__":
-            main()
         "#
         );
     });
 
-    uv_snapshot!(context.filters(), context.run().current_dir(&child).arg("main.py"), @"
+    uv_snapshot!(context.filters(), context.run().current_dir(&child).arg("foo"), @"
     exit_code: 0 (success)
     ----- stdout -----
     Hello from foo!
@@ -162,15 +172,17 @@ fn init_application() -> Result<()> {
     Using CPython 3.12.[X] interpreter at: [PYTHON-3.12]
     Creating virtual environment at: .venv
     Resolved 1 package in [TIME]
-    Checked in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + foo==0.1.0 (from file://[TEMP_DIR]/foo)
     ");
 
     Ok(())
 }
 
-/// When `main.py` already exists, we don't create it again
+/// When `main.py` already exists in an unpackaged application, we don't create it again
 #[test]
-fn init_application_hello_exists() -> Result<()> {
+fn init_application_no_package_main_exists() -> Result<()> {
     let context = uv_test::test_context!("3.12");
 
     let child = context.temp_dir.child("foo");
@@ -180,7 +192,7 @@ fn init_application_hello_exists() -> Result<()> {
     let main_py = child.child("main.py");
     main_py.touch()?;
 
-    uv_snapshot!(context.filters(), context.init().current_dir(&child).arg("--app"), @"
+    uv_snapshot!(context.filters(), context.init().current_dir(&child).arg("--app").arg("--no-package"), @"
     exit_code: 0 (success)
     ----- stderr -----
     Initialized project `foo`
@@ -215,9 +227,9 @@ fn init_application_hello_exists() -> Result<()> {
     Ok(())
 }
 
-/// When other Python files already exists, we still create `main.py`
+/// When other Python files already exist in an unpackaged application, we still create `main.py`
 #[test]
-fn init_application_other_python_exists() -> Result<()> {
+fn init_application_no_package_other_python_exists() -> Result<()> {
     let context = uv_test::test_context!("3.12");
 
     let child = context.temp_dir.child("foo");
@@ -228,7 +240,7 @@ fn init_application_other_python_exists() -> Result<()> {
     let other_py = child.child("foo.py");
     other_py.touch()?;
 
-    uv_snapshot!(context.filters(), context.init().current_dir(&child).arg("--app"), @"
+    uv_snapshot!(context.filters(), context.init().current_dir(&child).arg("--app").arg("--no-package"), @"
     exit_code: 0 (success)
     ----- stderr -----
     Initialized project `foo`
@@ -1103,6 +1115,13 @@ fn init_no_readme() {
         description = "Add your description here"
         requires-python = ">=3.12"
         dependencies = []
+
+        [project.scripts]
+        foo = "foo:main"
+
+        [build-system]
+        requires = ["uv_build>=[CURRENT_VERSION],<[NEXT_BREAKING]"]
+        build-backend = "uv_build"
         "#
         );
     });
@@ -1133,6 +1152,13 @@ fn init_no_pin_python() {
         readme = "README.md"
         requires-python = ">=3.12"
         dependencies = []
+
+        [project.scripts]
+        foo = "foo:main"
+
+        [build-system]
+        requires = ["uv_build>=[CURRENT_VERSION],<[NEXT_BREAKING]"]
+        build-backend = "uv_build"
         "#
         );
     });
@@ -1211,7 +1237,7 @@ fn init_application_current_dir() -> Result<()> {
     ");
 
     let pyproject = fs_err::read_to_string(dir.join("pyproject.toml"))?;
-    let main_py = fs_err::read_to_string(dir.join("main.py"))?;
+    let init_py = fs_err::read_to_string(dir.join("src/foo/__init__.py"))?;
 
     insta::with_settings!({
         filters => context.filters(),
@@ -1225,6 +1251,13 @@ fn init_application_current_dir() -> Result<()> {
         readme = "README.md"
         requires-python = ">=3.12"
         dependencies = []
+
+        [project.scripts]
+        foo = "foo:main"
+
+        [build-system]
+        requires = ["uv_build>=[CURRENT_VERSION],<[NEXT_BREAKING]"]
+        build-backend = "uv_build"
         "#
         );
     });
@@ -1233,13 +1266,9 @@ fn init_application_current_dir() -> Result<()> {
         filters => context.filters(),
     }, {
         assert_snapshot!(
-            main_py, @r#"
-        def main():
+            init_py, @r#"
+        def main() -> None:
             print("Hello from foo!")
-
-
-        if __name__ == "__main__":
-            main()
         "#
         );
     });
@@ -1713,6 +1742,7 @@ fn init_normalized_names() -> Result<()> {
 
     let child = context.temp_dir.child("bar_baz");
     let pyproject = fs_err::read_to_string(child.join("pyproject.toml"))?;
+    let _ = fs_err::read_to_string(child.join("src/bar_baz/__init__.py"))?;
 
     insta::with_settings!({
         filters => context.filters(),
@@ -1726,6 +1756,13 @@ fn init_normalized_names() -> Result<()> {
         readme = "README.md"
         requires-python = ">=3.12"
         dependencies = []
+
+        [project.scripts]
+        bar-baz = "bar_baz:main"
+
+        [build-system]
+        requires = ["uv_build>=[CURRENT_VERSION],<[NEXT_BREAKING]"]
+        build-backend = "uv_build"
         "#
         );
     });
@@ -1752,6 +1789,13 @@ fn init_normalized_names() -> Result<()> {
         readme = "README.md"
         requires-python = ">=3.12"
         dependencies = []
+
+        [project.scripts]
+        baz-bop = "baz_bop:main"
+
+        [build-system]
+        requires = ["uv_build>=[CURRENT_VERSION],<[NEXT_BREAKING]"]
+        build-backend = "uv_build"
         "#
         );
     });
@@ -1900,6 +1944,13 @@ fn init_no_workspace_warning() {
         readme = "README.md"
         requires-python = ">=3.12"
         dependencies = []
+
+        [project.scripts]
+        project = "project:main"
+
+        [build-system]
+        requires = ["uv_build>=[CURRENT_VERSION],<[NEXT_BREAKING]"]
+        build-backend = "uv_build"
         "#
         );
     });
@@ -1969,6 +2020,13 @@ fn init_project_inside_project() -> Result<()> {
         readme = "README.md"
         requires-python = ">=3.12"
         dependencies = []
+
+        [project.scripts]
+        foo = "foo:main"
+
+        [build-system]
+        requires = ["uv_build>=[CURRENT_VERSION],<[NEXT_BREAKING]"]
+        build-backend = "uv_build"
         "#
         );
     });
@@ -2304,6 +2362,13 @@ fn init_requires_python_workspace() -> Result<()> {
         readme = "README.md"
         requires-python = ">=3.10"
         dependencies = []
+
+        [project.scripts]
+        foo = "foo:main"
+
+        [build-system]
+        requires = ["uv_build>=[CURRENT_VERSION],<[NEXT_BREAKING]"]
+        build-backend = "uv_build"
         "#
         );
     });
@@ -2359,6 +2424,13 @@ fn init_requires_python_version() -> Result<()> {
         readme = "README.md"
         requires-python = ">=3.9"
         dependencies = []
+
+        [project.scripts]
+        foo = "foo:main"
+
+        [build-system]
+        requires = ["uv_build>=[CURRENT_VERSION],<[NEXT_BREAKING]"]
+        build-backend = "uv_build"
         "#
         );
     });
@@ -2415,6 +2487,13 @@ fn init_requires_python_specifiers() -> Result<()> {
         readme = "README.md"
         requires-python = "==3.9.*"
         dependencies = []
+
+        [project.scripts]
+        foo = "foo:main"
+
+        [build-system]
+        requires = ["uv_build>=[CURRENT_VERSION],<[NEXT_BREAKING]"]
+        build-backend = "uv_build"
         "#
         );
     });
@@ -2458,6 +2537,13 @@ fn init_requires_python_version_file() -> Result<()> {
         readme = "README.md"
         requires-python = ">=3.9"
         dependencies = []
+
+        [project.scripts]
+        foo = "foo:main"
+
+        [build-system]
+        requires = ["uv_build>=[CURRENT_VERSION],<[NEXT_BREAKING]"]
+        build-backend = "uv_build"
         "#
         );
     });
@@ -2501,6 +2587,13 @@ fn init_existing_environment() -> Result<()> {
         readme = "README.md"
         requires-python = ">=3.12"
         dependencies = []
+
+        [project.scripts]
+        foo = "foo:main"
+
+        [build-system]
+        requires = ["uv_build>=[CURRENT_VERSION],<[NEXT_BREAKING]"]
+        build-backend = "uv_build"
         "#
         );
     });
@@ -2543,6 +2636,13 @@ fn init_existing_environment_parent() -> Result<()> {
         readme = "README.md"
         requires-python = ">=3.9"
         dependencies = []
+
+        [project.scripts]
+        foo = "foo:main"
+
+        [build-system]
+        requires = ["uv_build>=[CURRENT_VERSION],<[NEXT_BREAKING]"]
+        build-backend = "uv_build"
         "#
         );
     });
@@ -2649,6 +2749,13 @@ fn init_failure() -> Result<()> {
         readme = "README.md"
         requires-python = ">=3.12"
         dependencies = []
+
+        [project.scripts]
+        foo = "foo:main"
+
+        [build-system]
+        requires = ["uv_build>=[CURRENT_VERSION],<[NEXT_BREAKING]"]
+        build-backend = "uv_build"
         "#
         );
     });
@@ -2831,8 +2938,18 @@ fn init_with_author() {
         version = "0.1.0"
         description = "Add your description here"
         readme = "README.md"
+        authors = [
+            { name = "Alice", email = "alice@example.com" }
+        ]
         requires-python = ">=3.12"
         dependencies = []
+
+        [project.scripts]
+        foo = "foo:main"
+
+        [build-system]
+        requires = ["uv_build>=[CURRENT_VERSION],<[NEXT_BREAKING]"]
+        build-backend = "uv_build"
         "#
         );
     });
@@ -2861,6 +2978,13 @@ fn init_with_author() {
         ]
         requires-python = ">=3.12"
         dependencies = []
+
+        [project.scripts]
+        bar = "bar:main"
+
+        [build-system]
+        requires = ["uv_build>=[CURRENT_VERSION],<[NEXT_BREAKING]"]
+        build-backend = "uv_build"
         "#
         );
     });
@@ -3896,77 +4020,29 @@ fn git_states() {
     assert!(!context.temp_dir.child("broken-git/.git").is_dir());
 }
 
-/// Using `uv init` with `--project` isn't allowed
+/// Using `uv init` with `--project` isn't allowed.
 #[test]
-fn init_project_flag_is_not_allowed_under_preview() -> Result<()> {
+fn init_project_flag_is_not_allowed() -> Result<()> {
     let context = uv_test::test_context!("3.12");
 
     let child = context.temp_dir.child("foo");
     child.create_dir_all()?;
 
     // Positional `path` provided
-    uv_snapshot!(context.filters(), context.init().arg("--preview-features").arg("init-project-flag").arg("--project").arg("foo").arg("bar"), @"
+    uv_snapshot!(context.filters(), context.init().arg("--project").arg("foo").arg("bar"), @"
     exit_code: 2 (failure)
     ----- stderr -----
     error: The `--project` option cannot be used in `uv init`. Use `--directory` instead.
     ");
 
     // No positional `path` provided
-    uv_snapshot!(context.filters(), context.init().arg("--preview-features").arg("init-project-flag").arg("--project").arg("foo"), @"
+    uv_snapshot!(context.filters(), context.init().arg("--project").arg("foo"), @"
     exit_code: 2 (failure)
     ----- stderr -----
     error: The `--project` option cannot be used in `uv init`. Use `--directory` or a positional path instead.
     ");
 
     Ok(())
-}
-
-#[test]
-fn init_project_flag_is_ignored_with_explicit_path() {
-    let context = uv_test::test_context!("3.12");
-
-    // with explicit path
-    uv_snapshot!(context.filters(), context.init().arg("--project").arg("bar").arg("foo"), @"
-    exit_code: 0 (success)
-    ----- stderr -----
-    warning: Use of the `--project` option in `uv init` is deprecated and will be removed in a future release. Since a positional path was provided, the `--project` option has no effect. Consider using `--directory` instead.
-    Initialized project `foo` at `[TEMP_DIR]/foo`
-    ");
-
-    let pyproject = context.read("foo/pyproject.toml");
-    insta::with_settings!({
-        filters => context.filters(),
-    }, {
-        assert_snapshot!(
-            pyproject, @r#"
-        [project]
-        name = "foo"
-        version = "0.1.0"
-        description = "Add your description here"
-        readme = "README.md"
-        requires-python = ">=3.12"
-        dependencies = []
-        "#
-        );
-    });
-}
-
-#[test]
-fn init_project_flag_is_warned_without_path() {
-    let context = uv_test::test_context!("3.12");
-
-    // with explicit path
-    uv_snapshot!(context.filters(), context.init().arg("--project").arg("bar"), @"
-    exit_code: 0 (success)
-    ----- stderr -----
-    warning: Use of the `--project` option in `uv init` is deprecated and will be removed in a future release. Consider using `uv init <PATH>` instead.
-    Initialized project `bar`
-    ");
-
-    context
-        .temp_dir
-        .child("bar/pyproject.toml")
-        .assert(predicate::path::is_file());
 }
 
 /// The `--directory` flag is used as the base for path

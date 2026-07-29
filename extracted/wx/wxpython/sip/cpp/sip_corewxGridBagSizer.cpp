@@ -88,9 +88,9 @@ bool sipwxGridBagSizer::InformFirstDirection(int direction, int size, int availa
     if (!sipMeth)
         return ::wxGridBagSizer::InformFirstDirection(direction, size, availableOtherDir);
 
-    extern bool sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern bool sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
 
-    return sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
+    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
 }
 
 void sipwxGridBagSizer::RepositionChildren(const ::wxSize& minSize)
@@ -106,9 +106,9 @@ void sipwxGridBagSizer::RepositionChildren(const ::wxSize& minSize)
         return;
     }
 
-    extern void sipVH__core_106(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxSize&);
+    extern void sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxSize&);
 
-    sipVH__core_106(sipGILState, 0, sipPySelf, sipMeth, minSize);
+    sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, minSize);
 }
 
 void sipwxGridBagSizer::RecalcSizes()
@@ -130,10 +130,10 @@ void sipwxGridBagSizer::RecalcSizes()
 }
 
 
-PyDoc_STRVAR(doc_wxGridBagSizer_Add, "Add(window, pos, span=DefaultSpan, flag=0, border=0, userData=None) -> SizerItem\n"
-"Add(sizer, pos, span=DefaultSpan, flag=0, border=0, userData=None) -> SizerItem\n"
+PyDoc_STRVAR(doc_wxGridBagSizer_Add, "Add(window, pos, span=DefaultSpan, flag=0, border=0, userData=nullptr) -> SizerItem\n"
+"Add(sizer, pos, span=DefaultSpan, flag=0, border=0, userData=nullptr) -> SizerItem\n"
 "Add(item) -> SizerItem\n"
-"Add(width, height, pos, span=DefaultSpan, flag=0, border=0, userData=None) -> SizerItem\n"
+"Add(width, height, pos, span=DefaultSpan, flag=0, border=0, userData=nullptr) -> SizerItem\n"
 "Add(size, pos, span=DefaultSpan, flag=0, border=0, Transfer=None) -> SizerItem\n"
 "\n"
 "Adds the given item to the given position.\n"
@@ -156,7 +156,7 @@ static PyObject *meth_wxGridBagSizer_Add(PyObject *sipSelf, PyObject *sipArgs, P
         int spanState = 0;
         int flag = 0;
         int border = 0;
-        ::wxPyUserData* userData = 0;
+        ::wxPyUserData* userData = nullptr;
         int userDataState = 0;
         ::wxGridBagSizer *sipCpp;
 
@@ -198,7 +198,7 @@ static PyObject *meth_wxGridBagSizer_Add(PyObject *sipSelf, PyObject *sipArgs, P
         int spanState = 0;
         int flag = 0;
         int border = 0;
-        ::wxPyUserData* userData = 0;
+        ::wxPyUserData* userData = nullptr;
         int userDataState = 0;
         ::wxGridBagSizer *sipCpp;
 
@@ -266,7 +266,7 @@ static PyObject *meth_wxGridBagSizer_Add(PyObject *sipSelf, PyObject *sipArgs, P
         int spanState = 0;
         int flag = 0;
         int border = 0;
-        ::wxPyUserData* userData = 0;
+        ::wxPyUserData* userData = nullptr;
         int userDataState = 0;
         ::wxGridBagSizer *sipCpp;
 
@@ -348,8 +348,8 @@ static PyObject *meth_wxGridBagSizer_Add(PyObject *sipSelf, PyObject *sipArgs, P
 }
 
 
-PyDoc_STRVAR(doc_wxGridBagSizer_CheckForIntersection, "CheckForIntersection(item, excludeItem=None) -> bool\n"
-"CheckForIntersection(pos, span, excludeItem=None) -> bool\n"
+PyDoc_STRVAR(doc_wxGridBagSizer_CheckForIntersection, "CheckForIntersection(item, excludeItem=nullptr) -> bool\n"
+"CheckForIntersection(pos, span, excludeItem=nullptr) -> bool\n"
 "\n"
 "Look at all items and see if any intersect (or would overlap) the\n"
 "given item.\n"
@@ -362,7 +362,7 @@ static PyObject *meth_wxGridBagSizer_CheckForIntersection(PyObject *sipSelf, PyO
 
     {
         ::wxGBSizerItem* item;
-        ::wxGBSizerItem* excludeItem = 0;
+        ::wxGBSizerItem* excludeItem = nullptr;
         ::wxGridBagSizer *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -392,7 +392,7 @@ static PyObject *meth_wxGridBagSizer_CheckForIntersection(PyObject *sipSelf, PyO
         int posState = 0;
         const ::wxGBSpan* span;
         int spanState = 0;
-        ::wxGBSizerItem* excludeItem = 0;
+        ::wxGBSizerItem* excludeItem = nullptr;
         ::wxGridBagSizer *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -429,8 +429,8 @@ static PyObject *meth_wxGridBagSizer_CheckForIntersection(PyObject *sipSelf, PyO
 PyDoc_STRVAR(doc_wxGridBagSizer_FindItem, "FindItem(window) -> GBSizerItem\n"
 "FindItem(sizer) -> GBSizerItem\n"
 "\n"
-"Find the sizer item for the given window or subsizer, returns NULL if\n"
-"not found.\n"
+"Find the sizer item for the given window or subsizer, returns nullptr\n"
+"if not found.\n"
 "");
 
 extern "C" {static PyObject *meth_wxGridBagSizer_FindItem(PyObject *, PyObject *, PyObject *);}
@@ -933,7 +933,7 @@ static PyObject *meth_wxGridBagSizer_CalcMin(PyObject *sipSelf, PyObject *sipArg
 
 PyDoc_STRVAR(doc_wxGridBagSizer_FindItemAtPoint, "FindItemAtPoint(pt) -> GBSizerItem\n"
 "\n"
-"Return the sizer item located at the point given in pt, or NULL if\n"
+"Return the sizer item located at the point given in pt, or nullptr if\n"
 "there is no item at that point.");
 
 extern "C" {static PyObject *meth_wxGridBagSizer_FindItemAtPoint(PyObject *, PyObject *, PyObject *);}
@@ -976,8 +976,8 @@ static PyObject *meth_wxGridBagSizer_FindItemAtPoint(PyObject *sipSelf, PyObject
 
 PyDoc_STRVAR(doc_wxGridBagSizer_FindItemAtPosition, "FindItemAtPosition(pos) -> GBSizerItem\n"
 "\n"
-"Return the sizer item for the given grid cell, or NULL if there is no\n"
-"item at that position.");
+"Return the sizer item for the given grid cell, or nullptr if there is\n"
+"no item at that position.");
 
 extern "C" {static PyObject *meth_wxGridBagSizer_FindItemAtPosition(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGridBagSizer_FindItemAtPosition(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1020,7 +1020,7 @@ static PyObject *meth_wxGridBagSizer_FindItemAtPosition(PyObject *sipSelf, PyObj
 PyDoc_STRVAR(doc_wxGridBagSizer_FindItemWithData, "FindItemWithData(userData) -> GBSizerItem\n"
 "\n"
 "Return the sizer item that has a matching user data (it only compares\n"
-"pointer values) or NULL if not found.");
+"pointer values) or nullptr if not found.");
 
 extern "C" {static PyObject *meth_wxGridBagSizer_FindItemWithData(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGridBagSizer_FindItemWithData(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1303,7 +1303,7 @@ static void *init_type_wxGridBagSizer(sipSimpleWrapper *sipSelf, PyObject *sipAr
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGridBagSizer[] = {{200, 255, 1}};
+static sipEncodedTypeDef supers_wxGridBagSizer[] = {{208, 255, 1}};
 
 
 static PyMethodDef methods_wxGridBagSizer[] = {

@@ -2893,6 +2893,13 @@ def render_sql_template(
                 documentation="/cli/advanced-templates.html",
             )
         raise SQLTemplateException(str(e), documentation="/cli/advanced-templates.html")
+    except KeyError as e:
+        key = e.args[0] if e.args else "unknown"
+        raise SQLTemplateException(
+            f"Missing key '{key}' while rendering the template. "
+            "Ensure every object accessed in the template has this key.",
+            documentation="/cli/advanced-templates.html",
+        )
     except IndexError as e:
         # This happens when trying to access string indices on empty strings
         if "string index out of range" in str(e):

@@ -44,7 +44,6 @@ public:
      */
 protected:
     void SetText(const ::wxString&) SIP_OVERRIDE;
-    size_t GetTextLength() const SIP_OVERRIDE;
     ::wxString GetText() const SIP_OVERRIDE;
     bool SetData(const ::wxDataFormat&, size_t, const void*) SIP_OVERRIDE;
     ::wxDataFormat GetPreferredFormat(::wxDataObject::Direction) const SIP_OVERRIDE;
@@ -61,7 +60,7 @@ private:
     sipwxTextDataObject(const sipwxTextDataObject &);
     sipwxTextDataObject &operator = (const sipwxTextDataObject &);
 
-    char sipPyMethods[10];
+    char sipPyMethods[9];
 };
 
 sipwxTextDataObject::sipwxTextDataObject(const ::wxString& text): ::wxTextDataObject(text), sipPySelf(SIP_NULLPTR)
@@ -92,27 +91,12 @@ void sipwxTextDataObject::SetText(const ::wxString& strText)
     sipVH__core_60(sipGILState, 0, sipPySelf, sipMeth, strText);
 }
 
-size_t sipwxTextDataObject::GetTextLength() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[1]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetTextLength);
-
-    if (!sipMeth)
-        return ::wxTextDataObject::GetTextLength();
-
-    extern size_t sipVH__core_74(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__core_74(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 ::wxString sipwxTextDataObject::GetText() const
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[2]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetText);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[1]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetText);
 
     if (!sipMeth)
         return ::wxTextDataObject::GetText();
@@ -127,14 +111,14 @@ bool sipwxTextDataObject::SetData(const ::wxDataFormat& format, size_t len, cons
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[3], &sipPySelf, SIP_NULLPTR, sipName_SetData);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[2], &sipPySelf, SIP_NULLPTR, sipName_SetData);
 
     if (!sipMeth)
         return ::wxTextDataObject::SetData(format, len, buf);
 
-    extern bool sipVH__core_82(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxDataFormat&, size_t, const void*);
+    extern bool sipVH__core_81(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxDataFormat&, size_t, const void*);
 
-    return sipVH__core_82(sipGILState, 0, sipPySelf, sipMeth, format, len, buf);
+    return sipVH__core_81(sipGILState, 0, sipPySelf, sipMeth, format, len, buf);
 }
 
 ::wxDataFormat sipwxTextDataObject::GetPreferredFormat(::wxDataObject::Direction dir) const
@@ -142,14 +126,14 @@ bool sipwxTextDataObject::SetData(const ::wxDataFormat& format, size_t len, cons
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[4]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetPreferredFormat);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[3]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetPreferredFormat);
 
     if (!sipMeth)
         return ::wxTextDataObject::GetPreferredFormat(dir);
 
-    extern ::wxDataFormat sipVH__core_69(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject::Direction);
+    extern ::wxDataFormat sipVH__core_68(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject::Direction);
 
-    return sipVH__core_69(sipGILState, 0, sipPySelf, sipMeth, dir);
+    return sipVH__core_68(sipGILState, 0, sipPySelf, sipMeth, dir);
 }
 
 size_t sipwxTextDataObject::GetFormatCount(::wxDataObject::Direction dir) const
@@ -157,14 +141,14 @@ size_t sipwxTextDataObject::GetFormatCount(::wxDataObject::Direction dir) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[5]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetFormatCount);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[4]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetFormatCount);
 
     if (!sipMeth)
         return ::wxTextDataObject::GetFormatCount(dir);
 
-    extern size_t sipVH__core_68(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject::Direction);
+    extern size_t sipVH__core_67(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataObject::Direction);
 
-    return sipVH__core_68(sipGILState, 0, sipPySelf, sipMeth, dir);
+    return sipVH__core_67(sipGILState, 0, sipPySelf, sipMeth, dir);
 }
 
 void sipwxTextDataObject::GetAllFormats(::wxDataFormat*formats, ::wxDataObject::Direction dir) const
@@ -172,7 +156,7 @@ void sipwxTextDataObject::GetAllFormats(::wxDataFormat*formats, ::wxDataObject::
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[6]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetAllFormats);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[5]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetAllFormats);
 
     if (!sipMeth)
     {
@@ -180,9 +164,9 @@ void sipwxTextDataObject::GetAllFormats(::wxDataFormat*formats, ::wxDataObject::
         return;
     }
 
-    extern void sipVH__core_65(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataFormat*, ::wxDataObject::Direction);
+    extern void sipVH__core_64(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDataFormat*, ::wxDataObject::Direction);
 
-    sipVH__core_65(sipGILState, 0, sipPySelf, sipMeth, formats, dir);
+    sipVH__core_64(sipGILState, 0, sipPySelf, sipMeth, formats, dir);
 }
 
 bool sipwxTextDataObject::GetDataHere(void*buf) const
@@ -190,14 +174,14 @@ bool sipwxTextDataObject::GetDataHere(void*buf) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[7]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDataHere);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[6]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDataHere);
 
     if (!sipMeth)
         return ::wxTextDataObject::GetDataHere(buf);
 
-    extern bool sipVH__core_77(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, void*);
+    extern bool sipVH__core_76(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, void*);
 
-    return sipVH__core_77(sipGILState, 0, sipPySelf, sipMeth, buf);
+    return sipVH__core_76(sipGILState, 0, sipPySelf, sipMeth, buf);
 }
 
 size_t sipwxTextDataObject::GetDataSize() const
@@ -205,14 +189,14 @@ size_t sipwxTextDataObject::GetDataSize() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[8]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDataSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[7]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDataSize);
 
     if (!sipMeth)
         return ::wxTextDataObject::GetDataSize();
 
-    extern size_t sipVH__core_74(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern size_t sipVH__core_73(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_74(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_73(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxTextDataObject::SetData(size_t len, const void*buf)
@@ -220,14 +204,14 @@ bool sipwxTextDataObject::SetData(size_t len, const void*buf)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[9], &sipPySelf, SIP_NULLPTR, sipName_SetData);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[8], &sipPySelf, SIP_NULLPTR, sipName_SetData);
 
     if (!sipMeth)
         return ::wxTextDataObject::SetData(len, buf);
 
-    extern bool sipVH__core_76(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, const void*);
+    extern bool sipVH__core_75(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, const void*);
 
-    return sipVH__core_76(sipGILState, 0, sipPySelf, sipMeth, len, buf);
+    return sipVH__core_75(sipGILState, 0, sipPySelf, sipMeth, len, buf);
 }
 
 
@@ -267,15 +251,12 @@ static PyObject *meth_wxTextDataObject_GetText(PyObject *sipSelf, PyObject *sipA
 }
 
 
-PyDoc_STRVAR(doc_wxTextDataObject_GetTextLength, "GetTextLength() -> int\n"
-"\n"
-"Returns the data size.");
+PyDoc_STRVAR(doc_wxTextDataObject_GetTextLength, "GetTextLength() -> int");
 
 extern "C" {static PyObject *meth_wxTextDataObject_GetTextLength(PyObject *, PyObject *);}
 static PyObject *meth_wxTextDataObject_GetTextLength(PyObject *sipSelf, PyObject *sipArgs)
 {
     PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
 
     {
         const ::wxTextDataObject *sipCpp;
@@ -284,10 +265,13 @@ static PyObject *meth_wxTextDataObject_GetTextLength(PyObject *sipSelf, PyObject
         {
             size_t sipRes;
 
+            if (sipDeprecated(sipName_TextDataObject, sipName_GetTextLength) < 0)
+                return SIP_NULLPTR;
+
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = (sipSelfWasArg ? sipCpp->::wxTextDataObject::GetTextLength() : sipCpp->GetTextLength());
+            sipRes = sipCpp->GetTextLength();
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
@@ -306,8 +290,8 @@ static PyObject *meth_wxTextDataObject_GetTextLength(PyObject *sipSelf, PyObject
 PyDoc_STRVAR(doc_wxTextDataObject_GetFormatCount, "GetFormatCount(dir=DataObject.Get) -> int\n"
 "\n"
 "Returns 2 under wxMac and wxGTK, where text data coming from the\n"
-"clipboard may be provided as ANSI (wxDF_TEXT) or as Unicode text\n"
-"(wxDF_UNICODETEXT, but only when wxUSE_UNICODE==1).");
+"clipboard may be provided as (wxDF_TEXT), in ANSI (wxGTK) or UTF8\n"
+"(wxMac), or as Unicode text (wxDF_UNICODETEXT).");
 
 extern "C" {static PyObject *meth_wxTextDataObject_GetFormatCount(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxTextDataObject_GetFormatCount(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -747,7 +731,7 @@ static void *init_type_wxTextDataObject(sipSimpleWrapper *sipSelf, PyObject *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxTextDataObject[] = {{117, 255, 1}};
+static sipEncodedTypeDef supers_wxTextDataObject[] = {{122, 255, 1}};
 
 
 static PyMethodDef methods_wxTextDataObject[] = {

@@ -46,13 +46,13 @@ from litdata.constants import (
     _TQDM_AVAILABLE,
 )
 from litdata.processing.readers import BaseReader, StreamingDataLoaderReader
-from litdata.processing.utilities import _create_dataset, construct_storage_options, remove_uuid_from_filename
+from litdata.processing.utilities import construct_storage_options, remove_uuid_from_filename
 from litdata.streaming import Cache
 from litdata.streaming.cache import Dir
 from litdata.streaming.dataloader import StreamingDataLoader
 from litdata.streaming.fs_provider import _get_fs_provider, not_supported_provider
 from litdata.streaming.item_loader import BaseItemLoader
-from litdata.streaming.resolver import _resolve_dir
+from litdata.streaming.resolver import _has_time_template, _resolve_dir
 from litdata.utilities._pytree import tree_flatten, tree_unflatten, treespec_loads
 from litdata.utilities.broadcast import broadcast_object
 from litdata.utilities.dataset_utilities import load_index_file
@@ -1133,6 +1133,7 @@ class DataProcessor:
         storage_options: dict[str, Any] = {},
         keep_data_ordered: bool = True,
         verbose: bool = True,
+        broadcast_paths: bool = False,
     ):
         """Provides an efficient way to process data across multiple machine into chunks to make training faster.
 
@@ -1162,6 +1163,13 @@ class DataProcessor:
             storage_options: Storage options for the cloud provider.
             keep_data_ordered: Whether to use a shared queue for the workers or not.
             verbose: Whether to print the progress & logs of the workers. Defaults to True.
+            broadcast_paths: When ``True``, broadcast resolved ``input_dir`` / ``output_dir`` across nodes via
+                :func:`~litdata.utilities.broadcast.broadcast_object` (Studio multi-node, when
+                ``LIGHTNING_APP_EXTERNAL_URL`` is set). Defaults to ``False``. Automatically enabled when
+                ``input_dir`` or ``output_dir`` contains a ``{%strftime}`` time template (so every rank shares
+                the same expanded path). When ``False`` and no time template is present, each rank keeps its
+                locally resolved path — fine for stable ``s3://`` / connection paths, but unsafe if ranks
+                would otherwise expand different timestamps.
         """
         # spawn doesn't work in IPython
         start_method = start_method or ("fork" if in_notebook() else "spawn")
@@ -1175,6 +1183,9 @@ class DataProcessor:
             print(msg)
 
         multiprocessing.set_start_method(start_method, force=True)
+
+        # Detect time templates on the unresolved path strings (before `_resolve_dir` expands them).
+        self.broadcast_paths = broadcast_paths or _has_time_template(input_dir) or _has_time_template(output_dir)
 
         self.input_dir = _resolve_dir(input_dir)
         self.output_dir = _resolve_dir(output_dir)
@@ -1209,16 +1220,14 @@ class DataProcessor:
         if self.reader is not None and self.weights is not None:
             raise ValueError("Either the reader or the weights needs to be defined.")
 
-        # Ensure the input dir is the same across all nodes
-        self.input_dir = broadcast_object("input_dir", self.input_dir, rank=_get_node_rank())
+        if self.broadcast_paths:
+            # Align resolved dirs across nodes (needed when `{%strftime}` expands per-rank).
+            self.input_dir = broadcast_object("input_dir", self.input_dir, rank=_get_node_rank())
+            if self.output_dir:
+                self.output_dir = broadcast_object("output_dir", self.output_dir, rank=_get_node_rank())
 
-        if self.output_dir:
-            # Ensure the output dir is the same across all nodes
-            self.output_dir = broadcast_object("output_dir", self.output_dir, rank=_get_node_rank())
-            if verbose:
-                print(
-                    f"Storing the files under {self.output_dir.path if self.output_dir.path else self.output_dir.url}"
-                )
+        if self.output_dir and verbose:
+            print(f"Storing the files under {self.output_dir.path if self.output_dir.path else self.output_dir.url}")
 
         self.random_seed = random_seed
         self.verbose = verbose
@@ -1429,24 +1438,8 @@ class DataProcessor:
         if self.verbose:
             print("Workers are finished.")
         size = len(workers_user_items) if workers_user_items is not None else None
-        result = data_recipe._done(size, self.delete_cached_files, self.output_dir)
+        data_recipe._done(size, self.delete_cached_files, self.output_dir)
 
-        if num_nodes == node_rank + 1 and self.output_dir.url and self.output_dir.path is not None and _IS_IN_STUDIO:
-            from lightning_sdk.lightning_cloud.openapi import V1DatasetType
-
-            data_type = V1DatasetType.CHUNKED if isinstance(data_recipe, DataChunkRecipe) else V1DatasetType.TRANSFORMED
-            _create_dataset(
-                input_dir=self.input_dir.path,
-                storage_dir=self.output_dir.path,
-                dataset_type=data_type,
-                empty=False,
-                size=str(result.size),
-                num_bytes=result.num_bytes,
-                data_format=result.data_format,
-                compression=result.compression,
-                num_chunks=str(result.num_chunks),
-                num_bytes_per_chunk=[str(v) for v in (result.num_bytes_per_chunk or [])],
-            )
         if self.verbose:
             print("Finished data processing!")
         if self.use_checkpoint and isinstance(data_recipe, DataChunkRecipe):

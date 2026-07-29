@@ -69,7 +69,6 @@ const char sipStrings__dataview[] = {
     'w', 'x', 'E', 'V', 'T', '_', 'T', 'R', 'E', 'E', 'L', 'I', 'S', 'T', '_', 'C', 'O', 'L', 'U', 'M', 'N', '_', 'S', 'O', 'R', 'T', 'E', 'D', 0,
     'w', 'x', 'E', 'V', 'T', '_', 'T', 'R', 'E', 'E', 'L', 'I', 'S', 'T', '_', 'I', 'T', 'E', 'M', '_', 'E', 'X', 'P', 'A', 'N', 'D', 'E', 'D', 0,
     'w', 'x', 'E', 'V', 'T', '_', 'T', 'R', 'E', 'E', 'L', 'I', 'S', 'T', '_', 'I', 'T', 'E', 'M', '_', 'C', 'H', 'E', 'C', 'K', 'E', 'D', 0,
-    'G', 'e', 't', 'D', 'e', 'f', 'a', 'u', 'l', 't', 'B', 'o', 'r', 'd', 'e', 'r', 'F', 'o', 'r', 'C', 'o', 'n', 't', 'r', 'o', 'l', 0,
     'w', 'x', 'D', 'a', 't', 'a', 'V', 'i', 'e', 'w', 'I', 'c', 'o', 'n', 'T', 'e', 'x', 't', 'R', 'e', 'n', 'd', 'e', 'r', 'e', 'r', 0,
     'w', 'x', 'D', 'a', 't', 'a', 'V', 'i', 'e', 'w', 'P', 'r', 'o', 'g', 'r', 'e', 's', 's', 'R', 'e', 'n', 'd', 'e', 'r', 'e', 'r', 0,
     'w', 'x', 'D', 'a', 't', 'a', 'V', 'i', 'e', 'w', 'V', 'i', 'r', 't', 'u', 'a', 'l', 'L', 'i', 's', 't', 'M', 'o', 'd', 'e', 'l', 0,
@@ -168,12 +167,12 @@ const char sipStrings__dataview[] = {
     'I', 'n', 'h', 'e', 'r', 'i', 't', 'A', 't', 't', 'r', 'i', 'b', 'u', 't', 'e', 's', 0,
     'P', 'r', 'e', 'p', 'e', 'n', 'd', 'D', 'a', 't', 'e', 'C', 'o', 'l', 'u', 'm', 'n', 0,
     'P', 'r', 'e', 'p', 'e', 'n', 'd', 'T', 'e', 'x', 't', 'C', 'o', 'l', 'u', 'm', 'n', 0,
-    'S', 'e', 't', 'D', 'a', 't', 'a', 'V', 'i', 'e', 'w', 'C', 'o', 'l', 'u', 'm', 'n', 0,
     'S', 'e', 't', 'E', 'x', 'p', 'a', 'n', 'd', 'e', 'r', 'C', 'o', 'l', 'u', 'm', 'n', 0,
     'S', 'e', 't', 'I', 't', 'e', 'm', 'C', 'o', 'm', 'p', 'a', 'r', 'a', 't', 'o', 'r', 0,
     'a', 'v', 'a', 'i', 'l', 'a', 'b', 'l', 'e', 'O', 't', 'h', 'e', 'r', 'D', 'i', 'r', 0,
     'A', 'p', 'p', 'e', 'n', 'd', 'D', 'a', 't', 'e', 'C', 'o', 'l', 'u', 'm', 'n', 0,
     'A', 'p', 'p', 'e', 'n', 'd', 'T', 'e', 'x', 't', 'C', 'o', 'l', 'u', 'm', 'n', 0,
+    'C', 'r', 'e', 'a', 't', 'e', 'A', 'c', 'c', 'e', 's', 's', 'i', 'b', 'l', 'e', 0,
     'C', 'r', 'e', 'a', 't', 'e', 'E', 'd', 'i', 't', 'o', 'r', 'C', 't', 'r', 'l', 0,
     'D', 'i', 's', 'a', 'b', 'l', 'e', 'E', 'l', 'l', 'i', 'p', 's', 'i', 'z', 'e', 0,
     'E', 'n', 'a', 'b', 'l', 'e', 'D', 'r', 'a', 'g', 'S', 'o', 'u', 'r', 'c', 'e', 0,
@@ -269,7 +268,6 @@ const char sipStrings__dataview[] = {
     'S', 'e', 't', 'S', 'e', 'l', 'e', 'c', 't', 'i', 'o', 'n', 's', 0,
     'S', 'e', 't', 'S', 'o', 'r', 't', 'C', 'o', 'l', 'u', 'm', 'n', 0,
     'S', 'e', 't', 'V', 'a', 'l', 'u', 'e', 'B', 'y', 'R', 'o', 'w', 0,
-    'T', 'L', '_', 'S', 'T', 'Y', 'L', 'E', '_', 'M', 'A', 'S', 'K', 0,
     'A', 'c', 'c', 'e', 'p', 't', 's', 'F', 'o', 'c', 'u', 's', 0,
     'A', 'c', 't', 'i', 'v', 'a', 't', 'e', 'C', 'e', 'l', 'l', 0,
     'A', 'p', 'p', 'e', 'n', 'd', 'C', 'o', 'l', 'u', 'm', 'n', 0,
@@ -438,7 +436,6 @@ const char sipStrings__dataview[] = {
     'N', 'O', '_', 'I', 'M', 'A', 'G', 'E', 0,
     'S', 'e', 't', 'C', 'a', 'c', 'h', 'e', 0,
     'S', 'e', 't', 'F', 'l', 'a', 'g', 's', 0,
-    'S', 'e', 't', 'M', 'o', 'd', 'e', 'l', 0,
     'S', 'e', 't', 'O', 'w', 'n', 'e', 'r', 0,
     'S', 'e', 't', 'T', 'i', 't', 'l', 'e', 0,
     'S', 'e', 't', 'V', 'a', 'l', 'u', 'e', 0,
@@ -474,7 +471,6 @@ const char sipStrings__dataview[] = {
     'H', 'i', 't', 'T', 'e', 's', 't', 0,
     'S', 'e', 't', 'B', 'o', 'l', 'd', 0,
     'S', 'e', 't', 'I', 'c', 'o', 'n', 0,
-    'S', 'e', 't', 'I', 't', 'e', 'm', 0,
     'S', 'e', 't', 'T', 'e', 'x', 't', 0,
     '_', '_', 'l', 'e', 'n', '_', '_', 0,
     'c', 'h', 'o', 'i', 'c', 'e', 's', 0,
@@ -519,6 +515,7 @@ const char sipStrings__dataview[] = {
     'C', 'l', 'o', 'n', 'e', 0,
     'G', 'e', 't', 'I', 'D', 0,
     'R', 'e', 's', 'e', 't', 0,
+    'U', 'n', 's', 'e', 't', 0,
     'a', 'l', 'i', 'g', 'n', 0,
     'a', 'l', 'l', 'o', 'w', 0,
     'c', 'h', 'i', 'l', 'd', 0,
@@ -565,7 +562,6 @@ const char sipStrings__dataview[] = {
     'r', 'o', 'w', 's', 0,
     's', 'h', 'o', 'w', 0,
     't', 'e', 'x', 't', 0,
-    't', 'i', 'm', 'e', 0,
     'u', 'n', 'i', 't', 0,
     'b', 'u', 'f', 0,
     'c', 'o', 'l', 0,
@@ -1265,6 +1261,7 @@ sipTypeDef *sipExportedTypes__dataview[] = {
 
 /* This defines the types that this module needs to import from _core. */
 sipImportedTypeDef sipImportedTypes__dataview__core[] = {
+    {"wxAccessible"},
     {"wxAlignment"},
     {"wxArrayInt"},
     {"wxArrayString"},
@@ -1372,7 +1369,6 @@ static sipIntInstanceDef intInstances[] = {
     {sipName_TL_USER_3STATE, static_cast<int>(::wxTL_USER_3STATE)},
     {sipName_TL_NO_HEADER, static_cast<int>(::wxTL_NO_HEADER)},
     {sipName_TL_DEFAULT_STYLE, static_cast<int>(::wxTL_DEFAULT_STYLE)},
-    {sipName_TL_STYLE_MASK, static_cast<int>(::wxTL_STYLE_MASK)},
     {0, 0}
 };
 

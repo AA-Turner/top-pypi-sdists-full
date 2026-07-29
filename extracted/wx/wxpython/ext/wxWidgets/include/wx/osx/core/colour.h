@@ -1,8 +1,7 @@
 /////////////////////////////////////////////////////////////////////////////
 // Name:        wx/osx/core/colour.h
-// Purpose:     wxColour class
+// Purpose:     wxColourImpl class
 // Author:      Stefan Csomor
-// Modified by:
 // Created:     1998-01-01
 // Copyright:   (c) Stefan Csomor
 // Licence:     wxWindows licence
@@ -19,32 +18,32 @@
 struct RGBColor;
 
 // Colour
-class WXDLLIMPEXP_CORE wxWARN_UNUSED wxColour: public wxColourBase
+class WXDLLIMPEXP_CORE wxColourImpl: public wxColourBase
 {
 public:
     // constructors
     // ------------
-    DEFINE_STD_WXCOLOUR_CONSTRUCTORS
+    wxColourImpl() = default;
 
     // default copy ctor and dtor are ok
 
     // accessors
-    virtual ChannelType Red() const wxOVERRIDE;
-    virtual ChannelType Green() const wxOVERRIDE;
-    virtual ChannelType Blue() const wxOVERRIDE;
-    virtual ChannelType Alpha() const wxOVERRIDE;
+    virtual ChannelType Red() const override;
+    virtual ChannelType Green() const override;
+    virtual ChannelType Blue() const override;
+    virtual ChannelType Alpha() const override;
 
-    virtual bool IsSolid() const wxOVERRIDE;
+    virtual bool IsSolid() const override;
 
     // comparison
-    bool operator == (const wxColour& colour) const;
-    bool operator != (const wxColour& colour) const { return !(*this == colour); }
+    bool operator == (const wxColourImpl& colour) const;
+    bool operator != (const wxColourImpl& colour) const { return !(*this == colour); }
 
     // CoreGraphics CGColor
     // --------------------
 
     // This ctor does take ownership of the color.
-    wxColour( CGColorRef col );
+    wxColourImpl( CGColorRef col );
 
     // don't take ownership of the returned value
     CGColorRef GetCGColor() const;
@@ -55,37 +54,46 @@ public:
 #if wxOSX_USE_COCOA_OR_CARBON
     // Quickdraw RGBColor
     // ------------------
-    wxColour(const RGBColor& col);
+    wxColourImpl(const RGBColor& col);
     void GetRGBColor( RGBColor *col ) const;
 #endif
 
+    // This ctor does not take ownership of the color.
+    explicit wxColourImpl(WXColor color);
+
+    WXColor OSXGetWXColor() const;
+    WXImage OSXGetWXPatternImage() const;
+#if WXWIN_COMPATIBILITY_3_2
 #if wxOSX_USE_COCOA
     // NSColor Cocoa
     // -------------
 
-    // This ctor does not take ownership of the color.
-    explicit wxColour(WX_NSColor color);
-    WX_NSColor OSXGetNSColor() const;
-    WX_NSImage OSXGetNSPatternImage() const;
+    WX_NSColor OSXGetNSColor() const
+    {
+        return OSXGetWXColor();
+    }
+    WX_NSImage OSXGetNSPatternImage() const
+    {
+        return OSXGetWXPatternImage();
+    }
+#endif
 #endif
 
-protected :
     virtual void
-    InitRGBA(ChannelType r, ChannelType g, ChannelType b, ChannelType a) wxOVERRIDE;
+    InitRGBA(ChannelType r, ChannelType g, ChannelType b, ChannelType a) override;
 
-    virtual wxGDIRefData *CreateGDIRefData() const wxOVERRIDE;
-    virtual wxGDIRefData *CloneGDIRefData(const wxGDIRefData *data) const wxOVERRIDE;
+    virtual void
+    InitRGBA(float r, float g, float b, float a);
 
-private:
-
-    wxDECLARE_DYNAMIC_CLASS(wxColour);
+    virtual wxGDIRefData *CreateGDIRefData() const override;
+    wxNODISCARD virtual wxGDIRefData *CloneGDIRefData(const wxGDIRefData *data) const override;
 };
 
 class wxColourRefData : public wxGDIRefData
 {
 public:
-    wxColourRefData() {}
-    virtual ~wxColourRefData() {}
+    wxColourRefData() = default;
+    virtual ~wxColourRefData() = default;
 
     virtual double Red() const = 0;
     virtual double Green() const = 0;
@@ -97,11 +105,22 @@ public:
 
     virtual CGColorRef GetCGColor() const = 0;
 
-    virtual wxColourRefData* Clone() const = 0;
+    wxNODISCARD virtual wxColourRefData* Clone() const = 0;
 
+    virtual WXColor GetWXColor() const = 0;
+    virtual WXImage GetWXPatternImage() const = 0;
+
+#if WXWIN_COMPATIBILITY_3_2
 #if wxOSX_USE_COCOA
-    virtual WX_NSColor GetNSColor() const;
-    virtual WX_NSImage GetNSPatternImage() const;
+    virtual WX_NSColor GetNSColor() const
+    {
+        return GetWXColor();
+    }
+    virtual WX_NSImage GetNSPatternImage() const
+    {
+        return GetWXPatternImage();
+    }
+#endif
 #endif
 };
 

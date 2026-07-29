@@ -1141,9 +1141,11 @@ static PyObject *meth_wxImage_Replace(PyObject *sipSelf, PyObject *sipArgs, PyOb
 
 
 PyDoc_STRVAR(doc_wxImage_Rescale, "Rescale(width, height, quality=IMAGE_QUALITY_NORMAL) -> Image\n"
+"Rescale(size, quality=IMAGE_QUALITY_NORMAL) -> Image\n"
 "\n"
 "Changes the size of the image in-place by scaling it: after a call to\n"
-"this function,the image will have the given width and height.");
+"this function,the image will have the given width and height.\n"
+"");
 
 extern "C" {static PyObject *meth_wxImage_Rescale(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxImage_Rescale(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1171,6 +1173,35 @@ static PyObject *meth_wxImage_Rescale(PyObject *sipSelf, PyObject *sipArgs, PyOb
             Py_BEGIN_ALLOW_THREADS
             sipRes = &sipCpp->Rescale(width, height, quality);
             Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromType(sipRes, sipType_wxImage, SIP_NULLPTR);
+        }
+    }
+
+    {
+        const ::wxSize* size;
+        int sizeState = 0;
+        ::wxImageResizeQuality quality = wxIMAGE_QUALITY_NORMAL;
+        ::wxImage *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_size,
+            sipName_quality,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|E", &sipSelf, sipType_wxImage, &sipCpp, sipType_wxSize, &size, &sizeState, sipType_wxImageResizeQuality, &quality))
+        {
+            ::wxImage*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = &sipCpp->Rescale(*size, quality);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxSize *>(size), sipType_wxSize, sizeState);
 
             if (PyErr_Occurred())
                 return 0;
@@ -1238,7 +1269,7 @@ static PyObject *meth_wxImage_Resize(PyObject *sipSelf, PyObject *sipArgs, PyObj
 }
 
 
-PyDoc_STRVAR(doc_wxImage_Rotate, "Rotate(angle, rotationCentre, interpolating=True, offsetAfterRotation=None) -> Image\n"
+PyDoc_STRVAR(doc_wxImage_Rotate, "Rotate(angle, rotationCentre, interpolating=True, offsetAfterRotation=nullptr) -> Image\n"
 "\n"
 "Rotates the image about the given point, by angle radians.");
 
@@ -1252,7 +1283,7 @@ static PyObject *meth_wxImage_Rotate(PyObject *sipSelf, PyObject *sipArgs, PyObj
         const ::wxPoint* rotationCentre;
         int rotationCentreState = 0;
         bool interpolating = 1;
-        ::wxPoint* offsetAfterRotation = 0;
+        ::wxPoint* offsetAfterRotation = nullptr;
         int offsetAfterRotationState = 0;
         const ::wxImage *sipCpp;
 
@@ -1528,8 +1559,10 @@ static PyObject *meth_wxImage_ChangeHSV(PyObject *sipSelf, PyObject *sipArgs, Py
 
 
 PyDoc_STRVAR(doc_wxImage_Scale, "Scale(width, height, quality=IMAGE_QUALITY_NORMAL) -> Image\n"
+"Scale(size, quality=IMAGE_QUALITY_NORMAL) -> Image\n"
 "\n"
-"Returns a scaled version of the image.");
+"Returns a scaled version of the image.\n"
+"");
 
 extern "C" {static PyObject *meth_wxImage_Scale(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxImage_Scale(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1557,6 +1590,35 @@ static PyObject *meth_wxImage_Scale(PyObject *sipSelf, PyObject *sipArgs, PyObje
             Py_BEGIN_ALLOW_THREADS
             sipRes = new ::wxImage(sipCpp->Scale(width, height, quality));
             Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxImage, SIP_NULLPTR);
+        }
+    }
+
+    {
+        const ::wxSize* size;
+        int sizeState = 0;
+        ::wxImageResizeQuality quality = wxIMAGE_QUALITY_NORMAL;
+        const ::wxImage *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_size,
+            sipName_quality,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|E", &sipSelf, sipType_wxImage, &sipCpp, sipType_wxSize, &size, &sizeState, sipType_wxImageResizeQuality, &quality))
+        {
+            ::wxImage*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxImage(sipCpp->Scale(*size, quality));
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxSize *>(size), sipType_wxSize, sizeState);
 
             if (PyErr_Occurred())
                 return 0;
@@ -3332,6 +3394,46 @@ static PyObject *meth_wxImage_SetData(PyObject *sipSelf, PyObject *sipArgs, PyOb
     }
 
     sipNoMethod(sipParseErr, sipName_Image, sipName_SetData, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxImage_SetDataRGBA, "SetDataRGBA(data) -> None\n"
+"\n"
+"Sets the (non-premultiplied) RGBA image data without performing\n"
+"checks.");
+
+extern "C" {static PyObject *meth_wxImage_SetDataRGBA(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxImage_SetDataRGBA(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const unsigned char* data;
+        ::wxImage *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_data,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bs", &sipSelf, sipType_wxImage, &sipCpp, &data))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->SetDataRGBA(data);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Image, sipName_SetDataRGBA, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -5223,7 +5325,7 @@ static void *init_type_wxImage(sipSimpleWrapper *sipSelf, PyObject *sipArgs, PyO
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxImage[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxImage[] = {{400, 255, 1}};
 
 
 /* Define this type's Python slots. */
@@ -5309,6 +5411,7 @@ static PyMethodDef methods_wxImage[] = {
     {sipName_SetAlphaBuffer, SIP_MLMETH_CAST(meth_wxImage_SetAlphaBuffer), METH_VARARGS|METH_KEYWORDS, doc_wxImage_SetAlphaBuffer},
     {sipName_SetData, SIP_MLMETH_CAST(meth_wxImage_SetData), METH_VARARGS|METH_KEYWORDS, doc_wxImage_SetData},
     {sipName_SetDataBuffer, SIP_MLMETH_CAST(meth_wxImage_SetDataBuffer), METH_VARARGS|METH_KEYWORDS, doc_wxImage_SetDataBuffer},
+    {sipName_SetDataRGBA, SIP_MLMETH_CAST(meth_wxImage_SetDataRGBA), METH_VARARGS|METH_KEYWORDS, doc_wxImage_SetDataRGBA},
     {sipName_SetDefaultLoadFlags, SIP_MLMETH_CAST(meth_wxImage_SetDefaultLoadFlags), METH_VARARGS|METH_KEYWORDS, doc_wxImage_SetDefaultLoadFlags},
     {sipName_SetLoadFlags, SIP_MLMETH_CAST(meth_wxImage_SetLoadFlags), METH_VARARGS|METH_KEYWORDS, doc_wxImage_SetLoadFlags},
     {sipName_SetMask, SIP_MLMETH_CAST(meth_wxImage_SetMask), METH_VARARGS|METH_KEYWORDS, doc_wxImage_SetMask},
@@ -5323,7 +5426,7 @@ static PyMethodDef methods_wxImage[] = {
 };
 
 sipVariableDef variables_wxImage[] = {
-    {PropertyVariable, sipName_Type, &methods_wxImage[46], &methods_wxImage[83], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Type, &methods_wxImage[46], &methods_wxImage[84], SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_MaskRed, &methods_wxImage[38], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_MaskGreen, &methods_wxImage[37], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_MaskBlue, &methods_wxImage[36], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
@@ -5359,7 +5462,7 @@ sipClassTypeDef sipTypeDef__core_wxImage = {
     {
         sipNameNr_Image,
         {0, 0, 1},
-        86, methods_wxImage,
+        87, methods_wxImage,
         0, SIP_NULLPTR,
         6, variables_wxImage,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

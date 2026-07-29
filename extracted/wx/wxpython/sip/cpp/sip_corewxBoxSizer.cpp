@@ -81,9 +81,9 @@ bool sipwxBoxSizer::InformFirstDirection(int direction, int size, int availableO
     if (!sipMeth)
         return ::wxBoxSizer::InformFirstDirection(direction, size, availableOtherDir);
 
-    extern bool sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern bool sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
 
-    return sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
+    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
 }
 
 void sipwxBoxSizer::RepositionChildren(const ::wxSize& minSize)
@@ -99,9 +99,9 @@ void sipwxBoxSizer::RepositionChildren(const ::wxSize& minSize)
         return;
     }
 
-    extern void sipVH__core_106(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxSize&);
+    extern void sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxSize&);
 
-    sipVH__core_106(sipGILState, 0, sipPySelf, sipMeth, minSize);
+    sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, minSize);
 }
 
 void sipwxBoxSizer::RecalcSizes()
@@ -445,7 +445,7 @@ static void *init_type_wxBoxSizer(sipSimpleWrapper *sipSelf, PyObject *sipArgs, 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxBoxSizer[] = {{512, 255, 1}};
+static sipEncodedTypeDef supers_wxBoxSizer[] = {{527, 255, 1}};
 
 
 static PyMethodDef methods_wxBoxSizer[] = {

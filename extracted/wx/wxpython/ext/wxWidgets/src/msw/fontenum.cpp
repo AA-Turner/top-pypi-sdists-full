@@ -41,7 +41,7 @@
 
 // the helper class which calls ::EnumFontFamilies() and whose OnFont() is
 // called from the callback passed to this function and, in its turn, calls the
-// appropariate wxFontEnumerator method
+// appropriate wxFontEnumerator method
 class wxFontEnumeratorHelper
 {
 public:
@@ -140,7 +140,7 @@ bool wxFontEnumeratorHelper::SetEncoding(wxFontEncoding encoding)
 
 void wxFontEnumeratorHelper::DoEnumerate()
 {
-    HDC hDC = ::GetDC(NULL);
+    HDC hDC = ::GetDC(nullptr);
 
     LOGFONT lf;
     lf.lfCharSet = (BYTE)m_charset;
@@ -149,12 +149,30 @@ void wxFontEnumeratorHelper::DoEnumerate()
     ::EnumFontFamiliesEx(hDC, &lf, (FONTENUMPROC)wxFontEnumeratorProc,
                          (LPARAM)this, wxRESERVED_PARAM) ;
 
-    ::ReleaseDC(NULL, hDC);
+    ::ReleaseDC(nullptr, hDC);
 }
 
 bool wxFontEnumeratorHelper::OnFont(const LPLOGFONT lf,
                                     const LPTEXTMETRIC tm) const
 {
+    wxString facename = lf->lfFaceName;
+    if ( facename.empty() || wxIsFaceNamePossiblyTruncated(facename) )
+    {
+        AutoHFONT hFont(*lf);
+        if ( !hFont )
+        {
+            wxLogLastError("CreateFontIndirect");
+        }
+        else
+        {
+            const wxString fullname = wxGetMSWFaceNameFromHFONT(hFont);
+            if ( !fullname.empty() )
+            {
+                facename = fullname;
+            }
+        }
+    }
+
     if ( m_enumEncodings )
     {
         // is this a new charset?
@@ -165,13 +183,13 @@ bool wxFontEnumeratorHelper::OnFont(const LPLOGFONT lf,
 
 #if wxUSE_FONTMAP
             wxFontEncoding enc = wxGetFontEncFromCharSet(cs);
-            return m_fontEnum->OnFontEncoding(lf->lfFaceName,
+            return m_fontEnum->OnFontEncoding(facename,
                                               wxFontMapper::GetEncodingName(enc));
 #else // !wxUSE_FONTMAP
             // Just use some unique and, hopefully, understandable, name.
             return m_fontEnum->OnFontEncoding
                                (
-                                lf->lfFaceName,
+                                facename,
                                 wxString::Format(wxS("Code page %d"), cs)
                                );
 #endif // wxUSE_FONTMAP/!wxUSE_FONTMAP
@@ -207,17 +225,17 @@ bool wxFontEnumeratorHelper::OnFont(const LPLOGFONT lf,
         // we can get the same facename twice or more in this case because it
         // may exist in several charsets but we only want to return one copy of
         // it (note that this can't happen for m_charset != DEFAULT_CHARSET)
-        if ( m_facenames.Index(lf->lfFaceName) != wxNOT_FOUND )
+        if ( m_facenames.Index(facename) != wxNOT_FOUND )
         {
             // continue enumeration
             return true;
         }
 
         wxConstCast(this, wxFontEnumeratorHelper)->
-            m_facenames.Add(lf->lfFaceName);
+            m_facenames.Add(facename);
     }
 
-    return m_fontEnum->OnFacename(lf->lfFaceName);
+    return m_fontEnum->OnFacename(facename);
 }
 
 // ----------------------------------------------------------------------------

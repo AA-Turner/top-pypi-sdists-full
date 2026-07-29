@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sigstore
-Version: 4.4.0
+Version: 4.5.0
 Summary: A tool for signing Python package distributions
 Author-email: Sigstore Authors <sigstore-dev@googlegroups.com>
 Requires-Python: >=3.10

@@ -18,614 +18,776 @@
  */
 #define sipNameNr_wxEVT_WEBVIEW_SCRIPT_MESSAGE_RECEIVED 0
 #define sipName_wxEVT_WEBVIEW_SCRIPT_MESSAGE_RECEIVED &sipStrings__html2[0]
-#define sipNameNr_WEBVIEW_INJECT_AT_DOCUMENT_START 38
-#define sipName_WEBVIEW_INJECT_AT_DOCUMENT_START &sipStrings__html2[38]
-#define sipNameNr_wxEVT_WEBVIEW_FULLSCREEN_CHANGED 71
-#define sipName_wxEVT_WEBVIEW_FULLSCREEN_CHANGED &sipStrings__html2[71]
-#define sipNameNr_wxWebViewUserScriptInjectionTime 104
-#define sipName_wxWebViewUserScriptInjectionTime &sipStrings__html2[104]
-#define sipNameNr_GetMainWindowOfCompositeControl 137
-#define sipName_GetMainWindowOfCompositeControl &sipStrings__html2[137]
-#define sipNameNr_WEBVIEW_INJECT_AT_DOCUMENT_END 169
-#define sipName_WEBVIEW_INJECT_AT_DOCUMENT_END &sipStrings__html2[169]
-#define sipNameNr_WEBVIEW_NAV_ERR_USER_CANCELLED 200
-#define sipName_WEBVIEW_NAV_ERR_USER_CANCELLED &sipStrings__html2[200]
-#define sipNameNr_WebViewUserScriptInjectionTime 106
-#define sipName_WebViewUserScriptInjectionTime &sipStrings__html2[106]
-#define sipNameNr_wxWebViewNavigationActionFlags 231
-#define sipName_wxWebViewNavigationActionFlags &sipStrings__html2[231]
-#define sipNameNr_WEBVIEW_FIND_HIGHLIGHT_RESULT 262
-#define sipName_WEBVIEW_FIND_HIGHLIGHT_RESULT &sipStrings__html2[262]
-#define sipNameNr_WebViewNavigationActionFlags 233
-#define sipName_WebViewNavigationActionFlags &sipStrings__html2[233]
-#define sipNameNr_WEBVIEW_NAV_ERR_CERTIFICATE 292
-#define sipName_WEBVIEW_NAV_ERR_CERTIFICATE &sipStrings__html2[292]
-#define sipNameNr_wxEVT_WEBVIEW_SCRIPT_RESULT 320
-#define sipName_wxEVT_WEBVIEW_SCRIPT_RESULT &sipStrings__html2[320]
-#define sipNameNr_wxEVT_WEBVIEW_TITLE_CHANGED 348
-#define sipName_wxEVT_WEBVIEW_TITLE_CHANGED &sipStrings__html2[348]
-#define sipNameNr_GetDefaultBorderForControl 376
-#define sipName_GetDefaultBorderForControl &sipStrings__html2[376]
-#define sipNameNr_MSWSetModernEmulationLevel 403
-#define sipName_MSWSetModernEmulationLevel &sipStrings__html2[403]
-#define sipNameNr_RemoveScriptMessageHandler 430
-#define sipName_RemoveScriptMessageHandler &sipStrings__html2[430]
-#define sipNameNr_WEBVIEW_NAV_ERR_CONNECTION 457
-#define sipName_WEBVIEW_NAV_ERR_CONNECTION &sipStrings__html2[457]
-#define sipNameNr_wxWebViewIE_EmulationLevel 484
-#define sipName_wxWebViewIE_EmulationLevel &sipStrings__html2[484]
-#define sipNameNr_GetClassDefaultAttributes 511
-#define sipName_GetClassDefaultAttributes &sipStrings__html2[511]
-#define sipNameNr_IsAccessToDevToolsEnabled 537
-#define sipName_IsAccessToDevToolsEnabled &sipStrings__html2[537]
-#define sipNameNr_WEBVIEW_NAV_ERR_NOT_FOUND 563
-#define sipName_WEBVIEW_NAV_ERR_NOT_FOUND &sipStrings__html2[563]
-#define sipNameNr_AcceptsFocusFromKeyboard 589
-#define sipName_AcceptsFocusFromKeyboard &sipStrings__html2[589]
-#define sipNameNr_HasTransparentBackground 614
-#define sipName_HasTransparentBackground &sipStrings__html2[614]
-#define sipNameNr_WEBVIEWIE_EMU_IE10_FORCE 639
-#define sipName_WEBVIEWIE_EMU_IE10_FORCE &sipStrings__html2[639]
-#define sipNameNr_WEBVIEWIE_EMU_IE11_FORCE 664
-#define sipName_WEBVIEWIE_EMU_IE11_FORCE &sipStrings__html2[664]
-#define sipNameNr_WEBVIEW_FIND_ENTIRE_WORD 689
-#define sipName_WEBVIEW_FIND_ENTIRE_WORD &sipStrings__html2[689]
-#define sipNameNr_WEBVIEW_NAV_ACTION_OTHER 714
-#define sipName_WEBVIEW_NAV_ACTION_OTHER &sipStrings__html2[714]
-#define sipNameNr_WEBVIEW_NAV_ERR_SECURITY 739
-#define sipName_WEBVIEW_NAV_ERR_SECURITY &sipStrings__html2[739]
-#define sipNameNr_WEBVIEW_ZOOM_TYPE_LAYOUT 764
-#define sipName_WEBVIEW_ZOOM_TYPE_LAYOUT &sipStrings__html2[764]
-#define sipNameNr_WebViewIE_EmulationLevel 486
-#define sipName_WebViewIE_EmulationLevel &sipStrings__html2[486]
-#define sipNameNr_wxEVT_WEBVIEW_NAVIGATING 789
-#define sipName_wxEVT_WEBVIEW_NAVIGATING &sipStrings__html2[789]
-#define sipNameNr_wxWebViewNavigationError 814
-#define sipName_wxWebViewNavigationError &sipStrings__html2[814]
-#define sipNameNr_AcceptsFocusRecursively 839
-#define sipName_AcceptsFocusRecursively &sipStrings__html2[839]
-#define sipNameNr_AddScriptMessageHandler 863
-#define sipName_AddScriptMessageHandler &sipStrings__html2[863]
-#define sipNameNr_WEBVIEWIE_EMU_IE8_FORCE 887
-#define sipName_WEBVIEWIE_EMU_IE8_FORCE &sipStrings__html2[887]
-#define sipNameNr_WEBVIEWIE_EMU_IE9_FORCE 911
-#define sipName_WEBVIEWIE_EMU_IE9_FORCE &sipStrings__html2[911]
-#define sipNameNr_WEBVIEW_FIND_MATCH_CASE 935
-#define sipName_WEBVIEW_FIND_MATCH_CASE &sipStrings__html2[935]
-#define sipNameNr_WEBVIEW_NAV_ACTION_NONE 959
-#define sipName_WEBVIEW_NAV_ACTION_NONE &sipStrings__html2[959]
-#define sipNameNr_WEBVIEW_NAV_ACTION_USER 983
-#define sipName_WEBVIEW_NAV_ACTION_USER &sipStrings__html2[983]
-#define sipNameNr_WEBVIEW_NAV_ERR_REQUEST 1007
-#define sipName_WEBVIEW_NAV_ERR_REQUEST &sipStrings__html2[1007]
-#define sipNameNr_WEBVIEW_RELOAD_NO_CACHE 1031
-#define sipName_WEBVIEW_RELOAD_NO_CACHE &sipStrings__html2[1031]
-#define sipNameNr_wxEVT_WEBVIEW_NAVIGATED 1055
-#define sipName_wxEVT_WEBVIEW_NAVIGATED &sipStrings__html2[1055]
-#define sipNameNr_wxEVT_WEBVIEW_NEWWINDOW 1079
-#define sipName_wxEVT_WEBVIEW_NEWWINDOW &sipStrings__html2[1079]
-#define sipNameNr_wxWebViewArchiveHandler 1103
-#define sipName_wxWebViewArchiveHandler &sipStrings__html2[1103]
-#define sipNameNr_EnableAccessToDevTools 1127
-#define sipName_EnableAccessToDevTools &sipStrings__html2[1127]
-#define sipNameNr_TransferDataFromWindow 1150
-#define sipName_TransferDataFromWindow &sipStrings__html2[1150]
-#define sipNameNr_WEBVIEW_FIND_BACKWARDS 1173
-#define sipName_WEBVIEW_FIND_BACKWARDS &sipStrings__html2[1173]
-#define sipNameNr_WEBVIEW_RELOAD_DEFAULT 1196
-#define sipName_WEBVIEW_RELOAD_DEFAULT &sipStrings__html2[1196]
-#define sipNameNr_WEBVIEW_ZOOM_TYPE_TEXT 1219
-#define sipName_WEBVIEW_ZOOM_TYPE_TEXT &sipStrings__html2[1219]
-#define sipNameNr_WebViewNavigationError 816
-#define sipName_WebViewNavigationError &sipStrings__html2[816]
-#define sipNameNr_GetBackendVersionInfo 1242
-#define sipName_GetBackendVersionInfo &sipStrings__html2[1242]
-#define sipNameNr_WEBVIEWIE_EMU_DEFAULT 1264
-#define sipName_WEBVIEWIE_EMU_DEFAULT &sipStrings__html2[1264]
-#define sipNameNr_WEBVIEW_NAV_ERR_OTHER 1286
-#define sipName_WEBVIEW_NAV_ERR_OTHER &sipStrings__html2[1286]
-#define sipNameNr_WebViewArchiveHandler 1105
-#define sipName_WebViewArchiveHandler &sipStrings__html2[1105]
-#define sipNameNr_WebViewBackendDefault 1308
-#define sipName_WebViewBackendDefault &sipStrings__html2[1308]
-#define sipNameNr_InformFirstDirection 1330
-#define sipName_InformFirstDirection &sipStrings__html2[1330]
-#define sipNameNr_IsContextMenuEnabled 1351
-#define sipName_IsContextMenuEnabled &sipStrings__html2[1351]
-#define sipNameNr_MSWSetEmulationLevel 1372
-#define sipName_MSWSetEmulationLevel &sipStrings__html2[1372]
-#define sipNameNr_RemoveAllUserScripts 1393
-#define sipName_RemoveAllUserScripts &sipStrings__html2[1393]
-#define sipNameNr_ShouldInheritColours 1414
-#define sipName_ShouldInheritColours &sipStrings__html2[1414]
-#define sipNameNr_TransferDataToWindow 1435
-#define sipName_TransferDataToWindow &sipStrings__html2[1435]
-#define sipNameNr_WEBVIEW_FIND_DEFAULT 1456
-#define sipName_WEBVIEW_FIND_DEFAULT &sipStrings__html2[1456]
-#define sipNameNr_WEBVIEW_NAV_ERR_AUTH 1477
-#define sipName_WEBVIEW_NAV_ERR_AUTH &sipStrings__html2[1477]
-#define sipNameNr_WEBVIEW_ZOOM_LARGEST 1498
-#define sipName_WEBVIEW_ZOOM_LARGEST &sipStrings__html2[1498]
-#define sipNameNr_WebViewBackendWebKit 1519
-#define sipName_WebViewBackendWebKit &sipStrings__html2[1519]
-#define sipNameNr_WebViewDefaultURLStr 1540
-#define sipName_WebViewDefaultURLStr &sipStrings__html2[1540]
-#define sipNameNr_wxEVT_WEBVIEW_LOADED 1561
-#define sipName_wxEVT_WEBVIEW_LOADED &sipStrings__html2[1561]
-#define sipNameNr_wxWebViewHistoryItem 1582
-#define sipName_wxWebViewHistoryItem &sipStrings__html2[1582]
-#define sipNameNr_wxWebViewReloadFlags 1603
-#define sipName_wxWebViewReloadFlags &sipStrings__html2[1603]
-#define sipNameNr_DoGetBestClientSize 1624
-#define sipName_DoGetBestClientSize &sipStrings__html2[1624]
-#define sipNameNr_GetClientAreaOrigin 1644
-#define sipName_GetClientAreaOrigin &sipStrings__html2[1644]
-#define sipNameNr_GetNavigationAction 1664
-#define sipName_GetNavigationAction &sipStrings__html2[1664]
-#define sipNameNr_WEBVIEW_ZOOM_MEDIUM 1684
-#define sipName_WEBVIEW_ZOOM_MEDIUM &sipStrings__html2[1684]
-#define sipNameNr_wxEVT_WEBVIEW_ERROR 1704
-#define sipName_wxEVT_WEBVIEW_ERROR &sipStrings__html2[1704]
-#define sipNameNr_DoSetWindowVariant 1724
-#define sipName_DoSetWindowVariant &sipStrings__html2[1724]
-#define sipNameNr_EnableVisibleFocus 1743
-#define sipName_EnableVisibleFocus &sipStrings__html2[1743]
-#define sipNameNr_GetBackwardHistory 1762
-#define sipName_GetBackwardHistory &sipStrings__html2[1762]
-#define sipNameNr_IsBackendAvailable 1781
-#define sipName_IsBackendAvailable &sipStrings__html2[1781]
-#define sipNameNr_WEBVIEWIE_EMU_IE10 1800
-#define sipName_WEBVIEWIE_EMU_IE10 &sipStrings__html2[1800]
-#define sipNameNr_WEBVIEWIE_EMU_IE11 1819
-#define sipName_WEBVIEWIE_EMU_IE11 &sipStrings__html2[1819]
-#define sipNameNr_WEBVIEW_ZOOM_LARGE 1838
-#define sipName_WEBVIEW_ZOOM_LARGE &sipStrings__html2[1838]
-#define sipNameNr_WEBVIEW_ZOOM_SMALL 1857
-#define sipName_WEBVIEW_ZOOM_SMALL &sipStrings__html2[1857]
-#define sipNameNr_WebViewBackendEdge 1876
-#define sipName_WebViewBackendEdge &sipStrings__html2[1876]
-#define sipNameNr_WebViewHistoryItem 1584
-#define sipName_WebViewHistoryItem &sipStrings__html2[1584]
-#define sipNameNr_WebViewReloadFlags 1605
-#define sipName_WebViewReloadFlags &sipStrings__html2[1605]
-#define sipNameNr_wxWebViewFSHandler 1895
-#define sipName_wxWebViewFSHandler &sipStrings__html2[1895]
-#define sipNameNr_wxWebViewFindFlags 1914
-#define sipName_wxWebViewFindFlags &sipStrings__html2[1914]
-#define sipNameNr_EnableContextMenu 1933
-#define sipName_EnableContextMenu &sipStrings__html2[1933]
-#define sipNameNr_GetForwardHistory 1951
-#define sipName_GetForwardHistory &sipStrings__html2[1951]
-#define sipNameNr_GetMessageHandler 1969
-#define sipName_GetMessageHandler &sipStrings__html2[1969]
-#define sipNameNr_GetSelectedSource 1987
-#define sipName_GetSelectedSource &sipStrings__html2[1987]
-#define sipNameNr_InheritAttributes 2005
-#define sipName_InheritAttributes &sipStrings__html2[2005]
-#define sipNameNr_WEBVIEWIE_EMU_IE7 2023
-#define sipName_WEBVIEWIE_EMU_IE7 &sipStrings__html2[2023]
-#define sipNameNr_WEBVIEWIE_EMU_IE8 2041
-#define sipName_WEBVIEWIE_EMU_IE8 &sipStrings__html2[2041]
-#define sipNameNr_WEBVIEWIE_EMU_IE9 2059
-#define sipName_WEBVIEWIE_EMU_IE9 &sipStrings__html2[2059]
-#define sipNameNr_WEBVIEW_FIND_WRAP 2077
-#define sipName_WEBVIEW_FIND_WRAP &sipStrings__html2[2077]
-#define sipNameNr_WEBVIEW_ZOOM_TINY 2095
-#define sipName_WEBVIEW_ZOOM_TINY &sipStrings__html2[2095]
-#define sipNameNr_availableOtherDir 2113
-#define sipName_availableOtherDir &sipStrings__html2[2113]
-#define sipNameNr_wxWebViewZoomType 2131
-#define sipName_wxWebViewZoomType &sipStrings__html2[2131]
-#define sipNameNr_GetDefaultBorder 2149
-#define sipName_GetDefaultBorder &sipStrings__html2[2149]
-#define sipNameNr_GetEventCategory 2166
-#define sipName_GetEventCategory &sipStrings__html2[2166]
-#define sipNameNr_GetNativeBackend 2183
-#define sipName_GetNativeBackend &sipStrings__html2[2183]
-#define sipNameNr_NavigationAction 1667
-#define sipName_NavigationAction &sipStrings__html2[1667]
-#define sipNameNr_WebViewBackendIE 2200
-#define sipName_WebViewBackendIE &sipStrings__html2[2200]
-#define sipNameNr_WebViewFSHandler 1897
-#define sipName_WebViewFSHandler &sipStrings__html2[1897]
-#define sipNameNr_WebViewFindFlags 1916
-#define sipName_WebViewFindFlags &sipStrings__html2[1916]
-#define sipNameNr_wxWebViewFactory 2217
-#define sipName_wxWebViewFactory &sipStrings__html2[2217]
-#define sipNameNr_wxWebViewHandler 2234
-#define sipName_wxWebViewHandler &sipStrings__html2[2234]
-#define sipNameNr_BackwardHistory 1765
-#define sipName_BackwardHistory &sipStrings__html2[1765]
-#define sipNameNr_DeleteSelection 2251
-#define sipName_DeleteSelection &sipStrings__html2[2251]
-#define sipNameNr_DoGetClientSize 2267
-#define sipName_DoGetClientSize &sipStrings__html2[2267]
-#define sipNameNr_DoSetClientSize 2283
-#define sipName_DoSetClientSize &sipStrings__html2[2283]
-#define sipNameNr_GetCurrentTitle 2299
-#define sipName_GetCurrentTitle &sipStrings__html2[2299]
-#define sipNameNr_GetSelectedText 2315
-#define sipName_GetSelectedText &sipStrings__html2[2315]
-#define sipNameNr_RegisterFactory 2331
-#define sipName_RegisterFactory &sipStrings__html2[2331]
-#define sipNameNr_RegisterHandler 2347
-#define sipName_RegisterHandler &sipStrings__html2[2347]
-#define sipNameNr_WebViewZoomType 2133
-#define sipName_WebViewZoomType &sipStrings__html2[2133]
-#define sipNameNr_CanSetZoomType 2363
-#define sipName_CanSetZoomType &sipStrings__html2[2363]
-#define sipNameNr_ClearSelection 2378
-#define sipName_ClearSelection &sipStrings__html2[2378]
-#define sipNameNr_DoSetSizeHints 2393
-#define sipName_DoSetSizeHints &sipStrings__html2[2393]
-#define sipNameNr_ForwardHistory 1954
-#define sipName_ForwardHistory &sipStrings__html2[1954]
-#define sipNameNr_GetSecurityURL 2408
-#define sipName_GetSecurityURL &sipStrings__html2[2408]
-#define sipNameNr_GetVersionInfo 2423
-#define sipName_GetVersionInfo &sipStrings__html2[2423]
-#define sipNameNr_MessageHandler 442
-#define sipName_MessageHandler &sipStrings__html2[442]
-#define sipNameNr_OnInternalIdle 2438
-#define sipName_OnInternalIdle &sipStrings__html2[2438]
-#define sipNameNr_RunScriptAsync 2453
-#define sipName_RunScriptAsync &sipStrings__html2[2453]
-#define sipNameNr_SelectedSource 1990
-#define sipName_SelectedSource &sipStrings__html2[1990]
-#define sipNameNr_SetSecurityURL 2468
-#define sipName_SetSecurityURL &sipStrings__html2[2468]
-#define sipNameNr_WebViewFactory 2219
-#define sipName_WebViewFactory &sipStrings__html2[2219]
-#define sipNameNr_WebViewHandler 2236
-#define sipName_WebViewHandler &sipStrings__html2[2236]
-#define sipNameNr_WebViewNameStr 2483
-#define sipName_WebViewNameStr &sipStrings__html2[2483]
-#define sipNameNr_messageHandler 2498
-#define sipName_messageHandler &sipStrings__html2[2498]
-#define sipNameNr_wxWebViewEvent 2513
-#define sipName_wxWebViewEvent &sipStrings__html2[2513]
-#define sipNameNr_AddUserScript 2528
-#define sipName_AddUserScript &sipStrings__html2[2528]
-#define sipNameNr_DoGetBestSize 2542
-#define sipName_DoGetBestSize &sipStrings__html2[2542]
-#define sipNameNr_DoGetPosition 2556
-#define sipName_DoGetPosition &sipStrings__html2[2556]
-#define sipNameNr_EnableHistory 2570
-#define sipName_EnableHistory &sipStrings__html2[2570]
-#define sipNameNr_GetCurrentURL 2584
-#define sipName_GetCurrentURL &sipStrings__html2[2584]
-#define sipNameNr_GetPageSource 2598
-#define sipName_GetPageSource &sipStrings__html2[2598]
-#define sipNameNr_GetZoomFactor 2612
-#define sipName_GetZoomFactor &sipStrings__html2[2612]
-#define sipNameNr_NativeBackend 2186
-#define sipName_NativeBackend &sipStrings__html2[2186]
-#define sipNameNr_SetZoomFactor 2626
-#define sipName_SetZoomFactor &sipStrings__html2[2626]
-#define sipNameNr_injectionTime 2640
-#define sipName_injectionTime &sipStrings__html2[2640]
-#define sipNameNr_wxWebViewZoom 2654
-#define sipName_wxWebViewZoom &sipStrings__html2[2654]
-#define sipNameNr_AcceptsFocus 2668
-#define sipName_AcceptsFocus &sipStrings__html2[2668]
-#define sipNameNr_CanGoForward 2681
-#define sipName_CanGoForward &sipStrings__html2[2681]
-#define sipNameNr_ClearHistory 2694
-#define sipName_ClearHistory &sipStrings__html2[2694]
-#define sipNameNr_CurrentTitle 2302
-#define sipName_CurrentTitle &sipStrings__html2[2302]
-#define sipNameNr_DoMoveWindow 2707
-#define sipName_DoMoveWindow &sipStrings__html2[2707]
-#define sipNameNr_GetUserAgent 2720
-#define sipName_GetUserAgent &sipStrings__html2[2720]
-#define sipNameNr_GetValidator 2733
-#define sipName_GetValidator &sipStrings__html2[2733]
-#define sipNameNr_HasSelection 2746
-#define sipName_HasSelection &sipStrings__html2[2746]
-#define sipNameNr_ProcessEvent 2759
-#define sipName_ProcessEvent &sipStrings__html2[2759]
-#define sipNameNr_SelectedText 2318
-#define sipName_SelectedText &sipStrings__html2[2318]
-#define sipNameNr_SetUserAgent 2772
-#define sipName_SetUserAgent &sipStrings__html2[2772]
-#define sipNameNr_SetValidator 2785
-#define sipName_SetValidator &sipStrings__html2[2785]
-#define sipNameNr_WebViewEvent 2515
-#define sipName_WebViewEvent &sipStrings__html2[2515]
-#define sipNameNr_GetPageText 2798
-#define sipName_GetPageText &sipStrings__html2[2798]
-#define sipNameNr_GetZoomType 2810
-#define sipName_GetZoomType &sipStrings__html2[2810]
-#define sipNameNr_IsAvailable 2822
-#define sipName_IsAvailable &sipStrings__html2[2822]
-#define sipNameNr_RemoveChild 2834
-#define sipName_RemoveChild &sipStrings__html2[2834]
-#define sipNameNr_SecurityURL 2411
-#define sipName_SecurityURL &sipStrings__html2[2411]
-#define sipNameNr_SetCanFocus 2846
-#define sipName_SetCanFocus &sipStrings__html2[2846]
-#define sipNameNr_SetEditable 2858
-#define sipName_SetEditable &sipStrings__html2[2858]
-#define sipNameNr_SetZoomType 2366
-#define sipName_SetZoomType &sipStrings__html2[2366]
-#define sipNameNr_USE_WEBVIEW 2870
-#define sipName_USE_WEBVIEW &sipStrings__html2[2870]
-#define sipNameNr_VersionInfo 1252
-#define sipName_VersionInfo &sipStrings__html2[1252]
-#define sipNameNr_WebViewZoom 2656
-#define sipName_WebViewZoom &sipStrings__html2[2656]
-#define sipNameNr_modernLevel 2882
-#define sipName_modernLevel &sipStrings__html2[2882]
-#define sipNameNr_CurrentURL 2587
-#define sipName_CurrentURL &sipStrings__html2[2587]
-#define sipNameNr_InitDialog 2894
-#define sipName_InitDialog &sipStrings__html2[2894]
-#define sipNameNr_IsEditable 2905
-#define sipName_IsEditable &sipStrings__html2[2905]
-#define sipNameNr_PageSource 2601
-#define sipName_PageSource &sipStrings__html2[2601]
-#define sipNameNr_ZoomFactor 2615
-#define sipName_ZoomFactor &sipStrings__html2[2615]
-#define sipNameNr_clientData 2916
-#define sipName_clientData &sipStrings__html2[2916]
-#define sipNameNr_javascript 2927
-#define sipName_javascript &sipStrings__html2[2927]
-#define sipNameNr_widthTitle 2938
-#define sipName_widthTitle &sipStrings__html2[2938]
-#define sipNameNr_CanGoBack 2949
-#define sipName_CanGoBack &sipStrings__html2[2949]
-#define sipNameNr_DoGetSize 2959
-#define sipName_DoGetSize &sipStrings__html2[2959]
-#define sipNameNr_DoSetSize 2969
-#define sipName_DoSetSize &sipStrings__html2[2969]
-#define sipNameNr_GetTarget 2979
-#define sipName_GetTarget &sipStrings__html2[2979]
-#define sipNameNr_GoForward 2684
-#define sipName_GoForward &sipStrings__html2[2684]
-#define sipNameNr_RunScript 2989
-#define sipName_RunScript &sipStrings__html2[2989]
-#define sipNameNr_SelectAll 2999
-#define sipName_SelectAll &sipStrings__html2[2999]
-#define sipNameNr_TryBefore 3009
-#define sipName_TryBefore &sipStrings__html2[3009]
-#define sipNameNr_UserAgent 2723
-#define sipName_UserAgent &sipStrings__html2[2723]
-#define sipNameNr_columnMax 3019
-#define sipName_columnMax &sipStrings__html2[3019]
-#define sipNameNr_columnMin 3029
-#define sipName_columnMin &sipStrings__html2[3029]
-#define sipNameNr_direction 3039
-#define sipName_direction &sipStrings__html2[3039]
-#define sipNameNr_sizeFlags 3049
-#define sipName_sizeFlags &sipStrings__html2[3049]
-#define sipNameNr_userAgent 3059
-#define sipName_userAgent &sipStrings__html2[3059]
-#define sipNameNr_validator 3069
-#define sipName_validator &sipStrings__html2[3069]
-#define sipNameNr_wx__html2 3079
-#define sipName_wx__html2 &sipStrings__html2[3079]
-#define sipNameNr_wxWebView 3089
-#define sipName_wxWebView &sipStrings__html2[3089]
-#define sipNameNr_AddChild 3099
-#define sipName_AddChild &sipStrings__html2[3099]
-#define sipNameNr_CanPaste 3108
-#define sipName_CanPaste &sipStrings__html2[3108]
-#define sipNameNr_DoEnable 3117
-#define sipName_DoEnable &sipStrings__html2[3117]
-#define sipNameNr_DoFreeze 3126
-#define sipName_DoFreeze &sipStrings__html2[3126]
-#define sipNameNr_GetTitle 3135
-#define sipName_GetTitle &sipStrings__html2[3135]
-#define sipNameNr_PageText 2801
-#define sipName_PageText &sipStrings__html2[2801]
-#define sipNameNr_TryAfter 3144
-#define sipName_TryAfter &sipStrings__html2[3144]
-#define sipNameNr_Validate 3153
-#define sipName_Validate &sipStrings__html2[3153]
-#define sipNameNr_ZoomType 2140
-#define sipName_ZoomType &sipStrings__html2[2140]
-#define sipNameNr_canFocus 3162
-#define sipName_canFocus &sipStrings__html2[3162]
-#define sipNameNr_location 3171
-#define sipName_location &sipStrings__html2[3171]
-#define sipNameNr_zoomType 3180
-#define sipName_zoomType &sipStrings__html2[3180]
-#define sipNameNr_CanCopy 3189
-#define sipName_CanCopy &sipStrings__html2[3189]
-#define sipNameNr_CanRedo 3197
-#define sipName_CanRedo &sipStrings__html2[3197]
-#define sipNameNr_CanUndo 3205
-#define sipName_CanUndo &sipStrings__html2[3205]
-#define sipNameNr_Destroy 3213
-#define sipName_Destroy &sipStrings__html2[3213]
-#define sipNameNr_GetFile 3221
-#define sipName_GetFile &sipStrings__html2[3221]
-#define sipNameNr_GetName 3229
-#define sipName_GetName &sipStrings__html2[3229]
-#define sipNameNr_GetZoom 3237
-#define sipName_GetZoom &sipStrings__html2[3237]
-#define sipNameNr_IsError 3245
-#define sipName_IsError &sipStrings__html2[3245]
-#define sipNameNr_LoadURL 3253
-#define sipName_LoadURL &sipStrings__html2[3253]
-#define sipNameNr_SetPage 3261
-#define sipName_SetPage &sipStrings__html2[3261]
-#define sipNameNr_SetZoom 3269
-#define sipName_SetZoom &sipStrings__html2[3269]
-#define sipNameNr_WebView 3091
-#define sipName_WebView &sipStrings__html2[3091]
-#define sipNameNr_backend 3277
-#define sipName_backend &sipStrings__html2[3277]
-#define sipNameNr_baseUrl 3285
-#define sipName_baseUrl &sipStrings__html2[3285]
-#define sipNameNr_enabled 3293
-#define sipName_enabled &sipStrings__html2[3293]
-#define sipNameNr_factory 3301
-#define sipName_factory &sipStrings__html2[3301]
-#define sipNameNr_handler 3309
-#define sipName_handler &sipStrings__html2[3309]
-#define sipNameNr_unitMax 3317
-#define sipName_unitMax &sipStrings__html2[3317]
-#define sipNameNr_unitMin 3325
-#define sipName_unitMin &sipStrings__html2[3325]
-#define sipNameNr_variant 3333
-#define sipName_variant &sipStrings__html2[3333]
-#define sipNameNr_CanCut 3341
-#define sipName_CanCut &sipStrings__html2[3341]
-#define sipNameNr_Create 3348
-#define sipName_Create &sipStrings__html2[3348]
-#define sipNameNr_DoThaw 3355
-#define sipName_DoThaw &sipStrings__html2[3355]
-#define sipNameNr_GetURL 3362
-#define sipName_GetURL &sipStrings__html2[3362]
-#define sipNameNr_GetUrl 3369
-#define sipName_GetUrl &sipStrings__html2[3369]
-#define sipNameNr_GoBack 2952
-#define sipName_GoBack &sipStrings__html2[2952]
-#define sipNameNr_IsBusy 3376
-#define sipName_IsBusy &sipStrings__html2[3376]
-#define sipNameNr_Reload 3383
-#define sipName_Reload &sipStrings__html2[3383]
-#define sipNameNr_Target 2982
-#define sipName_Target &sipStrings__html2[2982]
-#define sipNameNr_client 3390
-#define sipName_client &sipStrings__html2[3390]
-#define sipNameNr_column 3397
-#define sipName_column &sipStrings__html2[3397]
-#define sipNameNr_dialog 3404
-#define sipName_dialog &sipStrings__html2[3404]
-#define sipNameNr_enable 3411
-#define sipName_enable &sipStrings__html2[3411]
-#define sipNameNr_height 3418
-#define sipName_height &sipStrings__html2[3418]
-#define sipNameNr_output 3425
-#define sipName_output &sipStrings__html2[3425]
-#define sipNameNr_parent 3432
-#define sipName_parent &sipStrings__html2[3432]
-#define sipNameNr_rowMax 3439
-#define sipName_rowMax &sipStrings__html2[3439]
-#define sipNameNr_rowMin 3446
-#define sipName_rowMin &sipStrings__html2[3446]
-#define sipNameNr_scheme 3453
-#define sipName_scheme &sipStrings__html2[3453]
-#define sipNameNr_stream 3460
-#define sipName_stream &sipStrings__html2[3460]
-#define sipNameNr_target 3467
-#define sipName_target &sipStrings__html2[3467]
-#define sipNameNr_Clone 3474
-#define sipName_Clone &sipStrings__html2[3474]
-#define sipNameNr_Paste 3111
-#define sipName_Paste &sipStrings__html2[3111]
-#define sipNameNr_Print 3480
-#define sipName_Print &sipStrings__html2[3480]
-#define sipNameNr_Title 2309
-#define sipName_Title &sipStrings__html2[2309]
-#define sipNameNr_child 3486
-#define sipName_child &sipStrings__html2[3486]
-#define sipNameNr_count 3492
-#define sipName_count &sipStrings__html2[3492]
-#define sipNameNr_event 3498
-#define sipName_event &sipStrings__html2[3498]
-#define sipNameNr_flags 3504
-#define sipName_flags &sipStrings__html2[3504]
-#define sipNameNr_level 3510
-#define sipName_level &sipStrings__html2[3510]
-#define sipNameNr_order 2160
-#define sipName_order &sipStrings__html2[2160]
-#define sipNameNr_popup 3516
-#define sipName_popup &sipStrings__html2[3516]
-#define sipNameNr_scale 3522
-#define sipName_scale &sipStrings__html2[3522]
-#define sipNameNr_sizer 3528
-#define sipName_sizer &sipStrings__html2[3528]
-#define sipNameNr_style 3534
-#define sipName_style &sipStrings__html2[3534]
-#define sipNameNr_title 3540
-#define sipName_title &sipStrings__html2[3540]
-#define sipNameNr_width 3546
-#define sipName_width &sipStrings__html2[3546]
-#define sipNameNr_Copy 3192
-#define sipName_Copy &sipStrings__html2[3192]
-#define sipNameNr_Find 3552
-#define sipName_Find &sipStrings__html2[3552]
-#define sipNameNr_Name 3232
-#define sipName_Name &sipStrings__html2[3232]
-#define sipNameNr_Redo 3200
-#define sipName_Redo &sipStrings__html2[3200]
-#define sipNameNr_Stop 3557
-#define sipName_Stop &sipStrings__html2[3557]
-#define sipNameNr_Undo 3208
-#define sipName_Undo &sipStrings__html2[3208]
-#define sipNameNr_Zoom 2663
-#define sipName_Zoom &sipStrings__html2[2663]
-#define sipNameNr_href 3562
-#define sipName_href &sipStrings__html2[3562]
-#define sipNameNr_html 3567
-#define sipName_html &sipStrings__html2[3567]
-#define sipNameNr_incH 3572
-#define sipName_incH &sipStrings__html2[3572]
-#define sipNameNr_incW 3577
-#define sipName_incW &sipStrings__html2[3577]
-#define sipNameNr_info 3582
-#define sipName_info &sipStrings__html2[3582]
-#define sipNameNr_item 3587
-#define sipName_item &sipStrings__html2[3587]
-#define sipNameNr_maxH 3592
-#define sipName_maxH &sipStrings__html2[3592]
-#define sipNameNr_maxW 3597
-#define sipName_maxW &sipStrings__html2[3597]
-#define sipNameNr_minH 3602
-#define sipName_minH &sipStrings__html2[3602]
-#define sipNameNr_minW 3607
-#define sipName_minW &sipStrings__html2[3607]
-#define sipNameNr_name 3612
-#define sipName_name &sipStrings__html2[3612]
-#define sipNameNr_rect 3617
-#define sipName_rect &sipStrings__html2[3617]
-#define sipNameNr_show 3622
-#define sipName_show &sipStrings__html2[3622]
-#define sipNameNr_size 3627
-#define sipName_size &sipStrings__html2[3627]
-#define sipNameNr_text 3632
-#define sipName_text &sipStrings__html2[3632]
-#define sipNameNr_time 3637
-#define sipName_time &sipStrings__html2[3637]
-#define sipNameNr_type 3642
-#define sipName_type &sipStrings__html2[3642]
-#define sipNameNr_unit 3647
-#define sipName_unit &sipStrings__html2[3647]
-#define sipNameNr_zoom 3652
-#define sipName_zoom &sipStrings__html2[3652]
-#define sipNameNr_Cut 3344
-#define sipName_Cut &sipStrings__html2[3344]
-#define sipNameNr_New 3657
-#define sipName_New &sipStrings__html2[3657]
-#define sipNameNr_URL 2419
-#define sipName_URL &sipStrings__html2[2419]
-#define sipNameNr_Url 3289
-#define sipName_Url &sipStrings__html2[3289]
-#define sipNameNr_idx 3661
-#define sipName_idx &sipStrings__html2[3661]
-#define sipNameNr_msg 3665
-#define sipName_msg &sipStrings__html2[3665]
-#define sipNameNr_pos 3669
-#define sipName_pos &sipStrings__html2[3669]
-#define sipNameNr_row 3673
-#define sipName_row &sipStrings__html2[3673]
-#define sipNameNr_uri 3677
-#define sipName_uri &sipStrings__html2[3677]
-#define sipNameNr_url 3681
-#define sipName_url &sipStrings__html2[3681]
-#define sipNameNr_dc 3685
-#define sipName_dc &sipStrings__html2[3685]
-#define sipNameNr_id 3688
-#define sipName_id &sipStrings__html2[3688]
-#define sipNameNr_n 1349
-#define sipName_n &sipStrings__html2[1349]
-#define sipNameNr_x 3027
-#define sipName_x &sipStrings__html2[3027]
-#define sipNameNr_y 861
-#define sipName_y &sipStrings__html2[861]
+#define sipNameNr_wxEVT_WEBVIEW_WINDOW_CLOSE_REQUESTED 38
+#define sipName_wxEVT_WEBVIEW_WINDOW_CLOSE_REQUESTED &sipStrings__html2[38]
+#define sipNameNr_wxEVT_WEBVIEW_BROWSING_DATA_CLEARED 75
+#define sipName_wxEVT_WEBVIEW_BROWSING_DATA_CLEARED &sipStrings__html2[75]
+#define sipNameNr_WEBVIEW_BROWSING_DATA_DOM_STORAGE 111
+#define sipName_WEBVIEW_BROWSING_DATA_DOM_STORAGE &sipStrings__html2[111]
+#define sipNameNr_AreBrowserAcceleratorKeysEnabled 145
+#define sipName_AreBrowserAcceleratorKeysEnabled &sipStrings__html2[145]
+#define sipNameNr_WEBVIEW_INJECT_AT_DOCUMENT_START 178
+#define sipName_WEBVIEW_INJECT_AT_DOCUMENT_START &sipStrings__html2[178]
+#define sipNameNr_WEBVIEW_PRINT_HIDE_HEADER_FOOTER 211
+#define sipName_WEBVIEW_PRINT_HIDE_HEADER_FOOTER &sipStrings__html2[211]
+#define sipNameNr_wxEVT_WEBVIEW_FULLSCREEN_CHANGED 244
+#define sipName_wxEVT_WEBVIEW_FULLSCREEN_CHANGED &sipStrings__html2[244]
+#define sipNameNr_wxEVT_WEBVIEW_NEWWINDOW_FEATURES 277
+#define sipName_wxEVT_WEBVIEW_NEWWINDOW_FEATURES &sipStrings__html2[277]
+#define sipNameNr_wxWebViewUserScriptInjectionTime 310
+#define sipName_wxWebViewUserScriptInjectionTime &sipStrings__html2[310]
+#define sipNameNr_GetMainWindowOfCompositeControl 343
+#define sipName_GetMainWindowOfCompositeControl &sipStrings__html2[343]
+#define sipNameNr_WEBVIEW_INJECT_AT_DOCUMENT_END 375
+#define sipName_WEBVIEW_INJECT_AT_DOCUMENT_END &sipStrings__html2[375]
+#define sipNameNr_WEBVIEW_NAV_ERR_USER_CANCELLED 406
+#define sipName_WEBVIEW_NAV_ERR_USER_CANCELLED &sipStrings__html2[406]
+#define sipNameNr_WebViewUserScriptInjectionTime 312
+#define sipName_WebViewUserScriptInjectionTime &sipStrings__html2[312]
+#define sipNameNr_wxWebViewNavigationActionFlags 437
+#define sipName_wxWebViewNavigationActionFlags &sipStrings__html2[437]
+#define sipNameNr_WEBVIEW_BROWSING_DATA_COOKIES 468
+#define sipName_WEBVIEW_BROWSING_DATA_COOKIES &sipStrings__html2[468]
+#define sipNameNr_WEBVIEW_FIND_HIGHLIGHT_RESULT 498
+#define sipName_WEBVIEW_FIND_HIGHLIGHT_RESULT &sipStrings__html2[498]
+#define sipNameNr_EnableBrowserAcceleratorKeys 528
+#define sipName_EnableBrowserAcceleratorKeys &sipStrings__html2[528]
+#define sipNameNr_WebViewNavigationActionFlags 439
+#define sipName_WebViewNavigationActionFlags &sipStrings__html2[439]
+#define sipNameNr_wxWebViewHandlerResponseData 557
+#define sipName_wxWebViewHandlerResponseData &sipStrings__html2[557]
+#define sipNameNr_WEBVIEW_BROWSING_DATA_CACHE 586
+#define sipName_WEBVIEW_BROWSING_DATA_CACHE &sipStrings__html2[586]
+#define sipNameNr_WEBVIEW_BROWSING_DATA_OTHER 614
+#define sipName_WEBVIEW_BROWSING_DATA_OTHER &sipStrings__html2[614]
+#define sipNameNr_WEBVIEW_NAV_ERR_CERTIFICATE 642
+#define sipName_WEBVIEW_NAV_ERR_CERTIFICATE &sipStrings__html2[642]
+#define sipNameNr_wxEVT_WEBVIEW_SCRIPT_RESULT 670
+#define sipName_wxEVT_WEBVIEW_SCRIPT_RESULT &sipStrings__html2[670]
+#define sipNameNr_wxEVT_WEBVIEW_TITLE_CHANGED 698
+#define sipName_wxEVT_WEBVIEW_TITLE_CHANGED &sipStrings__html2[698]
+#define sipNameNr_MSWSetModernEmulationLevel 726
+#define sipName_MSWSetModernEmulationLevel &sipStrings__html2[726]
+#define sipNameNr_RemoveScriptMessageHandler 753
+#define sipName_RemoveScriptMessageHandler &sipStrings__html2[753]
+#define sipNameNr_WEBVIEW_NAV_ERR_CONNECTION 780
+#define sipName_WEBVIEW_NAV_ERR_CONNECTION &sipStrings__html2[780]
+#define sipNameNr_WebViewHandlerResponseData 559
+#define sipName_WebViewHandlerResponseData &sipStrings__html2[559]
+#define sipNameNr_wxWebViewBrowsingDataTypes 807
+#define sipName_wxWebViewBrowsingDataTypes &sipStrings__html2[807]
+#define sipNameNr_wxWebViewIE_EmulationLevel 834
+#define sipName_wxWebViewIE_EmulationLevel &sipStrings__html2[834]
+#define sipNameNr_GetClassDefaultAttributes 861
+#define sipName_GetClassDefaultAttributes &sipStrings__html2[861]
+#define sipNameNr_IsAccessToDevToolsEnabled 887
+#define sipName_IsAccessToDevToolsEnabled &sipStrings__html2[887]
+#define sipNameNr_WEBVIEW_BROWSING_DATA_ALL 913
+#define sipName_WEBVIEW_BROWSING_DATA_ALL &sipStrings__html2[913]
+#define sipNameNr_WEBVIEW_NAV_ERR_NOT_FOUND 939
+#define sipName_WEBVIEW_NAV_ERR_NOT_FOUND &sipStrings__html2[939]
+#define sipNameNr_AcceptsFocusFromKeyboard 965
+#define sipName_AcceptsFocusFromKeyboard &sipStrings__html2[965]
+#define sipNameNr_HasTransparentBackground 990
+#define sipName_HasTransparentBackground &sipStrings__html2[990]
+#define sipNameNr_WEBVIEWIE_EMU_IE10_FORCE 1015
+#define sipName_WEBVIEWIE_EMU_IE10_FORCE &sipStrings__html2[1015]
+#define sipNameNr_WEBVIEWIE_EMU_IE11_FORCE 1040
+#define sipName_WEBVIEWIE_EMU_IE11_FORCE &sipStrings__html2[1040]
+#define sipNameNr_WEBVIEW_FIND_ENTIRE_WORD 1065
+#define sipName_WEBVIEW_FIND_ENTIRE_WORD &sipStrings__html2[1065]
+#define sipNameNr_WEBVIEW_NAV_ACTION_OTHER 1090
+#define sipName_WEBVIEW_NAV_ACTION_OTHER &sipStrings__html2[1090]
+#define sipNameNr_WEBVIEW_NAV_ERR_SECURITY 1115
+#define sipName_WEBVIEW_NAV_ERR_SECURITY &sipStrings__html2[1115]
+#define sipNameNr_WEBVIEW_ZOOM_TYPE_LAYOUT 1140
+#define sipName_WEBVIEW_ZOOM_TYPE_LAYOUT &sipStrings__html2[1140]
+#define sipNameNr_WebViewBrowsingDataTypes 809
+#define sipName_WebViewBrowsingDataTypes &sipStrings__html2[809]
+#define sipNameNr_WebViewIE_EmulationLevel 836
+#define sipName_WebViewIE_EmulationLevel &sipStrings__html2[836]
+#define sipNameNr_wxEVT_WEBVIEW_NAVIGATING 1165
+#define sipName_wxEVT_WEBVIEW_NAVIGATING &sipStrings__html2[1165]
+#define sipNameNr_wxWebViewHandlerResponse 1190
+#define sipName_wxWebViewHandlerResponse &sipStrings__html2[1190]
+#define sipNameNr_wxWebViewNavigationError 1215
+#define sipName_wxWebViewNavigationError &sipStrings__html2[1215]
+#define sipNameNr_AcceptsFocusRecursively 1240
+#define sipName_AcceptsFocusRecursively &sipStrings__html2[1240]
+#define sipNameNr_AddScriptMessageHandler 1264
+#define sipName_AddScriptMessageHandler &sipStrings__html2[1264]
+#define sipNameNr_EnablePersistentStorage 1288
+#define sipName_EnablePersistentStorage &sipStrings__html2[1288]
+#define sipNameNr_GetTargetWindowFeatures 1312
+#define sipName_GetTargetWindowFeatures &sipStrings__html2[1312]
+#define sipNameNr_ShouldDisplayScrollBars 1336
+#define sipName_ShouldDisplayScrollBars &sipStrings__html2[1336]
+#define sipNameNr_WEBVIEWIE_EMU_IE8_FORCE 1360
+#define sipName_WEBVIEWIE_EMU_IE8_FORCE &sipStrings__html2[1360]
+#define sipNameNr_WEBVIEWIE_EMU_IE9_FORCE 1384
+#define sipName_WEBVIEWIE_EMU_IE9_FORCE &sipStrings__html2[1384]
+#define sipNameNr_WEBVIEW_FIND_MATCH_CASE 1408
+#define sipName_WEBVIEW_FIND_MATCH_CASE &sipStrings__html2[1408]
+#define sipNameNr_WEBVIEW_NAV_ACTION_NONE 1432
+#define sipName_WEBVIEW_NAV_ACTION_NONE &sipStrings__html2[1432]
+#define sipNameNr_WEBVIEW_NAV_ACTION_USER 1456
+#define sipName_WEBVIEW_NAV_ACTION_USER &sipStrings__html2[1456]
+#define sipNameNr_WEBVIEW_NAV_ERR_REQUEST 1480
+#define sipName_WEBVIEW_NAV_ERR_REQUEST &sipStrings__html2[1480]
+#define sipNameNr_WEBVIEW_RELOAD_NO_CACHE 1504
+#define sipName_WEBVIEW_RELOAD_NO_CACHE &sipStrings__html2[1504]
+#define sipNameNr_wxEVT_WEBVIEW_NAVIGATED 1528
+#define sipName_wxEVT_WEBVIEW_NAVIGATED &sipStrings__html2[1528]
+#define sipNameNr_wxEVT_WEBVIEW_NEWWINDOW 1552
+#define sipName_wxEVT_WEBVIEW_NEWWINDOW &sipStrings__html2[1552]
+#define sipNameNr_wxEVT_WEBVIEW_PDF_SAVED 1576
+#define sipName_wxEVT_WEBVIEW_PDF_SAVED &sipStrings__html2[1576]
+#define sipNameNr_wxWebViewArchiveHandler 1600
+#define sipName_wxWebViewArchiveHandler &sipStrings__html2[1600]
+#define sipNameNr_wxWebViewHandlerRequest 1624
+#define sipName_wxWebViewHandlerRequest &sipStrings__html2[1624]
+#define sipNameNr_wxWebViewWindowFeatures 1648
+#define sipName_wxWebViewWindowFeatures &sipStrings__html2[1648]
+#define sipNameNr_DisableGPUAcceleration 1672
+#define sipName_DisableGPUAcceleration &sipStrings__html2[1672]
+#define sipNameNr_EnableAccessToDevTools 1695
+#define sipName_EnableAccessToDevTools &sipStrings__html2[1695]
+#define sipNameNr_GetNativeConfiguration 1718
+#define sipName_GetNativeConfiguration &sipStrings__html2[1718]
+#define sipNameNr_ShouldDisplayStatusBar 1741
+#define sipName_ShouldDisplayStatusBar &sipStrings__html2[1741]
+#define sipNameNr_TransferDataFromWindow 1764
+#define sipName_TransferDataFromWindow &sipStrings__html2[1764]
+#define sipNameNr_WEBVIEW_FIND_BACKWARDS 1787
+#define sipName_WEBVIEW_FIND_BACKWARDS &sipStrings__html2[1787]
+#define sipNameNr_WEBVIEW_RELOAD_DEFAULT 1810
+#define sipName_WEBVIEW_RELOAD_DEFAULT &sipStrings__html2[1810]
+#define sipNameNr_WEBVIEW_ZOOM_TYPE_TEXT 1833
+#define sipName_WEBVIEW_ZOOM_TYPE_TEXT &sipStrings__html2[1833]
+#define sipNameNr_WebViewHandlerResponse 1192
+#define sipName_WebViewHandlerResponse &sipStrings__html2[1192]
+#define sipNameNr_WebViewNavigationError 1217
+#define sipName_WebViewNavigationError &sipStrings__html2[1217]
+#define sipNameNr_wxWebViewConfiguration 1856
+#define sipName_wxWebViewConfiguration &sipStrings__html2[1856]
+#define sipNameNr_WEBVIEWIE_EMU_DEFAULT 1879
+#define sipName_WEBVIEWIE_EMU_DEFAULT &sipStrings__html2[1879]
+#define sipNameNr_WEBVIEW_NAV_ERR_OTHER 1901
+#define sipName_WEBVIEW_NAV_ERR_OTHER &sipStrings__html2[1901]
+#define sipNameNr_WEBVIEW_PRINT_DEFAULT 1923
+#define sipName_WEBVIEW_PRINT_DEFAULT &sipStrings__html2[1923]
+#define sipNameNr_WebViewArchiveHandler 1602
+#define sipName_WebViewArchiveHandler &sipStrings__html2[1602]
+#define sipNameNr_WebViewBackendDefault 1945
+#define sipName_WebViewBackendDefault &sipStrings__html2[1945]
+#define sipNameNr_WebViewHandlerRequest 1626
+#define sipName_WebViewHandlerRequest &sipStrings__html2[1626]
+#define sipNameNr_WebViewWindowFeatures 1650
+#define sipName_WebViewWindowFeatures &sipStrings__html2[1650]
+#define sipNameNr_wxEVT_WEBVIEW_CREATED 1967
+#define sipName_wxEVT_WEBVIEW_CREATED &sipStrings__html2[1967]
+#define sipNameNr_InformFirstDirection 1989
+#define sipName_InformFirstDirection &sipStrings__html2[1989]
+#define sipNameNr_IsContextMenuEnabled 2010
+#define sipName_IsContextMenuEnabled &sipStrings__html2[2010]
+#define sipNameNr_MSWSetEmulationLevel 2031
+#define sipName_MSWSetEmulationLevel &sipStrings__html2[2031]
+#define sipNameNr_RemoveAllUserScripts 2052
+#define sipName_RemoveAllUserScripts &sipStrings__html2[2052]
+#define sipNameNr_ShouldDisplayMenuBar 2073
+#define sipName_ShouldDisplayMenuBar &sipStrings__html2[2073]
+#define sipNameNr_ShouldDisplayToolBar 2094
+#define sipName_ShouldDisplayToolBar &sipStrings__html2[2094]
+#define sipNameNr_ShouldInheritColours 2115
+#define sipName_ShouldInheritColours &sipStrings__html2[2115]
+#define sipNameNr_TargetWindowFeatures 1315
+#define sipName_TargetWindowFeatures &sipStrings__html2[1315]
+#define sipNameNr_TransferDataToWindow 2136
+#define sipName_TransferDataToWindow &sipStrings__html2[2136]
+#define sipNameNr_WEBVIEW_FIND_DEFAULT 2157
+#define sipName_WEBVIEW_FIND_DEFAULT &sipStrings__html2[2157]
+#define sipNameNr_WEBVIEW_NAV_ERR_AUTH 2178
+#define sipName_WEBVIEW_NAV_ERR_AUTH &sipStrings__html2[2178]
+#define sipNameNr_WEBVIEW_ZOOM_LARGEST 2199
+#define sipName_WEBVIEW_ZOOM_LARGEST &sipStrings__html2[2199]
+#define sipNameNr_WebViewBackendWebKit 2220
+#define sipName_WebViewBackendWebKit &sipStrings__html2[2220]
+#define sipNameNr_WebViewConfiguration 1858
+#define sipName_WebViewConfiguration &sipStrings__html2[1858]
+#define sipNameNr_WebViewDefaultURLStr 2241
+#define sipName_WebViewDefaultURLStr &sipStrings__html2[2241]
+#define sipNameNr_wxEVT_WEBVIEW_LOADED 2262
+#define sipName_wxEVT_WEBVIEW_LOADED &sipStrings__html2[2262]
+#define sipNameNr_wxWebViewHistoryItem 2283
+#define sipName_wxWebViewHistoryItem &sipStrings__html2[2283]
+#define sipNameNr_wxWebViewReloadFlags 2304
+#define sipName_wxWebViewReloadFlags &sipStrings__html2[2304]
+#define sipNameNr_CreateConfiguration 2325
+#define sipName_CreateConfiguration &sipStrings__html2[2325]
+#define sipNameNr_DoGetBestClientSize 2345
+#define sipName_DoGetBestClientSize &sipStrings__html2[2345]
+#define sipNameNr_GetClientAreaOrigin 2365
+#define sipName_GetClientAreaOrigin &sipStrings__html2[2365]
+#define sipNameNr_GetNavigationAction 2385
+#define sipName_GetNavigationAction &sipStrings__html2[2385]
+#define sipNameNr_NativeConfiguration 1721
+#define sipName_NativeConfiguration &sipStrings__html2[1721]
+#define sipNameNr_WEBVIEW_ZOOM_MEDIUM 2405
+#define sipName_WEBVIEW_ZOOM_MEDIUM &sipStrings__html2[2405]
+#define sipNameNr_wxEVT_WEBVIEW_ERROR 2425
+#define sipName_wxEVT_WEBVIEW_ERROR &sipStrings__html2[2425]
+#define sipNameNr_wxWebViewPrintFlags 2445
+#define sipName_wxWebViewPrintFlags &sipStrings__html2[2445]
+#define sipNameNr_DoSetWindowVariant 2465
+#define sipName_DoSetWindowVariant &sipStrings__html2[2465]
+#define sipNameNr_EnableVisibleFocus 2484
+#define sipName_EnableVisibleFocus &sipStrings__html2[2484]
+#define sipNameNr_GetBackwardHistory 2503
+#define sipName_GetBackwardHistory &sipStrings__html2[2503]
+#define sipNameNr_IsBackendAvailable 2522
+#define sipName_IsBackendAvailable &sipStrings__html2[2522]
+#define sipNameNr_WEBVIEWIE_EMU_IE10 2541
+#define sipName_WEBVIEWIE_EMU_IE10 &sipStrings__html2[2541]
+#define sipNameNr_WEBVIEWIE_EMU_IE11 2560
+#define sipName_WEBVIEWIE_EMU_IE11 &sipStrings__html2[2560]
+#define sipNameNr_WEBVIEW_ZOOM_LARGE 2579
+#define sipName_WEBVIEW_ZOOM_LARGE &sipStrings__html2[2579]
+#define sipNameNr_WEBVIEW_ZOOM_SMALL 2598
+#define sipName_WEBVIEW_ZOOM_SMALL &sipStrings__html2[2598]
+#define sipNameNr_WebViewBackendEdge 2617
+#define sipName_WebViewBackendEdge &sipStrings__html2[2617]
+#define sipNameNr_WebViewHistoryItem 2285
+#define sipName_WebViewHistoryItem &sipStrings__html2[2285]
+#define sipNameNr_WebViewReloadFlags 2306
+#define sipName_WebViewReloadFlags &sipStrings__html2[2306]
+#define sipNameNr_wxWebViewFSHandler 2636
+#define sipName_wxWebViewFSHandler &sipStrings__html2[2636]
+#define sipNameNr_wxWebViewFindFlags 2655
+#define sipName_wxWebViewFindFlags &sipStrings__html2[2655]
+#define sipNameNr_ClearBrowsingData 2674
+#define sipName_ClearBrowsingData &sipStrings__html2[2674]
+#define sipNameNr_EnableContextMenu 2692
+#define sipName_EnableContextMenu &sipStrings__html2[2692]
+#define sipNameNr_GetForwardHistory 2710
+#define sipName_GetForwardHistory &sipStrings__html2[2710]
+#define sipNameNr_GetMessageHandler 2728
+#define sipName_GetMessageHandler &sipStrings__html2[2728]
+#define sipNameNr_GetSelectedSource 2746
+#define sipName_GetSelectedSource &sipStrings__html2[2746]
+#define sipNameNr_InheritAttributes 2764
+#define sipName_InheritAttributes &sipStrings__html2[2764]
+#define sipNameNr_IsTargetMainFrame 2782
+#define sipName_IsTargetMainFrame &sipStrings__html2[2782]
+#define sipNameNr_WEBVIEWIE_EMU_IE7 2800
+#define sipName_WEBVIEWIE_EMU_IE7 &sipStrings__html2[2800]
+#define sipNameNr_WEBVIEWIE_EMU_IE8 2818
+#define sipName_WEBVIEWIE_EMU_IE8 &sipStrings__html2[2818]
+#define sipNameNr_WEBVIEWIE_EMU_IE9 2836
+#define sipName_WEBVIEWIE_EMU_IE9 &sipStrings__html2[2836]
+#define sipNameNr_WEBVIEW_FIND_WRAP 2854
+#define sipName_WEBVIEW_FIND_WRAP &sipStrings__html2[2854]
+#define sipNameNr_WEBVIEW_ZOOM_TINY 2872
+#define sipName_WEBVIEW_ZOOM_TINY &sipStrings__html2[2872]
+#define sipNameNr_WebViewPrintFlags 2447
+#define sipName_WebViewPrintFlags &sipStrings__html2[2447]
+#define sipNameNr_availableOtherDir 2890
+#define sipName_availableOtherDir &sipStrings__html2[2890]
+#define sipNameNr_wxWebViewZoomType 2908
+#define sipName_wxWebViewZoomType &sipStrings__html2[2908]
+#define sipNameNr_CreateAccessible 2926
+#define sipName_CreateAccessible &sipStrings__html2[2926]
+#define sipNameNr_CreateWithConfig 2943
+#define sipName_CreateWithConfig &sipStrings__html2[2943]
+#define sipNameNr_GetDefaultBorder 2960
+#define sipName_GetDefaultBorder &sipStrings__html2[2960]
+#define sipNameNr_GetEventCategory 2977
+#define sipName_GetEventCategory &sipStrings__html2[2977]
+#define sipNameNr_GetNativeBackend 2994
+#define sipName_GetNativeBackend &sipStrings__html2[2994]
+#define sipNameNr_NavigationAction 2388
+#define sipName_NavigationAction &sipStrings__html2[2388]
+#define sipNameNr_WebViewBackendIE 3011
+#define sipName_WebViewBackendIE &sipStrings__html2[3011]
+#define sipNameNr_WebViewFSHandler 2638
+#define sipName_WebViewFSHandler &sipStrings__html2[2638]
+#define sipNameNr_WebViewFindFlags 2657
+#define sipName_WebViewFindFlags &sipStrings__html2[2657]
+#define sipNameNr_wxWebViewFactory 3028
+#define sipName_wxWebViewFactory &sipStrings__html2[3028]
+#define sipNameNr_wxWebViewHandler 3045
+#define sipName_wxWebViewHandler &sipStrings__html2[3045]
+#define sipNameNr_BackwardHistory 2506
+#define sipName_BackwardHistory &sipStrings__html2[2506]
+#define sipNameNr_DeleteSelection 3062
+#define sipName_DeleteSelection &sipStrings__html2[3062]
+#define sipNameNr_DoGetClientSize 3078
+#define sipName_DoGetClientSize &sipStrings__html2[3078]
+#define sipNameNr_DoSetClientSize 3094
+#define sipName_DoSetClientSize &sipStrings__html2[3094]
+#define sipNameNr_FinishWithError 3110
+#define sipName_FinishWithError &sipStrings__html2[3110]
+#define sipNameNr_GetChildWebView 3126
+#define sipName_GetChildWebView &sipStrings__html2[3126]
+#define sipNameNr_GetCurrentTitle 3142
+#define sipName_GetCurrentTitle &sipStrings__html2[3142]
+#define sipNameNr_GetSelectedText 3158
+#define sipName_GetSelectedText &sipStrings__html2[3158]
+#define sipNameNr_RegisterFactory 3174
+#define sipName_RegisterFactory &sipStrings__html2[3174]
+#define sipNameNr_RegisterHandler 3190
+#define sipName_RegisterHandler &sipStrings__html2[3190]
+#define sipNameNr_WebViewZoomType 2910
+#define sipName_WebViewZoomType &sipStrings__html2[2910]
+#define sipNameNr_CanSetZoomType 3206
+#define sipName_CanSetZoomType &sipStrings__html2[3206]
+#define sipNameNr_ClearSelection 3221
+#define sipName_ClearSelection &sipStrings__html2[3221]
+#define sipNameNr_DoSetSizeHints 3236
+#define sipName_DoSetSizeHints &sipStrings__html2[3236]
+#define sipNameNr_ForwardHistory 2713
+#define sipName_ForwardHistory &sipStrings__html2[2713]
+#define sipNameNr_GetSecurityURL 3251
+#define sipName_GetSecurityURL &sipStrings__html2[3251]
+#define sipNameNr_GetVirtualHost 3266
+#define sipName_GetVirtualHost &sipStrings__html2[3266]
+#define sipNameNr_MessageHandler 765
+#define sipName_MessageHandler &sipStrings__html2[765]
+#define sipNameNr_OnInternalIdle 3281
+#define sipName_OnInternalIdle &sipStrings__html2[3281]
+#define sipNameNr_RunScriptAsync 3296
+#define sipName_RunScriptAsync &sipStrings__html2[3296]
+#define sipNameNr_SelectedSource 2749
+#define sipName_SelectedSource &sipStrings__html2[2749]
+#define sipNameNr_SetContentType 3311
+#define sipName_SetContentType &sipStrings__html2[3311]
+#define sipNameNr_SetSecurityURL 3326
+#define sipName_SetSecurityURL &sipStrings__html2[3326]
+#define sipNameNr_SetVirtualHost 3341
+#define sipName_SetVirtualHost &sipStrings__html2[3341]
+#define sipNameNr_WebViewFactory 3030
+#define sipName_WebViewFactory &sipStrings__html2[3030]
+#define sipNameNr_WebViewHandler 3047
+#define sipName_WebViewHandler &sipStrings__html2[3047]
+#define sipNameNr_WebViewNameStr 3356
+#define sipName_WebViewNameStr &sipStrings__html2[3356]
+#define sipNameNr_messageHandler 3371
+#define sipName_messageHandler &sipStrings__html2[3371]
+#define sipNameNr_wxWebViewEvent 3386
+#define sipName_wxWebViewEvent &sipStrings__html2[3386]
+#define sipNameNr_AddUserScript 3401
+#define sipName_AddUserScript &sipStrings__html2[3401]
+#define sipNameNr_DoGetBestSize 3415
+#define sipName_DoGetBestSize &sipStrings__html2[3415]
+#define sipNameNr_DoGetPosition 3429
+#define sipName_DoGetPosition &sipStrings__html2[3429]
+#define sipNameNr_EnableHistory 3443
+#define sipName_EnableHistory &sipStrings__html2[3443]
+#define sipNameNr_GetCurrentURL 3457
+#define sipName_GetCurrentURL &sipStrings__html2[3457]
+#define sipNameNr_GetPageSource 3471
+#define sipName_GetPageSource &sipStrings__html2[3471]
+#define sipNameNr_GetZoomFactor 3485
+#define sipName_GetZoomFactor &sipStrings__html2[3485]
+#define sipNameNr_NativeBackend 2997
+#define sipName_NativeBackend &sipStrings__html2[2997]
+#define sipNameNr_SetZoomFactor 3499
+#define sipName_SetZoomFactor &sipStrings__html2[3499]
+#define sipNameNr_injectionTime 3513
+#define sipName_injectionTime &sipStrings__html2[3513]
+#define sipNameNr_wxWebViewZoom 3527
+#define sipName_wxWebViewZoom &sipStrings__html2[3527]
+#define sipNameNr_AcceptsFocus 3541
+#define sipName_AcceptsFocus &sipStrings__html2[3541]
+#define sipNameNr_CanGoForward 3554
+#define sipName_CanGoForward &sipStrings__html2[3554]
+#define sipNameNr_ChildWebView 3129
+#define sipName_ChildWebView &sipStrings__html2[3129]
+#define sipNameNr_ClearHistory 3567
+#define sipName_ClearHistory &sipStrings__html2[3567]
+#define sipNameNr_CurrentTitle 3145
+#define sipName_CurrentTitle &sipStrings__html2[3145]
+#define sipNameNr_DoMoveWindow 3580
+#define sipName_DoMoveWindow &sipStrings__html2[3580]
+#define sipNameNr_GetUserAgent 3593
+#define sipName_GetUserAgent &sipStrings__html2[3593]
+#define sipNameNr_GetValidator 3606
+#define sipName_GetValidator &sipStrings__html2[3606]
+#define sipNameNr_HasSelection 3619
+#define sipName_HasSelection &sipStrings__html2[3619]
+#define sipNameNr_ProcessEvent 3632
+#define sipName_ProcessEvent &sipStrings__html2[3632]
+#define sipNameNr_SelectedText 3161
+#define sipName_SelectedText &sipStrings__html2[3161]
+#define sipNameNr_SetUserAgent 3645
+#define sipName_SetUserAgent &sipStrings__html2[3645]
+#define sipNameNr_SetValidator 3658
+#define sipName_SetValidator &sipStrings__html2[3658]
+#define sipNameNr_ShowDevTools 3671
+#define sipName_ShowDevTools &sipStrings__html2[3671]
+#define sipNameNr_WebViewEvent 3388
+#define sipName_WebViewEvent &sipStrings__html2[3388]
+#define sipNameNr_GetDataPath 3684
+#define sipName_GetDataPath &sipStrings__html2[3684]
+#define sipNameNr_GetPageText 3696
+#define sipName_GetPageText &sipStrings__html2[3696]
+#define sipNameNr_GetPosition 3431
+#define sipName_GetPosition &sipStrings__html2[3431]
+#define sipNameNr_GetZoomType 3708
+#define sipName_GetZoomType &sipStrings__html2[3708]
+#define sipNameNr_IsAvailable 3720
+#define sipName_IsAvailable &sipStrings__html2[3720]
+#define sipNameNr_RemoveChild 3732
+#define sipName_RemoveChild &sipStrings__html2[3732]
+#define sipNameNr_SecurityURL 3254
+#define sipName_SecurityURL &sipStrings__html2[3254]
+#define sipNameNr_SetCanFocus 3744
+#define sipName_SetCanFocus &sipStrings__html2[3744]
+#define sipNameNr_SetDataPath 3756
+#define sipName_SetDataPath &sipStrings__html2[3756]
+#define sipNameNr_SetEditable 3768
+#define sipName_SetEditable &sipStrings__html2[3768]
+#define sipNameNr_SetZoomType 3209
+#define sipName_SetZoomType &sipStrings__html2[3209]
+#define sipNameNr_USE_WEBVIEW 3780
+#define sipName_USE_WEBVIEW &sipStrings__html2[3780]
+#define sipNameNr_VirtualHost 3269
+#define sipName_VirtualHost &sipStrings__html2[3269]
+#define sipNameNr_WebViewZoom 3529
+#define sipName_WebViewZoom &sipStrings__html2[3529]
+#define sipNameNr_contentType 3792
+#define sipName_contentType &sipStrings__html2[3792]
+#define sipNameNr_modernLevel 3804
+#define sipName_modernLevel &sipStrings__html2[3804]
+#define sipNameNr_CurrentURL 3460
+#define sipName_CurrentURL &sipStrings__html2[3460]
+#define sipNameNr_GetBackend 3816
+#define sipName_GetBackend &sipStrings__html2[3816]
+#define sipNameNr_InitDialog 3827
+#define sipName_InitDialog &sipStrings__html2[3827]
+#define sipNameNr_IsEditable 3838
+#define sipName_IsEditable &sipStrings__html2[3838]
+#define sipNameNr_PageSource 3474
+#define sipName_PageSource &sipStrings__html2[3474]
+#define sipNameNr_PrintToPDF 3849
+#define sipName_PrintToPDF &sipStrings__html2[3849]
+#define sipNameNr_ZoomFactor 3488
+#define sipName_ZoomFactor &sipStrings__html2[3488]
+#define sipNameNr_clientData 3860
+#define sipName_clientData &sipStrings__html2[3860]
+#define sipNameNr_javascript 3871
+#define sipName_javascript &sipStrings__html2[3871]
+#define sipNameNr_widthTitle 3882
+#define sipName_widthTitle &sipStrings__html2[3882]
+#define sipNameNr_CanGoBack 3893
+#define sipName_CanGoBack &sipStrings__html2[3893]
+#define sipNameNr_DoGetSize 3903
+#define sipName_DoGetSize &sipStrings__html2[3903]
+#define sipNameNr_DoSetSize 3913
+#define sipName_DoSetSize &sipStrings__html2[3913]
+#define sipNameNr_GetHeader 3923
+#define sipName_GetHeader &sipStrings__html2[3923]
+#define sipNameNr_GetMethod 3933
+#define sipName_GetMethod &sipStrings__html2[3933]
+#define sipNameNr_GetRawURI 3943
+#define sipName_GetRawURI &sipStrings__html2[3943]
+#define sipNameNr_GetStream 3953
+#define sipName_GetStream &sipStrings__html2[3953]
+#define sipNameNr_GetTarget 3963
+#define sipName_GetTarget &sipStrings__html2[3963]
+#define sipNameNr_GoForward 3557
+#define sipName_GoForward &sipStrings__html2[3557]
+#define sipNameNr_RunScript 3973
+#define sipName_RunScript &sipStrings__html2[3973]
+#define sipNameNr_SelectAll 3983
+#define sipName_SelectAll &sipStrings__html2[3983]
+#define sipNameNr_SetHeader 3993
+#define sipName_SetHeader &sipStrings__html2[3993]
+#define sipNameNr_SetStatus 4003
+#define sipName_SetStatus &sipStrings__html2[4003]
+#define sipNameNr_TryBefore 4013
+#define sipName_TryBefore &sipStrings__html2[4013]
+#define sipNameNr_UserAgent 3596
+#define sipName_UserAgent &sipStrings__html2[3596]
+#define sipNameNr_columnMax 4023
+#define sipName_columnMax &sipStrings__html2[4023]
+#define sipNameNr_columnMin 4033
+#define sipName_columnMin &sipStrings__html2[4033]
+#define sipNameNr_direction 4043
+#define sipName_direction &sipStrings__html2[4043]
+#define sipNameNr_printData 4053
+#define sipName_printData &sipStrings__html2[4053]
+#define sipNameNr_sizeFlags 4063
+#define sipName_sizeFlags &sipStrings__html2[4063]
+#define sipNameNr_userAgent 4073
+#define sipName_userAgent &sipStrings__html2[4073]
+#define sipNameNr_validator 4083
+#define sipName_validator &sipStrings__html2[4083]
+#define sipNameNr_wx__html2 4093
+#define sipName_wx__html2 &sipStrings__html2[4093]
+#define sipNameNr_wxWebView 4103
+#define sipName_wxWebView &sipStrings__html2[4103]
+#define sipNameNr_AddChild 4113
+#define sipName_AddChild &sipStrings__html2[4113]
+#define sipNameNr_CanPaste 4122
+#define sipName_CanPaste &sipStrings__html2[4122]
+#define sipNameNr_DataPath 3687
+#define sipName_DataPath &sipStrings__html2[3687]
+#define sipNameNr_DoEnable 4131
+#define sipName_DoEnable &sipStrings__html2[4131]
+#define sipNameNr_DoFreeze 4140
+#define sipName_DoFreeze &sipStrings__html2[4140]
+#define sipNameNr_GetTitle 4149
+#define sipName_GetTitle &sipStrings__html2[4149]
+#define sipNameNr_PageText 3699
+#define sipName_PageText &sipStrings__html2[3699]
+#define sipNameNr_Position 3434
+#define sipName_Position &sipStrings__html2[3434]
+#define sipNameNr_SetProxy 4158
+#define sipName_SetProxy &sipStrings__html2[4158]
+#define sipNameNr_TryAfter 4167
+#define sipName_TryAfter &sipStrings__html2[4167]
+#define sipNameNr_Validate 4176
+#define sipName_Validate &sipStrings__html2[4176]
+#define sipNameNr_ZoomType 2917
+#define sipName_ZoomType &sipStrings__html2[2917]
+#define sipNameNr_canFocus 4185
+#define sipName_canFocus &sipStrings__html2[4185]
+#define sipNameNr_filePath 4194
+#define sipName_filePath &sipStrings__html2[4194]
+#define sipNameNr_location 4203
+#define sipName_location &sipStrings__html2[4203]
+#define sipNameNr_zoomType 4212
+#define sipName_zoomType &sipStrings__html2[4212]
+#define sipNameNr_Backend 3003
+#define sipName_Backend &sipStrings__html2[3003]
+#define sipNameNr_CanCopy 4221
+#define sipName_CanCopy &sipStrings__html2[4221]
+#define sipNameNr_CanRedo 4229
+#define sipName_CanRedo &sipStrings__html2[4229]
+#define sipNameNr_CanUndo 4237
+#define sipName_CanUndo &sipStrings__html2[4237]
+#define sipNameNr_Destroy 4245
+#define sipName_Destroy &sipStrings__html2[4245]
+#define sipNameNr_GetData 4253
+#define sipName_GetData &sipStrings__html2[4253]
+#define sipNameNr_GetFile 4261
+#define sipName_GetFile &sipStrings__html2[4261]
+#define sipNameNr_GetName 4269
+#define sipName_GetName &sipStrings__html2[4269]
+#define sipNameNr_GetSize 3905
+#define sipName_GetSize &sipStrings__html2[3905]
+#define sipNameNr_GetZoom 4277
+#define sipName_GetZoom &sipStrings__html2[4277]
+#define sipNameNr_IsError 4285
+#define sipName_IsError &sipStrings__html2[4285]
+#define sipNameNr_LoadURL 4293
+#define sipName_LoadURL &sipStrings__html2[4293]
+#define sipNameNr_SetPage 4301
+#define sipName_SetPage &sipStrings__html2[4301]
+#define sipNameNr_SetZoom 4309
+#define sipName_SetZoom &sipStrings__html2[4309]
+#define sipNameNr_WebView 3134
+#define sipName_WebView &sipStrings__html2[3134]
+#define sipNameNr_backend 4317
+#define sipName_backend &sipStrings__html2[4317]
+#define sipNameNr_baseUrl 4325
+#define sipName_baseUrl &sipStrings__html2[4325]
+#define sipNameNr_enabled 4333
+#define sipName_enabled &sipStrings__html2[4333]
+#define sipNameNr_factory 4341
+#define sipName_factory &sipStrings__html2[4341]
+#define sipNameNr_handler 4349
+#define sipName_handler &sipStrings__html2[4349]
+#define sipNameNr_unitMax 4357
+#define sipName_unitMax &sipStrings__html2[4357]
+#define sipNameNr_unitMin 4365
+#define sipName_unitMin &sipStrings__html2[4365]
+#define sipNameNr_variant 4373
+#define sipName_variant &sipStrings__html2[4373]
+#define sipNameNr_CanCut 4381
+#define sipName_CanCut &sipStrings__html2[4381]
+#define sipNameNr_Create 4388
+#define sipName_Create &sipStrings__html2[4388]
+#define sipNameNr_DoThaw 4395
+#define sipName_DoThaw &sipStrings__html2[4395]
+#define sipNameNr_GetURI 4402
+#define sipName_GetURI &sipStrings__html2[4402]
+#define sipNameNr_GetURL 4409
+#define sipName_GetURL &sipStrings__html2[4409]
+#define sipNameNr_GetUrl 4416
+#define sipName_GetUrl &sipStrings__html2[4416]
+#define sipNameNr_GoBack 3896
+#define sipName_GoBack &sipStrings__html2[3896]
+#define sipNameNr_IsBusy 4423
+#define sipName_IsBusy &sipStrings__html2[4423]
+#define sipNameNr_Method 3936
+#define sipName_Method &sipStrings__html2[3936]
+#define sipNameNr_RawURI 3946
+#define sipName_RawURI &sipStrings__html2[3946]
+#define sipNameNr_Reload 4430
+#define sipName_Reload &sipStrings__html2[4430]
+#define sipNameNr_Stream 3956
+#define sipName_Stream &sipStrings__html2[3956]
+#define sipNameNr_Target 3966
+#define sipName_Target &sipStrings__html2[3966]
+#define sipNameNr_client 4437
+#define sipName_client &sipStrings__html2[4437]
+#define sipNameNr_column 4444
+#define sipName_column &sipStrings__html2[4444]
+#define sipNameNr_config 4451
+#define sipName_config &sipStrings__html2[4451]
+#define sipNameNr_dialog 4458
+#define sipName_dialog &sipStrings__html2[4458]
+#define sipNameNr_enable 4465
+#define sipName_enable &sipStrings__html2[4465]
+#define sipNameNr_height 4472
+#define sipName_height &sipStrings__html2[4472]
+#define sipNameNr_output 4479
+#define sipName_output &sipStrings__html2[4479]
+#define sipNameNr_parent 4486
+#define sipName_parent &sipStrings__html2[4486]
+#define sipNameNr_rowMax 4493
+#define sipName_rowMax &sipStrings__html2[4493]
+#define sipNameNr_rowMin 4500
+#define sipName_rowMin &sipStrings__html2[4500]
+#define sipNameNr_scheme 4507
+#define sipName_scheme &sipStrings__html2[4507]
+#define sipNameNr_status 4514
+#define sipName_status &sipStrings__html2[4514]
+#define sipNameNr_stream 4521
+#define sipName_stream &sipStrings__html2[4521]
+#define sipNameNr_target 4528
+#define sipName_target &sipStrings__html2[4528]
+#define sipNameNr_Clone 4535
+#define sipName_Clone &sipStrings__html2[4535]
+#define sipNameNr_Paste 4125
+#define sipName_Paste &sipStrings__html2[4125]
+#define sipNameNr_Print 4541
+#define sipName_Print &sipStrings__html2[4541]
+#define sipNameNr_Title 3152
+#define sipName_Title &sipStrings__html2[3152]
+#define sipNameNr_child 4547
+#define sipName_child &sipStrings__html2[4547]
+#define sipNameNr_count 4553
+#define sipName_count &sipStrings__html2[4553]
+#define sipNameNr_event 4559
+#define sipName_event &sipStrings__html2[4559]
+#define sipNameNr_flags 4565
+#define sipName_flags &sipStrings__html2[4565]
+#define sipNameNr_level 4571
+#define sipName_level &sipStrings__html2[4571]
+#define sipNameNr_order 2971
+#define sipName_order &sipStrings__html2[2971]
+#define sipNameNr_popup 4577
+#define sipName_popup &sipStrings__html2[4577]
+#define sipNameNr_proxy 4583
+#define sipName_proxy &sipStrings__html2[4583]
+#define sipNameNr_scale 4589
+#define sipName_scale &sipStrings__html2[4589]
+#define sipNameNr_since 4595
+#define sipName_since &sipStrings__html2[4595]
+#define sipNameNr_sizer 4601
+#define sipName_sizer &sipStrings__html2[4601]
+#define sipNameNr_style 4607
+#define sipName_style &sipStrings__html2[4607]
+#define sipNameNr_title 4613
+#define sipName_title &sipStrings__html2[4613]
+#define sipNameNr_types 4619
+#define sipName_types &sipStrings__html2[4619]
+#define sipNameNr_value 4625
+#define sipName_value &sipStrings__html2[4625]
+#define sipNameNr_width 4631
+#define sipName_width &sipStrings__html2[4631]
+#define sipNameNr_Copy 4224
+#define sipName_Copy &sipStrings__html2[4224]
+#define sipNameNr_Data 581
+#define sipName_Data &sipStrings__html2[581]
+#define sipNameNr_Find 4637
+#define sipName_Find &sipStrings__html2[4637]
+#define sipNameNr_Name 4272
+#define sipName_Name &sipStrings__html2[4272]
+#define sipNameNr_Redo 4232
+#define sipName_Redo &sipStrings__html2[4232]
+#define sipNameNr_Size 2360
+#define sipName_Size &sipStrings__html2[2360]
+#define sipNameNr_Stop 4642
+#define sipName_Stop &sipStrings__html2[4642]
+#define sipNameNr_Undo 4240
+#define sipName_Undo &sipStrings__html2[4240]
+#define sipNameNr_Zoom 3536
+#define sipName_Zoom &sipStrings__html2[3536]
+#define sipNameNr_host 4647
+#define sipName_host &sipStrings__html2[4647]
+#define sipNameNr_href 4652
+#define sipName_href &sipStrings__html2[4652]
+#define sipNameNr_html 4657
+#define sipName_html &sipStrings__html2[4657]
+#define sipNameNr_incH 4662
+#define sipName_incH &sipStrings__html2[4662]
+#define sipNameNr_incW 4667
+#define sipName_incW &sipStrings__html2[4667]
+#define sipNameNr_info 4672
+#define sipName_info &sipStrings__html2[4672]
+#define sipNameNr_item 4677
+#define sipName_item &sipStrings__html2[4677]
+#define sipNameNr_maxH 4682
+#define sipName_maxH &sipStrings__html2[4682]
+#define sipNameNr_maxW 4687
+#define sipName_maxW &sipStrings__html2[4687]
+#define sipNameNr_minH 4692
+#define sipName_minH &sipStrings__html2[4692]
+#define sipNameNr_minW 4697
+#define sipName_minW &sipStrings__html2[4697]
+#define sipNameNr_name 4702
+#define sipName_name &sipStrings__html2[4702]
+#define sipNameNr_path 4707
+#define sipName_path &sipStrings__html2[4707]
+#define sipNameNr_rect 4712
+#define sipName_rect &sipStrings__html2[4712]
+#define sipNameNr_show 4717
+#define sipName_show &sipStrings__html2[4717]
+#define sipNameNr_size 4722
+#define sipName_size &sipStrings__html2[4722]
+#define sipNameNr_text 4727
+#define sipName_text &sipStrings__html2[4727]
+#define sipNameNr_type 4732
+#define sipName_type &sipStrings__html2[4732]
+#define sipNameNr_unit 4737
+#define sipName_unit &sipStrings__html2[4737]
+#define sipNameNr_zoom 4742
+#define sipName_zoom &sipStrings__html2[4742]
+#define sipNameNr_Cut 4384
+#define sipName_Cut &sipStrings__html2[4384]
+#define sipNameNr_New 4747
+#define sipName_New &sipStrings__html2[4747]
+#define sipNameNr_URI 3949
+#define sipName_URI &sipStrings__html2[3949]
+#define sipNameNr_URL 3262
+#define sipName_URL &sipStrings__html2[3262]
+#define sipNameNr_Url 4329
+#define sipName_Url &sipStrings__html2[4329]
+#define sipNameNr_idx 4751
+#define sipName_idx &sipStrings__html2[4751]
+#define sipNameNr_msg 4755
+#define sipName_msg &sipStrings__html2[4755]
+#define sipNameNr_pos 4759
+#define sipName_pos &sipStrings__html2[4759]
+#define sipNameNr_row 4763
+#define sipName_row &sipStrings__html2[4763]
+#define sipNameNr_uri 4767
+#define sipName_uri &sipStrings__html2[4767]
+#define sipNameNr_url 4771
+#define sipName_url &sipStrings__html2[4771]
+#define sipNameNr_dc 4775
+#define sipName_dc &sipStrings__html2[4775]
+#define sipNameNr_id 4778
+#define sipName_id &sipStrings__html2[4778]
+#define sipNameNr_n 1693
+#define sipName_n &sipStrings__html2[1693]
+#define sipNameNr_x 4031
+#define sipName_x &sipStrings__html2[4031]
+#define sipNameNr_y 1262
+#define sipName_y &sipStrings__html2[1262]
 
 #define sipMalloc                   sipAPI__html2->api_malloc
 #define sipFree                     sipAPI__html2->api_free
@@ -779,11 +941,11 @@
 /* The strings used by this module. */
 extern const char sipStrings__html2[];
 
-#define sipType_wxWebViewHistoryItem sipExportedTypes__html2[7]
+#define sipType_wxWebViewHistoryItem sipExportedTypes__html2[12]
 
 extern sipClassTypeDef sipTypeDef__html2_wxWebViewHistoryItem;
 
-#define sipType_wxWebViewHandler sipExportedTypes__html2[6]
+#define sipType_wxWebViewHandler sipExportedTypes__html2[8]
 
 extern sipClassTypeDef sipTypeDef__html2_wxWebViewHandler;
 
@@ -791,84 +953,116 @@ extern sipClassTypeDef sipTypeDef__html2_wxWebViewHandler;
 
 extern sipClassTypeDef sipTypeDef__html2_wxWebViewArchiveHandler;
 
-#define sipType_wxWebViewFSHandler sipExportedTypes__html2[3]
+#define sipType_wxWebViewFSHandler sipExportedTypes__html2[5]
 
 extern sipClassTypeDef sipTypeDef__html2_wxWebViewFSHandler;
+
+#define sipType_wxWebViewConfiguration sipExportedTypes__html2[3]
+
+extern sipClassTypeDef sipTypeDef__html2_wxWebViewConfiguration;
+
+#define sipType_wxWebViewFactory sipExportedTypes__html2[6]
+
+extern sipClassTypeDef sipTypeDef__html2_wxWebViewFactory;
 
 #define sipType_wxWebView sipExportedTypes__html2[0]
 
 extern sipClassTypeDef sipTypeDef__html2_wxWebView;
 
-#define sipType_wxWebViewEvent sipExportedTypes__html2[2]
+#define sipType_wxWebViewEvent sipExportedTypes__html2[4]
 
 extern sipClassTypeDef sipTypeDef__html2_wxWebViewEvent;
 
-#define sipType_wxWebViewFactory sipExportedTypes__html2[4]
+#define sipType_wxWebViewHandlerRequest sipExportedTypes__html2[9]
 
-extern sipClassTypeDef sipTypeDef__html2_wxWebViewFactory;
+extern sipClassTypeDef sipTypeDef__html2_wxWebViewHandlerRequest;
 
-#define sipType_wxWebViewIE_EmulationLevel sipExportedTypes__html2[8]
+#define sipType_wxWebViewHandlerResponse sipExportedTypes__html2[10]
 
-#define sipType_wxWebViewUserScriptInjectionTime sipExportedTypes__html2[12]
+extern sipClassTypeDef sipTypeDef__html2_wxWebViewHandlerResponse;
 
-#define sipType_wxWebViewNavigationActionFlags sipExportedTypes__html2[9]
+#define sipType_wxWebViewHandlerResponseData sipExportedTypes__html2[11]
 
-#define sipType_wxWebViewFindFlags sipExportedTypes__html2[5]
+extern sipClassTypeDef sipTypeDef__html2_wxWebViewHandlerResponseData;
 
-#define sipType_wxWebViewReloadFlags sipExportedTypes__html2[11]
+#define sipType_wxWebViewWindowFeatures sipExportedTypes__html2[19]
 
-#define sipType_wxWebViewNavigationError sipExportedTypes__html2[10]
+extern sipClassTypeDef sipTypeDef__html2_wxWebViewWindowFeatures;
 
-#define sipType_wxWebViewZoomType sipExportedTypes__html2[14]
+#define sipType_wxWebViewPrintFlags sipExportedTypes__html2[16]
 
-#define sipType_wxWebViewZoom sipExportedTypes__html2[13]
+#define sipType_wxWebViewBrowsingDataTypes sipExportedTypes__html2[2]
+
+#define sipType_wxWebViewIE_EmulationLevel sipExportedTypes__html2[13]
+
+#define sipType_wxWebViewUserScriptInjectionTime sipExportedTypes__html2[18]
+
+#define sipType_wxWebViewNavigationActionFlags sipExportedTypes__html2[14]
+
+#define sipType_wxWebViewFindFlags sipExportedTypes__html2[7]
+
+#define sipType_wxWebViewReloadFlags sipExportedTypes__html2[17]
+
+#define sipType_wxWebViewNavigationError sipExportedTypes__html2[15]
+
+#define sipType_wxWebViewZoomType sipExportedTypes__html2[21]
+
+#define sipType_wxWebViewZoom sipExportedTypes__html2[20]
 
 /* The SIP API, this module's API and the APIs of any imported modules. */
 extern const sipAPIDef *sipAPI__html2;
 extern sipExportedModuleDef sipModuleAPI__html2;
 extern sipTypeDef *sipExportedTypes__html2[];
 
-#define sipType_wxObject sipImportedTypes__html2__core[9].it_td
+#define sipType_wxObject sipImportedTypes__html2__core[11].it_td
 
-#define sipType_wxPoint sipImportedTypes__html2__core[10].it_td
+#define sipType_wxDateTime sipImportedTypes__html2__core[4].it_td
 
-#define sipType_wxSize sipImportedTypes__html2__core[11].it_td
+#define sipType_wxPrintData sipImportedTypes__html2__core[13].it_td
 
-#define sipType_wxInputStream sipImportedTypes__html2__core[7].it_td
+#define sipType_wxPoint sipImportedTypes__html2__core[12].it_td
 
-#define sipType_wxFSFile sipImportedTypes__html2__core[6].it_td
+#define sipType_wxSize sipImportedTypes__html2__core[14].it_td
 
-#define sipType_wxTrackable sipImportedTypes__html2__core[13].it_td
+#define sipType_wxInputStream sipImportedTypes__html2__core[9].it_td
 
-#define sipType_wxEvtHandler sipImportedTypes__html2__core[5].it_td
+#define sipType_wxFSFile sipImportedTypes__html2__core[8].it_td
 
-#define sipType_wxEvent sipImportedTypes__html2__core[3].it_td
+#define sipType_wxAccessible sipImportedTypes__html2__core[0].it_td
 
-#define sipType_wxCommandEvent sipImportedTypes__html2__core[1].it_td
+#define sipType_wxTrackable sipImportedTypes__html2__core[16].it_td
 
-#define sipType_wxNotifyEvent sipImportedTypes__html2__core[8].it_td
+#define sipType_wxEvtHandler sipImportedTypes__html2__core[7].it_td
 
-#define sipType_wxVisualAttributes sipImportedTypes__html2__core[16].it_td
+#define sipType_wxEvent sipImportedTypes__html2__core[5].it_td
 
-#define sipType_wxWindowBase sipImportedTypes__html2__core[18].it_td
+#define sipType_wxCommandEvent sipImportedTypes__html2__core[2].it_td
 
-#define sipType_wxWindow sipImportedTypes__html2__core[17].it_td
+#define sipType_wxNotifyEvent sipImportedTypes__html2__core[10].it_td
 
-#define sipType_wxValidator sipImportedTypes__html2__core[14].it_td
+#define sipType_wxVisualAttributes sipImportedTypes__html2__core[18].it_td
 
-#define sipType_wxControl sipImportedTypes__html2__core[2].it_td
+#define sipType_wxWindowBase sipImportedTypes__html2__core[20].it_td
 
-#define sipType_wxVersionInfo sipImportedTypes__html2__core[15].it_td
+#define sipType_wxWindow sipImportedTypes__html2__core[19].it_td
 
-#define sipType_wxString sipImportedTypes__html2__core[12].it_td
+#define sipType_wxValidator sipImportedTypes__html2__core[17].it_td
 
-#define sipType_wxWindowVariant sipImportedTypes__html2__core[19].it_td
+#define sipType_wxControl sipImportedTypes__html2__core[3].it_td
 
-#define sipType_wxEventCategory sipImportedTypes__html2__core[4].it_td
+#define sipType_wxString sipImportedTypes__html2__core[15].it_td
 
-#define sipType_wxBorder sipImportedTypes__html2__core[0].it_td
+#define sipType_wxWindowVariant sipImportedTypes__html2__core[21].it_td
+
+#define sipType_wxEventCategory sipImportedTypes__html2__core[6].it_td
+
+#define sipType_wxBorder sipImportedTypes__html2__core[1].it_td
 extern sipImportedTypeDef sipImportedTypes__html2__core[];
 #include <wxPython/wxpy_api.h>
+#include <wx/access.h>
+#if !wxUSE_ACCESSIBILITY
+class wxAccessible;
+#endif
         #include <wx/webview.h>
         #if wxUSE_WEBVIEW_IE && defined(__WXMSW__)
             #include <wx/msw/webview_ie.h>
@@ -897,9 +1091,14 @@ class wxWebViewHistoryItem;
 class wxWebViewHandler;
 class wxWebViewArchiveHandler;
 class wxWebViewFSHandler;
+class wxWebViewConfiguration;
+class wxWebViewFactory;
 class wxWebView;
 class wxWebViewEvent;
-class wxWebViewFactory;
+class wxWebViewHandlerRequest;
+class wxWebViewHandlerResponse;
+class wxWebViewHandlerResponseData;
+class wxWebViewWindowFeatures;
 extern const char* wxWebViewDefaultURLStr;
 extern const char* wxWebViewNameStr;
 extern const char* wxWebViewBackendWebKit;
@@ -968,15 +1167,33 @@ enum wxWebViewIE_EmulationLevel {
     wxWEBVIEWIE_EMU_IE11,
     wxWEBVIEWIE_EMU_IE11_FORCE,
 };
+
+enum wxWebViewBrowsingDataTypes {
+    wxWEBVIEW_BROWSING_DATA_COOKIES,
+    wxWEBVIEW_BROWSING_DATA_CACHE,
+    wxWEBVIEW_BROWSING_DATA_DOM_STORAGE,
+    wxWEBVIEW_BROWSING_DATA_OTHER,
+    wxWEBVIEW_BROWSING_DATA_ALL,
+};
+
+enum wxWebViewPrintFlags {
+    wxWEBVIEW_PRINT_DEFAULT,
+    wxWEBVIEW_PRINT_HIDE_HEADER_FOOTER,
+};
+extern wxEventType wxEVT_WEBVIEW_CREATED;
 extern wxEventType wxEVT_WEBVIEW_NAVIGATING;
 extern wxEventType wxEVT_WEBVIEW_NAVIGATED;
 extern wxEventType wxEVT_WEBVIEW_LOADED;
 extern wxEventType wxEVT_WEBVIEW_ERROR;
 extern wxEventType wxEVT_WEBVIEW_NEWWINDOW;
+extern wxEventType wxEVT_WEBVIEW_NEWWINDOW_FEATURES;
 extern wxEventType wxEVT_WEBVIEW_TITLE_CHANGED;
 extern wxEventType wxEVT_WEBVIEW_FULLSCREEN_CHANGED;
 extern wxEventType wxEVT_WEBVIEW_SCRIPT_MESSAGE_RECEIVED;
 extern wxEventType wxEVT_WEBVIEW_SCRIPT_RESULT;
+extern wxEventType wxEVT_WEBVIEW_WINDOW_CLOSE_REQUESTED;
+extern wxEventType wxEVT_WEBVIEW_BROWSING_DATA_CLEARED;
+extern wxEventType wxEVT_WEBVIEW_PDF_SAVED;
 
 class wxWebViewHistoryItem {
 public:
@@ -996,7 +1213,9 @@ public:
     wxWebViewHandler(const wxString& scheme="")
         { wxPyRaiseNotImplemented(); }
 
-    virtual wxFSFile * GetFile(const wxString &uri)=0;
+    virtual wxFSFile * GetFile(const wxString &uri)
+        { return NULL; }
+
     virtual wxString GetName() const
         { return wxEmptyString; }
 
@@ -1005,6 +1224,15 @@ public:
 
     virtual wxString GetSecurityURL() const
         { return wxEmptyString; }
+
+    virtual void SetVirtualHost(const wxString &host)
+        { }
+
+    virtual wxString GetVirtualHost() const
+        { return wxEmptyString; }
+
+    virtual void StartRequest(const wxWebViewHandlerRequest &request, wxSharedPtr< wxWebViewHandlerResponse > response)
+        { }
 
 };
 
@@ -1028,10 +1256,45 @@ public:
 
 };
 
+class wxWebViewConfiguration {
+public:
+    virtual void * GetNativeConfiguration() const
+        { return NULL; }
+
+    wxString GetBackend() const
+        { return wxEmptyString; }
+
+    void SetDataPath(const wxString &path)
+        { }
+
+    wxString GetDataPath() const
+        { return wxEmptyString; }
+
+    bool EnablePersistentStorage(bool enable)
+        { return false; }
+
+    static bool DisableGPUAcceleration()
+        { wxPyRaiseNotImplemented(); return false; }
+
+};
+
+class wxWebViewFactory : public wxObject {
+public:
+    virtual wxWebView * Create()=0;
+    virtual wxWebView * Create(wxWindow *parent, wxWindowID id, const wxString &url=wxWebViewDefaultURLStr, const wxPoint &pos=wxDefaultPosition, const wxSize &size=wxDefaultSize, long style=0, const wxString &name=wxWebViewNameStr)=0;
+    virtual wxWebView * CreateWithConfig(const wxWebViewConfiguration &config)
+        { return NULL; }
+
+    virtual bool IsAvailable()
+        { return false; }
+
+    virtual wxWebViewConfiguration CreateConfiguration()=0;
+};
+
 class wxWebView : public wxControl {
 public:
-    virtual bool RunScript(const wxString &javascript, wxString *output=NULL) const =0;
-    virtual void RunScriptAsync(const wxString &javascript, void *clientData=NULL) const
+    virtual bool RunScript(const wxString &javascript, wxString *output=nullptr) const =0;
+    virtual void RunScriptAsync(const wxString &javascript, void *clientData=nullptr) const
         { }
 
     virtual bool AddScriptMessageHandler(const wxString &name)
@@ -1076,11 +1339,14 @@ public:
     virtual bool IsAccessToDevToolsEnabled() const
         { return false; }
 
-    virtual bool SetUserAgent(const wxString &userAgent)
+    virtual bool ShowDevTools()
         { return false; }
 
-    virtual wxString GetUserAgent() const
-        { return wxEmptyString; }
+    virtual void EnableBrowserAcceleratorKeys(bool enable=true)
+        { }
+
+    virtual bool AreBrowserAcceleratorKeysEnabled() const
+        { return false; }
 
     virtual bool CanGoBack() const =0;
     virtual bool CanGoForward() const =0;
@@ -1141,6 +1407,15 @@ public:
     virtual bool IsEditable() const =0;
     virtual void LoadURL(const wxString &url)=0;
     virtual void Print()=0;
+    virtual void Print(const wxPrintData &printData, int flags=wxWEBVIEW_PRINT_HIDE_HEADER_FOOTER)
+        { }
+
+    virtual bool PrintToPDF(const wxString &filePath)
+        { return false; }
+
+    virtual bool PrintToPDF(const wxString &filePath, const wxPrintData &printData)
+        { return false; }
+
     virtual void RegisterHandler(wxSharedPtr< wxWebViewHandler > handler)=0;
     virtual void Reload(wxWebViewReloadFlags flags=wxWEBVIEW_RELOAD_DEFAULT)=0;
     virtual void SetEditable(bool enable=true)=0;
@@ -1149,7 +1424,22 @@ public:
         { }
 
     virtual void Stop()=0;
+    virtual bool SetUserAgent(const wxString &userAgent)
+        { return false; }
+
+    virtual wxString GetUserAgent() const
+        { return wxEmptyString; }
+
+    virtual bool SetProxy(const wxString &proxy)
+        { return false; }
+
+    virtual bool ClearBrowsingData(int types=wxWEBVIEW_BROWSING_DATA_ALL, wxDateTime since={})
+        { return false; }
+
     static wxWebView * New(const wxString &backend=wxWebViewBackendDefault)
+        { wxPyRaiseNotImplemented(); return NULL; }
+
+    static wxWebView * New(const wxWebViewConfiguration &config)
         { wxPyRaiseNotImplemented(); return NULL; }
 
     static wxWebView * New(wxWindow *parent, wxWindowID id, const wxString &url=wxWebViewDefaultURLStr, const wxPoint &pos=wxDefaultPosition, const wxSize &size=wxDefaultSize, const wxString &backend=wxWebViewBackendDefault, long style=0, const wxString &name=wxWebViewNameStr)
@@ -1161,8 +1451,11 @@ public:
     static bool IsBackendAvailable(const wxString &backend)
         { wxPyRaiseNotImplemented(); return false; }
 
-    static wxVersionInfo GetBackendVersionInfo(const wxString &backend=wxWebViewBackendDefault)
+    static wxVersionInfo GetBackendVersionInfo(const wxString &backend=wxWebViewBackendDefault, wxVersionContext context=wxVersionContext::RunTime)
         { wxPyRaiseNotImplemented(); return wxVersionInfo(); }
+
+    static wxWebViewConfiguration NewConfiguration(const wxString &backend=wxWebViewBackendDefault)
+        { wxPyRaiseNotImplemented(); return wxWebView::NewConfiguration(); }
 
 };
 
@@ -1186,21 +1479,59 @@ public:
     const wxString & GetMessageHandler() const
         { return wxEmptyString; }
 
+    wxWebViewWindowFeatures * GetTargetWindowFeatures() const
+        { return NULL; }
+
     bool IsError() const
+        { return false; }
+
+    bool IsTargetMainFrame() const
         { return false; }
 
 };
 
-class wxWebViewFactory : public wxObject {
+class wxWebViewHandlerRequest {
 public:
-    virtual wxWebView * Create()=0;
-    virtual wxWebView * Create(wxWindow *parent, wxWindowID id, const wxString &url=wxWebViewDefaultURLStr, const wxPoint &pos=wxDefaultPosition, const wxSize &size=wxDefaultSize, long style=0, const wxString &name=wxWebViewNameStr)=0;
-    virtual bool IsAvailable()
-        { return false; }
+    virtual wxString GetRawURI() const =0;
+    virtual wxString GetURI() const
+        { return wxEmptyString; }
 
-    virtual wxVersionInfo GetVersionInfo()
-        { return wxVersionInfo(); }
+    virtual wxInputStream * GetData() const =0;
+    virtual wxString GetDataString(const wxMBConv &conv=wxConvUTF8) const
+        { return wxEmptyString; }
 
+    virtual wxString GetMethod() const =0;
+    virtual wxString GetHeader(const wxString &name) const =0;
+};
+
+class wxWebViewHandlerResponse {
+public:
+    virtual void SetStatus(int status)=0;
+    virtual void SetContentType(const wxString &contentType)=0;
+    virtual void SetHeader(const wxString &name, const wxString &value)=0;
+    virtual void Finish(wxSharedPtr< wxWebViewHandlerResponseData > data)=0;
+    virtual void Finish(const wxString &text, const wxMBConv &conv=wxConvUTF8)
+        { }
+
+    virtual void FinishWithError()=0;
+};
+
+class wxWebViewHandlerResponseData {
+public:
+    virtual wxInputStream * GetStream()=0;
+};
+
+class wxWebViewWindowFeatures {
+public:
+    wxWebView * GetChildWebView()
+        { return NULL; }
+
+    virtual wxPoint GetPosition() const =0;
+    virtual wxSize GetSize() const =0;
+    virtual bool ShouldDisplayMenuBar() const =0;
+    virtual bool ShouldDisplayStatusBar() const =0;
+    virtual bool ShouldDisplayToolBar() const =0;
+    virtual bool ShouldDisplayScrollBars() const =0;
 };
 #endif //!wxUSE_WEBVIEW
 

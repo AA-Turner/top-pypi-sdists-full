@@ -2,7 +2,6 @@
 // Name:        src/generic/calctrlg.cpp
 // Purpose:     implementation of the wxGenericCalendarCtrl
 // Author:      Vadim Zeitlin
-// Modified by:
 // Created:     29.12.99
 // Copyright:   (c) 1999 Vadim Zeitlin <zeitlin@dptmaths.ens-cachan.fr>
 // Licence:     wxWindows licence
@@ -127,10 +126,10 @@ wxGenericCalendarCtrl::wxGenericCalendarCtrl(wxWindow *parent,
 
 void wxGenericCalendarCtrl::Init()
 {
-    m_choiceMonth = NULL;
-    m_spinYear = NULL;
-    m_staticYear = NULL;
-    m_staticMonth = NULL;
+    m_choiceMonth = nullptr;
+    m_spinYear = nullptr;
+    m_staticYear = nullptr;
+    m_staticMonth = nullptr;
 
     m_userChangedYear = false;
 
@@ -141,12 +140,12 @@ void wxGenericCalendarCtrl::Init()
     wxDateTime::WeekDay wd;
     for ( wd = wxDateTime::Sun; wd < wxDateTime::Inv_WeekDay; wxNextWDay(wd) )
     {
-        m_weekdays[wd] = wxDateTime::GetWeekDayName(wd, wxDateTime::Name_Abbr);
+        m_weekdays[wd] = wxDateTime::GetWeekDayName(wd, wxDateTime::NameForm().Abbr().Standalone());
     }
 
     for ( size_t n = 0; n < WXSIZEOF(m_attrs); n++ )
     {
-        m_attrs[n] = NULL;
+        m_attrs[n] = nullptr;
     }
 
     InitColours();
@@ -195,7 +194,7 @@ bool wxGenericCalendarCtrl::Create(wxWindow *parent,
         m_staticYear = new wxStaticText(GetParent(), wxID_ANY, m_date.Format(wxT("%Y")),
                                         wxDefaultPosition, wxDefaultSize,
                                         wxALIGN_CENTRE);
-        CreateMonthComboBox();
+        CreateMonthChoice();
         m_staticMonth = new wxStaticText(GetParent(), wxID_ANY, m_date.Format(wxT("%B")),
                                          wxDefaultPosition, wxDefaultSize,
                                          wxALIGN_CENTRE);
@@ -253,17 +252,17 @@ void wxGenericCalendarCtrl::SetWindowStyleFlag(long style)
 // Create the wxChoice and wxSpinCtrl
 // ----------------------------------------------------------------------------
 
-void wxGenericCalendarCtrl::CreateMonthComboBox()
+void wxGenericCalendarCtrl::CreateMonthChoice()
 {
     m_choiceMonth = new wxChoice(GetParent(), wxID_ANY,
                                   wxDefaultPosition,
                                   wxDefaultSize,
-                                  0, NULL);
+                                  0, nullptr);
 
     wxDateTime::Month m;
     for ( m = wxDateTime::Jan; m < wxDateTime::Inv_Month; wxNextMonth(m) )
     {
-        m_choiceMonth->Append(wxDateTime::GetMonthName(m));
+        m_choiceMonth->Append(wxDateTime::GetMonthName(m, wxDateTime::NameForm().Full().Standalone()));
     }
 
     m_choiceMonth->SetSelection(GetDate().GetMonth());
@@ -304,10 +303,10 @@ bool wxGenericCalendarCtrl::Destroy()
     if ( m_staticMonth )
         m_staticMonth->Destroy();
 
-    m_staticYear = NULL;
-    m_spinYear = NULL;
-    m_choiceMonth = NULL;
-    m_staticMonth = NULL;
+    m_staticYear = nullptr;
+    m_spinYear = nullptr;
+    m_choiceMonth = nullptr;
+    m_staticMonth = nullptr;
 
     return wxControl::Destroy();
 }
@@ -674,10 +673,10 @@ size_t wxGenericCalendarCtrl::GetWeek(const wxDateTime& date) const
 // the same space
 
 // the constants used for the layout
-static const int VERT_MARGIN  =  5;  // distance between choice and calendar
-static const int HORZ_MARGIN  =  5;  // distance between choice and spin
-static const int DAY_MARGIN   =  2;  // distance between day rows and column
-static const int WEEK_MARGIN  =  4;  // extra width of the week column
+constexpr auto VERT_MARGIN  =  5;  // distance between choice and calendar
+constexpr auto HORZ_MARGIN  =  5;  // distance between choice and spin
+constexpr auto DAY_MARGIN   =  2;  // distance between day rows and column
+constexpr auto WEEK_MARGIN  =  4;  // extra width of the week column
 
 wxSize wxGenericCalendarCtrl::DoGetBestSize() const
 {
@@ -746,9 +745,7 @@ void wxGenericCalendarCtrl::DoGetSize(int *width, int *height) const
 
 void wxGenericCalendarCtrl::RecalcGeometry()
 {
-    wxClientDC dc(this);
-
-    dc.SetFont(GetFont());
+    wxInfoDC dc(this);
 
     // determine the column width (weekday names are not necessarily wider
     // than the numbers (in some languages), so let's not assume that they are)
@@ -792,8 +789,6 @@ void wxGenericCalendarCtrl::RecalcGeometry()
 void wxGenericCalendarCtrl::OnPaint(wxPaintEvent& WXUNUSED(event))
 {
     wxPaintDC dc(this);
-
-    dc.SetFont(GetFont());
 
     RecalcGeometry();
 
@@ -972,7 +967,7 @@ void wxGenericCalendarCtrl::OnPaint(wxPaintEvent& WXUNUSED(event))
                      changedFont = false;
 
                 bool isSel = false;
-                wxCalendarDateAttr *attr = NULL;
+                wxCalendarDateAttr *attr = nullptr;
 
                 if ( date.GetMonth() != m_date.GetMonth() || !IsDateInRange(date) )
                 {

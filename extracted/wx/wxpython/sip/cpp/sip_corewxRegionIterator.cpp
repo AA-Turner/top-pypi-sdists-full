@@ -607,7 +607,7 @@ static void *init_type_wxRegionIterator(sipSimpleWrapper *, PyObject *sipArgs, P
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxRegionIterator[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxRegionIterator[] = {{400, 255, 1}};
 
 
 /* Define this type's Python slots. */

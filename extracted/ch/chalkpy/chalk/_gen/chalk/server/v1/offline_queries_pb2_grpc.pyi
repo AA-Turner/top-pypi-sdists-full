@@ -21,9 +21,17 @@ from chalk._gen.chalk.server.v1.offline_queries_pb2 import (
     GetOfflineQueryProfileSummaryRequest,
     GetOfflineQueryProfileSummaryResponse,
     GetOfflineQueryRequest,
+    GetOfflineQueryRequestBodyRequest,
+    GetOfflineQueryRequestBodyResponse,
     GetOfflineQueryResponse,
     GetOfflineQueryShardsAggregatedRequest,
     GetOfflineQueryShardsAggregatedResponse,
+    GetOfflineQueryUtilizationSummariesRequest,
+    GetOfflineQueryUtilizationSummariesResponse,
+    GetResourceGroupJobTimeseriesRequest,
+    GetResourceGroupJobTimeseriesResponse,
+    GetResourceGroupUtilizationTimeseriesRequest,
+    GetResourceGroupUtilizationTimeseriesResponse,
     IngestDatasetRequest,
     IngestDatasetResponse,
     ListOfflineQueriesRequest,
@@ -56,6 +64,10 @@ class OfflineQueryMetadataServiceStub:
         GetOfflineQueryRequest,
         GetOfflineQueryResponse,
     ]
+    GetOfflineQueryRequestBody: UnaryUnaryMultiCallable[
+        GetOfflineQueryRequestBodyRequest,
+        GetOfflineQueryRequestBodyResponse,
+    ]
     ListOfflineQueryShards: UnaryUnaryMultiCallable[
         ListOfflineQueryShardsRequest,
         ListOfflineQueryShardsResponse,
@@ -71,6 +83,18 @@ class OfflineQueryMetadataServiceStub:
     GetOfflineQueryProfileSummary: UnaryUnaryMultiCallable[
         GetOfflineQueryProfileSummaryRequest,
         GetOfflineQueryProfileSummaryResponse,
+    ]
+    GetOfflineQueryUtilizationSummaries: UnaryUnaryMultiCallable[
+        GetOfflineQueryUtilizationSummariesRequest,
+        GetOfflineQueryUtilizationSummariesResponse,
+    ]
+    GetResourceGroupUtilizationTimeseries: UnaryUnaryMultiCallable[
+        GetResourceGroupUtilizationTimeseriesRequest,
+        GetResourceGroupUtilizationTimeseriesResponse,
+    ]
+    GetResourceGroupJobTimeseries: UnaryUnaryMultiCallable[
+        GetResourceGroupJobTimeseriesRequest,
+        GetResourceGroupJobTimeseriesResponse,
     ]
     ListOfflineQueryShardPerformanceSummaries: UnaryUnaryMultiCallable[
         ListOfflineQueryShardPerformanceSummariesRequest,
@@ -119,6 +143,12 @@ class OfflineQueryMetadataServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetOfflineQueryResponse: ...
     @abstractmethod
+    def GetOfflineQueryRequestBody(
+        self,
+        request: GetOfflineQueryRequestBodyRequest,
+        context: ServicerContext,
+    ) -> GetOfflineQueryRequestBodyResponse: ...
+    @abstractmethod
     def ListOfflineQueryShards(
         self,
         request: ListOfflineQueryShardsRequest,
@@ -142,6 +172,24 @@ class OfflineQueryMetadataServiceServicer(metaclass=ABCMeta):
         request: GetOfflineQueryProfileSummaryRequest,
         context: ServicerContext,
     ) -> GetOfflineQueryProfileSummaryResponse: ...
+    @abstractmethod
+    def GetOfflineQueryUtilizationSummaries(
+        self,
+        request: GetOfflineQueryUtilizationSummariesRequest,
+        context: ServicerContext,
+    ) -> GetOfflineQueryUtilizationSummariesResponse: ...
+    @abstractmethod
+    def GetResourceGroupUtilizationTimeseries(
+        self,
+        request: GetResourceGroupUtilizationTimeseriesRequest,
+        context: ServicerContext,
+    ) -> GetResourceGroupUtilizationTimeseriesResponse: ...
+    @abstractmethod
+    def GetResourceGroupJobTimeseries(
+        self,
+        request: GetResourceGroupJobTimeseriesRequest,
+        context: ServicerContext,
+    ) -> GetResourceGroupJobTimeseriesResponse: ...
     @abstractmethod
     def ListOfflineQueryShardPerformanceSummaries(
         self,

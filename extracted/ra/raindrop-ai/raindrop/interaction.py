@@ -21,6 +21,7 @@ from opentelemetry import context as context_api
 
 if TYPE_CHECKING:
     from .analytics import ManualSpan
+    from .subagent import SubagentDispatch
 
 
 # ``finish(*, output=None, **extra)`` salvage sets (DEV-1184). ``**extra`` used
@@ -51,7 +52,9 @@ class Interaction:
         "_analytics",
         "_state",
         "_bound_ctx",
+        "_tool_events_frame",
         "_disabled",
+        "_finish_called",
         "__weakref__",
     )
 
@@ -81,11 +84,26 @@ class Interaction:
         # requests, and finishing the first of two interleaved interactions
         # can't disturb the still-open sibling's binding.
         self._bound_ctx = bound_ctx
+        # The tool-call-only opt-in frame, if this turn asked for one. Scoped to
+        # the interaction for the same reason as the routing binding above: a
+        # reused worker thread keeps its context, so an opt-in left bound would
+        # let a later turn that launched nothing become an event.
+        self._tool_events_frame = None
         # When True, every mutator / finish / span / tool call is a no-op so
         # that callers who passed invalid arguments to ``begin()`` don't crash
         # the whole code path. ``analytics.begin()`` is the only place that
         # constructs a disabled Interaction today.
         self._disabled = disabled
+        # Whether finish() has been called. Recorded, not enforced: finishing
+        # twice remains a legitimate way to revise an event, and only a caller
+        # that layers its own lifecycle on top of this one — a sub-agent run —
+        # needs to know whether the event was already closed behind its back.
+        self._finish_called = False
+
+    @property
+    def finished(self) -> bool:
+        """Whether ``finish()`` has been called on this interaction."""
+        return self._finish_called
 
     # -- mutators ----------------------------------------------------------- #
     def set_input(self, text: str) -> None:
@@ -159,6 +177,7 @@ class Interaction:
         unrecognized key is dropped with a loud, rate-limited warning while
         the valid fields — ``output`` above all — still ship.
         """
+        self._finish_called = True
         if self._disabled:
             return
         try:
@@ -222,6 +241,10 @@ class Interaction:
             # binding in place (see unbind_current).
             self._analytics._rd_tracing.unbind_current(self._bound_ctx)
             self._bound_ctx = None
+            self._analytics._rd_tracing.unbind_span_attributes(
+                self._tool_events_frame
+            )
+            self._tool_events_frame = None
 
     def _coalesce_finish_payload(
         self, ai_data: Dict[str, Any], passthrough: Dict[str, Any]
@@ -300,6 +323,67 @@ class Interaction:
             return PartialTrackAIEvent(event_id=self._event_id, is_pending=False)
         except Exception:
             return None
+
+    def allow_tool_events(self) -> None:
+        """Let this turn become an event even with no assistant text.
+
+        Ingest creates an event from an outermost LLM span only when the span
+        has content or this explicit opt-in, so a turn whose entire content is
+        sub-agent launches (``finishReason = "tool-calls"``) would otherwise
+        never produce an event — and a hand-off with no caller event has nothing
+        to attach to. ``subagent()`` calls this itself; call it directly
+        *before* the model call when the launch decision comes out of an LLM
+        span that has already closed by the time you dispatch.
+        """
+        from .subagent import allow_tool_events
+
+        allow_tool_events(self)
+
+    def subagent(
+        self,
+        *,
+        name: str,
+        input: Any | None = None,
+        child_event_id: str | None = None,
+        tool_name: str | None = None,
+        properties: Dict[str, Any] | None = None,
+    ) -> "SubagentDispatch":
+        """Declare a detached (asynchronous, cross-process) sub-agent on this turn.
+
+        Records the dispatch and returns what you need to send the job. It does
+        NOT dispatch anything — the transport is yours, whether that is HTTP, a
+        queue or a spawned process::
+
+            dispatch = interaction.subagent(name="researcher",
+                                            input={"task": task})
+            requests.post(worker_url, json=job, headers=dispatch.headers)
+
+        The child's event id is minted here, before the job goes out, so the
+        link is resolvable immediately. The child adopts
+        ``dispatch.child_event_id`` as its OWN event and reports its own
+        lifecycle there; this turn records only that it launched something.
+        Nothing here claims to know how the child got on — status is derived
+        from the child's event, because this process returned a job handle and
+        moved on.
+
+        TRUST BOUNDARY: ``dispatch.headers`` name the event the receiver will be
+        attributed to, so dispatch only to services inside your own trust
+        boundary (see :mod:`raindrop.handoff`).
+
+        Requires ``tracing_enabled=True``: the dispatch is recorded on a span.
+        Without tracing the carrier is still returned (so the child links back)
+        and a warning explains what is missing.
+        """
+        from .subagent import subagent
+
+        return subagent(
+            self,
+            name=name,
+            input=input,
+            child_event_id=child_event_id,
+            tool_name=tool_name,
+            properties=properties,
+        )
 
     def start_span(
         self,
@@ -469,6 +553,7 @@ class Interaction:
                 output_value=serialized_output,
                 error_message=error_message,
                 association_properties=merged_association_props,
+                extra_attributes=_core._rd_tracing.current_span_attributes(),
             )
             _core._enqueue_direct_tool_span(direct_span, state=self._state)
             if _core.debug_logs:
@@ -491,6 +576,7 @@ class Interaction:
             # called from a different task/thread than the one that bound the
             # context, so the processor's context stamp can't be relied on.
             _core._rd_tracing.stamp_span(span, st.project_id, st.auth_hint)
+            _core._rd_tracing.stamp_context_attributes(span)
             if version is not None:
                 span.set_attribute(
                     _core.SpanAttributes.TRACELOOP_ENTITY_VERSION, version

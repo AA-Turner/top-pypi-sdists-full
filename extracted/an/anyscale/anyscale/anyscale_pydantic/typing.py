@@ -58,12 +58,35 @@ if sys.version_info < (3, 9):
     def evaluate_forwardref(type_: ForwardRef, globalns: Any, localns: Any) -> Any:
         return type_._evaluate(globalns, localns)
 
-else:
+elif sys.version_info < (3, 12, 4):
 
     def evaluate_forwardref(type_: ForwardRef, globalns: Any, localns: Any) -> Any:
         # Even though it is the right signature for python 3.9, mypy complains with
         # `error: Too many arguments for "_evaluate" of "ForwardRef"` hence the cast...
-        return cast(Any, type_)._evaluate(globalns, localns, set())
+        # ANYSCALE-PATCH(forward-ref): Python 3.12.4+ made `recursive_guard` a
+        # keyword-only arg; name it explicitly to avoid, on >=3.12.4:
+        # TypeError: ForwardRef._evaluate() missing 1 required keyword-only argument: 'recursive_guard'
+        return cast(Any, type_)._evaluate(globalns, localns, recursive_guard=set())
+
+elif sys.version_info < (3, 14):
+
+    def evaluate_forwardref(type_: ForwardRef, globalns: Any, localns: Any) -> Any:
+        # ANYSCALE-PATCH(forward-ref): 3.13 added the positional `type_params`;
+        # pydantic 1.x does not support PEP 695, so pass an empty tuple.
+        return cast(Any, type_)._evaluate(globalns, localns, type_params=(), recursive_guard=set())
+
+else:
+
+    def evaluate_forwardref(type_: ForwardRef, globalns: Any, localns: Any) -> Any:
+        # ANYSCALE-PATCH(forward-ref): 3.14 replaced ForwardRef._evaluate with
+        # the public typing.evaluate_forward_ref.
+        return typing.evaluate_forward_ref(
+            type_,
+            globals=globalns,
+            locals=localns,
+            type_params=(),
+            _recursive_guard=set(),
+        )
 
 
 if sys.version_info < (3, 9):

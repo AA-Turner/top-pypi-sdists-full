@@ -26,6 +26,8 @@ class ImageBuildStatus(ModelEnum):
 
 @dataclass(frozen=True)
 class ImageBuild(ModelBase):
+    """A container image build on Anyscale."""
+
     __doc_py_example__ = """\
 import anyscale
 from anyscale.image.models import ImageBuild

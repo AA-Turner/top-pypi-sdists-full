@@ -150,7 +150,7 @@ sipMappedTypeDef sipTypeDef__dataview_wxVector_0100wxDataFormat = {
         SIP_NULLPTR,
         SIP_NULLPTR,
         SIP_TYPE_MAPPED,
-        sipNameNr_1756,
+        sipNameNr_1729,
         SIP_NULLPTR,
         SIP_NULLPTR,
     },

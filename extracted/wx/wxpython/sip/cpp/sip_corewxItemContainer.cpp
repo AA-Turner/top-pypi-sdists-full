@@ -427,6 +427,43 @@ static PyObject *meth_wxItemContainer_Delete(PyObject *sipSelf, PyObject *sipArg
 }
 
 
+PyDoc_STRVAR(doc_wxItemContainer_IsSorted, "IsSorted() -> bool\n"
+"\n"
+"The control may maintain its items in a sorted order in which case\n"
+"items are automatically inserted at the right position when they are\n"
+"inserted or appended.");
+
+extern "C" {static PyObject *meth_wxItemContainer_IsSorted(PyObject *, PyObject *);}
+static PyObject *meth_wxItemContainer_IsSorted(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxItemContainer *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxItemContainer, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->IsSorted();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_ItemContainer, sipName_IsSorted, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxItemContainer_DetachClientObject, "DetachClientObject(n) -> ClientData\n"
 "\n"
 "Returns the client object associated with the given item and transfers\n"
@@ -615,7 +652,7 @@ static void dealloc_wxItemContainer(sipSimpleWrapper *sipSelf)
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxItemContainer[] = {{300, 255, 1}};
+static sipEncodedTypeDef supers_wxItemContainer[] = {{307, 255, 1}};
 
 
 static PyMethodDef methods_wxItemContainer[] = {
@@ -628,6 +665,7 @@ static PyMethodDef methods_wxItemContainer[] = {
     {sipName_HasClientObjectData, meth_wxItemContainer_HasClientObjectData, METH_VARARGS, doc_wxItemContainer_HasClientObjectData},
     {sipName_HasClientUntypedData, meth_wxItemContainer_HasClientUntypedData, METH_VARARGS, doc_wxItemContainer_HasClientUntypedData},
     {sipName_Insert, SIP_MLMETH_CAST(meth_wxItemContainer_Insert), METH_VARARGS|METH_KEYWORDS, doc_wxItemContainer_Insert},
+    {sipName_IsSorted, meth_wxItemContainer_IsSorted, METH_VARARGS, doc_wxItemContainer_IsSorted},
     {sipName_Set, SIP_MLMETH_CAST(meth_wxItemContainer_Set), METH_VARARGS|METH_KEYWORDS, doc_wxItemContainer_Set},
     {sipName_SetClientData, SIP_MLMETH_CAST(meth_wxItemContainer_SetClientData), METH_VARARGS|METH_KEYWORDS, doc_wxItemContainer_SetClientData}
 };
@@ -650,7 +688,7 @@ sipClassTypeDef sipTypeDef__core_wxItemContainer = {
     {
         sipNameNr_ItemContainer,
         {0, 0, 1},
-        11, methods_wxItemContainer,
+        12, methods_wxItemContainer,
         0, SIP_NULLPTR,
         0, SIP_NULLPTR,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

@@ -70,7 +70,7 @@ class WrapSizerApp : public wxApp
 public:
     WrapSizerApp() {}
 
-    virtual bool OnInit() wxOVERRIDE
+    virtual bool OnInit() override
     {
         new WrapSizerFrame;
         return true;
@@ -85,7 +85,7 @@ wxIMPLEMENT_APP(WrapSizerApp);
 // ----------------------------------------------------------------------------
 
 WrapSizerFrame::WrapSizerFrame()
-        : wxFrame(NULL, wxID_ANY, "wxWrapSizer Sample")
+        : wxFrame(nullptr, wxID_ANY, "wxWrapSizer Sample")
 {
     SetIcon(wxICON(sample));
 
@@ -104,14 +104,14 @@ WrapSizerFrame::WrapSizerFrame()
     sizerRoot->Add(sizerTop, wxSizerFlags().Expand().Border());
 
     // A number of checkboxes inside a wrap sizer
-    wxSizer *sizerMid = new wxStaticBoxSizer(wxVERTICAL, m_panel,
-                                                "With check-boxes");
+    wxStaticBoxSizer *sizerMid = new wxStaticBoxSizer(wxVERTICAL, m_panel,
+                                                      "With check-boxes");
     wxSizer * const sizerMidWrap = new wxWrapSizer(wxHORIZONTAL);
     for ( int nCheck = 0; nCheck < 6; nCheck++ )
     {
         wxCheckBox *chk = new wxCheckBox
                                 (
-                                m_panel,
+                                sizerMid->GetStaticBox(),
                                 wxID_ANY,
                                 wxString::Format("Option %d", nCheck)
                                 );
@@ -122,18 +122,39 @@ WrapSizerFrame::WrapSizerFrame()
     sizerMid->Add(sizerMidWrap, wxSizerFlags(100).Expand());
     sizerRoot->Add(sizerMid, wxSizerFlags(100).Expand().Border());
 
+    // A long wxStaticText that wraps like a wxWrapSizer
+    sizerRoot->Add( new wxStaticText( m_panel, -1,
+        "This is very long text that will wrap. This is very long text that will wrap. This is very long text that will wrap.",
+        wxDefaultPosition, wxDefaultSize, wxST_WRAP
+    ));
+    // A long wxStaticText that does not wrap
+    sizerRoot->Add( new wxStaticText( m_panel, -1,
+        "This is long text that will not wrap. This is long text that will not wrap."
+    ));
+
+    // A window of 150px width for comparison.
+    auto* const ruler = new wxStaticText(m_panel, wxID_ANY, "150px",
+                                         wxDefaultPosition, wxSize(150, -1),
+                                         wxALIGN_CENTER);
+    ruler->SetBackgroundColour(*wxYELLOW);
+    sizerRoot->Add(ruler);
+
+    // A long wxStaticText that wraps at 150px
+    wxStaticText *stattext = new wxStaticText( m_panel, -1, "This is very long text that will wrap at 150px. This is very long text that will wrap at 150px." );
+    stattext->Wrap( 150 );
+    sizerRoot->Add(  stattext );
 
     // A shaped item inside a box sizer
-    wxSizer *sizerBottom = new wxStaticBoxSizer(wxVERTICAL, m_panel,
-                                                "With wxSHAPED item");
+    wxStaticBoxSizer *sizerBottom = new wxStaticBoxSizer(wxVERTICAL, m_panel,
+                                                         "With wxSHAPED item");
     wxSizer *sizerBottomBox = new wxBoxSizer(wxHORIZONTAL);
     sizerBottom->Add(sizerBottomBox, wxSizerFlags(100).Expand());
 
-    sizerBottomBox->Add(new wxListBox(m_panel, wxID_ANY,
+    sizerBottomBox->Add(new wxListBox(sizerBottom->GetStaticBox(), wxID_ANY,
                                         wxPoint(0, 0), wxSize(70, 70)),
                         wxSizerFlags().Expand().Shaped());
     sizerBottomBox->AddSpacer(10);
-    sizerBottomBox->Add(new wxCheckBox(m_panel, wxID_ANY,
+    sizerBottomBox->Add(new wxCheckBox(sizerBottom->GetStaticBox(), wxID_ANY,
                                         "A much longer option..."),
                         wxSizerFlags(100).Border());
     sizerRoot->Add(sizerBottom, wxSizerFlags(100).Expand().Border());

@@ -13,6 +13,7 @@
         #include <wx/gdicmn.h>
         #include <wx/gdicmn.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/validate.h>
         #include <wx/richtext/richtextstyles.h>
@@ -24,17 +25,18 @@
         #include <wx/bitmap.h>
         #include <wx/dc.h>
         #include <wx/event.h>
+        #include <wx/dc.h>
+        #include <wx/event.h>
         #include <wx/event.h>
         #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -49,6 +51,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/textcompleter.h>
+    wxAccessible* _wxRichTextStyleComboCtrl_CreateAccessible(wxRichTextStyleComboCtrl* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxRichTextStyleComboCtrl : public ::wxRichTextStyleComboCtrl
@@ -79,7 +90,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -125,7 +135,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -156,7 +165,7 @@ private:
     sipwxRichTextStyleComboCtrl(const sipwxRichTextStyleComboCtrl &);
     sipwxRichTextStyleComboCtrl &operator = (const sipwxRichTextStyleComboCtrl &);
 
-    char sipPyMethods[57];
+    char sipPyMethods[56];
 };
 
 sipwxRichTextStyleComboCtrl::sipwxRichTextStyleComboCtrl(::wxWindow*parent, ::wxWindowID id, const ::wxPoint& pos, const ::wxSize& size, long style): ::wxRichTextStyleComboCtrl(parent, id, pos, size, style), sipPySelf(SIP_NULLPTR)
@@ -735,27 +744,12 @@ void sipwxRichTextStyleComboCtrl::DoSetWindowVariant(::wxWindowVariant variant)
     return sipVH__richtext_140(sipGILState, 0, sipPySelf, sipMeth);
 }
 
-::wxBorder sipwxRichTextStyleComboCtrl::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxRichTextStyleComboCtrl::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__richtext_140(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__richtext_140(sipGILState, 0, sipPySelf, sipMeth);
-}
-
 void sipwxRichTextStyleComboCtrl::DoFreeze()
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -773,7 +767,7 @@ void sipwxRichTextStyleComboCtrl::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -791,7 +785,7 @@ void sipwxRichTextStyleComboCtrl::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxRichTextStyleComboCtrl::DoGetBestSize();
@@ -806,7 +800,7 @@ void sipwxRichTextStyleComboCtrl::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxRichTextStyleComboCtrl::DoGetBestClientSize();
@@ -821,7 +815,7 @@ void sipwxRichTextStyleComboCtrl::Undo()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[39], &sipPySelf, SIP_NULLPTR, sipName_Undo);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_Undo);
 
     if (!sipMeth)
     {
@@ -839,7 +833,7 @@ void sipwxRichTextStyleComboCtrl::Redo()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[40], &sipPySelf, SIP_NULLPTR, sipName_Redo);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[39], &sipPySelf, SIP_NULLPTR, sipName_Redo);
 
     if (!sipMeth)
     {
@@ -857,7 +851,7 @@ void sipwxRichTextStyleComboCtrl::Paste()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[41], &sipPySelf, SIP_NULLPTR, sipName_Paste);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[40], &sipPySelf, SIP_NULLPTR, sipName_Paste);
 
     if (!sipMeth)
     {
@@ -875,7 +869,7 @@ void sipwxRichTextStyleComboCtrl::Cut()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[42], &sipPySelf, SIP_NULLPTR, sipName_Cut);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[41], &sipPySelf, SIP_NULLPTR, sipName_Cut);
 
     if (!sipMeth)
     {
@@ -893,7 +887,7 @@ void sipwxRichTextStyleComboCtrl::Copy()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[43], &sipPySelf, SIP_NULLPTR, sipName_Copy);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[42], &sipPySelf, SIP_NULLPTR, sipName_Copy);
 
     if (!sipMeth)
     {
@@ -911,7 +905,7 @@ bool sipwxRichTextStyleComboCtrl::CanUndo() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[44]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_CanUndo);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[43]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_CanUndo);
 
     if (!sipMeth)
         return ::wxRichTextStyleComboCtrl::CanUndo();
@@ -926,7 +920,7 @@ bool sipwxRichTextStyleComboCtrl::CanRedo() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[45]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_CanRedo);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[44]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_CanRedo);
 
     if (!sipMeth)
         return ::wxRichTextStyleComboCtrl::CanRedo();
@@ -941,7 +935,7 @@ bool sipwxRichTextStyleComboCtrl::CanPaste() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[46]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_CanPaste);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[45]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_CanPaste);
 
     if (!sipMeth)
         return ::wxRichTextStyleComboCtrl::CanPaste();
@@ -956,7 +950,7 @@ bool sipwxRichTextStyleComboCtrl::CanCut() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[47]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_CanCut);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[46]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_CanCut);
 
     if (!sipMeth)
         return ::wxRichTextStyleComboCtrl::CanCut();
@@ -971,7 +965,7 @@ bool sipwxRichTextStyleComboCtrl::CanCopy() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[48]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_CanCopy);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[47]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_CanCopy);
 
     if (!sipMeth)
         return ::wxRichTextStyleComboCtrl::CanCopy();
@@ -986,7 +980,7 @@ void sipwxRichTextStyleComboCtrl::Dismiss()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[49], &sipPySelf, SIP_NULLPTR, sipName_Dismiss);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[48], &sipPySelf, SIP_NULLPTR, sipName_Dismiss);
 
     if (!sipMeth)
     {
@@ -1004,7 +998,7 @@ bool sipwxRichTextStyleComboCtrl::IsKeyPopupToggle(const ::wxKeyEvent& event) co
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[50]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_IsKeyPopupToggle);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[49]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_IsKeyPopupToggle);
 
     if (!sipMeth)
         return ::wxRichTextStyleComboCtrl::IsKeyPopupToggle(event);
@@ -1019,7 +1013,7 @@ void sipwxRichTextStyleComboCtrl::HidePopup(bool generateEvent)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[51], &sipPySelf, SIP_NULLPTR, sipName_HidePopup);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[50], &sipPySelf, SIP_NULLPTR, sipName_HidePopup);
 
     if (!sipMeth)
     {
@@ -1037,7 +1031,7 @@ void sipwxRichTextStyleComboCtrl::OnButtonClick()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[52], &sipPySelf, SIP_NULLPTR, sipName_OnButtonClick);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[51], &sipPySelf, SIP_NULLPTR, sipName_OnButtonClick);
 
     if (!sipMeth)
     {
@@ -1055,7 +1049,7 @@ void sipwxRichTextStyleComboCtrl::ShowPopup()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[53], &sipPySelf, SIP_NULLPTR, sipName_ShowPopup);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[52], &sipPySelf, SIP_NULLPTR, sipName_ShowPopup);
 
     if (!sipMeth)
     {
@@ -1073,7 +1067,7 @@ bool sipwxRichTextStyleComboCtrl::AnimateShow(const ::wxRect& rect, int flags)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[54], &sipPySelf, SIP_NULLPTR, sipName_AnimateShow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[53], &sipPySelf, SIP_NULLPTR, sipName_AnimateShow);
 
     if (!sipMeth)
         return ::wxRichTextStyleComboCtrl::AnimateShow(rect, flags);
@@ -1088,7 +1082,7 @@ void sipwxRichTextStyleComboCtrl::DoSetPopupControl(::wxComboPopup*popup)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[55], &sipPySelf, SIP_NULLPTR, sipName_DoSetPopupControl);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[54], &sipPySelf, SIP_NULLPTR, sipName_DoSetPopupControl);
 
     if (!sipMeth)
     {
@@ -1106,7 +1100,7 @@ void sipwxRichTextStyleComboCtrl::DoShowPopup(const ::wxRect& rect, int flags)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[56], &sipPySelf, SIP_NULLPTR, sipName_DoShowPopup);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[55], &sipPySelf, SIP_NULLPTR, sipName_DoShowPopup);
 
     if (!sipMeth)
     {
@@ -1202,11 +1196,6 @@ void sipwxRichTextStyleComboCtrl::sipProtectVirt_DoSetWindowVariant(bool sipSelf
 ::wxBorder sipwxRichTextStyleComboCtrl::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxRichTextStyleComboCtrl::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxRichTextStyleComboCtrl::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxRichTextStyleComboCtrl::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxRichTextStyleComboCtrl::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -2843,40 +2832,6 @@ static PyObject *meth_wxRichTextStyleComboCtrl_GetDefaultBorder(PyObject *sipSel
 }
 
 
-PyDoc_STRVAR(doc_wxRichTextStyleComboCtrl_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxRichTextStyleComboCtrl_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxRichTextStyleComboCtrl_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxRichTextStyleComboCtrl *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRichTextStyleComboCtrl, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_RichTextStyleComboCtrl, sipName_GetDefaultBorderForControl, doc_wxRichTextStyleComboCtrl_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxRichTextStyleComboCtrl_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxRichTextStyleComboCtrl_DoFreeze(PyObject *, PyObject *);}
@@ -3055,6 +3010,39 @@ static PyObject *meth_wxRichTextStyleComboCtrl_TryAfter(PyObject *sipSelf, PyObj
 }
 
 
+PyDoc_STRVAR(doc_wxRichTextStyleComboCtrl_CreateAccessible, "CreateAccessible() -> wx.Accessible");
+
+extern "C" {static PyObject *meth_wxRichTextStyleComboCtrl_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxRichTextStyleComboCtrl_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxRichTextStyleComboCtrl *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRichTextStyleComboCtrl, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxRichTextStyleComboCtrl_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_RichTextStyleComboCtrl, sipName_CreateAccessible, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxRichTextStyleComboCtrl_GetClassDefaultAttributes, "GetClassDefaultAttributes(variant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes");
 
 extern "C" {static PyObject *meth_wxRichTextStyleComboCtrl_GetClassDefaultAttributes(PyObject *, PyObject *, PyObject *);}
@@ -3228,7 +3216,7 @@ static void *init_type_wxRichTextStyleComboCtrl(sipSimpleWrapper *sipSelf, PyObj
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxRichTextStyleComboCtrl[] = {{9, 0, 1}};
+static sipEncodedTypeDef supers_wxRichTextStyleComboCtrl[] = {{10, 0, 1}};
 
 
 static PyMethodDef methods_wxRichTextStyleComboCtrl[] = {
@@ -3238,6 +3226,7 @@ static PyMethodDef methods_wxRichTextStyleComboCtrl[] = {
     {sipName_AddChild, SIP_MLMETH_CAST(meth_wxRichTextStyleComboCtrl_AddChild), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextStyleComboCtrl_AddChild},
     {sipName_AnimateShow, SIP_MLMETH_CAST(meth_wxRichTextStyleComboCtrl_AnimateShow), METH_VARARGS|METH_KEYWORDS, SIP_NULLPTR},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxRichTextStyleComboCtrl_Create), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextStyleComboCtrl_Create},
+    {sipName_CreateAccessible, meth_wxRichTextStyleComboCtrl_CreateAccessible, METH_VARARGS, doc_wxRichTextStyleComboCtrl_CreateAccessible},
     {sipName_Destroy, meth_wxRichTextStyleComboCtrl_Destroy, METH_VARARGS, doc_wxRichTextStyleComboCtrl_Destroy},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxRichTextStyleComboCtrl_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextStyleComboCtrl_DoEnable},
     {sipName_DoFreeze, meth_wxRichTextStyleComboCtrl_DoFreeze, METH_VARARGS, doc_wxRichTextStyleComboCtrl_DoFreeze},
@@ -3258,7 +3247,6 @@ static PyMethodDef methods_wxRichTextStyleComboCtrl[] = {
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxRichTextStyleComboCtrl_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxRichTextStyleComboCtrl_GetClassDefaultAttributes},
     {sipName_GetClientAreaOrigin, meth_wxRichTextStyleComboCtrl_GetClientAreaOrigin, METH_VARARGS, doc_wxRichTextStyleComboCtrl_GetClientAreaOrigin},
     {sipName_GetDefaultBorder, meth_wxRichTextStyleComboCtrl_GetDefaultBorder, METH_VARARGS, doc_wxRichTextStyleComboCtrl_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxRichTextStyleComboCtrl_GetDefaultBorderForControl, METH_VARARGS, doc_wxRichTextStyleComboCtrl_GetDefaultBorderForControl},
     {sipName_GetMainWindowOfCompositeControl, meth_wxRichTextStyleComboCtrl_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxRichTextStyleComboCtrl_GetMainWindowOfCompositeControl},
     {sipName_GetRichTextCtrl, meth_wxRichTextStyleComboCtrl_GetRichTextCtrl, METH_VARARGS, doc_wxRichTextStyleComboCtrl_GetRichTextCtrl},
     {sipName_GetStyleSheet, meth_wxRichTextStyleComboCtrl_GetStyleSheet, METH_VARARGS, doc_wxRichTextStyleComboCtrl_GetStyleSheet},

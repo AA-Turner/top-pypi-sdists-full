@@ -60,9 +60,9 @@ sipwxPreferencesPage::~sipwxPreferencesPage()
     if (!sipMeth)
         return 0;
 
-    extern ::wxWindow* sipVH__core_246(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*);
+    extern ::wxWindow* sipVH__core_245(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*);
 
-    return sipVH__core_246(sipGILState, 0, sipPySelf, sipMeth, parent);
+    return sipVH__core_245(sipGILState, 0, sipPySelf, sipMeth, parent);
 }
 
 ::wxBitmap sipwxPreferencesPage::GetLargeIcon() const
@@ -75,9 +75,9 @@ sipwxPreferencesPage::~sipwxPreferencesPage()
     if (!sipMeth)
         return ::wxBitmap();
 
-    extern ::wxBitmap sipVH__core_80(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxBitmap sipVH__core_79(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_80(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_79(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxBitmapBundle sipwxPreferencesPage::GetIcon() const
@@ -90,9 +90,9 @@ sipwxPreferencesPage::~sipwxPreferencesPage()
     if (!sipMeth)
         return ::wxBitmapBundle();
 
-    extern ::wxBitmapBundle sipVH__core_165(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxBitmapBundle sipVH__core_164(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_165(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_164(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxString sipwxPreferencesPage::GetName() const

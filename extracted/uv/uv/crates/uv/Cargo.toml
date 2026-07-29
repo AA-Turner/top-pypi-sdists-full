@@ -1,6 +1,6 @@
 [package]
 name = "uv"
-version = "0.11.32"
+version = "0.12.0"
 description = "A Python package and project manager"
 edition = { workspace = true }
 rust-version = { workspace = true }
@@ -161,7 +161,7 @@ nix = { workspace = true }
 uv-unix = { workspace = true }
 
 [features]
-default = ["performance", "uv-distribution/static", "test-defaults"]
+default = ["performance", "test-defaults"]
 native-auth = []
 # Use better memory allocators, etc.
 performance = ["performance-memory-allocator"]

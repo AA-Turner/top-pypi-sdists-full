@@ -14,6 +14,8 @@ from chalk._gen.chalk.server.v1.webhook_pb2 import (
     DeleteWebhookResponse,
     GetWebhookRequest,
     GetWebhookResponse,
+    GetWebhookSubscriptionFilterOptionsRequest,
+    GetWebhookSubscriptionFilterOptionsResponse,
     ListWebhooksRequest,
     ListWebhooksResponse,
     TestWebhookRequest,
@@ -54,6 +56,10 @@ class WebhookServiceStub:
         TestWebhookRequest,
         TestWebhookResponse,
     ]
+    GetWebhookSubscriptionFilterOptions: UnaryUnaryMultiCallable[
+        GetWebhookSubscriptionFilterOptionsRequest,
+        GetWebhookSubscriptionFilterOptionsResponse,
+    ]
 
 class WebhookServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -92,5 +98,11 @@ class WebhookServiceServicer(metaclass=ABCMeta):
         request: TestWebhookRequest,
         context: ServicerContext,
     ) -> TestWebhookResponse: ...
+    @abstractmethod
+    def GetWebhookSubscriptionFilterOptions(
+        self,
+        request: GetWebhookSubscriptionFilterOptionsRequest,
+        context: ServicerContext,
+    ) -> GetWebhookSubscriptionFilterOptionsResponse: ...
 
 def add_WebhookServiceServicer_to_server(servicer: WebhookServiceServicer, server: Server) -> None: ...

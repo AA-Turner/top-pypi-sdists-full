@@ -34,7 +34,7 @@
 #include <windowsx.h>
 
 #if wxUSE_OWNER_DRAWN
-    #include  "wx/ownerdrw.h"
+    #include "wx/msw/private/listboxitem.h"
 
     namespace
     {
@@ -49,38 +49,7 @@
 
 #if wxUSE_OWNER_DRAWN
 
-class wxListBoxItem : public wxOwnerDrawn
-{
-public:
-    wxListBoxItem(wxListBox *parent)
-        { m_parent = parent; }
-
-    wxListBox *GetParent() const
-        { return m_parent; }
-
-    int GetIndex() const
-        { return m_parent->GetItemIndex(const_cast<wxListBoxItem*>(this)); }
-
-    wxString GetName() const wxOVERRIDE
-        { return m_parent->GetString(GetIndex()); }
-
-protected:
-    void
-    GetColourToUse(wxODStatus stat,
-                   wxColour& colText,
-                   wxColour& colBack) const wxOVERRIDE
-    {
-        wxOwnerDrawn::GetColourToUse(stat, colText, colBack);
-
-        // Default background colour for the owner drawn items is the menu one,
-        // but it's not appropriate for the listboxes, so override it here.
-        if ( !(stat & wxODSelected) && !GetBackgroundColour().IsOk() )
-            colBack = wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOX);
-    }
-
-private:
-    wxListBox *m_parent;
-};
+using wxListBoxItem = wxListBoxItemBase<wxListBox>;
 
 wxOwnerDrawn *wxListBox::CreateLboxItem(size_t WXUNUSED(n))
 {
@@ -204,6 +173,17 @@ WXDWORD wxListBox::MSWGetStyle(long style, WXDWORD *exstyle) const
     return msStyle;
 }
 
+void wxListBox::MSWGetDarkModeSupport(MSWDarkModeSupport& support) const
+{
+    // The default theme does not look good on starting with Windows 11
+    // build 26300.8553. DarkMode_DarkTheme looks OK and was available
+    // starting with Windows 11 build 26200.
+    if ( wxCheckOsVersion(10, 0, 26200) )
+        support.themeName = L"DarkMode_DarkTheme";
+    else
+        wxListBoxBase::MSWGetDarkModeSupport(support);
+}
+
 void wxListBox::MSWUpdateFontOnDPIChange(const wxSize& newDPI)
 {
     wxListBoxBase::MSWUpdateFontOnDPIChange(newDPI);
@@ -227,7 +207,7 @@ void wxListBox::MSWOnItemsChanged()
 {
     // we need to do two things when items change: update their max horizontal
     // extent so that horizontal scrollbar could be shown or hidden as
-    // appropriate and also invlaidate the best size
+    // appropriate and also invalidate the best size
     //
     // updating the max extent is slow (it's an O(N) operation) and so we defer
     // it until the idle time but the best size should be invalidated
@@ -390,7 +370,7 @@ void *wxListBox::DoGetItemClientData(unsigned int n) const
     {
         wxLogLastError(wxT("LB_GETITEMDATA"));
 
-        return NULL;
+        return nullptr;
     }
 
     return (void *)rc;
@@ -538,8 +518,8 @@ void wxListBox::SetString(unsigned int n, const wxString& s)
     // remember the state of the item
     bool wasSelected = IsSelected(n);
 
-    void *oldData = NULL;
-    wxClientData *oldObjData = NULL;
+    void *oldData = nullptr;
+    wxClientData *oldObjData = nullptr;
     if ( HasClientUntypedData() )
         oldData = GetClientData(n);
     else if ( HasClientObjectData() )
@@ -583,7 +563,7 @@ void wxListBox::SetHorizontalExtent(const wxString& s)
         return;
 
 
-    WindowHDC dc(GetHwnd());
+    ClientHDC dc(GetHwnd());
     SelectInHDC selFont(dc, GetHfontOf(GetFont()));
 
     TEXTMETRIC lpTextMetric;
@@ -628,7 +608,7 @@ void wxListBox::SetHorizontalExtent(const wxString& s)
 bool wxListBox::MSWSetTabStops(const wxVector<int>& tabStops)
 {
     return SendMessage(GetHwnd(), LB_SETTABSTOPS, (WPARAM)tabStops.size(),
-                       (LPARAM)(tabStops.empty() ? NULL : &tabStops[0])) == TRUE;
+                       (LPARAM)(tabStops.empty() ? nullptr : &tabStops[0])) == TRUE;
 }
 
 wxSize wxListBox::DoGetBestClientSize() const
@@ -639,7 +619,7 @@ wxSize wxListBox::DoGetBestClientSize() const
     for (unsigned int i = 0; i < m_noItems; i++)
     {
         wxString str(GetString(i));
-        GetTextExtent(str, &wLine, NULL);
+        GetTextExtent(str, &wLine, nullptr);
         if ( wLine > wListbox )
             wListbox = wLine;
     }
@@ -733,7 +713,7 @@ bool wxListBox::SetFont(const wxFont &font)
 
         // Non owner drawn list boxes update the item height on their own, but
         // we need to do it manually in the owner drawn case.
-        wxClientDC dc(this);
+        wxInfoDC dc(this);
         dc.SetFont(m_font);
         SendMessage(GetHwnd(), LB_SETITEMHEIGHT, 0,
                     dc.GetCharHeight() + 2 * LISTBOX_EXTRA_SPACE);
@@ -789,7 +769,7 @@ bool wxListBox::MSWOnMeasure(WXMEASUREITEMSTRUCT *item)
 
     MEASUREITEMSTRUCT *pStruct = (MEASUREITEMSTRUCT *)item;
 
-    HDC hdc = CreateIC(wxT("DISPLAY"), NULL, NULL, 0);
+    HDC hdc = CreateIC(wxT("DISPLAY"), nullptr, nullptr, 0);
 
     {
         wxDCTemp dc((WXHDC)hdc);

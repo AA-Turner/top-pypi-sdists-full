@@ -18,7 +18,7 @@ for cloud in anyscale.cloud.list(max_items=50):
 
 _LIST_ARG_DOCSTRINGS = {
     "cloud_id": "If provided, returns just the cloud with this ID wrapped in a one-page iterator.",
-    "name": "Substring or exact name to match against the cloud name.",
+    "name": "Exact name of the cloud to fetch.",
     "max_items": "Maximum total number of items to yield (default: iterate all).",
     "page_size": "Number of items to fetch per API request (default: API default).",
 }
@@ -121,10 +121,11 @@ def get(
     """
     Get the cloud model for the provided cloud ID or name.
 
-    If neither ID nor name is provided, returns `None`.
+    Provide exactly one of `id` or `name`.
 
     :param id: The ID of the cloud to retrieve.
     :param name: The name of the cloud to retrieve.
+    :raises ValueError: If neither or both of `id` and `name` are provided.
     :return: A `Cloud` object if found, otherwise `None`.
     """
     return _private_sdk.get(id=id, name=name)  # type: ignore

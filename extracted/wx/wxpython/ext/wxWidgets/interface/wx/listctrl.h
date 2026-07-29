@@ -80,7 +80,7 @@ enum
     wxLIST_ALIGN_SNAP_TO_GRID
 };
 
-/// Column format (MSW only except wxLIST_FORMAT_LEFT)
+/// Column format determining alignment of the items in the column.
 enum wxListColumnFormat
 {
     wxLIST_FORMAT_LEFT,
@@ -359,6 +359,12 @@ public:
         column after all the existing ones without having to specify its
         position explicitly.
 
+        Note that under MSW the first column always uses left alignment due to
+        the limitation of the underlying native control. If you need to use a
+        different alignment for the first column, add a dummy column, then add
+        another column with the desired alignment and finally call
+        DeleteColumn() to remove the dummy one to achieve the desired result.
+
         @since 2.9.4
      */
     long AppendColumn(const wxString& heading,
@@ -420,9 +426,17 @@ public:
 
         This function does @e not send the @c wxEVT_LIST_DELETE_ITEM
         event because deleting many items from the control would be too slow
-        then (unlike wxListCtrl::DeleteItem) but it does send the special @c
+        then (unlike wxListCtrl::DeleteItem), but it does send the special @c
         wxEVT_LIST_DELETE_ALL_ITEMS event if the control was not empty.
         If it was already empty, nothing is done and no event is sent.
+
+        @note If using the generic version of this control
+        (e.g., GTK+) and you bind a function to
+        wxEVT_LIST_DELETE_ALL_ITEMS from a derived class,
+        then it is recommended to unbind this in your derived class's destructor.
+        The base version of wxListCtrl will send a wxEVT_LIST_DELETE_ALL_ITEMS
+        event from its destructor, so you must unbind your class from
+        this event before that occurs.
 
         @return @true if the items were successfully deleted or if the control
             was already empty, @false if an error occurred while deleting the
@@ -453,6 +467,9 @@ public:
         If the user changed the label (i.e. s/he does not press ESC or leave
         the text control without changes, a @c EVT_LIST_END_LABEL_EDIT event
         will be sent which can be vetoed as well.
+
+        Notice that this function should only be called if wxLC_EDIT_LABELS flag
+        is already set on the control. an assertion failure is triggered otherwise.
     */
     wxTextCtrl* EditLabel(long item,
                           wxClassInfo* textControlClass = wxCLASSINFO(wxTextCtrl));
@@ -495,7 +512,7 @@ public:
 
         This method allows one to programmatically end editing a list control item
         in place. Usually it will only be called when editing is in progress,
-        i.e. if GetEditControl() returns non-NULL. In particular, do not call
+        i.e. if GetEditControl() returns non-null. In particular, do not call
         it from EVT_LIST_BEGIN_LABEL_EDIT handler as the edit control is not
         yet fully created by then, just veto the event in this handler instead
         to prevent the editing from even starting.
@@ -555,12 +572,20 @@ public:
 
     /**
         Gets information about this column.
+
         See SetItem() for more information.
 
         @beginWxPerlOnly
         In wxPerl this method takes only the @a col parameter and
         returns a @c Wx::ListItem (or @c undef).
         @endWxPerlOnly
+
+        @param col The column index. It must be valid, i.e. positive or 0 and
+            strictly less than GetColumnCount(). The function asserts if this
+            is not the case.
+        @param item Output parameter filled with the information about the
+            column on successful return.
+        @return Always @true if the column index is valid.
     */
     bool GetColumn(int col, wxListItem& item) const;
 
@@ -629,6 +654,10 @@ public:
         Gets the number of items that can fit vertically in the visible area of
         the list control (list or report view) or the total number of items in
         the list control (icon or small icon view).
+
+        @note The caller must ensure that there is at least one item in the control
+              to be able to calculate the count per page under wxQt, otherwise 0 will
+              be returned.
     */
     int GetCountPerPage() const;
 
@@ -896,7 +925,7 @@ public:
         and returns a 2-element list (item, flags).
         @endWxPerlOnly
     */
-    long HitTest(const wxPoint& point, int& flags, long* ptrSubItem = NULL) const;
+    long HitTest(const wxPoint& point, int& flags, long* ptrSubItem = nullptr) const;
 
     /**
         Returns true if the control is currently using ::wxLC_REPORT style.
@@ -1071,10 +1100,16 @@ public:
         @c wxLIST_AUTOSIZE will resize the column to the length of its longest item.
 
         @c wxLIST_AUTOSIZE_USEHEADER will resize the column to the length of the
-        header (Win32) or 80 pixels (other platforms).
+        header (wxMSW and wxQt) or 80 pixels (other platforms).
 
         In small or normal icon view, @a col must be -1, and the column width is set
         for all columns.
+
+        @note In wxMSW, the width of the column may not change immediately when
+            calling this function from wxEVT_SIZE handler due to the native
+            control limitations and calling GetColumnWidth() immediately after
+            SetColumnWidth() may still return the old width. The width is
+            still guaranteed to be updated after the event handler returns.
     */
     bool SetColumnWidth(int col, int width);
 

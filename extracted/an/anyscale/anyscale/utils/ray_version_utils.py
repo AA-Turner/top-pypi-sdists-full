@@ -47,7 +47,7 @@ def get_ray_version(base_image: str) -> str:
         The ray version, e.g. 1.9.0.
     """
     # e.g. 1.9.0-cpu
-    image_version = base_image.split(":")[-1]
+    image_version = base_image.rsplit(":", maxsplit=1)[-1]
     # e.g. 1.9.0
     ray_version = image_version.split("-")[0]
     return ray_version

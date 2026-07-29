@@ -9,7 +9,9 @@
 
 #include "sipAPI_adv.h"
         #include <wx/aboutdlg.h>
+        #include <wx/bmpbndl.h>
         #include <wx/icon.h>
+        #include <wx/window.h>
 
 
 PyDoc_STRVAR(doc_wxAboutDialogInfo_AddArtist, "AddArtist(artist) -> None\n"
@@ -591,26 +593,31 @@ static PyObject *meth_wxAboutDialogInfo_HasIcon(PyObject *sipSelf, PyObject *sip
 }
 
 
-PyDoc_STRVAR(doc_wxAboutDialogInfo_GetIcon, "GetIcon() -> wx.Icon\n"
+PyDoc_STRVAR(doc_wxAboutDialogInfo_GetIcon, "GetIcon(window=nullptr) -> wx.Icon\n"
 "\n"
 "Returns the icon set by SetIcon().");
 
-extern "C" {static PyObject *meth_wxAboutDialogInfo_GetIcon(PyObject *, PyObject *);}
-static PyObject *meth_wxAboutDialogInfo_GetIcon(PyObject *sipSelf, PyObject *sipArgs)
+extern "C" {static PyObject *meth_wxAboutDialogInfo_GetIcon(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAboutDialogInfo_GetIcon(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
 {
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
+        const ::wxWindow* window = nullptr;
         const ::wxAboutDialogInfo *sipCpp;
 
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxAboutDialogInfo, &sipCpp))
+        static const char *sipKwdList[] = {
+            sipName_window,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "B|J8", &sipSelf, sipType_wxAboutDialogInfo, &sipCpp, sipType_wxWindow, &window))
         {
             ::wxIcon*sipRes;
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxIcon(sipCpp->GetIcon());
+            sipRes = new ::wxIcon(sipCpp->GetIcon(window));
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
@@ -636,20 +643,22 @@ static PyObject *meth_wxAboutDialogInfo_SetIcon(PyObject *sipSelf, PyObject *sip
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        const ::wxIcon* icon;
+        const ::wxBitmapBundle* icon;
+        int iconState = 0;
         ::wxAboutDialogInfo *sipCpp;
 
         static const char *sipKwdList[] = {
             sipName_icon,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9", &sipSelf, sipType_wxAboutDialogInfo, &sipCpp, sipType_wxIcon, &icon))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxAboutDialogInfo, &sipCpp, sipType_wxBitmapBundle, &icon, &iconState))
         {
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
             sipCpp->SetIcon(*icon);
             Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxBitmapBundle *>(icon), sipType_wxBitmapBundle, iconState);
 
             if (PyErr_Occurred())
                 return 0;
@@ -1549,7 +1558,7 @@ static PyMethodDef methods_wxAboutDialogInfo[] = {
     {sipName_GetDescription, meth_wxAboutDialogInfo_GetDescription, METH_VARARGS, doc_wxAboutDialogInfo_GetDescription},
     {sipName_GetDevelopers, meth_wxAboutDialogInfo_GetDevelopers, METH_VARARGS, doc_wxAboutDialogInfo_GetDevelopers},
     {sipName_GetDocWriters, meth_wxAboutDialogInfo_GetDocWriters, METH_VARARGS, doc_wxAboutDialogInfo_GetDocWriters},
-    {sipName_GetIcon, meth_wxAboutDialogInfo_GetIcon, METH_VARARGS, doc_wxAboutDialogInfo_GetIcon},
+    {sipName_GetIcon, SIP_MLMETH_CAST(meth_wxAboutDialogInfo_GetIcon), METH_VARARGS|METH_KEYWORDS, doc_wxAboutDialogInfo_GetIcon},
     {sipName_GetLicence, meth_wxAboutDialogInfo_GetLicence, METH_VARARGS, doc_wxAboutDialogInfo_GetLicence},
     {sipName_GetLongVersion, meth_wxAboutDialogInfo_GetLongVersion, METH_VARARGS, doc_wxAboutDialogInfo_GetLongVersion},
     {sipName_GetName, meth_wxAboutDialogInfo_GetName, METH_VARARGS, doc_wxAboutDialogInfo_GetName},

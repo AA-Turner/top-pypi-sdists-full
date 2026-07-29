@@ -493,7 +493,7 @@ BND_UUID BND_ONXModel_ObjectTable::AddPolyline2(const std::vector<ON_3dPoint>& p
 {
   BND_Point3dList list;
 
-  for (int i = 0; i < points.size(); i++)
+  for (int i = 0; i < (int)points.size(); i++)
   {
     list.Add(points[i].x, points[i].y, points[i].z);
   }
@@ -1036,12 +1036,14 @@ bool BND_File3dmLayerTable::Delete(BND_UUID id)
 BND_Layer* BND_File3dmLayerTable::FindName(std::wstring name, BND_UUID parentId)
 {
   ON_UUID id = Binding_to_ON_UUID(parentId);
-  ON_ModelComponentReference compref  = m_model->LayerFromName(id, name.c_str());
-  const ON_ModelComponent* model_component = compref.ModelComponent();
-  ON_Layer* modellayer = const_cast<ON_Layer*>(ON_Layer::Cast(model_component));
-  if (modellayer)
-    return new BND_Layer(modellayer, &compref, m_model);
-  return nullptr;
+  ON_ModelComponentReference cr = m_model->ComponentFromName(ON_ModelComponent::Type::Layer, id, name.c_str());
+
+  if (cr.IsEmpty()){
+    return nullptr;
+  }
+
+  ON_Layer* modellayer = const_cast<ON_Layer*>(ON_Layer::Cast(cr.ModelComponent()));
+  return new BND_Layer(modellayer, &cr, m_model);
 }
 
 BND_Layer* BND_File3dmLayerTable::IterIndex(int index)
@@ -1051,28 +1053,31 @@ BND_Layer* BND_File3dmLayerTable::IterIndex(int index)
 
 BND_Layer* BND_File3dmLayerTable::FindIndex(int index)
 {
-  ON_ModelComponentReference compref = m_model->LayerFromIndex(index);
-  const ON_ModelComponent* model_component = compref.ModelComponent();
-  ON_Layer* modellayer = const_cast<ON_Layer*>(ON_Layer::Cast(model_component));
-  if (modellayer)
-    return new BND_Layer(modellayer, &compref, m_model);
+  ON_ModelComponentReference cr = m_model->ComponentFromIndex(ON_ModelComponent::Type::Layer, index);
 
-#if defined(ON_PYTHON_COMPILE)
-  throw py::index_error();
-#else
-  return nullptr;
-#endif
+  if (cr.IsEmpty()){
+    #if defined(ON_PYTHON_COMPILE)
+      throw py::index_error();
+    #else
+      return nullptr;
+    #endif
+  }
+
+  ON_Layer* modellayer = const_cast<ON_Layer*>(ON_Layer::Cast(cr.ModelComponent()));
+  return new BND_Layer(modellayer, &cr, m_model);
 }
 
 BND_Layer* BND_File3dmLayerTable::FindId(BND_UUID id)
 {
   ON_UUID _id = Binding_to_ON_UUID(id);
-  ON_ModelComponentReference compref = m_model->LayerFromId(_id);
-  const ON_ModelComponent* model_component = compref.ModelComponent();
-  ON_Layer* modellayer = const_cast<ON_Layer*>(ON_Layer::Cast(model_component));
-  if (modellayer)
-    return new BND_Layer(modellayer, &compref, m_model);
-  return nullptr;
+  ON_ModelComponentReference cr = m_model->ComponentFromId(ON_ModelComponent::Type::Layer, _id);
+
+  if (cr.IsEmpty()){
+    return nullptr;
+  }
+
+  ON_Layer* modellayer = const_cast<ON_Layer*>(ON_Layer::Cast(cr.ModelComponent()));
+  return new BND_Layer(modellayer, &cr, m_model);
 }
 
 void BND_File3dmGroupTable::Add(const BND_Group& group)
@@ -1312,8 +1317,8 @@ int BND_File3dmInstanceDefinitionTable::Add(std::wstring name, std::wstring desc
 
   int index = -1;
 #if defined(ON_PYTHON_COMPILE)
-  const int count_g = geometry.size();
-  const int count_a = attributes.size();
+  const int count_g = (int)geometry.size();
+  const int count_a = (int)attributes.size();
 #else
   const int count_g = geometry["length"].as<int>();
   const int count_a = attributes["length"].as<int>();

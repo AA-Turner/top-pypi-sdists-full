@@ -440,7 +440,7 @@ static void *init_type_wxSashEvent(sipSimpleWrapper *sipSelf, PyObject *sipArgs,
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxSashEvent[] = {{14, 0, 1}};
+static sipEncodedTypeDef supers_wxSashEvent[] = {{15, 0, 1}};
 
 
 static PyMethodDef methods_wxSashEvent[] = {

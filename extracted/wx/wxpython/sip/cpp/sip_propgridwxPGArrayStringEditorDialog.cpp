@@ -15,6 +15,7 @@
         #include <wx/window.h>
         #include <wx/gdicmn.h>
         #include <wx/gdicmn.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/dialog.h>
         #include <wx/iconbndl.h>
@@ -26,14 +27,14 @@
         #include <wx/region.h>
         #include <wx/graphics.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -74,7 +75,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -127,7 +127,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -151,7 +150,7 @@ private:
     sipwxPGArrayStringEditorDialog(const sipwxPGArrayStringEditorDialog &);
     sipwxPGArrayStringEditorDialog &operator = (const sipwxPGArrayStringEditorDialog &);
 
-    char sipPyMethods[51];
+    char sipPyMethods[50];
 };
 
 sipwxPGArrayStringEditorDialog::sipwxPGArrayStringEditorDialog(): ::wxPGArrayStringEditorDialog(), sipPySelf(SIP_NULLPTR)
@@ -174,9 +173,9 @@ sipwxPGArrayStringEditorDialog::~sipwxPGArrayStringEditorDialog()
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::GetContentWindow();
 
-    extern ::wxWindow* sipVH__propgrid_45(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxWindow* sipVH__propgrid_44(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_45(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_44(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPGArrayStringEditorDialog::RemoveChild(::wxWindowBase*child)
@@ -192,9 +191,9 @@ void sipwxPGArrayStringEditorDialog::RemoveChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__propgrid_50(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__propgrid_49(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__propgrid_50(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__propgrid_49(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 void sipwxPGArrayStringEditorDialog::AddChild(::wxWindowBase*child)
@@ -210,9 +209,9 @@ void sipwxPGArrayStringEditorDialog::AddChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__propgrid_50(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__propgrid_49(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__propgrid_50(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__propgrid_49(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 bool sipwxPGArrayStringEditorDialog::ProcessEvent(::wxEvent& event)
@@ -225,9 +224,9 @@ bool sipwxPGArrayStringEditorDialog::ProcessEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::ProcessEvent(event);
 
-    extern bool sipVH__propgrid_49(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__propgrid_48(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__propgrid_49(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__propgrid_48(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxPGArrayStringEditorDialog::TryBefore(::wxEvent& event)
@@ -240,9 +239,9 @@ bool sipwxPGArrayStringEditorDialog::TryBefore(::wxEvent& event)
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::TryBefore(event);
 
-    extern bool sipVH__propgrid_49(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__propgrid_48(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__propgrid_49(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__propgrid_48(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxPGArrayStringEditorDialog::TryAfter(::wxEvent& event)
@@ -255,9 +254,9 @@ bool sipwxPGArrayStringEditorDialog::TryAfter(::wxEvent& event)
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::TryAfter(event);
 
-    extern bool sipVH__propgrid_49(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__propgrid_48(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__propgrid_49(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__propgrid_48(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxPGArrayStringEditorDialog::AcceptsFocus() const
@@ -270,9 +269,9 @@ bool sipwxPGArrayStringEditorDialog::AcceptsFocus() const
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::AcceptsFocus();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPGArrayStringEditorDialog::AcceptsFocusFromKeyboard() const
@@ -285,9 +284,9 @@ bool sipwxPGArrayStringEditorDialog::AcceptsFocusFromKeyboard() const
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::AcceptsFocusFromKeyboard();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPGArrayStringEditorDialog::AcceptsFocusRecursively() const
@@ -300,9 +299,9 @@ bool sipwxPGArrayStringEditorDialog::AcceptsFocusRecursively() const
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::AcceptsFocusRecursively();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPGArrayStringEditorDialog::SetCanFocus(bool canFocus)
@@ -318,9 +317,9 @@ void sipwxPGArrayStringEditorDialog::SetCanFocus(bool canFocus)
         return;
     }
 
-    extern void sipVH__propgrid_44(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__propgrid_43(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__propgrid_44(sipGILState, 0, sipPySelf, sipMeth, canFocus);
+    sipVH__propgrid_43(sipGILState, 0, sipPySelf, sipMeth, canFocus);
 }
 
 void sipwxPGArrayStringEditorDialog::EnableVisibleFocus(bool enabled)
@@ -336,9 +335,9 @@ void sipwxPGArrayStringEditorDialog::EnableVisibleFocus(bool enabled)
         return;
     }
 
-    extern void sipVH__propgrid_44(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__propgrid_43(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__propgrid_44(sipGILState, 0, sipPySelf, sipMeth, enabled);
+    sipVH__propgrid_43(sipGILState, 0, sipPySelf, sipMeth, enabled);
 }
 
 bool sipwxPGArrayStringEditorDialog::InformFirstDirection(int direction, int size, int availableOtherDir)
@@ -351,9 +350,9 @@ bool sipwxPGArrayStringEditorDialog::InformFirstDirection(int direction, int siz
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::InformFirstDirection(direction, size, availableOtherDir);
 
-    extern bool sipVH__propgrid_48(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern bool sipVH__propgrid_47(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
 
-    return sipVH__propgrid_48(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
+    return sipVH__propgrid_47(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
 }
 
 ::wxPoint sipwxPGArrayStringEditorDialog::GetClientAreaOrigin() const
@@ -366,9 +365,9 @@ bool sipwxPGArrayStringEditorDialog::InformFirstDirection(int direction, int siz
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::GetClientAreaOrigin();
 
-    extern ::wxPoint sipVH__propgrid_47(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPoint sipVH__propgrid_46(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_47(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_46(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPGArrayStringEditorDialog::HasTransparentBackground()
@@ -381,9 +380,9 @@ bool sipwxPGArrayStringEditorDialog::HasTransparentBackground()
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::HasTransparentBackground();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPGArrayStringEditorDialog::ShouldInheritColours() const
@@ -396,9 +395,9 @@ bool sipwxPGArrayStringEditorDialog::ShouldInheritColours() const
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::ShouldInheritColours();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxValidator* sipwxPGArrayStringEditorDialog::GetValidator()
@@ -411,9 +410,9 @@ bool sipwxPGArrayStringEditorDialog::ShouldInheritColours() const
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::GetValidator();
 
-    extern ::wxValidator* sipVH__propgrid_13(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxValidator* sipVH__propgrid_12(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_13(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_12(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPGArrayStringEditorDialog::SetValidator(const ::wxValidator& validator)
@@ -429,9 +428,9 @@ void sipwxPGArrayStringEditorDialog::SetValidator(const ::wxValidator& validator
         return;
     }
 
-    extern void sipVH__propgrid_46(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
+    extern void sipVH__propgrid_45(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
 
-    sipVH__propgrid_46(sipGILState, 0, sipPySelf, sipMeth, validator);
+    sipVH__propgrid_45(sipGILState, 0, sipPySelf, sipMeth, validator);
 }
 
 bool sipwxPGArrayStringEditorDialog::TransferDataFromWindow()
@@ -444,9 +443,9 @@ bool sipwxPGArrayStringEditorDialog::TransferDataFromWindow()
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::TransferDataFromWindow();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPGArrayStringEditorDialog::TransferDataToWindow()
@@ -459,9 +458,9 @@ bool sipwxPGArrayStringEditorDialog::TransferDataToWindow()
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::TransferDataToWindow();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPGArrayStringEditorDialog::Validate()
@@ -474,9 +473,9 @@ bool sipwxPGArrayStringEditorDialog::Validate()
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::Validate();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPGArrayStringEditorDialog::Destroy()
@@ -489,9 +488,9 @@ bool sipwxPGArrayStringEditorDialog::Destroy()
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::Destroy();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPGArrayStringEditorDialog::InheritAttributes()
@@ -507,9 +506,9 @@ void sipwxPGArrayStringEditorDialog::InheritAttributes()
         return;
     }
 
-    extern void sipVH__propgrid_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern void sipVH__propgrid_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    sipVH__propgrid_3(sipGILState, 0, sipPySelf, sipMeth);
+    sipVH__propgrid_2(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPGArrayStringEditorDialog::InitDialog()
@@ -525,9 +524,9 @@ void sipwxPGArrayStringEditorDialog::InitDialog()
         return;
     }
 
-    extern void sipVH__propgrid_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern void sipVH__propgrid_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    sipVH__propgrid_3(sipGILState, 0, sipPySelf, sipMeth);
+    sipVH__propgrid_2(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPGArrayStringEditorDialog::OnInternalIdle()
@@ -543,9 +542,9 @@ void sipwxPGArrayStringEditorDialog::OnInternalIdle()
         return;
     }
 
-    extern void sipVH__propgrid_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern void sipVH__propgrid_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    sipVH__propgrid_3(sipGILState, 0, sipPySelf, sipMeth);
+    sipVH__propgrid_2(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxWindow* sipwxPGArrayStringEditorDialog::GetMainWindowOfCompositeControl()
@@ -558,9 +557,9 @@ void sipwxPGArrayStringEditorDialog::OnInternalIdle()
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::GetMainWindowOfCompositeControl();
 
-    extern ::wxWindow* sipVH__propgrid_45(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxWindow* sipVH__propgrid_44(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_45(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_44(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPGArrayStringEditorDialog::DoEnable(bool enable)
@@ -576,9 +575,9 @@ void sipwxPGArrayStringEditorDialog::DoEnable(bool enable)
         return;
     }
 
-    extern void sipVH__propgrid_44(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__propgrid_43(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__propgrid_44(sipGILState, 0, sipPySelf, sipMeth, enable);
+    sipVH__propgrid_43(sipGILState, 0, sipPySelf, sipMeth, enable);
 }
 
 void sipwxPGArrayStringEditorDialog::DoGetPosition(int*x, int*y) const
@@ -594,9 +593,9 @@ void sipwxPGArrayStringEditorDialog::DoGetPosition(int*x, int*y) const
         return;
     }
 
-    extern void sipVH__propgrid_43(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__propgrid_42(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__propgrid_43(sipGILState, 0, sipPySelf, sipMeth, x, y);
+    sipVH__propgrid_42(sipGILState, 0, sipPySelf, sipMeth, x, y);
 }
 
 void sipwxPGArrayStringEditorDialog::DoGetSize(int*width, int*height) const
@@ -612,9 +611,9 @@ void sipwxPGArrayStringEditorDialog::DoGetSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__propgrid_43(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__propgrid_42(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__propgrid_43(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__propgrid_42(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxPGArrayStringEditorDialog::DoGetClientSize(int*width, int*height) const
@@ -630,9 +629,9 @@ void sipwxPGArrayStringEditorDialog::DoGetClientSize(int*width, int*height) cons
         return;
     }
 
-    extern void sipVH__propgrid_43(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__propgrid_42(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__propgrid_43(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__propgrid_42(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxPGArrayStringEditorDialog::DoSetSize(int x, int y, int width, int height, int sizeFlags)
@@ -648,9 +647,9 @@ void sipwxPGArrayStringEditorDialog::DoSetSize(int x, int y, int width, int heig
         return;
     }
 
-    extern void sipVH__propgrid_42(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
+    extern void sipVH__propgrid_41(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
 
-    sipVH__propgrid_42(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
+    sipVH__propgrid_41(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
 }
 
 void sipwxPGArrayStringEditorDialog::DoSetClientSize(int width, int height)
@@ -666,9 +665,9 @@ void sipwxPGArrayStringEditorDialog::DoSetClientSize(int width, int height)
         return;
     }
 
-    extern void sipVH__propgrid_41(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
+    extern void sipVH__propgrid_40(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
 
-    sipVH__propgrid_41(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__propgrid_40(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxPGArrayStringEditorDialog::DoSetSizeHints(int minW, int minH, int maxW, int maxH, int incW, int incH)
@@ -684,9 +683,9 @@ void sipwxPGArrayStringEditorDialog::DoSetSizeHints(int minW, int minH, int maxW
         return;
     }
 
-    extern void sipVH__propgrid_40(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
+    extern void sipVH__propgrid_39(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
 
-    sipVH__propgrid_40(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
+    sipVH__propgrid_39(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
 }
 
 void sipwxPGArrayStringEditorDialog::DoMoveWindow(int x, int y, int width, int height)
@@ -702,9 +701,9 @@ void sipwxPGArrayStringEditorDialog::DoMoveWindow(int x, int y, int width, int h
         return;
     }
 
-    extern void sipVH__propgrid_39(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
+    extern void sipVH__propgrid_38(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
 
-    sipVH__propgrid_39(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
+    sipVH__propgrid_38(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
 }
 
 void sipwxPGArrayStringEditorDialog::DoSetWindowVariant(::wxWindowVariant variant)
@@ -720,9 +719,9 @@ void sipwxPGArrayStringEditorDialog::DoSetWindowVariant(::wxWindowVariant varian
         return;
     }
 
-    extern void sipVH__propgrid_38(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
+    extern void sipVH__propgrid_37(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
 
-    sipVH__propgrid_38(sipGILState, 0, sipPySelf, sipMeth, variant);
+    sipVH__propgrid_37(sipGILState, 0, sipPySelf, sipMeth, variant);
 }
 
 ::wxBorder sipwxPGArrayStringEditorDialog::GetDefaultBorder() const
@@ -735,24 +734,9 @@ void sipwxPGArrayStringEditorDialog::DoSetWindowVariant(::wxWindowVariant varian
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::GetDefaultBorder();
 
-    extern ::wxBorder sipVH__propgrid_37(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxBorder sipVH__propgrid_36(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_37(sipGILState, 0, sipPySelf, sipMeth);
-}
-
-::wxBorder sipwxPGArrayStringEditorDialog::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[35]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxPGArrayStringEditorDialog::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__propgrid_37(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__propgrid_37(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_36(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPGArrayStringEditorDialog::DoFreeze()
@@ -760,7 +744,7 @@ void sipwxPGArrayStringEditorDialog::DoFreeze()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -768,9 +752,9 @@ void sipwxPGArrayStringEditorDialog::DoFreeze()
         return;
     }
 
-    extern void sipVH__propgrid_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern void sipVH__propgrid_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    sipVH__propgrid_3(sipGILState, 0, sipPySelf, sipMeth);
+    sipVH__propgrid_2(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPGArrayStringEditorDialog::DoThaw()
@@ -778,7 +762,7 @@ void sipwxPGArrayStringEditorDialog::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -786,9 +770,9 @@ void sipwxPGArrayStringEditorDialog::DoThaw()
         return;
     }
 
-    extern void sipVH__propgrid_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern void sipVH__propgrid_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    sipVH__propgrid_3(sipGILState, 0, sipPySelf, sipMeth);
+    sipVH__propgrid_2(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxSize sipwxPGArrayStringEditorDialog::DoGetBestSize() const
@@ -796,14 +780,14 @@ void sipwxPGArrayStringEditorDialog::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[37]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::DoGetBestSize();
 
-    extern ::wxSize sipVH__propgrid_36(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxSize sipVH__propgrid_35(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_36(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_35(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxSize sipwxPGArrayStringEditorDialog::DoGetBestClientSize() const
@@ -811,14 +795,14 @@ void sipwxPGArrayStringEditorDialog::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[39]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::DoGetBestClientSize();
 
-    extern ::wxSize sipVH__propgrid_36(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxSize sipVH__propgrid_35(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_36(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_35(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPGArrayStringEditorDialog::ShouldPreventAppExit() const
@@ -826,14 +810,14 @@ bool sipwxPGArrayStringEditorDialog::ShouldPreventAppExit() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[40]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldPreventAppExit);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[39]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldPreventAppExit);
 
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::ShouldPreventAppExit();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPGArrayStringEditorDialog::SetDialogValue(const ::wxPGVariant& value)
@@ -841,7 +825,7 @@ void sipwxPGArrayStringEditorDialog::SetDialogValue(const ::wxPGVariant& value)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[41], &sipPySelf, SIP_NULLPTR, sipName_SetDialogValue);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[40], &sipPySelf, SIP_NULLPTR, sipName_SetDialogValue);
 
     if (!sipMeth)
     {
@@ -849,9 +833,9 @@ void sipwxPGArrayStringEditorDialog::SetDialogValue(const ::wxPGVariant& value)
         return;
     }
 
-    extern void sipVH__propgrid_77(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxPGVariant&);
+    extern void sipVH__propgrid_76(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxPGVariant&);
 
-    sipVH__propgrid_77(sipGILState, 0, sipPySelf, sipMeth, value);
+    sipVH__propgrid_76(sipGILState, 0, sipPySelf, sipMeth, value);
 }
 
 ::wxPGVariant sipwxPGArrayStringEditorDialog::GetDialogValue() const
@@ -859,14 +843,14 @@ void sipwxPGArrayStringEditorDialog::SetDialogValue(const ::wxPGVariant& value)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[42]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDialogValue);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[41]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDialogValue);
 
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::GetDialogValue();
 
-    extern ::wxPGVariant sipVH__propgrid_4(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPGVariant sipVH__propgrid_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_4(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_3(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxValidator* sipwxPGArrayStringEditorDialog::GetTextCtrlValidator() const
@@ -874,14 +858,14 @@ void sipwxPGArrayStringEditorDialog::SetDialogValue(const ::wxPGVariant& value)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[43]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetTextCtrlValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[42]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetTextCtrlValidator);
 
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::GetTextCtrlValidator();
 
-    extern ::wxValidator* sipVH__propgrid_13(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxValidator* sipVH__propgrid_12(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_13(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_12(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxString sipwxPGArrayStringEditorDialog::ArrayGet(size_t index)
@@ -889,14 +873,14 @@ void sipwxPGArrayStringEditorDialog::SetDialogValue(const ::wxPGVariant& value)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[44], &sipPySelf, SIP_NULLPTR, sipName_ArrayGet);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[43], &sipPySelf, SIP_NULLPTR, sipName_ArrayGet);
 
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::ArrayGet(index);
 
-    extern ::wxString sipVH__propgrid_78(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
+    extern ::wxString sipVH__propgrid_77(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t);
 
-    return sipVH__propgrid_78(sipGILState, 0, sipPySelf, sipMeth, index);
+    return sipVH__propgrid_77(sipGILState, 0, sipPySelf, sipMeth, index);
 }
 
 size_t sipwxPGArrayStringEditorDialog::ArrayGetCount()
@@ -904,14 +888,14 @@ size_t sipwxPGArrayStringEditorDialog::ArrayGetCount()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[45], &sipPySelf, SIP_NULLPTR, sipName_ArrayGetCount);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[44], &sipPySelf, SIP_NULLPTR, sipName_ArrayGetCount);
 
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::ArrayGetCount();
 
-    extern size_t sipVH__propgrid_79(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern size_t sipVH__propgrid_78(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_79(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_78(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPGArrayStringEditorDialog::ArrayInsert(const ::wxString& str, int index)
@@ -919,14 +903,14 @@ bool sipwxPGArrayStringEditorDialog::ArrayInsert(const ::wxString& str, int inde
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[46], &sipPySelf, SIP_NULLPTR, sipName_ArrayInsert);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[45], &sipPySelf, SIP_NULLPTR, sipName_ArrayInsert);
 
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::ArrayInsert(str, index);
 
-    extern bool sipVH__propgrid_80(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, int);
+    extern bool sipVH__propgrid_79(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, int);
 
-    return sipVH__propgrid_80(sipGILState, 0, sipPySelf, sipMeth, str, index);
+    return sipVH__propgrid_79(sipGILState, 0, sipPySelf, sipMeth, str, index);
 }
 
 bool sipwxPGArrayStringEditorDialog::ArraySet(size_t index, const ::wxString& str)
@@ -934,14 +918,14 @@ bool sipwxPGArrayStringEditorDialog::ArraySet(size_t index, const ::wxString& st
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[47], &sipPySelf, SIP_NULLPTR, sipName_ArraySet);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[46], &sipPySelf, SIP_NULLPTR, sipName_ArraySet);
 
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::ArraySet(index, str);
 
-    extern bool sipVH__propgrid_81(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, const ::wxString&);
+    extern bool sipVH__propgrid_80(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, const ::wxString&);
 
-    return sipVH__propgrid_81(sipGILState, 0, sipPySelf, sipMeth, index, str);
+    return sipVH__propgrid_80(sipGILState, 0, sipPySelf, sipMeth, index, str);
 }
 
 void sipwxPGArrayStringEditorDialog::ArrayRemoveAt(int index)
@@ -949,7 +933,7 @@ void sipwxPGArrayStringEditorDialog::ArrayRemoveAt(int index)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[48], &sipPySelf, SIP_NULLPTR, sipName_ArrayRemoveAt);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[47], &sipPySelf, SIP_NULLPTR, sipName_ArrayRemoveAt);
 
     if (!sipMeth)
     {
@@ -957,9 +941,9 @@ void sipwxPGArrayStringEditorDialog::ArrayRemoveAt(int index)
         return;
     }
 
-    extern void sipVH__propgrid_82(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern void sipVH__propgrid_81(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    sipVH__propgrid_82(sipGILState, 0, sipPySelf, sipMeth, index);
+    sipVH__propgrid_81(sipGILState, 0, sipPySelf, sipMeth, index);
 }
 
 void sipwxPGArrayStringEditorDialog::ArraySwap(size_t first, size_t second)
@@ -967,7 +951,7 @@ void sipwxPGArrayStringEditorDialog::ArraySwap(size_t first, size_t second)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[49], &sipPySelf, SIP_NULLPTR, sipName_ArraySwap);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[48], &sipPySelf, SIP_NULLPTR, sipName_ArraySwap);
 
     if (!sipMeth)
     {
@@ -975,9 +959,9 @@ void sipwxPGArrayStringEditorDialog::ArraySwap(size_t first, size_t second)
         return;
     }
 
-    extern void sipVH__propgrid_83(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, size_t);
+    extern void sipVH__propgrid_82(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, size_t, size_t);
 
-    sipVH__propgrid_83(sipGILState, 0, sipPySelf, sipMeth, first, second);
+    sipVH__propgrid_82(sipGILState, 0, sipPySelf, sipMeth, first, second);
 }
 
 bool sipwxPGArrayStringEditorDialog::OnCustomNewAction(::wxString*resString)
@@ -985,14 +969,14 @@ bool sipwxPGArrayStringEditorDialog::OnCustomNewAction(::wxString*resString)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[50], &sipPySelf, SIP_NULLPTR, sipName_OnCustomNewAction);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[49], &sipPySelf, SIP_NULLPTR, sipName_OnCustomNewAction);
 
     if (!sipMeth)
         return ::wxPGArrayStringEditorDialog::OnCustomNewAction(resString);
 
-    extern bool sipVH__propgrid_84(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxString*);
+    extern bool sipVH__propgrid_83(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxString*);
 
-    return sipVH__propgrid_84(sipGILState, 0, sipPySelf, sipMeth, resString);
+    return sipVH__propgrid_83(sipGILState, 0, sipPySelf, sipMeth, resString);
 }
 
 void sipwxPGArrayStringEditorDialog::sipProtect_SendDestroyEvent()
@@ -1063,11 +1047,6 @@ void sipwxPGArrayStringEditorDialog::sipProtectVirt_DoSetWindowVariant(bool sipS
 ::wxBorder sipwxPGArrayStringEditorDialog::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxDialog::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxPGArrayStringEditorDialog::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxDialog::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxPGArrayStringEditorDialog::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -1652,40 +1631,6 @@ static PyObject *meth_wxPGArrayStringEditorDialog_GetDefaultBorder(PyObject *sip
     }
 
     sipNoMethod(sipParseErr, sipName_PGArrayStringEditorDialog, sipName_GetDefaultBorder, doc_wxPGArrayStringEditorDialog_GetDefaultBorder);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxPGArrayStringEditorDialog_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxPGArrayStringEditorDialog_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxPGArrayStringEditorDialog_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxPGArrayStringEditorDialog *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxPGArrayStringEditorDialog, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_PGArrayStringEditorDialog, sipName_GetDefaultBorderForControl, doc_wxPGArrayStringEditorDialog_GetDefaultBorderForControl);
 
     return SIP_NULLPTR;
 }
@@ -2453,7 +2398,6 @@ static PyMethodDef methods_wxPGArrayStringEditorDialog[] = {
     {sipName_DoThaw, meth_wxPGArrayStringEditorDialog_DoThaw, METH_VARARGS, SIP_NULLPTR},
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxPGArrayStringEditorDialog_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxPGArrayStringEditorDialog_GetClassDefaultAttributes},
     {sipName_GetDefaultBorder, meth_wxPGArrayStringEditorDialog_GetDefaultBorder, METH_VARARGS, SIP_NULLPTR},
-    {sipName_GetDefaultBorderForControl, meth_wxPGArrayStringEditorDialog_GetDefaultBorderForControl, METH_VARARGS, SIP_NULLPTR},
     {sipName_GetDialogValue, meth_wxPGArrayStringEditorDialog_GetDialogValue, METH_VARARGS, doc_wxPGArrayStringEditorDialog_GetDialogValue},
     {sipName_HasTransparentBackground, meth_wxPGArrayStringEditorDialog_HasTransparentBackground, METH_VARARGS, SIP_NULLPTR},
     {sipName_Init, meth_wxPGArrayStringEditorDialog_Init, METH_VARARGS, doc_wxPGArrayStringEditorDialog_Init},
@@ -2467,7 +2411,7 @@ static PyMethodDef methods_wxPGArrayStringEditorDialog[] = {
 };
 
 sipVariableDef variables_wxPGArrayStringEditorDialog[] = {
-    {PropertyVariable, sipName_DialogValue, &methods_wxPGArrayStringEditorDialog[22], &methods_wxPGArrayStringEditorDialog[29], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DialogValue, &methods_wxPGArrayStringEditorDialog[21], &methods_wxPGArrayStringEditorDialog[28], SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxPGArrayStringEditorDialog, "PGArrayStringEditorDialog() -> None");
@@ -2486,7 +2430,7 @@ sipClassTypeDef sipTypeDef__propgrid_wxPGArrayStringEditorDialog = {
     {
         sipNameNr_PGArrayStringEditorDialog,
         {0, 0, 1},
-        32, methods_wxPGArrayStringEditorDialog,
+        31, methods_wxPGArrayStringEditorDialog,
         0, SIP_NULLPTR,
         1, variables_wxPGArrayStringEditorDialog,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

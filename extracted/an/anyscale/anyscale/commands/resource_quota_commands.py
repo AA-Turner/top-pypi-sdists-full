@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional, Tuple
 
 import click
@@ -7,8 +8,19 @@ import tabulate
 import anyscale
 from anyscale.cli_logger import BlockLogger
 from anyscale.commands import command_examples
+from anyscale.commands.doc_metadata import (
+    command_metadata,
+    CommandExample,
+    ReleaseStatus,
+)
+from anyscale.commands.output_format import (
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    OutputFormat,
+    print_output,
+)
 from anyscale.commands.util import AnyscaleCommand
-from anyscale.resource_quota.models import CreateResourceQuota, ResourceQuota
+from anyscale.resource_quota.models import CreateResourceQuota, Quota, ResourceQuota
 from anyscale.util import validate_non_negative_arg
 
 
@@ -59,12 +71,46 @@ def _format_resource_quotas(resource_quotas: List[ResourceQuota]) -> str:
     return f"Resource quotas:\n{table}"
 
 
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Create a resource quota for a user in a project.",
+            command=(
+                "anyscale resource-quota create -n my-resource-quota --cloud my-cloud "
+                "--project my-project --user-email someone@myorg.com --num-instances 100 "
+                "--num-cpus 1000 --num-gpus 50 --num-accelerators A10G 10"
+            ),
+            output_raw=command_examples.RESOURCE_QUOTAS_CREATE_EXAMPLE,
+            output_instance=lambda: ResourceQuota(
+                id="rsq_abcdef",
+                name="my-resource-quota",
+                quota=Quota(
+                    num_cpus=1000,
+                    num_instances=100,
+                    num_gpus=50,
+                    num_accelerators={"A10G": 10},
+                ),
+                created_at=datetime(2024, 9, 11),
+                cloud_id="cld_abcdef",
+                project_id="prj_abcdef",
+                user_id="usr_abcdef",
+                is_enabled=True,
+                is_soft_quota=False,
+                deleted_at=None,
+            ),
+        ),
+    ],
+    output_schema=ResourceQuota,
+)
 @resource_quota_cli.command(
     name="create",
-    help="Create a resource quota.",
+    short_help="Create a resource quota.",
     cls=AnyscaleCommand,
     is_beta=True,
-    example=command_examples.RESOURCE_QUOTAS_CREATE_EXAMPLE,
 )
 @click.option(
     "-n", "--name", required=True, help="Name of the resource quota to create.",
@@ -115,6 +161,16 @@ def _format_resource_quotas(resource_quotas: List[ResourceQuota]) -> str:
     default=False,
     help="Whether this is a soft quota. When True, workloads can exceed the quota limit without being blocked.",
 )
+@click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the created resource quota.",
+)
 def create(  # noqa: PLR0913
     name: str,
     cloud: str,
@@ -125,12 +181,13 @@ def create(  # noqa: PLR0913
     num_gpus: Optional[int],
     num_accelerators: List[Tuple[str, int]],
     is_soft_quota: bool,
+    output_format: str,
 ) -> None:
-    """Creates a resource quota.
+    """Create a resource quota.
 
-    A name and cloud name must be provided.
-
-    `$ anyscale resource-quota create -n my-resource-quota --cloud my-cloud --project my-project --user-email test@myorg.com --num-cpus 10 --num-instances 10 --num-gpus 10 --num-accelerators L4 5 --num-accelerators T4 10`
+    A name and cloud name must be provided. Scope the quota with --project or
+    --user-email, and set limits with --num-cpus, --num-instances, --num-gpus,
+    or --num-accelerators (repeatable).
     """
     create_resource_quota = CreateResourceQuota(
         name=name,
@@ -147,6 +204,10 @@ def create(  # noqa: PLR0913
     try:
         with log.spinner("Creating resource quota..."):
             resource_quota = anyscale.resource_quota.create(create_resource_quota)
+
+        if output_format != OutputFormat.TEXT.value:
+            print_output(resource_quota, output_format)
+            return
 
         create_resource_quota_message = [f"Name: {name}\nCloud name: {cloud}"]
         if project:
@@ -176,12 +237,41 @@ def create(  # noqa: PLR0913
         return
 
 
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="List the resource quotas of a cloud.",
+            command="anyscale resource-quota list --cloud my-cloud",
+            output_raw=command_examples.RESOURCE_QUOTAS_LIST_EXAMPLE,
+            output_instance=lambda: [
+                ResourceQuota(
+                    id="rsq_123",
+                    name="resource-quota-1",
+                    quota=Quota(
+                        num_cpus=1000,
+                        num_instances=100,
+                        num_gpus=50,
+                        num_accelerators={"A10G": 10},
+                    ),
+                    created_at=datetime(2024, 9, 11),
+                    cloud_id="cld_abcdef",
+                    project_id="prj_abcdef",
+                    user_id="usr_abcdef",
+                    is_enabled=True,
+                    is_soft_quota=False,
+                    deleted_at=None,
+                )
+            ],
+        ),
+    ],
+    output_schema=ResourceQuota,
+)
 @resource_quota_cli.command(
-    name="list",
-    help="List resource quotas.",
-    cls=AnyscaleCommand,
-    is_beta=True,
-    example=command_examples.RESOURCE_QUOTAS_LIST_EXAMPLE,
+    name="list", short_help="List resource quotas.", cls=AnyscaleCommand, is_beta=True,
 )
 @click.option(
     "-n", "--name", required=False, help="The name filter for the resource quotas.",
@@ -209,16 +299,27 @@ def create(  # noqa: PLR0913
     help="Max items to show in list.",
     callback=validate_non_negative_arg,
 )
+@click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
 def list_resource_quotas(
     name: Optional[str],
     cloud: Optional[str],
     creator_id: Optional[str],
     is_enabled: Optional[bool],
     max_items: int,
+    output_format: str,
 ) -> None:
     """List resource quotas.
 
-    `$ anyscale resource-quota list -n my-resource-quota --cloud my-cloud`
+    Optionally filter by name, cloud, creator, or enabled state.
     """
     resource_quotas = anyscale.resource_quota.list(
         name=name,
@@ -228,25 +329,38 @@ def list_resource_quotas(
         max_items=max_items,
     )
 
+    if output_format != OutputFormat.TEXT.value:
+        print_output(resource_quotas, output_format)
+        return
+
     rprint(_format_resource_quotas(resource_quotas))
 
 
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Delete a resource quota by ID.",
+            command="anyscale resource-quota delete --id rsq_abcdef",
+            output_raw=command_examples.RESOURCE_QUOTAS_DELETE_EXAMPLE,
+        ),
+    ],
+)
 @resource_quota_cli.command(
     name="delete",
-    help="Delete a resource quota.",
+    short_help="Delete a resource quota.",
     cls=AnyscaleCommand,
     is_beta=True,
-    example=command_examples.RESOURCE_QUOTAS_DELETE_EXAMPLE,
 )
 @click.option(
     "--id", required=True, help="ID of the resource quota to delete.",
 )
 def delete(id: str) -> None:  # noqa: A002
-    """Deletes a resource quota.
+    """Delete a resource quota.
 
-    An ID of resource quota must be provided.
-
-    `$ anyscale resource-quota delete --id rsq_123`
+    The ID of the resource quota must be provided.
     """
     try:
         with log.spinner("Deleting resource quota..."):
@@ -258,22 +372,31 @@ def delete(id: str) -> None:  # noqa: A002
     log.info(f"Resource quota with ID {id} deleted successfully.")
 
 
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Enable a resource quota by ID.",
+            command="anyscale resource-quota enable --id rsq_abcdef",
+            output_raw=command_examples.RESOURCE_QUOTAS_ENABLE_EXAMPLE,
+        ),
+    ],
+)
 @resource_quota_cli.command(
     name="enable",
-    help="Enable a resource quota.",
+    short_help="Enable a resource quota.",
     cls=AnyscaleCommand,
     is_beta=True,
-    example=command_examples.RESOURCE_QUOTAS_ENABLE_EXAMPLE,
 )
 @click.option(
     "--id", required=True, help="ID of the resource quota to enable.",
 )
 def enable(id: str) -> None:  # noqa: A002
-    """Enables a resource quota.
+    """Enable a resource quota.
 
-    An ID of resource quota must be provided.
-
-    `$ anyscale resource-quota enable --id rsq_123`
+    The ID of the resource quota must be provided.
     """
     try:
         with log.spinner("Setting resource quota status..."):
@@ -285,22 +408,31 @@ def enable(id: str) -> None:  # noqa: A002
     log.info(f"Enabled resource quota with ID {id} successfully.")
 
 
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Disable a resource quota by ID.",
+            command="anyscale resource-quota disable --id rsq_abcdef",
+            output_raw=command_examples.RESOURCE_QUOTAS_DISABLE_EXAMPLE,
+        ),
+    ],
+)
 @resource_quota_cli.command(
     name="disable",
-    help="Disable a resource quota.",
+    short_help="Disable a resource quota.",
     cls=AnyscaleCommand,
     is_beta=True,
-    example=command_examples.RESOURCE_QUOTAS_DISABLE_EXAMPLE,
 )
 @click.option(
     "--id", required=True, help="ID of the resource quota to disable.",
 )
 def disable(id: str) -> None:  # noqa: A002
-    """Disables a resource quota.
+    """Disable a resource quota.
 
-    An ID of resource quota must be provided.
-
-    `$ anyscale resource-quota disable --id rsq_123`
+    The ID of the resource quota must be provided.
     """
     try:
         with log.spinner("Setting resource quota status..."):

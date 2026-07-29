@@ -3,6 +3,13 @@ from typing import Optional
 
 import click
 
+from anyscale.commands.doc_metadata import (
+    command_metadata,
+    CommandExample,
+    ReleaseStatus,
+)
+from anyscale.commands.output_format import OutputFormat
+from anyscale.commands.util import AnyscaleCommand
 from anyscale.controllers.cluster_controller import ClusterController
 from anyscale.util import validate_non_negative_arg
 
@@ -15,7 +22,26 @@ def cluster_cli() -> None:
     pass
 
 
-@cluster_cli.command(name="archive", help="Archive a cluster on Anyscale.")
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Archive a cluster by name.",
+            command="anyscale cluster archive -n my-cluster",
+        ),
+    ],
+)
+@cluster_cli.command(
+    name="archive",
+    short_help="Archive a cluster on Anyscale.",
+    help=(
+        "Archive a cluster on Anyscale.\n\n"
+        "Specify the cluster by name (-n/--name) or by ID (--cluster-id)."
+    ),
+    cls=AnyscaleCommand,
+)
 @click.option(
     "--name",
     "-n",
@@ -90,12 +116,25 @@ def archive(
     )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="List the active clusters in the current project.",
+            command="anyscale cluster list",
+        ),
+    ],
+)
 @cluster_cli.command(
     name="list",
+    short_help="List information about clusters on Anyscale.",
     help=(
         "List information about clusters on Anyscale. By default only list "
         "active clusters in current project."
     ),
+    cls=AnyscaleCommand,
 )
 @click.option(
     "--name",

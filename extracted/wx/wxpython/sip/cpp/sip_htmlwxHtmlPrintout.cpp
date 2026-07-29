@@ -637,7 +637,7 @@ static void *init_type_wxHtmlPrintout(sipSimpleWrapper *sipSelf, PyObject *sipAr
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxHtmlPrintout[] = {{31, 0, 1}};
+static sipEncodedTypeDef supers_wxHtmlPrintout[] = {{32, 0, 1}};
 
 
 static PyMethodDef methods_wxHtmlPrintout[] = {

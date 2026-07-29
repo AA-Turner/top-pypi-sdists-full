@@ -13,21 +13,23 @@
         #include <wx/gdicmn.h>
         #include <wx/gdicmn.h>
         #include <wx/window.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/validate.h>
         #include <wx/event.h>
         #include <wx/gdicmn.h>
         #include <wx/dc.h>
+        #include <wx/dc.h>
+        #include <wx/event.h>
         #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -42,6 +44,15 @@
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
+    wxAccessible* _wxScrolledCanvas_CreateAccessible(wxScrolledCanvas* self)
+    {
+        #if wxUSE_ACCESSIBILITY
+            return self->CreateAccessible();
+        #else
+            wxPyRaiseNotImplemented();
+            return NULL;
+        #endif
+    }
 
 
 class sipwxScrolledCanvas : public ::wxScrolledCanvas
@@ -69,7 +80,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -121,7 +131,6 @@ protected:
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
@@ -134,7 +143,7 @@ private:
     sipwxScrolledCanvas(const sipwxScrolledCanvas &);
     sipwxScrolledCanvas &operator = (const sipwxScrolledCanvas &);
 
-    char sipPyMethods[43];
+    char sipPyMethods[42];
 };
 
 sipwxScrolledCanvas::sipwxScrolledCanvas(): ::wxScrolledCanvas(), sipPySelf(SIP_NULLPTR)
@@ -162,9 +171,9 @@ sipwxScrolledCanvas::~sipwxScrolledCanvas()
     if (!sipMeth)
         return ::wxScrolledCanvas::GetSizeAvailableForScrollTarget(size);
 
-    extern ::wxSize sipVH__core_142(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxSize&);
+    extern ::wxSize sipVH__core_141(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxSize&);
 
-    return sipVH__core_142(sipGILState, 0, sipPySelf, sipMeth, size);
+    return sipVH__core_141(sipGILState, 0, sipPySelf, sipMeth, size);
 }
 
 bool sipwxScrolledCanvas::ShouldScrollToChildOnFocus(::wxWindow*child)
@@ -177,9 +186,9 @@ bool sipwxScrolledCanvas::ShouldScrollToChildOnFocus(::wxWindow*child)
     if (!sipMeth)
         return ::wxScrolledCanvas::ShouldScrollToChildOnFocus(child);
 
-    extern bool sipVH__core_139(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*);
+    extern bool sipVH__core_138(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*);
 
-    return sipVH__core_139(sipGILState, 0, sipPySelf, sipMeth, child);
+    return sipVH__core_138(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 bool sipwxScrolledCanvas::SendAutoScrollEvents(::wxScrollWinEvent& event) const
@@ -192,9 +201,9 @@ bool sipwxScrolledCanvas::SendAutoScrollEvents(::wxScrollWinEvent& event) const
     if (!sipMeth)
         return ::wxScrolledCanvas::SendAutoScrollEvents(event);
 
-    extern bool sipVH__core_141(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxScrollWinEvent&);
+    extern bool sipVH__core_140(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxScrollWinEvent&);
 
-    return sipVH__core_141(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_140(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 void sipwxScrolledCanvas::OnDraw(::wxDC& dc)
@@ -210,9 +219,9 @@ void sipwxScrolledCanvas::OnDraw(::wxDC& dc)
         return;
     }
 
-    extern void sipVH__core_140(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&);
+    extern void sipVH__core_139(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&);
 
-    sipVH__core_140(sipGILState, 0, sipPySelf, sipMeth, dc);
+    sipVH__core_139(sipGILState, 0, sipPySelf, sipMeth, dc);
 }
 
 void sipwxScrolledCanvas::RemoveChild(::wxWindowBase*child)
@@ -228,9 +237,9 @@ void sipwxScrolledCanvas::RemoveChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 void sipwxScrolledCanvas::AddChild(::wxWindowBase*child)
@@ -246,9 +255,9 @@ void sipwxScrolledCanvas::AddChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__core_124(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__core_124(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 bool sipwxScrolledCanvas::ProcessEvent(::wxEvent& event)
@@ -261,9 +270,9 @@ bool sipwxScrolledCanvas::ProcessEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxScrolledCanvas::ProcessEvent(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxScrolledCanvas::TryBefore(::wxEvent& event)
@@ -276,9 +285,9 @@ bool sipwxScrolledCanvas::TryBefore(::wxEvent& event)
     if (!sipMeth)
         return ::wxScrolledCanvas::TryBefore(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxScrolledCanvas::TryAfter(::wxEvent& event)
@@ -291,9 +300,9 @@ bool sipwxScrolledCanvas::TryAfter(::wxEvent& event)
     if (!sipMeth)
         return ::wxScrolledCanvas::TryAfter(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxScrolledCanvas::AcceptsFocus() const
@@ -354,9 +363,9 @@ void sipwxScrolledCanvas::SetCanFocus(bool canFocus)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, canFocus);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, canFocus);
 }
 
 void sipwxScrolledCanvas::EnableVisibleFocus(bool enabled)
@@ -372,9 +381,9 @@ void sipwxScrolledCanvas::EnableVisibleFocus(bool enabled)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enabled);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enabled);
 }
 
 bool sipwxScrolledCanvas::InformFirstDirection(int direction, int size, int availableOtherDir)
@@ -387,9 +396,9 @@ bool sipwxScrolledCanvas::InformFirstDirection(int direction, int size, int avai
     if (!sipMeth)
         return ::wxScrolledCanvas::InformFirstDirection(direction, size, availableOtherDir);
 
-    extern bool sipVH__core_105(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern bool sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
 
-    return sipVH__core_105(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
+    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
 }
 
 ::wxPoint sipwxScrolledCanvas::GetClientAreaOrigin() const
@@ -402,9 +411,9 @@ bool sipwxScrolledCanvas::InformFirstDirection(int direction, int size, int avai
     if (!sipMeth)
         return ::wxScrolledCanvas::GetClientAreaOrigin();
 
-    extern ::wxPoint sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPoint sipVH__core_125(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_125(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxScrolledCanvas::HasTransparentBackground()
@@ -447,9 +456,9 @@ bool sipwxScrolledCanvas::ShouldInheritColours() const
     if (!sipMeth)
         return ::wxScrolledCanvas::GetValidator();
 
-    extern ::wxValidator* sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxValidator* sipVH__core_126(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_126(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxScrolledCanvas::SetValidator(const ::wxValidator& validator)
@@ -465,9 +474,9 @@ void sipwxScrolledCanvas::SetValidator(const ::wxValidator& validator)
         return;
     }
 
-    extern void sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
+    extern void sipVH__core_127(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
 
-    sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth, validator);
+    sipVH__core_127(sipGILState, 0, sipPySelf, sipMeth, validator);
 }
 
 bool sipwxScrolledCanvas::TransferDataFromWindow()
@@ -594,9 +603,9 @@ void sipwxScrolledCanvas::OnInternalIdle()
     if (!sipMeth)
         return ::wxScrolledCanvas::GetMainWindowOfCompositeControl();
 
-    extern ::wxWindow* sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxWindow* sipVH__core_128(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_128(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxScrolledCanvas::DoEnable(bool enable)
@@ -612,9 +621,9 @@ void sipwxScrolledCanvas::DoEnable(bool enable)
         return;
     }
 
-    extern void sipVH__core_96(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__core_95(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__core_96(sipGILState, 0, sipPySelf, sipMeth, enable);
+    sipVH__core_95(sipGILState, 0, sipPySelf, sipMeth, enable);
 }
 
 void sipwxScrolledCanvas::DoGetPosition(int*x, int*y) const
@@ -630,9 +639,9 @@ void sipwxScrolledCanvas::DoGetPosition(int*x, int*y) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, x, y);
 }
 
 void sipwxScrolledCanvas::DoGetSize(int*width, int*height) const
@@ -648,9 +657,9 @@ void sipwxScrolledCanvas::DoGetSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxScrolledCanvas::DoGetClientSize(int*width, int*height) const
@@ -666,9 +675,9 @@ void sipwxScrolledCanvas::DoGetClientSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__core_129(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_129(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxScrolledCanvas::DoSetSize(int x, int y, int width, int height, int sizeFlags)
@@ -684,9 +693,9 @@ void sipwxScrolledCanvas::DoSetSize(int x, int y, int width, int height, int siz
         return;
     }
 
-    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
+    extern void sipVH__core_130(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
 
-    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
+    sipVH__core_130(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
 }
 
 void sipwxScrolledCanvas::DoSetClientSize(int width, int height)
@@ -702,9 +711,9 @@ void sipwxScrolledCanvas::DoSetClientSize(int width, int height)
         return;
     }
 
-    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
+    extern void sipVH__core_131(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
 
-    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__core_131(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxScrolledCanvas::DoSetSizeHints(int minW, int minH, int maxW, int maxH, int incW, int incH)
@@ -720,9 +729,9 @@ void sipwxScrolledCanvas::DoSetSizeHints(int minW, int minH, int maxW, int maxH,
         return;
     }
 
-    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
+    extern void sipVH__core_132(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
 
-    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
+    sipVH__core_132(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
 }
 
 void sipwxScrolledCanvas::DoMoveWindow(int x, int y, int width, int height)
@@ -738,9 +747,9 @@ void sipwxScrolledCanvas::DoMoveWindow(int x, int y, int width, int height)
         return;
     }
 
-    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
+    extern void sipVH__core_133(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
 
-    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
+    sipVH__core_133(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
 }
 
 void sipwxScrolledCanvas::DoSetWindowVariant(::wxWindowVariant variant)
@@ -756,9 +765,9 @@ void sipwxScrolledCanvas::DoSetWindowVariant(::wxWindowVariant variant)
         return;
     }
 
-    extern void sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
+    extern void sipVH__core_134(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
 
-    sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth, variant);
+    sipVH__core_134(sipGILState, 0, sipPySelf, sipMeth, variant);
 }
 
 ::wxBorder sipwxScrolledCanvas::GetDefaultBorder() const
@@ -771,24 +780,9 @@ void sipwxScrolledCanvas::DoSetWindowVariant(::wxWindowVariant variant)
     if (!sipMeth)
         return ::wxScrolledCanvas::GetDefaultBorder();
 
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxBorder sipVH__core_135(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
-}
-
-::wxBorder sipwxScrolledCanvas::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxScrolledCanvas::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__core_136(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__core_136(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_135(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxScrolledCanvas::DoFreeze()
@@ -796,7 +790,7 @@ void sipwxScrolledCanvas::DoFreeze()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[39], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_DoFreeze);
 
     if (!sipMeth)
     {
@@ -814,7 +808,7 @@ void sipwxScrolledCanvas::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[40], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[39], &sipPySelf, SIP_NULLPTR, sipName_DoThaw);
 
     if (!sipMeth)
     {
@@ -832,7 +826,7 @@ void sipwxScrolledCanvas::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[41]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[40]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestSize);
 
     if (!sipMeth)
         return ::wxScrolledCanvas::DoGetBestSize();
@@ -847,7 +841,7 @@ void sipwxScrolledCanvas::DoThaw()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[42]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[41]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetBestClientSize);
 
     if (!sipMeth)
         return ::wxScrolledCanvas::DoGetBestClientSize();
@@ -925,11 +919,6 @@ void sipwxScrolledCanvas::sipProtectVirt_DoSetWindowVariant(bool sipSelfWasArg, 
 ::wxBorder sipwxScrolledCanvas::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxScrolledCanvas::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxScrolledCanvas::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxScrolledCanvas::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxScrolledCanvas::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -1283,6 +1272,45 @@ static PyObject *meth_wxScrolledCanvas_DoPrepareDC(PyObject *sipSelf, PyObject *
 }
 
 
+PyDoc_STRVAR(doc_wxScrolledCanvas_DoPrepareReadOnlyDC, "DoPrepareReadOnlyDC(dc) -> None\n"
+"\n"
+"Call this function to adjust any device context used with this window.");
+
+extern "C" {static PyObject *meth_wxScrolledCanvas_DoPrepareReadOnlyDC(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxScrolledCanvas_DoPrepareReadOnlyDC(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxDC* dc;
+        ::wxScrolledCanvas *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_dc,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9", &sipSelf, sipType_wxScrolledCanvas, &sipCpp, sipType_wxDC, &dc))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->DoPrepareReadOnlyDC(*dc);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_ScrolledCanvas, sipName_DoPrepareReadOnlyDC, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxScrolledCanvas_EnableScrolling, "EnableScrolling(xScrolling, yScrolling) -> None\n"
 "\n"
 "Enable or disable use of wxWindow::ScrollWindow() for scrolling.");
@@ -1436,36 +1464,37 @@ static PyObject *meth_wxScrolledCanvas_GetViewStart(PyObject *sipSelf, PyObject 
 }
 
 
-PyDoc_STRVAR(doc_wxScrolledCanvas_IsRetained, "IsRetained() -> bool\n"
+PyDoc_STRVAR(doc_wxScrolledCanvas_GetViewStartPixels, "GetViewStartPixels() -> Tuple[int, int]\n"
 "\n"
-"Motif only: true if the window has a backing bitmap.");
+"Get the position at which the visible portion of the window starts in\n"
+"pixels.");
 
-extern "C" {static PyObject *meth_wxScrolledCanvas_IsRetained(PyObject *, PyObject *);}
-static PyObject *meth_wxScrolledCanvas_IsRetained(PyObject *sipSelf, PyObject *sipArgs)
+extern "C" {static PyObject *meth_wxScrolledCanvas_GetViewStartPixels(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxScrolledCanvas_GetViewStartPixels(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
 {
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
+        int x;
+        int y;
         const ::wxScrolledCanvas *sipCpp;
 
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxScrolledCanvas, &sipCpp))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, SIP_NULLPTR, SIP_NULLPTR, "B", &sipSelf, sipType_wxScrolledCanvas, &sipCpp))
         {
-            bool sipRes;
-
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->IsRetained();
+            sipCpp->GetViewStartPixels(&x, &y);
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
                 return 0;
 
-            return PyBool_FromLong(sipRes);
+            return sipBuildResult(0, "(ii)", x, y);
         }
     }
 
-    sipNoMethod(sipParseErr, sipName_ScrolledCanvas, sipName_IsRetained, SIP_NULLPTR);
+    sipNoMethod(sipParseErr, sipName_ScrolledCanvas, sipName_GetViewStartPixels, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -1515,8 +1544,7 @@ static PyObject *meth_wxScrolledCanvas_OnDraw(PyObject *sipSelf, PyObject *sipAr
 
 PyDoc_STRVAR(doc_wxScrolledCanvas_PrepareDC, "PrepareDC(dc) -> None\n"
 "\n"
-"This function is for backwards compatibility only and simply calls\n"
-"DoPrepareDC() now.");
+"This function is overridden to call DoPrepareDC().");
 
 extern "C" {static PyObject *meth_wxScrolledCanvas_PrepareDC(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxScrolledCanvas_PrepareDC(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1548,6 +1576,45 @@ static PyObject *meth_wxScrolledCanvas_PrepareDC(PyObject *sipSelf, PyObject *si
     }
 
     sipNoMethod(sipParseErr, sipName_ScrolledCanvas, sipName_PrepareDC, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxScrolledCanvas_PrepareReadOnlyDC, "PrepareReadOnlyDC(dc) -> None\n"
+"\n"
+"This function is overridden to call DoPrepareReadOnlyDC().");
+
+extern "C" {static PyObject *meth_wxScrolledCanvas_PrepareReadOnlyDC(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxScrolledCanvas_PrepareReadOnlyDC(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxReadOnlyDC* dc;
+        ::wxScrolledCanvas *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_dc,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9", &sipSelf, sipType_wxScrolledCanvas, &sipCpp, sipType_wxReadOnlyDC, &dc))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->PrepareReadOnlyDC(*dc);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_ScrolledCanvas, sipName_PrepareReadOnlyDC, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -1617,6 +1684,75 @@ static PyObject *meth_wxScrolledCanvas_Scroll(PyObject *sipSelf, PyObject *sipAr
     }
 
     sipNoMethod(sipParseErr, sipName_ScrolledCanvas, sipName_Scroll, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxScrolledCanvas_EnableAutoscrollWithoutCapture, "EnableAutoscrollWithoutCapture() -> None\n"
+"\n"
+"Set this window to autoscroll even if it has not captured the mouse\n"
+"(assuming the mouse cursor is in its autoscroll zone).");
+
+extern "C" {static PyObject *meth_wxScrolledCanvas_EnableAutoscrollWithoutCapture(PyObject *, PyObject *);}
+static PyObject *meth_wxScrolledCanvas_EnableAutoscrollWithoutCapture(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxScrolledCanvas *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxScrolledCanvas, &sipCpp))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->EnableAutoscrollWithoutCapture();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_ScrolledCanvas, sipName_EnableAutoscrollWithoutCapture, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxScrolledCanvas_DisableAutoscrollWithoutCapture, "DisableAutoscrollWithoutCapture() -> None\n"
+"\n"
+"Undo EnableAutoscrollWithoutCapture().");
+
+extern "C" {static PyObject *meth_wxScrolledCanvas_DisableAutoscrollWithoutCapture(PyObject *, PyObject *);}
+static PyObject *meth_wxScrolledCanvas_DisableAutoscrollWithoutCapture(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxScrolledCanvas *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxScrolledCanvas, &sipCpp))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->DisableAutoscrollWithoutCapture();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_ScrolledCanvas, sipName_DisableAutoscrollWithoutCapture, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -1974,7 +2110,83 @@ static PyObject *meth_wxScrolledCanvas_GetScrollLines(PyObject *sipSelf, PyObjec
 }
 
 
-PyDoc_STRVAR(doc_wxScrolledCanvas_SetScale, "SetScale(xs, ys) -> None");
+PyDoc_STRVAR(doc_wxScrolledCanvas_EnableAutoScrollInside, "EnableAutoScrollInside(insideWidth) -> None\n"
+"\n"
+"Set the width of the autoscroll zone inside the window rectangle.");
+
+extern "C" {static PyObject *meth_wxScrolledCanvas_EnableAutoScrollInside(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxScrolledCanvas_EnableAutoScrollInside(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxCoord insideWidth;
+        ::wxScrolledCanvas *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_insideWidth,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxScrolledCanvas, &sipCpp, &insideWidth))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->EnableAutoScrollInside(insideWidth);
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_ScrolledCanvas, sipName_EnableAutoScrollInside, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxScrolledCanvas_DisableAutoScrollOutside, "DisableAutoScrollOutside() -> None\n"
+"\n"
+"By default, autoscrolling is triggered when the mouse is anywhere\n"
+"outside of the window.");
+
+extern "C" {static PyObject *meth_wxScrolledCanvas_DisableAutoScrollOutside(PyObject *, PyObject *);}
+static PyObject *meth_wxScrolledCanvas_DisableAutoScrollOutside(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxScrolledCanvas *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxScrolledCanvas, &sipCpp))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipCpp->DisableAutoScrollOutside();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_ScrolledCanvas, sipName_DisableAutoScrollOutside, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxScrolledCanvas_SetScale, "SetScale(xs, ys) -> None\n"
+"\n"
+"Set the scaling factor for the window.");
 
 extern "C" {static PyObject *meth_wxScrolledCanvas_SetScale(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxScrolledCanvas_SetScale(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -3428,40 +3640,6 @@ static PyObject *meth_wxScrolledCanvas_GetDefaultBorder(PyObject *sipSelf, PyObj
 }
 
 
-PyDoc_STRVAR(doc_wxScrolledCanvas_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxScrolledCanvas_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxScrolledCanvas_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxScrolledCanvas *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxScrolledCanvas, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_ScrolledCanvas, sipName_GetDefaultBorderForControl, doc_wxScrolledCanvas_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxScrolledCanvas_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxScrolledCanvas_DoFreeze(PyObject *, PyObject *);}
@@ -3635,6 +3813,39 @@ static PyObject *meth_wxScrolledCanvas_TryAfter(PyObject *sipSelf, PyObject *sip
     }
 
     sipNoMethod(sipParseErr, sipName_ScrolledCanvas, sipName_TryAfter, doc_wxScrolledCanvas_TryAfter);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxScrolledCanvas_CreateAccessible, "CreateAccessible() -> Accessible");
+
+extern "C" {static PyObject *meth_wxScrolledCanvas_CreateAccessible(PyObject *, PyObject *);}
+static PyObject *meth_wxScrolledCanvas_CreateAccessible(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxScrolledCanvas *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxScrolledCanvas, &sipCpp))
+        {
+            ::wxAccessible*sipRes = 0;
+            int sipIsErr = 0;
+        PyErr_Clear();
+        Py_BEGIN_ALLOW_THREADS
+        sipRes = _wxScrolledCanvas_CreateAccessible(sipCpp);
+        Py_END_ALLOW_THREADS
+        if (PyErr_Occurred()) sipIsErr = 1;
+
+            if (sipIsErr)
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxAccessible, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_ScrolledCanvas, sipName_CreateAccessible, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -3890,7 +4101,7 @@ static void *init_type_wxScrolledCanvas(sipSimpleWrapper *sipSelf, PyObject *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxScrolledCanvas[] = {{631, 255, 1}};
+static sipEncodedTypeDef supers_wxScrolledCanvas[] = {{655, 255, 1}};
 
 
 static PyMethodDef methods_wxScrolledCanvas[] = {
@@ -3902,7 +4113,10 @@ static PyMethodDef methods_wxScrolledCanvas[] = {
     {sipName_CalcScrolledPosition, SIP_MLMETH_CAST(meth_wxScrolledCanvas_CalcScrolledPosition), METH_VARARGS|METH_KEYWORDS, doc_wxScrolledCanvas_CalcScrolledPosition},
     {sipName_CalcUnscrolledPosition, SIP_MLMETH_CAST(meth_wxScrolledCanvas_CalcUnscrolledPosition), METH_VARARGS|METH_KEYWORDS, doc_wxScrolledCanvas_CalcUnscrolledPosition},
     {sipName_Create, SIP_MLMETH_CAST(meth_wxScrolledCanvas_Create), METH_VARARGS|METH_KEYWORDS, doc_wxScrolledCanvas_Create},
+    {sipName_CreateAccessible, meth_wxScrolledCanvas_CreateAccessible, METH_VARARGS, doc_wxScrolledCanvas_CreateAccessible},
     {sipName_Destroy, meth_wxScrolledCanvas_Destroy, METH_VARARGS, doc_wxScrolledCanvas_Destroy},
+    {sipName_DisableAutoScrollOutside, meth_wxScrolledCanvas_DisableAutoScrollOutside, METH_VARARGS, doc_wxScrolledCanvas_DisableAutoScrollOutside},
+    {sipName_DisableAutoscrollWithoutCapture, meth_wxScrolledCanvas_DisableAutoscrollWithoutCapture, METH_VARARGS, doc_wxScrolledCanvas_DisableAutoscrollWithoutCapture},
     {sipName_DisableKeyboardScrolling, meth_wxScrolledCanvas_DisableKeyboardScrolling, METH_VARARGS, doc_wxScrolledCanvas_DisableKeyboardScrolling},
     {sipName_DoEnable, SIP_MLMETH_CAST(meth_wxScrolledCanvas_DoEnable), METH_VARARGS|METH_KEYWORDS, doc_wxScrolledCanvas_DoEnable},
     {sipName_DoFreeze, meth_wxScrolledCanvas_DoFreeze, METH_VARARGS, doc_wxScrolledCanvas_DoFreeze},
@@ -3913,17 +4127,19 @@ static PyMethodDef methods_wxScrolledCanvas[] = {
     {sipName_DoGetSize, SIP_MLMETH_CAST(meth_wxScrolledCanvas_DoGetSize), METH_VARARGS|METH_KEYWORDS, doc_wxScrolledCanvas_DoGetSize},
     {sipName_DoMoveWindow, SIP_MLMETH_CAST(meth_wxScrolledCanvas_DoMoveWindow), METH_VARARGS|METH_KEYWORDS, doc_wxScrolledCanvas_DoMoveWindow},
     {sipName_DoPrepareDC, SIP_MLMETH_CAST(meth_wxScrolledCanvas_DoPrepareDC), METH_VARARGS|METH_KEYWORDS, doc_wxScrolledCanvas_DoPrepareDC},
+    {sipName_DoPrepareReadOnlyDC, SIP_MLMETH_CAST(meth_wxScrolledCanvas_DoPrepareReadOnlyDC), METH_VARARGS|METH_KEYWORDS, doc_wxScrolledCanvas_DoPrepareReadOnlyDC},
     {sipName_DoSetClientSize, SIP_MLMETH_CAST(meth_wxScrolledCanvas_DoSetClientSize), METH_VARARGS|METH_KEYWORDS, doc_wxScrolledCanvas_DoSetClientSize},
     {sipName_DoSetSize, SIP_MLMETH_CAST(meth_wxScrolledCanvas_DoSetSize), METH_VARARGS|METH_KEYWORDS, doc_wxScrolledCanvas_DoSetSize},
     {sipName_DoSetSizeHints, SIP_MLMETH_CAST(meth_wxScrolledCanvas_DoSetSizeHints), METH_VARARGS|METH_KEYWORDS, doc_wxScrolledCanvas_DoSetSizeHints},
     {sipName_DoSetWindowVariant, SIP_MLMETH_CAST(meth_wxScrolledCanvas_DoSetWindowVariant), METH_VARARGS|METH_KEYWORDS, doc_wxScrolledCanvas_DoSetWindowVariant},
     {sipName_DoThaw, meth_wxScrolledCanvas_DoThaw, METH_VARARGS, doc_wxScrolledCanvas_DoThaw},
+    {sipName_EnableAutoScrollInside, SIP_MLMETH_CAST(meth_wxScrolledCanvas_EnableAutoScrollInside), METH_VARARGS|METH_KEYWORDS, doc_wxScrolledCanvas_EnableAutoScrollInside},
+    {sipName_EnableAutoscrollWithoutCapture, meth_wxScrolledCanvas_EnableAutoscrollWithoutCapture, METH_VARARGS, doc_wxScrolledCanvas_EnableAutoscrollWithoutCapture},
     {sipName_EnableScrolling, SIP_MLMETH_CAST(meth_wxScrolledCanvas_EnableScrolling), METH_VARARGS|METH_KEYWORDS, doc_wxScrolledCanvas_EnableScrolling},
     {sipName_EnableVisibleFocus, SIP_MLMETH_CAST(meth_wxScrolledCanvas_EnableVisibleFocus), METH_VARARGS|METH_KEYWORDS, doc_wxScrolledCanvas_EnableVisibleFocus},
     {sipName_GetClassDefaultAttributes, SIP_MLMETH_CAST(meth_wxScrolledCanvas_GetClassDefaultAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxScrolledCanvas_GetClassDefaultAttributes},
     {sipName_GetClientAreaOrigin, meth_wxScrolledCanvas_GetClientAreaOrigin, METH_VARARGS, doc_wxScrolledCanvas_GetClientAreaOrigin},
     {sipName_GetDefaultBorder, meth_wxScrolledCanvas_GetDefaultBorder, METH_VARARGS, doc_wxScrolledCanvas_GetDefaultBorder},
-    {sipName_GetDefaultBorderForControl, meth_wxScrolledCanvas_GetDefaultBorderForControl, METH_VARARGS, doc_wxScrolledCanvas_GetDefaultBorderForControl},
     {sipName_GetMainWindowOfCompositeControl, meth_wxScrolledCanvas_GetMainWindowOfCompositeControl, METH_VARARGS, doc_wxScrolledCanvas_GetMainWindowOfCompositeControl},
     {sipName_GetScaleX, meth_wxScrolledCanvas_GetScaleX, METH_VARARGS, doc_wxScrolledCanvas_GetScaleX},
     {sipName_GetScaleY, meth_wxScrolledCanvas_GetScaleY, METH_VARARGS, doc_wxScrolledCanvas_GetScaleY},
@@ -3935,15 +4151,16 @@ static PyMethodDef methods_wxScrolledCanvas[] = {
     {sipName_GetTargetWindow, meth_wxScrolledCanvas_GetTargetWindow, METH_VARARGS, doc_wxScrolledCanvas_GetTargetWindow},
     {sipName_GetValidator, meth_wxScrolledCanvas_GetValidator, METH_VARARGS, doc_wxScrolledCanvas_GetValidator},
     {sipName_GetViewStart, SIP_MLMETH_CAST(meth_wxScrolledCanvas_GetViewStart), METH_VARARGS|METH_KEYWORDS, doc_wxScrolledCanvas_GetViewStart},
+    {sipName_GetViewStartPixels, SIP_MLMETH_CAST(meth_wxScrolledCanvas_GetViewStartPixels), METH_VARARGS|METH_KEYWORDS, doc_wxScrolledCanvas_GetViewStartPixels},
     {sipName_HasTransparentBackground, meth_wxScrolledCanvas_HasTransparentBackground, METH_VARARGS, doc_wxScrolledCanvas_HasTransparentBackground},
     {sipName_InformFirstDirection, SIP_MLMETH_CAST(meth_wxScrolledCanvas_InformFirstDirection), METH_VARARGS|METH_KEYWORDS, doc_wxScrolledCanvas_InformFirstDirection},
     {sipName_InheritAttributes, meth_wxScrolledCanvas_InheritAttributes, METH_VARARGS, doc_wxScrolledCanvas_InheritAttributes},
     {sipName_InitDialog, meth_wxScrolledCanvas_InitDialog, METH_VARARGS, doc_wxScrolledCanvas_InitDialog},
     {sipName_IsAutoScrolling, meth_wxScrolledCanvas_IsAutoScrolling, METH_VARARGS, doc_wxScrolledCanvas_IsAutoScrolling},
-    {sipName_IsRetained, meth_wxScrolledCanvas_IsRetained, METH_VARARGS, doc_wxScrolledCanvas_IsRetained},
     {sipName_OnDraw, SIP_MLMETH_CAST(meth_wxScrolledCanvas_OnDraw), METH_VARARGS|METH_KEYWORDS, doc_wxScrolledCanvas_OnDraw},
     {sipName_OnInternalIdle, meth_wxScrolledCanvas_OnInternalIdle, METH_VARARGS, doc_wxScrolledCanvas_OnInternalIdle},
     {sipName_PrepareDC, SIP_MLMETH_CAST(meth_wxScrolledCanvas_PrepareDC), METH_VARARGS|METH_KEYWORDS, doc_wxScrolledCanvas_PrepareDC},
+    {sipName_PrepareReadOnlyDC, SIP_MLMETH_CAST(meth_wxScrolledCanvas_PrepareReadOnlyDC), METH_VARARGS|METH_KEYWORDS, doc_wxScrolledCanvas_PrepareReadOnlyDC},
     {sipName_ProcessEvent, SIP_MLMETH_CAST(meth_wxScrolledCanvas_ProcessEvent), METH_VARARGS|METH_KEYWORDS, doc_wxScrolledCanvas_ProcessEvent},
     {sipName_RemoveChild, SIP_MLMETH_CAST(meth_wxScrolledCanvas_RemoveChild), METH_VARARGS|METH_KEYWORDS, doc_wxScrolledCanvas_RemoveChild},
     {sipName_Scroll, SIP_MLMETH_CAST(meth_wxScrolledCanvas_Scroll), METH_VARARGS|METH_KEYWORDS, doc_wxScrolledCanvas_Scroll},
@@ -3969,10 +4186,10 @@ static PyMethodDef methods_wxScrolledCanvas[] = {
 };
 
 sipVariableDef variables_wxScrolledCanvas[] = {
-    {PropertyVariable, sipName_TargetWindow, &methods_wxScrolledCanvas[38], &methods_wxScrolledCanvas[61], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_TargetRect, &methods_wxScrolledCanvas[37], &methods_wxScrolledCanvas[60], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ScaleY, &methods_wxScrolledCanvas[32], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ScaleX, &methods_wxScrolledCanvas[31], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TargetWindow, &methods_wxScrolledCanvas[43], &methods_wxScrolledCanvas[67], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TargetRect, &methods_wxScrolledCanvas[42], &methods_wxScrolledCanvas[66], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ScaleY, &methods_wxScrolledCanvas[37], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ScaleX, &methods_wxScrolledCanvas[36], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxScrolledCanvas, "Scrolled() -> None\n"
@@ -3997,7 +4214,7 @@ sipClassTypeDef sipTypeDef__core_wxScrolledCanvas = {
     {
         sipNameNr_ScrolledCanvas,
         {0, 0, 1},
-        72, methods_wxScrolledCanvas,
+        78, methods_wxScrolledCanvas,
         0, SIP_NULLPTR,
         4, variables_wxScrolledCanvas,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

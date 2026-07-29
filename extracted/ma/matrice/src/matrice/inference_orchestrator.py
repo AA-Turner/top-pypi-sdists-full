@@ -32,6 +32,8 @@ from matrice.inference_pipeline_management import InferencePipelineManagement
 from matrice.security_utils import redact_url
 from matrice.streaming_automation import StreamingAutomation
 
+AUTHENTICATION_FAILED_MESSAGE = "FAILED: Authentication failed"
+
 
 class DeploymentResults(TypedDict):
     """Type definition for deployment results structure."""
@@ -217,11 +219,9 @@ class CustomerOnboardingAutomation:
 
             # Validate path format for RTSP or file paths
             path = cam_config["path"]
+            scheme = path.split("://", 1)[0] if "://" in path else ""
             if not (
-                path.startswith("rtsp://")
-                or path.startswith("rtmps://")
-                or path.startswith("http://")
-                or path.startswith("https://")
+                scheme in ("rtsp", "rtmps", "http", "https")
                 or Path(path).exists()
             ):
                 print(
@@ -262,160 +262,169 @@ class CustomerOnboardingAutomation:
         if not path.is_file():
             raise FileNotFoundError(f"Configuration file not found: {config_path}")
 
-        cameras: List[CameraConfig]
-        pipeline_config: PipelineConfig
-
         if path.suffix.lower() == ".json":
-            print("Loading JSON configuration")
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-
-            # Validate that JSON contains an object at root level
-            if not isinstance(data, dict):
-                raise ValueError("Configuration file must contain a JSON object at root level")
-
-            # Validate and extract cameras configuration
-            raw_cameras = data.get("cameras", [])
-            if not isinstance(raw_cameras, list):
-                raise ValueError("Configuration field 'cameras' must be a list")
-
-            # Enhanced schema validation: Check structure and required fields immediately
-            for idx, cam in enumerate(raw_cameras):
-                if not isinstance(cam, dict):
-                    raise ValueError(f"Configuration field 'cameras[{idx}]' must be an object")
-
-                # Validate required fields are present and non-empty
-                if not cam.get("name") or not str(cam.get("name")).strip():
-                    raise ValueError(f"Camera config {idx + 1}: Missing or empty required field 'name'")
-
-                if not cam.get("path") or not str(cam.get("path")).strip():
-                    raise ValueError(f"Camera config {idx + 1}: Missing or empty required field 'path'")
-
-                # Validate type (required: API needs protocolType for cameraFeedPath vs simulationVideoPath routing)
-                if not cam.get("type") or not str(cam.get("type")).strip():
-                    raise ValueError(f"Camera config {idx + 1}: Missing or empty required field 'type'")
-                protocol_type = str(cam.get("type")).strip().upper()
-                if protocol_type not in VALID_PROTOCOL_TYPES:
-                    raise ValueError(
-                        f"Camera config {idx + 1}: Invalid 'type' '{cam.get('type')}'. "
-                        f"Must be one of: {', '.join(VALID_PROTOCOL_TYPES)}"
-                    )
-                # Normalize type to uppercase for downstream use
-                cam["type"] = protocol_type
-
-                # Validate camera name format early
-                name = str(cam["name"]).strip()
-                if not name.replace("_", "").replace("-", "").replace(".", "").isalnum():
-                    raise ValueError(
-                        f"Camera '{name}': Invalid name format. Use only alphanumeric, underscore, dash, or dot characters."
-                    )
-
-            cameras = raw_cameras
-
-            # Validate and extract pipeline configuration
-            raw_pipeline = data.get("pipeline", {})
-            if not isinstance(raw_pipeline, dict):
-                raise ValueError("Configuration field 'pipeline' must be an object")
-            pipeline_config = raw_pipeline
-            return cameras, pipeline_config  # Return the cameras and pipeline configuration
-
+            return self._load_json_config(path)
         elif path.suffix.lower() == ".csv":
-            print("Loading CSV configuration")
-            cameras = []
-            pipeline_config = {}
-
-            with open(path, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-
-            # Find pipeline config section if exists
-            pipeline_start_idx = -1
-            for i, line in enumerate(lines):
-                if line.strip().startswith("PIPELINE_CONFIG"):
-                    pipeline_start_idx = i
-                    break
-
-            # Parse cameras section
-            camera_lines = lines[:pipeline_start_idx] if pipeline_start_idx != -1 else lines
-
-            # Remove empty lines and strip whitespace
-            camera_lines = [line.strip() for line in camera_lines if line.strip()]
-
-            if camera_lines:
-                reader = csv.DictReader(camera_lines)
-                for row_num, row in enumerate(reader, start=2):  # Start at 2 for header row
-                    # Convert CSV row to camera dict, handle apps field
-                    camera: CameraConfig = dict(row)
-
-                    # Enhanced validation: Check required fields and format
-                    if not camera.get("name") or not str(camera.get("name")).strip():
-                        raise ValueError(f"CSV row {row_num}: 'name' field is required and cannot be empty")
-
-                    if not camera.get("path") or not str(camera.get("path")).strip():
-                        raise ValueError(f"CSV row {row_num}: 'path' field is required and cannot be empty")
-
-                    # Validate type (required: API needs protocolType for path routing)
-                    if not camera.get("type") or not str(camera.get("type")).strip():
-                        raise ValueError(f"CSV row {row_num}: 'type' field is required and cannot be empty")
-                    protocol_type_raw = str(camera.get("type")).strip().upper()
-                    if protocol_type_raw not in VALID_PROTOCOL_TYPES:
-                        raise ValueError(
-                            f"CSV row {row_num}: Invalid 'type' '{camera.get('type')}'. "
-                            f"Must be one of: {', '.join(VALID_PROTOCOL_TYPES)}"
-                        )
-
-                    camera["name"] = str(camera["name"]).strip()
-                    camera["path"] = str(camera["path"]).strip()
-                    camera["type"] = protocol_type_raw  # Normalize to uppercase for consistency
-                    for int_field in ["width", "height", "streamingFPS", "videoQuality"]:
-                        if int_field in camera and camera[int_field]:
-                            try:
-                                camera[int_field] = int(camera[int_field])
-                            except (ValueError, TypeError):
-                                pass  # Keep original, will hit default in stream_settings
-                    # Validate camera name format early (same as JSON validation)
-                    name = camera["name"]
-                    if not name.replace("_", "").replace("-", "").replace(".", "").isalnum():
-                        raise ValueError(
-                            f"CSV row {row_num}, Camera '{name}': Invalid name format. Use only alphanumeric, underscore, dash, or dot characters."
-                        )
-
-                    # Parse apps field if present
-                    if "apps" in camera and isinstance(camera["apps"], str):
-                        camera["apps"] = [app.strip() for app in camera["apps"].split(",") if app.strip()]
-                    elif "apps" not in camera or not camera["apps"]:
-                        camera["apps"] = []
-
-                    cameras.append(camera)
-
-            # Parse pipeline config section if exists
-            if pipeline_start_idx != -1 and pipeline_start_idx + 1 < len(lines):
-                pipeline_lines = lines[pipeline_start_idx + 1 :]  # Skip the PIPELINE_CONFIG header
-
-                for line in pipeline_lines:
-                    line = line.strip()
-                    if line and "," in line:
-                        # Split only on first comma to handle values that might contain commas
-                        key, value = line.split(",", 1)
-                        key = key.strip()
-                        value = value.strip()
-
-                        # Convert boolean values
-                        parsed_value: Any = value
-                        if value.lower() in ("true", "false"):
-                            parsed_value = value.lower() == "true"
-
-                        pipeline_config[key] = parsed_value
-
-            config_msg = f"Loaded {len(cameras)} cameras"
-            if pipeline_config:
-                config_msg += f" and pipeline config ({len(pipeline_config)} settings)"
-            else:
-                config_msg += " (no pipeline config)"
-            print(config_msg)
-
-            return cameras, pipeline_config
+            return self._load_csv_config(path)
         else:
             raise ValueError("Configuration file must be .json or .csv format")
+
+    def _validate_camera_name_format(self, name: str, context: str) -> None:
+        """Raise ValueError if a camera name contains disallowed characters."""
+        if not name.replace("_", "").replace("-", "").replace(".", "").isalnum():
+            raise ValueError(
+                f"{context}: Invalid name format. Use only alphanumeric, underscore, dash, or dot characters."
+            )
+
+    def _load_json_config(self, path: Path) -> Tuple[List[CameraConfig], PipelineConfig]:
+        """Load and validate camera/pipeline configuration from a JSON file."""
+        print("Loading JSON configuration")
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        # Validate that JSON contains an object at root level
+        if not isinstance(data, dict):
+            raise ValueError("Configuration file must contain a JSON object at root level")
+
+        # Validate and extract cameras configuration
+        raw_cameras = data.get("cameras", [])
+        if not isinstance(raw_cameras, list):
+            raise ValueError("Configuration field 'cameras' must be a list")
+
+        # Enhanced schema validation: Check structure and required fields immediately
+        for idx, cam in enumerate(raw_cameras):
+            if not isinstance(cam, dict):
+                raise ValueError(f"Configuration field 'cameras[{idx}]' must be an object")
+
+            # Validate required fields are present and non-empty
+            if not cam.get("name") or not str(cam.get("name")).strip():
+                raise ValueError(f"Camera config {idx + 1}: Missing or empty required field 'name'")
+
+            if not cam.get("path") or not str(cam.get("path")).strip():
+                raise ValueError(f"Camera config {idx + 1}: Missing or empty required field 'path'")
+
+            # Validate type (required: API needs protocolType for cameraFeedPath vs simulationVideoPath routing)
+            if not cam.get("type") or not str(cam.get("type")).strip():
+                raise ValueError(f"Camera config {idx + 1}: Missing or empty required field 'type'")
+            protocol_type = str(cam.get("type")).strip().upper()
+            if protocol_type not in VALID_PROTOCOL_TYPES:
+                raise ValueError(
+                    f"Camera config {idx + 1}: Invalid 'type' '{cam.get('type')}'. "
+                    f"Must be one of: {', '.join(VALID_PROTOCOL_TYPES)}"
+                )
+            # Normalize type to uppercase for downstream use
+            cam["type"] = protocol_type
+
+            # Validate camera name format early
+            name = str(cam["name"]).strip()
+            self._validate_camera_name_format(name, f"Camera '{name}'")
+
+        cameras: List[CameraConfig] = raw_cameras
+
+        # Validate and extract pipeline configuration
+        raw_pipeline = data.get("pipeline", {})
+        if not isinstance(raw_pipeline, dict):
+            raise ValueError("Configuration field 'pipeline' must be an object")
+        pipeline_config: PipelineConfig = raw_pipeline
+        return cameras, pipeline_config  # Return the cameras and pipeline configuration
+
+    def _load_csv_config(self, path: Path) -> Tuple[List[CameraConfig], PipelineConfig]:
+        """Load and validate camera/pipeline configuration from a CSV file."""
+        print("Loading CSV configuration")
+        cameras: List[CameraConfig] = []
+        pipeline_config: PipelineConfig = {}
+
+        with open(path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+        # Find pipeline config section if exists
+        pipeline_start_idx = -1
+        for i, line in enumerate(lines):
+            if line.strip().startswith("PIPELINE_CONFIG"):
+                pipeline_start_idx = i
+                break
+
+        # Parse cameras section
+        camera_lines = lines[:pipeline_start_idx] if pipeline_start_idx != -1 else lines
+
+        # Remove empty lines and strip whitespace
+        camera_lines = [line.strip() for line in camera_lines if line.strip()]
+
+        if camera_lines:
+            reader = csv.DictReader(camera_lines)
+            for row_num, row in enumerate(reader, start=2):  # Start at 2 for header row
+                cameras.append(self._parse_csv_camera_row(row, row_num))
+
+        # Parse pipeline config section if exists
+        if pipeline_start_idx != -1 and pipeline_start_idx + 1 < len(lines):
+            pipeline_lines = lines[pipeline_start_idx + 1 :]  # Skip the PIPELINE_CONFIG header
+
+            for line in pipeline_lines:
+                line = line.strip()
+                if line and "," in line:
+                    # Split only on first comma to handle values that might contain commas
+                    key, value = line.split(",", 1)
+                    key = key.strip()
+                    value = value.strip()
+
+                    # Convert boolean values
+                    parsed_value: Any = value
+                    if value.lower() in ("true", "false"):
+                        parsed_value = value.lower() == "true"
+
+                    pipeline_config[key] = parsed_value
+
+        config_msg = f"Loaded {len(cameras)} cameras"
+        if pipeline_config:
+            config_msg += f" and pipeline config ({len(pipeline_config)} settings)"
+        else:
+            config_msg += " (no pipeline config)"
+        print(config_msg)
+
+        return cameras, pipeline_config
+
+    def _parse_csv_camera_row(self, row, row_num: int) -> CameraConfig:
+        """Validate and normalize a single CSV camera row into a CameraConfig."""
+        # Convert CSV row to camera dict, handle apps field
+        camera: CameraConfig = dict(row)
+
+        # Enhanced validation: Check required fields and format
+        if not camera.get("name") or not str(camera.get("name")).strip():
+            raise ValueError(f"CSV row {row_num}: 'name' field is required and cannot be empty")
+
+        if not camera.get("path") or not str(camera.get("path")).strip():
+            raise ValueError(f"CSV row {row_num}: 'path' field is required and cannot be empty")
+
+        # Validate type (required: API needs protocolType for path routing)
+        if not camera.get("type") or not str(camera.get("type")).strip():
+            raise ValueError(f"CSV row {row_num}: 'type' field is required and cannot be empty")
+        protocol_type_raw = str(camera.get("type")).strip().upper()
+        if protocol_type_raw not in VALID_PROTOCOL_TYPES:
+            raise ValueError(
+                f"CSV row {row_num}: Invalid 'type' '{camera.get('type')}'. "
+                f"Must be one of: {', '.join(VALID_PROTOCOL_TYPES)}"
+            )
+
+        camera["name"] = str(camera["name"]).strip()
+        camera["path"] = str(camera["path"]).strip()
+        camera["type"] = protocol_type_raw  # Normalize to uppercase for consistency
+        for int_field in ["width", "height", "streamingFPS", "videoQuality"]:
+            if int_field in camera and camera[int_field]:
+                try:
+                    camera[int_field] = int(camera[int_field])
+                except (ValueError, TypeError):
+                    pass  # Keep original, will hit default in stream_settings
+        # Validate camera name format early (same as JSON validation)
+        name = camera["name"]
+        self._validate_camera_name_format(name, f"CSV row {row_num}, Camera '{name}'")
+
+        # Parse apps field if present
+        if "apps" in camera and isinstance(camera["apps"], str):
+            camera["apps"] = [app.strip() for app in camera["apps"].split(",") if app.strip()]
+        elif "apps" not in camera or not camera["apps"]:
+            camera["apps"] = []
+
+        return camera
 
     def _initialize_session(self) -> bool:
         """
@@ -453,25 +462,6 @@ class CustomerOnboardingAutomation:
             return False
 
         try:
-            # # 1. Initialize the Session object DIRECTLY first
-            # print("Creating authenticated session...")
-
-            # self.session = Session(
-            #     account_number=self.account_number,
-            #     access_key=self.access_key,
-            #     secret_key=self.secret_key,
-            #     project_id=self.project_id,
-            # )
-
-            # if not self.session:
-            #     self._add_error("Failed to construct Session object")
-            #     return False
-            # # 2. Pass the SESSION object to StreamingAutomation
-            # print("Initializing StreamingAutomation client...")
-            # self.streaming_automation = StreamingAutomation(
-            #     session=self.session
-            # )
-
             print("Initializing StreamingAutomation client...")
 
             # print(f"lan_id type: {type(self.lan_id)}, value: {self.lan_id}")
@@ -509,6 +499,132 @@ class CustomerOnboardingAutomation:
             return False
 
     # --- CORE ORCHESTRATION METHODS ---
+
+    def _lookup_existing_cameras(self, camera_names_to_check) -> Dict[str, str]:
+        """Build a ``camera_name -> camera_id`` map for cameras that already exist."""
+        existing_camera_map: Dict[str, str] = {}
+        try:
+            if self.camera_management is None:
+                raise RuntimeError("Camera management client not initialized")
+
+            print(f"LOOKUP: Checking for {len(camera_names_to_check)} existing cameras using server-side search...")
+
+            for camera_name in camera_names_to_check:
+                if camera_name is None:
+                    continue
+                camera_name = str(camera_name)
+                data, error, _ = self.camera_management.get_camera_streams_with_filters(
+                    search=camera_name, limit=10
+                )
+
+                if error:
+                    print(f"WARNING: Could not search for camera '{camera_name}': {error}")
+                    continue
+
+                # Check if we found the exact camera name match
+                if data:
+                    for cam in data:
+                        cam_name = cam.get("cameraName")
+                        if cam_name == camera_name:
+                            camera_id = cam.get("_id") or cam.get("id")
+                            if camera_id:
+                                existing_camera_map[camera_name] = str(camera_id)
+                                print(f"FOUND: Camera '{camera_name}' exists with ID {camera_id}")
+                            break
+
+                if camera_name not in existing_camera_map:
+                    print(f"CREATE: Camera '{camera_name}' not found - will be created")
+
+        except Exception as e:
+            print(f"WARNING: Exception during camera lookup: {e}")
+        return existing_camera_map
+
+    def _create_single_camera(self, cam_config: CameraConfig, camera_name: str) -> Optional[str]:
+        """Create one camera from its config. Returns the new camera ID, or None on failure."""
+        print(f"CREATE: Registering new camera '{camera_name}' to Location {self.lan_id}")
+
+        # Prepare camera payload according to CameraManagement API requirements
+
+        # type is required (validated at load time): RTSP/IP use cameraFeedPath, FILE uses simulationVideoPath
+        protocol_type = cam_config.get("type", "RTSP")  # Fallback only if validation was bypassed
+        camera_url = cam_config.get("path", "")
+
+        # Handle local video file upload if needed
+        if protocol_type == "FILE" and camera_url and Path(camera_url).exists():
+            print(f"LOCAL FILE: Uploading {camera_url}...")
+            if self.streaming_automation is None:
+                print("UPLOAD FAILED: Streaming automation client not available")
+                self.results["errors"].append(
+                    f"Failed to upload video '{camera_url}': streaming automation client not available"
+                )
+                return None
+            # Use StreamingAutomation's video upload capability
+            s3_url, upload_error = self.streaming_automation.upload_video(camera_url)
+            if s3_url and not upload_error:
+                camera_url = s3_url
+                print(f"UPLOADED: {s3_url}")
+            else:
+                print(f"UPLOAD FAILED: {upload_error}")
+                self.results["errors"].append(f"Failed to upload video '{camera_url}': {upload_error}")
+                return None
+
+        # Build stream settings only for fields with non-empty values.
+        # Omit customStreamSettings entirely when all optional fields are empty;
+        # the API applies defaults for missing fields.
+        stream_settings: Dict[str, Any] = {}
+        for key in ("make", "model", "aspectRatio"):
+            val = cam_config.get(key)
+            if val is not None and str(val).strip():
+                stream_settings[key] = str(val).strip()
+        for key in ("width", "height", "streamingFPS", "videoQuality"):
+            val = cam_config.get(key)
+            if val is not None and str(val).strip():
+                try:
+                    stream_settings[key] = int(val)
+                except (ValueError, TypeError):
+                    pass  # Skip invalid values; API will use defaults
+
+        # Create camera using CameraManagement API directly
+        # CameraManagement handles account_number from session automatically
+        if self.camera_management is None:
+            print(f"ERROR: Camera management client not available for '{camera_name}'")
+            return None
+
+        camera_payload: Dict[str, Any] = {
+            "lanId": self.lan_id,  # Location ID for gateway assignment
+            "clusterName": self.cluster_name,  # Compute cluster for gateway assignment
+            "cameraName": camera_name,  # API field name
+            "protocolType": protocol_type,
+            "accountNumber": self.account_number,
+        }
+        if stream_settings:
+            camera_payload["customStreamSettings"] = stream_settings
+
+        # Set appropriate path field based on protocol
+        if protocol_type == "FILE":
+            camera_payload["simulationVideoPath"] = camera_url
+        else:
+            camera_payload["cameraFeedPath"] = camera_url
+
+        # Create camera - CameraManagement API handles account_number from session
+        # Returns 3-tuple: (list_of_cameras, error, message)
+        try:
+            new_cameras, error, _ = self.camera_management.create_camera_streams_batch([camera_payload])
+        except Exception:
+            traceback.print_exc()
+            raise
+
+        if new_cameras and len(new_cameras) > 0:
+            new_camera_id = new_cameras[0].get("_id") or new_cameras[0].get("id")
+            if new_camera_id:
+                new_camera_id_str = str(new_camera_id)
+                print(f"SUCCESS: Camera '{camera_name}' created with ID: {new_camera_id_str}")
+                return new_camera_id_str
+            else:
+                print(f"ERROR: Camera '{camera_name}' created but no ID returned")
+        else:
+            print(f"ERROR: Failed to create camera '{camera_name}': {error}")
+        return None
 
     def _sync_cameras(self, cameras_config: List[CameraConfig]) -> Dict[str, str]:
         """
@@ -548,42 +664,7 @@ class CustomerOnboardingAutomation:
         camera_names_to_check = list(dict.fromkeys(camera_names_raw))
 
         # Build efficient lookup map: camera_name -> camera_id
-        existing_camera_map: Dict[str, str] = {}
-
-        try:
-            if self.camera_management is None:
-                raise RuntimeError("Camera management client not initialized")
-
-            print(f"LOOKUP: Checking for {len(camera_names_to_check)} existing cameras using server-side search...")
-
-            for camera_name in camera_names_to_check:
-                if camera_name is None:
-                    continue
-                camera_name = str(camera_name)
-                data, error, message = self.camera_management.get_camera_streams_with_filters(
-                    search=camera_name, limit=10
-                )
-
-                if error:
-                    print(f"WARNING: Could not search for camera '{camera_name}': {error}")
-                    continue
-
-                # Check if we found the exact camera name match
-                if data:
-                    for cam in data:
-                        cam_name = cam.get("cameraName")
-                        if cam_name == camera_name:
-                            camera_id = cam.get("_id") or cam.get("id")
-                            if camera_id:
-                                existing_camera_map[camera_name] = str(camera_id)
-                                print(f"FOUND: Camera '{camera_name}' exists with ID {camera_id}")
-                            break
-
-                if camera_name not in existing_camera_map:
-                    print(f"CREATE: Camera '{camera_name}' not found - will be created")
-
-        except Exception as e:
-            print(f"WARNING: Exception during camera lookup: {e}")
+        existing_camera_map = self._lookup_existing_cameras(camera_names_to_check)
 
         # Process each camera configuration
         for cam_config in cameras_config:
@@ -598,131 +679,19 @@ class CustomerOnboardingAutomation:
                 print(f"MATCH: Camera '{camera_name}' already exists. Using ID: {existing_id}")
                 camera_name_to_id[camera_name] = existing_id
             else:
-                print(f"CREATE: Registering new camera '{camera_name}' to Location {self.lan_id}")
-
-                # Prepare camera payload according to CameraManagement API requirements
-
-                # type is required (validated at load time): RTSP/IP use cameraFeedPath, FILE uses simulationVideoPath
-                protocol_type = cam_config.get("type", "RTSP")  # Fallback only if validation was bypassed
-                camera_url = cam_config.get("path", "")
-
-                # Handle local video file upload if needed
-                if protocol_type == "FILE" and camera_url and Path(camera_url).exists():
-                    print(f"LOCAL FILE: Uploading {camera_url}...")
-                    if self.streaming_automation is None:
-                        print("UPLOAD FAILED: Streaming automation client not available")
-                        self.results["errors"].append(
-                            f"Failed to upload video '{camera_url}': streaming automation client not available"
-                        )
-                        continue
-                    # Use StreamingAutomation's video upload capability
-                    s3_url, upload_error = self.streaming_automation.upload_video(camera_url)
-                    if s3_url and not upload_error:
-                        camera_url = s3_url
-                        print(f"UPLOADED: {s3_url}")
-                    else:
-                        print(f"UPLOAD FAILED: {upload_error}")
-                        self.results["errors"].append(f"Failed to upload video '{camera_url}': {upload_error}")
-                        continue
-
-                # Build stream settings only for fields with non-empty values.
-                # Omit customStreamSettings entirely when all optional fields are empty;
-                # the API applies defaults for missing fields.
-                stream_settings: Dict[str, Any] = {}
-                for key in ("make", "model", "aspectRatio"):
-                    val = cam_config.get(key)
-                    if val is not None and str(val).strip():
-                        stream_settings[key] = str(val).strip()
-                for key in ("width", "height", "streamingFPS", "videoQuality"):
-                    val = cam_config.get(key)
-                    if val is not None and str(val).strip():
-                        try:
-                            stream_settings[key] = int(val)
-                        except (ValueError, TypeError):
-                            pass  # Skip invalid values; API will use defaults
-
-                # Create camera using CameraManagement API directly
-                # CameraManagement handles account_number from session automatically
-                if self.camera_management is None:
-                    print(f"ERROR: Camera management client not available for '{camera_name}'")
-                    continue
-
-                camera_payload: Dict[str, Any] = {
-                    "lanId": self.lan_id,  # Location ID for gateway assignment
-                    "clusterName": self.cluster_name,  # Compute cluster for gateway assignment
-                    "cameraName": camera_name,  # API field name
-                    "protocolType": protocol_type,
-                    "accountNumber": self.account_number,
-                }
-                if stream_settings:
-                    camera_payload["customStreamSettings"] = stream_settings
-
-                # Set appropriate path field based on protocol
-                if protocol_type == "FILE":
-                    camera_payload["simulationVideoPath"] = camera_url
-                else:
-                    camera_payload["cameraFeedPath"] = camera_url
-
-                # Create camera - CameraManagement API handles account_number from session
-                # Returns 3-tuple: (list_of_cameras, error, message)
-                try:
-                    new_cameras, error, message = self.camera_management.create_camera_streams_batch([camera_payload])
-                except Exception:
-                    traceback.print_exc()
-                    raise
-
-                if new_cameras and len(new_cameras) > 0:
-                    new_camera_id = new_cameras[0].get("_id") or new_cameras[0].get("id")
-                    if new_camera_id:
-                        new_camera_id_str = str(new_camera_id)
-                        print(f"SUCCESS: Camera '{camera_name}' created with ID: {new_camera_id_str}")
-                        camera_name_to_id[camera_name] = new_camera_id_str
-                        # Update local map for subsequent iterations
-                        existing_camera_map[camera_name] = new_camera_id_str
-                    else:
-                        print(f"ERROR: Camera '{camera_name}' created but no ID returned")
-                else:
-                    print(f"ERROR: Failed to create camera '{camera_name}': {error}")
+                new_camera_id_str = self._create_single_camera(cam_config, camera_name)
+                if new_camera_id_str:
+                    camera_name_to_id[camera_name] = new_camera_id_str
+                    # Update local map for subsequent iterations
+                    existing_camera_map[camera_name] = new_camera_id_str
 
         return camera_name_to_id
 
-    def _deploy_pipeline(
-        self, pipeline_config: PipelineConfig, camera_name_to_id: Dict[str, str], cameras_config: List[CameraConfig]
-    ) -> Optional[str]:
-        """
-        Creates an inference pipeline with camera-to-application mappings.
-
-        This method implements idempotent pipeline creation by:
-        1. Checking if a pipeline with the same name already exists
-        2. Creating a new pipeline only if it doesn't exist
-        3. Mapping cameras to their assigned applications
-
-        Parameters
-        ----------
-        pipeline_config : PipelineConfig
-            Pipeline configuration containing:
-            - name: Pipeline name (required)
-            - description: Pipeline description (optional)
-            - auto_start: Whether to start pipeline after creation (optional)
-        camera_name_to_id : Dict[str, str]
-            Dictionary mapping camera names to their IDs from _sync_cameras
-        cameras_config : List[CameraConfig]
-            Original camera configurations with application assignments
-
-        Returns
-        -------
-        Optional[str]
-            Pipeline ID if successful, None if failed
-        """
-        pipeline_name = pipeline_config.get("name", f"Auto-Pipeline-{int(time.time())}")
-
-        # Check if pipeline already exists to maintain idempotency
+    def _find_existing_pipeline_id(self, pipeline_name: str) -> Optional[str]:
+        """Return the ID of an existing pipeline with the given name, or None."""
         existing_pipeline_id: Optional[str] = None
         print(f"Checking for existing pipeline: '{pipeline_name}'")
         try:
-            if self.streaming_automation is None:
-                print("WARNING: Streaming automation client not available")
-                return None
             # Use StreamingAutomation for pipeline operations (primary interface)
             existing_pipelines, error = self.streaming_automation.list_inference_pipelines(project_id=self.project_id)
 
@@ -737,8 +706,12 @@ class CustomerOnboardingAutomation:
                         break
         except Exception as e:
             print(f"WARNING: Exception checking existing pipelines: {e}")
+        return existing_pipeline_id
 
-        # Build camera-to-application mapping (needed for both new and existing pipelines)
+    def _build_camera_app_mapping(
+        self, cameras_config: List[CameraConfig], camera_name_to_id: Dict[str, str]
+    ) -> List[Dict[str, Any]]:
+        """Build the camera-to-application mapping used for pipeline creation/update."""
         camera_app_mapping: List[Dict[str, Any]] = []
         app_cache: Dict[str, Optional[str]] = {}
 
@@ -791,6 +764,47 @@ class CustomerOnboardingAutomation:
                     print(
                         f"MAPPED: Camera '{camera_name}' (ID: {camera_id}) -> Apps: {[app['name'] if isinstance(app, dict) else str(app) for app in apps]}"
                     )
+
+        return camera_app_mapping
+
+    def _deploy_pipeline(
+        self, pipeline_config: PipelineConfig, camera_name_to_id: Dict[str, str], cameras_config: List[CameraConfig]
+    ) -> Optional[str]:
+        """
+        Creates an inference pipeline with camera-to-application mappings.
+
+        This method implements idempotent pipeline creation by:
+        1. Checking if a pipeline with the same name already exists
+        2. Creating a new pipeline only if it doesn't exist
+        3. Mapping cameras to their assigned applications
+
+        Parameters
+        ----------
+        pipeline_config : PipelineConfig
+            Pipeline configuration containing:
+            - name: Pipeline name (required)
+            - description: Pipeline description (optional)
+            - auto_start: Whether to start pipeline after creation (optional)
+        camera_name_to_id : Dict[str, str]
+            Dictionary mapping camera names to their IDs from _sync_cameras
+        cameras_config : List[CameraConfig]
+            Original camera configurations with application assignments
+
+        Returns
+        -------
+        Optional[str]
+            Pipeline ID if successful, None if failed
+        """
+        pipeline_name = pipeline_config.get("name", f"Auto-Pipeline-{int(time.time())}")
+
+        # Check if pipeline already exists to maintain idempotency
+        if self.streaming_automation is None:
+            print("WARNING: Streaming automation client not available")
+            return None
+        existing_pipeline_id = self._find_existing_pipeline_id(pipeline_name)
+
+        # Build camera-to-application mapping (needed for both new and existing pipelines)
+        camera_app_mapping = self._build_camera_app_mapping(cameras_config, camera_name_to_id)
 
         if not camera_app_mapping:
             error_msg = (
@@ -943,7 +957,7 @@ class CustomerOnboardingAutomation:
             try:
                 # Wrap API call in specific try-catch for network/API errors
                 try:
-                    pipeline_data, error, message = self.pipeline_management.get_inference_pipeline_by_id(pipeline_id)
+                    pipeline_data, error, _ = self.pipeline_management.get_inference_pipeline_by_id(pipeline_id)
                 except Exception as api_error:
                     print(f"WARNING: API call failed (network/server error): {api_error}")
                     print(f"Retrying in {check_interval} seconds...")
@@ -1395,7 +1409,7 @@ if __name__ == "__main__":
             print(f"=== MODE: CSV CONFIG FILE ({CSV_CONFIG_PATH}) ===")
             try:
                 if not automation._initialize_session():
-                    print("FAILED: Authentication failed")
+                    print(AUTHENTICATION_FAILED_MESSAGE)
                     sys.exit(1)
 
                 results = automation.deploy_cameras_and_pipeline(
@@ -1419,7 +1433,7 @@ if __name__ == "__main__":
             print(f"=== MODE: JSON CONFIG FILE ({JSON_CONFIG_PATH}) ===")
             try:
                 if not automation._initialize_session():
-                    print("FAILED: Authentication failed")
+                    print(AUTHENTICATION_FAILED_MESSAGE)
                     sys.exit(1)
 
                 results = automation.deploy_cameras_and_pipeline(
@@ -1473,7 +1487,7 @@ if __name__ == "__main__":
 
             try:
                 if not automation._initialize_session():
-                    print("FAILED: Authentication failed")
+                    print(AUTHENTICATION_FAILED_MESSAGE)
                     sys.exit(1)
 
                 # Step 1: Create / sync cameras

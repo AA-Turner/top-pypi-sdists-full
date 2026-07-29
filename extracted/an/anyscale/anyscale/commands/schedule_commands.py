@@ -1,5 +1,4 @@
 from io import StringIO
-from json import dumps as json_dumps
 import pathlib
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -12,11 +11,23 @@ import yaml
 import anyscale
 from anyscale.cli_logger import BlockLogger
 from anyscale.commands import command_examples
+from anyscale.commands.doc_metadata import (
+    command_metadata,
+    CommandExample,
+    ReleaseStatus,
+)
 from anyscale.commands.list_util import (
     create_table,
     display_list,
     NON_INTERACTIVE_DEFAULT_MAX_ITEMS,
     validate_page_size,
+)
+from anyscale.commands.output_format import (
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    OutputFormat,
+    print_output,
+    resolve_output_format,
 )
 from anyscale.commands.util import AnyscaleCommand
 from anyscale.controllers.schedule_controller import ScheduleController
@@ -112,8 +123,20 @@ def _validate_schedule_identifiers(
         )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Apply a schedule from a YAML config file.",
+            command="anyscale schedule apply -n my-schedule -f my-schedule.yaml",
+            output_raw=command_examples.SCHEDULE_APPLY_EXAMPLE,
+        ),
+    ],
+)
 @schedule_cli.command(
-    name="apply", cls=AnyscaleCommand, example=command_examples.SCHEDULE_APPLY_EXAMPLE
+    name="apply", short_help="Create or update a schedule.", cls=AnyscaleCommand,
 )
 @click.option(
     "--config-file",
@@ -126,7 +149,7 @@ def _validate_schedule_identifiers(
     "--name", "-n", required=False, default=None, help="Name of the schedule."
 )
 def apply(config_file: str, name: Optional[str],) -> None:
-    """ Create or Update a Schedule
+    """Create or update a schedule.
 
     The schedule should be specified in a YAML config file.
     """
@@ -240,8 +263,31 @@ def _print_schedule_list_diagnostics(  # noqa: PLR0913
     stderr.print(f"\nView your Schedules in the UI at {get_endpoint('/schedules')}\n")
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to [TEXT, JSON] when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="List schedules matching a name.",
+            command="anyscale schedule list --v2 -n my-schedule",
+            output_raw=command_examples.SCHEDULE_LIST_EXAMPLE,
+            output_instance=[
+                {
+                    "id": "cronjob_vrjrbwcnfjjid7fsld3sfkn8jz",
+                    "name": "my-schedule",
+                    "state": "ENABLED",
+                    "cron_expression": "0 0 * * * *",
+                    "timezone": "UTC",
+                    "project": "default",
+                }
+            ],
+        ),
+    ],
+)
 @schedule_cli.command(
-    name="list", cls=AnyscaleCommand, example=command_examples.SCHEDULE_LIST_EXAMPLE
+    name="list", short_help="List schedules.", cls=AnyscaleCommand,
 )
 @click.option(
     "--v2",
@@ -300,6 +346,16 @@ def _print_schedule_list_diagnostics(  # noqa: PLR0913
     ),
 )
 @click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result. Only with --v2.",
+)
+@click.option(
     "--json",
     "-j",
     "json_output",
@@ -328,14 +384,17 @@ def list(  # noqa: A001 PLR0913
     max_items: Optional[int] = None,
     page_size: Optional[int] = None,
     sort: Optional[str] = None,
+    output_format: str = OutputFormat.TEXT.value,
     json_output: bool = False,
     interactive: bool = True,
     include_all_users: bool = False,
 ) -> None:
-    """List Schedules
+    """List schedules.
 
     You can optionally filter schedules by name, project, cloud, or creator.
     """
+    json_output = json_output or output_format == OutputFormat.JSON.value
+
     if v2:
         # Validate max_items only allowed with --no-interactive (v2 only)
         if max_items is not None and interactive:
@@ -428,8 +487,20 @@ def list(  # noqa: A001 PLR0913
         job_controller.list(name=name, id=id)
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Pause a schedule by name.",
+            command="anyscale schedule pause -n my-schedule",
+            output_raw=command_examples.SCHEDULE_PAUSE_EXAMPLE,
+        ),
+    ],
+)
 @schedule_cli.command(
-    name="pause", cls=AnyscaleCommand, example=command_examples.SCHEDULE_PAUSE_EXAMPLE
+    name="pause", short_help="Pause a schedule.", cls=AnyscaleCommand,
 )
 @click.option(
     "--config-file",
@@ -483,8 +554,20 @@ def pause(
         )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Resume a schedule by name.",
+            command="anyscale schedule resume -n my-schedule",
+            output_raw=command_examples.SCHEDULE_RESUME_EXAMPLE,
+        ),
+    ],
+)
 @schedule_cli.command(
-    name="resume", cls=AnyscaleCommand, example=command_examples.SCHEDULE_RESUME_EXAMPLE
+    name="resume", short_help="Resume a paused schedule.", cls=AnyscaleCommand,
 )
 @click.option(
     "--config-file",
@@ -514,7 +597,7 @@ def pause(
 def resume(
     config_file: str, name: str, cloud: str, project: str, id: str  # noqa: A002
 ) -> None:
-    """ Resume a Schedule
+    """Resume a schedule.
 
     You can resume a schedule by config file, name, or id.
 
@@ -538,8 +621,34 @@ def resume(
         )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Query the status of a schedule by name.",
+            command="anyscale schedule status -n my-schedule",
+            output_raw=command_examples.SCHEDULE_STATUS_EXAMPLE,
+            output_instance=lambda: ScheduleStatus(
+                id="cronjob_vrjrbwcnfjjid7fsld3sfkn8jz",
+                name="my-schedule",
+                state=ScheduleState.ENABLED,
+                config=ScheduleConfig(
+                    job_config=JobConfig(
+                        name="my-schedule", entrypoint="python main.py"
+                    ),
+                    cron_expression="0 0 * * * *",
+                    timezone="UTC",
+                ),
+            ),
+        ),
+    ],
+    output_schema=ScheduleStatus,
+)
 @schedule_cli.command(
-    name="status", cls=AnyscaleCommand, example=command_examples.SCHEDULE_STATUS_EXAMPLE
+    name="status", short_help="Get the status of a schedule.", cls=AnyscaleCommand,
 )
 @click.option(
     "--config-file",
@@ -567,6 +676,16 @@ def resume(
     help="Named project to use for the schedule. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
 )
 @click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
+@click.option(
     "--json",
     "-j",
     is_flag=True,
@@ -586,6 +705,7 @@ def status(
     cloud: str,
     project: str,
     id: str,  # noqa: A002
+    output_format: str,
     json: bool,
     verbose: bool,
 ) -> None:
@@ -611,20 +731,32 @@ def status(
         status = anyscale.schedule.status(name=name, cloud=cloud, project=project)
 
     status_dict = status.to_dict()
-
     if not verbose:
         status_dict.pop("config", None)
 
-    if json:
-        print(json_dumps(status_dict, indent=4, sort_keys=False))
+    resolved = resolve_output_format(output_format, json)
+    if resolved != OutputFormat.TEXT.value:
+        print_output(status_dict, resolved)
     else:
         stream = StringIO()
         yaml.dump(status_dict, stream, sort_keys=False)
         print(stream.getvalue(), end="")
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Trigger an immediate run of a schedule by name.",
+            command="anyscale schedule run -n my-schedule",
+            output_raw=command_examples.SCHEDULE_RUN_EXAMPLE,
+        ),
+    ],
+)
 @schedule_cli.command(
-    name="run", cls=AnyscaleCommand, example=command_examples.SCHEDULE_RUN_EXAMPLE
+    name="run", short_help="Manually run a schedule now.", cls=AnyscaleCommand,
 )
 @click.option(
     "--config-file",
@@ -654,12 +786,12 @@ def status(
 def trigger(
     config_file: str, name: str, id: str, cloud: str, project: str  # noqa: A002
 ) -> None:
-    """ Manually run a Schedule
+    """Manually run a schedule now.
 
     This function takes an existing schedule and runs it now.
     You can specify the schedule by name or id.
-    You can also pass in a YAML file as a convinience. This is equivalent to passing in the name specified in the YAML file.
-    IMPORTANT: if you pass in a YAML definition that differs from the Schedule defition, the Schedule will NOT be updated.
+    You can also pass in a YAML file as a convenience. This is equivalent to passing in the name specified in the YAML file.
+    IMPORTANT: If you pass in a YAML definition that differs from the schedule definition, the schedule will NOT be updated.
     Please use the `anyscale schedule apply` command to update the configuration of your schedule
     or use the `anyscale job submit` command to submit a one off job that is not a part of a schedule.
     """
@@ -677,8 +809,20 @@ def trigger(
         )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Get the console URL of a schedule by name.",
+            command="anyscale schedule url -n my-schedule",
+            output_raw=command_examples.SCHEDULE_URL_EXAMPLE,
+        ),
+    ],
+)
 @schedule_cli.command(
-    name="url", cls=AnyscaleCommand, example=command_examples.SCHEDULE_URL_EXAMPLE
+    name="url", short_help="Get the console URL of a schedule.", cls=AnyscaleCommand,
 )
 @click.argument("schedule_config_file", required=False)
 @click.option(
@@ -696,7 +840,7 @@ def url(
     cloud: Optional[str],
     project: Optional[str],
 ) -> None:
-    """Get a Schedule URL
+    """Get the console URL of a schedule.
 
     This function accepts 1 argument, a path to a YAML config file that defines this schedule.
     You can also specify the schedule by name or id.
@@ -743,8 +887,20 @@ def _validate_delete_identifiers(
         )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Delete a schedule by ID or by name.",
+            command="anyscale schedule delete --id cronjob_vrjrbwcnfjjid7fsld3sfkn8jz",
+            output_raw=command_examples.SCHEDULE_DELETE_EXAMPLE,
+        ),
+    ],
+)
 @schedule_cli.command(
-    name="delete", cls=AnyscaleCommand, example=command_examples.SCHEDULE_DELETE_EXAMPLE
+    name="delete", short_help="Delete a schedule.", cls=AnyscaleCommand,
 )
 @click.option(
     "--name", "-n", required=False, default=None, help="Name of the schedule."

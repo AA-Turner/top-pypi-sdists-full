@@ -270,7 +270,7 @@ static void *init_type_wxHtmlFilter(sipSimpleWrapper *sipSelf, PyObject *sipArgs
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxHtmlFilter[] = {{25, 0, 1}};
+static sipEncodedTypeDef supers_wxHtmlFilter[] = {{26, 0, 1}};
 
 
 static PyMethodDef methods_wxHtmlFilter[] = {

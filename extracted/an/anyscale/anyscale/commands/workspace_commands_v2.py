@@ -26,11 +26,22 @@ from anyscale.client.openapi_client.exceptions import (
     ApiValueError,
 )
 from anyscale.commands import command_examples
+from anyscale.commands.doc_metadata import (
+    command_metadata,
+    CommandExample,
+    ReleaseStatus,
+)
 from anyscale.commands.list_util import (
     display_list,
     MAX_PAGE_SIZE,
     NON_INTERACTIVE_DEFAULT_MAX_ITEMS,
     validate_page_size,
+)
+from anyscale.commands.output_format import (
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    OutputFormat,
+    print_output,
 )
 from anyscale.commands.util import (
     AnyscaleCommand,
@@ -45,6 +56,7 @@ from anyscale.util import (
     validate_non_negative_arg,
     validate_workspace_state_filter,
 )
+from anyscale.utils.name_utils import validate_resource_name
 import anyscale.workspace
 from anyscale.workspace._private.workspace_sdk import ANYSCALE_WORKSPACES_SSH_OPTIONS
 from anyscale.workspace.commands import _WORKSPACE_SDK_SINGLETON_KEY
@@ -535,11 +547,27 @@ def workspace_cli() -> None:
     pass
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Create a workspace from a YAML config file.",
+            command="anyscale workspace_v2 create -f config.yml",
+            output_raw=command_examples.WORKSPACE_CREATE_EXAMPLE,
+        ),
+    ],
+)
 @workspace_cli.command(
     name="create",
-    help="Create a workspace on Anyscale.",
+    short_help="Create a workspace on Anyscale.",
+    help=(
+        "Create a workspace on Anyscale.\n\n"
+        "A name must be provided, either with -n/--name or in the config file. "
+        "Command-line flags override values in the config file."
+    ),
     cls=AnyscaleCommand,
-    example=command_examples.WORKSPACE_CREATE_EXAMPLE,
 )
 @click.option(
     "-f",
@@ -683,6 +711,14 @@ def create(  # noqa: PLR0913, PLR0912, C901
     if not config.name:
         raise click.ClickException("Workspace name must be configured")
 
+    # Validate the resolved name (from --name or the -f config file) at the
+    # write boundary; the shared model no longer rejects, so reading back a
+    # workspace with a legacy invalid name stays possible.
+    try:
+        validate_resource_name(config.name)
+    except ValueError as e:
+        raise click.ClickException(str(e)) from None
+
     if image_uri is not None:
         config = config.options(image_uri=image_uri)
 
@@ -723,11 +759,20 @@ def create(  # noqa: PLR0913, PLR0912, C901
         raise click.ClickException(str(e)) from None
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Start a workspace by name.",
+            command="anyscale workspace_v2 start --name my-workspace",
+            output_raw=command_examples.WORKSPACE_START_EXAMPLE,
+        ),
+    ],
+)
 @workspace_cli.command(
-    name="start",
-    short_help="Starts a workspace.",
-    cls=AnyscaleCommand,
-    example=command_examples.WORKSPACE_START_EXAMPLE,
+    name="start", short_help="Start a workspace.", cls=AnyscaleCommand,
 )
 @click.option(
     "--id", "--workspace-id", required=False, help="Unique ID of the workspace."
@@ -765,11 +810,20 @@ id should be used, specifying both will result in an error.
         raise click.ClickException(str(e)) from None
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Terminate a workspace by name.",
+            command="anyscale workspace_v2 terminate --name my-workspace",
+            output_raw=command_examples.WORKSPACE_TERMINATE_EXAMPLE,
+        ),
+    ],
+)
 @workspace_cli.command(
-    name="terminate",
-    short_help="Terminate a workspace.",
-    cls=AnyscaleCommand,
-    example=command_examples.WORKSPACE_TERMINATE_EXAMPLE,
+    name="terminate", short_help="Terminate a workspace.", cls=AnyscaleCommand,
 )
 @click.option(
     "--id", "--workspace-id", required=False, help="Unique ID of the workspace."
@@ -804,11 +858,20 @@ id should be used, specifying both will result in an error.
     anyscale.workspace.terminate(name=name, id=id, cloud=cloud, project=project)
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Get the status of a workspace by name.",
+            command="anyscale workspace_v2 status --name my-workspace",
+            output_raw=command_examples.WORKSPACE_STATUS_EXAMPLE,
+        ),
+    ],
+)
 @workspace_cli.command(
-    name="status",
-    short_help="Get the status of a workspace.",
-    cls=AnyscaleCommand,
-    example=command_examples.WORKSPACE_STATUS_EXAMPLE,
+    name="status", short_help="Get the status of a workspace.", cls=AnyscaleCommand,
 )
 @click.option(
     "--id", "--workspace-id", required=False, help="Unique ID of the workspace."
@@ -844,11 +907,22 @@ id should be used, specifying both will result in an error.
     log.info(status)
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Wait for a workspace to be running.",
+            command="anyscale workspace_v2 wait --name my-workspace --state RUNNING",
+            output_raw=command_examples.WORKSPACE_WAIT_EXAMPLE,
+        ),
+    ],
+)
 @workspace_cli.command(
     name="wait",
     short_help="Wait for a workspace to reach a certain status.",
     cls=AnyscaleCommand,
-    example=command_examples.WORKSPACE_WAIT_EXAMPLE,
 )
 @click.option(
     "--id", "--workspace-id", required=False, help="Unique ID of the workspace."
@@ -919,11 +993,28 @@ def workspace_tags_cli() -> None:
     pass
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Add tags to a workspace by name.",
+            command="anyscale workspace_v2 tags add --name my-workspace --tag team=ml --tag env=prod",
+            output_raw=command_examples.WORKSPACE_TAGS_ADD_EXAMPLE,
+        ),
+    ],
+)
 @workspace_tags_cli.command(
     name="add",
-    help="Add or update tags on a workspace.",
+    short_help="Add or update tags on a workspace.",
+    help=(
+        "Add or update tags on a workspace.\n\n"
+        "Specify the workspace by name (--name) or by ID (--id), one of which is "
+        "required. Provide at least one --tag in key=value format, and repeat --tag "
+        "to set multiple. Existing tags with the same key are overwritten."
+    ),
     cls=AnyscaleCommand,
-    example=command_examples.WORKSPACE_TAGS_ADD_EXAMPLE,  # type: ignore[attr-defined]
 )
 @click.option(
     "--id", "workspace_id", required=False, help="Unique ID of the workspace."
@@ -969,11 +1060,27 @@ def add_tags(
     stderr.print(f"Tags updated for workspace '{ident}'.")
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Remove tags from a workspace by name.",
+            command="anyscale workspace_v2 tags remove --name my-workspace --key team --key env",
+            output_raw=command_examples.WORKSPACE_TAGS_REMOVE_EXAMPLE,
+        ),
+    ],
+)
 @workspace_tags_cli.command(
     name="remove",
-    help="Remove tags by key from a workspace.",
+    short_help="Remove tags by key from a workspace.",
+    help=(
+        "Remove tags by key from a workspace.\n\n"
+        "Specify the workspace by name (--name) or by ID (--id), one of which is "
+        "required. Provide at least one --key to remove, and repeat --key to remove multiple."
+    ),
     cls=AnyscaleCommand,
-    example=command_examples.WORKSPACE_TAGS_REMOVE_EXAMPLE,  # type: ignore[attr-defined]
 )
 @click.option(
     "--id", "workspace_id", required=False, help="Unique ID of the workspace."
@@ -1014,11 +1121,28 @@ def remove_tags(
     stderr.print(f"Removed tag keys {key_list} from workspace '{ident}'.")
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="List the tags of a workspace by name.",
+            command="anyscale workspace_v2 tags list --name my-workspace",
+            output_raw=command_examples.WORKSPACE_TAGS_LIST_EXAMPLE,
+            output_instance={"team": "ml", "env": "prod"},
+        ),
+    ],
+)
 @workspace_tags_cli.command(
     name="list",
-    help="List tags for a workspace.",
+    short_help="List tags for a workspace.",
+    help=(
+        "List tags for a workspace.\n\n"
+        "Specify the workspace by name (--name) or by ID (--id), one of which is required."
+    ),
     cls=AnyscaleCommand,
-    example=command_examples.WORKSPACE_TAGS_LIST_EXAMPLE,  # type: ignore[attr-defined]
 )
 @click.option(
     "--id", "workspace_id", required=False, help="Unique ID of the workspace."
@@ -1038,12 +1162,23 @@ def remove_tags(
     type=str,
     help="Project name (used when resolving by name).",
 )
+@click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
 @click.option("--json", "json_output", is_flag=True, default=False, help="JSON output.")
 def list_tags(
     workspace_id: Optional[str],
     name: Optional[str],
     cloud: Optional[str],
     project: Optional[str],
+    output_format: str,
     json_output: bool,
 ) -> None:
     if not workspace_id and not name:
@@ -1051,7 +1186,9 @@ def list_tags(
     tag_map = anyscale.workspace.list_tags(  # type: ignore
         id=workspace_id, name=name, cloud=cloud, project=project
     )
-    if json_output:
+    if output_format != OutputFormat.TEXT.value:
+        print_output(tag_map, output_format)
+    elif json_output:
         Console().print_json(json=json.dumps(tag_map, indent=2))
     else:
         stderr = Console(stderr=True)
@@ -1062,12 +1199,23 @@ def list_tags(
         stderr.print(build_kv_table(pairs, title="Tags"))
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="SSH into a workspace by name.",
+            command="anyscale workspace_v2 ssh --name my-workspace",
+            output_raw=command_examples.WORKSPACE_SSH_EXAMPLE,
+        ),
+    ],
+)
 @workspace_cli.command(
     name="ssh",
     short_help="SSH into a workspace.",
     context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
     cls=AnyscaleCommand,
-    example=command_examples.WORKSPACE_SSH_EXAMPLE,
 )
 @click.option(
     "--id", "--workspace-id", required=False, help="Unique ID of the workspace."
@@ -1235,11 +1383,20 @@ id should be used, specifying both will result in an error.
         )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Run a shell command in a workspace.",
+            command='anyscale workspace_v2 run_command --name my-workspace "echo hello world"',
+            output_raw=command_examples.WORKSPACE_RUN_COMMAND_EXAMPLE,
+        ),
+    ],
+)
 @workspace_cli.command(
-    name="run_command",
-    short_help="Run a command in a workspace.",
-    cls=AnyscaleCommand,
-    example=command_examples.WORKSPACE_RUN_COMMAND_EXAMPLE,
+    name="run_command", short_help="Run a command in a workspace.", cls=AnyscaleCommand,
 )
 @click.option(
     "--id", "--workspace-id", required=False, help="Unique ID of the workspace."
@@ -1278,12 +1435,23 @@ id should be used, specifying both will result in an error.
     )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Pull the working directory of a workspace to a local directory.",
+            command="anyscale workspace_v2 pull --name my-workspace --local-dir my-local",
+            output_raw=command_examples.WORKSPACE_PULL_EXAMPLE,
+        ),
+    ],
+)
 @workspace_cli.command(
     name="pull",
     short_help="Pull the working directory of a workspace.",
     context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
     cls=AnyscaleCommand,
-    example=command_examples.WORKSPACE_PULL_EXAMPLE,
 )
 @click.option(
     "--id", "--workspace-id", required=False, help="Unique ID of the workspace."
@@ -1369,12 +1537,23 @@ id should be used, specifying both will result in an error.
     )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Push a local directory to a workspace.",
+            command="anyscale workspace_v2 push --name my-workspace --local-dir my-local",
+            output_raw=command_examples.WORKSPACE_PUSH_EXAMPLE,
+        ),
+    ],
+)
 @workspace_cli.command(
     name="push",
     short_help="Push a local directory to a workspace.",
     context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
     cls=AnyscaleCommand,
-    example=command_examples.WORKSPACE_PUSH_EXAMPLE,
 )
 @click.option(
     "--id", "--workspace-id", required=False, help="Unique ID of the workspace."
@@ -1460,11 +1639,28 @@ id should be used, specifying both will result in an error.
     )
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Update a workspace from a YAML config file.",
+            command="anyscale workspace_v2 update expwrk_6l2ldwbu8299ympgltn725ciak --config-file config.yaml",
+            output_raw=command_examples.WORKSPACE_UPDATE_EXAMPLE,
+        ),
+    ],
+)
 @workspace_cli.command(
     name="update",
-    help="Update an existing workspace on Anyscale.",
+    short_help="Update an existing workspace on Anyscale.",
+    help=(
+        "Update an existing workspace on Anyscale.\n\n"
+        "Takes one positional argument: the ID of the workspace to update. "
+        "Command-line flags override values in the config file. Unspecified "
+        "fields retain their current values, while specified fields are updated."
+    ),
     cls=AnyscaleCommand,
-    example=command_examples.WORKSPACE_UPDATE_EXAMPLE,
 )
 @click.argument("workspace-id", type=str)
 @click.option(
@@ -1529,7 +1725,7 @@ id should be used, specifying both will result in an error.
     type=str,
     help="New environment variables to set for the workspace. The format is 'key=value'. This argument can be specified multiple times. When the same key is also specified in the config file, the value from the command-line flag will overwrite the value from the config file.",
 )
-def update(  # noqa: PLR0913, PLR0912
+def update(  # noqa: PLR0913, PLR0912, C901
     workspace_id: str,
     config_file: Optional[str],
     name: Optional[str],
@@ -1613,11 +1809,27 @@ def update(  # noqa: PLR0913, PLR0912
         raise click.ClickException(str(e)) from None
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Get a workspace by name.",
+            command="anyscale workspace_v2 get --name my-workspace",
+            output_raw=command_examples.WORKSPACE_GET_EXAMPLE,
+            output_instance={
+                "id": "expwrk_jstjkv15a1vmle2j1t59s4bm35",
+                "name": "my-workspace",
+                "state": "RUNNING",
+            },
+        ),
+    ],
+    output_schema=Workspace,
+)
 @workspace_cli.command(
-    name="get",
-    short_help="Get a workspace.",
-    cls=AnyscaleCommand,
-    example=command_examples.WORKSPACE_GET_EXAMPLE,
+    name="get", short_help="Get a workspace.", cls=AnyscaleCommand,
 )
 @click.option(
     "--id", "--workspace-id", required=False, help="Unique ID of the workspace."
@@ -1651,6 +1863,16 @@ def update(  # noqa: PLR0913, PLR0912
 @click.option(
     "-v", "--verbose", is_flag=True, default=False, help="Include verbose details.",
 )
+@click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
 def get(
     id: Optional[str],  # noqa: A002
     name: Optional[str],
@@ -1659,6 +1881,7 @@ def get(
     json_output: bool,
     yaml_output: bool,
     verbose: bool,
+    output_format: str,
 ) -> None:
     """Retrieve workspace details by name or ID.
 
@@ -1667,8 +1890,11 @@ def get(
     _validate_workspace_name_and_id(name=name, id=id)
 
     try:
-        # For JSON/YAML, include full config; for table output, skip expensive config fetch
-        include_config = json_output or yaml_output
+        # For structured output, include full config; for table output, skip
+        # the expensive config fetch.
+        include_config = (
+            json_output or yaml_output or output_format != OutputFormat.TEXT.value
+        )
 
         workspace: Workspace = anyscale.workspace.get(
             name=name,
@@ -1678,7 +1904,9 @@ def get(
             include_config=include_config,
         )
 
-        if json_output:
+        if output_format != OutputFormat.TEXT.value:
+            print_output(workspace, output_format)
+        elif json_output:
             print(json.dumps(workspace.to_dict(), indent=2, cls=AnyscaleJSONEncoder))
         elif yaml_output:
             stream = StringIO()
@@ -1723,11 +1951,32 @@ def get(
         raise click.ClickException(f"Failed to get workspace: {e}") from None
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to [TEXT, JSON] when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="List workspaces.",
+            command="anyscale workspace_v2 list",
+            output_raw=command_examples.WORKSPACE_LIST_EXAMPLE,
+            output_instance=[
+                {
+                    "id": "expwrk_jstjkv15a1vmle2j1t59s4bm35",
+                    "name": "my-workspace-1",
+                    "state": "RUNNING",
+                }
+            ],
+        ),
+    ],
+    output_schema=Workspace,
+)
 @workspace_cli.command(
     name="list",
-    help="List workspaces.",
+    short_help="List workspaces.",
+    help="List workspaces with optional filters.",
     cls=AnyscaleCommand,
-    example=command_examples.WORKSPACE_LIST_EXAMPLE,
 )
 @click.option("--workspace-id", "--id", help="ID of the workspace to display.")
 @click.option("--name", "-n", help="Substring to match against the workspace name.")
@@ -1795,6 +2044,16 @@ def get(
     ),
 )
 @click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
+@click.option(
     "-j",
     "--json",
     "json_output",
@@ -1822,10 +2081,12 @@ def list(  # noqa: A001, PLR0912, PLR0913, PLR0917
     page_size: int,
     interactive: bool,
     sort: Optional[str],
+    output_format: str,
     json_output: bool,
     verbose: bool,
 ) -> None:
     """List workspaces with optional filters."""
+    json_output = json_output or output_format == OutputFormat.JSON.value
     if include_archived:
         # --include-archived no longer has any effect (it was never forwarded to
         # anyscale.workspace.list()). It is kept as a hidden, accepted no-op so

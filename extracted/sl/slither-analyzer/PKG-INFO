@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: slither-analyzer
-Version: 0.11.5
+Version: 0.11.6
 Summary: Slither is a Solidity and Vyper static analysis framework written in Python 3.
 Project-URL: Homepage, https://github.com/crytic/slither
 Author: Trail of Bits
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
-Requires-Dist: crytic-compile<0.4.0,>=0.3.9
+Requires-Dist: crytic-compile<0.5.0,>=0.4.2
 Requires-Dist: eth-abi>=5.0.1
 Requires-Dist: eth-typing>=5.0.0
 Requires-Dist: eth-utils>=5.0.0
@@ -115,7 +115,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv tool install slither-analyzer
 
 # Or run slither without installation
-uvx slither-analyzer <target>
+uvx --from slither-analyzer slither <target>
 ```
 
 To upgrade:

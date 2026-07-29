@@ -49,7 +49,7 @@ static PyObject *meth_wxClassInfo_CreateObject(PyObject *sipSelf, PyObject *sipA
 
 PyDoc_STRVAR(doc_wxClassInfo_GetBaseClassName1, "GetBaseClassName1() -> str\n"
 "\n"
-"Returns the name of the first base class (NULL if none).");
+"Returns the name of the first base class (nullptr if none).");
 
 extern "C" {static PyObject *meth_wxClassInfo_GetBaseClassName1(PyObject *, PyObject *);}
 static PyObject *meth_wxClassInfo_GetBaseClassName1(PyObject *sipSelf, PyObject *sipArgs)
@@ -90,7 +90,7 @@ static PyObject *meth_wxClassInfo_GetBaseClassName1(PyObject *sipSelf, PyObject 
 
 PyDoc_STRVAR(doc_wxClassInfo_GetBaseClassName2, "GetBaseClassName2() -> str\n"
 "\n"
-"Returns the name of the second base class (NULL if none).");
+"Returns the name of the second base class (nullptr if none).");
 
 extern "C" {static PyObject *meth_wxClassInfo_GetBaseClassName2(PyObject *, PyObject *);}
 static PyObject *meth_wxClassInfo_GetBaseClassName2(PyObject *sipSelf, PyObject *sipArgs)

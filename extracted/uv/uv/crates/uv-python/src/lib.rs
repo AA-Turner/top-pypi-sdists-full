@@ -206,6 +206,9 @@ mod tests {
     use std::{
         env,
         ffi::{OsStr, OsString},
+        fs::Permissions,
+        io,
+        os::unix::fs::PermissionsExt,
         path::{Path, PathBuf},
         str::FromStr,
     };
@@ -1693,7 +1696,8 @@ mod tests {
             "We should find the conda environment when name matches"
         );
 
-        // When CONDA_DEFAULT_ENV is "base", it should always be treated as base environment
+        // A special Conda environment name only identifies the base environment when its path
+        // does not match the environment name.
         let result = context.run_with_vars_and_preview(
             &[
                 (EnvVars::CONDA_PREFIX, Some(condaenv.as_os_str())),
@@ -1715,35 +1719,35 @@ mod tests {
             "We should not allow the base environment when looking for virtual environments"
         );
 
-        // With the `special-conda-env-names` preview feature, "base" is not special-cased
-        // and uses path-based heuristics instead. When the directory name matches the env name,
-        // it should be treated as a child environment.
-        let base_dir = context.tempdir.child("base");
-        TestContext::mock_conda_prefix(&base_dir, "3.12.6")?;
-        let python = context
-            .run_with_vars_and_preview(
-                &[
-                    (EnvVars::CONDA_PREFIX, Some(base_dir.as_os_str())),
-                    (EnvVars::CONDA_DEFAULT_ENV, Some(&OsString::from("base"))),
-                    (EnvVars::CONDA_ROOT, None),
-                ],
-                &[PreviewFeature::SpecialCondaEnvNames],
-                || {
-                    find_python_installation(
-                        &PythonRequest::Default,
-                        EnvironmentPreference::OnlyVirtual,
-                        PythonPreference::OnlySystem,
-                        &context.cache,
-                    )
-                },
-            )?
-            .unwrap();
+        // When the directory name matches a special Conda environment name, it should be treated
+        // as a child environment.
+        for (name, version) in [("base", "3.12.6"), ("root", "3.12.7")] {
+            let environment = context.tempdir.child(name);
+            TestContext::mock_conda_prefix(&environment, version)?;
+            let python = context
+                .run_with_vars(
+                    &[
+                        (EnvVars::CONDA_PREFIX, Some(environment.as_os_str())),
+                        (EnvVars::CONDA_DEFAULT_ENV, Some(&OsString::from(name))),
+                        (EnvVars::CONDA_ROOT, None),
+                    ],
+                    || {
+                        find_python_installation(
+                            &PythonRequest::Default,
+                            EnvironmentPreference::OnlyVirtual,
+                            PythonPreference::OnlySystem,
+                            &context.cache,
+                        )
+                    },
+                )?
+                .unwrap();
 
-        assert_eq!(
-            python.interpreter().python_full_version().to_string(),
-            "3.12.6",
-            "With special-conda-env-names preview, 'base' named env in matching dir should be treated as child"
-        );
+            assert_eq!(
+                python.interpreter().python_full_version().to_string(),
+                version,
+                "We should find the child Conda environment named {name}"
+            );
+        }
 
         // When environment name matches directory name, it should be treated as a child environment
         let myenv_dir = context.tempdir.child("myenv");
@@ -2251,6 +2255,65 @@ mod tests {
             matches!(result, Err(PythonNotFound { .. })),
             "We should not find an python; got {result:?}"
         );
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn find_python_does_not_traverse_broken_child_virtualenv() -> Result<()> {
+        let context = TestContext::new()?;
+
+        let parent_venv = context.tempdir.child(".venv");
+        TestContext::mock_venv(&parent_venv, "3.12.0")?;
+        let child_venv = context.workdir.child(".venv");
+        fs_err::os::unix::fs::symlink(context.workdir.child("missing"), &child_venv)?;
+
+        let result = context.run(|| {
+            find_python_installation(
+                &PythonRequest::Default,
+                EnvironmentPreference::OnlyVirtual,
+                PythonPreference::OnlySystem,
+                &context.cache,
+            )
+        });
+        assert!(
+            matches!(
+                &result,
+                Err(discovery::Error::VirtualEnv(
+                    crate::virtualenv::Error::MissingPyVenvCfg(path)
+                )) if path == child_venv.path()
+            ),
+            "A broken symlink at `.venv` should be eagerly rejected; got {result:?}"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn find_python_propagates_virtualenv_metadata_errors() -> Result<()> {
+        let context = TestContext::new()?;
+
+        let permissions = fs_err::metadata(&context.workdir)?.permissions();
+        fs_err::set_permissions(&context.workdir, Permissions::from_mode(0o000))?;
+        let result = context.run(|| {
+            find_python_installation(
+                &PythonRequest::Default,
+                EnvironmentPreference::OnlyVirtual,
+                PythonPreference::OnlySystem,
+                &context.cache,
+            )
+        });
+        fs_err::set_permissions(&context.workdir, permissions)?;
+
+        assert!(
+            matches!(
+                &result,
+                Err(discovery::Error::VirtualEnv(crate::virtualenv::Error::Io(error)))
+                    if error.kind() == io::ErrorKind::PermissionDenied
+            ),
+            "A virtual environment metadata error should not be ignored; got {result:?}"
+        );
+
         Ok(())
     }
 

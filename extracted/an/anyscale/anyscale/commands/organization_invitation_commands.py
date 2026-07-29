@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import click
 from dateutil import tz
 from rich import print as rprint
@@ -6,7 +8,19 @@ import tabulate
 import anyscale
 from anyscale.cli_logger import BlockLogger
 from anyscale.commands import command_examples
+from anyscale.commands.doc_metadata import (
+    command_metadata,
+    CommandExample,
+    ReleaseStatus,
+)
+from anyscale.commands.output_format import (
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    OutputFormat,
+    print_output,
+)
 from anyscale.commands.util import AnyscaleCommand
+from anyscale.organization_invitation.models import OrganizationInvitation
 
 
 log = BlockLogger()  # CLI Logger
@@ -17,10 +31,22 @@ def organization_invitation_cli() -> None:
     pass
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Invite users to your organization by email.",
+            command="anyscale organization-invitation create --emails someone@myorg.com,other@myorg.com",
+            output_raw=command_examples.ORGANIZATION_INVITATION_CREATE_EXAMPLE,
+        ),
+    ],
+)
 @organization_invitation_cli.command(
     name="create",
+    short_help="Create organization invitations for the provided emails.",
     cls=AnyscaleCommand,
-    example=command_examples.ORGANIZATION_INVITATION_CREATE_EXAMPLE,
 )
 @click.option(
     "--emails",
@@ -48,16 +74,50 @@ def create(emails: str,) -> None:
             )
 
 
-@organization_invitation_cli.command(
-    name="list",
-    cls=AnyscaleCommand,
-    example=command_examples.ORGANIZATION_INVITATION_LIST_EXAMPLE,
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="List pending organization invitations.",
+            command="anyscale organization-invitation list",
+            output_raw=command_examples.ORGANIZATION_INVITATION_LIST_EXAMPLE,
+            output_instance=lambda: [
+                OrganizationInvitation(
+                    id="orginv_abc123",
+                    email="someone@myorg.com",
+                    created_at=datetime(2024, 9, 11),
+                    expires_at=datetime(2024, 9, 25),
+                )
+            ],
+        ),
+    ],
+    output_schema=OrganizationInvitation,
 )
-def list() -> None:  # noqa: A001
+@organization_invitation_cli.command(
+    name="list", short_help="List organization invitations.", cls=AnyscaleCommand,
+)
+@click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
+def list(output_format: str) -> None:  # noqa: A001
     """
     Lists organization invitations.
     """
     organization_invitations = anyscale.organization_invitation.list()
+
+    if output_format != OutputFormat.TEXT.value:
+        print_output(organization_invitations, output_format)
+        return
 
     table = tabulate.tabulate(
         [
@@ -74,10 +134,20 @@ def list() -> None:  # noqa: A001
     rprint(table)
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Delete an organization invitation by email.",
+            command="anyscale organization-invitation delete --email someone@myorg.com",
+            output_raw=command_examples.ORGANIZATION_INVITATION_DELETE_EXAMPLE,
+        ),
+    ],
+)
 @organization_invitation_cli.command(
-    name="delete",
-    cls=AnyscaleCommand,
-    example=command_examples.ORGANIZATION_INVITATION_DELETE_EXAMPLE,
+    name="delete", short_help="Delete an organization invitation.", cls=AnyscaleCommand,
 )
 @click.option(
     "--email",

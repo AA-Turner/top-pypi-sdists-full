@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: modelscope
-Version: 1.38.1
+Version: 1.39.0
 Summary: ModelScope: bring the notion of Model-as-a-Service to life.
 Author: ModelScope team
 Author-email: contact@modelscope.cn
@@ -17,7 +17,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: filelock
-Requires-Dist: modelscope-hub>=0.0.7
+Requires-Dist: modelscope-hub>=0.1.8
 Requires-Dist: packaging
 Requires-Dist: requests>=2.25
 Requires-Dist: setuptools
@@ -25,7 +25,7 @@ Requires-Dist: tqdm>=4.64.0
 Requires-Dist: urllib3>=1.26
 Provides-Extra: hub
 Requires-Dist: filelock; extra == "hub"
-Requires-Dist: modelscope-hub>=0.0.7; extra == "hub"
+Requires-Dist: modelscope-hub>=0.1.8; extra == "hub"
 Requires-Dist: packaging; extra == "hub"
 Requires-Dist: requests>=2.25; extra == "hub"
 Requires-Dist: setuptools; extra == "hub"
@@ -437,7 +437,7 @@ Requires-Dist: tqdm; extra == "audio"
 Requires-Dist: umap-learn; extra == "audio"
 Provides-Extra: all
 Requires-Dist: filelock; extra == "all"
-Requires-Dist: modelscope-hub>=0.0.7; extra == "all"
+Requires-Dist: modelscope-hub>=0.1.8; extra == "all"
 Requires-Dist: packaging; extra == "all"
 Requires-Dist: requests>=2.25; extra == "all"
 Requires-Dist: setuptools; extra == "all"

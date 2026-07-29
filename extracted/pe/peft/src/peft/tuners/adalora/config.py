@@ -23,7 +23,7 @@ from peft.utils import PeftType
 @dataclass
 class AdaLoraConfig(LoraConfig):
     """
-    This is the configuration class to store the configuration of a [`~peft.AdaLora`].
+    This is the configuration class to store the configuration of a [`AdaLoraModel`].
 
     AdaLoRA has three phases defined by `tinit`, `tfinal` and `total_step`.
 
@@ -100,6 +100,11 @@ class AdaLoraConfig(LoraConfig):
 
         if self.total_step is None or self.total_step <= 0:
             raise ValueError("AdaLoRA does not work when `total_step` is None, supply a value > 0.")
+
+        if self.orth_reg_weight < 0:
+            raise ValueError(
+                f"`orth_reg_weight` should be greater than or equal to 0, but the value passed is {self.orth_reg_weight}"
+            )
 
         if self.tinit >= (self.total_step - self.tfinal):
             raise ValueError(

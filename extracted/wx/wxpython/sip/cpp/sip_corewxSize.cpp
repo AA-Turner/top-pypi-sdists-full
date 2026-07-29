@@ -468,6 +468,84 @@ static PyObject *meth_wxSize_IncTo(PyObject *sipSelf, PyObject *sipArgs, PyObjec
 }
 
 
+PyDoc_STRVAR(doc_wxSize_IsAtLeast, "IsAtLeast(size) -> bool\n"
+"\n"
+"Returns true if this size is at least as big as the other one in both\n"
+"directions.");
+
+extern "C" {static PyObject *meth_wxSize_IsAtLeast(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxSize_IsAtLeast(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxSize* size;
+        int sizeState = 0;
+        const ::wxSize *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_size,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxSize, &sipCpp, sipType_wxSize, &size, &sizeState))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->IsAtLeast(*size);
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxSize *>(size), sipType_wxSize, sizeState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Size, sipName_IsAtLeast, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxSize_IsEmpty, "IsEmpty() -> bool\n"
+"\n"
+"Returns true if either of the size object components is 0 or -1/.");
+
+extern "C" {static PyObject *meth_wxSize_IsEmpty(PyObject *, PyObject *);}
+static PyObject *meth_wxSize_IsEmpty(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxSize *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxSize, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->IsEmpty();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_Size, sipName_IsEmpty, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxSize_IsFullySpecified, "IsFullySpecified() -> bool\n"
 "\n"
 "Returns true if neither of the size object components is equal to -1,\n"
@@ -1442,6 +1520,8 @@ static PyMethodDef methods_wxSize[] = {
     {sipName_GetWidth, meth_wxSize_GetWidth, METH_VARARGS, doc_wxSize_GetWidth},
     {sipName_IncBy, SIP_MLMETH_CAST(meth_wxSize_IncBy), METH_VARARGS|METH_KEYWORDS, doc_wxSize_IncBy},
     {sipName_IncTo, SIP_MLMETH_CAST(meth_wxSize_IncTo), METH_VARARGS|METH_KEYWORDS, doc_wxSize_IncTo},
+    {sipName_IsAtLeast, SIP_MLMETH_CAST(meth_wxSize_IsAtLeast), METH_VARARGS|METH_KEYWORDS, doc_wxSize_IsAtLeast},
+    {sipName_IsEmpty, meth_wxSize_IsEmpty, METH_VARARGS, doc_wxSize_IsEmpty},
     {sipName_IsFullySpecified, meth_wxSize_IsFullySpecified, METH_VARARGS, doc_wxSize_IsFullySpecified},
     {sipName_Scale, SIP_MLMETH_CAST(meth_wxSize_Scale), METH_VARARGS|METH_KEYWORDS, doc_wxSize_Scale},
     {sipName_Set, SIP_MLMETH_CAST(meth_wxSize_Set), METH_VARARGS|METH_KEYWORDS, doc_wxSize_Set},
@@ -1451,12 +1531,12 @@ static PyMethodDef methods_wxSize[] = {
 };
 
 sipVariableDef variables_wxSize[] = {
-    {PropertyVariable, sipName_y, &methods_wxSize[4], &methods_wxSize[12], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_x, &methods_wxSize[5], &methods_wxSize[13], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_height, &methods_wxSize[4], &methods_wxSize[12], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_width, &methods_wxSize[5], &methods_wxSize[13], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Width, &methods_wxSize[5], &methods_wxSize[13], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Height, &methods_wxSize[4], &methods_wxSize[12], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_y, &methods_wxSize[4], &methods_wxSize[14], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_x, &methods_wxSize[5], &methods_wxSize[15], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_height, &methods_wxSize[4], &methods_wxSize[14], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_width, &methods_wxSize[5], &methods_wxSize[15], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Width, &methods_wxSize[5], &methods_wxSize[15], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Height, &methods_wxSize[4], &methods_wxSize[14], SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxSize, "Size() -> None\n"
@@ -1478,7 +1558,7 @@ sipClassTypeDef sipTypeDef__core_wxSize = {
     {
         sipNameNr_Size,
         {0, 0, 1},
-        14, methods_wxSize,
+        16, methods_wxSize,
         0, SIP_NULLPTR,
         6, variables_wxSize,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

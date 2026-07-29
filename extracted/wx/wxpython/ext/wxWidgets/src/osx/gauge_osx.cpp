@@ -2,7 +2,6 @@
 // Name:        src/osx/gauge_osx.cpp
 // Purpose:     wxGauge class
 // Author:      Stefan Csomor
-// Modified by:
 // Created:     1998-01-01
 // Copyright:   (c) Stefan Csomor
 // Licence:       wxWindows licence
@@ -25,9 +24,9 @@ bool wxGauge::Create( wxWindow *parent,
     long style,
     const wxValidator& validator,
     const wxString& name )
-{    
+{
     DontCreatePeer();
-    
+
     if ( !wxGaugeBase::Create( parent, id, range, pos, s, style & 0xE0FFFFFF, validator, name ) )
         return false;
 

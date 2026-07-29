@@ -205,7 +205,7 @@ static void *init_type_wxGridCellAttrPtr(sipSimpleWrapper *, PyObject *sipArgs, 
     }
 
     {
-        ::wxGridCellAttr* ptr = 0;
+        ::wxGridCellAttr* ptr = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_ptr,
@@ -240,7 +240,7 @@ static PyMethodDef methods_wxGridCellAttrPtr[] = {
 };
 
 PyDoc_STRVAR(doc_wxGridCellAttrPtr, "ObjectDataPtr(tocopy) -> None\n"
-"ObjectDataPtr(ptr=None) -> None\n"
+"ObjectDataPtr(ptr=nullptr) -> None\n"
 "\n"
 "This is a helper template class primarily written to avoid memory\n"
 "leaks because of missing calls to wxRefCounter::DecRef() and\n"

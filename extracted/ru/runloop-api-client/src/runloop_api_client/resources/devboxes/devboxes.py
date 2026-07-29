@@ -69,6 +69,7 @@ from ..._constants import (
     LONG_POLL_CLIENT_BUFFER_SECONDS,
     EXEC_LONG_POLL_SERVER_MAX_SECONDS,
 )
+from ..._streaming import Stream, AsyncStream
 from ...pagination import (
     SyncDevboxesCursorIDPage,
     AsyncDevboxesCursorIDPage,
@@ -94,6 +95,7 @@ from ...types.pty_tunnel_view import PtyTunnelView
 from ...types.shared_params.mount import Mount
 from ...types.devbox_snapshot_view import DevboxSnapshotView
 from ...types.shared.launch_parameters import LaunchParameters as SharedLaunchParameters
+from ...types.devbox_eviction_event_view import DevboxEvictionEventView
 from ...types.devbox_resource_usage_view import DevboxResourceUsageView
 from ...types.devbox_execution_detail_view import DevboxExecutionDetailView
 from ...types.devbox_create_ssh_key_response import DevboxCreateSSHKeyResponse
@@ -188,11 +190,12 @@ class DevboxesResource(SyncAPIResource):
     ) -> DevboxView:
         """Create a Devbox and begin the boot process.
 
-        The Devbox will initially launch in
-        the 'provisioning' state while Runloop allocates the necessary infrastructure.
-        It will transition to the 'initializing' state while the booted Devbox runs any
-        Runloop or user defined set up scripts. Finally, the Devbox will transition to
-        the 'running' state when it is ready for use.
+        Standard Devboxes initially report
+        the 'provisioning' state. FLEX Devboxes initially report the 'queued' state
+        while waiting for infrastructure allocation, then transition to 'provisioning'
+        once assigned to a node. The Devbox transitions to 'initializing' while the
+        booted Devbox runs Runloop or user-defined setup scripts, then to 'running' when
+        it is ready for use.
 
         Args:
           blueprint_id: Blueprint ID to use for the Devbox. If none set, the Devbox will be created with
@@ -1742,6 +1745,33 @@ class DevboxesResource(SyncAPIResource):
             cast_to=DevboxAsyncExecutionDetailView,
         )
 
+    def watch_evictions(
+        self,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Stream[DevboxEvictionEventView]:
+        """
+        Subscribe, via server-sent events, to pending infrastructure evictions for every
+        Devbox in the account. On connect the stream emits one event per Devbox that
+        currently has a pending eviction, then one event as each further eviction is
+        scheduled. Best-effort and advisory: a Devbox stays running until its deadline,
+        and delivery is not guaranteed.
+        """
+        return self._get(
+            "/v1/devboxes/evictions/watch",
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=DevboxEvictionEventView,
+            stream=True,
+            stream_cls=Stream[DevboxEvictionEventView],
+        )
+
     def write_file_contents(
         self,
         id: str,
@@ -1861,11 +1891,12 @@ class AsyncDevboxesResource(AsyncAPIResource):
     ) -> DevboxView:
         """Create a Devbox and begin the boot process.
 
-        The Devbox will initially launch in
-        the 'provisioning' state while Runloop allocates the necessary infrastructure.
-        It will transition to the 'initializing' state while the booted Devbox runs any
-        Runloop or user defined set up scripts. Finally, the Devbox will transition to
-        the 'running' state when it is ready for use.
+        Standard Devboxes initially report
+        the 'provisioning' state. FLEX Devboxes initially report the 'queued' state
+        while waiting for infrastructure allocation, then transition to 'provisioning'
+        once assigned to a node. The Devbox transitions to 'initializing' while the
+        booted Devbox runs Runloop or user-defined setup scripts, then to 'running' when
+        it is ready for use.
 
         Args:
           blueprint_id: Blueprint ID to use for the Devbox. If none set, the Devbox will be created with
@@ -3417,6 +3448,33 @@ class AsyncDevboxesResource(AsyncAPIResource):
             cast_to=DevboxAsyncExecutionDetailView,
         )
 
+    async def watch_evictions(
+        self,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncStream[DevboxEvictionEventView]:
+        """
+        Subscribe, via server-sent events, to pending infrastructure evictions for every
+        Devbox in the account. On connect the stream emits one event per Devbox that
+        currently has a pending eviction, then one event as each further eviction is
+        scheduled. Best-effort and advisory: a Devbox stays running until its deadline,
+        and delivery is not guaranteed.
+        """
+        return await self._get(
+            "/v1/devboxes/evictions/watch",
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=DevboxEvictionEventView,
+            stream=True,
+            stream_cls=AsyncStream[DevboxEvictionEventView],
+        )
+
     async def write_file_contents(
         self,
         id: str,
@@ -3555,6 +3613,9 @@ class DevboxesResourceWithRawResponse:
         self.wait_for_command = to_raw_response_wrapper(
             devboxes.wait_for_command,
         )
+        self.watch_evictions = to_raw_response_wrapper(
+            devboxes.watch_evictions,
+        )
         self.write_file_contents = to_raw_response_wrapper(
             devboxes.write_file_contents,
         )
@@ -3650,6 +3711,9 @@ class AsyncDevboxesResourceWithRawResponse:
         )
         self.wait_for_command = async_to_raw_response_wrapper(
             devboxes.wait_for_command,
+        )
+        self.watch_evictions = async_to_raw_response_wrapper(
+            devboxes.watch_evictions,
         )
         self.write_file_contents = async_to_raw_response_wrapper(
             devboxes.write_file_contents,
@@ -3747,6 +3811,9 @@ class DevboxesResourceWithStreamingResponse:
         self.wait_for_command = to_streamed_response_wrapper(
             devboxes.wait_for_command,
         )
+        self.watch_evictions = to_streamed_response_wrapper(
+            devboxes.watch_evictions,
+        )
         self.write_file_contents = to_streamed_response_wrapper(
             devboxes.write_file_contents,
         )
@@ -3842,6 +3909,9 @@ class AsyncDevboxesResourceWithStreamingResponse:
         )
         self.wait_for_command = async_to_streamed_response_wrapper(
             devboxes.wait_for_command,
+        )
+        self.watch_evictions = async_to_streamed_response_wrapper(
+            devboxes.watch_evictions,
         )
         self.write_file_contents = async_to_streamed_response_wrapper(
             devboxes.write_file_contents,

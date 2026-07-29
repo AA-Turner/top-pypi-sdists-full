@@ -273,6 +273,7 @@ def test_answer_omits_scope_when_not_provided():
     service.answer("AI news")
 
     assert not captured["req"].HasField("scope")
+    assert not captured["req"].HasField("model")
 
 
 def test_answer_forwards_scope(monkeypatch):
@@ -289,6 +290,41 @@ def test_answer_forwards_scope(monkeypatch):
     client.answer("AI news", scope="news")
 
     assert captured["scope"] == "news"
+
+
+def test_answer_builds_request_with_model():
+    """A non-empty model (answer tier) is forwarded verbatim onto the AnswerRequest."""
+    channel = MagicMock()
+    service = AnswerService(channel, api_key="test-key")
+
+    captured = {}
+
+    def fake_answer(req, metadata=None, timeout=None):
+        captured["req"] = req
+        return AnswerResponse(answer="An answer.", citations=[])
+
+    service._stub.Answer = fake_answer
+
+    service.answer("who is the CEO?", model="seltz-pro")
+
+    assert captured["req"].model == "seltz-pro"
+    assert captured["req"].HasField("model")
+
+
+def test_answer_forwards_model(monkeypatch):
+    """model is forwarded from Seltz.answer() to AnswerService.answer()."""
+    captured = {}
+
+    def fake_answer(*args, **kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(
+        "seltz.services.answer_service.AnswerService.answer", fake_answer
+    )
+    client = Seltz(api_key="test-key")
+    client.answer("who is the CEO?", model="seltz-pro")
+
+    assert captured["model"] == "seltz-pro"
 
 
 def test_answer_stream_builds_request_and_yields_events():
@@ -386,11 +422,31 @@ def test_answer_stream_omits_scope_when_not_provided():
     list(service.answer_stream("AI news"))
 
     assert not captured["req"].HasField("scope")
+    assert not captured["req"].HasField("model")
+
+
+def test_answer_stream_builds_request_with_model():
+    """A non-empty model (answer tier) is forwarded verbatim onto the AnswerStreamRequest."""
+    channel = MagicMock()
+    service = AnswerService(channel, api_key="test-key")
+
+    captured = {}
+
+    def fake_answer_stream(req, metadata=None):
+        captured["req"] = req
+        return iter([])
+
+    service._stub.AnswerStream = fake_answer_stream
+
+    list(service.answer_stream("who is the CEO?", model="seltz-pro"))
+
+    assert captured["req"].model == "seltz-pro"
+    assert captured["req"].HasField("model")
 
 
 def test_answer_stream_forwards_params(monkeypatch):
-    """query, include_content, and scope are forwarded from Seltz.answer_stream()
-    to AnswerService.answer_stream()."""
+    """query, include_content, scope, and model are forwarded from
+    Seltz.answer_stream() to AnswerService.answer_stream()."""
     captured = {}
 
     def fake_answer_stream(*args, **kwargs):
@@ -401,11 +457,16 @@ def test_answer_stream_forwards_params(monkeypatch):
         "seltz.services.answer_service.AnswerService.answer_stream", fake_answer_stream
     )
     client = Seltz(api_key="test-key")
-    list(client.answer_stream("AI news", include_content=True, scope="news"))
+    list(
+        client.answer_stream(
+            "AI news", include_content=True, scope="news", model="seltz-pro"
+        )
+    )
 
     assert captured["query"] == "AI news"
     assert captured["include_content"] is True
     assert captured["scope"] == "news"
+    assert captured["model"] == "seltz-pro"
 
 
 # ---------------------------------------------------------------------------
@@ -489,6 +550,17 @@ def test_answer_with_scope_returns_response():
     """answer(scope="news") reaches the live API and returns a non-empty answer."""
     client = Seltz()
     response = client.answer("What is the latest news about AI?", scope="news")
+    assert isinstance(response, AnswerResponse)
+    assert isinstance(response.answer, str)
+    assert len(response.answer) > 0
+
+
+@pytest.mark.integration
+@needs_api_key
+def test_answer_with_model_returns_response():
+    """answer(model="seltz-pro") reaches the live API and returns a non-empty answer."""
+    client = Seltz()
+    response = client.answer("Who is Apple's next CEO?", model="seltz-pro")
     assert isinstance(response, AnswerResponse)
     assert isinstance(response.answer, str)
     assert len(response.answer) > 0

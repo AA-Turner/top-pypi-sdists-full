@@ -2,7 +2,6 @@
 // Name:        src/common/fontmap.cpp
 // Purpose:     wxFontMapper class
 // Author:      Vadim Zeitlin
-// Modified by:
 // Created:     04.11.99
 // Copyright:   (c) 1999-2003 Vadim Zeitlin <vadim@wxwidgets.org>
 // Licence:     wxWindows licence
@@ -35,11 +34,6 @@
 #if wxUSE_CONFIG
     #include "wx/config.h"
 #endif // wxUSE_CONFIG
-
-#if defined(__WXMSW__)
-  #include  "wx/msw/private.h"  // includes windows.h for LOGFONT
-  #include  "wx/msw/winundef.h"
-#endif
 
 #include "wx/fmappriv.h"
 #include "wx/fontutil.h"
@@ -152,7 +146,7 @@ private:
 
 wxFontMapper::wxFontMapper()
 {
-    m_windowParent = NULL;
+    m_windowParent = nullptr;
 }
 
 wxFontMapper::~wxFontMapper()
@@ -168,7 +162,7 @@ wxFontMapper *wxFontMapper::Get()
 
     // Now return it anyway because there's a chance the GUI code might just
     // only want to call wxFontMapperBase functions and it's better than
-    // crashing by returning NULL
+    // crashing by returning nullptr
     return (wxFontMapper *)fontmapper;
 }
 
@@ -192,7 +186,7 @@ wxFontMapper::CharsetToEncoding(const wxString& charset, bool interactive)
 
         // the dialog title
         wxString title(m_titleDialog);
-        if ( !title )
+        if ( title.empty() )
             title << wxTheApp->GetAppDisplayName() << _(": unknown charset");
 
         // the message
@@ -406,7 +400,7 @@ bool wxFontMapper::GetAltForEncoding(wxFontEncoding encoding,
     if ( interactive )
     {
         wxString title(m_titleDialog);
-        if ( !title )
+        if ( title.empty() )
             title << wxTheApp->GetAppDisplayName() << _(": unknown encoding");
 
         // built the message
@@ -493,7 +487,7 @@ bool wxFontMapper::GetAltForEncoding(wxFontEncoding encoding,
                                      bool interactive)
 {
     wxCHECK_MSG( encodingAlt, false,
-                    wxT("wxFontEncoding::GetAltForEncoding(): NULL pointer") );
+                    wxT("wxFontEncoding::GetAltForEncoding(): null pointer") );
 
     wxNativeEncodingInfo info;
     if ( !GetAltForEncoding(encoding, &info, facename, interactive) )

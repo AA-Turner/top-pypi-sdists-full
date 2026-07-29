@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 import logging
 from abc import abstractmethod
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timezone
 from numbers import Number
 from textwrap import indent
 from typing import Any, ClassVar, Optional, Tuple
@@ -23,6 +23,7 @@ from soda_core.common.metadata_types import (
     SqlDataType,
 )
 from soda_core.common.sql_ast import (
+    ADD_INTERVAL,
     ALIAS,
     ALTER_TABLE,
     ALTER_TABLE_ADD_COLUMN,
@@ -84,19 +85,24 @@ from soda_core.common.sql_ast import (
     ORDER_BY_ASC,
     ORDER_BY_DESC,
     ORDINAL_POSITION,
+    PERCENTILE_WITHIN_GROUP,
     RANDOM,
     RAW_SQL,
     REGEX_LIKE,
     SELECT,
     STAR,
+    STDDEV_SAMP,
     STRING_HASH,
     SUM,
+    TIME_DELTA,
     TUPLE,
     UNION,
     UNION_ALL,
     VALUES,
     VALUES_ROW,
+    VAR_SAMP,
     WHERE,
+    WINDOW_FUNCTION,
     WITH,
     Operator,
     SqlExpression,
@@ -378,6 +384,28 @@ class SqlDialect:
         # We assume that all timestamps are stored in UTC.
         # See Fabric for an example
         return self.literal_datetime(datetime)
+
+    @staticmethod
+    def _typed_timestamp_str(dt: datetime) -> str:
+        """Render the wall-clock string for a typed timestamp literal, in UTC.
+
+        A tz-aware datetime is normalized to UTC first (``strftime`` alone drops
+        tzinfo and would emit local wall-clock against a UTC-typed column). A
+        naive datetime is assumed to already be UTC and rendered as-is.
+        Sub-second precision is truncated.
+        """
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(timezone.utc)
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+    def literal_timestamp_typed(self, dt: datetime) -> str:
+        """Typed timestamp literal for use inside timestamp arithmetic
+        (TIME_DELTA / ADD_INTERVAL operands), where some engines refuse a bare
+        string literal (duckdb in particular). Truncates sub-second precision.
+        Not a replacement for ``literal_datetime``, which renders comparison
+        literals.
+        """
+        return f"TIMESTAMP '{self._typed_timestamp_str(dt)}'"
 
     def literal_boolean(self, boolean: bool):
         return "TRUE" if boolean is True else "FALSE"
@@ -757,6 +785,8 @@ class SqlDialect:
             sql_str: str = self.build_select_sql(cte.cte_query)
         elif isinstance(cte.cte_query, VALUES):
             sql_str: str = self.build_cte_values_sql(values=cte.cte_query, alias_columns=cte.alias_columns)
+        elif isinstance(cte.cte_query, UNION):
+            sql_str: str = self.build_union_sql(cte.cte_query, add_semicolon=False)
         elif isinstance(cte.cte_query, str):
             sql_str: str = indent(cte.cte_query, "  ").strip()
         else:
@@ -839,10 +869,22 @@ class SqlDialect:
             return self._build_min_sql(expression)
         elif isinstance(expression, AVERAGE):
             return self._build_average_sql(expression)
+        elif isinstance(expression, STDDEV_SAMP):
+            return self._build_stddev_samp_sql(expression)
+        elif isinstance(expression, VAR_SAMP):
+            return self._build_var_samp_sql(expression)
         elif isinstance(expression, COALESCE):
             return self._build_coalesce_sql(expression)
         elif isinstance(expression, CAST):
             return self._build_cast_sql(expression)
+        elif isinstance(expression, WINDOW_FUNCTION):
+            return self._build_window_function_sql(expression)
+        elif isinstance(expression, PERCENTILE_WITHIN_GROUP):
+            return self._build_percentile_within_group_sql(expression)
+        elif isinstance(expression, TIME_DELTA):
+            return self._build_time_delta_sql(expression)
+        elif isinstance(expression, ADD_INTERVAL):
+            return self._build_add_interval_sql(expression)
         elif isinstance(expression, FUNCTION):
             return self._build_function_sql(expression)
         elif isinstance(expression, DISTINCT):
@@ -1038,6 +1080,64 @@ class SqlDialect:
             args_list_sql: str = ", ".join(args_sqls)
             return f"{function.name}({args_list_sql})"
 
+    def _build_window_function_sql(self, wf: WINDOW_FUNCTION) -> str:
+        args: list[SqlExpression | str] = wf.args if isinstance(wf.args, list) else [wf.args]
+        args_list_sql: str = ", ".join(self.build_expression_sql(arg) for arg in args)
+        over_clauses: list[str] = []
+        if wf.partition_by:
+            partition_sqls = ", ".join(self._build_column_sql(col) for col in wf.partition_by)
+            over_clauses.append(f"PARTITION BY {partition_sqls}")
+        if wf.order_by:
+            order_by_parts: list[str] = []
+            for ob in wf.order_by:
+                direction: str = " ASC" if isinstance(ob, ORDER_BY_ASC) else " DESC"
+                order_by_parts.append(f"{self.build_expression_sql(ob.expression)}{direction}")
+            over_clauses.append(f"ORDER BY {', '.join(order_by_parts)}")
+        over_sql: str = " ".join(over_clauses)
+        return f"{wf.name}({args_list_sql}) OVER ({over_sql})"
+
+    def supports_percentiles_with_other_distinct_aggregates(self) -> bool:
+        """Whether percentile aggregates (PERCENTILE_CONT/DISC, MEDIAN) can
+        share one SELECT with other DISTINCT aggregates. Redshift refuses the
+        combination; consumers batch percentile aggregates separately there."""
+        return True
+
+    def supports_percentile_within_group(self) -> bool:
+        """False when the engine has no percentile aggregate at all — exact or
+        approximate (Synapse). Consumers skip the Q1/median/Q3 metrics instead
+        of rendering PERCENTILE_WITHIN_GROUP.
+        """
+        return True
+
+    def _build_percentile_within_group_sql(self, percentile_within_group: PERCENTILE_WITHIN_GROUP) -> str:
+        """Ordered-set aggregate; valid on postgres/duckdb/snowflake. BigQuery
+        overrides with APPROX_QUANTILES."""
+        expression_sql: str = self.build_expression_sql(percentile_within_group.expression)
+        return f"PERCENTILE_DISC({percentile_within_group.percentile}) WITHIN GROUP (ORDER BY {expression_sql})"
+
+    def _build_time_delta_sql(self, time_delta: TIME_DELTA) -> str:
+        """Time between two timestamps in buckets of ``count`` ``unit``s.
+
+        Epoch-floor form, valid on postgres/duckdb and unit-safe because every
+        supported unit is fixed-length. Snowflake and BigQuery override.
+        """
+        from soda_core.common.sql_ast import seconds_per_time_bucket
+
+        start_sql: str = self.build_expression_sql(time_delta.start)
+        end_sql: str = self.build_expression_sql(time_delta.end)
+        seconds: int = seconds_per_time_bucket(time_delta.unit, time_delta.count)
+        return f"FLOOR(EXTRACT(EPOCH FROM {end_sql} - {start_sql}) / {seconds})"
+
+    def _build_add_interval_sql(self, add_interval: ADD_INTERVAL) -> str:
+        """Add ``count_expression`` intervals of one ``unit`` to a timestamp.
+
+        NOTE: no parens are added around the count — the count expression's
+        own rendering provides them (SqlExpressionStr renders ``(...)``).
+        """
+        timestamp_sql: str = self.build_expression_sql(add_interval.timestamp)
+        count_sql: str = self.build_expression_sql(add_interval.count_expression)
+        return f"{timestamp_sql} + INTERVAL '1 {add_interval.unit}' * {count_sql}"
+
     def _build_star_sql(self, star: STAR) -> str:
         if star.alias:
             return f"{self.quote_default(star.alias)}.*"
@@ -1103,6 +1203,15 @@ class SqlDialect:
 
     def _build_average_sql(self, average: AVERAGE) -> str:
         return f"AVG({self.build_expression_sql(average.expression)})"
+
+    def _build_stddev_samp_sql(self, stddev_samp: STDDEV_SAMP) -> str:
+        """Sample standard deviation; the T-SQL family overrides with STDEV
+        (STDDEV_SAMP is not a recognized function there)."""
+        return f"STDDEV_SAMP({self.build_expression_sql(stddev_samp.expression)})"
+
+    def _build_var_samp_sql(self, var_samp: VAR_SAMP) -> str:
+        """Sample variance; the T-SQL family overrides with VAR."""
+        return f"VAR_SAMP({self.build_expression_sql(var_samp.expression)})"
 
     def _build_coalesce_sql(self, coalesce: COALESCE) -> str:
         args: str = ", ".join([self.build_expression_sql(expression) for expression in coalesce.args])
@@ -1427,6 +1536,31 @@ class SqlDialect:
     def format_metadata_data_type(self, data_type: str) -> str:
         """Allows processing data type string result from metadata column query if needed (Oracle uses this)."""
         return data_type
+
+    def get_large_numeric_cast_type_name(self) -> Optional[str]:
+        """Native type name to CAST aggregate arguments (AVG/SUM/VAR_SAMP/STDDEV_SAMP)
+        to, or None when the engine needs no cast.
+
+        A raw native name, not SodaDataTypeName: e.g. Snowflake needs "FLOAT", which
+        its canonical DECIMAL mapping cannot express.
+        """
+        return None
+
+    def sql_expr_timestamp_coerce(self, expr: str) -> str:
+        """Wrap *expr* so it compares as a timestamp against string window-bound literals.
+
+        Base: identity — most engines coerce ISO-8601 string literals against their
+        temporal column types themselves. See BigQuerySqlDialect for the exception.
+        """
+        return expr
+
+    def sql_expr_is_not_nan(self, expr: str) -> Optional[str]:
+        """NaN-exclusion predicate for float aggregates, or None when the
+        engine needs no filter (base). Spark/Databricks store IEEE NaN in
+        float/double columns and propagate it into aggregate results, so they
+        return ``NOT ISNAN({expr})``.
+        """
+        return None
 
     def supports_regex_advanced(self) -> bool:
         return True  # Default to true, but specific dialects can override to false

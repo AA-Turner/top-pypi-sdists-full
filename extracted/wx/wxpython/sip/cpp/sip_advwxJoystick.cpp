@@ -1707,7 +1707,7 @@ static void *init_type_wxJoystick(sipSimpleWrapper *sipSelf, PyObject *sipArgs, 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxJoystick[] = {{40, 0, 1}};
+static sipEncodedTypeDef supers_wxJoystick[] = {{41, 0, 1}};
 
 
 static PyMethodDef methods_wxJoystick[] = {

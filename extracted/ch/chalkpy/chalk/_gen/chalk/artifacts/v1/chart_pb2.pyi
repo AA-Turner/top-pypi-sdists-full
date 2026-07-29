@@ -108,6 +108,26 @@ class MetricKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     METRIC_KIND_HYPERVISOR_CONTAINER_CPU_UTILIZATION: _ClassVar[MetricKind]
     METRIC_KIND_HYPERVISOR_CONTAINER_MEMORY_BYTES: _ClassVar[MetricKind]
     METRIC_KIND_QUERY_PLAN_LATENCY: _ClassVar[MetricKind]
+    METRIC_KIND_QUERY_PROGRESS_SPOOL_FLUSHED_BYTES: _ClassVar[MetricKind]
+    METRIC_KIND_QUERY_PROGRESS_SPOOL_RECLAIMED_BYTES: _ClassVar[MetricKind]
+    METRIC_KIND_QUERY_PROGRESS_SPOOL_BUFFERED_BYTES: _ClassVar[MetricKind]
+    METRIC_KIND_QUERY_PROGRESS_SPOOL_OUTSTANDING_CHUNKS: _ClassVar[MetricKind]
+    METRIC_KIND_QUERY_PROGRESS_SPILLED_BYTES: _ClassVar[MetricKind]
+    METRIC_KIND_QUERY_PROGRESS_SPILLED_ROWS: _ClassVar[MetricKind]
+    METRIC_KIND_QUERY_PROGRESS_SPILL_OUTSTANDING_BYTES: _ClassVar[MetricKind]
+    METRIC_KIND_QUERY_PROGRESS_SPILL_TIME_MS: _ClassVar[MetricKind]
+    METRIC_KIND_TELEMETRY_PIPELINE_LOG_RECEIVED: _ClassVar[MetricKind]
+    METRIC_KIND_TELEMETRY_PIPELINE_LOG_EMITTED: _ClassVar[MetricKind]
+    METRIC_KIND_TELEMETRY_PIPELINE_LOG_DROPPED: _ClassVar[MetricKind]
+    METRIC_KIND_TELEMETRY_PIPELINE_METRIC_RECEIVED: _ClassVar[MetricKind]
+    METRIC_KIND_TELEMETRY_PIPELINE_METRIC_EMITTED: _ClassVar[MetricKind]
+    METRIC_KIND_TELEMETRY_PIPELINE_METRIC_DROPPED: _ClassVar[MetricKind]
+    METRIC_KIND_TELEMETRY_PIPELINE_TRACE_RECEIVED: _ClassVar[MetricKind]
+    METRIC_KIND_TELEMETRY_PIPELINE_TRACE_EMITTED: _ClassVar[MetricKind]
+    METRIC_KIND_TELEMETRY_PIPELINE_TRACE_DROPPED: _ClassVar[MetricKind]
+    METRIC_KIND_TELEMETRY_PIPELINE_MIXED_RECEIVED: _ClassVar[MetricKind]
+    METRIC_KIND_TELEMETRY_PIPELINE_MIXED_EMITTED: _ClassVar[MetricKind]
+    METRIC_KIND_TELEMETRY_PIPELINE_MIXED_DROPPED: _ClassVar[MetricKind]
 
 class FilterKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -140,6 +160,7 @@ class FilterKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     FILTER_KIND_CONTAINER_ID: _ClassVar[FilterKind]
     FILTER_KIND_PLANNER: _ClassVar[FilterKind]
     FILTER_KIND_PLAN_REASON: _ClassVar[FilterKind]
+    FILTER_KIND_FUNCTION_CALL_MODE: _ClassVar[FilterKind]
 
 class ComparatorKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -189,6 +210,9 @@ class GroupByKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     GROUP_BY_KIND_CONSUMER_GROUP: _ClassVar[GroupByKind]
     GROUP_BY_KIND_PLANNER: _ClassVar[GroupByKind]
     GROUP_BY_KIND_PLAN_REASON: _ClassVar[GroupByKind]
+    GROUP_BY_KIND_TELEMETRY_PIPELINE_ROLE: _ClassVar[GroupByKind]
+    GROUP_BY_KIND_TELEMETRY_PIPELINE_STEP: _ClassVar[GroupByKind]
+    GROUP_BY_KIND_TELEMETRY_PIPELINE_DROP_SCOPE: _ClassVar[GroupByKind]
 
 class MetricFormulaKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -231,6 +255,14 @@ class ChartLinkKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     CHART_LINK_KIND_QUERY: _ClassVar[ChartLinkKind]
     CHART_LINK_KIND_MANUAL: _ClassVar[ChartLinkKind]
     CHART_LINK_KIND_SCHEDULED_QUERY: _ClassVar[ChartLinkKind]
+
+class RawMetricValueKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    RAW_METRIC_VALUE_KIND_UNSPECIFIED: _ClassVar[RawMetricValueKind]
+    RAW_METRIC_VALUE_KIND_GAUGE: _ClassVar[RawMetricValueKind]
+    RAW_METRIC_VALUE_KIND_COUNTER: _ClassVar[RawMetricValueKind]
+    RAW_METRIC_VALUE_KIND_HISTOGRAM: _ClassVar[RawMetricValueKind]
+    RAW_METRIC_VALUE_KIND_DELTA_COUNT: _ClassVar[RawMetricValueKind]
 
 METRIC_KIND_UNSPECIFIED: MetricKind
 METRIC_KIND_FEATURE_REQUEST_COUNT: MetricKind
@@ -325,6 +357,26 @@ METRIC_KIND_SCHEDULED_QUERY_SUCCESS_RATIO: MetricKind
 METRIC_KIND_HYPERVISOR_CONTAINER_CPU_UTILIZATION: MetricKind
 METRIC_KIND_HYPERVISOR_CONTAINER_MEMORY_BYTES: MetricKind
 METRIC_KIND_QUERY_PLAN_LATENCY: MetricKind
+METRIC_KIND_QUERY_PROGRESS_SPOOL_FLUSHED_BYTES: MetricKind
+METRIC_KIND_QUERY_PROGRESS_SPOOL_RECLAIMED_BYTES: MetricKind
+METRIC_KIND_QUERY_PROGRESS_SPOOL_BUFFERED_BYTES: MetricKind
+METRIC_KIND_QUERY_PROGRESS_SPOOL_OUTSTANDING_CHUNKS: MetricKind
+METRIC_KIND_QUERY_PROGRESS_SPILLED_BYTES: MetricKind
+METRIC_KIND_QUERY_PROGRESS_SPILLED_ROWS: MetricKind
+METRIC_KIND_QUERY_PROGRESS_SPILL_OUTSTANDING_BYTES: MetricKind
+METRIC_KIND_QUERY_PROGRESS_SPILL_TIME_MS: MetricKind
+METRIC_KIND_TELEMETRY_PIPELINE_LOG_RECEIVED: MetricKind
+METRIC_KIND_TELEMETRY_PIPELINE_LOG_EMITTED: MetricKind
+METRIC_KIND_TELEMETRY_PIPELINE_LOG_DROPPED: MetricKind
+METRIC_KIND_TELEMETRY_PIPELINE_METRIC_RECEIVED: MetricKind
+METRIC_KIND_TELEMETRY_PIPELINE_METRIC_EMITTED: MetricKind
+METRIC_KIND_TELEMETRY_PIPELINE_METRIC_DROPPED: MetricKind
+METRIC_KIND_TELEMETRY_PIPELINE_TRACE_RECEIVED: MetricKind
+METRIC_KIND_TELEMETRY_PIPELINE_TRACE_EMITTED: MetricKind
+METRIC_KIND_TELEMETRY_PIPELINE_TRACE_DROPPED: MetricKind
+METRIC_KIND_TELEMETRY_PIPELINE_MIXED_RECEIVED: MetricKind
+METRIC_KIND_TELEMETRY_PIPELINE_MIXED_EMITTED: MetricKind
+METRIC_KIND_TELEMETRY_PIPELINE_MIXED_DROPPED: MetricKind
 FILTER_KIND_UNSPECIFIED: FilterKind
 FILTER_KIND_FEATURE_STATUS: FilterKind
 FILTER_KIND_FEATURE_NAME: FilterKind
@@ -354,6 +406,7 @@ FILTER_KIND_CONSUMER_GROUP: FilterKind
 FILTER_KIND_CONTAINER_ID: FilterKind
 FILTER_KIND_PLANNER: FilterKind
 FILTER_KIND_PLAN_REASON: FilterKind
+FILTER_KIND_FUNCTION_CALL_MODE: FilterKind
 COMPARATOR_KIND_UNSPECIFIED: ComparatorKind
 COMPARATOR_KIND_EQ: ComparatorKind
 COMPARATOR_KIND_NEQ: ComparatorKind
@@ -394,6 +447,9 @@ GROUP_BY_KIND_SERVICE_KIND: GroupByKind
 GROUP_BY_KIND_CONSUMER_GROUP: GroupByKind
 GROUP_BY_KIND_PLANNER: GroupByKind
 GROUP_BY_KIND_PLAN_REASON: GroupByKind
+GROUP_BY_KIND_TELEMETRY_PIPELINE_ROLE: GroupByKind
+GROUP_BY_KIND_TELEMETRY_PIPELINE_STEP: GroupByKind
+GROUP_BY_KIND_TELEMETRY_PIPELINE_DROP_SCOPE: GroupByKind
 METRIC_FORMULA_KIND_UNSPECIFIED: MetricFormulaKind
 METRIC_FORMULA_KIND_SUM: MetricFormulaKind
 METRIC_FORMULA_KIND_TOTAL_RATIO: MetricFormulaKind
@@ -424,6 +480,11 @@ CHART_LINK_KIND_FEATURE: ChartLinkKind
 CHART_LINK_KIND_QUERY: ChartLinkKind
 CHART_LINK_KIND_MANUAL: ChartLinkKind
 CHART_LINK_KIND_SCHEDULED_QUERY: ChartLinkKind
+RAW_METRIC_VALUE_KIND_UNSPECIFIED: RawMetricValueKind
+RAW_METRIC_VALUE_KIND_GAUGE: RawMetricValueKind
+RAW_METRIC_VALUE_KIND_COUNTER: RawMetricValueKind
+RAW_METRIC_VALUE_KIND_HISTOGRAM: RawMetricValueKind
+RAW_METRIC_VALUE_KIND_DELTA_COUNT: RawMetricValueKind
 
 class AlertTrigger(_message.Message):
     __slots__ = (
@@ -504,20 +565,58 @@ class MetricFilter(_message.Message):
         value: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
+class RawMetricLabelMatcher(_message.Message):
+    __slots__ = ("label", "comparator", "value")
+    LABEL_FIELD_NUMBER: _ClassVar[int]
+    COMPARATOR_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    label: str
+    comparator: ComparatorKind
+    value: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        label: _Optional[str] = ...,
+        comparator: _Optional[_Union[ComparatorKind, str]] = ...,
+        value: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
+
+class RawMetricSeries(_message.Message):
+    __slots__ = ("metric_name", "matchers", "group_by", "metricsql", "value_kind")
+    METRIC_NAME_FIELD_NUMBER: _ClassVar[int]
+    MATCHERS_FIELD_NUMBER: _ClassVar[int]
+    GROUP_BY_FIELD_NUMBER: _ClassVar[int]
+    METRICSQL_FIELD_NUMBER: _ClassVar[int]
+    VALUE_KIND_FIELD_NUMBER: _ClassVar[int]
+    metric_name: str
+    matchers: _containers.RepeatedCompositeFieldContainer[RawMetricLabelMatcher]
+    group_by: _containers.RepeatedScalarFieldContainer[str]
+    metricsql: str
+    value_kind: RawMetricValueKind
+    def __init__(
+        self,
+        metric_name: _Optional[str] = ...,
+        matchers: _Optional[_Iterable[_Union[RawMetricLabelMatcher, _Mapping]]] = ...,
+        group_by: _Optional[_Iterable[str]] = ...,
+        metricsql: _Optional[str] = ...,
+        value_kind: _Optional[_Union[RawMetricValueKind, str]] = ...,
+    ) -> None: ...
+
 class MetricConfigSeries(_message.Message):
-    __slots__ = ("metric", "filters", "name", "window_function", "group_by", "time_shift")
+    __slots__ = ("metric", "filters", "name", "window_function", "group_by", "time_shift", "raw")
     METRIC_FIELD_NUMBER: _ClassVar[int]
     FILTERS_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     WINDOW_FUNCTION_FIELD_NUMBER: _ClassVar[int]
     GROUP_BY_FIELD_NUMBER: _ClassVar[int]
     TIME_SHIFT_FIELD_NUMBER: _ClassVar[int]
+    RAW_FIELD_NUMBER: _ClassVar[int]
     metric: MetricKind
     filters: _containers.RepeatedCompositeFieldContainer[MetricFilter]
     name: str
     window_function: WindowFunctionKind
     group_by: _containers.RepeatedScalarFieldContainer[GroupByKind]
     time_shift: _duration_pb2.Duration
+    raw: RawMetricSeries
     def __init__(
         self,
         metric: _Optional[_Union[MetricKind, str]] = ...,
@@ -526,6 +625,7 @@ class MetricConfigSeries(_message.Message):
         window_function: _Optional[_Union[WindowFunctionKind, str]] = ...,
         group_by: _Optional[_Iterable[_Union[GroupByKind, str]]] = ...,
         time_shift: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        raw: _Optional[_Union[RawMetricSeries, _Mapping]] = ...,
     ) -> None: ...
 
 class MetricConfig(_message.Message):

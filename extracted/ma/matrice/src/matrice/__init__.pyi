@@ -40,6 +40,7 @@ from sklearn.preprocessing import label_binarize
 from urllib.parse import quote
 from urllib.parse import urlparse
 from urllib.parse import urlsplit, urlunsplit
+import base64
 import csv
 import functools
 import gc
@@ -72,9 +73,29 @@ import zipfile
 
 # Constants
 logger: Any = ...  # From action_tracker
+APPLICATION_JSON: Any = ...  # From annotation
 logger: Any = ...  # From app_integration
+CAMERAS_RETRIEVED_MESSAGE: Any = ...  # From camera_management
+CAMERA_GROUPS_RETRIEVED_MESSAGE: Any = ...  # From camera_management
+FAILED_TO_CREATE_CAMERAS_MESSAGE: Any = ...  # From camera_management
+APPLICATION_JSON: Any = ...  # From dataset
+DATASET_ID_NOT_SET_ERROR: Any = ...  # From dataset
+APPLICATION_JSON: Any = ...  # From exported_model
+AUTHENTICATION_FAILED_MESSAGE: Any = ...  # From inference_orchestrator
 CameraConfig: Any = ...  # From inference_orchestrator
 PipelineConfig: Any = ...  # From inference_orchestrator
+APPLICATION_JSON: Any = ...  # From model_store
+APPLICATION_JSON: Any = ...  # From models
+SET_MODEL_ID_MESSAGE: Any = ...  # From models
+ACTION_LOGS_FETCHED_MESSAGE: Any = ...  # From projects
+ACTION_LOGS_FETCH_ERROR: Any = ...  # From projects
+APPLICATION_JSON: Any = ...  # From projects
+MODEL_TRAIN_LIST_FETCHED_MESSAGE: Any = ...  # From projects
+MODEL_TRAIN_LIST_FETCH_ERROR: Any = ...  # From projects
+INSTANCE_ID_NOT_SET_ERROR: Any = ...  # From scaling
+UNEXPECTED_RESPONSE_FORMAT: Any = ...  # From streaming_automation
+UNKNOWN_ERROR: Any = ...  # From streaming_automation
+API_ERROR_UNKNOWN: Any = ...  # From streaming_benchmarking
 R: Any = ...  # From testing
 
 # Functions
@@ -491,6 +512,18 @@ def list_all_account_action_details(session) -> Any:
     >>>     pprint(data)
     >>> else:
     >>>     print(f"Error: {error}")
+    """
+    ...
+
+# From action_tracker
+def resolve_account_number(rpc) -> Any:
+    """
+    Best-effort ``user.accountNumber`` for *rpc*'s credentials.
+    
+        The backend puts the account number in the auth token's ``user`` claim, so it is
+        already on the wire for every call — no extra request is needed. Returns ``""``
+        when the token is unavailable or carries no account number; callers must treat an
+        empty result as "unknown" rather than as a valid account.
     """
     ...
 
@@ -1796,7 +1829,7 @@ class ActionTracker:
         """
         ...
 
-    def add_index_to_category(self, indexToCat) -> Any:
+    def add_index_to_category(self, index_to_cat) -> Any:
         """
         Adds an index-to-category mapping to the model.
         
@@ -1837,7 +1870,7 @@ class ActionTracker:
     def calculate_metrics(self, split_type, outputs, targets, project_type, images = None) -> Any:
         ...
 
-    def download_model(self, model_path, model_type = 'trained', model_id = None) -> Any:
+    def download_model(self, model_path, model_type = 'trained', model_id = None, presigned_url = None) -> Any:
         """
         Downloads a model from the backend system.
         
@@ -1848,6 +1881,11 @@ class ActionTracker:
                         downloading.
                 model_type : str, optional
                     The type of the model ("trained" or "exported"). Defaults to "trained".
+                model_id : str, optional
+                    The identifier of the model to download. Defaults to the tracker's model id.
+                presigned_url : str, optional
+                    A presigned download URL to reuse. When omitted, one is fetched from the
+                    backend. Supplying it avoids a redundant backend call.
         
                 Returns
                 -------
@@ -2084,7 +2122,7 @@ class ActionTracker:
         """
         ...
 
-    def update_status(self, stepCode, status, status_description) -> None:
+    def update_status(self, step_code, status, status_description) -> None:
         """
         Updates the status of the tracked action in the backend system.
         
@@ -9468,13 +9506,13 @@ class TestingActionTracker:
         """
         ...
 
-    def add_index_to_category(self, indexToCat) -> Any:
+    def add_index_to_category(self, index_to_cat) -> Any:
         """
         Adds an index-to-category mapping to the log files.
         
                 Parameters
                 ----------
-                indexToCat : dict
+                index_to_cat : dict
                     Dictionary mapping category indexes to class names.
         
                 Returns
@@ -9826,13 +9864,13 @@ class TestingActionTracker:
         """
         ...
 
-    def update_status(self, stepCode, status, status_description) -> None:
+    def update_status(self, step_code, status, status_description) -> None:
         """
         Mocks the status update for a given step, adding it to logs.
         
                 Parameters
                 ----------
-                stepCode : str
+                step_code : str
                     The code for the current step.
                 status : str
                     The current status (e.g., 'SUCCESS', 'ERROR').

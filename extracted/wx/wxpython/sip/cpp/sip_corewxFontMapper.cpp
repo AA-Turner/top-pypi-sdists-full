@@ -66,9 +66,9 @@ bool sipwxFontMapper::IsEncodingAvailable(::wxFontEncoding encoding, const ::wxS
     if (!sipMeth)
         return ::wxFontMapper::IsEncodingAvailable(encoding, facename);
 
-    extern bool sipVH__core_234(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxFontEncoding, const ::wxString&);
+    extern bool sipVH__core_233(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxFontEncoding, const ::wxString&);
 
-    return sipVH__core_234(sipGILState, 0, sipPySelf, sipMeth, encoding, facename);
+    return sipVH__core_233(sipGILState, 0, sipPySelf, sipMeth, encoding, facename);
 }
 
 ::wxFontEncoding sipwxFontMapper::CharsetToEncoding(const ::wxString& charset, bool interactive)
@@ -81,9 +81,9 @@ bool sipwxFontMapper::IsEncodingAvailable(::wxFontEncoding encoding, const ::wxS
     if (!sipMeth)
         return ::wxFontMapper::CharsetToEncoding(charset, interactive);
 
-    extern ::wxFontEncoding sipVH__core_233(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, bool);
+    extern ::wxFontEncoding sipVH__core_232(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxString&, bool);
 
-    return sipVH__core_233(sipGILState, 0, sipPySelf, sipMeth, charset, interactive);
+    return sipVH__core_232(sipGILState, 0, sipPySelf, sipMeth, charset, interactive);
 }
 
 
@@ -617,7 +617,7 @@ static PyObject *meth_wxFontMapper_GetSupportedEncodingsCount(PyObject *, PyObje
 
 PyDoc_STRVAR(doc_wxFontMapper_Set, "Set(mapper) -> FontMapper\n"
 "\n"
-"Set the current font mapper object and return previous one (may be NULL).");
+"Set the current font mapper object and return previous one (may be nullptr).");
 
 extern "C" {static PyObject *meth_wxFontMapper_Set(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxFontMapper_Set(PyObject *, PyObject *sipArgs, PyObject *sipKwds)

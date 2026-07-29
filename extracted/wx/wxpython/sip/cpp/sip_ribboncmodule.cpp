@@ -24,10 +24,21 @@
         #include <wx/ribbon/gallery.h>
         #include <wx/bitmap.h>
         #include <wx/ribbon/bar.h>
+        #include <wx/dc.h>
+    #include <vector>
+    #include <algorithm>
+
+    
+#include <wx/ribbon/bar.h>
+
+inline bool operator==(const wxRibbonPageTabInfo& a, const wxRibbonPageTabInfo& b) {
+        return a.page == b.page && 
+               a.rect == b.rect && 
+               a.active == b.active && 
+               a.hovered == b.hovered;
+    }
         #include <wx/ribbon/page.h>
         #include <wx/ribbon/control.h>
-        #include <wx/ribbon/art.h>
-        #include <wx/ribbon/art.h>
         #include <wx/ribbon/buttonbar.h>
         #include <wx/ribbon/toolbar.h>
 
@@ -192,7 +203,6 @@ const char sipStrings__ribbon[] = {
     'w', 'x', 'E', 'V', 'T', '_', 'R', 'I', 'B', 'B', 'O', 'N', 'G', 'A', 'L', 'L', 'E', 'R', 'Y', '_', 'C', 'L', 'I', 'C', 'K', 'E', 'D', 0,
     'w', 'x', 'E', 'V', 'T', '_', 'R', 'I', 'B', 'B', 'O', 'N', 'T', 'O', 'O', 'L', 'B', 'A', 'R', '_', 'C', 'L', 'I', 'C', 'K', 'E', 'D', 0,
     'w', 'x', 'R', 'i', 'b', 'b', 'o', 'n', 'B', 'u', 't', 't', 'o', 'n', 'B', 'a', 'r', 'B', 'u', 't', 't', 'o', 'n', 'B', 'a', 's', 'e', 0,
-    'G', 'e', 't', 'D', 'e', 'f', 'a', 'u', 'l', 't', 'B', 'o', 'r', 'd', 'e', 'r', 'F', 'o', 'r', 'C', 'o', 'n', 't', 'r', 'o', 'l', 0,
     'G', 'e', 't', 'S', 'c', 'r', 'o', 'l', 'l', 'B', 'u', 't', 't', 'o', 'n', 'M', 'i', 'n', 'i', 'm', 'u', 'm', 'S', 'i', 'z', 'e', 0,
     'G', 'e', 't', 'S', 'h', 'o', 'w', 'T', 'o', 'o', 'l', 'T', 'i', 'p', 's', 'F', 'o', 'r', 'D', 'i', 's', 'a', 'b', 'l', 'e', 'd', 0,
     'R', 'I', 'B', 'B', 'O', 'N', '_', 'B', 'A', 'R', '_', 'F', 'L', 'O', 'W', '_', 'H', 'O', 'R', 'I', 'Z', 'O', 'N', 'T', 'A', 'L', 0,
@@ -228,10 +238,12 @@ const char sipStrings__ribbon[] = {
     'G', 'e', 't', 'R', 'i', 'b', 'b', 'o', 'n', 'H', 'e', 'l', 'p', 'B', 'u', 't', 't', 'o', 'n', 'A', 'r', 'e', 'a', 0,
     'R', 'I', 'B', 'B', 'O', 'N', '_', 'P', 'A', 'N', 'E', 'L', '_', 'E', 'X', 'T', '_', 'B', 'U', 'T', 'T', 'O', 'N', 0,
     'R', 'I', 'B', 'B', 'O', 'N', '_', 'S', 'C', 'R', 'O', 'L', 'L', '_', 'B', 'T', 'N', '_', 'R', 'I', 'G', 'H', 'T', 0,
+    'U', 'p', 'd', 'a', 't', 'e', 'C', 'o', 'l', 'o', 'u', 'r', 's', 'F', 'r', 'o', 'm', 'S', 'y', 's', 't', 'e', 'm', 0,
     'w', 'x', 'E', 'V', 'T', '_', 'R', 'I', 'B', 'B', 'O', 'N', 'B', 'A', 'R', '_', 'T', 'O', 'G', 'G', 'L', 'E', 'D', 0,
     'w', 'x', 'R', 'i', 'b', 'b', 'o', 'n', 'T', 'o', 'o', 'l', 'B', 'a', 'r', 'T', 'o', 'o', 'l', 'B', 'a', 's', 'e', 0,
     'G', 'e', 't', 'B', 'a', 'r', 'T', 'o', 'g', 'g', 'l', 'e', 'B', 'u', 't', 't', 'o', 'n', 'A', 'r', 'e', 'a', 0,
     'G', 'e', 't', 'B', 'u', 't', 't', 'o', 'n', 'B', 'a', 'r', 'B', 'u', 't', 't', 'o', 'n', 'S', 'i', 'z', 'e', 0,
+    'G', 'e', 't', 'M', 'i', 'n', 'i', 'm', 'i', 's', 'e', 'd', 'I', 'c', 'o', 'n', 'B', 'u', 'n', 'd', 'l', 'e', 0,
     'R', 'I', 'B', 'B', 'O', 'N', '_', 'B', 'U', 'T', 'T', 'O', 'N', '_', 'D', 'R', 'O', 'P', 'D', 'O', 'W', 'N', 0,
     'R', 'I', 'B', 'B', 'O', 'N', '_', 'S', 'C', 'R', 'O', 'L', 'L', '_', 'B', 'T', 'N', '_', 'D', 'O', 'W', 'N', 0,
     'R', 'I', 'B', 'B', 'O', 'N', '_', 'S', 'C', 'R', 'O', 'L', 'L', '_', 'B', 'T', 'N', '_', 'L', 'E', 'F', 'T', 0,
@@ -283,6 +295,7 @@ const char sipStrings__ribbon[] = {
     'D', 'r', 'a', 'w', 'M', 'i', 'n', 'i', 'm', 'i', 's', 'e', 'd', 'P', 'a', 'n', 'e', 'l', 0,
     'D', 'r', 'a', 'w', 'P', 'a', 'g', 'e', 'B', 'a', 'c', 'k', 'g', 'r', 'o', 'u', 'n', 'd', 0,
     'E', 'n', 'a', 'b', 'l', 'e', 'V', 'i', 's', 'i', 'b', 'l', 'e', 'F', 'o', 'c', 'u', 's', 0,
+    'G', 'e', 't', 'B', 'u', 't', 't', 'o', 'n', 'I', 'm', 'a', 'g', 'e', 'L', 'i', 's', 't', 0,
     'G', 'e', 't', 'D', 'o', 'w', 'n', 'B', 'u', 't', 't', 'o', 'n', 'S', 't', 'a', 't', 'e', 0,
     'G', 'e', 't', 'P', 'a', 'n', 'e', 'l', 'C', 'l', 'i', 'e', 'n', 't', 'S', 'i', 'z', 'e', 0,
     'I', 'n', 's', 'e', 'r', 't', 'D', 'r', 'o', 'p', 'd', 'o', 'w', 'n', 'T', 'o', 'o', 'l', 0,
@@ -312,6 +325,7 @@ const char sipStrings__ribbon[] = {
     'w', 'x', 'R', 'i', 'b', 'b', 'o', 'n', 'B', 'a', 'r', 'O', 'p', 't', 'i', 'o', 'n', 0,
     'w', 'x', 'R', 'i', 'b', 'b', 'o', 'n', 'B', 'u', 't', 't', 'o', 'n', 'B', 'a', 'r', 0,
     'A', 'd', 'd', 'P', 'a', 'g', 'e', 'H', 'i', 'g', 'h', 'l', 'i', 'g', 'h', 't', 0,
+    'C', 'r', 'e', 'a', 't', 'e', 'A', 'c', 'c', 'e', 's', 's', 'i', 'b', 'l', 'e', 0,
     'D', 'r', 'a', 'w', 'S', 'c', 'r', 'o', 'l', 'l', 'B', 'u', 't', 't', 'o', 'n', 0,
     'D', 'r', 'a', 'w', 'T', 'a', 'b', 'S', 'e', 'p', 'a', 'r', 'a', 't', 'o', 'r', 0,
     'D', 'r', 'a', 'w', 'T', 'o', 'g', 'g', 'l', 'e', 'B', 'u', 't', 't', 'o', 'n', 0,
@@ -322,6 +336,7 @@ const char sipStrings__ribbon[] = {
     'G', 'e', 't', 'M', 'i', 'n', 'i', 'm', 'i', 's', 'e', 'd', 'I', 'c', 'o', 'n', 0,
     'G', 'e', 't', 'T', 'a', 'b', 'C', 't', 'r', 'l', 'H', 'e', 'i', 'g', 'h', 't', 0,
     'G', 'e', 't', 'U', 'p', 'B', 'u', 't', 't', 'o', 'n', 'S', 't', 'a', 't', 'e', 0,
+    'H', 'a', 's', 'M', 'u', 'l', 't', 'i', 'p', 'l', 'e', 'P', 'a', 'g', 'e', 's', 0,
     'I', 'n', 's', 'e', 'r', 't', 'H', 'y', 'b', 'r', 'i', 'd', 'T', 'o', 'o', 'l', 0,
     'I', 'n', 's', 'e', 'r', 't', 'T', 'o', 'g', 'g', 'l', 'e', 'T', 'o', 'o', 'l', 0,
     'S', 'e', 'n', 'd', 'D', 'e', 's', 't', 'r', 'o', 'y', 'E', 'v', 'e', 'n', 't', 0,
@@ -356,6 +371,7 @@ const char sipStrings__ribbon[] = {
     'G', 'e', 't', 'G', 'a', 'l', 'l', 'e', 'r', 'y', 'S', 'i', 'z', 'e', 0,
     'G', 'e', 't', 'H', 'o', 'v', 'e', 'r', 'e', 'd', 'I', 't', 'e', 'm', 0,
     'G', 'e', 't', 'T', 'o', 'o', 'l', 'E', 'n', 'a', 'b', 'l', 'e', 'd', 0,
+    'H', 'i', 'd', 'e', 'I', 'f', 'E', 'x', 'p', 'a', 'n', 'd', 'e', 'd', 0,
     'O', 'n', 'I', 'n', 't', 'e', 'r', 'n', 'a', 'l', 'I', 'd', 'l', 'e', 0,
     'S', 'c', 'r', 'o', 'l', 'l', 'S', 'e', 'c', 't', 'i', 'o', 'n', 's', 0,
     'S', 'e', 't', 'A', 'r', 't', 'P', 'r', 'o', 'v', 'i', 'd', 'e', 'r', 0,
@@ -372,7 +388,9 @@ const char sipStrings__ribbon[] = {
     'G', 'e', 't', 'A', 'c', 't', 'i', 'v', 'e', 'I', 't', 'e', 'm', 0,
     'G', 'e', 't', 'A', 'c', 't', 'i', 'v', 'e', 'P', 'a', 'g', 'e', 0,
     'G', 'e', 't', 'A', 'c', 't', 'i', 'v', 'e', 'T', 'o', 'o', 'l', 0,
+    'G', 'e', 't', 'I', 'c', 'o', 'n', 'B', 'u', 'n', 'd', 'l', 'e', 0,
     'G', 'e', 't', 'P', 'a', 'g', 'e', 'N', 'u', 'm', 'b', 'e', 'r', 0,
+    'G', 'e', 't', 'P', 'a', 'n', 'e', 'l', 'C', 'o', 'u', 'n', 't', 0,
     'S', 'e', 't', 'A', 'c', 't', 'i', 'v', 'e', 'P', 'a', 'g', 'e', 0,
     'S', 'e', 't', 'B', 'u', 't', 't', 'o', 'n', 'I', 'c', 'o', 'n', 0,
     'S', 'e', 't', 'B', 'u', 't', 't', 'o', 'n', 'T', 'e', 'x', 't', 0,
@@ -390,6 +408,7 @@ const char sipStrings__ribbon[] = {
     'E', 'n', 'a', 'b', 'l', 'e', 'B', 'u', 't', 't', 'o', 'n', 0,
     'G', 'e', 't', 'M', 'a', 'j', 'o', 'r', 'A', 'x', 'i', 's', 0,
     'G', 'e', 't', 'P', 'a', 'g', 'e', 'C', 'o', 'u', 'n', 't', 0,
+    'G', 'e', 't', 'P', 'a', 'n', 'e', 'l', 'B', 'y', 'I', 'd', 0,
     'G', 'e', 't', 'P', 'a', 'n', 'e', 'l', 'S', 'i', 'z', 'e', 0,
     'G', 'e', 't', 'S', 'e', 'l', 'e', 'c', 't', 'i', 'o', 'n', 0,
     'G', 'e', 't', 'T', 'o', 'o', 'l', 'B', 'y', 'P', 'o', 's', 0,
@@ -408,9 +427,11 @@ const char sipStrings__ribbon[] = {
     'b', 'i', 't', 'm', 'a', 'p', '_', 'l', 'a', 'r', 'g', 'e', 0,
     'b', 'i', 't', 'm', 'a', 'p', '_', 's', 'm', 'a', 'l', 'l', 0,
     'c', 'o', 'm', 'm', 'a', 'n', 'd', '_', 't', 'y', 'p', 'e', 0,
+    'i', 'n', 'i', 't', 'i', 'a', 'l', 'C', 'o', 'u', 'n', 't', 0,
     'w', 'x', 'R', 'i', 'b', 'b', 'o', 'n', 'P', 'a', 'g', 'e', 0,
     'G', 'e', 't', 'I', 't', 'e', 'm', 'B', 'y', 'I', 'd', 0,
     'G', 'e', 't', 'I', 't', 'e', 'm', 'R', 'e', 'c', 't', 0,
+    'G', 'e', 't', 'P', 'a', 'g', 'e', 'B', 'y', 'I', 'd', 0,
     'G', 'e', 't', 'T', 'o', 'o', 'l', 'K', 'i', 'n', 'd', 0,
     'G', 'e', 't', 'T', 'o', 'o', 'l', 'R', 'e', 'c', 't', 0,
     'G', 'e', 't', 'T', 'o', 'o', 'l', 'S', 'i', 'z', 'e', 0,
@@ -573,7 +594,6 @@ const char sipStrings__ribbon[] = {
     'p', 'a', 'g', 'e', 0,
     'r', 'e', 'c', 't', 0,
     's', 'h', 'o', 'w', 0,
-    't', 'i', 'm', 'e', 0,
     't', 'o', 'o', 'l', 0,
     'u', 'n', 'i', 't', 0,
     'a', 'r', 't', 0,
@@ -597,119 +617,119 @@ const char sipStrings__ribbon[] = {
     return sipRes;
 }
 
-::wxSize sipVH__ribbon_53(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxDC& dc, ::wxWindow*wnd, ::wxSize bitmap_size, ::wxRibbonButtonKind kind, bool is_first, bool is_last, ::wxRect*dropdown_region)
+::wxSize sipVH__ribbon_53(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxReadOnlyDC& dc, ::wxWindow*wnd, ::wxSize bitmap_size, ::wxRibbonButtonKind kind, bool is_first, bool is_last, ::wxRect*dropdown_region)
 {
     ::wxSize sipRes;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDNFbbD", &dc, sipType_wxDC, SIP_NULLPTR, wnd, sipType_wxWindow, SIP_NULLPTR, new ::wxSize(bitmap_size), sipType_wxSize, SIP_NULLPTR, kind, sipType_wxRibbonButtonKind, is_first, is_last, dropdown_region, sipType_wxRect, SIP_NULLPTR);
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDNFbbD", &dc, sipType_wxReadOnlyDC, SIP_NULLPTR, wnd, sipType_wxWindow, SIP_NULLPTR, new ::wxSize(bitmap_size), sipType_wxSize, SIP_NULLPTR, kind, sipType_wxRibbonButtonKind, is_first, is_last, dropdown_region, sipType_wxRect, SIP_NULLPTR);
 
     sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "H5", sipType_wxSize, &sipRes);
 
     return sipRes;
 }
 
-::wxSize sipVH__ribbon_52(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxDC& dc, const ::wxRibbonPanel*wnd, ::wxSize*desired_bitmap_size, ::wxDirection*expanded_panel_direction)
+::wxSize sipVH__ribbon_52(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxReadOnlyDC& dc, const ::wxRibbonPanel*wnd, ::wxSize*desired_bitmap_size, ::wxDirection*expanded_panel_direction)
 {
     ::wxSize sipRes;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDD", &dc, sipType_wxDC, SIP_NULLPTR, const_cast< ::wxRibbonPanel *>(wnd), sipType_wxRibbonPanel, SIP_NULLPTR, desired_bitmap_size, sipType_wxSize, SIP_NULLPTR);
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDD", &dc, sipType_wxReadOnlyDC, SIP_NULLPTR, const_cast< ::wxRibbonPanel *>(wnd), sipType_wxRibbonPanel, SIP_NULLPTR, desired_bitmap_size, sipType_wxSize, SIP_NULLPTR);
 
     sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "(H5F)", sipType_wxSize, &sipRes, sipType_wxDirection, expanded_panel_direction);
 
     return sipRes;
 }
 
-::wxCoord sipVH__ribbon_51(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxDC& dc, const ::wxString& label, ::wxRibbonButtonKind kind, ::wxRibbonButtonBarButtonState size)
+::wxCoord sipVH__ribbon_51(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxReadOnlyDC& dc, const ::wxString& label, ::wxRibbonButtonKind kind, ::wxRibbonButtonBarButtonState size)
 {
     ::wxCoord sipRes = 0;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DNFF", &dc, sipType_wxDC, SIP_NULLPTR, new ::wxString(label), sipType_wxString, SIP_NULLPTR, kind, sipType_wxRibbonButtonKind, size, sipType_wxRibbonButtonBarButtonState);
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DNFF", &dc, sipType_wxReadOnlyDC, SIP_NULLPTR, new ::wxString(label), sipType_wxString, SIP_NULLPTR, kind, sipType_wxRibbonButtonKind, size, sipType_wxRibbonButtonBarButtonState);
 
     sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "i", &sipRes);
 
     return sipRes;
 }
 
-bool sipVH__ribbon_50(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxDC& dc, ::wxWindow*wnd, ::wxRibbonButtonKind kind, ::wxRibbonButtonBarButtonState size, const ::wxString& label, ::wxCoord text_min_width, ::wxSize bitmap_size_large, ::wxSize bitmap_size_small, ::wxSize*button_size, ::wxRect*normal_region, ::wxRect*dropdown_region)
+bool sipVH__ribbon_50(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxReadOnlyDC& dc, ::wxWindow*wnd, ::wxRibbonButtonKind kind, ::wxRibbonButtonBarButtonState size, const ::wxString& label, ::wxCoord text_min_width, ::wxSize bitmap_size_large, ::wxSize bitmap_size_small, ::wxSize*button_size, ::wxRect*normal_region, ::wxRect*dropdown_region)
 {
     bool sipRes = 0;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDFFNiNNDDD", &dc, sipType_wxDC, SIP_NULLPTR, wnd, sipType_wxWindow, SIP_NULLPTR, kind, sipType_wxRibbonButtonKind, size, sipType_wxRibbonButtonBarButtonState, new ::wxString(label), sipType_wxString, SIP_NULLPTR, text_min_width, new ::wxSize(bitmap_size_large), sipType_wxSize, SIP_NULLPTR, new ::wxSize(bitmap_size_small), sipType_wxSize, SIP_NULLPTR, button_size, sipType_wxSize, SIP_NULLPTR, normal_region, sipType_wxRect, SIP_NULLPTR, dropdown_region, sipType_wxRect, SIP_NULLPTR);
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDFFNiNNDDD", &dc, sipType_wxReadOnlyDC, SIP_NULLPTR, wnd, sipType_wxWindow, SIP_NULLPTR, kind, sipType_wxRibbonButtonKind, size, sipType_wxRibbonButtonBarButtonState, new ::wxString(label), sipType_wxString, SIP_NULLPTR, text_min_width, new ::wxSize(bitmap_size_large), sipType_wxSize, SIP_NULLPTR, new ::wxSize(bitmap_size_small), sipType_wxSize, SIP_NULLPTR, button_size, sipType_wxSize, SIP_NULLPTR, normal_region, sipType_wxRect, SIP_NULLPTR, dropdown_region, sipType_wxRect, SIP_NULLPTR);
 
     sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "b", &sipRes);
 
     return sipRes;
 }
 
-::wxRect sipVH__ribbon_49(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxDC& dc, const ::wxRibbonPage*wnd, ::wxSize page_old_size, ::wxSize page_new_size)
+::wxRect sipVH__ribbon_49(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxReadOnlyDC& dc, const ::wxRibbonPage*wnd, ::wxSize page_old_size, ::wxSize page_new_size)
 {
     ::wxRect sipRes;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDNN", &dc, sipType_wxDC, SIP_NULLPTR, const_cast< ::wxRibbonPage *>(wnd), sipType_wxRibbonPage, SIP_NULLPTR, new ::wxSize(page_old_size), sipType_wxSize, SIP_NULLPTR, new ::wxSize(page_new_size), sipType_wxSize, SIP_NULLPTR);
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDNN", &dc, sipType_wxReadOnlyDC, SIP_NULLPTR, const_cast< ::wxRibbonPage *>(wnd), sipType_wxRibbonPage, SIP_NULLPTR, new ::wxSize(page_old_size), sipType_wxSize, SIP_NULLPTR, new ::wxSize(page_new_size), sipType_wxSize, SIP_NULLPTR);
 
     sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "H5", sipType_wxRect, &sipRes);
 
     return sipRes;
 }
 
-::wxSize sipVH__ribbon_48(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxDC& dc, const ::wxRibbonGallery*wnd, ::wxSize size, ::wxPoint*client_offset, ::wxRect*scroll_up_button, ::wxRect*scroll_down_button, ::wxRect*extension_button)
+::wxSize sipVH__ribbon_48(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxReadOnlyDC& dc, const ::wxRibbonGallery*wnd, ::wxSize size, ::wxPoint*client_offset, ::wxRect*scroll_up_button, ::wxRect*scroll_down_button, ::wxRect*extension_button)
 {
     ::wxSize sipRes;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDNDDDD", &dc, sipType_wxDC, SIP_NULLPTR, const_cast< ::wxRibbonGallery *>(wnd), sipType_wxRibbonGallery, SIP_NULLPTR, new ::wxSize(size), sipType_wxSize, SIP_NULLPTR, client_offset, sipType_wxPoint, SIP_NULLPTR, scroll_up_button, sipType_wxRect, SIP_NULLPTR, scroll_down_button, sipType_wxRect, SIP_NULLPTR, extension_button, sipType_wxRect, SIP_NULLPTR);
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDNDDDD", &dc, sipType_wxReadOnlyDC, SIP_NULLPTR, const_cast< ::wxRibbonGallery *>(wnd), sipType_wxRibbonGallery, SIP_NULLPTR, new ::wxSize(size), sipType_wxSize, SIP_NULLPTR, client_offset, sipType_wxPoint, SIP_NULLPTR, scroll_up_button, sipType_wxRect, SIP_NULLPTR, scroll_down_button, sipType_wxRect, SIP_NULLPTR, extension_button, sipType_wxRect, SIP_NULLPTR);
 
     sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "H5", sipType_wxSize, &sipRes);
 
     return sipRes;
 }
 
-::wxSize sipVH__ribbon_47(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxDC& dc, const ::wxRibbonGallery*wnd, ::wxSize client_size)
+::wxSize sipVH__ribbon_47(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxReadOnlyDC& dc, const ::wxRibbonGallery*wnd, ::wxSize client_size)
 {
     ::wxSize sipRes;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDN", &dc, sipType_wxDC, SIP_NULLPTR, const_cast< ::wxRibbonGallery *>(wnd), sipType_wxRibbonGallery, SIP_NULLPTR, new ::wxSize(client_size), sipType_wxSize, SIP_NULLPTR);
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDN", &dc, sipType_wxReadOnlyDC, SIP_NULLPTR, const_cast< ::wxRibbonGallery *>(wnd), sipType_wxRibbonGallery, SIP_NULLPTR, new ::wxSize(client_size), sipType_wxSize, SIP_NULLPTR);
 
     sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "H5", sipType_wxSize, &sipRes);
 
     return sipRes;
 }
 
-::wxRect sipVH__ribbon_46(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxDC& dc, const ::wxRibbonPanel*wnd, ::wxRect rect)
+::wxRect sipVH__ribbon_46(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxReadOnlyDC& dc, const ::wxRibbonPanel*wnd, ::wxRect rect)
 {
     ::wxRect sipRes;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDN", &dc, sipType_wxDC, SIP_NULLPTR, const_cast< ::wxRibbonPanel *>(wnd), sipType_wxRibbonPanel, SIP_NULLPTR, new ::wxRect(rect), sipType_wxRect, SIP_NULLPTR);
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDN", &dc, sipType_wxReadOnlyDC, SIP_NULLPTR, const_cast< ::wxRibbonPanel *>(wnd), sipType_wxRibbonPanel, SIP_NULLPTR, new ::wxRect(rect), sipType_wxRect, SIP_NULLPTR);
 
     sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "H5", sipType_wxRect, &sipRes);
 
     return sipRes;
 }
 
-::wxSize sipVH__ribbon_45(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxDC& dc, const ::wxRibbonPanel*wnd, ::wxSize client_size, ::wxPoint*client_offset)
+::wxSize sipVH__ribbon_45(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxReadOnlyDC& dc, const ::wxRibbonPanel*wnd, ::wxSize client_size, ::wxPoint*client_offset)
 {
     ::wxSize sipRes;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDND", &dc, sipType_wxDC, SIP_NULLPTR, const_cast< ::wxRibbonPanel *>(wnd), sipType_wxRibbonPanel, SIP_NULLPTR, new ::wxSize(client_size), sipType_wxSize, SIP_NULLPTR, client_offset, sipType_wxPoint, SIP_NULLPTR);
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDND", &dc, sipType_wxReadOnlyDC, SIP_NULLPTR, const_cast< ::wxRibbonPanel *>(wnd), sipType_wxRibbonPanel, SIP_NULLPTR, new ::wxSize(client_size), sipType_wxSize, SIP_NULLPTR, client_offset, sipType_wxPoint, SIP_NULLPTR);
 
     sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "H5", sipType_wxSize, &sipRes);
 
     return sipRes;
 }
 
-::wxSize sipVH__ribbon_44(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxDC& dc, ::wxWindow*wnd, long style)
+::wxSize sipVH__ribbon_44(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxReadOnlyDC& dc, ::wxWindow*wnd, long style)
 {
     ::wxSize sipRes;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDl", &dc, sipType_wxDC, SIP_NULLPTR, wnd, sipType_wxWindow, SIP_NULLPTR, style);
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDl", &dc, sipType_wxReadOnlyDC, SIP_NULLPTR, wnd, sipType_wxWindow, SIP_NULLPTR, style);
 
     sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "H5", sipType_wxSize, &sipRes);
 
     return sipRes;
 }
 
-int sipVH__ribbon_43(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxDC& dc, ::wxWindow*wnd, const ::wxRibbonPageTabInfoArray& pages)
+int sipVH__ribbon_43(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxReadOnlyDC& dc, ::wxWindow*wnd, const ::wxRibbonPageTabInfoArray& pages)
 {
     int sipRes = 0;
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDN", &dc, sipType_wxDC, SIP_NULLPTR, wnd, sipType_wxWindow, SIP_NULLPTR, new ::wxRibbonPageTabInfoArray(pages), sipType_wxRibbonPageTabInfoArray, SIP_NULLPTR);
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDN", &dc, sipType_wxReadOnlyDC, SIP_NULLPTR, wnd, sipType_wxWindow, SIP_NULLPTR, new ::wxRibbonPageTabInfoArray(pages), sipType_wxRibbonPageTabInfoArray, SIP_NULLPTR);
 
     sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "i", &sipRes);
 
     return sipRes;
 }
 
-void sipVH__ribbon_42(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxDC& dc, ::wxWindow*wnd, const ::wxString& label, const ::wxBitmap& bitmap, int*ideal, int*small_begin_need_separator, int*small_must_have_separator, int*minimum)
+void sipVH__ribbon_42(sip_gilstate_t sipGILState, sipVirtErrorHandlerFunc sipErrorHandler, sipSimpleWrapper *sipPySelf, PyObject *sipMethod, ::wxReadOnlyDC& dc, ::wxWindow*wnd, const ::wxString& label, const ::wxBitmap& bitmap, int*ideal, int*small_begin_need_separator, int*small_must_have_separator, int*minimum)
 {
-    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDNN", &dc, sipType_wxDC, SIP_NULLPTR, wnd, sipType_wxWindow, SIP_NULLPTR, new ::wxString(label), sipType_wxString, SIP_NULLPTR, new ::wxBitmap(bitmap), sipType_wxBitmap, SIP_NULLPTR);
+    PyObject *sipResObj = sipCallMethod(SIP_NULLPTR, sipMethod, "DDNN", &dc, sipType_wxReadOnlyDC, SIP_NULLPTR, wnd, sipType_wxWindow, SIP_NULLPTR, new ::wxString(label), sipType_wxString, SIP_NULLPTR, new ::wxBitmap(bitmap), sipType_wxBitmap, SIP_NULLPTR);
 
     sipParseResultEx(sipGILState, sipErrorHandler, sipPySelf, sipMethod, sipResObj, "(iiii)", ideal, small_begin_need_separator, small_must_have_separator, minimum);
 }
@@ -1216,7 +1236,9 @@ sipTypeDef *sipExportedTypes__ribbon[] = {
 
 /* This defines the types that this module needs to import from _core. */
 sipImportedTypeDef sipImportedTypes__ribbon__core[] = {
+    {"wxAccessible"},
     {"wxBitmap"},
+    {"wxBitmapBundle"},
     {"wxBorder"},
     {"wxClientData"},
     {"wxColour"},
@@ -1228,12 +1250,14 @@ sipImportedTypeDef sipImportedTypes__ribbon__core[] = {
     {"wxEventCategory"},
     {"wxEvtHandler"},
     {"wxFont"},
+    {"wxImageList"},
     {"wxMenu"},
     {"wxNotifyEvent"},
     {"wxObject"},
     {"wxOrientation"},
     {"wxPoint"},
     {"wxPyUserData"},
+    {"wxReadOnlyDC"},
     {"wxRect"},
     {"wxSize"},
     {"wxString"},

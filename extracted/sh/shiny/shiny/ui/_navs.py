@@ -1570,7 +1570,7 @@ def navset_bar(
     """
 
     # If args contains any lists, flatten them into args.
-    new_args: Sequence[NavSetArg | MetadataNode] = []
+    new_args: list[NavSetArg | MetadataNode] = []
     for arg in args:
         if isinstance(arg, (list, tuple)):
             new_args.extend(arg)
@@ -1685,4 +1685,10 @@ def navset_title(
 
 
 def nav_random_int() -> str:
-    return private_random_int(1000, 1000000)
+    # A page can contain dozens of tabsets, and each render must produce unique
+    # IDs: a duplicate `data-tabsetid` yields duplicate `tab-<tabsetid>-<index>`
+    # DOM ids, which breaks Bootstrap tab targeting and any locator keyed on the
+    # tabset ID. The pool is sized so that birthday collisions are effectively
+    # impossible, while keeping IDs as fixed-width digit strings below 2**53 in
+    # case they are ever handled as numbers in JavaScript.
+    return private_random_int(10**12, 10**13 - 1)

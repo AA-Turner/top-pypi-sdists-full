@@ -132,7 +132,7 @@ static void dealloc_wxWindowBase(sipSimpleWrapper *sipSelf)
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxWindowBase[] = {{158, 255, 1}};
+static sipEncodedTypeDef supers_wxWindowBase[] = {{165, 255, 1}};
 
 
 static PyMethodDef methods_wxWindowBase[] = {

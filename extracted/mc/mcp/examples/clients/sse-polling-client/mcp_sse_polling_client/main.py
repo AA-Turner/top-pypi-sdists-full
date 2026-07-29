@@ -1,5 +1,4 @@
-"""
-SSE Polling Demo Client
+"""SSE Polling Demo Client
 
 Demonstrates the client-side auto-reconnect for SSE polling pattern.
 
@@ -20,9 +19,7 @@ import logging
 
 import click
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
-
-logger = logging.getLogger(__name__)
+from mcp.client.streamable_http import streamable_http_client
 
 
 async def run_demo(url: str, items: int, checkpoint_every: int) -> None:
@@ -34,7 +31,7 @@ async def run_demo(url: str, items: int, checkpoint_every: int) -> None:
     print(f"Processing {items} items with checkpoints every {checkpoint_every}")
     print(f"{'=' * 60}\n")
 
-    async with streamablehttp_client(url) as (read_stream, write_stream, _):
+    async with streamable_http_client(url) as (read_stream, write_stream):
         async with ClientSession(read_stream, write_stream) as session:
             # Initialize the connection
             print("Initializing connection...")
@@ -95,8 +92,8 @@ def main(url: str, items: int, checkpoint_every: int, log_level: str) -> None:
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
     # Suppress noisy HTTP client logging
-    logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("httpcore").setLevel(logging.WARNING)
+    logging.getLogger("httpx2").setLevel(logging.WARNING)
+    logging.getLogger("httpcore2").setLevel(logging.WARNING)
 
     asyncio.run(run_demo(url, items, checkpoint_every))
 

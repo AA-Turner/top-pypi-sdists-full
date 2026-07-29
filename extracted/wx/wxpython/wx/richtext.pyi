@@ -324,9 +324,9 @@ class TextAttrDimension:
         Partial equality test.
         """
 
-    def Apply(self, dim: TextAttrDimension, compareWith: Optional[TextAttrDimension]=None) -> bool:
+    def Apply(self, dim: TextAttrDimension, compareWith: TextAttrDimension=nullptr) -> bool:
         """
-        Apply(dim, compareWith=None) -> bool
+        Apply(dim, compareWith=nullptr) -> bool
         
         Apply the dimension, but not those identical to compareWith if present.
         """
@@ -507,9 +507,9 @@ class TextAttrDimensions:
         Partial equality test.
         """
 
-    def Apply(self, dims: TextAttrDimensions, compareWith: Optional[TextAttrDimensions]=None) -> bool:
+    def Apply(self, dims: TextAttrDimensions, compareWith: TextAttrDimensions=nullptr) -> bool:
         """
-        Apply(dims, compareWith=None) -> bool
+        Apply(dims, compareWith=nullptr) -> bool
         
         Apply to 'this', but not if the same as compareWith.
         """
@@ -611,9 +611,9 @@ class TextAttrSize:
         Partial equality test.
         """
 
-    def Apply(self, dims: TextAttrSize, compareWith: Optional[TextAttrSize]=None) -> bool:
+    def Apply(self, dims: TextAttrSize, compareWith: TextAttrSize=nullptr) -> bool:
         """
-        Apply(dims, compareWith=None) -> bool
+        Apply(dims, compareWith=nullptr) -> bool
         
         Apply to this object, but not if the same as compareWith.
         """
@@ -714,7 +714,7 @@ class TextAttrDimensionConverter:
         ...
 
     @overload
-    def __init__(self, dc: wx.DC, scale: float=1.0, parentSize: wx.Size=wx.DefaultSize) -> None:
+    def __init__(self, dc: wx.ReadOnlyDC, scale: float=1.0, parentSize: wx.Size=wx.DefaultSize) -> None:
         """
         TextAttrDimensionConverter(dc, scale=1.0, parentSize=wx.DefaultSize) -> None
         TextAttrDimensionConverter(ppi, scale=1.0, parentSize=wx.DefaultSize) -> None
@@ -791,9 +791,9 @@ class TextAttrBorder:
         Partial equality test.
         """
 
-    def Apply(self, border: TextAttrBorder, compareWith: Optional[TextAttrBorder]=None) -> bool:
+    def Apply(self, border: TextAttrBorder, compareWith: TextAttrBorder=nullptr) -> bool:
         """
-        Apply(border, compareWith=None) -> bool
+        Apply(border, compareWith=nullptr) -> bool
         
         Applies the border to this object, but not if the same as compareWith.
         """
@@ -1044,9 +1044,9 @@ class TextAttrBorders:
         Partial equality test.
         """
 
-    def Apply(self, borders: TextAttrBorders, compareWith: Optional[TextAttrBorders]=None) -> bool:
+    def Apply(self, borders: TextAttrBorders, compareWith: TextAttrBorders=nullptr) -> bool:
         """
-        Apply(borders, compareWith=None) -> bool
+        Apply(borders, compareWith=nullptr) -> bool
         
         Applies border to this object, but not if the same as compareWith.
         """
@@ -1153,9 +1153,9 @@ class TextAttrShadow:
         Partial equality test.
         """
 
-    def Apply(self, shadow: TextAttrShadow, compareWith: Optional[TextAttrShadow]=None) -> bool:
+    def Apply(self, shadow: TextAttrShadow, compareWith: TextAttrShadow=nullptr) -> bool:
         """
-        Apply(shadow, compareWith=None) -> bool
+        Apply(shadow, compareWith=nullptr) -> bool
         
         Applies the border to this object, but not if the same as compareWith.
         """
@@ -1424,9 +1424,9 @@ class TextBoxAttr:
         Partial equality test, ignoring unset attributes.
         """
 
-    def Apply(self, style: TextBoxAttr, compareWith: Optional[TextBoxAttr]=None) -> bool:
+    def Apply(self, style: TextBoxAttr, compareWith: TextBoxAttr=nullptr) -> bool:
         """
-        Apply(style, compareWith=None) -> bool
+        Apply(style, compareWith=nullptr) -> bool
         
         Merges the given attributes.
         """
@@ -2027,9 +2027,9 @@ class RichTextAttr(wx.TextAttr):
         Partial equality test.
         """
 
-    def Apply(self, style: RichTextAttr, compareWith: Optional[RichTextAttr]=None) -> bool:
+    def Apply(self, style: RichTextAttr, compareWith: RichTextAttr=nullptr) -> bool:
         """
-        Apply(style, compareWith=None) -> bool
+        Apply(style, compareWith=nullptr) -> bool
         
         Merges the given attributes.
         """
@@ -2873,14 +2873,14 @@ class RichTextDrawingContext(wx.Object):
 
 class RichTextObject(wx.Object):
     """
-    RichTextObject(parent=None) -> None
+    RichTextObject(parent=nullptr) -> None
     
     This is the base for drawable rich text objects.
     """
 
-    def __init__(self, parent: Optional[RichTextObject]=None) -> None:
+    def __init__(self, parent: RichTextObject=nullptr) -> None:
         """
-        RichTextObject(parent=None) -> None
+        RichTextObject(parent=nullptr) -> None
         
         This is the base for drawable rich text objects.
         """
@@ -2892,7 +2892,7 @@ class RichTextObject(wx.Object):
         Draw the item, within the given range.
         """
 
-    def Layout(self, dc: wx.DC, context: RichTextDrawingContext, rect: wx.Rect, parentRect: wx.Rect, style: int) -> bool:
+    def Layout(self, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, rect: wx.Rect, parentRect: wx.Rect, style: int) -> bool:
         """
         Layout(dc, context, rect, parentRect, style) -> bool
         
@@ -2900,7 +2900,7 @@ class RichTextObject(wx.Object):
         constraint.
         """
 
-    def HitTest(self, dc: wx.DC, context: RichTextDrawingContext, pt: wx.Point, flags: int=0) -> Tuple[int, int, RichTextObject, RichTextObject]:
+    def HitTest(self, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, pt: wx.Point, flags: int=0) -> Tuple[int, int, RichTextObject, RichTextObject]:
         """
         HitTest(dc, context, pt, flags=0) -> Tuple[int, int, RichTextObject, RichTextObject]
         
@@ -2908,7 +2908,7 @@ class RichTextObject(wx.Object):
         information about position.
         """
 
-    def FindPosition(self, dc: wx.DC, context: RichTextDrawingContext, index: int, forceLineStart: bool) -> Tuple[bool, wx.Point, int]:
+    def FindPosition(self, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, index: int, forceLineStart: bool) -> Tuple[bool, wx.Point, int]:
         """
         FindPosition(dc, context, index, forceLineStart) -> Tuple[bool, wx.Point, int]
         
@@ -2924,9 +2924,9 @@ class RichTextObject(wx.Object):
         irrespective of available space.
         """
 
-    def GetRangeSize(self, range: Union[RichTextRange, wx._TwoInts], size: wx.Size, descent: int, dc: wx.DC, context: RichTextDrawingContext, flags: int, position: wx.Point=wx.Point(0,0), parentSize: wx.Size=wx.DefaultSize, partialExtents: Optional[List[int]]=None) -> bool:
+    def GetRangeSize(self, range: Union[RichTextRange, wx._TwoInts], size: wx.Size, descent: int, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, flags: int, position: wx.Point=wx.Point(0,0), parentSize: wx.Size=wx.DefaultSize, partialExtents: List[int]=nullptr) -> bool:
         """
-        GetRangeSize(range, size, descent, dc, context, flags, position=wx.Point(0,0), parentSize=wx.DefaultSize, partialExtents=None) -> bool
+        GetRangeSize(range, size, descent, dc, context, flags, position=wx.Point(0,0), parentSize=wx.DefaultSize, partialExtents=nullptr) -> bool
         
         Returns the object size for the given range.
         """
@@ -3289,7 +3289,7 @@ class RichTextObject(wx.Object):
         Returns the bottom margin of the object, in pixels.
         """
 
-    def GetAvailableContentArea(self, dc: wx.DC, context: RichTextDrawingContext, outerRect: wx.Rect) -> wx.Rect:
+    def GetAvailableContentArea(self, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, outerRect: wx.Rect) -> wx.Rect:
         """
         GetAvailableContentArea(dc, context, outerRect) -> wx.Rect
         
@@ -3297,7 +3297,7 @@ class RichTextObject(wx.Object):
         the margins, border and padding specified in the object's attributes.
         """
 
-    def LayoutToBestSize(self, dc: wx.DC, context: RichTextDrawingContext, buffer: RichTextBuffer, parentAttr: RichTextAttr, attr: RichTextAttr, availableParentSpace: wx.Rect, availableContainerSpace: wx.Rect, style: int) -> bool:
+    def LayoutToBestSize(self, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, buffer: RichTextBuffer, parentAttr: RichTextAttr, attr: RichTextAttr, availableParentSpace: wx.Rect, availableContainerSpace: wx.Rect, style: int) -> bool:
         """
         LayoutToBestSize(dc, context, buffer, parentAttr, attr, availableParentSpace, availableContainerSpace, style) -> bool
         
@@ -3443,7 +3443,7 @@ class RichTextObject(wx.Object):
         ...
 
     @overload
-    def ConvertTenthsMMToPixels(self, dc: wx.DC, units: int) -> int:
+    def ConvertTenthsMMToPixels(self, dc: wx.ReadOnlyDC, units: int) -> int:
         """
         ConvertTenthsMMToPixels(dc, units) -> int
         ConvertTenthsMMToPixels(ppi, units, scale=1.0) -> int
@@ -3457,7 +3457,7 @@ class RichTextObject(wx.Object):
         ...
 
     @overload
-    def ConvertPixelsToTenthsMM(self, dc: wx.DC, pixels: int) -> int:
+    def ConvertPixelsToTenthsMM(self, dc: wx.ReadOnlyDC, pixels: int) -> int:
         """
         ConvertPixelsToTenthsMM(dc, pixels) -> int
         ConvertPixelsToTenthsMM(ppi, pixels, scale=1.0) -> int
@@ -3466,9 +3466,9 @@ class RichTextObject(wx.Object):
         """
 
     @staticmethod
-    def DrawBoxAttributes(dc: wx.DC, buffer: RichTextBuffer, attr: RichTextAttr, boxRect: wx.Rect, flags: int=0, obj: Optional[RichTextObject]=None) -> bool:
+    def DrawBoxAttributes(dc: wx.DC, buffer: RichTextBuffer, attr: RichTextAttr, boxRect: wx.Rect, flags: int=0, obj: RichTextObject=nullptr) -> bool:
         """
-        DrawBoxAttributes(dc, buffer, attr, boxRect, flags=0, obj=None) -> bool
+        DrawBoxAttributes(dc, buffer, attr, boxRect, flags=0, obj=nullptr) -> bool
         
         Draws the borders and background for the given rectangle and
         attributes.
@@ -3483,7 +3483,7 @@ class RichTextObject(wx.Object):
         """
 
     @staticmethod
-    def GetBoxRects(dc: wx.DC, buffer: RichTextBuffer, attr: RichTextAttr) -> Tuple[bool, wx.Rect, wx.Rect, wx.Rect, wx.Rect, wx.Rect]:
+    def GetBoxRects(dc: wx.ReadOnlyDC, buffer: RichTextBuffer, attr: RichTextAttr) -> Tuple[bool, wx.Rect, wx.Rect, wx.Rect, wx.Rect, wx.Rect]:
         """
         GetBoxRects(dc, buffer, attr) -> Tuple[bool, wx.Rect, wx.Rect, wx.Rect, wx.Rect, wx.Rect]
         
@@ -3491,7 +3491,7 @@ class RichTextObject(wx.Object):
         """
 
     @staticmethod
-    def GetTotalMargin(dc: wx.DC, buffer: RichTextBuffer, attr: RichTextAttr) -> Tuple[bool, int, int, int, int]:
+    def GetTotalMargin(dc: wx.ReadOnlyDC, buffer: RichTextBuffer, attr: RichTextAttr) -> Tuple[bool, int, int, int, int]:
         """
         GetTotalMargin(dc, buffer, attr) -> Tuple[bool, int, int, int, int]
         
@@ -3500,7 +3500,7 @@ class RichTextObject(wx.Object):
         """
 
     @staticmethod
-    def AdjustAvailableSpace(dc: wx.DC, buffer: RichTextBuffer, parentAttr: RichTextAttr, childAttr: RichTextAttr, availableParentSpace: wx.Rect, availableContainerSpace: wx.Rect) -> wx.Rect:
+    def AdjustAvailableSpace(dc: wx.ReadOnlyDC, buffer: RichTextBuffer, parentAttr: RichTextAttr, childAttr: RichTextAttr, availableParentSpace: wx.Rect, availableContainerSpace: wx.Rect) -> wx.Rect:
         """
         AdjustAvailableSpace(dc, buffer, parentAttr, childAttr, availableParentSpace, availableContainerSpace) -> wx.Rect
         
@@ -3586,19 +3586,19 @@ class RichTextObject(wx.Object):
 
 class RichTextCompositeObject(RichTextObject):
     """
-    RichTextCompositeObject(parent=None) -> None
+    RichTextCompositeObject(parent=nullptr) -> None
     
     Objects of this class can contain other objects.
     """
 
-    def __init__(self, parent: Optional[RichTextObject]=None) -> None:
+    def __init__(self, parent: RichTextObject=nullptr) -> None:
         """
-        RichTextCompositeObject(parent=None) -> None
+        RichTextCompositeObject(parent=nullptr) -> None
         
         Objects of this class can contain other objects.
         """
 
-    def HitTest(self, dc: wx.DC, context: RichTextDrawingContext, pt: wx.Point, flags: int=0) -> Tuple[int, int, RichTextObject, RichTextObject]:
+    def HitTest(self, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, pt: wx.Point, flags: int=0) -> Tuple[int, int, RichTextObject, RichTextObject]:
         """
         HitTest(dc, context, pt, flags=0) -> Tuple[int, int, RichTextObject, RichTextObject]
         
@@ -3606,7 +3606,7 @@ class RichTextCompositeObject(RichTextObject):
         information about position.
         """
 
-    def FindPosition(self, dc: wx.DC, context: RichTextDrawingContext, index: int, forceLineStart: bool) -> Tuple[bool, wx.Point, int]:
+    def FindPosition(self, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, index: int, forceLineStart: bool) -> Tuple[bool, wx.Point, int]:
         """
         FindPosition(dc, context, index, forceLineStart) -> Tuple[bool, wx.Point, int]
         
@@ -3635,9 +3635,9 @@ class RichTextCompositeObject(RichTextObject):
         Returns any text in this object for the given range.
         """
 
-    def GetRangeSize(self, range: Union[RichTextRange, wx._TwoInts], size: wx.Size, descent: int, dc: wx.DC, context: RichTextDrawingContext, flags: int, position: wx.Point=wx.Point(0,0), parentSize: wx.Size=wx.DefaultSize, partialExtents: Optional[List[int]]=None) -> bool:
+    def GetRangeSize(self, range: Union[RichTextRange, wx._TwoInts], size: wx.Size, descent: int, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, flags: int, position: wx.Point=wx.Point(0,0), parentSize: wx.Size=wx.DefaultSize, partialExtents: List[int]=nullptr) -> bool:
         """
-        GetRangeSize(range, size, descent, dc, context, flags, position=wx.Point(0,0), parentSize=wx.DefaultSize, partialExtents=None) -> bool
+        GetRangeSize(range, size, descent, dc, context, flags, position=wx.Point(0,0), parentSize=wx.DefaultSize, partialExtents=nullptr) -> bool
         
         Returns the object size for the given range.
         """
@@ -3753,7 +3753,7 @@ class RichTextCompositeObject(RichTextObject):
 
 class RichTextParagraphLayoutBox(RichTextCompositeObject):
     """
-    RichTextParagraphLayoutBox(parent=None) -> None
+    RichTextParagraphLayoutBox(parent=nullptr) -> None
     RichTextParagraphLayoutBox(obj) -> None
     
     This class knows how to lay out paragraphs.
@@ -3764,15 +3764,15 @@ class RichTextParagraphLayoutBox(RichTextCompositeObject):
         ...
 
     @overload
-    def __init__(self, parent: Optional[RichTextObject]=None) -> None:
+    def __init__(self, parent: RichTextObject=nullptr) -> None:
         """
-        RichTextParagraphLayoutBox(parent=None) -> None
+        RichTextParagraphLayoutBox(parent=nullptr) -> None
         RichTextParagraphLayoutBox(obj) -> None
         
         This class knows how to lay out paragraphs.
         """
 
-    def HitTest(self, dc: wx.DC, context: RichTextDrawingContext, pt: wx.Point, flags: int=0) -> Tuple[int, int, RichTextObject, RichTextObject]:
+    def HitTest(self, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, pt: wx.Point, flags: int=0) -> Tuple[int, int, RichTextObject, RichTextObject]:
         """
         HitTest(dc, context, pt, flags=0) -> Tuple[int, int, RichTextObject, RichTextObject]
         
@@ -3787,7 +3787,7 @@ class RichTextParagraphLayoutBox(RichTextCompositeObject):
         Draw the item, within the given range.
         """
 
-    def Layout(self, dc: wx.DC, context: RichTextDrawingContext, rect: wx.Rect, parentRect: wx.Rect, style: int) -> bool:
+    def Layout(self, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, rect: wx.Rect, parentRect: wx.Rect, style: int) -> bool:
         """
         Layout(dc, context, rect, parentRect, style) -> bool
         
@@ -3795,9 +3795,9 @@ class RichTextParagraphLayoutBox(RichTextCompositeObject):
         constraint.
         """
 
-    def GetRangeSize(self, range: Union[RichTextRange, wx._TwoInts], size: wx.Size, descent: int, dc: wx.DC, context: RichTextDrawingContext, flags: int, position: wx.Point=wx.Point(0,0), parentSize: wx.Size=wx.DefaultSize, partialExtents: Optional[List[int]]=None) -> bool:
+    def GetRangeSize(self, range: Union[RichTextRange, wx._TwoInts], size: wx.Size, descent: int, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, flags: int, position: wx.Point=wx.Point(0,0), parentSize: wx.Size=wx.DefaultSize, partialExtents: List[int]=nullptr) -> bool:
         """
-        GetRangeSize(range, size, descent, dc, context, flags, position=wx.Point(0,0), parentSize=wx.DefaultSize, partialExtents=None) -> bool
+        GetRangeSize(range, size, descent, dc, context, flags, position=wx.Point(0,0), parentSize=wx.DefaultSize, partialExtents=nullptr) -> bool
         
         Returns the object size for the given range.
         """
@@ -3976,23 +3976,23 @@ class RichTextParagraphLayoutBox(RichTextCompositeObject):
         Clears and initializes with one blank paragraph.
         """
 
-    def AddParagraph(self, text: str, paraStyle: Optional[RichTextAttr]=None) -> RichTextRange:
+    def AddParagraph(self, text: str, paraStyle: RichTextAttr=nullptr) -> RichTextRange:
         """
-        AddParagraph(text, paraStyle=None) -> RichTextRange
+        AddParagraph(text, paraStyle=nullptr) -> RichTextRange
         
         Convenience function to add a paragraph of text.
         """
 
-    def AddImage(self, image: wx.Image, paraStyle: Optional[RichTextAttr]=None) -> RichTextRange:
+    def AddImage(self, image: wx.Image, paraStyle: RichTextAttr=nullptr) -> RichTextRange:
         """
-        AddImage(image, paraStyle=None) -> RichTextRange
+        AddImage(image, paraStyle=nullptr) -> RichTextRange
         
         Convenience function to add an image.
         """
 
-    def AddParagraphs(self, text: str, paraStyle: Optional[RichTextAttr]=None) -> RichTextRange:
+    def AddParagraphs(self, text: str, paraStyle: RichTextAttr=nullptr) -> RichTextRange:
         """
-        AddParagraphs(text, paraStyle=None) -> RichTextRange
+        AddParagraphs(text, paraStyle=nullptr) -> RichTextRange
         
         Adds multiple paragraphs, based on newlines.
         """
@@ -4181,9 +4181,9 @@ class RichTextParagraphLayoutBox(RichTextCompositeObject):
         ...
 
     @overload
-    def NumberList(self, range: Union[RichTextRange, wx._TwoInts], _def: Optional[RichTextListStyleDefinition]=None, flags: int=RICHTEXT_SETSTYLE_WITH_UNDO, startFrom: int=1, specifiedLevel: int=-1) -> bool:
+    def NumberList(self, range: Union[RichTextRange, wx._TwoInts], _def: RichTextListStyleDefinition=nullptr, flags: int=RICHTEXT_SETSTYLE_WITH_UNDO, startFrom: int=1, specifiedLevel: int=-1) -> bool:
         """
-        NumberList(range, _def=None, flags=RICHTEXT_SETSTYLE_WITH_UNDO, startFrom=1, specifiedLevel=-1) -> bool
+        NumberList(range, _def=nullptr, flags=RICHTEXT_SETSTYLE_WITH_UNDO, startFrom=1, specifiedLevel=-1) -> bool
         NumberList(range, defName, flags=RICHTEXT_SETSTYLE_WITH_UNDO, startFrom=1, specifiedLevel=-1) -> bool
         
         Numbers the paragraphs in the given range.
@@ -4194,9 +4194,9 @@ class RichTextParagraphLayoutBox(RichTextCompositeObject):
         ...
 
     @overload
-    def PromoteList(self, promoteBy: int, range: Union[RichTextRange, wx._TwoInts], _def: Optional[RichTextListStyleDefinition]=None, flags: int=RICHTEXT_SETSTYLE_WITH_UNDO, specifiedLevel: int=-1) -> bool:
+    def PromoteList(self, promoteBy: int, range: Union[RichTextRange, wx._TwoInts], _def: RichTextListStyleDefinition=nullptr, flags: int=RICHTEXT_SETSTYLE_WITH_UNDO, specifiedLevel: int=-1) -> bool:
         """
-        PromoteList(promoteBy, range, _def=None, flags=RICHTEXT_SETSTYLE_WITH_UNDO, specifiedLevel=-1) -> bool
+        PromoteList(promoteBy, range, _def=nullptr, flags=RICHTEXT_SETSTYLE_WITH_UNDO, specifiedLevel=-1) -> bool
         PromoteList(promoteBy, range, defName, flags=RICHTEXT_SETSTYLE_WITH_UNDO, specifiedLevel=-1) -> bool
         
         Promotes the list items within the given range.
@@ -4207,7 +4207,7 @@ class RichTextParagraphLayoutBox(RichTextCompositeObject):
         DoNumberList(range, promotionRange, promoteBy, styleDef, flags=RICHTEXT_SETSTYLE_WITH_UNDO, startFrom=1, specifiedLevel=-1) -> bool
         
         Helper for NumberList and PromoteList, that does renumbering and
-        promotion simultaneously def can be NULL/empty to indicate that the
+        promotion simultaneously def can be nullptr/empty to indicate that the
         existing list style should be used.
         """
 
@@ -4227,9 +4227,9 @@ class RichTextParagraphLayoutBox(RichTextCompositeObject):
         how the attributes are set.
         """
 
-    def SetObjectPropertiesWithUndo(self, obj: RichTextObject, properties: RichTextProperties, objToSet: Optional[RichTextObject]=None) -> bool:
+    def SetObjectPropertiesWithUndo(self, obj: RichTextObject, properties: RichTextProperties, objToSet: RichTextObject=nullptr) -> bool:
         """
-        SetObjectPropertiesWithUndo(obj, properties, objToSet=None) -> bool
+        SetObjectPropertiesWithUndo(obj, properties, objToSet=nullptr) -> bool
         
         Sets with undo the properties for the given object.
         """
@@ -4359,9 +4359,9 @@ class RichTextParagraphLayoutBox(RichTextCompositeObject):
         Do the (in)validation both up and down the hierarchy.
         """
 
-    def UpdateFloatingObjects(self, availableRect: wx.Rect, untilObj: Optional[RichTextObject]=None) -> bool:
+    def UpdateFloatingObjects(self, availableRect: wx.Rect, untilObj: RichTextObject=nullptr) -> bool:
         """
-        UpdateFloatingObjects(availableRect, untilObj=None) -> bool
+        UpdateFloatingObjects(availableRect, untilObj=nullptr) -> bool
         
         Gather information about floating objects.
         """
@@ -4437,7 +4437,7 @@ class RichTextParagraphLayoutBox(RichTextCompositeObject):
 
 class RichTextBox(RichTextParagraphLayoutBox):
     """
-    RichTextBox(parent=None) -> None
+    RichTextBox(parent=nullptr) -> None
     RichTextBox(obj) -> None
     
     This class implements a floating or inline text box, containing
@@ -4449,9 +4449,9 @@ class RichTextBox(RichTextParagraphLayoutBox):
         ...
 
     @overload
-    def __init__(self, parent: Optional[RichTextObject]=None) -> None:
+    def __init__(self, parent: RichTextObject=nullptr) -> None:
         """
-        RichTextBox(parent=None) -> None
+        RichTextBox(parent=nullptr) -> None
         RichTextBox(obj) -> None
         
         This class implements a floating or inline text box, containing
@@ -4513,7 +4513,7 @@ class RichTextBox(RichTextParagraphLayoutBox):
 
 class RichTextField(RichTextParagraphLayoutBox):
     """
-    RichTextField(fieldType='', parent=None) -> None
+    RichTextField(fieldType='', parent=nullptr) -> None
     RichTextField(obj) -> None
     
     This class implements the general concept of a field, an object that
@@ -4526,9 +4526,9 @@ class RichTextField(RichTextParagraphLayoutBox):
         ...
 
     @overload
-    def __init__(self, fieldType: str='', parent: Optional[RichTextObject]=None) -> None:
+    def __init__(self, fieldType: str='', parent: RichTextObject=nullptr) -> None:
         """
-        RichTextField(fieldType='', parent=None) -> None
+        RichTextField(fieldType='', parent=nullptr) -> None
         RichTextField(obj) -> None
         
         This class implements the general concept of a field, an object that
@@ -4543,7 +4543,7 @@ class RichTextField(RichTextParagraphLayoutBox):
         Draw the item, within the given range.
         """
 
-    def Layout(self, dc: wx.DC, context: RichTextDrawingContext, rect: wx.Rect, parentRect: wx.Rect, style: int) -> bool:
+    def Layout(self, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, rect: wx.Rect, parentRect: wx.Rect, style: int) -> bool:
         """
         Layout(dc, context, rect, parentRect, style) -> bool
         
@@ -4551,9 +4551,9 @@ class RichTextField(RichTextParagraphLayoutBox):
         constraint.
         """
 
-    def GetRangeSize(self, range: Union[RichTextRange, wx._TwoInts], size: wx.Size, descent: int, dc: wx.DC, context: RichTextDrawingContext, flags: int, position: wx.Point=wx.Point(0,0), parentSize: wx.Size=wx.DefaultSize, partialExtents: Optional[List[int]]=None) -> bool:
+    def GetRangeSize(self, range: Union[RichTextRange, wx._TwoInts], size: wx.Size, descent: int, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, flags: int, position: wx.Point=wx.Point(0,0), parentSize: wx.Size=wx.DefaultSize, partialExtents: List[int]=nullptr) -> bool:
         """
-        GetRangeSize(range, size, descent, dc, context, flags, position=wx.Point(0,0), parentSize=wx.DefaultSize, partialExtents=None) -> bool
+        GetRangeSize(range, size, descent, dc, context, flags, position=wx.Point(0,0), parentSize=wx.DefaultSize, partialExtents=nullptr) -> bool
         
         Returns the object size for the given range.
         """
@@ -4695,7 +4695,7 @@ class RichTextFieldType(wx.Object):
         Draw the item, within the given range.
         """
 
-    def Layout(self, obj: RichTextField, dc: wx.DC, context: RichTextDrawingContext, rect: wx.Rect, parentRect: wx.Rect, style: int) -> bool:
+    def Layout(self, obj: RichTextField, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, rect: wx.Rect, parentRect: wx.Rect, style: int) -> bool:
         """
         Layout(obj, dc, context, rect, parentRect, style) -> bool
         
@@ -4703,9 +4703,9 @@ class RichTextFieldType(wx.Object):
         constraint.
         """
 
-    def GetRangeSize(self, obj: RichTextField, range: Union[RichTextRange, wx._TwoInts], size: wx.Size, descent: int, dc: wx.DC, context: RichTextDrawingContext, flags: int, position: wx.Point=wx.Point(0,0), parentSize: wx.Size=wx.DefaultSize, partialExtents: Optional[List[int]]=None) -> bool:
+    def GetRangeSize(self, obj: RichTextField, range: Union[RichTextRange, wx._TwoInts], size: wx.Size, descent: int, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, flags: int, position: wx.Point=wx.Point(0,0), parentSize: wx.Size=wx.DefaultSize, partialExtents: List[int]=nullptr) -> bool:
         """
-        GetRangeSize(obj, range, size, descent, dc, context, flags, position=wx.Point(0,0), parentSize=wx.DefaultSize, partialExtents=None) -> bool
+        GetRangeSize(obj, range, size, descent, dc, context, flags, position=wx.Point(0,0), parentSize=wx.DefaultSize, partialExtents=nullptr) -> bool
         
         Returns the object size for the given range.
         """
@@ -4778,17 +4778,17 @@ class RichTextFieldTypeStandard(RichTextFieldType):
     that can be used for start and end tags.
     """
 
-    class _enum_44(IntEnum):
+    class _enum_45(IntEnum):
         RICHTEXT_FIELD_STYLE_COMPOSITE = auto()
         RICHTEXT_FIELD_STYLE_RECTANGLE = auto()
         RICHTEXT_FIELD_STYLE_NO_BORDER = auto()
         RICHTEXT_FIELD_STYLE_START_TAG = auto()
         RICHTEXT_FIELD_STYLE_END_TAG = auto()
-    RICHTEXT_FIELD_STYLE_COMPOSITE = _enum_44.RICHTEXT_FIELD_STYLE_COMPOSITE
-    RICHTEXT_FIELD_STYLE_RECTANGLE = _enum_44.RICHTEXT_FIELD_STYLE_RECTANGLE
-    RICHTEXT_FIELD_STYLE_NO_BORDER = _enum_44.RICHTEXT_FIELD_STYLE_NO_BORDER
-    RICHTEXT_FIELD_STYLE_START_TAG = _enum_44.RICHTEXT_FIELD_STYLE_START_TAG
-    RICHTEXT_FIELD_STYLE_END_TAG = _enum_44.RICHTEXT_FIELD_STYLE_END_TAG
+    RICHTEXT_FIELD_STYLE_COMPOSITE = _enum_45.RICHTEXT_FIELD_STYLE_COMPOSITE
+    RICHTEXT_FIELD_STYLE_RECTANGLE = _enum_45.RICHTEXT_FIELD_STYLE_RECTANGLE
+    RICHTEXT_FIELD_STYLE_NO_BORDER = _enum_45.RICHTEXT_FIELD_STYLE_NO_BORDER
+    RICHTEXT_FIELD_STYLE_START_TAG = _enum_45.RICHTEXT_FIELD_STYLE_START_TAG
+    RICHTEXT_FIELD_STYLE_END_TAG = _enum_45.RICHTEXT_FIELD_STYLE_END_TAG
 
     @overload
     def __init__(self, name: str, bitmap: wx.Bitmap, displayStyle: int=RICHTEXT_FIELD_STYLE_NO_BORDER) -> None:
@@ -4836,7 +4836,7 @@ class RichTextFieldTypeStandard(RichTextFieldType):
         Draw the item, within the given range.
         """
 
-    def Layout(self, obj: RichTextField, dc: wx.DC, context: RichTextDrawingContext, rect: wx.Rect, parentRect: wx.Rect, style: int) -> bool:
+    def Layout(self, obj: RichTextField, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, rect: wx.Rect, parentRect: wx.Rect, style: int) -> bool:
         """
         Layout(obj, dc, context, rect, parentRect, style) -> bool
         
@@ -4844,14 +4844,14 @@ class RichTextFieldTypeStandard(RichTextFieldType):
         constraint.
         """
 
-    def GetRangeSize(self, obj: RichTextField, range: Union[RichTextRange, wx._TwoInts], size: wx.Size, descent: int, dc: wx.DC, context: RichTextDrawingContext, flags: int, position: wx.Point=wx.Point(0,0), parentSize: wx.Size=wx.DefaultSize, partialExtents: Optional[List[int]]=None) -> bool:
+    def GetRangeSize(self, obj: RichTextField, range: Union[RichTextRange, wx._TwoInts], size: wx.Size, descent: int, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, flags: int, position: wx.Point=wx.Point(0,0), parentSize: wx.Size=wx.DefaultSize, partialExtents: List[int]=nullptr) -> bool:
         """
-        GetRangeSize(obj, range, size, descent, dc, context, flags, position=wx.Point(0,0), parentSize=wx.DefaultSize, partialExtents=None) -> bool
+        GetRangeSize(obj, range, size, descent, dc, context, flags, position=wx.Point(0,0), parentSize=wx.DefaultSize, partialExtents=nullptr) -> bool
         
         Returns the object size for the given range.
         """
 
-    def GetSize(self, obj: RichTextField, dc: wx.DC, context: RichTextDrawingContext, style: int) -> wx.Size:
+    def GetSize(self, obj: RichTextField, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, style: int) -> wx.Size:
         """
         GetSize(obj, dc, context, style) -> wx.Size
         
@@ -5232,8 +5232,8 @@ class RichTextLine:
 
 class RichTextParagraph(RichTextCompositeObject):
     """
-    RichTextParagraph(parent=None, style=None) -> None
-    RichTextParagraph(text, parent=None, paraStyle=None, charStyle=None) -> None
+    RichTextParagraph(parent=nullptr, style=nullptr) -> None
+    RichTextParagraph(text, parent=nullptr, paraStyle=nullptr, charStyle=nullptr) -> None
     RichTextParagraph(obj) -> None
     
     This object represents a single paragraph containing various objects
@@ -5241,7 +5241,7 @@ class RichTextParagraph(RichTextCompositeObject):
     """
 
     @overload
-    def __init__(self, text: str, parent: Optional[RichTextObject]=None, paraStyle: Optional[RichTextAttr]=None, charStyle: Optional[RichTextAttr]=None) -> None:
+    def __init__(self, text: str, parent: RichTextObject=nullptr, paraStyle: RichTextAttr=nullptr, charStyle: RichTextAttr=nullptr) -> None:
         ...
 
     @overload
@@ -5249,10 +5249,10 @@ class RichTextParagraph(RichTextCompositeObject):
         ...
 
     @overload
-    def __init__(self, parent: Optional[RichTextObject]=None, style: Optional[RichTextAttr]=None) -> None:
+    def __init__(self, parent: RichTextObject=nullptr, style: RichTextAttr=nullptr) -> None:
         """
-        RichTextParagraph(parent=None, style=None) -> None
-        RichTextParagraph(text, parent=None, paraStyle=None, charStyle=None) -> None
+        RichTextParagraph(parent=nullptr, style=nullptr) -> None
+        RichTextParagraph(text, parent=nullptr, paraStyle=nullptr, charStyle=nullptr) -> None
         RichTextParagraph(obj) -> None
         
         This object represents a single paragraph containing various objects
@@ -5271,7 +5271,7 @@ class RichTextParagraph(RichTextCompositeObject):
         Draw the item, within the given range.
         """
 
-    def Layout(self, dc: wx.DC, context: RichTextDrawingContext, rect: wx.Rect, parentRect: wx.Rect, style: int) -> bool:
+    def Layout(self, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, rect: wx.Rect, parentRect: wx.Rect, style: int) -> bool:
         """
         Layout(dc, context, rect, parentRect, style) -> bool
         
@@ -5279,14 +5279,14 @@ class RichTextParagraph(RichTextCompositeObject):
         constraint.
         """
 
-    def GetRangeSize(self, range: Union[RichTextRange, wx._TwoInts], size: wx.Size, descent: int, dc: wx.DC, context: RichTextDrawingContext, flags: int, position: wx.Point=wx.Point(0,0), parentSize: wx.Size=wx.DefaultSize, partialExtents: Optional[List[int]]=None) -> bool:
+    def GetRangeSize(self, range: Union[RichTextRange, wx._TwoInts], size: wx.Size, descent: int, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, flags: int, position: wx.Point=wx.Point(0,0), parentSize: wx.Size=wx.DefaultSize, partialExtents: List[int]=nullptr) -> bool:
         """
-        GetRangeSize(range, size, descent, dc, context, flags, position=wx.Point(0,0), parentSize=wx.DefaultSize, partialExtents=None) -> bool
+        GetRangeSize(range, size, descent, dc, context, flags, position=wx.Point(0,0), parentSize=wx.DefaultSize, partialExtents=nullptr) -> bool
         
         Returns the object size for the given range.
         """
 
-    def FindPosition(self, dc: wx.DC, context: RichTextDrawingContext, index: int, forceLineStart: bool) -> Tuple[bool, wx.Point, int]:
+    def FindPosition(self, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, index: int, forceLineStart: bool) -> Tuple[bool, wx.Point, int]:
         """
         FindPosition(dc, context, index, forceLineStart) -> Tuple[bool, wx.Point, int]
         
@@ -5294,7 +5294,7 @@ class RichTextParagraph(RichTextCompositeObject):
         position.
         """
 
-    def HitTest(self, dc: wx.DC, context: RichTextDrawingContext, pt: wx.Point, flags: int=0) -> Tuple[int, int, RichTextObject, RichTextObject]:
+    def HitTest(self, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, pt: wx.Point, flags: int=0) -> Tuple[int, int, RichTextObject, RichTextObject]:
         """
         HitTest(dc, context, pt, flags=0) -> Tuple[int, int, RichTextObject, RichTextObject]
         
@@ -5344,7 +5344,7 @@ class RichTextParagraph(RichTextCompositeObject):
         Clears the cached lines.
         """
 
-    def ApplyParagraphStyle(self, line: RichTextLine, attr: RichTextAttr, rect: wx.Rect, dc: wx.DC) -> None:
+    def ApplyParagraphStyle(self, line: RichTextLine, attr: RichTextAttr, rect: wx.Rect, dc: wx.ReadOnlyDC) -> None:
         """
         ApplyParagraphStyle(line, attr, rect, dc) -> None
         
@@ -5358,12 +5358,12 @@ class RichTextParagraph(RichTextCompositeObject):
         Inserts text at the given position.
         """
 
-    def SplitAt(self, pos: int, previousObject: Optional[RichTextObject]=None) -> RichTextObject:
+    def SplitAt(self, pos: int, previousObject: RichTextObject=nullptr) -> RichTextObject:
         """
-        SplitAt(pos, previousObject=None) -> RichTextObject
+        SplitAt(pos, previousObject=nullptr) -> RichTextObject
         
         Splits an object at this position if necessary, and returns the
-        previous object, or NULL if inserting at the beginning.
+        previous object, or nullptr if inserting at the beginning.
         """
 
     def MoveToList(self, obj: RichTextObject, list: RichTextObjectList_) -> None:
@@ -5387,7 +5387,7 @@ class RichTextParagraph(RichTextCompositeObject):
         Returns the plain text searching from the start or end of the range.
         """
 
-    def FindWrapPosition(self, range: Union[RichTextRange, wx._TwoInts], dc: wx.DC, context: RichTextDrawingContext, availableSpace: int, wrapPosition: int, partialExtents: List[int]) -> bool:
+    def FindWrapPosition(self, range: Union[RichTextRange, wx._TwoInts], dc: wx.ReadOnlyDC, context: RichTextDrawingContext, availableSpace: int, wrapPosition: int, partialExtents: List[int]) -> bool:
         """
         FindWrapPosition(range, dc, context, availableSpace, wrapPosition, partialExtents) -> bool
         
@@ -5443,7 +5443,7 @@ class RichTextParagraph(RichTextCompositeObject):
         Returns the first position from pos that has a line break character.
         """
 
-    def LayoutFloat(self, dc: wx.DC, context: RichTextDrawingContext, rect: wx.Rect, parentRect: wx.Rect, style: int, floatCollector: RichTextFloatCollector) -> None:
+    def LayoutFloat(self, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, rect: wx.Rect, parentRect: wx.Rect, style: int, floatCollector: RichTextFloatCollector) -> None:
         """
         LayoutFloat(dc, context, rect, parentRect, style, floatCollector) -> None
         
@@ -5504,7 +5504,7 @@ class RichTextParagraph(RichTextCompositeObject):
 
 class RichTextPlainText(RichTextObject):
     """
-    RichTextPlainText(text='', parent=None, style=None) -> None
+    RichTextPlainText(text='', parent=nullptr, style=nullptr) -> None
     RichTextPlainText(obj) -> None
     
     This object represents a single piece of text.
@@ -5515,9 +5515,9 @@ class RichTextPlainText(RichTextObject):
         ...
 
     @overload
-    def __init__(self, text: str='', parent: Optional[RichTextObject]=None, style: Optional[RichTextAttr]=None) -> None:
+    def __init__(self, text: str='', parent: RichTextObject=nullptr, style: RichTextAttr=nullptr) -> None:
         """
-        RichTextPlainText(text='', parent=None, style=None) -> None
+        RichTextPlainText(text='', parent=nullptr, style=nullptr) -> None
         RichTextPlainText(obj) -> None
         
         This object represents a single piece of text.
@@ -5530,7 +5530,7 @@ class RichTextPlainText(RichTextObject):
         Draw the item, within the given range.
         """
 
-    def Layout(self, dc: wx.DC, context: RichTextDrawingContext, rect: wx.Rect, parentRect: wx.Rect, style: int) -> bool:
+    def Layout(self, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, rect: wx.Rect, parentRect: wx.Rect, style: int) -> bool:
         """
         Layout(dc, context, rect, parentRect, style) -> bool
         
@@ -5538,9 +5538,9 @@ class RichTextPlainText(RichTextObject):
         constraint.
         """
 
-    def GetRangeSize(self, range: Union[RichTextRange, wx._TwoInts], size: wx.Size, descent: int, dc: wx.DC, context: RichTextDrawingContext, flags: int, position: wx.Point=wx.Point(0,0), parentSize: wx.Size=wx.DefaultSize, partialExtents: Optional[List[int]]=None) -> bool:
+    def GetRangeSize(self, range: Union[RichTextRange, wx._TwoInts], size: wx.Size, descent: int, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, flags: int, position: wx.Point=wx.Point(0,0), parentSize: wx.Size=wx.DefaultSize, partialExtents: List[int]=nullptr) -> bool:
         """
-        GetRangeSize(range, size, descent, dc, context, flags, position=wx.Point(0,0), parentSize=wx.DefaultSize, partialExtents=None) -> bool
+        GetRangeSize(range, size, descent, dc, context, flags, position=wx.Point(0,0), parentSize=wx.DefaultSize, partialExtents=nullptr) -> bool
         
         Returns the object size for the given range.
         """
@@ -5816,7 +5816,7 @@ class RichTextImageBlock(wx.Object):
         """
         IsOk() -> bool
         
-        Returns true if the data is non-NULL.
+        Returns true if the data is non-null.
         """
 
     def Ok(self) -> bool:
@@ -5879,20 +5879,20 @@ class RichTextImageBlock(wx.Object):
 
 class RichTextImage(RichTextObject):
     """
-    RichTextImage(parent=None) -> None
-    RichTextImage(image, parent=None, charStyle=None) -> None
-    RichTextImage(imageBlock, parent=None, charStyle=None) -> None
+    RichTextImage(parent=nullptr) -> None
+    RichTextImage(image, parent=nullptr, charStyle=nullptr) -> None
+    RichTextImage(imageBlock, parent=nullptr, charStyle=nullptr) -> None
     RichTextImage(obj) -> None
     
     This class implements a graphic object.
     """
 
     @overload
-    def __init__(self, image: wx.Image, parent: Optional[RichTextObject]=None, charStyle: Optional[RichTextAttr]=None) -> None:
+    def __init__(self, image: wx.Image, parent: RichTextObject=nullptr, charStyle: RichTextAttr=nullptr) -> None:
         ...
 
     @overload
-    def __init__(self, imageBlock: RichTextImageBlock, parent: Optional[RichTextObject]=None, charStyle: Optional[RichTextAttr]=None) -> None:
+    def __init__(self, imageBlock: RichTextImageBlock, parent: RichTextObject=nullptr, charStyle: RichTextAttr=nullptr) -> None:
         ...
 
     @overload
@@ -5900,11 +5900,11 @@ class RichTextImage(RichTextObject):
         ...
 
     @overload
-    def __init__(self, parent: Optional[RichTextObject]=None) -> None:
+    def __init__(self, parent: RichTextObject=nullptr) -> None:
         """
-        RichTextImage(parent=None) -> None
-        RichTextImage(image, parent=None, charStyle=None) -> None
-        RichTextImage(imageBlock, parent=None, charStyle=None) -> None
+        RichTextImage(parent=nullptr) -> None
+        RichTextImage(image, parent=nullptr, charStyle=nullptr) -> None
+        RichTextImage(imageBlock, parent=nullptr, charStyle=nullptr) -> None
         RichTextImage(obj) -> None
         
         This class implements a graphic object.
@@ -5917,7 +5917,7 @@ class RichTextImage(RichTextObject):
         Draw the item, within the given range.
         """
 
-    def Layout(self, dc: wx.DC, context: RichTextDrawingContext, rect: wx.Rect, parentRect: wx.Rect, style: int) -> bool:
+    def Layout(self, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, rect: wx.Rect, parentRect: wx.Rect, style: int) -> bool:
         """
         Layout(dc, context, rect, parentRect, style) -> bool
         
@@ -5925,9 +5925,9 @@ class RichTextImage(RichTextObject):
         constraint.
         """
 
-    def GetRangeSize(self, range: Union[RichTextRange, wx._TwoInts], size: wx.Size, descent: int, dc: wx.DC, context: RichTextDrawingContext, flags: int, position: wx.Point=wx.Point(0,0), parentSize: wx.Size=wx.DefaultSize, partialExtents: Optional[List[int]]=None) -> bool:
+    def GetRangeSize(self, range: Union[RichTextRange, wx._TwoInts], size: wx.Size, descent: int, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, flags: int, position: wx.Point=wx.Point(0,0), parentSize: wx.Size=wx.DefaultSize, partialExtents: List[int]=nullptr) -> bool:
         """
-        GetRangeSize(range, size, descent, dc, context, flags, position=wx.Point(0,0), parentSize=wx.DefaultSize, partialExtents=None) -> bool
+        GetRangeSize(range, size, descent, dc, context, flags, position=wx.Point(0,0), parentSize=wx.DefaultSize, partialExtents=nullptr) -> bool
         
         Returns the object size for the given range.
         """
@@ -6052,7 +6052,7 @@ class RichTextImage(RichTextObject):
         Clones the image object.
         """
 
-    def LoadImageCache(self, dc: wx.DC, context: RichTextDrawingContext, retImageSize: wx.Size, resetCache: bool=False, parentSize: wx.Size=wx.DefaultSize) -> bool:
+    def LoadImageCache(self, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, retImageSize: wx.Size, resetCache: bool=False, parentSize: wx.Size=wx.DefaultSize) -> bool:
         """
         LoadImageCache(dc, context, retImageSize, resetCache=False, parentSize=wx.DefaultSize) -> bool
         
@@ -6268,9 +6268,9 @@ class RichTextBuffer(RichTextParagraphLayoutBox):
         Gets the handler flags, controlling loading and saving.
         """
 
-    def AddParagraph(self, text: str, paraStyle: Optional[RichTextAttr]=None) -> RichTextRange:
+    def AddParagraph(self, text: str, paraStyle: RichTextAttr=nullptr) -> RichTextRange:
         """
-        AddParagraph(text, paraStyle=None) -> RichTextRange
+        AddParagraph(text, paraStyle=nullptr) -> RichTextRange
         
         Convenience function to add a paragraph of text.
         """
@@ -6674,7 +6674,7 @@ class RichTextBuffer(RichTextParagraphLayoutBox):
         Send event to event handlers.
         """
 
-    def HitTest(self, dc: wx.DC, context: RichTextDrawingContext, pt: wx.Point, flags: int=0) -> Tuple[int, int, RichTextObject, RichTextObject]:
+    def HitTest(self, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, pt: wx.Point, flags: int=0) -> Tuple[int, int, RichTextObject, RichTextObject]:
         """
         HitTest(dc, context, pt, flags=0) -> Tuple[int, int, RichTextObject, RichTextObject]
         
@@ -7038,7 +7038,7 @@ class RichTextBuffer(RichTextParagraphLayoutBox):
 
 class RichTextCell(RichTextBox):
     """
-    RichTextCell(parent=None) -> None
+    RichTextCell(parent=nullptr) -> None
     RichTextCell(obj) -> None
     
     wxRichTextCell is the cell in a table, in which the user can type.
@@ -7049,9 +7049,9 @@ class RichTextCell(RichTextBox):
         ...
 
     @overload
-    def __init__(self, parent: Optional[RichTextObject]=None) -> None:
+    def __init__(self, parent: RichTextObject=nullptr) -> None:
         """
-        RichTextCell(parent=None) -> None
+        RichTextCell(parent=nullptr) -> None
         RichTextCell(obj) -> None
         
         wxRichTextCell is the cell in a table, in which the user can type.
@@ -7064,7 +7064,7 @@ class RichTextCell(RichTextBox):
         Draw the item, within the given range.
         """
 
-    def HitTest(self, dc: wx.DC, context: RichTextDrawingContext, pt: wx.Point, flags: int=0) -> Tuple[int, int, RichTextObject, RichTextObject]:
+    def HitTest(self, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, pt: wx.Point, flags: int=0) -> Tuple[int, int, RichTextObject, RichTextObject]:
         """
         HitTest(dc, context, pt, flags=0) -> Tuple[int, int, RichTextObject, RichTextObject]
         
@@ -7156,7 +7156,7 @@ class RichTextCell(RichTextBox):
 
 class RichTextTable(RichTextBox):
     """
-    RichTextTable(parent=None) -> None
+    RichTextTable(parent=nullptr) -> None
     RichTextTable(obj) -> None
     
     wxRichTextTable represents a table with arbitrary columns and rows.
@@ -7167,9 +7167,9 @@ class RichTextTable(RichTextBox):
         ...
 
     @overload
-    def __init__(self, parent: Optional[RichTextObject]=None) -> None:
+    def __init__(self, parent: RichTextObject=nullptr) -> None:
         """
-        RichTextTable(parent=None) -> None
+        RichTextTable(parent=nullptr) -> None
         RichTextTable(obj) -> None
         
         wxRichTextTable represents a table with arbitrary columns and rows.
@@ -7182,7 +7182,7 @@ class RichTextTable(RichTextBox):
         Draw the item, within the given range.
         """
 
-    def HitTest(self, dc: wx.DC, context: RichTextDrawingContext, pt: wx.Point, flags: int=0) -> Tuple[int, int, RichTextObject, RichTextObject]:
+    def HitTest(self, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, pt: wx.Point, flags: int=0) -> Tuple[int, int, RichTextObject, RichTextObject]:
         """
         HitTest(dc, context, pt, flags=0) -> Tuple[int, int, RichTextObject, RichTextObject]
         
@@ -7197,7 +7197,7 @@ class RichTextTable(RichTextBox):
         Returns the XML node name of this object.
         """
 
-    def Layout(self, dc: wx.DC, context: RichTextDrawingContext, rect: wx.Rect, parentRect: wx.Rect, style: int) -> bool:
+    def Layout(self, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, rect: wx.Rect, parentRect: wx.Rect, style: int) -> bool:
         """
         Layout(dc, context, rect, parentRect, style) -> bool
         
@@ -7205,9 +7205,9 @@ class RichTextTable(RichTextBox):
         constraint.
         """
 
-    def GetRangeSize(self, range: Union[RichTextRange, wx._TwoInts], size: wx.Size, descent: int, dc: wx.DC, context: RichTextDrawingContext, flags: int, position: wx.Point=wx.Point(0,0), parentSize: wx.Size=wx.DefaultSize, partialExtents: Optional[List[int]]=None) -> bool:
+    def GetRangeSize(self, range: Union[RichTextRange, wx._TwoInts], size: wx.Size, descent: int, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, flags: int, position: wx.Point=wx.Point(0,0), parentSize: wx.Size=wx.DefaultSize, partialExtents: List[int]=nullptr) -> bool:
         """
-        GetRangeSize(range, size, descent, dc, context, flags, position=wx.Point(0,0), parentSize=wx.DefaultSize, partialExtents=None) -> bool
+        GetRangeSize(range, size, descent, dc, context, flags, position=wx.Point(0,0), parentSize=wx.DefaultSize, partialExtents=nullptr) -> bool
         
         Returns the object size for the given range.
         """
@@ -7233,7 +7233,7 @@ class RichTextTable(RichTextBox):
         Imports this object from XML.
         """
 
-    def FindPosition(self, dc: wx.DC, context: RichTextDrawingContext, index: int, forceLineStart: bool) -> Tuple[bool, wx.Point, int]:
+    def FindPosition(self, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, index: int, forceLineStart: bool) -> Tuple[bool, wx.Point, int]:
         """
         FindPosition(dc, context, index, forceLineStart) -> Tuple[bool, wx.Point, int]
         
@@ -7583,9 +7583,9 @@ class RichTextAction(wx.Object):
         Undoes the action.
         """
 
-    def UpdateAppearance(self, caretPosition: int, sendUpdateEvent: bool=False, oldFloatRect: wx.Rect=wx.Rect(), optimizationLineCharPositions: Optional[List[int]]=None, optimizationLineYPositions: Optional[List[int]]=None, isDoCmd: bool=True) -> None:
+    def UpdateAppearance(self, caretPosition: int, sendUpdateEvent: bool=False, oldFloatRect: wx.Rect=wx.Rect(), optimizationLineCharPositions: List[int]=nullptr, optimizationLineYPositions: List[int]=nullptr, isDoCmd: bool=True) -> None:
         """
-        UpdateAppearance(caretPosition, sendUpdateEvent=False, oldFloatRect=wx.Rect(), optimizationLineCharPositions=None, optimizationLineYPositions=None, isDoCmd=True) -> None
+        UpdateAppearance(caretPosition, sendUpdateEvent=False, oldFloatRect=wx.Rect(), optimizationLineCharPositions=nullptr, optimizationLineYPositions=nullptr, isDoCmd=True) -> None
         
         Updates the control appearance, optimizing if possible given
         information from the call to Layout.
@@ -8087,14 +8087,14 @@ class RichTextDrawingHandler(wx.Object):
 
 class RichTextBufferDataObject(wx.DataObjectSimple):
     """
-    RichTextBufferDataObject(richTextBuffer=None) -> None
+    RichTextBufferDataObject(richTextBuffer=nullptr) -> None
     
     Implements a rich text data object for clipboard transfer.
     """
 
-    def __init__(self, richTextBuffer: Optional[RichTextBuffer]=None) -> None:
+    def __init__(self, richTextBuffer: RichTextBuffer=nullptr) -> None:
         """
-        RichTextBufferDataObject(richTextBuffer=None) -> None
+        RichTextBufferDataObject(richTextBuffer=nullptr) -> None
         
         Implements a rich text data object for clipboard transfer.
         """
@@ -8212,7 +8212,7 @@ class RichTextRenderer(wx.Object):
         Enumerate the standard bullet names currently supported.
         """
 
-    def MeasureBullet(self, paragraph: RichTextParagraph, dc: wx.DC, attr: RichTextAttr, sz: wx.Size) -> bool:
+    def MeasureBullet(self, paragraph: RichTextParagraph, dc: wx.ReadOnlyDC, attr: RichTextAttr, sz: wx.Size) -> bool:
         """
         MeasureBullet(paragraph, dc, attr, sz) -> bool
         
@@ -8265,7 +8265,7 @@ class RichTextStdRenderer(RichTextRenderer):
         Enumerate the standard bullet names currently supported.
         """
 
-    def MeasureBullet(self, paragraph: RichTextParagraph, dc: wx.DC, attr: RichTextAttr, sz: wx.Size) -> bool:
+    def MeasureBullet(self, paragraph: RichTextParagraph, dc: wx.ReadOnlyDC, attr: RichTextAttr, sz: wx.Size) -> bool:
         """
         MeasureBullet(paragraph, dc, attr, sz) -> bool
         
@@ -8284,8 +8284,8 @@ def TextAttrEq(attr1: RichTextAttr, attr2: RichTextAttr) -> bool:    """
     Compare two attribute objects.
     """
 
-def RichTextApplyStyle(destStyle: RichTextAttr, style: RichTextAttr, compareWith: Optional[RichTextAttr]=None) -> bool:    """
-    RichTextApplyStyle(destStyle, style, compareWith=None) -> bool
+def RichTextApplyStyle(destStyle: RichTextAttr, style: RichTextAttr, compareWith: RichTextAttr=nullptr) -> bool:    """
+    RichTextApplyStyle(destStyle, style, compareWith=nullptr) -> bool
     
     Apply one style to another.
     """
@@ -9065,9 +9065,9 @@ class RichTextCtrl(wx.Control):
         ...
 
     @overload
-    def NumberList(self, range: RichTextRange, _def: Optional[RichTextListStyleDefinition]=None, flags: int=RICHTEXT_SETSTYLE_WITH_UNDO, startFrom: int=1, specifiedLevel: int=-1) -> bool:
+    def NumberList(self, range: RichTextRange, _def: RichTextListStyleDefinition=nullptr, flags: int=RICHTEXT_SETSTYLE_WITH_UNDO, startFrom: int=1, specifiedLevel: int=-1) -> bool:
         """
-        NumberList(range, _def=None, flags=RICHTEXT_SETSTYLE_WITH_UNDO, startFrom=1, specifiedLevel=-1) -> bool
+        NumberList(range, _def=nullptr, flags=RICHTEXT_SETSTYLE_WITH_UNDO, startFrom=1, specifiedLevel=-1) -> bool
         NumberList(range, defName, flags=RICHTEXT_SETSTYLE_WITH_UNDO, startFrom=1, specifiedLevel=-1) -> bool
         
         Numbers the paragraphs in the given range.
@@ -9078,9 +9078,9 @@ class RichTextCtrl(wx.Control):
         ...
 
     @overload
-    def PromoteList(self, promoteBy: int, range: RichTextRange, _def: Optional[RichTextListStyleDefinition]=None, flags: int=RICHTEXT_SETSTYLE_WITH_UNDO, specifiedLevel: int=-1) -> bool:
+    def PromoteList(self, promoteBy: int, range: RichTextRange, _def: RichTextListStyleDefinition=nullptr, flags: int=RICHTEXT_SETSTYLE_WITH_UNDO, specifiedLevel: int=-1) -> bool:
         """
-        PromoteList(promoteBy, range, _def=None, flags=RICHTEXT_SETSTYLE_WITH_UNDO, specifiedLevel=-1) -> bool
+        PromoteList(promoteBy, range, _def=nullptr, flags=RICHTEXT_SETSTYLE_WITH_UNDO, specifiedLevel=-1) -> bool
         PromoteList(promoteBy, range, defName, flags=RICHTEXT_SETSTYLE_WITH_UNDO, specifiedLevel=-1) -> bool
         
         Promotes or demotes the paragraphs in the given range.
@@ -9721,16 +9721,16 @@ class RichTextCtrl(wx.Control):
         such as setting the caret position.
         """
 
-    def DoLayoutBuffer(self, buffer: RichTextBuffer, dc: wx.DC, context: RichTextDrawingContext, rect: wx.Rect, parentRect: wx.Rect, flags: int) -> None:
+    def DoLayoutBuffer(self, buffer: RichTextBuffer, dc: wx.ReadOnlyDC, context: RichTextDrawingContext, rect: wx.Rect, parentRect: wx.Rect, flags: int) -> None:
         """
         DoLayoutBuffer(buffer, dc, context, rect, parentRect, flags) -> None
         
         Implements layout.
         """
 
-    def MoveCaret(self, pos: int, showAtLineStart: bool=False, container: Optional[RichTextParagraphLayoutBox]=None) -> bool:
+    def MoveCaret(self, pos: int, showAtLineStart: bool=False, container: RichTextParagraphLayoutBox=nullptr) -> bool:
         """
-        MoveCaret(pos, showAtLineStart=False, container=None) -> bool
+        MoveCaret(pos, showAtLineStart=False, container=nullptr) -> bool
         
         Move the caret to the given character position.
         """
@@ -10011,9 +10011,9 @@ class RichTextCtrl(wx.Control):
         Pops the style sheet from top of stack.
         """
 
-    def ApplyStyleSheet(self, styleSheet: Optional[RichTextStyleSheet]=None) -> bool:
+    def ApplyStyleSheet(self, styleSheet: RichTextStyleSheet=nullptr) -> bool:
         """
-        ApplyStyleSheet(styleSheet=None) -> bool
+        ApplyStyleSheet(styleSheet=nullptr) -> bool
         
         Applies the style sheet to the buffer, for example if the styles have
         changed.
@@ -10459,9 +10459,9 @@ class RichTextCtrl(wx.Control):
         changed by InheritAttributes().
         """
 
-    def PositionCaret(self, container: Optional[RichTextParagraphLayoutBox]=None) -> None:
+    def PositionCaret(self, container: RichTextParagraphLayoutBox=nullptr) -> None:
         """
-        PositionCaret(container=None) -> None
+        PositionCaret(container=nullptr) -> None
         
         Internal function to position the visible caret according to the
         current caret position.
@@ -10545,9 +10545,9 @@ class RichTextCtrl(wx.Control):
         to the start of the next, which may be the exact same caret position.
         """
 
-    def GetCaretPositionForIndex(self, position: int, rect: wx.Rect, container: Optional[RichTextParagraphLayoutBox]=None) -> bool:
+    def GetCaretPositionForIndex(self, position: int, rect: wx.Rect, container: RichTextParagraphLayoutBox=nullptr) -> bool:
         """
-        GetCaretPositionForIndex(position, rect, container=None) -> bool
+        GetCaretPositionForIndex(position, rect, container=nullptr) -> bool
         
         Returns the caret height and position for the given character
         position.
@@ -10568,9 +10568,9 @@ class RichTextCtrl(wx.Control):
         Gets the command processor associated with the control's buffer.
         """
 
-    def DeleteSelectedContent(self, newPos: Optional[int]=None) -> bool:
+    def DeleteSelectedContent(self, newPos: int=nullptr) -> bool:
         """
-        DeleteSelectedContent(newPos=None) -> bool
+        DeleteSelectedContent(newPos=nullptr) -> bool
         
         Deletes content if there is a selection, e.g.
         """
@@ -11741,15 +11741,15 @@ class RichTextPrintout(wx.Printout):
 
 class RichTextPrinting(wx.Object):
     """
-    RichTextPrinting(name="Printing", parentWindow=None) -> None
+    RichTextPrinting(name="Printing", parentWindow=nullptr) -> None
     
     This class provides a simple interface for performing wxRichTextBuffer
     printing and previewing.
     """
 
-    def __init__(self, name: str="Printing", parentWindow: Optional[wx.Window]=None) -> None:
+    def __init__(self, name: str="Printing", parentWindow: wx.Window=nullptr) -> None:
         """
-        RichTextPrinting(name="Printing", parentWindow=None) -> None
+        RichTextPrinting(name="Printing", parentWindow=nullptr) -> None
         
         This class provides a simple interface for performing wxRichTextBuffer
         printing and previewing.
@@ -12054,6 +12054,11 @@ class RichTextStyleListCtrl(wx.Control):
         Updates the style list box.
         """
 
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
@@ -12130,7 +12135,7 @@ class RichTextStyleListBox(wx.wx.html.HtmlListBox):
         Applies the ith style to the associated rich text control.
         """
 
-    def ConvertTenthsMMToPixels(self, dc: wx.DC, units: int) -> int:
+    def ConvertTenthsMMToPixels(self, dc: wx.ReadOnlyDC, units: int) -> int:
         """
         ConvertTenthsMMToPixels(dc, units) -> int
         
@@ -12222,6 +12227,11 @@ class RichTextStyleListBox(wx.wx.html.HtmlListBox):
         UpdateStyles() -> None
         
         Updates the list from the associated style sheet.
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
         """
 
     @staticmethod
@@ -12320,6 +12330,11 @@ class RichTextStyleComboCtrl(wx.ComboCtrl):
         UpdateStyles() -> None
         
         Updates the combo control from the associated style sheet.
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
         """
 
     @staticmethod
@@ -12520,9 +12535,9 @@ class RichTextListStyleDefinition(RichTextParagraphStyleDefinition):
         wxRichTextStyleSheet.
         """
 
-    def CombineWithParagraphStyle(self, indent: int, paraStyle: RichTextAttr, styleSheet: Optional[RichTextStyleSheet]=None) -> RichTextAttr:
+    def CombineWithParagraphStyle(self, indent: int, paraStyle: RichTextAttr, styleSheet: RichTextStyleSheet=nullptr) -> RichTextAttr:
         """
-        CombineWithParagraphStyle(indent, paraStyle, styleSheet=None) -> RichTextAttr
+        CombineWithParagraphStyle(indent, paraStyle, styleSheet=nullptr) -> RichTextAttr
         
         This function combines the given paragraph style with the list style's
         base attributes and level style matching the given indent, returning
@@ -12538,17 +12553,17 @@ class RichTextListStyleDefinition(RichTextParagraphStyleDefinition):
         millimetre).
         """
 
-    def GetCombinedStyle(self, indent: int, styleSheet: Optional[RichTextStyleSheet]=None) -> RichTextAttr:
+    def GetCombinedStyle(self, indent: int, styleSheet: RichTextStyleSheet=nullptr) -> RichTextAttr:
         """
-        GetCombinedStyle(indent, styleSheet=None) -> RichTextAttr
+        GetCombinedStyle(indent, styleSheet=nullptr) -> RichTextAttr
         
         This function combines the list style's base attributes and the level
         style matching the given indent, returning the combined attributes.
         """
 
-    def GetCombinedStyleForLevel(self, level: int, styleSheet: Optional[RichTextStyleSheet]=None) -> RichTextAttr:
+    def GetCombinedStyleForLevel(self, level: int, styleSheet: RichTextStyleSheet=nullptr) -> RichTextAttr:
         """
-        GetCombinedStyleForLevel(level, styleSheet=None) -> RichTextAttr
+        GetCombinedStyleForLevel(level, styleSheet=nullptr) -> RichTextAttr
         
         This function combines the list style's base attributes and the style
         for the specified level, returning the combined attributes.
@@ -12581,6 +12596,14 @@ class RichTextListStyleDefinition(RichTextParagraphStyleDefinition):
         
         Sets the style for the given level.
         """
+
+    def SetAttributes(self, i: int, leftIndent: int, leftSubIndent: int, bulletStyle: int, bulletSymbol: str='') -> None:
+        """
+        SetAttributes(i, leftIndent, leftSubIndent, bulletStyle, bulletSymbol='') -> None
+        
+        Convenience function for setting the major attributes for a list level
+        specification.
+        """
     @property
     def LevelCount(self) -> int: ...
 # end of class RichTextListStyleDefinition
@@ -12589,19 +12612,33 @@ class RichTextListStyleDefinition(RichTextParagraphStyleDefinition):
 class RichTextStyleSheet(wx.Object):
     """
     RichTextStyleSheet() -> None
+    RichTextStyleSheet(sheet) -> None
     
     A style sheet contains named paragraph and character styles that make
     it easy for a user to apply combinations of attributes to a
     wxRichTextCtrl.
     """
 
+    @overload
+    def __init__(self, sheet: RichTextStyleSheet) -> None:
+        ...
+
+    @overload
     def __init__(self) -> None:
         """
         RichTextStyleSheet() -> None
+        RichTextStyleSheet(sheet) -> None
         
         A style sheet contains named paragraph and character styles that make
         it easy for a user to apply combinations of attributes to a
         wxRichTextCtrl.
+        """
+
+    def Copy(self, sheet: RichTextStyleSheet) -> None:
+        """
+        Copy(sheet) -> None
+        
+        Copies given style sheet.
         """
 
     def AddCharacterStyle(self, styleDef: RichTextCharacterStyleDefinition) -> bool:
@@ -12839,9 +12876,9 @@ class RichTextStyleOrganiserDialog(wx.Dialog):
         remove styles.
         """
 
-    def ApplyStyle(self, ctrl: Optional[RichTextCtrl]=None) -> bool:
+    def ApplyStyle(self, ctrl: RichTextCtrl=nullptr) -> bool:
         """
-        ApplyStyle(ctrl=None) -> bool
+        ApplyStyle(ctrl=nullptr) -> bool
         
         Applies the selected style to selection in the given control or the
         control passed to the constructor.
@@ -12931,6 +12968,11 @@ class RichTextStyleOrganiserDialog(wx.Dialog):
         SetShowToolTips(show) -> None
         
         Determines whether tooltips will be shown.
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
         """
 
     @staticmethod
@@ -13082,6 +13124,11 @@ class SymbolPickerDialog(wx.Dialog):
         selected font.
         """
 
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
@@ -13202,9 +13249,9 @@ class RichTextFormattingDialog(wx.wx.adv.PropertySheetDialog):
     style.
     """
 
-    class _enum_45(IntEnum):
+    class _enum_46(IntEnum):
         Option_AllowPixelFontSize = auto()
-    Option_AllowPixelFontSize = _enum_45.Option_AllowPixelFontSize
+    Option_AllowPixelFontSize = _enum_46.Option_AllowPixelFontSize
 
     @overload
     def __init__(self, flags: int, parent: Optional[wx.Window], title: str="Formatting", id: int=wx.ID_ANY, pos: wx.Point=wx.DefaultPosition, sz: wx.Size=wx.DefaultSize, style: int=wx.DEFAULT_DIALOG_STYLE) -> None:
@@ -13220,9 +13267,15 @@ class RichTextFormattingDialog(wx.wx.adv.PropertySheetDialog):
         style.
         """
 
+    @overload
+    def ApplyStyle(self, ctrl: RichTextCtrl, flags: int=RICHTEXT_SETSTYLE_WITH_UNDO) -> bool:
+        ...
+
+    @overload
     def ApplyStyle(self, ctrl: RichTextCtrl, range: RichTextRange, flags: int=RICHTEXT_SETSTYLE_WITH_UNDO|RICHTEXT_SETSTYLE_OPTIMIZE) -> bool:
         """
         ApplyStyle(ctrl, range, flags=RICHTEXT_SETSTYLE_WITH_UNDO|RICHTEXT_SETSTYLE_OPTIMIZE) -> bool
+        ApplyStyle(ctrl, flags=RICHTEXT_SETSTYLE_WITH_UNDO) -> bool
         
         Apply attributes to the given range, only changing attributes that
         need to be changed.
@@ -13291,6 +13344,22 @@ class RichTextFormattingDialog(wx.wx.adv.PropertySheetDialog):
         
         Gets the dialog options, determining what the interface presents to
         the user.
+        """
+
+    def SetObject(self, obj: RichTextObject) -> None:
+        """
+        SetObject(obj) -> None
+        
+        If editing the attributes for a particular object, such as an image,
+        set the object so the code can initialize attributes such as size
+        correctly.
+        """
+
+    def GetObject(self) -> RichTextObject:
+        """
+        GetObject() -> RichTextObject
+        
+        Returns the object of which the attributes are to edited (if any).
         """
 
     def HasOption(self, option: int) -> bool:
@@ -13422,6 +13491,11 @@ class RichTextFormattingDialog(wx.wx.adv.PropertySheetDialog):
         Returns the custom colour data for use by the colour dialog.
         """
 
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
@@ -13435,6 +13509,10 @@ class RichTextFormattingDialog(wx.wx.adv.PropertySheetDialog):
     def ImageList(self) -> wx.ImageList: ...
     @ImageList.setter
     def ImageList(self, value: wx.ImageList, /) -> None: ...
+    @property
+    def Object(self) -> RichTextObject: ...
+    @Object.setter
+    def Object(self, value: RichTextObject, /) -> None: ...
     @property
     def Options(self) -> int: ...
     @Options.setter

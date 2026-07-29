@@ -5,7 +5,7 @@ use assert_cmd::prelude::*;
 use assert_fs::fixture::ChildPath;
 use assert_fs::prelude::*;
 use fs_err as fs;
-use indoc::indoc;
+use indoc::{formatdoc, indoc};
 use predicates::Predicate;
 use url::Url;
 use wiremock::matchers::{method, path};
@@ -32,6 +32,26 @@ fn missing_requirements_txt() {
     ");
 
     requirements_txt.assert(predicates::path::missing());
+}
+
+/// `--cert` is forwarded to the HTTP client rather than silently ignored.
+#[test]
+fn cert() -> Result<()> {
+    let context = uv_test::test_context!("3.12").with_filtered_missing_file_error();
+    let requirements_txt = context.temp_dir.child("requirements.txt");
+    requirements_txt.write_str("iniconfig==2.0.0")?;
+
+    uv_snapshot!(context.filters(), context.pip_sync()
+        .arg("requirements.txt")
+        .arg("--cert")
+        .arg("ca-bundle.pem"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: Failed to read certificate file `ca-bundle.pem`
+      Caused by: [OS ERROR 2]
+    ");
+
+    Ok(())
 }
 
 #[test]
@@ -789,9 +809,10 @@ fn install_sdist_url() -> Result<()> {
     Ok(())
 }
 
-/// Install a package with source archive format `.tar.bz2`.
+/// Attempt to install a direct URL source distribution with a non-PEP 625-compliant
+/// archive format (e.g., `.tar.bz2`). This should hard-error.
 #[test]
-fn install_sdist_archive_type_bz2() -> Result<()> {
+fn reject_sdist_archive_type_bz2() -> Result<()> {
     let context = uv_test::test_context!("3.9");
 
     let requirements_txt = context.temp_dir.child("requirements.txt");
@@ -806,13 +827,9 @@ fn install_sdist_archive_type_bz2() -> Result<()> {
     uv_snapshot!(context.filters(), context.pip_sync()
         .arg("requirements.txt")
         .arg("--strict"), @"
-    exit_code: 0 (success)
+    exit_code: 2 (failure)
     ----- stderr -----
-    Resolved 1 package in [TIME]
-    warning: bz2 @ file://[WORKSPACE]/test/links/bz2-1.0.0.tar.bz2 is not a standards-compliant source distribution: expected '.tar.gz' but found '.tar.bz2'. A future version of uv will reject source distributions that do not meet the requirements specified in PEP 625
-    Prepared 1 package in [TIME]
-    Installed 1 package in [TIME]
-     + bz2==1.0.0 (from file://[WORKSPACE]/test/links/bz2-1.0.0.tar.bz2)
+    error: Source distribution `[WORKSPACE]/test/links/bz2-1.0.0.tar.bz2` has a non-PEP 625-compliant filename; only `.tar.gz` and `.zip` archives are accepted
     "
     );
 
@@ -3265,6 +3282,42 @@ fn require_hashes_missing_hash() -> Result<()> {
     Ok(())
 }
 
+/// Enable `--require-hashes` from the `requirements.txt`.
+#[test]
+fn require_hashes_in_requirements_txt() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let requirements_txt = context.temp_dir.child("requirements.txt");
+    requirements_txt.write_str(indoc! {r"
+        --require-hashes
+        anyio
+    "})?;
+
+    uv_snapshot!(context.pip_sync()
+        .arg("requirements.txt"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: In `--require-hashes` mode, all requirements must have their versions pinned with `==`, but found: anyio
+    "
+    );
+
+    requirements_txt.write_str(indoc! {r"
+        --require-hashes
+        iniconfig==2.0.0
+    "})?;
+
+    uv_snapshot!(context.pip_sync()
+        .arg("requirements.txt")
+        .arg("--no-require-hashes"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: In `--require-hashes` mode, all requirements must have a hash, but none were provided for: iniconfig==2.0.0
+    "
+    );
+
+    Ok(())
+}
+
 /// Omit the version with `--require-hashes`.
 #[test]
 fn require_hashes_missing_version() -> Result<()> {
@@ -4185,6 +4238,18 @@ fn require_hashes_repeated_hash_multiple_files() -> Result<()> {
 fn require_hashes_at_least_one() -> Result<()> {
     let context = uv_test::test_context!("3.12");
 
+    // An MD5 digest alone must not satisfy integrity-enforced installs.
+    let md5_requirements_txt = context.temp_dir.child("requirements-md5.txt");
+    md5_requirements_txt.write_str("anyio==4.0.0 --hash=md5:420d85e19168705cdf0223621b18831a")?;
+
+    uv_snapshot!(context.pip_sync()
+        .arg(md5_requirements_txt.path())
+        .arg("--require-hashes"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: `md5` hashes are insecure and cannot be used with `--require-hashes` but no other hashes are available for: anyio==4.0.0
+    ");
+
     // Request `anyio` with a `sha256` hash.
     let requirements_txt = context.temp_dir.child("requirements.txt");
     requirements_txt
@@ -4199,6 +4264,27 @@ fn require_hashes_at_least_one() -> Result<()> {
     Prepared 1 package in [TIME]
     Installed 1 package in [TIME]
      + anyio==4.0.0
+    "
+    );
+
+    // An MD5 requirement can still use a secure hash supplied by its constraint.
+    let constraints_txt = context.temp_dir.child("constraints.txt");
+    constraints_txt
+        .write_str("anyio==4.0.0 --hash=sha256:f7ed51751b2c2add651e5747c891b47e26d2a21be5d32d9311dfe9692f3e5d7a")?;
+
+    uv_snapshot!(context.pip_sync()
+        .arg(md5_requirements_txt.path())
+        .arg("--constraint")
+        .arg(constraints_txt.path())
+        .arg("--reinstall")
+        .arg("--require-hashes"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Uninstalled 1 package in [TIME]
+    Installed 1 package in [TIME]
+     ~ anyio==4.0.0
     "
     );
 
@@ -4240,6 +4326,19 @@ fn require_hashes_at_least_one() -> Result<()> {
      ~ anyio==4.0.0
     "
     );
+
+    // MD5 remains supported when hash checking is not required.
+    uv_snapshot!(context.pip_sync()
+        .arg(md5_requirements_txt.path())
+        .arg("--reinstall"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Uninstalled 1 package in [TIME]
+    Installed 1 package in [TIME]
+     ~ anyio==4.0.0
+    ");
 
     Ok(())
 }
@@ -5434,6 +5533,175 @@ fn pep_751_rejects_duplicate_active_packages() -> Result<()> {
     exit_code: 2 (failure)
     ----- stderr -----
     error: Multiple active package entries found for `iniconfig`
+    "#);
+
+    Ok(())
+}
+
+#[test]
+fn pep_751_requires_packages() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    context.temp_dir.child("pylock.toml").write_str(
+        r#"
+        lock-version = "1.0"
+        created-by = "uv"
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.pip_sync()
+        .arg("--preview")
+        .arg("pylock.toml"), @r#"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: Not a valid `pylock.toml` file: pylock.toml
+      Caused by: TOML parse error at line 1, column 1
+          |
+        1 |
+          | ^
+        missing field `packages`
+    "#);
+
+    Ok(())
+}
+
+#[test]
+fn pep_751_validates_archive_size() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    context
+        .temp_dir
+        .child("iniconfig-2.0.0-py3-none-any.whl")
+        .touch()?;
+
+    context.temp_dir.child("pylock.toml").write_str(
+        r#"
+        lock-version = "1.0"
+        created-by = "uv"
+
+        [[packages]]
+        name = "iniconfig"
+        version = "2.0.0"
+        archive = { path = "iniconfig-2.0.0-py3-none-any.whl", size = 1, hashes = { sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" } }
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.pip_sync()
+        .arg("--preview")
+        .arg("pylock.toml"), @r#"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: Archive `[TEMP_DIR]/iniconfig-2.0.0-py3-none-any.whl` has size 0, but the lockfile records 1
+    "#);
+
+    Ok(())
+}
+
+#[test]
+fn pep_751_validates_remote_archive_size() -> Result<()> {
+    let server = PackseServer::new("simple/single-package.toml");
+    let context = uv_test::test_context!("3.12");
+    context.temp_dir.child("pylock.toml").write_str(&formatdoc! {
+        r#"
+        lock-version = "1.0"
+        created-by = "uv"
+
+        [[packages]]
+        name = "a"
+        version = "1.0.0"
+        archive = {{ url = "{wheel_url}", size = 1, hashes = {{ sha256 = "f936eedc194aa91ca01a4c6c9981136ca6c75ce6df47e3951b12522881dce809" }} }}
+        "#,
+        wheel_url = server.file_url("a-1.0.0-py3-none-any.whl"),
+    })?;
+
+    uv_snapshot!(context.filters(), context.pip_sync()
+        .arg("--preview")
+        .arg("pylock.toml"), @r#"
+    exit_code: 1 (failure)
+    ----- stderr -----
+      × Failed to download `a @ http://[LOCALHOST]/files/a-1.0.0-py3-none-any.whl`
+      ╰─▶ Size mismatch for `a @ http://[LOCALHOST]/files/a-1.0.0-py3-none-any.whl`: expected 1 bytes, but downloaded 921 bytes
+    "#);
+
+    context.temp_dir.child("pylock.toml").write_str(&formatdoc! {
+        r#"
+        lock-version = "1.0"
+        created-by = "uv"
+
+        [[packages]]
+        name = "a"
+        version = "1.0.0"
+        wheels = [{{ url = "{wheel_url}", size = 1, hashes = {{ sha256 = "f936eedc194aa91ca01a4c6c9981136ca6c75ce6df47e3951b12522881dce809" }} }}]
+        "#,
+        wheel_url = server.file_url("a-1.0.0-py3-none-any.whl"),
+    })?;
+
+    uv_snapshot!(context.filters(), context.pip_sync()
+        .arg("--preview")
+        .arg("pylock.toml"), @r#"
+    exit_code: 1 (failure)
+    ----- stderr -----
+      × Failed to download `a==1.0.0`
+      ╰─▶ Size mismatch for `a==1.0.0`: expected 1 bytes, but downloaded 921 bytes
+    "#);
+
+    context.temp_dir.child("pylock.toml").write_str(&formatdoc! {
+        r#"
+        lock-version = "1.0"
+        created-by = "uv"
+
+        [[packages]]
+        name = "a"
+        version = "1.0.0"
+        sdist = {{ url = "{sdist_url}", size = 1, hashes = {{ sha256 = "3d2b4c28a4e112f3a1cef1db4dc5efa33fcbbcc38bc11ccc80321097db86c097" }} }}
+        "#,
+        sdist_url = server.file_url("a-1.0.0.tar.gz"),
+    })?;
+
+    uv_snapshot!(context.filters(), context.pip_sync()
+        .arg("--preview")
+        .arg("pylock.toml"), @r#"
+    exit_code: 1 (failure)
+    ----- stderr -----
+      × Failed to download and build `a==1.0.0`
+      ╰─▶ Size mismatch for `a==1.0.0`: expected 1 bytes, but downloaded 453 bytes
+    "#);
+
+    Ok(())
+}
+
+#[test]
+fn pep_751_validates_cached_remote_archive_size() -> Result<()> {
+    let server = PackseServer::new("simple/single-package.toml");
+    let context = uv_test::test_context!("3.12");
+    let wheel_url = server.file_url("a-1.0.0-py3-none-any.whl");
+
+    context
+        .pip_install()
+        .arg(format!("a @ {wheel_url}"))
+        .assert()
+        .success();
+
+    context.temp_dir.child("pylock.toml").write_str(&formatdoc! {
+        r#"
+        lock-version = "1.0"
+        created-by = "uv"
+
+        [[packages]]
+        name = "a"
+        version = "1.0.0"
+        archive = {{ url = "{wheel_url}", size = 1, hashes = {{ sha256 = "f936eedc194aa91ca01a4c6c9981136ca6c75ce6df47e3951b12522881dce809" }} }}
+        "#,
+    })?;
+
+    uv_snapshot!(context.filters(), context.pip_sync()
+        .arg("--preview")
+        .arg("--offline")
+        .arg("--reinstall")
+        .arg("pylock.toml"), @r#"
+    exit_code: 1 (failure)
+    ----- stderr -----
+      × Failed to download `a @ http://[LOCALHOST]/files/a-1.0.0-py3-none-any.whl`
+      ╰─▶ Size mismatch for `a @ http://[LOCALHOST]/files/a-1.0.0-py3-none-any.whl`: expected 1 bytes, but downloaded 921 bytes
     "#);
 
     Ok(())

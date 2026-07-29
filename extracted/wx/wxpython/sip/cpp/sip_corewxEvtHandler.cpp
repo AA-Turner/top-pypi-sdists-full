@@ -188,9 +188,9 @@ bool sipwxEvtHandler::TryAfter(::wxEvent& event)
     if (!sipMeth)
         return ::wxEvtHandler::TryAfter(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxEvtHandler::TryBefore(::wxEvent& event)
@@ -203,9 +203,9 @@ bool sipwxEvtHandler::TryBefore(::wxEvent& event)
     if (!sipMeth)
         return ::wxEvtHandler::TryBefore(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxEvtHandler::ProcessEvent(::wxEvent& event)
@@ -218,9 +218,9 @@ bool sipwxEvtHandler::ProcessEvent(::wxEvent& event)
     if (!sipMeth)
         return ::wxEvtHandler::ProcessEvent(event);
 
-    extern bool sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__core_101(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__core_101(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxEvtHandler::sipProtectVirt_TryBefore(bool sipSelfWasArg, ::wxEvent& event)
@@ -859,7 +859,7 @@ static PyObject *meth_wxEvtHandler_Unlink(PyObject *sipSelf, PyObject *sipArgs)
 PyDoc_STRVAR(doc_wxEvtHandler_IsUnlinked, "IsUnlinked() -> bool\n"
 "\n"
 "Returns true if the next and the previous handler pointers of this\n"
-"event handler instance are NULL.");
+"event handler instance are nullptr.");
 
 extern "C" {static PyObject *meth_wxEvtHandler_IsUnlinked(PyObject *, PyObject *);}
 static PyObject *meth_wxEvtHandler_IsUnlinked(PyObject *sipSelf, PyObject *sipArgs)
@@ -1144,7 +1144,7 @@ static void *init_type_wxEvtHandler(sipSimpleWrapper *sipSelf, PyObject *sipArgs
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxEvtHandler[] = {{392, 255, 0}, {599, 255, 1}};
+static sipEncodedTypeDef supers_wxEvtHandler[] = {{400, 255, 0}, {620, 255, 1}};
 
 
 static PyMethodDef methods_wxEvtHandler[] = {

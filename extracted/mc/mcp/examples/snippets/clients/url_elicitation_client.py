@@ -24,22 +24,20 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import webbrowser
 from typing import Any
 from urllib.parse import urlparse
 
-from mcp import ClientSession, types
+import mcp.types as types
+from mcp import ClientSession
+from mcp.client.context import ClientRequestContext
 from mcp.client.sse import sse_client
-from mcp.shared.context import RequestContext
-from mcp.shared.exceptions import McpError, UrlElicitationRequiredError
+from mcp.shared.exceptions import MCPError, UrlElicitationRequiredError
 from mcp.types import URL_ELICITATION_REQUIRED
-
-logger = logging.getLogger(__name__)
 
 
 async def handle_elicitation(
-    context: RequestContext[ClientSession, Any],
+    context: ClientRequestContext,
     params: types.ElicitRequestParams,
 ) -> types.ElicitResult | types.ErrorData:
     """Handle elicitation requests from the server.
@@ -118,8 +116,8 @@ async def handle_url_elicitation(
     print(f"\nOpening browser to: {url}")
     try:
         webbrowser.open(url)
-    except Exception:
-        logger.exception("Failed to open browser")
+    except Exception as e:
+        print(f"Failed to open browser: {e}")
         print(f"Please manually open: {url}")
 
     print("Waiting for you to complete the interaction in your browser...")
@@ -155,15 +153,15 @@ async def call_tool_with_error_handling(
         result = await session.call_tool(tool_name, arguments)
 
         # Check if the tool returned an error in the result
-        if result.isError:
+        if result.is_error:
             print(f"Tool returned error: {result.content}")
             return None
 
         return result
 
-    except McpError as e:
+    except MCPError as e:
         # Check if this is a URL elicitation required error
-        if e.error.code == URL_ELICITATION_REQUIRED:
+        if e.code == URL_ELICITATION_REQUIRED:
             print("\n[Tool requires URL elicitation to proceed]")
 
             # Convert to typed error to access elicitations

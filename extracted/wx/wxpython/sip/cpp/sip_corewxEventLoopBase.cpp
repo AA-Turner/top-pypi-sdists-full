@@ -174,7 +174,6 @@ extern "C" {static PyObject *meth_wxEventLoopBase_ScheduleExit(PyObject *, PyObj
 static PyObject *meth_wxEventLoopBase_ScheduleExit(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
 {
     PyObject *sipParseErr = SIP_NULLPTR;
-    PyObject *sipOrigSelf = sipSelf;
 
     {
         int rc = 0;
@@ -186,12 +185,6 @@ static PyObject *meth_wxEventLoopBase_ScheduleExit(PyObject *sipSelf, PyObject *
 
         if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "B|i", &sipSelf, sipType_wxEventLoopBase, &sipCpp, &rc))
         {
-            if (!sipOrigSelf)
-            {
-                sipAbstractMethod(sipName_EventLoopBase, sipName_ScheduleExit);
-                return SIP_NULLPTR;
-            }
-
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS

@@ -300,7 +300,8 @@ def build_project_with_deploy_api(
     if build_result == "no_changes":
         return False
     if build_result != "success":
-        deployment_errors = deployment.get("errors", []) if deployment else result.get("errors", [])
+        deployment_errors = list(deployment.get("errors", []) if deployment else result.get("errors", []))
+        deployment_errors.extend(item for item in deployment.get("feedback", []) if item.get("level") == "ERROR")
         raise click.ClickException(result.get("error") or format_build_errors(deployment_errors))
     if not deployment:
         raise click.ClickException("Couldn't parse deployment response from server")
@@ -328,6 +329,7 @@ def get_build_request_files(
     project_with_vendors: Optional[Project] = None,
 ) -> tuple[list[tuple[str, tuple[str, str, str]]], list[str]]:
     multipart_boundary_data_project = "data_project://"
+    multipart_boundary_data_project_vendored = "data_project_vendored://"
     datafile_type_to_content_type = {
         ".datasource": "text/plain",
         ".pipe": "text/plain",
@@ -349,6 +351,13 @@ def get_build_request_files(
                 content = replace_shared_with(content, [project_with_vendors.workspace_name])
 
             files.append((multipart_boundary_data_project, (relative_path, content, content_type)))
+
+    for file_path in project.get_vendored_files():
+        relative_path = Path(file_path).relative_to(project_path).as_posix()
+        with open(file_path, "rb") as fd:
+            content_type = datafile_type_to_content_type.get(Path(file_path).suffix, "application/unknown")
+            content = fd.read().decode("utf-8")
+            files.append((multipart_boundary_data_project_vendored, (relative_path, content, content_type)))
 
     return files, project_files
 

@@ -37,7 +37,8 @@ class CloudConfig(object):
         'vpc_peering_ip_range': 'str',
         'vpc_peering_target_project_id': 'str',
         'vpc_peering_target_vpc_id': 'str',
-        'acr_config': 'AzureACRConfig'
+        'acr_config': 'AzureACRConfig',
+        'session_domain_label': 'str'
     }
 
     attribute_map = {
@@ -45,10 +46,11 @@ class CloudConfig(object):
         'vpc_peering_ip_range': 'vpc_peering_ip_range',
         'vpc_peering_target_project_id': 'vpc_peering_target_project_id',
         'vpc_peering_target_vpc_id': 'vpc_peering_target_vpc_id',
-        'acr_config': 'acr_config'
+        'acr_config': 'acr_config',
+        'session_domain_label': 'session_domain_label'
     }
 
-    def __init__(self, max_stopped_instances=0, vpc_peering_ip_range=None, vpc_peering_target_project_id=None, vpc_peering_target_vpc_id=None, acr_config=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, max_stopped_instances=0, vpc_peering_ip_range=None, vpc_peering_target_project_id=None, vpc_peering_target_vpc_id=None, acr_config=None, session_domain_label=None, local_vars_configuration=None):  # noqa: E501
         """CloudConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -59,6 +61,7 @@ class CloudConfig(object):
         self._vpc_peering_target_project_id = None
         self._vpc_peering_target_vpc_id = None
         self._acr_config = None
+        self._session_domain_label = None
         self.discriminator = None
 
         if max_stopped_instances is not None:
@@ -71,6 +74,8 @@ class CloudConfig(object):
             self.vpc_peering_target_vpc_id = vpc_peering_target_vpc_id
         if acr_config is not None:
             self.acr_config = acr_config
+        if session_domain_label is not None:
+            self.session_domain_label = session_domain_label
 
     @property
     def max_stopped_instances(self):
@@ -186,6 +191,29 @@ class CloudConfig(object):
         """
 
         self._acr_config = acr_config
+
+    @property
+    def session_domain_label(self):
+        """Gets the session_domain_label of this CloudConfig.  # noqa: E501
+
+        Opt-in (default None): DNS label for a per-cloud session/interactive workload domain. When set, session URLs become 'session-<id>.<label>.n.<DYNAMIC_HTTPS_DOMAIN>' instead of the flat shared 'session-<id>.i.<DYNAMIC_HTTPS_DOMAIN>'. Used by private (PrivateLink) data planes so a consumer VPC can DNS-route one cloud over PrivateLink without hijacking a customer's other clouds; a data-plane front proxy rewrites the host back to the flat form before the gateway. Existing clouds leave this unset and are unchanged.  # noqa: E501
+
+        :return: The session_domain_label of this CloudConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._session_domain_label
+
+    @session_domain_label.setter
+    def session_domain_label(self, session_domain_label):
+        """Sets the session_domain_label of this CloudConfig.
+
+        Opt-in (default None): DNS label for a per-cloud session/interactive workload domain. When set, session URLs become 'session-<id>.<label>.n.<DYNAMIC_HTTPS_DOMAIN>' instead of the flat shared 'session-<id>.i.<DYNAMIC_HTTPS_DOMAIN>'. Used by private (PrivateLink) data planes so a consumer VPC can DNS-route one cloud over PrivateLink without hijacking a customer's other clouds; a data-plane front proxy rewrites the host back to the flat form before the gateway. Existing clouds leave this unset and are unchanged.  # noqa: E501
+
+        :param session_domain_label: The session_domain_label of this CloudConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._session_domain_label = session_domain_label
 
     def to_dict(self):
         """Returns the model properties as a dict"""

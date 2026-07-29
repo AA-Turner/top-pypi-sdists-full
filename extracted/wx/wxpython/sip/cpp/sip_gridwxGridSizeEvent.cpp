@@ -469,7 +469,7 @@ static void *init_type_wxGridSizeEvent(sipSimpleWrapper *sipSelf, PyObject *sipA
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGridSizeEvent[] = {{17, 0, 1}};
+static sipEncodedTypeDef supers_wxGridSizeEvent[] = {{18, 0, 1}};
 
 
 static PyMethodDef methods_wxGridSizeEvent[] = {

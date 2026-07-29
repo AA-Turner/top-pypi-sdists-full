@@ -190,7 +190,7 @@ static void *init_type_wxBusyInfo(sipSimpleWrapper *sipSelf, PyObject *sipArgs, 
     {
         const ::wxString* msg;
         int msgState = 0;
-        ::wxWindow* parent = 0;
+        ::wxWindow* parent = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_msg,
@@ -230,7 +230,7 @@ static PyMethodDef methods_wxBusyInfo[] = {
 };
 
 PyDoc_STRVAR(doc_wxBusyInfo, "BusyInfo(flags) -> None\n"
-"BusyInfo(msg, parent=None) -> None\n"
+"BusyInfo(msg, parent=nullptr) -> None\n"
 "\n"
 "This class makes it easy to tell your user that the program is\n"
 "temporarily busy.");

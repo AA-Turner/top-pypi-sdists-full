@@ -4,6 +4,7 @@ from chalk._gen.chalk.artifacts.v1 import export_pb2 as _export_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.common.v1 import chalk_error_pb2 as _chalk_error_pb2
 from chalk._gen.chalk.graph.v1 import graph_pb2 as _graph_pb2
+from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -204,11 +205,25 @@ class UpdateGraphResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
+class GraphFetchOptions(_message.Message):
+    __slots__ = ("exclude_resolver_postprocessing", "exclude_stream_resolver_parse_info")
+    EXCLUDE_RESOLVER_POSTPROCESSING_FIELD_NUMBER: _ClassVar[int]
+    EXCLUDE_STREAM_RESOLVER_PARSE_INFO_FIELD_NUMBER: _ClassVar[int]
+    exclude_resolver_postprocessing: bool
+    exclude_stream_resolver_parse_info: bool
+    def __init__(
+        self, exclude_resolver_postprocessing: bool = ..., exclude_stream_resolver_parse_info: bool = ...
+    ) -> None: ...
+
 class GetGraphRequest(_message.Message):
-    __slots__ = ("deployment_id",)
+    __slots__ = ("deployment_id", "fetch_options")
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    FETCH_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     deployment_id: str
-    def __init__(self, deployment_id: _Optional[str] = ...) -> None: ...
+    fetch_options: GraphFetchOptions
+    def __init__(
+        self, deployment_id: _Optional[str] = ..., fetch_options: _Optional[_Union[GraphFetchOptions, _Mapping]] = ...
+    ) -> None: ...
 
 class GetGraphResponse(_message.Message):
     __slots__ = ("graph", "chalkpy_version", "tag", "export", "deployment_id")
@@ -230,6 +245,48 @@ class GetGraphResponse(_message.Message):
         export: _Optional[_Union[_export_pb2.Export, _Mapping]] = ...,
         deployment_id: _Optional[str] = ...,
     ) -> None: ...
+
+class GetResolverRequest(_message.Message):
+    __slots__ = ("deployment_id", "resolver_fqn", "read_mask")
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
+    READ_MASK_FIELD_NUMBER: _ClassVar[int]
+    deployment_id: str
+    resolver_fqn: str
+    read_mask: _field_mask_pb2.FieldMask
+    def __init__(
+        self,
+        deployment_id: _Optional[str] = ...,
+        resolver_fqn: _Optional[str] = ...,
+        read_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetResolverResponse(_message.Message):
+    __slots__ = ("resolver",)
+    RESOLVER_FIELD_NUMBER: _ClassVar[int]
+    resolver: _graph_pb2.Resolver
+    def __init__(self, resolver: _Optional[_Union[_graph_pb2.Resolver, _Mapping]] = ...) -> None: ...
+
+class GetStreamResolverRequest(_message.Message):
+    __slots__ = ("deployment_id", "resolver_fqn", "read_mask")
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
+    READ_MASK_FIELD_NUMBER: _ClassVar[int]
+    deployment_id: str
+    resolver_fqn: str
+    read_mask: _field_mask_pb2.FieldMask
+    def __init__(
+        self,
+        deployment_id: _Optional[str] = ...,
+        resolver_fqn: _Optional[str] = ...,
+        read_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetStreamResolverResponse(_message.Message):
+    __slots__ = ("stream_resolver",)
+    STREAM_RESOLVER_FIELD_NUMBER: _ClassVar[int]
+    stream_resolver: _graph_pb2.StreamResolver
+    def __init__(self, stream_resolver: _Optional[_Union[_graph_pb2.StreamResolver, _Mapping]] = ...) -> None: ...
 
 class PythonVersion(_message.Message):
     __slots__ = ("major", "minor", "patch")
@@ -568,15 +625,21 @@ class GetAllOfflineStoreTablesPageToken(_message.Message):
     def __init__(self, fqn: _Optional[str] = ..., internal_version: _Optional[int] = ...) -> None: ...
 
 class GetAllOfflineStoreTablesRequest(_message.Message):
-    __slots__ = ("deployment_id", "limit", "page_token")
+    __slots__ = ("deployment_id", "branch_id", "limit", "page_token")
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_ID_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
     deployment_id: str
+    branch_id: str
     limit: int
     page_token: str
     def __init__(
-        self, deployment_id: _Optional[str] = ..., limit: _Optional[int] = ..., page_token: _Optional[str] = ...
+        self,
+        deployment_id: _Optional[str] = ...,
+        branch_id: _Optional[str] = ...,
+        limit: _Optional[int] = ...,
+        page_token: _Optional[str] = ...,
     ) -> None: ...
 
 class GetAllOfflineStoreTablesResponse(_message.Message):

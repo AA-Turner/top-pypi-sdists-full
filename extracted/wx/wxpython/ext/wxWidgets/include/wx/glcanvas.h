@@ -2,7 +2,6 @@
 // Name:        wx/glcanvas.h
 // Purpose:     wxGLCanvas base header
 // Author:      Julian Smart
-// Modified by:
 // Created:
 // Copyright:   (c) Julian Smart
 // Licence:     wxWindows licence
@@ -97,7 +96,7 @@ public:
     // Accessors
     const int* GetGLAttrs() const
     {
-        return (m_GLValues.empty() || !m_GLValues[0]) ? NULL : &*m_GLValues.begin();
+        return (m_GLValues.empty() || !m_GLValues[0]) ? nullptr : &*m_GLValues.begin();
     }
 
     int GetSize() const { return (int)(m_GLValues.size()); }
@@ -135,9 +134,16 @@ public:
     wxGLContextAttrs& PlatformDefaults();
     void EndList(); // No more values can be chained
 
+#ifdef wxHAS_GLX
     // Currently only used for X11 context creation
-    bool x11Direct; // X11 direct render
-    bool renderTypeRGBA;
+    bool x11Direct = false; // X11 direct render
+    bool renderTypeRGBA = false;
+#endif // wxHAS_GLX
+
+#ifdef wxHAS_EGL
+    // Used to select the kind of API used with EGL (OpenGL or OpenGL ES).
+    bool useES = false;
+#endif // wxHAS_EGL
 };
 
 // ----------------------------------------------------------------------------
@@ -159,21 +165,24 @@ public:
     wxGLAttributes& Stencil(int val);
     wxGLAttributes& MinAcumRGBA(int mRed, int mGreen, int mBlue, int mAlpha);
     wxGLAttributes& PlatformDefaults();
-    wxGLAttributes& Defaults();
     wxGLAttributes& SampleBuffers(int val);
     wxGLAttributes& Samplers(int val);
     wxGLAttributes& FrameBuffersRGB();
     void EndList(); // No more values can be chained
 
-    // This function is undocumented and cannot be chained on purpose!
-    // To keep backwards compatibility with versions before wx3.1 we add here
-    // the default values used in those versions for the case of NULL list.
-    void AddDefaultsForWXBefore31();
+    // This function is the same for all ports and so is implemented here
+    // instead of in port-specific files.
+    wxGLAttributes& Defaults()
+    {
+        return RGBA().Depth(16).DoubleBuffer();
+    }
 };
 
 // ----------------------------------------------------------------------------
 // wxGLContextBase: OpenGL rendering context
 // ----------------------------------------------------------------------------
+
+using wxGLExtFunction = void (*)();
 
 class WXDLLIMPEXP_GL wxGLContextBase : public wxObject
 {
@@ -182,13 +191,30 @@ public:
 //  The derived class should provide a ctor with this signature:
 //
 //  wxGLContext(wxGLCanvas *win,
-//              const wxGLContext *other = NULL,
-//              const wxGLContextAttrs *ctxAttrs = NULL);
+//              const wxGLContext *other = nullptr,
+//              const wxGLContextAttrs *ctxAttrs = nullptr);
 
     // set this context as the current one
     virtual bool SetCurrent(const wxGLCanvas& win) const = 0;
 
+    // unset any currently set context
+    static void ClearCurrent();
+
     bool IsOK() const { return m_isOk; }
+
+    // Get pointer to OpenGL extension function, return nullptr if not found.
+    static wxGLExtFunction GetProcAddress(const wxString& name);
+
+    // Same as above, but returns the function of the specified type.
+    template <typename T>
+    static T GetProcAddress(const wxString& name)
+    {
+        wxGCC_WARNING_SUPPRESS_CAST_FUNCTION_TYPE()
+
+        return reinterpret_cast<T>(GetProcAddress(name));
+
+        wxGCC_WARNING_RESTORE_CAST_FUNCTION_TYPE()
+    }
 
 protected:
     bool m_isOk;
@@ -201,6 +227,18 @@ protected:
 class WXDLLIMPEXP_GL wxGLCanvasBase : public wxWindow
 {
 public:
+    // Disable changing swap interval or indicate that it is unknown.
+    static constexpr int DefaultSwapInterval = INT_MAX;
+
+    // Return values of SetSwapInterval().
+    enum class SwapInterval
+    {
+        NotSet = 0,
+        Set = 1,
+        NonAdaptive = 2
+    };
+
+
     // default ctor doesn't initialize the window, use Create() later
     wxGLCanvasBase();
 
@@ -229,6 +267,21 @@ public:
     // flush the back buffer (if we have it)
     virtual bool SwapBuffers() = 0;
 
+    // Set swap interval to the specified value.
+    //
+    // Special value of 0 means to disable VSync and DefaultSwapInterval means
+    // to disable automatically disabling VSync by default, as needs to be done
+    // under some platforms currently.
+    //
+    // Negative values may be used to enable adaptive VSync if supported by the
+    // implementation.
+    //
+    // Return true if the swap interval was set successfully, false if not.
+    virtual SwapInterval SetSwapInterval(int WXUNUSED(interval))
+    {
+        return SwapInterval::NotSet;
+    }
+
 
     // accessors
     // ---------
@@ -240,6 +293,10 @@ public:
 #if wxUSE_PALETTE
     const wxPalette *GetPalette() const { return &m_palette; }
 #endif // wxUSE_PALETTE
+
+    // Return the current swap interval.
+    virtual int GetSwapInterval() const { return DefaultSwapInterval; }
+
 
     // miscellaneous helper functions
     // ------------------------------
@@ -261,38 +318,26 @@ public:
     // as a parameter
     wxGLContextAttrs& GetGLCTXAttrs() { return m_GLCTXAttrs; }
 
-    // deprecated methods using the implicit wxGLContext
-#if WXWIN_COMPATIBILITY_2_8
-    wxDEPRECATED( wxGLContext* GetContext() const );
-
-    wxDEPRECATED( void SetCurrent() );
-
-    wxDEPRECATED( void OnSize(wxSizeEvent& event) );
-#endif // WXWIN_COMPATIBILITY_2_8
-
-#ifdef __WXUNIVERSAL__
-    // resolve the conflict with wxWindowUniv::SetCurrent()
-    virtual bool SetCurrent(bool doit) { return wxWindow::SetCurrent(doit); }
-#endif
-
-protected:
-    // override this to implement SetColour() in GL_INDEX_MODE
-    // (currently only implemented in wxX11 and wxMotif ports)
-    virtual int GetColourIndex(const wxColour& WXUNUSED(col)) { return -1; }
+    // Implementation only from now on.
 
     // check if the given extension name is present in the space-separated list
     // of extensions supported by the current implementation such as returned
     // by glXQueryExtensionsString() or glGetString(GL_EXTENSIONS)
     static bool IsExtensionInList(const char *list, const char *extension);
 
-    // For the case of "int* attribList" at ctor is != 0
-    wxGLContextAttrs m_GLCTXAttrs;
-
     // Extract pixel format and context attributes.
     // Return false if an unknown attribute is found.
     static bool ParseAttribList(const int* attribList,
                                 wxGLAttributes& dispAttrs,
-                                wxGLContextAttrs* ctxAttrs = NULL);
+                                wxGLContextAttrs* ctxAttrs = nullptr);
+
+protected:
+    // override this to implement SetColour() in GL_INDEX_MODE
+    // (currently only implemented in wxX11)
+    virtual int GetColourIndex(const wxColour& WXUNUSED(col)) { return -1; }
+
+    // For the case of "int* attribList" at ctor is != 0
+    wxGLContextAttrs m_GLCTXAttrs;
 
 #if wxUSE_PALETTE
     // create default palette if we're not using RGBA mode
@@ -301,15 +346,12 @@ protected:
 
     wxPalette m_palette;
 #endif // wxUSE_PALETTE
-
-#if WXWIN_COMPATIBILITY_2_8
-    wxGLContext *m_glContext;
-#endif // WXWIN_COMPATIBILITY_2_8
 };
 
 // ----------------------------------------------------------------------------
-// wxGLApp: a special wxApp subclass for OpenGL applications which must be used
-//          to select a visual compatible with the given attributes
+// wxGLApp: Deprecated wxApp subclass for OpenGL applications, don't bother
+//          using it any longer, just use wxGLCanvas::IsDisplaySupported() from
+//          a normal wxApp-derived application class if necessary.
 // ----------------------------------------------------------------------------
 
 class WXDLLIMPEXP_GL wxGLAppBase : public wxApp
@@ -325,12 +367,10 @@ public:
 
 #if defined(__WXMSW__)
     #include "wx/msw/glcanvas.h"
-#elif defined(__WXMOTIF__) || defined(__WXX11__)
+#elif defined(__WXX11__)
     #include "wx/x11/glcanvas.h"
-#elif defined(__WXGTK20__)
-    #include "wx/gtk/glcanvas.h"
 #elif defined(__WXGTK__)
-    #include "wx/gtk1/glcanvas.h"
+    #include "wx/gtk/glcanvas.h"
 #elif defined(__WXMAC__)
     #include "wx/osx/glcanvas.h"
 #elif defined(__WXQT__)
@@ -347,7 +387,7 @@ class WXDLLIMPEXP_GL wxGLApp : public wxGLAppBase
 public:
     wxGLApp() : wxGLAppBase() { }
 
-    virtual bool InitGLVisual(const int *attribList) wxOVERRIDE;
+    virtual bool InitGLVisual(const int *attribList) override;
 
 private:
     wxDECLARE_DYNAMIC_CLASS(wxGLApp);

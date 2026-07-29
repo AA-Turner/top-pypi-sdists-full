@@ -1,4 +1,5 @@
 import abc
+import builtins
 import collections
 import contextlib
 import functools
@@ -7,7 +8,9 @@ import itertools
 import types
 import typing
 from collections.abc import Callable, Iterable, Iterator, Mapping
-from typing import Any, Literal, NewType, TypeVar, Union, get_type_hints, overload
+from typing import Any, Self, TypeVar, Union, get_type_hints
+
+TypeAliasType = getattr(typing, "TypeAliasType", types.new_class(""))  # python <3.12
 
 
 class DispatchError(TypeError): ...  # pragma: no branch
@@ -19,18 +22,12 @@ def get_origin(tp):
 
 def get_args(tp) -> tuple:
     if isinstance(tp, subtype) or typing.get_origin(tp) is Callable:
-        return getattr(tp, '__args__', ())
+        return getattr(tp, "__args__", ())
     return typing.get_args(tp)
 
 
-def get_mro(cls) -> tuple:  # `inspect.getmro` doesn't handle all cases
-    return tuple(type.mro(cls)) if isinstance(cls, type) else cls.mro()
-
-
 def common_bases(*bases):
-    counts = collections.Counter()
-    for base in bases:
-        counts.update(cls for cls in get_mro(base) if issubclass(abc.ABCMeta, type(cls)))
+    counts = collections.Counter(cls for base in bases for cls in base.__mro__)
     return tuple(cls for cls in counts if counts[cls] == len(bases))
 
 
@@ -44,64 +41,78 @@ class subtype(abc.ABCMeta):
     __origin__: type
     __args__: tuple
 
-    def __new__(cls, tp, *args):
-        if tp is Any:
-            return object
-        if isinstance(tp, cls):  # If already a subtype, return it directly
-            return tp
-        if isinstance(tp, NewType):
-            return cls(tp.__supertype__, *args)
-        if hasattr(typing, 'TypeAliasType') and isinstance(tp, typing.TypeAliasType):
-            return cls(tp.__value__, *args)
-        if isinstance(tp, TypeVar):
-            return cls(Union[tp.__constraints__], *args) if tp.__constraints__ else object
-        if isinstance(tp, typing._AnnotatedAlias):
-            return cls(tp.__origin__, *args)
+    def __new__(cls, tp):
+        match tp:
+            case typing.Any:
+                return object
+            case typing.NewType():
+                return cls(tp.__supertype__)
+            case TypeVar():
+                return cls(Union[tp.__constraints__]) if tp.__constraints__ else object
+            case typing._AnnotatedAlias():
+                return cls(tp.__origin__)
+            case TypeAliasType():
+                return cls(tp.__value__)
+            case type():
+                return tp
         origin = get_origin(tp) or tp
-        args = tuple(map(cls, get_args(tp) or args))
-        if set(args) <= {object} and not (origin is tuple and args):
+        args = tuple(map(cls, get_args(tp)))
+        if not args and origin is not tuple:
             return origin
-        bases = (origin,) if type(origin) in (type, abc.ABCMeta) else ()
-        if origin is Literal:
-            bases = (cls(Union[tuple(map(type, args))]),)
-        if origin is Union or isinstance(tp, types.UnionType):
-            origin = types.UnionType
-            bases = common_bases(*args)[:1]
-            if bases[0] in args:
-                return bases[0]
-        if origin is Callable and args[:1] == (...,):
-            args = args[1:]
-        namespace = {'__origin__': origin, '__args__': args}
+        bases = (origin,)
+        match origin:
+            case typing.Literal:
+                args = typing.get_args(tp)
+                bases = (cls(Union[tuple(map(type, args))]),)
+            case typing.Union | types.UnionType:
+                origin = types.UnionType
+                bases = common_bases(*args)[:1]
+                if bases[0] in args:
+                    return bases[0]
+            case builtins.type:  # special case type of `NewType`
+                (arg,) = typing.get_args(tp)
+                if isinstance(arg, typing.NewType):
+                    origin, args = typing.NewType, (arg,)
+        namespace = {"__origin__": origin, "__args__": args}
         return type.__new__(cls, str(tp), bases, namespace)
-
-    def __init__(self, tp, *args): ...
 
     def key(self) -> tuple:
         return self.__origin__, *self.__args__
 
     def __eq__(self, other) -> bool:
-        return hasattr(other, '__origin__') and self.key() == subtype.key(other)
+        return isinstance(other, subtype) and self.key() == other.key()
 
-    def __hash__(self) -> int:
+    def __hash__(self):
         return hash(self.key())
 
     def __subclasscheck__(self, subclass):
-        origin = get_origin(subclass) or subclass
         args = get_args(subclass)
-        if origin is Literal:
-            return all(isinstance(arg, self) for arg in args)
-        if origin in (Union, types.UnionType):
-            return all(issubclass(cls, self) for cls in args)
-        if self.__origin__ is Literal:
-            return False
-        if self.__origin__ is types.UnionType:
-            return issubclass(subclass, self.__args__)
-        if self.__origin__ is Callable:
-            return (
-                origin is Callable
-                and signature(self.__args__[-1:]) <= signature(args[-1:])  # covariant return
-                and signature(args[:-1]) <= signature(self.__args__[:-1])  # contravariant args
-            )
+        match origin := get_origin(subclass):
+            case None:
+                origin = subclass
+            case typing.Literal:
+                return all(isinstance(arg, self) for arg in args)
+            case typing.Union | types.UnionType:
+                return all(issubclass(cls, self) for cls in args)
+        match self.__origin__:
+            case typing.Literal:
+                return False
+            case types.UnionType:
+                return issubclass(subclass, self.__args__)
+            case builtins.tuple:
+                if issubclass(origin, tuple) and ... in self.__args__:
+                    param = self.__args__[0]
+                    return all(arg is ... or issubclass(arg, param) for arg in args)
+            case collections.abc.Callable:
+                params = self.__args__[:-1]
+                return (
+                    origin is Callable
+                    and issubclass(args[-1], self.__args__[-1])  # covariant return
+                    and (
+                        ... in params
+                        or (... not in args and signature(args[:-1]).subtypes(*params))
+                    )  # contravariant args
+                )
         return (  # check args first to avoid recursion error: python/cpython#73407
             len(args) == len(self.__args__)
             and issubclass(origin, self.__origin__)
@@ -109,19 +120,29 @@ class subtype(abc.ABCMeta):
         )
 
     def __instancecheck__(self, instance):
-        if self.__origin__ is Literal:
-            return any(type(arg) is type(instance) and arg == instance for arg in self.__args__)
-        if self.__origin__ is types.UnionType:
-            return isinstance(instance, self.__args__)
-        if hasattr(instance, '__orig_class__'):  # user-defined generic type
-            return issubclass(instance.__orig_class__, self)
-        if self.__origin__ is type:  # a class argument is expected
-            return inspect.isclass(instance) and issubclass(instance, self.__args__)
+        match self.__origin__:
+            case typing.Literal:
+                return any(type(arg) is type(instance) and arg == instance for arg in self.__args__)
+            case types.UnionType:
+                return isinstance(instance, self.__args__)
+            case builtins.type:
+                try:
+                    return issubclass(subtype(instance), self.__args__)
+                except TypeError:
+                    return False
+            case typing.NewType:
+                return isinstance(instance, typing.NewType) and (
+                    instance in self.__args__ or isinstance(instance.__supertype__, self)
+                )
+        if isinstance(instance, typing.Generic):  # user-defined generic type
+            return issubclass(getattr(instance, "__orig_class__", type(instance)), self)
         if not isinstance(instance, self.__origin__) or isinstance(instance, Iterator):
             return False
         if self.__origin__ is Callable:
-            return issubclass(subtype(Callable, *get_type_hints(instance).values()), self)
-        if self.__origin__ is tuple and self.__args__[-1:] != (...,):
+            hints = get_type_hints(instance)
+            args = [hints.get(name, object) for name in inspect.signature(instance).parameters]
+            return issubclass(Callable[args, hints.get("return", object)], self)
+        if self.__origin__ is tuple and ... not in self.__args__:
             if len(instance) != len(self.__args__):
                 return False
         elif issubclass(self, Mapping):
@@ -136,14 +157,16 @@ class subtype(abc.ABCMeta):
 
         Provisional custom usage: `subtype.origins.register(<metaclass>, lambda cls: ...)
         """
-        origin = get_origin(self)
-        if origin is Literal:
-            yield from set(map(type, self.__args__))
-        elif origin is types.UnionType:
-            for arg in self.__args__:
-                yield from subtype.origins(arg)
-        elif origin is not None:
-            yield origin
+        match origin := get_origin(self):
+            case typing.Literal:
+                yield from set(map(type, self.__args__))
+            case types.UnionType:
+                for arg in self.__args__:
+                    yield from subtype.origins(arg)
+            case builtins.type:
+                yield from (type, types.GenericAlias, typing._GenericAlias, types.UnionType)
+            case _ if origin is not None:
+                yield origin
 
 
 class parametric(abc.ABCMeta):
@@ -156,16 +179,16 @@ class parametric(abc.ABCMeta):
     """
 
     def __new__(cls, base: type, *funcs: Callable, **attrs):
-        return super().__new__(cls, base.__name__, (base,), {'funcs': funcs, 'attrs': attrs})
+        return super().__new__(cls, base.__name__, (base,), {"funcs": funcs, "attrs": attrs})
 
     def __init__(self, *_, **__): ...
 
     def __subclasscheck__(self, subclass):
         missing = object()
-        attrs = getattr(subclass, 'attrs', {})
+        attrs = getattr(subclass, "attrs", {})
         return (
             set(subclass.__bases__).issuperset(self.__bases__)  # python/cpython#73407
-            and set(getattr(subclass, 'funcs', ())).issuperset(self.funcs)
+            and set(getattr(subclass, "funcs", ())).issuperset(self.funcs)
             and all(attrs.get(name, missing) == self.attrs[name] for name in self.attrs)
         )
 
@@ -199,9 +222,9 @@ class signature(tuple):
         self.required = len(self) if required is None else required
 
     @classmethod
-    def from_hints(cls, func: Callable) -> 'signature':
+    def from_hints(cls, func: Callable) -> Self:
         """Return evaluated type hints for positional parameters in order."""
-        if not hasattr(func, '__annotations__'):
+        if not hasattr(func, "__annotations__"):
             return cls(())
         type_hints = get_type_hints(func)
         positionals = {inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD}
@@ -214,16 +237,14 @@ class signature(tuple):
         required = sum(param.default is param.empty for param in params)
         return cls(hints, required)
 
-    def __le__(self, other: tuple) -> bool:
+    def subtypes(self, *other) -> bool:
+        """Return whether all types are subclasses."""
         return self.required <= len(other) and all(map(issubclass, other, self))
-
-    def __lt__(self, other: tuple) -> bool:
-        return self != other and self <= other
 
     def callable(self, *types) -> bool:
         """Check positional arity of associated function signature."""
         try:
-            return not hasattr(self, 'sig') or bool(self.sig.bind_partial(*types))
+            return not hasattr(self, "sig") or bool(self.sig.bind_partial(*types))
         except TypeError:
             return False
 
@@ -258,18 +279,18 @@ class multimethod(dict):
         except (NameError, AttributeError):
             self.pending.add(func)
 
-    @overload
-    def register(self, __func: REGISTERED) -> REGISTERED: ...  # pragma: no cover
+    @typing.overload
+    def register(self, __func: REGISTERED) -> REGISTERED: ...
 
-    @overload
-    def register(self, *args: type) -> Callable[[REGISTERED], REGISTERED]: ...  # pragma: no cover
+    @typing.overload
+    def register(self, *args: type) -> Callable[[REGISTERED], REGISTERED]: ...
 
     def register(self, *args) -> Callable:
         """Decorator for registering a function.
 
         Optionally call with types to return a decorator for unannotated functions.
         """
-        if len(args) == 1 and hasattr(args[0], '__annotations__'):
+        if len(args) == 1 and hasattr(args[0], "__annotations__"):
             multimethod.__init__(self, *args)
             return self if self.__name__ == args[0].__name__ else args[0]
         return lambda func: self.__setitem__(args, func) or func
@@ -279,7 +300,8 @@ class multimethod(dict):
 
     def parents(self, types: tuple) -> set:
         """Find immediate parents of potential key."""
-        parents = {key for key in list(self) if isinstance(key, signature) and key < types}
+        parents = {key for key in list(self) if isinstance(key, signature) and key.subtypes(*types)}
+        parents.discard(types)
         return parents - {ancestor for parent in parents for ancestor in parent.parents}
 
     def clean(self):
@@ -301,7 +323,7 @@ class multimethod(dict):
             types.sig = inspect.signature(func)
         self.pop(types, None)  # ensure key is overwritten
         for key in self:
-            if types < key and (not parents or parents & key.parents):
+            if types.subtypes(*key) and (not parents or parents & key.parents):
                 key.parents -= parents
                 key.parents.add(types)
         for index, cls in enumerate(types):
@@ -362,20 +384,19 @@ class multimethod(dict):
         """a descriptive docstring of all registered functions"""
         docs = []
         for key, func in self.items():
-            sig = getattr(key, 'sig', '')
+            sig = getattr(key, "sig", "")
             if func.__doc__:
-                docs.append(f'{func.__name__}{sig}\n    {func.__doc__}')
-        return '\n\n'.join(docs)
+                docs.append(f"{func.__name__}{sig}\n    {func.__doc__}")
+        return "\n\n".join(docs)
 
 
-del overload  # raise error on legacy import
 RETURN = TypeVar("RETURN")
 
 
 class multidispatch(multimethod, dict[tuple[type, ...], Callable[..., RETURN]]):
     """Wrapper for compatibility with `functools.singledispatch`.
 
-    Only uses the [register][multimethod.multimethod.register] method instead of namespace lookup.
+    Only uses the `register` method instead of namespace lookup.
     Allows dispatching on keyword arguments based on the first function signature.
     """
 
@@ -391,7 +412,7 @@ class multidispatch(multimethod, dict[tuple[type, ...], Callable[..., RETURN]]):
         self[()] = func
 
     def __get__(self, instance, owner) -> Callable[..., RETURN]:
-        return self if instance is None else types.MethodType(self, instance)  # type: ignore
+        return self if instance is None else types.MethodType(self, instance)
 
     def __setitem__(self, types: tuple, func: Callable):
         super().__setitem__(types, func)
@@ -419,5 +440,5 @@ class multimeta(type):
 
         def __setitem__(self, key, value):
             if callable(value):
-                value = getattr(self.get(key), 'register', multimethod)(value)
+                value = getattr(self.get(key), "register", multimethod)(value)
             super().__setitem__(key, value)

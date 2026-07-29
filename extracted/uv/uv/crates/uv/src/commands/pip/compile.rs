@@ -159,7 +159,7 @@ pub(crate) async fn pip_compile(
         {
             if !is_pylock_toml(file_name) {
                 return Err(anyhow!(
-                    "Expected the output filename to start with `pylock.` and end with `.toml` (e.g., `pylock.toml`, `pylock.dev.toml`); `{file_name}` won't be recognized as a `pylock.toml` file in subsequent commands",
+                    "Expected the output filename to be `pylock.toml` or `pylock.<name>.toml`, where `<name>` is non-empty and contains no dots; found `{file_name}`",
                 ));
             }
         }
@@ -213,6 +213,7 @@ pub(crate) async fn pip_compile(
         index_url,
         extra_index_urls,
         no_index,
+        require_hashes: _,
         find_links,
         no_binary,
         no_build,
@@ -775,7 +776,7 @@ pub(crate) async fn pip_compile(
         .into_iter()
         .filter(|name| resolution.contains(name))
         .collect::<Vec<_>>();
-    if !excluded.is_empty() {
+    if include_annotations && !excluded.is_empty() {
         writeln!(writer)?;
         writeln!(
             writer,

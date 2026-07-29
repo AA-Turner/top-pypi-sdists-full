@@ -127,7 +127,7 @@ static PyObject *meth_wxTextBoxAttr_EqPartial(PyObject *sipSelf, PyObject *sipAr
 }
 
 
-PyDoc_STRVAR(doc_wxTextBoxAttr_Apply, "Apply(style, compareWith=None) -> bool\n"
+PyDoc_STRVAR(doc_wxTextBoxAttr_Apply, "Apply(style, compareWith=nullptr) -> bool\n"
 "\n"
 "Merges the given attributes.");
 
@@ -138,7 +138,7 @@ static PyObject *meth_wxTextBoxAttr_Apply(PyObject *sipSelf, PyObject *sipArgs, 
 
     {
         const ::wxTextBoxAttr* style;
-        const ::wxTextBoxAttr* compareWith = 0;
+        const ::wxTextBoxAttr* compareWith = nullptr;
         ::wxTextBoxAttr *sipCpp;
 
         static const char *sipKwdList[] = {

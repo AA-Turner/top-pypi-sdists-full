@@ -122,7 +122,7 @@ static PyObject *meth_wxRichTextAction_Undo(PyObject *sipSelf, PyObject *sipArgs
 }
 
 
-PyDoc_STRVAR(doc_wxRichTextAction_UpdateAppearance, "UpdateAppearance(caretPosition, sendUpdateEvent=False, oldFloatRect=wx.Rect(), optimizationLineCharPositions=None, optimizationLineYPositions=None, isDoCmd=True) -> None\n"
+PyDoc_STRVAR(doc_wxRichTextAction_UpdateAppearance, "UpdateAppearance(caretPosition, sendUpdateEvent=False, oldFloatRect=wx.Rect(), optimizationLineCharPositions=nullptr, optimizationLineYPositions=nullptr, isDoCmd=True) -> None\n"
 "\n"
 "Updates the control appearance, optimizing if possible given\n"
 "information from the call to Layout.");
@@ -138,9 +138,9 @@ static PyObject *meth_wxRichTextAction_UpdateAppearance(PyObject *sipSelf, PyObj
         const ::wxRect& oldFloatRectdef = wxRect();
         const ::wxRect* oldFloatRect = &oldFloatRectdef;
         int oldFloatRectState = 0;
-        ::wxArrayInt* optimizationLineCharPositions = 0;
+        ::wxArrayInt* optimizationLineCharPositions = nullptr;
         int optimizationLineCharPositionsState = 0;
-        ::wxArrayInt* optimizationLineYPositions = 0;
+        ::wxArrayInt* optimizationLineYPositions = nullptr;
         int optimizationLineYPositionsState = 0;
         bool isDoCmd = 1;
         ::wxRichTextAction *sipCpp;
@@ -1094,7 +1094,7 @@ static void *init_type_wxRichTextAction(sipSimpleWrapper *sipSelf, PyObject *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxRichTextAction[] = {{42, 0, 1}};
+static sipEncodedTypeDef supers_wxRichTextAction[] = {{43, 0, 1}};
 
 
 static PyMethodDef methods_wxRichTextAction[] = {

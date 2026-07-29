@@ -124,11 +124,11 @@ class SemVerVersion(semver.Version, ParsedVersion):
         return SemVerVersion(self.major, self.minor, self.patch)
 
 
-class PEP440Version(packaging_version.Version, ParsedVersion):
+class PEP440Version(packaging_version.Version, ParsedVersion):  # ty:ignore[invalid-method-override]
     """PEP 440 version."""
 
     @classmethod
-    def from_parts(
+    def from_parts(  # ty:ignore[invalid-method-override]
         cls,
         epoch: int | None = None,
         release: tuple[int, ...] | None = None,
@@ -382,12 +382,12 @@ class PEP440Version(packaging_version.Version, ParsedVersion):
             Version with same epoch, same release, bumped pre-release and the right parts reset to 0 or nothing.
         """
         if self.pre is None:
-            kind = _release_kind.get(pre, "")  # ty:ignore[no-matching-overload]
+            kind = _release_kind.get(pre, "")
             raise ValueError(
                 f"Cannot bump from release to {kind + ' ' if kind else ''}pre-release (use `dent_{kind or 'pre'}`)",
             )
         current_pre: Literal["a", "b", "rc"]
-        current_pre, number = self.pre  # ty:ignore[invalid-assignment]
+        current_pre, number = self.pre
         if pre is None:
             pre = current_pre
         if pre == current_pre:
@@ -474,7 +474,7 @@ class PEP440Version(packaging_version.Version, ParsedVersion):
         return PEP440Version.from_parts(
             epoch=self.epoch,
             release=self.release,
-            pre=self.pre,  # ty:ignore[invalid-argument-type]
+            pre=self.pre,
             post=post,
         )
 
@@ -509,7 +509,7 @@ class PEP440Version(packaging_version.Version, ParsedVersion):
         return PEP440Version.from_parts(
             epoch=self.epoch,
             release=self.release,
-            pre=self.pre,  # ty:ignore[invalid-argument-type]
+            pre=self.pre,
             post=self.post,
             dev=self.dev + 1,
         )
@@ -632,7 +632,7 @@ class PEP440Version(packaging_version.Version, ParsedVersion):
         return PEP440Version.from_parts(
             epoch=self.epoch,
             release=self.release,
-            pre=self.pre,  # ty:ignore[invalid-argument-type]
+            pre=self.pre,
             post=self.post,
             dev=0,
         )

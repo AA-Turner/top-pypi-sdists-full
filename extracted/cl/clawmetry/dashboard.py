@@ -261,7 +261,7 @@ def _otlp_service_name_to_agent_type(service_name):
     return slug or "custom"
 
 
-__version__ = "0.12.575"
+__version__ = "0.12.585"
 
 # Extensions (Phase 2): import the plugin host now, but defer the actual
 # load_plugins() call until after the Flask app is created below so we can
@@ -703,10 +703,16 @@ def _set_budget_config(updates):
 
 
 def _default_alerts_webhook_config():
+    # NOTE: dashboard.py defines this trio (default/load/save) TWICE; the
+    # LATER definitions (~line 9600) win at import time and carry the full
+    # schema (pagerduty/opsgenie/telegram/min_severity). This early copy is
+    # shadowed dead code kept in sync so nobody "fixes" the wrong one again.
     return {
         "webhook_url": "",
         "slack_webhook_url": "",
         "discord_webhook_url": "",
+        "telegram_bot_token": "",
+        "telegram_chat_id": "",
         "cost_spike_alerts": True,
         "agent_error_rate_alerts": True,
         "security_posture_changes": True,
@@ -9591,6 +9597,13 @@ def _default_alerts_webhook_config():
         "opsgenie_api_key": "",
         # Optional EU host override for OpsGenie ("https://api.eu.opsgenie.com").
         "opsgenie_api_url": "",
+        # Telegram bot delivery (self-hosted Notifications tab). Both keys
+        # required for a send. The /api/alert-channels ROUTE accepted these
+        # since the notifications-local work, but this schema (and the save
+        # allowlist below) silently dropped them — a "saved" Telegram channel
+        # never persisted, so its card stayed on "Connect" forever.
+        "telegram_bot_token": "",
+        "telegram_chat_id": "",
         "cost_spike_alerts": True,
         "agent_error_rate_alerts": True,
         "security_posture_changes": True,
@@ -9620,6 +9633,7 @@ def _save_alerts_webhook_config(updates):
     allowed = {
         "webhook_url", "slack_webhook_url", "discord_webhook_url",
         "pagerduty_routing_key", "opsgenie_api_key", "opsgenie_api_url",
+        "telegram_bot_token", "telegram_chat_id",
         "cost_spike_alerts", "agent_error_rate_alerts", "security_posture_changes",
         "min_severity",
     }
@@ -12219,6 +12233,14 @@ DASHBOARD_HTML = r"""
         <span class="left-nav-label" data-i18n="nav.alerts">Alerts</span>
         <span id="nav-alerts-badge" class="left-nav-badge" style="display:none;">0</span>
       </div>
+      {# Notifications sits directly under its two consumers (Approvals,
+         Alerts) - founder request 2026-07-29: buried in the Advanced drawer,
+         nobody could find where to connect a delivery channel, so enabled
+         alert rules dead-ended at "no channels". #}
+      <div class="left-nav-item" data-tab="notifications" onclick="switchTab('notifications')" data-i18n-title="nav.notifications_tooltip" title="Where Alerts and Approvals get delivered: Slack / Telegram / PagerDuty / Email">
+        <span class="left-nav-icon" aria-hidden="true">&#9993;</span>
+        <span class="left-nav-label" data-i18n="nav.notifications">Notifications</span>
+      </div>
 
       {# Developer drawer: the deep-dive views. Pure toggle (no data-tab: the
          header must not steal the overview highlight from Home). Collapsed by
@@ -12271,9 +12293,6 @@ DASHBOARD_HTML = r"""
       </div>
       <div class="left-nav-item left-nav-item-sub" data-tab="memory" onclick="switchTab('memory')" data-i18n-title="nav.memory_tooltip" title="Persistent memory files the agent reads on boot">
         <span class="left-nav-label" data-i18n="nav.memory">Memory</span>
-      </div>
-      <div class="left-nav-item left-nav-item-sub" data-tab="notifications" onclick="switchTab('notifications')">
-        <span class="left-nav-label" data-i18n="nav.notifications">Notifications</span>
       </div>
       <div class="left-nav-item left-nav-item-sub" data-tab="logs" onclick="switchTab('logs')" title="Live OpenClaw log stream">
         <span class="left-nav-label">Logs</span>

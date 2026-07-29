@@ -525,7 +525,7 @@ static void *init_type_wxAuiToolBarEvent(sipSimpleWrapper *sipSelf, PyObject *si
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxAuiToolBarEvent[] = {{23, 0, 1}};
+static sipEncodedTypeDef supers_wxAuiToolBarEvent[] = {{24, 0, 1}};
 
 
 static PyMethodDef methods_wxAuiToolBarEvent[] = {

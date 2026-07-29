@@ -142,14 +142,21 @@ class DataViewItem:
         """
         GetID() -> Any
         
-        Returns the ID.
+        Returns the ID as an opaque void pointer.
         """
 
     def IsOk(self) -> bool:
         """
         IsOk() -> bool
         
-        Returns true if the ID is not NULL.
+        Returns true if the ID is not nullptr.
+        """
+
+    def Unset(self) -> None:
+        """
+        Unset() -> None
+        
+        Sets the ID to nullptr and thus makes this item invalid.
         """
 
     def __nonzero__(self) -> bool:
@@ -1835,9 +1842,9 @@ class DataViewCtrl(wx.Control):
         Enable drop operations using the given format.
         """
 
-    def EnsureVisible(self, item: DataViewItem, column: Optional[DataViewColumn]=None) -> None:
+    def EnsureVisible(self, item: DataViewItem, column: DataViewColumn=nullptr) -> None:
         """
-        EnsureVisible(item, column=None) -> None
+        EnsureVisible(item, column=nullptr) -> None
         
         Call this to ensure that the given item is visible.
         """
@@ -1912,9 +1919,9 @@ class DataViewCtrl(wx.Control):
         Returns indentation.
         """
 
-    def GetItemRect(self, item: DataViewItem, col: Optional[DataViewColumn]=None) -> wx.Rect:
+    def GetItemRect(self, item: DataViewItem, col: DataViewColumn=nullptr) -> wx.Rect:
         """
-        GetItemRect(item, col=None) -> wx.Rect
+        GetItemRect(item, col=nullptr) -> wx.Rect
         
         Returns item rectangle.
         """
@@ -1959,8 +1966,8 @@ class DataViewCtrl(wx.Control):
         """
         GetSortingColumn() -> DataViewColumn
         
-        Returns the wxDataViewColumn currently responsible for sorting or NULL
-        if none has been selected.
+        Returns the wxDataViewColumn currently responsible for sorting or
+        nullptr if none has been selected.
         """
 
     def HasSelection(self) -> bool:
@@ -2100,6 +2107,11 @@ class DataViewCtrl(wx.Control):
         Return the topmost visible item.
         """
 
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
@@ -2209,7 +2221,7 @@ class DataViewEvent(wx.NotifyEvent):
         GetDataViewColumn() -> DataViewColumn
         
         Returns a pointer to the wxDataViewColumn from which the event was
-        emitted or NULL.
+        emitted or nullptr.
         """
 
     def GetModel(self) -> DataViewModel:
@@ -2246,20 +2258,6 @@ class DataViewEvent(wx.NotifyEvent):
         SetColumn(col) -> None
         
         Sets the column index associated with this event.
-        """
-
-    def SetDataViewColumn(self, col: DataViewColumn) -> None:
-        """
-        SetDataViewColumn(col) -> None
-        
-        For wxEVT_DATAVIEW_COLUMN_HEADER_CLICK only.
-        """
-
-    def SetModel(self, model: DataViewModel) -> None:
-        """
-        SetModel(model) -> None
-        
-        Sets the dataview model associated with this event.
         """
 
     def SetValue(self, value: DVCVariant) -> None:
@@ -2340,11 +2338,6 @@ class DataViewEvent(wx.NotifyEvent):
         Returns the item affected by the event.
         """
 
-    def SetItem(self, item: DataViewItem) -> None:
-        """
-        SetItem(item) -> None
-        """
-
     def SetPosition(self, x: int, y: int) -> None:
         """
         SetPosition(x, y) -> None
@@ -2410,8 +2403,6 @@ class DataViewEvent(wx.NotifyEvent):
     def DataSize(self, value: int, /) -> None: ...
     @property
     def DataViewColumn(self) -> DataViewColumn: ...
-    @DataViewColumn.setter
-    def DataViewColumn(self, value: DataViewColumn, /) -> None: ...
     @property
     def DragFlags(self) -> int: ...
     @DragFlags.setter
@@ -2422,12 +2413,8 @@ class DataViewEvent(wx.NotifyEvent):
     def DropEffect(self, value: wx.DragResult, /) -> None: ...
     @property
     def Item(self) -> DataViewItem: ...
-    @Item.setter
-    def Item(self, value: DataViewItem, /) -> None: ...
     @property
     def Model(self) -> DataViewModel: ...
-    @Model.setter
-    def Model(self, value: DataViewModel, /) -> None: ...
     @property
     def Position(self) -> int: ...
     @Position.setter
@@ -2584,23 +2571,23 @@ class DataViewListCtrl(DataViewCtrl):
         the store with the type string.
         """
 
-    def AppendItem(self, values: VariantVector, data: Optional[UIntPtr]=None) -> None:
+    def AppendItem(self, values: VariantVector, data: UIntPtr=0) -> None:
         """
-        AppendItem(values, data=None) -> None
+        AppendItem(values, data=0) -> None
         
         Appends an item (i.e. a row) to the control.
         """
 
-    def PrependItem(self, values: VariantVector, data: Optional[UIntPtr]=None) -> None:
+    def PrependItem(self, values: VariantVector, data: UIntPtr=0) -> None:
         """
-        PrependItem(values, data=None) -> None
+        PrependItem(values, data=0) -> None
         
         Prepends an item (i.e. a row) to the control.
         """
 
-    def InsertItem(self, row: int, values: VariantVector, data: Optional[UIntPtr]=None) -> None:
+    def InsertItem(self, row: int, values: VariantVector, data: UIntPtr=0) -> None:
         """
-        InsertItem(row, values, data=None) -> None
+        InsertItem(row, values, data=0) -> None
         
         Inserts an item (i.e. a row) to the control.
         """
@@ -2704,6 +2691,11 @@ class DataViewListCtrl(DataViewCtrl):
         Returns the wxDataViewItem at the given row.
         """
 
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
@@ -2755,23 +2747,23 @@ class DataViewListStore(DataViewIndexListModel):
         Appends a data column.
         """
 
-    def AppendItem(self, values: VariantVector, data: Optional[UIntPtr]=None) -> None:
+    def AppendItem(self, values: VariantVector, data: UIntPtr=0) -> None:
         """
-        AppendItem(values, data=None) -> None
+        AppendItem(values, data=0) -> None
         
         Appends an item (=row) and fills it with values.
         """
 
-    def PrependItem(self, values: VariantVector, data: Optional[UIntPtr]=None) -> None:
+    def PrependItem(self, values: VariantVector, data: UIntPtr=0) -> None:
         """
-        PrependItem(values, data=None) -> None
+        PrependItem(values, data=0) -> None
         
         Prepends an item (=row) and fills it with values.
         """
 
-    def InsertItem(self, row: int, values: VariantVector, data: Optional[UIntPtr]=None) -> None:
+    def InsertItem(self, row: int, values: VariantVector, data: UIntPtr=0) -> None:
         """
-        InsertItem(row, values, data=None) -> None
+        InsertItem(row, values, data=0) -> None
         
         Inserts an item (=row) and fills it with values.
         """
@@ -2859,16 +2851,16 @@ class DataViewTreeCtrl(DataViewCtrl):
         Returns the store.
         """
 
-    def AppendContainer(self, parent: DataViewItem, text: str, icon: int=-1, expanded: int=-1, data: Optional[ClientData]=None) -> DataViewItem:
+    def AppendContainer(self, parent: DataViewItem, text: str, icon: int=-1, expanded: int=-1, data: ClientData=nullptr) -> DataViewItem:
         """
-        AppendContainer(parent, text, icon=-1, expanded=-1, data=None) -> DataViewItem
+        AppendContainer(parent, text, icon=-1, expanded=-1, data=nullptr) -> DataViewItem
         
         Appends a container to the given parent.
         """
 
-    def AppendItem(self, parent: DataViewItem, text: str, icon: int=-1, data: Optional[ClientData]=None) -> DataViewItem:
+    def AppendItem(self, parent: DataViewItem, text: str, icon: int=-1, data: ClientData=nullptr) -> DataViewItem:
         """
-        AppendItem(parent, text, icon=-1, data=None) -> DataViewItem
+        AppendItem(parent, text, icon=-1, data=nullptr) -> DataViewItem
         
         Appends an item to the given parent.
         """
@@ -2957,17 +2949,17 @@ class DataViewTreeCtrl(DataViewCtrl):
         Calls the identical method from wxDataViewTreeStore.
         """
 
-    def InsertContainer(self, parent: DataViewItem, previous: DataViewItem, text: str, icon: int=-1, expanded: int=-1, data: Optional[ClientData]=None) -> DataViewItem:
+    def InsertContainer(self, parent: DataViewItem, previous: DataViewItem, text: str, icon: int=-1, expanded: int=-1, data: ClientData=nullptr) -> DataViewItem:
         """
-        InsertContainer(parent, previous, text, icon=-1, expanded=-1, data=None) -> DataViewItem
+        InsertContainer(parent, previous, text, icon=-1, expanded=-1, data=nullptr) -> DataViewItem
         
         Calls the same method from wxDataViewTreeStore but uses an index
         position in the image list instead of a wxIcon.
         """
 
-    def InsertItem(self, parent: DataViewItem, previous: DataViewItem, text: str, icon: int=-1, data: Optional[ClientData]=None) -> DataViewItem:
+    def InsertItem(self, parent: DataViewItem, previous: DataViewItem, text: str, icon: int=-1, data: ClientData=nullptr) -> DataViewItem:
         """
-        InsertItem(parent, previous, text, icon=-1, data=None) -> DataViewItem
+        InsertItem(parent, previous, text, icon=-1, data=nullptr) -> DataViewItem
         
         Calls the same method from wxDataViewTreeStore but uses an index
         position in the image list instead of a wxIcon.
@@ -2980,17 +2972,17 @@ class DataViewTreeCtrl(DataViewCtrl):
         Returns true if item is a container.
         """
 
-    def PrependContainer(self, parent: DataViewItem, text: str, icon: int=-1, expanded: int=-1, data: Optional[ClientData]=None) -> DataViewItem:
+    def PrependContainer(self, parent: DataViewItem, text: str, icon: int=-1, expanded: int=-1, data: ClientData=nullptr) -> DataViewItem:
         """
-        PrependContainer(parent, text, icon=-1, expanded=-1, data=None) -> DataViewItem
+        PrependContainer(parent, text, icon=-1, expanded=-1, data=nullptr) -> DataViewItem
         
         Calls the same method from wxDataViewTreeStore but uses an index
         position in the image list instead of a wxIcon.
         """
 
-    def PrependItem(self, parent: DataViewItem, text: str, icon: int=-1, data: Optional[ClientData]=None) -> DataViewItem:
+    def PrependItem(self, parent: DataViewItem, text: str, icon: int=-1, data: ClientData=nullptr) -> DataViewItem:
         """
-        PrependItem(parent, text, icon=-1, data=None) -> DataViewItem
+        PrependItem(parent, text, icon=-1, data=nullptr) -> DataViewItem
         
         Calls the same method from wxDataViewTreeStore but uses an index
         position in the image list instead of a wxIcon.
@@ -3031,6 +3023,11 @@ class DataViewTreeCtrl(DataViewCtrl):
         Calls the identical method from wxDataViewTreeStore.
         """
 
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
+        """
+
     @staticmethod
     def GetClassDefaultAttributes(variant: wx.WindowVariant=wx.WINDOW_VARIANT_NORMAL) -> wx.VisualAttributes:
         """
@@ -3063,16 +3060,16 @@ class DataViewTreeStore(DataViewModel):
         API.
         """
 
-    def AppendContainer(self, parent: DataViewItem, text: str, icon: wx.BitmapBundle=wx.BitmapBundle(), expanded: wx.BitmapBundle=wx.BitmapBundle(), data: Optional[ClientData]=None) -> DataViewItem:
+    def AppendContainer(self, parent: DataViewItem, text: str, icon: wx.BitmapBundle=wx.BitmapBundle(), expanded: wx.BitmapBundle=wx.BitmapBundle(), data: ClientData=nullptr) -> DataViewItem:
         """
-        AppendContainer(parent, text, icon=wx.BitmapBundle(), expanded=wx.BitmapBundle(), data=None) -> DataViewItem
+        AppendContainer(parent, text, icon=wx.BitmapBundle(), expanded=wx.BitmapBundle(), data=nullptr) -> DataViewItem
         
         Append a container.
         """
 
-    def AppendItem(self, parent: DataViewItem, text: str, icon: wx.BitmapBundle=wx.BitmapBundle(), data: Optional[ClientData]=None) -> DataViewItem:
+    def AppendItem(self, parent: DataViewItem, text: str, icon: wx.BitmapBundle=wx.BitmapBundle(), data: ClientData=nullptr) -> DataViewItem:
         """
-        AppendItem(parent, text, icon=wx.BitmapBundle(), data=None) -> DataViewItem
+        AppendItem(parent, text, icon=wx.BitmapBundle(), data=nullptr) -> DataViewItem
         
         Append an item.
         """
@@ -3140,30 +3137,30 @@ class DataViewTreeStore(DataViewModel):
         Returns the nth child item of item.
         """
 
-    def InsertContainer(self, parent: DataViewItem, previous: DataViewItem, text: str, icon: wx.BitmapBundle=wx.BitmapBundle(), expanded: wx.BitmapBundle=wx.BitmapBundle(), data: Optional[ClientData]=None) -> DataViewItem:
+    def InsertContainer(self, parent: DataViewItem, previous: DataViewItem, text: str, icon: wx.BitmapBundle=wx.BitmapBundle(), expanded: wx.BitmapBundle=wx.BitmapBundle(), data: ClientData=nullptr) -> DataViewItem:
         """
-        InsertContainer(parent, previous, text, icon=wx.BitmapBundle(), expanded=wx.BitmapBundle(), data=None) -> DataViewItem
+        InsertContainer(parent, previous, text, icon=wx.BitmapBundle(), expanded=wx.BitmapBundle(), data=nullptr) -> DataViewItem
         
         Inserts a container after previous.
         """
 
-    def InsertItem(self, parent: DataViewItem, previous: DataViewItem, text: str, icon: wx.BitmapBundle=wx.BitmapBundle(), data: Optional[ClientData]=None) -> DataViewItem:
+    def InsertItem(self, parent: DataViewItem, previous: DataViewItem, text: str, icon: wx.BitmapBundle=wx.BitmapBundle(), data: ClientData=nullptr) -> DataViewItem:
         """
-        InsertItem(parent, previous, text, icon=wx.BitmapBundle(), data=None) -> DataViewItem
+        InsertItem(parent, previous, text, icon=wx.BitmapBundle(), data=nullptr) -> DataViewItem
         
         Inserts an item after previous.
         """
 
-    def PrependContainer(self, parent: DataViewItem, text: str, icon: wx.BitmapBundle=wx.BitmapBundle(), expanded: wx.BitmapBundle=wx.BitmapBundle(), data: Optional[ClientData]=None) -> DataViewItem:
+    def PrependContainer(self, parent: DataViewItem, text: str, icon: wx.BitmapBundle=wx.BitmapBundle(), expanded: wx.BitmapBundle=wx.BitmapBundle(), data: ClientData=nullptr) -> DataViewItem:
         """
-        PrependContainer(parent, text, icon=wx.BitmapBundle(), expanded=wx.BitmapBundle(), data=None) -> DataViewItem
+        PrependContainer(parent, text, icon=wx.BitmapBundle(), expanded=wx.BitmapBundle(), data=nullptr) -> DataViewItem
         
         Inserts a container before the first child item or parent.
         """
 
-    def PrependItem(self, parent: DataViewItem, text: str, icon: wx.BitmapBundle=wx.BitmapBundle(), data: Optional[ClientData]=None) -> DataViewItem:
+    def PrependItem(self, parent: DataViewItem, text: str, icon: wx.BitmapBundle=wx.BitmapBundle(), data: ClientData=nullptr) -> DataViewItem:
         """
-        PrependItem(parent, text, icon=wx.BitmapBundle(), data=None) -> DataViewItem
+        PrependItem(parent, text, icon=wx.BitmapBundle(), data=nullptr) -> DataViewItem
         
         Inserts an item before the first child item or parent.
         """
@@ -3289,7 +3286,7 @@ wxEVT_COMMAND_DATAVIEW_ITEM_DROP                  = wxEVT_DATAVIEW_ITEM_DROP
 #-- end-dataview --#
 #-- begin-treelist --#
 
-class _enum_52(IntEnum):
+class _enum_53(IntEnum):
     TL_SINGLE = auto()
     TL_MULTIPLE = auto()
     TL_CHECKBOX = auto()
@@ -3297,15 +3294,13 @@ class _enum_52(IntEnum):
     TL_USER_3STATE = auto()
     TL_NO_HEADER = auto()
     TL_DEFAULT_STYLE = auto()
-    TL_STYLE_MASK = auto()
-TL_SINGLE = _enum_52.TL_SINGLE
-TL_MULTIPLE = _enum_52.TL_MULTIPLE
-TL_CHECKBOX = _enum_52.TL_CHECKBOX
-TL_3STATE = _enum_52.TL_3STATE
-TL_USER_3STATE = _enum_52.TL_USER_3STATE
-TL_NO_HEADER = _enum_52.TL_NO_HEADER
-TL_DEFAULT_STYLE = _enum_52.TL_DEFAULT_STYLE
-TL_STYLE_MASK = _enum_52.TL_STYLE_MASK
+TL_SINGLE = _enum_53.TL_SINGLE
+TL_MULTIPLE = _enum_53.TL_MULTIPLE
+TL_CHECKBOX = _enum_53.TL_CHECKBOX
+TL_3STATE = _enum_53.TL_3STATE
+TL_USER_3STATE = _enum_53.TL_USER_3STATE
+TL_NO_HEADER = _enum_53.TL_NO_HEADER
+TL_DEFAULT_STYLE = _enum_53.TL_DEFAULT_STYLE
 wxEVT_TREELIST_SELECTION_CHANGED: int
 wxEVT_TREELIST_ITEM_EXPANDING: int
 wxEVT_TREELIST_ITEM_EXPANDED: int
@@ -3471,23 +3466,23 @@ class TreeListCtrl(wx.Window):
         Get the width appropriate for showing the given text.
         """
 
-    def AppendItem(self, parent: TreeListItem, text: str, imageClosed: int=-1, imageOpened: int=-1, data: Optional[ClientData]=None) -> TreeListItem:
+    def AppendItem(self, parent: TreeListItem, text: str, imageClosed: int=-1, imageOpened: int=-1, data: ClientData=nullptr) -> TreeListItem:
         """
-        AppendItem(parent, text, imageClosed=-1, imageOpened=-1, data=None) -> TreeListItem
+        AppendItem(parent, text, imageClosed=-1, imageOpened=-1, data=nullptr) -> TreeListItem
         
         Same as InsertItem() with wxTLI_LAST.
         """
 
-    def InsertItem(self, parent: TreeListItem, previous: TreeListItem, text: str, imageClosed: int=-1, imageOpened: int=-1, data: Optional[ClientData]=None) -> TreeListItem:
+    def InsertItem(self, parent: TreeListItem, previous: TreeListItem, text: str, imageClosed: int=-1, imageOpened: int=-1, data: ClientData=nullptr) -> TreeListItem:
         """
-        InsertItem(parent, previous, text, imageClosed=-1, imageOpened=-1, data=None) -> TreeListItem
+        InsertItem(parent, previous, text, imageClosed=-1, imageOpened=-1, data=nullptr) -> TreeListItem
         
         Insert a new item into the tree.
         """
 
-    def PrependItem(self, parent: TreeListItem, text: str, imageClosed: int=-1, imageOpened: int=-1, data: Optional[ClientData]=None) -> TreeListItem:
+    def PrependItem(self, parent: TreeListItem, text: str, imageClosed: int=-1, imageOpened: int=-1, data: ClientData=nullptr) -> TreeListItem:
         """
-        PrependItem(parent, text, imageClosed=-1, imageOpened=-1, data=None) -> TreeListItem
+        PrependItem(parent, text, imageClosed=-1, imageOpened=-1, data=nullptr) -> TreeListItem
         
         Same as InsertItem() with wxTLI_FIRST.
         """
@@ -3751,6 +3746,11 @@ class TreeListCtrl(wx.Window):
         Create(parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=TL_DEFAULT_STYLE, name=TreeListCtrlNameStr) -> bool
         
         Create the control window.
+        """
+
+    def CreateAccessible(self) -> wx.Accessible:
+        """
+        CreateAccessible() -> wx.Accessible
         """
 
     @staticmethod

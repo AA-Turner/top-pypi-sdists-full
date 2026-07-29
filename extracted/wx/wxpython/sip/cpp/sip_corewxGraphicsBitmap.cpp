@@ -18,7 +18,7 @@
 
 PyDoc_STRVAR(doc_wxGraphicsBitmap_ConvertToImage, "ConvertToImage() -> Image\n"
 "\n"
-"Return the contents of this bitmap as wxImage.");
+"Return the contents of this bitmap as a wxImage.");
 
 extern "C" {static PyObject *meth_wxGraphicsBitmap_ConvertToImage(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsBitmap_ConvertToImage(PyObject *sipSelf, PyObject *sipArgs)
@@ -199,7 +199,7 @@ static void *init_type_wxGraphicsBitmap(sipSimpleWrapper *, PyObject *sipArgs, P
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxGraphicsBitmap[] = {{246, 255, 1}};
+static sipEncodedTypeDef supers_wxGraphicsBitmap[] = {{254, 255, 1}};
 
 
 static PyMethodDef methods_wxGraphicsBitmap[] = {

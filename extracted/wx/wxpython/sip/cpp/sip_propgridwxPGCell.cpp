@@ -729,7 +729,7 @@ static void *init_type_wxPGCell(sipSimpleWrapper *sipSelf, PyObject *sipArgs, Py
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxPGCell[] = {{20, 0, 1}};
+static sipEncodedTypeDef supers_wxPGCell[] = {{21, 0, 1}};
 
 
 static PyMethodDef methods_wxPGCell[] = {

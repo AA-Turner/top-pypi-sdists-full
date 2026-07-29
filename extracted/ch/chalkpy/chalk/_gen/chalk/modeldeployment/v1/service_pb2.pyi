@@ -60,19 +60,21 @@ class ModelContainerSpec(_message.Message):
     ) -> None: ...
 
 class CreateModelScalingGroupRequest(_message.Message):
-    __slots__ = ("name", "model_name", "identifier", "container_spec", "scaling_spec", "handler")
+    __slots__ = ("name", "model_name", "identifier", "container_spec", "scaling_spec", "handler", "image")
     NAME_FIELD_NUMBER: _ClassVar[int]
     MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
     IDENTIFIER_FIELD_NUMBER: _ClassVar[int]
     CONTAINER_SPEC_FIELD_NUMBER: _ClassVar[int]
     SCALING_SPEC_FIELD_NUMBER: _ClassVar[int]
     HANDLER_FIELD_NUMBER: _ClassVar[int]
+    IMAGE_FIELD_NUMBER: _ClassVar[int]
     name: str
     model_name: str
     identifier: _model_version_pb2.ModelVersionIdentifier
     container_spec: ModelContainerSpec
     scaling_spec: _service_pb2_1.ScalingSpec
     handler: str
+    image: str
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -81,6 +83,7 @@ class CreateModelScalingGroupRequest(_message.Message):
         container_spec: _Optional[_Union[ModelContainerSpec, _Mapping]] = ...,
         scaling_spec: _Optional[_Union[_service_pb2_1.ScalingSpec, _Mapping]] = ...,
         handler: _Optional[str] = ...,
+        image: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateModelScalingGroupResponse(_message.Message):

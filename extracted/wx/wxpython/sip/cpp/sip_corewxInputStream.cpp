@@ -414,7 +414,7 @@ static PyObject *meth_wxInputStream_GetC(PyObject *sipSelf, PyObject *sipArgs)
 
 PyDoc_STRVAR(doc_wxInputStream_LastRead, "LastRead() -> int\n"
 "\n"
-"Returns the last number of bytes read.");
+"Returns the last number of bytes read by the last input operation.");
 
 extern "C" {static PyObject *meth_wxInputStream_LastRead(PyObject *, PyObject *);}
 static PyObject *meth_wxInputStream_LastRead(PyObject *sipSelf, PyObject *sipArgs)
@@ -1149,7 +1149,7 @@ static int convertTo_wxInputStream(PyObject *sipPy, void **sipCppPtrV, int *sipI
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxInputStream[] = {{550, 255, 1}};
+static sipEncodedTypeDef supers_wxInputStream[] = {{566, 255, 1}};
 
 
 static PyMethodDef methods_wxInputStream[] = {

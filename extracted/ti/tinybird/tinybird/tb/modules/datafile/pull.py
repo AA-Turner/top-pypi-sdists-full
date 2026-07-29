@@ -53,7 +53,7 @@ def folder_pull(
         if not candidates:
             return None
 
-        return sorted(candidates, key=lambda path: (len(path.parent.relative_to(dest_folder).parts), str(path)))[0]
+        return min(candidates, key=lambda path: (len(path.parent.relative_to(dest_folder).parts), str(path)))
 
     def write_files(
         resources: list[dict[str, Any]],

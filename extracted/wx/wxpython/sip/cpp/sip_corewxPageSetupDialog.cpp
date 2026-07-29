@@ -162,7 +162,7 @@ static void *init_type_wxPageSetupDialog(sipSimpleWrapper *sipSelf, PyObject *si
 
     {
         ::wxWindow* parent;
-        ::wxPageSetupDialogData* data = 0;
+        ::wxPageSetupDialogData* data = nullptr;
 
         static const char *sipKwdList[] = {
             sipName_parent,
@@ -194,7 +194,7 @@ static void *init_type_wxPageSetupDialog(sipSimpleWrapper *sipSelf, PyObject *si
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxPageSetupDialog[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxPageSetupDialog[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxPageSetupDialog[] = {
@@ -206,7 +206,7 @@ sipVariableDef variables_wxPageSetupDialog[] = {
     {PropertyVariable, sipName_PageSetupData, &methods_wxPageSetupDialog[0], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
-PyDoc_STRVAR(doc_wxPageSetupDialog, "PageSetupDialog(parent, data=None) -> None\n"
+PyDoc_STRVAR(doc_wxPageSetupDialog, "PageSetupDialog(parent, data=nullptr) -> None\n"
 "\n"
 "This class represents the page setup common dialog.");
 

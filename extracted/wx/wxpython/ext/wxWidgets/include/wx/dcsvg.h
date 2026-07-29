@@ -2,7 +2,6 @@
 // Name:        wx/dcsvg.h
 // Purpose:     wxSVGFileDC
 // Author:      Chris Elliott
-// Modified by:
 // Created:
 // Copyright:   (c) Chris Elliott
 // Licence:     wxWindows licence
@@ -11,14 +10,21 @@
 #ifndef _WX_DCSVG_H_
 #define _WX_DCSVG_H_
 
+#include "wx/defs.h"
+
 #if wxUSE_SVG
 
 #include "wx/string.h"
 #include "wx/filename.h"
 #include "wx/dc.h"
-#include "wx/scopedptr.h"
 
+#include <map>
+#include <memory>
+
+#if WXWIN_COMPATIBILITY_3_2
 #define wxSVGVersion wxT("v0101")
+#endif
+constexpr double wxSVG_DEFAULT_DPI = 72.0;
 
 enum wxSVGShapeRenderingMode
 {
@@ -30,9 +36,54 @@ enum wxSVGShapeRenderingMode
     wxSVG_SHAPE_RENDERING_OPTIMISE_SPEED = wxSVG_SHAPE_RENDERING_OPTIMIZE_SPEED
 };
 
-class WXDLLIMPEXP_FWD_BASE wxFileOutputStream;
+// Helper class for adding SVG and ARIA attributes to the output.
+class WXDLLIMPEXP_CORE wxSVGAttributes
+{
+public:
+    wxSVGAttributes() = default;
+
+    wxSVGAttributes& Role(const wxString& role) { return Add(wxASCII_STR("role"), role); }
+    wxSVGAttributes& AriaLabel(const wxString& label) { return Add(wxASCII_STR("aria-label"), label); }
+    wxSVGAttributes& AriaLabelledBy(const wxString& id) { return Add(wxASCII_STR("aria-labelledby"), id); }
+    wxSVGAttributes& AriaDescribedBy(const wxString& id) { return Add(wxASCII_STR("aria-describedby"), id); }
+    wxSVGAttributes& AriaHidden(bool hidden = true) { return Add(wxASCII_STR("aria-hidden"), hidden ? wxASCII_STR("true") : wxASCII_STR("false")); }
+    wxSVGAttributes& AriaDetails(const wxString& id) { return Add(wxASCII_STR("aria-details"), id); }
+    wxSVGAttributes& AriaRoleDescription(const wxString& desc) { return Add(wxASCII_STR("aria-roledescription"), desc); }
+
+    wxSVGAttributes& Id(const wxString& id) { return Add(wxASCII_STR("id"), id); }
+    wxSVGAttributes& Class(const wxString& classname) { return Add(wxASCII_STR("class"), classname); }
+
+    wxString GetRole() const { return GetAttribute(wxASCII_STR("role")); }
+    wxString GetAriaLabel() const { return GetAttribute(wxASCII_STR("aria-label")); }
+    wxString GetAriaLabelledBy() const { return GetAttribute(wxASCII_STR("aria-labelledby")); }
+    wxString GetAriaDescribedBy() const { return GetAttribute(wxASCII_STR("aria-describedby")); }
+    bool IsAriaHidden() const { return GetAttribute(wxASCII_STR("aria-hidden")) == wxASCII_STR("true"); }
+    wxString GetAriaDetails() const { return GetAttribute(wxASCII_STR("aria-details")); }
+    wxString GetAriaRoleDescription() const { return GetAttribute(wxASCII_STR("aria-roledescription")); }
+
+    wxString GetId() const { return GetAttribute(wxASCII_STR("id")); }
+    wxString GetClass() const { return GetAttribute(wxASCII_STR("class")); }
+
+    // Add or update an attribute.
+    wxSVGAttributes& Add(const wxString& name, const wxString& value);
+
+    // Get an attribute value, returns empty string if not found.
+    wxString GetAttribute(const wxString& name) const;
+
+    // Returns the attributes as a string of name="value" pairs, each prefixed with a space.
+    wxString GetAsString() const;
+
+    bool IsEmpty() const { return m_attributes.empty(); }
+
+private:
+    std::map<wxString, wxString> m_attributes;
+};
 
 class WXDLLIMPEXP_FWD_CORE wxSVGFileDC;
+class WXDLLIMPEXP_FWD_CORE wxSVGGraphicsContext;
+class WXDLLIMPEXP_FWD_CORE wxSVGGraphicsPathData;
+class WXDLLIMPEXP_FWD_CORE wxSVGWriter;
+class WXDLLIMPEXP_FWD_CORE wxGraphisContext;
 
 // Base class for bitmap handlers used by wxSVGFileDC, used by the standard
 // "embed" and "link" handlers below but can also be used to create a custom
@@ -46,7 +97,7 @@ public:
                                wxCoord x, wxCoord y,
                                wxOutputStream& stream) const = 0;
 
-    virtual ~wxSVGBitmapHandler() {}
+    virtual ~wxSVGBitmapHandler() = default;
 };
 
 // Predefined standard bitmap handler: creates a file, stores the bitmap in
@@ -66,7 +117,7 @@ public:
 
     virtual bool ProcessBitmap(const wxBitmap& bitmap,
                                wxCoord x, wxCoord y,
-                               wxOutputStream& stream) const wxOVERRIDE;
+                               wxOutputStream& stream) const override;
 
 private:
     wxFileName m_path; // When set, name will be appended with _image#.png
@@ -79,71 +130,99 @@ class WXDLLIMPEXP_CORE wxSVGBitmapEmbedHandler : public wxSVGBitmapHandler
 public:
     virtual bool ProcessBitmap(const wxBitmap& bitmap,
                                wxCoord x, wxCoord y,
-                               wxOutputStream& stream) const wxOVERRIDE;
+                               wxOutputStream& stream) const override;
 };
 
 class WXDLLIMPEXP_CORE wxSVGFileDCImpl : public wxDCImpl
 {
 public:
     wxSVGFileDCImpl(wxSVGFileDC* owner, const wxString& filename,
-                    int width = 320, int height = 240, double dpi = 72.0,
+                    int width = 320, int height = 240, double dpi = wxSVG_DEFAULT_DPI,
                     const wxString& title = wxString());
 
     virtual ~wxSVGFileDCImpl();
 
-    bool IsOk() const wxOVERRIDE { return m_OK; }
+#if wxUSE_GRAPHICS_CONTEXT
+    virtual wxGraphicsContext* GetGraphicsContext() const override;
+#endif
 
-    virtual bool CanDrawBitmap() const wxOVERRIDE { return true; }
-    virtual bool CanGetTextExtent() const wxOVERRIDE { return true; }
+    friend class wxSVGGraphicsContext;
 
-    virtual int GetDepth() const wxOVERRIDE
+    bool IsOk() const override;
+
+    virtual bool CanDrawBitmap() const override { return true; }
+    virtual bool CanGetTextExtent() const override { return true; }
+
+    virtual int GetDepth() const override
     {
         wxFAIL_MSG(wxT("wxSVGFILEDC::GetDepth Call not implemented"));
         return -1;
     }
 
-    virtual void Clear() wxOVERRIDE;
+    virtual void Clear() override;
 
-    virtual void DestroyClippingRegion() wxOVERRIDE;
+    virtual void DestroyClippingRegion() override;
 
-    virtual wxCoord GetCharHeight() const wxOVERRIDE;
-    virtual wxCoord GetCharWidth() const wxOVERRIDE;
+    virtual wxCoord GetCharHeight() const override;
+    virtual wxCoord GetCharWidth() const override;
 
 #if wxUSE_PALETTE
-    virtual void SetPalette(const wxPalette& WXUNUSED(palette)) wxOVERRIDE
+    virtual void SetPalette(const wxPalette& WXUNUSED(palette)) override
     {
         wxFAIL_MSG(wxT("wxSVGFILEDC::SetPalette not implemented"));
     }
 #endif
 
-    virtual void SetLogicalFunction(wxRasterOperationMode WXUNUSED(function)) wxOVERRIDE
+    virtual void SetLogicalFunction(wxRasterOperationMode WXUNUSED(function)) override
     {
         wxFAIL_MSG(wxT("wxSVGFILEDC::SetLogicalFunction Call not implemented"));
     }
 
-    virtual wxRasterOperationMode GetLogicalFunction() const wxOVERRIDE
+    virtual wxRasterOperationMode GetLogicalFunction() const override
     {
         wxFAIL_MSG(wxT("wxSVGFILEDC::GetLogicalFunction() not implemented"));
         return wxCOPY;
     }
 
-    virtual void ComputeScaleAndOrigin() wxOVERRIDE;
+    virtual void ComputeScaleAndOrigin() override;
 
-    virtual void SetBackground(const wxBrush& brush) wxOVERRIDE;
-    virtual void SetBackgroundMode(int mode) wxOVERRIDE;
-    virtual void SetBrush(const wxBrush& brush) wxOVERRIDE;
-    virtual void SetFont(const wxFont& font) wxOVERRIDE;
-    virtual void SetPen(const wxPen& pen) wxOVERRIDE;
+    virtual void SetBackground(const wxBrush& brush) override;
+    virtual void SetBackgroundMode(int mode) override;
+    virtual void SetBrush(const wxBrush& brush) override;
+    virtual void SetFont(const wxFont& font) override;
+    virtual void SetPen(const wxPen& pen) override;
 
-    virtual void* GetHandle() const wxOVERRIDE { return NULL; }
+    virtual void* GetHandle() const override { return nullptr; }
 
     void SetBitmapHandler(wxSVGBitmapHandler* handler);
 
     void SetShapeRenderingMode(wxSVGShapeRenderingMode renderingMode);
 
+    // Open an accessible <g> group with the given attributes and optional
+    // <title>/<desc> children. All drawing until the matching
+    // EndAccessibleGroup() call is nested inside this element.
+    // Groups may nest.
+    void BeginAccessibleGroup(const wxSVGAttributes& attributes,
+                              const wxString& title = wxString(),
+                              const wxString& desc = wxString());
+
+    // Close the accessible group opened by the most recent
+    // BeginAccessibleGroup() call.
+    void EndAccessibleGroup();
+
+    // Open a group with the given opacity.
+    void BeginLayer(double opacity);
+
+    // Close the group opened by the most recent BeginLayer() call.
+    void EndLayer();
+
+    wxString GetSVGDocument() const;
+
+    bool Save();
+
 private:
     virtual bool DoGetPixel(wxCoord WXUNUSED(x), wxCoord WXUNUSED(y),
-                            wxColour* WXUNUSED(col)) const wxOVERRIDE
+                            wxColour* WXUNUSED(col)) const override
     {
         wxFAIL_MSG(wxT("wxSVGFILEDC::DoGetPixel Call not implemented"));
         return true;
@@ -156,60 +235,60 @@ private:
                         wxRasterOperationMode rop,
                         bool useMask = false,
                         wxCoord xsrcMask = wxDefaultCoord,
-                        wxCoord ysrcMask = wxDefaultCoord) wxOVERRIDE;
+                        wxCoord ysrcMask = wxDefaultCoord) override;
 
-    virtual void DoCrossHair(wxCoord WXUNUSED(x), wxCoord WXUNUSED(y)) wxOVERRIDE
+    virtual void DoCrossHair(wxCoord WXUNUSED(x), wxCoord WXUNUSED(y)) override
     {
         wxFAIL_MSG(wxT("wxSVGFILEDC::CrossHair Call not implemented"));
     }
 
     virtual void DoDrawArc(wxCoord x1, wxCoord y1,
                            wxCoord x2, wxCoord y2,
-                           wxCoord xc, wxCoord yc) wxOVERRIDE;
+                           wxCoord xc, wxCoord yc) override;
 
     virtual void DoDrawBitmap(const wxBitmap& bmp, wxCoord x, wxCoord y,
-                              bool useMask = false) wxOVERRIDE;
+                              bool useMask = false) override;
 
     virtual void DoDrawEllipse(wxCoord x, wxCoord y,
-                               wxCoord width, wxCoord height) wxOVERRIDE;
+                               wxCoord width, wxCoord height) override;
 
     virtual void DoDrawEllipticArc(wxCoord x, wxCoord y, wxCoord w, wxCoord h,
-                                   double sa, double ea) wxOVERRIDE;
+                                   double sa, double ea) override;
 
-    virtual void DoDrawIcon(const wxIcon& icon, wxCoord x, wxCoord y) wxOVERRIDE;
+    virtual void DoDrawIcon(const wxIcon& icon, wxCoord x, wxCoord y) override;
 
-    virtual void DoDrawLine(wxCoord x1, wxCoord y1, wxCoord x2, wxCoord y2) wxOVERRIDE;
+    virtual void DoDrawLine(wxCoord x1, wxCoord y1, wxCoord x2, wxCoord y2) override;
 
     virtual void DoDrawLines(int n, const wxPoint points[],
-                             wxCoord xoffset, wxCoord yoffset) wxOVERRIDE;
+                             wxCoord xoffset, wxCoord yoffset) override;
 #if wxUSE_SPLINES
-    void DoDrawSpline(const wxPointList* points) wxOVERRIDE;
+    void DoDrawSpline(const wxPointList* points) override;
 #endif // wxUSE_SPLINES
 
-    virtual void DoDrawPoint(wxCoord x, wxCoord y) wxOVERRIDE;
+    virtual void DoDrawPoint(wxCoord x, wxCoord y) override;
 
     virtual void DoDrawPolygon(int n, const wxPoint points[],
                                wxCoord xoffset, wxCoord yoffset,
-                               wxPolygonFillMode fillStyle = wxODDEVEN_RULE) wxOVERRIDE;
+                               wxPolygonFillMode fillStyle = wxODDEVEN_RULE) override;
 
     virtual void DoDrawPolyPolygon(int n, const int count[], const wxPoint points[],
                                    wxCoord xoffset, wxCoord yoffset,
-                                   wxPolygonFillMode fillStyle) wxOVERRIDE;
+                                   wxPolygonFillMode fillStyle) override;
 
-    virtual void DoDrawRectangle(wxCoord x, wxCoord y, wxCoord width, wxCoord height) wxOVERRIDE;
+    virtual void DoDrawRectangle(wxCoord x, wxCoord y, wxCoord width, wxCoord height) override;
 
     virtual void DoDrawRotatedText(const wxString& text, wxCoord x, wxCoord y,
-                                   double angle) wxOVERRIDE;
+                                   double angle) override;
 
     virtual void DoDrawRoundedRectangle(wxCoord x, wxCoord y,
                                         wxCoord width, wxCoord height,
-                                        double radius) wxOVERRIDE;
+                                        double radius) override;
 
-    virtual void DoDrawText(const wxString& text, wxCoord x, wxCoord y) wxOVERRIDE;
+    virtual void DoDrawText(const wxString& text, wxCoord x, wxCoord y) override;
 
     virtual bool DoFloodFill(wxCoord WXUNUSED(x), wxCoord WXUNUSED(y),
                              const wxColour& WXUNUSED(col),
-                             wxFloodFillStyle WXUNUSED(style)) wxOVERRIDE
+                             wxFloodFillStyle WXUNUSED(style)) override
     {
         wxFAIL_MSG(wxT("wxSVGFILEDC::DoFloodFill Call not implemented"));
         return false;
@@ -218,73 +297,55 @@ private:
     virtual void DoGradientFillLinear(const wxRect& rect,
                                       const wxColour& initialColour,
                                       const wxColour& destColour,
-                                      wxDirection nDirection) wxOVERRIDE;
+                                      wxDirection nDirection) override;
 
     virtual void DoGradientFillConcentric(const wxRect& rect,
                                           const wxColour& initialColour,
                                           const wxColour& destColour,
-                                          const wxPoint& circleCenter) wxOVERRIDE;
+                                          const wxPoint& circleCenter) override;
 
-    virtual void DoGetSize(int* width, int* height) const wxOVERRIDE
-    {
-        if ( width )
-            *width = m_width;
-        if ( height )
-            *height = m_height;
-    }
+    virtual void DoGetSize(int* width, int* height) const override;
 
     virtual void DoGetTextExtent(const wxString& string,
                                  wxCoord* x, wxCoord* y,
-                                 wxCoord* descent = NULL,
-                                 wxCoord* externalLeading = NULL,
-                                 const wxFont* theFont = NULL) const wxOVERRIDE;
+                                 wxCoord* descent = nullptr,
+                                 wxCoord* externalLeading = nullptr,
+                                 const wxFont* theFont = nullptr) const override;
 
-    virtual void DoSetDeviceClippingRegion(const wxRegion& region) wxOVERRIDE;
+    virtual void DoSetDeviceClippingRegion(const wxRegion& region) override;
 
     virtual void DoSetClippingRegion(wxCoord x, wxCoord y,
-                                     wxCoord w, wxCoord h) wxOVERRIDE;
+                                     wxCoord w, wxCoord h) override;
 
-    virtual void DoGetSizeMM(int* width, int* height) const wxOVERRIDE;
+    virtual void DoGetSizeMM(int* width, int* height) const override;
 
-    virtual wxSize GetPPI() const wxOVERRIDE;
+    virtual wxSize GetPPI() const override;
 
-    virtual wxSize FromDIP(const wxSize& sz) const wxOVERRIDE;
+    virtual wxSize FromDIP(const wxSize& sz) const override;
 
-    virtual wxSize ToDIP(const wxSize& sz) const wxOVERRIDE;
+    virtual wxSize ToDIP(const wxSize& sz) const override;
 
     void Init(const wxString& filename, int width, int height,
               double dpi, const wxString& title);
 
-    void write(const wxString& s);
-
-private:
-    // If m_graphics_changed is true, close the current <g> element and start a
-    // new one for the last pen/brush change.
+    // If the writer's graphics-changed flag is set, close the current <g>
+    // element and start a new one reflecting the latest pen/brush state.
     void NewGraphicsIfNeeded();
 
     // Open a new graphics group setting up all the attributes according to
     // their current values in wxDC.
     void DoStartNewGraphics();
 
-    wxString            m_filename;
-    bool                m_OK;
-    bool                m_graphics_changed;  // set by Set{Brush,Pen}()
-    int                 m_width, m_height;
-    double              m_dpi;
-    wxScopedPtr<wxFileOutputStream> m_outfile;
-    wxScopedPtr<wxSVGBitmapHandler> m_bmp_handler; // class to handle bitmaps
-    wxSVGShapeRenderingMode m_renderingMode;
+    // Trivial helper forwarding to m_writer.
+    void write(const wxString& s);
 
-    // The clipping nesting level is incremented by every call to
-    // SetClippingRegion() and reset when DestroyClippingRegion() is called.
-    size_t m_clipNestingLevel;
+    // Output buffer + shared bookkeeping shared with the GC.
+    std::unique_ptr<wxSVGWriter> m_writer;
 
-    // Unique ID for every clipping graphics group: this is simply always
-    // incremented in each SetClippingRegion() call.
-    size_t m_clipUniqueId;
-
-    // Unique ID for every gradient.
-    size_t m_gradientUniqueId;
+#if wxUSE_GRAPHICS_CONTEXT
+    // Graphics context that writes into the same SVG buffer.
+    mutable std::unique_ptr<wxSVGGraphicsContext> m_gc;
+#endif
 
     wxDECLARE_ABSTRACT_CLASS(wxSVGFileDCImpl);
     wxDECLARE_NO_COPY_CLASS(wxSVGFileDCImpl);
@@ -297,9 +358,17 @@ public:
     wxSVGFileDC(const wxString& filename,
                 int width = 320,
                 int height = 240,
-                double dpi = 72.0,
+                double dpi = wxSVG_DEFAULT_DPI,
                 const wxString& title = wxString())
         : wxDC(new wxSVGFileDCImpl(this, filename, width, height, dpi, title))
+    {
+    }
+
+    wxSVGFileDC(const wxSize size,
+                const wxString& filename = wxString(),
+                const wxString& title = wxString(),
+                double dpi = wxSVG_DEFAULT_DPI)
+        : wxDC(new wxSVGFileDCImpl(this, filename, size.x, size.y, dpi, title))
     {
     }
 
@@ -310,8 +379,75 @@ public:
 
     void SetShapeRenderingMode(wxSVGShapeRenderingMode renderingMode);
 
+    // Open an accessible <g> group wrapping all subsequent drawing until the
+    // matching EndAccessibleGroup() call. Prefer wxSVGAccessibleGroup for
+    // RAII-style scoping.
+    void BeginAccessibleGroup(const wxSVGAttributes& attributes,
+                              const wxString& title = wxString(),
+                              const wxString& desc = wxString());
+
+    void EndAccessibleGroup();
+
+    void BeginLayer(double opacity);
+
+    void EndLayer();
+
+    // Return the SVG document as a string.
+    wxString GetSVGDocument() const;
+
+    bool Save();
+
 private:
+    friend class wxSVGGraphicsContext;
+    friend class wxSVGGraphicsPathData;
+
     wxDECLARE_ABSTRACT_CLASS(wxSVGFileDC);
+};
+
+// RAII helper that opens an accessible group on construction and closes it
+// on destruction.
+class WXDLLIMPEXP_CORE wxSVGAccessibleGroup
+{
+public:
+    wxSVGAccessibleGroup(wxSVGFileDC& dc,
+                         const wxSVGAttributes& attributes,
+                         const wxString& title = wxString(),
+                         const wxString& desc = wxString())
+        : m_dc(dc)
+    {
+        m_dc.BeginAccessibleGroup(attributes, title, desc);
+    }
+
+    ~wxSVGAccessibleGroup()
+    {
+        m_dc.EndAccessibleGroup();
+    }
+
+private:
+    wxSVGFileDC& m_dc;
+
+    wxDECLARE_NO_COPY_CLASS(wxSVGAccessibleGroup);
+};
+
+// RAII helper that opens a layer on construction and closes it on destruction.
+class WXDLLIMPEXP_CORE wxSVGLayer
+{
+public:
+    wxSVGLayer(wxSVGFileDC& dc, double opacity)
+        : m_dc(dc)
+    {
+        m_dc.BeginLayer(opacity);
+    }
+
+    ~wxSVGLayer()
+    {
+        m_dc.EndLayer();
+    }
+
+private:
+    wxSVGFileDC& m_dc;
+
+    wxDECLARE_NO_COPY_CLASS(wxSVGLayer);
 };
 
 #endif // wxUSE_SVG

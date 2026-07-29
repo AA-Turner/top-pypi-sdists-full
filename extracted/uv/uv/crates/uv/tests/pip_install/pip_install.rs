@@ -16,7 +16,7 @@ use fs_err::File;
 use futures::executor::block_on;
 use futures::io::AllowStdIo;
 use indoc::{formatdoc, indoc};
-use insta::assert_snapshot;
+use insta::{allow_duplicates, assert_snapshot};
 use predicates::prelude::predicate;
 #[cfg(unix)]
 use tokio::io::AsyncWriteExt;
@@ -589,7 +589,34 @@ fn invalid_toml_filename() -> Result<()> {
         .arg("test.toml"), @"
     exit_code: 2 (failure)
     ----- stderr -----
-    error: `test.toml` is not a valid PEP 751 filename: expected TOML file to start with `pylock.` and end with `.toml` (e.g., `pylock.toml`, `pylock.dev.toml`)
+    error: `test.toml` is not a valid PEP 751 filename: expected `pylock.toml` or `pylock.<name>.toml`, where `<name>` is non-empty and contains no dots
+    "
+    );
+
+    Ok(())
+}
+
+#[test]
+fn invalid_pylock_toml_filename() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    context.temp_dir.child("pylock..toml").touch()?;
+    context.temp_dir.child("pylock.foo.bar.toml").touch()?;
+
+    uv_snapshot!(context.pip_install()
+        .arg("-r")
+        .arg("pylock..toml"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: `pylock..toml` is not a valid PEP 751 filename: expected `pylock.toml` or `pylock.<name>.toml`, where `<name>` is non-empty and contains no dots
+    "
+    );
+
+    uv_snapshot!(context.pip_install()
+        .arg("-r")
+        .arg("pylock.foo.bar.toml"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: `pylock.foo.bar.toml` is not a valid PEP 751 filename: expected `pylock.toml` or `pylock.<name>.toml`, where `<name>` is non-empty and contains no dots
     "
     );
 
@@ -1074,6 +1101,46 @@ fn install_unsupported_flag() -> Result<()> {
     Prepared 1 package in [TIME]
     Installed 1 package in [TIME]
      + iniconfig==2.0.0
+    "
+    );
+
+    Ok(())
+}
+
+/// Enable `--require-hashes` from the `requirements.txt`.
+#[test]
+fn install_require_hashes_in_requirements_txt() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let requirements_txt = context.temp_dir.child("requirements.txt");
+    requirements_txt.write_str(indoc! {r"
+        --require-hashes
+        iniconfig
+    "})?;
+
+    uv_snapshot!(context.pip_install()
+        .arg("-r")
+        .arg("requirements.txt")
+        .arg("--strict"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: In `--require-hashes` mode, all requirements must have their versions pinned with `==`, but found: iniconfig
+    "
+    );
+
+    requirements_txt.write_str(indoc! {r"
+        --require-hashes
+        iniconfig==2.0.0
+    "})?;
+
+    uv_snapshot!(context.pip_install()
+        .arg("-r")
+        .arg("requirements.txt")
+        .arg("--no-require-hashes")
+        .arg("--strict"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: In `--require-hashes` mode, all requirements must have a hash, but none were provided for: iniconfig==2.0.0
     "
     );
 
@@ -3356,7 +3423,6 @@ fn install_only_binary_all_and_no_binary_all() {
       × No solution found when resolving dependencies:
       ╰─▶ Because all versions of anyio have no usable wheels and you require anyio, we can conclude that your requirements are unsatisfiable.
 
-    hint: Pre-releases are available for `anyio` in the requested range (e.g., 4.0.0rc1), but pre-releases weren't enabled (try: `--prerelease=allow`)
     hint: Wheels are required for `anyio` because building from source is disabled for all packages (i.e., with `--no-build`)
     "
     );
@@ -4296,9 +4362,9 @@ fn install_git_source_respects_offline_mode() {
     );
 }
 
-/// Build requirements should explain how to opt into prereleases when they are the only solution.
+/// Transitive pre-releases should be enabled when resolving isolated build requirements.
 #[test]
-fn build_prerelease_hint() -> Result<()> {
+fn build_transitive_prerelease() -> Result<()> {
     let context = uv_test::test_context!("3.12");
     let server = PackseServer::new("prereleases/transitive-package-only-prereleases-in-range.toml");
 
@@ -4310,7 +4376,7 @@ fn build_prerelease_hint() -> Result<()> {
         requires-python = ">=3.12"
 
         [build-system]
-        requires = ["a"]
+        requires = ["a", "setuptools"]
         build-backend = "setuptools.build_meta"
     "#})?;
 
@@ -4322,20 +4388,199 @@ fn build_prerelease_hint() -> Result<()> {
         context.filters(),
         command,
         @"
-    exit_code: 1 (failure)
+    exit_code: 0 (success)
     ----- stderr -----
     Resolved 1 package in [TIME]
-      × Failed to build `project @ file://[TEMP_DIR]/`
-      ├─▶ Failed to resolve requirements from `build-system.requires`
-      ├─▶ No solution found when resolving: `a`
-      ╰─▶ Because only b<=0.1 is available and all versions of a depend on b>0.1, we can conclude that all versions of a cannot be used.
-          And because you require a, we can conclude that your requirements are unsatisfiable.
-
-    hint: Only pre-releases of `b` (e.g., 1.0.0a1) match these build requirements, and build environments can't enable pre-releases automatically. Add `b>=1.0.0a1` to `build-system.requires`, `[tool.uv.extra-build-dependencies]`, or supply it via `uv build --build-constraint`.
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + project==0.1.0 (from file://[TEMP_DIR]/)
     "
     );
 
     Ok(())
+}
+
+/// `--prerelease=explicit` should not fall back to a pre-release without a direct pre-release
+/// specifier.
+#[test]
+fn explicit_prerelease_does_not_fall_back_if_necessary() {
+    let context = uv_test::test_context!("3.12");
+    let server = PackseServer::new("prereleases/package-only-prereleases-in-range.toml");
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--index-url")
+        .arg(server.index_url())
+        .arg("--prerelease=explicit")
+        .arg("a>0.1.0"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+      × No solution found when resolving dependencies:
+      ╰─▶ Because only a<=0.1.0 is available and you require a>0.1.0, we can conclude that your requirements are unsatisfiable.
+
+    hint: Pre-releases are available for `a` in the requested range (e.g., 1.0.0a1), but pre-releases weren't enabled (try: `--prerelease=allow`)
+    ");
+}
+
+/// `--prerelease=explicit` should allow a pre-release for a direct requirement with a pre-release
+/// specifier.
+#[test]
+fn explicit_prerelease_allows_direct_marker() {
+    let context = uv_test::test_context!("3.12");
+    let server = PackseServer::new(
+        "prereleases/package-prerelease-specified-only-prerelease-available.toml",
+    );
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--index-url")
+        .arg(server.index_url())
+        .arg("--prerelease=explicit")
+        .arg("a>=0.1.0a1"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + a==0.3.0a1
+    ");
+
+    context.assert_installed("a", "0.3.0a1");
+}
+
+/// `--prerelease=explicit` should prefer a stable release over a newer pre-release for a direct
+/// requirement with a pre-release specifier.
+#[test]
+fn explicit_prerelease_prefers_stable_for_direct_marker() {
+    let context = uv_test::test_context!("3.12");
+    let server = PackseServer::new("prereleases/package-prerelease-specified-mixed-available.toml");
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--index-url")
+        .arg(server.index_url())
+        .arg("--prerelease=explicit")
+        .arg("a>=0.1.0a1"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + a==0.3.0
+    ");
+
+    context.assert_installed("a", "0.3.0");
+}
+
+/// `unsafe-first-match` should prefer a compatible pre-release on the first index over a stable
+/// release on a later index, while `unsafe-best-match` should prefer the stable release globally.
+#[test]
+fn prerelease_index_strategy_ordering() {
+    let private = PackseServer::new("prereleases/package-only-prereleases.toml");
+    let public = PackseServer::new("prereleases/package-stable-prerelease-candidates.toml");
+
+    let context = uv_test::test_context!("3.12");
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--index-url")
+        .arg(public.index_url())
+        .arg("--extra-index-url")
+        .arg(private.index_url())
+        .arg("--index-strategy=unsafe-first-match")
+        .arg("a>=1.0.0a1,<2"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + a==1.0.0a1
+    ");
+    context.assert_installed("a", "1.0.0a1");
+
+    let context = uv_test::test_context!("3.12");
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--index-url")
+        .arg(public.index_url())
+        .arg("--extra-index-url")
+        .arg(private.index_url())
+        .arg("--index-strategy=unsafe-best-match")
+        .arg("a>=1.0.0a1,<2"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + a==1.0.0
+    ");
+    context.assert_installed("a", "1.0.0");
+}
+
+/// `--prerelease=explicit` should not allow a pre-release based only on a transitive pre-release
+/// specifier.
+#[test]
+fn explicit_prerelease_disallows_transitive_marker() {
+    let context = uv_test::test_context!("3.12");
+    let server = PackseServer::new("prereleases/transitive-prerelease-and-stable-dependency.toml");
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--index-url")
+        .arg(server.index_url())
+        .arg("--prerelease=explicit")
+        .arg("a")
+        .arg("b"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+      × No solution found when resolving dependencies:
+      ╰─▶ Because there is no version of c==2.0.0b1 and all versions of a depend on c==2.0.0b1, we can conclude that all versions of a cannot be used.
+          And because you require a, we can conclude that your requirements are unsatisfiable.
+
+    hint: `c` was requested with a pre-release marker (e.g., c==2.0.0b1), but pre-releases weren't enabled (try: `--prerelease=allow`)
+    ");
+}
+
+/// `--prerelease=if-necessary-or-explicit` should warn and behave like `if-necessary`.
+#[test]
+fn if_necessary_or_explicit_is_deprecated_alias() {
+    let context = uv_test::test_context!("3.12");
+    let server = PackseServer::new("prereleases/package-only-prereleases-in-range.toml");
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--index-url")
+        .arg(server.index_url())
+        .arg("--prerelease=if-necessary-or-explicit")
+        .arg("a>0.1.0"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    warning: The `if-necessary-or-explicit` pre-release mode is deprecated and will be removed in a future release. Use `if-necessary` instead.
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + a==1.0.0a1
+    ");
+
+    context.assert_installed("a", "1.0.0a1");
+}
+
+/// `--prerelease=disallow` should continue to reject explicitly requested transitive
+/// pre-releases.
+#[test]
+fn disallow_transitive_prerelease() {
+    let context = uv_test::test_context!("3.12");
+    let server = PackseServer::new("prereleases/transitive-prerelease-and-stable-dependency.toml");
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--index-url")
+        .arg(server.index_url())
+        .arg("--prerelease=disallow")
+        .arg("a")
+        .arg("b"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+      × No solution found when resolving dependencies:
+      ╰─▶ Because there is no version of c==2.0.0b1 and all versions of a depend on c==2.0.0b1, we can conclude that all versions of a cannot be used.
+          And because you require a, we can conclude that your requirements are unsatisfiable.
+
+    hint: `c` was requested with a pre-release marker (e.g., c==2.0.0b1), but pre-releases weren't enabled (try: `--prerelease=allow`)
+    ");
+
+    context.assert_not_installed("a");
+    context.assert_not_installed("b");
 }
 
 /// Test that constraint markers are respected when validating the current environment (i.e., we
@@ -7288,6 +7533,69 @@ async fn find_links_uppercase_html() -> Result<()> {
     Ok(())
 }
 
+/// Treat an incorrect wheel size from the Simple API as advisory.
+#[tokio::test]
+async fn registry_wheel_size_is_advisory() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let server = MockServer::start().await;
+    let wheel_filename = "tqdm-1000.0.0-py3-none-any.whl";
+    let wheel_path = context
+        .workspace_root
+        .join("test/links")
+        .join(wheel_filename);
+
+    Mock::given(method("GET"))
+        .and(path("/tqdm/"))
+        .respond_with(ResponseTemplate::new(200).set_body_raw(
+            formatdoc! {r#"
+                {{
+                    "name": "tqdm",
+                    "files": [{{
+                        "filename": "{wheel_filename}",
+                        "url": "/{wheel_filename}",
+                        "hashes": {{}},
+                        "size": 1,
+                        "core-metadata": true,
+                        "upload-time": "2024-03-24T00:00:00Z"
+                    }}]
+                }}
+            "#},
+            "application/vnd.pypi.simple.v1+json",
+        ))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path(format!("/{wheel_filename}.metadata")))
+        .respond_with(ResponseTemplate::new(200).set_body_string(indoc! {"
+            Metadata-Version: 2.1
+            Name: tqdm
+            Version: 1000.0.0
+        "}))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path(format!("/{wheel_filename}")))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(fs::read(wheel_path)?))
+        .mount(&server)
+        .await;
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("tqdm==1000.0.0")
+        .arg("--index-url")
+        .arg(server.uri()), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + tqdm==1000.0.0
+    "
+    );
+
+    Ok(())
+}
+
 /// Reject a wheel with multiple `.dist-info` directories when PEP 658 metadata bypasses
 /// reading metadata from the wheel archive.
 #[tokio::test]
@@ -8574,19 +8882,15 @@ fn prefer_editable() -> Result<()> {
     Ok(())
 }
 
-/// Resolve against a local directory laid out as a PEP 503-compatible index.
-#[test]
-fn local_index_absolute() -> Result<()> {
-    let context = uv_test::test_context!("3.12");
-
-    let root = context.temp_dir.child("simple-html");
-    fs_err::create_dir_all(&root)?;
-
-    let tqdm = root.child("tqdm");
+/// Create a local PEP 503-compatible index containing the `tqdm` test wheel.
+fn create_local_index_with_tqdm(context: &TestContext, root: &Path) -> Result<()> {
+    let tqdm = root.join("tqdm");
     fs_err::create_dir_all(&tqdm)?;
 
-    let index = tqdm.child("index.html");
-    index.write_str(&indoc::formatdoc! {r#"
+    let index = tqdm.join("index.html");
+    fs_err::write(
+        index,
+        indoc::formatdoc! {r#"
         <!DOCTYPE html>
         <html>
           <head>
@@ -8602,7 +8906,18 @@ fn local_index_absolute() -> Result<()> {
             </a>
           </body>
         </html>
-    "#, Url::from_directory_path(context.workspace_root.join("test/links/")).unwrap().as_str()})?;
+    "#, Url::from_directory_path(context.workspace_root.join("test/links/")).unwrap().as_str()},
+    )?;
+    Ok(())
+}
+
+/// Resolve against a local directory laid out as a PEP 503-compatible index.
+#[test]
+fn local_index_absolute() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let root = context.temp_dir.child("simple-html");
+    create_local_index_with_tqdm(&context, root.path())?;
 
     uv_snapshot!(context.filters(), context.pip_install()
         .env_remove(EnvVars::UV_EXCLUDE_NEWER)
@@ -8628,29 +8943,7 @@ fn local_index_relative() -> Result<()> {
     let context = uv_test::test_context!("3.12");
 
     let root = context.temp_dir.child("simple-html");
-    fs_err::create_dir_all(&root)?;
-
-    let tqdm = root.child("tqdm");
-    fs_err::create_dir_all(&tqdm)?;
-
-    let index = tqdm.child("index.html");
-    index.write_str(&indoc::formatdoc! {r#"
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta name="pypi:repository-version" content="1.1" />
-          </head>
-          <body>
-            <h1>Links for tqdm</h1>
-            <a
-              href="{}/tqdm-1000.0.0-py3-none-any.whl"
-              data-requires-python=">=3.8"
-            >
-              tqdm-1000.0.0-py3-none-any.whl
-            </a>
-          </body>
-        </html>
-    "#, Url::from_directory_path(context.workspace_root.join("test/links/")).unwrap().as_str()})?;
+    create_local_index_with_tqdm(&context, root.path())?;
 
     uv_snapshot!(context.filters(), context.pip_install()
         .env_remove(EnvVars::UV_EXCLUDE_NEWER)
@@ -8676,29 +8969,7 @@ fn local_index_requirements_txt_absolute() -> Result<()> {
     let context = uv_test::test_context!("3.12");
 
     let root = context.temp_dir.child("simple-html");
-    fs_err::create_dir_all(&root)?;
-
-    let tqdm = root.child("tqdm");
-    fs_err::create_dir_all(&tqdm)?;
-
-    let index = tqdm.child("index.html");
-    index.write_str(&indoc::formatdoc! {r#"
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta name="pypi:repository-version" content="1.1" />
-          </head>
-          <body>
-            <h1>Links for tqdm</h1>
-            <a
-              href="{}/tqdm-1000.0.0-py3-none-any.whl"
-              data-requires-python=">=3.8"
-            >
-              tqdm-1000.0.0-py3-none-any.whl
-            </a>
-          </body>
-        </html>
-    "#, Url::from_directory_path(context.workspace_root.join("test/links/")).unwrap().as_str()})?;
+    create_local_index_with_tqdm(&context, root.path())?;
 
     let requirements_txt = context.temp_dir.child("requirements.txt");
     requirements_txt.write_str(&indoc::formatdoc! {r"
@@ -8729,29 +9000,7 @@ fn local_index_requirements_txt_relative() -> Result<()> {
     let context = uv_test::test_context!("3.12");
 
     let root = context.temp_dir.child("simple-html");
-    fs_err::create_dir_all(&root)?;
-
-    let tqdm = root.child("tqdm");
-    fs_err::create_dir_all(&tqdm)?;
-
-    let index = tqdm.child("index.html");
-    index.write_str(&indoc::formatdoc! {r#"
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta name="pypi:repository-version" content="1.1" />
-          </head>
-          <body>
-            <h1>Links for tqdm</h1>
-            <a
-              href="{}/tqdm-1000.0.0-py3-none-any.whl"
-              data-requires-python=">=3.8"
-            >
-              tqdm-1000.0.0-py3-none-any.whl
-            </a>
-          </body>
-        </html>
-    "#, Url::from_directory_path(context.workspace_root.join("test/links/")).unwrap().as_str()})?;
+    create_local_index_with_tqdm(&context, root.path())?;
 
     let requirements_txt = context.temp_dir.child("requirements.txt");
     requirements_txt.write_str(
@@ -12866,6 +13115,81 @@ fn reserved_script_name() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn reject_reserved_wheel_data_script_name() -> Result<()> {
+    let interpreter = if cfg!(windows) {
+        "python.exe"
+    } else {
+        "python"
+    };
+    let scripts = if cfg!(windows) { "Scripts" } else { "bin" };
+
+    allow_duplicates! {
+        for data_path in ["python", "python.py", "Python.exe", "python.EXE", "Python.PY"]
+            .into_iter()
+            .flat_map(|executable| {
+                [
+                    format!("foo-0.1.0.data/scripts/{executable}"),
+                    format!("foo-0.1.0.data/data/{scripts}/{executable}"),
+                ]
+            })
+        {
+            let context = uv_test::test_context!("3.12").with_filter((
+                r"got: `(?:Python\.(?:exe|PY)|python(?:\.EXE|\.py)?)`",
+                "got: `python`",
+            ));
+            let wheel = context.temp_dir.join("foo-0.1.0-py3-none-any.whl");
+            let record = formatdoc! {"
+                foo/__init__.py,,
+                foo-0.1.0.dist-info/METADATA,,
+                foo-0.1.0.dist-info/WHEEL,,
+                foo-0.1.0.dist-info/RECORD,,
+                foo-0.1.0.data/data/harmless.txt,,
+                {data_path},,
+            "};
+            let mut writer = ZipFileWriter::new(Vec::new());
+            for (name, contents) in [
+                ("foo/__init__.py", ""),
+                (
+                    "foo-0.1.0.dist-info/METADATA",
+                    "Metadata-Version: 2.1\nName: foo\nVersion: 0.1.0\n",
+                ),
+                (
+                    "foo-0.1.0.dist-info/WHEEL",
+                    "Wheel-Version: 1.0\nRoot-Is-Purelib: true\nTag: py3-none-any\n",
+                ),
+                ("foo-0.1.0.dist-info/RECORD", record.as_str()),
+                ("foo-0.1.0.data/data/harmless.txt", "this must not be moved"),
+                (data_path.as_str(), "this must not replace python"),
+            ] {
+                let entry = ZipEntryBuilder::new(name.into(), Compression::Stored);
+                block_on(writer.write_entry_whole(entry, contents.as_bytes()))?;
+            }
+            fs_err::write(&wheel, block_on(writer.close())?)?;
+
+            uv_snapshot!(context.filters(), context.pip_install().arg(&wheel), @"
+        exit_code: 2 (failure)
+        ----- stderr -----
+        Resolved 1 package in [TIME]
+        Prepared 1 package in [TIME]
+        error: Failed to install: foo-0.1.0-py3-none-any.whl (foo==0.1.0 (from file://[TEMP_DIR]/foo-0.1.0-py3-none-any.whl))
+          Caused by: Scripts must not use the reserved name `python`, got: `python`
+            ");
+
+            Command::new(venv_bin_path(&context.venv).join(interpreter))
+                .arg("--version")
+                .assert()
+                .success();
+            assert!(!context.site_packages().join("foo").exists());
+            assert!(!context.site_packages().join("foo-0.1.0.dist-info").exists());
+            assert!(!context.venv.join("harmless.txt").exists());
+        }
+        Ok::<(), anyhow::Error>(())
+    }?;
+
+    Ok(())
+}
+
 fn repacked_wheel_with_entrypoint(
     context: &TestContext,
     section: &str,
@@ -12955,6 +13279,47 @@ fn reject_normalized_reserved_wheel_entrypoint_name() -> Result<()> {
       Caused by: Scripts must not use the reserved name `python`, got: `nested/../python`
     "
     );
+
+    Ok(())
+}
+
+#[test]
+fn reject_case_variant_reserved_wheel_entrypoint_name() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let repacked_wheel = repacked_wheel_with_entrypoint(&context, "console_scripts", "Python")?;
+
+    uv_snapshot!(context.filters(), context.pip_install().arg(&repacked_wheel), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    error: Failed to install: foo-0.1.0-py3-none-any.whl (foo==0.1.0 (from file://[TEMP_DIR]/foo-0.1.0-py3-none-any.whl))
+      Caused by: Scripts must not use the reserved name `python`, got: `Python`
+    ");
+
+    let context = uv_test::test_context!("3.12");
+    let repacked_wheel = repacked_wheel_with_entrypoint(&context, "console_scripts", "Python.PY")?;
+
+    uv_snapshot!(context.filters(), context.pip_install().arg(&repacked_wheel), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    error: Failed to install: foo-0.1.0-py3-none-any.whl (foo==0.1.0 (from file://[TEMP_DIR]/foo-0.1.0-py3-none-any.whl))
+      Caused by: Scripts must not use the reserved name `python`, got: `Python.PY`
+    ");
+
+    let context = uv_test::test_context!("3.12");
+    let repacked_wheel = repacked_wheel_with_entrypoint(&context, "console_scripts", "python.Py")?;
+
+    uv_snapshot!(context.filters(), context.pip_install().arg(&repacked_wheel), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    error: Failed to install: foo-0.1.0-py3-none-any.whl (foo==0.1.0 (from file://[TEMP_DIR]/foo-0.1.0-py3-none-any.whl))
+      Caused by: Scripts must not use the reserved name `python`, got: `python.Py`
+    ");
 
     Ok(())
 }
@@ -15141,7 +15506,7 @@ fn abi_compatibility_on_nondebug_python_with_debug_wheel() {
 }
 
 #[test]
-fn warn_on_bz2_wheel() {
+fn fail_on_bz2_wheel() {
     let context = uv_test::test_context!("3.14");
     let vendor = FindLinksServer::vendor();
 
@@ -15150,19 +15515,17 @@ fn warn_on_bz2_wheel() {
         context.pip_install()
             .arg(format!("futzed_bz2 @ {}/futzed_bz2-0.1.0-py3-none-any.whl", vendor.url())),
         @"
-    exit_code: 0 (success)
+    exit_code: 1 (failure)
     ----- stderr -----
-    Resolved 1 package in [TIME]
-    warning: One or more file entries in 'http://[LOCALHOST]/futzed_bz2-0.1.0-py3-none-any.whl' use the 'bzip2' compression method, which is not widely supported. A future version of uv will reject ZIP archives containing entries compressed with this method. Entries must be compressed with the 'stored', 'DEFLATE', or 'zstd' compression methods.
-    Prepared 1 package in [TIME]
-    Installed 1 package in [TIME]
-     + futzed-bz2==0.1.0 (from http://[LOCALHOST]/futzed_bz2-0.1.0-py3-none-any.whl)
+      × Failed to download `futzed-bz2 @ http://[LOCALHOST]/futzed_bz2-0.1.0-py3-none-any.whl`
+      ├─▶ Failed to read metadata: `http://[LOCALHOST]/futzed_bz2-0.1.0-py3-none-any.whl`
+      ╰─▶ Archive contains a file with an unsupported compression method; files must be compressed with 'stored', 'DEFLATE', or 'zstd'
     "
     );
 }
 
 #[test]
-fn warn_on_lzma_wheel() {
+fn fail_on_lzma_wheel() {
     let context = uv_test::test_context!("3.14");
     let vendor = FindLinksServer::vendor();
 
@@ -15174,11 +15537,8 @@ fn warn_on_lzma_wheel() {
     exit_code: 1 (failure)
     ----- stderr -----
       × Failed to download `futzed-lzma @ http://[LOCALHOST]/futzed_lzma-0.1.0-py3-none-any.whl`
-      ├─▶ Request failed after 3 retries in [TIME]
       ├─▶ Failed to read metadata: `http://[LOCALHOST]/futzed_lzma-0.1.0-py3-none-any.whl`
-      ├─▶ Failed to read from zip file
-      ├─▶ an upstream reader returned an error: stream/file format not recognized
-      ╰─▶ stream/file format not recognized
+      ╰─▶ Archive contains a file with an unsupported compression method; files must be compressed with 'stored', 'DEFLATE', or 'zstd'
     "
     );
 }

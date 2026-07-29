@@ -150,7 +150,7 @@ sipMappedTypeDef sipTypeDef__core_wxVector_0100wxBitmap = {
         SIP_NULLPTR,
         SIP_NULLPTR,
         SIP_TYPE_MAPPED,
-        sipNameNr_55440,
+        sipNameNr_57638,
         SIP_NULLPTR,
         SIP_NULLPTR,
     },

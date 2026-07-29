@@ -995,6 +995,7 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
                     zigpy.zcl.clusters.general.OnOff.cluster_id,
                     zigpy.zcl.clusters.general.Time.cluster_id,
                     zigpy.zcl.clusters.general.Ota.cluster_id,
+                    zigpy.zcl.clusters.general.KeepAlive.cluster_id,
                     zigpy.zcl.clusters.security.IasAce.cluster_id,
                 ],
                 output_clusters=[
@@ -1132,6 +1133,12 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
 
         if force_route_discovery:
             tx_options |= t.TransmitOptions.FORCE_ROUTE_DISCOVERY
+
+        if cluster == zigpy.zcl.clusters.general.ZigbeeDirectConfiguration.cluster_id:
+            # All interactions with the Zigbee Direct Configuration cluster require
+            # APS encryption (with the Trust Center link key, in a centralized
+            # security network)
+            tx_options |= t.TransmitOptions.APS_Encryption
 
         await self.send_packet(
             t.ZigbeePacket(
@@ -1666,6 +1673,34 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
     # @abc.abstractmethod
     async def _packet_capture_change_channel(self, channel: int) -> None:
         """Change the channel of an active packet capture, internal."""
+
+    async def subscribe_to_multicast_group(
+        self, group_id: t.Group, endpoint_id: int = 1
+    ) -> None:
+        """Ask the coordinator firmware to subscribe to a group, if needed."""
+        await self._subscribe_to_multicast_group(
+            group_id=group_id, endpoint_id=endpoint_id
+        )
+
+    # @abc.abstractmethod
+    async def _subscribe_to_multicast_group(
+        self, group_id: t.Group, endpoint_id: int
+    ) -> None:
+        """Ask the coordinator firmware to subscribe to a group, if needed."""
+
+    async def unsubscribe_from_multicast_group(
+        self, group_id: t.Group, endpoint_id: int = 1
+    ) -> None:
+        """Ask the coordinator firmware to unsubscribe from a group, if needed."""
+        await self._unsubscribe_from_multicast_group(
+            group_id=group_id, endpoint_id=endpoint_id
+        )
+
+    # @abc.abstractmethod
+    async def _unsubscribe_from_multicast_group(
+        self, group_id: t.Group, endpoint_id: int
+    ) -> None:
+        """Ask the coordinator firmware to unsubscribe from a group, if needed."""
 
     async def permit(self, time_s: int = 60, node: t.EUI64 | str | None = None) -> None:
         """Permit joining on a specific node or all router nodes."""

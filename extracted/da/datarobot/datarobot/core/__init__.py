@@ -11,7 +11,13 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from .config import DataRobotAppFrameworkBaseSettings, getenv
+from .config import DataRobotAppFrameworkBaseSettings, LLMConfig, LLMType, getenv
 from .otel import create_dr_resource
 
-__all__ = ["getenv", "DataRobotAppFrameworkBaseSettings", "create_dr_resource"]
+__all__ = [
+    "getenv",
+    "DataRobotAppFrameworkBaseSettings",
+    "LLMConfig",
+    "LLMType",
+    "create_dr_resource",
+]

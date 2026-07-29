@@ -71,9 +71,9 @@ bool sipwxPrintout::OnPrintPage(int pageNum)
     if (!sipMeth)
         return 0;
 
-    extern bool sipVH__core_147(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern bool sipVH__core_146(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    return sipVH__core_147(sipGILState, 0, sipPySelf, sipMeth, pageNum);
+    return sipVH__core_146(sipGILState, 0, sipPySelf, sipMeth, pageNum);
 }
 
 void sipwxPrintout::OnPreparePrinting()
@@ -158,9 +158,9 @@ bool sipwxPrintout::OnBeginDocument(int startPage, int endPage)
     if (!sipMeth)
         return ::wxPrintout::OnBeginDocument(startPage, endPage);
 
-    extern bool sipVH__core_90(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxCoord, ::wxCoord);
+    extern bool sipVH__core_89(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxCoord, ::wxCoord);
 
-    return sipVH__core_90(sipGILState, 0, sipPySelf, sipMeth, startPage, endPage);
+    return sipVH__core_89(sipGILState, 0, sipPySelf, sipMeth, startPage, endPage);
 }
 
 bool sipwxPrintout::IsPreview() const
@@ -188,9 +188,9 @@ bool sipwxPrintout::HasPage(int pageNum)
     if (!sipMeth)
         return ::wxPrintout::HasPage(pageNum);
 
-    extern bool sipVH__core_147(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern bool sipVH__core_146(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    return sipVH__core_147(sipGILState, 0, sipPySelf, sipMeth, pageNum);
+    return sipVH__core_146(sipGILState, 0, sipPySelf, sipMeth, pageNum);
 }
 
 ::wxString sipwxPrintout::GetTitle() const
@@ -221,9 +221,9 @@ void sipwxPrintout::GetPageInfo(int*minPage, int*maxPage, int*pageFrom, int*page
         return;
     }
 
-    extern void sipVH__core_228(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*, int*, int*);
+    extern void sipVH__core_227(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*, int*, int*);
 
-    sipVH__core_228(sipGILState, 0, sipPySelf, sipMeth, minPage, maxPage, pageFrom, pageTo);
+    sipVH__core_227(sipGILState, 0, sipPySelf, sipMeth, minPage, maxPage, pageFrom, pageTo);
 }
 
 
@@ -584,8 +584,7 @@ static PyObject *meth_wxPrintout_GetPPIScreen(PyObject *sipSelf, PyObject *sipAr
 PyDoc_STRVAR(doc_wxPrintout_GetPageInfo, "GetPageInfo() -> Tuple[int, int, int, int]\n"
 "\n"
 "Called by the framework to obtain information from the application\n"
-"about minimum and maximum page values that the user can select, and\n"
-"the required page range to be printed.");
+"about minimum and maximum page numbers to print.");
 
 extern "C" {static PyObject *meth_wxPrintout_GetPageInfo(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxPrintout_GetPageInfo(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1428,7 +1427,7 @@ static void *init_type_wxPrintout(sipSimpleWrapper *sipSelf, PyObject *sipArgs, 
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxPrintout[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxPrintout[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxPrintout[] = {

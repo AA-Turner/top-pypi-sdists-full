@@ -11,6 +11,7 @@
         #include <wx/event.h>
         #include <wx/event.h>
         #include <wx/cursor.h>
+        #include <wx/gdicmn.h>
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
@@ -66,9 +67,9 @@ sipwxSetCursorEvent::~sipwxSetCursorEvent()
     if (!sipMeth)
         return ::wxSetCursorEvent::Clone();
 
-    extern ::wxEvent* sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEvent* sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxEventCategory sipwxSetCursorEvent::GetEventCategory() const
@@ -81,9 +82,9 @@ sipwxSetCursorEvent::~sipwxSetCursorEvent()
     if (!sipMeth)
         return ::wxSetCursorEvent::GetEventCategory();
 
-    extern ::wxEventCategory sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEventCategory sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
@@ -117,6 +118,41 @@ static PyObject *meth_wxSetCursorEvent_GetCursor(PyObject *sipSelf, PyObject *si
     }
 
     sipNoMethod(sipParseErr, sipName_SetCursorEvent, sipName_GetCursor, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxSetCursorEvent_GetPosition, "GetPosition() -> Point\n"
+"\n"
+"Returns the mouse position for which the cursor is requested.");
+
+extern "C" {static PyObject *meth_wxSetCursorEvent_GetPosition(PyObject *, PyObject *);}
+static PyObject *meth_wxSetCursorEvent_GetPosition(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxSetCursorEvent *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxSetCursorEvent, &sipCpp))
+        {
+            ::wxPoint*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxPoint(sipCpp->GetPosition());
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxPoint, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_SetCursorEvent, sipName_GetPosition, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -399,12 +435,13 @@ static void *init_type_wxSetCursorEvent(sipSimpleWrapper *sipSelf, PyObject *sip
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxSetCursorEvent[] = {{151, 255, 1}};
+static sipEncodedTypeDef supers_wxSetCursorEvent[] = {{158, 255, 1}};
 
 
 static PyMethodDef methods_wxSetCursorEvent[] = {
     {sipName_Clone, meth_wxSetCursorEvent_Clone, METH_VARARGS, doc_wxSetCursorEvent_Clone},
     {sipName_GetCursor, meth_wxSetCursorEvent_GetCursor, METH_VARARGS, doc_wxSetCursorEvent_GetCursor},
+    {sipName_GetPosition, meth_wxSetCursorEvent_GetPosition, METH_VARARGS, doc_wxSetCursorEvent_GetPosition},
     {sipName_GetX, meth_wxSetCursorEvent_GetX, METH_VARARGS, doc_wxSetCursorEvent_GetX},
     {sipName_GetY, meth_wxSetCursorEvent_GetY, METH_VARARGS, doc_wxSetCursorEvent_GetY},
     {sipName_HasCursor, meth_wxSetCursorEvent_HasCursor, METH_VARARGS, doc_wxSetCursorEvent_HasCursor},
@@ -412,9 +449,9 @@ static PyMethodDef methods_wxSetCursorEvent[] = {
 };
 
 sipVariableDef variables_wxSetCursorEvent[] = {
-    {PropertyVariable, sipName_Y, &methods_wxSetCursorEvent[3], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_X, &methods_wxSetCursorEvent[2], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Cursor, &methods_wxSetCursorEvent[1], &methods_wxSetCursorEvent[5], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Y, &methods_wxSetCursorEvent[4], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_X, &methods_wxSetCursorEvent[3], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Cursor, &methods_wxSetCursorEvent[1], &methods_wxSetCursorEvent[6], SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxSetCursorEvent, "SetCursorEvent(x=0, y=0) -> None\n"
@@ -436,7 +473,7 @@ sipClassTypeDef sipTypeDef__core_wxSetCursorEvent = {
     {
         sipNameNr_SetCursorEvent,
         {0, 0, 1},
-        6, methods_wxSetCursorEvent,
+        7, methods_wxSetCursorEvent,
         0, SIP_NULLPTR,
         3, variables_wxSetCursorEvent,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

@@ -38,6 +38,7 @@ class IntegrationKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     INTEGRATION_KIND_SPANNER: _ClassVar[IntegrationKind]
     INTEGRATION_KIND_TRINO: _ClassVar[IntegrationKind]
     INTEGRATION_KIND_MSSQL: _ClassVar[IntegrationKind]
+    INTEGRATION_KIND_HUGGINGFACE: _ClassVar[IntegrationKind]
 
 INTEGRATION_KIND_UNSPECIFIED: IntegrationKind
 INTEGRATION_KIND_ATHENA: IntegrationKind
@@ -59,6 +60,7 @@ INTEGRATION_KIND_SNOWFLAKE: IntegrationKind
 INTEGRATION_KIND_SPANNER: IntegrationKind
 INTEGRATION_KIND_TRINO: IntegrationKind
 INTEGRATION_KIND_MSSQL: IntegrationKind
+INTEGRATION_KIND_HUGGINGFACE: IntegrationKind
 
 class Integration(_message.Message):
     __slots__ = ("id", "name", "kind", "environment_id", "created_at", "updated_at")
@@ -96,6 +98,27 @@ class IntegrationWithSecrets(_message.Message):
         secrets: _Optional[_Iterable[_Union[_environment_secrets_pb2.SecretWithValue, _Mapping]]] = ...,
     ) -> None: ...
 
+class DatasourcePermissionTag(_message.Message):
+    __slots__ = ("kind", "name", "permission_tags", "created_at", "updated_at")
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    PERMISSION_TAGS_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    kind: IntegrationKind
+    name: str
+    permission_tags: _containers.RepeatedScalarFieldContainer[str]
+    created_at: _timestamp_pb2.Timestamp
+    updated_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        kind: _Optional[_Union[IntegrationKind, str]] = ...,
+        name: _Optional[str] = ...,
+        permission_tags: _Optional[_Iterable[str]] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
 class ListIntegrationsRequest(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
@@ -105,6 +128,34 @@ class ListIntegrationsResponse(_message.Message):
     INTEGRATIONS_FIELD_NUMBER: _ClassVar[int]
     integrations: _containers.RepeatedCompositeFieldContainer[Integration]
     def __init__(self, integrations: _Optional[_Iterable[_Union[Integration, _Mapping]]] = ...) -> None: ...
+
+class ListDatasourcePermissionTagsRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ListDatasourcePermissionTagsResponse(_message.Message):
+    __slots__ = ("datasource_permission_tags",)
+    DATASOURCE_PERMISSION_TAGS_FIELD_NUMBER: _ClassVar[int]
+    datasource_permission_tags: _containers.RepeatedCompositeFieldContainer[DatasourcePermissionTag]
+    def __init__(
+        self, datasource_permission_tags: _Optional[_Iterable[_Union[DatasourcePermissionTag, _Mapping]]] = ...
+    ) -> None: ...
+
+class GetDatasourcePermissionTagRequest(_message.Message):
+    __slots__ = ("kind", "name")
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    kind: IntegrationKind
+    name: str
+    def __init__(self, kind: _Optional[_Union[IntegrationKind, str]] = ..., name: _Optional[str] = ...) -> None: ...
+
+class GetDatasourcePermissionTagResponse(_message.Message):
+    __slots__ = ("datasource_permission_tag",)
+    DATASOURCE_PERMISSION_TAG_FIELD_NUMBER: _ClassVar[int]
+    datasource_permission_tag: DatasourcePermissionTag
+    def __init__(
+        self, datasource_permission_tag: _Optional[_Union[DatasourcePermissionTag, _Mapping]] = ...
+    ) -> None: ...
 
 class ListIntegrationsAndSecretsRequest(_message.Message):
     __slots__ = ("decrypt",)
@@ -263,6 +314,37 @@ class DeleteIntegrationRequest(_message.Message):
     def __init__(self, id: _Optional[str] = ...) -> None: ...
 
 class DeleteIntegrationResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class UpsertDatasourcePermissionTagRequest(_message.Message):
+    __slots__ = ("kind", "name", "permission_tags")
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    PERMISSION_TAGS_FIELD_NUMBER: _ClassVar[int]
+    kind: IntegrationKind
+    name: str
+    permission_tags: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        kind: _Optional[_Union[IntegrationKind, str]] = ...,
+        name: _Optional[str] = ...,
+        permission_tags: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
+
+class UpsertDatasourcePermissionTagResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class DeleteDatasourcePermissionTagRequest(_message.Message):
+    __slots__ = ("kind", "name")
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    kind: IntegrationKind
+    name: str
+    def __init__(self, kind: _Optional[_Union[IntegrationKind, str]] = ..., name: _Optional[str] = ...) -> None: ...
+
+class DeleteDatasourcePermissionTagResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 

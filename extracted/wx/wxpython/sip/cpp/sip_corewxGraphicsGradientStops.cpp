@@ -90,9 +90,7 @@ static PyObject *meth_wxGraphicsGradientStops_Add(PyObject *sipSelf, PyObject *s
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsGradientStops_Item, "Item(n) -> GraphicsGradientStop\n"
-"\n"
-"Returns the stop at the given index.");
+PyDoc_STRVAR(doc_wxGraphicsGradientStops_Item, "Item(n) -> GraphicsGradientStop");
 
 extern "C" {static PyObject *meth_wxGraphicsGradientStops_Item(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsGradientStops_Item(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -130,9 +128,7 @@ static PyObject *meth_wxGraphicsGradientStops_Item(PyObject *sipSelf, PyObject *
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsGradientStops_GetCount, "GetCount() -> int\n"
-"\n"
-"Returns the number of stops.");
+PyDoc_STRVAR(doc_wxGraphicsGradientStops_GetCount, "GetCount() -> int");
 
 extern "C" {static PyObject *meth_wxGraphicsGradientStops_GetCount(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsGradientStops_GetCount(PyObject *sipSelf, PyObject *sipArgs)
@@ -206,9 +202,7 @@ static PyObject *meth_wxGraphicsGradientStops_SetStartColour(PyObject *sipSelf, 
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsGradientStops_GetStartColour, "GetStartColour() -> Colour\n"
-"\n"
-"Returns the start colour.");
+PyDoc_STRVAR(doc_wxGraphicsGradientStops_GetStartColour, "GetStartColour() -> Colour");
 
 extern "C" {static PyObject *meth_wxGraphicsGradientStops_GetStartColour(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsGradientStops_GetStartColour(PyObject *sipSelf, PyObject *sipArgs)
@@ -282,9 +276,7 @@ static PyObject *meth_wxGraphicsGradientStops_SetEndColour(PyObject *sipSelf, Py
 }
 
 
-PyDoc_STRVAR(doc_wxGraphicsGradientStops_GetEndColour, "GetEndColour() -> Colour\n"
-"\n"
-"Returns the end colour.");
+PyDoc_STRVAR(doc_wxGraphicsGradientStops_GetEndColour, "GetEndColour() -> Colour");
 
 extern "C" {static PyObject *meth_wxGraphicsGradientStops_GetEndColour(PyObject *, PyObject *);}
 static PyObject *meth_wxGraphicsGradientStops_GetEndColour(PyObject *sipSelf, PyObject *sipArgs)

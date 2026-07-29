@@ -354,7 +354,7 @@ static void *init_type_wxCommand(sipSimpleWrapper *sipSelf, PyObject *sipArgs, P
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxCommand[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxCommand[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxCommand[] = {

@@ -49,7 +49,7 @@ public:
     ::wxBitmapBundle sipProtect_GetBitmapBundle(const ::wxString&, const ::wxArtClient&, ::wxSize);
     ::wxBitmapBundle sipProtect_GetBitmapBundle(const ::wxXmlNode*, const ::wxArtClient&, ::wxSize);
     bool sipProtect_GetBool(const ::wxString&, bool);
-    ::wxColour sipProtect_GetColour(const ::wxString&, const ::wxColour&);
+    ::wxColour sipProtect_GetColour(const ::wxString&, const ::wxColour&, const ::wxColour&);
     ::wxFileSystem& sipProtect_GetCurFileSystem();
     ::wxCoord sipProtect_GetDimension(const ::wxString&, ::wxCoord, ::wxWindow*);
     ::wxDirection sipProtect_GetDirection(const ::wxString&, ::wxDirection);
@@ -63,14 +63,16 @@ public:
     float sipProtect_GetFloat(const ::wxString&, float);
     ::wxString sipProtect_GetName();
     bool sipProtect_IsObjectNode(const ::wxXmlNode*) const;
-    ::wxString sipProtect_GetNodeContent(::wxXmlNode*);
+    ::wxString sipProtect_GetNodeName(::wxXmlNode*) const;
+    ::wxString sipProtect_GetNodeAttribute(const ::wxXmlNode*, const ::wxString&, const ::wxString&) const;
+    ::wxString sipProtect_GetNodeContent(::wxXmlNode*) const;
     ::wxXmlNode* sipProtect_GetNodeParent(const ::wxXmlNode*) const;
     ::wxXmlNode* sipProtect_GetNodeNext(const ::wxXmlNode*) const;
     ::wxXmlNode* sipProtect_GetNodeChildren(const ::wxXmlNode*) const;
     ::wxXmlNode* sipProtect_GetParamNode(const ::wxString&);
     ::wxString sipProtect_GetParamValue(const ::wxString&);
     ::wxString sipProtect_GetParamValue(const ::wxXmlNode*);
-    ::wxPoint sipProtect_GetPosition(const ::wxString&);
+    ::wxPoint sipProtect_GetPosition(const ::wxString&, ::wxWindow*);
     ::wxSize sipProtect_GetSize(const ::wxString&, ::wxWindow*);
     int sipProtect_GetStyle(const ::wxString&, int);
     ::wxString sipProtect_GetText(const ::wxString&, bool);
@@ -205,9 +207,9 @@ bool sipwxXmlResourceHandler::sipProtect_GetBool(const ::wxString& param, bool d
     return ::wxXmlResourceHandler::GetBool(param, defaultv);
 }
 
-::wxColour sipwxXmlResourceHandler::sipProtect_GetColour(const ::wxString& param, const ::wxColour& defaultColour)
+::wxColour sipwxXmlResourceHandler::sipProtect_GetColour(const ::wxString& param, const ::wxColour& defaultLight, const ::wxColour& defaultDark)
 {
-    return ::wxXmlResourceHandler::GetColour(param, defaultColour);
+    return ::wxXmlResourceHandler::GetColour(param, defaultLight, defaultDark);
 }
 
 ::wxFileSystem& sipwxXmlResourceHandler::sipProtect_GetCurFileSystem()
@@ -275,7 +277,17 @@ bool sipwxXmlResourceHandler::sipProtect_IsObjectNode(const ::wxXmlNode*node) co
     return ::wxXmlResourceHandler::IsObjectNode(node);
 }
 
-::wxString sipwxXmlResourceHandler::sipProtect_GetNodeContent(::wxXmlNode*node)
+::wxString sipwxXmlResourceHandler::sipProtect_GetNodeName(::wxXmlNode*node) const
+{
+    return ::wxXmlResourceHandler::GetNodeName(node);
+}
+
+::wxString sipwxXmlResourceHandler::sipProtect_GetNodeAttribute(const ::wxXmlNode*node, const ::wxString& attrName, const ::wxString& defaultValue) const
+{
+    return ::wxXmlResourceHandler::GetNodeAttribute(node, attrName, defaultValue);
+}
+
+::wxString sipwxXmlResourceHandler::sipProtect_GetNodeContent(::wxXmlNode*node) const
 {
     return ::wxXmlResourceHandler::GetNodeContent(node);
 }
@@ -310,9 +322,9 @@ bool sipwxXmlResourceHandler::sipProtect_IsObjectNode(const ::wxXmlNode*node) co
     return ::wxXmlResourceHandler::GetParamValue(node);
 }
 
-::wxPoint sipwxXmlResourceHandler::sipProtect_GetPosition(const ::wxString& param)
+::wxPoint sipwxXmlResourceHandler::sipProtect_GetPosition(const ::wxString& param, ::wxWindow*windowToUse)
 {
-    return ::wxXmlResourceHandler::GetPosition(param);
+    return ::wxXmlResourceHandler::GetPosition(param, windowToUse);
 }
 
 ::wxSize sipwxXmlResourceHandler::sipProtect_GetSize(const ::wxString& param, ::wxWindow*windowToUse)
@@ -682,7 +694,7 @@ static PyObject *meth_wxXmlResourceHandler_CreateChildren(PyObject *sipSelf, PyO
 }
 
 
-PyDoc_STRVAR(doc_wxXmlResourceHandler_CreateChildrenPrivately, "CreateChildrenPrivately(parent, rootnode=None) -> None\n"
+PyDoc_STRVAR(doc_wxXmlResourceHandler_CreateChildrenPrivately, "CreateChildrenPrivately(parent, rootnode=nullptr) -> None\n"
 "\n"
 "Helper function.");
 
@@ -693,7 +705,7 @@ static PyObject *meth_wxXmlResourceHandler_CreateChildrenPrivately(PyObject *sip
 
     {
         ::wxObject* parent;
-        ::wxXmlNode* rootnode = 0;
+        ::wxXmlNode* rootnode = nullptr;
         sipwxXmlResourceHandler *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -723,7 +735,7 @@ static PyObject *meth_wxXmlResourceHandler_CreateChildrenPrivately(PyObject *sip
 }
 
 
-PyDoc_STRVAR(doc_wxXmlResourceHandler_CreateResFromNode, "CreateResFromNode(node, parent, instance=None) -> Object\n"
+PyDoc_STRVAR(doc_wxXmlResourceHandler_CreateResFromNode, "CreateResFromNode(node, parent, instance=nullptr) -> Object\n"
 "\n"
 "Creates a resource from a node.");
 
@@ -735,7 +747,7 @@ static PyObject *meth_wxXmlResourceHandler_CreateResFromNode(PyObject *sipSelf, 
     {
         ::wxXmlNode* node;
         ::wxObject* parent;
-        ::wxObject* instance = 0;
+        ::wxObject* instance = nullptr;
         sipwxXmlResourceHandler *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -767,7 +779,7 @@ static PyObject *meth_wxXmlResourceHandler_CreateResFromNode(PyObject *sipSelf, 
 }
 
 
-PyDoc_STRVAR(doc_wxXmlResourceHandler_GetAnimation, "GetAnimation(param=\"animation\", ctrl=None) -> Animation\n"
+PyDoc_STRVAR(doc_wxXmlResourceHandler_GetAnimation, "GetAnimation(param=\"animation\", ctrl=nullptr) -> Animation\n"
 "\n"
 "Creates an animation (see wxAnimation) from the filename specified in\n"
 "param.");
@@ -781,7 +793,7 @@ static PyObject *meth_wxXmlResourceHandler_GetAnimation(PyObject *sipSelf, PyObj
         const ::wxString& paramdef = "animation";
         const ::wxString* param = &paramdef;
         int paramState = 0;
-        ::wxAnimationCtrl* ctrl = 0;
+        ::wxAnimationCtrl* ctrl = nullptr;
         sipwxXmlResourceHandler *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -1038,9 +1050,9 @@ static PyObject *meth_wxXmlResourceHandler_GetBool(PyObject *sipSelf, PyObject *
 }
 
 
-PyDoc_STRVAR(doc_wxXmlResourceHandler_GetColour, "GetColour(param, defaultColour=NullColour) -> Colour\n"
+PyDoc_STRVAR(doc_wxXmlResourceHandler_GetColour, "GetColour(param, defaultLight=NullColour, defaultDark=NullColour) -> Colour\n"
 "\n"
-"Gets colour in HTML syntax (#RRGGBB).");
+"Gets colour from the given parameter.");
 
 extern "C" {static PyObject *meth_wxXmlResourceHandler_GetColour(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxXmlResourceHandler_GetColour(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1050,27 +1062,32 @@ static PyObject *meth_wxXmlResourceHandler_GetColour(PyObject *sipSelf, PyObject
     {
         const ::wxString* param;
         int paramState = 0;
-        const ::wxColour& defaultColourdef = wxNullColour;
-        const ::wxColour* defaultColour = &defaultColourdef;
-        int defaultColourState = 0;
+        const ::wxColour& defaultLightdef = wxNullColour;
+        const ::wxColour* defaultLight = &defaultLightdef;
+        int defaultLightState = 0;
+        const ::wxColour& defaultDarkdef = wxNullColour;
+        const ::wxColour* defaultDark = &defaultDarkdef;
+        int defaultDarkState = 0;
         sipwxXmlResourceHandler *sipCpp;
 
         static const char *sipKwdList[] = {
             sipName_param,
-            sipName_defaultColour,
+            sipName_defaultLight,
+            sipName_defaultDark,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|J1", &sipSelf, sipType_wxXmlResourceHandler, &sipCpp, sipType_wxString, &param, &paramState, sipType_wxColour, &defaultColour, &defaultColourState))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|J1J1", &sipSelf, sipType_wxXmlResourceHandler, &sipCpp, sipType_wxString, &param, &paramState, sipType_wxColour, &defaultLight, &defaultLightState, sipType_wxColour, &defaultDark, &defaultDarkState))
         {
             ::wxColour*sipRes;
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxColour(sipCpp->sipProtect_GetColour(*param, *defaultColour));
+            sipRes = new ::wxColour(sipCpp->sipProtect_GetColour(*param, *defaultLight, *defaultDark));
             Py_END_ALLOW_THREADS
             sipReleaseType(const_cast< ::wxString *>(param), sipType_wxString, paramState);
-            sipReleaseType(const_cast< ::wxColour *>(defaultColour), sipType_wxColour, defaultColourState);
+            sipReleaseType(const_cast< ::wxColour *>(defaultLight), sipType_wxColour, defaultLightState);
+            sipReleaseType(const_cast< ::wxColour *>(defaultDark), sipType_wxColour, defaultDarkState);
 
             if (PyErr_Occurred())
                 return 0;
@@ -1120,7 +1137,7 @@ static PyObject *meth_wxXmlResourceHandler_GetCurFileSystem(PyObject *sipSelf, P
 }
 
 
-PyDoc_STRVAR(doc_wxXmlResourceHandler_GetDimension, "GetDimension(param, defaultv=0, windowToUse=0) -> int\n"
+PyDoc_STRVAR(doc_wxXmlResourceHandler_GetDimension, "GetDimension(param, defaultv=0, windowToUse=nullptr) -> int\n"
 "\n"
 "Gets a dimension (may be in dialog units).");
 
@@ -1133,7 +1150,7 @@ static PyObject *meth_wxXmlResourceHandler_GetDimension(PyObject *sipSelf, PyObj
         const ::wxString* param;
         int paramState = 0;
         ::wxCoord defaultv = 0;
-        ::wxWindow* windowToUse = 0;
+        ::wxWindow* windowToUse = nullptr;
         sipwxXmlResourceHandler *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -1631,6 +1648,95 @@ static PyObject *meth_wxXmlResourceHandler_IsObjectNode(PyObject *sipSelf, PyObj
 }
 
 
+PyDoc_STRVAR(doc_wxXmlResourceHandler_GetNodeName, "GetNodeName(node) -> str\n"
+"\n"
+"Returns the node name.");
+
+extern "C" {static PyObject *meth_wxXmlResourceHandler_GetNodeName(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxXmlResourceHandler_GetNodeName(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        ::wxXmlNode* node;
+        const sipwxXmlResourceHandler *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_node,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8", &sipSelf, sipType_wxXmlResourceHandler, &sipCpp, sipType_wxXmlNode, &node))
+        {
+            ::wxString*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxString(sipCpp->sipProtect_GetNodeName(node));
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxString, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_XmlResourceHandler, sipName_GetNodeName, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxXmlResourceHandler_GetNodeAttribute, "GetNodeAttribute(node, attrName, defaultValue={}) -> str\n"
+"\n"
+"Gets the node attribute value.");
+
+extern "C" {static PyObject *meth_wxXmlResourceHandler_GetNodeAttribute(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxXmlResourceHandler_GetNodeAttribute(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxXmlNode* node;
+        const ::wxString* attrName;
+        int attrNameState = 0;
+        const ::wxString& defaultValuedef = {};
+        const ::wxString* defaultValue = &defaultValuedef;
+        int defaultValueState = 0;
+        const sipwxXmlResourceHandler *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_node,
+            sipName_attrName,
+            sipName_defaultValue,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ8J1|J1", &sipSelf, sipType_wxXmlResourceHandler, &sipCpp, sipType_wxXmlNode, &node, sipType_wxString, &attrName, &attrNameState, sipType_wxString, &defaultValue, &defaultValueState))
+        {
+            ::wxString*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxString(sipCpp->sipProtect_GetNodeAttribute(node, *attrName, *defaultValue));
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxString *>(attrName), sipType_wxString, attrNameState);
+            sipReleaseType(const_cast< ::wxString *>(defaultValue), sipType_wxString, defaultValueState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxString, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_XmlResourceHandler, sipName_GetNodeAttribute, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxXmlResourceHandler_GetNodeContent, "GetNodeContent(node) -> str\n"
 "\n"
 "Gets node content from wxXML_ENTITY_NODE.");
@@ -1642,7 +1748,7 @@ static PyObject *meth_wxXmlResourceHandler_GetNodeContent(PyObject *sipSelf, PyO
 
     {
         ::wxXmlNode* node;
-        sipwxXmlResourceHandler *sipCpp;
+        const sipwxXmlResourceHandler *sipCpp;
 
         static const char *sipKwdList[] = {
             sipName_node,
@@ -1713,7 +1819,8 @@ static PyObject *meth_wxXmlResourceHandler_GetNodeParent(PyObject *sipSelf, PyOb
 
 PyDoc_STRVAR(doc_wxXmlResourceHandler_GetNodeNext, "GetNodeNext(node) -> XmlNode\n"
 "\n"
-"Gets the next sibling node related to the given node, possibly NULL.");
+"Gets the next sibling node related to the given node, possibly\n"
+"nullptr.");
 
 extern "C" {static PyObject *meth_wxXmlResourceHandler_GetNodeNext(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxXmlResourceHandler_GetNodeNext(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1753,7 +1860,7 @@ static PyObject *meth_wxXmlResourceHandler_GetNodeNext(PyObject *sipSelf, PyObje
 
 PyDoc_STRVAR(doc_wxXmlResourceHandler_GetNodeChildren, "GetNodeChildren(node) -> XmlNode\n"
 "\n"
-"Gets the first child of the given node or NULL.");
+"Gets the first child of the given node or nullptr.");
 
 extern "C" {static PyObject *meth_wxXmlResourceHandler_GetNodeChildren(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxXmlResourceHandler_GetNodeChildren(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1793,7 +1900,7 @@ static PyObject *meth_wxXmlResourceHandler_GetNodeChildren(PyObject *sipSelf, Py
 
 PyDoc_STRVAR(doc_wxXmlResourceHandler_GetParamNode, "GetParamNode(param) -> XmlNode\n"
 "\n"
-"Finds the node or returns NULL.");
+"Finds the node or returns nullptr.");
 
 extern "C" {static PyObject *meth_wxXmlResourceHandler_GetParamNode(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxXmlResourceHandler_GetParamNode(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -1902,7 +2009,7 @@ static PyObject *meth_wxXmlResourceHandler_GetParamValue(PyObject *sipSelf, PyOb
 }
 
 
-PyDoc_STRVAR(doc_wxXmlResourceHandler_GetPosition, "GetPosition(param=\"pos\") -> Point\n"
+PyDoc_STRVAR(doc_wxXmlResourceHandler_GetPosition, "GetPosition(param=\"pos\", windowToUse=nullptr) -> Point\n"
 "\n"
 "Gets the position (may be in dialog units).");
 
@@ -1915,20 +2022,22 @@ static PyObject *meth_wxXmlResourceHandler_GetPosition(PyObject *sipSelf, PyObje
         const ::wxString& paramdef = "pos";
         const ::wxString* param = &paramdef;
         int paramState = 0;
+        ::wxWindow* windowToUse = nullptr;
         sipwxXmlResourceHandler *sipCpp;
 
         static const char *sipKwdList[] = {
             sipName_param,
+            sipName_windowToUse,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "B|J1", &sipSelf, sipType_wxXmlResourceHandler, &sipCpp, sipType_wxString, &param, &paramState))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "B|J1J8", &sipSelf, sipType_wxXmlResourceHandler, &sipCpp, sipType_wxString, &param, &paramState, sipType_wxWindow, &windowToUse))
         {
             ::wxPoint*sipRes;
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxPoint(sipCpp->sipProtect_GetPosition(*param));
+            sipRes = new ::wxPoint(sipCpp->sipProtect_GetPosition(*param, windowToUse));
             Py_END_ALLOW_THREADS
             sipReleaseType(const_cast< ::wxString *>(param), sipType_wxString, paramState);
 
@@ -1945,7 +2054,7 @@ static PyObject *meth_wxXmlResourceHandler_GetPosition(PyObject *sipSelf, PyObje
 }
 
 
-PyDoc_STRVAR(doc_wxXmlResourceHandler_GetSize, "GetSize(param=\"size\", windowToUse=0) -> Size\n"
+PyDoc_STRVAR(doc_wxXmlResourceHandler_GetSize, "GetSize(param=\"size\", windowToUse=nullptr) -> Size\n"
 "\n"
 "Gets the size (may be in dialog units).");
 
@@ -1958,7 +2067,7 @@ static PyObject *meth_wxXmlResourceHandler_GetSize(PyObject *sipSelf, PyObject *
         const ::wxString& paramdef = "size";
         const ::wxString* param = &paramdef;
         int paramState = 0;
-        ::wxWindow* windowToUse = 0;
+        ::wxWindow* windowToUse = nullptr;
         sipwxXmlResourceHandler *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -2660,8 +2769,10 @@ static PyMethodDef methods_wxXmlResourceHandler[] = {
     {sipName_GetLong, SIP_MLMETH_CAST(meth_wxXmlResourceHandler_GetLong), METH_VARARGS|METH_KEYWORDS, doc_wxXmlResourceHandler_GetLong},
     {sipName_GetName, meth_wxXmlResourceHandler_GetName, METH_VARARGS, doc_wxXmlResourceHandler_GetName},
     {sipName_GetNode, meth_wxXmlResourceHandler_GetNode, METH_VARARGS, doc_wxXmlResourceHandler_GetNode},
+    {sipName_GetNodeAttribute, SIP_MLMETH_CAST(meth_wxXmlResourceHandler_GetNodeAttribute), METH_VARARGS|METH_KEYWORDS, doc_wxXmlResourceHandler_GetNodeAttribute},
     {sipName_GetNodeChildren, SIP_MLMETH_CAST(meth_wxXmlResourceHandler_GetNodeChildren), METH_VARARGS|METH_KEYWORDS, doc_wxXmlResourceHandler_GetNodeChildren},
     {sipName_GetNodeContent, SIP_MLMETH_CAST(meth_wxXmlResourceHandler_GetNodeContent), METH_VARARGS|METH_KEYWORDS, doc_wxXmlResourceHandler_GetNodeContent},
+    {sipName_GetNodeName, SIP_MLMETH_CAST(meth_wxXmlResourceHandler_GetNodeName), METH_VARARGS|METH_KEYWORDS, doc_wxXmlResourceHandler_GetNodeName},
     {sipName_GetNodeNext, SIP_MLMETH_CAST(meth_wxXmlResourceHandler_GetNodeNext), METH_VARARGS|METH_KEYWORDS, doc_wxXmlResourceHandler_GetNodeNext},
     {sipName_GetNodeParent, SIP_MLMETH_CAST(meth_wxXmlResourceHandler_GetNodeParent), METH_VARARGS|METH_KEYWORDS, doc_wxXmlResourceHandler_GetNodeParent},
     {sipName_GetParamNode, SIP_MLMETH_CAST(meth_wxXmlResourceHandler_GetParamNode), METH_VARARGS|METH_KEYWORDS, doc_wxXmlResourceHandler_GetParamNode},
@@ -2683,12 +2794,12 @@ static PyMethodDef methods_wxXmlResourceHandler[] = {
 };
 
 sipVariableDef variables_wxXmlResourceHandler[] = {
-    {PropertyVariable, sipName_Style, &methods_wxXmlResourceHandler[38], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Size, &methods_wxXmlResourceHandler[37], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Resource, &methods_wxXmlResourceHandler[36], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Position, &methods_wxXmlResourceHandler[35], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ParentAsWindow, &methods_wxXmlResourceHandler[34], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Parent, &methods_wxXmlResourceHandler[33], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Style, &methods_wxXmlResourceHandler[40], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Size, &methods_wxXmlResourceHandler[39], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Resource, &methods_wxXmlResourceHandler[38], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Position, &methods_wxXmlResourceHandler[37], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ParentAsWindow, &methods_wxXmlResourceHandler[36], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Parent, &methods_wxXmlResourceHandler[35], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_Node, &methods_wxXmlResourceHandler[26], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_Name, &methods_wxXmlResourceHandler[25], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_Instance, &methods_wxXmlResourceHandler[23], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
@@ -2722,7 +2833,7 @@ sipClassTypeDef sipTypeDef__xrc_wxXmlResourceHandler = {
     {
         sipNameNr_XmlResourceHandler,
         {0, 0, 1},
-        47, methods_wxXmlResourceHandler,
+        49, methods_wxXmlResourceHandler,
         0, SIP_NULLPTR,
         18, variables_wxXmlResourceHandler,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

@@ -23,23 +23,23 @@
 class WXDLLIMPEXP_CORE wxJPEGHandler: public wxImageHandler
 {
 public:
-    inline wxJPEGHandler()
+    wxJPEGHandler() : wxImageHandler(
+        wxT("JPEG file"),
+        wxT("jpg"),
+        wxBITMAP_TYPE_JPEG,
+        wxT("image/jpeg"))
     {
-        m_name = wxT("JPEG file");
-        m_extension = wxT("jpg");
         m_altExtensions.Add(wxT("jpeg"));
         m_altExtensions.Add(wxT("jpe"));
-        m_type = wxBITMAP_TYPE_JPEG;
-        m_mime = wxT("image/jpeg");
     }
 
     static wxVersionInfo GetLibraryVersionInfo();
 
 #if wxUSE_STREAMS
-    virtual bool LoadFile( wxImage *image, wxInputStream& stream, bool verbose=true, int index=-1 ) wxOVERRIDE;
-    virtual bool SaveFile( wxImage *image, wxOutputStream& stream, bool verbose=true ) wxOVERRIDE;
+    virtual bool LoadFile( wxImage *image, wxInputStream& stream, bool verbose=true, int index=-1 ) override;
+    virtual bool SaveFile( wxImage *image, wxOutputStream& stream, bool verbose=true ) override;
 protected:
-    virtual bool DoCanRead( wxInputStream& stream ) wxOVERRIDE;
+    virtual bool DoCanRead( wxInputStream& stream ) override;
 #endif
 
 private:

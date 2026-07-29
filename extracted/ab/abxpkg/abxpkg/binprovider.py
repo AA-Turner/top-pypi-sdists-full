@@ -2243,6 +2243,10 @@ class BinProvider(BaseModel):
         """Return a provider-owned executable target for a host launcher."""
         return None
 
+    def env_projection_target(self, source_path: Path) -> Path | None:
+        """Return a provider-owned executable that EnvProvider may project."""
+        return None
+
     def _is_managed_by_other_provider(self, abspath: HostBinPath | Path) -> bool:
         return False
 
@@ -3433,6 +3437,22 @@ class EnvProvider(BinProvider):
     INSTALLER_BIN: BinName = "which"
     INSTALLER_BINPROVIDERS: ClassVar[tuple[BinProviderName, ...] | None] = ("env",)
     INVALIDATE_ONLY_ON_UNINSTALL: ClassVar[bool] = True
+    HOST_BINARY_ALIASES: ClassVar[Mapping[str, tuple[str, ...]]] = {
+        "chrome": (
+            "chrome",
+            "chromium",
+            "chromium-browser",
+            "google-chrome",
+            "google-chrome-stable",
+        ),
+        "chromium": (
+            "chromium",
+            "chromium-browser",
+            "google-chrome",
+            "google-chrome-stable",
+            "chrome",
+        ),
+    }
     CACHE_ENV_ALIASES: ClassVar[Mapping[str, tuple[str, ...]]] = {
         "python": ("PYTHON_BINARY",),
         "python3": ("PYTHON_BINARY",),
@@ -3550,7 +3570,7 @@ class EnvProvider(BinProvider):
 
     def _cache_context(self, bin_name: BinName) -> str:
         provider_config = json.loads(super()._cache_context(bin_name))
-        provider_config["env_projection_version"] = 2
+        provider_config["env_projection_version"] = 3
         if str(bin_name) in {"python", "python3"}:
             provider_config["runtime_python"] = str(Path(sys.executable).absolute())
         return json.dumps(
@@ -3716,6 +3736,11 @@ class EnvProvider(BinProvider):
                 else source_path.parent / projected_target
             ).absolute()
         return source_path
+
+    def _host_candidate_names(self, bin_name: BinName | str) -> tuple[str, ...]:
+        bin_name_str = str(bin_name)
+        aliases = self.HOST_BINARY_ALIASES.get(bin_name_str, ())
+        return tuple(dict.fromkeys((bin_name_str, *aliases)))
 
     def _exec_bin_abspath(self, bin_abspath: Path) -> Path:
         # EnvProvider exposes stable managed links under ABXPKG_LIB_DIR/env/bin so
@@ -3970,19 +3995,23 @@ class EnvProvider(BinProvider):
             search_paths.append(entry)
 
         candidates: list[HostBinPath] = []
-        for abspath in bin_abspaths(bin_name_str, PATH=os.pathsep.join(search_paths)):
-            if self.bin_dir is not None and Path(abspath).parent == self.bin_dir:
-                continue
-            # EnvProvider projects binaries discovered from the host OS into
-            # ``ABXPKG_LIB_DIR/env/bin``. Paths owned by another managed
-            # provider are already part of that provider's runtime and must
-            # fall through to it instead of being reverse-linked into env/bin.
-            # In particular, pnpm's generated shell launchers resolve package
-            # files relative to $0 and break when invoked through such a link.
-            if self._is_managed_by_other_provider(abspath):
-                continue
-            if abspath not in candidates:
-                candidates.append(abspath)
+        for candidate_name in self._host_candidate_names(bin_name_str):
+            for abspath in bin_abspaths(
+                candidate_name,
+                PATH=os.pathsep.join(search_paths),
+            ):
+                if self.bin_dir is not None and Path(abspath).parent == self.bin_dir:
+                    continue
+                # EnvProvider projects binaries discovered from the host OS into
+                # ``ABXPKG_LIB_DIR/env/bin``. Paths owned by another managed
+                # provider are already part of that provider's runtime and must
+                # fall through to it instead of being reverse-linked into env/bin.
+                # In particular, pnpm's generated shell launchers resolve package
+                # files relative to $0 and break when invoked through such a link.
+                if self._is_managed_by_other_provider(abspath):
+                    continue
+                if abspath not in candidates:
+                    candidates.append(abspath)
 
         for abspath in candidates:
             version = self._get_version_at_abspath(
@@ -4020,6 +4049,26 @@ class EnvProvider(BinProvider):
                         and link_path.readlink() == projected_target
                     ):
                         link_path.unlink()
+
+        for provider in self._projection_providers:
+            try:
+                loaded = provider.load(bin_name_str, no_cache=no_cache)
+            except Exception:
+                continue
+            if loaded is None or loaded.loaded_abspath is None:
+                continue
+            projection_target = provider.env_projection_target(
+                Path(loaded.loaded_abspath),
+            )
+            if projection_target is None:
+                continue
+            projected_abspath = self.project_binary(
+                loaded.model_copy(update={"loaded_abspath": projection_target}),
+                bin_name_str,
+            )
+            if projected_abspath is None:
+                continue
+            return projected_abspath
 
         managed_abspath = None
         if self.bin_dir is not None:

@@ -561,8 +561,7 @@ static PyObject *meth_wxGLAttributes_PlatformDefaults(PyObject *sipSelf, PyObjec
 
 PyDoc_STRVAR(doc_wxGLAttributes_Defaults, "Defaults() -> GLAttributes\n"
 "\n"
-"wxWidgets defaults: RGBA, Z-depth 16 bits, double buffering, 1 sample\n"
-"buffer, 4 samplers.");
+"wxWidgets defaults: RGBA, Z-depth 16 bits, double buffering.");
 
 extern "C" {static PyObject *meth_wxGLAttributes_Defaults(PyObject *, PyObject *);}
 static PyObject *meth_wxGLAttributes_Defaults(PyObject *sipSelf, PyObject *sipArgs)

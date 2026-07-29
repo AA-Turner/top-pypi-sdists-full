@@ -2,7 +2,6 @@
 // Name:        src/generic/dbgrptg.cpp
 // Purpose:     implementation of wxDebugReportPreviewStd
 // Author:      Vadim Zeitlin, Andrej Putrin
-// Modified by:
 // Created:     2005-01-21
 // Copyright:   (c) 2005 Vadim Zeitlin <zeitlin@dptmaths.ens-cachan.fr>
 // Licence:     wxWindows licence
@@ -127,7 +126,7 @@ class wxDumpOpenExternalDlg : public wxDialog
 public:
     wxDumpOpenExternalDlg(wxWindow *parent, const wxFileName& filename);
 
-    // return the command chosed by user to open this file
+    // return the command chosen by user to open this file
     const wxString& GetCommand() const { return m_command; }
 
     wxString m_command;
@@ -249,8 +248,8 @@ class wxDebugReportDialog : public wxDialog
 public:
     wxDebugReportDialog(wxDebugReport& dbgrpt);
 
-    virtual bool TransferDataToWindow() wxOVERRIDE;
-    virtual bool TransferDataFromWindow() wxOVERRIDE;
+    virtual bool TransferDataToWindow() override;
+    virtual bool TransferDataFromWindow() override;
 
 private:
     void OnView(wxCommandEvent& );
@@ -297,7 +296,7 @@ wxEND_EVENT_TABLE()
 // ----------------------------------------------------------------------------
 
 wxDebugReportDialog::wxDebugReportDialog(wxDebugReport& dbgrpt)
-                   : wxDialog(NULL, wxID_ANY,
+                   : wxDialog(nullptr, wxID_ANY,
                               wxString::Format(_("Debug report \"%s\""),
                               dbgrpt.GetReportName().c_str()),
                               wxDefaultPosition,
@@ -535,8 +534,7 @@ bool wxDebugReportPreviewStd::Show(wxDebugReport& dbgrpt) const
     // handling for all other windows as this could result in more crashes
     wxEventLoop::SetCriticalWindow(&dlg);
 
-    wxON_BLOCK_EXIT1( wxEventLoop::SetCriticalWindow,
-                        static_cast<wxWindow *>(NULL) );
+    wxON_BLOCK_EXIT1( wxEventLoop::SetCriticalWindow, nullptr );
 #endif // __WXMSW__
 
     return dlg.ShowModal() == wxID_OK && dbgrpt.GetFilesCount() != 0;

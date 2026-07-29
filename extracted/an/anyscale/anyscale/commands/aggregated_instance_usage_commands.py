@@ -6,6 +6,12 @@ import anyscale
 from anyscale.aggregated_instance_usage.models import DownloadCSVFilters
 from anyscale.cli_logger import BlockLogger
 from anyscale.commands import command_examples
+from anyscale.commands.doc_metadata import (
+    command_metadata,
+    CommandExample,
+    ReleaseStatus,
+)
+from anyscale.commands.output_format import OutputFormat
 from anyscale.commands.util import AnyscaleCommand
 
 
@@ -17,10 +23,22 @@ def aggregated_instance_usage_cli() -> None:
     pass
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Download an instance usage report for a date range.",
+            command="anyscale aggregated-instance-usage download-csv --start-date 2024-09-01 --end-date 2024-09-30",
+            output_raw=command_examples.AGGREGATED_INSTANCE_USAGE_DOWNLOAD_CSV_EXAMPLE,
+        ),
+    ],
+)
 @aggregated_instance_usage_cli.command(
     name="download-csv",
+    short_help="Download an aggregated instance usage report as a zipped CSV.",
     cls=AnyscaleCommand,
-    example=command_examples.AGGREGATED_INSTANCE_USAGE_DOWNLOAD_CSV_EXAMPLE,
 )
 @click.option(
     "--start-date",

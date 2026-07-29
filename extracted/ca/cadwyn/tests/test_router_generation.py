@@ -586,7 +586,7 @@ def test__endpoint_had_dependencies(
     assert len(routes_2001[1].dependencies) == 1
 
 
-def test__only_exists_in_older_versions__endpoint_is_not_a_route__error(
+def test__only_exists_in_older_versions__endpoint_is_not_a_route__should_raise_lookup_error(
     router: VersionedAPIRouter,
     test_endpoint: Endpoint,
 ):
@@ -639,7 +639,7 @@ def test__only_exists_in_older_versions__applied_twice__should_raise_error(
             raise NotImplementedError
 
 
-def test__router_generation__changing_a_deleted_endpoint__error(
+def test__router_generation__changing_a_deleted_endpoint__should_raise_router_generation_error(
     router: VersionedAPIRouter,
     create_versioned_app: CreateVersionedApp,
 ):
@@ -657,7 +657,7 @@ def test__router_generation__changing_a_deleted_endpoint__error(
         create_versioned_app(version_change(endpoint("/test", ["GET"]).had(description="Hewwo")))
 
 
-def test__router_generation__changing_a_non_existent_endpoint__error(
+def test__router_generation__changing_a_non_existent_endpoint__should_raise_router_generation_error(
     router: VersionedAPIRouter,
     create_versioned_app: CreateVersionedApp,
 ):
@@ -670,7 +670,7 @@ def test__router_generation__changing_a_non_existent_endpoint__error(
         create_versioned_app(version_change(endpoint("/test", ["GET"]).had(dependencies=[])))
 
 
-def test__router_generation__re_creating_an_existing_endpoint__error(
+def test__router_generation__re_creating_an_existing_endpoint__should_raise_router_generation_error(
     test_endpoint: Endpoint,
     test_path: str,
     create_versioned_app: CreateVersionedApp,
@@ -766,7 +766,7 @@ def test__router_generation__editing_multiple_methods_of_multiple_endpoints__sho
     assert routes_2001[2].description == ""
 
 
-def test__router_generation__deleting_a_deleted_endpoint__error(
+def test__router_generation__deleting_a_deleted_endpoint__should_raise_router_generation_error(
     router: VersionedAPIRouter,
     create_versioned_app: CreateVersionedApp,
 ):
@@ -906,6 +906,40 @@ def test__router_generation__restoring_two_deleted_routes_for_same_path__should_
         create_versioned_api_routes(version_change(endpoint("/test", ["GET"]).existed))
 
 
+def test__router_generation__restoring_routes_distinguishes_paths_and_methods(
+    router: VersionedAPIRouter,
+    create_versioned_api_routes: CreateVersionedAPIRoutes,
+):
+    @router.only_exists_in_older_versions
+    @router.get("/test")
+    async def get_without_trailing_slash():
+        raise NotImplementedError
+
+    @router.only_exists_in_older_versions
+    @router.get("/test/")
+    async def get_with_trailing_slash():
+        raise NotImplementedError
+
+    @router.only_exists_in_older_versions
+    @router.post("/test")
+    async def post_without_trailing_slash():
+        raise NotImplementedError
+
+    routes_2000, routes_2001 = create_versioned_api_routes(version_change(endpoint("/test", ["GET", "POST"]).existed))
+
+    assert len(routes_2000) == 4
+    assert len(routes_2001) == 1
+    restored_route_identities = set()
+    for route in routes_2000[1:]:
+        assert route.methods is not None
+        restored_route_identities.add((route.path, frozenset(route.methods)))
+    assert restored_route_identities == {
+        ("/test", frozenset({"GET"})),
+        ("/test/", frozenset({"GET"})),
+        ("/test", frozenset({"POST"})),
+    }
+
+
 @pytest.mark.parametrize("route_index_to_restore_first", [0, 1])
 def test__endpoint_existed__deleting_and_restoring_two_routes_for_the_same_endpoint(
     router: VersionedAPIRouter,
@@ -959,7 +993,7 @@ def get_nested_field_type(annotation: Any) -> Union[type[BaseModel], None]:
     return annotation_of_its_foo_field.model_fields["foo"].annotation
 
 
-def test__router_generation__re_creating_a_non_endpoint__error(
+def test__router_generation__re_creating_a_non_endpoint__should_raise_router_generation_error(
     create_versioned_app: CreateVersionedApp,
 ):
     with pytest.raises(
@@ -971,7 +1005,7 @@ def test__router_generation__re_creating_a_non_endpoint__error(
         create_versioned_app(version_change(endpoint("/test", ["GET"]).existed))
 
 
-def test__router_generation__changing_attribute_to_the_same_value__error(
+def test__router_generation__changing_attribute_to_the_same_value__should_raise_router_generation_error(
     test_endpoint: Endpoint,
     test_path: str,
     create_versioned_app: CreateVersionedApp,
@@ -1300,6 +1334,41 @@ def test__router_generation__updating_request_depends(
     assert client_2001.post("/test2", json={"my_schema": {"foo": "bar"}}).json() == {}
 
 
+def test__router_generation__enum_member_dependency_default_works_only_in_versions_where_member_exists(
+    router: VersionedAPIRouter,
+    create_versioned_clients: CreateVersionedClients,
+):
+    def dependency(value: StrEnum = StrEnum.a) -> StrEnum:
+        return value
+
+    @router.get("/test")
+    async def route(value: StrEnum = Depends(dependency)):
+        return value.name
+
+    clients = create_versioned_clients(
+        version_change(enum(StrEnum).had(a=StrEnum.a.value)),
+        version_change(enum(StrEnum).didnt_have("a")),
+    )
+
+    assert clients["2002-01-01"].get("/test").json() == "a"
+    response = clients["2001-01-01"].get("/test")
+    assert response.status_code == 422
+    assert response.json() == snapshot(
+        {
+            "detail": [
+                {
+                    "type": "is_instance_of",
+                    "loc": ["query", "value"],
+                    "msg": "Input should be an instance of StrEnum",
+                    "input": StrEnum.a.value,
+                    "ctx": {"class": "StrEnum"},
+                }
+            ]
+        }
+    )
+    assert clients["2000-01-01"].get("/test").json() == "a"
+
+
 def test__router_generation__using_unversioned_schema_in_body(
     router: VersionedAPIRouter, create_versioned_app: CreateVersionedApp
 ):
@@ -1529,7 +1598,7 @@ def test__basic_router_generation__using_http_security_dependency__should_genera
     client_2000, *_ = create_versioned_clients().values()
 
     dependant = cast("APIRoute", client_2000.app.router.versioned_routers["2000-01-01"].routes[-1]).dependant
-    assert dependant.dependencies[1].dependencies[0]._security_scheme is auth_header_scheme
+    assert dependant.dependencies[1].dependencies[0].call is auth_header_scheme
     response = client_2000.get("/test")
     assert response.status_code == expected_status_code
     assert response.json() == {"detail": "Not authenticated"}
@@ -1746,11 +1815,26 @@ def test__router_generation__using_svcs_in_dependencies(
     assert len(routes_2000) == len(routes_2001) == 2
 
 
-def test__copy_route__without_flat_dependant():
-    """Test that copy_route works correctly when the route doesn't have _flat_dependant."""
+def test__copy_route__when_route_has_no_flat_dependant__then_copies_route():
     route = APIRoute("/test", lambda: None)
-    # Simulate an older FastAPI version where _flat_dependant doesn't exist
-    del route._flat_dependant
+    flat_dependant_attr = "_flat_dependant"
+    setattr(route, flat_dependant_attr, route.dependant)
+    delattr(route, flat_dependant_attr)
+
     copied = copy_route(route)
+
     assert copied.path == route.path
-    assert not hasattr(copied, "_flat_dependant")
+    assert not hasattr(copied, flat_dependant_attr)
+
+
+def test__copy_route__when_route_has_flat_dependant__then_copies_flat_dependant():
+    route = APIRoute("/test", lambda: None)
+    flat_dependant = route.dependant
+    flat_dependant_attr = "_flat_dependant"
+    setattr(route, flat_dependant_attr, flat_dependant)
+
+    copied = copy_route(route)
+
+    copied_flat_dependant = getattr(copied, flat_dependant_attr)
+    assert copied_flat_dependant is not flat_dependant
+    assert copied_flat_dependant.call is flat_dependant.call

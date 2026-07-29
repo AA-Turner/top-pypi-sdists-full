@@ -75,9 +75,9 @@ sipwxStockPreferencesPage::~sipwxStockPreferencesPage()
     if (!sipMeth)
         return ::wxStockPreferencesPage::GetIcon();
 
-    extern ::wxBitmapBundle sipVH__core_165(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxBitmapBundle sipVH__core_164(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_165(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_164(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxBitmap sipwxStockPreferencesPage::GetLargeIcon() const
@@ -90,9 +90,9 @@ sipwxStockPreferencesPage::~sipwxStockPreferencesPage()
     if (!sipMeth)
         return ::wxBitmap();
 
-    extern ::wxBitmap sipVH__core_80(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxBitmap sipVH__core_79(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_80(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_79(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxWindow* sipwxStockPreferencesPage::CreateWindow(::wxWindow*parent)
@@ -105,9 +105,9 @@ sipwxStockPreferencesPage::~sipwxStockPreferencesPage()
     if (!sipMeth)
         return 0;
 
-    extern ::wxWindow* sipVH__core_246(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*);
+    extern ::wxWindow* sipVH__core_245(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindow*);
 
-    return sipVH__core_246(sipGILState, 0, sipPySelf, sipMeth, parent);
+    return sipVH__core_245(sipGILState, 0, sipPySelf, sipMeth, parent);
 }
 
 
@@ -299,7 +299,7 @@ static void *init_type_wxStockPreferencesPage(sipSimpleWrapper *sipSelf, PyObjec
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxStockPreferencesPage[] = {{438, 255, 1}};
+static sipEncodedTypeDef supers_wxStockPreferencesPage[] = {{447, 255, 1}};
 
 
 static PyMethodDef methods_wxStockPreferencesPage[] = {
@@ -309,8 +309,8 @@ static PyMethodDef methods_wxStockPreferencesPage[] = {
 };
 
 static sipEnumMemberDef enummembers_wxStockPreferencesPage[] = {
-    {sipName_Kind_Advanced, static_cast<int>(::wxStockPreferencesPage::Kind_Advanced), 548},
-    {sipName_Kind_General, static_cast<int>(::wxStockPreferencesPage::Kind_General), 548},
+    {sipName_Kind_Advanced, static_cast<int>(::wxStockPreferencesPage::Kind_Advanced), 564},
+    {sipName_Kind_General, static_cast<int>(::wxStockPreferencesPage::Kind_General), 564},
 };
 
 sipVariableDef variables_wxStockPreferencesPage[] = {

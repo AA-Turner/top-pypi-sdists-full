@@ -186,7 +186,10 @@ class ArtifactDiscoveryService:
                     request.identifier, requested_variant, target, ignore_failed_push
                 )
 
-        elif request.request_type == RequestType.MONGO_PATCH_VERSION:
+        elif request.request_type in (
+            RequestType.MONGO_PATCH_VERSION,
+            RequestType.MONGO_LAST_PATCH_VERSION,
+        ):
             tag = f"r{request.identifier}"
             commit = self.git_service.get_commit_from_tag(tag)
             artifact_urls = self.find_artifact_urls_for_commit(

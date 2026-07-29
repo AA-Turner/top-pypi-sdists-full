@@ -1,6 +1,10 @@
 import pytest
 
 from pygitguardian.models import (
+    AgentActivityResponse,
+    AgentActivityResponseSchema,
+    AgentInfo,
+    AgentInfoSchema,
     AIDiscovery,
     AIDiscoverySchema,
     APITokensResponse,
@@ -478,6 +482,23 @@ class TestModel:
                 },
             ),
             (
+                AgentInfoSchema,
+                AgentInfo,
+                {
+                    "name": "cursor",
+                    "hooks_installed": True,
+                },
+            ),
+            (
+                AgentInfoSchema,
+                AgentInfo,
+                {
+                    "name": "cursor",
+                    "hooks_installed": True,
+                    "hooks_command": "ggshield hooks install cursor",
+                },
+            ),
+            (
                 AIDiscoverySchema,
                 AIDiscovery,
                 {
@@ -496,6 +517,13 @@ class TestModel:
                         {
                             "name": "mcp-server",
                             "url": "https://mcp-server.com",
+                        },
+                    ],
+                    "agents": [
+                        {
+                            "name": "cursor",
+                            "hooks_installed": True,
+                            "hooks_command": "ggshield hooks install cursor",
                         },
                     ],
                 },
@@ -524,6 +552,14 @@ class TestModel:
                 {
                     "allowed": True,
                     "reason": "test",
+                },
+            ),
+            (
+                AgentActivityResponseSchema,
+                AgentActivityResponse,
+                {
+                    "ingested": 2,
+                    "dropped": 0,
                 },
             ),
         ],

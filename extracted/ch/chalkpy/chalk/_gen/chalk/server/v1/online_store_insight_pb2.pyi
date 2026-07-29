@@ -343,13 +343,18 @@ class ListElasticacheClustersResponse(_message.Message):
     ) -> None: ...
 
 class GetElasticacheMetricsRequest(_message.Message):
-    __slots__ = ("cluster_id", "time_range")
+    __slots__ = ("cluster_id", "time_range", "aggregate_nodes")
     CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     TIME_RANGE_FIELD_NUMBER: _ClassVar[int]
+    AGGREGATE_NODES_FIELD_NUMBER: _ClassVar[int]
     cluster_id: str
     time_range: MetricsTimeRange
+    aggregate_nodes: bool
     def __init__(
-        self, cluster_id: _Optional[str] = ..., time_range: _Optional[_Union[MetricsTimeRange, str]] = ...
+        self,
+        cluster_id: _Optional[str] = ...,
+        time_range: _Optional[_Union[MetricsTimeRange, str]] = ...,
+        aggregate_nodes: bool = ...,
     ) -> None: ...
 
 class GetElasticacheMetricsResponse(_message.Message):

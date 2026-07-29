@@ -44,6 +44,7 @@ class DecoratedListServiceAPIModel(object):
         'current_state': 'ServiceEventCurrentState',
         'goal_state': 'ServiceGoalStates',
         'auth_token': 'str',
+        'secondary_auth_token': 'str',
         'auto_rollout_enabled': 'bool',
         'versions': 'list[DecoratedProductionServiceV2VersionAPIModel]',
         'primary_version': 'DecoratedProductionServiceV2VersionAPIModel',
@@ -70,6 +71,7 @@ class DecoratedListServiceAPIModel(object):
         'current_state': 'current_state',
         'goal_state': 'goal_state',
         'auth_token': 'auth_token',
+        'secondary_auth_token': 'secondary_auth_token',
         'auto_rollout_enabled': 'auto_rollout_enabled',
         'versions': 'versions',
         'primary_version': 'primary_version',
@@ -84,7 +86,7 @@ class DecoratedListServiceAPIModel(object):
         'type': 'type'
     }
 
-    def __init__(self, id=None, name=None, description=None, project_id=None, cloud_id=None, creator_id=None, created_at=None, hostname=None, current_state=None, goal_state=None, auth_token=None, auto_rollout_enabled=None, versions=None, primary_version=None, canary_version=None, service_observability_urls=None, base_url=None, ended_at=None, service_status_checklist=None, creator=None, is_multi_version=None, error_message=None, type=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, description=None, project_id=None, cloud_id=None, creator_id=None, created_at=None, hostname=None, current_state=None, goal_state=None, auth_token=None, secondary_auth_token=None, auto_rollout_enabled=None, versions=None, primary_version=None, canary_version=None, service_observability_urls=None, base_url=None, ended_at=None, service_status_checklist=None, creator=None, is_multi_version=None, error_message=None, type=None, local_vars_configuration=None):  # noqa: E501
         """DecoratedListServiceAPIModel - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -101,6 +103,7 @@ class DecoratedListServiceAPIModel(object):
         self._current_state = None
         self._goal_state = None
         self._auth_token = None
+        self._secondary_auth_token = None
         self._auto_rollout_enabled = None
         self._versions = None
         self._primary_version = None
@@ -128,6 +131,8 @@ class DecoratedListServiceAPIModel(object):
         self.goal_state = goal_state
         if auth_token is not None:
             self.auth_token = auth_token
+        if secondary_auth_token is not None:
+            self.secondary_auth_token = secondary_auth_token
         self.auto_rollout_enabled = auto_rollout_enabled
         self.versions = versions
         self.primary_version = primary_version
@@ -415,6 +420,29 @@ class DecoratedListServiceAPIModel(object):
         """
 
         self._auth_token = auth_token
+
+    @property
+    def secondary_auth_token(self):
+        """Gets the secondary_auth_token of this DecoratedListServiceAPIModel.  # noqa: E501
+
+        Secondary token to use for service auth during token rotation. To use the token, add it as a header with the key 'Authorization' and the value 'Bearer <token>'  # noqa: E501
+
+        :return: The secondary_auth_token of this DecoratedListServiceAPIModel.  # noqa: E501
+        :rtype: str
+        """
+        return self._secondary_auth_token
+
+    @secondary_auth_token.setter
+    def secondary_auth_token(self, secondary_auth_token):
+        """Sets the secondary_auth_token of this DecoratedListServiceAPIModel.
+
+        Secondary token to use for service auth during token rotation. To use the token, add it as a header with the key 'Authorization' and the value 'Bearer <token>'  # noqa: E501
+
+        :param secondary_auth_token: The secondary_auth_token of this DecoratedListServiceAPIModel.  # noqa: E501
+        :type: str
+        """
+
+        self._secondary_auth_token = secondary_auth_token
 
     @property
     def auto_rollout_enabled(self):

@@ -17,7 +17,20 @@
         #include <wx/ribbon/page.h>
         #include <wx/ribbon/gallery.h>
         #include <wx/gdicmn.h>
+    #include <vector>
+    #include <algorithm>
+
+    
+#include <wx/ribbon/bar.h>
+
+inline bool operator==(const wxRibbonPageTabInfo& a, const wxRibbonPageTabInfo& b) {
+        return a.page == b.page && 
+               a.rect == b.rect && 
+               a.active == b.active && 
+               a.hovered == b.hovered;
+    }
         #include <wx/bitmap.h>
+        #include <wx/dc.h>
         #include <wx/ribbon/bar.h>
         #include <wx/ribbon/bar.h>
         #include <wx/colour.h>
@@ -38,19 +51,19 @@ public:
 protected:
     ::wxRect GetRibbonHelpButtonArea(const ::wxRect&) SIP_OVERRIDE;
     ::wxRect GetBarToggleButtonArea(const ::wxRect&) SIP_OVERRIDE;
-    ::wxSize GetToolSize(::wxDC&, ::wxWindow*, ::wxSize, ::wxRibbonButtonKind, bool, bool, ::wxRect*) SIP_OVERRIDE;
-    ::wxSize GetMinimisedPanelMinimumSize(::wxDC&, const ::wxRibbonPanel*, ::wxSize*, ::wxDirection*) SIP_OVERRIDE;
-    ::wxCoord GetButtonBarButtonTextWidth(::wxDC&, const ::wxString&, ::wxRibbonButtonKind, ::wxRibbonButtonBarButtonState) SIP_OVERRIDE;
-    bool GetButtonBarButtonSize(::wxDC&, ::wxWindow*, ::wxRibbonButtonKind, ::wxRibbonButtonBarButtonState, const ::wxString&, ::wxCoord, ::wxSize, ::wxSize, ::wxSize*, ::wxRect*, ::wxRect*) SIP_OVERRIDE;
-    ::wxRect GetPageBackgroundRedrawArea(::wxDC&, const ::wxRibbonPage*, ::wxSize, ::wxSize) SIP_OVERRIDE;
-    ::wxSize GetGalleryClientSize(::wxDC&, const ::wxRibbonGallery*, ::wxSize, ::wxPoint*, ::wxRect*, ::wxRect*, ::wxRect*) SIP_OVERRIDE;
-    ::wxSize GetGallerySize(::wxDC&, const ::wxRibbonGallery*, ::wxSize) SIP_OVERRIDE;
-    ::wxRect GetPanelExtButtonArea(::wxDC&, const ::wxRibbonPanel*, ::wxRect) SIP_OVERRIDE;
-    ::wxSize GetPanelClientSize(::wxDC&, const ::wxRibbonPanel*, ::wxSize, ::wxPoint*) SIP_OVERRIDE;
-    ::wxSize GetPanelSize(::wxDC&, const ::wxRibbonPanel*, ::wxSize, ::wxPoint*) SIP_OVERRIDE;
-    ::wxSize GetScrollButtonMinimumSize(::wxDC&, ::wxWindow*, long) SIP_OVERRIDE;
-    int GetTabCtrlHeight(::wxDC&, ::wxWindow*, const ::wxRibbonPageTabInfoArray&) SIP_OVERRIDE;
-    void GetBarTabWidth(::wxDC&, ::wxWindow*, const ::wxString&, const ::wxBitmap&, int*, int*, int*, int*) SIP_OVERRIDE;
+    ::wxSize GetToolSize(::wxReadOnlyDC&, ::wxWindow*, ::wxSize, ::wxRibbonButtonKind, bool, bool, ::wxRect*) SIP_OVERRIDE;
+    ::wxSize GetMinimisedPanelMinimumSize(::wxReadOnlyDC&, const ::wxRibbonPanel*, ::wxSize*, ::wxDirection*) SIP_OVERRIDE;
+    ::wxCoord GetButtonBarButtonTextWidth(::wxReadOnlyDC&, const ::wxString&, ::wxRibbonButtonKind, ::wxRibbonButtonBarButtonState) SIP_OVERRIDE;
+    bool GetButtonBarButtonSize(::wxReadOnlyDC&, ::wxWindow*, ::wxRibbonButtonKind, ::wxRibbonButtonBarButtonState, const ::wxString&, ::wxCoord, ::wxSize, ::wxSize, ::wxSize*, ::wxRect*, ::wxRect*) SIP_OVERRIDE;
+    ::wxRect GetPageBackgroundRedrawArea(::wxReadOnlyDC&, const ::wxRibbonPage*, ::wxSize, ::wxSize) SIP_OVERRIDE;
+    ::wxSize GetGalleryClientSize(::wxReadOnlyDC&, const ::wxRibbonGallery*, ::wxSize, ::wxPoint*, ::wxRect*, ::wxRect*, ::wxRect*) SIP_OVERRIDE;
+    ::wxSize GetGallerySize(::wxReadOnlyDC&, const ::wxRibbonGallery*, ::wxSize) SIP_OVERRIDE;
+    ::wxRect GetPanelExtButtonArea(::wxReadOnlyDC&, const ::wxRibbonPanel*, ::wxRect) SIP_OVERRIDE;
+    ::wxSize GetPanelClientSize(::wxReadOnlyDC&, const ::wxRibbonPanel*, ::wxSize, ::wxPoint*) SIP_OVERRIDE;
+    ::wxSize GetPanelSize(::wxReadOnlyDC&, const ::wxRibbonPanel*, ::wxSize, ::wxPoint*) SIP_OVERRIDE;
+    ::wxSize GetScrollButtonMinimumSize(::wxReadOnlyDC&, ::wxWindow*, long) SIP_OVERRIDE;
+    int GetTabCtrlHeight(::wxReadOnlyDC&, ::wxWindow*, const ::wxRibbonPageTabInfoArray&) SIP_OVERRIDE;
+    void GetBarTabWidth(::wxReadOnlyDC&, ::wxWindow*, const ::wxString&, const ::wxBitmap&, int*, int*, int*, int*) SIP_OVERRIDE;
     void DrawHelpButton(::wxDC&, ::wxRibbonBar*, const ::wxRect&) SIP_OVERRIDE;
     void DrawToggleButton(::wxDC&, ::wxRibbonBar*, const ::wxRect&, ::wxRibbonDisplayMode) SIP_OVERRIDE;
     void DrawTool(::wxDC&, ::wxWindow*, const ::wxRect&, const ::wxBitmap&, ::wxRibbonButtonKind, long) SIP_OVERRIDE;
@@ -67,6 +80,7 @@ protected:
     void DrawTabSeparator(::wxDC&, ::wxWindow*, const ::wxRect&, double) SIP_OVERRIDE;
     void DrawTab(::wxDC&, ::wxWindow*, const ::wxRibbonPageTabInfo&) SIP_OVERRIDE;
     void DrawTabCtrlBackground(::wxDC&, ::wxWindow*, const ::wxRect&) SIP_OVERRIDE;
+    void UpdateColoursFromSystem() SIP_OVERRIDE;
     void SetColourScheme(const ::wxColour&, const ::wxColour&, const ::wxColour&) SIP_OVERRIDE;
     void GetColourScheme(::wxColour*, ::wxColour*, ::wxColour*) const SIP_OVERRIDE;
     void SetColour(int, const ::wxColour&) SIP_OVERRIDE;
@@ -86,7 +100,7 @@ private:
     sipwxRibbonArtProvider(const sipwxRibbonArtProvider &);
     sipwxRibbonArtProvider &operator = (const sipwxRibbonArtProvider &);
 
-    char sipPyMethods[42];
+    char sipPyMethods[43];
 };
 
 sipwxRibbonArtProvider::sipwxRibbonArtProvider(): ::wxRibbonArtProvider(), sipPySelf(SIP_NULLPTR)
@@ -134,7 +148,7 @@ sipwxRibbonArtProvider::~sipwxRibbonArtProvider()
     return sipVH__ribbon_54(sipGILState, 0, sipPySelf, sipMeth, rect);
 }
 
-::wxSize sipwxRibbonArtProvider::GetToolSize(::wxDC& dc, ::wxWindow*wnd, ::wxSize bitmap_size, ::wxRibbonButtonKind kind, bool is_first, bool is_last, ::wxRect*dropdown_region)
+::wxSize sipwxRibbonArtProvider::GetToolSize(::wxReadOnlyDC& dc, ::wxWindow*wnd, ::wxSize bitmap_size, ::wxRibbonButtonKind kind, bool is_first, bool is_last, ::wxRect*dropdown_region)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -144,12 +158,12 @@ sipwxRibbonArtProvider::~sipwxRibbonArtProvider()
     if (!sipMeth)
         return ::wxSize();
 
-    extern ::wxSize sipVH__ribbon_53(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxWindow*, ::wxSize, ::wxRibbonButtonKind, bool, bool, ::wxRect*);
+    extern ::wxSize sipVH__ribbon_53(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxReadOnlyDC&, ::wxWindow*, ::wxSize, ::wxRibbonButtonKind, bool, bool, ::wxRect*);
 
     return sipVH__ribbon_53(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, bitmap_size, kind, is_first, is_last, dropdown_region);
 }
 
-::wxSize sipwxRibbonArtProvider::GetMinimisedPanelMinimumSize(::wxDC& dc, const ::wxRibbonPanel*wnd, ::wxSize*desired_bitmap_size, ::wxDirection*expanded_panel_direction)
+::wxSize sipwxRibbonArtProvider::GetMinimisedPanelMinimumSize(::wxReadOnlyDC& dc, const ::wxRibbonPanel*wnd, ::wxSize*desired_bitmap_size, ::wxDirection*expanded_panel_direction)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -159,12 +173,12 @@ sipwxRibbonArtProvider::~sipwxRibbonArtProvider()
     if (!sipMeth)
         return ::wxSize();
 
-    extern ::wxSize sipVH__ribbon_52(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, const ::wxRibbonPanel*, ::wxSize*, ::wxDirection*);
+    extern ::wxSize sipVH__ribbon_52(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxReadOnlyDC&, const ::wxRibbonPanel*, ::wxSize*, ::wxDirection*);
 
     return sipVH__ribbon_52(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, desired_bitmap_size, expanded_panel_direction);
 }
 
-::wxCoord sipwxRibbonArtProvider::GetButtonBarButtonTextWidth(::wxDC& dc, const ::wxString& label, ::wxRibbonButtonKind kind, ::wxRibbonButtonBarButtonState size)
+::wxCoord sipwxRibbonArtProvider::GetButtonBarButtonTextWidth(::wxReadOnlyDC& dc, const ::wxString& label, ::wxRibbonButtonKind kind, ::wxRibbonButtonBarButtonState size)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -174,12 +188,12 @@ sipwxRibbonArtProvider::~sipwxRibbonArtProvider()
     if (!sipMeth)
         return 0;
 
-    extern ::wxCoord sipVH__ribbon_51(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, const ::wxString&, ::wxRibbonButtonKind, ::wxRibbonButtonBarButtonState);
+    extern ::wxCoord sipVH__ribbon_51(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxReadOnlyDC&, const ::wxString&, ::wxRibbonButtonKind, ::wxRibbonButtonBarButtonState);
 
     return sipVH__ribbon_51(sipGILState, 0, sipPySelf, sipMeth, dc, label, kind, size);
 }
 
-bool sipwxRibbonArtProvider::GetButtonBarButtonSize(::wxDC& dc, ::wxWindow*wnd, ::wxRibbonButtonKind kind, ::wxRibbonButtonBarButtonState size, const ::wxString& label, ::wxCoord text_min_width, ::wxSize bitmap_size_large, ::wxSize bitmap_size_small, ::wxSize*button_size, ::wxRect*normal_region, ::wxRect*dropdown_region)
+bool sipwxRibbonArtProvider::GetButtonBarButtonSize(::wxReadOnlyDC& dc, ::wxWindow*wnd, ::wxRibbonButtonKind kind, ::wxRibbonButtonBarButtonState size, const ::wxString& label, ::wxCoord text_min_width, ::wxSize bitmap_size_large, ::wxSize bitmap_size_small, ::wxSize*button_size, ::wxRect*normal_region, ::wxRect*dropdown_region)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -189,12 +203,12 @@ bool sipwxRibbonArtProvider::GetButtonBarButtonSize(::wxDC& dc, ::wxWindow*wnd, 
     if (!sipMeth)
         return 0;
 
-    extern bool sipVH__ribbon_50(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxWindow*, ::wxRibbonButtonKind, ::wxRibbonButtonBarButtonState, const ::wxString&, ::wxCoord, ::wxSize, ::wxSize, ::wxSize*, ::wxRect*, ::wxRect*);
+    extern bool sipVH__ribbon_50(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxReadOnlyDC&, ::wxWindow*, ::wxRibbonButtonKind, ::wxRibbonButtonBarButtonState, const ::wxString&, ::wxCoord, ::wxSize, ::wxSize, ::wxSize*, ::wxRect*, ::wxRect*);
 
     return sipVH__ribbon_50(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, kind, size, label, text_min_width, bitmap_size_large, bitmap_size_small, button_size, normal_region, dropdown_region);
 }
 
-::wxRect sipwxRibbonArtProvider::GetPageBackgroundRedrawArea(::wxDC& dc, const ::wxRibbonPage*wnd, ::wxSize page_old_size, ::wxSize page_new_size)
+::wxRect sipwxRibbonArtProvider::GetPageBackgroundRedrawArea(::wxReadOnlyDC& dc, const ::wxRibbonPage*wnd, ::wxSize page_old_size, ::wxSize page_new_size)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -204,12 +218,12 @@ bool sipwxRibbonArtProvider::GetButtonBarButtonSize(::wxDC& dc, ::wxWindow*wnd, 
     if (!sipMeth)
         return ::wxRect();
 
-    extern ::wxRect sipVH__ribbon_49(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, const ::wxRibbonPage*, ::wxSize, ::wxSize);
+    extern ::wxRect sipVH__ribbon_49(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxReadOnlyDC&, const ::wxRibbonPage*, ::wxSize, ::wxSize);
 
     return sipVH__ribbon_49(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, page_old_size, page_new_size);
 }
 
-::wxSize sipwxRibbonArtProvider::GetGalleryClientSize(::wxDC& dc, const ::wxRibbonGallery*wnd, ::wxSize size, ::wxPoint*client_offset, ::wxRect*scroll_up_button, ::wxRect*scroll_down_button, ::wxRect*extension_button)
+::wxSize sipwxRibbonArtProvider::GetGalleryClientSize(::wxReadOnlyDC& dc, const ::wxRibbonGallery*wnd, ::wxSize size, ::wxPoint*client_offset, ::wxRect*scroll_up_button, ::wxRect*scroll_down_button, ::wxRect*extension_button)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -219,12 +233,12 @@ bool sipwxRibbonArtProvider::GetButtonBarButtonSize(::wxDC& dc, ::wxWindow*wnd, 
     if (!sipMeth)
         return ::wxSize();
 
-    extern ::wxSize sipVH__ribbon_48(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, const ::wxRibbonGallery*, ::wxSize, ::wxPoint*, ::wxRect*, ::wxRect*, ::wxRect*);
+    extern ::wxSize sipVH__ribbon_48(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxReadOnlyDC&, const ::wxRibbonGallery*, ::wxSize, ::wxPoint*, ::wxRect*, ::wxRect*, ::wxRect*);
 
     return sipVH__ribbon_48(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, size, client_offset, scroll_up_button, scroll_down_button, extension_button);
 }
 
-::wxSize sipwxRibbonArtProvider::GetGallerySize(::wxDC& dc, const ::wxRibbonGallery*wnd, ::wxSize client_size)
+::wxSize sipwxRibbonArtProvider::GetGallerySize(::wxReadOnlyDC& dc, const ::wxRibbonGallery*wnd, ::wxSize client_size)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -234,12 +248,12 @@ bool sipwxRibbonArtProvider::GetButtonBarButtonSize(::wxDC& dc, ::wxWindow*wnd, 
     if (!sipMeth)
         return ::wxSize();
 
-    extern ::wxSize sipVH__ribbon_47(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, const ::wxRibbonGallery*, ::wxSize);
+    extern ::wxSize sipVH__ribbon_47(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxReadOnlyDC&, const ::wxRibbonGallery*, ::wxSize);
 
     return sipVH__ribbon_47(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, client_size);
 }
 
-::wxRect sipwxRibbonArtProvider::GetPanelExtButtonArea(::wxDC& dc, const ::wxRibbonPanel*wnd, ::wxRect rect)
+::wxRect sipwxRibbonArtProvider::GetPanelExtButtonArea(::wxReadOnlyDC& dc, const ::wxRibbonPanel*wnd, ::wxRect rect)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -249,12 +263,12 @@ bool sipwxRibbonArtProvider::GetButtonBarButtonSize(::wxDC& dc, ::wxWindow*wnd, 
     if (!sipMeth)
         return ::wxRect();
 
-    extern ::wxRect sipVH__ribbon_46(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, const ::wxRibbonPanel*, ::wxRect);
+    extern ::wxRect sipVH__ribbon_46(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxReadOnlyDC&, const ::wxRibbonPanel*, ::wxRect);
 
     return sipVH__ribbon_46(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, rect);
 }
 
-::wxSize sipwxRibbonArtProvider::GetPanelClientSize(::wxDC& dc, const ::wxRibbonPanel*wnd, ::wxSize size, ::wxPoint*client_offset)
+::wxSize sipwxRibbonArtProvider::GetPanelClientSize(::wxReadOnlyDC& dc, const ::wxRibbonPanel*wnd, ::wxSize size, ::wxPoint*client_offset)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -264,12 +278,12 @@ bool sipwxRibbonArtProvider::GetButtonBarButtonSize(::wxDC& dc, ::wxWindow*wnd, 
     if (!sipMeth)
         return ::wxSize();
 
-    extern ::wxSize sipVH__ribbon_45(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, const ::wxRibbonPanel*, ::wxSize, ::wxPoint*);
+    extern ::wxSize sipVH__ribbon_45(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxReadOnlyDC&, const ::wxRibbonPanel*, ::wxSize, ::wxPoint*);
 
     return sipVH__ribbon_45(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, size, client_offset);
 }
 
-::wxSize sipwxRibbonArtProvider::GetPanelSize(::wxDC& dc, const ::wxRibbonPanel*wnd, ::wxSize client_size, ::wxPoint*client_offset)
+::wxSize sipwxRibbonArtProvider::GetPanelSize(::wxReadOnlyDC& dc, const ::wxRibbonPanel*wnd, ::wxSize client_size, ::wxPoint*client_offset)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -279,12 +293,12 @@ bool sipwxRibbonArtProvider::GetButtonBarButtonSize(::wxDC& dc, ::wxWindow*wnd, 
     if (!sipMeth)
         return ::wxSize();
 
-    extern ::wxSize sipVH__ribbon_45(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, const ::wxRibbonPanel*, ::wxSize, ::wxPoint*);
+    extern ::wxSize sipVH__ribbon_45(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxReadOnlyDC&, const ::wxRibbonPanel*, ::wxSize, ::wxPoint*);
 
     return sipVH__ribbon_45(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, client_size, client_offset);
 }
 
-::wxSize sipwxRibbonArtProvider::GetScrollButtonMinimumSize(::wxDC& dc, ::wxWindow*wnd, long style)
+::wxSize sipwxRibbonArtProvider::GetScrollButtonMinimumSize(::wxReadOnlyDC& dc, ::wxWindow*wnd, long style)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -294,12 +308,12 @@ bool sipwxRibbonArtProvider::GetButtonBarButtonSize(::wxDC& dc, ::wxWindow*wnd, 
     if (!sipMeth)
         return ::wxSize();
 
-    extern ::wxSize sipVH__ribbon_44(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxWindow*, long);
+    extern ::wxSize sipVH__ribbon_44(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxReadOnlyDC&, ::wxWindow*, long);
 
     return sipVH__ribbon_44(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, style);
 }
 
-int sipwxRibbonArtProvider::GetTabCtrlHeight(::wxDC& dc, ::wxWindow*wnd, const ::wxRibbonPageTabInfoArray& pages)
+int sipwxRibbonArtProvider::GetTabCtrlHeight(::wxReadOnlyDC& dc, ::wxWindow*wnd, const ::wxRibbonPageTabInfoArray& pages)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -309,12 +323,12 @@ int sipwxRibbonArtProvider::GetTabCtrlHeight(::wxDC& dc, ::wxWindow*wnd, const :
     if (!sipMeth)
         return 0;
 
-    extern int sipVH__ribbon_43(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxWindow*, const ::wxRibbonPageTabInfoArray&);
+    extern int sipVH__ribbon_43(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxReadOnlyDC&, ::wxWindow*, const ::wxRibbonPageTabInfoArray&);
 
     return sipVH__ribbon_43(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, pages);
 }
 
-void sipwxRibbonArtProvider::GetBarTabWidth(::wxDC& dc, ::wxWindow*wnd, const ::wxString& label, const ::wxBitmap& bitmap, int*ideal, int*small_begin_need_separator, int*small_must_have_separator, int*minimum)
+void sipwxRibbonArtProvider::GetBarTabWidth(::wxReadOnlyDC& dc, ::wxWindow*wnd, const ::wxString& label, const ::wxBitmap& bitmap, int*ideal, int*small_begin_need_separator, int*small_must_have_separator, int*minimum)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
@@ -324,7 +338,7 @@ void sipwxRibbonArtProvider::GetBarTabWidth(::wxDC& dc, ::wxWindow*wnd, const ::
     if (!sipMeth)
         return;
 
-    extern void sipVH__ribbon_42(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxDC&, ::wxWindow*, const ::wxString&, const ::wxBitmap&, int*, int*, int*, int*);
+    extern void sipVH__ribbon_42(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxReadOnlyDC&, ::wxWindow*, const ::wxString&, const ::wxBitmap&, int*, int*, int*, int*);
 
     sipVH__ribbon_42(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, label, bitmap, ideal, small_begin_need_separator, small_must_have_separator, minimum);
 }
@@ -569,12 +583,30 @@ void sipwxRibbonArtProvider::DrawTabCtrlBackground(::wxDC& dc, ::wxWindow*wnd, c
     sipVH__ribbon_30(sipGILState, 0, sipPySelf, sipMeth, dc, wnd, rect);
 }
 
+void sipwxRibbonArtProvider::UpdateColoursFromSystem()
+{
+    sip_gilstate_t sipGILState;
+    PyObject *sipMeth;
+
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[31], &sipPySelf, SIP_NULLPTR, sipName_UpdateColoursFromSystem);
+
+    if (!sipMeth)
+    {
+        ::wxRibbonArtProvider::UpdateColoursFromSystem();
+        return;
+    }
+
+    extern void sipVH__ribbon_8(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+
+    sipVH__ribbon_8(sipGILState, 0, sipPySelf, sipMeth);
+}
+
 void sipwxRibbonArtProvider::SetColourScheme(const ::wxColour& primary, const ::wxColour& secondary, const ::wxColour& tertiary)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[31], &sipPySelf, sipName_RibbonArtProvider, sipName_SetColourScheme);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[32], &sipPySelf, sipName_RibbonArtProvider, sipName_SetColourScheme);
 
     if (!sipMeth)
         return;
@@ -589,7 +621,7 @@ void sipwxRibbonArtProvider::GetColourScheme(::wxColour*primary, ::wxColour*seco
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[32]), const_cast<sipSimpleWrapper **>(&sipPySelf), sipName_RibbonArtProvider, sipName_GetColourScheme);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[33]), const_cast<sipSimpleWrapper **>(&sipPySelf), sipName_RibbonArtProvider, sipName_GetColourScheme);
 
     if (!sipMeth)
         return;
@@ -604,7 +636,7 @@ void sipwxRibbonArtProvider::SetColour(int id, const ::wxColour& colour)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[33], &sipPySelf, sipName_RibbonArtProvider, sipName_SetColour);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, sipName_RibbonArtProvider, sipName_SetColour);
 
     if (!sipMeth)
         return;
@@ -619,7 +651,7 @@ void sipwxRibbonArtProvider::SetColour(int id, const ::wxColour& colour)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), sipName_RibbonArtProvider, sipName_GetColour);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[35]), const_cast<sipSimpleWrapper **>(&sipPySelf), sipName_RibbonArtProvider, sipName_GetColour);
 
     if (!sipMeth)
         return ::wxColour();
@@ -634,7 +666,7 @@ void sipwxRibbonArtProvider::SetColour(int id, const ::wxColour& colour)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[35]), const_cast<sipSimpleWrapper **>(&sipPySelf), sipName_RibbonArtProvider, sipName_GetFont);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[36]), const_cast<sipSimpleWrapper **>(&sipPySelf), sipName_RibbonArtProvider, sipName_GetFont);
 
     if (!sipMeth)
         return ::wxFont();
@@ -649,7 +681,7 @@ void sipwxRibbonArtProvider::SetFont(int id, const ::wxFont& font)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, sipName_RibbonArtProvider, sipName_SetFont);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, sipName_RibbonArtProvider, sipName_SetFont);
 
     if (!sipMeth)
         return;
@@ -664,7 +696,7 @@ void sipwxRibbonArtProvider::SetMetric(int id, int new_val)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, sipName_RibbonArtProvider, sipName_SetMetric);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, sipName_RibbonArtProvider, sipName_SetMetric);
 
     if (!sipMeth)
         return;
@@ -679,7 +711,7 @@ int sipwxRibbonArtProvider::GetMetric(int id) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), sipName_RibbonArtProvider, sipName_GetMetric);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[39]), const_cast<sipSimpleWrapper **>(&sipPySelf), sipName_RibbonArtProvider, sipName_GetMetric);
 
     if (!sipMeth)
         return 0;
@@ -694,7 +726,7 @@ long sipwxRibbonArtProvider::GetFlags() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[39]), const_cast<sipSimpleWrapper **>(&sipPySelf), sipName_RibbonArtProvider, sipName_GetFlags);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[40]), const_cast<sipSimpleWrapper **>(&sipPySelf), sipName_RibbonArtProvider, sipName_GetFlags);
 
     if (!sipMeth)
         return 0;
@@ -709,7 +741,7 @@ void sipwxRibbonArtProvider::SetFlags(long flags)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[40], &sipPySelf, sipName_RibbonArtProvider, sipName_SetFlags);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[41], &sipPySelf, sipName_RibbonArtProvider, sipName_SetFlags);
 
     if (!sipMeth)
         return;
@@ -724,7 +756,7 @@ void sipwxRibbonArtProvider::SetFlags(long flags)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[41]), const_cast<sipSimpleWrapper **>(&sipPySelf), sipName_RibbonArtProvider, sipName_Clone);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[42]), const_cast<sipSimpleWrapper **>(&sipPySelf), sipName_RibbonArtProvider, sipName_Clone);
 
     if (!sipMeth)
         return 0;
@@ -1329,6 +1361,42 @@ static PyObject *meth_wxRibbonArtProvider_SetColourScheme(PyObject *sipSelf, PyO
     }
 
     sipNoMethod(sipParseErr, sipName_RibbonArtProvider, sipName_SetColourScheme, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxRibbonArtProvider_UpdateColoursFromSystem, "UpdateColoursFromSystem() -> None\n"
+"\n"
+"Called when the system colours change to allow the art provider to\n"
+"update its colours.");
+
+extern "C" {static PyObject *meth_wxRibbonArtProvider_UpdateColoursFromSystem(PyObject *, PyObject *);}
+static PyObject *meth_wxRibbonArtProvider_UpdateColoursFromSystem(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
+
+    {
+        ::wxRibbonArtProvider *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp))
+        {
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            (sipSelfWasArg ? sipCpp->::wxRibbonArtProvider::UpdateColoursFromSystem() : sipCpp->UpdateColoursFromSystem());
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            Py_INCREF(Py_None);
+            return Py_None;
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_RibbonArtProvider, sipName_UpdateColoursFromSystem, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -2204,7 +2272,7 @@ static PyObject *meth_wxRibbonArtProvider_GetBarTabWidth(PyObject *sipSelf, PyOb
     PyObject *sipOrigSelf = sipSelf;
 
     {
-        ::wxDC* dc;
+        ::wxReadOnlyDC* dc;
         ::wxWindow* wnd;
         const ::wxString* label;
         int labelState = 0;
@@ -2222,7 +2290,7 @@ static PyObject *meth_wxRibbonArtProvider_GetBarTabWidth(PyObject *sipSelf, PyOb
             sipName_bitmap,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J1J9", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxDC, &dc, sipType_wxWindow, &wnd, sipType_wxString, &label, &labelState, sipType_wxBitmap, &bitmap))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J1J9", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxReadOnlyDC, &dc, sipType_wxWindow, &wnd, sipType_wxString, &label, &labelState, sipType_wxBitmap, &bitmap))
         {
             if (!sipOrigSelf)
             {
@@ -2261,7 +2329,7 @@ static PyObject *meth_wxRibbonArtProvider_GetTabCtrlHeight(PyObject *sipSelf, Py
     PyObject *sipOrigSelf = sipSelf;
 
     {
-        ::wxDC* dc;
+        ::wxReadOnlyDC* dc;
         ::wxWindow* wnd;
         const ::wxRibbonPageTabInfoArray* pages;
         ::wxRibbonArtProvider *sipCpp;
@@ -2272,7 +2340,7 @@ static PyObject *meth_wxRibbonArtProvider_GetTabCtrlHeight(PyObject *sipSelf, Py
             sipName_pages,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J9", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxDC, &dc, sipType_wxWindow, &wnd, sipType_wxRibbonPageTabInfoArray, &pages))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J9", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxReadOnlyDC, &dc, sipType_wxWindow, &wnd, sipType_wxRibbonPageTabInfoArray, &pages))
         {
             int sipRes;
 
@@ -2312,7 +2380,7 @@ static PyObject *meth_wxRibbonArtProvider_GetScrollButtonMinimumSize(PyObject *s
     PyObject *sipOrigSelf = sipSelf;
 
     {
-        ::wxDC* dc;
+        ::wxReadOnlyDC* dc;
         ::wxWindow* wnd;
         long style;
         ::wxRibbonArtProvider *sipCpp;
@@ -2323,7 +2391,7 @@ static PyObject *meth_wxRibbonArtProvider_GetScrollButtonMinimumSize(PyObject *s
             sipName_style,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8l", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxDC, &dc, sipType_wxWindow, &wnd, &style))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8l", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxReadOnlyDC, &dc, sipType_wxWindow, &wnd, &style))
         {
             ::wxSize*sipRes;
 
@@ -2363,7 +2431,7 @@ static PyObject *meth_wxRibbonArtProvider_GetPanelSize(PyObject *sipSelf, PyObje
     PyObject *sipOrigSelf = sipSelf;
 
     {
-        ::wxDC* dc;
+        ::wxReadOnlyDC* dc;
         const ::wxRibbonPanel* wnd;
         ::wxSize* client_size;
         int client_sizeState = 0;
@@ -2378,7 +2446,7 @@ static PyObject *meth_wxRibbonArtProvider_GetPanelSize(PyObject *sipSelf, PyObje
             sipName_client_offset,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J1J0", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxDC, &dc, sipType_wxRibbonPanel, &wnd, sipType_wxSize, &client_size, &client_sizeState, sipType_wxPoint, &client_offset, &client_offsetState))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J1J0", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxReadOnlyDC, &dc, sipType_wxRibbonPanel, &wnd, sipType_wxSize, &client_size, &client_sizeState, sipType_wxPoint, &client_offset, &client_offsetState))
         {
             ::wxSize*sipRes;
 
@@ -2420,7 +2488,7 @@ static PyObject *meth_wxRibbonArtProvider_GetPanelClientSize(PyObject *sipSelf, 
     PyObject *sipOrigSelf = sipSelf;
 
     {
-        ::wxDC* dc;
+        ::wxReadOnlyDC* dc;
         const ::wxRibbonPanel* wnd;
         ::wxSize* size;
         int sizeState = 0;
@@ -2435,7 +2503,7 @@ static PyObject *meth_wxRibbonArtProvider_GetPanelClientSize(PyObject *sipSelf, 
             sipName_client_offset,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J1J0", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxDC, &dc, sipType_wxRibbonPanel, &wnd, sipType_wxSize, &size, &sizeState, sipType_wxPoint, &client_offset, &client_offsetState))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J1J0", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxReadOnlyDC, &dc, sipType_wxRibbonPanel, &wnd, sipType_wxSize, &size, &sizeState, sipType_wxPoint, &client_offset, &client_offsetState))
         {
             ::wxSize*sipRes;
 
@@ -2477,7 +2545,7 @@ static PyObject *meth_wxRibbonArtProvider_GetPanelExtButtonArea(PyObject *sipSel
     PyObject *sipOrigSelf = sipSelf;
 
     {
-        ::wxDC* dc;
+        ::wxReadOnlyDC* dc;
         const ::wxRibbonPanel* wnd;
         ::wxRect* rect;
         int rectState = 0;
@@ -2489,7 +2557,7 @@ static PyObject *meth_wxRibbonArtProvider_GetPanelExtButtonArea(PyObject *sipSel
             sipName_rect,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J1", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxDC, &dc, sipType_wxRibbonPanel, &wnd, sipType_wxRect, &rect, &rectState))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J1", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxReadOnlyDC, &dc, sipType_wxRibbonPanel, &wnd, sipType_wxRect, &rect, &rectState))
         {
             ::wxRect*sipRes;
 
@@ -2531,7 +2599,7 @@ static PyObject *meth_wxRibbonArtProvider_GetGallerySize(PyObject *sipSelf, PyOb
     PyObject *sipOrigSelf = sipSelf;
 
     {
-        ::wxDC* dc;
+        ::wxReadOnlyDC* dc;
         const ::wxRibbonGallery* wnd;
         ::wxSize* client_size;
         int client_sizeState = 0;
@@ -2543,7 +2611,7 @@ static PyObject *meth_wxRibbonArtProvider_GetGallerySize(PyObject *sipSelf, PyOb
             sipName_client_size,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J1", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxDC, &dc, sipType_wxRibbonGallery, &wnd, sipType_wxSize, &client_size, &client_sizeState))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J1", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxReadOnlyDC, &dc, sipType_wxRibbonGallery, &wnd, sipType_wxSize, &client_size, &client_sizeState))
         {
             ::wxSize*sipRes;
 
@@ -2585,7 +2653,7 @@ static PyObject *meth_wxRibbonArtProvider_GetGalleryClientSize(PyObject *sipSelf
     PyObject *sipOrigSelf = sipSelf;
 
     {
-        ::wxDC* dc;
+        ::wxReadOnlyDC* dc;
         const ::wxRibbonGallery* wnd;
         ::wxSize* size;
         int sizeState = 0;
@@ -2609,7 +2677,7 @@ static PyObject *meth_wxRibbonArtProvider_GetGalleryClientSize(PyObject *sipSelf
             sipName_extension_button,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J1J0J0J0J0", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxDC, &dc, sipType_wxRibbonGallery, &wnd, sipType_wxSize, &size, &sizeState, sipType_wxPoint, &client_offset, &client_offsetState, sipType_wxRect, &scroll_up_button, &scroll_up_buttonState, sipType_wxRect, &scroll_down_button, &scroll_down_buttonState, sipType_wxRect, &extension_button, &extension_buttonState))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J1J0J0J0J0", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxReadOnlyDC, &dc, sipType_wxRibbonGallery, &wnd, sipType_wxSize, &size, &sizeState, sipType_wxPoint, &client_offset, &client_offsetState, sipType_wxRect, &scroll_up_button, &scroll_up_buttonState, sipType_wxRect, &scroll_down_button, &scroll_down_buttonState, sipType_wxRect, &extension_button, &extension_buttonState))
         {
             ::wxSize*sipRes;
 
@@ -2655,7 +2723,7 @@ static PyObject *meth_wxRibbonArtProvider_GetPageBackgroundRedrawArea(PyObject *
     PyObject *sipOrigSelf = sipSelf;
 
     {
-        ::wxDC* dc;
+        ::wxReadOnlyDC* dc;
         const ::wxRibbonPage* wnd;
         ::wxSize* page_old_size;
         int page_old_sizeState = 0;
@@ -2670,7 +2738,7 @@ static PyObject *meth_wxRibbonArtProvider_GetPageBackgroundRedrawArea(PyObject *
             sipName_page_new_size,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J1J1", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxDC, &dc, sipType_wxRibbonPage, &wnd, sipType_wxSize, &page_old_size, &page_old_sizeState, sipType_wxSize, &page_new_size, &page_new_sizeState))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J1J1", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxReadOnlyDC, &dc, sipType_wxRibbonPage, &wnd, sipType_wxSize, &page_old_size, &page_old_sizeState, sipType_wxSize, &page_new_size, &page_new_sizeState))
         {
             ::wxRect*sipRes;
 
@@ -2712,7 +2780,7 @@ static PyObject *meth_wxRibbonArtProvider_GetButtonBarButtonSize(PyObject *sipSe
     PyObject *sipOrigSelf = sipSelf;
 
     {
-        ::wxDC* dc;
+        ::wxReadOnlyDC* dc;
         ::wxWindow* wnd;
         ::wxRibbonButtonKind kind;
         ::wxRibbonButtonBarButtonState size;
@@ -2745,7 +2813,7 @@ static PyObject *meth_wxRibbonArtProvider_GetButtonBarButtonSize(PyObject *sipSe
             sipName_dropdown_region,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8EEJ1iJ1J1J0J0J0", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxDC, &dc, sipType_wxWindow, &wnd, sipType_wxRibbonButtonKind, &kind, sipType_wxRibbonButtonBarButtonState, &size, sipType_wxString, &label, &labelState, &text_min_width, sipType_wxSize, &bitmap_size_large, &bitmap_size_largeState, sipType_wxSize, &bitmap_size_small, &bitmap_size_smallState, sipType_wxSize, &button_size, &button_sizeState, sipType_wxRect, &normal_region, &normal_regionState, sipType_wxRect, &dropdown_region, &dropdown_regionState))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8EEJ1iJ1J1J0J0J0", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxReadOnlyDC, &dc, sipType_wxWindow, &wnd, sipType_wxRibbonButtonKind, &kind, sipType_wxRibbonButtonBarButtonState, &size, sipType_wxString, &label, &labelState, &text_min_width, sipType_wxSize, &bitmap_size_large, &bitmap_size_largeState, sipType_wxSize, &bitmap_size_small, &bitmap_size_smallState, sipType_wxSize, &button_size, &button_sizeState, sipType_wxRect, &normal_region, &normal_regionState, sipType_wxRect, &dropdown_region, &dropdown_regionState))
         {
             bool sipRes;
 
@@ -2792,7 +2860,7 @@ static PyObject *meth_wxRibbonArtProvider_GetButtonBarButtonTextWidth(PyObject *
     PyObject *sipOrigSelf = sipSelf;
 
     {
-        ::wxDC* dc;
+        ::wxReadOnlyDC* dc;
         const ::wxString* label;
         int labelState = 0;
         ::wxRibbonButtonKind kind;
@@ -2806,7 +2874,7 @@ static PyObject *meth_wxRibbonArtProvider_GetButtonBarButtonTextWidth(PyObject *
             sipName_size,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J1EE", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxDC, &dc, sipType_wxString, &label, &labelState, sipType_wxRibbonButtonKind, &kind, sipType_wxRibbonButtonBarButtonState, &size))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J1EE", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxReadOnlyDC, &dc, sipType_wxString, &label, &labelState, sipType_wxRibbonButtonKind, &kind, sipType_wxRibbonButtonBarButtonState, &size))
         {
             ::wxCoord sipRes;
 
@@ -2847,7 +2915,7 @@ static PyObject *meth_wxRibbonArtProvider_GetMinimisedPanelMinimumSize(PyObject 
     PyObject *sipOrigSelf = sipSelf;
 
     {
-        ::wxDC* dc;
+        ::wxReadOnlyDC* dc;
         const ::wxRibbonPanel* wnd;
         ::wxSize* desired_bitmap_size;
         int desired_bitmap_sizeState = 0;
@@ -2860,7 +2928,7 @@ static PyObject *meth_wxRibbonArtProvider_GetMinimisedPanelMinimumSize(PyObject 
             sipName_desired_bitmap_size,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J0", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxDC, &dc, sipType_wxRibbonPanel, &wnd, sipType_wxSize, &desired_bitmap_size, &desired_bitmap_sizeState))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J0", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxReadOnlyDC, &dc, sipType_wxRibbonPanel, &wnd, sipType_wxSize, &desired_bitmap_size, &desired_bitmap_sizeState))
         {
             ::wxSize*sipRes;
 
@@ -2902,7 +2970,7 @@ static PyObject *meth_wxRibbonArtProvider_GetToolSize(PyObject *sipSelf, PyObjec
     PyObject *sipOrigSelf = sipSelf;
 
     {
-        ::wxDC* dc;
+        ::wxReadOnlyDC* dc;
         ::wxWindow* wnd;
         ::wxSize* bitmap_size;
         int bitmap_sizeState = 0;
@@ -2923,7 +2991,7 @@ static PyObject *meth_wxRibbonArtProvider_GetToolSize(PyObject *sipSelf, PyObjec
             sipName_dropdown_region,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J1EbbJ0", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxDC, &dc, sipType_wxWindow, &wnd, sipType_wxSize, &bitmap_size, &bitmap_sizeState, sipType_wxRibbonButtonKind, &kind, &is_first, &is_last, sipType_wxRect, &dropdown_region, &dropdown_regionState))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J1EbbJ0", &sipSelf, sipType_wxRibbonArtProvider, &sipCpp, sipType_wxReadOnlyDC, &dc, sipType_wxWindow, &wnd, sipType_wxSize, &bitmap_size, &bitmap_sizeState, sipType_wxRibbonButtonKind, &kind, &is_first, &is_last, sipType_wxRect, &dropdown_region, &dropdown_regionState))
         {
             ::wxSize*sipRes;
 
@@ -3169,7 +3237,8 @@ static PyMethodDef methods_wxRibbonArtProvider[] = {
     {sipName_SetColourScheme, SIP_MLMETH_CAST(meth_wxRibbonArtProvider_SetColourScheme), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonArtProvider_SetColourScheme},
     {sipName_SetFlags, SIP_MLMETH_CAST(meth_wxRibbonArtProvider_SetFlags), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonArtProvider_SetFlags},
     {sipName_SetFont, SIP_MLMETH_CAST(meth_wxRibbonArtProvider_SetFont), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonArtProvider_SetFont},
-    {sipName_SetMetric, SIP_MLMETH_CAST(meth_wxRibbonArtProvider_SetMetric), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonArtProvider_SetMetric}
+    {sipName_SetMetric, SIP_MLMETH_CAST(meth_wxRibbonArtProvider_SetMetric), METH_VARARGS|METH_KEYWORDS, doc_wxRibbonArtProvider_SetMetric},
+    {sipName_UpdateColoursFromSystem, meth_wxRibbonArtProvider_UpdateColoursFromSystem, METH_VARARGS, doc_wxRibbonArtProvider_UpdateColoursFromSystem}
 };
 
 sipVariableDef variables_wxRibbonArtProvider[] = {
@@ -3195,7 +3264,7 @@ sipClassTypeDef sipTypeDef__ribbon_wxRibbonArtProvider = {
     {
         sipNameNr_RibbonArtProvider,
         {0, 0, 1},
-        44, methods_wxRibbonArtProvider,
+        45, methods_wxRibbonArtProvider,
         0, SIP_NULLPTR,
         1, variables_wxRibbonArtProvider,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

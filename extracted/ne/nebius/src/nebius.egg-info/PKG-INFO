@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nebius
-Version: 0.3.101
+Version: 0.4.1
 Summary: Nebius Python SDK
 Author-email: Daniil Drizhuk <complynx@nebius.com>, Ivan Kornilov <ivan.kornilov@nebius.com>, Marat Reymers <marat-reymers@nebius.com>, Andrei Zenkov <andrei.zenkov@nebius.com>
 License: The MIT License (MIT)
@@ -36,9 +36,9 @@ Requires-Dist: grpcio>=1.56.2
 Requires-Dist: PyJWT>=2.0.0
 Requires-Dist: certifi>=2022.6.15
 Requires-Dist: protobuf>=5.29.1
-Requires-Dist: grpcio-status>=1.56.2
 Requires-Dist: portalocker>=2.8.1
 Requires-Dist: aiohttp>=3.8.5
+Requires-Dist: typing-extensions>=4.12.2
 Provides-Extra: windows
 Requires-Dist: certifi-win32; extra == "windows"
 Provides-Extra: dev
@@ -47,13 +47,15 @@ Requires-Dist: pytest-asyncio>=0.24.0; extra == "dev"
 Requires-Dist: pytest-subtests>=0.3.0; extra == "dev"
 Requires-Dist: tox>=4.0; extra == "dev"
 Requires-Dist: mypy>=1.13; extra == "dev"
+Requires-Dist: pyright[nodejs]>=1.1.390; extra == "dev"
 Requires-Dist: black>=24.10; extra == "dev"
 Requires-Dist: ruff>=0.7; extra == "dev"
 Requires-Dist: grpc-stubs>=1.53; extra == "dev"
 Requires-Dist: types-protobuf>=5.29.1; extra == "dev"
 Requires-Dist: types-PyYAML>=5.0; extra == "dev"
+Requires-Dist: grpcio-status>=1.56.2; extra == "dev"
 Provides-Extra: generators
-Requires-Dist: m2r2>=0.3; extra == "generators"
+Requires-Dist: m2r2>=0.3.4; extra == "generators"
 Requires-Dist: grpcio-tools>=1.56.2; extra == "generators"
 Requires-Dist: mypy-protobuf>=3.6; extra == "generators"
 Requires-Dist: protovalidate>=0.5; extra == "generators"
@@ -85,6 +87,23 @@ If you've received this module in a zip archive or checked out from git, install
 ```bash
 pip install ./path/to/your/pysdk
 ```
+
+### Migration from 0.3.x to 0.4.x
+
+Version 0.4.0 replaces the provider-backed generated API layer with direct,
+SDK-owned message, enum, reflection, and service-client implementations. Normal
+imports from public package facades and client calls remain supported:
+
+```python
+from nebius.api.nebius.compute.v1 import Instance, InstanceServiceClient
+```
+
+Generated `*_pb2.py`, `*_pb2.pyi`, and `*_pb2_grpc.py` modules are no longer
+part of the SDK. Code that imported them directly, depended on
+`google.protobuf.message.Message`, or used the global protobuf descriptor pool
+must move to the package-facade exports and the SDK registry/reflection APIs.
+The SDK now also ships the Google protobuf and RPC types it needs under
+`nebius.api.google.protobuf` and `nebius.api.google.rpc`.
 
 ### Migration from 0.2.x to 0.3.x
 

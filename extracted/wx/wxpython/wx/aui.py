@@ -28,22 +28,10 @@ EVT_AUI_PANE_ACTIVATED = wx.PyEventBinder( wxEVT_AUI_PANE_ACTIVATED )
 EVT_AUI_RENDER = wx.PyEventBinder( wxEVT_AUI_RENDER )
 EVT_AUI_FIND_MANAGER = wx.PyEventBinder( wxEVT_AUI_FIND_MANAGER )
 
-def _AuiDockInfoArray___repr__(self):
-    return "AuiDockInfoArray: " + repr(list(self))
-AuiDockInfoArray.__repr__ = _AuiDockInfoArray___repr__
-del _AuiDockInfoArray___repr__
-def _AuiDockUIPartArray___repr__(self):
-    return "AuiDockUIPartArray: " + repr(list(self))
-AuiDockUIPartArray.__repr__ = _AuiDockUIPartArray___repr__
-del _AuiDockUIPartArray___repr__
 def _AuiPaneInfoPtrArray___repr__(self):
     return "AuiPaneInfoPtrArray: " + repr(list(self))
 AuiPaneInfoPtrArray.__repr__ = _AuiPaneInfoPtrArray___repr__
 del _AuiPaneInfoPtrArray___repr__
-def _AuiDockInfoPtrArray___repr__(self):
-    return "AuiDockInfoPtrArray: " + repr(list(self))
-AuiDockInfoPtrArray.__repr__ = _AuiDockInfoPtrArray___repr__
-del _AuiDockInfoPtrArray___repr__
 EVT_AUITOOLBAR_TOOL_DROPDOWN = wx.PyEventBinder( wxEVT_AUITOOLBAR_TOOL_DROPDOWN, 1 )
 EVT_AUITOOLBAR_OVERFLOW_CLICK = wx.PyEventBinder( wxEVT_AUITOOLBAR_OVERFLOW_CLICK, 1 )
 EVT_AUITOOLBAR_RIGHT_CLICK = wx.PyEventBinder( wxEVT_AUITOOLBAR_RIGHT_CLICK, 1 )
@@ -77,4 +65,6 @@ EVT_AUINOTEBOOK_TAB_MIDDLE_UP = wx.PyEventBinder( wxEVT_AUINOTEBOOK_TAB_MIDDLE_U
 EVT_AUINOTEBOOK_TAB_RIGHT_DOWN = wx.PyEventBinder( wxEVT_AUINOTEBOOK_TAB_RIGHT_DOWN, 1 )
 EVT_AUINOTEBOOK_TAB_RIGHT_UP = wx.PyEventBinder( wxEVT_AUINOTEBOOK_TAB_RIGHT_UP, 1 )
 EVT_AUINOTEBOOK_BG_DCLICK = wx.PyEventBinder( wxEVT_AUINOTEBOOK_BG_DCLICK, 1 )
+
+AuiDefaultTabArt = AuiFlatTabArt
 

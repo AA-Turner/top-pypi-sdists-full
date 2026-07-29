@@ -21,18 +21,19 @@
         #include <wx/toolbar.h>
         #include <wx/propgrid/propgridpagestate.h>
         #include <wx/propgrid/propgridpagestate.h>
+        #include <wx/access.h>
         #include <wx/event.h>
         #include <wx/validate.h>
         #include <wx/event.h>
+        #include <wx/event.h>
     #include <wx/setup.h>
     #include <wxPython/wxpy_api.h>
-        #include <wx/event.h>
+        #include <wx/cursor.h>
         #include <wx/cursor.h>
         #include <wx/caret.h>
         #include <wx/layout.h>
         #include <wx/sizer.h>
         #include <wx/dnd.h>
-        #include <wx/access.h>
         #include <wx/accel.h>
         #include <wx/menu.h>
         #include <wx/tooltip.h>
@@ -81,7 +82,6 @@ public:
     void sipProtectVirt_DoMoveWindow(bool, int, int, int, int);
     void sipProtectVirt_DoSetWindowVariant(bool, ::wxWindowVariant);
     ::wxBorder sipProtectVirt_GetDefaultBorder(bool) const;
-    ::wxBorder sipProtectVirt_GetDefaultBorderForControl(bool) const;
     void sipProtectVirt_DoFreeze(bool);
     void sipProtectVirt_DoThaw(bool);
     bool sipProtectVirt_HasTransparentBackground(bool);
@@ -106,7 +106,6 @@ protected:
     ::wxSize DoGetBestSize() const SIP_OVERRIDE;
     void DoThaw() SIP_OVERRIDE;
     void DoFreeze() SIP_OVERRIDE;
-    ::wxBorder GetDefaultBorderForControl() const SIP_OVERRIDE;
     ::wxBorder GetDefaultBorder() const SIP_OVERRIDE;
     void DoSetWindowVariant(::wxWindowVariant) SIP_OVERRIDE;
     void DoMoveWindow(int, int, int, int) SIP_OVERRIDE;
@@ -149,7 +148,7 @@ private:
     sipwxPropertyGridManager(const sipwxPropertyGridManager &);
     sipwxPropertyGridManager &operator = (const sipwxPropertyGridManager &);
 
-    char sipPyMethods[47];
+    char sipPyMethods[46];
 };
 
 sipwxPropertyGridManager::sipwxPropertyGridManager(): ::wxPropertyGridManager(), sipPySelf(SIP_NULLPTR)
@@ -177,9 +176,9 @@ sipwxPropertyGridManager::~sipwxPropertyGridManager()
     if (!sipMeth)
         return ::wxPropertyGridManager::CreatePropertyGrid();
 
-    extern ::wxPropertyGrid* sipVH__propgrid_90(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPropertyGrid* sipVH__propgrid_89(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_90(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_89(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPropertyGridManager::RemovePage(int page)
@@ -192,9 +191,9 @@ bool sipwxPropertyGridManager::RemovePage(int page)
     if (!sipMeth)
         return ::wxPropertyGridManager::RemovePage(page);
 
-    extern bool sipVH__propgrid_89(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern bool sipVH__propgrid_88(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    return sipVH__propgrid_89(sipGILState, 0, sipPySelf, sipMeth, page);
+    return sipVH__propgrid_88(sipGILState, 0, sipPySelf, sipMeth, page);
 }
 
 bool sipwxPropertyGridManager::IsPropertySelected(const ::wxPGPropArgCls& id) const
@@ -207,9 +206,9 @@ bool sipwxPropertyGridManager::IsPropertySelected(const ::wxPGPropArgCls& id) co
     if (!sipMeth)
         return ::wxPropertyGridManager::IsPropertySelected(id);
 
-    extern bool sipVH__propgrid_88(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxPGPropArgCls&);
+    extern bool sipVH__propgrid_87(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxPGPropArgCls&);
 
-    return sipVH__propgrid_88(sipGILState, 0, sipPySelf, sipMeth, id);
+    return sipVH__propgrid_87(sipGILState, 0, sipPySelf, sipMeth, id);
 }
 
 ::wxPropertyGridPage* sipwxPropertyGridManager::InsertPage(int index, const ::wxString& label, const ::wxBitmapBundle& bmp, ::wxPropertyGridPage*pageObj)
@@ -222,9 +221,9 @@ bool sipwxPropertyGridManager::IsPropertySelected(const ::wxPGPropArgCls& id) co
     if (!sipMeth)
         return ::wxPropertyGridManager::InsertPage(index, label, bmp, pageObj);
 
-    extern ::wxPropertyGridPage* sipVH__propgrid_87(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, const ::wxString&, const ::wxBitmapBundle&, ::wxPropertyGridPage*);
+    extern ::wxPropertyGridPage* sipVH__propgrid_86(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, const ::wxString&, const ::wxBitmapBundle&, ::wxPropertyGridPage*);
 
-    return sipVH__propgrid_87(sipGILState, 0, sipPySelf, sipMeth, index, label, bmp, pageObj);
+    return sipVH__propgrid_86(sipGILState, 0, sipPySelf, sipMeth, index, label, bmp, pageObj);
 }
 
 void sipwxPropertyGridManager::Clear()
@@ -240,9 +239,9 @@ void sipwxPropertyGridManager::Clear()
         return;
     }
 
-    extern void sipVH__propgrid_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern void sipVH__propgrid_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    sipVH__propgrid_3(sipGILState, 0, sipPySelf, sipMeth);
+    sipVH__propgrid_2(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxPGVIterator sipwxPropertyGridManager::GetVIterator(int flags) const
@@ -255,9 +254,9 @@ void sipwxPropertyGridManager::Clear()
     if (!sipMeth)
         return ::wxPropertyGridManager::GetVIterator(flags);
 
-    extern ::wxPGVIterator sipVH__propgrid_54(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
+    extern ::wxPGVIterator sipVH__propgrid_53(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int);
 
-    return sipVH__propgrid_54(sipGILState, 0, sipPySelf, sipMeth, flags);
+    return sipVH__propgrid_53(sipGILState, 0, sipPySelf, sipMeth, flags);
 }
 
 void sipwxPropertyGridManager::RefreshGrid(::wxPropertyGridPageState*state)
@@ -273,9 +272,9 @@ void sipwxPropertyGridManager::RefreshGrid(::wxPropertyGridPageState*state)
         return;
     }
 
-    extern void sipVH__propgrid_55(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPropertyGridPageState*);
+    extern void sipVH__propgrid_54(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPropertyGridPageState*);
 
-    sipVH__propgrid_55(sipGILState, 0, sipPySelf, sipMeth, state);
+    sipVH__propgrid_54(sipGILState, 0, sipPySelf, sipMeth, state);
 }
 
 void sipwxPropertyGridManager::RefreshProperty(::wxPGProperty*p)
@@ -291,9 +290,9 @@ void sipwxPropertyGridManager::RefreshProperty(::wxPGProperty*p)
         return;
     }
 
-    extern void sipVH__propgrid_56(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGProperty*);
+    extern void sipVH__propgrid_55(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGProperty*);
 
-    sipVH__propgrid_56(sipGILState, 0, sipPySelf, sipMeth, p);
+    sipVH__propgrid_55(sipGILState, 0, sipPySelf, sipMeth, p);
 }
 
 ::wxSize sipwxPropertyGridManager::DoGetBestClientSize() const
@@ -306,9 +305,9 @@ void sipwxPropertyGridManager::RefreshProperty(::wxPGProperty*p)
     if (!sipMeth)
         return ::wxPropertyGridManager::DoGetBestClientSize();
 
-    extern ::wxSize sipVH__propgrid_36(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxSize sipVH__propgrid_35(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_36(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_35(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxSize sipwxPropertyGridManager::DoGetBestSize() const
@@ -321,9 +320,9 @@ void sipwxPropertyGridManager::RefreshProperty(::wxPGProperty*p)
     if (!sipMeth)
         return ::wxPropertyGridManager::DoGetBestSize();
 
-    extern ::wxSize sipVH__propgrid_36(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxSize sipVH__propgrid_35(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_36(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_35(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPropertyGridManager::DoThaw()
@@ -339,9 +338,9 @@ void sipwxPropertyGridManager::DoThaw()
         return;
     }
 
-    extern void sipVH__propgrid_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern void sipVH__propgrid_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    sipVH__propgrid_3(sipGILState, 0, sipPySelf, sipMeth);
+    sipVH__propgrid_2(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPropertyGridManager::DoFreeze()
@@ -357,24 +356,9 @@ void sipwxPropertyGridManager::DoFreeze()
         return;
     }
 
-    extern void sipVH__propgrid_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern void sipVH__propgrid_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    sipVH__propgrid_3(sipGILState, 0, sipPySelf, sipMeth);
-}
-
-::wxBorder sipwxPropertyGridManager::GetDefaultBorderForControl() const
-{
-    sip_gilstate_t sipGILState;
-    PyObject *sipMeth;
-
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[12]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorderForControl);
-
-    if (!sipMeth)
-        return ::wxPropertyGridManager::GetDefaultBorderForControl();
-
-    extern ::wxBorder sipVH__propgrid_37(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
-
-    return sipVH__propgrid_37(sipGILState, 0, sipPySelf, sipMeth);
+    sipVH__propgrid_2(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxBorder sipwxPropertyGridManager::GetDefaultBorder() const
@@ -382,14 +366,14 @@ void sipwxPropertyGridManager::DoFreeze()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[13]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[12]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetDefaultBorder);
 
     if (!sipMeth)
         return ::wxPropertyGridManager::GetDefaultBorder();
 
-    extern ::wxBorder sipVH__propgrid_37(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxBorder sipVH__propgrid_36(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_37(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_36(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPropertyGridManager::DoSetWindowVariant(::wxWindowVariant variant)
@@ -397,7 +381,7 @@ void sipwxPropertyGridManager::DoSetWindowVariant(::wxWindowVariant variant)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[14], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[13], &sipPySelf, SIP_NULLPTR, sipName_DoSetWindowVariant);
 
     if (!sipMeth)
     {
@@ -405,9 +389,9 @@ void sipwxPropertyGridManager::DoSetWindowVariant(::wxWindowVariant variant)
         return;
     }
 
-    extern void sipVH__propgrid_38(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
+    extern void sipVH__propgrid_37(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowVariant);
 
-    sipVH__propgrid_38(sipGILState, 0, sipPySelf, sipMeth, variant);
+    sipVH__propgrid_37(sipGILState, 0, sipPySelf, sipMeth, variant);
 }
 
 void sipwxPropertyGridManager::DoMoveWindow(int x, int y, int width, int height)
@@ -415,7 +399,7 @@ void sipwxPropertyGridManager::DoMoveWindow(int x, int y, int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[15], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[14], &sipPySelf, SIP_NULLPTR, sipName_DoMoveWindow);
 
     if (!sipMeth)
     {
@@ -423,9 +407,9 @@ void sipwxPropertyGridManager::DoMoveWindow(int x, int y, int width, int height)
         return;
     }
 
-    extern void sipVH__propgrid_39(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
+    extern void sipVH__propgrid_38(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int);
 
-    sipVH__propgrid_39(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
+    sipVH__propgrid_38(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height);
 }
 
 void sipwxPropertyGridManager::DoSetSizeHints(int minW, int minH, int maxW, int maxH, int incW, int incH)
@@ -433,7 +417,7 @@ void sipwxPropertyGridManager::DoSetSizeHints(int minW, int minH, int maxW, int 
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[16], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[15], &sipPySelf, SIP_NULLPTR, sipName_DoSetSizeHints);
 
     if (!sipMeth)
     {
@@ -441,9 +425,9 @@ void sipwxPropertyGridManager::DoSetSizeHints(int minW, int minH, int maxW, int 
         return;
     }
 
-    extern void sipVH__propgrid_40(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
+    extern void sipVH__propgrid_39(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int, int);
 
-    sipVH__propgrid_40(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
+    sipVH__propgrid_39(sipGILState, 0, sipPySelf, sipMeth, minW, minH, maxW, maxH, incW, incH);
 }
 
 void sipwxPropertyGridManager::DoSetClientSize(int width, int height)
@@ -451,7 +435,7 @@ void sipwxPropertyGridManager::DoSetClientSize(int width, int height)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[17], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[16], &sipPySelf, SIP_NULLPTR, sipName_DoSetClientSize);
 
     if (!sipMeth)
     {
@@ -459,9 +443,9 @@ void sipwxPropertyGridManager::DoSetClientSize(int width, int height)
         return;
     }
 
-    extern void sipVH__propgrid_41(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
+    extern void sipVH__propgrid_40(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int);
 
-    sipVH__propgrid_41(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__propgrid_40(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxPropertyGridManager::DoSetSize(int x, int y, int width, int height, int sizeFlags)
@@ -469,7 +453,7 @@ void sipwxPropertyGridManager::DoSetSize(int x, int y, int width, int height, in
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[18], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[17], &sipPySelf, SIP_NULLPTR, sipName_DoSetSize);
 
     if (!sipMeth)
     {
@@ -477,9 +461,9 @@ void sipwxPropertyGridManager::DoSetSize(int x, int y, int width, int height, in
         return;
     }
 
-    extern void sipVH__propgrid_42(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
+    extern void sipVH__propgrid_41(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int, int, int);
 
-    sipVH__propgrid_42(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
+    sipVH__propgrid_41(sipGILState, 0, sipPySelf, sipMeth, x, y, width, height, sizeFlags);
 }
 
 void sipwxPropertyGridManager::DoGetClientSize(int*width, int*height) const
@@ -487,7 +471,7 @@ void sipwxPropertyGridManager::DoGetClientSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[19]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[18]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetClientSize);
 
     if (!sipMeth)
     {
@@ -495,9 +479,9 @@ void sipwxPropertyGridManager::DoGetClientSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__propgrid_43(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__propgrid_42(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__propgrid_43(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__propgrid_42(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxPropertyGridManager::DoGetSize(int*width, int*height) const
@@ -505,7 +489,7 @@ void sipwxPropertyGridManager::DoGetSize(int*width, int*height) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[20]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[19]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetSize);
 
     if (!sipMeth)
     {
@@ -513,9 +497,9 @@ void sipwxPropertyGridManager::DoGetSize(int*width, int*height) const
         return;
     }
 
-    extern void sipVH__propgrid_43(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__propgrid_42(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__propgrid_43(sipGILState, 0, sipPySelf, sipMeth, width, height);
+    sipVH__propgrid_42(sipGILState, 0, sipPySelf, sipMeth, width, height);
 }
 
 void sipwxPropertyGridManager::DoGetPosition(int*x, int*y) const
@@ -523,7 +507,7 @@ void sipwxPropertyGridManager::DoGetPosition(int*x, int*y) const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[21]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[20]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_DoGetPosition);
 
     if (!sipMeth)
     {
@@ -531,9 +515,9 @@ void sipwxPropertyGridManager::DoGetPosition(int*x, int*y) const
         return;
     }
 
-    extern void sipVH__propgrid_43(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
+    extern void sipVH__propgrid_42(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int*, int*);
 
-    sipVH__propgrid_43(sipGILState, 0, sipPySelf, sipMeth, x, y);
+    sipVH__propgrid_42(sipGILState, 0, sipPySelf, sipMeth, x, y);
 }
 
 void sipwxPropertyGridManager::DoEnable(bool enable)
@@ -541,7 +525,7 @@ void sipwxPropertyGridManager::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[22], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[21], &sipPySelf, SIP_NULLPTR, sipName_DoEnable);
 
     if (!sipMeth)
     {
@@ -549,9 +533,9 @@ void sipwxPropertyGridManager::DoEnable(bool enable)
         return;
     }
 
-    extern void sipVH__propgrid_44(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__propgrid_43(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__propgrid_44(sipGILState, 0, sipPySelf, sipMeth, enable);
+    sipVH__propgrid_43(sipGILState, 0, sipPySelf, sipMeth, enable);
 }
 
 ::wxWindow* sipwxPropertyGridManager::GetMainWindowOfCompositeControl()
@@ -559,14 +543,14 @@ void sipwxPropertyGridManager::DoEnable(bool enable)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[22], &sipPySelf, SIP_NULLPTR, sipName_GetMainWindowOfCompositeControl);
 
     if (!sipMeth)
         return ::wxPropertyGridManager::GetMainWindowOfCompositeControl();
 
-    extern ::wxWindow* sipVH__propgrid_45(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxWindow* sipVH__propgrid_44(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_45(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_44(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPropertyGridManager::OnInternalIdle()
@@ -574,7 +558,7 @@ void sipwxPropertyGridManager::OnInternalIdle()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[24], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[23], &sipPySelf, SIP_NULLPTR, sipName_OnInternalIdle);
 
     if (!sipMeth)
     {
@@ -582,9 +566,9 @@ void sipwxPropertyGridManager::OnInternalIdle()
         return;
     }
 
-    extern void sipVH__propgrid_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern void sipVH__propgrid_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    sipVH__propgrid_3(sipGILState, 0, sipPySelf, sipMeth);
+    sipVH__propgrid_2(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPropertyGridManager::InitDialog()
@@ -592,7 +576,7 @@ void sipwxPropertyGridManager::InitDialog()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[25], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[24], &sipPySelf, SIP_NULLPTR, sipName_InitDialog);
 
     if (!sipMeth)
     {
@@ -600,9 +584,9 @@ void sipwxPropertyGridManager::InitDialog()
         return;
     }
 
-    extern void sipVH__propgrid_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern void sipVH__propgrid_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    sipVH__propgrid_3(sipGILState, 0, sipPySelf, sipMeth);
+    sipVH__propgrid_2(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPropertyGridManager::InheritAttributes()
@@ -610,7 +594,7 @@ void sipwxPropertyGridManager::InheritAttributes()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[26], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[25], &sipPySelf, SIP_NULLPTR, sipName_InheritAttributes);
 
     if (!sipMeth)
     {
@@ -618,9 +602,9 @@ void sipwxPropertyGridManager::InheritAttributes()
         return;
     }
 
-    extern void sipVH__propgrid_3(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern void sipVH__propgrid_2(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    sipVH__propgrid_3(sipGILState, 0, sipPySelf, sipMeth);
+    sipVH__propgrid_2(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPropertyGridManager::Destroy()
@@ -628,14 +612,14 @@ bool sipwxPropertyGridManager::Destroy()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[27], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[26], &sipPySelf, SIP_NULLPTR, sipName_Destroy);
 
     if (!sipMeth)
         return ::wxPropertyGridManager::Destroy();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPropertyGridManager::Validate()
@@ -643,14 +627,14 @@ bool sipwxPropertyGridManager::Validate()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[28], &sipPySelf, SIP_NULLPTR, sipName_Validate);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[27], &sipPySelf, SIP_NULLPTR, sipName_Validate);
 
     if (!sipMeth)
         return ::wxPropertyGridManager::Validate();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPropertyGridManager::TransferDataToWindow()
@@ -658,14 +642,14 @@ bool sipwxPropertyGridManager::TransferDataToWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[29], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[28], &sipPySelf, SIP_NULLPTR, sipName_TransferDataToWindow);
 
     if (!sipMeth)
         return ::wxPropertyGridManager::TransferDataToWindow();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPropertyGridManager::TransferDataFromWindow()
@@ -673,14 +657,14 @@ bool sipwxPropertyGridManager::TransferDataFromWindow()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[30], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[29], &sipPySelf, SIP_NULLPTR, sipName_TransferDataFromWindow);
 
     if (!sipMeth)
         return ::wxPropertyGridManager::TransferDataFromWindow();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 void sipwxPropertyGridManager::SetValidator(const ::wxValidator& validator)
@@ -688,7 +672,7 @@ void sipwxPropertyGridManager::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[31], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[30], &sipPySelf, SIP_NULLPTR, sipName_SetValidator);
 
     if (!sipMeth)
     {
@@ -696,9 +680,9 @@ void sipwxPropertyGridManager::SetValidator(const ::wxValidator& validator)
         return;
     }
 
-    extern void sipVH__propgrid_46(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
+    extern void sipVH__propgrid_45(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, const ::wxValidator&);
 
-    sipVH__propgrid_46(sipGILState, 0, sipPySelf, sipMeth, validator);
+    sipVH__propgrid_45(sipGILState, 0, sipPySelf, sipMeth, validator);
 }
 
 ::wxValidator* sipwxPropertyGridManager::GetValidator()
@@ -706,14 +690,14 @@ void sipwxPropertyGridManager::SetValidator(const ::wxValidator& validator)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[32], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[31], &sipPySelf, SIP_NULLPTR, sipName_GetValidator);
 
     if (!sipMeth)
         return ::wxPropertyGridManager::GetValidator();
 
-    extern ::wxValidator* sipVH__propgrid_13(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxValidator* sipVH__propgrid_12(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_13(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_12(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPropertyGridManager::ShouldInheritColours() const
@@ -721,14 +705,14 @@ bool sipwxPropertyGridManager::ShouldInheritColours() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[33]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[32]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_ShouldInheritColours);
 
     if (!sipMeth)
         return ::wxPropertyGridManager::ShouldInheritColours();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPropertyGridManager::HasTransparentBackground()
@@ -736,14 +720,14 @@ bool sipwxPropertyGridManager::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[34], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[33], &sipPySelf, SIP_NULLPTR, sipName_HasTransparentBackground);
 
     if (!sipMeth)
         return ::wxPropertyGridManager::HasTransparentBackground();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxPoint sipwxPropertyGridManager::GetClientAreaOrigin() const
@@ -751,14 +735,14 @@ bool sipwxPropertyGridManager::HasTransparentBackground()
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[35]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[34]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_GetClientAreaOrigin);
 
     if (!sipMeth)
         return ::wxPropertyGridManager::GetClientAreaOrigin();
 
-    extern ::wxPoint sipVH__propgrid_47(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxPoint sipVH__propgrid_46(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_47(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_46(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPropertyGridManager::InformFirstDirection(int direction, int size, int availableOtherDir)
@@ -766,14 +750,14 @@ bool sipwxPropertyGridManager::InformFirstDirection(int direction, int size, int
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[35], &sipPySelf, SIP_NULLPTR, sipName_InformFirstDirection);
 
     if (!sipMeth)
         return ::wxPropertyGridManager::InformFirstDirection(direction, size, availableOtherDir);
 
-    extern bool sipVH__propgrid_48(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern bool sipVH__propgrid_47(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
 
-    return sipVH__propgrid_48(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
+    return sipVH__propgrid_47(sipGILState, 0, sipPySelf, sipMeth, direction, size, availableOtherDir);
 }
 
 void sipwxPropertyGridManager::EnableVisibleFocus(bool enabled)
@@ -781,7 +765,7 @@ void sipwxPropertyGridManager::EnableVisibleFocus(bool enabled)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[36], &sipPySelf, SIP_NULLPTR, sipName_EnableVisibleFocus);
 
     if (!sipMeth)
     {
@@ -789,9 +773,9 @@ void sipwxPropertyGridManager::EnableVisibleFocus(bool enabled)
         return;
     }
 
-    extern void sipVH__propgrid_44(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__propgrid_43(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__propgrid_44(sipGILState, 0, sipPySelf, sipMeth, enabled);
+    sipVH__propgrid_43(sipGILState, 0, sipPySelf, sipMeth, enabled);
 }
 
 void sipwxPropertyGridManager::SetCanFocus(bool canFocus)
@@ -799,7 +783,7 @@ void sipwxPropertyGridManager::SetCanFocus(bool canFocus)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[38], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[37], &sipPySelf, SIP_NULLPTR, sipName_SetCanFocus);
 
     if (!sipMeth)
     {
@@ -807,9 +791,9 @@ void sipwxPropertyGridManager::SetCanFocus(bool canFocus)
         return;
     }
 
-    extern void sipVH__propgrid_44(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
+    extern void sipVH__propgrid_43(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, bool);
 
-    sipVH__propgrid_44(sipGILState, 0, sipPySelf, sipMeth, canFocus);
+    sipVH__propgrid_43(sipGILState, 0, sipPySelf, sipMeth, canFocus);
 }
 
 bool sipwxPropertyGridManager::AcceptsFocusRecursively() const
@@ -817,14 +801,14 @@ bool sipwxPropertyGridManager::AcceptsFocusRecursively() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[39]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[38]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusRecursively);
 
     if (!sipMeth)
         return ::wxPropertyGridManager::AcceptsFocusRecursively();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPropertyGridManager::AcceptsFocusFromKeyboard() const
@@ -832,14 +816,14 @@ bool sipwxPropertyGridManager::AcceptsFocusFromKeyboard() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[40]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[39]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocusFromKeyboard);
 
     if (!sipMeth)
         return ::wxPropertyGridManager::AcceptsFocusFromKeyboard();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPropertyGridManager::AcceptsFocus() const
@@ -847,14 +831,14 @@ bool sipwxPropertyGridManager::AcceptsFocus() const
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[41]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
+    sipMeth = sipIsPyMethod(&sipGILState, const_cast<char *>(&sipPyMethods[40]), const_cast<sipSimpleWrapper **>(&sipPySelf), SIP_NULLPTR, sipName_AcceptsFocus);
 
     if (!sipMeth)
         return ::wxPropertyGridManager::AcceptsFocus();
 
-    extern bool sipVH__propgrid_33(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern bool sipVH__propgrid_32(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__propgrid_33(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__propgrid_32(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 bool sipwxPropertyGridManager::TryAfter(::wxEvent& event)
@@ -862,14 +846,14 @@ bool sipwxPropertyGridManager::TryAfter(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[42], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[41], &sipPySelf, SIP_NULLPTR, sipName_TryAfter);
 
     if (!sipMeth)
         return ::wxPropertyGridManager::TryAfter(event);
 
-    extern bool sipVH__propgrid_49(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__propgrid_48(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__propgrid_49(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__propgrid_48(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxPropertyGridManager::TryBefore(::wxEvent& event)
@@ -877,14 +861,14 @@ bool sipwxPropertyGridManager::TryBefore(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[43], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[42], &sipPySelf, SIP_NULLPTR, sipName_TryBefore);
 
     if (!sipMeth)
         return ::wxPropertyGridManager::TryBefore(event);
 
-    extern bool sipVH__propgrid_49(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__propgrid_48(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__propgrid_49(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__propgrid_48(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 bool sipwxPropertyGridManager::ProcessEvent(::wxEvent& event)
@@ -892,14 +876,14 @@ bool sipwxPropertyGridManager::ProcessEvent(::wxEvent& event)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[44], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[43], &sipPySelf, SIP_NULLPTR, sipName_ProcessEvent);
 
     if (!sipMeth)
         return ::wxPropertyGridManager::ProcessEvent(event);
 
-    extern bool sipVH__propgrid_49(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
+    extern bool sipVH__propgrid_48(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxEvent&);
 
-    return sipVH__propgrid_49(sipGILState, 0, sipPySelf, sipMeth, event);
+    return sipVH__propgrid_48(sipGILState, 0, sipPySelf, sipMeth, event);
 }
 
 void sipwxPropertyGridManager::AddChild(::wxWindowBase*child)
@@ -907,7 +891,7 @@ void sipwxPropertyGridManager::AddChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[45], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[44], &sipPySelf, SIP_NULLPTR, sipName_AddChild);
 
     if (!sipMeth)
     {
@@ -915,9 +899,9 @@ void sipwxPropertyGridManager::AddChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__propgrid_50(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__propgrid_49(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__propgrid_50(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__propgrid_49(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 void sipwxPropertyGridManager::RemoveChild(::wxWindowBase*child)
@@ -925,7 +909,7 @@ void sipwxPropertyGridManager::RemoveChild(::wxWindowBase*child)
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[46], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[45], &sipPySelf, SIP_NULLPTR, sipName_RemoveChild);
 
     if (!sipMeth)
     {
@@ -933,9 +917,9 @@ void sipwxPropertyGridManager::RemoveChild(::wxWindowBase*child)
         return;
     }
 
-    extern void sipVH__propgrid_50(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
+    extern void sipVH__propgrid_49(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxWindowBase*);
 
-    sipVH__propgrid_50(sipGILState, 0, sipPySelf, sipMeth, child);
+    sipVH__propgrid_49(sipGILState, 0, sipPySelf, sipMeth, child);
 }
 
 void sipwxPropertyGridManager::sipProtect_SendDestroyEvent()
@@ -1006,11 +990,6 @@ void sipwxPropertyGridManager::sipProtectVirt_DoSetWindowVariant(bool sipSelfWas
 ::wxBorder sipwxPropertyGridManager::sipProtectVirt_GetDefaultBorder(bool sipSelfWasArg) const
 {
     return (sipSelfWasArg ? ::wxPanel::GetDefaultBorder() : GetDefaultBorder());
-}
-
-::wxBorder sipwxPropertyGridManager::sipProtectVirt_GetDefaultBorderForControl(bool sipSelfWasArg) const
-{
-    return (sipSelfWasArg ? ::wxPanel::GetDefaultBorderForControl() : GetDefaultBorderForControl());
 }
 
 void sipwxPropertyGridManager::sipProtectVirt_DoFreeze(bool sipSelfWasArg)
@@ -1575,40 +1554,6 @@ static PyObject *meth_wxPropertyGridManager_GetDefaultBorder(PyObject *sipSelf, 
 }
 
 
-PyDoc_STRVAR(doc_wxPropertyGridManager_GetDefaultBorderForControl, "GetDefaultBorderForControl(self) -> Border");
-
-extern "C" {static PyObject *meth_wxPropertyGridManager_GetDefaultBorderForControl(PyObject *, PyObject *);}
-static PyObject *meth_wxPropertyGridManager_GetDefaultBorderForControl(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
-
-    {
-        const sipwxPropertyGridManager *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxPropertyGridManager, &sipCpp))
-        {
-            ::wxBorder sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->sipProtectVirt_GetDefaultBorderForControl(sipSelfWasArg);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxBorder);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_PropertyGridManager, sipName_GetDefaultBorderForControl, doc_wxPropertyGridManager_GetDefaultBorderForControl);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxPropertyGridManager_DoFreeze, "DoFreeze(self)");
 
 extern "C" {static PyObject *meth_wxPropertyGridManager_DoFreeze(PyObject *, PyObject *);}
@@ -1787,7 +1732,7 @@ static PyObject *meth_wxPropertyGridManager_TryAfter(PyObject *sipSelf, PyObject
 }
 
 
-PyDoc_STRVAR(doc_wxPropertyGridManager_AddPage, "AddPage(label='', bmp=wx.BitmapBundle(), pageObj=None) -> PropertyGridPage\n"
+PyDoc_STRVAR(doc_wxPropertyGridManager_AddPage, "AddPage(label=\"\", bmp=wx.BitmapBundle(), pageObj=nullptr) -> PropertyGridPage\n"
 "\n"
 "Creates new property page.");
 
@@ -1797,13 +1742,13 @@ static PyObject *meth_wxPropertyGridManager_AddPage(PyObject *sipSelf, PyObject 
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        const ::wxString& labeldef = wxEmptyString;
+        const ::wxString& labeldef = wxString();
         const ::wxString* label = &labeldef;
         int labelState = 0;
         const ::wxBitmapBundle& bmpdef = wxBitmapBundle();
         const ::wxBitmapBundle* bmp = &bmpdef;
         int bmpState = 0;
-        ::wxPropertyGridPage* pageObj = 0;
+        ::wxPropertyGridPage* pageObj = nullptr;
         ::wxPropertyGridManager *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -1911,7 +1856,7 @@ static PyObject *meth_wxPropertyGridManager_ClearPage(PyObject *sipSelf, PyObjec
 }
 
 
-PyDoc_STRVAR(doc_wxPropertyGridManager_CommitChangesFromEditor, "CommitChangesFromEditor(flags=0) -> bool\n"
+PyDoc_STRVAR(doc_wxPropertyGridManager_CommitChangesFromEditor, "CommitChangesFromEditor(flags=PGSelectPropertyFlags.Null) -> bool\n"
 "\n"
 "Forces updating the value of property from the editor control.");
 
@@ -1921,14 +1866,14 @@ static PyObject *meth_wxPropertyGridManager_CommitChangesFromEditor(PyObject *si
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        ::wxUint32 flags = 0;
+        ::wxPGSelectPropertyFlags flags = wxPGSelectPropertyFlags::Null;
         ::wxPropertyGridManager *sipCpp;
 
         static const char *sipKwdList[] = {
             sipName_flags,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "B|u", &sipSelf, sipType_wxPropertyGridManager, &sipCpp, &flags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "B|E", &sipSelf, sipType_wxPropertyGridManager, &sipCpp, sipType_wxPGSelectPropertyFlags, &flags))
         {
             bool sipRes;
 
@@ -2401,7 +2346,7 @@ static PyObject *meth_wxPropertyGridManager_GetPageByName(PyObject *sipSelf, PyO
 
 PyDoc_STRVAR(doc_wxPropertyGridManager_GetPageByState, "GetPageByState(pstate) -> int\n"
 "\n"
-"Returns index for a relevant propertygrid state.");
+"Returns index for a relevant property grid state.");
 
 extern "C" {static PyObject *meth_wxPropertyGridManager_GetPageByState(PyObject *, PyObject *, PyObject *);}
 static PyObject *meth_wxPropertyGridManager_GetPageByState(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
@@ -2695,7 +2640,7 @@ static PyObject *meth_wxPropertyGridManager_GetToolBar(PyObject *sipSelf, PyObje
 }
 
 
-PyDoc_STRVAR(doc_wxPropertyGridManager_InsertPage, "InsertPage(index, label, bmp=wx.BitmapBundle(), pageObj=None) -> PropertyGridPage\n"
+PyDoc_STRVAR(doc_wxPropertyGridManager_InsertPage, "InsertPage(index, label, bmp=wx.BitmapBundle(), pageObj=nullptr) -> PropertyGridPage\n"
 "\n"
 "Creates new property page.");
 
@@ -2712,7 +2657,7 @@ static PyObject *meth_wxPropertyGridManager_InsertPage(PyObject *sipSelf, PyObje
         const ::wxBitmapBundle& bmpdef = wxBitmapBundle();
         const ::wxBitmapBundle* bmp = &bmpdef;
         int bmpState = 0;
-        ::wxPropertyGridPage* pageObj = 0;
+        ::wxPropertyGridPage* pageObj = nullptr;
         ::wxPropertyGridManager *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -3677,7 +3622,7 @@ static void *init_type_wxPropertyGridManager(sipSimpleWrapper *sipSelf, PyObject
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxPropertyGridManager[] = {{21, 0, 0}, {66, 255, 1}};
+static sipEncodedTypeDef supers_wxPropertyGridManager[] = {{22, 0, 0}, {69, 255, 1}};
 
 
 static PyMethodDef methods_wxPropertyGridManager[] = {
@@ -3706,7 +3651,6 @@ static PyMethodDef methods_wxPropertyGridManager[] = {
     {sipName_GetColumnCount, SIP_MLMETH_CAST(meth_wxPropertyGridManager_GetColumnCount), METH_VARARGS|METH_KEYWORDS, doc_wxPropertyGridManager_GetColumnCount},
     {sipName_GetCurrentPage, meth_wxPropertyGridManager_GetCurrentPage, METH_VARARGS, doc_wxPropertyGridManager_GetCurrentPage},
     {sipName_GetDefaultBorder, meth_wxPropertyGridManager_GetDefaultBorder, METH_VARARGS, SIP_NULLPTR},
-    {sipName_GetDefaultBorderForControl, meth_wxPropertyGridManager_GetDefaultBorderForControl, METH_VARARGS, SIP_NULLPTR},
     {sipName_GetDescBoxHeight, meth_wxPropertyGridManager_GetDescBoxHeight, METH_VARARGS, doc_wxPropertyGridManager_GetDescBoxHeight},
     {sipName_GetGrid, meth_wxPropertyGridManager_GetGrid, METH_VARARGS, doc_wxPropertyGridManager_GetGrid},
     {sipName_GetPage, SIP_MLMETH_CAST(meth_wxPropertyGridManager_GetPage), METH_VARARGS|METH_KEYWORDS, doc_wxPropertyGridManager_GetPage},
@@ -3745,15 +3689,15 @@ static PyMethodDef methods_wxPropertyGridManager[] = {
 };
 
 sipVariableDef variables_wxPropertyGridManager[] = {
-    {PropertyVariable, sipName_ToolBar, &methods_wxPropertyGridManager[37], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Selection, &methods_wxPropertyGridManager[36], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelectedProperty, &methods_wxPropertyGridManager[35], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SelectedPage, &methods_wxPropertyGridManager[34], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_PageCount, &methods_wxPropertyGridManager[31], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Grid, &methods_wxPropertyGridManager[27], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DescBoxHeight, &methods_wxPropertyGridManager[26], &methods_wxPropertyGridManager[52], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ToolBar, &methods_wxPropertyGridManager[36], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Selection, &methods_wxPropertyGridManager[35], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelectedProperty, &methods_wxPropertyGridManager[34], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelectedPage, &methods_wxPropertyGridManager[33], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_PageCount, &methods_wxPropertyGridManager[30], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Grid, &methods_wxPropertyGridManager[26], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DescBoxHeight, &methods_wxPropertyGridManager[25], &methods_wxPropertyGridManager[51], SIP_NULLPTR, SIP_NULLPTR},
     {PropertyVariable, sipName_CurrentPage, &methods_wxPropertyGridManager[23], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ColumnCount, &methods_wxPropertyGridManager[22], &methods_wxPropertyGridManager[50], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ColumnCount, &methods_wxPropertyGridManager[22], &methods_wxPropertyGridManager[49], SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxPropertyGridManager, "PropertyGridManager() -> None\n"
@@ -3777,7 +3721,7 @@ sipClassTypeDef sipTypeDef__propgrid_wxPropertyGridManager = {
     {
         sipNameNr_PropertyGridManager,
         {0, 0, 1},
-        61, methods_wxPropertyGridManager,
+        60, methods_wxPropertyGridManager,
         0, SIP_NULLPTR,
         9, variables_wxPropertyGridManager,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},

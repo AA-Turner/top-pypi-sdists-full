@@ -84,6 +84,7 @@ from .ivanti_credential import IvantiCredential
 from .ivanti_credential_ticketing import IvantiCredentialTicketing
 from .jamf_credential import JamfCredential
 from .jira_credential import JiraCredential
+from .jupiter_one_credential import JupiterOneCredential
 from .linear_credential import LinearCredential
 from .malwarebytes_credential import MalwarebytesCredential
 from .microsoft_defender_region import MicrosoftDefenderRegion
@@ -99,6 +100,7 @@ from .open_text_core_application_security_url import OpenTextCoreApplicationSecu
 from .pager_duty_credential import PagerDutyCredential
 from .palo_alto_credential import PaloAltoCredential
 from .panther_ingestion_credential import PantherIngestionCredential
+from .pentera_credential import PenteraCredential
 from .ping_one_apiurl import PingOneApiurl
 from .ping_one_auth_url import PingOneAuthUrl
 from .ping_one_credential import PingOneCredential
@@ -448,6 +450,21 @@ class ProviderConfig_AssetsIvantiNeurons(UncheckedBaseModel):
 class ProviderConfig_AssetsIvantiNeuronsMock(UncheckedBaseModel):
     type: typing.Literal["assets_ivanti_neurons_mock"] = "assets_ivanti_neurons_mock"
     dataset: AssetsIvantiNeuronsDataset
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_AssetsJupiterone(UncheckedBaseModel):
+    type: typing.Literal["assets_jupiterone"] = "assets_jupiterone"
+    account_id: str
+    credential: JupiterOneCredential
+    url: typing.Optional[str] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
@@ -2345,6 +2362,20 @@ class ProviderConfig_VulnerabilitiesNucleus(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
+class ProviderConfig_VulnerabilitiesPentera(UncheckedBaseModel):
+    type: typing.Literal["vulnerabilities_pentera"] = "vulnerabilities_pentera"
+    credential: PenteraCredential
+    url: str
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
 class ProviderConfig_VulnerabilitiesQualysCloud(UncheckedBaseModel):
     type: typing.Literal["vulnerabilities_qualys_cloud"] = "vulnerabilities_qualys_cloud"
     credential: QualysCloudCredential
@@ -2493,6 +2524,7 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_AssetsIru,
         ProviderConfig_AssetsIvantiNeurons,
         ProviderConfig_AssetsIvantiNeuronsMock,
+        ProviderConfig_AssetsJupiterone,
         ProviderConfig_AssetsNozomiVantage,
         ProviderConfig_AssetsNozomiVantageMock,
         ProviderConfig_AssetsQualysCloud,
@@ -2620,6 +2652,7 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_VulnerabilitiesHorizon3,
         ProviderConfig_VulnerabilitiesIru,
         ProviderConfig_VulnerabilitiesNucleus,
+        ProviderConfig_VulnerabilitiesPentera,
         ProviderConfig_VulnerabilitiesQualysCloud,
         ProviderConfig_VulnerabilitiesQualysCloudMock,
         ProviderConfig_VulnerabilitiesRapid7InsightCloud,

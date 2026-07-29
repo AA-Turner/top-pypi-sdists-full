@@ -2,7 +2,6 @@
 // Name:        src/common/pickerbase.cpp
 // Purpose:     wxPickerBase class implementation
 // Author:      Francesco Montorsi
-// Modified by:
 // Created:     15/04/2006
 // Copyright:   (c) Francesco Montorsi
 // Licence:     wxWindows licence
@@ -78,19 +77,11 @@ bool wxPickerBase::CreateBase(wxWindow *parent,
             return false;
         }
 
-        // set the maximum length allowed for this textctrl.
-        // This is very important since any change to it will trigger an update in
-        // the m_picker; for very long strings, this real-time synchronization could
-        // become a CPU-blocker and thus should be avoided.
-        // 32 characters will be more than enough for all common uses.
-        m_text->SetMaxLength(32);
-
         // set the initial contents of the textctrl
         m_text->SetValue(text);
 
         m_text->Bind(wxEVT_TEXT, &wxPickerBase::OnTextCtrlUpdate, this);
         m_text->Bind(wxEVT_KILL_FOCUS, &wxPickerBase::OnTextCtrlKillFocus, this);
-        m_text->Bind(wxEVT_DESTROY, &wxPickerBase::OnTextCtrlDelete, this);
 
         m_sizer->Add(m_text,
                      wxSizerFlags(1).CentreVertical().Border(wxRIGHT));
@@ -142,7 +133,7 @@ void wxPickerBase::DoSetToolTip(wxToolTip *tip)
 
     // do a copy as wxWindow will own the pointer we pass
     if ( m_text )
-        m_text->SetToolTip(tip ? new wxToolTip(tip->GetTip()) : NULL);
+        m_text->SetToolTip(tip ? new wxToolTip(tip->GetTip()) : nullptr);
 }
 
 #endif // wxUSE_TOOLTIPS
@@ -178,12 +169,6 @@ void wxPickerBase::OnTextCtrlKillFocus(wxFocusEvent& event)
     // don't leave the textctrl empty
     if (m_text && m_text->GetValue().empty())
         UpdateTextCtrlFromPicker();
-}
-
-void wxPickerBase::OnTextCtrlDelete(wxWindowDestroyEvent &)
-{
-    // the textctrl has been deleted; our pointer is invalid!
-    m_text = NULL;
 }
 
 void wxPickerBase::OnTextCtrlUpdate(wxCommandEvent &)

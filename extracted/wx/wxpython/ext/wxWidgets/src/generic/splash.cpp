@@ -2,7 +2,6 @@
 // Name:        src/generic/splash.cpp
 // Purpose:     wxSplashScreen class
 // Author:      Julian Smart
-// Modified by:
 // Created:     28/6/2000
 // Copyright:   (c) Julian Smart
 // Licence:     wxWindows licence
@@ -14,14 +13,13 @@
 
 #if wxUSE_SPLASH
 
-#ifdef __WXGTK20__
+#ifdef __WXGTK__
     #include "wx/gtk/private/wrapgtk.h"
 #endif
 
 #include "wx/splash.h"
 
 #ifndef WX_PRECOMP
-    #include "wx/dcmemory.h"
     #include "wx/dcclient.h"
 #endif
 
@@ -40,7 +38,7 @@ wxEND_EVENT_TABLE()
 
 void wxSplashScreen::Init()
 {
-    m_window = NULL;
+    m_window = nullptr;
 
     wxEvtHandler::AddFilter(this);
 }
@@ -62,7 +60,7 @@ wxSplashScreen::wxSplashScreen(const wxBitmap& bitmap, long splashStyle, int mil
     // is going to disappear soon, indicate it by giving it this special style
     SetExtraStyle(GetExtraStyle() | wxWS_EX_TRANSIENT);
 
-#if defined(__WXGTK20__)
+#if defined(__WXGTK__)
     gtk_window_set_type_hint(GTK_WINDOW(m_widget),
                              GDK_WINDOW_TYPE_HINT_SPLASHSCREEN);
 #endif
@@ -72,7 +70,7 @@ wxSplashScreen::wxSplashScreen(const wxBitmap& bitmap, long splashStyle, int mil
 
     m_window = new wxSplashScreenWindow(bitmap, this, wxID_ANY, pos, size, wxNO_BORDER);
 
-    SetClientSize(bitmap.GetLogicalWidth(), bitmap.GetLogicalHeight());
+    SetClientSize(bitmap.GetLogicalSize());
 
     if (m_splashStyle & wxSPLASH_CENTRE_ON_PARENT)
         CentreOnParent();
@@ -89,7 +87,7 @@ wxSplashScreen::wxSplashScreen(const wxBitmap& bitmap, long splashStyle, int mil
     m_window->SetFocus();
 #if defined( __WXMSW__ ) || defined(__WXMAC__)
     Update(); // Without this, you see a blank screen for an instant
-#elif defined(__WXGTK20__)
+#elif defined(__WXGTK__)
     // we don't need to do anything at least on wxGTK with GTK+ 2.12.9
 #else
     wxYieldIfNeeded(); // Should eliminate this
@@ -131,10 +129,7 @@ void wxSplashScreen::OnCloseWindow(wxCloseEvent& WXUNUSED(event))
 // ----------------------------------------------------------------------------
 
 wxBEGIN_EVENT_TABLE(wxSplashScreenWindow, wxWindow)
-#ifdef __WXGTK__
     EVT_PAINT(wxSplashScreenWindow::OnPaint)
-#endif
-    EVT_ERASE_BACKGROUND(wxSplashScreenWindow::OnEraseBackground)
 wxEND_EVENT_TABLE()
 
 wxSplashScreenWindow::wxSplashScreenWindow(const wxBitmap& bitmap, wxWindow* parent,
@@ -143,6 +138,7 @@ wxSplashScreenWindow::wxSplashScreenWindow(const wxBitmap& bitmap, wxWindow* par
     : wxWindow(parent, id, pos, size, style)
     , m_bitmap(bitmap)
 {
+    SetBackgroundStyle(wxBG_STYLE_PAINT);
 
 #if !defined(__WXGTK__) && wxUSE_PALETTE
     bool hiColour = (wxDisplayDepth() >= 16) ;
@@ -154,56 +150,11 @@ wxSplashScreenWindow::wxSplashScreenWindow(const wxBitmap& bitmap, wxWindow* par
 #endif
 }
 
-// VZ: why don't we do it under wxGTK?
-#if !defined(__WXGTK__) && wxUSE_PALETTE
-    #define USE_PALETTE_IN_SPLASH
-#endif
-
-static void wxDrawSplashBitmap(wxDC& dc, const wxBitmap& bitmap, int WXUNUSED(x), int WXUNUSED(y))
-{
-    wxMemoryDC dcMem;
-
-#ifdef USE_PALETTE_IN_SPLASH
-    bool hiColour = (wxDisplayDepth() >= 16) ;
-
-    if (bitmap.GetPalette() && !hiColour)
-    {
-        dcMem.SetPalette(* bitmap.GetPalette());
-    }
-#endif // USE_PALETTE_IN_SPLASH
-
-    dcMem.SelectObjectAsSource(bitmap);
-    dc.Blit(0, 0, bitmap.GetLogicalWidth(), bitmap.GetLogicalHeight(), &dcMem, 0, 0, wxCOPY,
-            true /* use mask */);
-    dcMem.SelectObject(wxNullBitmap);
-
-#ifdef USE_PALETTE_IN_SPLASH
-    if (bitmap.GetPalette() && !hiColour)
-    {
-        dcMem.SetPalette(wxNullPalette);
-    }
-#endif // USE_PALETTE_IN_SPLASH
-}
-
 void wxSplashScreenWindow::OnPaint(wxPaintEvent& WXUNUSED(event))
 {
     wxPaintDC dc(this);
     if (m_bitmap.IsOk())
-        wxDrawSplashBitmap(dc, m_bitmap, 0, 0);
-}
-
-void wxSplashScreenWindow::OnEraseBackground(wxEraseEvent& event)
-{
-    if (event.GetDC() && m_bitmap.IsOk())
-    {
-        wxDrawSplashBitmap(* event.GetDC(), m_bitmap, 0, 0);
-    }
-    else
-    {
-        wxClientDC dc(this);
-        if (m_bitmap.IsOk())
-            wxDrawSplashBitmap(dc, m_bitmap, 0, 0);
-    }
+        dc.DrawBitmap(m_bitmap, 0, 0, true);
 }
 
 #endif // wxUSE_SPLASH

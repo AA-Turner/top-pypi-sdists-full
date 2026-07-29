@@ -2,7 +2,6 @@
 // Name:        src/common/platinfo.cpp
 // Purpose:     implements wxPlatformInfo class
 // Author:      Francesco Montorsi
-// Modified by:
 // Created:     07.07.2006 (based on wxToolkitInfo)
 // Copyright:   (c) 2006 Francesco Montorsi
 // Licence:     wxWindows licence
@@ -31,6 +30,7 @@
 
 #ifdef __WINDOWS__
     #include "wx/dynlib.h"
+    #include "wx/versioninfo.h"
 #endif
 
 namespace
@@ -180,7 +180,8 @@ bool wxPlatformInfo::operator==(const wxPlatformInfo &t) const
            m_port == t.m_port &&
            m_usingUniversal == t.m_usingUniversal &&
            m_bitness == t.m_bitness &&
-           m_endian == t.m_endian;
+           m_endian == t.m_endian &&
+           m_platformDescription == t.m_platformDescription;
 }
 
 void wxPlatformInfo::InitForCurrentPlatform()
@@ -205,6 +206,7 @@ void wxPlatformInfo::InitForCurrentPlatform()
                                            &m_tkVersionMicro);
         m_usingUniversal = traits->IsUsingUniversalWidgets();
         m_desktopEnv = traits->GetDesktopEnvironment();
+        m_platformDescription = traits->GetPlatformDescription();
     }
 
     m_os = wxGetOsVersion(&m_osVersionMajor, &m_osVersionMinor, &m_osVersionMicro);
@@ -391,9 +393,33 @@ wxEndianness wxPlatformInfo::GetEndianness(const wxString& end)
 
 #ifdef __WINDOWS__
 
-bool wxIsRunningUnderWine()
+bool wxIsRunningUnderWine(wxVersionInfo* ver)
 {
-    return wxLoadedDLL("ntdll.dll").HasSymbol(wxS("wine_get_version"));
+    wxLoadedDLL dllNT("ntdll.dll");
+    const char* (*pfn_wine_get_version)() =
+        (decltype(pfn_wine_get_version))dllNT.RawGetSymbol(L"wine_get_version");
+    if ( !pfn_wine_get_version )
+        return false;
+
+    if ( ver )
+    {
+        const char* const wineVer = pfn_wine_get_version();
+        int major = 0,
+            minor = 0,
+            micro = 0;
+
+        // Ignore the return value because we can't do anything useful in case
+        // of an error anyhow.
+        sscanf(wineVer, "%d.%d.%d", &major, &minor, &micro);
+
+        *ver = wxVersionInfo{
+            wxString::FromAscii("Wine"),
+            major, minor, micro,
+            wxString::FromAscii(wineVer)
+        };
+    }
+
+    return true;
 }
 
 #endif // __WINDOWS__

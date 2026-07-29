@@ -1,4 +1,4 @@
-# AUTO GENERATED ON 2026-07-02 AT 19:33:43
+# AUTO GENERATED ON 2026-07-28 AT 17:37:39
 # DO NOT EDIT BY HAND!
 #
 # To regenerate file, run
@@ -1363,6 +1363,68 @@ def by_signature(cuda_kernel_templates):
     out['awkward_reduce_sum', int32, int32, int64] = None
 
     out['awkward_reduce_sum', uint32, uint32, int64] = None
+
+    out['awkward_reduce_sum', float64, int8, int64] = None
+
+    out['awkward_reduce_sum', float64, uint8, int64] = None
+
+    out['awkward_reduce_sum', float64, int16, int64] = None
+
+    out['awkward_reduce_sum', float64, uint16, int64] = None
+
+    out['awkward_reduce_sum', float64, int32, int64] = None
+
+    out['awkward_reduce_sum', float64, uint32, int64] = None
+
+    out['awkward_reduce_sum', float64, int64, int64] = None
+
+    out['awkward_reduce_sum', float64, uint64, int64] = None
+
+    out['awkward_reduce_sum', float64, float32, int64] = None
+
+    out['awkward_reduce_sumofsquares', float64, int8, int64] = None
+
+    out['awkward_reduce_sumofsquares', float64, uint8, int64] = None
+
+    out['awkward_reduce_sumofsquares', float64, int16, int64] = None
+
+    out['awkward_reduce_sumofsquares', float64, uint16, int64] = None
+
+    out['awkward_reduce_sumofsquares', float64, int32, int64] = None
+
+    out['awkward_reduce_sumofsquares', float64, uint32, int64] = None
+
+    out['awkward_reduce_sumofsquares', float64, int64, int64] = None
+
+    out['awkward_reduce_sumofsquares', float64, uint64, int64] = None
+
+    out['awkward_reduce_sumofsquares', float64, bool_, int64] = None
+
+    out['awkward_reduce_sumofsquares', float64, float32, int64] = None
+
+    out['awkward_reduce_sumofsquares', float64, float64, int64] = None
+
+    out['awkward_reduce_sumofpowers', float64, int8, int64] = None
+
+    out['awkward_reduce_sumofpowers', float64, uint8, int64] = None
+
+    out['awkward_reduce_sumofpowers', float64, int16, int64] = None
+
+    out['awkward_reduce_sumofpowers', float64, uint16, int64] = None
+
+    out['awkward_reduce_sumofpowers', float64, int32, int64] = None
+
+    out['awkward_reduce_sumofpowers', float64, uint32, int64] = None
+
+    out['awkward_reduce_sumofpowers', float64, int64, int64] = None
+
+    out['awkward_reduce_sumofpowers', float64, uint64, int64] = None
+
+    out['awkward_reduce_sumofpowers', float64, bool_, int64] = None
+
+    out['awkward_reduce_sumofpowers', float64, float32, int64] = None
+
+    out['awkward_reduce_sumofpowers', float64, float64, int64] = None
 
     out['awkward_reduce_sum_complex', float32, float32, int64] = None
 

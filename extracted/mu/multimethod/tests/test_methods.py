@@ -1,8 +1,10 @@
 import enum
 import types
+from collections.abc import Collection, Iterable, Mapping, Set, Sized
+from typing import Annotated, Any, AnyStr, NewType, Protocol, TypeVar
+
 import pytest
-from collections.abc import Collection, Iterable, Mapping, Set
-from typing import Annotated, Any, AnyStr, NewType, Protocol, Sized, TypeVar, Union
+
 from multimethod import DispatchError, multimeta, multimethod, signature, subtype
 
 
@@ -37,61 +39,58 @@ def join(seq: tree, sep: object):
 
 
 def test_join():
-    sep = '<>'
+    sep = "<>"
     seq = [0, tree([1]), 2]
     assert list(tree(seq).walk()) == list(range(3))
-    assert join(seq, sep) == '0<>[1]<>2'
-    assert join(tree(seq), sep) == '0<>1<>2'
-    assert join(seq, bracket(*sep)) == '<0><[1]><2>'
+    assert join(seq, sep) == "0<>[1]<>2"
+    assert join(tree(seq), sep) == "0<>1<>2"
+    assert join(seq, bracket(*sep)) == "<0><[1]><2>"
     with pytest.raises(DispatchError):
-        assert join(tree(seq), bracket(*sep)) == '<0><1><2>'
+        assert join(tree(seq), bracket(*sep)) == "<0><1><2>"
     join[tree, bracket] = join[tree, object]
-    assert join(tree(seq), bracket(*sep)) == '<0><1><2>'
+    assert join(tree(seq), bracket(*sep)) == "<0><1><2>"
 
 
 def subclass(*bases, **kwds):
-    return types.new_class('', bases, kwds)
+    return types.new_class("", bases, kwds)
 
 
 @pytest.mark.benchmark
 def test_subtype():
     assert len({subtype(list[int]), subtype(list[int])}) == 1
     assert len({subtype(list[bool]), subtype(list[int])}) == 2
-    assert issubclass(int, subtype(Union[int, float]))
-    assert issubclass(Union[float, int], subtype(Union[int, float]))
+    assert issubclass(int, subtype(int | float))
+    assert issubclass(float | int, subtype(int | float))
     assert issubclass(list[bool], subtype(list[int]))
     assert isinstance((0, 0.0), subtype(tuple[int, float]))
     assert not isinstance((0,), subtype(tuple[int, float]))
     assert isinstance((0,), subtype(tuple[int, ...]))
-    assert not issubclass(tuple[int], subtype(tuple[int, ...]))
-    assert not isinstance(iter('-'), subtype(Iterable[str]))
+    assert not isinstance(iter("-"), subtype(Iterable[str]))
     assert not issubclass(tuple[int], subtype(tuple[int, float]))
     assert issubclass(Iterable[bool], subtype(Iterable[int]))
     assert issubclass(subtype(Iterable[int]), subtype(Iterable))
     assert issubclass(subtype(list[int]), subtype(Iterable))
-    assert issubclass(list[bool], subtype(Union[list[int], list[float]]))
-    assert issubclass(subtype(Union[bool, int]), int)
-    assert issubclass(subtype(Union[Mapping, Set]), Collection)
+    assert issubclass(list[bool], subtype(list[int] | list[float]))
+    assert issubclass(subtype(bool | int), int)
+    assert issubclass(subtype(Mapping | Set), Collection)
     base = subclass(metaclass=subclass(type))
-    assert subtype(Union[base, subclass(base)])
+    assert subtype(base | subclass(base))
     assert not list(subtype.origins(subclass(subclass(Protocol))))
     assert not list(subtype.origins(subclass(Sized)))
-    assert not list(subtype.origins(subclass(Protocol[TypeVar('T')])))
+    assert not list(subtype.origins(subclass(Protocol[TypeVar("T")])))
     assert subtype(Annotated[str, "test"]) is str
 
 
 @pytest.mark.benchmark
 def test_signature():
-    assert signature([Any, list, NewType('', int)]) == (object, list, int)
-    assert signature([AnyStr]) == signature([Union[bytes, str]])
-    assert signature([TypeVar('T')]) == signature([object])
-    assert signature([list]) <= (list,)
-    assert signature([list]) <= signature([list])
-    assert signature([list]) <= signature([list[int]])
+    assert signature([Any, list, NewType("", int)]) == (object, list, int)
+    assert signature([AnyStr]) == signature([bytes | str])
+    assert signature([TypeVar("T")]) == signature([object])
+    assert signature([list]).subtypes(list)
+    assert signature([list]).subtypes(subtype(list[int]))
 
 
-class namespace:
-    pass
+class namespace: ...
 
 
 class cls:
@@ -100,11 +99,11 @@ class cls:
         return object, int
 
     @multimethod
-    def method(x: 'cls', y: 'list[float]'):
+    def method(x: "cls", y: "list[float]"):
         return type(x), list
 
     @multimethod
-    def dotted(x: 'namespace.cls'):
+    def dotted(x: "namespace.cls"):
         return type(x), float
 
 
@@ -137,15 +136,15 @@ def _(arg: int):
 
 
 @func.register
-def _(arg: Union[list[int], tuple[float], dict[str, int]]):
-    return 'union'
+def _(arg: list[int] | tuple[float] | dict[str, int]):
+    return "union"
 
 
 def test_register():
     assert func(0.0) is object
     assert func(0) is int
     assert func(False) is bool
-    assert func([0]) == func((0.0,)) == func({'': 0}) == func({}) == 'union'
+    assert func([0]) == func((0.0,)) == func({"": 0}) == func({}) == "union"
     assert func([0.0]) is func((0.0, 1.0)) is object
 
 
@@ -155,21 +154,21 @@ def test_register():
 def test_meta():
     class meta(metaclass=multimeta):
         def method(self, x: str):
-            return 'STR'
+            return "STR"
 
         def method(self, x: int):
-            return 'INT'
+            return "INT"
 
         def normal(self, y):
-            return 'OBJECT'
+            return "OBJECT"
 
         def rebind(self, x: str):
-            return 'INITIAL'
+            return "INITIAL"
 
         rebind = 2
 
         def rebind(self, x):
-            return 'REBOUND'
+            return "REBOUND"
 
     assert isinstance(meta.method, multimethod)
     assert isinstance(meta.normal, multimethod)
@@ -177,10 +176,10 @@ def test_meta():
 
     m = meta()
 
-    assert m.method('') == 'STR'
-    assert m.method(12) == 'INT'
-    assert m.normal('') == 'OBJECT'
-    assert m.rebind('') == 'REBOUND'
+    assert m.method("") == "STR"
+    assert m.method(12) == "INT"
+    assert m.normal("") == "OBJECT"
+    assert m.rebind("") == "REBOUND"
 
 
 def test_ellipsis():

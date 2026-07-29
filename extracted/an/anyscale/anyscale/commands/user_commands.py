@@ -10,11 +10,22 @@ import anyscale
 from anyscale._private.anyscale_client import AnyscaleClient
 from anyscale.cli_logger import BlockLogger
 from anyscale.commands import command_examples
+from anyscale.commands.doc_metadata import (
+    command_metadata,
+    CommandExample,
+    ReleaseStatus,
+)
 from anyscale.commands.list_util import (
     display_list,
     MAX_PAGE_SIZE,
     NON_INTERACTIVE_DEFAULT_MAX_ITEMS,
     validate_page_size,
+)
+from anyscale.commands.output_format import (
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    OutputFormat,
+    print_output,
 )
 from anyscale.commands.util import AnyscaleCommand
 from anyscale.user.models import AdminCreateUser, AdminCreateUsers, User
@@ -96,11 +107,33 @@ def admin_batch_create(users_file: str,) -> None:
     log.info(f"{len(created_users)} users created.")
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to [TEXT, JSON] when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="List the users in your organization.",
+            command="anyscale user list",
+            output_raw=command_examples.USER_LIST_EXAMPLE,
+            output_instance=[
+                {
+                    "email": "someone@myorg.com",
+                    "name": "Some One",
+                    "user_id": "usr_we8x7d7u8hq8mj2488ed9x47n6",
+                    "permission_level": "collaborator",
+                }
+            ],
+        ),
+    ],
+    output_schema=User,
+)
 @user_cli.command(
     name="list",
+    short_help="List users in your organization.",
+    help="List users in your organization.",
     cls=AnyscaleCommand,
-    example=command_examples.USER_LIST_EXAMPLE,
-    help="List users within your organization.",
 )
 @click.option("--email", type=str, help="Filter users by email.")
 @click.option("--name", type=str, help="Filter users by display name.")
@@ -137,6 +170,16 @@ def admin_batch_create(users_file: str,) -> None:
     help=f"Items per page (max {MAX_PAGE_SIZE}).",
 )
 @click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
+@click.option(
     "--json/--no-json",
     "json_output",
     default=False,
@@ -154,10 +197,13 @@ def list_users(  # noqa: A001, PLR0913
     service_account: Optional[bool],
     max_items: Optional[int],
     page_size: int,
+    output_format: str,
     json_output: bool,
     interactive: bool,
 ) -> None:
     """List users within the organization."""
+    json_output = json_output or output_format == OutputFormat.JSON.value
+
     if max_items is not None and interactive:
         raise click.UsageError("--max-items only allowed with --no-interactive")
 
@@ -223,11 +269,35 @@ def list_users(  # noqa: A001, PLR0913
         raise click.ClickException(f"Failed to list users: {exc}")
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Get details for a user by email.",
+            command="anyscale user get --email someone@myorg.com",
+            output_raw=command_examples.USER_GET_EXAMPLE,
+            # Serialized form of the User model (what --json and -o emit).
+            output_instance={
+                "email": "someone@myorg.com",
+                "name": "Some One",
+                "user_id": "usr_we8x7d7u8hq8mj2488ed9x47n6",
+                "permission_level": "collaborator",
+            },
+        ),
+    ],
+    output_schema=User,
+)
 @user_cli.command(
     name="get",
+    short_help="Get details for a single user in your organization.",
+    help=(
+        "Get details for a single user in your organization.\n\n"
+        "Specify the user by --email or --name. At least one is required."
+    ),
     cls=AnyscaleCommand,
-    example=command_examples.USER_GET_EXAMPLE,
-    help="Get details for a single user in your organization.",
 )
 @click.option("--email", type=str, help="Email address of the user.")
 @click.option("--name", type=str, help="Display name of the user.")
@@ -249,16 +319,27 @@ def list_users(  # noqa: A001, PLR0913
     help="Restrict to individual user accounts.",
 )
 @click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result.",
+)
+@click.option(
     "--json/--no-json",
     "json_output",
     default=False,
     help="Output JSON instead of YAML.",
 )
-def get_user(  # noqa: A001
+def get_user(  # noqa: A001, PLR0913
     email: Optional[str],
     name: Optional[str],
     collaborator_type: Optional[str],
     service_account: Optional[bool],
+    output_format: str,
     json_output: bool,
 ) -> None:
     """Retrieve details for a single user by email or ID."""
@@ -298,6 +379,10 @@ def get_user(  # noqa: A001
         )
         return
 
+    if output_format != OutputFormat.TEXT.value:
+        print_output(user, output_format)
+        return
+
     table = _create_user_list_table(show_header=True)
     formatted_data = _format_user_output_data(user)
     table.add_row(
@@ -311,10 +396,46 @@ def get_user(  # noqa: A001
     stderr.print("\nFetched 1 user.")
 
 
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="List all users and their effective permissions.",
+            command="anyscale user list-permissions",
+            output_raw=command_examples.USER_LIST_PERMISSIONS_EXAMPLE,
+            output_instance={
+                "organization_id": "org_p72",
+                "org_owners": [{"user_email": "admin1@p72.com", "user_id": "usr_aaa"}],
+                "users": [
+                    {
+                        "clouds": [
+                            {
+                                "cloud_id": "cld_111",
+                                "cloud_name": "prod-cloud",
+                                "role": "collaborator",
+                                "projects": [
+                                    {
+                                        "project_id": "prj_111",
+                                        "project_name": "prod-project",
+                                        "role": "readonly",
+                                    }
+                                ],
+                            }
+                        ],
+                        "user_email": "alice@p72.com",
+                        "user_id": "usr_abc",
+                    }
+                ],
+            },
+        ),
+    ],
+)
 @user_cli.command(
     name="list-permissions",
+    short_help="List users and their effective cloud and project permissions.",
     cls=AnyscaleCommand,
-    example=command_examples.USER_LIST_PERMISSIONS_EXAMPLE,
 )
 @click.option(
     "--user-id",
@@ -329,7 +450,18 @@ def get_user(  # noqa: A001
     default=None,
     help="Write JSON output to a file instead of stdout.",
 )
-def list_permissions(user_id: Optional[str], output: Optional[str]) -> None:
+@click.option(
+    "--output-format",
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result. Ignored when --output is provided.",
+)
+def list_permissions(
+    user_id: Optional[str], output: Optional[str], output_format: str
+) -> None:
     """
     List users and their effective cloud/project permissions across the organization.
 
@@ -352,6 +484,8 @@ def list_permissions(user_id: Optional[str], output: Optional[str]) -> None:
             with open(output, "w") as f:
                 f.write(json_output)
             log.info(f"Results written to {output}")
+        elif output_format != OutputFormat.TEXT.value:
+            print_output(result, output_format)
         else:
             print(json_output)
     except click.ClickException:

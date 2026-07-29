@@ -1,3 +1,4 @@
+use std::env;
 use std::error::Error;
 use std::fmt;
 
@@ -11,8 +12,10 @@ use uv_settings::{Combine, EnvFlag, PipOptions, ResolverInstallerOptions, Resolv
 use uv_warnings::owo_colors::OwoColorize;
 
 use crate::{
-    BuildOptionsArgs, FetchArgs, IndexArgs, InstallerArgs, Maybe, RefreshArgs, ResolverArgs,
-    ResolverInstallerArgs,
+    BuildIsolationArgs, BuildOptionsArgs, CompileBytecodeArgs, ExcludeNewerArgs, FetchArgs,
+    IndexArgs, InstallerArgs, Maybe, PackageBuildIsolationArgs, PackageExcludeNewerArgs,
+    RefreshArgs, RegistryClientArgs, ReinstallArgs, ResolverArgs, ResolverInstallerArgs,
+    SourcesArgs, VersionSelectionArgs,
 };
 
 /// An error caused by an invalid combination of command-line arguments.
@@ -231,7 +234,7 @@ impl TryFrom<RefreshArgs> for Refresh {
 }
 
 /// Extract the `--index` and `--default-index` values from [`IndexArgs`].
-pub fn indexes_from_args(
+fn indexes_from_args(
     default_index: Option<&Maybe<Index>>,
     index: Option<&[Vec<Maybe<Index>>]>,
 ) -> Option<Vec<Index>> {
@@ -261,22 +264,40 @@ impl TryFrom<ResolverArgs> for PipOptions {
             no_upgrade,
             upgrade_package,
             upgrade_group,
-            index_strategy,
-            keyring_provider,
-            resolution,
-            prerelease,
-            pre,
-            fork_strategy,
+            registry_client:
+                RegistryClientArgs {
+                    index_strategy,
+                    keyring_provider,
+                },
+            version_selection:
+                VersionSelectionArgs {
+                    resolution,
+                    prerelease,
+                    pre,
+                    fork_strategy,
+                },
             config_setting,
             config_settings_package,
-            no_build_isolation,
-            no_build_isolation_package,
-            build_isolation,
-            exclude_newer,
+            build_isolation:
+                PackageBuildIsolationArgs {
+                    build_isolation:
+                        BuildIsolationArgs {
+                            no_build_isolation,
+                            build_isolation,
+                        },
+                    no_build_isolation_package,
+                },
+            exclude_newer:
+                PackageExcludeNewerArgs {
+                    exclude_newer: ExcludeNewerArgs { exclude_newer },
+                    exclude_newer_package,
+                },
             link_mode,
-            no_sources,
-            no_sources_package,
-            exclude_newer_package,
+            sources:
+                SourcesArgs {
+                    no_sources,
+                    no_sources_package,
+                },
         } = args;
 
         if !upgrade_group.is_empty() {
@@ -316,7 +337,7 @@ impl TryFrom<ResolverArgs> for PipOptions {
             } else {
                 Some(no_sources_package)
             },
-            ..Self::from(index_args)
+            ..Self::try_from(index_args)?
         })
     }
 }
@@ -327,22 +348,40 @@ impl TryFrom<InstallerArgs> for PipOptions {
     fn try_from(args: InstallerArgs) -> anyhow::Result<Self> {
         let InstallerArgs {
             index_args,
-            reinstall,
-            no_reinstall,
-            reinstall_package,
-            index_strategy,
-            keyring_provider,
+            reinstall:
+                ReinstallArgs {
+                    reinstall,
+                    no_reinstall,
+                    reinstall_package,
+                },
+            registry_client:
+                RegistryClientArgs {
+                    index_strategy,
+                    keyring_provider,
+                },
             config_setting,
             config_settings_package,
-            no_build_isolation,
-            build_isolation,
-            exclude_newer,
+            build_isolation:
+                BuildIsolationArgs {
+                    no_build_isolation,
+                    build_isolation,
+                },
+            exclude_newer:
+                PackageExcludeNewerArgs {
+                    exclude_newer: ExcludeNewerArgs { exclude_newer },
+                    exclude_newer_package,
+                },
             link_mode,
-            compile_bytecode,
-            no_compile_bytecode,
-            no_sources,
-            no_sources_package,
-            exclude_newer_package,
+            compile_bytecode:
+                CompileBytecodeArgs {
+                    compile_bytecode,
+                    no_compile_bytecode,
+                },
+            sources:
+                SourcesArgs {
+                    no_sources,
+                    no_sources_package,
+                },
         } = args;
 
         Ok(Self {
@@ -368,7 +407,7 @@ impl TryFrom<InstallerArgs> for PipOptions {
             } else {
                 Some(no_sources_package)
             },
-            ..Self::from(index_args)
+            ..Self::try_from(index_args)?
         })
     }
 }
@@ -383,27 +422,51 @@ impl TryFrom<ResolverInstallerArgs> for PipOptions {
             no_upgrade,
             upgrade_package,
             upgrade_group,
-            reinstall,
-            no_reinstall,
-            reinstall_package,
-            index_strategy,
-            keyring_provider,
-            resolution,
-            prerelease,
-            pre,
-            fork_strategy,
+            reinstall:
+                ReinstallArgs {
+                    reinstall,
+                    no_reinstall,
+                    reinstall_package,
+                },
+            registry_client:
+                RegistryClientArgs {
+                    index_strategy,
+                    keyring_provider,
+                },
+            version_selection:
+                VersionSelectionArgs {
+                    resolution,
+                    prerelease,
+                    pre,
+                    fork_strategy,
+                },
             config_setting,
             config_settings_package,
-            no_build_isolation,
-            no_build_isolation_package,
-            build_isolation,
-            exclude_newer,
+            build_isolation:
+                PackageBuildIsolationArgs {
+                    build_isolation:
+                        BuildIsolationArgs {
+                            no_build_isolation,
+                            build_isolation,
+                        },
+                    no_build_isolation_package,
+                },
+            exclude_newer:
+                PackageExcludeNewerArgs {
+                    exclude_newer: ExcludeNewerArgs { exclude_newer },
+                    exclude_newer_package,
+                },
             link_mode,
-            compile_bytecode,
-            no_compile_bytecode,
-            no_sources,
-            no_sources_package,
-            exclude_newer_package,
+            compile_bytecode:
+                CompileBytecodeArgs {
+                    compile_bytecode,
+                    no_compile_bytecode,
+                },
+            sources:
+                SourcesArgs {
+                    no_sources,
+                    no_sources_package,
+                },
         } = args;
 
         if !upgrade_group.is_empty() {
@@ -446,31 +509,43 @@ impl TryFrom<ResolverInstallerArgs> for PipOptions {
             } else {
                 Some(no_sources_package)
             },
-            ..Self::from(index_args)
+            ..Self::try_from(index_args)?
         })
     }
 }
 
-impl From<FetchArgs> for PipOptions {
-    fn from(args: FetchArgs) -> Self {
+impl TryFrom<FetchArgs> for PipOptions {
+    type Error = anyhow::Error;
+
+    fn try_from(args: FetchArgs) -> anyhow::Result<Self> {
         let FetchArgs {
             index_args,
-            index_strategy,
-            keyring_provider,
-            exclude_newer,
+            registry_client:
+                RegistryClientArgs {
+                    index_strategy,
+                    keyring_provider,
+                },
+            exclude_newer:
+                PackageExcludeNewerArgs {
+                    exclude_newer: ExcludeNewerArgs { exclude_newer },
+                    exclude_newer_package,
+                },
         } = args;
 
-        Self {
+        Ok(Self {
             index_strategy,
             keyring_provider,
             exclude_newer,
-            ..Self::from(index_args)
-        }
+            exclude_newer_package: exclude_newer_package.map(ExcludeNewerPackage::from_iter),
+            ..Self::try_from(index_args)?
+        })
     }
 }
 
-impl From<IndexArgs> for PipOptions {
-    fn from(args: IndexArgs) -> Self {
+impl TryFrom<IndexArgs> for PipOptions {
+    type Error = anyhow::Error;
+
+    fn try_from(args: IndexArgs) -> anyhow::Result<Self> {
         let IndexArgs {
             default_index,
             index,
@@ -498,6 +573,8 @@ impl From<IndexArgs> for PipOptions {
             }),
             ..Self::default()
         }
+        .relative_to(&env::current_dir()?)
+        .map_err(Into::into)
     }
 }
 
@@ -512,22 +589,39 @@ pub fn resolver_options(
         no_upgrade,
         upgrade_package,
         upgrade_group,
-        index_strategy,
-        keyring_provider,
-        resolution,
-        prerelease,
-        pre,
-        fork_strategy,
+        registry_client:
+            RegistryClientArgs {
+                index_strategy,
+                keyring_provider,
+            },
+        version_selection:
+            VersionSelectionArgs {
+                resolution,
+                prerelease,
+                pre,
+                fork_strategy,
+            },
         config_setting,
         config_settings_package,
-        no_build_isolation,
-        no_build_isolation_package,
-        build_isolation,
-        exclude_newer,
+        build_isolation:
+            PackageBuildIsolationArgs {
+                build_isolation:
+                    BuildIsolationArgs {
+                        no_build_isolation,
+                        build_isolation,
+                    },
+                no_build_isolation_package,
+            },
+        exclude_newer:
+            PackageExcludeNewerArgs {
+                exclude_newer: ExcludeNewerArgs { exclude_newer },
+                exclude_newer_package,
+            },
         link_mode,
-        no_sources,
-        no_sources_package,
-        exclude_newer_package,
+        sources: SourcesArgs {
+            no_sources,
+            no_sources_package,
+        },
     } = resolver_args;
 
     let BuildOptionsArgs {
@@ -539,7 +633,7 @@ pub fn resolver_options(
         no_binary_package,
     } = build_args;
 
-    Ok(ResolverOptions {
+    ResolverOptions {
         index: indexes_from_args(
             index_args.default_index.as_ref(),
             index_args.index.as_deref(),
@@ -612,7 +706,9 @@ pub fn resolver_options(
         } else {
             Some(no_sources_package)
         },
-    })
+    }
+    .relative_to(&env::current_dir()?)
+    .map_err(Into::into)
 }
 
 /// Construct the [`ResolverInstallerOptions`] from the [`ResolverInstallerArgs`] and [`BuildOptionsArgs`].
@@ -620,46 +716,56 @@ pub fn resolver_installer_options(
     resolver_installer_args: ResolverInstallerArgs,
     build_args: BuildOptionsArgs,
 ) -> anyhow::Result<ResolverInstallerOptions> {
-    let index = indexes_from_args(
-        resolver_installer_args.index_args.default_index.as_ref(),
-        resolver_installer_args.index_args.index.as_deref(),
-    );
-    resolver_installer_options_with_indexes(resolver_installer_args, build_args, index)
-}
-
-/// Construct the [`ResolverInstallerOptions`] with a precomputed list of indexes.
-pub fn resolver_installer_options_with_indexes(
-    resolver_installer_args: ResolverInstallerArgs,
-    build_args: BuildOptionsArgs,
-    index: Option<Vec<Index>>,
-) -> anyhow::Result<ResolverInstallerOptions> {
     let ResolverInstallerArgs {
         index_args,
         upgrade,
         no_upgrade,
         upgrade_package,
         upgrade_group,
-        reinstall,
-        no_reinstall,
-        reinstall_package,
-        index_strategy,
-        keyring_provider,
-        resolution,
-        prerelease,
-        pre,
-        fork_strategy,
+        reinstall:
+            ReinstallArgs {
+                reinstall,
+                no_reinstall,
+                reinstall_package,
+            },
+        registry_client:
+            RegistryClientArgs {
+                index_strategy,
+                keyring_provider,
+            },
+        version_selection:
+            VersionSelectionArgs {
+                resolution,
+                prerelease,
+                pre,
+                fork_strategy,
+            },
         config_setting,
         config_settings_package,
-        no_build_isolation,
-        no_build_isolation_package,
-        build_isolation,
-        exclude_newer,
-        exclude_newer_package,
+        build_isolation:
+            PackageBuildIsolationArgs {
+                build_isolation:
+                    BuildIsolationArgs {
+                        no_build_isolation,
+                        build_isolation,
+                    },
+                no_build_isolation_package,
+            },
+        exclude_newer:
+            PackageExcludeNewerArgs {
+                exclude_newer: ExcludeNewerArgs { exclude_newer },
+                exclude_newer_package,
+            },
         link_mode,
-        compile_bytecode,
-        no_compile_bytecode,
-        no_sources,
-        no_sources_package,
+        compile_bytecode:
+            CompileBytecodeArgs {
+                compile_bytecode,
+                no_compile_bytecode,
+            },
+        sources: SourcesArgs {
+            no_sources,
+            no_sources_package,
+        },
     } = resolver_installer_args;
 
     let BuildOptionsArgs {
@@ -671,8 +777,11 @@ pub fn resolver_installer_options_with_indexes(
         no_binary_package,
     } = build_args;
 
-    Ok(ResolverInstallerOptions {
-        index,
+    ResolverInstallerOptions {
+        index: indexes_from_args(
+            index_args.default_index.as_ref(),
+            index_args.index.as_deref(),
+        ),
         index_url: index_args.index_url.and_then(Maybe::into_option),
         extra_index_url: index_args.extra_index_url.map(|extra_index_url| {
             extra_index_url
@@ -746,5 +855,7 @@ pub fn resolver_installer_options_with_indexes(
             Some(no_sources_package)
         },
         torch_backend: None,
-    })
+    }
+    .relative_to(&env::current_dir()?)
+    .map_err(Into::into)
 }

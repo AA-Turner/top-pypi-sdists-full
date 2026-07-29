@@ -37,9 +37,21 @@ from slither.solc_parsing.yul.evm_functions import (
     binary_ops,
 )
 from slither.solc_parsing.expressions.find_variable import find_top_level
+from slither.visitors.expression.call_classification import classify_calls
 from slither.visitors.expression.find_calls import FindCalls
 from slither.visitors.expression.read_var import ReadVar
 from slither.visitors.expression.write_var import WriteVar
+
+
+EXTERNAL_YUL_FUNCTIONS = {"call", "callcode", "delegatecall", "staticcall"}
+
+
+def _is_external_yul_identifier(identifier: Identifier) -> bool:
+    value = identifier.value
+    if isinstance(value, SolidityFunction):
+        name = value.name.split("(")[0]
+        return name in EXTERNAL_YUL_FUNCTIONS
+    return False
 
 
 class YulNode:
@@ -91,12 +103,12 @@ class YulNode:
 
             find_call = FindCalls(expression)
             self._node.calls_as_expression = find_call.result()
-            self._node.external_calls_as_expressions = [
-                c for c in self._node.calls_as_expression if not isinstance(c.called, Identifier)
-            ]
-            self._node.internal_calls_as_expressions = [
-                c for c in self._node.calls_as_expression if isinstance(c.called, Identifier)
-            ]
+            internal, external = classify_calls(
+                self._node.calls_as_expression,
+                is_external_identifier=_is_external_yul_identifier,
+            )
+            self._node.internal_calls_as_expressions = internal
+            self._node.external_calls_as_expressions = external
 
 
 def link_underlying_nodes(node1: YulNode, node2: YulNode) -> None:
@@ -758,7 +770,7 @@ def _parse_yul_magic_suffixes(name: str, root: YulScope) -> Expression | None:
     # TODO: the following leads to wrong IR
     # Currently SlithIR doesnt support raw access to memory
     # So things like .offset/.slot will return the variable
-    # Instaed of the actual offset/slot
+    # Instead of the actual offset/slot
     if name.endswith(("_slot", ".slot")):
         potential_name = name[:-5]
         variable_found = _check_for_state_variable_name(root, potential_name)

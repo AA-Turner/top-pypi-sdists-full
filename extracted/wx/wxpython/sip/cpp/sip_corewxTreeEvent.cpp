@@ -69,9 +69,9 @@ sipwxTreeEvent::~sipwxTreeEvent()
     if (!sipMeth)
         return ::wxTreeEvent::Clone();
 
-    extern ::wxEvent* sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEvent* sipVH__core_102(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_102(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 ::wxEventCategory sipwxTreeEvent::GetEventCategory() const
@@ -84,9 +84,9 @@ sipwxTreeEvent::~sipwxTreeEvent()
     if (!sipMeth)
         return ::wxTreeEvent::GetEventCategory();
 
-    extern ::wxEventCategory sipVH__core_104(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
+    extern ::wxEventCategory sipVH__core_103(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *);
 
-    return sipVH__core_104(sipGILState, 0, sipPySelf, sipMeth);
+    return sipVH__core_103(sipGILState, 0, sipPySelf, sipMeth);
 }
 
 
@@ -515,7 +515,7 @@ static void *init_type_wxTreeEvent(sipSimpleWrapper *sipSelf, PyObject *sipArgs,
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxTreeEvent[] = {{390, 255, 1}};
+static sipEncodedTypeDef supers_wxTreeEvent[] = {{398, 255, 1}};
 
 
 static PyMethodDef methods_wxTreeEvent[] = {

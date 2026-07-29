@@ -320,7 +320,7 @@ static void *init_type_wxFSFile(sipSimpleWrapper *sipSelf, PyObject *sipArgs, Py
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxFSFile[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxFSFile[] = {{400, 255, 1}};
 
 
 static PyMethodDef methods_wxFSFile[] = {

@@ -165,6 +165,20 @@ class CreateSandboxResources(BaseModel):
     gpus: list[GPUResources] | None = None
 
 
+class ClearNetworkPolicy(Enum):
+    """Sentinel type for :data:`CLEAR_NETWORK_POLICY`."""
+
+    TOKEN = "clear"
+
+
+CLEAR_NETWORK_POLICY = ClearNetworkPolicy.TOKEN
+"""Pass as ``network`` to ``update_pool`` to remove a pool's network policy.
+
+Omitting ``network`` keeps the pool's current policy, so removing one needs an
+explicit instruction. Containers in the pool become unrestricted.
+"""
+
+
 class NetworkConfig(BaseModel):
     """Network access control policy for sandbox containers.
 
@@ -272,6 +286,7 @@ class SandboxPoolRequest(BaseModel):
     entrypoint: list[str] | None = None
     max_containers: int | None = None
     warm_containers: int | None = None
+    network: NetworkConfig | None = None
 
 
 # --- Response models ---
@@ -429,6 +444,7 @@ class SandboxPoolInfo(BaseModel):
     entrypoint: list[str] | None = None
     max_containers: int | None = None
     warm_containers: int | None = None
+    network_policy: NetworkConfig | None = None
     containers: list[PoolContainerInfo] | None = None
     created_at: OptionalTimestamp = None
     updated_at: OptionalTimestamp = None

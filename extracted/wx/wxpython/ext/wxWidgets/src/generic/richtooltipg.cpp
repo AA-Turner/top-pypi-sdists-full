@@ -44,10 +44,7 @@
 #include "wx/textwrapper.h"
 
 #ifdef __WXMSW__
-    #if wxUSE_UXTHEME
-        #include "wx/msw/uxtheme.h"
-        #define HAVE_MSW_THEME
-    #endif
+    #include "wx/msw/uxtheme.h"
 #endif
 
 // ----------------------------------------------------------------------------
@@ -89,31 +86,25 @@ public:
             // Determine the appropriate title font for the current platform.
             titleFont = labelTitle->GetFont();
 
-#ifdef HAVE_MSW_THEME
+#ifdef __WXMSW__
             // When using themes MSW tooltips use larger bluish version of the
             // normal font.
-            if ( UseTooltipTheme() )
+            if ( wxUxThemeIsActive() )
             {
                 titleFont.MakeLarger();
 
-                COLORREF c;
-                if ( FAILED(::GetThemeColor
-                                   (
-                                        wxUxThemeHandle(parent, L"TOOLTIP"),
-                                        TTP_BALLOONTITLE,
-                                        0,
-                                        TMT_TEXTCOLOR,
-                                        &c
-                                    )) )
+                wxUxThemeHandle theme(parent, L"TOOLTIP");
+                wxColour c = theme.GetColour(TTP_BALLOONTITLE, TMT_TEXTCOLOR);
+                if ( !c.IsOk() )
                 {
                     // Use the standard value of this colour as fallback.
-                    c = 0x993300;
+                    c.Set(0x00, 0x33, 0x99);
                 }
 
-                labelTitle->SetForegroundColour(wxRGBToColour(c));
+                labelTitle->SetForegroundColour(c);
             }
             else
-#endif // HAVE_MSW_THEME
+#endif // __WXMSW__
             {
                 // Everything else, including "classic" MSW look uses just the
                 // bold version of the base font.
@@ -135,8 +126,8 @@ public:
         wxTextSizerWrapper wrapper(this);
         wxSizer* sizerText = wrapper.CreateSizer(message, -1 /* No wrapping */);
 
-#ifdef HAVE_MSW_THEME
-        if ( icon.IsOk() && UseTooltipTheme() )
+#ifdef __WXMSW__
+        if ( icon.IsOk() && wxUxThemeIsActive() )
         {
             // Themed tooltips under MSW align the text with the title, not
             // with the icon, so use a helper horizontal sizer in this case.
@@ -147,7 +138,7 @@ public:
 
             sizerText = sizerTextIndent;
         }
-#endif // HAVE_MSW_THEME
+#endif // __WXMSW__
         sizerTop->Add(sizerText,
                         wxSizerFlags().DoubleBorder(wxLEFT|wxRIGHT|wxBOTTOM)
                                       .Centre());
@@ -170,40 +161,31 @@ public:
         if ( !colStart.IsOk() )
         {
             // Determine the best colour(s) to use on our own.
-#ifdef HAVE_MSW_THEME
-            if ( UseTooltipTheme() )
+#ifdef __WXMSW__
+            if ( wxUxThemeIsActive() )
             {
                 wxUxThemeHandle hTheme(GetParent(), L"TOOLTIP");
 
-                COLORREF c1, c2;
-                if ( FAILED(::GetThemeColor
-                                   (
-                                        hTheme,
-                                        TTP_BALLOONTITLE,
-                                        0,
-                                        TMT_GRADIENTCOLOR1,
-                                        &c1
-                                    )) ||
-                    FAILED(::GetThemeColor
-                                  (
-                                        hTheme,
-                                        TTP_BALLOONTITLE,
-                                        0,
-                                        TMT_GRADIENTCOLOR2,
-                                        &c2
-                                  )) )
-                {
-                    c1 = 0xffffff;
-                    c2 = 0xf0e5e4;
-                }
+                colStart = hTheme.GetColour(TTP_BALLOONTITLE, TMT_GRADIENTCOLOR1);
+                if ( !colStart.IsOk() )
+                    colStart = wxSystemSettings::SelectLightDark(*wxWHITE, *wxBLACK);
 
-                colStart = wxRGBToColour(c1);
-                colEnd = wxRGBToColour(c2);
+                colEnd = hTheme.GetColour(TTP_BALLOONTITLE, TMT_GRADIENTCOLOR2);
+                if ( !colEnd.IsOk() )
+                    colEnd = wxSystemSettings::SelectLightDark({0xe4, 0xe5, 0xf0},
+                                                               {0x40, 0x40, 0x20});
             }
             else
-#endif // HAVE_MSW_THEME
+#endif // __WXMSW__
             {
+                // In wxGTK wxSYS_COLOUR_INFOBK typically uses alpha channel
+                // and this doesn't work as wxPopupWindow background currently,
+                // so prefer not to set any colour at all to at least get
+                // something visible on the screen instead of using black
+                // bacgkround.
+#ifndef __WXGTK__
                 colStart = wxSystemSettings::GetColour(wxSYS_COLOUR_INFOBK);
+#endif
             }
         }
 
@@ -220,7 +202,7 @@ public:
 
             SetBackgroundBitmap(bmp);
         }
-        else // Use solid colour.
+        else if ( colStart.IsOk() ) // Use solid colour.
         {
             SetBackgroundColour(colStart);
         }
@@ -267,32 +249,20 @@ public:
     }
 
 protected:
-    virtual void OnDismiss() wxOVERRIDE
+    virtual void OnDismiss() override
     {
         Destroy();
     }
 
 private:
-#ifdef HAVE_MSW_THEME
-    // Returns non-NULL theme only if we're using Win7-style tooltips.
-    static bool UseTooltipTheme()
-    {
-        // Even themed applications under XP still use "classic" tooltips.
-        if ( wxGetWinVersion() <= wxWinVersion_XP )
-            return false;
-        else
-            return wxUxThemeIsActive();
-    }
-#endif // HAVE_MSW_THEME
-
     // For now we just hard code the tip height, would be nice to do something
     // smarter in the future.
     static int GetTipHeight()
     {
-#ifdef HAVE_MSW_THEME
-        if ( UseTooltipTheme() )
+#ifdef __WXMSW__
+        if ( wxUxThemeIsActive() )
             return 20;
-#endif // HAVE_MSW_THEME
+#endif // __WXMSW__
 
         return 15;
     }

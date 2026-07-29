@@ -14,9 +14,10 @@
         #include <wx/colour.h>
         #include <wx/font.h>
         #include <wx/dc.h>
-        #include <wx/bmpbndl.h>
-        #include <wx/aui/auibook.h>
         #include <wx/gdicmn.h>
+        #include <wx/aui/auibook.h>
+        #include <wx/bmpbndl.h>
+        #include <wx/dc.h>
 
 
 PyDoc_STRVAR(doc_wxAuiTabArt_Clone, "Clone() -> AuiTabArt\n"
@@ -183,7 +184,7 @@ extern "C" {static PyObject *meth_wxAuiTabArt_DrawTab(PyObject *, PyObject *, Py
 static PyObject *meth_wxAuiTabArt_DrawTab(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
 {
     PyObject *sipParseErr = SIP_NULLPTR;
-    PyObject *sipOrigSelf = sipSelf;
+    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
 
     {
         ::wxDC* dc;
@@ -211,16 +212,10 @@ static PyObject *meth_wxAuiTabArt_DrawTab(PyObject *sipSelf, PyObject *sipArgs, 
 
         if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J9J1iJ0J0", &sipSelf, sipType_wxAuiTabArt, &sipCpp, sipType_wxDC, &dc, sipType_wxWindow, &wnd, sipType_wxAuiNotebookPage, &page, sipType_wxRect, &rect, &rectState, &close_button_state, sipType_wxRect, &out_tab_rect, &out_tab_rectState, sipType_wxRect, &out_button_rect, &out_button_rectState))
         {
-            if (!sipOrigSelf)
-            {
-                sipAbstractMethod(sipName_AuiTabArt, sipName_DrawTab);
-                return SIP_NULLPTR;
-            }
-
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipCpp->DrawTab(*dc, wnd, *page, *rect, close_button_state, out_tab_rect, out_button_rect, &x_extent);
+            (sipSelfWasArg ? sipCpp->::wxAuiTabArt::DrawTab(*dc, wnd, *page, *rect, close_button_state, out_tab_rect, out_button_rect, &x_extent) : sipCpp->DrawTab(*dc, wnd, *page, *rect, close_button_state, out_tab_rect, out_button_rect, &x_extent));
             Py_END_ALLOW_THREADS
             sipReleaseType(const_cast< ::wxRect *>(rect), sipType_wxRect, rectState);
             sipReleaseType(out_tab_rect, sipType_wxRect, out_tab_rectState);
@@ -239,39 +234,41 @@ static PyObject *meth_wxAuiTabArt_DrawTab(PyObject *sipSelf, PyObject *sipArgs, 
 }
 
 
-PyDoc_STRVAR(doc_wxAuiTabArt_GetBestTabCtrlSize, "GetBestTabCtrlSize() -> int\n"
+PyDoc_STRVAR(doc_wxAuiTabArt_DrawPageTab, "DrawPageTab(dc, wnd, page, rect) -> int\n"
 "\n"
-"Returns the tab control size.");
+"Draws a tab for the specified notebook page.");
 
-extern "C" {static PyObject *meth_wxAuiTabArt_GetBestTabCtrlSize(PyObject *, PyObject *);}
-static PyObject *meth_wxAuiTabArt_GetBestTabCtrlSize(PyObject *sipSelf, PyObject *sipArgs)
+extern "C" {static PyObject *meth_wxAuiTabArt_DrawPageTab(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAuiTabArt_DrawPageTab(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
 {
     PyObject *sipParseErr = SIP_NULLPTR;
-    PyObject *sipOrigSelf = sipSelf;
+    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
 
     {
-        ::wxWindow* a0;
-        const ::wxAuiNotebookPageArray* a1;
-        const ::wxSize* a2;
-        int a2State = 0;
+        ::wxDC* dc;
+        ::wxWindow* wnd;
+        ::wxAuiNotebookPage* page;
+        const ::wxRect* rect;
+        int rectState = 0;
         ::wxAuiTabArt *sipCpp;
 
-        if (sipParseArgs(&sipParseErr, sipArgs, "BJ8J9J1", &sipSelf, sipType_wxAuiTabArt, &sipCpp, sipType_wxWindow, &a0, sipType_wxAuiNotebookPageArray, &a1, sipType_wxSize, &a2, &a2State))
+        static const char *sipKwdList[] = {
+            sipName_dc,
+            sipName_wnd,
+            sipName_page,
+            sipName_rect,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J9J1", &sipSelf, sipType_wxAuiTabArt, &sipCpp, sipType_wxDC, &dc, sipType_wxWindow, &wnd, sipType_wxAuiNotebookPage, &page, sipType_wxRect, &rect, &rectState))
         {
             int sipRes;
-
-            if (!sipOrigSelf)
-            {
-                sipAbstractMethod(sipName_AuiTabArt, sipName_GetBestTabCtrlSize);
-                return SIP_NULLPTR;
-            }
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->GetBestTabCtrlSize(a0, *a1, *a2);
+            sipRes = (sipSelfWasArg ? sipCpp->::wxAuiTabArt::DrawPageTab(*dc, wnd, *page, *rect) : sipCpp->DrawPageTab(*dc, wnd, *page, *rect));
             Py_END_ALLOW_THREADS
-            sipReleaseType(const_cast< ::wxSize *>(a2), sipType_wxSize, a2State);
+            sipReleaseType(const_cast< ::wxRect *>(rect), sipType_wxRect, rectState);
 
             if (PyErr_Occurred())
                 return 0;
@@ -280,7 +277,7 @@ static PyObject *meth_wxAuiTabArt_GetBestTabCtrlSize(PyObject *sipSelf, PyObject
         }
     }
 
-    sipNoMethod(sipParseErr, sipName_AuiTabArt, sipName_GetBestTabCtrlSize, SIP_NULLPTR);
+    sipNoMethod(sipParseErr, sipName_AuiTabArt, sipName_DrawPageTab, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -328,6 +325,78 @@ static PyObject *meth_wxAuiTabArt_GetIndentSize(PyObject *sipSelf, PyObject *sip
 }
 
 
+PyDoc_STRVAR(doc_wxAuiTabArt_GetNormalFont, "GetNormalFont() -> wx.Font\n"
+"\n"
+"Returns the font to use for normal, non-selected, tabs.");
+
+extern "C" {static PyObject *meth_wxAuiTabArt_GetNormalFont(PyObject *, PyObject *);}
+static PyObject *meth_wxAuiTabArt_GetNormalFont(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
+
+    {
+        const ::wxAuiTabArt *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxAuiTabArt, &sipCpp))
+        {
+            ::wxFont*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxFont((sipSelfWasArg ? sipCpp->::wxAuiTabArt::GetNormalFont() : sipCpp->GetNormalFont()));
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxFont, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiTabArt, sipName_GetNormalFont, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxAuiTabArt_GetSelectedFont, "GetSelectedFont() -> wx.Font\n"
+"\n"
+"Returns the font to use for the selected tab.");
+
+extern "C" {static PyObject *meth_wxAuiTabArt_GetSelectedFont(PyObject *, PyObject *);}
+static PyObject *meth_wxAuiTabArt_GetSelectedFont(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
+
+    {
+        const ::wxAuiTabArt *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxAuiTabArt, &sipCpp))
+        {
+            ::wxFont*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxFont((sipSelfWasArg ? sipCpp->::wxAuiTabArt::GetSelectedFont() : sipCpp->GetSelectedFont()));
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxFont, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiTabArt, sipName_GetSelectedFont, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxAuiTabArt_GetTabSize, "GetTabSize(dc, wnd, caption, bitmap, active, close_button_state, x_extent) -> wx.Size\n"
 "\n"
 "Returns the tab size for the given caption, bitmap and state.");
@@ -336,10 +405,10 @@ extern "C" {static PyObject *meth_wxAuiTabArt_GetTabSize(PyObject *, PyObject *,
 static PyObject *meth_wxAuiTabArt_GetTabSize(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
 {
     PyObject *sipParseErr = SIP_NULLPTR;
-    PyObject *sipOrigSelf = sipSelf;
+    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
 
     {
-        ::wxDC* dc;
+        ::wxReadOnlyDC* dc;
         ::wxWindow* wnd;
         const ::wxString* caption;
         int captionState = 0;
@@ -359,20 +428,14 @@ static PyObject *meth_wxAuiTabArt_GetTabSize(PyObject *sipSelf, PyObject *sipArg
             sipName_close_button_state,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J1J1bi", &sipSelf, sipType_wxAuiTabArt, &sipCpp, sipType_wxDC, &dc, sipType_wxWindow, &wnd, sipType_wxString, &caption, &captionState, sipType_wxBitmapBundle, &bitmap, &bitmapState, &active, &close_button_state))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J1J1bi", &sipSelf, sipType_wxAuiTabArt, &sipCpp, sipType_wxReadOnlyDC, &dc, sipType_wxWindow, &wnd, sipType_wxString, &caption, &captionState, sipType_wxBitmapBundle, &bitmap, &bitmapState, &active, &close_button_state))
         {
             ::wxSize*sipRes;
-
-            if (!sipOrigSelf)
-            {
-                sipAbstractMethod(sipName_AuiTabArt, sipName_GetTabSize);
-                return SIP_NULLPTR;
-            }
 
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxSize(sipCpp->GetTabSize(*dc, wnd, *caption, *bitmap, active, close_button_state, &x_extent));
+            sipRes = new ::wxSize((sipSelfWasArg ? sipCpp->::wxAuiTabArt::GetTabSize(*dc, wnd, *caption, *bitmap, active, close_button_state, &x_extent) : sipCpp->GetTabSize(*dc, wnd, *caption, *bitmap, active, close_button_state, &x_extent)));
             Py_END_ALLOW_THREADS
             sipReleaseType(const_cast< ::wxString *>(caption), sipType_wxString, captionState);
             sipReleaseType(const_cast< ::wxBitmapBundle *>(bitmap), sipType_wxBitmapBundle, bitmapState);
@@ -386,6 +449,110 @@ static PyObject *meth_wxAuiTabArt_GetTabSize(PyObject *sipSelf, PyObject *sipArg
     }
 
     sipNoMethod(sipParseErr, sipName_AuiTabArt, sipName_GetTabSize, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxAuiTabArt_GetPageTabSize, "GetPageTabSize(dc, wnd, page, xExtent=nullptr) -> wx.Size\n"
+"\n"
+"Returns the size of the tab for the specified notebook page.");
+
+extern "C" {static PyObject *meth_wxAuiTabArt_GetPageTabSize(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAuiTabArt_GetPageTabSize(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
+
+    {
+        ::wxReadOnlyDC* dc;
+        ::wxWindow* wnd;
+        const ::wxAuiNotebookPage* page;
+        int xExtent;
+        ::wxAuiTabArt *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_dc,
+            sipName_wnd,
+            sipName_page,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J9", &sipSelf, sipType_wxAuiTabArt, &sipCpp, sipType_wxReadOnlyDC, &dc, sipType_wxWindow, &wnd, sipType_wxAuiNotebookPage, &page))
+        {
+            ::wxSize*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxSize((sipSelfWasArg ? sipCpp->::wxAuiTabArt::GetPageTabSize(*dc, wnd, *page, &xExtent) : sipCpp->GetPageTabSize(*dc, wnd, *page, &xExtent)));
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            PyObject *sipResObj = sipConvertFromNewType(sipRes, sipType_wxSize, SIP_NULLPTR);
+            return sipBuildResult(0, "(Ri)", sipResObj, xExtent);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiTabArt, sipName_GetPageTabSize, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxAuiTabArt_GetButtonRect, "GetButtonRect(dc, wnd, inRect, bitmapId, buttonState, orientation, outRect=nullptr) -> int\n"
+"\n"
+"Returns the rectangle for the given button.");
+
+extern "C" {static PyObject *meth_wxAuiTabArt_GetButtonRect(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxAuiTabArt_GetButtonRect(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
+
+    {
+        ::wxReadOnlyDC* dc;
+        ::wxWindow* wnd;
+        const ::wxRect* inRect;
+        int inRectState = 0;
+        int bitmapId;
+        int buttonState;
+        int orientation;
+        ::wxRect* outRect = nullptr;
+        int outRectState = 0;
+        ::wxAuiTabArt *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_dc,
+            sipName_wnd,
+            sipName_inRect,
+            sipName_bitmapId,
+            sipName_buttonState,
+            sipName_orientation,
+            sipName_outRect,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9J8J1iii|J0", &sipSelf, sipType_wxAuiTabArt, &sipCpp, sipType_wxReadOnlyDC, &dc, sipType_wxWindow, &wnd, sipType_wxRect, &inRect, &inRectState, &bitmapId, &buttonState, &orientation, sipType_wxRect, &outRect, &outRectState))
+        {
+            int sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = (sipSelfWasArg ? sipCpp->::wxAuiTabArt::GetButtonRect(*dc, wnd, *inRect, bitmapId, buttonState, orientation, outRect) : sipCpp->GetButtonRect(*dc, wnd, *inRect, bitmapId, buttonState, orientation, outRect));
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxRect *>(inRect), sipType_wxRect, inRectState);
+            sipReleaseType(outRect, sipType_wxRect, outRectState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyLong_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_AuiTabArt, sipName_GetButtonRect, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -671,7 +838,7 @@ static PyObject *meth_wxAuiTabArt_SetActiveColour(PyObject *sipSelf, PyObject *s
 }
 
 
-PyDoc_STRVAR(doc_wxAuiTabArt_SetSizingInfo, "SetSizingInfo(tab_ctrl_size, tab_count, wnd=None) -> None\n"
+PyDoc_STRVAR(doc_wxAuiTabArt_SetSizingInfo, "SetSizingInfo(tab_ctrl_size, tab_count, wnd=nullptr) -> None\n"
 "\n"
 "Sets sizing information.");
 
@@ -685,7 +852,7 @@ static PyObject *meth_wxAuiTabArt_SetSizingInfo(PyObject *sipSelf, PyObject *sip
         const ::wxSize* tab_ctrl_size;
         int tab_ctrl_sizeState = 0;
         size_t tab_count;
-        ::wxWindow* wnd = 0;
+        ::wxWindow* wnd = nullptr;
         ::wxAuiTabArt *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -749,9 +916,13 @@ static PyMethodDef methods_wxAuiTabArt[] = {
     {sipName_Clone, meth_wxAuiTabArt_Clone, METH_VARARGS, doc_wxAuiTabArt_Clone},
     {sipName_DrawBackground, SIP_MLMETH_CAST(meth_wxAuiTabArt_DrawBackground), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabArt_DrawBackground},
     {sipName_DrawButton, SIP_MLMETH_CAST(meth_wxAuiTabArt_DrawButton), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabArt_DrawButton},
+    {sipName_DrawPageTab, SIP_MLMETH_CAST(meth_wxAuiTabArt_DrawPageTab), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabArt_DrawPageTab},
     {sipName_DrawTab, SIP_MLMETH_CAST(meth_wxAuiTabArt_DrawTab), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabArt_DrawTab},
-    {sipName_GetBestTabCtrlSize, meth_wxAuiTabArt_GetBestTabCtrlSize, METH_VARARGS, doc_wxAuiTabArt_GetBestTabCtrlSize},
+    {sipName_GetButtonRect, SIP_MLMETH_CAST(meth_wxAuiTabArt_GetButtonRect), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabArt_GetButtonRect},
     {sipName_GetIndentSize, meth_wxAuiTabArt_GetIndentSize, METH_VARARGS, doc_wxAuiTabArt_GetIndentSize},
+    {sipName_GetNormalFont, meth_wxAuiTabArt_GetNormalFont, METH_VARARGS, doc_wxAuiTabArt_GetNormalFont},
+    {sipName_GetPageTabSize, SIP_MLMETH_CAST(meth_wxAuiTabArt_GetPageTabSize), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabArt_GetPageTabSize},
+    {sipName_GetSelectedFont, meth_wxAuiTabArt_GetSelectedFont, METH_VARARGS, doc_wxAuiTabArt_GetSelectedFont},
     {sipName_GetTabSize, SIP_MLMETH_CAST(meth_wxAuiTabArt_GetTabSize), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabArt_GetTabSize},
     {sipName_SetActiveColour, SIP_MLMETH_CAST(meth_wxAuiTabArt_SetActiveColour), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabArt_SetActiveColour},
     {sipName_SetColour, SIP_MLMETH_CAST(meth_wxAuiTabArt_SetColour), METH_VARARGS|METH_KEYWORDS, doc_wxAuiTabArt_SetColour},
@@ -763,7 +934,9 @@ static PyMethodDef methods_wxAuiTabArt[] = {
 };
 
 sipVariableDef variables_wxAuiTabArt[] = {
-    {PropertyVariable, sipName_IndentSize, &methods_wxAuiTabArt[5], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SelectedFont, &methods_wxAuiTabArt[9], &methods_wxAuiTabArt[16], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_NormalFont, &methods_wxAuiTabArt[7], &methods_wxAuiTabArt[15], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_IndentSize, &methods_wxAuiTabArt[6], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxAuiTabArt, "AuiTabArt() -> None\n"
@@ -785,9 +958,9 @@ sipClassTypeDef sipTypeDef__aui_wxAuiTabArt = {
     {
         sipNameNr_AuiTabArt,
         {0, 0, 1},
-        14, methods_wxAuiTabArt,
+        18, methods_wxAuiTabArt,
         0, SIP_NULLPTR,
-        1, variables_wxAuiTabArt,
+        3, variables_wxAuiTabArt,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxAuiTabArt,

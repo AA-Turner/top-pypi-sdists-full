@@ -560,7 +560,7 @@ static PyObject *meth_wxPGChoices_GetValuesForStrings(PyObject *sipSelf, PyObjec
 }
 
 
-PyDoc_STRVAR(doc_wxPGChoices_GetIndicesForStrings, "GetIndicesForStrings(strings, unmatched=None) -> List[int]\n"
+PyDoc_STRVAR(doc_wxPGChoices_GetIndicesForStrings, "GetIndicesForStrings(strings, unmatched=nullptr) -> List[int]\n"
 "\n"
 "Returns array of indices matching given strings.");
 
@@ -572,7 +572,7 @@ static PyObject *meth_wxPGChoices_GetIndicesForStrings(PyObject *sipSelf, PyObje
     {
         const ::wxArrayString* strings;
         int stringsState = 0;
-        ::wxArrayString* unmatched = 0;
+        ::wxArrayString* unmatched = nullptr;
         int unmatchedState = 0;
         const ::wxPGChoices *sipCpp;
 

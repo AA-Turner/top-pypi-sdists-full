@@ -573,7 +573,7 @@ class KubernetesCloudSetupCommand:
             raise click.ClickException(
                 f"Invalid OIDC provider ARN format: {oidc_provider_arn}"
             )
-        oidc_provider_url = oidc_provider_arn.split("oidc-provider/")[-1]
+        oidc_provider_url = oidc_provider_arn.rsplit("oidc-provider/", maxsplit=1)[-1]
 
         service_account_name = "anyscale-operator"
 

@@ -42,5 +42,5 @@ def copy_file(to_s3: bool, source: str, target: Any, download: bool) -> None:
         else:
             shutil.copyfile(source, target)
     except (OSError, AssertionError) as e:
-        logger.warn("Failed to copy file %s , aborting", source)
+        logger.warning("Failed to copy file %s , aborting", source)
         raise e

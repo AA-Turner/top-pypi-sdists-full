@@ -152,7 +152,7 @@ public:
                                      // Decrements count by removed items.  Does 
                                      // not change capacity
 
-  void RemoveIf(bool predicate(const T& key));
+  void RemoveIf(bool (*predicate)(const T& key));
                                      // Removes elements for which predicate 
                                      // returns true. Decrements count 
                                      // by removed items.
@@ -380,6 +380,12 @@ public:
   */
   void SetArray(T*, int, int);
 
+  //Deleted these two functions because the compiler was actually using pointer
+  //comparison on m_a.  Adding implementations for these in Rhino 8 is cumbersome because
+  //of the template initialization stuff, so use ON_SimpleArray_IsEqual for now.
+  bool operator==(const ON_SimpleArray<T>& other) const = delete;
+  bool operator!=(const ON_SimpleArray<T>& other) const = delete;
+
 protected:
   // implementation //////////////////////////////////////////////////////
   void Move( int /* dest index*/, int /* src index */, int /* element count*/ );
@@ -387,6 +393,24 @@ protected:
 	int  m_count;    // 0 <= m_count <= m_capacity
 	int  m_capacity; // actual length of m_a[]
 };
+
+template <typename T>
+bool ON_SimpleArray_IsEqual(const ON_SimpleArray<T>& first, const ON_SimpleArray<T>& second)
+{
+  if (first.Count() != second.Count())
+    return false;
+
+  const int count = first.Count();
+
+  for (int i = 0; i < count; i++)
+  {
+    //Use operator== because it's more common
+    if (!(first[i] == second[i]))
+      return false;
+  }
+
+  return true;
+}
 
 
 ////////////////////////////////////////////////////////////////
@@ -733,6 +757,14 @@ public:
   */
   void SetArray(T*, int, int);
 
+  //Deleted these two functions because the compiler was actually using pointer
+  //comparison on m_a.  Adding implementations for these in Rhino 8 is cumbersome because
+  //of the template initialization stuff, so use ON_ClassArray_IsEqual for now.
+  bool operator==(const ON_ClassArray<T>& other) const = delete;
+  bool operator!=(const ON_ClassArray<T>& other) const = delete;
+
+  
+
 protected:
   // implementation //////////////////////////////////////////////////////
   void Move( int /* dest index*/, int /* src index */, int /* element count*/ );
@@ -742,6 +774,24 @@ protected:
 	int  m_count;    // 0 <= m_count <= m_capacity
 	int  m_capacity; // actual length of m_a[]
 };
+
+template <typename T>
+bool ON_ClassArray_IsEqual(const ON_ClassArray<T>& first, const ON_ClassArray<T>& second)
+{
+  if (first.Count() != second.Count())
+    return false;
+
+  const int count = first.Count();
+
+  for (int i = 0; i < count; i++)
+  {
+    //Use operator== because it's more common
+    if (!(first[i] == second[i]))
+      return false;
+  }
+
+  return true;
+}
 
 #if defined(ON_DLL_TEMPLATE)
 
@@ -1282,104 +1332,7 @@ private:
 };
 
 
-class ON_CLASS ON_UuidPtrList2
-{
-public:
-  ON_UuidPtrList2();
-  ~ON_UuidPtrList2();
-  ON_UuidPtrList2(const ON_UuidPtrList2& src);
-  ON_UuidPtrList2& operator=(const ON_UuidPtrList2& src);
 
-  unsigned int Count() const;
-  void RemoveAll();
-  void Reserve(size_t capacity);
-  bool AddUuidPtr(const ON_UUID& uuid, ON__UINT_PTR ptr);
-  bool RemoveUuid(const ON_UUID& uuid);
-  bool FindUuid(const ON_UUID& uuid) const;
-  bool FindUuid(const ON_UUID& uuid, ON__UINT_PTR* ptr) const;
-  bool FindUuidPtr(const ON_UUID& uuid, ON__UINT_PTR index) const;
-  unsigned int GetUuids(ON_SimpleArray<ON_UUID>& uuid_list) const;
-  void ImproveSearchSpeed();
-
-private:
-#pragma warning (push)
-#pragma warning (disable : 4251)
-  std::unique_ptr<class ON_UuidPtrList2_Private> m_private;
-  unsigned int padding[2];
-#if defined (ON_RUNTIME_ANDROID) //Android has 32-bit pointers?
-  unsigned char padding_array[12];
-#else
-  unsigned char padding_array[16];
-#endif
-#pragma warning (pop)
-};
-
-class ON_CLASS ON_UuidPairList2
-{
-public:
-  ON_UuidPairList2();
-  ~ON_UuidPairList2();
-  ON_UuidPairList2(const ON_UuidPairList2& src);
-  ON_UuidPairList2& operator=(const ON_UuidPairList2& src);
-
-  static const ON_UuidPairList2 EmptyList;
-
-  unsigned int Count() const;
-  void Empty();
-  void Reserve(size_t capacity);
-  bool AddPair(const ON_UUID& id1, const ON_UUID& id2);
-  bool RemovePair(const ON_UUID& id1);
-  bool RemovePair(const ON_UUID& id1, const ON_UUID& id2);
-  bool FindId1(const ON_UUID& id1, ON_UUID* id2 = 0) const;
-  bool FindPair(const ON_UUID& id1, const ON_UUID& id2) const;
-  int GetId1s(ON_SimpleArray<ON_UUID>& uuid_list) const;
-
-  void ImproveSearchSpeed();
-
-private:
-#pragma warning (push)
-#pragma warning (disable : 4251)
-  std::unique_ptr<class ON_UuidPairList2_Private> m_private;
-  unsigned int padding[2];
-#if defined (ON_RUNTIME_ANDROID) //Android has 32-bit pointers?
-  unsigned char padding_array[12];
-#else
-  unsigned char padding_array[16];
-#endif
-#pragma warning (pop)
-};
-
-class ON_CLASS ON_UuidIndexList2
-{
-public:
-  ON_UuidIndexList2();
-  ~ON_UuidIndexList2();
-  ON_UuidIndexList2(const ON_UuidIndexList2& src);
-  ON_UuidIndexList2& operator=(const ON_UuidIndexList2& src);
-
-  unsigned int Count() const;
-  void RemoveAll();
-  void Reserve(size_t capacity);
-  bool AddUuidIndex(const ON_UUID& uuid, int index);
-  bool RemoveUuid(const ON_UUID& uuid);
-  bool FindUuid(const ON_UUID& uuid) const;
-  bool FindUuid(const ON_UUID& uuid, int* index) const;
-  bool FindUuidIndex(const ON_UUID& uuid, int index) const;
-  unsigned int GetUuids(ON_SimpleArray<ON_UUID>& uuid_list) const;
-  void ImproveSearchSpeed();
-
-private:
-#pragma warning (push)
-#pragma warning (disable : 4251)
-  std::unique_ptr<class ON_UuidIndexList2_Private> m_private;
-  unsigned int padding[2];
-#if defined (ON_RUNTIME_ANDROID) //Android has 32-bit pointers?
-  unsigned char padding_array[12];
-#else
-  unsigned char padding_array[16];
-#endif
-#pragma warning (pop)
-};
 
 
 
@@ -1532,6 +1485,92 @@ private:
   ON_UuidPair* SearchHelper(const ON_UUID*) const;
   unsigned int m_sorted_count;
   unsigned int m_removed_count;
+};
+
+
+
+class ON_CLASS ON_UuidPtrList2
+{
+public:
+  ON_UuidPtrList2();
+  ~ON_UuidPtrList2();
+  ON_UuidPtrList2(const ON_UuidPtrList2& src);
+  ON_UuidPtrList2& operator=(const ON_UuidPtrList2& src);
+
+  unsigned int Count() const;
+  void RemoveAll();
+  void Reserve(size_t capacity);
+  bool AddUuidPtr(const ON_UUID& uuid, ON__UINT_PTR ptr);
+  bool RemoveUuid(const ON_UUID& uuid);
+  bool FindUuid(const ON_UUID& uuid) const;
+  bool FindUuid(const ON_UUID& uuid, ON__UINT_PTR* ptr) const;
+  bool FindUuidPtr(const ON_UUID& uuid, ON__UINT_PTR index) const;
+  unsigned int GetUuids(ON_SimpleArray<ON_UUID>& uuid_list) const;
+  void ImproveSearchSpeed();
+
+private:
+#pragma warning (push)
+#pragma warning (disable : 4251)
+  std::unique_ptr<class ON_UuidPtrList2_Private> m_private;
+  unsigned char padding[sizeof(ON_UuidPtrList) - sizeof(m_private)];
+#pragma warning (pop)
+};
+
+class ON_CLASS ON_UuidPairList2
+{
+public:
+  ON_UuidPairList2();
+  ~ON_UuidPairList2();
+  ON_UuidPairList2(const ON_UuidPairList2& src);
+  ON_UuidPairList2& operator=(const ON_UuidPairList2& src);
+
+  static const ON_UuidPairList2 EmptyList;
+
+  unsigned int Count() const;
+  void Empty();
+  void Reserve(size_t capacity);
+  bool AddPair(const ON_UUID& id1, const ON_UUID& id2);
+  bool RemovePair(const ON_UUID& id1);
+  bool RemovePair(const ON_UUID& id1, const ON_UUID& id2);
+  bool FindId1(const ON_UUID& id1, ON_UUID* id2 = 0) const;
+  bool FindPair(const ON_UUID& id1, const ON_UUID& id2) const;
+  int GetId1s(ON_SimpleArray<ON_UUID>& uuid_list) const;
+
+  void ImproveSearchSpeed();
+
+private:
+#pragma warning (push)
+#pragma warning (disable : 4251)
+  std::unique_ptr<class ON_UuidPairList2_Private> m_private;
+  unsigned char padding[sizeof(ON_UuidPairList) - sizeof(m_private)];
+#pragma warning (pop)
+};
+
+class ON_CLASS ON_UuidIndexList2
+{
+public:
+  ON_UuidIndexList2();
+  ~ON_UuidIndexList2();
+  ON_UuidIndexList2(const ON_UuidIndexList2& src);
+  ON_UuidIndexList2& operator=(const ON_UuidIndexList2& src);
+
+  unsigned int Count() const;
+  void RemoveAll();
+  void Reserve(size_t capacity);
+  bool AddUuidIndex(const ON_UUID& uuid, int index);
+  bool RemoveUuid(const ON_UUID& uuid);
+  bool FindUuid(const ON_UUID& uuid) const;
+  bool FindUuid(const ON_UUID& uuid, int* index) const;
+  bool FindUuidIndex(const ON_UUID& uuid, int index) const;
+  unsigned int GetUuids(ON_SimpleArray<ON_UUID>& uuid_list) const;
+  void ImproveSearchSpeed();
+
+private:
+#pragma warning (push)
+#pragma warning (disable : 4251)
+  std::unique_ptr<class ON_UuidIndexList2_Private> m_private;
+  unsigned char padding[sizeof(ON_UuidIndexList) - sizeof(m_private)];
+#pragma warning (pop)
 };
 
 

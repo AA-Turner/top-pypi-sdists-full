@@ -2,7 +2,6 @@
 // Name:        wx/ribbon/bar.h
 // Purpose:     Top-level component of the ribbon-bar-style interface
 // Author:      Peter Cawley
-// Modified by:
 // Created:     2009-05-23
 // Copyright:   (C) Peter Cawley
 // Licence:     wxWindows licence
@@ -58,18 +57,20 @@ class WXDLLIMPEXP_RIBBON wxRibbonBarEvent : public wxNotifyEvent
 public:
     wxRibbonBarEvent(wxEventType command_type = wxEVT_NULL,
                        int win_id = 0,
-                       wxRibbonPage* page = NULL)
+                       wxRibbonPage* page = nullptr)
         : wxNotifyEvent(command_type, win_id)
         , m_page(page)
     {
     }
-    wxEvent *Clone() const wxOVERRIDE { return new wxRibbonBarEvent(*this); }
+
+    wxRibbonBarEvent(const wxRibbonBarEvent& e) = default;
+    wxNODISCARD wxEvent *Clone() const override { return new wxRibbonBarEvent(*this); }
 
     wxRibbonPage* GetPage() {return m_page;}
     void SetPage(wxRibbonPage* page) {m_page = page;}
 
 protected:
-    wxRibbonPage* m_page;
+    wxRibbonPage* m_page = nullptr;
 
 #ifndef SWIG
 private:
@@ -81,7 +82,7 @@ class WXDLLIMPEXP_RIBBON wxRibbonPageTabInfo
 {
 public:
     wxRect rect;
-    wxRibbonPage *page;
+    wxRibbonPage* page = nullptr;
     int ideal_width;
     int small_begin_need_separator_width;
     int small_must_have_separator_width;
@@ -92,9 +93,12 @@ public:
     bool shown;
 };
 
-#ifndef SWIG
-WX_DECLARE_USER_EXPORTED_OBJARRAY(wxRibbonPageTabInfo, wxRibbonPageTabInfoArray, WXDLLIMPEXP_RIBBON);
-#endif
+// This must be a class because it's forward declared.
+class wxRibbonPageTabInfoArray : public wxBaseArray<wxRibbonPageTabInfo>
+{
+public:
+    using wxBaseArray<wxRibbonPageTabInfo>::wxBaseArray;
+};
 
 class WXDLLIMPEXP_RIBBON wxRibbonBar : public wxRibbonControl
 {
@@ -117,12 +121,13 @@ public:
 
     void SetTabCtrlMargins(int left, int right);
 
-    void SetArtProvider(wxRibbonArtProvider* art) wxOVERRIDE;
+    void SetArtProvider(wxRibbonArtProvider* art) override;
 
     bool SetActivePage(size_t page);
     bool SetActivePage(wxRibbonPage* page);
     int GetActivePage() const;
     wxRibbonPage* GetPage(int n);
+    wxRibbonPage* GetPageById(wxWindowID id);
     size_t GetPageCount() const;
     bool DismissExpandedPanel();
     int GetPageNumber(wxRibbonPage* page) const;
@@ -144,11 +149,11 @@ public:
     bool ArePanelsShown() const { return m_arePanelsShown; }
     wxRibbonDisplayMode GetDisplayMode() const { return m_ribbon_state; }
 
-    virtual bool HasMultiplePages() const wxOVERRIDE { return true; }
+    virtual bool HasMultiplePages() const override { return true; }
 
-    void SetWindowStyleFlag(long style) wxOVERRIDE;
-    long GetWindowStyleFlag() const wxOVERRIDE;
-    virtual bool Realize() wxOVERRIDE;
+    void SetWindowStyleFlag(long style) override;
+    long GetWindowStyleFlag() const override;
+    virtual bool Realize() override;
 
     // Implementation only.
     bool IsToggleButtonHovered() const { return m_toggle_button_hovered; }
@@ -156,16 +161,18 @@ public:
 
     void HideIfExpanded();
 
-    // Return the image list containing images of the given size, creating it
-    // if necessary.
-    wxImageList* GetButtonImageList(wxSize size);
+    // Deprecated: wxRibbonButtonBar now uses wxBitmapBundle directly for
+    // DPI-aware bitmap management. This method is maintained for backward
+    // compatibility but is no longer used by wxRibbonButtonBar.
+    wxDEPRECATED_MSG("wxRibbonButtonBar now uses wxBitmapBundle for DPI support")
+    wxImageList* GetButtonImageList(wxSize size, int initialCount = 1);
 
 protected:
     friend class wxRibbonPage;
 
-    virtual wxSize DoGetBestSize() const wxOVERRIDE;
-    wxBorder GetDefaultBorder() const wxOVERRIDE { return wxBORDER_NONE; }
-    wxRibbonPageTabInfo* HitTestTabs(wxPoint position, int* index = NULL);
+    virtual wxSize DoGetBestSize() const override;
+    wxBorder GetDefaultBorder() const override { return wxBORDER_NONE; }
+    wxRibbonPageTabInfo* HitTestTabs(wxPoint position, int* index = nullptr);
     void HitTestRibbonButton(const wxRect& rect, const wxPoint& position, bool &hover_flag);
 
     void CommonInit(long style);
@@ -180,6 +187,8 @@ protected:
     void OnEraseBackground(wxEraseEvent& evt);
     void DoEraseBackground(wxDC& dc);
     void OnSize(wxSizeEvent& evt);
+    void OnDPIChanged(wxDPIChangedEvent& evt);
+    void OnSysColourChanged(wxSysColourChangedEvent& evt);
     void OnMouseLeftDown(wxMouseEvent& evt);
     void OnMouseLeftUp(wxMouseEvent& evt);
     void OnMouseMiddleDown(wxMouseEvent& evt);
@@ -197,24 +206,24 @@ protected:
     wxRect m_tab_scroll_right_button_rect;
     wxRect m_toggle_button_rect;
     wxRect m_help_button_rect;
-    long m_flags;
-    int m_tabs_total_width_ideal;
-    int m_tabs_total_width_minimum;
-    int m_tab_margin_left;
-    int m_tab_margin_right;
-    int m_tab_height;
-    int m_tab_scroll_amount;
-    int m_current_page;
-    int m_current_hovered_page;
-    int m_tab_scroll_left_button_state;
-    int m_tab_scroll_right_button_state;
-    bool m_tab_scroll_buttons_shown;
-    bool m_arePanelsShown;
-    bool m_bar_hovered;
-    bool m_toggle_button_hovered;
-    bool m_help_button_hovered;
+    long m_flags = 0;
+    int m_tabs_total_width_ideal = 0;
+    int m_tabs_total_width_minimum = 0;
+    int m_tab_margin_left = 0;
+    int m_tab_margin_right = 0;
+    int m_tab_height = 0;
+    int m_tab_scroll_amount = 0;
+    int m_current_page = wxNOT_FOUND;
+    int m_current_hovered_page = wxNOT_FOUND;
+    int m_tab_scroll_left_button_state = 0;
+    int m_tab_scroll_right_button_state = 0;
+    bool m_tab_scroll_buttons_shown = false;
+    bool m_arePanelsShown = true;
+    bool m_bar_hovered = false;
+    bool m_toggle_button_hovered = false;
+    bool m_help_button_hovered = false;
 
-    wxRibbonDisplayMode m_ribbon_state;
+    wxRibbonDisplayMode m_ribbon_state = wxRIBBON_BAR_PINNED;
 
     wxVector<wxImageList*> m_image_lists;
 

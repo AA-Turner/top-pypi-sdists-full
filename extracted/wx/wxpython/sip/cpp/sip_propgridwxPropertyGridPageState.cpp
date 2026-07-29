@@ -28,7 +28,7 @@ public:
      * this class.
      */
 protected:
-    void DoSetSplitterPosition(int, int, int) SIP_OVERRIDE;
+    void DoSetSplitter(int, int, ::wxPGSplitterPositionFlags) SIP_OVERRIDE;
     ::wxPGProperty* DoInsert(::wxPGProperty*, int, ::wxPGProperty*) SIP_OVERRIDE;
     void DoDelete(::wxPGProperty*, bool) SIP_OVERRIDE;
 
@@ -57,22 +57,22 @@ sipwxPropertyGridPageState::~sipwxPropertyGridPageState()
     sipInstanceDestroyedEx(&sipPySelf);
 }
 
-void sipwxPropertyGridPageState::DoSetSplitterPosition(int pos, int splitterColumn, int flags)
+void sipwxPropertyGridPageState::DoSetSplitter(int pos, int splitterColumn, ::wxPGSplitterPositionFlags flags)
 {
     sip_gilstate_t sipGILState;
     PyObject *sipMeth;
 
-    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[0], &sipPySelf, SIP_NULLPTR, sipName_DoSetSplitterPosition);
+    sipMeth = sipIsPyMethod(&sipGILState, &sipPyMethods[0], &sipPySelf, SIP_NULLPTR, sipName_DoSetSplitter);
 
     if (!sipMeth)
     {
-        ::wxPropertyGridPageState::DoSetSplitterPosition(pos, splitterColumn, flags);
+        ::wxPropertyGridPageState::DoSetSplitter(pos, splitterColumn, flags);
         return;
     }
 
-    extern void sipVH__propgrid_53(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, int);
+    extern void sipVH__propgrid_52(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, int, int, ::wxPGSplitterPositionFlags);
 
-    sipVH__propgrid_53(sipGILState, 0, sipPySelf, sipMeth, pos, splitterColumn, flags);
+    sipVH__propgrid_52(sipGILState, 0, sipPySelf, sipMeth, pos, splitterColumn, flags);
 }
 
 ::wxPGProperty* sipwxPropertyGridPageState::DoInsert(::wxPGProperty*parent, int index, ::wxPGProperty*property)
@@ -85,9 +85,9 @@ void sipwxPropertyGridPageState::DoSetSplitterPosition(int pos, int splitterColu
     if (!sipMeth)
         return ::wxPropertyGridPageState::DoInsert(parent, index, property);
 
-    extern ::wxPGProperty* sipVH__propgrid_52(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGProperty*, int, ::wxPGProperty*);
+    extern ::wxPGProperty* sipVH__propgrid_51(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGProperty*, int, ::wxPGProperty*);
 
-    return sipVH__propgrid_52(sipGILState, 0, sipPySelf, sipMeth, parent, index, property);
+    return sipVH__propgrid_51(sipGILState, 0, sipPySelf, sipMeth, parent, index, property);
 }
 
 void sipwxPropertyGridPageState::DoDelete(::wxPGProperty*item, bool doDelete)
@@ -103,9 +103,9 @@ void sipwxPropertyGridPageState::DoDelete(::wxPGProperty*item, bool doDelete)
         return;
     }
 
-    extern void sipVH__propgrid_51(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGProperty*, bool);
+    extern void sipVH__propgrid_50(sip_gilstate_t, sipVirtErrorHandlerFunc, sipSimpleWrapper *, PyObject *, ::wxPGProperty*, bool);
 
-    sipVH__propgrid_51(sipGILState, 0, sipPySelf, sipMeth, item, doDelete);
+    sipVH__propgrid_50(sipGILState, 0, sipPySelf, sipMeth, item, doDelete);
 }
 
 
@@ -237,13 +237,13 @@ static PyObject *meth_wxPropertyGridPageState_DoInsert(PyObject *sipSelf, PyObje
 }
 
 
-PyDoc_STRVAR(doc_wxPropertyGridPageState_DoSetSplitterPosition, "DoSetSplitterPosition(pos, splitterColumn=0, flags=0) -> None\n"
+PyDoc_STRVAR(doc_wxPropertyGridPageState_DoSetSplitter, "DoSetSplitter(pos, splitterColumn=0, flags=PGSplitterPositionFlags.Null) -> None\n"
 "\n"
 "This needs to be overridden in grid used the manager so that splitter\n"
 "changes can be propagated to other pages.");
 
-extern "C" {static PyObject *meth_wxPropertyGridPageState_DoSetSplitterPosition(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxPropertyGridPageState_DoSetSplitterPosition(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+extern "C" {static PyObject *meth_wxPropertyGridPageState_DoSetSplitter(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxPropertyGridPageState_DoSetSplitter(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
 {
     PyObject *sipParseErr = SIP_NULLPTR;
     bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
@@ -251,7 +251,7 @@ static PyObject *meth_wxPropertyGridPageState_DoSetSplitterPosition(PyObject *si
     {
         int pos;
         int splitterColumn = 0;
-        int flags = 0;
+        ::wxPGSplitterPositionFlags flags = wxPGSplitterPositionFlags::Null;
         ::wxPropertyGridPageState *sipCpp;
 
         static const char *sipKwdList[] = {
@@ -260,12 +260,12 @@ static PyObject *meth_wxPropertyGridPageState_DoSetSplitterPosition(PyObject *si
             sipName_flags,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi|ii", &sipSelf, sipType_wxPropertyGridPageState, &sipCpp, &pos, &splitterColumn, &flags))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi|iE", &sipSelf, sipType_wxPropertyGridPageState, &sipCpp, &pos, &splitterColumn, sipType_wxPGSplitterPositionFlags, &flags))
         {
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            (sipSelfWasArg ? sipCpp->::wxPropertyGridPageState::DoSetSplitterPosition(pos, splitterColumn, flags) : sipCpp->DoSetSplitterPosition(pos, splitterColumn, flags));
+            (sipSelfWasArg ? sipCpp->::wxPropertyGridPageState::DoSetSplitter(pos, splitterColumn, flags) : sipCpp->DoSetSplitter(pos, splitterColumn, flags));
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
@@ -276,7 +276,7 @@ static PyObject *meth_wxPropertyGridPageState_DoSetSplitterPosition(PyObject *si
         }
     }
 
-    sipNoMethod(sipParseErr, sipName_PropertyGridPageState, sipName_DoSetSplitterPosition, SIP_NULLPTR);
+    sipNoMethod(sipParseErr, sipName_PropertyGridPageState, sipName_DoSetSplitter, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -1003,7 +1003,7 @@ static PyMethodDef methods_wxPropertyGridPageState[] = {
     {sipName_CheckColumnWidths, SIP_MLMETH_CAST(meth_wxPropertyGridPageState_CheckColumnWidths), METH_VARARGS|METH_KEYWORDS, doc_wxPropertyGridPageState_CheckColumnWidths},
     {sipName_DoDelete, SIP_MLMETH_CAST(meth_wxPropertyGridPageState_DoDelete), METH_VARARGS|METH_KEYWORDS, doc_wxPropertyGridPageState_DoDelete},
     {sipName_DoInsert, SIP_MLMETH_CAST(meth_wxPropertyGridPageState_DoInsert), METH_VARARGS|METH_KEYWORDS, doc_wxPropertyGridPageState_DoInsert},
-    {sipName_DoSetSplitterPosition, SIP_MLMETH_CAST(meth_wxPropertyGridPageState_DoSetSplitterPosition), METH_VARARGS|METH_KEYWORDS, doc_wxPropertyGridPageState_DoSetSplitterPosition},
+    {sipName_DoSetSplitter, SIP_MLMETH_CAST(meth_wxPropertyGridPageState_DoSetSplitter), METH_VARARGS|METH_KEYWORDS, doc_wxPropertyGridPageState_DoSetSplitter},
     {sipName_EnableCategories, SIP_MLMETH_CAST(meth_wxPropertyGridPageState_EnableCategories), METH_VARARGS|METH_KEYWORDS, doc_wxPropertyGridPageState_EnableCategories},
     {sipName_EnsureVirtualHeight, meth_wxPropertyGridPageState_EnsureVirtualHeight, METH_VARARGS, doc_wxPropertyGridPageState_EnsureVirtualHeight},
     {sipName_GetActualVirtualHeight, meth_wxPropertyGridPageState_GetActualVirtualHeight, METH_VARARGS, doc_wxPropertyGridPageState_GetActualVirtualHeight},

@@ -16,16 +16,16 @@
         #include <wx/bitmap.h>
         #include <wx/gdicmn.h>
         #include <wx/palette.h>
-        #include <wx/gdicmn.h>
         #include <wx/colour.h>
-        #include <wx/affinematrix2d.h>
         #include <wx/pen.h>
         #include "arrayholder.h"
         #include <wx/brush.h>
+        #include <wx/region.h>
+        #include <wx/gdicmn.h>
+        #include <wx/icon.h>
         #include <wx/font.h>
         #include <wx/dc.h>
-        #include <wx/region.h>
-        #include <wx/icon.h>
+        #include <wx/affinematrix2d.h>
         #include <wx/object.h>
         #include <wx/object.h>
         #include <wx/object.h>
@@ -551,12 +551,6 @@
         self->DrawLabel(*text, *bitmap, *rect, alignment, indexAccel, &rv);
         return new wxRect(rv);
     }
-    wxArrayInt* _wxDC_GetPartialTextExtents(const wxDC* self, const wxString *text)
-    {
-        wxArrayInt rval;
-        self->GetPartialTextExtents(*text, rval);
-        return new wxArrayInt(rval);
-    }
     wxColour* _wxDC_GetPixel(wxDC* self, wxCoord x, wxCoord y)
     {
         wxColour* col = new wxColour;
@@ -638,630 +632,6 @@
     {
         return wxPyDrawLinesFromBuffer(*self, pyBuff);
     }
-
-
-PyDoc_STRVAR(doc_wxDC_DeviceToLogicalX, "DeviceToLogicalX(x) -> int\n"
-"\n"
-"Convert device X coordinate to logical coordinate, using the current\n"
-"mapping mode, user scale factor, device origin and axis orientation.");
-
-extern "C" {static PyObject *meth_wxDC_DeviceToLogicalX(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_DeviceToLogicalX(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        ::wxCoord x;
-        const ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_x,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxDC, &sipCpp, &x))
-        {
-            ::wxCoord sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->DeviceToLogicalX(x);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return PyLong_FromLong(sipRes);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_DeviceToLogicalX, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_DeviceToLogicalXRel, "DeviceToLogicalXRel(x) -> int\n"
-"\n"
-"Convert device X coordinate to relative logical coordinate, using the\n"
-"current mapping mode and user scale factor but ignoring the axis\n"
-"orientation.");
-
-extern "C" {static PyObject *meth_wxDC_DeviceToLogicalXRel(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_DeviceToLogicalXRel(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        ::wxCoord x;
-        const ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_x,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxDC, &sipCpp, &x))
-        {
-            ::wxCoord sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->DeviceToLogicalXRel(x);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return PyLong_FromLong(sipRes);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_DeviceToLogicalXRel, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_DeviceToLogicalY, "DeviceToLogicalY(y) -> int\n"
-"\n"
-"Converts device Y coordinate to logical coordinate, using the current\n"
-"mapping mode, user scale factor, device origin and axis orientation.");
-
-extern "C" {static PyObject *meth_wxDC_DeviceToLogicalY(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_DeviceToLogicalY(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        ::wxCoord y;
-        const ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_y,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxDC, &sipCpp, &y))
-        {
-            ::wxCoord sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->DeviceToLogicalY(y);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return PyLong_FromLong(sipRes);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_DeviceToLogicalY, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_DeviceToLogicalYRel, "DeviceToLogicalYRel(y) -> int\n"
-"\n"
-"Convert device Y coordinate to relative logical coordinate, using the\n"
-"current mapping mode and user scale factor but ignoring the axis\n"
-"orientation.");
-
-extern "C" {static PyObject *meth_wxDC_DeviceToLogicalYRel(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_DeviceToLogicalYRel(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        ::wxCoord y;
-        const ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_y,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxDC, &sipCpp, &y))
-        {
-            ::wxCoord sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->DeviceToLogicalYRel(y);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return PyLong_FromLong(sipRes);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_DeviceToLogicalYRel, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_LogicalToDeviceX, "LogicalToDeviceX(x) -> int\n"
-"\n"
-"Converts logical X coordinate to device coordinate, using the current\n"
-"mapping mode, user scale factor, device origin and axis orientation.");
-
-extern "C" {static PyObject *meth_wxDC_LogicalToDeviceX(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_LogicalToDeviceX(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        ::wxCoord x;
-        const ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_x,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxDC, &sipCpp, &x))
-        {
-            ::wxCoord sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->LogicalToDeviceX(x);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return PyLong_FromLong(sipRes);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_LogicalToDeviceX, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_LogicalToDeviceXRel, "LogicalToDeviceXRel(x) -> int\n"
-"\n"
-"Converts logical X coordinate to relative device coordinate, using the\n"
-"current mapping mode and user scale factor but ignoring the axis\n"
-"orientation.");
-
-extern "C" {static PyObject *meth_wxDC_LogicalToDeviceXRel(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_LogicalToDeviceXRel(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        ::wxCoord x;
-        const ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_x,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxDC, &sipCpp, &x))
-        {
-            ::wxCoord sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->LogicalToDeviceXRel(x);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return PyLong_FromLong(sipRes);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_LogicalToDeviceXRel, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_LogicalToDeviceY, "LogicalToDeviceY(y) -> int\n"
-"\n"
-"Converts logical Y coordinate to device coordinate, using the current\n"
-"mapping mode, user scale factor, device origin and axis orientation.");
-
-extern "C" {static PyObject *meth_wxDC_LogicalToDeviceY(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_LogicalToDeviceY(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        ::wxCoord y;
-        const ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_y,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxDC, &sipCpp, &y))
-        {
-            ::wxCoord sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->LogicalToDeviceY(y);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return PyLong_FromLong(sipRes);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_LogicalToDeviceY, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_LogicalToDeviceYRel, "LogicalToDeviceYRel(y) -> int\n"
-"\n"
-"Converts logical Y coordinate to relative device coordinate, using the\n"
-"current mapping mode and user scale factor but ignoring the axis\n"
-"orientation.");
-
-extern "C" {static PyObject *meth_wxDC_LogicalToDeviceYRel(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_LogicalToDeviceYRel(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        ::wxCoord y;
-        const ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_y,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxDC, &sipCpp, &y))
-        {
-            ::wxCoord sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->LogicalToDeviceYRel(y);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return PyLong_FromLong(sipRes);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_LogicalToDeviceYRel, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_DeviceToLogical, "DeviceToLogical(x, y) -> Point\n"
-"DeviceToLogical(pt) -> Point\n"
-"\n"
-"Converts device (x, y) coordinates to logical coordinates taking into\n"
-"account all applied transformations like the current mapping mode,\n"
-"scale factors, device origin, axes orientation, affine transformation.\n"
-"");
-
-extern "C" {static PyObject *meth_wxDC_DeviceToLogical(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_DeviceToLogical(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        ::wxCoord x;
-        ::wxCoord y;
-        const ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_x,
-            sipName_y,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bii", &sipSelf, sipType_wxDC, &sipCpp, &x, &y))
-        {
-            ::wxPoint*sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxPoint(sipCpp->DeviceToLogical(x, y));
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromNewType(sipRes, sipType_wxPoint, SIP_NULLPTR);
-        }
-    }
-
-    {
-        const ::wxPoint* pt;
-        int ptState = 0;
-        const ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_pt,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxDC, &sipCpp, sipType_wxPoint, &pt, &ptState))
-        {
-            ::wxPoint*sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxPoint(sipCpp->DeviceToLogical(*pt));
-            Py_END_ALLOW_THREADS
-            sipReleaseType(const_cast< ::wxPoint *>(pt), sipType_wxPoint, ptState);
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromNewType(sipRes, sipType_wxPoint, SIP_NULLPTR);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_DeviceToLogical, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_DeviceToLogicalRel, "DeviceToLogicalRel(x, y) -> Size\n"
-"DeviceToLogicalRel(dim) -> Size\n"
-"\n"
-"Converts device x, y coordinates to relative logical coordinates\n"
-"taking into account all applied transformations like the current\n"
-"mapping mode, scale factors, affine transformation.\n"
-"");
-
-extern "C" {static PyObject *meth_wxDC_DeviceToLogicalRel(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_DeviceToLogicalRel(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        int x;
-        int y;
-        const ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_x,
-            sipName_y,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bii", &sipSelf, sipType_wxDC, &sipCpp, &x, &y))
-        {
-            ::wxSize*sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxSize(sipCpp->DeviceToLogicalRel(x, y));
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromNewType(sipRes, sipType_wxSize, SIP_NULLPTR);
-        }
-    }
-
-    {
-        const ::wxSize* dim;
-        int dimState = 0;
-        const ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_dim,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxDC, &sipCpp, sipType_wxSize, &dim, &dimState))
-        {
-            ::wxSize*sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxSize(sipCpp->DeviceToLogicalRel(*dim));
-            Py_END_ALLOW_THREADS
-            sipReleaseType(const_cast< ::wxSize *>(dim), sipType_wxSize, dimState);
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromNewType(sipRes, sipType_wxSize, SIP_NULLPTR);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_DeviceToLogicalRel, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_LogicalToDevice, "LogicalToDevice(x, y) -> Point\n"
-"LogicalToDevice(pt) -> Point\n"
-"\n"
-"Converts logical (x, y) coordinates to device coordinates taking into\n"
-"account all applied transformations like the current mapping mode,\n"
-"scale factors, device origin, axes orientation, affine transformation.\n"
-"");
-
-extern "C" {static PyObject *meth_wxDC_LogicalToDevice(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_LogicalToDevice(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        ::wxCoord x;
-        ::wxCoord y;
-        const ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_x,
-            sipName_y,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bii", &sipSelf, sipType_wxDC, &sipCpp, &x, &y))
-        {
-            ::wxPoint*sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxPoint(sipCpp->LogicalToDevice(x, y));
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromNewType(sipRes, sipType_wxPoint, SIP_NULLPTR);
-        }
-    }
-
-    {
-        const ::wxPoint* pt;
-        int ptState = 0;
-        const ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_pt,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxDC, &sipCpp, sipType_wxPoint, &pt, &ptState))
-        {
-            ::wxPoint*sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxPoint(sipCpp->LogicalToDevice(*pt));
-            Py_END_ALLOW_THREADS
-            sipReleaseType(const_cast< ::wxPoint *>(pt), sipType_wxPoint, ptState);
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromNewType(sipRes, sipType_wxPoint, SIP_NULLPTR);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_LogicalToDevice, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_LogicalToDeviceRel, "LogicalToDeviceRel(x, y) -> Size\n"
-"LogicalToDeviceRel(dim) -> Size\n"
-"\n"
-"Converts logical x, y coordinates to relative device coordinates\n"
-"taking into account all applied transformations like the current\n"
-"mapping mode, scale factors, affine transformation.\n"
-"");
-
-extern "C" {static PyObject *meth_wxDC_LogicalToDeviceRel(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_LogicalToDeviceRel(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        int x;
-        int y;
-        const ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_x,
-            sipName_y,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bii", &sipSelf, sipType_wxDC, &sipCpp, &x, &y))
-        {
-            ::wxSize*sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxSize(sipCpp->LogicalToDeviceRel(x, y));
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromNewType(sipRes, sipType_wxSize, SIP_NULLPTR);
-        }
-    }
-
-    {
-        const ::wxSize* dim;
-        int dimState = 0;
-        const ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_dim,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxDC, &sipCpp, sipType_wxSize, &dim, &dimState))
-        {
-            ::wxSize*sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxSize(sipCpp->LogicalToDeviceRel(*dim));
-            Py_END_ALLOW_THREADS
-            sipReleaseType(const_cast< ::wxSize *>(dim), sipType_wxSize, dimState);
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromNewType(sipRes, sipType_wxSize, SIP_NULLPTR);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_LogicalToDeviceRel, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
 
 
 PyDoc_STRVAR(doc_wxDC_Clear, "Clear() -> None\n"
@@ -3176,245 +2546,6 @@ static PyObject *meth_wxDC_SetDeviceClippingRegion(PyObject *sipSelf, PyObject *
 }
 
 
-PyDoc_STRVAR(doc_wxDC_GetCharHeight, "GetCharHeight() -> int\n"
-"\n"
-"Gets the character height of the currently set font.");
-
-extern "C" {static PyObject *meth_wxDC_GetCharHeight(PyObject *, PyObject *);}
-static PyObject *meth_wxDC_GetCharHeight(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxDC *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxDC, &sipCpp))
-        {
-            ::wxCoord sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->GetCharHeight();
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return PyLong_FromLong(sipRes);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_GetCharHeight, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_GetCharWidth, "GetCharWidth() -> int\n"
-"\n"
-"Gets the average character width of the currently set font.");
-
-extern "C" {static PyObject *meth_wxDC_GetCharWidth(PyObject *, PyObject *);}
-static PyObject *meth_wxDC_GetCharWidth(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxDC *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxDC, &sipCpp))
-        {
-            ::wxCoord sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->GetCharWidth();
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return PyLong_FromLong(sipRes);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_GetCharWidth, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_GetFontMetrics, "GetFontMetrics() -> FontMetrics\n"
-"\n"
-"Returns the various font characteristics.");
-
-extern "C" {static PyObject *meth_wxDC_GetFontMetrics(PyObject *, PyObject *);}
-static PyObject *meth_wxDC_GetFontMetrics(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxDC *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxDC, &sipCpp))
-        {
-            ::wxFontMetrics*sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxFontMetrics(sipCpp->GetFontMetrics());
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromNewType(sipRes, sipType_wxFontMetrics, SIP_NULLPTR);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_GetFontMetrics, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_GetFullMultiLineTextExtent, "GetFullMultiLineTextExtent(string, font=None) -> Tuple[int, int, int]\n"
-"\n"
-"Gets the dimensions of the string as it would be drawn.");
-
-extern "C" {static PyObject *meth_wxDC_GetFullMultiLineTextExtent(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_GetFullMultiLineTextExtent(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxString* string;
-        int stringState = 0;
-        ::wxCoord w;
-        ::wxCoord h;
-        ::wxCoord heightLine;
-        const ::wxFont* font = 0;
-        const ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_string,
-            sipName_font,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|J8", &sipSelf, sipType_wxDC, &sipCpp, sipType_wxString, &string, &stringState, sipType_wxFont, &font))
-        {
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->GetMultiLineTextExtent(*string, &w, &h, &heightLine, font);
-            Py_END_ALLOW_THREADS
-            sipReleaseType(const_cast< ::wxString *>(string), sipType_wxString, stringState);
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipBuildResult(0, "(iii)", w, h, heightLine);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_GetFullMultiLineTextExtent, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_GetPartialTextExtents, "GetPartialTextExtents(text) -> List[int]\n"
-"\n"
-"Fills the widths array with the widths from the beginning of text to\n"
-"the corresponding character of text.");
-
-extern "C" {static PyObject *meth_wxDC_GetPartialTextExtents(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_GetPartialTextExtents(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxString* text;
-        int textState = 0;
-        const ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_text,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxDC, &sipCpp, sipType_wxString, &text, &textState))
-        {
-            ::wxArrayInt*sipRes = 0;
-            int sipIsErr = 0;
-        PyErr_Clear();
-        Py_BEGIN_ALLOW_THREADS
-        sipRes = _wxDC_GetPartialTextExtents(sipCpp, text);
-        Py_END_ALLOW_THREADS
-        if (PyErr_Occurred()) sipIsErr = 1;
-            sipReleaseType(const_cast< ::wxString *>(text), sipType_wxString, textState);
-
-            if (sipIsErr)
-                return 0;
-
-            return sipConvertFromNewType(sipRes, sipType_wxArrayInt, SIP_NULLPTR);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_GetPartialTextExtents, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_GetFullTextExtent, "GetFullTextExtent(string, font=None) -> Tuple[int, int, int, int]\n"
-"\n"
-"Gets the dimensions of the string as it would be drawn.");
-
-extern "C" {static PyObject *meth_wxDC_GetFullTextExtent(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_GetFullTextExtent(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxString* string;
-        int stringState = 0;
-        ::wxCoord w;
-        ::wxCoord h;
-        ::wxCoord descent;
-        ::wxCoord externalLeading;
-        const ::wxFont* font = 0;
-        const ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_string,
-            sipName_font,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1|J8", &sipSelf, sipType_wxDC, &sipCpp, sipType_wxString, &string, &stringState, sipType_wxFont, &font))
-        {
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->GetTextExtent(*string, &w, &h, &descent, &externalLeading, font);
-            Py_END_ALLOW_THREADS
-            sipReleaseType(const_cast< ::wxString *>(string), sipType_wxString, stringState);
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipBuildResult(0, "(iiii)", w, h, descent, externalLeading);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_GetFullTextExtent, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxDC_GetBackgroundMode, "GetBackgroundMode() -> int\n"
 "\n"
 "Returns the current background mode: wxBRUSHSTYLE_SOLID or\n"
@@ -3446,76 +2577,6 @@ static PyObject *meth_wxDC_GetBackgroundMode(PyObject *sipSelf, PyObject *sipArg
     }
 
     sipNoMethod(sipParseErr, sipName_DC, sipName_GetBackgroundMode, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_GetFont, "GetFont() -> Font\n"
-"\n"
-"Gets the current font.");
-
-extern "C" {static PyObject *meth_wxDC_GetFont(PyObject *, PyObject *);}
-static PyObject *meth_wxDC_GetFont(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxDC *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxDC, &sipCpp))
-        {
-            ::wxFont*sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxFont(sipCpp->GetFont());
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromNewType(sipRes, sipType_wxFont, SIP_NULLPTR);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_GetFont, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_GetLayoutDirection, "GetLayoutDirection() -> LayoutDirection\n"
-"\n"
-"Gets the current layout direction of the device context.");
-
-extern "C" {static PyObject *meth_wxDC_GetLayoutDirection(PyObject *, PyObject *);}
-static PyObject *meth_wxDC_GetLayoutDirection(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxDC *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxDC, &sipCpp))
-        {
-            ::wxLayoutDirection sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->GetLayoutDirection();
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxLayoutDirection);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_GetLayoutDirection, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -3630,45 +2691,6 @@ static PyObject *meth_wxDC_SetBackgroundMode(PyObject *sipSelf, PyObject *sipArg
 }
 
 
-PyDoc_STRVAR(doc_wxDC_SetFont, "SetFont(font) -> None\n"
-"\n"
-"Sets the current font for the DC.");
-
-extern "C" {static PyObject *meth_wxDC_SetFont(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_SetFont(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxFont* font;
-        ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_font,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9", &sipSelf, sipType_wxDC, &sipCpp, sipType_wxFont, &font))
-        {
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->SetFont(*font);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_SetFont, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxDC_SetTextBackground, "SetTextBackground(colour) -> None\n"
 "\n"
 "Sets the current text background colour for the DC.");
@@ -3751,29 +2773,24 @@ static PyObject *meth_wxDC_SetTextForeground(PyObject *sipSelf, PyObject *sipArg
 }
 
 
-PyDoc_STRVAR(doc_wxDC_SetLayoutDirection, "SetLayoutDirection(dir) -> None\n"
+PyDoc_STRVAR(doc_wxDC_DisableAutomaticBoundingBoxUpdates, "DisableAutomaticBoundingBoxUpdates() -> None\n"
 "\n"
-"Sets the current layout direction for the device context.");
+"Disable automatic bounding box updates.");
 
-extern "C" {static PyObject *meth_wxDC_SetLayoutDirection(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_SetLayoutDirection(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+extern "C" {static PyObject *meth_wxDC_DisableAutomaticBoundingBoxUpdates(PyObject *, PyObject *);}
+static PyObject *meth_wxDC_DisableAutomaticBoundingBoxUpdates(PyObject *sipSelf, PyObject *sipArgs)
 {
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        ::wxLayoutDirection dir;
         ::wxDC *sipCpp;
 
-        static const char *sipKwdList[] = {
-            sipName_dir,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BE", &sipSelf, sipType_wxDC, &sipCpp, sipType_wxLayoutDirection, &dir))
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxDC, &sipCpp))
         {
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipCpp->SetLayoutDirection(dir);
+            sipCpp->DisableAutomaticBoundingBoxUpdates();
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
@@ -3784,7 +2801,42 @@ static PyObject *meth_wxDC_SetLayoutDirection(PyObject *sipSelf, PyObject *sipAr
         }
     }
 
-    sipNoMethod(sipParseErr, sipName_DC, sipName_SetLayoutDirection, SIP_NULLPTR);
+    sipNoMethod(sipParseErr, sipName_DC, sipName_DisableAutomaticBoundingBoxUpdates, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxDC_AreAutomaticBoundingBoxUpdatesEnabled, "AreAutomaticBoundingBoxUpdatesEnabled() -> bool\n"
+"\n"
+"Check if automatic bounding box updates are performed.");
+
+extern "C" {static PyObject *meth_wxDC_AreAutomaticBoundingBoxUpdatesEnabled(PyObject *, PyObject *);}
+static PyObject *meth_wxDC_AreAutomaticBoundingBoxUpdatesEnabled(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxDC *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxDC, &sipCpp))
+        {
+            bool sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = sipCpp->AreAutomaticBoundingBoxUpdatesEnabled();
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return PyBool_FromLong(sipRes);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_DC, sipName_AreAutomaticBoundingBoxUpdatesEnabled, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -4497,401 +3549,6 @@ static PyObject *meth_wxDC_SetPen(PyObject *sipSelf, PyObject *sipArgs, PyObject
 }
 
 
-PyDoc_STRVAR(doc_wxDC_CanUseTransformMatrix, "CanUseTransformMatrix() -> bool\n"
-"\n"
-"Check if the use of transformation matrix is supported by the current\n"
-"system.");
-
-extern "C" {static PyObject *meth_wxDC_CanUseTransformMatrix(PyObject *, PyObject *);}
-static PyObject *meth_wxDC_CanUseTransformMatrix(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxDC *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxDC, &sipCpp))
-        {
-            bool sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->CanUseTransformMatrix();
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return PyBool_FromLong(sipRes);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_CanUseTransformMatrix, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_SetTransformMatrix, "SetTransformMatrix(matrix) -> bool\n"
-"\n"
-"Set the transformation matrix.");
-
-extern "C" {static PyObject *meth_wxDC_SetTransformMatrix(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_SetTransformMatrix(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxAffineMatrix2D* matrix;
-        ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_matrix,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9", &sipSelf, sipType_wxDC, &sipCpp, sipType_wxAffineMatrix2D, &matrix))
-        {
-            bool sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->SetTransformMatrix(*matrix);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return PyBool_FromLong(sipRes);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_SetTransformMatrix, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_GetTransformMatrix, "GetTransformMatrix() -> AffineMatrix2D\n"
-"\n"
-"Return the transformation matrix used by this device context.");
-
-extern "C" {static PyObject *meth_wxDC_GetTransformMatrix(PyObject *, PyObject *);}
-static PyObject *meth_wxDC_GetTransformMatrix(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxDC *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxDC, &sipCpp))
-        {
-            ::wxAffineMatrix2D*sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxAffineMatrix2D(sipCpp->GetTransformMatrix());
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromNewType(sipRes, sipType_wxAffineMatrix2D, SIP_NULLPTR);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_GetTransformMatrix, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_ResetTransformMatrix, "ResetTransformMatrix() -> None\n"
-"\n"
-"Revert the transformation matrix to identity matrix.");
-
-extern "C" {static PyObject *meth_wxDC_ResetTransformMatrix(PyObject *, PyObject *);}
-static PyObject *meth_wxDC_ResetTransformMatrix(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        ::wxDC *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxDC, &sipCpp))
-        {
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->ResetTransformMatrix();
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_ResetTransformMatrix, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_CanDrawBitmap, "CanDrawBitmap() -> bool\n"
-"\n"
-"Does the DC support drawing bitmaps?");
-
-extern "C" {static PyObject *meth_wxDC_CanDrawBitmap(PyObject *, PyObject *);}
-static PyObject *meth_wxDC_CanDrawBitmap(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxDC *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxDC, &sipCpp))
-        {
-            bool sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->CanDrawBitmap();
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return PyBool_FromLong(sipRes);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_CanDrawBitmap, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_CanGetTextExtent, "CanGetTextExtent() -> bool\n"
-"\n"
-"Does the DC support calculating the size required to draw text?");
-
-extern "C" {static PyObject *meth_wxDC_CanGetTextExtent(PyObject *, PyObject *);}
-static PyObject *meth_wxDC_CanGetTextExtent(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxDC *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxDC, &sipCpp))
-        {
-            bool sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->CanGetTextExtent();
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return PyBool_FromLong(sipRes);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_CanGetTextExtent, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_GetLogicalOrigin, "GetLogicalOrigin() -> Tuple[int, int]\n"
-"\n"
-"Return the coordinates of the logical point (0, 0).");
-
-extern "C" {static PyObject *meth_wxDC_GetLogicalOrigin(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_GetLogicalOrigin(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        ::wxCoord x;
-        ::wxCoord y;
-        const ::wxDC *sipCpp;
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, SIP_NULLPTR, SIP_NULLPTR, "B", &sipSelf, sipType_wxDC, &sipCpp))
-        {
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->GetLogicalOrigin(&x, &y);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipBuildResult(0, "(ii)", x, y);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_GetLogicalOrigin, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_CopyAttributes, "CopyAttributes(dc) -> None\n"
-"\n"
-"Copy attributes from another DC.");
-
-extern "C" {static PyObject *meth_wxDC_CopyAttributes(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_CopyAttributes(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxDC* dc;
-        ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_dc,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9", &sipSelf, sipType_wxDC, &sipCpp, sipType_wxDC, &dc))
-        {
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->CopyAttributes(*dc);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_CopyAttributes, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_GetContentScaleFactor, "GetContentScaleFactor() -> float\n"
-"\n"
-"Returns the factor used for converting logical pixels to physical\n"
-"ones.");
-
-extern "C" {static PyObject *meth_wxDC_GetContentScaleFactor(PyObject *, PyObject *);}
-static PyObject *meth_wxDC_GetContentScaleFactor(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxDC *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxDC, &sipCpp))
-        {
-            double sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->GetContentScaleFactor();
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return PyFloat_FromDouble(sipRes);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_GetContentScaleFactor, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_GetDepth, "GetDepth() -> int\n"
-"\n"
-"Returns the depth (number of bits/pixel) of this DC.");
-
-extern "C" {static PyObject *meth_wxDC_GetDepth(PyObject *, PyObject *);}
-static PyObject *meth_wxDC_GetDepth(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxDC *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxDC, &sipCpp))
-        {
-            int sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->GetDepth();
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return PyLong_FromLong(sipRes);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_GetDepth, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_GetDeviceOrigin, "GetDeviceOrigin() -> Point\n"
-"\n"
-"Returns the current device origin.");
-
-extern "C" {static PyObject *meth_wxDC_GetDeviceOrigin(PyObject *, PyObject *);}
-static PyObject *meth_wxDC_GetDeviceOrigin(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxDC *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxDC, &sipCpp))
-        {
-            ::wxPoint*sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxPoint(sipCpp->GetDeviceOrigin());
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromNewType(sipRes, sipType_wxPoint, SIP_NULLPTR);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_GetDeviceOrigin, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxDC_GetLogicalFunction, "GetLogicalFunction() -> RasterOperationMode\n"
 "\n"
 "Gets the current logical function.");
@@ -4922,41 +3579,6 @@ static PyObject *meth_wxDC_GetLogicalFunction(PyObject *sipSelf, PyObject *sipAr
     }
 
     sipNoMethod(sipParseErr, sipName_DC, sipName_GetLogicalFunction, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_GetMapMode, "GetMapMode() -> MappingMode\n"
-"\n"
-"Gets the current mapping mode for the device context.");
-
-extern "C" {static PyObject *meth_wxDC_GetMapMode(PyObject *, PyObject *);}
-static PyObject *meth_wxDC_GetMapMode(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxDC *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxDC, &sipCpp))
-        {
-            ::wxMappingMode sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->GetMapMode();
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromEnum(static_cast<int>(sipRes), sipType_wxMappingMode);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_GetMapMode, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -5015,465 +3637,6 @@ static PyObject *meth_wxDC_GetPixel(PyObject *sipSelf, PyObject *sipArgs, PyObje
 }
 
 
-PyDoc_STRVAR(doc_wxDC_GetPPI, "GetPPI() -> Size\n"
-"\n"
-"Returns the resolution of the device in pixels per inch.");
-
-extern "C" {static PyObject *meth_wxDC_GetPPI(PyObject *, PyObject *);}
-static PyObject *meth_wxDC_GetPPI(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxDC *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxDC, &sipCpp))
-        {
-            ::wxSize*sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxSize(sipCpp->GetPPI());
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromNewType(sipRes, sipType_wxSize, SIP_NULLPTR);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_GetPPI, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_FromDIP, "FromDIP(sz) -> Size\n"
-"FromDIP(pt) -> Point\n"
-"FromDIP(d) -> int\n"
-"\n"
-"Convert DPI-independent pixel values to the value in pixels\n"
-"appropriate for the DC.\n"
-"\n"
-"");
-
-extern "C" {static PyObject *meth_wxDC_FromDIP(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_FromDIP(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxSize* sz;
-        int szState = 0;
-        const ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_sz,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxDC, &sipCpp, sipType_wxSize, &sz, &szState))
-        {
-            ::wxSize*sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxSize(sipCpp->FromDIP(*sz));
-            Py_END_ALLOW_THREADS
-            sipReleaseType(const_cast< ::wxSize *>(sz), sipType_wxSize, szState);
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromNewType(sipRes, sipType_wxSize, SIP_NULLPTR);
-        }
-    }
-
-    {
-        const ::wxPoint* pt;
-        int ptState = 0;
-        const ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_pt,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxDC, &sipCpp, sipType_wxPoint, &pt, &ptState))
-        {
-            ::wxPoint*sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxPoint(sipCpp->FromDIP(*pt));
-            Py_END_ALLOW_THREADS
-            sipReleaseType(const_cast< ::wxPoint *>(pt), sipType_wxPoint, ptState);
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromNewType(sipRes, sipType_wxPoint, SIP_NULLPTR);
-        }
-    }
-
-    {
-        int d;
-        const ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_d,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxDC, &sipCpp, &d))
-        {
-            int sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->FromDIP(d);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return PyLong_FromLong(sipRes);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_FromDIP, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_ToDIP, "ToDIP(sz) -> Size\n"
-"ToDIP(pt) -> Point\n"
-"ToDIP(d) -> int\n"
-"\n"
-"Convert pixel values of the current DC to DPI-independent pixel\n"
-"values.\n"
-"\n"
-"");
-
-extern "C" {static PyObject *meth_wxDC_ToDIP(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_ToDIP(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxSize* sz;
-        int szState = 0;
-        const ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_sz,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxDC, &sipCpp, sipType_wxSize, &sz, &szState))
-        {
-            ::wxSize*sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxSize(sipCpp->ToDIP(*sz));
-            Py_END_ALLOW_THREADS
-            sipReleaseType(const_cast< ::wxSize *>(sz), sipType_wxSize, szState);
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromNewType(sipRes, sipType_wxSize, SIP_NULLPTR);
-        }
-    }
-
-    {
-        const ::wxPoint* pt;
-        int ptState = 0;
-        const ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_pt,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxDC, &sipCpp, sipType_wxPoint, &pt, &ptState))
-        {
-            ::wxPoint*sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxPoint(sipCpp->ToDIP(*pt));
-            Py_END_ALLOW_THREADS
-            sipReleaseType(const_cast< ::wxPoint *>(pt), sipType_wxPoint, ptState);
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromNewType(sipRes, sipType_wxPoint, SIP_NULLPTR);
-        }
-    }
-
-    {
-        int d;
-        const ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_d,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bi", &sipSelf, sipType_wxDC, &sipCpp, &d))
-        {
-            int sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->ToDIP(d);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return PyLong_FromLong(sipRes);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_ToDIP, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_GetSize, "GetSize() -> Size\n"
-"\n"
-"This is an overloaded member function, provided for convenience. It\n"
-"differs from the above function only in what argument(s) it accepts.");
-
-extern "C" {static PyObject *meth_wxDC_GetSize(PyObject *, PyObject *);}
-static PyObject *meth_wxDC_GetSize(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxDC *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxDC, &sipCpp))
-        {
-            ::wxSize*sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxSize(sipCpp->GetSize());
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromNewType(sipRes, sipType_wxSize, SIP_NULLPTR);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_GetSize, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_GetSizeMM, "GetSizeMM() -> Size\n"
-"\n"
-"This is an overloaded member function, provided for convenience. It\n"
-"differs from the above function only in what argument(s) it accepts.");
-
-extern "C" {static PyObject *meth_wxDC_GetSizeMM(PyObject *, PyObject *);}
-static PyObject *meth_wxDC_GetSizeMM(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxDC *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxDC, &sipCpp))
-        {
-            ::wxSize*sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = new ::wxSize(sipCpp->GetSizeMM());
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipConvertFromNewType(sipRes, sipType_wxSize, SIP_NULLPTR);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_GetSizeMM, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_GetUserScale, "GetUserScale() -> Tuple[float, float]\n"
-"\n"
-"Gets the current user scale factor.");
-
-extern "C" {static PyObject *meth_wxDC_GetUserScale(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_GetUserScale(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        double x;
-        double y;
-        const ::wxDC *sipCpp;
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, SIP_NULLPTR, SIP_NULLPTR, "B", &sipSelf, sipType_wxDC, &sipCpp))
-        {
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->GetUserScale(&x, &y);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipBuildResult(0, "(dd)", x, y);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_GetUserScale, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_IsOk, "IsOk() -> bool\n"
-"\n"
-"Returns true if the DC is ok to use.");
-
-extern "C" {static PyObject *meth_wxDC_IsOk(PyObject *, PyObject *);}
-static PyObject *meth_wxDC_IsOk(PyObject *sipSelf, PyObject *sipArgs)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        const ::wxDC *sipCpp;
-
-        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxDC, &sipCpp))
-        {
-            bool sipRes;
-
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipRes = sipCpp->IsOk();
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return PyBool_FromLong(sipRes);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_IsOk, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_SetAxisOrientation, "SetAxisOrientation(xLeftRight, yBottomUp) -> None\n"
-"\n"
-"Sets the x and y axis orientation (i.e. the direction from lowest to\n"
-"highest values on the axis).");
-
-extern "C" {static PyObject *meth_wxDC_SetAxisOrientation(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_SetAxisOrientation(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        bool xLeftRight;
-        bool yBottomUp;
-        ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_xLeftRight,
-            sipName_yBottomUp,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bbb", &sipSelf, sipType_wxDC, &sipCpp, &xLeftRight, &yBottomUp))
-        {
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->SetAxisOrientation(xLeftRight, yBottomUp);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_SetAxisOrientation, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_SetDeviceOrigin, "SetDeviceOrigin(x, y) -> None\n"
-"\n"
-"Sets the device origin (i.e. the origin in pixels after scaling has\n"
-"been applied).");
-
-extern "C" {static PyObject *meth_wxDC_SetDeviceOrigin(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_SetDeviceOrigin(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        ::wxCoord x;
-        ::wxCoord y;
-        ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_x,
-            sipName_y,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bii", &sipSelf, sipType_wxDC, &sipCpp, &x, &y))
-        {
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->SetDeviceOrigin(x, y);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_SetDeviceOrigin, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
 PyDoc_STRVAR(doc_wxDC_SetLogicalFunction, "SetLogicalFunction(function) -> None\n"
 "\n"
 "Sets the current logical function for the device context.");
@@ -5508,46 +3671,6 @@ static PyObject *meth_wxDC_SetLogicalFunction(PyObject *sipSelf, PyObject *sipAr
     }
 
     sipNoMethod(sipParseErr, sipName_DC, sipName_SetLogicalFunction, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_SetMapMode, "SetMapMode(mode) -> None\n"
-"\n"
-"The mapping mode of the device context defines the unit of measurement\n"
-"used to convert logical units to device units.");
-
-extern "C" {static PyObject *meth_wxDC_SetMapMode(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_SetMapMode(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        ::wxMappingMode mode;
-        ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_mode,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BE", &sipSelf, sipType_wxDC, &sipCpp, sipType_wxMappingMode, &mode))
-        {
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->SetMapMode(mode);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_SetMapMode, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -5593,32 +3716,29 @@ static PyObject *meth_wxDC_SetPalette(PyObject *sipSelf, PyObject *sipArgs, PyOb
 }
 
 
-PyDoc_STRVAR(doc_wxDC_SetUserScale, "SetUserScale(xScale, yScale) -> None\n"
+PyDoc_STRVAR(doc_wxDC_CopyAttributes, "CopyAttributes(dc) -> None\n"
 "\n"
-"Sets the user scaling factor, useful for applications which require\n"
-"'zooming'.");
+"Copy attributes from another DC.");
 
-extern "C" {static PyObject *meth_wxDC_SetUserScale(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_SetUserScale(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+extern "C" {static PyObject *meth_wxDC_CopyAttributes(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxDC_CopyAttributes(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
 {
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        double xScale;
-        double yScale;
+        const ::wxDC* dc;
         ::wxDC *sipCpp;
 
         static const char *sipKwdList[] = {
-            sipName_xScale,
-            sipName_yScale,
+            sipName_dc,
         };
 
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bdd", &sipSelf, sipType_wxDC, &sipCpp, &xScale, &yScale))
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ9", &sipSelf, sipType_wxDC, &sipCpp, sipType_wxDC, &dc))
         {
             PyErr_Clear();
 
             Py_BEGIN_ALLOW_THREADS
-            sipCpp->SetUserScale(xScale, yScale);
+            sipCpp->CopyAttributes(*dc);
             Py_END_ALLOW_THREADS
 
             if (PyErr_Occurred())
@@ -5629,7 +3749,7 @@ static PyObject *meth_wxDC_SetUserScale(PyObject *sipSelf, PyObject *sipArgs, Py
         }
     }
 
-    sipNoMethod(sipParseErr, sipName_DC, sipName_SetUserScale, SIP_NULLPTR);
+    sipNoMethod(sipParseErr, sipName_DC, sipName_CopyAttributes, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -5672,7 +3792,7 @@ static PyObject *meth_wxDC_GetHandle(PyObject *sipSelf, PyObject *sipArgs)
 }
 
 
-PyDoc_STRVAR(doc_wxDC_GetAsBitmap, "GetAsBitmap(subrect=None) -> Bitmap\n"
+PyDoc_STRVAR(doc_wxDC_GetAsBitmap, "GetAsBitmap(subrect=nullptr) -> Bitmap\n"
 "\n"
 "If supported by the platform and the type of DC, fetch the contents of\n"
 "the DC, or a subset of it, as a bitmap.");
@@ -5683,7 +3803,7 @@ static PyObject *meth_wxDC_GetAsBitmap(PyObject *sipSelf, PyObject *sipArgs, PyO
     PyObject *sipParseErr = SIP_NULLPTR;
 
     {
-        const ::wxRect* subrect = 0;
+        const ::wxRect* subrect = nullptr;
         int subrectState = 0;
         const ::wxDC *sipCpp;
 
@@ -5710,124 +3830,6 @@ static PyObject *meth_wxDC_GetAsBitmap(PyObject *sipSelf, PyObject *sipArgs, PyO
     }
 
     sipNoMethod(sipParseErr, sipName_DC, sipName_GetAsBitmap, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_SetLogicalScale, "SetLogicalScale(x, y) -> None\n"
-"\n"
-"Set the scale to use for translating wxDC coordinates to the physical\n"
-"pixels.");
-
-extern "C" {static PyObject *meth_wxDC_SetLogicalScale(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_SetLogicalScale(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        double x;
-        double y;
-        ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_x,
-            sipName_y,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bdd", &sipSelf, sipType_wxDC, &sipCpp, &x, &y))
-        {
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->SetLogicalScale(x, y);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_SetLogicalScale, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_GetLogicalScale, "GetLogicalScale() -> Tuple[float, float]\n"
-"\n"
-"Return the scale set by the last call to SetLogicalScale().");
-
-extern "C" {static PyObject *meth_wxDC_GetLogicalScale(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_GetLogicalScale(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        double x;
-        double y;
-        const ::wxDC *sipCpp;
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, SIP_NULLPTR, SIP_NULLPTR, "B", &sipSelf, sipType_wxDC, &sipCpp))
-        {
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->GetLogicalScale(&x, &y);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            return sipBuildResult(0, "(dd)", x, y);
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_GetLogicalScale, SIP_NULLPTR);
-
-    return SIP_NULLPTR;
-}
-
-
-PyDoc_STRVAR(doc_wxDC_SetLogicalOrigin, "SetLogicalOrigin(x, y) -> None\n"
-"\n"
-"Change the offset used for translating wxDC coordinates.");
-
-extern "C" {static PyObject *meth_wxDC_SetLogicalOrigin(PyObject *, PyObject *, PyObject *);}
-static PyObject *meth_wxDC_SetLogicalOrigin(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
-{
-    PyObject *sipParseErr = SIP_NULLPTR;
-
-    {
-        ::wxCoord x;
-        ::wxCoord y;
-        ::wxDC *sipCpp;
-
-        static const char *sipKwdList[] = {
-            sipName_x,
-            sipName_y,
-        };
-
-        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "Bii", &sipSelf, sipType_wxDC, &sipCpp, &x, &y))
-        {
-            PyErr_Clear();
-
-            Py_BEGIN_ALLOW_THREADS
-            sipCpp->SetLogicalOrigin(x, y);
-            Py_END_ALLOW_THREADS
-
-            if (PyErr_Occurred())
-                return 0;
-
-            Py_INCREF(Py_None);
-            return Py_None;
-        }
-    }
-
-    sipNoMethod(sipParseErr, sipName_DC, sipName_SetLogicalOrigin, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -6466,8 +4468,9 @@ static void *cast_wxDC(void *sipCppV, const sipTypeDef *targetType)
     if (targetType == sipType_wxDC)
         return sipCppV;
 
-    if (targetType == sipType_wxObject)
-        return static_cast< ::wxObject *>(sipCpp);
+    sipCppV = ((const sipClassTypeDef *)sipType_wxReadOnlyDC)->ctd_cast(static_cast< ::wxReadOnlyDC *>(sipCpp), targetType);
+    if (sipCppV)
+        return sipCppV;
 
     return SIP_NULLPTR;
 }
@@ -6496,7 +4499,7 @@ static void dealloc_wxDC(sipSimpleWrapper *sipSelf)
 
 
 /* Define this type's super-types. */
-static sipEncodedTypeDef supers_wxDC[] = {{392, 255, 1}};
+static sipEncodedTypeDef supers_wxDC[] = {{484, 255, 1}};
 
 
 /* Define this type's Python slots. */
@@ -6507,21 +4510,14 @@ static sipPySlotDef slots_wxDC[] = {
 
 
 static PyMethodDef methods_wxDC[] = {
+    {sipName_AreAutomaticBoundingBoxUpdatesEnabled, meth_wxDC_AreAutomaticBoundingBoxUpdatesEnabled, METH_VARARGS, doc_wxDC_AreAutomaticBoundingBoxUpdatesEnabled},
     {sipName_Blit, SIP_MLMETH_CAST(meth_wxDC_Blit), METH_VARARGS|METH_KEYWORDS, doc_wxDC_Blit},
     {sipName_CalcBoundingBox, SIP_MLMETH_CAST(meth_wxDC_CalcBoundingBox), METH_VARARGS|METH_KEYWORDS, doc_wxDC_CalcBoundingBox},
-    {sipName_CanDrawBitmap, meth_wxDC_CanDrawBitmap, METH_VARARGS, doc_wxDC_CanDrawBitmap},
-    {sipName_CanGetTextExtent, meth_wxDC_CanGetTextExtent, METH_VARARGS, doc_wxDC_CanGetTextExtent},
-    {sipName_CanUseTransformMatrix, meth_wxDC_CanUseTransformMatrix, METH_VARARGS, doc_wxDC_CanUseTransformMatrix},
     {sipName_Clear, meth_wxDC_Clear, METH_VARARGS, doc_wxDC_Clear},
     {sipName_CopyAttributes, SIP_MLMETH_CAST(meth_wxDC_CopyAttributes), METH_VARARGS|METH_KEYWORDS, doc_wxDC_CopyAttributes},
     {sipName_CrossHair, SIP_MLMETH_CAST(meth_wxDC_CrossHair), METH_VARARGS|METH_KEYWORDS, doc_wxDC_CrossHair},
     {sipName_DestroyClippingRegion, meth_wxDC_DestroyClippingRegion, METH_VARARGS, doc_wxDC_DestroyClippingRegion},
-    {sipName_DeviceToLogical, SIP_MLMETH_CAST(meth_wxDC_DeviceToLogical), METH_VARARGS|METH_KEYWORDS, doc_wxDC_DeviceToLogical},
-    {sipName_DeviceToLogicalRel, SIP_MLMETH_CAST(meth_wxDC_DeviceToLogicalRel), METH_VARARGS|METH_KEYWORDS, doc_wxDC_DeviceToLogicalRel},
-    {sipName_DeviceToLogicalX, SIP_MLMETH_CAST(meth_wxDC_DeviceToLogicalX), METH_VARARGS|METH_KEYWORDS, doc_wxDC_DeviceToLogicalX},
-    {sipName_DeviceToLogicalXRel, SIP_MLMETH_CAST(meth_wxDC_DeviceToLogicalXRel), METH_VARARGS|METH_KEYWORDS, doc_wxDC_DeviceToLogicalXRel},
-    {sipName_DeviceToLogicalY, SIP_MLMETH_CAST(meth_wxDC_DeviceToLogicalY), METH_VARARGS|METH_KEYWORDS, doc_wxDC_DeviceToLogicalY},
-    {sipName_DeviceToLogicalYRel, SIP_MLMETH_CAST(meth_wxDC_DeviceToLogicalYRel), METH_VARARGS|METH_KEYWORDS, doc_wxDC_DeviceToLogicalYRel},
+    {sipName_DisableAutomaticBoundingBoxUpdates, meth_wxDC_DisableAutomaticBoundingBoxUpdates, METH_VARARGS, doc_wxDC_DisableAutomaticBoundingBoxUpdates},
     {sipName_DrawArc, SIP_MLMETH_CAST(meth_wxDC_DrawArc), METH_VARARGS|METH_KEYWORDS, doc_wxDC_DrawArc},
     {sipName_DrawBitmap, SIP_MLMETH_CAST(meth_wxDC_DrawBitmap), METH_VARARGS|METH_KEYWORDS, doc_wxDC_DrawBitmap},
     {sipName_DrawCheckMark, SIP_MLMETH_CAST(meth_wxDC_DrawCheckMark), METH_VARARGS|METH_KEYWORDS, doc_wxDC_DrawCheckMark},
@@ -6542,82 +4538,44 @@ static PyMethodDef methods_wxDC[] = {
     {sipName_EndDoc, meth_wxDC_EndDoc, METH_VARARGS, doc_wxDC_EndDoc},
     {sipName_EndPage, meth_wxDC_EndPage, METH_VARARGS, doc_wxDC_EndPage},
     {sipName_FloodFill, SIP_MLMETH_CAST(meth_wxDC_FloodFill), METH_VARARGS|METH_KEYWORDS, doc_wxDC_FloodFill},
-    {sipName_FromDIP, SIP_MLMETH_CAST(meth_wxDC_FromDIP), METH_VARARGS|METH_KEYWORDS, doc_wxDC_FromDIP},
     {sipName_GetAsBitmap, SIP_MLMETH_CAST(meth_wxDC_GetAsBitmap), METH_VARARGS|METH_KEYWORDS, doc_wxDC_GetAsBitmap},
     {sipName_GetBackground, meth_wxDC_GetBackground, METH_VARARGS, doc_wxDC_GetBackground},
     {sipName_GetBackgroundMode, meth_wxDC_GetBackgroundMode, METH_VARARGS, doc_wxDC_GetBackgroundMode},
     {sipName_GetBrush, meth_wxDC_GetBrush, METH_VARARGS, doc_wxDC_GetBrush},
     {sipName_GetCGContext, meth_wxDC_GetCGContext, METH_VARARGS, doc_wxDC_GetCGContext},
-    {sipName_GetCharHeight, meth_wxDC_GetCharHeight, METH_VARARGS, doc_wxDC_GetCharHeight},
-    {sipName_GetCharWidth, meth_wxDC_GetCharWidth, METH_VARARGS, doc_wxDC_GetCharWidth},
     {sipName_GetClippingBox, SIP_MLMETH_CAST(meth_wxDC_GetClippingBox), METH_VARARGS|METH_KEYWORDS, doc_wxDC_GetClippingBox},
-    {sipName_GetContentScaleFactor, meth_wxDC_GetContentScaleFactor, METH_VARARGS, doc_wxDC_GetContentScaleFactor},
-    {sipName_GetDepth, meth_wxDC_GetDepth, METH_VARARGS, doc_wxDC_GetDepth},
-    {sipName_GetDeviceOrigin, meth_wxDC_GetDeviceOrigin, METH_VARARGS, doc_wxDC_GetDeviceOrigin},
-    {sipName_GetFont, meth_wxDC_GetFont, METH_VARARGS, doc_wxDC_GetFont},
-    {sipName_GetFontMetrics, meth_wxDC_GetFontMetrics, METH_VARARGS, doc_wxDC_GetFontMetrics},
-    {sipName_GetFullMultiLineTextExtent, SIP_MLMETH_CAST(meth_wxDC_GetFullMultiLineTextExtent), METH_VARARGS|METH_KEYWORDS, doc_wxDC_GetFullMultiLineTextExtent},
-    {sipName_GetFullTextExtent, SIP_MLMETH_CAST(meth_wxDC_GetFullTextExtent), METH_VARARGS|METH_KEYWORDS, doc_wxDC_GetFullTextExtent},
     {sipName_GetGdkDrawable, meth_wxDC_GetGdkDrawable, METH_VARARGS, doc_wxDC_GetGdkDrawable},
     {sipName_GetGraphicsContext, meth_wxDC_GetGraphicsContext, METH_VARARGS, doc_wxDC_GetGraphicsContext},
     {sipName_GetHDC, meth_wxDC_GetHDC, METH_VARARGS, doc_wxDC_GetHDC},
     {sipName_GetHandle, meth_wxDC_GetHandle, METH_VARARGS, doc_wxDC_GetHandle},
-    {sipName_GetLayoutDirection, meth_wxDC_GetLayoutDirection, METH_VARARGS, doc_wxDC_GetLayoutDirection},
     {sipName_GetLogicalFunction, meth_wxDC_GetLogicalFunction, METH_VARARGS, doc_wxDC_GetLogicalFunction},
-    {sipName_GetLogicalOrigin, SIP_MLMETH_CAST(meth_wxDC_GetLogicalOrigin), METH_VARARGS|METH_KEYWORDS, doc_wxDC_GetLogicalOrigin},
-    {sipName_GetLogicalScale, SIP_MLMETH_CAST(meth_wxDC_GetLogicalScale), METH_VARARGS|METH_KEYWORDS, doc_wxDC_GetLogicalScale},
-    {sipName_GetMapMode, meth_wxDC_GetMapMode, METH_VARARGS, doc_wxDC_GetMapMode},
     {sipName_GetMultiLineTextExtent, SIP_MLMETH_CAST(meth_wxDC_GetMultiLineTextExtent), METH_VARARGS|METH_KEYWORDS, doc_wxDC_GetMultiLineTextExtent},
-    {sipName_GetPPI, meth_wxDC_GetPPI, METH_VARARGS, doc_wxDC_GetPPI},
-    {sipName_GetPartialTextExtents, SIP_MLMETH_CAST(meth_wxDC_GetPartialTextExtents), METH_VARARGS|METH_KEYWORDS, doc_wxDC_GetPartialTextExtents},
     {sipName_GetPen, meth_wxDC_GetPen, METH_VARARGS, doc_wxDC_GetPen},
     {sipName_GetPixel, SIP_MLMETH_CAST(meth_wxDC_GetPixel), METH_VARARGS|METH_KEYWORDS, doc_wxDC_GetPixel},
-    {sipName_GetSize, meth_wxDC_GetSize, METH_VARARGS, doc_wxDC_GetSize},
-    {sipName_GetSizeMM, meth_wxDC_GetSizeMM, METH_VARARGS, doc_wxDC_GetSizeMM},
     {sipName_GetTextBackground, meth_wxDC_GetTextBackground, METH_VARARGS, doc_wxDC_GetTextBackground},
     {sipName_GetTextExtent, SIP_MLMETH_CAST(meth_wxDC_GetTextExtent), METH_VARARGS|METH_KEYWORDS, doc_wxDC_GetTextExtent},
     {sipName_GetTextForeground, meth_wxDC_GetTextForeground, METH_VARARGS, doc_wxDC_GetTextForeground},
-    {sipName_GetTransformMatrix, meth_wxDC_GetTransformMatrix, METH_VARARGS, doc_wxDC_GetTransformMatrix},
-    {sipName_GetUserScale, SIP_MLMETH_CAST(meth_wxDC_GetUserScale), METH_VARARGS|METH_KEYWORDS, doc_wxDC_GetUserScale},
     {sipName_GradientFillConcentric, SIP_MLMETH_CAST(meth_wxDC_GradientFillConcentric), METH_VARARGS|METH_KEYWORDS, doc_wxDC_GradientFillConcentric},
     {sipName_GradientFillLinear, SIP_MLMETH_CAST(meth_wxDC_GradientFillLinear), METH_VARARGS|METH_KEYWORDS, doc_wxDC_GradientFillLinear},
-    {sipName_IsOk, meth_wxDC_IsOk, METH_VARARGS, doc_wxDC_IsOk},
-    {sipName_LogicalToDevice, SIP_MLMETH_CAST(meth_wxDC_LogicalToDevice), METH_VARARGS|METH_KEYWORDS, doc_wxDC_LogicalToDevice},
-    {sipName_LogicalToDeviceRel, SIP_MLMETH_CAST(meth_wxDC_LogicalToDeviceRel), METH_VARARGS|METH_KEYWORDS, doc_wxDC_LogicalToDeviceRel},
-    {sipName_LogicalToDeviceX, SIP_MLMETH_CAST(meth_wxDC_LogicalToDeviceX), METH_VARARGS|METH_KEYWORDS, doc_wxDC_LogicalToDeviceX},
-    {sipName_LogicalToDeviceXRel, SIP_MLMETH_CAST(meth_wxDC_LogicalToDeviceXRel), METH_VARARGS|METH_KEYWORDS, doc_wxDC_LogicalToDeviceXRel},
-    {sipName_LogicalToDeviceY, SIP_MLMETH_CAST(meth_wxDC_LogicalToDeviceY), METH_VARARGS|METH_KEYWORDS, doc_wxDC_LogicalToDeviceY},
-    {sipName_LogicalToDeviceYRel, SIP_MLMETH_CAST(meth_wxDC_LogicalToDeviceYRel), METH_VARARGS|METH_KEYWORDS, doc_wxDC_LogicalToDeviceYRel},
     {sipName_MaxX, meth_wxDC_MaxX, METH_VARARGS, doc_wxDC_MaxX},
     {sipName_MaxY, meth_wxDC_MaxY, METH_VARARGS, doc_wxDC_MaxY},
     {sipName_MinX, meth_wxDC_MinX, METH_VARARGS, doc_wxDC_MinX},
     {sipName_MinY, meth_wxDC_MinY, METH_VARARGS, doc_wxDC_MinY},
     {sipName_ResetBoundingBox, meth_wxDC_ResetBoundingBox, METH_VARARGS, doc_wxDC_ResetBoundingBox},
-    {sipName_ResetTransformMatrix, meth_wxDC_ResetTransformMatrix, METH_VARARGS, doc_wxDC_ResetTransformMatrix},
-    {sipName_SetAxisOrientation, SIP_MLMETH_CAST(meth_wxDC_SetAxisOrientation), METH_VARARGS|METH_KEYWORDS, doc_wxDC_SetAxisOrientation},
     {sipName_SetBackground, SIP_MLMETH_CAST(meth_wxDC_SetBackground), METH_VARARGS|METH_KEYWORDS, doc_wxDC_SetBackground},
     {sipName_SetBackgroundMode, SIP_MLMETH_CAST(meth_wxDC_SetBackgroundMode), METH_VARARGS|METH_KEYWORDS, doc_wxDC_SetBackgroundMode},
     {sipName_SetBrush, SIP_MLMETH_CAST(meth_wxDC_SetBrush), METH_VARARGS|METH_KEYWORDS, doc_wxDC_SetBrush},
     {sipName_SetClippingRegion, SIP_MLMETH_CAST(meth_wxDC_SetClippingRegion), METH_VARARGS|METH_KEYWORDS, doc_wxDC_SetClippingRegion},
     {sipName_SetDeviceClippingRegion, SIP_MLMETH_CAST(meth_wxDC_SetDeviceClippingRegion), METH_VARARGS|METH_KEYWORDS, doc_wxDC_SetDeviceClippingRegion},
-    {sipName_SetDeviceOrigin, SIP_MLMETH_CAST(meth_wxDC_SetDeviceOrigin), METH_VARARGS|METH_KEYWORDS, doc_wxDC_SetDeviceOrigin},
-    {sipName_SetFont, SIP_MLMETH_CAST(meth_wxDC_SetFont), METH_VARARGS|METH_KEYWORDS, doc_wxDC_SetFont},
     {sipName_SetGraphicsContext, SIP_MLMETH_CAST(meth_wxDC_SetGraphicsContext), METH_VARARGS|METH_KEYWORDS, doc_wxDC_SetGraphicsContext},
-    {sipName_SetLayoutDirection, SIP_MLMETH_CAST(meth_wxDC_SetLayoutDirection), METH_VARARGS|METH_KEYWORDS, doc_wxDC_SetLayoutDirection},
     {sipName_SetLogicalFunction, SIP_MLMETH_CAST(meth_wxDC_SetLogicalFunction), METH_VARARGS|METH_KEYWORDS, doc_wxDC_SetLogicalFunction},
-    {sipName_SetLogicalOrigin, SIP_MLMETH_CAST(meth_wxDC_SetLogicalOrigin), METH_VARARGS|METH_KEYWORDS, doc_wxDC_SetLogicalOrigin},
-    {sipName_SetLogicalScale, SIP_MLMETH_CAST(meth_wxDC_SetLogicalScale), METH_VARARGS|METH_KEYWORDS, doc_wxDC_SetLogicalScale},
-    {sipName_SetMapMode, SIP_MLMETH_CAST(meth_wxDC_SetMapMode), METH_VARARGS|METH_KEYWORDS, doc_wxDC_SetMapMode},
     {sipName_SetPalette, SIP_MLMETH_CAST(meth_wxDC_SetPalette), METH_VARARGS|METH_KEYWORDS, doc_wxDC_SetPalette},
     {sipName_SetPen, SIP_MLMETH_CAST(meth_wxDC_SetPen), METH_VARARGS|METH_KEYWORDS, doc_wxDC_SetPen},
     {sipName_SetTextBackground, SIP_MLMETH_CAST(meth_wxDC_SetTextBackground), METH_VARARGS|METH_KEYWORDS, doc_wxDC_SetTextBackground},
     {sipName_SetTextForeground, SIP_MLMETH_CAST(meth_wxDC_SetTextForeground), METH_VARARGS|METH_KEYWORDS, doc_wxDC_SetTextForeground},
-    {sipName_SetTransformMatrix, SIP_MLMETH_CAST(meth_wxDC_SetTransformMatrix), METH_VARARGS|METH_KEYWORDS, doc_wxDC_SetTransformMatrix},
-    {sipName_SetUserScale, SIP_MLMETH_CAST(meth_wxDC_SetUserScale), METH_VARARGS|METH_KEYWORDS, doc_wxDC_SetUserScale},
     {sipName_StartDoc, SIP_MLMETH_CAST(meth_wxDC_StartDoc), METH_VARARGS|METH_KEYWORDS, doc_wxDC_StartDoc},
     {sipName_StartPage, meth_wxDC_StartPage, METH_VARARGS, doc_wxDC_StartPage},
     {sipName_StretchBlit, SIP_MLMETH_CAST(meth_wxDC_StretchBlit), METH_VARARGS|METH_KEYWORDS, doc_wxDC_StretchBlit},
-    {sipName_ToDIP, SIP_MLMETH_CAST(meth_wxDC_ToDIP), METH_VARARGS|METH_KEYWORDS, doc_wxDC_ToDIP},
     {sipName__DrawEllipseList, SIP_MLMETH_CAST(meth_wxDC__DrawEllipseList), METH_VARARGS|METH_KEYWORDS, doc_wxDC__DrawEllipseList},
     {sipName__DrawLineList, SIP_MLMETH_CAST(meth_wxDC__DrawLineList), METH_VARARGS|METH_KEYWORDS, doc_wxDC__DrawLineList},
     {sipName__DrawLinesFromBuffer, SIP_MLMETH_CAST(meth_wxDC__DrawLinesFromBuffer), METH_VARARGS|METH_KEYWORDS, doc_wxDC__DrawLinesFromBuffer},
@@ -6629,35 +4587,22 @@ static PyMethodDef methods_wxDC[] = {
 };
 
 sipVariableDef variables_wxDC[] = {
-    {PropertyVariable, sipName_TransformMatrix, &methods_wxDC[70], &methods_wxDC[105], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_TextForeground, &methods_wxDC[69], &methods_wxDC[104], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_TextExtent, &methods_wxDC[68], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_TextBackground, &methods_wxDC[67], &methods_wxDC[103], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_SizeMM, &methods_wxDC[66], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Size, &methods_wxDC[65], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Pixel, &methods_wxDC[64], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Pen, &methods_wxDC[63], &methods_wxDC[102], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_PPI, &methods_wxDC[61], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_MultiLineTextExtent, &methods_wxDC[60], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_MapMode, &methods_wxDC[59], &methods_wxDC[100], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_LogicalFunction, &methods_wxDC[56], &methods_wxDC[97], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_LayoutDirection, &methods_wxDC[55], &methods_wxDC[96], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Handle, &methods_wxDC[54], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_HDC, &methods_wxDC[53], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_GraphicsContext, &methods_wxDC[52], &methods_wxDC[95], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_GdkDrawable, &methods_wxDC[51], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_FontMetrics, &methods_wxDC[48], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Font, &methods_wxDC[47], &methods_wxDC[94], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DeviceOrigin, &methods_wxDC[46], &methods_wxDC[93], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Depth, &methods_wxDC[45], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ContentScaleFactor, &methods_wxDC[44], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CharWidth, &methods_wxDC[42], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CharHeight, &methods_wxDC[41], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_CGContext, &methods_wxDC[40], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Brush, &methods_wxDC[39], &methods_wxDC[90], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_BackgroundMode, &methods_wxDC[38], &methods_wxDC[89], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_Background, &methods_wxDC[37], &methods_wxDC[88], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_AsBitmap, &methods_wxDC[36], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TextForeground, &methods_wxDC[44], &methods_wxDC[62], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TextExtent, &methods_wxDC[43], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TextBackground, &methods_wxDC[42], &methods_wxDC[61], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Pixel, &methods_wxDC[41], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Pen, &methods_wxDC[40], &methods_wxDC[60], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_MultiLineTextExtent, &methods_wxDC[39], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_LogicalFunction, &methods_wxDC[38], &methods_wxDC[58], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Handle, &methods_wxDC[37], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_HDC, &methods_wxDC[36], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_GraphicsContext, &methods_wxDC[35], &methods_wxDC[57], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_GdkDrawable, &methods_wxDC[34], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_CGContext, &methods_wxDC[32], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Brush, &methods_wxDC[31], &methods_wxDC[54], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_BackgroundMode, &methods_wxDC[30], &methods_wxDC[53], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_Background, &methods_wxDC[29], &methods_wxDC[52], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_AsBitmap, &methods_wxDC[28], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxDC, "A wxDC is a \"device context\" onto which graphics and text can be\n"
@@ -6677,9 +4622,9 @@ sipClassTypeDef sipTypeDef__core_wxDC = {
     {
         sipNameNr_DC,
         {0, 0, 1},
-        119, methods_wxDC,
+        74, methods_wxDC,
         0, SIP_NULLPTR,
-        29, variables_wxDC,
+        16, variables_wxDC,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxDC,

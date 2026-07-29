@@ -8,8 +8,12 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.integrations_pb2 import (
+    DeleteDatasourcePermissionTagRequest,
+    DeleteDatasourcePermissionTagResponse,
     DeleteIntegrationRequest,
     DeleteIntegrationResponse,
+    GetDatasourcePermissionTagRequest,
+    GetDatasourcePermissionTagResponse,
     GetIntegrationByNameRequest,
     GetIntegrationByNameResponse,
     GetIntegrationRequest,
@@ -18,6 +22,8 @@ from chalk._gen.chalk.server.v1.integrations_pb2 import (
     GetIntegrationValueResponse,
     InsertIntegrationRequest,
     InsertIntegrationResponse,
+    ListDatasourcePermissionTagsRequest,
+    ListDatasourcePermissionTagsResponse,
     ListIntegrationsAndSecretsRequest,
     ListIntegrationsAndSecretsResponse,
     ListIntegrationsRequest,
@@ -26,6 +32,8 @@ from chalk._gen.chalk.server.v1.integrations_pb2 import (
     TestIntegrationResponse,
     UpdateIntegrationRequest,
     UpdateIntegrationResponse,
+    UpsertDatasourcePermissionTagRequest,
+    UpsertDatasourcePermissionTagResponse,
 )
 from grpc import (
     Channel,
@@ -39,6 +47,14 @@ class IntegrationsServiceStub:
     ListIntegrations: UnaryUnaryMultiCallable[
         ListIntegrationsRequest,
         ListIntegrationsResponse,
+    ]
+    ListDatasourcePermissionTags: UnaryUnaryMultiCallable[
+        ListDatasourcePermissionTagsRequest,
+        ListDatasourcePermissionTagsResponse,
+    ]
+    GetDatasourcePermissionTag: UnaryUnaryMultiCallable[
+        GetDatasourcePermissionTagRequest,
+        GetDatasourcePermissionTagResponse,
     ]
     ListIntegrationsAndSecrets: UnaryUnaryMultiCallable[
         ListIntegrationsAndSecretsRequest,
@@ -68,6 +84,14 @@ class IntegrationsServiceStub:
         DeleteIntegrationRequest,
         DeleteIntegrationResponse,
     ]
+    UpsertDatasourcePermissionTag: UnaryUnaryMultiCallable[
+        UpsertDatasourcePermissionTagRequest,
+        UpsertDatasourcePermissionTagResponse,
+    ]
+    DeleteDatasourcePermissionTag: UnaryUnaryMultiCallable[
+        DeleteDatasourcePermissionTagRequest,
+        DeleteDatasourcePermissionTagResponse,
+    ]
     TestIntegration: UnaryUnaryMultiCallable[
         TestIntegrationRequest,
         TestIntegrationResponse,
@@ -80,6 +104,18 @@ class IntegrationsServiceServicer(metaclass=ABCMeta):
         request: ListIntegrationsRequest,
         context: ServicerContext,
     ) -> ListIntegrationsResponse: ...
+    @abstractmethod
+    def ListDatasourcePermissionTags(
+        self,
+        request: ListDatasourcePermissionTagsRequest,
+        context: ServicerContext,
+    ) -> ListDatasourcePermissionTagsResponse: ...
+    @abstractmethod
+    def GetDatasourcePermissionTag(
+        self,
+        request: GetDatasourcePermissionTagRequest,
+        context: ServicerContext,
+    ) -> GetDatasourcePermissionTagResponse: ...
     @abstractmethod
     def ListIntegrationsAndSecrets(
         self,
@@ -122,6 +158,18 @@ class IntegrationsServiceServicer(metaclass=ABCMeta):
         request: DeleteIntegrationRequest,
         context: ServicerContext,
     ) -> DeleteIntegrationResponse: ...
+    @abstractmethod
+    def UpsertDatasourcePermissionTag(
+        self,
+        request: UpsertDatasourcePermissionTagRequest,
+        context: ServicerContext,
+    ) -> UpsertDatasourcePermissionTagResponse: ...
+    @abstractmethod
+    def DeleteDatasourcePermissionTag(
+        self,
+        request: DeleteDatasourcePermissionTagRequest,
+        context: ServicerContext,
+    ) -> DeleteDatasourcePermissionTagResponse: ...
     @abstractmethod
     def TestIntegration(
         self,

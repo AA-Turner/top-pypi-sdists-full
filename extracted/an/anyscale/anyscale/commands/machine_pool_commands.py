@@ -14,8 +14,20 @@ from anyscale.client.openapi_client.models import (
     SchedulerInfo,
 )
 from anyscale.commands import command_examples
+from anyscale.commands.doc_metadata import (
+    command_metadata,
+    CommandExample,
+    ReleaseStatus,
+)
+from anyscale.commands.output_format import (
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    OutputFormat,
+    print_output,
+)
 from anyscale.commands.util import AnyscaleCommand
 from anyscale.controllers.machine_pool_controller import MachinePoolController
+from anyscale.machine_pool.models import MachinePool
 
 
 @click.group(
@@ -25,11 +37,23 @@ def machine_pool_cli() -> None:
     pass
 
 
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Create a machine pool.",
+            command="anyscale machine-pool create --name can-testing",
+            output_raw=command_examples.MACHINE_POOL_CREATE_EXAMPLE,
+        ),
+    ],
+)
 @machine_pool_cli.command(
     name="create",
+    short_help="Create a machine pool in Anyscale.",
     help="Create a machine pool in Anyscale.",
     cls=AnyscaleCommand,
-    example=command_examples.MACHINE_POOL_CREATE_EXAMPLE,
     is_beta=True,
 )
 @click.option(
@@ -46,11 +70,23 @@ def create_machine_pool(name: str) -> None:
     )
 
 
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Update a machine pool from a specification file.",
+            command="anyscale machine-pool update --name can-testing --spec-file spec.yaml",
+            output_raw=command_examples.MACHINE_POOL_UPDATE_EXAMPLE,
+        ),
+    ],
+)
 @machine_pool_cli.command(
     name="update",
+    short_help="Update a machine pool in Anyscale.",
     help="Update a machine pool in Anyscale.",
     cls=AnyscaleCommand,
-    example=command_examples.MACHINE_POOL_UPDATE_EXAMPLE,
     is_beta=True,
 )
 @click.option("--name", type=str, required=True, help="Provide a machine pool name.")
@@ -68,11 +104,32 @@ def update_machine_pool(name: str, spec_file: str) -> None:
     print(f"Updated machine pool '{name}'.")
 
 
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Describe the machines and requests of a machine pool.",
+            command="anyscale machine-pool describe --name can-testing",
+            output_raw=command_examples.MACHINE_POOL_DESCRIBE_EXAMPLE,
+            output_instance={
+                "requests": [],
+                "machines": [],
+                "recent_launch_failures": [],
+            },
+        ),
+    ],
+)
 @machine_pool_cli.command(
     name="describe",
-    help="Describe a machine pool in Anyscale.",
+    short_help="Describe a machine pool in Anyscale.",
+    help=(
+        "Describe a machine pool in Anyscale.\n\n"
+        "Shows the machines in the pool, pending workload requests, and recent "
+        "launch failures. Use --format json for machine-readable output."
+    ),
     cls=AnyscaleCommand,
-    example=command_examples.MACHINE_POOL_DESCRIBE_EXAMPLE,
     is_beta=True,
 )
 @click.option("--name", type=str, required=True, help="Provide a machine pool name.")
@@ -84,12 +141,27 @@ def update_machine_pool(name: str, spec_file: str) -> None:
     required=False,
     help="Output format (table, json).",
 )
-def describe(name: str, format_: str) -> None:
+@click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result. Takes precedence over --format.",
+)
+def describe(name: str, format_: str, output_format: str) -> None:
     machine_pool_controller = MachinePoolController()
     response: DescribeMachinePoolResponse = machine_pool_controller.describe_machine_pool(
         machine_pool_name=name
     )
     scheduler_info: SchedulerInfo = response.scheduler_info  # type: ignore
+    if output_format != OutputFormat.TEXT.value:
+        format_ = output_format
+    if format_ == OutputFormat.YAML.value:
+        print(yaml.dump(scheduler_info.to_dict(), sort_keys=False))
+        return
     if format_ == "json":
         print(json.dumps(scheduler_info.to_dict(), default=str))
     elif format_ == "table":
@@ -179,11 +251,23 @@ def describe(name: str, format_: str) -> None:
                 print(f"- [{format_time(failure.timestamp)}] {error}")
 
 
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Delete a machine pool.",
+            command="anyscale machine-pool delete --name can-testing",
+            output_raw=command_examples.MACHINE_POOL_DELETE_EXAMPLE,
+        ),
+    ],
+)
 @machine_pool_cli.command(
     name="delete",
+    short_help="Delete a machine pool in Anyscale.",
     help="Delete a machine pool in Anyscale.",
     cls=AnyscaleCommand,
-    example=command_examples.MACHINE_POOL_DELETE_EXAMPLE,
     is_beta=True,
 )
 @click.option("--name", type=str, required=True, help="Provide a machine pool name.")
@@ -193,11 +277,33 @@ def delete_machine_pool(name: str) -> None:
     print(f"Deleted machine pool '{name}'.")
 
 
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="List machine pools in the organization.",
+            command="anyscale machine-pool list",
+            output_raw=command_examples.MACHINE_POOL_LIST_EXAMPLE,
+            output_instance=lambda: [
+                MachinePool(
+                    machine_pool_name="can-testing",
+                    machine_pool_id="mp_8ogdz85mdwxb8a92yo44nn84ox",
+                    cloud_ids=["cld_kvedZWag2qA8i5BjxUevf5i7"],
+                    spec=None,
+                )
+            ],
+        ),
+    ],
+    output_schema=MachinePool,
+)
 @machine_pool_cli.command(
     name="list",
+    short_help="List machine pools in Anyscale.",
     help="List machine pools in Anyscale.",
     cls=AnyscaleCommand,
-    example=command_examples.MACHINE_POOL_LIST_EXAMPLE,
     is_beta=True,
 )
 @click.option(
@@ -208,9 +314,32 @@ def delete_machine_pool(name: str) -> None:
     required=False,
     help="Output format (table, yaml).",
 )
-def list_machine_pools(format_: str) -> None:
+@click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([f.value for f in OutputFormat]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    hidden=True,
+    help="Output format for the result. Takes precedence over --format.",
+)
+def list_machine_pools(format_: str, output_format: str) -> None:
     machine_pool_controller = MachinePoolController()
     result = machine_pool_controller.list_machine_pools()
+
+    if output_format != OutputFormat.TEXT.value:
+        pools = [
+            MachinePool(
+                machine_pool_name=mp.machine_pool_name,
+                machine_pool_id=mp.machine_pool_id,
+                cloud_ids=mp.cloud_ids,
+                spec=mp.spec,
+            )
+            for mp in result.machine_pools
+        ]
+        print_output(pools, output_format)
+        return
 
     if format_ == "table":
         table = []
@@ -255,11 +384,23 @@ def list_machine_pools(format_: str) -> None:
         raise click.ClickException(f"Invalid output format '{format}'.")
 
 
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Attach a machine pool to a cloud.",
+            command="anyscale machine-pool attach --name can-testing --cloud my-cloud",
+            output_raw=command_examples.MACHINE_POOL_ATTACH_EXAMPLE,
+        ),
+    ],
+)
 @machine_pool_cli.command(
     name="attach",
+    short_help="Attach a machine pool to a cloud or cloud resource.",
     help="Attach a machine pool to a cloud or cloud resource.",
     cls=AnyscaleCommand,
-    example=command_examples.MACHINE_POOL_ATTACH_EXAMPLE,
     is_beta=True,
 )
 @click.option("--name", type=str, required=True, help="Provide a machine pool name.")
@@ -286,11 +427,23 @@ def attach_machine_pool_to_cloud(
         print(f"Attached machine pool '{name}' to cloud '{cloud}'.")
 
 
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Detach a machine pool from a cloud.",
+            command="anyscale machine-pool detach --name can-testing --cloud my-cloud",
+            output_raw=command_examples.MACHINE_POOL_DETACH_EXAMPLE,
+        ),
+    ],
+)
 @machine_pool_cli.command(
     name="detach",
+    short_help="Detach a machine pool from a cloud or cloud resource.",
     help="Detach a machine pool from a cloud or cloud resource.",
     cls=AnyscaleCommand,
-    example=command_examples.MACHINE_POOL_DETACH_EXAMPLE,
     is_beta=True,
 )
 @click.option("--name", type=str, required=True, help="Provide a machine pool name.")

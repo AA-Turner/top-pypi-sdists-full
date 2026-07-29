@@ -1,6 +1,6 @@
 [project]
 name = "maibot-dashboard"
-version = "1.6.0"
+version = "1.6.1"
 description = "MaiBot WebUI static assets"
 readme = "README.md"
 requires-python = ">=3.10"

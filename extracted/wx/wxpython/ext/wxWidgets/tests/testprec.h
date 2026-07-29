@@ -4,8 +4,11 @@
 #include "wx/wxprec.h"
 #include "wx/evtloop.h"
 
-// This needs to be included before catch.hpp to be taken into account.
-#include "testdate.h"
+// This header must be included before catch.hpp to be taken into account.
+#include "asserthelper.h"
+
+// This needs to be defined before including catch.hpp for PCH support.
+#define CATCH_CONFIG_ALL_PARTS
 
 #include "wx/catch_cppunit.h"
 
@@ -23,14 +26,14 @@
     #define WXUISIM_TEST(test)
 #endif
 
-// define wxHAVE_U_ESCAPE if the compiler supports \uxxxx character constants
-#if defined(__VISUALC__) || defined(__GNUC__)
-    #define wxHAVE_U_ESCAPE
-
-    // and disable warning that using them results in with MSVC 8+
-    #if wxCHECK_VISUALC_VERSION(8)
-        // universal-character-name encountered in source
-        #pragma warning(disable:4428)
+#if defined(__VISUALC__)
+    #if _MSC_VER < 1910
+        // MSVS 2015 doesn't handle literal Unicode characters in wide strings
+        // correctly, so use \uxxxx escapes for it instead.
+        //
+        // When support for MSVS 2015 is dropped, this symbol and all code
+        // guarded by it should be removed.
+        #define wxMUST_USE_U_ESCAPE
     #endif
 #endif
 
@@ -48,8 +51,7 @@
         (__MINGW64_VERSION_MAJOR == 5 && __MINGW64_VERSION_MINOR == 0 && __MINGW64_VERSION_BUGFIX >= 4)))
 #define wxMINGW_WITH_FIXED_MANTISSA
 #endif
-#if (defined(__VISUALC__) && !wxCHECK_VISUALC_VERSION(14)) || \
-        (defined(__MINGW32__) && !defined(wxMINGW_WITH_FIXED_MANTISSA) && \
+#if (defined(__MINGW32__) && !defined(wxMINGW_WITH_FIXED_MANTISSA) && \
         (!defined(__USE_MINGW_ANSI_STDIO) || !__USE_MINGW_ANSI_STDIO))
     #define wxDEFAULT_MANTISSA_SIZE_3
 #endif
@@ -96,6 +98,8 @@ public:
     {
     }
 
+    TestAssertFailure(const TestAssertFailure&) = default;
+
     const wxString m_file;
     const int m_line;
     const wxString m_func;
@@ -107,15 +111,15 @@ public:
 
 // macro to use for the functions which are supposed to fail an assertion
 #if wxDEBUG_LEVEL
-    // some old cppunit versions don't define CPPUNIT_ASSERT_THROW so roll our
-    // own
     #define WX_ASSERT_FAILS_WITH_ASSERT_MESSAGE(msg, code) \
         wxSTATEMENT_MACRO_BEGIN \
             bool throwsAssert = false; \
             try { code ; } \
             catch ( const TestAssertFailure& ) { throwsAssert = true; } \
-            if ( !throwsAssert ) \
-                CPPUNIT_FAIL(msg); \
+            if ( throwsAssert ) \
+                SUCCEED("assert triggered"); \
+            else \
+                FAIL_CHECK(msg); \
         wxSTATEMENT_MACRO_END
 
     #define WX_ASSERT_FAILS_WITH_ASSERT(code) \

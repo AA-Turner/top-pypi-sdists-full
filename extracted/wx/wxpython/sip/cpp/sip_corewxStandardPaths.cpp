@@ -34,6 +34,48 @@
     }
 
 
+PyDoc_STRVAR(doc_wxStandardPaths_AppendAppInfo, "AppendAppInfo(dir) -> str\n"
+"\n"
+"Append application and/or vendor name to the given directory.");
+
+extern "C" {static PyObject *meth_wxStandardPaths_AppendAppInfo(PyObject *, PyObject *, PyObject *);}
+static PyObject *meth_wxStandardPaths_AppendAppInfo(PyObject *sipSelf, PyObject *sipArgs, PyObject *sipKwds)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+
+    {
+        const ::wxString* dir;
+        int dirState = 0;
+        const ::wxStandardPaths *sipCpp;
+
+        static const char *sipKwdList[] = {
+            sipName_dir,
+        };
+
+        if (sipParseKwdArgs(&sipParseErr, sipArgs, sipKwds, sipKwdList, SIP_NULLPTR, "BJ1", &sipSelf, sipType_wxStandardPaths, &sipCpp, sipType_wxString, &dir, &dirState))
+        {
+            ::wxString*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxString(sipCpp->AppendAppInfo(*dir));
+            Py_END_ALLOW_THREADS
+            sipReleaseType(const_cast< ::wxString *>(dir), sipType_wxString, dirState);
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxString, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StandardPaths, sipName_AppendAppInfo, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
 PyDoc_STRVAR(doc_wxStandardPaths_GetAppDocumentsDir, "GetAppDocumentsDir() -> str\n"
 "\n"
 "Return the directory for the document files used by this application.");
@@ -481,7 +523,7 @@ static PyObject *meth_wxStandardPaths_GetUserConfigDir(PyObject *sipSelf, PyObje
 
 PyDoc_STRVAR(doc_wxStandardPaths_GetUserDataDir, "GetUserDataDir() -> str\n"
 "\n"
-"Return the directory for the user-dependent application data files:");
+"Return the directory for the user-dependent application data files.");
 
 extern "C" {static PyObject *meth_wxStandardPaths_GetUserDataDir(PyObject *, PyObject *);}
 static PyObject *meth_wxStandardPaths_GetUserDataDir(PyObject *sipSelf, PyObject *sipArgs)
@@ -588,6 +630,42 @@ static PyObject *meth_wxStandardPaths_GetUserLocalDataDir(PyObject *sipSelf, PyO
     }
 
     sipNoMethod(sipParseErr, sipName_StandardPaths, sipName_GetUserLocalDataDir, SIP_NULLPTR);
+
+    return SIP_NULLPTR;
+}
+
+
+PyDoc_STRVAR(doc_wxStandardPaths_GetSharedLibrariesDir, "GetSharedLibrariesDir() -> str\n"
+"\n"
+"Return OS specific directory where project shared libraries are.");
+
+extern "C" {static PyObject *meth_wxStandardPaths_GetSharedLibrariesDir(PyObject *, PyObject *);}
+static PyObject *meth_wxStandardPaths_GetSharedLibrariesDir(PyObject *sipSelf, PyObject *sipArgs)
+{
+    PyObject *sipParseErr = SIP_NULLPTR;
+    bool sipSelfWasArg = (!sipSelf || sipIsDerivedClass((sipSimpleWrapper *)sipSelf));
+
+    {
+        const ::wxStandardPaths *sipCpp;
+
+        if (sipParseArgs(&sipParseErr, sipArgs, "B", &sipSelf, sipType_wxStandardPaths, &sipCpp))
+        {
+            ::wxString*sipRes;
+
+            PyErr_Clear();
+
+            Py_BEGIN_ALLOW_THREADS
+            sipRes = new ::wxString((sipSelfWasArg ? sipCpp->::wxStandardPaths::GetSharedLibrariesDir() : sipCpp->GetSharedLibrariesDir()));
+            Py_END_ALLOW_THREADS
+
+            if (PyErr_Occurred())
+                return 0;
+
+            return sipConvertFromNewType(sipRes, sipType_wxString, SIP_NULLPTR);
+        }
+    }
+
+    sipNoMethod(sipParseErr, sipName_StandardPaths, sipName_GetSharedLibrariesDir, SIP_NULLPTR);
 
     return SIP_NULLPTR;
 }
@@ -892,6 +970,7 @@ static void dealloc_wxStandardPaths(sipSimpleWrapper *sipSelf)
 
 
 static PyMethodDef methods_wxStandardPaths[] = {
+    {sipName_AppendAppInfo, SIP_MLMETH_CAST(meth_wxStandardPaths_AppendAppInfo), METH_VARARGS|METH_KEYWORDS, doc_wxStandardPaths_AppendAppInfo},
     {sipName_Get, meth_wxStandardPaths_Get, METH_VARARGS, doc_wxStandardPaths_Get},
     {sipName_GetAppDocumentsDir, meth_wxStandardPaths_GetAppDocumentsDir, METH_VARARGS, doc_wxStandardPaths_GetAppDocumentsDir},
     {sipName_GetConfigDir, meth_wxStandardPaths_GetConfigDir, METH_VARARGS, doc_wxStandardPaths_GetConfigDir},
@@ -904,6 +983,7 @@ static PyMethodDef methods_wxStandardPaths[] = {
     {sipName_GetLocalizedResourcesDir, SIP_MLMETH_CAST(meth_wxStandardPaths_GetLocalizedResourcesDir), METH_VARARGS|METH_KEYWORDS, doc_wxStandardPaths_GetLocalizedResourcesDir},
     {sipName_GetPluginsDir, meth_wxStandardPaths_GetPluginsDir, METH_VARARGS, doc_wxStandardPaths_GetPluginsDir},
     {sipName_GetResourcesDir, meth_wxStandardPaths_GetResourcesDir, METH_VARARGS, doc_wxStandardPaths_GetResourcesDir},
+    {sipName_GetSharedLibrariesDir, meth_wxStandardPaths_GetSharedLibrariesDir, METH_VARARGS, doc_wxStandardPaths_GetSharedLibrariesDir},
     {sipName_GetTempDir, meth_wxStandardPaths_GetTempDir, METH_VARARGS, doc_wxStandardPaths_GetTempDir},
     {sipName_GetUserConfigDir, meth_wxStandardPaths_GetUserConfigDir, METH_VARARGS, doc_wxStandardPaths_GetUserConfigDir},
     {sipName_GetUserDataDir, meth_wxStandardPaths_GetUserDataDir, METH_VARARGS, doc_wxStandardPaths_GetUserDataDir},
@@ -917,35 +997,37 @@ static PyMethodDef methods_wxStandardPaths[] = {
 };
 
 static sipEnumMemberDef enummembers_wxStandardPaths[] = {
-    {sipName_ConfigFileConv_Dot, static_cast<int>(::wxStandardPaths::ConfigFileConv_Dot), 530},
-    {sipName_ConfigFileConv_Ext, static_cast<int>(::wxStandardPaths::ConfigFileConv_Ext), 530},
-    {sipName_Dir_Cache, static_cast<int>(::wxStandardPaths::Dir_Cache), 531},
-    {sipName_Dir_Desktop, static_cast<int>(::wxStandardPaths::Dir_Desktop), 531},
-    {sipName_Dir_Documents, static_cast<int>(::wxStandardPaths::Dir_Documents), 531},
-    {sipName_Dir_Downloads, static_cast<int>(::wxStandardPaths::Dir_Downloads), 531},
-    {sipName_Dir_Music, static_cast<int>(::wxStandardPaths::Dir_Music), 531},
-    {sipName_Dir_Pictures, static_cast<int>(::wxStandardPaths::Dir_Pictures), 531},
-    {sipName_Dir_Videos, static_cast<int>(::wxStandardPaths::Dir_Videos), 531},
-    {sipName_FileLayout_Classic, static_cast<int>(::wxStandardPaths::FileLayout_Classic), 532},
-    {sipName_FileLayout_XDG, static_cast<int>(::wxStandardPaths::FileLayout_XDG), 532},
-    {sipName_ResourceCat_Messages, static_cast<int>(::wxStandardPaths::ResourceCat_Messages), 533},
-    {sipName_ResourceCat_None, static_cast<int>(::wxStandardPaths::ResourceCat_None), 533},
+    {sipName_ConfigFileConv_Dot, static_cast<int>(::wxStandardPaths::ConfigFileConv_Dot), 545},
+    {sipName_ConfigFileConv_Ext, static_cast<int>(::wxStandardPaths::ConfigFileConv_Ext), 545},
+    {sipName_Dir_Cache, static_cast<int>(::wxStandardPaths::Dir_Cache), 546},
+    {sipName_Dir_Config, static_cast<int>(::wxStandardPaths::Dir_Config), 546},
+    {sipName_Dir_Desktop, static_cast<int>(::wxStandardPaths::Dir_Desktop), 546},
+    {sipName_Dir_Documents, static_cast<int>(::wxStandardPaths::Dir_Documents), 546},
+    {sipName_Dir_Downloads, static_cast<int>(::wxStandardPaths::Dir_Downloads), 546},
+    {sipName_Dir_Music, static_cast<int>(::wxStandardPaths::Dir_Music), 546},
+    {sipName_Dir_Pictures, static_cast<int>(::wxStandardPaths::Dir_Pictures), 546},
+    {sipName_Dir_Videos, static_cast<int>(::wxStandardPaths::Dir_Videos), 546},
+    {sipName_FileLayout_Classic, static_cast<int>(::wxStandardPaths::FileLayout_Classic), 547},
+    {sipName_FileLayout_XDG, static_cast<int>(::wxStandardPaths::FileLayout_XDG), 547},
+    {sipName_ResourceCat_Messages, static_cast<int>(::wxStandardPaths::ResourceCat_Messages), 548},
+    {sipName_ResourceCat_None, static_cast<int>(::wxStandardPaths::ResourceCat_None), 548},
 };
 
 sipVariableDef variables_wxStandardPaths[] = {
-    {PropertyVariable, sipName_UserLocalDataDir, &methods_wxStandardPaths[16], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_UserDataDir, &methods_wxStandardPaths[14], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_UserConfigDir, &methods_wxStandardPaths[13], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_TempDir, &methods_wxStandardPaths[12], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ResourcesDir, &methods_wxStandardPaths[11], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_PluginsDir, &methods_wxStandardPaths[10], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_LocalDataDir, &methods_wxStandardPaths[8], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_InstallPrefix, &methods_wxStandardPaths[7], &methods_wxStandardPaths[20], SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ExecutablePath, &methods_wxStandardPaths[5], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DocumentsDir, &methods_wxStandardPaths[4], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_DataDir, &methods_wxStandardPaths[3], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_ConfigDir, &methods_wxStandardPaths[2], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
-    {PropertyVariable, sipName_AppDocumentsDir, &methods_wxStandardPaths[1], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_UserLocalDataDir, &methods_wxStandardPaths[18], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_UserDataDir, &methods_wxStandardPaths[16], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_UserConfigDir, &methods_wxStandardPaths[15], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_TempDir, &methods_wxStandardPaths[14], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_SharedLibrariesDir, &methods_wxStandardPaths[13], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ResourcesDir, &methods_wxStandardPaths[12], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_PluginsDir, &methods_wxStandardPaths[11], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_LocalDataDir, &methods_wxStandardPaths[9], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_InstallPrefix, &methods_wxStandardPaths[8], &methods_wxStandardPaths[22], SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ExecutablePath, &methods_wxStandardPaths[6], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DocumentsDir, &methods_wxStandardPaths[5], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_DataDir, &methods_wxStandardPaths[4], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_ConfigDir, &methods_wxStandardPaths[3], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
+    {PropertyVariable, sipName_AppDocumentsDir, &methods_wxStandardPaths[2], SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
 };
 
 PyDoc_STRVAR(doc_wxStandardPaths, "StandardPaths() -> None\n"
@@ -968,9 +1050,9 @@ sipClassTypeDef sipTypeDef__core_wxStandardPaths = {
     {
         sipNameNr_StandardPaths,
         {0, 0, 1},
-        22, methods_wxStandardPaths,
-        13, enummembers_wxStandardPaths,
-        13, variables_wxStandardPaths,
+        24, methods_wxStandardPaths,
+        14, enummembers_wxStandardPaths,
+        14, variables_wxStandardPaths,
         {SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR, SIP_NULLPTR},
     },
     doc_wxStandardPaths,
