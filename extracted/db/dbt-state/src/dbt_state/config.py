@@ -362,9 +362,12 @@ class RunCacheConfig:
             )
 
         # third precedence for dbt platform tokens - dbt_cloud.yml
-        # note that if specific dbt State oauth credentials exist in the `state:` section, these take precedence
-        # over exchanging any platform tokens
-        if cloud_yml_path.exists():
+        # - note that if specific dbt State oauth credentials exist in the `state:` section,
+        #   these take precedence over exchanging any platform tokens
+        # - also note that dbt_cloud.yml should only be considered if dbt_project.yml has a `dbt-cloud`
+        #   section containing a link to a cloud project - otherwise dbt_cloud.yml should be ignored entirely
+        #   as this is not a cloud project
+        if runtime_config.dbt_cloud and cloud_yml_path.exists():
             try:
                 cloud_yml = yaml.safe_load(cloud_yml_path.read_text())
                 if not isinstance(cloud_yml, dict):

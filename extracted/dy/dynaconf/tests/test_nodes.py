@@ -14,7 +14,8 @@ from dynaconf.nodes import get_core
 from dynaconf.nodes import init_core
 from dynaconf.utils import container_items
 from dynaconf.utils import data_print
-from dynaconf.utils.boxing import DynaBox
+from dynaconf.utils.boxing import _DynaBox
+from dynaconf.vendor.box import Box
 from dynaconf.vendor.box import BoxList
 
 pytestmark = pytest.mark.usefixtures("no_deprecations")
@@ -183,6 +184,27 @@ def test_data_containers_init(input):
         assert get_core(container) == core
 
     recursive_walk(data, assert_fn)
+
+
+def test_data_containers_init_converts_subclasses_without_rewrapping_nodes():
+    data_dict = DataDict({"value": 1})
+    data_list = DataList([1])
+
+    data = DataDict(
+        {
+            "dict_subclass": Box({"nested": {"value": 1}}),
+            "list_subclass": BoxList([{"value": 1}]),
+            "data_dict": data_dict,
+            "data_list": data_list,
+        }
+    )
+
+    assert type(data["dict_subclass"]) is DataDict
+    assert type(data["dict_subclass"]["nested"]) is DataDict
+    assert type(data["list_subclass"]) is DataList
+    assert type(data["list_subclass"][0]) is DataDict
+    assert dict.__getitem__(data, "data_dict") is data_dict
+    assert dict.__getitem__(data, "data_list") is data_list
 
 
 class TestDataDict:
@@ -366,7 +388,7 @@ class TestBoxCompatibility:
         test_data = {"name": "test", "nested": {"value": 42}}
         data_dict = DataDict(test_data.copy())
 
-        dyna_box = DynaBox(test_data.copy())
+        dyna_box = _DynaBox(test_data.copy())
         # Test merge_update method works the same
         data_dict.merge_update({"new_key": "new_value"})
         dyna_box.merge_update({"new_key": "new_value"})
@@ -378,7 +400,7 @@ class TestBoxCompatibility:
         """
         test_data = {"name": "test", "nested": {"value": 42}}
         data_dict = DataDict(test_data.copy())
-        dyna_box = DynaBox(test_data.copy())
+        dyna_box = _DynaBox(test_data.copy())
 
         # Test to_yaml, to_json, etc
         contents_of = {}
@@ -399,7 +421,7 @@ class TestBoxCompatibility:
             assert isinstance(content, str)
             file.write_text(content)
             filename = str(file.absolute())
-            box_method = getattr(DynaBox, method_name)
+            box_method = getattr(_DynaBox, method_name)
             assert box_method(filename=filename) == test_data
             method = getattr(DataDict, method_name)
             assert method(filename=filename) == test_data

@@ -1190,8 +1190,12 @@ def _stage_sort_key(name, planting_month=None):
     if len(parts) == 2:
         s = _MONTH_ORDER.get(parts[0].strip().split()[0], 0)
         e = _MONTH_ORDER.get(parts[1].strip().split()[0], 0)
-        return (s - e) % 12 if s >= e else s - e + 12
-    return 0
+        if s or e:
+            return (s - e) % 12 if s >= e else s - e + 12
+    # Season-normalized numeric labels ("10%-100%", "Stages 1-3", "10-100"):
+    # order by the leading integer (decile / growth-stage code).
+    nums = re.findall(r"\d+", name)
+    return int(nums[0]) if nums else 0
 
 
 def _compute_region_metric(df, stages_sorted, metric_col):

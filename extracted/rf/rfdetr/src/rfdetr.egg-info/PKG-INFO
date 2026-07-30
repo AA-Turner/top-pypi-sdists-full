@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rfdetr
-Version: 1.8.3
+Version: 1.9.0
 Summary: RF-DETR
 Author-email: "Roboflow, Inc" <develop@roboflow.com>
 License: Apache License 2.0
@@ -45,28 +45,37 @@ Requires-Dist: torchmetrics[detection]>=1.2; extra == "train"
 Requires-Dist: faster-coco-eval>=1.7.2; extra == "train"
 Requires-Dist: pycocotools; extra == "train"
 Requires-Dist: scipy; extra == "train"
-Requires-Dist: albumentations<3.0.0,>=1.4.24; extra == "train"
 Requires-Dist: roboflow; extra == "train"
 Requires-Dist: rf100vl; extra == "train"
+Provides-Extra: augment
+Requires-Dist: albumentations<3.0.0,>=1.4.24; extra == "augment"
+Requires-Dist: kornia<1,>=0.7; extra == "augment"
 Provides-Extra: onnx
 Requires-Dist: onnx<2.0,>=1.16.0; extra == "onnx"
-Requires-Dist: onnxsim<0.6.0; extra == "onnx"
+Requires-Dist: onnxsim>=0.7.0; extra == "onnx"
 Requires-Dist: onnx_graphsurgeon; extra == "onnx"
 Requires-Dist: onnxruntime; extra == "onnx"
 Requires-Dist: polygraphy; extra == "onnx"
-Provides-Extra: trt
-Requires-Dist: pycuda; extra == "trt"
-Requires-Dist: onnxruntime-gpu; extra == "trt"
-Requires-Dist: tensorrt>=8.6.1; extra == "trt"
-Requires-Dist: polygraphy; extra == "trt"
+Provides-Extra: tensorrt
+Requires-Dist: onnxruntime-gpu; extra == "tensorrt"
+Requires-Dist: tensorrt>=8.6.1; extra == "tensorrt"
+Requires-Dist: polygraphy; extra == "tensorrt"
+Provides-Extra: tensorrt-bench
+Requires-Dist: pycuda>=2024.1; extra == "tensorrt-bench"
 Provides-Extra: tflite
+Requires-Dist: onnx<2.0,>=1.20.0; (python_version >= "3.12" and python_version < "3.13") and extra == "tflite"
+Requires-Dist: onnxsim>=0.7.0; (python_version >= "3.12" and python_version < "3.13") and extra == "tflite"
+Requires-Dist: onnx_graphsurgeon; (python_version >= "3.12" and python_version < "3.13") and extra == "tflite"
+Requires-Dist: polygraphy; (python_version >= "3.12" and python_version < "3.13") and extra == "tflite"
 Requires-Dist: onnx2tf<3.0.0,>=2.4.0; (python_version >= "3.12" and python_version < "3.13") and extra == "tflite"
 Requires-Dist: flatbuffers>=23.5.26; (python_version >= "3.12" and python_version < "3.13") and extra == "tflite"
-Requires-Dist: onnx<2.0,>=1.20.0; (python_version >= "3.12" and python_version < "3.13") and extra == "tflite"
 Requires-Dist: tf-keras>=2.16.0; (python_version >= "3.12" and python_version < "3.13") and extra == "tflite"
 Requires-Dist: tensorflow>=2.16.0; (python_version >= "3.12" and python_version < "3.13") and extra == "tflite"
-Provides-Extra: kornia
-Requires-Dist: kornia<1,>=0.7; extra == "kornia"
+Provides-Extra: executorch
+Requires-Dist: executorch<2.0,>=1.3; extra == "executorch"
+Provides-Extra: coreml
+Requires-Dist: coremltools<10.0,>=8.0; extra == "coreml"
+Requires-Dist: torch<2.12; extra == "coreml"
 Provides-Extra: loggers
 Requires-Dist: tensorboard>=2.13.0; extra == "loggers"
 Requires-Dist: protobuf>=3.20.0; extra == "loggers"
@@ -91,7 +100,7 @@ Dynamic: license-file
 [![downloads](https://img.shields.io/pypi/dm/rfdetr)](https://pypistats.org/packages/rfdetr)
 [![codecov](https://codecov.io/gh/roboflow/rf-detr/graph/badge.svg?token=K8V4ARR3XV)](https://codecov.io/gh/roboflow/rf-detr)
 [![python-version](https://img.shields.io/pypi/pyversions/rfdetr)](https://badge.fury.io/py/rfdetr)
-[![license](https://img.shields.io/badge/license-Apache%202.0-blue)](https://github.com/roboflow/rfdetr/blob/main/LICENSE)
+[![license](https://img.shields.io/badge/license-Apache%202.0-blue)](https://github.com/roboflow/rf-detr/blob/main/LICENSE)
 
 [![arXiv](https://img.shields.io/badge/arXiv-2511.09554-b31b1b.svg)](https://arxiv.org/abs/2511.09554)
 [![hf space](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/SkalskiP/RF-DETR)
@@ -110,6 +119,8 @@ Dynamic: license-file
 RF-DETR is a real-time transformer architecture for object detection, instance segmentation, and keypoint detection (preview) developed by Roboflow. Built on a DINOv2 vision transformer backbone, RF-DETR delivers state-of-the-art accuracy and latency trade-offs on [Microsoft COCO](https://cocodataset.org/#home) and [RF100-VL](https://github.com/roboflow/rf100-vl).
 
 RF-DETR uses a DINOv2 vision transformer backbone and supports object detection, instance segmentation, and keypoint detection (preview) in a single, consistent API. The open-source `rfdetr` package and Apache-designated models are released under Apache 2.0, while Plus components (`rfdetr_plus`, including RF-DETR-XL/2XL detection models) are licensed under PML 1.0.
+
+The published RF-DETR sizes were created with neural architecture search (NAS) — and the same NAS method is now available on the [Roboflow platform](https://app.roboflow.com/), so you can discover the best architecture for your own dataset. Learn more in the [NAS docs](https://docs.roboflow.com/train/neural-architecture-search).
 
 https://github.com/user-attachments/assets/add23fd1-266f-4538-8809-d7dd5767e8e6
 
@@ -240,6 +251,12 @@ RF-DETR achieves state-of-the-art results in both object detection and instance 
 
 > Keypoint benchmarks report AP<sub>50:95</sub> (OKS-based); this is the standard COCO keypoint comparison metric.
 
+### NAS on the Roboflow Platform
+
+<img alt="RF100-VL accuracy-latency Pareto chart showing RF-DETR NAS trained on the Roboflow platform outperforming the paper NAS and named configs" src="https://raw.githubusercontent.com/roboflow/rf-detr/develop/docs/assets/nas_two_source_comparison_100_test_only.svg" />
+
+Since the paper release, we have improved RF-DETR NAS training on the Roboflow platform even further. A single training run gives you every model size, with results that beat not only the open-source checkpoints but also our own paper NAS results. [Try it now!](https://roboflow.com/)
+
 ## Run Models
 
 ### Detection
@@ -260,6 +277,8 @@ labels = [f"{COCO_CLASSES[class_id]}" for class_id in detections.class_id]
 annotated_image = sv.BoxAnnotator().annotate(detections.metadata["source_image"], detections)
 annotated_image = sv.LabelAnnotator().annotate(annotated_image, detections, labels)
 ```
+
+> **Note:** `COCO_CLASSES` works for COCO-pretrained models. For fine-tuned models, use `detections.data["class_name"]` instead — it resolves class names from the checkpoint and works for both COCO and custom datasets.
 
 <details>
 <summary>Run RF-DETR with Inference</summary>
@@ -391,14 +410,12 @@ Our work is built upon [LW-DETR](https://arxiv.org/pdf/2406.03459), [DINOv2](htt
 If you find our work helpful for your research, please consider citing the following BibTeX entry.
 
 ```bibtex
-@misc{rf-detr,
-    title={RF-DETR: Neural Architecture Search for Real-Time Detection Transformers},
-    author={Isaac Robinson and Peter Robicheaux and Matvei Popov and Deva Ramanan and Neehar Peri},
-    year={2025},
-    eprint={2511.09554},
-    archivePrefix={arXiv},
-    primaryClass={cs.CV},
-    url={https://arxiv.org/abs/2511.09554},
+@inproceedings{robinson2026rfdetr,
+  title     = {RF-DETR: Real-Time Detection Transformer},
+  author    = {Robinson, Isaac and Robicheaux, Peter and Popov, Matvei and Ramanan, Deva and Peri, Neehar},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2026},
+  url       = {https://arxiv.org/abs/2511.09554}
 }
 ```
 

@@ -9,6 +9,7 @@ import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
+import google.protobuf.timestamp_pb2
 import sentry_protos.snuba.v1.request_common_pb2
 import sentry_protos.snuba.v1.trace_item_attribute_pb2
 import sentry_protos.snuba.v1.trace_item_filter_pb2
@@ -82,6 +83,11 @@ class TraceItemAttributeNamesRequest(google.protobuf.message.Message):
             """Order by how frequently the attribute occurs across the matched trace
             items (its count).
             """
+            COLUMN_LAST_SEEN: TraceItemAttributeNamesRequest.OrderBy._Column.ValueType  # 3
+            """Order by when the attribute was most recently seen across the matched
+            trace items (its last_seen timestamp). Combine with
+            `descending = true` for most-recently-used first.
+            """
 
         class Column(_Column, metaclass=_ColumnEnumTypeWrapper):
             """Column identifies which property of an attribute to order by."""
@@ -95,6 +101,11 @@ class TraceItemAttributeNamesRequest(google.protobuf.message.Message):
         COLUMN_COUNT: TraceItemAttributeNamesRequest.OrderBy.Column.ValueType  # 2
         """Order by how frequently the attribute occurs across the matched trace
         items (its count).
+        """
+        COLUMN_LAST_SEEN: TraceItemAttributeNamesRequest.OrderBy.Column.ValueType  # 3
+        """Order by when the attribute was most recently seen across the matched
+        trace items (its last_seen timestamp). Combine with
+        `descending = true` for most-recently-used first.
         """
 
         class _Sort:
@@ -123,8 +134,8 @@ class TraceItemAttributeNamesRequest(google.protobuf.message.Message):
 
         class Sort(_Sort, metaclass=_SortEnumTypeWrapper):
             """Sort selects which sort order is applied when ordering by a textual
-            column (i.e. COLUMN_NAME). It has no effect when ordering by a numeric
-            column such as COLUMN_COUNT.
+            column (i.e. COLUMN_NAME). It has no effect when ordering by a
+            non-textual column such as COLUMN_COUNT or COLUMN_LAST_SEEN.
             """
 
         SORT_UNSPECIFIED: TraceItemAttributeNamesRequest.OrderBy.Sort.ValueType  # 0
@@ -159,7 +170,8 @@ class TraceItemAttributeNamesRequest(google.protobuf.message.Message):
         """The sort order to apply when ordering by a textual column (COLUMN_NAME).
         Defaults to SORT_DEFAULT (lexicographic) when unset, preserving the
         historical behaviour. Set to SORT_NATURAL to order alphanumeric names
-        naturally (e.g. "item2" before "item10"). Ignored for COLUMN_COUNT.
+        naturally (e.g. "item2" before "item10"). Ignored for COLUMN_COUNT and
+        COLUMN_LAST_SEEN.
         """
         def __init__(
             self,
@@ -250,6 +262,7 @@ class TraceItemAttributeNamesResponse(google.protobuf.message.Message):
         NAME_FIELD_NUMBER: builtins.int
         TYPE_FIELD_NUMBER: builtins.int
         COUNT_FIELD_NUMBER: builtins.int
+        LAST_SEEN_FIELD_NUMBER: builtins.int
         name: builtins.str
         type: sentry_protos.snuba.v1.trace_item_attribute_pb2.AttributeKey.Type.ValueType
         count: builtins.int
@@ -258,15 +271,30 @@ class TraceItemAttributeNamesResponse(google.protobuf.message.Message):
         (order_by.column = COLUMN_COUNT); unset otherwise. The presence of this
         field distinguishes "not computed" from a genuine count of zero.
         """
+        @property
+        def last_seen(self) -> google.protobuf.timestamp_pb2.Timestamp:
+            """optional, the most recent time this attribute was seen across the
+            matched trace items, within the request's time range. Only populated
+            when the request opts into an ordering that aggregates the attributes
+            (order_by.column = COLUMN_COUNT or COLUMN_LAST_SEEN); unset otherwise.
+            Being unset therefore means "not computed" rather than "never seen".
+
+            This is a best-effort, approximate value: it is derived from a periodic
+            roll-up rather than the trace items themselves, so it can lag by a
+            small number of seconds. Use it for recency ranking, not as an exact
+            event timestamp.
+            """
+
         def __init__(
             self,
             *,
             name: builtins.str = ...,
             type: sentry_protos.snuba.v1.trace_item_attribute_pb2.AttributeKey.Type.ValueType = ...,
             count: builtins.int | None = ...,
+            last_seen: google.protobuf.timestamp_pb2.Timestamp | None = ...,
         ) -> None: ...
-        def HasField(self, field_name: typing.Literal["_count", b"_count", "count", b"count"]) -> builtins.bool: ...
-        def ClearField(self, field_name: typing.Literal["_count", b"_count", "count", b"count", "name", b"name", "type", b"type"]) -> None: ...
+        def HasField(self, field_name: typing.Literal["_count", b"_count", "count", b"count", "last_seen", b"last_seen"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing.Literal["_count", b"_count", "count", b"count", "last_seen", b"last_seen", "name", b"name", "type", b"type"]) -> None: ...
         def WhichOneof(self, oneof_group: typing.Literal["_count", b"_count"]) -> typing.Literal["count"] | None: ...
 
     ATTRIBUTES_FIELD_NUMBER: builtins.int

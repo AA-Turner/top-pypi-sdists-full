@@ -9,6 +9,7 @@
 # isort: skip_file
 from .....schema_classes import AccessClass
 from .....schema_classes import AccessLevelClass
+from .....schema_classes import AiContextClass
 from .....schema_classes import AnomaliesSummaryClass
 from .....schema_classes import AnomalySummaryDetailsClass
 from .....schema_classes import AssertionSummaryDetailsClass
@@ -18,6 +19,7 @@ from .....schema_classes import BrowsePathEntryClass
 from .....schema_classes import BrowsePathsClass
 from .....schema_classes import BrowsePathsV2Class
 from .....schema_classes import ChangeAuditStampsClass
+from .....schema_classes import CompressionTypeClass
 from .....schema_classes import CostClass
 from .....schema_classes import CostCostClass
 from .....schema_classes import CostCostDiscriminatorClass
@@ -57,6 +59,7 @@ from .....schema_classes import InputFieldsClass
 from .....schema_classes import InstitutionalMemoryClass
 from .....schema_classes import InstitutionalMemoryMetadataClass
 from .....schema_classes import InstitutionalMemoryMetadataSettingsClass
+from .....schema_classes import LargeStringClass
 from .....schema_classes import LifecycleStateClass
 from .....schema_classes import MLFeatureDataTypeClass
 from .....schema_classes import MediaClass
@@ -101,6 +104,7 @@ from .....schema_classes import WindowDurationClass
 
 Access = AccessClass
 AccessLevel = AccessLevelClass
+AiContext = AiContextClass
 AnomaliesSummary = AnomaliesSummaryClass
 AnomalySummaryDetails = AnomalySummaryDetailsClass
 AssertionSummaryDetails = AssertionSummaryDetailsClass
@@ -110,6 +114,7 @@ BrowsePathEntry = BrowsePathEntryClass
 BrowsePaths = BrowsePathsClass
 BrowsePathsV2 = BrowsePathsV2Class
 ChangeAuditStamps = ChangeAuditStampsClass
+CompressionType = CompressionTypeClass
 Cost = CostClass
 CostCost = CostCostClass
 CostCostDiscriminator = CostCostDiscriminatorClass
@@ -149,6 +154,7 @@ InputFields = InputFieldsClass
 InstitutionalMemory = InstitutionalMemoryClass
 InstitutionalMemoryMetadata = InstitutionalMemoryMetadataClass
 InstitutionalMemoryMetadataSettings = InstitutionalMemoryMetadataSettingsClass
+LargeString = LargeStringClass
 LifecycleState = LifecycleStateClass
 MLFeatureDataType = MLFeatureDataTypeClass
 Media = MediaClass

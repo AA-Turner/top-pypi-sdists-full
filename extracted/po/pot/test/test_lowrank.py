@@ -1,0 +1,286 @@
+"""Test for low rank sinkhorn solvers"""
+
+# Author: Laurène DAVID <laurene.david@ip-paris.fr>
+#         Titouan Vayer <titouan.vayer@inria.fr>
+#
+# License: MIT License
+
+import ot
+import numpy as np
+import pytest
+from ot.lowrank import sklearn_import  # check sklearn installation
+
+
+def test_nystroem_kernel_approx():
+    # test nystroem kernel approx in easy regime (nb anchors = nb points)
+    n = 30
+    d = 3
+    Xs = np.random.randn(n, d)
+    Xt = np.random.randn(n, d) + 2
+    sigma = 2.0
+    K = np.exp(-ot.dist(Xs, Xt) / (2 * sigma**2))
+    U, V = ot.lowrank.kernel_nystroem(Xs, Xt, anchors=60, sigma=sigma, random_state=42)
+
+    np.testing.assert_allclose(K, U @ V.T, atol=1e-7)
+
+
+@pytest.mark.parametrize("log, warn", [[False, False], [True, True]])
+def test_nystroem_sinkhorn(log, warn):
+    # test Nystrom approximation for Sinkhorn (ot plan)
+    offset = 2
+    n_samples_per_blob = 50
+    random_state = 42
+    std = 0.1
+    np.random.seed(random_state)
+
+    centers = np.array(
+        [
+            [-offset, -offset],  # Class 0 - blob 1
+            [-offset, offset],  # Class 0 - blob 2
+            [offset, -offset],  # Class 1 - blob 1
+            [offset, offset],  # Class 1 - blob 2
+        ]
+    )
+
+    X_list = []
+    y_list = []
+
+    for i, center in enumerate(centers):
+        blob_points = np.random.randn(n_samples_per_blob, 2) * std + center
+        label = 0 if i < 2 else 1
+        X_list.append(blob_points)
+        y_list.append(np.full(n_samples_per_blob, label))
+
+    X = np.vstack(X_list)
+    y = np.concatenate(y_list)
+    Xs = X[y == 0]
+    Xt = X[y == 1]
+
+    reg = 5.0
+    anchors = 5
+
+    res = ot.bregman.empirical_sinkhorn_nystroem(
+        Xs,
+        Xt,
+        anchors=anchors,
+        reg=reg,
+        numItermax=3000,
+        verbose=True,
+        random_state=random_state,
+        log=log,
+        warn=warn,
+    )
+    if log:
+        G_nys, log_ = res
+    else:
+        G_nys = res
+
+    G_sinkh = ot.bregman.empirical_sinkhorn(
+        Xs, Xt, reg=reg, numIterMax=3000, verbose=True
+    )
+
+    a = ot.unif(Xs.shape[0])
+    b = ot.unif(Xt.shape[0])
+
+    np.testing.assert_allclose(G_sinkh, G_nys[:], atol=1e-04)
+    np.testing.assert_allclose(a, G_nys[:].sum(1), atol=1e-05)
+    np.testing.assert_allclose(b, G_nys[:].sum(0), atol=1e-05)
+
+
+@pytest.mark.parametrize("log", [False, True])
+def test_nystroem_sinkhorn2(log):
+    # test Nystrom approximation for Sinkhorn (loss)
+    offset = 2
+    n_samples_per_blob = 50
+    random_state = 42
+    std = 0.1
+    np.random.seed(random_state)
+
+    centers = np.array(
+        [
+            [-offset, -offset],  # Class 0 - blob 1
+            [-offset, offset],  # Class 0 - blob 2
+            [offset, -offset],  # Class 1 - blob 1
+            [offset, offset],  # Class 1 - blob 2
+        ]
+    )
+
+    X_list = []
+    y_list = []
+
+    for i, center in enumerate(centers):
+        blob_points = np.random.randn(n_samples_per_blob, 2) * std + center
+        label = 0 if i < 2 else 1
+        X_list.append(blob_points)
+        y_list.append(np.full(n_samples_per_blob, label))
+
+    X = np.vstack(X_list)
+    y = np.concatenate(y_list)
+    Xs = X[y == 0]
+    Xt = X[y == 1]
+
+    reg = 5.0
+    anchors = 15
+
+    res = ot.bregman.empirical_sinkhorn_nystroem2(
+        Xs,
+        Xt,
+        anchors=anchors,
+        reg=reg,
+        numItermax=3000,
+        verbose=True,
+        random_state=random_state,
+        log=log,
+    )
+
+    if log:
+        loss1, log_ = res
+    else:
+        loss1 = res
+
+    loss2 = ot.bregman.empirical_sinkhorn2(
+        Xs, Xt, reg=reg, numIterMax=3000, verbose=True
+    )
+
+    np.testing.assert_allclose(loss1, loss2, atol=1e-07, rtol=1e-3)
+
+    with pytest.raises(ValueError, match="anchors must"):
+        res = ot.bregman.empirical_sinkhorn_nystroem2(
+            Xs,
+            Xt,
+            anchors=1,
+            reg=reg,
+            numItermax=3000,
+            verbose=True,
+            random_state=random_state,
+            log=log,
+        )
+
+
+def test_compute_lr_sqeuclidean_matrix():
+    # test computation of low rank cost matrices M1 and M2
+    n = 100
+    X_s = np.reshape(1.0 * np.arange(2 * n), (n, 2))
+    X_t = np.reshape(1.0 * np.arange(2 * n), (n, 2))
+
+    M1, M2 = ot.lowrank.compute_lr_sqeuclidean_matrix(X_s, X_t, rescale_cost=False)
+    M = ot.dist(X_s, X_t, metric="sqeuclidean")  # original cost matrix
+
+    np.testing.assert_allclose(np.dot(M1, M2.T), M, atol=1e-05)
+
+
+def test_lowrank_sinkhorn():
+    # test low rank sinkhorn
+    n = 100
+    a = ot.unif(n)
+    b = ot.unif(n)
+
+    X_s = np.reshape(1.0 * np.arange(n), (n, 1))
+    X_t = np.reshape(1.0 * np.arange(n), (n, 1))
+
+    Q, R, g, log = ot.lowrank.lowrank_sinkhorn(
+        X_s, X_t, a, b, reg=0.1, log=True, rescale_cost=False
+    )
+    P = log["lazy_plan"][:]
+    value_linear = log["value_linear"]
+
+    # check constraints for P
+    np.testing.assert_allclose(a, P.sum(1), atol=1e-05)
+    np.testing.assert_allclose(b, P.sum(0), atol=1e-05)
+
+    # check if lazy_plan is equal to the fully computed plan
+    P_true = np.dot(Q, np.dot(np.diag(1 / g), R.T))
+    np.testing.assert_allclose(P, P_true, atol=1e-05)
+
+    # check if value_linear is correct with its original formula
+    M = ot.dist(X_s, X_t, metric="sqeuclidean")
+    value_linear_true = np.sum(M * P_true)
+    np.testing.assert_allclose(value_linear, value_linear_true, atol=1e-05)
+
+    # check warn parameter when Dykstra algorithm doesn't converge
+    with pytest.warns(UserWarning):
+        ot.lowrank.lowrank_sinkhorn(X_s, X_t, a, b, reg=0.1, stopThr=0, numItermax=1)
+
+
+@pytest.mark.parametrize(("init"), ("random", "deterministic", "kmeans"))
+def test_lowrank_sinkhorn_init(init):
+    # test lowrank inits
+    n = 100
+    a = ot.unif(n)
+    b = ot.unif(n)
+
+    X_s = np.reshape(1.0 * np.arange(n), (n, 1))
+    X_t = np.reshape(1.0 * np.arange(n), (n, 1))
+
+    # test ImportError if init="kmeans" and sklearn not imported
+    if init in ["random", "deterministic"] or (
+        (init == "kmeans") and (sklearn_import is True)
+    ):
+        Q, R, g, log = ot.lowrank.lowrank_sinkhorn(
+            X_s, X_t, a, b, reg=0.1, init=init, log=True
+        )
+        P = log["lazy_plan"][:]
+
+        # check constraints for P
+        np.testing.assert_allclose(a, P.sum(1), atol=1e-05)
+        np.testing.assert_allclose(b, P.sum(0), atol=1e-05)
+
+    else:
+        with pytest.raises(ImportError):
+            Q, R, g = ot.lowrank.lowrank_sinkhorn(X_s, X_t, a, b, reg=0.1, init=init)
+
+
+@pytest.mark.parametrize(("alpha, rank"), ((0.8, 2), (0.5, 3), (0.2, 6)))
+def test_lowrank_sinkhorn_alpha_error(alpha, rank):
+    # Test warning for value of alpha
+    n = 100
+    a = ot.unif(n)
+    b = ot.unif(n)
+
+    X_s = np.reshape(1.0 * np.arange(n), (n, 1))
+    X_t = np.reshape(1.0 * np.arange(0, n), (n, 1))
+
+    with pytest.raises(ValueError):
+        ot.lowrank.lowrank_sinkhorn(
+            X_s, X_t, a, b, reg=0.1, rank=rank, alpha=alpha, warn=False
+        )
+
+
+@pytest.mark.parametrize(("gamma_init"), ("rescale", "theory"))
+def test_lowrank_sinkhorn_gamma_init(gamma_init):
+    # Test lr sinkhorn with different init strategies
+    n = 100
+    a = ot.unif(n)
+    b = ot.unif(n)
+
+    X_s = np.reshape(1.0 * np.arange(n), (n, 1))
+    X_t = np.reshape(1.0 * np.arange(n), (n, 1))
+
+    Q, R, g, log = ot.lowrank.lowrank_sinkhorn(
+        X_s, X_t, a, b, reg=0.1, gamma_init=gamma_init, log=True
+    )
+    P = log["lazy_plan"][:]
+
+    # check constraints for P
+    np.testing.assert_allclose(a, P.sum(1), atol=1e-05)
+    np.testing.assert_allclose(b, P.sum(0), atol=1e-05)
+
+
+@pytest.skip_backend("tf")
+def test_lowrank_sinkhorn_backends(nx):
+    # Test low rank sinkhorn for different backends
+    n = 100
+    a = ot.unif(n)
+    b = ot.unif(n)
+
+    X_s = np.reshape(1.0 * np.arange(n), (n, 1))
+    X_t = np.reshape(1.0 * np.arange(0, n), (n, 1))
+
+    ab, bb, X_sb, X_tb = nx.from_numpy(a, b, X_s, X_t)
+
+    Q, R, g, log = ot.lowrank.lowrank_sinkhorn(X_sb, X_tb, ab, bb, reg=0.1, log=True)
+    lazy_plan = log["lazy_plan"]
+    P = lazy_plan[:]
+
+    np.testing.assert_allclose(ab, P.sum(1), atol=1e-05)
+    np.testing.assert_allclose(bb, P.sum(0), atol=1e-05)

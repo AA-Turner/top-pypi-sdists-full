@@ -122,3 +122,7 @@ WORKFLOW_STARTED_STALE_MINUTES = 60
 # gate recommends rollback. This is intentionally an outcome marker, not a
 # health re-check performed while evaluating sibling rollouts.
 FAILURE_THRESHOLD_EXCEEDED_MARKER = "Failure threshold exceeded:"
+
+# Recorded when AutoPilot creates and immediately cancels an empty next-tier
+# rollout while promoting the current tier.
+NO_OP_EMPTY_TIER_MARKER = "[No-op.] Nothing to do"

@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "constructs",
-    "version": "10.7.1",
+    "version": "10.7.2",
     "description": "A programming model for software-defined state",
     "license": "Apache-2.0",
     "url": "https://github.com/aws/constructs",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "constructs._jsii": [
-            "constructs@10.7.1.jsii.tgz"
+            "constructs@10.7.2.jsii.tgz"
         ],
         "constructs": [
             "py.typed"
@@ -34,7 +34,7 @@ kwargs = json.loads(
     },
     "python_requires": ">=3.10",
     "install_requires": [
-        "jsii>=1.138.0, <2.0.0",
+        "jsii>=1.139.0, <2.0.0",
         "publication>=0.0.3"
     ],
     "classifiers": [

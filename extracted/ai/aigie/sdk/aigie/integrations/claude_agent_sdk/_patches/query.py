@@ -16,9 +16,9 @@ from aigie.integrations.claude_agent_sdk._patches._shared import (
     _wrap_tools_with_remediation,
 )
 from aigie.integrations.claude_agent_sdk.session_context import (
-    clear_session_context,
     get_or_create_session_context,
     get_session_context,
+    set_session_context,
 )
 from aigie.tracing.monkey_patch_lifecycle import PatchTarget
 
@@ -50,13 +50,18 @@ def query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
                 prompt_str = prompt if isinstance(prompt, str) else "<async_input>"
 
                 existing_ctx = get_session_context()
-                owns_context = existing_ctx is None
+                resume_id = getattr(options, "resume", None)
+                owns_context = existing_ctx is None or (
+                    resume_id is not None and existing_ctx.trace_id != resume_id
+                )
 
                 model = getattr(options, "model", None) or "claude-sonnet-4-20250514"
                 system_prompt = getattr(options, "system_prompt", None) or ""
                 trace_name = _extract_agent_name(system_prompt, model, aigie)
 
-                session_ctx = get_or_create_session_context(trace_name=trace_name)
+                session_ctx = get_or_create_session_context(
+                    trace_name=trace_name, trace_id=resume_id
+                )
 
                 handler = ClaudeAgentSDKEvents(
                     trace_name=trace_name,
@@ -69,9 +74,17 @@ def query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
                 )
                 handler._aigie = aigie
 
+                from aigie.integrations.claude_agent_sdk._events._tool_catalog import (
+                    resolve_tool_defs,
+                )
+
+                # Use MCP/allowed_tools fallback when options.tools is empty.
+                resolved_tools = await resolve_tool_defs(
+                    options, getattr(options, "tools", []) or []
+                )
                 options_meta = {
                     "model": model,
-                    "tools": getattr(options, "tools", []) or [],
+                    "tools": resolved_tools,
                     "system_prompt": system_prompt,
                     "max_tokens": getattr(options, "max_tokens", None),
                     "max_turns": getattr(options, "max_turns", None),
@@ -236,7 +249,7 @@ def query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
                     if _query_dispatcher and handler.trace_id:
                         _query_dispatcher.unsubscribe_trace(handler.trace_id)
                     if owns_context:
-                        clear_session_context()
+                        set_session_context(existing_ctx)
 
             else:
                 async for message in original_process_query(self, prompt, options, transport):

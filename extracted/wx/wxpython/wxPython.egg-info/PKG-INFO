@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wxPython
-Version: 4.3.0
+Version: 4.3.1
 Summary: Cross platform GUI toolkit for Python, "Phoenix" version
 Author-email: Robin Dunn <robin@alldunn.com>, Scott Talbert <swt@techie.net>
 License: wxWindows Library License (https://opensource.org/licenses/wxwindows.php)
@@ -60,7 +60,7 @@ Unix systems, with a native look and feel and requiring very little (if any)
 platform specific code.
 
 For more information please refer to the
-`README file <https://github.com/wxWidgets/Phoenix/blob/wxPython-4.3.0/README.rst>`_,
+`README file <https://github.com/wxWidgets/Phoenix/blob/wxPython-4.3.1/README.rst>`_,
 the `Migration Guide <http://docs.wxPython.org/MigrationGuide.html>`_,
 or the `wxPython API documentation <http://docs.wxPython.org/index.html>`_.
 

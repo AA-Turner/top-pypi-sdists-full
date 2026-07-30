@@ -80,8 +80,6 @@ class MemoryMixin[InData, OutData, Addr](SimStatePlugin):
 
     def compare(self, other: Self) -> bool: ...
 
-    def widen(self, others: list[Self]) -> bool: ...
-
     def permissions(self, addr: Addr, permissions: int | claripy.ast.BV | None = None, **kwargs) -> claripy.ast.BV: ...
 
     def map_region(
@@ -105,6 +103,15 @@ class MemoryMixin[InData, OutData, Addr](SimStatePlugin):
         :return:        A memoryview into the loaded bytes.
         """
         raise NotImplementedError
+
+    def concrete_run_length(self, addr, size, **kwargs) -> int:
+        """
+        Return the number of concrete bytes starting at ``addr``, capped at ``size``.
+        """
+        _, bitmap = self.concrete_load(addr, size, with_bitmap=True, **kwargs)
+        # the bitmap is packed: one bit per byte, least-significant bit first
+        n = min(size, len(bitmap) * 8)
+        return next((i for i in range(n) if bitmap[i >> 3] >> (i & 7) & 1), n)
 
     def erase(self, addr: Addr, size: int | None = None, **kwargs) -> None:
         """

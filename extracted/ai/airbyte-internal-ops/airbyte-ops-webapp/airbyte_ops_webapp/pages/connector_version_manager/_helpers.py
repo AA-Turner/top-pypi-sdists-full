@@ -538,16 +538,17 @@ def progressive_rollout_rows() -> list[dict[str, Any]]:
             key=lambda r: tier_index.get(r.get("tier", "TIER_2"), 0),
         )
 
-        # Build per-tier summary string, each tier prefixed with its status
+        # Build per-tier display values, each prefixed with its status
         # glyph. This is an approximation: the top-level query has each tier's
         # `state` + `current_target_rollout_pct` (cheap rollout-table read) but
         # not the per-tier failure count, so `failing=0` here — the 🟡 Attention
         # glyph can only surface in the detailed view (which runs the population
         # scan). All other states (Not started / In progress / Complete / Paused)
         # are exact.
-        tier_parts: list[str] = []
+        tier_displays: dict[str, str] = {}
         for display_tier, stage_value in _CARD_TIER_STAGES:
             matching = [r for r in sorted_group if r.get("tier") == stage_value]
+            tier_key = f"{display_tier.value.lower()}_display"
             if matching:
                 rollout = matching[0]
                 emoji, _ = tier_rollout_status(
@@ -557,12 +558,12 @@ def progressive_rollout_rows() -> list[dict[str, Any]]:
                     failing=0,
                 )
                 pct = format_rollout_pct(rollout.get("current_target_rollout_pct"))
-                tier_parts.append(f"{emoji} {display_tier.label}: {pct}")
+                tier_displays[tier_key] = f"{emoji} {pct}"
             else:
                 emoji, _ = tier_rollout_status(
                     has_rollout=False, state="", deployed_pct=0, failing=0
                 )
-                tier_parts.append(f"{emoji} {display_tier.label}: \u2014")
+                tier_displays[tier_key] = f"{emoji} \u2014"
 
         highest = sorted_group[-1]
         connector_id = highest.get("connector_id", "")
@@ -576,7 +577,7 @@ def progressive_rollout_rows() -> list[dict[str, Any]]:
                 "connector_id": connector_id,
                 "connector_name": highest.get("connector_name", ""),
                 "rc_docker_image_tag": rc_tag,
-                "tier_summary": " | ".join(tier_parts),
+                **tier_displays,
                 "state": highest.get("state", ""),
                 "autopilot_display": _autopilot_display(connector_id, rc_tag),
                 "rc_pin_count_display": f"{total_pins:,}",

@@ -54,6 +54,9 @@ dev = [
     "pip-audit==2.7.3",
     "safety==3.2.11",
     "matrice_common",
+    # matrice_common imports dateutil (token_auth) at module load; needed so the
+    # SDK-importing tests collect. In the org APPROVED_DEPS-python.toml.
+    "python-dateutil==2.9.0.post0",
     "torch",
     "torchvision",
     "numpy",

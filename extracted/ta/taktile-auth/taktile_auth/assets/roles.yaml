@@ -270,6 +270,7 @@ fwd_viewer/org_id:
     - ws_viewer/org_id,*
     - r:organization/org_id
     - r:internal_resources/org_id
+    - r:workspace_analytics_dashboard/org_id,ws_id
     - r:workspace_api_keys/org_id,ws_id
     - r:workspace_connection_resource/org_id,ws_id
     - r:workspace_connection_tenant/org_id,ws_id

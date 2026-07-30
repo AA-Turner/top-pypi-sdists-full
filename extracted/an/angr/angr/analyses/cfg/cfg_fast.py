@@ -48,6 +48,7 @@ from angr.knowledge_plugins.cfg.spilling_cfg import block_key_to_addr, block_key
 from angr.knowledge_plugins.xrefs import XRef, XRefType
 from angr.misc.ux import once
 from angr.rustylib import SegmentList
+from angr.simos import SimWindows
 from angr.utils.constants import DEFAULT_STATEMENT
 from angr.utils.funcid import (
     is_function_likely_security_init_cookie,
@@ -869,6 +870,10 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         # mapping to all known thunks
         self._known_thunks = {}
 
+        # when True, jump/call targets loaded from registered read-only regions (e.g. PE IAT slots) are
+        # constant-folded at lift time and consumed in _create_jobs without invoking indirect jump resolvers
+        self._fold_ro_const_loads = False
+
         self._initial_state = None
         self._next_addr: int | None = None
 
@@ -1233,6 +1238,86 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
             return repeating_length
         return 0
 
+    def _scan_for_fp_constants(self, start_addr: int, threshold: int = 4) -> int:
+        """
+        Scan from a given address for a run of plausible floating-point constants.
+
+        A double-precision value qualifies when its biased exponent falls within a band covering magnitudes
+        between 2 ** -64 and 2 ** 64, which is where constants in compiler- and libm-generated tables (polynomial
+        coefficients, logarithm and trigonometry tables, etc.) almost always live. Code bytes rarely produce
+        multiple consecutive qualifying values.
+
+        Single-precision values are detected as well, but with a tighter magnitude band (2 ** -32 to 2 ** 32) and
+        twice the run-length requirement: an 8-bit exponent in a 4-byte value is a much weaker signal than an
+        11-bit exponent in an 8-byte value, and anything looser starts matching real code.
+
+        :param start_addr:  The address to start scanning from.
+        :param threshold:   The minimum number of consecutive qualifying double-precision values.
+        :return:            The total size in bytes of the qualifying values, or 0 if not enough values are found.
+        """
+
+        for size, exp_shift, exp_mask, exp_lo, exp_hi, min_count in (
+            (8, 52, 0x7FF, 959, 1087, threshold),  # doubles: 1023 +/- 64
+            (4, 23, 0xFF, 95, 159, threshold * 2),  # floats: 127 +/- 32
+        ):
+            addr = start_addr
+            fp_count = 0
+            first_val = None
+            has_multiple_values = False
+
+            uniform_mul = ((1 << (size * 8)) - 1) // 0xFF
+
+            while self._inside_regions(addr):
+                val = self._fast_memory_load_pointer(addr, size=size)
+                if val is None:
+                    break
+                if val == (val & 0xFF) * uniform_mul:
+                    # all bytes are identical: this is filler (e.g., 0xCC padding or "????", whose bit patterns
+                    # carry in-band exponents), not a constant
+                    break
+                exponent = (val >> exp_shift) & exp_mask
+                if not exp_lo <= exponent <= exp_hi:
+                    break
+                if first_val is None:
+                    first_val = val
+                elif val != first_val:
+                    has_multiple_values = True
+                fp_count += 1
+                addr += size
+
+            # a run of one repeated value carries no table evidence
+            if fp_count >= min_count and has_multiple_values:
+                return fp_count * size
+        return 0
+
+    def _scan_for_monotonic_byte_ramp(self, start_addr: int, threshold: int = 16) -> int:
+        """
+        Scan from a given address for a run of monotonically increasing bytes, where each byte equals the previous
+        byte plus one, modulo 256. Character case-conversion and translation tables are laid out this way.
+
+        :param start_addr:  The address to start scanning from.
+        :param threshold:   The minimum run length.
+        :return:            The length of the run, or 0 if the run is shorter than threshold.
+        """
+
+        addr = start_addr
+        last_byte = None
+        ramp_length = 0
+
+        while self._inside_regions(addr):
+            val = self._load_a_byte_as_int(addr)
+            if val is None:
+                break
+            if last_byte is not None and val != (last_byte + 1) & 0xFF:
+                break
+            last_byte = val
+            ramp_length += 1
+            addr += 1
+
+        if ramp_length >= threshold:
+            return ramp_length
+        return 0
+
     def _scan_for_consecutive_pointers(self, start_addr: int, threshold: int = 2) -> int:
         """
         Scan from a given address and determine if there are at least `threshold` of pointers.
@@ -1343,11 +1428,19 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                     )
                     start_addr += pointer_length
 
-                elif start_addr <= 0x100000:
-                    # for high addresses, all pointers have been found in _scan_for_consecutive_pointers() because we
-                    # set threshold there to 1
-                    threshold = 4
-                    pointer_count = self._scan_for_mixed_pointers(start_addr, threshold=threshold, window=6)
+                else:
+                    if start_addr <= 0x100000:
+                        # for low addresses, in-object values are common false positives, so
+                        # _scan_for_consecutive_pointers() ran with a high threshold and may have missed
+                        # non-consecutive pointers; require a high pointer density here
+                        threshold, window = 4, 6
+                    else:
+                        # for high addresses, all consecutive pointers have been found in
+                        # _scan_for_consecutive_pointers() because we set threshold there to 1. what remains are
+                        # interleaved tables (e.g., alternating value-pointer pairs), which have at most window // 2
+                        # pointers; use a wider window with the same evidence requirement
+                        threshold, window = 4, 8
+                    pointer_count = self._scan_for_mixed_pointers(start_addr, threshold=threshold, window=window)
                     pointer_length = pointer_count * self.project.arch.bytes
 
                     if pointer_length:
@@ -1359,24 +1452,54 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                         start_addr += pointer_length
 
             if not matched_something:
-                # find strings
+                # find floating-point constant tables; this must run before the string and repeating-zero scans
+                # because the low mantissa bytes of table entries are frequently zero or incidentally printable,
+                # which would misphase the table. since scanning misclassified code often dumps us in the middle
+                # of a table entry, probe the next 4- and 8-byte boundaries as well.
+                fp_addr_4 = start_addr + (-start_addr % 4)
+                fp_addr_8 = start_addr + (-start_addr % 8)
+                for fp_addr in (fp_addr_4,) if fp_addr_4 == fp_addr_8 else (fp_addr_4, fp_addr_8):
+                    fp_length = self._scan_for_fp_constants(fp_addr)
+                    if fp_length:
+                        matched_something = True
+                        if fp_addr > start_addr:
+                            self._seg_list.occupy(start_addr, fp_addr - start_addr, "alignment")
+                            self.model.memory_data[start_addr] = MemoryData(
+                                start_addr, fp_addr - start_addr, MemoryDataSort.Alignment
+                            )
+                        self._seg_list.occupy(fp_addr, fp_length, "fp")
+                        self.model.memory_data[fp_addr] = MemoryData(fp_addr, fp_length, MemoryDataSort.FloatingPoint)
+                        start_addr = fp_addr + fp_length
+                        break
+
+            if not matched_something:
+                # find strings; tolerate a single leading null byte, which is usually the leftover of a multi-null
+                # string separator (string scans only consume one null terminator of the preceding string, and a
+                # single remaining null byte is not caught by the repeating-zero scan below)
+                leading_nulls = 1 if self._load_a_byte_as_int(start_addr) == 0 else 0
+                str_addr = start_addr + leading_nulls
                 is_widestring = False
-                string_length = self._scan_for_printable_strings(start_addr)
+                string_length = self._scan_for_printable_strings(str_addr)
                 if string_length == 0:
                     is_widestring = True
-                    string_length = self._scan_for_printable_widestrings(start_addr)
+                    string_length = self._scan_for_printable_widestrings(str_addr)
 
                 if string_length:
                     matched_something = True
-                    self._seg_list.occupy(start_addr, string_length, "string")
+                    if leading_nulls:
+                        self._seg_list.occupy(start_addr, leading_nulls, "alignment")
+                        self.model.memory_data[start_addr] = MemoryData(
+                            start_addr, leading_nulls, MemoryDataSort.Alignment
+                        )
+                    self._seg_list.occupy(str_addr, string_length, "string")
                     md = MemoryData(
-                        start_addr,
+                        str_addr,
                         string_length,
                         MemoryDataSort.String if not is_widestring else MemoryDataSort.UnicodeString,
                     )
                     md.fill_content(self.project.loader)
-                    self.model.memory_data[start_addr] = md
-                    start_addr += string_length
+                    self.model.memory_data[str_addr] = md
+                    start_addr = str_addr + string_length
 
             if not matched_something and self.project.arch.name in {"X86", "AMD64"}:
                 cc_length = self._scan_for_repeating_bytes(start_addr, 0xCC, threshold=1)
@@ -1415,6 +1538,14 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                     start_addr, repeating_byte_length, MemoryDataSort.Unknown
                 )
                 start_addr += repeating_byte_length
+
+            # a long run of monotonically increasing bytes is a character or translation table, not code
+            ramp_length = self._scan_for_monotonic_byte_ramp(start_addr, threshold=16)
+            if ramp_length:
+                matched_something = True
+                self._seg_list.occupy(start_addr, ramp_length, "nodecode")
+                self.model.memory_data[start_addr] = MemoryData(start_addr, ramp_length, MemoryDataSort.Unknown)
+                start_addr += ramp_length
 
             if not matched_something:
                 # umm now it's probably code
@@ -3133,6 +3264,34 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
 
         return entries
 
+    def _resolve_const_folded_next(self, irsb: pyvex.IRSB | None, jumpkind: str) -> int | None:
+        """
+        Check whether the jump/call target of this block was constant-folded from a registered read-only region
+        at lift time (recorded in IRSB.const_vals), e.g. an import call through the IAT (or delay-load IAT) in a PE
+        binary. This reproduces the decision of the timeless load-based resolvers (AMD64PeIatResolver and
+        MemoryLoadResolver) without re-lifting the block or dispatching the resolvers: the loaded pointer is the
+        same value they would read, and it is accepted when it is a valid jump target (executable or hooked), which
+        is exactly MemoryLoadResolver's ``_is_target_valid`` criterion (a superset of AMD64PeIatResolver's hooked
+        check). Everything else falls back to the regular indirect jump resolution logic.
+
+        :param irsb:        The (possibly statement-less) IRSB of the block.
+        :param jumpkind:    The jumpkind of the default exit.
+        :return:            The resolved target, or None if unavailable.
+        """
+        if not self._fold_ro_const_loads or irsb is None:
+            return None
+        if jumpkind not in ("Ijk_Call", "Ijk_Boring"):
+            return None
+        if not irsb.const_vals or not isinstance(irsb.next, pyvex.IRExpr.RdTmp):
+            return None
+        next_tmp = irsb.next.tmp
+        for cv in irsb.const_vals:
+            if cv.tmp == next_tmp:
+                if self._addr_in_exec_memory_regions(cv.value) or self.project.is_hooked(cv.value):
+                    return cv.value
+                return None
+        return None
+
     def _create_jobs(
         self,
         target: Any,
@@ -3218,14 +3377,24 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                 jumpkind in ("Ijk_Boring", "Ijk_Call", "Ijk_InvalICache") or jumpkind.startswith("Ijk_Sys")
             ):
                 # This is an indirect jump. Try to resolve it.
-                # FIXME: in some cases, a statementless irsb will be missing its instr addresses
-                # and this next part will fail. Use the real IRSB instead
-                irsb = self._lift(cfg_node.addr, size=cfg_node.size).vex
-                assert irsb is not None
-                cfg_node.instruction_addrs = InsAddrList.from_addr_list(irsb.instruction_addresses)
-                resolved, resolved_targets, ij = self._indirect_jump_encountered(
-                    addr, cfg_node, irsb, current_function_addr, stmt_idx
-                )
+                # fast path: the target may have been constant-folded from a read-only region at lift time
+                # (e.g. an AMD64 PE IAT slot); consuming it here avoids re-lifting the block and running the
+                # indirect jump resolvers
+                folded_target = self._resolve_const_folded_next(irsb, jumpkind)
+                if folded_target is not None:
+                    # the statement-less irsb already carries the instruction addresses that the resolver path
+                    # would recompute from a re-lift
+                    cfg_node.instruction_addrs = InsAddrList.from_addr_list(irsb.instruction_addresses)
+                    resolved, resolved_targets, ij = True, {folded_target}, None
+                else:
+                    # FIXME: in some cases, a statementless irsb will be missing its instr addresses
+                    # and this next part will fail. Use the real IRSB instead
+                    irsb = self._lift(cfg_node.addr, size=cfg_node.size).vex
+                    assert irsb is not None
+                    cfg_node.instruction_addrs = InsAddrList.from_addr_list(irsb.instruction_addresses)
+                    resolved, resolved_targets, ij = self._indirect_jump_encountered(
+                        addr, cfg_node, irsb, current_function_addr, stmt_idx
+                    )
                 if resolved:
                     for resolved_target in resolved_targets:
                         if jumpkind == "Ijk_Call":
@@ -3596,7 +3765,10 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                     target_func_addr = node.function_address
             # case 2: if the source instruction is the first instruction of the current function, has only one branch
             # to the target address, and is a jump (Ijk_Boring, not a call), then the target address is likely the
-            # start of another function
+            # start of another function. A compiler may also begin a function with an
+            # unconditional jump to an internal loop guard (loop rotation). When the loader
+            # supplies a non-empty function symbol, its extent is stronger evidence than this
+            # tail-jump heuristic: keep a target inside that extent in the current function.
             if (
                 target_func_addr is None
                 and len(src_node.instruction_addrs) == 1
@@ -3605,7 +3777,17 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                 and all_successors is not None
                 and len(all_successors) == 1
             ):
-                target_func_addr = target_addr
+                current_symbol = self.project.loader.find_symbol(current_function_addr)
+                current_symbol_size = getattr(current_symbol, "size", 0) or 0
+                target_is_inside_current_symbol = (
+                    current_symbol is not None
+                    and current_symbol.is_function
+                    and current_symbol.rebased_addr == current_function_addr
+                    and current_symbol_size > 0
+                    and current_function_addr <= target_addr < current_function_addr + current_symbol_size
+                )
+                if not target_is_inside_current_symbol:
+                    target_func_addr = target_addr
             # last resort: the block probably belongs to the current function
             if target_func_addr is None:
                 target_func_addr = current_function_addr
@@ -5193,6 +5375,30 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                         self._ro_region_cdata_cache.append(content_buf)
                         pyvex.pvc.register_readonly_region(section.vaddr, section.memsize, content_buf)
 
+        elif self.project.arch.name in {"AMD64", "X86"} and isinstance(self.project.simos, SimWindows):
+            # register sections that hold jump/call targets so that rip-relative import calls and jumps
+            # (call/jmp qword ptr [rip+disp]) can be constant-folded at lift time and resolved without a re-lift
+            # and resolver dispatch:
+            #   - non-writable sections (e.g. .rdata, the bound IAT), and
+            #   - the delay-load import table (.didat): although writable, its slots are static during CFG recovery
+            #     and point to the delay-load thunks, which MemoryLoadResolver already resolves by reading them.
+            # The folded value is only accepted when it is a valid jump target, so registering these regions cannot
+            # introduce edges the timeless load resolvers would not also produce.
+            self._ro_region_cdata_cache = []
+            for section in self.project.loader.main_object.sections:
+                register = (section.is_readable and not section.is_writable and section.memsize >= 8) or (
+                    section.name == ".didat" and section.is_readable and section.memsize >= 8
+                )
+                if register:
+                    try:
+                        content = self.project.loader.memory.load(section.vaddr, section.memsize)
+                    except KeyError:
+                        continue
+                    content_buf = pyvex.ffi.from_buffer(content)
+                    self._ro_region_cdata_cache.append(content_buf)
+                    pyvex.pvc.register_readonly_region(section.vaddr, section.memsize, content_buf)
+            self._fold_ro_const_loads = bool(self._ro_region_cdata_cache)
+
     def _lifter_deregister_readonly_regions(self):
         pyvex.pvc.deregister_all_readonly_regions()
         self._ro_region_cdata_cache = None
@@ -5456,6 +5662,7 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                     collect_data_refs=True,
                     strict_block_end=True,
                     load_from_ro_regions=True,
+                    const_prop=self._fold_ro_const_loads,
                     initial_regs=initial_regs,
                 )
                 irsb = lifted_block.vex_nostmt  # may raise SimTranslationError
@@ -5500,6 +5707,7 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                             collect_data_refs=True,
                             strict_block_end=True,
                             load_from_ro_regions=True,
+                            const_prop=self._fold_ro_const_loads,
                             initial_regs=initial_regs,
                         )
                         irsb = lifted_block.vex_nostmt

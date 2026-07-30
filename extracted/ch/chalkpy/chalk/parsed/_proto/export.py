@@ -1,6 +1,6 @@
 import collections
 import os
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Collection, Iterable, List, Optional, Sequence, Tuple
 
@@ -27,6 +27,7 @@ from chalk._monitoring.Chart import Chart as _Chart
 from chalk._monitoring.proto_conversion import convert_chart
 from chalk._version import __version__
 from chalk.client import ChalkError, ChalkException, ErrorCode, ErrorCodeCategory
+from chalk.client.models import TIMEDELTA_PREFIX
 from chalk.client.serialization.protos import ChalkErrorConverter
 from chalk.config.project_config import ProjectSettings, load_project_config
 from chalk.features import FeatureSetBase
@@ -336,10 +337,20 @@ def export_from_registries(
                     ),
                 ),
                 lower_bound=(
-                    datetime_to_proto_timestamp(cron.lower_bound) if cron.lower_bound is not None else cron.lower_bound
+                    datetime_to_proto_timestamp(cron.lower_bound) if isinstance(cron.lower_bound, datetime) else None
+                ),
+                observed_at_lower_bound=(
+                    TIMEDELTA_PREFIX + timedelta_to_duration(cron.lower_bound)
+                    if isinstance(cron.lower_bound, timedelta)
+                    else None
                 ),
                 upper_bound=(
-                    datetime_to_proto_timestamp(cron.upper_bound) if cron.upper_bound is not None else cron.upper_bound
+                    datetime_to_proto_timestamp(cron.upper_bound) if isinstance(cron.upper_bound, datetime) else None
+                ),
+                observed_at_upper_bound=(
+                    TIMEDELTA_PREFIX + timedelta_to_duration(cron.upper_bound)
+                    if isinstance(cron.upper_bound, timedelta)
+                    else None
                 ),
                 tags=cron.tags,
                 required_resolver_tags=cron.required_resolver_tags,

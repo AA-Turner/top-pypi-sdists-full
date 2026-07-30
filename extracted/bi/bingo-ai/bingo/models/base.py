@@ -258,6 +258,9 @@ class BaseModel:
                             item if isinstance(item, dict) else {
                                 "role": item.role,
                                 "content": item.content,
+                                **({"tool_calls": item.tool_calls} if getattr(item, "tool_calls", None) else {}),
+                                **({"tool_call_id": item.tool_call_id} if getattr(item, "tool_call_id", None) else {}),
+                                **({"name": item.name} if getattr(item, "name", None) else {}),
                             }
                             for item in source_messages
                         ],
@@ -462,19 +465,31 @@ class BaseModel:
             system = self.config.get_system_prompt()
             if system:
                 msgs.append({"role": "system", "content": system})
+        # Track whether the last appended message was assistant(tool_calls).
+        # Used to skip orphaned tool messages whose paired assistant was
+        # compacted away — providers reject those with a 400 error.
+        _expect_tool_result = False
         for message in normalized:
             if message.role == "tool":
+                if not _expect_tool_result:
+                    # Orphaned: preceding assistant(tool_calls) was compacted away.
+                    continue
                 msgs.append({
                     "role": "tool",
                     "tool_call_id": message.tool_call_id or "",
                     "content": message.content or "",
                 })
-            elif message.role == "assistant" and message.tool_calls:
+                # _expect_tool_result stays True for subsequent tool results
+            elif message.role == "assistant" and getattr(message, "tool_calls", None):
+                _expect_tool_result = True
                 msg_dict = {"role": "assistant", "content": message.content or None}
                 msg_dict["tool_calls"] = message.tool_calls
                 msgs.append(msg_dict)
             elif message.content:
+                _expect_tool_result = False
                 msgs.append({"role": message.role, "content": message.content})
+            else:
+                _expect_tool_result = False
 
         payload = {
             "model": self.config.model,
@@ -524,6 +539,9 @@ class ClaudeModel(BaseModel):
                             item if isinstance(item, dict) else {
                                 "role": item.role,
                                 "content": item.content,
+                                **({"tool_calls": item.tool_calls} if getattr(item, "tool_calls", None) else {}),
+                                **({"tool_call_id": item.tool_call_id} if getattr(item, "tool_call_id", None) else {}),
+                                **({"name": item.name} if getattr(item, "name", None) else {}),
                             }
                             for item in source_messages
                         ],

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: angr
-Version: 9.3.0
+Version: 9.3.1.post1
 Summary: A multi-architecture binary analysis toolkit, with the ability to perform dynamic symbolic execution and various static analyses on binaries
 License-Expression: BSD-2-Clause
 Project-URL: Homepage, https://angr.io/
@@ -16,12 +16,12 @@ License-File: LICENSE
 Requires-Dist: cxxheaderparser
 Requires-Dist: GitPython
 Requires-Dist: angr-data~=0.1.0
-Requires-Dist: archinfo==9.3.0
+Requires-Dist: archinfo==9.3.1
 Requires-Dist: cachetools
 Requires-Dist: capstone==5.0.6
 Requires-Dist: cffi>=1.14.0
-Requires-Dist: claripy==9.3.0
-Requires-Dist: cle==9.3.0
+Requires-Dist: claripy==9.3.1
+Requires-Dist: cle==9.3.1
 Requires-Dist: lmdb==2.1.1
 Requires-Dist: msgspec; implementation_name == "cpython"
 Requires-Dist: mulpyplexer
@@ -30,11 +30,10 @@ Requires-Dist: protobuf>=6.33.0
 Requires-Dist: psutil
 Requires-Dist: pycparser~=3.0
 Requires-Dist: platformdirs
-Requires-Dist: pydemumble==0.0.1
+Requires-Dist: pydemumble~=0.1.3
 Requires-Dist: pypcode~=4.0
-Requires-Dist: pyvex==9.3.0
+Requires-Dist: pyvex==9.3.1
 Requires-Dist: rich>=13.1.0
-Requires-Dist: rust-demangler==1.0
 Requires-Dist: sortedcontainers
 Requires-Dist: sympy
 Requires-Dist: typing-extensions
@@ -46,7 +45,7 @@ Requires-Dist: keystone-engine; extra == "keystone"
 Provides-Extra: telemetry
 Requires-Dist: opentelemetry-api; extra == "telemetry"
 Provides-Extra: llm
-Requires-Dist: pydantic-ai; extra == "llm"
+Requires-Dist: pydantic-ai>=2.12.0; extra == "llm"
 Requires-Dist: mcp>=1.0.0; extra == "llm"
 Requires-Dist: fastmcp>=2.3.0; extra == "llm"
 Provides-Extra: unicorn
@@ -98,10 +97,12 @@ import angr
 
 project = angr.Project("angr-doc/examples/defcamp_r100/r100", auto_load_libs=False)
 
+
 @project.hook(0x400844)
 def print_flag(state):
     print("FLAG SHOULD BE:", state.posix.dumps(0))
     project.terminate_execution()
+
 
 project.execute()
 ```

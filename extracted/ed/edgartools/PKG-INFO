@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edgartools
-Version: 5.43.1
+Version: 5.44.0
 Summary: Python library to access and analyze SEC Edgar filings, XBRL financial statements, 10-K, 10-Q, and 8-K reports
 Project-URL: Homepage, https://github.com/dgunning/edgartools
 Project-URL: Documentation, https://dgunning.github.io/edgartools/
@@ -50,7 +50,7 @@ Requires-Dist: tqdm>=4.62.0
 Requires-Dist: truststore>=0.9.0
 Requires-Dist: unidecode>=1.2.0
 Provides-Extra: ai
-Requires-Dist: mcp>=1.12.3; extra == 'ai'
+Requires-Dist: mcp<2.0.0,>=1.12.3; extra == 'ai'
 Requires-Dist: starlette>=0.36.0; extra == 'ai'
 Requires-Dist: tiktoken>=0.10.0; extra == 'ai'
 Requires-Dist: uvicorn>=0.27.0; extra == 'ai'

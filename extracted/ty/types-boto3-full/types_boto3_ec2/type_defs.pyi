@@ -391,6 +391,7 @@ from .literals import (
     TransitGatewayMeteringPolicyStateType,
     TransitGatewayMulitcastDomainAssociationStateType,
     TransitGatewayMulticastDomainStateType,
+    TransitGatewayPolicyTableEntryStateType,
     TransitGatewayPolicyTableStateType,
     TransitGatewayPrefixListReferenceStateType,
     TransitGatewayPropagationStateType,
@@ -914,6 +915,8 @@ __all__ = (
     "CreateTransitGatewayPeeringAttachmentRequestOptionsTypeDef",
     "CreateTransitGatewayPeeringAttachmentRequestTypeDef",
     "CreateTransitGatewayPeeringAttachmentResultTypeDef",
+    "CreateTransitGatewayPolicyTableEntryRequestTypeDef",
+    "CreateTransitGatewayPolicyTableEntryResultTypeDef",
     "CreateTransitGatewayPolicyTableRequestTypeDef",
     "CreateTransitGatewayPolicyTableResultTypeDef",
     "CreateTransitGatewayPrefixListReferenceRequestTypeDef",
@@ -1129,6 +1132,8 @@ __all__ = (
     "DeleteTransitGatewayMulticastDomainResultTypeDef",
     "DeleteTransitGatewayPeeringAttachmentRequestTypeDef",
     "DeleteTransitGatewayPeeringAttachmentResultTypeDef",
+    "DeleteTransitGatewayPolicyTableEntryRequestTypeDef",
+    "DeleteTransitGatewayPolicyTableEntryResultTypeDef",
     "DeleteTransitGatewayPolicyTableRequestTypeDef",
     "DeleteTransitGatewayPolicyTableResultTypeDef",
     "DeleteTransitGatewayPrefixListReferenceRequestTypeDef",
@@ -2153,6 +2158,7 @@ __all__ = (
     "GetTransitGatewayPolicyTableAssociationsRequestPaginateTypeDef",
     "GetTransitGatewayPolicyTableAssociationsRequestTypeDef",
     "GetTransitGatewayPolicyTableAssociationsResultTypeDef",
+    "GetTransitGatewayPolicyTableEntriesRequestPaginateTypeDef",
     "GetTransitGatewayPolicyTableEntriesRequestTypeDef",
     "GetTransitGatewayPolicyTableEntriesResultTypeDef",
     "GetTransitGatewayPrefixListReferencesRequestPaginateTypeDef",
@@ -2576,6 +2582,8 @@ __all__ = (
     "ModifyTransitGatewayMeteringPolicyRequestTypeDef",
     "ModifyTransitGatewayMeteringPolicyResultTypeDef",
     "ModifyTransitGatewayOptionsTypeDef",
+    "ModifyTransitGatewayPolicyTableEntryRequestTypeDef",
+    "ModifyTransitGatewayPolicyTableEntryResultTypeDef",
     "ModifyTransitGatewayPrefixListReferenceRequestTypeDef",
     "ModifyTransitGatewayPrefixListReferenceResultTypeDef",
     "ModifyTransitGatewayRequestTypeDef",
@@ -3112,6 +3120,8 @@ __all__ = (
     "TransitGatewayPrefixListReferenceTypeDef",
     "TransitGatewayPropagationTypeDef",
     "TransitGatewayRequestOptionsTypeDef",
+    "TransitGatewayRequestPolicyRuleMetaDataTypeDef",
+    "TransitGatewayRequestPolicyRuleTypeDef",
     "TransitGatewayRouteAttachmentTypeDef",
     "TransitGatewayRouteTableAnnouncementTypeDef",
     "TransitGatewayRouteTableAssociationTypeDef",
@@ -5007,6 +5017,11 @@ class DeleteTransitGatewayMulticastDomainRequestTypeDef(TypedDict):
 
 class DeleteTransitGatewayPeeringAttachmentRequestTypeDef(TypedDict):
     TransitGatewayAttachmentId: str
+    DryRun: NotRequired[bool]
+
+class DeleteTransitGatewayPolicyTableEntryRequestTypeDef(TypedDict):
+    TransitGatewayPolicyTableId: str
+    PolicyRuleNumber: str
     DryRun: NotRequired[bool]
 
 class DeleteTransitGatewayPolicyTableRequestTypeDef(TypedDict):
@@ -8301,6 +8316,7 @@ class TrafficMirrorPortRangeTypeDef(TypedDict):
 
 class TransitGatewayAttachmentAssociationTypeDef(TypedDict):
     TransitGatewayRouteTableId: NotRequired[str]
+    TransitGatewayPolicyTableId: NotRequired[str]
     State: NotRequired[TransitGatewayAssociationStateType]
 
 class TransitGatewayAttachmentBgpConfigurationTypeDef(TypedDict):
@@ -8349,6 +8365,10 @@ class TransitGatewayPrefixListAttachmentTypeDef(TypedDict):
     TransitGatewayAttachmentId: NotRequired[str]
     ResourceType: NotRequired[TransitGatewayAttachmentResourceTypeType]
     ResourceId: NotRequired[str]
+
+class TransitGatewayRequestPolicyRuleMetaDataTypeDef(TypedDict):
+    MetaDataKey: NotRequired[str]
+    MetaDataValue: NotRequired[str]
 
 class TransitGatewayRouteAttachmentTypeDef(TypedDict):
     ResourceId: NotRequired[str]
@@ -13313,6 +13333,12 @@ class GetTransitGatewayPolicyTableAssociationsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     DryRun: NotRequired[bool]
 
+class GetTransitGatewayPolicyTableEntriesRequestPaginateTypeDef(TypedDict):
+    TransitGatewayPolicyTableId: str
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DryRun: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class GetTransitGatewayPolicyTableEntriesRequestTypeDef(TypedDict):
     TransitGatewayPolicyTableId: str
     Filters: NotRequired[Sequence[FilterTypeDef]]
@@ -15543,6 +15569,17 @@ class TransitGatewayPrefixListReferenceTypeDef(TypedDict):
     Blackhole: NotRequired[bool]
     TransitGatewayAttachment: NotRequired[TransitGatewayPrefixListAttachmentTypeDef]
 
+TransitGatewayRequestPolicyRuleTypeDef = TypedDict(
+    "TransitGatewayRequestPolicyRuleTypeDef",
+    {
+        "SourceCidrBlock": NotRequired[str],
+        "SourcePortRange": NotRequired[str],
+        "DestinationCidrBlock": NotRequired[str],
+        "DestinationPortRange": NotRequired[str],
+        "Protocol": NotRequired[str],
+        "MetaData": NotRequired[TransitGatewayRequestPolicyRuleMetaDataTypeDef],
+    },
+)
 TransitGatewayRouteTypeDef = TypedDict(
     "TransitGatewayRouteTypeDef",
     {
@@ -18129,6 +18166,7 @@ class TransitGatewayPolicyTableEntryTypeDef(TypedDict):
     PolicyRuleNumber: NotRequired[str]
     PolicyRule: NotRequired[TransitGatewayPolicyRuleTypeDef]
     TargetRouteTableId: NotRequired[str]
+    State: NotRequired[TransitGatewayPolicyTableEntryStateType]
 
 class CreateTransitGatewayPrefixListReferenceResultTypeDef(TypedDict):
     TransitGatewayPrefixListReference: TransitGatewayPrefixListReferenceTypeDef
@@ -18146,6 +18184,20 @@ class GetTransitGatewayPrefixListReferencesResultTypeDef(TypedDict):
 class ModifyTransitGatewayPrefixListReferenceResultTypeDef(TypedDict):
     TransitGatewayPrefixListReference: TransitGatewayPrefixListReferenceTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateTransitGatewayPolicyTableEntryRequestTypeDef(TypedDict):
+    TransitGatewayPolicyTableId: str
+    PolicyRuleNumber: str
+    TargetRouteTableId: str
+    PolicyRule: NotRequired[TransitGatewayRequestPolicyRuleTypeDef]
+    DryRun: NotRequired[bool]
+
+class ModifyTransitGatewayPolicyTableEntryRequestTypeDef(TypedDict):
+    TransitGatewayPolicyTableId: str
+    PolicyRuleNumber: str
+    PolicyRule: NotRequired[TransitGatewayRequestPolicyRuleTypeDef]
+    TargetRouteTableId: NotRequired[str]
+    DryRun: NotRequired[bool]
 
 class CreateTransitGatewayRouteResultTypeDef(TypedDict):
     Route: TransitGatewayRouteTypeDef
@@ -20267,8 +20319,21 @@ class DescribeTransitGatewayConnectPeersResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class CreateTransitGatewayPolicyTableEntryResultTypeDef(TypedDict):
+    TransitGatewayPolicyTableEntry: TransitGatewayPolicyTableEntryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteTransitGatewayPolicyTableEntryResultTypeDef(TypedDict):
+    TransitGatewayPolicyTableEntry: TransitGatewayPolicyTableEntryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class GetTransitGatewayPolicyTableEntriesResultTypeDef(TypedDict):
     TransitGatewayPolicyTableEntries: list[TransitGatewayPolicyTableEntryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ModifyTransitGatewayPolicyTableEntryResultTypeDef(TypedDict):
+    TransitGatewayPolicyTableEntry: TransitGatewayPolicyTableEntryTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateVerifiedAccessEndpointResultTypeDef(TypedDict):

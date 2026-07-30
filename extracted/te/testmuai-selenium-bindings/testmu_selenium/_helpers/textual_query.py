@@ -156,6 +156,16 @@ def _populate_attribute(element, driver, requested_attribute: str) -> Any:
             f"this binding as a private utility."
         )
 
+    # Presence query: "does element have attribute X?"
+    # The producer emits the raw HTML attribute name after the "has_" prefix
+    # (e.g. 'has_aria-expanded' → check 'aria-expanded'; 'has_controls' →
+    # check 'controls'), so no underscore→hyphen conversion is applied here.
+    # Selenium's get_attribute returns None iff the attribute is absent, making
+    # `is not None` the idiomatic presence test.
+    if requested_attribute.startswith("has_"):
+        base_attr = requested_attribute[4:]
+        return element.get_attribute(base_attr) is not None
+
     if requested_attribute not in attribute_getters:
         raise ValueError(f"Unknown attribute: {requested_attribute}")
 

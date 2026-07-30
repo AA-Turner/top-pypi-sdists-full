@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-daytona
-Version: 0.0.7
+Version: 0.0.8
 Summary: Daytona sandbox integration for Deep Agents
 Project-URL: Homepage, https://github.com/langchain-ai/deepagents/tree/main/libs/partners/daytona
 Project-URL: Repository, https://github.com/langchain-ai/deepagents
@@ -17,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: <4.0,>=3.11
 Requires-Dist: daytona
-Requires-Dist: deepagents<0.7.0,>=0.6.8
+Requires-Dist: deepagents<0.8.0,>=0.7.0
 Description-Content-Type: text/markdown
 
 # langchain-daytona
@@ -32,7 +32,7 @@ Looking for the JS/TS version? Check out [LangChain.js](https://github.com/langc
 ## Quick Install
 
 ```bash
-pip install langchain_daytona
+uv add langchain-daytona
 ```
 
 ```python
@@ -63,3 +63,8 @@ See our [Releases](https://docs.langchain.com/oss/python/release-policy) and [Ve
 As an open-source project in a rapidly developing field, we are extremely open to contributions, whether it be in the form of a new feature, improved infrastructure, or better documentation.
 
 For detailed information on how to contribute, see the [Contributing Guide](https://docs.langchain.com/oss/python/contributing/overview).
+
+## Resources
+
+- [LangChain Academy](https://academy.langchain.com/) — Comprehensive, free courses on LangChain libraries and products, made by the LangChain team.
+- [Code of Conduct](https://github.com/langchain-ai/langchain/?tab=coc-ov-file) — community guidelines and standards

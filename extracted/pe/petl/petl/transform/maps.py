@@ -210,12 +210,12 @@ class RowMapView(Table):
     def __init__(self, source, rowmapper, header, failonerror=None):
         self.source = source
         self.rowmapper = rowmapper
-        self.header = header
+        self._header = header
         self.failonerror = (config.failonerror if failonerror is None
                                 else failonerror)
 
     def __iter__(self):
-        return iterrowmap(self.source, self.rowmapper, self.header,
+        return iterrowmap(self.source, self.rowmapper, self._header,
                           self.failonerror)
 
 
@@ -307,12 +307,12 @@ class RowMapManyView(Table):
     def __init__(self, source, rowgenerator, header, failonerror=None):
         self.source = source
         self.rowgenerator = rowgenerator
-        self.header = header
+        self._header = header
         self.failonerror = (config.failonerror if failonerror is None
                                 else failonerror)
 
     def __iter__(self):
-        return iterrowmapmany(self.source, self.rowgenerator, self.header,
+        return iterrowmapmany(self.source, self.rowgenerator, self._header,
                               self.failonerror)
 
 
@@ -364,11 +364,11 @@ class RowGroupMapView(Table):
             self.source = sort(source, key, buffersize=buffersize,
                                tempdir=tempdir, cache=cache)
         self.key = key
-        self.header = header
+        self._header = header
         self.mapper = mapper
 
     def __iter__(self):
-        return iterrowgroupmap(self.source, self.key, self.mapper, self.header)
+        return iterrowgroupmap(self.source, self.key, self.mapper, self._header)
 
 
 def iterrowgroupmap(source, key, mapper, header):

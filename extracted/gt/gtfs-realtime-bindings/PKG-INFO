@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gtfs-realtime-bindings
-Version: 2.1.0
+Version: 2.2.0
 Summary: Python classes generated from the GTFS-realtime protocol buffer specification.
 Maintainer-email: MobilityData <gtfs-realtime@googlegroups.com>
 License: Apache License, Version 2.0

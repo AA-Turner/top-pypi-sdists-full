@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
+import cloakbrowser.__main__
 from cloakbrowser.__main__ import _binary_version, cmd_info
 from cloakbrowser.license import LicenseInfo, ProReleaseInfo
 
@@ -216,6 +217,51 @@ def test_binary_version_runs_stub(tmp_path):
     ok, version, err = _binary_version(str(stub))
     assert ok
     assert "Chromium 1.2.3.4" in version
+    assert err == ""
+
+
+def test_console_glyph_falls_back_on_legacy_windows_encoding(monkeypatch):
+    """cmd.exe defaults to cp850/cp1252, which carry no check mark — printing one
+    there aborted the whole report with UnicodeEncodeError."""
+    import io
+
+    monkeypatch.setattr(
+        cloakbrowser.__main__.sys, "stdout", io.TextIOWrapper(io.BytesIO(), encoding="cp1252")
+    )
+    assert cloakbrowser.__main__._console_glyph("✓", "OK") == "OK"
+    assert cloakbrowser.__main__._console_glyph("→", "->") == "->"
+    # cp1252 does carry the em dash, so it is kept — the check is per glyph.
+    assert cloakbrowser.__main__._console_glyph("—", "-") == "—"
+
+
+def test_console_glyph_kept_on_utf8(monkeypatch):
+    import io
+
+    monkeypatch.setattr(
+        cloakbrowser.__main__.sys, "stdout", io.TextIOWrapper(io.BytesIO(), encoding="utf-8")
+    )
+    assert cloakbrowser.__main__._console_glyph("✓", "OK") == "✓"
+    assert cloakbrowser.__main__._console_glyph("✗", "x") == "✗"
+
+
+@pytestmark_posix
+def test_binary_version_windows_probe_does_not_hang(tmp_path, monkeypatch):
+    """Real Windows Chrome ignores --version and starts a browser instead of
+    printing, so the stub here hangs unless --no-startup-window is passed —
+    mirroring the binary rather than a stub that prints and exits."""
+    stub = tmp_path / "winchrome"
+    stub.write_text(
+        "#!/bin/sh\n"
+        'case "$*" in\n'
+        "  *--no-startup-window*) exit 0 ;;\n"
+        "  *) sleep 30 ;;\n"  # stands in for the browser that never returns
+        "esac\n"
+    )
+    stub.chmod(0o755)
+    monkeypatch.setattr(cloakbrowser.__main__.platform, "system", lambda: "Windows")
+    ok, version, err = _binary_version(str(stub))
+    assert ok, f"probe hung on a healthy Windows binary: {err}"
+    assert version == ""  # Windows prints no version
     assert err == ""
 
 

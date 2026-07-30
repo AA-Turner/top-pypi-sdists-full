@@ -17,10 +17,6 @@ if TYPE_CHECKING:
     from aigie.telemetry._config import TelemetryConfig
 
 
-# License server URL (Aigie's licensing server).
-LICENSE_SERVER_URL: str = os.getenv("AIGIE_LICENSE_SERVER", "https://portal.aigie.io/api")
-
-
 def _make_default_telemetry_config() -> "TelemetryConfig":
     from aigie.telemetry._config import TelemetryConfig
 
@@ -67,15 +63,6 @@ class Config:
     # Set via AIGIE_TOKEN environment variable or pass directly
     aigie_token: str | None = field(
         default_factory=lambda: os.getenv("KYTTE_TOKEN", os.getenv("AIGIE_TOKEN"))
-    )
-
-    # Skip license validation (offline/CI escape hatch). When set, license
-    # validation no-ops gracefully so the SDK works without reaching the
-    # licensing server.
-    skip_license_validation: bool = field(
-        default_factory=lambda: (
-            os.getenv("AIGIE_SKIP_LICENSE_VALIDATION", "false").lower() == "true"
-        )
     )
 
     # =========================================================================
@@ -141,11 +128,6 @@ class Config:
         """Get the authentication token for API calls."""
         return self.aigie_token or None
 
-    @property
-    def license_server_url(self) -> str:
-        """License server URL (module constant)."""
-        return LICENSE_SERVER_URL
-
     def validate_self_hosted(self) -> list[str]:
         """
         Validate configuration for self-hosted deployments.
@@ -164,18 +146,6 @@ class Config:
             if not is_local:
                 warnings.append(
                     f"API URL uses HTTP instead of HTTPS: {self.aigie_url}. "
-                    "This is insecure for production deployments."
-                )
-
-        # Check license server URL security
-        if self.license_server_url.startswith("http://"):
-            is_local = any(
-                host in self.license_server_url
-                for host in ["localhost", "127.0.0.1", "0.0.0.0"]  # noqa: S104 — URL substring check, not a bind address
-            )
-            if not is_local:
-                warnings.append(
-                    f"License server URL uses HTTP instead of HTTPS: {self.license_server_url}. "
                     "This is insecure for production deployments."
                 )
 

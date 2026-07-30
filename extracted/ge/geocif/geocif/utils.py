@@ -1046,11 +1046,48 @@ def friendly_stage_label(stage_name):
         return stage_name
     start_month = parts[0].strip().split()[0]
     end_month = parts[1].strip().split()[0]
+    # Season-normalized labels ("10%-100%", "Stages 1-3") have no month tokens.
+    # Pass them through unchanged instead of reversing them to "100 - 10".
+    if start_month not in _MONTH_SHORT_TO_FULL and end_month not in _MONTH_SHORT_TO_FULL:
+        return stage_name
     start_full = _MONTH_SHORT_TO_FULL.get(start_month, start_month)
     end_full = _MONTH_SHORT_TO_FULL.get(end_month, end_month)
     if start_month == end_month:
         return start_full
     return f"{end_full} - {start_full}"
+
+
+def group_ids_by_key(items, key_map, norm=None, unmatched_prefix="__unmatched__"):
+    """Assign a dense integer group id to each item, grouping items that share
+    the same lookup key.
+
+    Used to pool admin regions by their crop-calendar zone: ``items`` is the
+    list of region names, ``key_map`` maps ``norm(region) -> calendar_region``
+    (the explicit zone). Regions sharing a zone get the same id; regions whose
+    zone can't be resolved get their OWN singleton id (never silently merged
+    into another zone's pool). Ids are assigned densely in first-seen order.
+
+    Args:
+        items: iterable of entities (e.g. region names).
+        key_map: dict mapping ``norm(item)`` to a group key (e.g. zone name).
+        norm: optional normalizer applied to each item before lookup.
+        unmatched_prefix: prefix for the synthetic singleton key of unmatched
+            items (kept unique per item).
+
+    Returns:
+        list[int] of group ids aligned with ``items``.
+    """
+    norm = norm or (lambda s: s)
+    key_to_id = {}
+    ids = []
+    for it in items:
+        k = key_map.get(norm(it))
+        if k is None:
+            k = f"{unmatched_prefix}{it}"
+        if k not in key_to_id:
+            key_to_id[k] = len(key_to_id)
+        ids.append(key_to_id[k])
+    return ids
 
 
 def filter_cid_columns(df, fixed_cols, target, stat_cols):

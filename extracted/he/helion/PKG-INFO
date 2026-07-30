@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: helion
-Version: 1.2.0
+Version: 1.4.0
 Summary: A Python-embedded DSL that makes it easy to write ML kernels
 Project-URL: Homepage, https://github.com/pytorch/helion
 Project-URL: Issues, https://github.com/pytorch/helion/issues
@@ -78,10 +78,6 @@ Description-Content-Type: text/markdown
 <div align="center">
   <img src="docs/_static/helion_nobackground.png" alt="Helion Logo" width="250"/>
 </div>
-
-# Events
-
-- **June 15, 2026**: Helion Tutorial, [Writing Performance-Portable Kernels Simplified with Helion](https://pldi26.sigplan.org/details/pldi-2026-tutorials/1/Writing-Performance-Portable-Kernels-Simplified-with-Helion) @ PLDI 2026, Boulder, CO
 
 # About
 

@@ -7,6 +7,12 @@ from ._propgrid import *
 
 import wx
 
+PG_LABEL = "@!"
+PG_LABEL_STRING = PG_LABEL
+PG_NULL_BITMAP = wx.NullBitmap
+PG_COLOUR_BLACK = wx.BLACK
+PG_DEFAULT_IMAGE_SIZE = wx.Size(-1, -1)
+
 def _PGProperty_SetAttributes(self, attributes):
     """
     Set the property's attributes from a Python dictionary.

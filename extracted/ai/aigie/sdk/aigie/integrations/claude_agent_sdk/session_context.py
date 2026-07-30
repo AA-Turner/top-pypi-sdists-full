@@ -10,6 +10,8 @@ import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 
+from aigie.tracing.trace_state import get_resumed_trace, register_resumable_trace
+
 
 @dataclass
 class ClaudeSessionContext:
@@ -133,8 +135,14 @@ def get_or_create_session_context(
         The session context (existing or newly created).
     """
     existing = _current_session_context.get()
-    if existing is not None:
+    if existing is not None and (trace_id is None or existing.trace_id == trace_id):
         return existing
+
+    if trace_id:
+        resumed = get_resumed_trace(trace_id)
+        if isinstance(resumed, ClaudeSessionContext):
+            _current_session_context.set(resumed)
+            return resumed
 
     # Create new session context
     context = ClaudeSessionContext(
@@ -142,6 +150,8 @@ def get_or_create_session_context(
         trace_name=trace_name,
     )
     _current_session_context.set(context)
+    if trace_id:
+        register_resumable_trace(trace_id, context)
     return context
 
 

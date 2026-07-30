@@ -12,6 +12,18 @@ from urllib.parse import urlparse
 
 import tldextract
 
+# ── Interceptor / gateway response detection ─────────────────────────────────
+# HTTP 200 + tiny body + JSON rejection → endpoint likely does NOT exist.
+# SPA wildcard routes and API gateways return 200+{"code":0,"message":"失败"}
+# for every path, making HTTP 200 meaningless as "endpoint exists" evidence.
+_INTERCEPTOR_RE = re.compile(
+    r'^\s*\{[^}]{0,200}(?:"code"\s*:\s*0|"success"\s*:\s*false'
+    r'|"message"\s*:\s*"(?:失败|fail(?:ed)?|error|错误|不存在|unauthorized|forbidden)"'
+    r')[^}]{0,100}\}\s*$',
+    re.IGNORECASE | re.DOTALL,
+)
+_INTERCEPTOR_SIZE_MAX = 400  # bytes — larger bodies are real content
+
 
 @dataclass
 class ToolResult:
@@ -20,6 +32,7 @@ class ToolResult:
     output: str = ""
     error: str = ""
     success: bool = True
+    arguments: dict = field(default_factory=dict)
 
     @property
     def content(self) -> str:
@@ -81,6 +94,7 @@ class ToolExecutor:
             return ToolResult(
                 tool_call_id=tc.id, name=tc.name,
                 error=f"[ERROR] Unknown tool: {tc.name}", success=False,
+                arguments=tc.arguments,
             )
         try:
             return handler(tc)
@@ -88,6 +102,7 @@ class ToolExecutor:
             return ToolResult(
                 tool_call_id=tc.id, name=tc.name,
                 error=f"[ERROR] {type(e).__name__}: {e}", success=False,
+                arguments=tc.arguments,
             )
 
     def _check_domain_violation(self, text: str) -> str | None:
@@ -107,6 +122,7 @@ class ToolExecutor:
             return ToolResult(
                 tool_call_id=tc.id, name=tc.name,
                 error="[ERROR] No command provided", success=False,
+                arguments=tc.arguments,
             )
         import platform
         if platform.system() == "Darwin":
@@ -117,7 +133,7 @@ class ToolExecutor:
         output = (proc.stdout + proc.stderr)[:8000]
         if not output.strip():
             output = f"[exit code: {proc.returncode}, no output]"
-        return ToolResult(tool_call_id=tc.id, name=tc.name, output=output)
+        return ToolResult(tool_call_id=tc.id, name=tc.name, output=output, arguments=tc.arguments)
 
     def _run_python(self, tc: ToolCall) -> ToolResult:
         code = tc.arguments.get("code", "")
@@ -126,6 +142,7 @@ class ToolExecutor:
             return ToolResult(
                 tool_call_id=tc.id, name=tc.name,
                 error="[ERROR] No code provided", success=False,
+                arguments=tc.arguments,
             )
         proc = subprocess.run(
             ["python3", "-c", code],
@@ -134,7 +151,7 @@ class ToolExecutor:
         output = (proc.stdout + proc.stderr)[:8000]
         if not output.strip():
             output = f"[exit code: {proc.returncode}, no output]"
-        return ToolResult(tool_call_id=tc.id, name=tc.name, output=output)
+        return ToolResult(tool_call_id=tc.id, name=tc.name, output=output, arguments=tc.arguments)
 
     def _run_http(self, tc: ToolCall) -> ToolResult:
         import httpx
@@ -155,4 +172,18 @@ class ToolExecutor:
             resp_headers = "\n".join(f"{k}: {v}" for k, v in resp.headers.items())
             output = f"HTTP/{resp.http_version} {resp.status_code}\n{resp_headers}\n\n{resp.text[:6000]}"
 
-        return ToolResult(tool_call_id=tc.id, name=tc.name, output=output)
+        # Interceptor/SPA-wildcard detection:
+        # HTTP 200 + tiny body + gateway rejection JSON → endpoint does NOT exist.
+        # Do NOT interpret this as evidence of admin panel, resource, or API access.
+        if resp.status_code == 200:
+            body_bytes = len(resp.text.encode("utf-8", errors="replace"))
+            if body_bytes <= _INTERCEPTOR_SIZE_MAX and _INTERCEPTOR_RE.search(resp.text):
+                output += (
+                    f"\n[INTERCEPTOR_RESPONSE: {body_bytes}B — "
+                    f"gateway/SPA wildcard rejection. "
+                    f"HTTP 200 here is NOT evidence that this endpoint exists. "
+                    f"Do NOT claim admin panel found, resource exists, or login succeeded "
+                    f"based on this response.]"
+                )
+
+        return ToolResult(tool_call_id=tc.id, name=tc.name, output=output, arguments=tc.arguments)

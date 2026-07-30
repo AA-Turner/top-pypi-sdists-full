@@ -4,7 +4,7 @@
 
 # -----------------------------------------------------------------------------
 
-__version__ = '4.5.69'
+__version__ = '4.5.70'
 
 # -----------------------------------------------------------------------------
 
@@ -943,7 +943,7 @@ class BaseExchange(object):
         value = Exchange.get_object_value_from_key_list(dictionary, key_list)
         if value is not None:
             t = type(value)
-            if t is str and value != '':
+            if t is str:
                 return value
             if t is float or t is int:
                 return str(value)
@@ -954,7 +954,7 @@ class BaseExchange(object):
         value = Exchange.get_object_value_from_key_list(dictionary, key_list)
         if value is not None:
             t = type(value)
-            if t is str and value != '':
+            if t is str:
                 return value.lower()
             if t is float or t is int:
                 return str(value).lower()
@@ -965,7 +965,7 @@ class BaseExchange(object):
         value = Exchange.get_object_value_from_key_list(dictionary, key_list)
         if value is not None:
             t = type(value)
-            if t is str and value != '':
+            if t is str:
                 return value.upper()
             if t is float or t is int:
                 return str(value).upper()
@@ -7057,6 +7057,10 @@ class BaseExchange(object):
         maxCalls = None
         maxCalls, params = self.handle_option_and_params(params, method, 'paginationCalls', 10)
         maxEntriesPerRequest, params = self.handle_max_entries_per_request_and_params(method, maxEntriesPerRequest, params)
+        # paginationDirection is only relevant to fetchPaginatedCallDynamic/Cursor; deterministic
+        # pagination always walks forward internally, so strip it here to avoid leaking an
+        # unrecognized param into the underlying exchange request(e.g. binance -1104 errors)
+        params = self.omit(params, 'paginationDirection')
         current = self.milliseconds()
         tasks = []
         time = self.parse_timeframe(timeframe) * 1000

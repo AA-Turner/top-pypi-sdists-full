@@ -23,6 +23,7 @@ from testmu_selenium._errors import ConditionEvaluationError
 from testmu_selenium._vars import get_variable_value
 from testmu_selenium.condition import (
     Assertion,
+    ConcatenationOperator,
     Condition,
     Mathmatic,
     PossibleCondition,
@@ -94,8 +95,12 @@ def check_until_condition(driver, condition: str) -> bool:
     silently exhausting the caller's retry budget.
     """
     _until_log.info("    [check_until_condition] condition=%s", condition[:80])
+    # Union of every name cgf can bake into an until-condition. Composite
+    # while-conditions embed ConcatenationOperator.AND/OR, so it must be here or
+    # the {"__builtins__": {}} eval raises NameError on every AND/OR loop.
     allowed_names = {
         "Assertion": Assertion,
+        "ConcatenationOperator": ConcatenationOperator,
         "Condition": Condition,
         "Mathmatic": Mathmatic,
         "PossibleCondition": PossibleCondition,

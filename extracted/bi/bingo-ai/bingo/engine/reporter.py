@@ -49,35 +49,44 @@ def generate_report(target: str, findings_exporter, lang: str = "en") -> str:
         f"",
     ]
 
-    if confirmed:
-        lines.append("## Confirmed Findings\n")
-        for f in confirmed:
-            lines.append(f"### [{f.severity}] {f.vuln_type} — {f.id}")
-            lines.append(f"- **Evidence**: {f.evidence[:500]}")
-            lines.append(f"- **Payload**: `{f.payload[:200]}`")
-            lines.append(f"- **Confidence**: {f.confidence}")
-            lines.append("")
+    all_active = confirmed + probable + potential
+    gao_wei = [f for f in all_active if f.severity.upper() in ("CRITICAL", "HIGH")]
+    zhong_wei = [f for f in all_active if f.severity.upper() == "MEDIUM"]
+    di_wei = [f for f in all_active if f.severity.upper() == "LOW"]
 
-    if probable:
-        lines.append("## Probable Findings\n")
-        for f in probable:
-            lines.append(f"### [{f.severity}] {f.vuln_type} — {f.id}")
-            lines.append(f"- **Evidence**: {f.evidence[:500]}")
-            lines.append(f"- **Reason**: {f.reason_code}")
-            lines.append("")
+    if gao_wei or zhong_wei or di_wei:
+        lines.append(f"| 高危 (CRITICAL/HIGH) | {len(gao_wei)} |")
+        lines.append(f"| 中危 (MEDIUM) | {len(zhong_wei)} |")
+        lines.append(f"| 低危 (LOW) | {len(di_wei)} |")
+        lines.append("")
 
-    if potential:
-        lines.append("## Potential Findings\n")
-        for f in potential:
-            lines.append(f"### [{f.severity}] {f.vuln_type} — {f.id}")
-            lines.append(f"- **Evidence**: {f.evidence[:300]}")
-            lines.append(f"- **Reason**: {f.reason_code}")
-            lines.append("")
+    def _render_finding(f) -> None:
+        tier_label = "Confirmed" if f.confirmed else f.confidence.capitalize()
+        lines.append(f"### [{f.severity}] {f.vuln_type} — {f.id}  `{tier_label}`")
+        lines.append(f"- **Evidence**: {f.evidence[:500]}")
+        lines.append(f"- **Payload**: `{f.payload[:200]}`")
+        lines.append(f"- **Reason**: {f.reason_code}")
+        lines.append("")
 
-    if not confirmed and not probable and not potential:
+    if gao_wei:
+        lines.append("## 高危 (CRITICAL / HIGH)\n")
+        for f in gao_wei:
+            _render_finding(f)
+
+    if zhong_wei:
+        lines.append("## 中危 (MEDIUM)\n")
+        for f in zhong_wei:
+            _render_finding(f)
+
+    if di_wei:
+        lines.append("## 低危 (LOW)\n")
+        for f in di_wei:
+            _render_finding(f)
+
+    if not all_active:
         lines.append("## No Findings")
         lines.append("")
-        lines.append("No vulnerabilities were confirmed during this assessment.")
+        lines.append("No vulnerabilities were detected during this assessment.")
         lines.append("")
 
     lines.append("---")

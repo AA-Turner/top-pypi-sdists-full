@@ -139,7 +139,7 @@ class LineageAssetRef(DataClassJsonMixin):
     :param type: Asset type, e.g. ``"TABLE"`` or ``"VIEW"`` (uppercase).
         The set of accepted values is defined by the backend and may expand
         over time (currently includes ``TABLE``, ``VIEW``, ``EXTERNAL``,
-        ``WILDCARD``).
+        ``WILDCARD_TABLE``).
     :param name: Table or view name.
     :param database: Database name.
     :param schema: Schema name.

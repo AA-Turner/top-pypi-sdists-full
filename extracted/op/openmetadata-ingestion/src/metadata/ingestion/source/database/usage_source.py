@@ -11,6 +11,7 @@
 """
 Usage Source Module
 """
+
 import csv
 import os
 import traceback
@@ -113,12 +114,12 @@ class UsageSource(QueryParserSource, ABC):
             )
             query = None
             try:
-                query = self.get_sql_statement(
-                    start_time=self.start + timedelta(days=days),
-                    end_time=self.start + timedelta(days=days + 1),
-                )
-                logger.debug(f"Executing usage query: {query}")
                 for engine in self.get_engine():
+                    query = self.get_sql_statement(
+                        start_time=self.start + timedelta(days=days),
+                        end_time=self.start + timedelta(days=days + 1),
+                    )
+                    logger.debug(f"Executing usage query: {query}")
                     with engine.connect() as conn:
                         rows = conn.execute(text(query))
                         queries = []
@@ -157,6 +158,13 @@ class UsageSource(QueryParserSource, ABC):
                                     f"Unexpected exception processing row [{row}]: {exc}"
                                 )
                     logger.info(f"Processed {row_count} query log entries for usage")
+                    result_limit = getattr(self.source_config, "resultLimit", None)
+                    if isinstance(result_limit, int) and row_count >= result_limit:
+                        logger.debug(
+                            f"Reached the configured resultLimit of {result_limit} query log entries; "
+                            f"if more queries exist they were truncated and usage may be incomplete. "
+                            f"Consider increasing resultLimit."
+                        )
                     yield TableQueries(queries=queries)
             except Exception as exc:
                 if query:

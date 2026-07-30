@@ -241,6 +241,26 @@ __all__ = [
     'GlobalForwardingRuleMetadataFilterFilterLabelArgsDict',
     'GlobalForwardingRuleServiceDirectoryRegistrationsArgs',
     'GlobalForwardingRuleServiceDirectoryRegistrationsArgsDict',
+    'GlobalVmExtensionPolicyExtensionPolicyArgs',
+    'GlobalVmExtensionPolicyExtensionPolicyArgsDict',
+    'GlobalVmExtensionPolicyInstanceSelectorArgs',
+    'GlobalVmExtensionPolicyInstanceSelectorArgsDict',
+    'GlobalVmExtensionPolicyInstanceSelectorLabelSelectorArgs',
+    'GlobalVmExtensionPolicyInstanceSelectorLabelSelectorArgsDict',
+    'GlobalVmExtensionPolicyRolloutOperationArgs',
+    'GlobalVmExtensionPolicyRolloutOperationArgsDict',
+    'GlobalVmExtensionPolicyRolloutOperationRolloutInputArgs',
+    'GlobalVmExtensionPolicyRolloutOperationRolloutInputArgsDict',
+    'GlobalVmExtensionPolicyRolloutOperationRolloutStatusArgs',
+    'GlobalVmExtensionPolicyRolloutOperationRolloutStatusArgsDict',
+    'GlobalVmExtensionPolicyRolloutOperationRolloutStatusCurrentRolloutArgs',
+    'GlobalVmExtensionPolicyRolloutOperationRolloutStatusCurrentRolloutArgsDict',
+    'GlobalVmExtensionPolicyRolloutOperationRolloutStatusCurrentRolloutLocationRolloutStatusArgs',
+    'GlobalVmExtensionPolicyRolloutOperationRolloutStatusCurrentRolloutLocationRolloutStatusArgsDict',
+    'GlobalVmExtensionPolicyRolloutOperationRolloutStatusPreviousRolloutArgs',
+    'GlobalVmExtensionPolicyRolloutOperationRolloutStatusPreviousRolloutArgsDict',
+    'GlobalVmExtensionPolicyRolloutOperationRolloutStatusPreviousRolloutLocationRolloutStatusArgs',
+    'GlobalVmExtensionPolicyRolloutOperationRolloutStatusPreviousRolloutLocationRolloutStatusArgsDict',
     'HaVpnGatewayParamsArgs',
     'HaVpnGatewayParamsArgsDict',
     'HaVpnGatewayVpnInterfaceArgs',
@@ -12606,6 +12626,610 @@ class GlobalForwardingRuleServiceDirectoryRegistrationsArgs:
         pulumi.set(self, "service_directory_region", value)
 
 
+class GlobalVmExtensionPolicyExtensionPolicyArgsDict(TypedDict):
+    extension_name: pulumi.Input[_builtins.str]
+    """
+    The identifier for this object. Format specified above.
+    """
+    pinned_version: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The version pinning for the extension.
+    """
+    string_config: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    String configuration payload.
+    """
+
+@pulumi.input_type
+class GlobalVmExtensionPolicyExtensionPolicyArgs:
+    def __init__(__self__, *,
+                 extension_name: pulumi.Input[_builtins.str],
+                 pinned_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 string_config: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] extension_name: The identifier for this object. Format specified above.
+        :param pulumi.Input[_builtins.str] pinned_version: The version pinning for the extension.
+        :param pulumi.Input[_builtins.str] string_config: String configuration payload.
+        """
+        pulumi.set(__self__, "extension_name", extension_name)
+        if pinned_version is not None:
+            pulumi.set(__self__, "pinned_version", pinned_version)
+        if string_config is not None:
+            pulumi.set(__self__, "string_config", string_config)
+
+    @_builtins.property
+    @pulumi.getter(name="extensionName")
+    def extension_name(self) -> pulumi.Input[_builtins.str]:
+        """
+        The identifier for this object. Format specified above.
+        """
+        return pulumi.get(self, "extension_name")
+
+    @extension_name.setter
+    def extension_name(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "extension_name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pinnedVersion")
+    def pinned_version(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The version pinning for the extension.
+        """
+        return pulumi.get(self, "pinned_version")
+
+    @pinned_version.setter
+    def pinned_version(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "pinned_version", value)
+
+    @_builtins.property
+    @pulumi.getter(name="stringConfig")
+    def string_config(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        String configuration payload.
+        """
+        return pulumi.get(self, "string_config")
+
+    @string_config.setter
+    def string_config(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "string_config", value)
+
+
+class GlobalVmExtensionPolicyInstanceSelectorArgsDict(TypedDict):
+    label_selector: NotRequired[pulumi.Input[Optional['GlobalVmExtensionPolicyInstanceSelectorLabelSelectorArgsDict']]]
+    """
+    LabelSelector matches VM labels.
+    Structure is documented below.
+    """
+
+@pulumi.input_type
+class GlobalVmExtensionPolicyInstanceSelectorArgs:
+    def __init__(__self__, *,
+                 label_selector: pulumi.Input[Optional['GlobalVmExtensionPolicyInstanceSelectorLabelSelectorArgs']] = None):
+        """
+        :param pulumi.Input['GlobalVmExtensionPolicyInstanceSelectorLabelSelectorArgs'] label_selector: LabelSelector matches VM labels.
+               Structure is documented below.
+        """
+        if label_selector is not None:
+            pulumi.set(__self__, "label_selector", label_selector)
+
+    @_builtins.property
+    @pulumi.getter(name="labelSelector")
+    def label_selector(self) -> pulumi.Input[Optional['GlobalVmExtensionPolicyInstanceSelectorLabelSelectorArgs']]:
+        """
+        LabelSelector matches VM labels.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "label_selector")
+
+    @label_selector.setter
+    def label_selector(self, value: pulumi.Input[Optional['GlobalVmExtensionPolicyInstanceSelectorLabelSelectorArgs']]):
+        pulumi.set(self, "label_selector", value)
+
+
+class GlobalVmExtensionPolicyInstanceSelectorLabelSelectorArgsDict(TypedDict):
+    inclusion_labels: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
+    """
+    Labels as key value pairs.
+    """
+
+@pulumi.input_type
+class GlobalVmExtensionPolicyInstanceSelectorLabelSelectorArgs:
+    def __init__(__self__, *,
+                 inclusion_labels: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
+        """
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] inclusion_labels: Labels as key value pairs.
+        """
+        if inclusion_labels is not None:
+            pulumi.set(__self__, "inclusion_labels", inclusion_labels)
+
+    @_builtins.property
+    @pulumi.getter(name="inclusionLabels")
+    def inclusion_labels(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
+        """
+        Labels as key value pairs.
+        """
+        return pulumi.get(self, "inclusion_labels")
+
+    @inclusion_labels.setter
+    def inclusion_labels(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "inclusion_labels", value)
+
+
+class GlobalVmExtensionPolicyRolloutOperationArgsDict(TypedDict):
+    rollout_input: pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutInputArgsDict']
+    """
+    Rollout input settings.
+    Structure is documented below.
+    """
+    rollout_statuses: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutStatusArgsDict']]]]]
+    """
+    (Output)
+    Rollout status.
+    Structure is documented below.
+    """
+
+@pulumi.input_type
+class GlobalVmExtensionPolicyRolloutOperationArgs:
+    def __init__(__self__, *,
+                 rollout_input: pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutInputArgs'],
+                 rollout_statuses: pulumi.Input[Optional[Sequence[pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutStatusArgs']]]] = None):
+        """
+        :param pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutInputArgs'] rollout_input: Rollout input settings.
+               Structure is documented below.
+        :param pulumi.Input[Sequence[pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutStatusArgs']]] rollout_statuses: (Output)
+               Rollout status.
+               Structure is documented below.
+        """
+        pulumi.set(__self__, "rollout_input", rollout_input)
+        if rollout_statuses is not None:
+            pulumi.set(__self__, "rollout_statuses", rollout_statuses)
+
+    @_builtins.property
+    @pulumi.getter(name="rolloutInput")
+    def rollout_input(self) -> pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutInputArgs']:
+        """
+        Rollout input settings.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "rollout_input")
+
+    @rollout_input.setter
+    def rollout_input(self, value: pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutInputArgs']):
+        pulumi.set(self, "rollout_input", value)
+
+    @_builtins.property
+    @pulumi.getter(name="rolloutStatuses")
+    def rollout_statuses(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutStatusArgs']]]]:
+        """
+        (Output)
+        Rollout status.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "rollout_statuses")
+
+    @rollout_statuses.setter
+    def rollout_statuses(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutStatusArgs']]]]):
+        pulumi.set(self, "rollout_statuses", value)
+
+
+class GlobalVmExtensionPolicyRolloutOperationRolloutInputArgsDict(TypedDict):
+    conflict_behavior: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Specifies the behavior of the rollout if a conflict is detected.
+    """
+    name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The name of the rollout plan.
+    """
+    predefined_rollout_plan: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Specifies the predefined rollout plan for the policy.
+    """
+    retry_uuid: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The UUID that identifies a policy rollout retry attempt. It should only be set when retrying an existing rollout. Updating this field along with other policy fields (description, extension_policies, instance_selectors, priority) in the same plan will return an error.
+
+    <a name="nested_rollout_operation_rollout_status"></a>The `rollout_status` block contains:
+    """
+
+@pulumi.input_type
+class GlobalVmExtensionPolicyRolloutOperationRolloutInputArgs:
+    def __init__(__self__, *,
+                 conflict_behavior: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 predefined_rollout_plan: pulumi.Input[Optional[_builtins.str]] = None,
+                 retry_uuid: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] conflict_behavior: Specifies the behavior of the rollout if a conflict is detected.
+        :param pulumi.Input[_builtins.str] name: The name of the rollout plan.
+        :param pulumi.Input[_builtins.str] predefined_rollout_plan: Specifies the predefined rollout plan for the policy.
+        :param pulumi.Input[_builtins.str] retry_uuid: The UUID that identifies a policy rollout retry attempt. It should only be set when retrying an existing rollout. Updating this field along with other policy fields (description, extension_policies, instance_selectors, priority) in the same plan will return an error.
+               
+               <a name="nested_rollout_operation_rollout_status"></a>The `rollout_status` block contains:
+        """
+        if conflict_behavior is not None:
+            pulumi.set(__self__, "conflict_behavior", conflict_behavior)
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+        if predefined_rollout_plan is not None:
+            pulumi.set(__self__, "predefined_rollout_plan", predefined_rollout_plan)
+        if retry_uuid is not None:
+            pulumi.set(__self__, "retry_uuid", retry_uuid)
+
+    @_builtins.property
+    @pulumi.getter(name="conflictBehavior")
+    def conflict_behavior(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Specifies the behavior of the rollout if a conflict is detected.
+        """
+        return pulumi.get(self, "conflict_behavior")
+
+    @conflict_behavior.setter
+    def conflict_behavior(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "conflict_behavior", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The name of the rollout plan.
+        """
+        return pulumi.get(self, "name")
+
+    @name.setter
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="predefinedRolloutPlan")
+    def predefined_rollout_plan(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Specifies the predefined rollout plan for the policy.
+        """
+        return pulumi.get(self, "predefined_rollout_plan")
+
+    @predefined_rollout_plan.setter
+    def predefined_rollout_plan(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "predefined_rollout_plan", value)
+
+    @_builtins.property
+    @pulumi.getter(name="retryUuid")
+    def retry_uuid(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The UUID that identifies a policy rollout retry attempt. It should only be set when retrying an existing rollout. Updating this field along with other policy fields (description, extension_policies, instance_selectors, priority) in the same plan will return an error.
+
+        <a name="nested_rollout_operation_rollout_status"></a>The `rollout_status` block contains:
+        """
+        return pulumi.get(self, "retry_uuid")
+
+    @retry_uuid.setter
+    def retry_uuid(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "retry_uuid", value)
+
+
+class GlobalVmExtensionPolicyRolloutOperationRolloutStatusArgsDict(TypedDict):
+    current_rollouts: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutStatusCurrentRolloutArgsDict']]]]]
+    """
+    The current rollouts for the latest version of the resource.
+    """
+    previous_rollouts: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutStatusPreviousRolloutArgsDict']]]]]
+    """
+    Rollout status of the previous rollout.
+    """
+
+@pulumi.input_type
+class GlobalVmExtensionPolicyRolloutOperationRolloutStatusArgs:
+    def __init__(__self__, *,
+                 current_rollouts: pulumi.Input[Optional[Sequence[pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutStatusCurrentRolloutArgs']]]] = None,
+                 previous_rollouts: pulumi.Input[Optional[Sequence[pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutStatusPreviousRolloutArgs']]]] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutStatusCurrentRolloutArgs']]] current_rollouts: The current rollouts for the latest version of the resource.
+        :param pulumi.Input[Sequence[pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutStatusPreviousRolloutArgs']]] previous_rollouts: Rollout status of the previous rollout.
+        """
+        if current_rollouts is not None:
+            pulumi.set(__self__, "current_rollouts", current_rollouts)
+        if previous_rollouts is not None:
+            pulumi.set(__self__, "previous_rollouts", previous_rollouts)
+
+    @_builtins.property
+    @pulumi.getter(name="currentRollouts")
+    def current_rollouts(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutStatusCurrentRolloutArgs']]]]:
+        """
+        The current rollouts for the latest version of the resource.
+        """
+        return pulumi.get(self, "current_rollouts")
+
+    @current_rollouts.setter
+    def current_rollouts(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutStatusCurrentRolloutArgs']]]]):
+        pulumi.set(self, "current_rollouts", value)
+
+    @_builtins.property
+    @pulumi.getter(name="previousRollouts")
+    def previous_rollouts(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutStatusPreviousRolloutArgs']]]]:
+        """
+        Rollout status of the previous rollout.
+        """
+        return pulumi.get(self, "previous_rollouts")
+
+    @previous_rollouts.setter
+    def previous_rollouts(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutStatusPreviousRolloutArgs']]]]):
+        pulumi.set(self, "previous_rollouts", value)
+
+
+class GlobalVmExtensionPolicyRolloutOperationRolloutStatusCurrentRolloutArgsDict(TypedDict):
+    location_rollout_statuses: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutStatusCurrentRolloutLocationRolloutStatusArgsDict']]]]]
+    """
+    The rollout status for each location.
+    """
+    rollout: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The name of the rollout.
+    """
+    rollout_plan: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The name of the rollout plan.
+    """
+    state: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The overall state of the rollout.
+    """
+
+@pulumi.input_type
+class GlobalVmExtensionPolicyRolloutOperationRolloutStatusCurrentRolloutArgs:
+    def __init__(__self__, *,
+                 location_rollout_statuses: pulumi.Input[Optional[Sequence[pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutStatusCurrentRolloutLocationRolloutStatusArgs']]]] = None,
+                 rollout: pulumi.Input[Optional[_builtins.str]] = None,
+                 rollout_plan: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutStatusCurrentRolloutLocationRolloutStatusArgs']]] location_rollout_statuses: The rollout status for each location.
+        :param pulumi.Input[_builtins.str] rollout: The name of the rollout.
+        :param pulumi.Input[_builtins.str] rollout_plan: The name of the rollout plan.
+        :param pulumi.Input[_builtins.str] state: The overall state of the rollout.
+        """
+        if location_rollout_statuses is not None:
+            pulumi.set(__self__, "location_rollout_statuses", location_rollout_statuses)
+        if rollout is not None:
+            pulumi.set(__self__, "rollout", rollout)
+        if rollout_plan is not None:
+            pulumi.set(__self__, "rollout_plan", rollout_plan)
+        if state is not None:
+            pulumi.set(__self__, "state", state)
+
+    @_builtins.property
+    @pulumi.getter(name="locationRolloutStatuses")
+    def location_rollout_statuses(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutStatusCurrentRolloutLocationRolloutStatusArgs']]]]:
+        """
+        The rollout status for each location.
+        """
+        return pulumi.get(self, "location_rollout_statuses")
+
+    @location_rollout_statuses.setter
+    def location_rollout_statuses(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutStatusCurrentRolloutLocationRolloutStatusArgs']]]]):
+        pulumi.set(self, "location_rollout_statuses", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def rollout(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The name of the rollout.
+        """
+        return pulumi.get(self, "rollout")
+
+    @rollout.setter
+    def rollout(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "rollout", value)
+
+    @_builtins.property
+    @pulumi.getter(name="rolloutPlan")
+    def rollout_plan(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The name of the rollout plan.
+        """
+        return pulumi.get(self, "rollout_plan")
+
+    @rollout_plan.setter
+    def rollout_plan(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "rollout_plan", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The overall state of the rollout.
+        """
+        return pulumi.get(self, "state")
+
+    @state.setter
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "state", value)
+
+
+class GlobalVmExtensionPolicyRolloutOperationRolloutStatusCurrentRolloutLocationRolloutStatusArgsDict(TypedDict):
+    location_name: pulumi.Input[_builtins.str]
+    """
+    The identifier for this object. Format specified above.
+    """
+    state: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The state of the location rollout.
+    """
+
+@pulumi.input_type
+class GlobalVmExtensionPolicyRolloutOperationRolloutStatusCurrentRolloutLocationRolloutStatusArgs:
+    def __init__(__self__, *,
+                 location_name: pulumi.Input[_builtins.str],
+                 state: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] location_name: The identifier for this object. Format specified above.
+        :param pulumi.Input[_builtins.str] state: The state of the location rollout.
+        """
+        pulumi.set(__self__, "location_name", location_name)
+        if state is not None:
+            pulumi.set(__self__, "state", state)
+
+    @_builtins.property
+    @pulumi.getter(name="locationName")
+    def location_name(self) -> pulumi.Input[_builtins.str]:
+        """
+        The identifier for this object. Format specified above.
+        """
+        return pulumi.get(self, "location_name")
+
+    @location_name.setter
+    def location_name(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "location_name", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The state of the location rollout.
+        """
+        return pulumi.get(self, "state")
+
+    @state.setter
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "state", value)
+
+
+class GlobalVmExtensionPolicyRolloutOperationRolloutStatusPreviousRolloutArgsDict(TypedDict):
+    location_rollout_statuses: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutStatusPreviousRolloutLocationRolloutStatusArgsDict']]]]]
+    """
+    The rollout status for each location.
+    """
+    rollout: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The name of the rollout.
+    """
+    rollout_plan: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The name of the rollout plan.
+    """
+    state: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The overall state of the rollout.
+    """
+
+@pulumi.input_type
+class GlobalVmExtensionPolicyRolloutOperationRolloutStatusPreviousRolloutArgs:
+    def __init__(__self__, *,
+                 location_rollout_statuses: pulumi.Input[Optional[Sequence[pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutStatusPreviousRolloutLocationRolloutStatusArgs']]]] = None,
+                 rollout: pulumi.Input[Optional[_builtins.str]] = None,
+                 rollout_plan: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutStatusPreviousRolloutLocationRolloutStatusArgs']]] location_rollout_statuses: The rollout status for each location.
+        :param pulumi.Input[_builtins.str] rollout: The name of the rollout.
+        :param pulumi.Input[_builtins.str] rollout_plan: The name of the rollout plan.
+        :param pulumi.Input[_builtins.str] state: The overall state of the rollout.
+        """
+        if location_rollout_statuses is not None:
+            pulumi.set(__self__, "location_rollout_statuses", location_rollout_statuses)
+        if rollout is not None:
+            pulumi.set(__self__, "rollout", rollout)
+        if rollout_plan is not None:
+            pulumi.set(__self__, "rollout_plan", rollout_plan)
+        if state is not None:
+            pulumi.set(__self__, "state", state)
+
+    @_builtins.property
+    @pulumi.getter(name="locationRolloutStatuses")
+    def location_rollout_statuses(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutStatusPreviousRolloutLocationRolloutStatusArgs']]]]:
+        """
+        The rollout status for each location.
+        """
+        return pulumi.get(self, "location_rollout_statuses")
+
+    @location_rollout_statuses.setter
+    def location_rollout_statuses(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['GlobalVmExtensionPolicyRolloutOperationRolloutStatusPreviousRolloutLocationRolloutStatusArgs']]]]):
+        pulumi.set(self, "location_rollout_statuses", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def rollout(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The name of the rollout.
+        """
+        return pulumi.get(self, "rollout")
+
+    @rollout.setter
+    def rollout(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "rollout", value)
+
+    @_builtins.property
+    @pulumi.getter(name="rolloutPlan")
+    def rollout_plan(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The name of the rollout plan.
+        """
+        return pulumi.get(self, "rollout_plan")
+
+    @rollout_plan.setter
+    def rollout_plan(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "rollout_plan", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The overall state of the rollout.
+        """
+        return pulumi.get(self, "state")
+
+    @state.setter
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "state", value)
+
+
+class GlobalVmExtensionPolicyRolloutOperationRolloutStatusPreviousRolloutLocationRolloutStatusArgsDict(TypedDict):
+    location_name: pulumi.Input[_builtins.str]
+    """
+    The identifier for this object. Format specified above.
+    """
+    state: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The state of the location rollout.
+    """
+
+@pulumi.input_type
+class GlobalVmExtensionPolicyRolloutOperationRolloutStatusPreviousRolloutLocationRolloutStatusArgs:
+    def __init__(__self__, *,
+                 location_name: pulumi.Input[_builtins.str],
+                 state: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] location_name: The identifier for this object. Format specified above.
+        :param pulumi.Input[_builtins.str] state: The state of the location rollout.
+        """
+        pulumi.set(__self__, "location_name", location_name)
+        if state is not None:
+            pulumi.set(__self__, "state", state)
+
+    @_builtins.property
+    @pulumi.getter(name="locationName")
+    def location_name(self) -> pulumi.Input[_builtins.str]:
+        """
+        The identifier for this object. Format specified above.
+        """
+        return pulumi.get(self, "location_name")
+
+    @location_name.setter
+    def location_name(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "location_name", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The state of the location rollout.
+        """
+        return pulumi.get(self, "state")
+
+    @state.setter
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "state", value)
+
+
 class HaVpnGatewayParamsArgsDict(TypedDict):
     resource_manager_tags: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
     """
@@ -18725,7 +19349,7 @@ class InstanceFromMachineImageSchedulingArgsDict(TypedDict):
     """
     provisioning_model: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    Whether the instance is spot. If this is set as SPOT.
+    Describes the desired provisioning model for the instance. Possible values are STANDARD, SPOT, FLEX_START, and RESERVATION_BOUND. For STANDARD, resources are provisioned immediately. For SPOT, resources are offered at a discount compared to standard pricing but may be preempted. For FLEX_START, resources are offered at a discount with flexible start times. For RESERVATION_BOUND, the instance is bound to a specific reservation and will only consume capacity from that reservation.
     """
     skip_guest_os_shutdown: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     """
@@ -18775,7 +19399,7 @@ class InstanceFromMachineImageSchedulingArgs:
         :param pulumi.Input['InstanceFromMachineImageSchedulingOnInstanceStopActionArgs'] on_instance_stop_action: Defines the behaviour for instances with the instance_termination_action.
         :param pulumi.Input[_builtins.bool] preemptible: Whether the instance is preemptible.
         :param pulumi.Input['InstanceFromMachineImageSchedulingPreemptionNoticeDurationArgs'] preemption_notice_duration: The duration of the notice that the instance will receive before it is preempted.
-        :param pulumi.Input[_builtins.str] provisioning_model: Whether the instance is spot. If this is set as SPOT.
+        :param pulumi.Input[_builtins.str] provisioning_model: Describes the desired provisioning model for the instance. Possible values are STANDARD, SPOT, FLEX_START, and RESERVATION_BOUND. For STANDARD, resources are provisioned immediately. For SPOT, resources are offered at a discount compared to standard pricing but may be preempted. For FLEX_START, resources are offered at a discount with flexible start times. For RESERVATION_BOUND, the instance is bound to a specific reservation and will only consume capacity from that reservation.
         :param pulumi.Input[_builtins.bool] skip_guest_os_shutdown: Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
         :param pulumi.Input[_builtins.str] termination_time: Specifies the timestamp, when the instance will be terminated,
                in RFC3339 text format. If specified, the instance termination action
@@ -18988,7 +19612,7 @@ class InstanceFromMachineImageSchedulingArgs:
     @pulumi.getter(name="provisioningModel")
     def provisioning_model(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Whether the instance is spot. If this is set as SPOT.
+        Describes the desired provisioning model for the instance. Possible values are STANDARD, SPOT, FLEX_START, and RESERVATION_BOUND. For STANDARD, resources are provisioned immediately. For SPOT, resources are offered at a discount compared to standard pricing but may be preempted. For FLEX_START, resources are offered at a discount with flexible start times. For RESERVATION_BOUND, the instance is bound to a specific reservation and will only consume capacity from that reservation.
         """
         return pulumi.get(self, "provisioning_model")
 
@@ -21929,7 +22553,7 @@ class InstanceFromTemplateSchedulingArgsDict(TypedDict):
     """
     provisioning_model: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    Whether the instance is spot. If this is set as SPOT.
+    Describes the desired provisioning model for the instance. Possible values are STANDARD, SPOT, FLEX_START, and RESERVATION_BOUND. For STANDARD, resources are provisioned immediately. For SPOT, resources are offered at a discount compared to standard pricing but may be preempted. For FLEX_START, resources are offered at a discount with flexible start times. For RESERVATION_BOUND, the instance is bound to a specific reservation and will only consume capacity from that reservation.
     """
     skip_guest_os_shutdown: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     """
@@ -21979,7 +22603,7 @@ class InstanceFromTemplateSchedulingArgs:
         :param pulumi.Input['InstanceFromTemplateSchedulingOnInstanceStopActionArgs'] on_instance_stop_action: Defines the behaviour for instances with the instance_termination_action.
         :param pulumi.Input[_builtins.bool] preemptible: Whether the instance is preemptible.
         :param pulumi.Input['InstanceFromTemplateSchedulingPreemptionNoticeDurationArgs'] preemption_notice_duration: The duration of the notice that the instance will receive before it is preempted.
-        :param pulumi.Input[_builtins.str] provisioning_model: Whether the instance is spot. If this is set as SPOT.
+        :param pulumi.Input[_builtins.str] provisioning_model: Describes the desired provisioning model for the instance. Possible values are STANDARD, SPOT, FLEX_START, and RESERVATION_BOUND. For STANDARD, resources are provisioned immediately. For SPOT, resources are offered at a discount compared to standard pricing but may be preempted. For FLEX_START, resources are offered at a discount with flexible start times. For RESERVATION_BOUND, the instance is bound to a specific reservation and will only consume capacity from that reservation.
         :param pulumi.Input[_builtins.bool] skip_guest_os_shutdown: Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
         :param pulumi.Input[_builtins.str] termination_time: Specifies the timestamp, when the instance will be terminated,
                in RFC3339 text format. If specified, the instance termination action
@@ -22192,7 +22816,7 @@ class InstanceFromTemplateSchedulingArgs:
     @pulumi.getter(name="provisioningModel")
     def provisioning_model(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Whether the instance is spot. If this is set as SPOT.
+        Describes the desired provisioning model for the instance. Possible values are STANDARD, SPOT, FLEX_START, and RESERVATION_BOUND. For STANDARD, resources are provisioned immediately. For SPOT, resources are offered at a discount compared to standard pricing but may be preempted. For FLEX_START, resources are offered at a discount with flexible start times. For RESERVATION_BOUND, the instance is bound to a specific reservation and will only consume capacity from that reservation.
         """
         return pulumi.get(self, "provisioning_model")
 
@@ -25355,10 +25979,13 @@ class InstanceSchedulingArgsDict(TypedDict):
     """
     provisioning_model: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    Describe the type of preemptible VM. This field accepts the value `STANDARD` or `SPOT`. If the value is `STANDARD`, there will be no discount. If this   is set to `SPOT`,
+    Describe the type of provisioning model for the instance. This field accepts the value `STANDARD`, `SPOT`, `FLEX_START`, or `RESERVATION_BOUND`. If the value is `STANDARD`, there will be no discount. If this is set to `SPOT`,
     `preemptible` should be `true` and `automatic_restart` should be
     `false`. For more info about
-    `SPOT`, read [here](https://cloud.google.com/compute/docs/instances/spot)
+    `SPOT`, read [here](https://cloud.google.com/compute/docs/instances/spot).
+    If this is set to `FLEX_START`, `automatic_restart` should be `false` and `instance_termination_action` should be set to `DELETE`. A `max_run_duration` must also be specified. For more info about
+    `FLEX_START`, read [here](https://cloud.google.com/compute/docs/instances/flex-start-vms).
+    If this is set to `RESERVATION_BOUND`, the instance is bound to a specific reservation and will only consume capacity from that reservation. A `reservation_affinity` block with `type` set to `SPECIFIC_RESERVATION` should also be configured.
     """
     skip_guest_os_shutdown: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     """
@@ -25414,10 +26041,13 @@ class InstanceSchedulingArgs:
                If this field is set to true, then `automatic_restart` must be
                set to false.  Defaults to false.
         :param pulumi.Input['InstanceSchedulingPreemptionNoticeDurationArgs'] preemption_notice_duration: Beta Specifies the Metadata Service preemption notice duration before the GCE ACPI G2 Soft Off signal is triggered for Spot VMs only. If not specified, there will be no wait before the G2 Soft Off signal is triggered. Structure is documented below.
-        :param pulumi.Input[_builtins.str] provisioning_model: Describe the type of preemptible VM. This field accepts the value `STANDARD` or `SPOT`. If the value is `STANDARD`, there will be no discount. If this   is set to `SPOT`,
+        :param pulumi.Input[_builtins.str] provisioning_model: Describe the type of provisioning model for the instance. This field accepts the value `STANDARD`, `SPOT`, `FLEX_START`, or `RESERVATION_BOUND`. If the value is `STANDARD`, there will be no discount. If this is set to `SPOT`,
                `preemptible` should be `true` and `automatic_restart` should be
                `false`. For more info about
-               `SPOT`, read [here](https://cloud.google.com/compute/docs/instances/spot)
+               `SPOT`, read [here](https://cloud.google.com/compute/docs/instances/spot).
+               If this is set to `FLEX_START`, `automatic_restart` should be `false` and `instance_termination_action` should be set to `DELETE`. A `max_run_duration` must also be specified. For more info about
+               `FLEX_START`, read [here](https://cloud.google.com/compute/docs/instances/flex-start-vms).
+               If this is set to `RESERVATION_BOUND`, the instance is bound to a specific reservation and will only consume capacity from that reservation. A `reservation_affinity` block with `type` set to `SPECIFIC_RESERVATION` should also be configured.
         :param pulumi.Input[_builtins.bool] skip_guest_os_shutdown: Beta Boolean parameter. Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
         :param pulumi.Input[_builtins.str] termination_time: Specifies the timestamp, when the instance will be terminated, in RFC3339 text format. If specified, the instance termination action will be performed at the termination time.
         """
@@ -25638,10 +26268,13 @@ class InstanceSchedulingArgs:
     @pulumi.getter(name="provisioningModel")
     def provisioning_model(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Describe the type of preemptible VM. This field accepts the value `STANDARD` or `SPOT`. If the value is `STANDARD`, there will be no discount. If this   is set to `SPOT`,
+        Describe the type of provisioning model for the instance. This field accepts the value `STANDARD`, `SPOT`, `FLEX_START`, or `RESERVATION_BOUND`. If the value is `STANDARD`, there will be no discount. If this is set to `SPOT`,
         `preemptible` should be `true` and `automatic_restart` should be
         `false`. For more info about
-        `SPOT`, read [here](https://cloud.google.com/compute/docs/instances/spot)
+        `SPOT`, read [here](https://cloud.google.com/compute/docs/instances/spot).
+        If this is set to `FLEX_START`, `automatic_restart` should be `false` and `instance_termination_action` should be set to `DELETE`. A `max_run_duration` must also be specified. For more info about
+        `FLEX_START`, read [here](https://cloud.google.com/compute/docs/instances/flex-start-vms).
+        If this is set to `RESERVATION_BOUND`, the instance is bound to a specific reservation and will only consume capacity from that reservation. A `reservation_affinity` block with `type` set to `SPECIFIC_RESERVATION` should also be configured.
         """
         return pulumi.get(self, "provisioning_model")
 
@@ -28509,10 +29142,13 @@ class InstanceTemplateSchedulingArgsDict(TypedDict):
     """
     provisioning_model: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    Describe the type of preemptible VM. This field accepts the value `STANDARD` or `SPOT`. If the value is `STANDARD`, there will be no discount. If this   is set to `SPOT`,
+    Describe the type of provisioning model for the instance. This field accepts the value `STANDARD`, `SPOT`, `FLEX_START`, or `RESERVATION_BOUND`. If the value is `STANDARD`, there will be no discount. If this is set to `SPOT`,
     `preemptible` should be `true` and `automatic_restart` should be
     `false`. For more info about
-    `SPOT`, read [here](https://cloud.google.com/compute/docs/instances/spot)
+    `SPOT`, read [here](https://cloud.google.com/compute/docs/instances/spot).
+    If this is set to `FLEX_START`, `automatic_restart` should be `false` and `instance_termination_action` should be set to `DELETE`. A `max_run_duration` must also be specified. For more info about
+    `FLEX_START`, read [here](https://cloud.google.com/compute/docs/instances/flex-start-vms).
+    If this is set to `RESERVATION_BOUND`, the instance is bound to a specific reservation and will only consume capacity from that reservation. A `reservation_affinity` block with `type` set to `SPECIFIC_RESERVATION` should also be configured.
     """
     skip_guest_os_shutdown: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     """
@@ -28567,10 +29203,13 @@ class InstanceTemplateSchedulingArgs:
                false. Read more on this
                [here](https://cloud.google.com/compute/docs/instances/preemptible).
         :param pulumi.Input['InstanceTemplateSchedulingPreemptionNoticeDurationArgs'] preemption_notice_duration: Beta Specifies the Metadata Service preemption notice duration before the GCE ACPI G2 Soft Off signal is triggered for Spot VMs only. If not specified, there will be no wait before the G2 Soft Off signal is triggered. Structure is documented below.
-        :param pulumi.Input[_builtins.str] provisioning_model: Describe the type of preemptible VM. This field accepts the value `STANDARD` or `SPOT`. If the value is `STANDARD`, there will be no discount. If this   is set to `SPOT`,
+        :param pulumi.Input[_builtins.str] provisioning_model: Describe the type of provisioning model for the instance. This field accepts the value `STANDARD`, `SPOT`, `FLEX_START`, or `RESERVATION_BOUND`. If the value is `STANDARD`, there will be no discount. If this is set to `SPOT`,
                `preemptible` should be `true` and `automatic_restart` should be
                `false`. For more info about
-               `SPOT`, read [here](https://cloud.google.com/compute/docs/instances/spot)
+               `SPOT`, read [here](https://cloud.google.com/compute/docs/instances/spot).
+               If this is set to `FLEX_START`, `automatic_restart` should be `false` and `instance_termination_action` should be set to `DELETE`. A `max_run_duration` must also be specified. For more info about
+               `FLEX_START`, read [here](https://cloud.google.com/compute/docs/instances/flex-start-vms).
+               If this is set to `RESERVATION_BOUND`, the instance is bound to a specific reservation and will only consume capacity from that reservation. A `reservation_affinity` block with `type` set to `SPECIFIC_RESERVATION` should also be configured.
         :param pulumi.Input[_builtins.bool] skip_guest_os_shutdown: Beta Boolean parameter. Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
         :param pulumi.Input[_builtins.str] termination_time: Specifies the timestamp, when the instance will be terminated, in RFC3339 text format. If specified, the instance termination action will be performed at the termination time.
         """
@@ -28790,10 +29429,13 @@ class InstanceTemplateSchedulingArgs:
     @pulumi.getter(name="provisioningModel")
     def provisioning_model(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Describe the type of preemptible VM. This field accepts the value `STANDARD` or `SPOT`. If the value is `STANDARD`, there will be no discount. If this   is set to `SPOT`,
+        Describe the type of provisioning model for the instance. This field accepts the value `STANDARD`, `SPOT`, `FLEX_START`, or `RESERVATION_BOUND`. If the value is `STANDARD`, there will be no discount. If this is set to `SPOT`,
         `preemptible` should be `true` and `automatic_restart` should be
         `false`. For more info about
-        `SPOT`, read [here](https://cloud.google.com/compute/docs/instances/spot)
+        `SPOT`, read [here](https://cloud.google.com/compute/docs/instances/spot).
+        If this is set to `FLEX_START`, `automatic_restart` should be `false` and `instance_termination_action` should be set to `DELETE`. A `max_run_duration` must also be specified. For more info about
+        `FLEX_START`, read [here](https://cloud.google.com/compute/docs/instances/flex-start-vms).
+        If this is set to `RESERVATION_BOUND`, the instance is bound to a specific reservation and will only consume capacity from that reservation. A `reservation_affinity` block with `type` set to `SPECIFIC_RESERVATION` should also be configured.
         """
         return pulumi.get(self, "provisioning_model")
 
@@ -48839,10 +49481,13 @@ class RegionInstanceTemplateSchedulingArgsDict(TypedDict):
     """
     provisioning_model: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    Describe the type of preemptible VM. This field accepts the value `STANDARD` or `SPOT`. If the value is `STANDARD`, there will be no discount. If this   is set to `SPOT`,
+    Describe the type of provisioning model for the instance. This field accepts the value `STANDARD`, `SPOT`, `FLEX_START`, or `RESERVATION_BOUND`. If the value is `STANDARD`, there will be no discount. If this is set to `SPOT`,
     `preemptible` should be `true` and `automatic_restart` should be
     `false`. For more info about
-    `SPOT`, read [here](https://cloud.google.com/compute/docs/instances/spot)
+    `SPOT`, read [here](https://cloud.google.com/compute/docs/instances/spot).
+    If this is set to `FLEX_START`, `automatic_restart` should be `false` and `instance_termination_action` should be set to `DELETE`. A `max_run_duration` must also be specified. For more info about
+    `FLEX_START`, read [here](https://cloud.google.com/compute/docs/instances/flex-start-vms).
+    If this is set to `RESERVATION_BOUND`, the instance is bound to a specific reservation and will only consume capacity from that reservation. A `reservation_affinity` block with `type` set to `SPECIFIC_RESERVATION` should also be configured.
     """
     skip_guest_os_shutdown: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     """
@@ -48900,10 +49545,13 @@ class RegionInstanceTemplateSchedulingArgs:
                false. Read more on this
                [here](https://cloud.google.com/compute/docs/instances/preemptible).
         :param pulumi.Input['RegionInstanceTemplateSchedulingPreemptionNoticeDurationArgs'] preemption_notice_duration: The duration of the notice that the instance will receive before it is preempted.
-        :param pulumi.Input[_builtins.str] provisioning_model: Describe the type of preemptible VM. This field accepts the value `STANDARD` or `SPOT`. If the value is `STANDARD`, there will be no discount. If this   is set to `SPOT`,
+        :param pulumi.Input[_builtins.str] provisioning_model: Describe the type of provisioning model for the instance. This field accepts the value `STANDARD`, `SPOT`, `FLEX_START`, or `RESERVATION_BOUND`. If the value is `STANDARD`, there will be no discount. If this is set to `SPOT`,
                `preemptible` should be `true` and `automatic_restart` should be
                `false`. For more info about
-               `SPOT`, read [here](https://cloud.google.com/compute/docs/instances/spot)
+               `SPOT`, read [here](https://cloud.google.com/compute/docs/instances/spot).
+               If this is set to `FLEX_START`, `automatic_restart` should be `false` and `instance_termination_action` should be set to `DELETE`. A `max_run_duration` must also be specified. For more info about
+               `FLEX_START`, read [here](https://cloud.google.com/compute/docs/instances/flex-start-vms).
+               If this is set to `RESERVATION_BOUND`, the instance is bound to a specific reservation and will only consume capacity from that reservation. A `reservation_affinity` block with `type` set to `SPECIFIC_RESERVATION` should also be configured.
         :param pulumi.Input[_builtins.bool] skip_guest_os_shutdown: Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
         :param pulumi.Input[_builtins.str] termination_time: Specifies the timestamp, when the instance will be terminated, in RFC3339 text format. If specified, the instance termination action will be performed at the termination time.
         """
@@ -49126,10 +49774,13 @@ class RegionInstanceTemplateSchedulingArgs:
     @pulumi.getter(name="provisioningModel")
     def provisioning_model(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Describe the type of preemptible VM. This field accepts the value `STANDARD` or `SPOT`. If the value is `STANDARD`, there will be no discount. If this   is set to `SPOT`,
+        Describe the type of provisioning model for the instance. This field accepts the value `STANDARD`, `SPOT`, `FLEX_START`, or `RESERVATION_BOUND`. If the value is `STANDARD`, there will be no discount. If this is set to `SPOT`,
         `preemptible` should be `true` and `automatic_restart` should be
         `false`. For more info about
-        `SPOT`, read [here](https://cloud.google.com/compute/docs/instances/spot)
+        `SPOT`, read [here](https://cloud.google.com/compute/docs/instances/spot).
+        If this is set to `FLEX_START`, `automatic_restart` should be `false` and `instance_termination_action` should be set to `DELETE`. A `max_run_duration` must also be specified. For more info about
+        `FLEX_START`, read [here](https://cloud.google.com/compute/docs/instances/flex-start-vms).
+        If this is set to `RESERVATION_BOUND`, the instance is bound to a specific reservation and will only consume capacity from that reservation. A `reservation_affinity` block with `type` set to `SPECIFIC_RESERVATION` should also be configured.
         """
         return pulumi.get(self, "provisioning_model")
 

@@ -133,10 +133,12 @@ class DataHubMetadataSharingSource(Source):
 
     def _process_single_entity(self, result: Dict[str, Any]) -> None:
         """Process a single entity result"""
-        entity_urn = result.get("entity", {}).get("urn", None)
-        share_results = (
-            result.get("entity", {}).get("share", {}).get("lastShareResults", [])
-        )
+        # A shareDestinations hit can resolve to a null entity/share (e.g. a
+        # sibling-merged entity with no Share aspect); coalesce None -> {} since
+        # `.get(k, {})` does not guard an explicit null value.
+        entity = result.get("entity") or {}
+        entity_urn = entity.get("urn")
+        share_results = (entity.get("share") or {}).get("lastShareResults") or []
 
         if entity_urn is None:
             self.report.report_warning(

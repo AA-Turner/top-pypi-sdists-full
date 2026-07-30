@@ -397,6 +397,11 @@ class LangChainCallbackBase(LangChainTraceBoundary, BaseCallbackHandler):
     ) -> None:
         fw_meta = self._fw_metadata(metadata, tags)
         name = (serialized or {}).get("name") or "tool"
+        # Identifies which of an assistant turn's parallel calls this span ran,
+        # so a late remediation can target the failed one rather than guess.
+        call_id = kwargs.get("tool_call_id")
+        if call_id:
+            fw_meta["tool_call_id"] = str(call_id)
         if self._note_start(run_id, parent_run_id, name, input_str, set_workflow_name=False):
             return
         self.spans.open_span(

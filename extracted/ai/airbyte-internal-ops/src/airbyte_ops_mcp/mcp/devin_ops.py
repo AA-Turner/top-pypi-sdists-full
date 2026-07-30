@@ -724,7 +724,10 @@ def _find_json_in_logs(raw_logs: str, required_key: str) -> dict | None:
 
 _FEEDBACK_CHANNEL = "C0ACUHRP6B1"
 
-_AJ_STEERS_IDENTIFIER = "U05AKF1BCC9"
+_FEEDBACK_CC_USERGROUPS = [
+    "S0BJ4K3LC4X",  # @oc-hydra
+    "S0BKR63VAN5",  # @oc-internal-ai
+]
 
 _TRIAGE_REPO_OWNER = "airbytehq"
 
@@ -1148,7 +1151,8 @@ def devin_session_feedback(
     """Report structured feedback about a Devin session experience via Slack.
 
     Posts a formatted feedback message to the #hydra-feedback Slack channel,
-    tagging the reporting user and @AJ Steers. The message includes a clickable
+    tagging the reporting user and the @oc-hydra and @oc-internal-ai groups.
+    The message includes a clickable
     button for the Devin session link. For negative feedback, a triage workflow
     is automatically dispatched to launch a Devin session with v3 analyze mode
     that can inspect the original session's full conversation history.
@@ -1162,7 +1166,7 @@ def devin_session_feedback(
     know:
     - Their feedback will be posted publicly in the #hydra-feedback Slack channel
     - They may be contacted by the team for more details
-    - Both the reporting user and @AJ Steers will be tagged in the message
+    - The reporting user and the @oc-hydra and @oc-internal-ai groups will be tagged in the message
     - For negative feedback, a triage session will be automatically launched to inspect the reported session
 
     The Slack message is sent by a GitHub Actions workflow so that Slack
@@ -1235,7 +1239,7 @@ def devin_session_feedback(
             reporting_user=reporting_user,
             session_playbook=session_playbook,
             related_skill_name=related_skill_name,
-            cc_persons=_AJ_STEERS_IDENTIFIER,
+            cc_persons=",".join(_FEEDBACK_CC_USERGROUPS),
             header_emoji=_feedback_emoji(feedback_type),
             header_label=_feedback_label(feedback_type),
         )
@@ -1265,7 +1269,7 @@ def devin_session_feedback(
         target_person=reporting_user,
         message=message_body,
         agent_session_url=agent_session_url,
-        cc=[_AJ_STEERS_IDENTIFIER],
+        cc=list(_FEEDBACK_CC_USERGROUPS),
         channel_override=_FEEDBACK_CHANNEL,
         header_emoji=_feedback_emoji(feedback_type),
         header_label=_feedback_label(feedback_type),
@@ -1276,7 +1280,8 @@ def devin_session_feedback(
         success=True,
         message=(
             f"Feedback submitted and posted to #hydra-feedback. "
-            f"The reporting user and @AJ Steers have been tagged. "
+            f"The reporting user and the @oc-hydra and @oc-internal-ai groups "
+            f"have been tagged. "
             f"View progress at: {view_url}"
         ),
         workflow_url=result.workflow_url,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: titiler-mosaic
-Version: 2.2.0
+Version: 2.2.1
 Summary: cogeo-mosaic (MosaicJSON) plugin for TiTiler.
 Project-URL: Homepage, https://developmentseed.org/titiler/
 Project-URL: Documentation, https://developmentseed.org/titiler/
@@ -21,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: GIS
 Requires-Python: >=3.11
-Requires-Dist: titiler-core==2.2.0
+Requires-Dist: titiler-core==2.2.1
 Provides-Extra: mosaicjson
 Requires-Dist: cogeo-mosaic<10.0,>=9.0; extra == 'mosaicjson'
 Description-Content-Type: text/markdown

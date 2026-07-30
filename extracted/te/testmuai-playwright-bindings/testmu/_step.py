@@ -17,6 +17,18 @@ from testmu import _test_state
 
 _log = logging.getLogger("testmu")
 _current_step = contextvars.ContextVar("testmu_step", default=None)
+# Per-step auto-heal flag: reset at step start, set by the heal cascade, read into the step-end payload (auto_heal).
+_step_autoheal = contextvars.ContextVar("testmu_step_autoheal", default=False)
+
+
+def mark_autoheal():
+    """Flag the current step as having auto-healed (called from the heal cascade)."""
+    _step_autoheal.set(True)
+
+
+def get_step_autoheal() -> bool:
+    """Whether a heal occurred during the current step (read at step end)."""
+    return _step_autoheal.get()
 
 
 class _Step:
@@ -57,6 +69,7 @@ class _Step:
 
     async def __aenter__(self):
         self._token = _current_step.set(self)
+        _step_autoheal.set(False)  # reset per step; the heal cascade sets it
         self._cache_token = set_cache(new_cache())
         from testmu._reporter import reporter
         await reporter().begin_step(self.description, instruction_id=self.instruction_id)

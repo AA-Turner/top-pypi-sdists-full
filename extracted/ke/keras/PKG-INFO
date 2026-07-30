@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: keras
-Version: 3.15.0
+Version: 3.15.1
 Summary: Multi-backend Keras
 Author-email: Keras team <keras-users@googlegroups.com>
 License: Apache License 2.0
@@ -18,6 +18,7 @@ Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Requires-Dist: absl-py
 Requires-Dist: numpy
 Requires-Dist: rich
@@ -26,6 +27,7 @@ Requires-Dist: h5py
 Requires-Dist: optree
 Requires-Dist: ml-dtypes
 Requires-Dist: packaging
+Dynamic: license-file
 
 # Keras 3: Deep Learning for Humans
 

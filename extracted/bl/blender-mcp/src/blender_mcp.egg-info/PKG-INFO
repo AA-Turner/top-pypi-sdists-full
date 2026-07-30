@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: blender-mcp
-Version: 1.6.4
+Version: 1.6.5
 Summary: Blender integration through the Model Context Protocol
 Author-email: Your Name <your.email@example.com>
 License: MIT
@@ -12,13 +12,16 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: mcp[cli]>=1.3.0
+Requires-Dist: mcp[cli]<2,>=1.3.0
 Requires-Dist: httpx>=0.27.0
 Dynamic: license-file
 
 
 
 # BlenderMCP - Blender Model Context Protocol Integration
+<a href="https://trendshift.io/repositories/14834?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-14834" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/14834" alt="ahujasid%2Fblender-mcp | Trendshift" width="250" height="55"/></a><br />
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/blender-mcp?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/blender-mcp)
+
 
 BlenderMCP connects Blender to Claude AI through the Model Context Protocol (MCP), allowing Claude to directly interact with and control Blender. This integration enables prompt assisted 3D modeling, scene creation, and manipulation.
 
@@ -28,7 +31,7 @@ BlenderMCP connects Blender to Claude AI through the Model Context Protocol (MCP
 
 ### Join the Community
 
-Give feedback, get inspired, and build on top of the MCP: [Discord](https://discord.gg/z5apgR8TFU)
+Give feedback, get inspired, and build on top of the MCP: [Discord](https://discord.gg/SNqPn4TcKQ)
 
 ### Supporters
 
@@ -375,6 +378,12 @@ Or add it to your MCP config:
 ```
 
 All telemetry data is fully anonymized and used solely to improve BlenderMCP.
+
+## Feedback
+
+We are actively looking for feedback on Blender MCP. If you have thoughts, share them [here](https://bit.ly/blender-mcp-form).
+
+If you have more detailed feedback, you can schedule a call with us [here](https://bit.ly/blender-mcp-call) - we will credit you in the project.
 
 
 ## Contributing

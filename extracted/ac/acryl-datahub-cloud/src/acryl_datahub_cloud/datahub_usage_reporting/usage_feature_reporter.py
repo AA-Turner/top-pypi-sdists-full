@@ -4,9 +4,9 @@ import os
 import re
 import tempfile
 import time
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from itertools import chain
 from tempfile import TemporaryDirectory
 from typing import (
@@ -17,17 +17,19 @@ from typing import (
     Iterator,
     List,
     Optional,
+    Set,
     Tuple,
     Type,
     Union,
 )
 
+import boto3
 import numpy
 import polars
 import pyarrow as pa
 import pyarrow.parquet as pq
 from elasticsearch.client import Elasticsearch
-from opensearchpy import OpenSearch
+from opensearchpy import OpenSearch, Urllib3AWSV4SignerAuth, Urllib3HttpConnection
 from polars.datatypes import DataTypeClass
 from pydantic import Field
 from scipy.stats import expon
@@ -39,8 +41,12 @@ from acryl_datahub_cloud.datahub_usage_reporting.usage_feature_patch_builder imp
 )
 from acryl_datahub_cloud.elasticsearch.config import ElasticSearchClientConfig
 from acryl_datahub_cloud.metadata.schema_classes import (
+    CalendarIntervalClass,
     CorpUserUsageFeaturesClass,
+    DatasetUserUsageCountsClass,
+    DocumentUsageStatisticsClass,
     QueryUsageFeaturesClass,
+    TimeWindowSizeClass,
     UsageFeaturesClass,
 )
 from datahub.configuration.common import ConfigModel
@@ -71,9 +77,21 @@ from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
+# Bound every search request so a slow/hung ES/OpenSearch never stalls the
+# reporter indefinitely. External I/O without timeouts has caused prod hangs.
+_SEARCH_REQUEST_TIMEOUT_SECONDS = 60
+
 platform_regexp = re.compile(r"urn:li:dataset:\(urn:li:dataPlatform:(.+?),.*")
 dashboard_chart_platform_regexp = re.compile(r"urn:li:(?:dashboard|chart):\((.+?),.*")
 dbt_platform_regexp = re.compile(r"urn:li:dataset:\(urn:li:dataPlatform:dbt,.*\)")
+
+# Documents (urn:li:document:<id>) carry no platform, so all documents share a
+# single ranking group for usage percentile/rank computation. Distinct from the
+# source's own platform="datahub" to avoid confusion in logs/debugging.
+DOCUMENT_USAGE_PLATFORM = "datahub-document"
+
+DOCUMENT_URN_PREFIX = "urn:li:document:"
+DAY_MILLIS = 24 * 60 * 60 * 1000
 
 
 class S3ClientConfig(ConfigModel):
@@ -163,6 +181,18 @@ class DataHubUsageFeatureReportingSourceConfig(
     )
     chart_usage_enabled: bool = Field(
         True, description="Flag to enable or disable chart usage statistics collection."
+    )
+
+    document_usage_stats_enabled: bool = Field(
+        default=False,
+        description=(
+            "Flag to enable or disable document usage statistics. When enabled, the "
+            "source aggregates raw read events from the datahub_usage_event index "
+            "(human EntityViewEvents + agent ToolInvocation reads) into the "
+            "documentUsageStatistics timeseries, and rolls that timeseries up into "
+            "the usageFeatures popularity aspect. Defaults to False: the relevant "
+            "indices may not exist on all instances yet."
+        ),
     )
 
     query_usage_enabled: bool = Field(
@@ -267,6 +297,13 @@ class DatahubUsageFeatureReport(StatefulIngestionReport, IngestionStageReport):
     query_platforms_count: Dict[str, int] = field(
         default_factory=lambda: defaultdict(lambda: 0)
     )
+
+    document_usage_count: int = 0
+    document_view_event_count: int = 0
+    document_agent_read_event_count: int = 0
+    document_agent_read_deduped_count: int = 0
+    document_usage_event_dropped_count: int = 0
+    document_usage_timeseries_count: int = 0
 
 
 @platform_name(id="datahub", platform_name="DataHub")
@@ -446,6 +483,70 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                 "platform": platform,
             }
 
+    @staticmethod
+    def _event_timestamp_millis(value: Any) -> Optional[int]:
+        # datahub_usage_event rows store the timestamp as epoch millis; tolerate an
+        # ISO-8601 string just in case. Returns None for anything unparseable so a
+        # single bad row drops rather than crashing the whole reporter.
+        if value is None:
+            return None
+        if isinstance(value, (int, float)):
+            return int(value)
+        try:
+            parsed = datetime.fromisoformat(str(value))
+            # Interpret a timezone-less timestamp as UTC, matching the UTC day
+            # bucketing, rather than the process-local timezone.
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            return int(parsed.timestamp() * 1000)
+        except (ValueError, OverflowError, OSError):
+            return None
+
+    def process_document_view_events(self, results: Iterable) -> Iterable[Dict]:
+        # One row per human EntityViewEvent on a document.
+        for doc in results:
+            src = doc["_source"]
+            urn = src.get("entityUrn")
+            ts = self._event_timestamp_millis(src.get("timestamp"))
+            # The query already filters type + a urn:li:document: prefix, so a
+            # non-document urn or missing timestamp here signals query/schema drift
+            # rather than normal data — count it so "all dropped" is distinguishable
+            # from "no document reads".
+            if not urn or not urn.startswith(DOCUMENT_URN_PREFIX) or ts is None:
+                self.report.document_usage_event_dropped_count += 1
+                continue
+            self.report.document_view_event_count += 1
+            yield {"urn": urn, "user": src.get("actorUrn"), "timestamp": ts}
+
+    def process_document_agent_read_events(self, results: Iterable) -> Iterable[Dict]:
+        # One read per distinct document urn returned by an MCP ToolInvocation
+        # (the query already pushed down the document prefix). A urn repeated within
+        # one invocation is a single read, so de-dupe per invocation. tool_result_urns
+        # is absent until the URN-capture change lands, so this yields nothing today.
+        #
+        # Each row also carries a conversation key so the aggregation stage can
+        # de-dupe reads across tool calls: a document surfaced by several tool calls
+        # in one conversation is a single agent read, not one per call. Prefer the
+        # stable conversation urn, fall back to session_id, then to the event's own
+        # doc id (which makes an event lacking both count once, as it does today).
+        for doc in results:
+            src = doc["_source"]
+            ts = self._event_timestamp_millis(src.get("timestamp"))
+            if ts is None:
+                self.report.document_usage_event_dropped_count += 1
+                continue
+            conversation = (
+                src.get("conversation_urn") or src.get("session_id") or doc.get("_id")
+            )
+            document_urns = {
+                urn
+                for urn in (src.get("tool_result_urns") or [])
+                if isinstance(urn, str) and urn.startswith(DOCUMENT_URN_PREFIX)
+            }
+            for urn in document_urns:
+                self.report.document_agent_read_event_count += 1
+                yield {"urn": urn, "timestamp": ts, "conversation": conversation}
+
     def process_query_usage(self, results: Iterable) -> Iterable[Dict]:
         for doc in results:
             yield {
@@ -458,6 +559,31 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                 "queryCount": doc["_source"].get("queryCount", 0),
                 "uniqueUserCount": doc["_source"].get("uniqueUserCount"),
                 "userCounts": doc["_source"].get("event", {}).get("userCounts", []),
+            }
+
+    def process_document_usage(self, results: Iterable) -> Iterable[Dict]:
+        # Documents (urn:li:document:<id>) carry no platform in their URN, so all
+        # documents share a single ranking group. userCounts entries reuse
+        # DatasetUserUsageCounts ({user, count}); the per-user field is "count".
+        for doc in results:
+            if not doc["_source"].get("urn"):
+                logger.warning(
+                    f"Urn not found in document usage doc {doc}. Skipping..."
+                )
+                continue
+
+            self.report.document_usage_count += 1
+            yield {
+                "timestampMillis": doc["_source"].get("timestampMillis"),
+                "lastObserved": doc["_source"]
+                .get("systemMetadata", {})
+                .get("lastObserved"),
+                "urn": doc["_source"].get("urn"),
+                "eventGranularity": doc["_source"].get("eventGranularity"),
+                "viewsCount": doc["_source"].get("viewsCount", 0),
+                "agentViewsCount": doc["_source"].get("agentViewsCount", 0),
+                "userCounts": doc["_source"].get("event", {}).get("userCounts", []),
+                "platform": DOCUMENT_USAGE_PLATFORM,
             }
 
     def upstream_lineage_batch(self, results: Iterable) -> Iterable[Dict]:
@@ -557,9 +683,9 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             elif age_in_days > factor.age_in_days[0]:
                 freshness_factor = factor.value
 
-        bucket = 0
-        for pfactor in self.config.ranking_policy.usage_percentile_factors:
-            bucket += 1
+        for bucket, pfactor in enumerate(
+            self.config.ranking_policy.usage_percentile_factors, start=1
+        ):
             if len(pfactor.percentile) == 2:
                 # The first bucket min should be inclusive
                 if bucket == 1:
@@ -595,6 +721,68 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             ),
         )
 
+    def _create_search_client(self) -> Union[Elasticsearch, OpenSearch]:
+        """Build the ES / OpenSearch client used to read usage data.
+
+        On IAM-auth OpenSearch domains (``search_index.use_iam_auth``) we sign
+        requests with AWS SigV4 using the pod's ambient credentials (IRSA /
+        instance role) instead of basic auth. The Helm chart deliberately omits
+        ELASTICSEARCH_PASSWORD on IAM domains — it only sets a dummy auth header
+        that the Java clients use to trigger SigV4 — so basic auth here would
+        fall back to a bogus default and 401. The same IAM identity is mapped
+        into the domain's fine-grained access control (``createUserIamRoleArn``
+        in deploy values), so SigV4 with the ambient identity is the path that
+        already works for the Java services.
+
+        SigV4 is only meaningful against AWS-managed OpenSearch, so ``use_iam_auth``
+        selects the signed OpenSearch client regardless of ``opensearch_dialect``.
+        """
+        si = self.config.search_index
+        use_ssl = bool(si.use_ssl)
+        if si.use_iam_auth:
+            if not si.aws_region:
+                raise ValueError(
+                    "search_index.aws_region (or AWS_REGION / AWS_DEFAULT_REGION) "
+                    "must be set to use IAM auth against OpenSearch."
+                )
+            credentials = boto3.Session().get_credentials()
+            if credentials is None:
+                raise ValueError(
+                    "No AWS credentials available for OpenSearch IAM auth; the "
+                    "pod must have an IRSA role or instance profile."
+                )
+            return OpenSearch(
+                hosts=[{"host": si.host, "port": si.port}],
+                http_auth=Urllib3AWSV4SignerAuth(
+                    credentials, si.aws_region, si.aws_service
+                ),
+                use_ssl=use_ssl,
+                verify_certs=use_ssl,
+                connection_class=Urllib3HttpConnection,
+                # Bound the request: usage scans should never hang indefinitely.
+                timeout=_SEARCH_REQUEST_TIMEOUT_SECONDS,
+            )
+
+        client_cls = OpenSearch if si.opensearch_dialect else Elasticsearch
+        return client_cls(
+            [si.endpoint],
+            http_auth=(si.username, si.password),
+            use_ssl=use_ssl,
+            timeout=_SEARCH_REQUEST_TIMEOUT_SECONDS,
+        )
+
+    def _index_available(self, index: str) -> bool:
+        # Probe index existence up front so a not-yet-provisioned index skips its
+        # stage deliberately. This keeps the not-found case out of the streaming
+        # read path, where a NotFoundError raised mid-scroll (expired scroll, index
+        # deleted mid-run) would otherwise be indistinguishable from "index absent"
+        # and could mask a partial emission.
+        si = self.config.search_index
+        if not si:
+            return False
+        full_index = f"{si.index_prefix}{index}" if si.index_prefix else index
+        return bool(self._create_search_client().indices.exists(index=full_index))
+
     def load_data_from_es(
         self,
         index: str,
@@ -604,54 +792,12 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
     ) -> Iterable[Dict]:
         with self.report.report_es_extraction_time[index]:
             query_copy = query.copy()
-            endpoint = ""
             if self.config.search_index:
-                if self.config.search_index.host and not self.config.search_index.port:
-                    endpoint = f"{self.config.search_index.host}"
-                elif self.config.search_index.host and self.config.search_index.port:
-                    endpoint = f"{self.config.search_index.host}:{self.config.search_index.port}"
-
-                index_prefix = (
-                    self.config.search_index.index_prefix
-                    if self.config.search_index
-                    else ""
-                )
-
+                index_prefix = self.config.search_index.index_prefix
                 index = f"{index_prefix}{index}" if index_prefix else index
-                user = self.config.search_index.username
-                password = self.config.search_index.password
                 batch_size = self.config.extract_batch_size
                 delay = self.config.extract_delay
-                server: Union[Elasticsearch, OpenSearch]
-
-                if self.config.search_index.opensearch_dialect:
-                    server = OpenSearch(
-                        [endpoint],
-                        http_auth=(user, password),
-                        use_ssl=(
-                            bool(
-                                self.config.search_index
-                                and self.config.search_index.use_ssl
-                            )
-                        ),
-                    )
-
-                    # response = server.create_pit(index, keep_alive="10m")
-
-                    # TODO: Save PIT, we can resume processing based on <pit, search_after> tuple
-                    # pit = response.get("pit_id")
-                    # query_copy.update({"pit": {"id": pit, "keep_alive": "10m"}})
-                else:
-                    server = Elasticsearch(
-                        [endpoint],
-                        http_auth=(user, password),
-                        use_ssl=(
-                            bool(
-                                self.config.search_index
-                                and self.config.search_index.use_ssl
-                            )
-                        ),
-                    )
+                server = self._create_search_client()
 
                 yield from self.load_es_data(
                     query_copy,
@@ -969,6 +1115,140 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             chart_usage_df = self.generate_chart_usage()
             yield from self.generate_mcp_from_lazyframe(chart_usage_df)
 
+    def generate_document_usage_mcps(self) -> Iterable[MetadataWorkUnit]:
+        with polars.StringCache():
+            logger.info("Generate Document Usage")
+            document_usage_df = self.generate_document_usage()
+            yield from self.generate_document_usage_mcp_from_lazyframe(
+                document_usage_df
+            )
+
+    def generate_document_usage_timeseries_mcps(self) -> Iterable[MetadataWorkUnit]:
+        # Stage 2: aggregate raw read events (human EntityViewEvents + agent
+        # ToolInvocation reads) from datahub_usage_event into the
+        # documentUsageStatistics timeseries. Volume is bounded (documents are a
+        # small entity set), so a plain in-memory aggregation is clearer than a
+        # polars pipeline here.
+        logger.info("Generate Document Usage Timeseries")
+        human_buckets: Dict[Tuple[str, int], Dict[str, Any]] = defaultdict(
+            lambda: {"views": 0, "users": Counter(), "last": 0}
+        )
+        agent_buckets: Dict[Tuple[str, int], Dict[str, int]] = defaultdict(
+            lambda: {"count": 0, "last": 0}
+        )
+        cumulative: Dict[str, Dict[str, Any]] = defaultdict(
+            lambda: {"views": 0, "agent": 0, "users": Counter(), "last": 0}
+        )
+
+        for row in self.load_data_from_es(
+            index="datahub_usage_event",
+            query=QueryBuilder.get_document_view_events_query(
+                self.config.lookback_days
+            ),
+            process_function=self.process_document_view_events,
+        ):
+            ts = row["timestamp"]
+            bucket = (ts // DAY_MILLIS) * DAY_MILLIS
+            hb = human_buckets[(row["urn"], bucket)]
+            hb["views"] += 1
+            hb["last"] = max(hb["last"], ts)
+            cum = cumulative[row["urn"]]
+            cum["views"] += 1
+            cum["last"] = max(cum["last"], ts)
+            user = row.get("user")
+            if user:
+                hb["users"][user] += 1
+                cum["users"][user] += 1
+
+        # De-dupe agent reads per conversation: the same document surfaced across
+        # multiple tool calls in one conversation is a single read. Keying globally
+        # on (urn, conversation) keeps sum(daily agent buckets) == cumulative agent
+        # count, attributing a conversation to the day bucket of its first-seen read.
+        agent_seen: Set[Tuple[str, str]] = set()
+        for row in self.load_data_from_es(
+            index="datahub_usage_event",
+            query=QueryBuilder.get_document_agent_read_events_query(
+                self.config.lookback_days
+            ),
+            process_function=self.process_document_agent_read_events,
+        ):
+            conversation = row["conversation"]
+            # Only conversation-keyed reads are deduped. A read with no identity at
+            # all (no conversation_urn, session_id, or doc id) can't be grouped, so
+            # it always counts once rather than collapsing with other such reads.
+            if conversation is not None:
+                key = (row["urn"], conversation)
+                if key in agent_seen:
+                    continue
+                agent_seen.add(key)
+            self.report.document_agent_read_deduped_count += 1
+            ts = row["timestamp"]
+            bucket = (ts // DAY_MILLIS) * DAY_MILLIS
+            ab = agent_buckets[(row["urn"], bucket)]
+            ab["count"] += 1
+            ab["last"] = max(ab["last"], ts)
+            cum = cumulative[row["urn"]]
+            cum["agent"] += 1
+            cum["last"] = max(cum["last"], ts)
+
+        # Distinguish "no document reads" from "all rows dropped" (schema drift).
+        if self.report.document_usage_event_dropped_count and not (
+            self.report.document_view_event_count
+            or self.report.document_agent_read_event_count
+        ):
+            self.report.warning(
+                message="All document usage events were dropped; check the datahub_usage_event schema.",
+                context=f"dropped={self.report.document_usage_event_dropped_count}",
+            )
+
+        # Bucketed (daily) rows.
+        for urn, bucket in set(human_buckets) | set(agent_buckets):
+            human = human_buckets.get((urn, bucket))
+            agent = agent_buckets.get((urn, bucket))
+            users: Counter = human["users"] if human else Counter()
+            last = max(human["last"] if human else 0, agent["last"] if agent else 0)
+            stats = DocumentUsageStatisticsClass(
+                timestampMillis=bucket,
+                eventGranularity=TimeWindowSizeClass(
+                    unit=CalendarIntervalClass.DAY, multiple=1
+                ),
+                viewsCount=human["views"] if human else 0,
+                agentViewsCount=agent["count"] if agent else 0,
+                uniqueUserCount=len(users),
+                lastViewedAt=last or None,
+                userCounts=[
+                    DatasetUserUsageCountsClass(user=user, count=count)
+                    for user, count in sorted(users.items())
+                ]
+                or None,
+            )
+            self.report.document_usage_timeseries_count += 1
+            yield MetadataChangeProposalWrapper(
+                entityUrn=urn, aspect=stats
+            ).as_workunit(is_primary_source=False)
+
+        # Cumulative snapshot (eventGranularity null) so the rollup can populate
+        # viewCountTotal / agentViewCountTotal. Totals reflect the lookback window
+        # only, since the events index is windowed.
+        snapshot_ts = int(datetime.now(timezone.utc).timestamp() * 1000)
+        for urn, cum in cumulative.items():
+            cum_users: Counter = cum["users"]
+            stats = DocumentUsageStatisticsClass(
+                timestampMillis=snapshot_ts,
+                viewsCount=cum["views"],
+                agentViewsCount=cum["agent"],
+                uniqueUserCount=len(cum_users),
+                lastViewedAt=cum["last"] or None,
+                userCounts=[
+                    DatasetUserUsageCountsClass(user=user, count=count)
+                    for user, count in sorted(cum_users.items())
+                ]
+                or None,
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=urn, aspect=stats
+            ).as_workunit(is_primary_source=False)
+
     def generate_query_usage_mcps(self) -> Iterable[MetadataWorkUnit]:
         with polars.StringCache():
             logger.info("Generate Query Usage")
@@ -1000,6 +1280,30 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         if self.config.chart_usage_enabled:
             with self.report.new_stage("generate chart usage"):
                 yield from self.generate_chart_usage_mcps()
+
+        if self.config.document_usage_stats_enabled:
+            # Stage 1: aggregate raw read events into the documentUsageStatistics
+            # timeseries. Stage 2: roll that timeseries up into usageFeatures.
+            # The relevant indices may not exist yet on all instances, so probe up
+            # front and skip the stage rather than aborting the whole reporter
+            # (which also emits dataset/dashboard/chart/query usage).
+            with self.report.new_stage("generate document usage timeseries"):
+                if self._index_available("datahub_usage_event"):
+                    yield from self.generate_document_usage_timeseries_mcps()
+                else:
+                    self.report.warning(
+                        message="Usage event index not found; skipping document usage ingestion.",
+                        context="datahub_usage_event",
+                    )
+
+            with self.report.new_stage("generate document usage"):
+                if self._index_available("document_documentusagestatisticsaspect_v1"):
+                    yield from self.generate_document_usage_mcps()
+                else:
+                    self.report.warning(
+                        message="Document usage index not found; skipping document usage.",
+                        context="document_documentusagestatisticsaspect_v1",
+                    )
 
         if self.config.query_usage_enabled:
             with self.report.new_stage("generate query usage"):
@@ -1187,6 +1491,203 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         mcw = MetadataChangeProposalWrapper(entityUrn=urn, aspect=query_usage_features)
         yield mcw.as_workunit(is_primary_source=False)
+
+    def generate_document_usage(self) -> polars.LazyFrame:
+        entity_index = "documentindex_v2"
+        usage_index = "document_documentusagestatisticsaspect_v1"
+
+        entities_df = self._generate_dashboard_chart_entities(entity_index)
+
+        usage_schema = {
+            "timestampMillis": polars.Int64,
+            "lastObserved": polars.Int64,
+            "urn": polars.Categorical,
+            "platform": polars.Categorical,
+            "eventGranularity": polars.String,
+            "viewsCount": polars.Int64,
+            "agentViewsCount": polars.Int64,
+            "userCounts": polars.List(
+                polars.Struct(
+                    {
+                        "count": polars.Int64,
+                        "user": polars.String,
+                    }
+                )
+            ),
+        }
+
+        lf = self.load_data_from_es_to_lf(
+            schema=usage_schema,
+            index=usage_index,
+            query=QueryBuilder.get_document_usage_query(self.config.lookback_days),
+            process_function=self.process_document_usage,
+        )
+
+        lf = (
+            lf.join(entities_df, left_on="urn", right_on="entity_urn", how="inner")
+            .filter(polars.col("removed") == False)  # noqa: E712
+            .drop(["removed"])
+        )
+
+        # Keep only the latest observation per (urn, bucket).
+        lf = lf.with_columns(
+            polars.col("lastObserved")
+            .rank(descending=True, method="ordinal")
+            .over("urn", "timestampMillis")
+            .alias("row_num")
+        ).filter(polars.col("row_num") == 1)
+
+        # Human top users come from the bucketed (granular) rows; agents are not
+        # attributed to users so they never appear in userCounts.
+        top_users = self.generate_top_users(
+            lf.filter(polars.col("eventGranularity").is_not_null()),
+            count_field_name="count",
+        )
+
+        views_sum_with_top_users = (
+            lf.group_by("urn")
+            .agg([polars.max("last_modified_at").alias("last_modified_at")])
+            .join(top_users, on="urn", how="left")
+        )
+
+        # Absolute (cumulative) counters live on the null-granularity snapshot rows;
+        # the 30-day delta is max-minus-min within the lookback window.
+        incremental_sum = (
+            lf.filter(polars.col("eventGranularity").is_null())
+            .group_by("urn")
+            .agg(
+                polars.col("viewsCount").min().alias("first_viewsCount"),
+                polars.col("viewsCount").max().alias("viewsTotal"),
+                polars.col("agentViewsCount").min().alias("first_agentViewsCount"),
+                polars.col("agentViewsCount").max().alias("agentViewsTotal"),
+            )
+            .with_columns(
+                (polars.col("viewsTotal") - polars.col("first_viewsCount")).alias(
+                    "viewsCountTotal30Days"
+                ),
+                (
+                    polars.col("agentViewsTotal") - polars.col("first_agentViewsCount")
+                ).alias("agentViewsSnapshotDelta30Days"),
+            )
+            .drop(["first_viewsCount", "first_agentViewsCount"])
+        )
+
+        # Sum human and agent reads over the bucketed rows as the primary 30-day
+        # figures, falling back to the snapshot delta when no bucketed rows exist.
+        # viewsCount (unlike total_user_count, which is attributed-only) includes
+        # anonymous views, so this keeps anonymous human reads in the 30-day count
+        # consistent with how Stage 2 stores them.
+        bucketed_sums = (
+            lf.filter(polars.col("eventGranularity").is_not_null())
+            .group_by("urn")
+            .agg(
+                polars.col("viewsCount").sum().alias("viewsBucketedSum"),
+                polars.col("agentViewsCount").sum().alias("agentViewsBucketedSum"),
+            )
+        )
+
+        views_with_incremental_sum = views_sum_with_top_users.join(
+            incremental_sum, on="urn", how="left"
+        ).join(bucketed_sums, on="urn", how="left")
+
+        total_views = views_with_incremental_sum.with_columns(
+            polars.when(
+                polars.col("viewsBucketedSum")
+                .is_null()
+                .or_(polars.col("viewsBucketedSum") <= 0)
+            )
+            .then(polars.col("viewsCountTotal30Days"))
+            .otherwise(polars.col("viewsBucketedSum"))
+            .alias("viewsCount30Days"),
+            polars.when(
+                polars.col("agentViewsBucketedSum")
+                .is_null()
+                .or_(polars.col("agentViewsBucketedSum") <= 0)
+            )
+            .then(polars.col("agentViewsSnapshotDelta30Days"))
+            .otherwise(polars.col("agentViewsBucketedSum"))
+            .alias("agentViewsCount30Days"),
+        )
+
+        # Documents share one ranking group; fill any null platform left by the
+        # left-join when a document had no human userCounts.
+        total_views = total_views.with_columns(
+            polars.col("platform").fill_null(DOCUMENT_USAGE_PLATFORM)
+        )
+
+        # Popularity ranks on COMBINED demand (human + agent) so agent reads
+        # influence search ranking, per the feature requirements.
+        total_views = total_views.with_columns(
+            (
+                polars.col("viewsCount30Days").fill_null(0)
+                + polars.col("agentViewsCount30Days").fill_null(0)
+            ).alias("combinedViews30Days")
+        )
+
+        total_views_with_rank_and_percentiles = self.gen_rank_and_percentile(
+            total_views,
+            "combinedViews30Days",
+            "urn",
+            "platform",
+            "combinedViews30Days_",
+        )
+
+        return self.generate_empty_usage_for_stale_entities(
+            entities_df, total_views_with_rank_and_percentiles
+        )
+
+    def generate_document_usage_mcp_from_lazyframe(
+        self, lazy_frame: polars.LazyFrame
+    ) -> Iterable[MetadataWorkUnit]:
+        for row in lazy_frame.collect(
+            engine="streaming" if self.config.experimental_full_streaming else "auto"
+        ).to_struct():
+            usage_percentile = row.get("combinedViews30Days_rank_percentile", 0) or 0
+            search_ranking_multipliers: SearchRankingMultipliers = (
+                self.search_score(
+                    urn=row["urn"],
+                    last_update_time=row.get("last_modified_at", 0) or 0,
+                    usage_percentile=usage_percentile,
+                )
+                if usage_percentile
+                else SearchRankingMultipliers()
+            )
+
+            views_last_30 = int(row.get("viewsCount30Days", 0) or 0)
+            agent_views_last_30 = int(row.get("agentViewsCount30Days", 0) or 0)
+            usage_feature = UsageFeaturesClass(
+                # Human views keep the existing viewCount* semantics.
+                viewCountLast30Days=views_last_30,
+                # Floor the total at the 30-day count: the total comes from snapshot
+                # rows and can lag the bucketed 30-day sum (e.g. before the first
+                # snapshot is emitted), and a total below its own subset is nonsense.
+                viewCountTotal=max(int(row.get("viewsTotal", 0) or 0), views_last_30),
+                # Percentile reflects COMBINED demand so agent reads count toward popularity.
+                viewCountPercentileLast30Days=int(usage_percentile),
+                # Agent reads surfaced in the dedicated generic fields.
+                agentViewCountLast30Days=agent_views_last_30,
+                agentViewCountTotal=max(
+                    int(row.get("agentViewsTotal", 0) or 0), agent_views_last_30
+                ),
+                uniqueUserCountLast30Days=int(row.get("distinct_user", 0) or 0),
+                uniqueUserRankLast30Days=int(row.get("distinct_user_rank"))
+                if row.get("distinct_user_rank")
+                else None,
+                uniqueUserPercentileLast30Days=int(
+                    row.get("distinct_user_rank_percentile", 0) or 0
+                ),
+                topUsersLast30Days=(
+                    list(chain.from_iterable(row.get("top_users")))
+                    if row.get("top_users")
+                    else None
+                ),
+                usageSearchScoreMultiplier=search_ranking_multipliers.usageSearchScoreMultiplier,
+                usageFreshnessScoreMultiplier=search_ranking_multipliers.usageFreshnessScoreMultiplier,
+                customDatahubScoreMultiplier=search_ranking_multipliers.customDatahubScoreMultiplier,
+                combinedSearchRankingMultiplier=search_ranking_multipliers.combinedSearchRankingMultiplier,
+            )
+
+            yield from self.generate_usage_feature_mcp(row["urn"], usage_feature)
 
     def generate_chart_usage(self) -> polars.LazyFrame:
         entity_index = "chartindex_v2"

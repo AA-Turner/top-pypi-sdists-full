@@ -11,6 +11,7 @@ import pytest
 from testmu_selenium._helpers import input_value as iv_module
 from testmu_selenium._helpers.input_value import (
     SET_SELECTION_RANGE_ELIGIBLE_INPUT,
+    _coerce_scalar_to_str,
     _is_numeric_input,
     add_input_value_to_webelement,
     input_value,
@@ -274,6 +275,152 @@ class TestInputValueMaxlengthPerChar:
         assert sent == ["1", "2", "3", "4", "5", "6"]
         # Destructive js-native write-back must NOT fire for OTP boxes.
         mock_js.assert_not_called()
+
+
+class TestCoerceScalarToStr:
+    """Contract: int/float/bool -> str (bool -> 'True'/'False'); str/None
+    pass through; dict/list are left unchanged (not coerced)."""
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (42, "42"),
+            (0, "0"),
+            (-7, "-7"),
+            (3.14, "3.14"),
+            (True, "True"),
+            (False, "False"),
+            ("hello", "hello"),
+            ("", ""),
+        ],
+    )
+    def test_scalar_coerced(self, value, expected):
+        assert _coerce_scalar_to_str(value) == expected
+
+    def test_none_passes_through(self):
+        assert _coerce_scalar_to_str(None) is None
+
+    def test_dict_not_coerced(self):
+        d = {"a": 1}
+        assert _coerce_scalar_to_str(d) is d
+
+    def test_list_not_coerced(self):
+        items = [1, 2]
+        assert _coerce_scalar_to_str(items) is items
+
+
+class TestInputValueScalarCoercion:
+    """Numeric/bool variables (from execute_js/set_var/var(), which preserve
+    type) must be coerced to str at the input_value entry so the month split,
+    per-char, coords and send_keys branches never hit string ops on a non-str.
+    """
+
+    def test_int_value_month_branch_types_coerced_string(self):
+        mock_driver = MagicMock()
+        mock_element = MagicMock()
+        mock_element.get_attribute.return_value = "month"
+
+        focused = MagicMock()
+        focused.get_attribute.side_effect = lambda name: {
+            "pattern": None,
+            "tagName": "input",
+            "value": "",
+        }.get(name)
+
+        def exec_script(script, *args):
+            if "tagName" in script and "type" in script:
+                return {"tagName": "input", "type": "month"}
+            if "placeholder" in script:
+                return {"placeholder": "", "autocomplete": ""}
+            return ""
+
+        mock_driver.execute_script.side_effect = exec_script
+
+        with patch.object(iv_module, "WebDriverWait") as mock_wait:
+            mock_wait.return_value.until.return_value = focused
+            result = input_value(mock_element, mock_driver, 122025)
+
+        assert result is None
+        # int -> "122025" -> month "12", TAB, year "2025".
+        assert focused.send_keys.call_count == 3
+        assert focused.send_keys.call_args_list[0].args[0] == "12"
+        assert focused.send_keys.call_args_list[2].args[0] == "2025"
+
+    def test_int_value_coords_path_sends_coerced_string(self):
+        mock_driver = MagicMock()
+        mock_element = MagicMock()
+
+        with patch.object(iv_module, "ActionChains"), patch.object(
+            iv_module, "ActionBuilder"
+        ) as mock_ab, patch.object(iv_module, "time"):
+            input_value(mock_element, mock_driver, 123, coords=(10, 20))
+
+        # The value-typing ActionBuilder delivers the coerced string, not the int.
+        mock_ab.return_value.key_action.send_keys.assert_any_call("123")
+
+
+class TestInputValueRejectsStructuralValue:
+    """dict/list must FAIL LOUDLY at the fill boundary — never silently
+    stringified or iterated char-by-char by send_keys. Scalars still coerce."""
+
+    def test_dict_coords_path_raises_typeerror_before_typing(self):
+        mock_driver = MagicMock()
+        mock_element = MagicMock()
+
+        with patch.object(iv_module, "ActionChains"), patch.object(
+            iv_module, "ActionBuilder"
+        ) as mock_ab, patch.object(iv_module, "time"):
+            with pytest.raises(TypeError) as exc:
+                input_value(mock_element, mock_driver, {"a": 1}, coords=(10, 20))
+
+        # Error names the offending type.
+        assert "dict" in str(exc.value)
+        # No typing occurred — guard fired before the ActionBuilder send.
+        mock_ab.return_value.key_action.send_keys.assert_not_called()
+
+    def test_list_coords_path_raises_typeerror(self):
+        mock_driver = MagicMock()
+        mock_element = MagicMock()
+
+        with patch.object(iv_module, "ActionChains"), patch.object(
+            iv_module, "ActionBuilder"
+        ), patch.object(iv_module, "time"):
+            with pytest.raises(TypeError) as exc:
+                input_value(mock_element, mock_driver, [1, 2, 3], coords=(10, 20))
+
+        assert "list" in str(exc.value)
+
+    def test_dict_element_path_raises_and_never_send_keys(self):
+        mock_driver = MagicMock()
+        mock_element = MagicMock()
+        mock_element.get_attribute.side_effect = lambda name: {
+            "type": "text",
+        }.get(name, "")
+
+        focused = MagicMock()
+        focused.get_attribute.side_effect = lambda name: {
+            "pattern": None,
+            "tagName": "input",
+            "value": "",
+        }.get(name)
+
+        def exec_script(script, *args):
+            if "tagName" in script and "type" in script:
+                return {"tagName": "input", "type": "text"}
+            if "placeholder" in script:
+                return {"placeholder": "", "autocomplete": ""}
+            return ""
+
+        mock_driver.execute_script.side_effect = exec_script
+
+        with patch.object(iv_module, "WebDriverWait") as mock_wait:
+            mock_wait.return_value.until.return_value = focused
+            with pytest.raises(TypeError) as exc:
+                input_value(mock_element, mock_driver, {"a": 1})
+
+        assert "dict" in str(exc.value)
+        # The dict was never iterated into send_keys.
+        focused.send_keys.assert_not_called()
 
 
 class TestInputValueMonkeyPatch:

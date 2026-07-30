@@ -15457,7 +15457,7 @@ class CfnPermission(
         invoked_via_function_url: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         principal_org_id: typing.Optional[builtins.str] = None,
         source_account: typing.Optional[builtins.str] = None,
-        source_arn: typing.Optional[typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef", "_aws_events_49a540ff.IRuleRef", "_aws_iam_632e20f6.IRoleRef", "_aws_iot_df2fec1f.ITopicRuleRef", "_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef", "_aws_lambda_aaab8031.IFunctionRef", "_aws_logs_8e99d4be.ILogGroupRef", "_aws_s3_03fe213b.IBucketRef", "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef"]] = None,
+        source_arn: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef", "_aws_cognito_aa210b15.IUserPoolRef", "_aws_events_49a540ff.IRuleRef", "_aws_iot_df2fec1f.ITopicRuleRef", "_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef", "_aws_lambda_aaab8031.IFunctionRef", "_aws_logs_8e99d4be.ILogGroupRef", "_aws_s3_03fe213b.IBucketRef", "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef"]] = None,
     ) -> None:
         '''Create a new ``AWS::Lambda::Permission``.
 
@@ -15707,7 +15707,7 @@ class CfnPermissionProps:
         invoked_via_function_url: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         principal_org_id: typing.Optional[builtins.str] = None,
         source_account: typing.Optional[builtins.str] = None,
-        source_arn: typing.Optional[typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef", "_aws_events_49a540ff.IRuleRef", "_aws_iam_632e20f6.IRoleRef", "_aws_iot_df2fec1f.ITopicRuleRef", "_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef", "_aws_lambda_aaab8031.IFunctionRef", "_aws_logs_8e99d4be.ILogGroupRef", "_aws_s3_03fe213b.IBucketRef", "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef"]] = None,
+        source_arn: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef", "_aws_cognito_aa210b15.IUserPoolRef", "_aws_events_49a540ff.IRuleRef", "_aws_iot_df2fec1f.ITopicRuleRef", "_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef", "_aws_lambda_aaab8031.IFunctionRef", "_aws_logs_8e99d4be.ILogGroupRef", "_aws_s3_03fe213b.IBucketRef", "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnPermission``.
 
@@ -15874,7 +15874,7 @@ class CfnPermissionProps:
     @builtins.property
     def source_arn(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef", "_aws_events_49a540ff.IRuleRef", "_aws_iam_632e20f6.IRoleRef", "_aws_iot_df2fec1f.ITopicRuleRef", "_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef", "_aws_lambda_aaab8031.IFunctionRef", "_aws_logs_8e99d4be.ILogGroupRef", "_aws_s3_03fe213b.IBucketRef", "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef", "_aws_cognito_aa210b15.IUserPoolRef", "_aws_events_49a540ff.IRuleRef", "_aws_iot_df2fec1f.ITopicRuleRef", "_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef", "_aws_lambda_aaab8031.IFunctionRef", "_aws_logs_8e99d4be.ILogGroupRef", "_aws_s3_03fe213b.IBucketRef", "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef"]]:
         '''For AWS services , the ARN of the AWS resource that invokes the function.
 
         For example, an Amazon S3 bucket or Amazon SNS topic.
@@ -15884,7 +15884,7 @@ class CfnPermissionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-permission.html#cfn-lambda-permission-sourcearn
         '''
         result = self._values.get("source_arn")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef", "_aws_events_49a540ff.IRuleRef", "_aws_iam_632e20f6.IRoleRef", "_aws_iot_df2fec1f.ITopicRuleRef", "_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef", "_aws_lambda_aaab8031.IFunctionRef", "_aws_logs_8e99d4be.ILogGroupRef", "_aws_s3_03fe213b.IBucketRef", "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef", "_aws_cognito_aa210b15.IUserPoolRef", "_aws_events_49a540ff.IRuleRef", "_aws_iot_df2fec1f.ITopicRuleRef", "_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef", "_aws_lambda_aaab8031.IFunctionRef", "_aws_logs_8e99d4be.ILogGroupRef", "_aws_s3_03fe213b.IBucketRef", "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -39517,7 +39517,7 @@ def _typecheckingstub__c457a277b84dbba5bd94a2c0135335b8d7dbb3d409b1fa988b4f5a219
     invoked_via_function_url: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     principal_org_id: typing.Optional[builtins.str] = None,
     source_account: typing.Optional[builtins.str] = None,
-    source_arn: typing.Optional[typing.Union[builtins.str, _aws_cognito_aa210b15.IUserPoolRef, _aws_events_49a540ff.IRuleRef, _aws_iam_632e20f6.IRoleRef, _aws_iot_df2fec1f.ITopicRuleRef, _aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef, _aws_lambda_aaab8031.IFunctionRef, _aws_logs_8e99d4be.ILogGroupRef, _aws_s3_03fe213b.IBucketRef, _aws_sns_c06cc191.ITopicRef, _aws_sqs_5e3fc237.IQueueRef]] = None,
+    source_arn: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef, _aws_cognito_aa210b15.IUserPoolRef, _aws_events_49a540ff.IRuleRef, _aws_iot_df2fec1f.ITopicRuleRef, _aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef, _aws_lambda_aaab8031.IFunctionRef, _aws_logs_8e99d4be.ILogGroupRef, _aws_s3_03fe213b.IBucketRef, _aws_sns_c06cc191.ITopicRef, _aws_sqs_5e3fc237.IQueueRef]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -39604,7 +39604,7 @@ def _typecheckingstub__b0c90e5a512dc08c54978bc1f6bf13992ad2d1d5c793f2b05fc82eef3
     invoked_via_function_url: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     principal_org_id: typing.Optional[builtins.str] = None,
     source_account: typing.Optional[builtins.str] = None,
-    source_arn: typing.Optional[typing.Union[builtins.str, _aws_cognito_aa210b15.IUserPoolRef, _aws_events_49a540ff.IRuleRef, _aws_iam_632e20f6.IRoleRef, _aws_iot_df2fec1f.ITopicRuleRef, _aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef, _aws_lambda_aaab8031.IFunctionRef, _aws_logs_8e99d4be.ILogGroupRef, _aws_s3_03fe213b.IBucketRef, _aws_sns_c06cc191.ITopicRef, _aws_sqs_5e3fc237.IQueueRef]] = None,
+    source_arn: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef, _aws_cognito_aa210b15.IUserPoolRef, _aws_events_49a540ff.IRuleRef, _aws_iot_df2fec1f.ITopicRuleRef, _aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef, _aws_lambda_aaab8031.IFunctionRef, _aws_logs_8e99d4be.ILogGroupRef, _aws_s3_03fe213b.IBucketRef, _aws_sns_c06cc191.ITopicRef, _aws_sqs_5e3fc237.IQueueRef]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

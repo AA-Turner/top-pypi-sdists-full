@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cpex
-Version: 0.1.1
+Version: 0.1.2
 Summary: CPEX - ContextForge Plugin Extensibility Framework
 Project-URL: Repository, https://github.com/contextforge-org/cpex
 Author-email: Fred Araujo <frederico.araujo@ibm.com>, Mihai Criveti <redacted@ibm.com>, Teryl Taylor <terylt@ibm.com>

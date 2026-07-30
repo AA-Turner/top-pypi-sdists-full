@@ -16,7 +16,6 @@ from abstra_internals.contracts_generated import (
     AbstraLibApiEditorStatusMessage,
     AbstraLibApiEditorStatusMessageRestartStatus,
     AbstraLibApiEditorStatusMessageRestartStatusAbstraUpdate,
-    AbstraLibApiEditorStatusMessageRestartStatusDependencies,
     AbstraLibApiEditorStatusMessageUpdate,
 )
 from abstra_internals.controllers.editor_restart import EditorRestartController
@@ -34,7 +33,6 @@ class EditorStatusEventController:
         update = EditorUpdateController.state()
         restart_status = EditorRestartController.state()
         abstra_update = restart_status["abstra_update"]
-        dependencies = restart_status["dependencies"]
         message = AbstraLibApiEditorStatusMessage(
             version=RUNNING_ABSTRA_VERSION or "0.0.0",
             update=AbstraLibApiEditorStatusMessageUpdate(
@@ -52,13 +50,7 @@ class EditorStatusEventController:
                         target_version=abstra_update["target_version"],
                     )
                 ),
-                dependencies=(
-                    None
-                    if dependencies is None
-                    else AbstraLibApiEditorStatusMessageRestartStatusDependencies(
-                        packages=dependencies["packages"],
-                    )
-                ),
+                dependencies=restart_status["dependencies"],
             ),
         )
         return json.dumps(message.to_dict())

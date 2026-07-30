@@ -135,19 +135,29 @@ def client(use_vertex, replays_prefix, http_options, request):
     os.environ['GOOGLE_GENAI_REPLAYS_DIRECTORY'] = replays_root_directory
   # Get private arg.
   private = request.config.getoption('--private')
+
+  location_override = None
+  if use_vertex and 'tunings' in replays_prefix:
+    if os.environ.get('GOOGLE_CLOUD_LOCATION') == 'global':
+      location_override = 'us-central1'
+
   replay_client = _replay_api_client.ReplayApiClient(
       mode=mode,
       replay_id=replay_id,
       vertexai=use_vertex,
       http_options=http_options,
       private=private,
+      location=location_override,
   )
 
   with mock.patch.object(
       google_genai_client_module.Client, '_get_api_client'
   ) as patch_method:
     patch_method.return_value = replay_client
-    google_genai_client = google_genai_client_module.Client(vertexai=use_vertex)
+    kwargs = {'vertexai': use_vertex}
+    if location_override:
+      kwargs['location'] = location_override
+    google_genai_client = google_genai_client_module.Client(**kwargs)
 
     # Yield the client so that cleanup can be completed at the end of the test.
     yield google_genai_client

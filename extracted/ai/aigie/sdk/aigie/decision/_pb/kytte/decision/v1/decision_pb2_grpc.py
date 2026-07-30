@@ -49,6 +49,11 @@ class DecisionOrchestratorStub(object):
                 request_serializer=kytte_dot_decision_dot_v1_dot_decision__pb2.RegisterCapabilitiesRequest.SerializeToString,
                 response_deserializer=kytte_dot_decision_dot_v1_dot_decision__pb2.RegisterCapabilitiesResponse.FromString,
                 _registered_method=True)
+        self.RegisterToolCatalog = channel.unary_unary(
+                '/kytte.decision.v1.DecisionOrchestrator/RegisterToolCatalog',
+                request_serializer=kytte_dot_decision_dot_v1_dot_decision__pb2.RegisterToolCatalogRequest.SerializeToString,
+                response_deserializer=kytte_dot_decision_dot_v1_dot_decision__pb2.RegisterToolCatalogResponse.FromString,
+                _registered_method=True)
 
 
 class DecisionOrchestratorServicer(object):
@@ -76,6 +81,13 @@ class DecisionOrchestratorServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def RegisterToolCatalog(self, request, context):
+        """Register a run's tool catalog by content hash.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_DecisionOrchestratorServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -93,6 +105,11 @@ def add_DecisionOrchestratorServicer_to_server(servicer, server):
                     servicer.RegisterCapabilities,
                     request_deserializer=kytte_dot_decision_dot_v1_dot_decision__pb2.RegisterCapabilitiesRequest.FromString,
                     response_serializer=kytte_dot_decision_dot_v1_dot_decision__pb2.RegisterCapabilitiesResponse.SerializeToString,
+            ),
+            'RegisterToolCatalog': grpc.unary_unary_rpc_method_handler(
+                    servicer.RegisterToolCatalog,
+                    request_deserializer=kytte_dot_decision_dot_v1_dot_decision__pb2.RegisterToolCatalogRequest.FromString,
+                    response_serializer=kytte_dot_decision_dot_v1_dot_decision__pb2.RegisterToolCatalogResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -176,6 +193,33 @@ class DecisionOrchestrator(object):
             '/kytte.decision.v1.DecisionOrchestrator/RegisterCapabilities',
             kytte_dot_decision_dot_v1_dot_decision__pb2.RegisterCapabilitiesRequest.SerializeToString,
             kytte_dot_decision_dot_v1_dot_decision__pb2.RegisterCapabilitiesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RegisterToolCatalog(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/kytte.decision.v1.DecisionOrchestrator/RegisterToolCatalog',
+            kytte_dot_decision_dot_v1_dot_decision__pb2.RegisterToolCatalogRequest.SerializeToString,
+            kytte_dot_decision_dot_v1_dot_decision__pb2.RegisterToolCatalogResponse.FromString,
             options,
             channel_credentials,
             insecure,

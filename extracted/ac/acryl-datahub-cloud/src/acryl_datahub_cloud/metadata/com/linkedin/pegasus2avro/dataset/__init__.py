@@ -27,10 +27,12 @@ from .....schema_classes import FineGrainedLineageDownstreamTypeClass
 from .....schema_classes import FineGrainedLineageUpstreamTypeClass
 from .....schema_classes import HistogramClass
 from .....schema_classes import IcebergCatalogInfoClass
+from .....schema_classes import LineageMatchTypeClass
 from .....schema_classes import PartitionSummaryClass
 from .....schema_classes import PartitionsSummaryClass
 from .....schema_classes import QuantileClass
 from .....schema_classes import SchemaFieldProfileClass
+from .....schema_classes import SemanticModelPropertiesClass
 from .....schema_classes import UpstreamClass
 from .....schema_classes import UpstreamLineageClass
 from .....schema_classes import ValueFrequencyClass
@@ -57,10 +59,12 @@ FineGrainedLineageDownstreamType = FineGrainedLineageDownstreamTypeClass
 FineGrainedLineageUpstreamType = FineGrainedLineageUpstreamTypeClass
 Histogram = HistogramClass
 IcebergCatalogInfo = IcebergCatalogInfoClass
+LineageMatchType = LineageMatchTypeClass
 PartitionSummary = PartitionSummaryClass
 PartitionsSummary = PartitionsSummaryClass
 Quantile = QuantileClass
 SchemaFieldProfile = SchemaFieldProfileClass
+SemanticModelProperties = SemanticModelPropertiesClass
 Upstream = UpstreamClass
 UpstreamLineage = UpstreamLineageClass
 ValueFrequency = ValueFrequencyClass

@@ -169,14 +169,58 @@ def _install_package(package_name):
 
 
 def dependencies_check(package_names: Union[List[str], str]) -> bool:
-    """Check and install required dependencies."""
+    """Check and (optionally) install required dependencies. NEVER raises.
+
+    Each entry is either a bare package name or a dict declaring a version mode:
+
+      "httpx"
+          Install the latest ONLY if the package is entirely missing; if any
+          version is already present (e.g. shipped by the Docker image / env),
+          leave it untouched.
+      {"name": "httpx", "suggested": "0.28.1"}
+          Same "install-only-if-missing" behaviour, but install ==0.28.1 when
+          absent. Image/env-safe: a version the image already provides is never
+          overridden — the suggestion is a fallback for standalone installs.
+      {"name": "cryptography", "exact": "48.0.1"}
+          Force ==48.0.1 regardless of what is installed (may conflict with a
+          system/Debian-managed package — use only when the exact version is
+          truly required).
+
+    Any per-entry failure is logged as a warning and swallowed — a missing or
+    un-installable dependency must never crash the importing service.
+    """
     if not isinstance(package_names, list):
         package_names = [package_names]
     success = True
-    for package_name in package_names:
-        if _utils()._is_package_installed(package_name):
-            logging.debug(f"Package {package_name} is already installed, skipping installation")
-            continue
-        if not _utils()._install_package(package_name):
+    for entry in package_names:
+        try:
+            if isinstance(entry, dict):
+                name = entry.get("name")
+                exact = entry.get("exact")
+                suggested = entry.get("suggested")
+            else:
+                name, exact, suggested = entry, None, None
+            if not name:
+                continue
+
+            if exact:
+                # Force the exact version regardless of what is installed.
+                if not _utils()._install_package(f"{name}=={exact}"):
+                    success = False
+                continue
+
+            if _utils()._is_package_installed(name):
+                # Present at some version — do NOT override (image/env owns it).
+                logging.debug("Package %s already present; skipping", name)
+                continue
+
+            # Missing: install the suggested version, or the latest if none.
+            spec = f"{name}=={suggested}" if suggested else name
+            if not _utils()._install_package(spec):
+                success = False
+        except Exception as exc:  # noqa: BLE001 - dependency check must never raise
+            logging.warning(
+                "dependencies_check: skipping %r (%s); continuing", entry, exc
+            )
             success = False
     return success

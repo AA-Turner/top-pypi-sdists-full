@@ -45,6 +45,7 @@ from airbyte_ops_mcp.connector_ops.rollouts._helpers import (
 from airbyte_ops_mcp.connector_ops.rollouts.constants import (
     FAILURE_THRESHOLD_EXCEEDED_MARKER,
     FINALIZING_GRACE_MINUTES,
+    NO_OP_EMPTY_TIER_MARKER,
     STRATEGY_DEFAULT,
     STRATEGY_STEP_MAP,
     TIER_ORDER,
@@ -190,7 +191,19 @@ def blocking_sibling_reason(
         recorded_outcome = (
             sibling.error_msg or sibling.failed_reason or sibling.paused_reason
         )
-        if sibling.state in {"failed_rolled_back", "canceled"}:
+        is_no_op_cancellation = (
+            sibling.error_msg is not None
+            and sibling.error_msg.startswith(NO_OP_EMPTY_TIER_MARKER)
+        )
+        if sibling.state == "canceled" and not is_no_op_cancellation:
+            return HoldDecision(
+                kind="sibling",
+                message=(
+                    f"Sibling rollout {sibling.rollout_id} ({sibling.tier}) is "
+                    f"{sibling.state}: {recorded_outcome or 'no recorded reason'}"
+                ),
+            )
+        if sibling.state == "failed_rolled_back":
             return HoldDecision(
                 kind="sibling",
                 message=(
@@ -340,18 +353,6 @@ def run_auto_start(
     for rollout in initialized:
         rc_version = rollout.rc_docker_image_tag or "unknown"
 
-        hold_decision = blocking_sibling_reason(
-            rollout, all_rollouts_by_actor[rollout.actor_definition_id]
-        )
-        if hold_decision is not None:
-            _record_hold(
-                result=result,
-                rollout=rollout,
-                rc_version=rc_version,
-                decision=hold_decision,
-            )
-            continue
-
         # Gate: check autopilot config
         rollout_config = get_connector_rollout_config(
             rollout.actor_definition_id, rc_version=rc_version
@@ -368,6 +369,18 @@ def run_auto_start(
                     message="Skipped: defaultRolloutMode is not 'autopilot'",
                     tier=rollout.tier,
                 )
+            )
+            continue
+
+        hold_decision = blocking_sibling_reason(
+            rollout, all_rollouts_by_actor[rollout.actor_definition_id]
+        )
+        if hold_decision is not None:
+            _record_hold(
+                result=result,
+                rollout=rollout,
+                rc_version=rc_version,
+                decision=hold_decision,
             )
             continue
 
@@ -996,18 +1009,6 @@ def run_auto_promote(
     for rollout in in_progress:
         rc_version = rollout.rc_docker_image_tag or "unknown"
 
-        hold_decision = blocking_sibling_reason(
-            rollout, all_rollouts_by_actor[rollout.actor_definition_id]
-        )
-        if hold_decision is not None:
-            _record_hold(
-                result=result,
-                rollout=rollout,
-                rc_version=rc_version,
-                decision=hold_decision,
-            )
-            continue
-
         rollout_config = get_connector_rollout_config(
             rollout.actor_definition_id, rc_version=rc_version
         )
@@ -1023,6 +1024,18 @@ def run_auto_promote(
                     message="Skipped: defaultRolloutMode is not 'autopilot'",
                     tier=rollout.tier,
                 )
+            )
+            continue
+
+        hold_decision = blocking_sibling_reason(
+            rollout, all_rollouts_by_actor[rollout.actor_definition_id]
+        )
+        if hold_decision is not None:
+            _record_hold(
+                result=result,
+                rollout=rollout,
+                rc_version=rc_version,
+                decision=hold_decision,
             )
             continue
 
@@ -1514,6 +1527,7 @@ def run_auto_promote(
                         rollout_id=new_rollout_id,
                         updated_by=user_id,
                         state="canceled",
+                        error_msg=NO_OP_EMPTY_TIER_MARKER,
                         retain_pins_on_cancellation=True,
                         config_api_root=constants.CLOUD_CONFIG_API_ROOT,
                         client_id=auth.client_id,

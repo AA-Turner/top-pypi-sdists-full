@@ -23,11 +23,11 @@ class CSVView(Table):
         self.encoding = encoding
         self.errors = errors
         self.csvargs = csvargs
-        self.header = header
+        self._header = header
 
     def __iter__(self):
-        if self.header is not None:
-            yield tuple(self.header)
+        if self._header is not None:
+            yield tuple(self._header)
 
         # determine encoding
         codec = getcodec(self.encoding)

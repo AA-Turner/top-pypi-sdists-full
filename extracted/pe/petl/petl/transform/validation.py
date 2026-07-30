@@ -79,10 +79,10 @@ class ProblemsView(Table):
     def __init__(self, table, constraints, header):
         self.table = table
         self.constraints = constraints
-        self.header = header
+        self._header = header
 
     def __iter__(self):
-        return iterproblems(self.table, self.constraints, self.header)
+        return iterproblems(self.table, self.constraints, self._header)
 
 
 def normalize_constraints(constraints, flds):

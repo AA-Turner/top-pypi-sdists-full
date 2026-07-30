@@ -115,7 +115,7 @@ class ResultType:
                 pure_functions is None or loc.callee_return_name not in pure_functions
             ):
                 return False
-        for (_, _, _, func, _), _ in self.call_args.items():
+        for _, _, _, func, _ in self.call_args:
             if pure_functions is None:
                 return False
             if isinstance(func, Function) and func.name not in pure_functions:
@@ -420,6 +420,7 @@ class PurityEngineAIL(SimEngineLightAIL[StateType, DataType_co, StmtDataType, Re
     def _handle_unop_default(self, expr: ailment.Expression) -> DataType_co:
         return self._expr_noconst(expr.operand)
 
+    _handle_unop_Abs = _handle_unop_default
     _handle_unop_Clz = _handle_unop_default
     _handle_unop_Ctz = _handle_unop_default
     _handle_unop_GetMSBs = _handle_unop_default
@@ -589,6 +590,7 @@ class PurityEngineAIL(SimEngineLightAIL[StateType, DataType_co, StmtDataType, Re
     _handle_binop_CmpLTV = _handle_binop_default
     _handle_binop_MinV = _handle_binop_default
     _handle_binop_MaxV = _handle_binop_default
+    _handle_binop_HAddV = _handle_binop_default
     _handle_binop_QAddV = _handle_binop_default
     _handle_binop_QSubV = _handle_binop_default
     _handle_binop_QNarrowBinV = _handle_binop_default

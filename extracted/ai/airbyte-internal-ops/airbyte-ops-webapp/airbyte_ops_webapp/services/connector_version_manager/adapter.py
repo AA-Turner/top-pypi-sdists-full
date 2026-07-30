@@ -903,7 +903,12 @@ class OpsMcpAdapter:
             return ""
         credentials = get_gcp_credentials_for_tier_gcs_ro()
         return (
-            resolve_workspace(scope_id, credentials=credentials).organization_id or ""
+            resolve_workspace(
+                workspace_id=scope_id,
+                credentials=credentials,
+                allow_degraded=True,
+            ).organization_id
+            or ""
         )
 
     def resolve_context_guid(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: substrait
-Version: 0.29.0
+Version: 0.30.0
 Summary: A python package for Substrait.
 Author-email: Substrait contributors <substrait@googlegroups.com>
 License: Apache-2.0
@@ -8,14 +8,13 @@ Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: protobuf<7,>=5
-Requires-Dist: substrait-protobuf==0.85.0
-Requires-Dist: substrait-extensions==0.85.0
+Requires-Dist: substrait-protobuf==0.99.0
+Requires-Dist: substrait-extensions==0.99.0
 Provides-Extra: extensions
-Requires-Dist: antlr4-python3-runtime; extra == "extensions"
-Requires-Dist: substrait-antlr==0.85.0; extra == "extensions"
+Requires-Dist: substrait-antlr==0.99.0; extra == "extensions"
 Requires-Dist: pyyaml; extra == "extensions"
 Provides-Extra: sql
-Requires-Dist: sqloxide; python_version < "3.14" and extra == "sql"
+Requires-Dist: sqloxide; extra == "sql"
 Requires-Dist: deepdiff; extra == "sql"
 Dynamic: license-file
 
@@ -47,7 +46,38 @@ This project is not an execution engine for Substrait Plans.
 ## Status
 This is an experimental package that is still under development.
 
-# Example
+# Building plans with the DataFrame API
+
+The `substrait.dataframe` module is an ergonomic, fluent API for authoring
+Substrait plans — a Polars/PySpark-style DataFrame with operator-overloaded
+expressions, on top of the lower-level builders. It is the recommended way to
+build plans by hand:
+
+```python
+import substrait.dataframe as sub
+
+plan = (
+    sub.read_named_table("people", {"id": sub.i64, "age": sub.i64, "name": sub.string})
+    .filter(sub.col("age") > 25)
+    .with_columns(adult=sub.col("age") >= 18)
+    .select("id", "name", "adult")
+    .to_plan()
+)
+```
+
+`plan` is a `substrait.proto.Plan` ready to hand to a consumer such as DuckDB or
+DataFusion. Install the `extensions` extra so function overloads resolve against
+the standard Substrait extensions:
+
+```sh
+pip install "substrait[extensions]"
+```
+
+# Example (low-level API)
+
+The examples below construct plans with the raw `substrait.proto` and
+`substrait.builders` layers. For most hand-authored plans, prefer the
+[DataFrame API](#building-plans-with-the-dataframe-api) above.
 
 ## Produce a Substrait Plan
 The ``substrait.proto`` module provides access to the classes

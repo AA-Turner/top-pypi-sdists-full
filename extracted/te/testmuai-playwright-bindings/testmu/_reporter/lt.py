@@ -75,6 +75,9 @@ class LTReporter:
         args = {"name": description, "status": "passed" if ok else "failed"}
         if instruction_id:
             args["instructionId"] = instruction_id
+        # auto_heal: whether any action in this step fell to the heal cascade.
+        from testmu._step import get_step_autoheal
+        args["auto_heal"] = get_step_autoheal()
         await self._evaluate_action("lambda-testCase-end", args)
 
     async def warn_step(self, description, error):

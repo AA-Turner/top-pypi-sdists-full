@@ -7,6 +7,8 @@ tool usage, and conversation sessions.
 Includes comprehensive error detection and drift monitoring.
 """
 
+# mypy: disable-error-code="assignment,misc"
+
 import contextlib
 import logging
 import re
@@ -218,13 +220,28 @@ class ClaudeAgentSDKEvents(
     def _emit(self, payload: dict[str, Any]) -> None:
         if is_retention_suppressed():
             return
+        # Prefer TraceEmitter so shared span hooks run; fall back during teardown.
         sink = self._resolve_sink()
         if sink is None:
             return
         if isinstance(sink, TraceEmitter):
             sink.emit(payload)
         else:
+            # Fallback bypasses TraceEmitter hooks; stamp the bound tool hash here.
+            self._stamp_tool_hash_fallback(payload)
             sink.add_sync(payload)
+
+    def _stamp_tool_hash_fallback(self, payload: dict[str, Any]) -> None:
+        """Stamp the bound trace tool hash when TraceEmitter hooks are unavailable."""
+        aigie = self._get_aigie()
+        if aigie is None:
+            return
+        try:
+            from aigie.tracing.tool_hash_stamp import stamp_tool_hash
+
+            stamp_tool_hash(aigie, payload)
+        except Exception:  # noqa: BLE001, S110 - never break the agent run
+            return
 
     @staticmethod
     def _finalize_open_payload(span_data: dict[str, Any]) -> dict[str, Any]:

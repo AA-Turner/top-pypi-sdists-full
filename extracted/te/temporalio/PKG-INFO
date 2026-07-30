@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: temporalio
-Version: 1.30.0
+Version: 1.31.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -14,7 +14,8 @@ Requires-Dist: types-protobuf>=3.20,<8.0.0
 Requires-Dist: typing-extensions>=4.2.0,<5
 Requires-Dist: aioboto3>=10.4.0 ; extra == 'aioboto3'
 Requires-Dist: types-aioboto3[s3]>=10.4.0 ; extra == 'aioboto3'
-Requires-Dist: google-adk>=1.27.0,<2 ; extra == 'google-adk'
+Requires-Dist: google-adk>=2.2.0,<3 ; extra == 'google-adk'
+Requires-Dist: google-genai>=2.10.0,<3.0.0 ; extra == 'google-genai'
 Requires-Dist: grpcio>=1.48.2,<2 ; extra == 'grpc'
 Requires-Dist: opentelemetry-api>=1.11.1,<2 ; extra == 'lambda-worker-otel'
 Requires-Dist: opentelemetry-sdk>=1.11.1,<2 ; extra == 'lambda-worker-otel'
@@ -31,6 +32,7 @@ Requires-Dist: pydantic>=2.0.0,<3 ; extra == 'pydantic'
 Requires-Dist: strands-agents>=1.39.0 ; extra == 'strands-agents'
 Provides-Extra: aioboto3
 Provides-Extra: google-adk
+Provides-Extra: google-genai
 Provides-Extra: grpc
 Provides-Extra: lambda-worker-otel
 Provides-Extra: langgraph
@@ -948,9 +950,12 @@ protect tasks against cancellation.
 
 The following tasks, when cancelled, perform a Temporal cancellation:
 
-* Activities - when the task executing an activity is cancelled, a cancellation request is sent to the activity
-* Child workflows - when the task starting or executing a child workflow is cancelled, a cancellation request is sent to
-  cancel the child workflow
+* Activities - when the task executing an activity is cancelled, a cancellation request may be sent to the activity
+  depending on cancellation type
+* Child workflows - when the task starting or executing a child workflow is cancelled, a cancellation request may be
+  sent to cancel the child workflow depending on cancellation type
+* Nexus operations - when the task starting or executing a Nexus operation is cancelled, a cancellation request may be
+  sent to cancel the Nexus operation depending on cancellation type
 * Timers - when the task executing a timer is cancelled (whether started via sleep or timeout), the timer is cancelled
 
 When the workflow itself is requested to cancel, `Task.cancel` is called on the main workflow task. Therefore,

@@ -1,14 +1,17 @@
 """TestMu capability builder for Playwright Python (LambdaTest grid).
 
 Configuration is sourced from testmu.configure() data first, then falls back
-to environment variables (no sys.argv / test-run JSON).
-This module is the env-var-only equivalent of the capability.py template
-produced by the TestMu code-export pipeline.
+to environment variables. browser/browser_version/resolution/platform additionally
+fall back to sys.argv[1:5] — the positional HyperExecute test-matrix args
+(browser, browser_version, resolution, platform) that the legacy/non-binding
+export_mixin.py flow already relies on (see _test_config.py, which reads the
+same sys.argv[4] position to select the platform's test-instance list).
 """
 
 import json
 import logging
 import os
+import sys
 import urllib.parse
 from pathlib import Path
 
@@ -106,11 +109,21 @@ def get_capabilities(
     if custom_headers is None:
         custom_headers = _configure.get("custom_headers", {})
 
-    # Resolve top-level fields from env or defaults
-    _browser = browser or os.getenv("LT_BROWSER", "Chrome")
-    _browser_version = browser_version or os.getenv("LT_BROWSER_VERSION", "latest")
-    _resolution = resolution or os.getenv("LT_RESOLUTION", "1920x1080")
-    _platform = platform or os.getenv("LT_PLATFORM", "linux")
+    # Resolve top-level fields: explicit param > HyperExecute matrix argv > env > default.
+    # HyperExecute invokes the test script with browser/browser_version/resolution/platform
+    # as sys.argv[1:5] for the discovered matrix row (e.g. "chrome 149.0 1440x900 linux") —
+    # without this, every binding-mode run silently gets the hardcoded defaults below.
+    _argv_browser = sys.argv[1] if len(sys.argv) > 1 else None
+    _argv_browser_version = sys.argv[2] if len(sys.argv) > 2 else None
+    _argv_resolution = sys.argv[3] if len(sys.argv) > 3 else None
+    _argv_platform = sys.argv[4] if len(sys.argv) > 4 else None
+
+    _browser = browser or _argv_browser or os.getenv("LT_BROWSER", "Chrome")
+    _browser_version = (
+        browser_version or _argv_browser_version or os.getenv("LT_BROWSER_VERSION", "latest")
+    )
+    _resolution = resolution or _argv_resolution or os.getenv("LT_RESOLUTION", "1920x1080")
+    _platform = platform or _argv_platform or os.getenv("LT_PLATFORM", "linux")
 
     # KaneAI/HYE environments carry mac hub tokens (mac12, mac13, ...); the playwright
     # gateway's platform grammar is display-name style ("macOS Monterey" → parsed as
@@ -145,6 +158,37 @@ def get_capabilities(
             )
         _browser = "pw-webkit"
         _browser_version = "latest"
+
+    # Firefox → pw-firefox: the relay has no plain "firefox" — the allowlist offers only
+    # pw-firefox (Playwright's bundled Firefox). Map explicitly or the grid rejects the
+    # connection ("browserName firefox not supported"). Like pw-webkit, the bundled build's
+    # version tracks the Playwright driver, so a UI-selected Firefox version is meaningless.
+    _is_firefox = _browser.lower() in ("firefox", "pw-firefox")
+    if _is_firefox:
+        _log.info(
+            "browser '%s' -> 'pw-firefox' (Playwright Firefox — the relay's Firefox slot)",
+            _browser,
+        )
+        if _browser_version.lower() != "latest":
+            _log.warning(
+                "browserVersion '%s' ignored for pw-firefox — Firefox version tracks "
+                "the Playwright driver; forcing 'latest'",
+                _browser_version,
+            )
+        _browser = "pw-firefox"
+        _browser_version = "latest"
+
+    # Edge → MicrosoftEdge: the relay's allowlist token is the exact, case-sensitive
+    # "MicrosoftEdge". LT_BROWSER arrives lowercased ("edge"), so canonicalize it here — the
+    # browserName is then grid-valid without leaning on the proxy, and the ms:edgeOptions
+    # branch (which keys on "microsoftedge") fires. Edge is real on the grid — keep its version.
+    if _browser.lower() in ("edge", "microsoftedge", "microsoft edge"):
+        if _browser != "MicrosoftEdge":
+            _log.info(
+                "browser '%s' -> 'MicrosoftEdge' (playwright grid browserName token)",
+                _browser,
+            )
+        _browser = "MicrosoftEdge"
 
     username = os.getenv("LT_USERNAME")
     access_key = os.getenv("LT_ACCESS_KEY")
@@ -303,11 +347,10 @@ def get_capabilities(
         capabilities["LT:Options"]["kaneRunV4"] = True
         capabilities["LT:Options"]["preCmdVisual"] = True
 
-    # Emit kaneRunV3 for v3-authored runs (configure(kane_run_v3=True)) so the
-    # server can distinguish v3 from v2 — the kaneai_version int is 2 for both.
-    # Mirrors V4's kane_run_v4 opt-in; the code-gen sets it for V3 tests.
+    # Emit kaneRunV3 + preCmdVisual for v3-authored runs so the server distinguishes v3 from v2 and captures per-step screenshots.
     if _configure.get("kane_run_v3"):
         capabilities["LT:Options"]["kaneRunV3"] = True
+        capabilities["LT:Options"]["preCmdVisual"] = True
 
     # Set smart env vars (same as template)
     os.environ["smart_os"] = capabilities["LT:Options"]["platform"]

@@ -182,6 +182,7 @@ Usage::
         GetTransitGatewayAttachmentPropagationsPaginator,
         GetTransitGatewayMulticastDomainAssociationsPaginator,
         GetTransitGatewayPolicyTableAssociationsPaginator,
+        GetTransitGatewayPolicyTableEntriesPaginator,
         GetTransitGatewayPrefixListReferencesPaginator,
         GetTransitGatewayRouteTableAssociationsPaginator,
         GetTransitGatewayRouteTablePropagationsPaginator,
@@ -441,6 +442,7 @@ Usage::
     get_transit_gateway_attachment_propagations_paginator: GetTransitGatewayAttachmentPropagationsPaginator = client.get_paginator("get_transit_gateway_attachment_propagations")
     get_transit_gateway_multicast_domain_associations_paginator: GetTransitGatewayMulticastDomainAssociationsPaginator = client.get_paginator("get_transit_gateway_multicast_domain_associations")
     get_transit_gateway_policy_table_associations_paginator: GetTransitGatewayPolicyTableAssociationsPaginator = client.get_paginator("get_transit_gateway_policy_table_associations")
+    get_transit_gateway_policy_table_entries_paginator: GetTransitGatewayPolicyTableEntriesPaginator = client.get_paginator("get_transit_gateway_policy_table_entries")
     get_transit_gateway_prefix_list_references_paginator: GetTransitGatewayPrefixListReferencesPaginator = client.get_paginator("get_transit_gateway_prefix_list_references")
     get_transit_gateway_route_table_associations_paginator: GetTransitGatewayRouteTableAssociationsPaginator = client.get_paginator("get_transit_gateway_route_table_associations")
     get_transit_gateway_route_table_propagations_paginator: GetTransitGatewayRouteTablePropagationsPaginator = client.get_paginator("get_transit_gateway_route_table_propagations")
@@ -617,6 +619,7 @@ from .paginator import (
     GetTransitGatewayAttachmentPropagationsPaginator,
     GetTransitGatewayMulticastDomainAssociationsPaginator,
     GetTransitGatewayPolicyTableAssociationsPaginator,
+    GetTransitGatewayPolicyTableEntriesPaginator,
     GetTransitGatewayPrefixListReferencesPaginator,
     GetTransitGatewayRouteTableAssociationsPaginator,
     GetTransitGatewayRouteTablePropagationsPaginator,
@@ -858,6 +861,7 @@ __all__ = (
     "GetTransitGatewayAttachmentPropagationsPaginator",
     "GetTransitGatewayMulticastDomainAssociationsPaginator",
     "GetTransitGatewayPolicyTableAssociationsPaginator",
+    "GetTransitGatewayPolicyTableEntriesPaginator",
     "GetTransitGatewayPrefixListReferencesPaginator",
     "GetTransitGatewayRouteTableAssociationsPaginator",
     "GetTransitGatewayRouteTablePropagationsPaginator",

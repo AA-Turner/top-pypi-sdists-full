@@ -74,11 +74,11 @@ class RowReduceView(Table):
             self.source = sort(source, key, buffersize=buffersize, 
                                tempdir=tempdir, cache=cache)
         self.key = key
-        self.header = header
+        self._header = header
         self.reducer = reducer
 
     def __iter__(self):
-        return iterrowreduce(self.source, self.key, self.reducer, self.header)
+        return iterrowreduce(self.source, self.key, self.reducer, self._header)
 
     
 def iterrowreduce(source, key, reducer, header):

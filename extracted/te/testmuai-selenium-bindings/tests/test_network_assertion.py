@@ -51,3 +51,49 @@ def test_evaluate_and_logic():
         ],
     }
     assert evaluate_network_assertion(tree) is True
+
+
+def test_bool_true_equals_string_true_normalized():
+    # A resolved boolean True must equal the authored string 'true' (V2 parity),
+    # not fail because str(True) == 'True' != 'true'.
+    set_var("response", {"ok": True})
+    tree = {
+        "operator": "equals",
+        "left_operand": "{{response.ok}}",
+        "right_operand": "true",
+    }
+    assert evaluate_network_assertion(tree) is True
+
+
+def test_bool_false_equals_string_false_normalized():
+    set_var("response", {"ok": False})
+    tree = {
+        "operator": "equals",
+        "left_operand": "{{response.ok}}",
+        "right_operand": "false",
+    }
+    assert evaluate_network_assertion(tree) is True
+
+
+def test_bool_true_not_equals_string_true_is_false():
+    # not_equals of a boolean True against 'true' must be False -> assertion fails.
+    set_var("response", {"ok": True})
+    tree = {
+        "operator": "not_equals",
+        "left_operand": "{{response.ok}}",
+        "right_operand": "true",
+    }
+    with pytest.raises(AssertionError):
+        evaluate_network_assertion(tree)
+
+
+def test_int_equals_numeric_string_still_passes():
+    # Regression guard: bool normalization must not break the int-vs-string
+    # equality that already works (str coercion path).
+    set_var("response", {"status": 200})
+    tree = {
+        "operator": "equals",
+        "left_operand": "{{response.status}}",
+        "right_operand": "200",
+    }
+    assert evaluate_network_assertion(tree) is True

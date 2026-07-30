@@ -226,6 +226,9 @@ def load_data_from_es_mock(
         "dashboardindex_v2": f"tests/test_data/test_{test_file_prefix}_dashboards.jsonl",
         "queryindex_v2": f"tests/test_data/test_{test_file_prefix}_queries.jsonl",
         "query_queryusagestatisticsaspect_v1": f"tests/test_data/test_{test_file_prefix}_queryusages.jsonl",
+        "documentindex_v2": f"tests/test_data/test_{test_file_prefix}_documents.jsonl",
+        "document_documentusagestatisticsaspect_v1": f"tests/test_data/test_{test_file_prefix}_documentusages.jsonl",
+        "datahub_usage_event": f"tests/test_data/test_{test_file_prefix}_datahubusageevents.jsonl",
     }
 
     if index in file_map:
@@ -822,5 +825,177 @@ def test_query_usage_with_ranking_factors_patch_enabled(
     check_golden_file(
         output_path=pathlib.Path(mcp_output_file),
         golden_path=pathlib.Path(f"tests/golden/golden_{test_name}_ranking_patch.json"),
+        ignore_paths=["root[*]['systemMetadata']['created']"],
+    )
+
+
+@pytest.mark.parametrize("test_name", ["document_usage_small"])
+@patch.object(DataHubUsageFeatureReportingSource, "_index_available", return_value=True)
+@patch.object(DataHubUsageFeatureReportingSource, "load_data_from_es")
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_document_usage(
+    load_data_from_es: Mock,
+    index_available: Mock,
+    pytestconfig: pytest.Config,
+    test_name: str,
+) -> None:
+    # Exercises the document-specific aggregation: human vs agent split, the
+    # agent-only document (no human userCounts -> null platform fill), a
+    # zero-usage document, and a bucketed-only document (no snapshot row) whose
+    # agent 30-day count comes from the bucketed sum fallback. Popularity ranks
+    # on combined (human + agent) demand.
+    config = DataHubUsageFeatureReportingSourceConfig(
+        document_usage_stats_enabled=True,
+        dashboard_usage_enabled=False,
+        chart_usage_enabled=False,
+        dataset_usage_enabled=False,
+        user_usage_enabled=False,
+        query_usage_enabled=False,
+        stateful_ingestion=None,
+        server=None,
+        query_timeout=10,
+        extract_batch_size=500,
+        extract_delay=0.25,
+        lookback_days=30,
+        streaming_mode=False,
+        experimental_full_streaming=False,
+        set_upstream_table_max_modification_time_for_views=True,
+        use_exp_cdf=False,
+        sibling_usage_enabled=False,
+        use_server_side_aggregation=True,
+        disable_write_usage=False,
+        generate_patch=False,
+        excluded_platforms=EXCLUDED_PATTERNS,
+    )
+    tmp_path = pathlib.Path(tempfile.mkdtemp("usage_feature_reporter_document_test"))
+    pipeline_config_dict: Dict[str, Any] = {
+        "source": {
+            "type": "datahub-usage-reporting",
+            "config": dict(config),
+        },
+        "sink": {
+            "type": "file",
+            "config": {
+                "filename": f"{tmp_path}/{test_name}_mcps.json",
+            },
+        },
+    }
+    load_data_from_es.side_effect = partial(load_data_from_es_mock, test_name)
+
+    run_and_get_pipeline(pipeline_config_dict)
+
+    check_golden_file(
+        output_path=pathlib.Path(f"{tmp_path}/{test_name}_mcps.json"),
+        golden_path=pathlib.Path(f"tests/golden/golden_{test_name}.json"),
+        ignore_paths=["root[*]['systemMetadata']['created']"],
+    )
+
+
+@pytest.mark.parametrize("test_name", ["document_usage_small"])
+@patch.object(DataHubUsageFeatureReportingSource, "_index_available", return_value=True)
+@patch.object(DataHubUsageFeatureReportingSource, "load_data_from_es")
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_document_usage_patch_enabled(
+    load_data_from_es: Mock,
+    index_available: Mock,
+    pytestconfig: pytest.Config,
+    test_name: str,
+) -> None:
+    # The prod default is generate_patch=True. Verify the rollup emits patch MCPs
+    # that include the new agentViewCount* fields (the patch builder must set them).
+    config = DataHubUsageFeatureReportingSourceConfig(
+        document_usage_stats_enabled=True,
+        dashboard_usage_enabled=False,
+        chart_usage_enabled=False,
+        dataset_usage_enabled=False,
+        user_usage_enabled=False,
+        query_usage_enabled=False,
+        stateful_ingestion=None,
+        server=None,
+        query_timeout=10,
+        extract_batch_size=500,
+        extract_delay=0.25,
+        lookback_days=30,
+        streaming_mode=False,
+        experimental_full_streaming=False,
+        set_upstream_table_max_modification_time_for_views=True,
+        use_exp_cdf=False,
+        sibling_usage_enabled=False,
+        use_server_side_aggregation=True,
+        disable_write_usage=False,
+        generate_patch=True,
+        excluded_platforms=EXCLUDED_PATTERNS,
+    )
+    tmp_path = pathlib.Path(tempfile.mkdtemp("usage_feature_reporter_document_patch"))
+    output_path = pathlib.Path(f"{tmp_path}/{test_name}_patch_mcps.json")
+    pipeline_config_dict: Dict[str, Any] = {
+        "source": {"type": "datahub-usage-reporting", "config": dict(config)},
+        "sink": {"type": "file", "config": {"filename": str(output_path)}},
+    }
+    load_data_from_es.side_effect = partial(load_data_from_es_mock, test_name)
+
+    run_and_get_pipeline(pipeline_config_dict)
+
+    # Guard the regression directly: agent view counts must survive the patch path.
+    assert "agentViewCountLast30Days" in output_path.read_text()
+
+    check_golden_file(
+        output_path=output_path,
+        golden_path=pathlib.Path(f"tests/golden/golden_{test_name}_patch.json"),
+        ignore_paths=["root[*]['systemMetadata']['created']"],
+    )
+
+
+@pytest.mark.parametrize("test_name", ["document_usage_ingestion_small"])
+@patch.object(DataHubUsageFeatureReportingSource, "_index_available", return_value=True)
+@patch.object(DataHubUsageFeatureReportingSource, "load_data_from_es")
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_document_usage_ingestion(
+    load_data_from_es: Mock,
+    index_available: Mock,
+    pytestconfig: pytest.Config,
+    test_name: str,
+) -> None:
+    # Stage 2: aggregate raw datahub_usage_event rows into documentUsageStatistics.
+    # The fixture mixes human EntityViewEvents (incl. one anonymous view) and agent
+    # ToolInvocation rows carrying tool_result_urns; each processor filters its own.
+    config = DataHubUsageFeatureReportingSourceConfig(
+        document_usage_stats_enabled=True,
+        dashboard_usage_enabled=False,
+        chart_usage_enabled=False,
+        dataset_usage_enabled=False,
+        user_usage_enabled=False,
+        query_usage_enabled=False,
+        stateful_ingestion=None,
+        server=None,
+        query_timeout=10,
+        extract_batch_size=500,
+        extract_delay=0.25,
+        lookback_days=30,
+        streaming_mode=False,
+        experimental_full_streaming=False,
+        set_upstream_table_max_modification_time_for_views=True,
+        use_exp_cdf=False,
+        sibling_usage_enabled=False,
+        use_server_side_aggregation=True,
+        disable_write_usage=False,
+        generate_patch=False,
+        excluded_platforms=EXCLUDED_PATTERNS,
+    )
+    tmp_path = pathlib.Path(tempfile.mkdtemp("usage_feature_reporter_doc_ingestion"))
+    pipeline_config_dict: Dict[str, Any] = {
+        "source": {"type": "datahub-usage-reporting", "config": dict(config)},
+        "sink": {
+            "type": "file",
+            "config": {"filename": f"{tmp_path}/{test_name}_mcps.json"},
+        },
+    }
+    load_data_from_es.side_effect = partial(load_data_from_es_mock, test_name)
+
+    run_and_get_pipeline(pipeline_config_dict)
+
+    check_golden_file(
+        output_path=pathlib.Path(f"{tmp_path}/{test_name}_mcps.json"),
+        golden_path=pathlib.Path(f"tests/golden/golden_{test_name}.json"),
         ignore_paths=["root[*]['systemMetadata']['created']"],
     )

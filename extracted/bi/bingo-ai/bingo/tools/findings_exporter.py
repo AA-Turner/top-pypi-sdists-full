@@ -317,8 +317,12 @@ def _potential_disposition(
     output: str,
     code_snippet: str,
     execution_context: dict | None = None,
+    verdict_reason: str = "",
 ) -> tuple[str, str]:
     """Return keep/quarantine/reject for pattern-only evidence."""
+    # Specific detectors (not generic pattern_match) bypass quarantine
+    if verdict_reason and verdict_reason != REASON_PATTERN_MATCH:
+        return "keep", ""
     code = _execution_code(code_snippet, execution_context)
     if vtype == FINDING_XSS:
         if _XSS_TEST_EVIDENCE.search(output):
@@ -523,6 +527,27 @@ _AUTH_BYPASS_PATTERNS = [
     re.compile(r'(Location|URL):\s*.*?/admin(?:/|$)', re.I),
     re.compile(r'(welcome|dashboard|admin)\s*-\s*(admin|root|manager)', re.I),
 ]
+
+_PORT_OPEN_PATTERN = re.compile(r'\d+/tcp\s+open\s+\S', re.I)
+_HTTP_500_PATTERN = re.compile(
+    r'HTTP[/ _][12][./ ]?\d?\s+500\b|HTTP_CODE\s*:\s*500\b|"status"\s*:\s*500\b',
+    re.I,
+)
+_API_SUCCESS_UNAUTH_PATTERN = re.compile(
+    r'"code"\s*:\s*1\s*[,}]|"message"\s*:\s*"(?:成功|success|OK)"',
+    re.I,
+)
+_TECH_DISCLOSURE_PATTERN = re.compile(
+    r'X-Powered-By\s*:\s*\S'
+    r'|Server\s*:\s*(?:Apache|nginx|IIS|Tomcat|Spring)[\s/]'
+    r'|X-Generator\s*:\s*\S|X-AspNet-Version\s*:|X-Runtime\s*:\s*\d',
+    re.I,
+)
+_CORS_WILDCARD_PATTERN = re.compile(
+    r'access-control-allow-origin\s*:\s*\*'
+    r'|access-control-allow-credentials\s*:\s*true',
+    re.I,
+)
 
 
 def _time_based_measurement(output: str) -> tuple[bool, str] | None:
@@ -787,6 +812,17 @@ def _evidence_ladder(output: str, code_snippet: str = "") -> EvidenceVerdict:
         output, re.I
     ) and re.search(r'(?:admin/reports/status|server-status|phpinfo)', code, re.I):
         return EvidenceVerdict(CONF_POTENTIAL, "admin_page_exposed", FINDING_INFO_DISC, "admin/status page anonymous access")
+
+    if _PORT_OPEN_PATTERN.search(output):
+        return EvidenceVerdict(CONF_POTENTIAL, "port_exposure", FINDING_INFO_DISC, "open ports")
+    if _HTTP_500_PATTERN.search(output):
+        return EvidenceVerdict(CONF_POTENTIAL, "server_error_500", FINDING_INFO_DISC, "HTTP 500 error")
+    if _API_SUCCESS_UNAUTH_PATTERN.search(output):
+        return EvidenceVerdict(CONF_POTENTIAL, "api_success_unauth", FINDING_INFO_DISC, "API success response")
+    if _CORS_WILDCARD_PATTERN.search(output):
+        return EvidenceVerdict(CONF_POTENTIAL, "cors_wildcard", FINDING_INFO_DISC, "CORS wildcard")
+    if _TECH_DISCLOSURE_PATTERN.search(output):
+        return EvidenceVerdict(CONF_POTENTIAL, "tech_disclosure", FINDING_INFO_DISC, "tech header")
 
     # 실제 타입은 _detect_vuln_type_raw 가 결정 — 여기서는 "후보 있음"만
     return EvidenceVerdict(CONF_POTENTIAL, REASON_PATTERN_MATCH, "", "pattern scan")
@@ -1240,7 +1276,8 @@ class FindingsExporter:
         # false positives are rejected; unknown execution styles remain reviewable.
         if verdict.tier == CONF_POTENTIAL:
             action, reason = _potential_disposition(
-                vtype, output, code_snippet, execution_context
+                vtype, output, code_snippet, execution_context,
+                verdict_reason=verdict.reason_code,
             )
             if action == "reject":
                 self._record_autocorrection(reason)

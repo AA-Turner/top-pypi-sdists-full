@@ -58,8 +58,9 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
-use temporalio_client::MESSAGE_TOO_LARGE_KEY;
+use temporalio_client::{MESSAGE_TOO_LARGE_KEY, payload_limit_violation_from};
 use temporalio_common::{
+    payload_limits::PayloadLimitViolation,
     protos::{
         TaskToken,
         coresdk::{
@@ -107,7 +108,6 @@ pub const LEGACY_QUERY_ID: &str = "legacy_query";
 /// What percentage of a WFT timeout we are willing to wait before sending a WFT heartbeat when
 /// necessary.
 const WFT_HEARTBEAT_TIMEOUT_FRACTION: f32 = 0.8;
-const MAX_EAGER_ACTIVITY_RESERVATIONS_PER_WORKFLOW_TASK: usize = 3;
 
 type Result<T, E = WFMachinesError> = result::Result<T, E>;
 type BoxedActivationStream = BoxStream<'static, Result<ActivationOrAuto, PollError>>;
@@ -129,6 +129,8 @@ pub(crate) struct Workflows {
     sticky_attrs: Option<StickyExecutionAttributes>,
     /// If set, can be used to reserve activity task slots for eager-return of new activity tasks.
     activity_tasks_handle: Option<ActivitiesFromWFTsHandle>,
+    /// Maximum number of activity slots to reserve for eager execution per workflow task.
+    max_eager_activity_reservations_per_workflow_task: usize,
     /// Ensures we stay at or below this worker's maximum concurrent workflow task limit
     wft_semaphore: MeteredPermitDealer<WorkflowSlotKind>,
     local_act_mgr: Option<Arc<LocalActivityManager>>,
@@ -176,6 +178,9 @@ impl Workflows {
         let (fetch_tx, fetch_rx) = unbounded_channel();
         let shutdown_tok = basics.shutdown_token.clone();
         let task_queue = basics.worker_config.task_queue.clone();
+        let max_eager_activity_reservations_per_workflow_task = basics
+            .worker_config
+            .max_eager_activity_reservations_per_workflow_task;
         let default_versioning_behavior = basics.default_versioning_behavior;
         let extracted_wft_stream = WFTExtractor::build(
             client.clone(),
@@ -263,6 +268,7 @@ impl Workflows {
             client,
             sticky_attrs,
             activity_tasks_handle,
+            max_eager_activity_reservations_per_workflow_task,
             wft_semaphore,
             local_act_mgr,
             ever_polled: AtomicBool::new(false),
@@ -408,28 +414,40 @@ impl Workflows {
                                 response.activity_tasks,
                             );
                         }
-                        // Reply with a task failure if we got grpc too large from server, but
-                        // not if this is a nonfirst attempt to avoid spamming.
-                        Err(e)
-                            if e.metadata().contains_key(MESSAGE_TOO_LARGE_KEY) && attempt < 2 =>
-                        {
-                            let failure = make_grpc_message_too_large_failure();
-                            let new_outcome = FailedActivationWFTReport::Report(
-                                task_token,
-                                WorkflowTaskFailedCause::GrpcMessageTooLarge,
-                                failure,
-                            );
-                            self.handle_activation_failed(run_id, completion_time, new_outcome)
-                                .await;
-                            run_metrics
-                                .with_new_attrs([metrics::failure_reason(
+                        Err(e) => {
+                            let cause_reason_failure = if e
+                                .metadata()
+                                .contains_key(MESSAGE_TOO_LARGE_KEY)
+                                && attempt < 2
+                            {
+                                // gRPC message too large from server; skip on nonfirst attempts to
+                                // avoid spamming.
+                                Some((
+                                    WorkflowTaskFailedCause::GrpcMessageTooLarge,
                                     FailureReason::GrpcMessageTooLarge,
-                                )])
-                                .wf_task_failed();
+                                    make_grpc_message_too_large_failure(),
+                                ))
+                            } else {
+                                // Client layer rejected the completion for exceeding the worker's
+                                // payload error limit.
+                                payload_limit_violation_from(&e).map(|violation| {
+                                    (
+                                        WorkflowTaskFailedCause::PayloadsTooLarge,
+                                        FailureReason::PayloadsTooLarge,
+                                        make_payloads_too_large_failure(violation),
+                                    )
+                                })
+                            };
+                            if let Some((cause, reason, failure)) = cause_reason_failure {
+                                let new_outcome =
+                                    FailedActivationWFTReport::Report(task_token, cause, failure);
+                                self.handle_activation_failed(run_id, completion_time, new_outcome)
+                                    .await;
+                                run_metrics
+                                    .with_new_attrs([metrics::failure_reason(reason)])
+                                    .wf_task_failed();
+                            }
                             return Err(e);
-                        }
-                        e => {
-                            e?;
                         }
                     };
 
@@ -813,7 +831,7 @@ impl Workflows {
                         .map(|q| q.name == self.task_queue)
                         .unwrap_or_default();
                     if same_task_queue
-                        && reserved.len() < MAX_EAGER_ACTIVITY_RESERVATIONS_PER_WORKFLOW_TASK
+                        && reserved.len() < self.max_eager_activity_reservations_per_workflow_task
                     {
                         if let Some(p) = self
                             .activity_tasks_handle
@@ -1725,11 +1743,56 @@ fn make_grpc_message_too_large_failure() -> Failure {
     }
 }
 
+fn make_payloads_too_large_failure(violation: &PayloadLimitViolation) -> Failure {
+    Failure {
+        failure: Some(
+            temporalio_common::protos::temporal::api::failure::v1::Failure {
+                message: violation.to_string(),
+                failure_info: Some(FailureInfo::ApplicationFailureInfo(
+                    ApplicationFailureInfo {
+                        r#type: crate::worker::PAYLOADS_TOO_LARGE_FAILURE_TYPE.to_string(),
+                        non_retryable: false,
+                        ..Default::default()
+                    },
+                )),
+                ..Default::default()
+            },
+        ),
+        force_cause: WorkflowTaskFailedCause::PayloadsTooLarge as i32,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use itertools::Itertools;
-    use temporalio_common::protos::coresdk::workflow_activation::SignalWorkflow;
+    use temporalio_common::{
+        payload_limits::{LimitClass, LimitSeverity},
+        protos::coresdk::workflow_activation::SignalWorkflow,
+    };
+
+    #[test]
+    fn payloads_too_large_wft_failure_is_retryable() {
+        let violation = PayloadLimitViolation {
+            path: "input".to_string(),
+            class: LimitClass::Blob,
+            severity: LimitSeverity::Error,
+            size: 1024,
+            limit: 10,
+        };
+        let failure = make_payloads_too_large_failure(&violation);
+        assert_eq!(
+            failure.force_cause,
+            WorkflowTaskFailedCause::PayloadsTooLarge as i32
+        );
+        let Some(FailureInfo::ApplicationFailureInfo(afi)) =
+            &failure.failure.as_ref().unwrap().failure_info
+        else {
+            panic!("expected application failure info");
+        };
+        assert_eq!(afi.r#type, crate::worker::PAYLOADS_TOO_LARGE_FAILURE_TYPE);
+        assert!(!afi.non_retryable);
+    }
 
     #[test]
     fn jobs_sort() {

@@ -11,11 +11,15 @@ Analyzer base URL is read from TESTMU_AI_API_HOST env var
 
 import asyncio
 import base64
+from functools import lru_cache
 import io
 import logging
 import os
+from pathlib import Path
+import sys
 
 import aiohttp
+from playwright.async_api import Error as PlaywrightError
 
 try:
     from PIL import Image  # type: ignore
@@ -42,6 +46,33 @@ _WAIT_RETRY_INTERVAL = 2  # seconds
 
 _COORD_MAX_RETRIES = 10
 _COORD_RETRY_INTERVAL = 1  # seconds
+
+_LINUX_RUNTIME_SNAPSHOT_ASSET_PATH = Path(
+    "/home/ltuser/foreman/ltuser/aria_snapshot.js"
+)
+_MACOS_RUNTIME_SNAPSHOT_ASSET_PATH = Path(
+    "/Users/ltuser/foreman/ltuser/aria_snapshot.js"
+)
+_WINDOWS_RUNTIME_SNAPSHOT_ASSET_PATH = Path(
+    "D:/foreman/ltuser/aria_snapshot.js"
+)
+_RUNTIME_SNAPSHOT_GLOBALS = (
+    "__ariaSnapshot",
+    "__ariaSnapshotDetails",
+    "__ariaSnapshotJSON",
+    "__ariaSnapshotCDP",
+    "__ariaSnapshotRaw",
+    "__domSnapshot",
+    "__domSnapshotCDP",
+    "__resolveDomSnapshotNode",
+    "__domSnapshotRaw",
+    "__domSnapshotRefs",
+    "__aria_snap_dom_streamer__",
+)
+_MISSING_RUNTIME_ASSET_ERROR = "Required runtime asset was not provisioned."
+_INVALID_RUNTIME_SNAPSHOT_ERROR = (
+    "Required runtime asset returned an invalid snapshot."
+)
 
 
 # ---------------------------------------------------------------------------
@@ -997,6 +1028,185 @@ async def _scroll_into_view_and_viewport_coords(page, coords) -> tuple:
     return vx, vy
 
 
+def _runtime_snapshot_asset_path(platform_name=None) -> Path:
+    """Return the fixed Foreman asset path for the worker host OS."""
+    platform_name = sys.platform if platform_name is None else platform_name
+    normalized = str(platform_name).lower()
+    if normalized == "darwin":
+        return _MACOS_RUNTIME_SNAPSHOT_ASSET_PATH
+    if normalized.startswith("win"):
+        return _WINDOWS_RUNTIME_SNAPSHOT_ASSET_PATH
+    return _LINUX_RUNTIME_SNAPSHOT_ASSET_PATH
+
+
+def _read_runtime_snapshot_asset() -> str:
+    """Read the host-provisioned snapshot implementation.
+
+    Kept as a separate internal seam so unit tests never need the proprietary
+    runtime asset itself.
+    """
+    return _runtime_snapshot_asset_path().read_text(encoding="utf-8")
+
+
+@lru_cache(maxsize=1)
+def _load_runtime_snapshot_asset() -> str:
+    """Load the provisioned snapshot implementation once, on first use."""
+    try:
+        source = _read_runtime_snapshot_asset()
+    except (OSError, UnicodeError):
+        raise RuntimeError(_MISSING_RUNTIME_ASSET_ERROR) from None
+    if not source.strip():
+        raise RuntimeError(_MISSING_RUNTIME_ASSET_ERROR) from None
+    return source
+
+
+def _validate_runtime_snapshot_pair(result) -> tuple[dict, dict]:
+    """Validate the provisioned asset's minimal CDP-shaped payload."""
+    if not isinstance(result, dict):
+        raise RuntimeError(_INVALID_RUNTIME_SNAPSHOT_ERROR)
+
+    a11y_snapshot = result.get("a11y_snapshot")
+    dom_snapshot = result.get("dom_snapshot")
+    documents = dom_snapshot.get("documents") if isinstance(dom_snapshot, dict) else None
+    first_document = documents[0] if isinstance(documents, list) and documents else None
+    if (
+        not isinstance(a11y_snapshot, dict)
+        or not isinstance(a11y_snapshot.get("nodes"), list)
+        or not isinstance(dom_snapshot, dict)
+        or not isinstance(documents, list)
+        or not documents
+        or not isinstance(dom_snapshot.get("strings"), list)
+        or not isinstance(first_document, dict)
+        or not isinstance(first_document.get("nodes"), dict)
+        or not isinstance(first_document.get("layout"), dict)
+    ):
+        raise RuntimeError(_INVALID_RUNTIME_SNAPSHOT_ERROR)
+    return a11y_snapshot, dom_snapshot
+
+
+def _build_runtime_snapshot_expression(source: str) -> str:
+    """Wrap the provisioned IIFE, snapshot calls, and global cleanup atomically."""
+    cleanup_keys = ", ".join(repr(key) for key in _RUNTIME_SNAPSHOT_GLOBALS)
+    return f"""() => {{
+  const cleanupKeys = [{cleanup_keys}];
+  try {{
+    {source}
+    return {{
+      a11y_snapshot: globalThis.__ariaSnapshotCDP(),
+      dom_snapshot: globalThis.__domSnapshotCDP(),
+    }};
+  }} finally {{
+    for (const key of cleanupKeys) {{
+      try {{ delete globalThis[key]; }} catch (_) {{}}
+    }}
+  }}
+}}"""
+
+
+def _browser_engine_name(page) -> str:
+    """Best-effort local engine identity; relays may report Chromium for all engines."""
+    try:
+        name = page.context.browser.browser_type.name
+        name = name() if callable(name) else name
+        return str(name or "").strip().lower()
+    except Exception:
+        return ""
+
+
+def _v3_snapshot_capture_route(page) -> str:
+    """Return ``runtime``, ``native``, or ``unknown`` for snapshot capture."""
+    requested_name = os.getenv("smart_browser_name", "").strip().lower()
+    if requested_name in {"pw-webkit", "pw-firefox"}:
+        return "runtime"
+    if requested_name in {
+        "chrome",
+        "chromium",
+        "googlechrome",
+        "microsoftedge",
+        "edge",
+        "pw-chromium",
+        "island",
+    }:
+        return "native"
+    if requested_name:
+        return "unknown"
+
+    engine_name = _browser_engine_name(page)
+    if engine_name in {"webkit", "firefox"}:
+        return "runtime"
+    if engine_name == "chromium":
+        return "native"
+    return "unknown"
+
+
+def _is_explicit_unsupported_cdp_error(exc: PlaywrightError) -> bool:
+    """Recognize only Playwright's explicit non-Chromium CDP rejection."""
+    message = str(exc).lower()
+    exclusivity = "only supported" in message or "only available" in message
+    return "cdp" in message and "chromium" in message and exclusivity
+
+
+def _is_page_lifecycle_or_transport_error(exc: PlaywrightError) -> bool:
+    """Errors that must retain their original Playwright diagnostics."""
+    message = str(exc).lower()
+    return any(
+        marker in message
+        for marker in (
+            "page closed",
+            "context closed",
+            "browser closed",
+            "target closed",
+            "has been closed",
+            "execution context was destroyed",
+            "connection closed",
+            "transport closed",
+            "timeout",
+            "timed out",
+            "execution context destroyed",
+        )
+    )
+
+
+async def _capture_v3_snapshots_with_runtime_asset(page) -> tuple[dict, dict]:
+    source = _load_runtime_snapshot_asset()
+    try:
+        result = await page.evaluate(_build_runtime_snapshot_expression(source))
+    except PlaywrightError as exc:
+        if _is_page_lifecycle_or_transport_error(exc):
+            raise
+        raise RuntimeError(_INVALID_RUNTIME_SNAPSHOT_ERROR) from None
+    return _validate_runtime_snapshot_pair(result)
+
+
+async def _capture_v3_snapshots_with_cdp(page) -> tuple[dict, dict]:
+    cdp = await page.context.new_cdp_session(page)
+    try:
+        await cdp.send("Accessibility.enable")
+        a11y_snapshot = await cdp.send("Accessibility.getFullAXTree")
+        dom_snapshot = await cdp.send("DOMSnapshot.captureSnapshot", {
+            "computedStyles": _CSS_PROPERTIES,
+            "includeDOMRects": True,
+        })
+    finally:
+        await cdp.detach()
+    return a11y_snapshot, dom_snapshot
+
+
+async def _capture_v3_server_snapshots(page) -> tuple[dict, dict]:
+    """Capture V3 snapshots without changing the surrounding request contract."""
+    route = _v3_snapshot_capture_route(page)
+    if route == "runtime":
+        return await _capture_v3_snapshots_with_runtime_asset(page)
+    if route == "native":
+        return await _capture_v3_snapshots_with_cdp(page)
+    try:
+        return await _capture_v3_snapshots_with_cdp(page)
+    except PlaywrightError as exc:
+        if not _is_explicit_unsupported_cdp_error(exc):
+            raise
+        return await _capture_v3_snapshots_with_runtime_asset(page)
+
+
 async def _textual_query_v3_server(
     page, description: str, return_type: str, selected_attribute_name: str = ""
 ):
@@ -1023,16 +1233,7 @@ async def _textual_query_v3_server(
         _log_v3.warning("[textual_query] no heal endpoint configured")
         return None
 
-    cdp = await page.context.new_cdp_session(page)
-    try:
-        await cdp.send("Accessibility.enable")
-        a11y_snapshot = await cdp.send("Accessibility.getFullAXTree")
-        dom_snapshot = await cdp.send("DOMSnapshot.captureSnapshot", {
-            "computedStyles": _CSS_PROPERTIES,
-            "includeDOMRects": True,
-        })
-    finally:
-        await cdp.detach()
+    a11y_snapshot, dom_snapshot = await _capture_v3_server_snapshots(page)
 
     # selected_attribute_name lives ONLY in operation_dict — the server falls
     # back to it when the outer selected_attribute is empty, so we omit the outer

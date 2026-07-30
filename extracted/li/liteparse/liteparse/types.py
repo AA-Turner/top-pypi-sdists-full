@@ -42,6 +42,7 @@ class TextItem:
     char_codes: List[int] = field(default_factory=list)
     #: True when the trailing source space was synthesized by PDFium.
     trailing_space_generated: bool = False
+    #: OCR confidence score (0.0-1.0). ``None`` for native PDF text.
     confidence: Optional[float] = None
     rotation: float = 0.0
     #: Per-word sub-boxes. Empty unless the parser was configured with
@@ -75,7 +76,9 @@ class DocumentAnnotation:
 class FormField:
     """One AcroForm widget and its resolved field metadata."""
     id: str
-    field_type: str
+    #: Widget type, e.g. ``"text"``, ``"checkbox"``, ``"combobox"``. Named
+    #: ``type`` to match the ``type`` key in JSON output and the Node bindings.
+    type: str
     page: int
     annotation_index: int
     widget_index: int
@@ -99,7 +102,9 @@ StructureAttributeValue = Union[bool, float, str]
 @dataclass
 class StructureTreeElement:
     """One element in a tagged-PDF logical structure tree."""
-    element_type: str
+    #: Structure tag, e.g. ``"P"``, ``"Table"``, ``"H1"``. Named ``type`` to
+    #: match the ``type`` key in JSON output and the Node bindings.
+    type: str
     id: Optional[str] = None
     actual_text: Optional[str] = None
     alt_text: Optional[str] = None
@@ -301,17 +306,39 @@ class LayoutComplexityStats:
 class PageComplexityStats:
     """Per-page complexity signals used to decide whether a document needs OCR."""
     page_number: int
+    #: Length of usable native text (garbled/unmappable items excluded).
     text_length: int
+    #: Fraction of the page area covered by native text (0–1).
     text_coverage: float
     has_substantial_images: bool
+    #: Number of counted raster images — inline figures only; full-page
+    #: backgrounds are excluded (see class docstring).
     image_block_count: int
+    #: Summed bbox area of the counted images over page area, clamped to 1.
+    #: Overlapping images can inflate the raw sum, so read it as "summed
+    #: image-bbox area", not unique covered area. A full-page scan raster
+    #: contributes 0 here — see ``full_page_image``.
     image_coverage: float
+    #: Area of the single largest counted image over page area, clamped to 1.
+    #: Same exclusion as ``image_coverage``: a full-page raster contributes 0.
     largest_image_coverage: float
+    #: A single raster covering ≥90% of the page is present. Such full-page
+    #: backgrounds are excluded from ``image_coverage`` /
+    #: ``largest_image_coverage`` (they're not inline figures), so this flag is
+    #: the only signal that distinguishes a scan from a genuinely blank page —
+    #: both otherwise report no text and no counted images.
     full_page_image: bool
+    #: Filled vector-outline area not covered by native text, in pt².
+    #: ``None`` when a cheaper signal already decided the page, so this
+    #: expensive walk was skipped.
     uncovered_vector_area: Optional[float]
     is_garbled: bool
     page_area: float
+    #: Verdict: whether this page needs more than the cheap text-only path.
     needs_ocr: bool
+    #: Every reason the page was flagged (e.g. ``"scanned"``,
+    #: ``"sparse-text"``, ``"garbled"``). Empty exactly when ``needs_ocr`` is
+    #: False; new reasons may be added over time.
     reasons: list[str]
     #: Layout-difficulty signals; see :class:`LayoutComplexityStats`.
     layout: Optional[LayoutComplexityStats] = None

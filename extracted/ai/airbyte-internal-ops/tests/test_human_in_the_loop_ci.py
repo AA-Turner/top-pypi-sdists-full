@@ -18,6 +18,7 @@ from airbyte_ops_mcp.human_in_the_loop import (
     validate_person_id,
 )
 from airbyte_ops_mcp.mcp.human_in_the_loop import (
+    _NEWSLETTER_CHANNELS,
     RequestType,
     escalate_to_human,
 )
@@ -433,6 +434,21 @@ def test_custom_header_with_connector_name() -> None:
 # ---------------------------------------------------------------------------
 # MCP tool: request_type → header resolution
 # ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_newsletter_channel_resolution() -> None:
+    """Newsletter names resolve to their expected Slack channels."""
+    assert _NEWSLETTER_CHANNELS["DR"] == (
+        "C0AH48172M6",
+        "#daily-newsletters",
+    )
+    assert _NEWSLETTER_CHANNELS["Internal AI"] == (
+        "C0AH48172M6",
+        "#daily-newsletters",
+    )
+    assert _NEWSLETTER_CHANNELS["AJ"] == ("C0BLUPJ0X0R", "#aj-release-notes")
+    assert _NEWSLETTER_CHANNELS["DR"] == _NEWSLETTER_CHANNELS["Internal AI"]
 
 
 @pytest.mark.unit

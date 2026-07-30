@@ -52,6 +52,8 @@ AsyncBodyType: typing.TypeAlias = typing.Union[
     typing.AsyncIterable[bytes],
     typing.AsyncIterable[str],
 ]
+#: Callable used to serialize an object into a JSON string or bytes payload.
+JSONEncoderType: typing.TypeAlias = typing.Callable[[typing.Any], typing.Union[str, bytes]]
 #: HTTP Headers can be represented through three ways. 1) typical dict, 2) internal insensitive dict, and 3) list of tuple.
 HeadersType: typing.TypeAlias = typing.Union[
     typing.MutableMapping[typing.Union[str, bytes], typing.Union[str, bytes]],
@@ -77,12 +79,12 @@ else:
 TLSClientCertType: typing.TypeAlias = typing.Union[str, typing.Tuple[str, str], typing.Tuple[str, str, str]]
 #: All accepted ways to describe desired timeout.
 TimeoutType: typing.TypeAlias = typing.Union[
-    int,  # TotalTimeout
-    float,  # TotalTimeout
-    typing.Tuple[typing.Union[int, float], typing.Union[int, float]],  # note: TotalTimeout, ConnectTimeout
+    int,  # ConnectTimeout and ReadTimeout
+    float,  # ConnectTimeout and ReadTimeout
+    typing.Tuple[typing.Union[int, float], typing.Union[int, float]],  # note: ConnectTimeout, ReadTimeout
     typing.Tuple[
         typing.Union[int, float], typing.Union[int, float], typing.Union[int, float]
-    ],  # note: TotalTimeout, ConnectTimeout, ReadTimeout
+    ],  # note: ConnectTimeout, ReadTimeout, TotalTimeout
     Timeout,
 ]
 #: Specify (BasicAuth) authentication by passing a tuple of user, and password.

@@ -165,12 +165,13 @@ class CopyModuleDocstringConfigFile(CopyModuleConfigFile):
         """Return the source module's docstring as file content.
 
         Rendered via `ast.unparse`, which picks a quote style that avoids
-        escaping when possible and falls back to escaping otherwise, so the
-        result is always a valid Python module-level docstring regardless of
-        what quote characters the docstring itself contains.
+        escaping when possible and falls back to escaping otherwise, so a
+        string docstring is always rendered as valid Python regardless of
+        what quote characters it contains. If the source module has no
+        docstring, this returns the literal `None`, followed by a newline.
 
         Returns:
-            A valid Python module-level docstring.
+            The source module's docstring, rendered as a Python literal.
         """
         module = ast.Module(
             body=[ast.Expr(value=ast.Constant(value=self.copy_module().__doc__))],
@@ -179,5 +180,5 @@ class CopyModuleDocstringConfigFile(CopyModuleConfigFile):
         return f"{ast.unparse(module)}\n"
 
     def is_correct(self) -> bool:
-        """Return `True` if the source module has a docstring, `False` otherwise."""
+        """Return `True` if the scaffolded module has a docstring, `False` otherwise."""
         return module_has_docstring(self.module())

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-quickjs
-Version: 0.3.4
+Version: 0.3.5
 Summary: JavaScript REPL middleware for deepagents
 Project-URL: Homepage, https://github.com/langchain-ai/deepagents/tree/main/libs/partners/quickjs
 Project-URL: Repository, https://github.com/langchain-ai/deepagents
@@ -17,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: <4.0,>=3.11
 Requires-Dist: bsdiff4<2.0.0,>=1.2.6
-Requires-Dist: deepagents<0.8.0,>=0.6.12
+Requires-Dist: deepagents<0.8.0,>=0.7.0
 Requires-Dist: langchain-core<2.0.0,>=1.4.9
 Requires-Dist: langchain<2.0.0,>=1.3.14
 Requires-Dist: langgraph<2.0.0,>=1.2.9

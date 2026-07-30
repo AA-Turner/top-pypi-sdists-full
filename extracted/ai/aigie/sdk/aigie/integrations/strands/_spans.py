@@ -41,6 +41,25 @@ def tool_span_name(tool_use: dict[str, Any]) -> str:
     return tool_use.get("name") or "tool"
 
 
+def agent_tools(agent: Any) -> list[dict[str, Any]]:
+    """Return a best-effort ``{name, description}`` catalog for an agent."""
+    try:
+        registry = getattr(agent, "tool_registry", None)
+        specs = registry.get_all_tools_config() if registry is not None else None
+        if isinstance(specs, dict) and specs:
+            catalog = []
+            for name, spec in specs.items():
+                d = spec if isinstance(spec, dict) else {}
+                catalog.append(
+                    {"name": d.get("name") or name, "description": d.get("description") or ""}
+                )
+            return catalog
+        names = getattr(agent, "tool_names", None) or []
+        return [{"name": str(n)} for n in names]
+    except Exception:  # noqa: BLE001, S110 - never break tracing on a framework surprise
+        return []
+
+
 def result_output(result: Any, limit: int) -> Any:
     if result is None:
         return None

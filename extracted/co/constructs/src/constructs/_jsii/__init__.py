@@ -15,7 +15,7 @@ from jsii._type_checking import cached_type_hints, check_type
 
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "constructs", "10.7.1", __name__[0:-6], "constructs@10.7.1.jsii.tgz"
+    "constructs", "10.7.2", __name__[0:-6], "constructs@10.7.2.jsii.tgz"
 )
 
 __all__ = [

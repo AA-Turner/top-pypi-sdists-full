@@ -21,6 +21,12 @@ from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.producer import WebEditorControlProducerRepository
 
 RESTART_EDITOR = "restart_editor"
+# A bare signal (no payload): the editor records that a restart is pending and
+# re-broadcasts editor-status. Unlike RESTART_EDITOR it does NOT restart — the
+# user applies it later via "Restart editor". It carries no data because the
+# restart never needs the package names, and the UI shows a generic message.
+MARK_NEEDS_RESTART = "mark_needs_restart"
+
 
 # User-facing warning appended to issue labels whose fix pip-installs and thus
 # triggers restart_editor_and_workers. Lives here so every rule that installs
@@ -50,9 +56,31 @@ def request_process_action(action: str, reason: Optional[str] = None) -> None:
     execute_process_action(action, reason=reason)
 
 
+def _mark_needs_restart() -> None:
+    """Editor-side handler for MARK_NEEDS_RESTART: record that a restart is
+    pending (a dependency was installed) and re-broadcast editor-status so the
+    "Restart editor" button appears. Runs in the editor process (directly, or via
+    the sidecar client executing the action shipped back from the child). Imports
+    are local to avoid an import cycle (editor_restart imports this module)."""
+    from abstra_internals.controllers.editor_restart import EditorRestartController
+    from abstra_internals.controllers.editor_status_events import (
+        EditorStatusEventController,
+    )
+
+    EditorRestartController.mark_dependencies_installed()
+    AbstraLogger.warning(
+        "[ProcessAction] Marked a restart as pending (dependency install)"
+    )
+    EditorStatusEventController.broadcast()
+
+
 def execute_process_action(
     action: str, is_web: Optional[bool] = None, reason: Optional[str] = None
 ) -> None:
+    if action == MARK_NEEDS_RESTART:
+        _mark_needs_restart()
+        return
+
     if action != RESTART_EDITOR:
         AbstraLogger.warning(f"[ProcessAction] Unknown process action: {action}")
         return
@@ -108,3 +136,20 @@ def restart_editor_and_workers(log_prefix: str) -> None:
 
     AbstraLogger.warning(f"{log_prefix} Requesting editor restart")
     request_process_action(RESTART_EDITOR, reason=log_prefix.strip("[]"))
+
+
+def restart_or_defer_after_install() -> None:
+    """Make a just-installed dependency take effect. On the web editor the
+    restart is DEFERRED: mark a restart as pending (the editor surfaces a
+    "Restart editor" button) instead of dropping the user's session now — a
+    worker respawned before the restart just sees the package on disk early,
+    which is harmless. Elsewhere (desktop) restart immediately so the long-lived
+    processes can import it.
+
+    Unlike the abstra self-update, deferring a dependency install needs no boot
+    shim (there is no slot to flip — the package is already on disk), so the gate
+    is web vs. not, not web+shim."""
+    if EDITOR_MODE == "web":
+        request_process_action(MARK_NEEDS_RESTART)
+    else:
+        restart_editor_and_workers("[InstallPackage]")

@@ -2078,6 +2078,15 @@ class ActionTracker:
         """
         ...
 
+    def rpc(self) -> Any:
+        """
+        Current RPC client, read live from the session.
+        
+                session.update() can rebuild the RPC client, so this is not cached —
+                it always returns whatever client the session currently has.
+        """
+        ...
+
     def save_benchmark_results(self, latency_ms, batch_size = 1) -> Any:
         ...
 

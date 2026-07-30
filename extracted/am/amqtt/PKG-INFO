@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: amqtt
-Version: 0.11.3
+Version: 0.11.4
 Summary: Python's asyncio-native MQTT broker and client.
 Author: aMQTT Contributors
 License: MIT

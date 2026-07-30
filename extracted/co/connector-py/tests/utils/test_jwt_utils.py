@@ -1,3 +1,5 @@
+import base64
+import json
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -30,7 +32,7 @@ test_headers = JWTHeaders(
     x5c="test-x5c",
     x5t="test-x5t",
     cty="test-cty",
-    crit=["test-crit"],
+    crit=[],
     **{"x5t#S256": "test-x5t-S256"},
 )
 credentials = JWTCredential(secret="test-secret", claims=test_claims, headers=test_headers)
@@ -39,6 +41,9 @@ credentials = JWTCredential(secret="test-secret", claims=test_claims, headers=te
 def test_sign_jwt():
     # Sign JWT
     token = sign_jwt(credentials)
+
+    # An empty `crit` header must be stripped before signing (RFC 7515 / PyJWT >= 2.12)
+    assert "crit" not in jwt.get_unverified_header(token)
 
     # Decode and verify token
     decoded = jwt.decode(
@@ -61,6 +66,30 @@ def test_sign_jwt():
 
     # exp is the current time + 20 minutes
     assert abs(decoded["exp"] - int((now + timedelta(minutes=20)).timestamp())) < 2
+
+
+def test_sign_jwt_preserves_non_empty_crit():
+    headers = JWTHeaders(
+        kid="test-key-id",
+        alg="HS256",
+        jku="test-jku",
+        jwk="test-jwk",
+        typ="test-typ",
+        x5u="test-x5u",
+        x5c="test-x5c",
+        x5t="test-x5t",
+        cty="test-cty",
+        crit=["test-crit"],
+        **{"x5t#S256": "test-x5t-S256"},
+    )
+    token = sign_jwt(
+        JWTCredential(secret="test-secret", claims=test_claims, headers=headers),
+    )
+
+    segment = token.split(".")[0]
+    decoded_header = json.loads(base64.urlsafe_b64decode(segment + "=" * (-len(segment) % 4)))
+
+    assert decoded_header["crit"] == ["test-crit"]
 
 
 def test_sign_jwt_custom_expiration():

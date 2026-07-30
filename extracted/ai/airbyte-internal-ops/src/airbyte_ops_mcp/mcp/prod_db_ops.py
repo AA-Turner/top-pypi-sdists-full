@@ -153,7 +153,7 @@ class OrganizationSearchHit(BaseModel):
     )
     customer_tier: str | None = Field(
         default=None,
-        description="Customer tier (TIER_0, TIER_1, or TIER_2). Enriched from the GCS tier cache.",
+        description="Customer tier (TIER_0, TIER_1, TIER_2, or UNKNOWN). Enriched from the GCS tier cache.",
     )
 
 
@@ -190,7 +190,7 @@ class WorkspaceInfo(BaseModel):
     )
     customer_tier: str | None = Field(
         default=None,
-        description="Customer tier (TIER_0, TIER_1, or TIER_2). Enriched from the GCS tier cache.",
+        description="Customer tier (TIER_0, TIER_1, TIER_2, or UNKNOWN). Enriched from the GCS tier cache.",
     )
     is_eu: bool | None = Field(
         default=None,
@@ -634,7 +634,7 @@ def query_prod_recent_syncs_for_connector(
         TierFilter,
         Field(
             description=(
-                "Required tier filter: 'TIER_0', 'TIER_1', 'TIER_2', or 'ALL'. "
+                "Required tier filter: 'TIER_0', 'TIER_1', 'TIER_2', 'UNKNOWN', or 'ALL'. "
                 "Filters results to only include connections belonging to organizations "
                 "in the specified tier. Use 'ALL' to include all tiers."
             ),
@@ -698,7 +698,7 @@ def query_prod_recent_syncs_for_connector(
     - job_status: 'succeeded', 'failed', 'cancelled', etc.
     - connection_id, connection_name: The connection that ran the sync
     - actor_id, actor_name: The source or destination actor
-    - customer_tier: TIER_0, TIER_1, or TIER_2
+    - customer_tier: TIER_0, TIER_1, TIER_2, or UNKNOWN
     - is_eu: Whether the workspace is in the EU region
     - pin_origin_type, pin_origin, pinned_version_id: Version pin context (NULL if not pinned)
     - pin_scope_type: 'actor', 'workspace', or 'organization' (NULL if not pinned)
@@ -755,7 +755,10 @@ def query_prod_recent_syncs_for_connector(
         enabled_schedules_only=enabled_schedules_only,
     )
 
-    enriched = enrich_rows_by_org(rows)
+    enriched = enrich_rows_by_org(
+        rows=rows,
+        allow_degraded=True,
+    )
     return filter_rows_by_tier(enriched, customer_tier_filter)
 
 
@@ -810,7 +813,7 @@ def query_prod_failed_sync_attempts_for_connector(
         TierFilter,
         Field(
             description=(
-                "Required tier filter: 'TIER_0', 'TIER_1', 'TIER_2', or 'ALL'. "
+                "Required tier filter: 'TIER_0', 'TIER_1', 'TIER_2', 'UNKNOWN', or 'ALL'. "
                 "Filters results to only include connections belonging to organizations "
                 "in the specified tier. Use 'ALL' to include all tiers."
             ),
@@ -834,7 +837,7 @@ def query_prod_failed_sync_attempts_for_connector(
 
     Key fields in results:
     - failure_summary: JSON containing failure details including failureType and messages
-    - customer_tier: TIER_0, TIER_1, or TIER_2
+    - customer_tier: TIER_0, TIER_1, TIER_2, or UNKNOWN
     - is_eu: Whether the workspace is in the EU region
     - pin_origin_type, pin_origin, pinned_version_id: Version pin context (NULL if not pinned)
     - pin_scope_type: 'actor', 'workspace', or 'organization' (NULL if not pinned)
@@ -866,7 +869,10 @@ def query_prod_failed_sync_attempts_for_connector(
         days=lookback_days,
         limit=limit,
     )
-    enriched = enrich_rows_by_org(rows)
+    enriched = enrich_rows_by_org(
+        rows=rows,
+        allow_degraded=True,
+    )
     return filter_rows_by_tier(enriched, customer_tier_filter)
 
 
@@ -943,7 +949,7 @@ def query_prod_connections_by_connector(
         TierFilter,
         Field(
             description=(
-                "Required tier filter: 'TIER_0', 'TIER_1', 'TIER_2', or 'ALL'. "
+                "Required tier filter: 'TIER_0', 'TIER_1', 'TIER_2', 'UNKNOWN', or 'ALL'. "
                 "Filters results to only include connections belonging to organizations "
                 "in the specified tier. Use 'ALL' to include all tiers."
             ),
@@ -1111,7 +1117,10 @@ def query_prod_connections_by_connector(
             )
         ]
 
-    enriched = enrich_rows_by_org(rows)
+    enriched = enrich_rows_by_org(
+        rows=rows,
+        allow_degraded=True,
+    )
     return filter_rows_by_tier(enriched, customer_tier_filter)
 
 
@@ -1172,7 +1181,7 @@ def query_prod_connections_by_stream(
         TierFilter,
         Field(
             description=(
-                "Required tier filter: 'TIER_0', 'TIER_1', 'TIER_2', or 'ALL'. "
+                "Required tier filter: 'TIER_0', 'TIER_1', 'TIER_2', 'UNKNOWN', or 'ALL'. "
                 "Filters results to only include connections belonging to organizations "
                 "in the specified tier. Use 'ALL' to include all tiers."
             ),
@@ -1242,7 +1251,10 @@ def query_prod_connections_by_stream(
             limit=limit,
         )
     ]
-    enriched = enrich_rows_by_org(rows)
+    enriched = enrich_rows_by_org(
+        rows=rows,
+        allow_degraded=True,
+    )
     return filter_rows_by_tier(enriched, customer_tier_filter)
 
 
@@ -1288,7 +1300,13 @@ def query_prod_organizations(
 
     # Enrich with tier annotation
     org_ids = [o.organization_id for o in orgs]
-    tier_results = {r.organization_id: r for r in get_org_tiers(org_ids)}
+    tier_results = {
+        r.organization_id: r
+        for r in get_org_tiers(
+            organization_ids=org_ids,
+            allow_degraded=True,
+        )
+    }
     for org in orgs:
         tier_result = tier_results.get(org.organization_id)
         if tier_result:
@@ -1373,7 +1391,13 @@ def query_prod_workspaces(
 
     # Enrich with tier annotation (annotation only, no filtering)
     unique_org_ids = list(dict.fromkeys(w.organization_id for w in workspaces))
-    tier_results = {r.organization_id: r for r in get_org_tiers(unique_org_ids)}
+    tier_results = {
+        r.organization_id: r
+        for r in get_org_tiers(
+            organization_ids=unique_org_ids,
+            allow_degraded=True,
+        )
+    }
     for ws in workspaces:
         tier_result = tier_results.get(ws.organization_id)
         if tier_result:
@@ -1946,7 +1970,10 @@ def query_prod_connection_sync_activity(
         status_filter=status_filter.value,
         limit=limit,
     )
-    return enrich_rows_by_org(rows)
+    return enrich_rows_by_org(
+        rows=rows,
+        allow_degraded=True,
+    )
 
 
 # =============================================================================
@@ -2510,7 +2537,7 @@ class ConnectorPopulationSummary(BaseModel):
         default=None, description="Docker image tag, when a version was requested"
     )
     customer_tier_filter: str = Field(
-        description="Tier filter applied to the counts (`TIER_0`/`TIER_1`/`TIER_2`/`ALL`)"
+        description="Tier filter applied to the counts (`TIER_0`/`TIER_1`/`TIER_2`/`UNKNOWN`/`ALL`)"
     )
     active: TierSummary = Field(
         description=(
@@ -2544,7 +2571,7 @@ class ConnectorVersionHealthSummary(BaseModel):
     )
     days: int = Field(description="Lookback window in days")
     customer_tier_filter: str = Field(
-        description="Tier filter applied to the counts (`TIER_0`/`TIER_1`/`TIER_2`/`ALL`)"
+        description="Tier filter applied to the counts (`TIER_0`/`TIER_1`/`TIER_2`/`UNKNOWN`/`ALL`)"
     )
     healthy: int = Field(description="Actors with at least one successful sync")
     unhealthy: int = Field(

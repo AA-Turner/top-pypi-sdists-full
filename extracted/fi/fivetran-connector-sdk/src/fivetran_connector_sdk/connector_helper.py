@@ -34,6 +34,7 @@ from fivetran_connector_sdk.constants import (
     ARCH_MAP,
     WIN_OS,
     X64,
+    ARM_64,
     TESTER_FILENAME,
     UPLOAD_FILENAME,
     LAST_VERSION_CHECK_FILE,
@@ -1592,7 +1593,7 @@ def get_os_arch_suffix() -> str:
 
     plat = OS_MAP[system]
 
-    if machine not in ARCH_MAP or (plat == WIN_OS and ARCH_MAP[machine] != X64):
+    if machine not in ARCH_MAP:
         raise RuntimeError(f"unsupported architecture '{machine}' for {plat}")
 
     return f"{plat}-{ARCH_MAP[machine]}"
@@ -1676,7 +1677,7 @@ def java_exe_helper(location: str, os_arch_suffix: str) -> str:
         str: The path to the Java executable.
     """
     java_exe_base = os.path.join(location, "bin", "java")
-    return f"{java_exe_base}.exe" if os_arch_suffix == f"{WIN_OS}-{X64}" else java_exe_base
+    return f"{java_exe_base}.exe" if os_arch_suffix.startswith(f"{WIN_OS}-") else java_exe_base
 
 def process_stream(stream):
     """Processes a stream of text lines, replacing occurrences of a specified pattern.

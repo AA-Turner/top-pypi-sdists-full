@@ -16,7 +16,9 @@ use temporalio_common::protos::{
         ActivityHeartbeat, ActivityTaskCompletion, nexus::NexusTaskCompletion,
         workflow_completion::WorkflowActivationCompletion,
     },
-    temporal::api::history::v1::History,
+    temporal::api::{
+        enums::v1::VersioningBehavior as ProtoVersioningBehavior, history::v1::History,
+    },
 };
 use temporalio_sdk_core::{
     PollError, SlotInfoTrait, SlotKind, SlotMarkUsedContext, SlotReleaseContext,
@@ -52,6 +54,13 @@ pub struct WorkerOptions {
     pub nondeterminism_as_workflow_fail_for_types: ByteArrayRefArray,
     pub plugins: ByteArrayRefArray,
     pub storage_drivers: ByteArrayRefArray,
+    /// If set, the worker won't proactively fail completions whose payloads exceed the namespace
+    /// error limits; oversized payloads are sent and the server enforces the limit.
+    /// NOTE: Experimental
+    pub disable_payload_error_limit: bool,
+    /// Maximum number of activity slots that may be reserved for eager execution when completing
+    /// a workflow task. Zero disables eager activity execution.
+    pub max_eager_activity_reservations_per_workflow_task: u32,
 }
 
 #[repr(C)]
@@ -1177,8 +1186,8 @@ impl TryFrom<&WorkerOptions> for temporalio_sdk_core::WorkerConfig {
                         let dvb = match dopts.default_versioning_behavior {
                             0 => None,
                             v => {
-                                if let Ok(behavior) = v.try_into() {
-                                    Some(behavior)
+                                if let Ok(behavior) = ProtoVersioningBehavior::try_from(v) {
+                                    Some(behavior.into())
                                 } else {
                                     bail!("Invalid default versioning behavior {}", v)
                                 }
@@ -1228,6 +1237,9 @@ impl TryFrom<&WorkerOptions> for temporalio_sdk_core::WorkerConfig {
                 } else {
                     Some(opt.max_task_queue_activities_per_second)
                 },
+            )
+            .max_eager_activity_reservations_per_workflow_task(
+                opt.max_eager_activity_reservations_per_workflow_task as usize,
             )
             // Even though grace period is optional, if it is not set then the
             // auto-cancel-activity behavior or shutdown will not occur, so we
@@ -1287,6 +1299,7 @@ impl TryFrom<&WorkerOptions> for temporalio_sdk_core::WorkerConfig {
                     })
                     .collect::<HashSet<_>>(),
             )
+            .disable_payload_error_limit(opt.disable_payload_error_limit)
             .build()
             .map_err(|err| anyhow::anyhow!(err))
     }
@@ -1343,11 +1356,13 @@ impl TryFrom<&TunerHolder> for temporalio_sdk_core::TunerHolder {
             .activity_slot_options(holder.activity_slot_supplier.try_into()?)
             .local_activity_slot_options(holder.local_activity_slot_supplier.try_into()?)
             .nexus_slot_options(holder.nexus_task_slot_supplier.try_into()?)
-            .maybe_resource_based_options(first.map(|f| {
-                temporalio_sdk_core::ResourceBasedSlotsOptions::builder()
-                    .target_mem_usage(f.target_memory_usage)
-                    .target_cpu_usage(f.target_cpu_usage)
-                    .build()
+            .maybe_resource_based_config(first.map(|f| {
+                temporalio_sdk_core::ResourceBasedTunerConfig::Options(
+                    temporalio_sdk_core::ResourceBasedSlotsOptions::builder()
+                        .target_mem_usage(f.target_memory_usage)
+                        .target_cpu_usage(f.target_cpu_usage)
+                        .build(),
+                )
             }))
             .build()
             .map_err(|e| anyhow::anyhow!("Failed building tuner holder options: {}", e))?
@@ -1440,6 +1455,8 @@ mod tests {
             nondeterminism_as_workflow_fail_for_types: crate::ByteArrayRefArray::empty(),
             plugins: crate::ByteArrayRefArray::empty(),
             storage_drivers: crate::ByteArrayRefArray::empty(),
+            disable_payload_error_limit: false,
+            max_eager_activity_reservations_per_workflow_task: 3,
         }
     }
 

@@ -41,6 +41,12 @@ import wx
 #-- end-_propgrid --#
 #-- begin-propgriddefs --#
 
+PG_LABEL = "@!"
+PG_LABEL_STRING = PG_LABEL
+PG_NULL_BITMAP = wx.NullBitmap
+PG_COLOUR_BLACK = wx.BLACK
+PG_DEFAULT_IMAGE_SIZE = wx.Size(-1, -1)
+
 class _PGPropertyValuesFlags(IntFlag):
     DontRecurse = auto()
     KeepStructure = auto()

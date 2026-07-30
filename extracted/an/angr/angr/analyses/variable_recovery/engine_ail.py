@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, cast
 
 import claripy
 
-import angr.ailment as ailment
+from angr import ailment
 from angr.ailment.constant import UNDETERMINED_SIZE
 from angr.ailment.expression import Array, FunctionLikeMacro, Let, RustEnum, StringLiteral, Struct
 from angr.analyses.typehoon import typeconsts, typevars
@@ -650,6 +650,16 @@ class SimEngineVRAIL(
                         r.typevar, label=typevars.ConvertTo(expr.to_bits)
                     )
 
+        if (
+            expr.from_bits != expr.to_bits
+            and r.typevar is not None
+            and not isinstance(r.typevar, typeconsts.TypeConstant)
+        ):
+            int_type_cls = typeconsts.signed_int_type if expr.is_signed else typeconsts.unsigned_int_type
+            tc = int_type_cls(expr.from_bits)
+            if tc is not None:
+                self.state.add_type_constraint(typevars.Subtype(r.typevar, tc))
+
         return RichR(self.state.top(expr.to_bits), typevar=typevar)
 
     def _handle_expr_Extract(self, expr: ailment.expression.Extract):
@@ -719,7 +729,7 @@ class SimEngineVRAIL(
     def _handle_unop_Reference(self, expr: ailment.Expr.UnaryOp):
         if isinstance(expr.operand, ailment.Expr.VirtualVariable) and expr.operand.was_stack:
             if expr.tags.get("extra_def", False):
-                self._assign_to_vvar(expr.operand, self._top(expr.operand.bits))
+                self._assign_to_vvar(expr.operand, self._top(expr.operand.bits), dst=expr.operand)
             refbase_typevar = None
             off = expr.operand.stack_offset
 
@@ -1220,6 +1230,10 @@ class SimEngineVRAIL(
     _handle_binop_Set = _handle_binop_Default
     _handle_binop_MaxV = _handle_binop_Default
     _handle_binop_MinV = _handle_binop_Default
+
+    def _handle_binop_HAddV(self, expr: ailment.expression.BinaryOp) -> RichR[claripy.ast.BV | claripy.ast.FP]:
+        return cast(RichR[claripy.ast.BV | claripy.ast.FP], self._handle_binop_Default(expr))
+
     _handle_binop_QAddV = _handle_binop_Default
     _handle_binop_QSubV = _handle_binop_Default
     _handle_binop_QNarrowBinV = _handle_binop_Default
@@ -1279,6 +1293,13 @@ class SimEngineVRAIL(
 
         r = self.state.top(result_size)
         return RichR(r, typevar=expr.typevar)
+
+    def _handle_unop_Abs(self, expr):
+        operand = self._expr(expr.operand)
+        return cast(
+            RichR[claripy.ast.BV | claripy.ast.FP],
+            RichR(self.state.top(expr.bits), typevar=operand.typevar),
+        )
 
     def _handle_unop_Default(self, expr: ailment.expression.UnaryOp) -> RichR[claripy.ast.BV | claripy.ast.FP]:
         self._expr(expr.operands[0])

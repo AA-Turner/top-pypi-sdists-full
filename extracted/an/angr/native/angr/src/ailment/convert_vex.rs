@@ -597,6 +597,7 @@ impl<'py, 'r, R: IrReader> Conv<'py, 'r, R> {
         let mut vector_size: Option<i64> = None;
         if simop.vector_count.is_some() && simop.vector_size.is_some() {
             op_name = Some(format!("{}V", op_name.unwrap_or_default()));
+            signed = simop.is_signed();
             vector_count = simop.vector_count.map(|v| v as i64);
             vector_size = simop.vector_size.map(|v| v as i64);
         } else if matches!(
@@ -2119,7 +2120,29 @@ impl VEXIRSBConverter {
         if (bytes_offset as usize) >= data_len {
             return Err(PyValueError::new_err("bytes_offset past end of data"));
         }
-        let insn_start = unsafe { data_ptr.add(bytes_offset as usize) };
+
+        // libVEX decoders may read the full length of an instruction that
+        // *starts* inside the [bytes_offset, bytes_offset + mb) window -- i.e.
+        // a few bytes past `mb`, and past the end of the caller's buffer when
+        // the window ends at (or near) it. pyvex guards its Python path by
+        // lifting from a copy padded with 8 NUL bytes; mirror that here, but
+        // only when the window actually ends within 8 bytes of the buffer end
+        // so the common case stays zero-copy.
+        let window_end = bytes_offset as usize + mb as usize;
+        // Held until the end of this function so `insn_start` stays valid.
+        let _padded: Option<Vec<u8>>;
+        let lift_base: *const u8 = if window_end + 8 <= data_len {
+            _padded = None;
+            data_ptr
+        } else {
+            let mut v = Vec::with_capacity(data_len + 8);
+            v.extend_from_slice(unsafe { std::slice::from_raw_parts(data_ptr, data_len) });
+            v.extend_from_slice(&[0u8; 8]);
+            let p = v.as_ptr();
+            _padded = Some(v);
+            p
+        };
+        let insn_start = unsafe { lift_base.add(bytes_offset as usize) };
 
         // SAFETY: GIL is held for the whole call; we read the result before any
         // other lift can run. libVEX's `_lift_r`/arena stay valid until then.

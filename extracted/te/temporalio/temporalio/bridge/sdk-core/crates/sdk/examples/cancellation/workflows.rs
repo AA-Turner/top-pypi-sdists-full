@@ -19,7 +19,7 @@ impl CancellationActivities {
             if ctx.is_cancelled() {
                 return Err(ActivityError::cancelled());
             }
-            ctx.record_heartbeat(vec![]);
+            ctx.record_heartbeat(()).await?;
             tokio::time::sleep(std::time::Duration::from_millis(200)).await;
         }
     }
@@ -44,7 +44,7 @@ pub struct CancellationWorkflow;
 impl CancellationWorkflow {
     #[run]
     pub async fn run(ctx: &mut WorkflowContext<Self>, _input: ()) -> WorkflowResult<String> {
-        let mut activity_fut = ctx.start_activity(
+        let mut activity_fut = ctx.execute_activity(
             CancellationActivities::long_running_activity,
             (),
             activity_opts(),
@@ -59,7 +59,7 @@ impl CancellationWorkflow {
                 activity_fut.cancel();
 
                 let cleanup_result = ctx
-                    .start_activity(
+                    .execute_activity(
                         CancellationActivities::cleanup,
                         (),
                         ActivityOptions::start_to_close_timeout(Duration::from_secs(10)),

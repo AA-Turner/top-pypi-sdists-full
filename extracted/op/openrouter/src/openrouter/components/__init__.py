@@ -130,10 +130,27 @@ if TYPE_CHECKING:
         SourceType,
         TypeDocument,
     )
+    from .anthropicfile import (
+        AnthropicFile,
+        AnthropicFileShape,
+        AnthropicFileType,
+        AnthropicFileTypedDict,
+    )
+    from .anthropicfiledeleted import (
+        AnthropicFileDeleted,
+        AnthropicFileDeletedShape,
+        AnthropicFileDeletedType,
+        AnthropicFileDeletedTypedDict,
+    )
     from .anthropicfiledocumentsource import (
         AnthropicFileDocumentSource,
         AnthropicFileDocumentSourceType,
         AnthropicFileDocumentSourceTypedDict,
+    )
+    from .anthropicfilelist import (
+        AnthropicFileList,
+        AnthropicFileListShape,
+        AnthropicFileListTypedDict,
     )
     from .anthropicimageblockparam import (
         AnthropicImageBlockParam,
@@ -925,17 +942,22 @@ if TYPE_CHECKING:
     from .filecitation import FileCitation, FileCitationType, FileCitationTypedDict
     from .filedeleteresponse import (
         FileDeleteResponse,
-        FileDeleteResponseType,
         FileDeleteResponseTypedDict,
+        UnknownFileDeleteResponse,
     )
-    from .filelistresponse import FileListResponse, FileListResponseTypedDict
-    from .filemetadata import FileMetadata, FileMetadataType, FileMetadataTypedDict
+    from .filelistresponse import (
+        FileListResponse,
+        FileListResponseTypedDict,
+        UnknownFileListResponse,
+    )
     from .fileparserplugin import (
         FileParserPlugin,
         FileParserPluginID,
         FileParserPluginTypedDict,
     )
     from .filepath import FilePath, FilePathType, FilePathTypedDict
+    from .fileprovider import FileProvider
+    from .fileresponse import FileResponse, FileResponseTypedDict, UnknownFileResponse
     from .filesearchservertool import (
         FileSearchServerTool,
         FileSearchServerToolTypedDict,
@@ -1666,6 +1688,7 @@ if TYPE_CHECKING:
     )
     from .metadatalevel import MetadataLevel
     from .model import Model, ModelTypedDict
+    from .modelaliastarget import ModelAliasTarget, ModelAliasTargetTypedDict
     from .modelarchitecture import ModelArchitecture, ModelArchitectureTypedDict
     from .modelbenchmarks import ModelBenchmarks, ModelBenchmarksTypedDict
     from .modelgroup import ModelGroup
@@ -1853,6 +1876,26 @@ if TYPE_CHECKING:
         ObservabilityWebhookDestinationType,
         ObservabilityWebhookDestinationTypedDict,
     )
+    from .openaifile import (
+        OpenAIFile,
+        OpenAIFileObject,
+        OpenAIFileShape,
+        OpenAIFileStatus,
+        OpenAIFileTypedDict,
+        Purpose,
+    )
+    from .openaifiledeleted import (
+        OpenAIFileDeleted,
+        OpenAIFileDeletedObject,
+        OpenAIFileDeletedShape,
+        OpenAIFileDeletedTypedDict,
+    )
+    from .openaifilelist import (
+        OpenAIFileList,
+        OpenAIFileListObject,
+        OpenAIFileListShape,
+        OpenAIFileListTypedDict,
+    )
     from .openairesponsecustomtoolcall import (
         OpenAIResponseCustomToolCall,
         OpenAIResponseCustomToolCallType,
@@ -1958,6 +2001,23 @@ if TYPE_CHECKING:
         UsageCostDetails,
         UsageCostDetailsTypedDict,
         UsageTypedDict,
+    )
+    from .openrouterfile import (
+        OpenRouterFile,
+        OpenRouterFileShape,
+        OpenRouterFileType,
+        OpenRouterFileTypedDict,
+    )
+    from .openrouterfiledeleted import (
+        OpenRouterFileDeleted,
+        OpenRouterFileDeletedShape,
+        OpenRouterFileDeletedType,
+        OpenRouterFileDeletedTypedDict,
+    )
+    from .openrouterfilelist import (
+        OpenRouterFileList,
+        OpenRouterFileListShape,
+        OpenRouterFileListTypedDict,
     )
     from .openroutermetadata import OpenRouterMetadata, OpenRouterMetadataTypedDict
     from .openrouterwebsearchservertool import (
@@ -3010,9 +3070,20 @@ __all__ = [
     "AnthropicDocumentBlockParamSourceUnion",
     "AnthropicDocumentBlockParamSourceUnionTypedDict",
     "AnthropicDocumentBlockParamTypedDict",
+    "AnthropicFile",
+    "AnthropicFileDeleted",
+    "AnthropicFileDeletedShape",
+    "AnthropicFileDeletedType",
+    "AnthropicFileDeletedTypedDict",
     "AnthropicFileDocumentSource",
     "AnthropicFileDocumentSourceType",
     "AnthropicFileDocumentSourceTypedDict",
+    "AnthropicFileList",
+    "AnthropicFileListShape",
+    "AnthropicFileListTypedDict",
+    "AnthropicFileShape",
+    "AnthropicFileType",
+    "AnthropicFileTypedDict",
     "AnthropicImageBlockParam",
     "AnthropicImageBlockParamSource",
     "AnthropicImageBlockParamSourceTypedDict",
@@ -3585,19 +3656,18 @@ __all__ = [
     "FileCitationType",
     "FileCitationTypedDict",
     "FileDeleteResponse",
-    "FileDeleteResponseType",
     "FileDeleteResponseTypedDict",
     "FileListResponse",
     "FileListResponseTypedDict",
-    "FileMetadata",
-    "FileMetadataType",
-    "FileMetadataTypedDict",
     "FileParserPlugin",
     "FileParserPluginID",
     "FileParserPluginTypedDict",
     "FilePath",
     "FilePathType",
     "FilePathTypedDict",
+    "FileProvider",
+    "FileResponse",
+    "FileResponseTypedDict",
     "FileSearchServerTool",
     "FileSearchServerToolTypedDict",
     "FileSearchServerToolValue1",
@@ -4054,6 +4124,8 @@ __all__ = [
     "ModeRequired",
     "ModeTypedDict",
     "Model",
+    "ModelAliasTarget",
+    "ModelAliasTargetTypedDict",
     "ModelArchitecture",
     "ModelArchitectureTypedDict",
     "ModelBenchmarks",
@@ -4190,6 +4262,19 @@ __all__ = [
     "ObservabilityWebhookDestinationConfigTypedDict",
     "ObservabilityWebhookDestinationType",
     "ObservabilityWebhookDestinationTypedDict",
+    "OpenAIFile",
+    "OpenAIFileDeleted",
+    "OpenAIFileDeletedObject",
+    "OpenAIFileDeletedShape",
+    "OpenAIFileDeletedTypedDict",
+    "OpenAIFileList",
+    "OpenAIFileListObject",
+    "OpenAIFileListShape",
+    "OpenAIFileListTypedDict",
+    "OpenAIFileObject",
+    "OpenAIFileShape",
+    "OpenAIFileStatus",
+    "OpenAIFileTypedDict",
     "OpenAIResponseCustomToolCall",
     "OpenAIResponseCustomToolCallOutput",
     "OpenAIResponseCustomToolCallOutputOutput1",
@@ -4259,6 +4344,17 @@ __all__ = [
     "OpenResponsesResultToolUnionTypedDict",
     "OpenResponsesResultType",
     "OpenResponsesResultTypedDict",
+    "OpenRouterFile",
+    "OpenRouterFileDeleted",
+    "OpenRouterFileDeletedShape",
+    "OpenRouterFileDeletedType",
+    "OpenRouterFileDeletedTypedDict",
+    "OpenRouterFileList",
+    "OpenRouterFileListShape",
+    "OpenRouterFileListTypedDict",
+    "OpenRouterFileShape",
+    "OpenRouterFileType",
+    "OpenRouterFileTypedDict",
     "OpenRouterMetadata",
     "OpenRouterMetadataTypedDict",
     "OpenRouterWebSearchServerTool",
@@ -4527,6 +4623,7 @@ __all__ = [
     "PublicEndpointTypedDict",
     "PublicPricing",
     "PublicPricingTypedDict",
+    "Purpose",
     "Quantization",
     "RangeCapability",
     "RangeCapabilityType",
@@ -4921,6 +5018,9 @@ __all__ = [
     "UnknownChatContentItems",
     "UnknownContentPartAddedEventPart",
     "UnknownContentPartDoneEventPart",
+    "UnknownFileDeleteResponse",
+    "UnknownFileListResponse",
+    "UnknownFileResponse",
     "UnknownFormat",
     "UnknownFormats",
     "UnknownImageStreamingResponseData",
@@ -5139,9 +5239,20 @@ _dynamic_imports: dict[str, str] = {
     "SourceContentTypedDict": ".anthropicdocumentblockparam",
     "SourceType": ".anthropicdocumentblockparam",
     "TypeDocument": ".anthropicdocumentblockparam",
+    "AnthropicFile": ".anthropicfile",
+    "AnthropicFileShape": ".anthropicfile",
+    "AnthropicFileType": ".anthropicfile",
+    "AnthropicFileTypedDict": ".anthropicfile",
+    "AnthropicFileDeleted": ".anthropicfiledeleted",
+    "AnthropicFileDeletedShape": ".anthropicfiledeleted",
+    "AnthropicFileDeletedType": ".anthropicfiledeleted",
+    "AnthropicFileDeletedTypedDict": ".anthropicfiledeleted",
     "AnthropicFileDocumentSource": ".anthropicfiledocumentsource",
     "AnthropicFileDocumentSourceType": ".anthropicfiledocumentsource",
     "AnthropicFileDocumentSourceTypedDict": ".anthropicfiledocumentsource",
+    "AnthropicFileList": ".anthropicfilelist",
+    "AnthropicFileListShape": ".anthropicfilelist",
+    "AnthropicFileListTypedDict": ".anthropicfilelist",
     "AnthropicImageBlockParam": ".anthropicimageblockparam",
     "AnthropicImageBlockParamSource": ".anthropicimageblockparam",
     "AnthropicImageBlockParamSourceTypedDict": ".anthropicimageblockparam",
@@ -5692,19 +5803,21 @@ _dynamic_imports: dict[str, str] = {
     "FileCitationType": ".filecitation",
     "FileCitationTypedDict": ".filecitation",
     "FileDeleteResponse": ".filedeleteresponse",
-    "FileDeleteResponseType": ".filedeleteresponse",
     "FileDeleteResponseTypedDict": ".filedeleteresponse",
+    "UnknownFileDeleteResponse": ".filedeleteresponse",
     "FileListResponse": ".filelistresponse",
     "FileListResponseTypedDict": ".filelistresponse",
-    "FileMetadata": ".filemetadata",
-    "FileMetadataType": ".filemetadata",
-    "FileMetadataTypedDict": ".filemetadata",
+    "UnknownFileListResponse": ".filelistresponse",
     "FileParserPlugin": ".fileparserplugin",
     "FileParserPluginID": ".fileparserplugin",
     "FileParserPluginTypedDict": ".fileparserplugin",
     "FilePath": ".filepath",
     "FilePathType": ".filepath",
     "FilePathTypedDict": ".filepath",
+    "FileProvider": ".fileprovider",
+    "FileResponse": ".fileresponse",
+    "FileResponseTypedDict": ".fileresponse",
+    "UnknownFileResponse": ".fileresponse",
     "FileSearchServerTool": ".filesearchservertool",
     "FileSearchServerToolTypedDict": ".filesearchservertool",
     "FileSearchServerToolValue1": ".filesearchservertool",
@@ -6287,6 +6400,8 @@ _dynamic_imports: dict[str, str] = {
     "MetadataLevel": ".metadatalevel",
     "Model": ".model",
     "ModelTypedDict": ".model",
+    "ModelAliasTarget": ".modelaliastarget",
+    "ModelAliasTargetTypedDict": ".modelaliastarget",
     "ModelArchitecture": ".modelarchitecture",
     "ModelArchitectureTypedDict": ".modelarchitecture",
     "ModelBenchmarks": ".modelbenchmarks",
@@ -6427,6 +6542,20 @@ _dynamic_imports: dict[str, str] = {
     "ObservabilityWebhookDestinationConfigTypedDict": ".observabilitywebhookdestination",
     "ObservabilityWebhookDestinationType": ".observabilitywebhookdestination",
     "ObservabilityWebhookDestinationTypedDict": ".observabilitywebhookdestination",
+    "OpenAIFile": ".openaifile",
+    "OpenAIFileObject": ".openaifile",
+    "OpenAIFileShape": ".openaifile",
+    "OpenAIFileStatus": ".openaifile",
+    "OpenAIFileTypedDict": ".openaifile",
+    "Purpose": ".openaifile",
+    "OpenAIFileDeleted": ".openaifiledeleted",
+    "OpenAIFileDeletedObject": ".openaifiledeleted",
+    "OpenAIFileDeletedShape": ".openaifiledeleted",
+    "OpenAIFileDeletedTypedDict": ".openaifiledeleted",
+    "OpenAIFileList": ".openaifilelist",
+    "OpenAIFileListObject": ".openaifilelist",
+    "OpenAIFileListShape": ".openaifilelist",
+    "OpenAIFileListTypedDict": ".openaifilelist",
     "OpenAIResponseCustomToolCall": ".openairesponsecustomtoolcall",
     "OpenAIResponseCustomToolCallType": ".openairesponsecustomtoolcall",
     "OpenAIResponseCustomToolCallTypedDict": ".openairesponsecustomtoolcall",
@@ -6511,6 +6640,17 @@ _dynamic_imports: dict[str, str] = {
     "UsageCostDetails": ".openresponsesresult",
     "UsageCostDetailsTypedDict": ".openresponsesresult",
     "UsageTypedDict": ".openresponsesresult",
+    "OpenRouterFile": ".openrouterfile",
+    "OpenRouterFileShape": ".openrouterfile",
+    "OpenRouterFileType": ".openrouterfile",
+    "OpenRouterFileTypedDict": ".openrouterfile",
+    "OpenRouterFileDeleted": ".openrouterfiledeleted",
+    "OpenRouterFileDeletedShape": ".openrouterfiledeleted",
+    "OpenRouterFileDeletedType": ".openrouterfiledeleted",
+    "OpenRouterFileDeletedTypedDict": ".openrouterfiledeleted",
+    "OpenRouterFileList": ".openrouterfilelist",
+    "OpenRouterFileListShape": ".openrouterfilelist",
+    "OpenRouterFileListTypedDict": ".openrouterfilelist",
     "OpenRouterMetadata": ".openroutermetadata",
     "OpenRouterMetadataTypedDict": ".openroutermetadata",
     "OpenRouterWebSearchServerTool": ".openrouterwebsearchservertool",

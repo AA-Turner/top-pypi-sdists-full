@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-pika-ts
-Version: 1.4.0.20260725
+Version: 1.4.0.20260730
 Summary: Typing stubs for pika
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -13,6 +13,10 @@ Classifier: Typing :: Stubs Only
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Provides-Extra: all
+Requires-Dist: types-gevent; extra == "all"
+Provides-Extra: gevent
+Requires-Dist: types-gevent; extra == "gevent"
 Dynamic: license-file
 
 ## Typing stubs for pika
@@ -22,8 +26,6 @@ for the [`pika`](https://github.com/pika/pika) package. It can be used by type c
 to check code that uses `pika`. This version of
 `types-pika-ts` aims to provide accurate annotations for
 `pika==1.4.*`.
-
-The `types-pika` package contains alternate, more complete type stubs, that are maintained outside of typeshed.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -35,6 +37,7 @@ directory.
 This package was tested with the following type checkers:
 * [mypy](https://github.com/python/mypy/) 2.3.0
 * [pyright](https://github.com/microsoft/pyright) 1.1.411
+* [ty](https://docs.astral.sh/ty/) 0.0.59
 
 It was generated from typeshed commit
-[`145ca22596255e1af2af6dfd2bdf8547f2a368c4`](https://github.com/python/typeshed/commit/145ca22596255e1af2af6dfd2bdf8547f2a368c4).
+[`4b150aed0c3df75d0b3bff63a167d3c666eacb3a`](https://github.com/python/typeshed/commit/4b150aed0c3df75d0b3bff63a167d3c666eacb3a).

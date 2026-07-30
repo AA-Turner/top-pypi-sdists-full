@@ -7,19 +7,23 @@
 # pylint: skip-file
 # fmt: off
 # isort: skip_file
+from .....schema_classes import AIAgentDependenciesClass
 from .....schema_classes import AIAgentInfoClass
 from .....schema_classes import AIAgentSourceClass
 from .....schema_classes import AIAgentSourceTypeClass
 from .....schema_classes import AIAgentToolRefClass
 from .....schema_classes import AgentDetailTabKeyClass
 from .....schema_classes import DataHubAgentSettingsClass
+from .....schema_classes import ToolRefTypeClass
 
 
+AIAgentDependencies = AIAgentDependenciesClass
 AIAgentInfo = AIAgentInfoClass
 AIAgentSource = AIAgentSourceClass
 AIAgentSourceType = AIAgentSourceTypeClass
 AIAgentToolRef = AIAgentToolRefClass
 AgentDetailTabKey = AgentDetailTabKeyClass
 DataHubAgentSettings = DataHubAgentSettingsClass
+ToolRefType = ToolRefTypeClass
 
 # fmt: on

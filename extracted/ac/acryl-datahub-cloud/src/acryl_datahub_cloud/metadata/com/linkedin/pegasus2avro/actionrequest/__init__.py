@@ -14,6 +14,7 @@ from .....schema_classes import ActionRequestInfoClass
 from .....schema_classes import ActionRequestOriginClass
 from .....schema_classes import ActionRequestParamsClass
 from .....schema_classes import ActionRequestStatusClass
+from .....schema_classes import AnchorRemediationClass
 from .....schema_classes import CreateGlossaryNodeProposalClass
 from .....schema_classes import CreateGlossaryTermProposalClass
 from .....schema_classes import DataContractProposalClass
@@ -25,6 +26,7 @@ from .....schema_classes import DocumentsProposalClass
 from .....schema_classes import DomainProposalClass
 from .....schema_classes import GlossaryTermProposalClass
 from .....schema_classes import LifecycleStageProposalClass
+from .....schema_classes import ObservationClusterClass
 from .....schema_classes import OwnerProposalClass
 from .....schema_classes import PostAttachmentClass
 from .....schema_classes import StepDecisionClass
@@ -42,6 +44,7 @@ ActionRequestInfo = ActionRequestInfoClass
 ActionRequestOrigin = ActionRequestOriginClass
 ActionRequestParams = ActionRequestParamsClass
 ActionRequestStatus = ActionRequestStatusClass
+AnchorRemediation = AnchorRemediationClass
 CreateGlossaryNodeProposal = CreateGlossaryNodeProposalClass
 CreateGlossaryTermProposal = CreateGlossaryTermProposalClass
 DataContractProposal = DataContractProposalClass
@@ -53,6 +56,7 @@ DocumentsProposal = DocumentsProposalClass
 DomainProposal = DomainProposalClass
 GlossaryTermProposal = GlossaryTermProposalClass
 LifecycleStageProposal = LifecycleStageProposalClass
+ObservationCluster = ObservationClusterClass
 OwnerProposal = OwnerProposalClass
 PostAttachment = PostAttachmentClass
 StepDecision = StepDecisionClass

@@ -71,6 +71,47 @@ class TestCheckUntilConditionRaisesOnUnevaluable:
             check_until_condition(fake_driver, "1 === not python")
 
 
+class TestCheckUntilConditionConcatenationOperator:
+    """Composite while-conditions bake ConcatenationOperator.AND/OR — the local
+    eval sandbox must expose that name or every AND/OR while-loop raises."""
+
+    def _and_condition(self, right_b: str) -> str:
+        return (
+            "Condition(conditions=["
+            "ResolvedCondition(left_operand='{{a}}', operator=PossibleCondition('=='), right_operand='1'), "
+            "ResolvedCondition(left_operand='{{b}}', operator=PossibleCondition('=='), right_operand='%s')"
+            "], connectors=[ConcatenationOperator.AND], is_v3=True)"
+            ".evaluate({}, get_variable_value)[0]" % right_b
+        )
+
+    def _or_condition(self, right_b: str) -> str:
+        return (
+            "Condition(conditions=["
+            "ResolvedCondition(left_operand='{{a}}', operator=PossibleCondition('=='), right_operand='1'), "
+            "ResolvedCondition(left_operand='{{b}}', operator=PossibleCondition('=='), right_operand='%s')"
+            "], connectors=[ConcatenationOperator.OR], is_v3=True)"
+            ".evaluate({}, get_variable_value)[0]" % right_b
+        )
+
+    def test_and_condition_true_when_both_hold(self, fake_driver):
+        clear_state()
+        set_var("a", 1)
+        set_var("b", 2)
+        assert check_until_condition(fake_driver, self._and_condition("2")) is True
+
+    def test_and_condition_false_when_one_fails(self, fake_driver):
+        clear_state()
+        set_var("a", 1)
+        set_var("b", 2)
+        assert check_until_condition(fake_driver, self._and_condition("99")) is False
+
+    def test_or_condition_true_when_one_holds(self, fake_driver):
+        clear_state()
+        set_var("a", 1)
+        set_var("b", 2)
+        assert check_until_condition(fake_driver, self._or_condition("99")) is True
+
+
 class TestNoVisionEndpoint:
     """Regression guard: the V16 vision wait/check path stays removed."""
 

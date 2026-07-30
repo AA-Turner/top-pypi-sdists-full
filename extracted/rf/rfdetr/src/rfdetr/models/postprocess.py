@@ -15,6 +15,10 @@ from torch import nn
 
 from rfdetr.utilities import box_ops
 
+# Number of masks upsampled per interpolation call. Bounds peak memory when many masks are
+# resized to full image resolution (e.g. K=300 at 1080p would otherwise allocate gigabytes).
+_MASK_CHUNK = 32
+
 
 class PostProcess(nn.Module):
     """Convert raw RF-DETR model outputs into per-image prediction tensors.
@@ -29,11 +33,13 @@ class PostProcess(nn.Module):
         num_select: int = 300,
         num_keypoints_per_class: list[int] | None = None,
         trace_alpha: float = 0.2,
+        upsample_masks_to_image_size: bool = True,
     ) -> None:
         super().__init__()
         self.num_select = num_select
         self.num_keypoints_per_class = num_keypoints_per_class or []
         self.trace_alpha = trace_alpha
+        self.upsample_masks_to_image_size = upsample_masks_to_image_size
 
     @torch.no_grad()
     def forward(self, outputs: dict[str, torch.Tensor], target_sizes: torch.Tensor) -> list[dict[str, torch.Tensor]]:
@@ -51,15 +57,17 @@ class PostProcess(nn.Module):
             ``masks``. Keypoint outputs also contain ``keypoints`` and ``keypoint_precision_cholesky``.
         """
         out_logits, out_bbox = outputs["pred_logits"], outputs["pred_boxes"]
-        out_masks = outputs.get("pred_masks", None)
-        out_keypoints = outputs.get("pred_keypoints", None)
+        out_masks = outputs.get("pred_masks")
+        out_keypoints = outputs.get("pred_keypoints")
         self._validate_outputs(out_logits, out_masks, out_keypoints, target_sizes)
 
         scores, labels, topk_boxes = self._select_topk(out_logits)
         boxes = self._gather_and_scale_boxes(out_bbox, topk_boxes, target_sizes)
 
         if out_masks is not None:
-            return self._postprocess_masks(out_masks, scores, labels, boxes, topk_boxes, target_sizes)
+            return self._postprocess_masks(
+                out_masks, scores, labels, boxes, topk_boxes, target_sizes, self.upsample_masks_to_image_size
+            )
         if out_keypoints is not None:
             return self._postprocess_keypoints(out_keypoints, scores, labels, boxes, topk_boxes, target_sizes)
         return self._postprocess_boxes(scores, labels, boxes)
@@ -146,8 +154,9 @@ class PostProcess(nn.Module):
         boxes: torch.Tensor,
         topk_boxes: torch.Tensor,
         target_sizes: torch.Tensor,
+        upsample_masks_to_image_size: bool = True,
     ) -> list[dict[str, torch.Tensor]]:
-        """Attach resized segmentation masks for selected detections.
+        """Attach segmentation masks for selected detections.
 
         Args:
             out_masks: Raw mask logits with shape ``(B, Q, Hm, Wm)``.
@@ -155,12 +164,22 @@ class PostProcess(nn.Module):
             labels: Selected class labels with shape ``(B, K)``.
             boxes: Selected absolute boxes with shape ``(B, K, 4)``.
             topk_boxes: Selected query indices with shape ``(B, K)``.
-            target_sizes: Per-image ``(height, width)`` tensor used for mask
-                resizing.
+            target_sizes: Per-image ``(height, width)`` tensor used for mask resizing when
+                ``upsample_masks_to_image_size`` is ``True``.
+            upsample_masks_to_image_size: When ``True`` (default), resize masks to the target
+                image size — the standard behaviour required for correct-resolution inference
+                output. When ``False``, skip the resize and return masks thresholded at the
+                model's native ``(Hm, Wm)`` mask-head resolution instead — cheaper (no
+                interpolation, no chunking needed) but masks are then at a different resolution
+                than boxes/ground truth; callers comparing them against full-resolution masks
+                (e.g. COCO segm mAP) must downsize the other side to match, or the comparison is
+                meaningless. Intended for opt-in, validation-only cost reduction (see
+                ``TrainConfig.eval_masks_head_resolution``), not for inference output.
 
         Returns:
-            One result dict per image containing scores, labels, boxes, and
-            boolean masks resized to the target image size.
+            One result dict per image containing scores, labels, boxes, and boolean masks —
+            resized to the target image size, or left at native mask-head resolution per
+            ``upsample_masks_to_image_size``.
         """
         results = []
         for i in range(out_masks.shape[0]):
@@ -171,11 +190,29 @@ class PostProcess(nn.Module):
                 0,
                 k_idx.unsqueeze(-1).unsqueeze(-1).repeat(1, out_masks.shape[-2], out_masks.shape[-1]),
             )  # [K, Hm, Wm]
+            if not upsample_masks_to_image_size:
+                res_i["masks"] = (masks_i > 0.0).unsqueeze(1)  # [K,1,Hm,Wm] bool, native resolution
+                results.append(res_i)
+                continue
             h, w = target_sizes[i].tolist()
-            masks_i = F.interpolate(
-                masks_i.unsqueeze(1), size=(int(h), int(w)), mode="bilinear", align_corners=False
-            )  # [K,1,H,W]
-            res_i["masks"] = masks_i > 0.0
+            # Upsample in chunks and threshold *inside* the comprehension so only one float32 chunk
+            # is live at a time; the accumulated list holds bool tensors (1 byte/pixel vs 4 for float32).
+            # At K=300, 1080p this reduces peak memory from ~5 GB to ~1.5 GB vs a single F.interpolate
+            # call that would allocate the full [K,1,H,W] float tensor followed by a bool copy.
+            chunks = [
+                F.interpolate(
+                    masks_i[start : start + _MASK_CHUNK].unsqueeze(1),
+                    size=(int(h), int(w)),
+                    mode="bilinear",
+                    align_corners=False,
+                )
+                > 0.0
+                for start in range(0, masks_i.shape[0], _MASK_CHUNK)
+            ]
+            masks_i = (
+                torch.cat(chunks, dim=0) if chunks else masks_i.new_zeros((0, 1, int(h), int(w)), dtype=torch.bool)
+            )  # [K,1,H,W] bool
+            res_i["masks"] = masks_i
             results.append(res_i)
         return results
 
@@ -204,8 +241,8 @@ class PostProcess(nn.Module):
             One result dict per image containing postprocessed object scores,
             labels, boxes, pixel-space keypoints, and raw precision-Cholesky
             parameters. When ``trace_alpha > 0``, scores for valid keypoint
-            classes are multiplied by an uncertainty penalty derived from the
-            active keypoints of the predicted class.
+            classes are fused with uncertainty from the active keypoints of the
+            predicted class and normalized to ``[0, 1)``.
         """
         results = []
         max_num_keypoints = max(self.num_keypoints_per_class, default=0)
@@ -376,9 +413,10 @@ class PostProcess(nn.Module):
 
         Returns:
             A score tensor where valid keypoint detections are multiplied by
-            ``exp(-trace_alpha * log_mean_trace)``. The trace is the
-            findability-weighted mean expected squared localization error
-            implied by the predicted precision-Cholesky parameters.
+            ``exp(-trace_alpha * log_mean_trace)`` and then normalized to
+            ``[0, 1)``. The trace is the findability-weighted mean expected
+            squared localization error implied by the predicted
+            precision-Cholesky parameters.
         """
         num_keypoint_classes = len(self.num_keypoints_per_class)
         log_mean_traces = selected_keypoints.new_zeros(selected_labels.shape[0])
@@ -401,7 +439,14 @@ class PostProcess(nn.Module):
             log_mean_traces[class_mask] = self._keypoint_log_mean_trace(active_keypoints)
 
         scores_i = scores_i.clone()
-        scores_i[valid_indices] = scores_i[valid_indices] * torch.exp(-self.trace_alpha * log_mean_traces)
+        log_fused_scores = torch.log(scores_i[valid_indices]) - self.trace_alpha * log_mean_traces
+        normalized_scores = torch.sigmoid(log_fused_scores)
+        # Keep the public contract strictly below 1.0 even when the log-fused score saturates.
+        max_score = torch.nextafter(
+            torch.ones_like(normalized_scores),
+            torch.zeros_like(normalized_scores),
+        )
+        scores_i[valid_indices] = torch.minimum(normalized_scores, max_score)
         return scores_i
 
     @staticmethod

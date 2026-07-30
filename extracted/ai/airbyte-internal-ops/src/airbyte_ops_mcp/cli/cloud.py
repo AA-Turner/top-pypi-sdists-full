@@ -378,7 +378,7 @@ def get_version_info(
 
 
 _OverrideLevel = Literal["actor", "workspace", "organization"]
-_TierFilter = Literal["TIER_0", "TIER_1", "TIER_2", "ALL"]
+_TierFilter = Literal["TIER_0", "TIER_1", "TIER_2", "UNKNOWN", "ALL"]
 
 
 def _resolve_cli_cloud_auth() -> ResolvedCloudAuth:
@@ -710,7 +710,7 @@ def set_version_override(
         _TierFilter,
         Parameter(
             help=(
-                "Tier filter: 'TIER_0', 'TIER_1', 'TIER_2', or 'ALL'. "
+                "Tier filter: 'TIER_0', 'TIER_1', 'TIER_2', 'UNKNOWN', or 'ALL'. "
                 "The operation will be rejected if the actual customer tier does not match. "
                 "Defaults to 'TIER_2' (non-sensitive customers)."
             ),
@@ -824,7 +824,7 @@ def clear_version_override(
         _TierFilter,
         Parameter(
             help=(
-                "Tier filter: 'TIER_0', 'TIER_1', 'TIER_2', or 'ALL'. "
+                "Tier filter: 'TIER_0', 'TIER_1', 'TIER_2', 'UNKNOWN', or 'ALL'. "
                 "The operation will be rejected if the actual customer tier does not match. "
                 "Defaults to 'TIER_2' (non-sensitive customers)."
             ),

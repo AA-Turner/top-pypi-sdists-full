@@ -128,7 +128,7 @@ _FOOTNOTE_DEF_RE = re.compile(r"^\[\^([\w-]+)\]:\s?(.*)$", re.MULTILINE)
 _LINK_RE = re.compile(r"(?<!!)\[([^\]]+)\]\(([^)]+)\)")
 
 
-def _convert_link(match: re.Match) -> str:
+def _convert_link(match: re.Match[str]) -> str:
     """Convert a markdown link to reST, stripping backticks from the label."""
     label = match.group(1).replace("`", "")
     url = match.group(2)
@@ -159,16 +159,24 @@ _RST_LITERAL_RE = re.compile(r"(?<!`)``(?!`)[^`\n]+``(?!`)")
 # swallow everything up to the next backtick, corrupting the span and any
 # cross-reference after it.
 # The hyperlink alternative anchors its opening backtick at a non-word,
-# non-backtick boundary so it cannot start at the *closing* backtick of a
-# preceding inline-code span.
+# non-backtick boundary AND requires its trailing reference marker (`_` or
+# `__`) not to be glued to an identifier. The boundary alone is not enough:
+# when a preceding code span's content ends in a non-word character (the `>`
+# of `` `<stdout>` ``, the `)` of `` `func()` ``), that span's *closing*
+# backtick also clears the lookbehind, so the alternative would start there,
+# read the gap as link text, swallow the next span's *opening* backtick, and
+# match a following `_word` as a bogus reference marker: the two real spans
+# collapse into one and their backticks mispair. A genuine reST reference
+# marker is never followed by a word character, so the trailing `(?![\w])`
+# rejects that false match while still matching real `` `text`_ `` links.
 _PROTECTED_RE = re.compile(
     r":[\w-]+:`[^`]*`"
-    r"|(?<![\w`])`[^`]+`_{1,2}"
+    r"|(?<![\w`])`[^`]+`_{1,2}(?![\w])"
     r"|(?<!`)`(:[\w-]+:[^`\n]*)`(?!`)"
 )
 
 
-def _convert_plain_code_fence(match: re.Match) -> str:
+def _convert_plain_code_fence(match: re.Match[str]) -> str:
     """Convert a plain triple-backtick code fence to a reST `code-block`."""
     indent = match.group(1)
     lang = match.group(2) or ""
@@ -193,7 +201,7 @@ def _convert_plain_code_fence(match: re.Match) -> str:
     return header + "\n" + "\n".join(converted_lines) + "\n"
 
 
-def _convert_fence(match: re.Match) -> str:
+def _convert_fence(match: re.Match[str]) -> str:
     """Convert a single colon-fenced directive to reST."""
     indent = match.group(1)
     directive = match.group(2)
@@ -220,6 +228,20 @@ def _convert_fence(match: re.Match) -> str:
     return header + "\n" + "\n".join(converted_lines) + "\n"
 
 
+def _double_inline_code(m: re.Match[str]) -> str:
+    """Double a MyST inline-code span's backticks for reST.
+
+    reST inline literals cannot carry whitespace adjacent to their delimiters,
+    so a span whose content has leading or trailing spaces (a `` `> ` ``
+    prompt) is stripped to its core before doubling. An all-whitespace span has
+    no reST literal to become, so it is left untouched.
+    """
+    content = m.group(1).strip()
+    if not content:
+        return m.group(0)
+    return f"``{content}``"
+
+
 def myst_to_rst(lines: list[str]) -> None:
     """Convert MyST syntax to reST, modifying *lines* in place.
 
@@ -238,10 +260,10 @@ def myst_to_rst(lines: list[str]) -> None:
         placeholders[key] = value
         return key
 
-    def _save(m: re.Match) -> str:
+    def _save(m: re.Match[str]) -> str:
         return _stash(m.group(0))
 
-    def _save_protected(m: re.Match) -> str:
+    def _save_protected(m: re.Match[str]) -> str:
         # A role-shaped code span (group 1) is doubled for reST on its way
         # into the placeholder; other protected spans are kept verbatim.
         if m.group(1):
@@ -281,7 +303,7 @@ def myst_to_rst(lines: list[str]) -> None:
     # spans, which are doubled as they are stashed) with placeholders so
     # their backticks are not mistaken for inline code boundaries.
     text = _PROTECTED_RE.sub(_save_protected, text)
-    text = _INLINE_CODE_RE.sub(r"``\1``", text)
+    text = _INLINE_CODE_RE.sub(_double_inline_code, text)
 
     # 6. Footnote references: [^label] -> [#label]_.
     # Runs after inline code (no backticks involved) and before links so that

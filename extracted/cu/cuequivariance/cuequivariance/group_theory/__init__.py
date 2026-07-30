@@ -44,7 +44,6 @@ from .irreps_array import (
 
 from .equivariant_polynomial import EquivariantPolynomial
 from .equivariant_tensor_product import EquivariantTensorProduct
-from .ir_dict_polynomial import IrDictPolynomial, split_polynomial_by_irreps
 
 
 __all__ = [
@@ -73,6 +72,4 @@ __all__ = [
     "reduced_antisymmetric_tensor_product_basis",
     "EquivariantPolynomial",
     "EquivariantTensorProduct",
-    "IrDictPolynomial",
-    "split_polynomial_by_irreps",
 ]

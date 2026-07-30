@@ -19,9 +19,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@aws-cdk/aws-iot-alpha",
-    "2.262.1-alpha.0",
+    "2.262.2-alpha.0",
     __name__[0:-6],
-    "aws-iot-alpha@2.262.1-alpha.0.jsii.tgz",
+    "aws-iot-alpha@2.262.2-alpha.0.jsii.tgz",
 )
 
 __all__ = [

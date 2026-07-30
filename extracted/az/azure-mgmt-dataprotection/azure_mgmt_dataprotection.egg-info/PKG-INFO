@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-mgmt-dataprotection
-Version: 2.0.1
+Version: 2.1.0
 Summary: Microsoft Azure Dataprotection Management Client Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -10,12 +10,12 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: LICENSE.txt
@@ -27,7 +27,7 @@ Dynamic: license-file
 # Microsoft Azure SDK for Python
 
 This is the Microsoft Azure Data Protection Management Client Library.
-This package has been tested with Python 3.9+.
+This package has been tested with Python 3.10+.
 For a more complete view of Azure libraries, see the [azure sdk python release](https://aka.ms/azsdk/python/all).
 
 ## _Disclaimer_
@@ -38,7 +38,7 @@ _Azure SDK Python packages support for Python 2.7 has ended 01 January 2022. For
 
 ### Prerequisites
 
-- Python 3.9+ is required to use this package.
+- Python 3.10+ is required to use this package.
 - [Azure subscription](https://azure.microsoft.com/free/)
 
 ### Install the package
@@ -50,7 +50,7 @@ pip install azure-identity
 
 ### Authentication
 
-By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configuration of the following environment variables.
+By default, [Microsoft Entra](https://learn.microsoft.com/entra/fundamentals/what-is-entra) token authentication depends on correct configuration of the following environment variables.
 
 - `AZURE_CLIENT_ID` for Azure client ID.
 - `AZURE_TENANT_ID` for Azure tenant ID.
@@ -62,11 +62,11 @@ With above configuration, client can be authenticated by following code:
 
 ```python
 from azure.identity import DefaultAzureCredential
-from azure.mgmt.dataprotection import DataProtectionClient
+from azure.mgmt.dataprotection import DataProtectionMgmtClient
 import os
 
 sub_id = os.getenv("AZURE_SUBSCRIPTION_ID")
-client = DataProtectionClient(credential=DefaultAzureCredential(), subscription_id=sub_id)
+client = DataProtectionMgmtClient(credential=DefaultAzureCredential(), subscription_id=sub_id)
 ```
 
 ## Examples
@@ -87,6 +87,42 @@ If you encounter any bugs or have suggestions, please file an issue in the
 section of the project. 
 
 # Release History
+
+## 2.1.0 (2026-07-29)
+
+### Features Added
+
+  - Client `DataProtectionMgmtClient` added operation group `deleted_backup_vaults`
+  - Added model `AdlsBlobBackupDatasourceParametersForAutoProtection`
+  - Added model `BlobBackupAutoProtectionRule`
+  - Added model `BlobBackupAutoProtectionSettings`
+  - Added model `BlobBackupDatasourceParametersForAutoProtection`
+  - Added enum `BlobBackupPatternType`
+  - Added model `BlobBackupRuleBasedAutoProtectionSettings`
+  - Added enum `BlobBackupRuleMode`
+  - Added model `DeletedBackupVault`
+  - Added model `DeletedBackupVaultResource`
+  - Added model `ResourceDeletionInfo`
+  - Operation group `BackupVaultsOperations` added parameter `x_ms_deleted_vault_id` in method `begin_create_or_update`
+  - Added operation group `DeletedBackupVaultsOperations`
+
+## 2.1.0b1 (2026-04-07)
+
+### Features Added
+
+  - Client `DataProtectionMgmtClient` added operation group `deleted_backup_vaults`
+  - Added model `AdlsBlobBackupDatasourceParametersForAutoProtection`
+  - Added model `BlobBackupAutoProtectionRule`
+  - Added model `BlobBackupAutoProtectionSettings`
+  - Added model `BlobBackupDatasourceParametersForAutoProtection`
+  - Added enum `BlobBackupPatternType`
+  - Added model `BlobBackupRuleBasedAutoProtectionSettings`
+  - Added enum `BlobBackupRuleMode`
+  - Added model `DeletedBackupVault`
+  - Added model `DeletedBackupVaultResource`
+  - Added model `ResourceDeletionInfo`
+  - Operation group `BackupVaultsOperations` added parameter `x_ms_deleted_vault_id` in method `begin_create_or_update`
+  - Added operation group `DeletedBackupVaultsOperations`
 
 ## 2.0.1 (2025-10-09)
 

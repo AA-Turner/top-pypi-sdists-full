@@ -60,8 +60,13 @@ class TraceEmitter:
     """
 
     def __init__(self, aigie: Aigie) -> None:
+        from aigie.tracing.tool_hash_stamp import ToolHashStamper
+
         self._aigie = aigie
         self._span_complete_hooks: list[SpanHook] = []
+        # Every framework's emitter is a TraceEmitter, so registering here folds
+        # the run's tool_registry_hash onto every span with no per-framework wiring.
+        self.register_span_complete_hook(ToolHashStamper(aigie))
 
     def register_span_complete_hook(self, hook: SpanHook) -> None:
         """Register a callable invoked with each span-completion dict before emission."""

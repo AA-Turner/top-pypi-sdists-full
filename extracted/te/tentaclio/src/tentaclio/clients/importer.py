@@ -1,9 +1,9 @@
 """Method for importing tentaclio plugins."""
+
 import importlib
 import logging
+from importlib.metadata import packages_distributions
 from typing import Callable, Iterable
-
-from importlib_metadata import packages_distributions
 
 
 PackageLister = Callable[[], Iterable[str]]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: analytics-mcp
-Version: 0.6.0
+Version: 0.7.0
 Summary: MCP server for Google Analytics
 Author-email: Josh Radcliff <jradcliff@users.noreply.github.com>, Matt Landers <matt-landers@users.noreply.github.com>
 License-Expression: Apache-2.0
@@ -23,10 +23,10 @@ Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: google-analytics-data==0.22.0
-Requires-Dist: google-analytics-admin==0.29.0
+Requires-Dist: google-analytics-data==0.23.0
+Requires-Dist: google-analytics-admin==0.30.1
 Requires-Dist: google-auth~=2.40
-Requires-Dist: mcp>=1.24.0
+Requires-Dist: mcp<2,>=1.24.0
 Requires-Dist: google-adk>=1.29.0
 Requires-Dist: httpx>=0.28.1
 Provides-Extra: dev
@@ -182,6 +182,23 @@ Credentials saved to file: [PATH_TO_CREDENTIALS_JSON]
         }
       }
     }
+    ```
+
+### Configure Claude Code
+
+1.  Add the MCP server with the following command:
+
+    Replace `PATH_TO_CREDENTIALS_JSON` with the path you copied in the previous
+    step, and replace `YOUR_PROJECT_ID` with the
+    [project ID](https://support.google.com/googleapi/answer/7014113) of your
+    Google Cloud project.
+
+    ```shell
+    claude mcp add analytics-mcp \
+      --scope user \
+      -e "GOOGLE_APPLICATION_CREDENTIALS=PATH_TO_CREDENTIALS_JSON" \
+      -e "GOOGLE_PROJECT_ID=YOUR_PROJECT_ID" \
+      -- pipx run analytics-mcp
     ```
 
 ## Try it out 🥼

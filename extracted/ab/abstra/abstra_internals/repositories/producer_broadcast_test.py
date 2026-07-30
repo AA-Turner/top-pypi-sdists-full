@@ -70,7 +70,12 @@ class TestFireAndForgetBroadcast(unittest.TestCase):
             response=Response(headers={}, status=200, body=""),
         )
         repo.enqueue_fire_and_forget("stage1", ctx)
-        time.sleep(0.5)
+        # Wait for the background consumer to finish and close the connection
+        # (on execution:ended, or the inactivity timeout) instead of a fixed
+        # sleep, so a slow CI scheduler doesn't flake the assertions below.
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline and not mock_conn.close.called:
+            time.sleep(0.05)
 
         # stdio should NOT be broadcast from consume_and_forward (fanout handles it)
         # Only execution:update from execution:ended should be broadcast
@@ -119,7 +124,12 @@ class TestFireAndForgetBroadcast(unittest.TestCase):
             response=Response(headers={}, status=200, body=""),
         )
         repo.enqueue_fire_and_forget("stage1", ctx)
-        time.sleep(0.5)
+        # Wait for the background consumer to finish and close the connection
+        # (on execution:ended, or the inactivity timeout) instead of a fixed
+        # sleep, so a slow CI scheduler doesn't flake the assertions below.
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline and not mock_conn.close.called:
+            time.sleep(0.05)
 
         # Only execution:update from execution:ended should be broadcast, not the task
         self.assertEqual(MockBroadcast.broadcast.call_count, 1)
@@ -165,7 +175,12 @@ class TestFireAndForgetBroadcast(unittest.TestCase):
             response=Response(headers={}, status=200, body=""),
         )
         repo.enqueue_fire_and_forget("stage1", ctx)
-        time.sleep(0.5)
+        # Wait for the background consumer to finish and close the connection
+        # (on execution:ended, or the inactivity timeout) instead of a fixed
+        # sleep, so a slow CI scheduler doesn't flake the assertions below.
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline and not mock_conn.close.called:
+            time.sleep(0.05)
 
         mock_conn.close.assert_called()
         # Only execution:update broadcast from execution:ended
@@ -230,7 +245,12 @@ class TestFireAndForgetBroadcast(unittest.TestCase):
             response=Response(headers={}, status=200, body=""),
         )
         repo.enqueue_fire_and_forget("stage1", ctx)
-        time.sleep(0.5)
+        # Wait for the background consumer to finish and close the connection
+        # (on execution:ended, or the inactivity timeout) instead of a fixed
+        # sleep, so a slow CI scheduler doesn't flake the assertions below.
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline and not mock_conn.close.called:
+            time.sleep(0.05)
 
         # stdio_batch should NOT be broadcast (fanout handles it)
         # Only execution:update from execution:ended should be broadcast
@@ -268,7 +288,12 @@ class TestFireAndForgetBroadcast(unittest.TestCase):
         )
         # Should not raise
         repo.enqueue_fire_and_forget("stage1", ctx)
-        time.sleep(0.5)
+        # Wait for the background consumer to finish and close the connection
+        # (on execution:ended, or the inactivity timeout) instead of a fixed
+        # sleep, so a slow CI scheduler doesn't flake the assertions below.
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline and not mock_conn.close.called:
+            time.sleep(0.05)
 
         # Connection should be closed in finally
         mock_conn.close.assert_called()
@@ -307,8 +332,11 @@ class TestFireAndForgetBroadcast(unittest.TestCase):
         )
 
         repo.enqueue_fire_and_forget("stage1", ctx)
-        # With CONSUMER_INACTIVITY_TIMEOUT=0.3s, should disconnect within ~2s
-        time.sleep(2.0)
+        # With CONSUMER_INACTIVITY_TIMEOUT=0.3s the consumer disconnects quickly.
+        # Poll instead of a fixed sleep so a slow CI scheduler doesn't flake it.
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline and not mock_conn.close.called:
+            time.sleep(0.05)
 
         mock_conn.close.assert_called()
 

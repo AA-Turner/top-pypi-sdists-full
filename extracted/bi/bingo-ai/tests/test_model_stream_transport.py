@@ -172,3 +172,64 @@ def test_claude_refusal_is_typed_terminal_failure(monkeypatch) -> None:
     assert chunks[-1].failure is not None
     assert chunks[-1].failure.kind == "refusal"
     assert chunks[-1].failure.policy_rejection
+
+
+# ── v7.0.29 regression: orphaned tool message protection ─────────────────────
+
+def _make_msg(role, content="", tool_calls=None, tool_call_id=None, name=None):
+    m = Message(role, content)
+    m.tool_calls = tool_calls
+    m.tool_call_id = tool_call_id
+    m.name = name
+    return m
+
+
+def test_build_payload_skips_orphaned_tool_message() -> None:
+    """tool message with no preceding assistant(tool_calls) must be dropped."""
+    model = BaseModel(_config())
+    messages = [
+        _make_msg("system", "sys"),
+        # orphaned tool (assistant that owned call_1 was compacted away)
+        _make_msg("tool", "result", tool_call_id="call_1", name="bash_exec"),
+        _make_msg("user", "what now"),
+    ]
+    payload = model._build_payload(messages)
+    roles = [m["role"] for m in payload["messages"]]
+    assert "tool" not in roles, f"orphaned tool leaked into payload: {roles}"
+
+
+def test_build_payload_keeps_paired_tool_message() -> None:
+    """tool message that follows assistant(tool_calls) must be preserved."""
+    tc_payload = [{"id": "call_1", "type": "function",
+                   "function": {"name": "bash_exec", "arguments": "{}"}}]
+    model = BaseModel(_config())
+    messages = [
+        _make_msg("system", "sys"),
+        _make_msg("user", "scan it"),
+        _make_msg("assistant", "", tool_calls=tc_payload),
+        _make_msg("tool", "output", tool_call_id="call_1", name="bash_exec"),
+        _make_msg("assistant", "done"),
+    ]
+    payload = model._build_payload(messages)
+    roles = [m["role"] for m in payload["messages"]]
+    assert "tool" in roles, "valid paired tool message was incorrectly dropped"
+
+
+def test_context_compaction_trims_orphaned_tool_messages() -> None:
+    """After compaction, the message list must not start with role=tool."""
+    from bingo.engine.context import ContextManager
+    cm = ContextManager("sys")
+    for i in range(20):
+        tc = [{"id": f"call_{i}", "type": "function",
+               "function": {"name": "bash_exec", "arguments": "{}"}}]
+        cm.append_assistant(f"thinking {i}", tool_calls=tc)
+        cm.append_tool_result(f"call_{i}", "bash_exec", f"result {i}")
+    cm.mark_compacting()
+    cm.set_compaction_summary("summarised findings")
+    msgs = cm.build_messages()
+    non_system = [m for m in msgs if m.role != "system" and m.role != "user"]
+    # The first non-system non-user message (if any) must not be an orphaned tool
+    if non_system:
+        assert non_system[0].role != "tool", (
+            f"First non-system msg is orphaned role=tool after compaction"
+        )

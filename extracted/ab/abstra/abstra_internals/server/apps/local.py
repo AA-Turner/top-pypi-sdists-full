@@ -5,13 +5,19 @@ import flask
 import flask_cors
 
 from abstra_internals.controllers.main import MainController
-from abstra_internals.environment import CLOUD_CONSOLE_URL, EDITOR_MODE, PROJECT_ID
+from abstra_internals.environment import (
+    CLOUD_CONSOLE_URL,
+    EDITOR_MODE,
+    EXTERNAL_PLAYER_URL,
+    PROJECT_ID,
+)
 from abstra_internals.server.blueprints.editor import (
     get_editor_auth_bp,
     get_editor_bp,
     set_editor_auth_cookie,
 )
 from abstra_internals.server.blueprints.player import get_player_bp
+from abstra_internals.server.utils import send_from_dist
 from abstra_internals.services.editor_auth import EditorAuthRenewer
 from abstra_internals.services.jwt import decode_jwt
 
@@ -98,9 +104,22 @@ def get_local_app(controller: MainController) -> flask.Flask:
     editor.before_request(lambda: _guard())
     app.register_blueprint(editor, url_prefix="/_editor")
 
-    player = get_player_bp(controller)
-    player.before_request(lambda: _guard())
-    app.register_blueprint(player)
+    # Web editor with an external (cloud-api-served) player: the pod serves only
+    # editor routes — player traffic goes to ABSTRA_EXTERNAL_PLAYER_URL instead
+    # of competing with the editor for this pod's resources.
+    if not (EDITOR_MODE == "web" and EXTERNAL_PLAYER_URL):
+        player = get_player_bp(controller)
+        player.before_request(lambda: _guard())
+        app.register_blueprint(player)
+    else:
+        # The editor SPA (served at /_editor) references its bundle at
+        # root-absolute /assets/{hash} — historically served by the player
+        # blueprint's catch-all. Keep a minimal statics route for it; missing
+        # files 404 (no HTML fallback) so the pod's proxy can distinguish
+        # editor assets from player-SPA assets.
+        @app.get("/assets/<path:filename>")
+        def _dist_assets(filename: str):
+            return send_from_dist(f"assets/{filename}")
 
     _register_editor_auth_renewal(app, controller)
 

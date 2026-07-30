@@ -38,6 +38,7 @@ class _OperationStream:
         self._buffer_record_count = 0
         self._buffer_size_bytes = 0
         self._checkpoint_lock = threading.Lock()
+        self._producer_lock = threading.Lock()
         self._checkpoint_flush_signal = threading.Event()
         self._checkpoint_flush_signal.set()
 
@@ -63,7 +64,8 @@ class _OperationStream:
         with self._checkpoint_lock:
             # clear the signal to indicate checkpoint operation is being processed.
             self._checkpoint_flush_signal.clear()
-            self._queue.put(checkpoint)
+            with self._producer_lock:
+                self._queue.put(checkpoint)
             # wait until the consumer flushes the buffer and sets the flag.
             if not self._checkpoint_flush_signal.wait(CHECKPOINT_OP_TIMEOUT_IN_SEC):
                 raise TimeoutError(
@@ -71,13 +73,26 @@ class _OperationStream:
                 )
 
     def add_record(self, record):
-        """
-        Adds a record to the stream. Guarantees that operations within a single thread are processed in the order.
-            Args:
-        record (object): The data item to add to the stream.
-        """
-        self._queue.put(record)
+        """Adds a record to the stream. Guarantees that operations within a single thread are processed in the order.
 
+        Args:
+            record (object): The data item to add to the stream.
+        """
+        with self._producer_lock:
+            self._queue.put(record)
+
+    def add_file_upload(self, chunks, metadata_record):
+        """
+        Adds file upload chunks and the metadata record contiguously to the stream.
+
+        Args:
+            chunks (Iterable[connector_sdk_pb2.UnstructuredRecord]): The file chunks to add to the stream.
+            metadata_record (connector_sdk_pb2.StructuredRecord): The metadata record to add after all chunks.
+        """
+        with self._producer_lock:
+            for chunk in chunks:
+                self._queue.put(chunk)
+            self._queue.put(metadata_record)
 
     def unblock(self):
         """
@@ -89,7 +104,8 @@ class _OperationStream:
         """
         Marks the end of the stream by putting a sentinel in the queue.
         """
-        self._queue.put(self._sentinel)
+        with self._producer_lock:
+            self._queue.put(self._sentinel)
 
     def __next__(self):
         """
@@ -135,12 +151,17 @@ class _OperationStream:
             elif isinstance(operation, connector_sdk_pb2.Checkpoint):
                 return self._flush_buffer_on_checkpoint(operation)
 
+            # Case 3: if operation is a UnstructuredRecord, flush the buffer and send the chunk on its own.
+            # It must not be batched into StructuredRecords like a regular record.
+            elif isinstance(operation, connector_sdk_pb2.UnstructuredRecord):
+                return self._flush_buffer_on_file_upload_chunk(operation)
+
             # it is record, buffer it to flush in batches
             self._buffer_record_count += 1
             self._buffer_size_bytes += operation.ByteSize()
             self._buffer.append(operation)
 
-        # Case 3: If buffer size limit is reached, flush the buffer and return the response.
+        # Case 4: If buffer size limit is reached, flush the buffer and return the response.
         return self._flush_buffer()
 
     def _flush_buffer_on_checkpoint(self, checkpoint: connector_sdk_pb2.Checkpoint):
@@ -150,12 +171,26 @@ class _OperationStream:
         Args:
             checkpoint (object): Checkpoint operation to be added to the response.
         """
-        responses = []
+        return self._flush_buffer_before(connector_sdk_pb2.UpdateResponse(checkpoint=checkpoint))
 
+    def _flush_buffer_on_file_upload_chunk(self, chunk: connector_sdk_pb2.UnstructuredRecord):
+        """
+        Creates the responses containing the buffered records (if any) followed by the file upload chunk.
+
+        Args:
+            chunk (connector_sdk_pb2.UnstructuredRecord): File upload chunk operation to add to the response.
+        """
+        return self._flush_buffer_before(connector_sdk_pb2.UpdateResponse(unstructured_record=chunk))
+
+    def _flush_buffer_before(self, response: connector_sdk_pb2.UpdateResponse):
+        """
+        Returns any buffered records before the given response, preserving stream order.
+        """
+        responses = []
         if self._buffer:
             responses.append(self._flush_buffer())
 
-        responses.append(connector_sdk_pb2.UpdateResponse(checkpoint=checkpoint))
+        responses.append(response)
         return responses
 
     def _flush_buffer(self):

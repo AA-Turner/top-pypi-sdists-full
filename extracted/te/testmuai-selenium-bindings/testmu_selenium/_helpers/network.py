@@ -9,6 +9,8 @@ evaluate_network_assertion: sync, deterministic, no smart gate.
 import logging
 import re
 
+from testmu_selenium.condition import _normalize_bool_str
+
 _log = logging.getLogger("testmu_selenium")
 
 
@@ -165,9 +167,13 @@ def evaluate_network_assertion(assertion_tree: dict) -> bool:
         right = _resolve_operand(node.get('right_operand', ''), variables)
         left_str, right_str = str(left), str(right)
         if op == 'equals':
-            result = left_str == right_str
+            # Normalize a bool-vs-string pair (True == 'true') before comparing,
+            # matching the primary Assertion evaluator; str() otherwise.
+            l, r = _normalize_bool_str(left, right)
+            result = str(l) == str(r)
         elif op == 'not_equals':
-            result = left_str != right_str
+            l, r = _normalize_bool_str(left, right)
+            result = str(l) != str(r)
         elif op == 'contains':
             result = right_str in left_str
         elif op == 'not_contains':

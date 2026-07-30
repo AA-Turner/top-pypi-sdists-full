@@ -25,7 +25,7 @@ dependencies = ["zarr>=3.1.0"]
 dev = [
   { include-group = "test" },
   "mypy",
-  "ruff==0.15.3",
+  "ruff==0.15.14",
   "maturin>=1.7,<2.0",
   "maturin-import-hook>=0.3.0",
   "third-wheel",
@@ -69,8 +69,6 @@ docs = [
   "dask>=2025.2.0",
   "distributed>=2025.2.0",
   "xarray>=2025.07.1",
-  "myst_nb",
-  "pydata_sphinx_theme",
   "mkdocs-awesome-pages-plugin",
   "mkdocs-mermaid2-plugin",
   "markdown-exec",
@@ -87,11 +85,6 @@ docs = [
   "mkdocs-include-markdown-plugin",
   "mkdocs-redirects",
   "mkdocs-git-authors-plugin",
-  "sphinx",
-  "sphinx_copybutton",
-  "sphinx_design",
-  "sphinx_togglebutton",
-  "sphinx-autodoc-typehints",
   "rich",
 ]
 
@@ -137,9 +130,16 @@ filterwarnings = [
   "ignore::ResourceWarning",
   "ignore:Unused async fixture loop scope:pytest.PytestWarning",
   "ignore:.*does not have a Zarr V3 specification.*",
-  # Recent NumPy deprecates the 'generic' timedelta unit; raised transitively at
-  # collection. Remove once upstream deps stop using bare-int timedelta.
+  # xarray < 2026.7.0 raises this on import under numpy >= 2.5; remove when the
+  # minimum supported xarray reaches 2026.7.0
   "ignore:The 'generic' unit for NumPy timedelta is deprecated:DeprecationWarning",
+]
+
+# remap wheel-venv site-packages paths to the source tree; applied on `coverage combine`
+[tool.coverage.paths]
+icechunk = [
+  "icechunk-python/python/icechunk",
+  "*/site-packages/icechunk",
 ]
 
 [tool.mypy]
@@ -203,26 +203,41 @@ icechunk = "icechunk._icechunk_python:cli_entrypoint"
 
 [tool.pixi.workspace]
 channels = ["conda-forge", "https://prefix.dev/github-releases"]
-platforms = ["osx-arm64", "linux-64", "linux-aarch64", "win-64", "osx-64"]
+requires-pixi = ">=0.72.0"
+platforms = [
+  "osx-arm64",
+  { platform = "linux-64", glibc = "2.34" },
+  { platform = "linux-aarch64", glibc = "2.34" },
+  "win-64",
+  "osx-64",
+]
 
 [tool.pixi.feature.docs.dependencies]
 cairo = ">=1.18.4,<2"
 
+[tool.pixi.feature.py312.dependencies]
+python = "~=3.12.0"
+
+[tool.pixi.feature.py314t.dependencies]
+python-freethreading = "~=3.14.0"
+
 [tool.pixi.feature.build.dependencies]
-python = "~=3.14"
-rust = "~=1.94.0"
-just = ">=1.46.0,<2"
+rust = "~=1.96.0"
+just = ">=1.51.0,<2"
 compilers = ">=1.11.0,<2"
-uv = ">=0.10.4,<0.11"
-openssl = ">=3.6.1,<4"
+uv = ">=0.11.17,<0.12"
+openssl = ">=3.6.2,<4"
 pkgconfig = ">=1.5.5,<2"
-cargo-deny = ">=0.19.0,<0.20"
+cargo-deny = ">=0.19.7,<0.20"
 prek = ">=0.3.3,<0.4"
 netcdf4 = ">=1.7.4,<2"
-cargo-nextest = ">=0.9.106,<0.10"
-flatbuffers = "*"
+cargo-nextest = ">=0.9.137,<0.10"
+flatbuffers = ">=25.12.19,<26"
 samply = ">=0.13.1,<0.14"
 cargo-release = ">=1.1.2,<2"
+cargo-llvm-cov = ">=0.8.4,<0.9"
+nodejs = ">=22.23.1,<23"
+semver = ">=3.0.4,<4"
 
 [tool.pixi.feature.build.target.linux-64.dependencies]
 sysroot_linux-64 = ">=2.34"
@@ -232,12 +247,16 @@ sysroot_linux-aarch64 = ">=2.34"
 
 [tool.pixi.environments]
 default = { features = [
+  "py312",
   "build",
   "dev",
   "docs",
   "test",
 ], solve-group = "default" }
 benchmark = { features = ["benchmark"], solve-group = "default" }
-
-[tool.pixi.system-requirements]
-libc   = { family = "glibc", version = "2.34" }
+py314t = { features = [
+  "py314t",
+  "build",
+  "dev",
+  "test",
+]}

@@ -8,7 +8,7 @@ from abstra_internals.repositories.linter.models import (
 )
 from abstra_internals.repositories.linter.process_actions import (
     RESTART_NOTICE,
-    restart_editor_and_workers,
+    restart_or_defer_after_install,
 )
 from abstra_internals.services.requirements import (
     Requirements,
@@ -178,9 +178,10 @@ class InstallRequirements(LinterFix):
 
         requirements = RequirementsRepository.load()
         if requirements.install_succeeded():
-            # Restart so the just-installed packages become visible to the
-            # editor/linter and worker processes (see restart_editor_and_workers).
-            restart_editor_and_workers("[InstallPackage]")
+            # Just-installed packages become visible only after a restart. On the
+            # web editor this is deferred (via "Restart editor"); elsewhere it
+            # restarts now (see restart_or_defer_after_install).
+            restart_or_defer_after_install()
 
 
 class AbstraNotInRequirementsFound(LinterIssue):

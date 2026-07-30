@@ -682,7 +682,16 @@ class Geocif:
             self.simulation_stages = [np.array([0])]
             return
 
-        if self.method.endswith("_r"):
+        # _setup_reverse_stages is data-driven (it reads the Stage_ID values
+        # already present in df_inputs), so despite the name it also serves the
+        # season-normalized methods whose Stage_IDs encode a single full-season
+        # window: fraction_season (deciles "10_20_..._100") and
+        # phenological_stages / full_season ("1_2_3"). _filter_current_month_stages
+        # is a no-op for these (their tokens are not calendar-month numbers).
+        if (
+            self.method.endswith("_r")
+            or self.method in ("fraction_season", "phenological_stages", "full_season")
+        ):
             self._setup_reverse_stages()
         else:
             raise NotImplementedError(f"Method {self.method} not implemented")
@@ -3231,9 +3240,18 @@ class Geocif:
         
         return df
 
+    def _is_season_normalized_method(self) -> bool:
+        """True for methods whose stages are season fractions / phenological
+        codes rather than calendar periods. The single-calendar-period feature
+        filters (monthly_only / single_time_period / monthly_plus_fullseason)
+        are calendar-specific and must be skipped for these — their sole CID
+        window is the full season, which those filters would wrongly drop.
+        """
+        return self.method in ("fraction_season", "phenological_stages", "full_season")
+
     def _filter_single_time_period_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """Filter to keep only single time period features if configured."""
-        if self.use_single_time_period_as_feature:
+        if self.use_single_time_period_as_feature and not self._is_season_normalized_method():
             df = stages.select_single_time_period_features(df)
 
         return df
@@ -3244,9 +3262,12 @@ class Geocif:
 
         Stricter than ``_filter_single_time_period_features``: drops 2-stage
         cumulative spans (Jun+Jul) and Pre-Season / In-Season aggregates.
-        Used by the ``curated_<algo>`` wrapper sections.
+        Used by the ``curated_<algo>`` wrapper sections. Ignored for
+        season-normalized methods (fraction_season/phenological_stages/
+        full_season), whose calendar-agnostic full-season window would
+        otherwise be dropped, leaving zero features.
         """
-        if self.monthly_only_features:
+        if self.monthly_only_features and not self._is_season_normalized_method():
             n_before = df.shape[1]
             df = stages.select_single_calendar_period_features(df)
             self.logger.info(
@@ -3260,7 +3281,7 @@ class Geocif:
         cumulative spans only. Middle ground between monthly-only and the full
         cumulative feature set.
         """
-        if self.monthly_plus_fullseason_features:
+        if self.monthly_plus_fullseason_features and not self._is_season_normalized_method():
             n_before = df.shape[1]
             df = stages.select_monthly_plus_fullseason_features(df)
             self.logger.info(
@@ -3434,6 +3455,10 @@ class Geocif:
             clusters_assigned = self._cluster_by_calendar_then_yield(df)
             df = df.merge(clusters_assigned, on="Region")
             df["Region_ID"] = df["Region_ID"].astype("category")
+        elif self.cluster_strategy == "crop_calendar_region":
+            clusters_assigned = self._cluster_by_calendar_region(df)
+            df = df.merge(clusters_assigned, on="Region")
+            df["Region_ID"] = df["Region_ID"].astype("category")
         else:
             raise ValueError(f"Unsupported cluster strategy {self.cluster_strategy}")
 
@@ -3536,6 +3561,86 @@ class Geocif:
             "Region": list(region_to_final.keys()),
             "Region_ID": list(region_to_final.values()),
         })
+
+    def _read_region_static_from_crop_t0(self, country: str, crop: str, column: str) -> dict:
+        """Return ``{normalized_region: value}`` for a region-static column read
+        from the raw geoprepare crop_t0 CSV (e.g. ``calendar_region``,
+        ``season_start_month``). Region keys are normalized (lower / spaces and
+        hyphens -> underscores) to match the wide-df ``Region`` values.
+
+        Returns ``{}`` (never raises) if the crop_t0 dir/season/CSV/column can't
+        be resolved, so callers can fall back gracefully.
+        """
+        try:
+            from geocif.indices_runner import get_input_file_path, get_seasons
+            input_dir = get_input_file_path(country, self.parser, data_source="harvest")
+            growing_seasons = get_seasons(country, self.parser, crop=crop)
+        except Exception as e:
+            self.logger.warning(
+                f"crop_t0 static read: cannot resolve dir/seasons for {country}: {e}"
+            )
+            return {}
+
+        country_lower = country.lower().replace(" ", "_")
+        crop_lower = crop.lower().replace(" ", "_")
+        src = None
+        for gs in growing_seasons:
+            candidate = input_dir / f"{country_lower}_{crop_lower}_s{gs}.csv"
+            if candidate.exists():
+                src = candidate
+                break
+        if src is None:
+            self.logger.warning(
+                f"crop_t0 static read: no CSV for {country} {crop} at "
+                f"growing_seasons={growing_seasons} in {input_dir}"
+            )
+            return {}
+
+        try:
+            df_src = pd.read_csv(src, engine="pyarrow", usecols=["region", column])
+        except (ValueError, KeyError) as e:
+            self.logger.warning(
+                f"crop_t0 static read: {src.name} lacks '{column}' ({e}); "
+                f"re-run geomerge to populate."
+            )
+            return {}
+
+        df_src = df_src.dropna(subset=[column]).drop_duplicates(subset=["region"])
+        _norm = lambda s: str(s).lower().replace(" ", "_").replace("-", "_")
+        return {_norm(r): v for r, v in zip(df_src["region"], df_src[column])}
+
+    def _cluster_by_calendar_region(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Pool regions by their EXPLICIT crop-calendar zone.
+
+        Reads the region-static ``calendar_region`` column (the AMISCM /
+        GlobalCM_Regions zone each admin region belongs to, e.g.
+        ``north_region`` / ``central-west_region`` for Brazil) from the raw
+        geoprepare crop_t0 CSV and assigns one ``Region_ID`` per distinct zone,
+        so each zone trains a SEPARATE pooled model.
+
+        Unlike ``crop_calendar`` (which *infers* groups from CID null-patterns),
+        this uses the actual crop-calendar assignment — the correct signal, since
+        the whole point is that zones with different planting months should not
+        share a pooled model. Regions whose zone can't be resolved fall back to
+        their own singleton cluster (never silently merged into a wrong pool).
+
+        Returns:
+            DataFrame with columns ["Region", "Region_ID"].
+        """
+        regions = list(df["Region"].astype(str).unique())
+        zone_map = self._read_region_static_from_crop_t0(
+            self.country, self.crop, "calendar_region"
+        )
+        _norm = lambda s: str(s).lower().replace(" ", "_").replace("-", "_")
+        region_ids = utils.group_ids_by_key(regions, zone_map, norm=_norm)
+
+        n_zones = len(set(region_ids))
+        n_unmatched = sum(1 for r in regions if _norm(r) not in zone_map)
+        self.logger.info(
+            f"Crop-calendar-region clustering: {len(regions)} regions "
+            f"→ {n_zones} zone-pool(s) ({n_unmatched} unmatched region name(s))"
+        )
+        return pd.DataFrame({"Region": regions, "Region_ID": region_ids})
 
     def get_cid_column_names(self, df: pd.DataFrame) -> List[str]:
         """Get list of CID column names (excluding fixed/target/meta/engineered columns)."""

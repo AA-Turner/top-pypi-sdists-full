@@ -253,11 +253,20 @@ class PostgreSQLOps(DataAccessOps):
         entity_names: list[str],
         entity_dates: list,
     ) -> dict[str, str]:
+        # ORDER BY LOWER(name) so every concurrent batch inserts in the same order
+        # as the conflict target (bank_id, LOWER(canonical_name)). ON CONFLICT DO
+        # NOTHING takes a ShareLock on the inserting transaction of any speculative
+        # row it collides with, so two batches with overlapping names inserting in
+        # different orders deadlock. The caller already sorts by Python's
+        # ``str.lower()``, which agrees with the index for ASCII but not for every
+        # locale (see the Turkish-İ note in entity_resolver) — ordering in SQL makes
+        # the database's own collation the single arbiter for all writers.
         inserted_rows = await conn.fetch(
             f"""
             INSERT INTO {table} (bank_id, canonical_name, first_seen, last_seen, mention_count)
             SELECT $1, name, COALESCE(event_date, now()), COALESCE(event_date, now()), 0
             FROM unnest($2::text[], $3::timestamptz[]) AS t(name, event_date)
+            ORDER BY LOWER(name)
             ON CONFLICT (bank_id, LOWER(canonical_name))
             DO NOTHING
             RETURNING id, LOWER(canonical_name) AS name_lower
@@ -360,11 +369,24 @@ class PostgreSQLOps(DataAccessOps):
         # concurrent caller the same lock order, so conflicting inserts
         # queue cleanly instead of cycling.
         sorted_unit_ids = sorted(unit_ids)
+        # DO UPDATE (not DO NOTHING) on a duplicate enqueue — #3034. The SET is a
+        # deliberate no-op that preserves enqueued_at; its only purpose is to take
+        # the existing row's lock. DO NOTHING does NOT lock the conflicting row, so
+        # a mutation that re-enqueues an already-queued unit could not block a
+        # worker from concurrently claiming (deleting) that row and processing the
+        # unit's pre-mutation state; the re-enqueue signal was then silently lost
+        # and the unit's derived links stayed stale with an empty queue. Locking
+        # the row serialises the mutation against the worker's claim for that
+        # (bank_id, unit_id): the worker either waits for the committed post-mutation
+        # state, or (if it claimed first) this INSERT lands a fresh row after the
+        # worker's delete commits. Row locks are acquired in sorted unit_id order,
+        # matching claim_graph_maintenance_batch, so the two never cycle.
         await conn.execute(
             f"""
             INSERT INTO {table} (bank_id, unit_id)
             SELECT $1, v FROM unnest($2::uuid[]) AS t(v)
-            ON CONFLICT (bank_id, unit_id) DO NOTHING
+            ON CONFLICT (bank_id, unit_id)
+                DO UPDATE SET enqueued_at = {table}.enqueued_at
             """,
             bank_id,
             sorted_unit_ids,
@@ -377,16 +399,35 @@ class PostgreSQLOps(DataAccessOps):
         bank_id: str,
         limit: int,
     ) -> list[str]:
+        # Ordered locking (#3034). Choose the oldest batch by enqueued_at, but
+        # acquire the row locks in (bank_id, unit_id) order — the same order the
+        # enqueue upsert takes them — so a foreground mutation re-enqueueing an
+        # overlapping unit set can never cycle against a worker draining it. The
+        # `chosen` CTE is MATERIALIZED so the enqueued_at pick is fenced from the
+        # locking clause; `FOR UPDATE OF q ... ORDER BY q.unit_id` then puts
+        # LockRows above the Sort, so locks are taken ascending by unit_id (same
+        # idiom as prune_stale_cooccurrences' #2529 ordered lock). A concurrent
+        # enqueue holding one of these rows blocks this claim until it commits, at
+        # which point the worker deletes and processes the committed state.
         rows = await conn.fetch(
             f"""
-            DELETE FROM {table}
-            WHERE (bank_id, unit_id) IN (
+            WITH chosen AS MATERIALIZED (
                 SELECT bank_id, unit_id FROM {table}
                 WHERE bank_id = $1
                 ORDER BY enqueued_at
                 LIMIT $2
+            ),
+            locked AS (
+                SELECT q.bank_id, q.unit_id
+                FROM {table} q
+                JOIN chosen c ON c.bank_id = q.bank_id AND c.unit_id = q.unit_id
+                ORDER BY q.unit_id
+                FOR UPDATE OF q
             )
-            RETURNING unit_id
+            DELETE FROM {table} q
+            USING locked l
+            WHERE q.bank_id = l.bank_id AND q.unit_id = l.unit_id
+            RETURNING q.unit_id
             """,
             bank_id,
             limit,
@@ -481,11 +522,21 @@ class PostgreSQLOps(DataAccessOps):
         mu_table: str,
         unit_ids: list[str],
     ) -> list[ResultRow]:
+        # Cast only canonical UUID text inputs, never the indexed column. The old
+        # ``id::text`` predicate silently ignored malformed, uppercase, braced,
+        # and unhyphenated inputs; filtering before the cast preserves that
+        # behavior while allowing the primary-key index to serve the lookup.
         return await conn.fetch(
             f"""
             SELECT id, event_date, fact_type
             FROM {mu_table}
-            WHERE id::text = ANY($1)
+            WHERE id = ANY(
+                ARRAY(
+                    SELECT input.unit_id::uuid
+                    FROM unnest($1::text[]) AS input(unit_id)
+                    WHERE input.unit_id ~ '^[0-9a-f]{{8}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{12}}$'
+                )
+            )
             """,
             unit_ids,
         )
@@ -800,10 +851,16 @@ class PostgreSQLOps(DataAccessOps):
         internal_id: str,
         fact_types: dict[str, str],
     ) -> None:
+        # CONCURRENTLY so the drop takes ShareUpdateExclusive, not ACCESS
+        # EXCLUSIVE, on the shared memory_units table. A plain DROP INDEX blocks
+        # (and deadlocks with) every other bank's concurrent reads/writes on the
+        # table; CONCURRENTLY does not conflict with DML. The caller
+        # (delete_bank) runs this on an autocommit connection after its delete
+        # transaction has committed — CONCURRENTLY cannot run inside a tx.
         for ft, suffix in fact_types.items():
             uid = str(internal_id).replace("-", "")[:16]
             idx = f"idx_mu_emb_{suffix}_{uid}"
-            await conn.execute(f"DROP INDEX IF EXISTS {schema}.{idx}")
+            await conn.execute(f"DROP INDEX CONCURRENTLY IF EXISTS {schema}.{idx}")
 
     def get_entity_resolution_strategy(self) -> str:
         return "trigram"

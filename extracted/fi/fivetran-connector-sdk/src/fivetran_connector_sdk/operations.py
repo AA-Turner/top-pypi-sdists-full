@@ -1,65 +1,61 @@
 import json
+import os
 
-from datetime import datetime, date
-from google.protobuf import timestamp_pb2
+from typing import Optional
 
 from fivetran_connector_sdk.constants import (
     JAVA_LONG_MAX_VALUE, TABLES, UPDATE_TYPE, DELETE_TYPE,
-    UPSERT_TYPE, TRUNCATE_TYPE, UNSPECIFIED_COLUMNS_TYPE, TABLES_COLUMNS_TYPES
+    UPSERT_TYPE, TRUNCATE_TYPE, UNSPECIFIED_COLUMNS_TYPE, TABLES_COLUMNS_TYPES,
+    FIVETRAN_FILE_PATH_COLUMN
 )
-from fivetran_connector_sdk.helpers import _validate_table_name
+from fivetran_connector_sdk.file_upload import FileUpload, file_upload_chunks, validate_file_upload_if_present
+from fivetran_connector_sdk.helpers import _validate_table_name, print_library_log
+from fivetran_connector_sdk.logger import Logging
 from fivetran_connector_sdk.protos import connector_sdk_pb2, common_pb2
 from fivetran_connector_sdk.operation_stream import _OperationStream
+from fivetran_connector_sdk.type_coercion import (
+    _encode_row_data, _PFX_SCALAR,
+    _parse_utc_datetime_str, _parse_naive_datetime_str, _parse_naive_date_str,
+)
+
+_USE_ROW_DATA = os.environ.get("ConnectorSdkRemoveValueType", "false").lower() == "true"
 
 
 class Operations:
     operation_stream = _OperationStream()
+    _file_path_override_logged = False
 
     @staticmethod
-    def upsert(table: str, data: dict):
+    def upsert(table: str, data: dict, *, file: Optional[FileUpload] = None):
         """Updates records with the same primary key if already present in the destination. Inserts new records if not already present in the destination.
 
         Args:
             table (str): The name of the table.
             data (dict): The data to upsert.
-
-        Returns:
-            list[connector_sdk_pb2.UpdateResponse]: A list of update responses.
+            file (FileUpload, optional): A file upload to stream before the metadata row.
         """
         _validate_table_name(table)
-        columns = _get_columns(table)
-        mapped_data = _map_data_to_columns(data, columns)
-        record = connector_sdk_pb2.StructuredRecord(
-            schema_name=None,
-            table_name=table,
-            type=UPSERT_TYPE,
-            data=mapped_data
-        )
-
-        Operations.operation_stream.add_record(record)
+        if _USE_ROW_DATA:
+            record = _build_row_data_record(table, data, UPSERT_TYPE, file)
+        else:
+            record = _build_record(table, data, UPSERT_TYPE, file)
+        _emit_record(table, record, file)
 
     @staticmethod
-    def update(table: str, modified: dict):
+    def update(table: str, modified: dict, *, file: Optional[FileUpload] = None):
         """Performs an update operation on the specified table with the given modified data.
 
         Args:
             table (str): The name of the table.
             modified (dict): The modified data.
-
-        Returns:
-            connector_sdk_pb2.UpdateResponse: The update response.
+            file (FileUpload, optional): A file upload to stream before the metadata row.
         """
         _validate_table_name(table)
-        columns = _get_columns(table)
-        mapped_data = _map_data_to_columns(modified, columns)
-        record = connector_sdk_pb2.StructuredRecord(
-            schema_name=None,
-            table_name=table,
-            type=UPDATE_TYPE,
-            data=mapped_data
-        )
-
-        Operations.operation_stream.add_record(record)
+        if _USE_ROW_DATA:
+            record = _build_row_data_record(table, modified, UPDATE_TYPE, file)
+        else:
+            record = _build_record(table, modified, UPDATE_TYPE, file)
+        _emit_record(table, record, file)
 
     @staticmethod
     def truncate(table: str):
@@ -97,14 +93,22 @@ class Operations:
         """
         _validate_table_name(table)
         columns = _get_columns(table)
-        mapped_data = _map_data_to_columns(keys, columns)
-        record = connector_sdk_pb2.StructuredRecord(
-            schema_name=None,
-            table_name=table,
-            type=DELETE_TYPE,
-            data=mapped_data
-        )
-
+        if _USE_ROW_DATA:
+            encoded_data = _encode_row_data(columns, keys)
+            record = connector_sdk_pb2.StructuredRecord(
+                schema_name=None,
+                table_name=table,
+                type=DELETE_TYPE,
+                row_data=encoded_data
+            )
+        else:
+            mapped_data = _map_data_to_columns(keys, columns)
+            record = connector_sdk_pb2.StructuredRecord(
+                schema_name=None,
+                table_name=table,
+                type=DELETE_TYPE,
+                data=mapped_data
+            )
         Operations.operation_stream.add_record(record)
 
     @staticmethod
@@ -150,6 +154,55 @@ def _get_columns(table: str) -> dict:
         TABLES_COLUMNS_TYPES[table] = columns
 
     return columns
+
+def _build_record(table: str, data: dict, record_type, file_upload: Optional[FileUpload]):
+    validate_file_upload_if_present(file_upload)
+
+    columns = _get_columns(table)
+    mapped_data = _map_data_to_columns(data, columns)
+    if file_upload is not None:
+        if FIVETRAN_FILE_PATH_COLUMN in data and not Operations._file_path_override_logged:
+            print_library_log(
+                f"{FIVETRAN_FILE_PATH_COLUMN} was provided in the row data and will be overwritten by FileUpload.path.",
+                level=Logging.Level.WARNING
+            )
+            Operations._file_path_override_logged = True
+        mapped_data[FIVETRAN_FILE_PATH_COLUMN] = common_pb2.ValueType(string=file_upload.path)
+
+    return connector_sdk_pb2.StructuredRecord(
+        schema_name=None,
+        table_name=table,
+        type=record_type,
+        data=mapped_data
+    )
+
+def _build_row_data_record(table: str, data: dict, record_type, file_upload: Optional[FileUpload]):
+    validate_file_upload_if_present(file_upload)
+
+    columns = _get_columns(table)
+    encoded_data = _encode_row_data(columns, data)
+    if file_upload is not None:
+        if FIVETRAN_FILE_PATH_COLUMN in data and not Operations._file_path_override_logged:
+            print_library_log(
+                f"{FIVETRAN_FILE_PATH_COLUMN} was provided in the row data and will be overwritten by FileUpload.path.",
+                level=Logging.Level.WARNING
+            )
+            Operations._file_path_override_logged = True
+        encoded_data[FIVETRAN_FILE_PATH_COLUMN] = _PFX_SCALAR + file_upload.path.encode('utf-8')
+
+    return connector_sdk_pb2.StructuredRecord(
+        schema_name=None,
+        table_name=table,
+        type=record_type,
+        row_data=encoded_data
+    )
+
+def _emit_record(table: str, record, file_upload: Optional[FileUpload]):
+    if file_upload is None:
+        Operations.operation_stream.add_record(record)
+        return
+
+    Operations.operation_stream.add_file_upload(file_upload_chunks(table, file_upload), record)
 
 def _map_data_to_columns(data: dict, columns: dict) -> dict:
     """Maps data to the specified columns.
@@ -228,52 +281,3 @@ def map_defined_data_type(data_type, k, mapped_data, v):
     else:
         raise ValueError(f"Unsupported data type encountered: {data_type}. Please use valid data types.")
 
-def _parse_utc_datetime_str(v):
-    """
-    Accepts a timezone-aware datetime object or a datetime string in one of the following formats:
-    - '%Y-%m-%dT%H:%M:%S.%f%z' (e.g., '2025-08-12T15:00:00.123456+00:00')
-    - '%Y-%m-%dT%H:%M:%S%z'    (e.g., '2025-08-12T15:00:00+00:00')
-    - Same as above formats but with a space instead of 'T' as the separator (e.g., '2025-08-12 15:00:00+00:00')
-
-    Returns a `google.protobuf.timestamp_pb2.Timestamp` object.
-    """
-    timestamp = timestamp_pb2.Timestamp()
-    dt = v
-    if not isinstance(v, datetime):
-        dt = dt.strip().replace(' ', 'T', 1)  # Replace first space with 'T' for ISO format
-        dt = datetime.strptime(dt, "%Y-%m-%dT%H:%M:%S.%f%z" if '.' in dt else "%Y-%m-%dT%H:%M:%S%z")
-    timestamp.FromDatetime(dt)
-    return timestamp
-
-def _parse_naive_datetime_str(v):
-    """
-    Accepts a datetime.datetime object or naive datetime string in one of the following formats:
-    - '%Y-%m-%dT%H:%M:%S.%f'
-    - '%Y-%m-%d %H:%M:%S.%f'
-    Returns a `google.protobuf.timestamp_pb2.Timestamp` object.
-    """
-    timestamp = timestamp_pb2.Timestamp()
-    dt = v
-    if not isinstance(v, datetime):
-        dt = dt.strip().replace(' ', 'T', 1)  # Replace first space with 'T' for ISO format
-        dt = datetime.strptime(dt, "%Y-%m-%dT%H:%M:%S.%f" if '.' in dt else "%Y-%m-%dT%H:%M:%S")
-
-    timestamp.FromDatetime(dt)
-    return timestamp
-
-def _parse_naive_date_str(v):
-    """
-    Accepts a `datetime.date` object or a date string ('YYYY-MM-DD'),
-    Returns a `google.protobuf.timestamp_pb2.Timestamp` object.
-    """
-    timestamp = timestamp_pb2.Timestamp()
-
-    if isinstance(v, str):
-        dt = datetime.strptime(v, "%Y-%m-%d")
-    elif isinstance(v, (datetime, date)):
-        dt = datetime.combine(v if isinstance(v, date) else v.date(), datetime.min.time())
-    else:
-        raise TypeError(f"Expected str, datetime.date, or datetime.datetime, got {type(v)}")
-
-    timestamp.FromDatetime(dt)
-    return timestamp

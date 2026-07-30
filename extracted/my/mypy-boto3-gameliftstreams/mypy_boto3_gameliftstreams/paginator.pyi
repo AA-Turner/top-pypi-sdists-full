@@ -16,6 +16,7 @@ Usage::
         ListStreamGroupsPaginator,
         ListStreamSessionsByAccountPaginator,
         ListStreamSessionsPaginator,
+        ListStreamUrlsPaginator,
     )
 
     session = Session()
@@ -25,6 +26,7 @@ Usage::
     list_stream_groups_paginator: ListStreamGroupsPaginator = client.get_paginator("list_stream_groups")
     list_stream_sessions_by_account_paginator: ListStreamSessionsByAccountPaginator = client.get_paginator("list_stream_sessions_by_account")
     list_stream_sessions_paginator: ListStreamSessionsPaginator = client.get_paginator("list_stream_sessions")
+    list_stream_urls_paginator: ListStreamUrlsPaginator = client.get_paginator("list_stream_urls")
     ```
 """
 
@@ -44,6 +46,8 @@ from .type_defs import (
     ListStreamSessionsByAccountOutputTypeDef,
     ListStreamSessionsInputPaginateTypeDef,
     ListStreamSessionsOutputTypeDef,
+    ListStreamUrlsInputPaginateTypeDef,
+    ListStreamUrlsOutputTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -56,6 +60,7 @@ __all__ = (
     "ListStreamGroupsPaginator",
     "ListStreamSessionsByAccountPaginator",
     "ListStreamSessionsPaginator",
+    "ListStreamUrlsPaginator",
 )
 
 if TYPE_CHECKING:
@@ -128,4 +133,22 @@ class ListStreamSessionsPaginator(_ListStreamSessionsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gameliftstreams/paginator/ListStreamSessions.html#GameLiftStreams.Paginator.ListStreamSessions.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_gameliftstreams/paginators/#liststreamsessionspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListStreamUrlsPaginatorBase = Paginator[ListStreamUrlsOutputTypeDef]
+else:
+    _ListStreamUrlsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListStreamUrlsPaginator(_ListStreamUrlsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gameliftstreams/paginator/ListStreamUrls.html#GameLiftStreams.Paginator.ListStreamUrls)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_gameliftstreams/paginators/#liststreamurlspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListStreamUrlsInputPaginateTypeDef]
+    ) -> PageIterator[ListStreamUrlsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gameliftstreams/paginator/ListStreamUrls.html#GameLiftStreams.Paginator.ListStreamUrls.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_gameliftstreams/paginators/#liststreamurlspaginator)
         """

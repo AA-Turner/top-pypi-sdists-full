@@ -9,6 +9,7 @@ from aigie.rewind.protocol import (
     RewindHandle,
     RewindOutcome,
     RewindStatus,
+    ToolCallOverride,
 )
 from aigie.rewind.store import SpanCheckpointStore
 
@@ -20,4 +21,5 @@ __all__ = [
     "RewindOutcome",
     "RewindStatus",
     "SpanCheckpointStore",
+    "ToolCallOverride",
 ]

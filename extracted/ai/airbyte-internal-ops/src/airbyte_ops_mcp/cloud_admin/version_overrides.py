@@ -52,7 +52,13 @@ from airbyte_ops_mcp.gcp_auth import _get_identity_from_credentials
 from airbyte_ops_mcp.internal_team_roster import fetch_roster, search_roster
 from airbyte_ops_mcp.slack_api import SlackAPIError
 from airbyte_ops_mcp.slack_posting import post_channel_message
-from airbyte_ops_mcp.tier_cache import TierFilter, get_org_tier, resolve_workspace
+from airbyte_ops_mcp.tier_cache import (
+    TierFilter,
+    TierSourceHealth,
+    get_org_tier,
+    resolve_workspace,
+    tier_source_warnings,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -106,12 +112,28 @@ def build_tier_warning(customer_tier: str) -> str | None:
 def validate_tier_filter(
     actual_tier: str,
     requested_filter: TierFilter,
+    *,
+    source_health: TierSourceHealth | None = None,
+    organization_id: str | None = None,
 ) -> tuple[bool, str | None]:
     """Check whether `actual_tier` matches `requested_filter`.
 
     Returns `(ok, error_message)`. When `ok` is `False` the caller should
     reject the operation with `error_message`.
     """
+    if source_health is not None and source_health.degraded:
+        if requested_filter == "UNKNOWN":
+            logger.warning(
+                "Proceeding with indeterminate customer tier for organization %s: %s",
+                organization_id or "<unknown>",
+                source_health.reason or "tier source degraded",
+            )
+            return True, None
+        return False, (
+            "Customer tier is indeterminable because the tier source is degraded "
+            f"({source_health.reason or 'source unavailable'}); acknowledge with "
+            "tier filter 'UNKNOWN'."
+        )
     if requested_filter == "ALL":
         return True, None
     if actual_tier != requested_filter:
@@ -430,29 +452,47 @@ def _resolve_target_context(
     target: VersionOverrideTarget,
     *,
     gcs_credentials: google.auth.credentials.Credentials | None = None,
-) -> tuple[str, bool | None, str | None]:
+) -> tuple[str, bool | None, str | None, TierSourceHealth | None]:
     """Resolve customer tier, EU region, and error message for `target`."""
     if target.scope in ("actor", "workspace"):
         assert target.workspace_id is not None
         ws_resolution = resolve_workspace(
-            target.workspace_id, credentials=gcs_credentials
+            workspace_id=target.workspace_id,
+            credentials=gcs_credentials,
+            allow_degraded=True,
         )
         if not ws_resolution.organization_id:
             return (
                 ws_resolution.customer_tier,
                 ws_resolution.is_eu,
                 "Could not resolve organization for workspace.",
+                ws_resolution.source_health,
             )
         if ws_resolution.organization_id != target.organization_id:
             return (
                 ws_resolution.customer_tier,
                 ws_resolution.is_eu,
                 "Target organization_id does not match workspace organization.",
+                ws_resolution.source_health,
             )
-        return ws_resolution.customer_tier, ws_resolution.is_eu, None
+        return (
+            ws_resolution.customer_tier,
+            ws_resolution.is_eu,
+            None,
+            ws_resolution.source_health,
+        )
 
-    tier_result = get_org_tier(target.organization_id, credentials=gcs_credentials)
-    return tier_result.customer_tier, None, None
+    tier_result = get_org_tier(
+        organization_id=target.organization_id,
+        credentials=gcs_credentials,
+        allow_degraded=True,
+    )
+    return (
+        tier_result.customer_tier,
+        None,
+        None,
+        tier_result.source_health,
+    )
 
 
 def _guard_existing_pins(
@@ -673,9 +713,12 @@ def set_version_override(
         )
 
     try:
-        customer_tier, is_eu, context_error = _resolve_target_context(
-            target, gcs_credentials=gcs_credentials
-        )
+        (
+            customer_tier,
+            is_eu,
+            context_error,
+            source_health,
+        ) = _resolve_target_context(target, gcs_credentials=gcs_credentials)
     except Exception as exc:
         logger.exception("Tier resolution failed for %s", target)
         return _build_version_override_result(
@@ -693,10 +736,16 @@ def set_version_override(
             customer_tier=customer_tier,
             is_eu=is_eu,
             tier_warning=tier_warning,
+            source_health=source_health,
             result_kwargs=result_kwargs,
         )
 
-    tier_ok, tier_error = validate_tier_filter(customer_tier, customer_tier_filter)
+    tier_ok, tier_error = validate_tier_filter(
+        customer_tier,
+        customer_tier_filter,
+        source_health=source_health,
+        organization_id=target.organization_id,
+    )
     if not tier_ok:
         return _build_version_override_result(
             target=target,
@@ -705,6 +754,7 @@ def set_version_override(
             customer_tier=customer_tier,
             is_eu=is_eu,
             tier_warning=tier_warning,
+            source_health=source_health,
             result_kwargs=result_kwargs,
         )
 
@@ -732,6 +782,7 @@ def set_version_override(
             customer_tier=customer_tier,
             is_eu=is_eu,
             tier_warning=tier_warning,
+            source_health=source_health,
             result_kwargs=result_kwargs,
         )
 
@@ -754,6 +805,7 @@ def set_version_override(
             customer_tier=customer_tier,
             is_eu=is_eu,
             tier_warning=tier_warning,
+            source_health=source_health,
             result_kwargs=result_kwargs,
         )
 
@@ -824,6 +876,7 @@ def set_version_override(
         customer_tier=customer_tier,
         is_eu=is_eu,
         tier_warning=tier_warning,
+        source_health=source_health,
         result_kwargs=result_kwargs,
     )
 
@@ -872,10 +925,12 @@ def _build_version_override_result(
     customer_tier: str | None = None,
     is_eu: bool | None = None,
     tier_warning: str | None = None,
+    source_health: TierSourceHealth | None = None,
 ) -> VersionOverrideResult:
     """Build the historical result model for `target.scope`."""
     if connector_type is None:
         connector_type = target.connector_type
+    warnings = tier_source_warnings(source_health)
     if target.scope == "actor":
         assert result_kwargs.connector_id is not None
         return VersionOverrideOperationResult(
@@ -888,6 +943,7 @@ def _build_version_override_result(
             customer_tier=customer_tier,
             is_eu=is_eu,
             tier_warning=tier_warning,
+            warnings=warnings,
         )
     if target.scope == "workspace":
         assert result_kwargs.workspace_id is not None
@@ -902,6 +958,7 @@ def _build_version_override_result(
             customer_tier=customer_tier,
             is_eu=is_eu,
             tier_warning=tier_warning,
+            warnings=warnings,
         )
     assert result_kwargs.organization_id is not None
     assert result_kwargs.connector_name is not None
@@ -914,6 +971,7 @@ def _build_version_override_result(
         version=version,
         customer_tier=customer_tier,
         tier_warning=tier_warning,
+        warnings=warnings,
     )
 
 
@@ -1013,7 +1071,10 @@ def set_actor_version_override(
     checks are enforced here. The returned `VersionOverrideOperationResult`
     is the same shape produced by the corresponding MCP tool.
     """
-    ws_resolution = resolve_workspace(workspace_id)
+    ws_resolution = resolve_workspace(
+        workspace_id=workspace_id,
+        allow_degraded=True,
+    )
     if not ws_resolution.organization_id:
         return VersionOverrideOperationResult(
             success=False,
@@ -1068,7 +1129,10 @@ def set_workspace_version_override(
     Pins (or clears) the override for ALL instances of `connector_name` in
     `workspace_id`.
     """
-    ws_resolution = resolve_workspace(workspace_id)
+    ws_resolution = resolve_workspace(
+        workspace_id=workspace_id,
+        allow_degraded=True,
+    )
     if not ws_resolution.organization_id:
         return WorkspaceVersionOverrideResult(
             success=False,

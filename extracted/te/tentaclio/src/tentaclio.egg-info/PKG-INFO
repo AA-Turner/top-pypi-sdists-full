@@ -1,21 +1,22 @@
 Metadata-Version: 2.4
 Name: tentaclio
-Version: 1.4.1
+Version: 1.5.0
 Summary: Unification of data connectors for distributed data tasks
-Author-email: Octopus Energy <nerds@octoenergy.com>
+Author-email: Octopus Energy <nerds@octopus.energy>
 License-Expression: MIT
-Project-URL: Homepage, https://github.com/octoenergy/tentaclio
-Project-URL: Repository, https://github.com/octoenergy/tentaclio
+Project-URL: Homepage, https://github.com/octopus-energy/tentaclio
+Project-URL: Repository, https://github.com/octopus-energy/tentaclio
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: urllib3>=1.24.2
@@ -25,7 +26,6 @@ Requires-Dist: paramiko<4.0.0,>=3.4.0
 Requires-Dist: pandas
 Requires-Dist: click
 Requires-Dist: pyyaml
-Requires-Dist: importlib_metadata>3.7.0
 Provides-Extra: s3
 Requires-Dist: tentaclio_s3; extra == "s3"
 Provides-Extra: athena
@@ -40,11 +40,13 @@ Provides-Extra: gs
 Requires-Dist: tentaclio_gs; extra == "gs"
 Provides-Extra: snowflake
 Requires-Dist: tentaclio_snowflake; extra == "snowflake"
+Provides-Extra: polars
+Requires-Dist: polars>=0.16; extra == "polars"
 Dynamic: license-file
 
 # Tentaclio
 
-[![CircleCI](https://dl.circleci.com/status-badge/img/gh/octoenergy/tentaclio/tree/master.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/octoenergy/tentaclio/tree/master)
+[![CircleCI](https://dl.circleci.com/status-badge/img/gh/octopus-energy/tentaclio/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/octopus-energy/tentaclio/tree/main)
 [![Documentation Status](https://readthedocs.org/projects/tentaclio/badge/?version=latest)](https://tentaclio.readthedocs.io/en/latest/)
 
 Python library that simplifies:
@@ -55,7 +57,7 @@ Python library that simplifies:
 Main considerations in the design:
 * Easy to use: all streams are open via `tentaclio.open`, all database connections through `tentaclio.db`.
 * URLs are the basic resource locator and db connection string.
-* Automagic authentication for protected resources.
+* Automatic authentication for protected resources.
 * Extensible: you can add your own handlers for other schemes.
 * Pandas interaction.
 
@@ -79,7 +81,7 @@ with tentaclio.open(bucket) as reader:
 ```python
 import tentaclio
 
-tentaclio.copy("/home/constantine/data.csv", "sftp://constantine:tentacl3@sftp.octoenergy.com/uploads/data.csv")
+tentaclio.copy("/home/constantine/data.csv", "sftp://constantine:tentacl3@sftp.octopus.energy/uploads/data.csv")
 ```
 ## Delete resources
 ```python
@@ -91,7 +93,7 @@ tentaclio.remove("s3://my-bucket/octopus/the-9th-tentacle.txt")
 ```python
 import tentaclio
 
-for entry in tentaclio.listdir("s3:://mybucket/path/to/dir"):
+for entry in tentaclio.listdir("s3://my-bucket/path/to/dir"):
     print("Entry", entry)
 ```
 
@@ -101,12 +103,12 @@ import os
 
 import tentaclio
 
-print("env ftp credentials", os.getenv("OCTOIO__CONN__OCTOENERGY_FTP"))
-# This prints `sftp://constantine:tentacl3@sftp.octoenergy.com/`
+print("env ftp credentials", os.getenv("TENTACLIO__CONN__OCTOPUS_ENERGY_FTP"))
+# This prints `sftp://constantine:tentacl3@sftp.octopus.energy/`
 
 # Credentials get automatically injected.
 
-with tentaclio.open("sftp://sftp.octoenergy.com/uploads/data.csv") as reader:
+with tentaclio.open("sftp://sftp.octopus.energy/uploads/data.csv") as reader:
     print(reader.read())
 ```
 
@@ -165,6 +167,8 @@ pipenv install tentaclio
 uv install tentaclio
 ```
 
+The installed version is available at runtime as `tentaclio.__version__`.
+
 ## Developing.
 
 Clone this repo and install [uv](https://docs.astral.sh/uv/#installation).
@@ -206,18 +210,18 @@ Default:
 * `http://host.com/path/to/resource`
 * `https://host.com/path/to/resource`
 
-[tentaclio-s3](https://github.com/octoenergy/tentaclio-s3)
+[tentaclio-s3](https://github.com/octopus-energy/tentaclio-s3)
 * `s3://bucket/file`
 
-[tentaclio-gs](https://github.com/octoenergy/tentaclio-gs)
+[tentaclio-gs](https://github.com/octopus-energy/tentaclio-gs)
 * `gs://bucket/file`
 * `gsc://bucket/file`
 
-[tentaclio-gdrive](https://github.com/octoenergy/tentaclio-gdrive)
+[tentaclio-gdrive](https://github.com/octopus-energy/tentaclio-gdrive)
 * `gdrive:/My Drive/file`
 * `googledrive:/My Drive/file`
 
-[tentaclio-postgres](https://github.com/octoenergy/tentaclio-postgres)
+[tentaclio-postgres](https://github.com/octopus-energy/tentaclio-postgres)
 * `postgresql://host/database::table` will allow you to write from a csv format into a database with the same column names (note that the table goes after `::` :warning:).
 
 
@@ -235,7 +239,7 @@ with tentaclio.open("/path/to/my/file") as reader:
 
 [...]
 
-with tentaclio.open("s3::/path/to/my/file", mode='w') as writer:
+with tentaclio.open("s3://my-bucket/path/to/my/file", mode='w') as writer:
     df.to_parquet(writer)
 ```
 `Readers`, `Writers` and their closeable versions can be used anywhere expecting a file-like object; pandas or pickle are examples of such functions.
@@ -250,22 +254,22 @@ To avoid this we can make the stream _empty safe_ so the empty buffer won't be f
 
 
 ```
-with tio.make_empty_safe(tio.open("s3://bucket/file.parquet", mode="wb")) as writer:
+with tio.make_empty_safe(tio.open("s3://my-bucket/file.parquet", mode="wb")) as writer:
     if not df.empty:
         df.to_parquet(writer)
 ```
 
 ### File system like operations to resources
 #### Listing resources
-Some URL schemes allow listing resources in a pythonnic way:
+Some URL schemes allow listing resources in a pythonic way:
 ```python
 import tentaclio
 
-for entry in tentaclio.listdir("s3:://mybucket/path/to/dir"):
+for entry in tentaclio.listdir("s3://my-bucket/path/to/dir"):
     print("Entry", entry)
 ```
 
-Whereas `listdir` might be convinient we also offer `scandir`, which returns a list of [DirEntry](https://github.com/octoenergy/tentaclio/blob/ddbc28615de4b99106b956556db74a20e4761afe/src/tentaclio/fs/scanner.py#L13)s, and, `walk`. All functions follow as closely as possible their standard library definitions.
+Whereas `listdir` might be convenient we also offer `scandir`, which returns a list of [DirEntry](https://github.com/octopus-energy/tentaclio/blob/ddbc28615de4b99106b956556db74a20e4761afe/src/tentaclio/fs/scanner.py#L13)s, and, `walk`. All functions follow as closely as possible their standard library definitions.
 
 
 ### Database access
@@ -290,16 +294,16 @@ Default:
 * `mssql://`
 * + Any other scheme supported by sqlalchemy.
 
-[tentaclio-postgres](https://github.com/octoenergy/tentaclio-postgres)
+[tentaclio-postgres](https://github.com/octopus-energy/tentaclio-postgres)
 * `postgresql://`
 
-[tentaclio-athena](https://github.com/octoenergy/tentaclio-athena)
+[tentaclio-athena](https://github.com/octopus-energy/tentaclio-athena)
 * `awsathena+rest://`
 
-[tentaclio-databricks](https://github.com/octoenergy/tentaclio-databricks)
+[tentaclio-databricks](https://github.com/octopus-energy/tentaclio-databricks)
 * `databricks+thrift://`
 
-[tentaclio-snowflake](https://github.com/octoenergy/tentaclio-snowflake)
+[tentaclio-snowflake](https://github.com/octopus-energy/tentaclio-snowflake)
 * `snowflake://`
 
 
@@ -309,11 +313,17 @@ when connecting to the database.
 
 ### Automatic credentials injection
 
-1. Configure credentials by using environmental variables prefixed with `TENTACLIO__CONN__`  (i.e.  `TENTACLIO__CONN__DATA_FTP=sfpt://real_user:132ldsf@ftp.octoenergy.com`).
+1. Configure credentials by using environmental variables prefixed with `TENTACLIO__CONN__`  (i.e.  `TENTACLIO__CONN__DATA_FTP=sftp://real_user:132ldsf@ftp.octopus.energy`).
+
+   **This is the recommended way to configure credentials.** One env var per credential is
+   easier to manage in CI/CD and secret managers (no file to write, mount, or gitignore), and
+   rotating or scoping a single credential doesn't require touching a shared YAML file. Prefer
+   this over the [credentials file](#credentials-file) below unless you have many credentials
+   and want them all in one place.
 
 2. Open a stream:
 ```python
-with tentaclio.open("sftp://ftp.octoenergy.com/file.csv") as reader:
+with tentaclio.open("sftp://ftp.octopus.energy/file.csv") as reader:
     reader.read()
 ```
 The credentials get injected into the url.
@@ -332,11 +342,16 @@ Different components of the URL are set differently:
 - Username, password and hostname will be set from the stored credentials.
 - Port will be set from the stored credentials if it exists, otherwise from the URL.
 - Query will be set from the URL if it exists, otherwise from the stored credentials (so it can be
-  overriden)
+  overridden)
 
 #### Credentials file
 
-You can also set a credentials file that looks like:
+If you have many credentials, an alternative to setting one `TENTACLIO__CONN__` env var per
+credential is a single YAML file. This is still fully supported, but individual
+`TENTACLIO__CONN__` env vars are the recommended default — reach for a credentials file only
+when you need to manage a large number of secrets together.
+
+The file looks like:
 ```
 secrets:
     db_1: postgresql://user1:pass1@myhost.com/database_1
@@ -347,7 +362,7 @@ And make it accessible to tentaclio by setting the environmental variable `TENTA
 
 (Note that you may need to add `?driver={driver from /usr/local/etc/odbcinst.ini}` for mssql database connection strings; see above example)
 
-Alternatively you can run `curl https://raw.githubusercontent.com/octoenergy/tentaclio/master/extras/init_tentaclio.sh` to create a secrets file in `~/.tentaclio.yml` and
+Alternatively you can run `curl https://raw.githubusercontent.com/octopus-energy/tentaclio/main/extras/init_tentaclio.sh` to create a secrets file in `~/.tentaclio.yml` and
 automatically configure your environment.
 
 Environment variables can be included in the credentials file by using `${ENV_VARIABLE}` as it follows:
@@ -360,4 +375,4 @@ Tentaclio will search `DB_USER` and `DB_PASS` in the environment and will interp
 
 ## Quick note on protocols structural subtyping.
 
-In order to abstract concrete dependencies from the implementation of data related functions (or in any part of the system really) we use typed [protocols](https://mypy.readthedocs.io/en/latest/protocols.html#simple-user-defined-protocols). This allows a more flexible dependency injection than using subclassing or [more complex approches](http://code.activestate.com/recipes/413268/). This idea is heavily inspired by how this exact thing is done in [go](https://www.youtube.com/watch?v=ifBUfIb7kdo). Learn more about this principle in our [tech blog](https://tech.octopus.energy/news/2019/03/21/python-interfaces-a-la-go.html).
+In order to abstract concrete dependencies from the implementation of data related functions (or in any part of the system really) we use typed [protocols](https://mypy.readthedocs.io/en/latest/protocols.html#simple-user-defined-protocols). This allows a more flexible dependency injection than using subclassing or [more complex approaches](http://code.activestate.com/recipes/413268/). This idea is heavily inspired by how this exact thing is done in [go](https://www.youtube.com/watch?v=ifBUfIb7kdo). Learn more about this principle in our [tech blog](https://tech.octopus.energy/news/2019/03/21/python-interfaces-a-la-go.html).

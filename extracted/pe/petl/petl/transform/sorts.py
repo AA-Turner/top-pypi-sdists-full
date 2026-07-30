@@ -472,11 +472,11 @@ class MergeSortView(Table):
                                 cache=cache)
                            for t in tables]
         self.missing = missing
-        self.header = header
+        self._header = header
         self.reverse = reverse
 
     def __iter__(self):
-        return itermergesort(self.tables, self.key, self.header, self.missing,
+        return itermergesort(self.tables, self.key, self._header, self.missing,
                              self.reverse)
 
 

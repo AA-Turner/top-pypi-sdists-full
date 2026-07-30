@@ -27,12 +27,16 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    DescribePipelineExecutionPaginator,
     ExecuteQueryPaginator,
     GetAssetPropertyAggregatesPaginator,
     GetAssetPropertyValueHistoryPaginator,
     GetInterpolatedAssetPropertyValuesPaginator,
+    GetQueryResultsPaginator,
+    GetSearchResultsPaginator,
     ListAccessPoliciesPaginator,
     ListActionsPaginator,
+    ListApplicationsPaginator,
     ListAssetModelCompositeModelsPaginator,
     ListAssetModelPropertiesPaginator,
     ListAssetModelsPaginator,
@@ -46,20 +50,36 @@ from .paginator import (
     ListComputationModelResolveToResourcesPaginator,
     ListComputationModelsPaginator,
     ListDashboardsPaginator,
+    ListDatasetDataSegmentRelationshipsPaginator,
+    ListDatasetDataSegmentsPaginator,
+    ListDatasetExportJobsPaginator,
     ListDatasetsPaginator,
+    ListEnrichmentJobsPaginator,
     ListExecutionsPaginator,
     ListGatewaysPaginator,
     ListInterfaceRelationshipsPaginator,
+    ListPipelineExecutionsPaginator,
+    ListPipelinesPaginator,
     ListPortalsPaginator,
     ListProjectAssetsPaginator,
     ListProjectsPaginator,
+    ListQueriesPaginator,
+    ListSearchesPaginator,
+    ListTasksPaginator,
     ListTimeSeriesPaginator,
+    ListWorkspacesPaginator,
 )
 from .type_defs import (
     AssociateAssetsRequestTypeDef,
     AssociateTimeSeriesToAssetPropertyRequestTypeDef,
+    BatchAssociateDataSegmentsToDatasetRequestTypeDef,
+    BatchAssociateDataSegmentsToDatasetResponseTypeDef,
     BatchAssociateProjectAssetsRequestTypeDef,
     BatchAssociateProjectAssetsResponseTypeDef,
+    BatchDeleteDatasetDataSegmentsRequestTypeDef,
+    BatchDeleteDatasetDataSegmentsResponseTypeDef,
+    BatchDisassociateDataSegmentsFromDatasetRequestTypeDef,
+    BatchDisassociateDataSegmentsFromDatasetResponseTypeDef,
     BatchDisassociateProjectAssetsRequestTypeDef,
     BatchDisassociateProjectAssetsResponseTypeDef,
     BatchGetAssetPropertyAggregatesRequestTypeDef,
@@ -70,8 +90,16 @@ from .type_defs import (
     BatchGetAssetPropertyValueResponseTypeDef,
     BatchPutAssetPropertyValueRequestTypeDef,
     BatchPutAssetPropertyValueResponseTypeDef,
+    CancelEnrichmentJobRequestTypeDef,
+    CancelEnrichmentJobResponseTypeDef,
+    CancelPipelineExecutionRequestTypeDef,
+    CancelPipelineExecutionResponseTypeDef,
+    CancelQueryRequestTypeDef,
+    CancelQueryResponseTypeDef,
     CreateAccessPolicyRequestTypeDef,
     CreateAccessPolicyResponseTypeDef,
+    CreateApplicationRequestTypeDef,
+    CreateApplicationResponseTypeDef,
     CreateAssetModelCompositeModelRequestTypeDef,
     CreateAssetModelCompositeModelResponseTypeDef,
     CreateAssetModelRequestTypeDef,
@@ -84,15 +112,26 @@ from .type_defs import (
     CreateComputationModelResponseTypeDef,
     CreateDashboardRequestTypeDef,
     CreateDashboardResponseTypeDef,
+    CreateDatasetExportJobRequestTypeDef,
+    CreateDatasetExportJobResponseTypeDef,
     CreateDatasetRequestTypeDef,
     CreateDatasetResponseTypeDef,
+    CreateEnrichmentJobRequestTypeDef,
+    CreateEnrichmentJobResponseTypeDef,
     CreateGatewayRequestTypeDef,
     CreateGatewayResponseTypeDef,
+    CreatePipelineRequestTypeDef,
+    CreatePipelineResponseTypeDef,
     CreatePortalRequestTypeDef,
     CreatePortalResponseTypeDef,
     CreateProjectRequestTypeDef,
     CreateProjectResponseTypeDef,
+    CreateTaskRequestTypeDef,
+    CreateTaskResponseTypeDef,
+    CreateWorkspaceRequestTypeDef,
+    CreateWorkspaceResponseTypeDef,
     DeleteAccessPolicyRequestTypeDef,
+    DeleteApplicationRequestTypeDef,
     DeleteAssetModelCompositeModelRequestTypeDef,
     DeleteAssetModelCompositeModelResponseTypeDef,
     DeleteAssetModelInterfaceRelationshipRequestTypeDef,
@@ -107,14 +146,22 @@ from .type_defs import (
     DeleteDatasetRequestTypeDef,
     DeleteDatasetResponseTypeDef,
     DeleteGatewayRequestTypeDef,
+    DeletePipelineRequestTypeDef,
+    DeletePipelineResponseTypeDef,
     DeletePortalRequestTypeDef,
     DeletePortalResponseTypeDef,
     DeleteProjectRequestTypeDef,
+    DeleteTaskRequestTypeDef,
+    DeleteTaskResponseTypeDef,
     DeleteTimeSeriesRequestTypeDef,
+    DeleteWorkspaceRequestTypeDef,
+    DeleteWorkspaceResponseTypeDef,
     DescribeAccessPolicyRequestTypeDef,
     DescribeAccessPolicyResponseTypeDef,
     DescribeActionRequestTypeDef,
     DescribeActionResponseTypeDef,
+    DescribeApplicationRequestTypeDef,
+    DescribeApplicationResponseTypeDef,
     DescribeAssetCompositeModelRequestTypeDef,
     DescribeAssetCompositeModelResponseTypeDef,
     DescribeAssetModelCompositeModelRequestTypeDef,
@@ -135,23 +182,40 @@ from .type_defs import (
     DescribeComputationModelResponseTypeDef,
     DescribeDashboardRequestTypeDef,
     DescribeDashboardResponseTypeDef,
+    DescribeDatasetExportJobRequestTypeDef,
+    DescribeDatasetExportJobResponseTypeDef,
     DescribeDatasetRequestTypeDef,
     DescribeDatasetResponseTypeDef,
     DescribeDefaultEncryptionConfigurationResponseTypeDef,
+    DescribeEnrichmentJobRequestTypeDef,
+    DescribeEnrichmentJobResponseTypeDef,
     DescribeExecutionRequestTypeDef,
     DescribeExecutionResponseTypeDef,
     DescribeGatewayCapabilityConfigurationRequestTypeDef,
     DescribeGatewayCapabilityConfigurationResponseTypeDef,
     DescribeGatewayRequestTypeDef,
     DescribeGatewayResponseTypeDef,
+    DescribeLoggingOptionsRequestTypeDef,
     DescribeLoggingOptionsResponseTypeDef,
+    DescribePipelineExecutionRequestTypeDef,
+    DescribePipelineExecutionResponseTypeDef,
+    DescribePipelineRequestTypeDef,
+    DescribePipelineResponseTypeDef,
     DescribePortalRequestTypeDef,
     DescribePortalResponseTypeDef,
     DescribeProjectRequestTypeDef,
     DescribeProjectResponseTypeDef,
+    DescribeQueryRequestTypeDef,
+    DescribeQueryResponseTypeDef,
+    DescribeSearchRequestTypeDef,
+    DescribeSearchResponseTypeDef,
     DescribeStorageConfigurationResponseTypeDef,
+    DescribeTaskRequestTypeDef,
+    DescribeTaskResponseTypeDef,
     DescribeTimeSeriesRequestTypeDef,
     DescribeTimeSeriesResponseTypeDef,
+    DescribeWorkspaceRequestTypeDef,
+    DescribeWorkspaceResponseTypeDef,
     DisassociateAssetsRequestTypeDef,
     DisassociateTimeSeriesFromAssetPropertyRequestTypeDef,
     EmptyResponseMetadataTypeDef,
@@ -165,14 +229,22 @@ from .type_defs import (
     GetAssetPropertyValueHistoryResponseTypeDef,
     GetAssetPropertyValueRequestTypeDef,
     GetAssetPropertyValueResponseTypeDef,
+    GetCaptureDataRequestTypeDef,
+    GetCaptureDataResponseTypeDef,
     GetInterpolatedAssetPropertyValuesRequestTypeDef,
     GetInterpolatedAssetPropertyValuesResponseTypeDef,
+    GetQueryResultsRequestTypeDef,
+    GetQueryResultsResponseTypeDef,
+    GetSearchResultsRequestTypeDef,
+    GetSearchResultsResponseTypeDef,
     InvokeAssistantRequestTypeDef,
     InvokeAssistantResponseTypeDef,
     ListAccessPoliciesRequestTypeDef,
     ListAccessPoliciesResponseTypeDef,
     ListActionsRequestTypeDef,
     ListActionsResponseTypeDef,
+    ListApplicationsRequestTypeDef,
+    ListApplicationsResponseTypeDef,
     ListAssetModelCompositeModelsRequestTypeDef,
     ListAssetModelCompositeModelsResponseTypeDef,
     ListAssetModelPropertiesRequestTypeDef,
@@ -199,24 +271,44 @@ from .type_defs import (
     ListComputationModelsResponseTypeDef,
     ListDashboardsRequestTypeDef,
     ListDashboardsResponseTypeDef,
+    ListDatasetDataSegmentRelationshipsRequestTypeDef,
+    ListDatasetDataSegmentRelationshipsResponseTypeDef,
+    ListDatasetDataSegmentsRequestTypeDef,
+    ListDatasetDataSegmentsResponseTypeDef,
+    ListDatasetExportJobsRequestTypeDef,
+    ListDatasetExportJobsResponseTypeDef,
     ListDatasetsRequestTypeDef,
     ListDatasetsResponseTypeDef,
+    ListEnrichmentJobsRequestTypeDef,
+    ListEnrichmentJobsResponseTypeDef,
     ListExecutionsRequestTypeDef,
     ListExecutionsResponseTypeDef,
     ListGatewaysRequestTypeDef,
     ListGatewaysResponseTypeDef,
     ListInterfaceRelationshipsRequestTypeDef,
     ListInterfaceRelationshipsResponseTypeDef,
+    ListPipelineExecutionsRequestTypeDef,
+    ListPipelineExecutionsResponseTypeDef,
+    ListPipelinesRequestTypeDef,
+    ListPipelinesResponseTypeDef,
     ListPortalsRequestTypeDef,
     ListPortalsResponseTypeDef,
     ListProjectAssetsRequestTypeDef,
     ListProjectAssetsResponseTypeDef,
     ListProjectsRequestTypeDef,
     ListProjectsResponseTypeDef,
+    ListQueriesRequestTypeDef,
+    ListQueriesResponseTypeDef,
+    ListSearchesRequestTypeDef,
+    ListSearchesResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    ListTasksRequestTypeDef,
+    ListTasksResponseTypeDef,
     ListTimeSeriesRequestTypeDef,
     ListTimeSeriesResponseTypeDef,
+    ListWorkspacesRequestTypeDef,
+    ListWorkspacesResponseTypeDef,
     PutAssetModelInterfaceRelationshipRequestTypeDef,
     PutAssetModelInterfaceRelationshipResponseTypeDef,
     PutDefaultEncryptionConfigurationRequestTypeDef,
@@ -224,6 +316,12 @@ from .type_defs import (
     PutLoggingOptionsRequestTypeDef,
     PutStorageConfigurationRequestTypeDef,
     PutStorageConfigurationResponseTypeDef,
+    StartPipelineExecutionRequestTypeDef,
+    StartPipelineExecutionResponseTypeDef,
+    StartQueryRequestTypeDef,
+    StartQueryResponseTypeDef,
+    StartSearchRequestTypeDef,
+    StartSearchResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateAccessPolicyRequestTypeDef,
@@ -242,9 +340,15 @@ from .type_defs import (
     UpdateGatewayCapabilityConfigurationRequestTypeDef,
     UpdateGatewayCapabilityConfigurationResponseTypeDef,
     UpdateGatewayRequestTypeDef,
+    UpdatePipelineRequestTypeDef,
+    UpdatePipelineResponseTypeDef,
     UpdatePortalRequestTypeDef,
     UpdatePortalResponseTypeDef,
     UpdateProjectRequestTypeDef,
+    UpdateTaskRequestTypeDef,
+    UpdateTaskResponseTypeDef,
+    UpdateWorkspaceRequestTypeDef,
+    UpdateWorkspaceResponseTypeDef,
 )
 from .waiter import (
     AssetActiveWaiter,
@@ -338,14 +442,45 @@ class IoTSiteWiseClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#associate_time_series_to_asset_property)
         """
 
+    def batch_associate_data_segments_to_dataset(
+        self, **kwargs: Unpack[BatchAssociateDataSegmentsToDatasetRequestTypeDef]
+    ) -> BatchAssociateDataSegmentsToDatasetResponseTypeDef:
+        """
+        Associates a batch of data segments with a curated dataset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/batch_associate_data_segments_to_dataset.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#batch_associate_data_segments_to_dataset)
+        """
+
     def batch_associate_project_assets(
         self, **kwargs: Unpack[BatchAssociateProjectAssetsRequestTypeDef]
     ) -> BatchAssociateProjectAssetsResponseTypeDef:
         """
-        Associates a group (batch) of assets with an IoT SiteWise Monitor project.
+        The IoT SiteWise Monitor feature will no longer be open to new customers
+        starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/batch_associate_project_assets.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#batch_associate_project_assets)
+        """
+
+    def batch_delete_dataset_data_segments(
+        self, **kwargs: Unpack[BatchDeleteDatasetDataSegmentsRequestTypeDef]
+    ) -> BatchDeleteDatasetDataSegmentsResponseTypeDef:
+        """
+        Deletes a batch of data segments from a session dataset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/batch_delete_dataset_data_segments.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#batch_delete_dataset_data_segments)
+        """
+
+    def batch_disassociate_data_segments_from_dataset(
+        self, **kwargs: Unpack[BatchDisassociateDataSegmentsFromDatasetRequestTypeDef]
+    ) -> BatchDisassociateDataSegmentsFromDatasetResponseTypeDef:
+        """
+        Disassociates a batch of data segments from a curated dataset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/batch_disassociate_data_segments_from_dataset.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#batch_disassociate_data_segments_from_dataset)
         """
 
     def batch_disassociate_project_assets(
@@ -399,16 +534,55 @@ class IoTSiteWiseClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#batch_put_asset_property_value)
         """
 
+    def cancel_enrichment_job(
+        self, **kwargs: Unpack[CancelEnrichmentJobRequestTypeDef]
+    ) -> CancelEnrichmentJobResponseTypeDef:
+        """
+        Cancels a running or pending enrichment job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/cancel_enrichment_job.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#cancel_enrichment_job)
+        """
+
+    def cancel_pipeline_execution(
+        self, **kwargs: Unpack[CancelPipelineExecutionRequestTypeDef]
+    ) -> CancelPipelineExecutionResponseTypeDef:
+        """
+        Cancels a pipeline execution in the specified workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/cancel_pipeline_execution.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#cancel_pipeline_execution)
+        """
+
+    def cancel_query(
+        self, **kwargs: Unpack[CancelQueryRequestTypeDef]
+    ) -> CancelQueryResponseTypeDef:
+        """
+        Cancels a running query.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/cancel_query.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#cancel_query)
+        """
+
     def create_access_policy(
         self, **kwargs: Unpack[CreateAccessPolicyRequestTypeDef]
     ) -> CreateAccessPolicyResponseTypeDef:
         """
-        Creates an access policy that grants the specified identity (IAM Identity
-        Center user, IAM Identity Center group, or IAM user) access to the specified
-        IoT SiteWise Monitor portal or project resource.
+        The IoT SiteWise Monitor feature will no longer be open to new customers
+        starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/create_access_policy.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#create_access_policy)
+        """
+
+    def create_application(
+        self, **kwargs: Unpack[CreateApplicationRequestTypeDef]
+    ) -> CreateApplicationResponseTypeDef:
+        """
+        Creates a new application for the workspace and IdC application provided.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/create_application.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#create_application)
         """
 
     def create_asset(
@@ -466,7 +640,8 @@ class IoTSiteWiseClient(BaseClient):
         self, **kwargs: Unpack[CreateDashboardRequestTypeDef]
     ) -> CreateDashboardResponseTypeDef:
         """
-        Creates a dashboard in an IoT SiteWise Monitor project.
+        The IoT SiteWise Monitor feature will no longer be open to new customers
+        starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/create_dashboard.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#create_dashboard)
@@ -476,10 +651,31 @@ class IoTSiteWiseClient(BaseClient):
         self, **kwargs: Unpack[CreateDatasetRequestTypeDef]
     ) -> CreateDatasetResponseTypeDef:
         """
-        Creates a dataset to connect an external datasource.
+        Creates a dataset.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/create_dataset.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#create_dataset)
+        """
+
+    def create_dataset_export_job(
+        self, **kwargs: Unpack[CreateDatasetExportJobRequestTypeDef]
+    ) -> CreateDatasetExportJobResponseTypeDef:
+        """
+        Starts an asynchronous job that exports dataset and time-series data from a
+        workspace to Amazon S3.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/create_dataset_export_job.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#create_dataset_export_job)
+        """
+
+    def create_enrichment_job(
+        self, **kwargs: Unpack[CreateEnrichmentJobRequestTypeDef]
+    ) -> CreateEnrichmentJobResponseTypeDef:
+        """
+        Creates an asynchronous enrichment job to analyze time-series sensor data.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/create_enrichment_job.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#create_enrichment_job)
         """
 
     def create_gateway(
@@ -493,11 +689,22 @@ class IoTSiteWiseClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#create_gateway)
         """
 
+    def create_pipeline(
+        self, **kwargs: Unpack[CreatePipelineRequestTypeDef]
+    ) -> CreatePipelineResponseTypeDef:
+        """
+        Creates a new pipeline in the specified workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/create_pipeline.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#create_pipeline)
+        """
+
     def create_portal(
         self, **kwargs: Unpack[CreatePortalRequestTypeDef]
     ) -> CreatePortalResponseTypeDef:
         """
-        Creates a portal, which can contain projects and dashboards.
+        The IoT SiteWise Monitor feature will no longer be open to new customers
+        starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/create_portal.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#create_portal)
@@ -507,10 +714,29 @@ class IoTSiteWiseClient(BaseClient):
         self, **kwargs: Unpack[CreateProjectRequestTypeDef]
     ) -> CreateProjectResponseTypeDef:
         """
-        Creates a project in the specified portal.
+        The IoT SiteWise Monitor feature will no longer be open to new customers
+        starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/create_project.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#create_project)
+        """
+
+    def create_task(self, **kwargs: Unpack[CreateTaskRequestTypeDef]) -> CreateTaskResponseTypeDef:
+        """
+        Creates a new task in the specified workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/create_task.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#create_task)
+        """
+
+    def create_workspace(
+        self, **kwargs: Unpack[CreateWorkspaceRequestTypeDef]
+    ) -> CreateWorkspaceResponseTypeDef:
+        """
+        Creates a workspace in IoT SiteWise.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/create_workspace.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#create_workspace)
         """
 
     def delete_access_policy(
@@ -522,6 +748,16 @@ class IoTSiteWiseClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/delete_access_policy.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#delete_access_policy)
+        """
+
+    def delete_application(
+        self, **kwargs: Unpack[DeleteApplicationRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes an application by ID.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/delete_application.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#delete_application)
         """
 
     def delete_asset(
@@ -603,6 +839,16 @@ class IoTSiteWiseClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#delete_gateway)
         """
 
+    def delete_pipeline(
+        self, **kwargs: Unpack[DeletePipelineRequestTypeDef]
+    ) -> DeletePipelineResponseTypeDef:
+        """
+        Deletes a pipeline from the specified workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/delete_pipeline.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#delete_pipeline)
+        """
+
     def delete_portal(
         self, **kwargs: Unpack[DeletePortalRequestTypeDef]
     ) -> DeletePortalResponseTypeDef:
@@ -621,6 +867,14 @@ class IoTSiteWiseClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#delete_project)
         """
 
+    def delete_task(self, **kwargs: Unpack[DeleteTaskRequestTypeDef]) -> DeleteTaskResponseTypeDef:
+        """
+        Deletes a task from the specified workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/delete_task.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#delete_task)
+        """
+
     def delete_time_series(
         self, **kwargs: Unpack[DeleteTimeSeriesRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -629,6 +883,16 @@ class IoTSiteWiseClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/delete_time_series.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#delete_time_series)
+        """
+
+    def delete_workspace(
+        self, **kwargs: Unpack[DeleteWorkspaceRequestTypeDef]
+    ) -> DeleteWorkspaceResponseTypeDef:
+        """
+        Deletes a workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/delete_workspace.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#delete_workspace)
         """
 
     def describe_access_policy(
@@ -650,6 +914,16 @@ class IoTSiteWiseClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/describe_action.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#describe_action)
+        """
+
+    def describe_application(
+        self, **kwargs: Unpack[DescribeApplicationRequestTypeDef]
+    ) -> DescribeApplicationResponseTypeDef:
+        """
+        Retrieves Application details based on the ID.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/describe_application.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#describe_application)
         """
 
     def describe_asset(
@@ -765,6 +1039,16 @@ class IoTSiteWiseClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#describe_dataset)
         """
 
+    def describe_dataset_export_job(
+        self, **kwargs: Unpack[DescribeDatasetExportJobRequestTypeDef]
+    ) -> DescribeDatasetExportJobResponseTypeDef:
+        """
+        Retrieves information about a dataset export job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/describe_dataset_export_job.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#describe_dataset_export_job)
+        """
+
     def describe_default_encryption_configuration(
         self,
     ) -> DescribeDefaultEncryptionConfigurationResponseTypeDef:
@@ -774,6 +1058,17 @@ class IoTSiteWiseClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/describe_default_encryption_configuration.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#describe_default_encryption_configuration)
+        """
+
+    def describe_enrichment_job(
+        self, **kwargs: Unpack[DescribeEnrichmentJobRequestTypeDef]
+    ) -> DescribeEnrichmentJobResponseTypeDef:
+        """
+        Retrieves detailed information about a specific enrichment job, including its
+        current status, configuration, and timestamps.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/describe_enrichment_job.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#describe_enrichment_job)
         """
 
     def describe_execution(
@@ -806,12 +1101,35 @@ class IoTSiteWiseClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#describe_gateway_capability_configuration)
         """
 
-    def describe_logging_options(self) -> DescribeLoggingOptionsResponseTypeDef:
+    def describe_logging_options(
+        self, **kwargs: Unpack[DescribeLoggingOptionsRequestTypeDef]
+    ) -> DescribeLoggingOptionsResponseTypeDef:
         """
         Retrieves the current IoT SiteWise logging options.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/describe_logging_options.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#describe_logging_options)
+        """
+
+    def describe_pipeline(
+        self, **kwargs: Unpack[DescribePipelineRequestTypeDef]
+    ) -> DescribePipelineResponseTypeDef:
+        """
+        Retrieves detailed information about a specific pipeline in a workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/describe_pipeline.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#describe_pipeline)
+        """
+
+    def describe_pipeline_execution(
+        self, **kwargs: Unpack[DescribePipelineExecutionRequestTypeDef]
+    ) -> DescribePipelineExecutionResponseTypeDef:
+        """
+        Retrieves detailed information about a specific pipeline execution, including
+        the overall execution status and the status of each individual compute node.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/describe_pipeline_execution.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#describe_pipeline_execution)
         """
 
     def describe_portal(
@@ -834,12 +1152,44 @@ class IoTSiteWiseClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#describe_project)
         """
 
+    def describe_query(
+        self, **kwargs: Unpack[DescribeQueryRequestTypeDef]
+    ) -> DescribeQueryResponseTypeDef:
+        """
+        Retrieves information about a query, including its status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/describe_query.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#describe_query)
+        """
+
+    def describe_search(
+        self, **kwargs: Unpack[DescribeSearchRequestTypeDef]
+    ) -> DescribeSearchResponseTypeDef:
+        """
+        Returns the current status and metadata of a single search, including the query
+        that was submitted, the search type, and — when the search has failed — the
+        reason.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/describe_search.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#describe_search)
+        """
+
     def describe_storage_configuration(self) -> DescribeStorageConfigurationResponseTypeDef:
         """
         Retrieves information about the storage configuration for IoT SiteWise.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/describe_storage_configuration.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#describe_storage_configuration)
+        """
+
+    def describe_task(
+        self, **kwargs: Unpack[DescribeTaskRequestTypeDef]
+    ) -> DescribeTaskResponseTypeDef:
+        """
+        Retrieves detailed information about a specific task in a workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/describe_task.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#describe_task)
         """
 
     def describe_time_series(
@@ -850,6 +1200,16 @@ class IoTSiteWiseClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/describe_time_series.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#describe_time_series)
+        """
+
+    def describe_workspace(
+        self, **kwargs: Unpack[DescribeWorkspaceRequestTypeDef]
+    ) -> DescribeWorkspaceResponseTypeDef:
+        """
+        Retrieves information about a workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/describe_workspace.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#describe_workspace)
         """
 
     def disassociate_assets(
@@ -924,6 +1284,16 @@ class IoTSiteWiseClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#get_asset_property_value_history)
         """
 
+    def get_capture_data(
+        self, **kwargs: Unpack[GetCaptureDataRequestTypeDef]
+    ) -> GetCaptureDataResponseTypeDef:
+        """
+        Retrieves video data for a specific time range.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/get_capture_data.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#get_capture_data)
+        """
+
     def get_interpolated_asset_property_values(
         self, **kwargs: Unpack[GetInterpolatedAssetPropertyValuesRequestTypeDef]
     ) -> GetInterpolatedAssetPropertyValuesResponseTypeDef:
@@ -933,6 +1303,26 @@ class IoTSiteWiseClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/get_interpolated_asset_property_values.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#get_interpolated_asset_property_values)
+        """
+
+    def get_query_results(
+        self, **kwargs: Unpack[GetQueryResultsRequestTypeDef]
+    ) -> GetQueryResultsResponseTypeDef:
+        """
+        Retrieves the paginated results of a query.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/get_query_results.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#get_query_results)
+        """
+
+    def get_search_results(
+        self, **kwargs: Unpack[GetSearchResultsRequestTypeDef]
+    ) -> GetSearchResultsResponseTypeDef:
+        """
+        Retrieves the ranked results of a search, ordered by descending relevance score.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/get_search_results.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#get_search_results)
         """
 
     def invoke_assistant(
@@ -965,6 +1355,16 @@ class IoTSiteWiseClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/list_actions.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#list_actions)
+        """
+
+    def list_applications(
+        self, **kwargs: Unpack[ListApplicationsRequestTypeDef]
+    ) -> ListApplicationsResponseTypeDef:
+        """
+        Retrieves a paginated list of existing applications.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/list_applications.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#list_applications)
         """
 
     def list_asset_model_composite_models(
@@ -1097,6 +1497,36 @@ class IoTSiteWiseClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#list_dashboards)
         """
 
+    def list_dataset_data_segment_relationships(
+        self, **kwargs: Unpack[ListDatasetDataSegmentRelationshipsRequestTypeDef]
+    ) -> ListDatasetDataSegmentRelationshipsResponseTypeDef:
+        """
+        Retrieves a paginated list of data segment relationships for a session dataset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/list_dataset_data_segment_relationships.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#list_dataset_data_segment_relationships)
+        """
+
+    def list_dataset_data_segments(
+        self, **kwargs: Unpack[ListDatasetDataSegmentsRequestTypeDef]
+    ) -> ListDatasetDataSegmentsResponseTypeDef:
+        """
+        Retrieves a paginated list of data segments associated with a dataset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/list_dataset_data_segments.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#list_dataset_data_segments)
+        """
+
+    def list_dataset_export_jobs(
+        self, **kwargs: Unpack[ListDatasetExportJobsRequestTypeDef]
+    ) -> ListDatasetExportJobsResponseTypeDef:
+        """
+        Retrieves a paginated list of dataset export jobs for a workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/list_dataset_export_jobs.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#list_dataset_export_jobs)
+        """
+
     def list_datasets(
         self, **kwargs: Unpack[ListDatasetsRequestTypeDef]
     ) -> ListDatasetsResponseTypeDef:
@@ -1105,6 +1535,16 @@ class IoTSiteWiseClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/list_datasets.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#list_datasets)
+        """
+
+    def list_enrichment_jobs(
+        self, **kwargs: Unpack[ListEnrichmentJobsRequestTypeDef]
+    ) -> ListEnrichmentJobsResponseTypeDef:
+        """
+        Lists enrichment jobs within a workspace with optional filtering and pagination.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/list_enrichment_jobs.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#list_enrichment_jobs)
         """
 
     def list_executions(
@@ -1138,6 +1578,26 @@ class IoTSiteWiseClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#list_interface_relationships)
         """
 
+    def list_pipeline_executions(
+        self, **kwargs: Unpack[ListPipelineExecutionsRequestTypeDef]
+    ) -> ListPipelineExecutionsResponseTypeDef:
+        """
+        Lists pipeline executions for a specific pipeline in a workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/list_pipeline_executions.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#list_pipeline_executions)
+        """
+
+    def list_pipelines(
+        self, **kwargs: Unpack[ListPipelinesRequestTypeDef]
+    ) -> ListPipelinesResponseTypeDef:
+        """
+        Lists pipelines in a workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/list_pipelines.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#list_pipelines)
+        """
+
     def list_portals(
         self, **kwargs: Unpack[ListPortalsRequestTypeDef]
     ) -> ListPortalsResponseTypeDef:
@@ -1169,6 +1629,26 @@ class IoTSiteWiseClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#list_projects)
         """
 
+    def list_queries(
+        self, **kwargs: Unpack[ListQueriesRequestTypeDef]
+    ) -> ListQueriesResponseTypeDef:
+        """
+        Retrieves a paginated list of queries for a workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/list_queries.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#list_queries)
+        """
+
+    def list_searches(
+        self, **kwargs: Unpack[ListSearchesRequestTypeDef]
+    ) -> ListSearchesResponseTypeDef:
+        """
+        Lists the searches in a workspace, most recently started first.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/list_searches.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#list_searches)
+        """
+
     def list_tags_for_resource(
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
@@ -1179,6 +1659,14 @@ class IoTSiteWiseClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#list_tags_for_resource)
         """
 
+    def list_tasks(self, **kwargs: Unpack[ListTasksRequestTypeDef]) -> ListTasksResponseTypeDef:
+        """
+        Lists tasks in a workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/list_tasks.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#list_tasks)
+        """
+
     def list_time_series(
         self, **kwargs: Unpack[ListTimeSeriesRequestTypeDef]
     ) -> ListTimeSeriesResponseTypeDef:
@@ -1187,6 +1675,16 @@ class IoTSiteWiseClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/list_time_series.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#list_time_series)
+        """
+
+    def list_workspaces(
+        self, **kwargs: Unpack[ListWorkspacesRequestTypeDef]
+    ) -> ListWorkspacesResponseTypeDef:
+        """
+        Retrieves a paginated list of workspaces.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/list_workspaces.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#list_workspaces)
         """
 
     def put_asset_model_interface_relationship(
@@ -1230,6 +1728,35 @@ class IoTSiteWiseClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#put_storage_configuration)
         """
 
+    def start_pipeline_execution(
+        self, **kwargs: Unpack[StartPipelineExecutionRequestTypeDef]
+    ) -> StartPipelineExecutionResponseTypeDef:
+        """
+        Starts execution of a pipeline in the specified workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/start_pipeline_execution.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#start_pipeline_execution)
+        """
+
+    def start_query(self, **kwargs: Unpack[StartQueryRequestTypeDef]) -> StartQueryResponseTypeDef:
+        """
+        Starts an asynchronous SQL query against workspace telemetry, annotations, data
+        segment, and dataset data.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/start_query.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#start_query)
+        """
+
+    def start_search(
+        self, **kwargs: Unpack[StartSearchRequestTypeDef]
+    ) -> StartSearchResponseTypeDef:
+        """
+        Starts an asynchronous search over the data in a workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/start_search.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#start_search)
+        """
+
     def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds tags to an IoT SiteWise resource.
@@ -1250,8 +1777,8 @@ class IoTSiteWiseClient(BaseClient):
         self, **kwargs: Unpack[UpdateAccessPolicyRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Updates an existing access policy that specifies an identity's access to an IoT
-        SiteWise Monitor portal or project resource.
+        The IoT SiteWise Monitor feature will no longer be open to new customers
+        starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/update_access_policy.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#update_access_policy)
@@ -1310,7 +1837,8 @@ class IoTSiteWiseClient(BaseClient):
 
     def update_dashboard(self, **kwargs: Unpack[UpdateDashboardRequestTypeDef]) -> dict[str, Any]:
         """
-        Updates an IoT SiteWise Monitor dashboard.
+        The IoT SiteWise Monitor feature will no longer be open to new customers
+        starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/update_dashboard.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#update_dashboard)
@@ -1347,11 +1875,22 @@ class IoTSiteWiseClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#update_gateway_capability_configuration)
         """
 
+    def update_pipeline(
+        self, **kwargs: Unpack[UpdatePipelineRequestTypeDef]
+    ) -> UpdatePipelineResponseTypeDef:
+        """
+        Updates an existing pipeline in the specified workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/update_pipeline.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#update_pipeline)
+        """
+
     def update_portal(
         self, **kwargs: Unpack[UpdatePortalRequestTypeDef]
     ) -> UpdatePortalResponseTypeDef:
         """
-        Updates an IoT SiteWise Monitor portal.
+        The IoT SiteWise Monitor feature will no longer be open to new customers
+        starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/update_portal.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#update_portal)
@@ -1359,10 +1898,40 @@ class IoTSiteWiseClient(BaseClient):
 
     def update_project(self, **kwargs: Unpack[UpdateProjectRequestTypeDef]) -> dict[str, Any]:
         """
-        Updates an IoT SiteWise Monitor project.
+        The IoT SiteWise Monitor feature will no longer be open to new customers
+        starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/update_project.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#update_project)
+        """
+
+    def update_task(self, **kwargs: Unpack[UpdateTaskRequestTypeDef]) -> UpdateTaskResponseTypeDef:
+        """
+        Updates an existing task in the specified workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/update_task.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#update_task)
+        """
+
+    def update_workspace(
+        self, **kwargs: Unpack[UpdateWorkspaceRequestTypeDef]
+    ) -> UpdateWorkspaceResponseTypeDef:
+        """
+        Updates a workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/update_workspace.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#update_workspace)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_pipeline_execution"]
+    ) -> DescribePipelineExecutionPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]
@@ -1411,6 +1980,28 @@ class IoTSiteWiseClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_query_results"]
+    ) -> GetQueryResultsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_search_results"]
+    ) -> GetSearchResultsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_access_policies"]
     ) -> ListAccessPoliciesPaginator:
         """
@@ -1424,6 +2015,17 @@ class IoTSiteWiseClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_actions"]
     ) -> ListActionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_applications"]
+    ) -> ListApplicationsPaginator:
         """
         Create a paginator for an operation.
 
@@ -1576,8 +2178,52 @@ class IoTSiteWiseClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_dataset_data_segment_relationships"]
+    ) -> ListDatasetDataSegmentRelationshipsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_dataset_data_segments"]
+    ) -> ListDatasetDataSegmentsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_dataset_export_jobs"]
+    ) -> ListDatasetExportJobsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_datasets"]
     ) -> ListDatasetsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_enrichment_jobs"]
+    ) -> ListEnrichmentJobsPaginator:
         """
         Create a paginator for an operation.
 
@@ -1620,6 +2266,28 @@ class IoTSiteWiseClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_pipeline_executions"]
+    ) -> ListPipelineExecutionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_pipelines"]
+    ) -> ListPipelinesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_portals"]
     ) -> ListPortalsPaginator:
         """
@@ -1653,8 +2321,52 @@ class IoTSiteWiseClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_queries"]
+    ) -> ListQueriesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_searches"]
+    ) -> ListSearchesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_tasks"]
+    ) -> ListTasksPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_time_series"]
     ) -> ListTimeSeriesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_workspaces"]
+    ) -> ListWorkspacesPaginator:
         """
         Create a paginator for an operation.
 

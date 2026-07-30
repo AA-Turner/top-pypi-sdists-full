@@ -13,13 +13,12 @@ use temporalio_common::protos::{
         workflow_commands::{ActivityCancellationType, ScheduleActivity},
         workflow_completion::WorkflowActivationCompletion,
     },
-    temporal::api::{
-        common::v1::{Payload, RetryPolicy},
-        enums::v1::TimeoutType,
-    },
+    temporal::api::common::v1::{Payload, RetryPolicy},
 };
 use temporalio_macros::{workflow, workflow_methods};
-use temporalio_sdk::{ActivityExecutionError, ActivityOptions, WorkflowContext, WorkflowResult};
+use temporalio_sdk::{
+    ActivityExecutionError, ActivityOptions, TimeoutType, WorkflowContext, WorkflowResult,
+};
 use temporalio_sdk_core::{
     prost_dur,
     replay::DEFAULT_ACTIVITY_TYPE,
@@ -36,7 +35,7 @@ impl ActivityDoesntHeartbeatHitsTimeoutThenCompletesWf {
     #[run]
     async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
         let res: Result<(), ActivityExecutionError> = ctx
-            .start_activity(
+            .execute_activity(
                 StdActivities::delay,
                 Duration::from_secs(4),
                 ActivityOptions::with_start_to_close_timeout(Duration::from_secs(10))

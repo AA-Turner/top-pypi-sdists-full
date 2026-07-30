@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: liteparse
-Version: 2.10.0
+Version: 2.10.1
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -170,7 +170,7 @@ for page in pages:
 ```
 
 `reasons` is one of `"scanned"`, `"no-text"`, `"sparse-text"`, `"embedded-images"`,
-`"garbled"`, or `"vector-text"`. Raw bytes work here too.
+`"garbled"`, `"vector-text"`, or `"annotation-text"`. Raw bytes work here too.
 
 ## Supported Formats
 

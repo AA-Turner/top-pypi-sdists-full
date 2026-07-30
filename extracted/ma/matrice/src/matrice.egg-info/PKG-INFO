@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: matrice
-Version: 1.1.8
+Version: 1.1.9
 Summary: Common server utilities for Matrice.ai services
 Author-email: "Matrice.ai" <dipendra@matrice.ai>
 License: MIT
@@ -38,6 +38,7 @@ Requires-Dist: pre-commit==4.2.0; extra == "dev"
 Requires-Dist: pip-audit==2.7.3; extra == "dev"
 Requires-Dist: safety==3.2.11; extra == "dev"
 Requires-Dist: matrice_common; extra == "dev"
+Requires-Dist: python-dateutil==2.9.0.post0; extra == "dev"
 Requires-Dist: torch; extra == "dev"
 Requires-Dist: torchvision; extra == "dev"
 Requires-Dist: numpy; extra == "dev"

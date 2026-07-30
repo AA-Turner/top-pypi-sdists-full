@@ -72,6 +72,7 @@ __all__ = (
     "FieldFilterOperatorType",
     "FieldNameType",
     "FilterLogicalOperatorType",
+    "FilterModeType",
     "FilterOperationType",
     "FilterOperatorType",
     "FilterValueTypeType",
@@ -460,6 +461,7 @@ FieldFilterOperatorType = Literal[
 ]
 FieldNameType = Literal["CRAWL_ID", "DPU_HOUR", "END_TIME", "START_TIME", "STATE"]
 FilterLogicalOperatorType = Literal["AND", "OR"]
+FilterModeType = Literal["FILTER_STRING", "QUERY_PARAMS"]
 FilterOperationType = Literal["EQ", "GT", "GTE", "ISNULL", "LT", "LTE", "REGEX"]
 FilterOperatorType = Literal["EQ", "GE", "GT", "LE", "LT", "NE"]
 FilterValueTypeType = Literal["COLUMNEXTRACTED", "CONSTANT"]

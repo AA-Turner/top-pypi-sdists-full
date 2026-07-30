@@ -167,7 +167,11 @@ def summarize_version_health(
     # Copy each row before enrichment: `enrich_rows_by_org` adds keys in place, so
     # copying keeps this roll-up side-effect free w.r.t. the caller's `health_rows`.
     enriched = filter_rows_by_tier(
-        enrich_rows_by_org([dict(row) for row in health_rows]), tier_filter
+        enrich_rows_by_org(
+            rows=[dict(row) for row in health_rows],
+            allow_degraded=True,
+        ),
+        tier_filter,
     )
     buckets: dict[ActorHealthState, list[dict[str, Any]]] = {
         ActorHealthState.HEALTHY: [],
@@ -191,9 +195,13 @@ def summarize_version_health(
                 # Copy so tier enrichment below doesn't mutate the caller's rows.
                 missing_by_actor[actor_id] = dict(row)
         disabled_rows = filter_rows_by_tier(
-            enrich_rows_by_org(list(missing_by_actor.values())),
+            enrich_rows_by_org(
+                rows=list(missing_by_actor.values()),
+                allow_degraded=True,
+            ),
             tier_filter,
         )
+    source_health = enriched.source_health
 
     healthy_rows = buckets[ActorHealthState.HEALTHY]
     unhealthy_rows = buckets[ActorHealthState.UNHEALTHY]
@@ -209,10 +217,12 @@ def summarize_version_health(
             + len(awaiting_rows)
             + len(disabled_rows)
         ),
-        healthy_by_tier=build_tier_summary(healthy_rows),
-        unhealthy_by_tier=build_tier_summary(unhealthy_rows),
-        awaiting_by_tier=build_tier_summary(awaiting_rows),
-        disabled_by_tier=build_tier_summary(disabled_rows),
+        healthy_by_tier=build_tier_summary(healthy_rows, source_health=source_health),
+        unhealthy_by_tier=build_tier_summary(
+            unhealthy_rows, source_health=source_health
+        ),
+        awaiting_by_tier=build_tier_summary(awaiting_rows, source_health=source_health),
+        disabled_by_tier=build_tier_summary(disabled_rows, source_health=source_health),
     )
 
 
@@ -258,7 +268,9 @@ def summarize_population(
     # untouched and this roll-up effectively pure.
     enriched = filter_rows_by_tier(
         enrich_rows_by_org(
-            [dict(row) for row in population_rows], credentials=credentials
+            rows=[dict(row) for row in population_rows],
+            credentials=credentials,
+            allow_degraded=True,
         ),
         tier_filter,
     )
@@ -292,14 +304,17 @@ def summarize_population(
 
     pinned_to_version_by_tier: TierSummary | None = None
     if pinned_version_rows is not None:
+        pinned_rows = filter_rows_by_tier(
+            enrich_rows_by_org(
+                rows=[dict(row) for row in pinned_version_rows],
+                credentials=credentials,
+                allow_degraded=True,
+            ),
+            tier_filter,
+        )
         pinned_to_version_by_tier = build_tier_summary(
-            filter_rows_by_tier(
-                enrich_rows_by_org(
-                    [dict(row) for row in pinned_version_rows],
-                    credentials=credentials,
-                ),
-                tier_filter,
-            )
+            pinned_rows,
+            source_health=pinned_rows.source_health,
         )
 
     addressable_by_tier: TierSummary | None = None
@@ -310,33 +325,55 @@ def summarize_population(
     gate_excluded_no_recent_sync_by_tier: TierSummary | None = None
     addressable_gated_by_tier: TierSummary | None = None
     if has_target_version:
-        addressable_by_tier = build_weighted_tier_summary(enriched, "addressable_count")
+        addressable_by_tier = build_weighted_tier_summary(
+            enriched, "addressable_count", source_health=enriched.source_health
+        )
         pinned_to_version_active_by_tier = build_weighted_tier_summary(
-            enriched, "pinned_to_version_count"
+            enriched,
+            "pinned_to_version_count",
+            source_health=enriched.source_health,
         )
         off_version_pinned_by_tier = build_weighted_tier_summary(
-            enriched, "off_version_pinned_count"
+            enriched,
+            "off_version_pinned_count",
+            source_health=enriched.source_health,
         )
         if job_gated:
             # The three job-status factors partition the unpinned population and
             # are surfaced distinctly so the caller can show every factor.
             gate_pass_by_tier = build_weighted_tier_summary(
-                enriched, "eligible_gated_count"
+                enriched,
+                "eligible_gated_count",
+                source_health=enriched.source_health,
             )
             gate_excluded_failed_by_tier = build_weighted_tier_summary(
-                enriched, "gate_excluded_failed_count"
+                enriched,
+                "gate_excluded_failed_count",
+                source_health=enriched.source_health,
             )
             gate_excluded_no_recent_sync_by_tier = build_weighted_tier_summary(
-                enriched, "gate_excluded_no_recent_sync_count"
+                enriched,
+                "gate_excluded_no_recent_sync_count",
+                source_health=enriched.source_health,
             )
             addressable_gated_by_tier = build_weighted_tier_summary(
-                enriched, "addressable_gated_count"
+                enriched,
+                "addressable_gated_count",
+                source_health=enriched.source_health,
             )
 
     return PopulationSummary(
-        active_by_tier=build_weighted_tier_summary(enriched, "actor_count"),
-        pinned_any_by_tier=build_weighted_tier_summary(enriched, "pinned_actor_count"),
-        eligible_by_tier=build_weighted_tier_summary(enriched, "eligible_count"),
+        active_by_tier=build_weighted_tier_summary(
+            enriched, "actor_count", source_health=enriched.source_health
+        ),
+        pinned_any_by_tier=build_weighted_tier_summary(
+            enriched,
+            "pinned_actor_count",
+            source_health=enriched.source_health,
+        ),
+        eligible_by_tier=build_weighted_tier_summary(
+            enriched, "eligible_count", source_health=enriched.source_health
+        ),
         pinned_to_version_by_tier=pinned_to_version_by_tier,
         addressable_by_tier=addressable_by_tier,
         pinned_to_version_active_by_tier=pinned_to_version_active_by_tier,

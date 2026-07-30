@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hindsight-api-slim
-Version: 0.8.5
+Version: 0.8.6
 Summary: Hindsight: Agent Memory That Works Like Human Memory
 Requires-Python: >=3.11
 Requires-Dist: aiohttp>=3.13.3
@@ -25,20 +25,20 @@ Requires-Dist: json-repair>=0.30.0
 Requires-Dist: langchain-core>=1.2.22
 Requires-Dist: langchain-text-splitters>=0.3.0
 Requires-Dist: langsmith>=0.8.18
-Requires-Dist: litellm>=1.84.0
+Requires-Dist: litellm>=1.93.0
 Requires-Dist: markitdown[docx,pdf,pptx,xls,xlsx]>=0.1.4
 Requires-Dist: obstore>=0.4.0
 Requires-Dist: openai>=1.0.0
-Requires-Dist: opentelemetry-api>=1.41.0
-Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.41.0
-Requires-Dist: opentelemetry-exporter-prometheus>=0.62b1
-Requires-Dist: opentelemetry-instrumentation-fastapi>=0.62b1
-Requires-Dist: opentelemetry-sdk>=1.41.0
-Requires-Dist: opentelemetry-semantic-conventions>=0.62b1
+Requires-Dist: opentelemetry-api>=1.44.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.44.0
+Requires-Dist: opentelemetry-exporter-prometheus>=0.65b0
+Requires-Dist: opentelemetry-instrumentation-fastapi>=0.65b0
+Requires-Dist: opentelemetry-sdk>=1.44.0
+Requires-Dist: opentelemetry-semantic-conventions>=0.65b0
 Requires-Dist: orjson>=3.11.6
 Requires-Dist: pgvector>=0.4.1
 Requires-Dist: pillow>=12.3.0
-Requires-Dist: protobuf>=6.33.5
+Requires-Dist: protobuf>=7.35.1
 Requires-Dist: psycopg2-binary>=2.9.11
 Requires-Dist: pyasn1>=0.6.3
 Requires-Dist: pydantic>=2.0.0

@@ -14,15 +14,15 @@ info:
   x-logo:
     url: https://zernio.com/icon.png?v=3
   x-long-description: |
-    Zernio is the social media API that replaces 15 integrations. Schedule posts, retrieve analytics,
+    Zernio is the social media API that replaces 16 integrations. Schedule posts, retrieve analytics,
     manage DMs, comments, and reviews across Twitter/X, Instagram, TikTok, LinkedIn, Facebook,
-    YouTube, Threads, Reddit, Pinterest, Bluesky, Telegram, Google Business, Snapchat, and Discord,
-    all from a single REST API. Run paid ads on Meta (Facebook + Instagram), Google, TikTok,
-    LinkedIn, Pinterest, and X from the same account.
+    YouTube, Threads, Reddit, Pinterest, Bluesky, Telegram, Google Business, Snapchat, Discord,
+    and Slack, all from a single REST API. Run paid ads on Meta (Facebook + Instagram), Google, TikTok,
+    LinkedIn, Pinterest, X, and OpenAI from the same account.
 
-    Key features: Unified posting to 15 platforms, ads management on 6 ad networks (via /v1/ads), aggregated analytics, unified inbox (DMs, comments, reviews), webhooks, OAuth connect, queue scheduling, and white-label support for agencies managing unlimited accounts.
+    Key features: Unified posting to 16 platforms, ads management on 7 ad networks (via /v1/ads), aggregated analytics, unified inbox (DMs, comments, reviews), webhooks, OAuth connect, queue scheduling, and white-label support for agencies managing unlimited accounts.
 
-    Supported posting platforms: Twitter/X, Instagram, WhatsApp, Facebook, LinkedIn, TikTok, YouTube, Pinterest, Reddit, Bluesky, Threads, Google Business, Telegram, Snapchat, Discord. Supported ad platforms: Meta Ads, Google Ads, TikTok Ads, LinkedIn Ads, Pinterest Ads, X Ads.
+    Supported posting platforms: Twitter/X, Instagram, WhatsApp, Facebook, LinkedIn, TikTok, YouTube, Pinterest, Reddit, Bluesky, Threads, Google Business, Telegram, Snapchat, Discord, Slack. Supported ad platforms: Meta Ads, Google Ads, TikTok Ads, LinkedIn Ads, Pinterest Ads, X Ads, OpenAI Ads.
   x-category: Social
   x-website: https://zernio.com
   x-thumbnail: https://rapidapi-prod-apis.s3.amazonaws.com/b24d3df5-563c-4a50-9e1e-1ad3eb1fce69.png
@@ -142,6 +142,7 @@ x-documentation:
     - `post.recycled` - Post recycled (cloned and re-scheduled)
     - `post.platform.published` - A single platform target inside a post finished publishing successfully. Fires once per platform-account as it terminates, without waiting for other platforms on the same post. Use this for incremental UIs; use `post.published` for the post-level rollup.
     - `post.platform.failed` - A single platform target inside a post failed permanently. Temporary/retryable failures do NOT fire this event, only permanent ones, so retry loops stay quiet.
+    - `post.platform.deleted` - A single platform target inside a post was detected as deleted on the platform after publishing (e.g. the user deleted the Instagram post natively). Detection is poll-driven via Zernio background sync (~hourly), not real-time. `platform.deletedAt` carries the detection time. Coverage is bounded to the posts the platform listing returns.
     - `post.tiktok.url_resolved` - A published TikTok post's public URL became available. TikTok exposes the numeric video id asynchronously, so `post.published` / `post.platform.published` can carry an empty `publishedUrl` for TikTok; this event delivers the URL once resolved (at most once per platform target). Never fires for drafts or private posts, which have no public URL.
     - `post.external.created` - A native post authored outside Zernio (e.g. a Google Business Profile localPost created in the Google UI) was detected by our sync for the first time. Poll-driven (~hourly), not real-time. Payload carries `post.source: "external"`.
     - `post.external.updated` - A tracked native post's text or media changed on the platform. Edits are detected by comparing text/media structure and (where the platform exposes it) the platform's own edit timestamp; media-URL-only refreshes do not fire this.
@@ -403,7 +404,7 @@ tags:
   - name: Webhooks
     description: |
       Configure webhooks for real-time notifications. Webhooks can be created from the dashboard (Settings → Webhooks) or via this API.
-      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed, webhook.test.
+      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed, webhook.test.
       Security: optional HMAC-SHA256 signature in X-Zernio-Signature header. Configure a secret key to enable verification. Custom headers supported.
   - name: Webhook Events
     description: |
@@ -1377,7 +1378,7 @@ components:
           enum: [quick_reply, url, phone_number, otp, copy_code, flow, mpm, catalog]
         text:
           type: string
-          description: Visible button label. Required for all types except copy_code (whose label is fixed by WhatsApp).
+          description: 'Visible button label. Required for all types except copy_code (whose label is fixed by WhatsApp) and otp (omit it and WhatsApp supplies its own label, localized to the template language; an English label on a non-English template is rejected).'
         url:
           type: string
           format: uri
@@ -2010,7 +2011,7 @@ components:
           type: array
           items:
             type: string
-            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed]
+            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed]
           description: Events subscribed to
         isActive:
           type: boolean
@@ -2134,15 +2135,19 @@ components:
       type: object
       description: |
         Webhook payload for the per-platform terminal events
-        `post.platform.published` and `post.platform.failed`, and for
-        `post.tiktok.url_resolved` (same shape, fired when a published
-        TikTok post's public URL is backfilled). Terminal events fire once
-        per platform target inside a post as that platform reaches a
-        terminal state (published or permanent failure). The `post`
-        envelope mirrors the shape of `WebhookPayloadPost` so consumers
-        can reuse rendering logic; the `platform` block identifies which
-        specific platform transitioned; the `account` block identifies
-        the connected social account behind that platform-write.
+        `post.platform.published` and `post.platform.failed`, for
+        `post.platform.deleted` (same shape, fired when Zernio's background
+        sync detects that a platform target published through Zernio was
+        later deleted on the platform; poll-driven ~hourly, not real-time),
+        and for `post.tiktok.url_resolved` (same shape, fired when a
+        published TikTok post's public URL is backfilled). Terminal events
+        fire once per platform target inside a post as that platform
+        reaches a terminal state (published or permanent failure). The
+        `post` envelope mirrors the shape of `WebhookPayloadPost` so
+        consumers can reuse rendering logic; the `platform` block
+        identifies which specific platform transitioned; the `account`
+        block identifies the connected social account behind that
+        platform-write.
       required: [id, event, post, platform, account, timestamp]
       properties:
         id:
@@ -2150,7 +2155,7 @@ components:
           description: Stable webhook event ID.
         event:
           type: string
-          enum: [post.platform.published, post.platform.failed, post.tiktok.url_resolved]
+          enum: [post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved]
         post:
           type: object
           required: [id, content, status, scheduledFor, platforms]
@@ -2191,17 +2196,21 @@ components:
               description: Platform name (e.g. `twitter`, `tiktok`, `instagram`).
             status:
               type: string
-              enum: [published, failed]
+              enum: [published, failed, deleted]
               description: Terminal status this event fires on. Matches the event suffix.
             platformPostId:
               type: string
-              description: Platform-native post id. Present on `published`, absent on `failed`.
+              description: 'Platform-native post id. Present on `published` and `deleted`, absent on `failed`.'
             publishedUrl:
               type: string
-              description: Public URL to the platform-side post. Present on `published` (when the platform exposes one and it is not a draft).
+              description: 'Public URL to the platform-side post. Present on `published` (when the platform exposes one and it is not a draft) and on `deleted` (when one was recorded at publish time).'
             error:
               type: string
-              description: Error message from the platform. Present on `failed`, absent on `published`.
+              description: Error message from the platform. Present on `failed` only.
+            deletedAt:
+              type: string
+              format: date-time
+              description: 'When the platform-side deletion was detected by Zernio sync (ISO 8601). Present only on `post.platform.deleted`.'
         account:
           type: object
           description: The connected social account the platform-write went through.
@@ -3513,7 +3522,7 @@ components:
             id: { type: string, description: Internal conversation ID }
             platform:
               type: string
-              enum: [instagram, facebook, telegram, whatsapp, twitter, reddit, bluesky, sms]
+              enum: [instagram, facebook, telegram, whatsapp, twitter, reddit, bluesky, sms, slack]
             platformConversationId: { type: string }
             participantId: { type: string, description: "Contact's platform identifier (IGSID, PSID, wa_id, etc.)" }
             participantName: { type: string }
@@ -4044,6 +4053,7 @@ components:
             - $ref: '#/components/schemas/RedditPlatformData'
             - $ref: '#/components/schemas/BlueskyPlatformData'
             - $ref: '#/components/schemas/DiscordPlatformData'
+            - $ref: '#/components/schemas/SlackPlatformData'
           additionalProperties: true
         status:
           type: string
@@ -4230,7 +4240,7 @@ components:
       properties:
         replyToTweetId:
           type: string
-          description: ID of an existing tweet to reply to. The published tweet will appear as a reply in that tweet's thread. For threads, only the first tweet replies to the target; subsequent tweets chain normally.
+          description: ID of an existing tweet to reply to. The published tweet will appear as a reply in that tweet's thread. For threads, only the first tweet replies to the target; subsequent tweets chain normally. X only permits replying to your own posts or posts you are mentioned in; replying to an arbitrary other account's post is rejected by X.
         quoteTweetId:
           type: string
           description: ID (or full status URL) of an existing tweet to quote-repost. The published tweet becomes a quote tweet of the target. Mutually exclusive with media and poll. X only permits quoting your own posts or posts you are mentioned in / part of the conversation thread of; quoting an arbitrary other account's post is rejected by X. Billed at the standard create rate ($0.015), unlike pasting a tweet URL into the text which is billed at the URL rate ($0.20). For threads, applies to the first tweet only.
@@ -4418,10 +4428,10 @@ components:
               description: "MANUAL (graduate from Instagram app) or SS_PERFORMANCE (auto-graduate if performs well with non-followers)"
         userTags:
           type: array
-          description: Tag Instagram users in photos by username and position. Not supported for stories or videos. For carousels, use mediaIndex to target specific slides (defaults to 0). Tags on video items are silently skipped.
+          description: 'Tag Instagram users by username. The tag shape depends on the media: photos require x/y coordinates, Reels and videos take username only (coordinates are ignored), stories accept optional coordinates. For carousels, use mediaIndex to target specific slides (defaults to 0); video slides take username-only tags. Photo tags without valid coordinates are skipped.'
           items:
             type: object
-            required: [username, x, y]
+            required: [username]
             properties:
               username:
                 type: string
@@ -4431,18 +4441,18 @@ components:
                 type: number
                 minimum: 0
                 maximum: 1
-                description: X coordinate position from left edge (0.0 = left, 0.5 = center, 1.0 = right)
+                description: 'X coordinate position from left edge (0.0 = left, 0.5 = center, 1.0 = right). Required for photos, ignored for Reels/videos, optional for stories.'
                 example: 0.5
               y:
                 type: number
                 minimum: 0
                 maximum: 1
-                description: Y coordinate position from top edge (0.0 = top, 0.5 = center, 1.0 = bottom)
+                description: 'Y coordinate position from top edge (0.0 = top, 0.5 = center, 1.0 = bottom). Required for photos, ignored for Reels/videos, optional for stories.'
                 example: 0.5
               mediaIndex:
                 type: integer
                 minimum: 0
-                description: Zero-based index of the carousel item to tag. Defaults to 0. Tags on video items or out-of-range indices are ignored.
+                description: Zero-based index of the carousel item to tag. Defaults to 0. Tags on out-of-range indices are ignored.
                 example: 0
         audioName:
           type: string
@@ -4788,6 +4798,13 @@ components:
                 urn:li:ugcPost:N. Get it via "Copy link to post" on the
                 target LinkedIn post (the URL contains -share- for a share
                 or -ugcPost- for a ugcPost, then the numeric id).
+                For member (personal profile) posts, LinkedIn's API only
+                accepts video and document posts (ugcPost URNs); text and
+                image member posts (share URNs) are rejected by LinkedIn
+                regardless of sponsorship approval (a LinkedIn API
+                limitation; those can only be sponsored from Campaign
+                Manager). The member must have authorised sponsorship for
+                the ad account's organization.
       description: >
         LinkedIn-specific options for POST /v1/ads/boost and POST /v1/ads/create:
         campaign bidding and delivery controls, plus the LinkedIn-only creative
@@ -5295,6 +5312,27 @@ components:
       description: |
         Discord message settings. Supports plain text (2,000 chars), rich embeds (up to 10), native polls, forum posts, threads, and announcement crossposts. Media attachments support images (JPEG, PNG, GIF, WebP), videos (MP4), and documents (up to 10 files, 25 MB each). Webhook identity (username + avatar) can be customized per-account via PATCH /v1/connect/discord or per-post via webhookUsername/webhookAvatarUrl.
 
+    SlackPlatformData:
+      type: object
+      properties:
+        threadTs:
+          type: string
+          description: 'Parent message ts to post this message as a thread reply (e.g. "1503435956.000247").'
+        unfurlLinks:
+          type: boolean
+          description: 'Expand links in the message into preview cards. Default true.'
+        unfurlMedia:
+          type: boolean
+          description: 'Expand media links into inline previews. Default true.'
+        username:
+          type: string
+          description: 'Override the bot display name for this message only (requires no setup; shown with an APP badge). Does not change the app identity in the sidebar.'
+        iconUrl:
+          type: string
+          description: 'Override the bot avatar image URL for this message only.'
+      description: |
+        Slack message settings. Posts mrkdwn text (up to 40,000 chars; Slack truncates beyond that) to the channel fixed by the connected account, with up to 10 media files per post uploaded via Slack's file API (the text becomes the caption). The target channel is chosen at connect time — one connected account per channel — so channelId is NOT accepted here (a 400 is returned); connect the desired channel via /v1/connect/slack and target its accountId. Messages over 4,000 characters cannot be edited later (Slack's edit limit is stricter than its post limit).
+
     DiscordScheduledEvent:
       type: object
       description: |
@@ -5397,7 +5435,7 @@ components:
         _id: { type: string }
         platform:
           type: string
-          enum: [tiktok, instagram, facebook, youtube, linkedin, twitter, threads, pinterest, reddit, bluesky, googlebusiness, telegram, snapchat, discord, whatsapp, linkedinads, metaads, pinterestads, tiktokads, xads, googleads, openaiads]
+          enum: [tiktok, instagram, facebook, youtube, linkedin, twitter, threads, pinterest, reddit, bluesky, googlebusiness, telegram, snapchat, discord, slack, whatsapp, linkedinads, metaads, pinterestads, tiktokads, xads, googleads, openaiads]
         profileId:
           oneOf:
             - type: string
@@ -7028,7 +7066,7 @@ components:
         actionSource:
           type: string
           enum: [web, app, offline, crm, phone_call, system_generated]
-          description: Where the conversion happened. Used by Meta; Google ignores.
+          description: 'Where the conversion happened. Used by Meta. Google also requires an event source internally; omitting this field sends OTHER to Google. Send an explicit value for accurate origin reporting.'
         platformData:
           type: object
           additionalProperties: true
@@ -7284,6 +7322,29 @@ webhooks:
         only permanent ones, so retry loops stay quiet. The envelope event
         (`post.failed` / `post.partial`) fires separately AFTER all
         platforms have terminated.
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayloadPostPlatform'
+      responses:
+        '200':
+          description: Webhook received successfully
+  post.platform.deleted:
+    post:
+      operationId: onPostPlatformDeleted
+      summary: Post platform deleted event
+      description: |
+        Fired when Zernio's background sync detects that a platform target
+        published through Zernio was later deleted on the platform (e.g.
+        the user deleted the Instagram post natively). Detection is
+        poll-driven (~hourly), not real-time, and fires once per platform
+        target. `platform.deletedAt` carries the detection time. Detection
+        is listing-based: a false positive self-heals in Zernio's data when
+        the post reappears, but the event is not retracted. Coverage is
+        bounded to the posts the platform listing returns.
       tags: [Webhook Events]
       requestBody:
         required: true
@@ -8298,7 +8359,7 @@ paths:
                     properties:
                       platform:
                         type: string
-                        enum: [twitter, instagram, tiktok, youtube, facebook, linkedin, bluesky, threads, reddit, pinterest, telegram, snapchat, googlebusiness, discord]
+                        enum: [twitter, instagram, tiktok, youtube, facebook, linkedin, bluesky, threads, reddit, pinterest, telegram, snapchat, googlebusiness, discord, slack]
                       accountId: { type: string, description: 'Account to validate against. For twitter, resolves X Premium status to apply the 25000 character limit instead of 280.' }
                       customContent: { type: string }
                       platformSpecificData: { type: object }
@@ -11356,6 +11417,13 @@ paths:
                     - video/webm
                     - video/x-m4v
                     - application/pdf
+                    - audio/mpeg
+                    - audio/mp4
+                    - audio/aac
+                    - audio/ogg
+                    - audio/wav
+                    - audio/webm
+                    - audio/x-m4a
                   example: "video/mp4"
                 size:
                   type: integer
@@ -12144,6 +12212,7 @@ paths:
                           - $ref: '#/components/schemas/RedditPlatformData'
                           - $ref: '#/components/schemas/BlueskyPlatformData'
                           - $ref: '#/components/schemas/DiscordPlatformData'
+                          - $ref: '#/components/schemas/SlackPlatformData'
                 scheduledFor: { type: string, format: date-time }
                 publishNow: { type: boolean, default: false }
                 isDraft:
@@ -12504,7 +12573,9 @@ paths:
         - Otherwise we fetch the account's latest posts live from the platform, then match and return the submitted post.
         - Requests are debounced per account (~15s): if the account was just synced, the live fetch is skipped.
 
-        `accountId` is required — a post URL or id alone cannot be resolved to an account, and the account must be connected to Zernio (we use its token to read the platform). Supported for every platform with a listing API (Instagram, Facebook, TikTok, YouTube, X, Threads, Pinterest, Reddit, Bluesky, Google Business, and LinkedIn organization accounts; LinkedIn personal accounts are not supported).
+        `accountId` is required — a post URL or id alone cannot be resolved to an account, and the account must be connected to Zernio (we use its token to read the platform). Supported for every platform with a listing API (Instagram, Facebook, TikTok, YouTube, X, Threads, Pinterest, Reddit, Bluesky, Google Business, and LinkedIn organization accounts).
+
+        LinkedIn personal profiles: LinkedIn has no listing API for personal profiles, so a `url` is REQUIRED and imports that single post. Pass any LinkedIn post URL (`linkedin.com/posts/…`, `linkedin.com/feed/update/urn:li:activity:…`) or a `urn:li:share:…` / `urn:li:ugcPost:…` URN. Works for posts published outside Zernio and before the account was connected, any age; the post must be authored by the connected member. Imported posts return full analytics (impressions, reach, reactions, comments, reshares, saves) and keep refreshing on the background analytics cycle, but carry no content/media (LinkedIn does not expose them for personal profiles).
 
         `url` accepts any format the platform uses (e.g. `instagram.com/p/…`, `instagram.com/reel/…`, `youtu.be/…`, `youtube.com/shorts/…`, `tiktok.com/@user/video/…`, and `vm.tiktok.com` short links). Pass `postId` (the platform media/video id) as an alternative locator.
 
@@ -13824,7 +13895,7 @@ paths:
           description: Filter by platform
           schema:
             type: string
-            enum: [facebook, instagram, linkedin, twitter, tiktok, youtube, threads, pinterest, reddit, bluesky, googlebusiness, telegram, snapchat, discord, whatsapp]
+            enum: [facebook, instagram, linkedin, twitter, tiktok, youtube, threads, pinterest, reddit, bluesky, googlebusiness, telegram, snapchat, discord, slack, whatsapp]
         - name: status
           in: query
           description: Filter by health status
@@ -14312,7 +14383,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [facebook, instagram, linkedin, twitter, tiktok, youtube, threads, reddit, pinterest, bluesky, googlebusiness, telegram, snapchat, discord, whatsapp]
+            enum: [facebook, instagram, linkedin, twitter, tiktok, youtube, threads, reddit, pinterest, bluesky, googlebusiness, telegram, snapchat, discord, slack, whatsapp]
           description: Social media platform to connect
         - name: profileId
           in: query
@@ -19819,6 +19890,67 @@ paths:
         '404': { description: Account not found }
         '502': { description: "Reddit was unreachable or returned an unclassified error. Reddit 4xx statuses (e.g. subreddit does not allow user flair selection) are forwarded as-is." }
 
+  /v1/accounts/{accountId}/slack-settings:
+    get:
+      operationId: getSlackSettings
+      tags: [Accounts]
+      summary: Get Slack account settings
+      description: 'Returns the connected Slack channel details and the default message identity (name and avatar shown as the author on every post, with Slack''s APP badge). The identity applies to messages only; the app''s own Slack profile is global and cannot be changed per workspace.'
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Slack account settings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  account:
+                    type: object
+                    properties:
+                      _id: { type: string }
+                      platform: { type: string, example: slack }
+                      displayName: { type: [string, "null"] }
+                      channelId: { type: [string, "null"] }
+                      channelName: { type: [string, "null"] }
+                      channelType: { type: [string, "null"], description: 'public or private' }
+                      teamId: { type: [string, "null"] }
+                      teamName: { type: [string, "null"] }
+                      defaultUsername: { type: [string, "null"] }
+                      defaultIconUrl: { type: [string, "null"] }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Account not found }
+    patch:
+      operationId: updateSlackSettings
+      tags: [Accounts]
+      summary: Update Slack account settings
+      description: 'Set or clear the default message identity for this channel. Empty string clears a field; per-post platformSpecificData.username/iconUrl still override these defaults.'
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                defaultUsername: { type: string, maxLength: 80, description: 'Author name shown on posts. Empty string clears it.' }
+                defaultIconUrl: { type: string, description: 'Author avatar image URL. Empty string clears it.' }
+      responses:
+        '200':
+          description: Updated settings
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Account not found }
+
   /v1/accounts/{accountId}/discord-settings:
     get:
       operationId: getDiscordSettings
@@ -21257,7 +21389,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed]
                   description: Events to subscribe to (at least one required)
                 isActive:
                   type: boolean
@@ -21331,7 +21463,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed]
                   description: Events to subscribe to. Must contain at least one event if provided.
                 isActive:
                   type: boolean
@@ -21733,6 +21865,8 @@ paths:
         Supported platforms: Facebook, Instagram, Twitter/X, Bluesky, Reddit, Telegram.
 
         Twitter/X limitation: X has replaced traditional DMs with encrypted "X Chat" for many accounts. Messages sent or received through encrypted X Chat are not accessible via X's API (the /2/dm_events endpoint only returns legacy unencrypted DMs). This means some Twitter/X conversations may show only outgoing messages or appear empty. This is an X platform limitation that affects all third-party applications. See X's docs on encrypted messaging for more details.
+
+        Instagram and Facebook pre-connect history: when one of these accounts is connected, Zernio replays the DM history the account already holds on Meta, so conversations that began before the account was connected appear here. Up to 500 conversations per account are replayed. The replay runs in the background and can finish after a listing you have already taken, and replayed conversations keep their original lastMessageAt, so they sort into date order rather than appearing at the top. If you mirror this endpoint into your own store, re-run the sweep rather than relying on a single pass at connect time. Replayed history emits no webhooks and is stored as already read, so it never affects unread counts. Threads that Meta refuses to serve are skipped, and an account whose Instagram "connected tools" message access is turned off is not replayed at all.
       tags: [Messages]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -22034,7 +22168,7 @@ paths:
           description: Filter by profile ID
         - name: platform
           in: query
-          schema: { type: string, enum: [facebook, instagram, telegram, whatsapp, sms] }
+          schema: { type: string, enum: [facebook, instagram, telegram, whatsapp, sms, slack] }
           description: Filter by platform (searchable platforms only)
         - name: accountId
           in: query
@@ -22264,6 +22398,13 @@ paths:
         per-thread cursor. Very long threads may be upstream-truncated by
         Reddit's inbox/sent windows (~100 most-recent items each); this is a
         Reddit platform limitation.
+
+        Instagram and Facebook conversations include history from before the
+        account was connected, replayed from Meta. That replay covers the 500
+        most recent messages per conversation: a longer thread keeps its newest
+        500 and older messages are not retrievable. Messages that arrived after
+        the account was connected are unaffected. Replayed messages are stored
+        as already read and emit no webhooks.
 
         Twitter/X limitation: X's encrypted "X Chat" messages are not accessible via the API. Conversations where the other participant uses encrypted X Chat may only show your outgoing messages. See the list conversations endpoint for more details.
 
@@ -22929,7 +23070,16 @@ paths:
                   error: { type: string }
                   code:
                     type: string
-                    enum: [PLATFORM_LIMITATION]
+                    description: "Stable machine-readable reason. PLATFORM_LIMITATION covers a capability the platform does not offer (e.g. Bluesky and Reddit DMs reject media); MISSING_PARTICIPANT means the stored conversation has no recipient to send to."
+                    enum: [PLATFORM_LIMITATION, MISSING_PARTICIPANT]
+                  platformError:
+                    type: object
+                    description: "Instagram/Facebook only. Meta's own diagnostic fields for the rejected send, passed through verbatim so you can tell failure classes apart and quote them to Meta. Absent when the failure did not come from Meta."
+                    properties:
+                      code: { type: integer, description: "Meta error code" }
+                      subcode: { type: integer, description: "Meta error_subcode" }
+                      fbtraceId: { type: string, description: "Meta fbtrace_id, quote this in a Meta bug report" }
+                      type: { type: string, description: "Meta error type (e.g. OAuthException)" }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Inbox addon required
@@ -23561,6 +23711,10 @@ paths:
         from GET /v1/ads/{adId}/comments?placement={placement}. Ad comment counts are read with
         the Marketing API token (Facebook side) or the connected Instagram account's token
         (Instagram side); a row whose count can't be read is omitted.
+
+        Pagination walks each account's platform listing. Following `nextCursor` reaches past
+        the first page on Facebook and Instagram only, since they are the platforms that
+        support a server-side date window; on the others the listing stops at its first page.
       tags: [Comments]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -23761,7 +23915,7 @@ paths:
                     type: object
                     properties:
                       hasMore: { type: boolean }
-                      cursor: { type: [string, "null"] }
+                      cursor: { type: [string, "null"], description: 'Only present when hasMore is true. Absent on the last page, so treat its absence as the end of the thread.' }
                   meta:
                     type: object
                     properties:
@@ -25865,6 +26019,7 @@ paths:
                       - type: object
                         properties:
                           contactName: { type: string, description: "CRM contact name for the counterparty, when resolved." }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: Not enrolled in the calling beta }
         '404': { description: Call not found }
@@ -25895,6 +26050,7 @@ paths:
                 type: object
                 properties:
                   url: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: Not enrolled in the calling beta }
         '404': { description: "Call not found, or no recording is available for this call" }
@@ -26553,14 +26709,13 @@ paths:
           application/json:
             schema:
               type: object
-              required: [registrationType, phoneNumbers]
+              required: [registrationType]
               properties:
                 registrationType: { type: string, enum: [standard_10dlc, sole_prop_10dlc, toll_free] }
                 phoneNumbers:
                   type: array
-                  minItems: 1
                   items: { type: string }
-                  description: Your numbers this registration covers.
+                  description: 'Your numbers this registration covers. When omitted or empty on a 10DLC registration, defaults to your active SMS-enabled US local numbers not already covered by another registration.'
                 brand:
                   type: object
                   description: Required for 10DLC. The legal entity behind the traffic (TCR brand).
@@ -28098,7 +28253,12 @@ paths:
               properties:
                 profileId:
                   type: string
-                  description: Profile to associate the number with
+                  description: >
+                    Preferred profile for the number. One number = one
+                    profile, so when the requested profile already holds a
+                    number the API assigns the next free profile instead (or
+                    creates one) and returns the actual assignment in
+                    `profileId` on the response.
                 country:
                   type: string
                   description: >
@@ -28169,7 +28329,8 @@ paths:
                     Optional idempotency key. Send the same value when retrying
                     a purchase: if a number was already bought under this key,
                     the API returns { status: "already_purchased", numberId,
-                    phoneNumber } instead of provisioning a second number.
+                    phoneNumber, profileId } instead of provisioning a second
+                    number.
                     Generate a fresh key for each genuinely new purchase.
                 allowMultiple:
                   type: boolean
@@ -28209,6 +28370,7 @@ paths:
                           provisionedAt: { type: string, format: date-time }
                           metaPreverifiedId: { type: string }
                           metaVerificationStatus: { type: string }
+                          profileId: { type: string, description: 'The profile the number was actually assigned to.' }
                   - type: object
                     description: >
                       A number was already purchased under the supplied
@@ -28217,6 +28379,7 @@ paths:
                       status: { type: string, enum: [already_purchased] }
                       numberId: { type: string }
                       phoneNumber: { type: string }
+                      profileId: { type: string, description: 'The profile the number was actually assigned to.' }
         '400': { description: "Plan limit reached, profileId required, or country not available" }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: A paid plan is required }
@@ -35163,28 +35326,136 @@ paths:
         '429': { description: Meta rate limit reached }
         '501': { description: Only supported on Meta (facebook/instagram) }
 
+  /v1/ads/keywords/ideas:
+    post:
+      operationId: generateKeywordIdeas
+      tags: ["Ad Insights"]
+      x-platforms: ["google"]
+      summary: Generate keyword ideas (Google Keyword Planner)
+      description: |
+        Google Ads only. Runs Keyword Planner's generateKeywordIdeas from seed keywords, a seed URL,
+        or both, returning idea rows verbatim (avgMonthlySearches, competition, competitionIndex,
+        top-of-page bid micros, monthlySearchVolumes). Counters are int64s encoded as strings; bid
+        values are micros of the account currency. Omitting `countries` targets worldwide.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId]
+              properties:
+                accountId: { type: string, description: "Zernio googleads SocialAccount id." }
+                customerId: { type: string, description: "Numeric Google Ads customer id (no dashes); only needed when the connection has several accounts." }
+                seedKeywords: { type: array, items: { type: string, maxLength: 80 }, minItems: 1, maxItems: 20, description: "Seed terms. Provide these, seedUrl, or both." }
+                seedUrl: { type: string, format: uri, description: "Landing page to mine for ideas. Provide this, seedKeywords, or both." }
+                countries: { type: array, items: { type: string, minLength: 2, maxLength: 2 }, minItems: 1, maxItems: 10, description: "ISO 3166-1 alpha-2 country codes. Omitted = worldwide." }
+                languageConstantId: { type: string, default: "1000", description: "Google languageConstant id (1000 = English)." }
+                network: { type: string, enum: [GOOGLE_SEARCH, GOOGLE_SEARCH_AND_PARTNERS], default: GOOGLE_SEARCH }
+                includeAdultKeywords: { type: boolean }
+                pageSize: { type: integer, minimum: 1, maximum: 10000 }
+                pageToken: { type: string, description: "Cursor from paging.nextPageToken of the previous page." }
+      responses:
+        '200':
+          description: Keyword idea rows (raw Keyword Planner shape)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string, description: "The customer the request ran against." }
+                  data:
+                    type: array
+                    items: { type: object, description: "Raw GenerateKeywordIdeaResult: text + keywordIdeaMetrics." }
+                  aggregateMetricResults: { type: [object, "null"] }
+                  paging:
+                    type: object
+                    properties:
+                      nextPageToken: { type: [string, "null"], description: "Cursor for the next page; null when exhausted." }
+        '400': { description: "Invalid input, or Google rejected the request — message carries Google's error" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { description: "Per-user Google Ads operations budget or the shared Google quota reached; the message says which and when it resets." }
+        '501': { description: Only supported on Google Ads }
+
+  /v1/ads/keywords/historical-metrics:
+    post:
+      operationId: generateKeywordHistoricalMetrics
+      tags: ["Ad Insights"]
+      x-platforms: ["google"]
+      summary: Historical keyword metrics (Google Keyword Planner)
+      description: |
+        Google Ads only. Runs Keyword Planner's generateKeywordHistoricalMetrics for up to 1,000
+        exact keywords: historical search volume, competition and top-of-page bid ranges, plus
+        averageCpcMicros when includeAverageCpc is set. Rows come back verbatim; counters are int64s
+        encoded as strings, bid/CPC values are micros of the account currency.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, keywords]
+              properties:
+                accountId: { type: string, description: "Zernio googleads SocialAccount id." }
+                customerId: { type: string, description: "Numeric Google Ads customer id (no dashes); only needed when the connection has several accounts." }
+                keywords: { type: array, items: { type: string, maxLength: 80 }, minItems: 1, maxItems: 1000 }
+                countries: { type: array, items: { type: string, minLength: 2, maxLength: 2 }, minItems: 1, maxItems: 10, description: "ISO 3166-1 alpha-2 country codes. Omitted = worldwide." }
+                languageConstantId: { type: string, default: "1000", description: "Google languageConstant id (1000 = English)." }
+                network: { type: string, enum: [GOOGLE_SEARCH, GOOGLE_SEARCH_AND_PARTNERS], default: GOOGLE_SEARCH }
+                includeAdultKeywords: { type: boolean }
+                includeAverageCpc: { type: boolean, description: "Adds averageCpcMicros to each row's keywordMetrics." }
+      responses:
+        '200':
+          description: Historical metric rows (raw Keyword Planner shape)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string, description: "The customer the request ran against." }
+                  data:
+                    type: array
+                    items: { type: object, description: "Raw KeywordHistoricalMetricsResult: text, closeVariants, keywordMetrics." }
+                  aggregateMetricResults: { type: [object, "null"] }
+        '400': { description: "Invalid input, or Google rejected the request — message carries Google's error" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { description: "Per-user Google Ads operations budget or the shared Google quota reached; the message says which and when it resets." }
+        '501': { description: Only supported on Google Ads }
+
   /v1/ads/insights:
     get:
       operationId: queryAdInsights
       tags: ["Ad Insights"]
-      x-platforms: ["meta"]
+      x-platforms: ["meta", "google"]
       summary: Flexible live insights query
       description: |
-        Live, flexible insights query against Meta's Graph API. Unlike GET /v1/ads/{adId}/analytics
-        (fixed metric set, cached), this forwards caller-chosen `fields`, `breakdowns` and `filtering`
-        to any Meta insights node and returns Meta's rows verbatim.
+        Live, flexible insights query. The account's platform picks the contract:
 
-        `objectId` selects the node: an ad account, campaign, ad set or ad platform id.
-        `level` sets row granularity independently of the node.
+        **Meta (facebook/instagram)**: forwards caller-chosen `fields`, `breakdowns` and `filtering`
+        to any Meta insights node and returns Meta's rows verbatim. `objectId` (required) selects the
+        node; `level` sets row granularity. Semantic validation is Meta's: an unknown field or invalid
+        breakdown combination returns a 400 carrying Meta's message. For long ranges or agency-scale
+        accounts prefer the async variant (POST /v1/ads/insights/reports).
 
-        Semantic validation is Meta's: an unknown field or invalid breakdown combination returns a 400
-        carrying Meta's message. For long ranges or agency-scale accounts prefer the async variant
-        (POST /v1/ads/insights/reports).
+        **Google Ads (googleads)**: raw GAQL passthrough. Send any read-only GAQL SELECT via `query`
+        (campaign/keyword/search-term/geo/demographic/asset/shopping resources, `change_event`, any
+        `segments.*`) and rows come back verbatim (camelCase, counters as strings). Results are paged
+        at a fixed 10,000 rows; follow `paging.nextPageToken` with `pageToken`. `customerId` is only
+        needed when the connection has several Google Ads accounts. Semantic validation is Google's:
+        an invalid query returns a 400 carrying Google's message (note: selecting `segments.date`
+        requires a finite date filter).
       security:
         - bearerAuth: []
       parameters:
-        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token." }
-        - { name: objectId, in: query, required: true, schema: { type: string }, description: "Meta insights node: act_<n>, campaign id, ad set id or ad id." }
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id (posting or ads variant); its platform selects the Meta or Google contract." }
+        - { name: objectId, in: query, schema: { type: string }, description: "Meta only (required there): insights node — act_<n>, campaign id, ad set id or ad id." }
+        - { name: query, in: query, schema: { type: string, maxLength: 10000 }, description: "Google only (required there): the GAQL SELECT statement to run." }
+        - { name: customerId, in: query, schema: { type: string }, description: "Google only: numeric customer id (no dashes) when the connection has several Google Ads accounts." }
+        - { name: pageToken, in: query, schema: { type: string }, description: "Google only: cursor from paging.nextPageToken of the previous page." }
         - { name: level, in: query, schema: { type: string, enum: [ad, adset, campaign, account] }, description: Row granularity }
         - { name: fields, in: query, schema: { type: string }, description: "Comma-separated Graph insights fields (e.g. spend,impressions,frequency,website_purchase_roas). Omitted = Meta's default set." }
         - { name: breakdowns, in: query, schema: { type: string }, description: "Comma-separated Graph breakdowns (e.g. age,gender or publisher_platform)." }
@@ -35201,24 +35472,27 @@ paths:
         - { name: after, in: query, schema: { type: string }, description: "Cursor from paging.after of the previous page." }
       responses:
         '200':
-          description: Insight rows (raw Meta shape)
+          description: Insight rows (raw platform shape)
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  objectId: { type: string }
+                  objectId: { type: string, description: "Meta responses only." }
+                  customerId: { type: string, description: "Google responses only: the customer the query ran against." }
+                  fieldMask: { type: [string, "null"], description: "Google responses only: the selected fields echoed by Google." }
                   data:
                     type: array
-                    items: { type: object, description: "Raw Meta insights row; keys are the requested Graph fields plus date_start/date_stop." }
+                    items: { type: object, description: "Raw platform row. Meta: keys are the requested Graph fields plus date_start/date_stop. Google: nested GAQL resources in camelCase, int64 counters as strings." }
                   paging:
                     type: object
                     properties:
-                      after: { type: [string, "null"], description: "Cursor for the next page; null when exhausted." }
-        '400': { description: "Invalid input, or Meta rejected the query (unknown field, invalid breakdown combo) — message carries Meta's error" }
+                      after: { type: [string, "null"], description: "Meta cursor for the next page; null when exhausted." }
+                      nextPageToken: { type: [string, "null"], description: "Google cursor for the next page; null when exhausted." }
+        '400': { description: "Invalid input, or the platform rejected the query (unknown field, invalid breakdown combo, malformed GAQL) — message carries the platform's error" }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '429': { description: Meta rate limit reached }
-        '501': { description: Only supported on Meta (facebook/instagram) }
+        '429': { description: "Platform rate limit reached. For Google this is the per-user operations budget or the shared quota; the message says which and when it resets." }
+        '501': { description: Only supported on Meta (facebook/instagram) and Google Ads }
 
   /v1/ads/insights/reports:
     post:
@@ -36609,8 +36883,12 @@ paths:
         Supports three mutually-exclusive request shapes selected by the body,
         a legacy single-creative shape (all platforms, default), a Meta-only
         multi-creative shape via the creatives array (one ad set with N ads
-        sharing budget and targeting), and a Meta-only attach shape via adSetId
-        (adds one new ad to an existing ad set). Per-platform required fields,
+        sharing budget and targeting), and an attach shape via adSetId that
+        adds one new ad to an existing ad set, inheriting its budget,
+        targeting, and schedule (Meta, TikTok, and LinkedIn; on LinkedIn
+        adSetId is the existing Campaign id, and the budget, schedule,
+        targeting and bidding fields must be omitted). Per-platform
+        required fields,
         budget minimums, and video-ad rules are documented on each property
         below. LinkedIn creates a Single Image or Single Video Ad backed by a
         Direct Sponsored Content "dark post" authored by a Company Page (see
@@ -36771,7 +37049,7 @@ paths:
                 adSetId:
                   type: string
                   description: |
-                    Meta-only. When present, switches to the attach shape: adds
+                    When present, switches to the attach shape: adds
                     one new ad to this existing ad set without creating a new
                     campaign. Budget, targeting, goal, schedule, AND bid strategy
                     are inherited from the ad set on Meta — passing `bidStrategy`

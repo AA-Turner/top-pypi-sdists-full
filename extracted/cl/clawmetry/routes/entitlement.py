@@ -8780,6 +8780,102 @@ def api_license_pro_install_age_days_at():
     )
 
 
+@bp_entitlement.route("/api/license/pro-install-age-days-at-batch")
+def api_license_pro_install_age_days_at_batch():
+    """``GET /api/license/pro-install-age-days-at-batch?epochs=<int>,<int>,...``
+    -- per-value batch sibling of ``/api/license/pro-install-age-days-at``.
+
+    Pro-install-age axis batch companion to
+    ``/api/license/pro-install-age-days`` (NOW) and
+    ``/api/license/pro-install-age-days-at`` (singular perspective epoch).
+    Where the singular endpoint folds ONE perspective epoch to ONE signed
+    day-count, this preserves per-value rows so a scheduled audit tile
+    that wants to plot install-age across a sequence of perspective dates
+    (build timestamps, release timestamps, "was the wheel present when we
+    shipped that?") hydrates the full column in one call. Wraps
+    :func:`clawmetry.license.pro_install_age_days_at_batch`.
+
+    Twin of ``/api/license/age-days-at-batch`` for the ``installed_at``
+    axis -- one derives from the signed ``iat`` claim, this one from the
+    on-disk provisioning marker -- so a caller assembling an install +
+    entitlement timeline can zip the two batch responses index-for-index.
+
+    Row shape::
+
+        {
+          "epoch":    <int|"<raw>">,
+          "age_days": <int|null>,
+        }
+
+    Query-string posture mirrors the other ``/api/license/*-at-batch``
+    endpoints: ``epochs=`` required (missing / blank / only-commas ->
+    ``400``), comma-separated tokens deduped by parsed int key preserving
+    first-seen order, non-int / ``bool`` / ``None`` tokens collapse to
+    ``age_days=null`` (rather than a 4xx hiding the whole batch on a
+    single typo -- callers can identify the offending entry in the
+    response). Never 5xxs.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "kind":            "pro_install_age_days_at",
+          "count":           <int>,
+          "rows":            [
+            {"epoch": <int|"<raw>">, "age_days": <int|null>},
+            ...
+          ],
+          "installed_at":    <int|null>,   # current on-disk marker installed_at
+          "marker_present":  <bool>,       # is the marker file readable?
+          "installed":       <bool>        # can Python import clawmetry-pro right now?
+        }
+
+    Shares :func:`_pro_install_snapshot` with
+    ``/api/license/pro-install-age-days`` /
+    ``/api/license/pro-install-age-days-at`` /
+    ``/api/license/pro-installed-at`` so a UI binding any pair of them for
+    the same install cannot catch them disagreeing on ``installed_at`` /
+    ``marker_present`` / ``installed``.
+
+    Per-row parity with ``/api/license/pro-install-age-days-at?epoch=<n>``
+    is pinned in the test suite so the batch cannot silently drift from
+    the scalar endpoint.
+    """
+    tokens, err = _parse_license_epochs_csv("epochs")
+    if err == "missing":
+        return jsonify({"error": "missing epochs"}), 400
+    try:
+        snap = _pro_install_snapshot()
+    except Exception as exc:
+        logger.warning(
+            "api_license_pro_install_age_days_at_batch: snapshot error: %s", exc
+        )
+        snap = {
+            "installed_at": None,
+            "age_days": None,
+            "marker_present": False,
+            "installed": False,
+        }
+    try:
+        from clawmetry import license as _lic
+
+        rows = _lic.pro_install_age_days_at_batch(tokens)
+    except Exception as exc:
+        logger.warning(
+            "api_license_pro_install_age_days_at_batch: derive error: %s", exc
+        )
+        rows = []
+    return jsonify(
+        {
+            "kind": "pro_install_age_days_at",
+            "count": len(rows),
+            "rows": rows,
+            "installed_at": snap["installed_at"],
+            "marker_present": snap["marker_present"],
+            "installed": snap["installed"],
+        }
+    )
+
+
 def _license_nodes_snapshot() -> dict:
     """Shared helper: read once, derive the trio the two node-limit endpoints
     both need (``nodes``, ``has_license``, ``valid``). Lives in the handler
@@ -10055,6 +10151,141 @@ def api_license_days_until_expiry_at():
     )
 
 
+@bp_entitlement.route("/api/license/expiring-within-at")
+def api_license_expiring_within_at():
+    """``GET /api/license/expiring-within-at?days=<N>&epoch=<int>`` --
+    boolean gate for "would we have shown a renewal warning as of
+    ``epoch``?" -- the perspective-epoch flavour of
+    ``/api/license/expiring-within``, for a scheduled-audit /
+    retrospective tile that wants to answer "was the license inside the
+    ``days``-day renewal window on <date>?" without having to snapshot
+    the license state at that time.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "expiring_within": <bool>,
+          "days_left": <int|null>,           # signed days from epoch to exp
+          "threshold_days": <int>,           # normalised threshold echo
+          "requested_epoch": <int|null>,     # int-coerced input, or null on typo
+          "expires_at": <int|null>,          # current on-disk exp
+          "has_license": <bool>,             # is a license file installed at all?
+          "valid": <bool>                    # signature-valid AND not expired
+        }
+
+    ``expiring_within`` mirrors
+    :func:`clawmetry.license.is_expiring_within_at`:
+
+      * ``true`` iff a license is installed, signature-valid, carries an
+        ``exp`` claim, AND the days from ``epoch`` until ``exp`` fall
+        between 0 and ``threshold_days`` inclusive.
+      * ``false`` when there is no license file, on the invalid-signature
+        branch (payload cannot be trusted -- an attacker could stuff any
+        ``exp`` into an unsigned body), on the perpetual-license branch
+        (no ``exp`` to gate against), on the already-lapsed-at-epoch
+        branch (a caller wants "renewal window" separate from "already
+        expired at that time"), OR when either query argument doesn't
+        parse.
+
+    ``days_left`` is layered on top of the bool so a paywall widget
+    never needs a second call to
+    ``/api/license/days-until-expiry-at`` to render the accompanying
+    "expires in N days as of that date" copy. It mirrors
+    :func:`clawmetry.license.days_until_expiry_at` -- lenient on
+    expiry, so an already-lapsed-at-epoch key still surfaces its real
+    (negative) ``days_left`` even though ``expiring_within`` collapses
+    to ``false``. Callers that want to hide the row on lapsed keys have
+    the ``valid`` signal.
+
+    Query parameters:
+
+      * ``days`` (int, optional) -- the renewal-window threshold.
+        Defaults to ``30``. Negative input clamps to ``0``; non-numeric
+        input collapses to ``expiring_within=false`` with
+        ``threshold_days=0`` rather than a 4xx, matching the surrounding
+        endpoints' never-5xx / never-4xx posture.
+      * ``epoch`` (int, required) -- perspective epoch (Unix seconds).
+        A missing / non-integer value collapses to
+        ``expiring_within=false`` with ``requested_epoch=null`` and
+        ``days_left=null`` so a caller cannot silently mis-gate on a
+        typo.
+
+    Pairs with ``/api/license/days-until-expiry-at`` /
+    ``/api/license/is-expiring-at`` -- all three share the
+    :func:`_license_expires_snapshot` reader so a UI binding any two
+    endpoints for the same install cannot catch them disagreeing on
+    ``expires_at`` / ``has_license`` / ``valid``. Together they let a
+    dashboard render "on <date>, the license would have been N days
+    from expiry -- and would we have warned?" from two orthogonal
+    one-shot GETs.
+
+    Never 5xxs -- any underlying failure degrades to
+    ``{expiring_within: false, days_left: null, threshold_days: 0,
+    requested_epoch: null, expires_at: null, has_license: false,
+    valid: false}`` (the OSS-free branch shape).
+    """
+    raw_days = request.args.get("days", "30")
+    try:
+        threshold = int(raw_days)
+        threshold_ok = True
+    except (TypeError, ValueError):
+        threshold = 0
+        threshold_ok = False
+    if threshold < 0:
+        threshold = 0
+    raw_epoch = request.args.get("epoch", "")
+    try:
+        requested = int(str(raw_epoch).strip())
+    except (TypeError, ValueError):
+        requested = None
+    try:
+        snap = _license_expires_snapshot()
+    except Exception as exc:
+        logger.warning("api_license_expiring_within_at: snapshot error: %s", exc)
+        snap = {
+            "expires_at": None,
+            "days_until_expiry": None,
+            "has_license": False,
+            "valid": False,
+        }
+    days_left: int | None
+    within = False
+    if requested is not None and threshold_ok:
+        try:
+            from clawmetry import license as _lic
+
+            days_left = _lic.days_until_expiry_at(requested)
+            within = _lic.is_expiring_within_at(threshold, requested)
+        except Exception as exc:
+            logger.warning("api_license_expiring_within_at: derive error: %s", exc)
+            days_left = None
+            within = False
+    elif requested is not None:
+        # Threshold garbage but epoch parsed: still surface days_left for
+        # the accompanying "expires in N days" copy so the widget can
+        # render even with the gate off. Matches the never-crash posture.
+        try:
+            from clawmetry import license as _lic
+
+            days_left = _lic.days_until_expiry_at(requested)
+        except Exception as exc:
+            logger.warning("api_license_expiring_within_at: derive error: %s", exc)
+            days_left = None
+    else:
+        days_left = None
+    return jsonify(
+        {
+            "expiring_within": bool(within),
+            "days_left": days_left,
+            "threshold_days": threshold,
+            "requested_epoch": requested,
+            "expires_at": snap["expires_at"],
+            "has_license": snap["has_license"],
+            "valid": snap["valid"],
+        }
+    )
+
+
 @bp_entitlement.route("/api/license/age-days-at")
 def api_license_age_days_at():
     """``GET /api/license/age-days-at?epoch=<int>`` -- scalar view of the
@@ -10255,6 +10486,732 @@ def api_license_is_expired_at():
             "is_expired_at": bool(matched),
             "requested_epoch": requested,
             "expires_at": snap["expires_at"],
+            "has_license": snap["has_license"],
+            "valid": snap["valid"],
+        }
+    )
+
+
+def _license_state_at_snapshot() -> dict:
+    """Shared one-shot read for the paired ``/api/license/state-at`` and
+    ``/api/license/is-state-at`` endpoints below.
+
+    Reads :func:`clawmetry.license.license_state` (current-time state),
+    :func:`clawmetry.license.current_license_info` (for ``has_license`` /
+    ``valid`` NOW), and :func:`clawmetry.license.license_expires_at`
+    (for the ``expires_at`` field the sibling perspective-epoch tiles
+    all carry) ONCE so a UI binding both endpoints in the same tile
+    can't catch them disagreeing on ``state`` / ``expires_at`` /
+    ``has_license`` / ``valid`` for the same install -- mirrors the
+    ``_license_state_snapshot`` + ``_license_expires_snapshot`` pattern
+    used by the current-time state pair and the ``exp``-derived
+    perspective-epoch trio.
+
+    ``state`` here is the CURRENT-time state (matches
+    :func:`clawmetry.license.license_state`); the perspective-epoch
+    state (``state_at``) is derived per-request by each endpoint via
+    :func:`clawmetry.license.license_state_at` and lives on top of this
+    snapshot -- keeping ``state`` in the shared read guarantees a UI
+    that renders "as of <date> vs now" tiles side-by-side can never
+    catch them disagreeing on the current-time reference.
+
+    Never raises. Any introspection failure collapses to the OSS-free
+    branch shape (``state="no_license"``, ``expires_at=None``,
+    ``has_license=False``, ``valid=False``) so the endpoint stack never
+    5xxs -- same posture as the surrounding license endpoints.
+    """
+    try:
+        from clawmetry import license as _lic
+
+        state = _lic.license_state()
+        info = _lic.current_license_info()
+        expires = _lic.license_expires_at()
+    except Exception as exc:
+        logger.debug("_license_state_at_snapshot: underlying read failed: %s", exc)
+        return {
+            "state": "no_license",
+            "expires_at": None,
+            "has_license": False,
+            "valid": False,
+        }
+    if not isinstance(state, str):
+        state = "no_license"
+    if info is None:
+        return {
+            "state": state,
+            "expires_at": None,
+            "has_license": False,
+            "valid": False,
+        }
+    if not isinstance(info, dict):
+        return {
+            "state": state,
+            "expires_at": None,
+            "has_license": False,
+            "valid": False,
+        }
+    return {
+        "state": state,
+        "expires_at": expires,
+        "has_license": True,
+        "valid": bool(info.get("valid")),
+    }
+
+
+@bp_entitlement.route("/api/license/state-at")
+def api_license_state_at():
+    """``GET /api/license/state-at?epoch=<int>`` -- scalar view of the
+    installed license's high-level lifecycle state evaluated as of
+    ``epoch`` -- the perspective-epoch flavour of ``/api/license/state``,
+    for a scheduled-audit / retrospective status badge that wants to
+    answer "would we have shown the expired banner on <date>?" without
+    the caller having to snapshot the license state at that time.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "state_at": "<active|expired|invalid|no_license>",  # evaluated at epoch
+          "requested_epoch": <int|null>,      # int-coerced input, or null on typo
+          "state": "<active|expired|invalid|no_license>",     # current-time state
+          "expires_at": <int|null>,           # on-disk exp for comparison
+          "has_license": <bool>,              # is a license file installed at all?
+          "valid": <bool>                     # signature-valid AND not expired NOW
+        }
+
+    ``state_at`` mirrors :func:`clawmetry.license.license_state_at`
+    exactly:
+
+      * ``"active"``   -- signature-valid AND (perpetual OR ``exp > epoch``).
+      * ``"expired"``  -- signature-valid, carries an ``exp`` claim, AND
+        ``exp <= epoch``. Retrospective on a lapsed key when ``epoch``
+        equals "now"; prospective on an active key when ``epoch`` is in
+        the future beyond ``exp``.
+      * ``"invalid"``  -- file exists but signature is bogus (time-
+        independent).
+      * ``"no_license"`` -- no license file on disk (also time-
+        independent, and the fallback on missing / non-integer ``epoch``
+        so a caller cannot silently mis-gate on a typo).
+
+    Unlike ``/api/license/tier`` / ``/api/license/subject`` /
+    ``/api/license/nodes`` (which surface ``null`` on the invalid /
+    expired / no-license branches), this endpoint always carries a
+    non-null string for ``state_at`` -- "no license" is a real answer
+    here, not a missing answer, so a UI switch can bind directly on
+    ``data.state_at`` without a null branch.
+
+    Query parameter:
+
+      * ``epoch`` -- required. Unix epoch seconds as an integer. A
+        missing / non-integer / bool value collapses to
+        ``state_at="no_license"`` with ``requested_epoch=null`` so a
+        caller cannot silently mis-gate on a typo. HTTP status is 200
+        either way -- the "bad input" signal is ``requested_epoch=null``
+        plus the ``"no_license"`` state, not a 4xx, matching the never-
+        crash posture of the surrounding license endpoints.
+
+    Pairs with ``/api/license/is-expired-at`` /
+    ``/api/license/is-expiring-at`` / ``/api/license/days-until-expiry-at``
+    -- all four share the perspective-epoch input pattern and the
+    ``_license_state_at_snapshot`` reader here carries ``expires_at`` /
+    ``has_license`` / ``valid`` on the same shape those three carry, so
+    a UI binding two for the same install cannot catch them
+    disagreeing on the current-time reference fields.
+
+    When ``epoch`` equals "now", the ``state_at`` field must byte-equal
+    ``state`` (both derive from the same signed ``exp`` claim and use
+    the same ``exp <= cutoff`` boundary via :func:`license_state_at` /
+    :func:`license_state`), so a UI binding both cannot catch them
+    disagreeing at the boundary.
+
+    Never 5xxs -- any underlying failure degrades to
+    ``{state_at: "no_license", requested_epoch: <echo>, state:
+    "no_license", expires_at: null, has_license: false, valid: false}``
+    (the OSS-free branch shape).
+    """
+    raw = request.args.get("epoch", "")
+    try:
+        requested = int(str(raw).strip())
+    except (TypeError, ValueError):
+        requested = None
+    try:
+        snap = _license_state_at_snapshot()
+    except Exception as exc:
+        logger.warning("api_license_state_at: snapshot error: %s", exc)
+        snap = {
+            "state": "no_license",
+            "expires_at": None,
+            "has_license": False,
+            "valid": False,
+        }
+    state_at = "no_license"
+    if requested is not None:
+        try:
+            from clawmetry import license as _lic
+
+            state_at = _lic.license_state_at(requested)
+        except Exception as exc:
+            logger.warning("api_license_state_at: derive error: %s", exc)
+            state_at = "no_license"
+    if not isinstance(state_at, str):
+        state_at = "no_license"
+    return jsonify(
+        {
+            "state_at": state_at,
+            "requested_epoch": requested,
+            "state": snap["state"],
+            "expires_at": snap["expires_at"],
+            "has_license": snap["has_license"],
+            "valid": snap["valid"],
+        }
+    )
+
+
+@bp_entitlement.route("/api/license/is-state-at")
+def api_license_is_state_at():
+    """``GET /api/license/is-state-at?state=<name>&epoch=<int>`` --
+    boolean gate for "was the installed license in state <X> evaluated
+    as of ``epoch``?" -- the perspective-epoch flavour of
+    ``/api/license/is-state``, for a scheduled-audit tile that wants to
+    answer "would we have shown the expired banner on <date>?" without
+    the caller having to snapshot the license state at that time or
+    string-compare themselves.
+
+    Query parameters:
+      * ``state`` (str, required) -- the state to test against. One of
+        ``"active"``, ``"expired"``, ``"invalid"``, ``"no_license"``.
+        Compared case-insensitively after strip, matching
+        :func:`clawmetry.license.is_state_at`. Missing / empty / unknown
+        input degrades to ``is_state_at=false`` rather than a 4xx.
+      * ``epoch`` (int, required) -- Unix epoch seconds. Missing / non-
+        integer / bool input collapses ``state_at`` to ``"no_license"``
+        and the predicate to ``false`` (unless ``state=no_license`` is
+        also requested, in which case the answer is truthfully ``true``
+        -- the perspective is unusable so the conservative "no
+        entitlement" fallback holds).
+
+    Response shape (always HTTP 200)::
+
+        {
+          "is_state_at": <bool>,
+          "state_at": "<active|expired|invalid|no_license>",  # evaluated at epoch
+          "requested_state": <str>,          # normalised echo of query
+          "requested_epoch": <int|null>,     # int-coerced input, or null on typo
+          "state": "<active|expired|invalid|no_license>",     # current-time state
+          "expires_at": <int|null>,
+          "has_license": <bool>,
+          "valid": <bool>                    # signature-valid AND not expired NOW
+        }
+
+    ``is_state_at`` is ``True`` iff the perspective-epoch state
+    byte-equals ``requested_state`` (after both are lower/stripped) AND
+    the requested value is one of the four canonical states -- a typo
+    like ``?state=actiev`` returns ``is_state_at=false`` so a caller
+    cannot silently mis-gate on a mis-spelled state name.
+
+    Mirrors :func:`clawmetry.license.is_state_at` -- the HTTP shape
+    layers ``state_at`` / ``requested_state`` / ``requested_epoch`` /
+    ``state`` / ``expires_at`` / ``has_license`` / ``valid`` on top of
+    that bool so a widget never needs a second call to
+    ``/api/license/state-at`` (or ``/api/license/state``) to render the
+    accompanying "you're in state <X>" copy.
+
+    When ``epoch`` equals "now" and ``state`` is a canonical value, this
+    endpoint must agree with ``/api/license/is-state`` at the boundary
+    for the same install -- both derive from the same signed ``exp``
+    claim via :func:`license_state_at` / :func:`license_state`, so a UI
+    binding both cannot catch them disagreeing at the boundary.
+
+    Never 5xxs -- any underlying failure degrades to the OSS-free
+    branch shape (``is_state_at=false``, ``state_at="no_license"``,
+    ``state="no_license"``, ``expires_at=null``, ``has_license=false``,
+    ``valid=false``), matching the never-crash posture of the
+    surrounding license endpoints.
+    """
+    from clawmetry.license import LICENSE_STATES
+
+    raw_state = request.args.get("state", "") or ""
+    try:
+        requested_state = str(raw_state).strip().lower()
+    except Exception:
+        requested_state = ""
+    raw_epoch = request.args.get("epoch", "")
+    try:
+        requested_epoch = int(str(raw_epoch).strip())
+    except (TypeError, ValueError):
+        requested_epoch = None
+    try:
+        snap = _license_state_at_snapshot()
+    except Exception as exc:
+        logger.warning("api_license_is_state_at: snapshot error: %s", exc)
+        snap = {
+            "state": "no_license",
+            "expires_at": None,
+            "has_license": False,
+            "valid": False,
+        }
+    state_at = "no_license"
+    if requested_epoch is not None:
+        try:
+            from clawmetry import license as _lic
+
+            state_at = _lic.license_state_at(requested_epoch)
+        except Exception as exc:
+            logger.warning("api_license_is_state_at: derive error: %s", exc)
+            state_at = "no_license"
+    if not isinstance(state_at, str):
+        state_at = "no_license"
+    match = bool(
+        requested_state
+        and requested_state in LICENSE_STATES
+        and state_at == requested_state
+    )
+    return jsonify(
+        {
+            "is_state_at": match,
+            "state_at": state_at,
+            "requested_state": requested_state,
+            "requested_epoch": requested_epoch,
+            "state": snap["state"],
+            "expires_at": snap["expires_at"],
+            "has_license": snap["has_license"],
+            "valid": snap["valid"],
+        }
+    )
+
+
+def _parse_license_epochs_csv(param: str = "epochs"):
+    """Shared query-string pre-parser for the three ``/api/license/
+    *-at-batch`` endpoints below.
+
+    Returns ``(raw_tokens, err)``:
+
+      * ``raw_tokens`` -- a list of stripped, non-empty tokens taken
+        from the ``epochs`` query parameter in first-seen order. The
+        underlying batch helpers own de-dup + int-coercion; the caller
+        here only needs to hand them the ordered token list.
+      * ``err`` -- ``"missing"`` when ``?epochs=`` is absent or blank
+        after stripping / commas so the caller can return ``400
+        missing epochs`` uniformly across the trio, ``None`` otherwise.
+
+    Tokens are NOT int-coerced here on purpose: the batch helpers admit
+    "bad" tokens (``bool``, non-numeric string, ``None``) as their own
+    row so callers can identify the offending entry in the response
+    rather than having the 400 hide the whole batch on a single typo.
+    """
+    raw = request.args.get(param)
+    if raw is None:
+        return [], "missing"
+    tokens = [tok.strip() for tok in str(raw).split(",")]
+    tokens = [tok for tok in tokens if tok]
+    if not tokens:
+        return [], "missing"
+    return tokens, None
+
+
+@bp_entitlement.route("/api/license/state-at-batch")
+def api_license_state_at_batch():
+    """``GET /api/license/state-at-batch?epochs=<int>,<int>,...`` --
+    per-value batch sibling of ``/api/license/state-at``.
+
+    Where the singular endpoint folds ONE perspective epoch to ONE
+    license-state string, this preserves per-value rows so a scheduled-
+    audit tile that wants to plot state across a sequence of dates
+    ("was the key active at each of these audit dates?") renders off
+    ONE round-trip instead of N calls to ``/api/license/state-at``.
+    Wraps :func:`clawmetry.license.license_state_at_batch`.
+
+    ``epochs=`` is required. Missing / blank / only-commas -> ``400
+    missing epochs``. Comma-separated tokens are normalised the way the
+    underlying batch helper normalises them: whitespace-stripped, then
+    handed to :func:`clawmetry.license.license_state_at_batch`, which
+    dedupes by parsed int key preserving first-seen order and collapses
+    non-int / ``bool`` / ``None`` tokens to a row with
+    ``state="no_license"`` (never-mis-gate posture matching the scalar
+    endpoint). Never 5xxs: a resolver failure returns the empty-rows
+    envelope with the current-time snapshot fields intact.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "kind":  "license_state_at",
+          "count": <int>,               # len(rows)
+          "rows":  [
+            {"epoch": <int|"<raw>">, "state": "<active|expired|invalid|no_license>"},
+            ...
+          ],
+          "state":       "<active|expired|invalid|no_license>",  # NOW
+          "expires_at":  <int|null>,    # on-disk exp for comparison
+          "has_license": <bool>,
+          "valid":       <bool>         # signature-valid AND not expired NOW
+        }
+
+    Per-row parity with ``/api/license/state-at?epoch=<n>`` is pinned in
+    the test suite so the batch cannot silently drift from the scalar
+    endpoint.
+    """
+    tokens, err = _parse_license_epochs_csv("epochs")
+    if err == "missing":
+        return jsonify({"error": "missing epochs"}), 400
+    try:
+        snap = _license_state_at_snapshot()
+    except Exception as exc:
+        logger.warning("api_license_state_at_batch: snapshot error: %s", exc)
+        snap = {
+            "state": "no_license",
+            "expires_at": None,
+            "has_license": False,
+            "valid": False,
+        }
+    try:
+        from clawmetry import license as _lic
+
+        rows = _lic.license_state_at_batch(tokens)
+    except Exception as exc:
+        logger.warning("api_license_state_at_batch: derive error: %s", exc)
+        rows = []
+    return jsonify(
+        {
+            "kind": "license_state_at",
+            "count": len(rows),
+            "rows": rows,
+            "state": snap["state"],
+            "expires_at": snap["expires_at"],
+            "has_license": snap["has_license"],
+            "valid": snap["valid"],
+        }
+    )
+
+
+@bp_entitlement.route("/api/license/is-expired-at-batch")
+def api_license_is_expired_at_batch():
+    """``GET /api/license/is-expired-at-batch?epochs=<int>,<int>,...``
+    -- per-value batch sibling of ``/api/license/is-expired-at``.
+
+    Boolean-expiry-axis twin of ``/api/license/state-at-batch``. Where
+    the singular endpoint folds ONE perspective epoch to ONE "was it
+    expired?" bool, this preserves per-value rows so a scheduled audit
+    can hydrate an "was it expired at each of these dates?" column in
+    one call. Wraps :func:`clawmetry.license.is_expired_at_batch`.
+
+    Row shape mirrors ``/api/license/state-at-batch`` per-row so a
+    caller assembling a timeline can zip the two responses index-for-
+    index. Same query-string posture: ``epochs=`` required (missing /
+    blank / only-commas -> ``400``), comma-separated tokens deduped by
+    parsed int key preserving first-seen order, non-int / ``bool`` /
+    ``None`` tokens collapse to ``expired=false``. Never 5xxs.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "kind":  "is_expired_at",
+          "count": <int>,
+          "rows":  [
+            {"epoch": <int|"<raw>">, "expired": <bool>},
+            ...
+          ],
+          "state":       "<active|expired|invalid|no_license>",  # NOW
+          "expires_at":  <int|null>,
+          "has_license": <bool>,
+          "valid":       <bool>
+        }
+
+    Per-row parity with ``/api/license/is-expired-at?epoch=<n>`` is
+    pinned in the test suite so the batch cannot silently drift from the
+    scalar endpoint.
+    """
+    tokens, err = _parse_license_epochs_csv("epochs")
+    if err == "missing":
+        return jsonify({"error": "missing epochs"}), 400
+    try:
+        snap = _license_state_at_snapshot()
+    except Exception as exc:
+        logger.warning(
+            "api_license_is_expired_at_batch: snapshot error: %s", exc
+        )
+        snap = {
+            "state": "no_license",
+            "expires_at": None,
+            "has_license": False,
+            "valid": False,
+        }
+    try:
+        from clawmetry import license as _lic
+
+        rows = _lic.is_expired_at_batch(tokens)
+    except Exception as exc:
+        logger.warning(
+            "api_license_is_expired_at_batch: derive error: %s", exc
+        )
+        rows = []
+    return jsonify(
+        {
+            "kind": "is_expired_at",
+            "count": len(rows),
+            "rows": rows,
+            "state": snap["state"],
+            "expires_at": snap["expires_at"],
+            "has_license": snap["has_license"],
+            "valid": snap["valid"],
+        }
+    )
+
+
+@bp_entitlement.route("/api/license/days-until-expiry-at-batch")
+def api_license_days_until_expiry_at_batch():
+    """``GET /api/license/days-until-expiry-at-batch?epochs=<int>,<int>,...``
+    -- per-value batch sibling of ``/api/license/days-until-expiry-at``.
+
+    Days-remaining axis twin of ``/api/license/state-at-batch`` /
+    ``/api/license/is-expired-at-batch``. Where the singular endpoint
+    folds ONE perspective epoch to ONE signed day-count, this preserves
+    per-value rows so a scheduled audit can plot a countdown across a
+    sequence of perspective dates in one call. Wraps
+    :func:`clawmetry.license.days_until_expiry_at_batch`.
+
+    Row shape mirrors the other two ``_at_batch`` license endpoints so a
+    caller assembling an audit timeline can zip all three responses
+    index-for-index. Same query-string posture: ``epochs=`` required
+    (missing / blank / only-commas -> ``400``), comma-separated tokens
+    deduped by parsed int key preserving first-seen order, non-int /
+    ``bool`` / ``None`` tokens collapse to ``days=null``. Never 5xxs.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "kind":  "days_until_expiry_at",
+          "count": <int>,
+          "rows":  [
+            {"epoch": <int|"<raw>">, "days": <int|null>},
+            ...
+          ],
+          "state":       "<active|expired|invalid|no_license>",  # NOW
+          "expires_at":  <int|null>,
+          "has_license": <bool>,
+          "valid":       <bool>
+        }
+
+    Per-row parity with ``/api/license/days-until-expiry-at?epoch=<n>``
+    is pinned in the test suite so the batch cannot silently drift from
+    the scalar endpoint.
+    """
+    tokens, err = _parse_license_epochs_csv("epochs")
+    if err == "missing":
+        return jsonify({"error": "missing epochs"}), 400
+    try:
+        snap = _license_state_at_snapshot()
+    except Exception as exc:
+        logger.warning(
+            "api_license_days_until_expiry_at_batch: snapshot error: %s", exc
+        )
+        snap = {
+            "state": "no_license",
+            "expires_at": None,
+            "has_license": False,
+            "valid": False,
+        }
+    try:
+        from clawmetry import license as _lic
+
+        rows = _lic.days_until_expiry_at_batch(tokens)
+    except Exception as exc:
+        logger.warning(
+            "api_license_days_until_expiry_at_batch: derive error: %s", exc
+        )
+        rows = []
+    return jsonify(
+        {
+            "kind": "days_until_expiry_at",
+            "count": len(rows),
+            "rows": rows,
+            "state": snap["state"],
+            "expires_at": snap["expires_at"],
+            "has_license": snap["has_license"],
+            "valid": snap["valid"],
+        }
+    )
+
+
+@bp_entitlement.route("/api/license/is-expiring-at-batch")
+def api_license_is_expiring_at_batch():
+    """``GET /api/license/is-expiring-at-batch?epochs=<int>,<int>,...``
+    -- per-value batch sibling of ``/api/license/is-expiring-at``.
+
+    Renewal-detection axis batch companion to
+    ``/api/license/state-at-batch`` /
+    ``/api/license/is-expired-at-batch`` /
+    ``/api/license/days-until-expiry-at-batch``. Where the singular
+    endpoint folds ONE candidate ``exp`` value to ONE "does the on-disk
+    key still expire on that date?" bool, this preserves per-value
+    rows so a renewal-reminder tile that binds several cached ``exp``
+    candidates (e.g. "we warned about <date>; then <date>; then
+    <date>") can detect a renewal on the on-disk key in one call
+    instead of fanning out to the scalar endpoint. Wraps
+    :func:`clawmetry.license.is_expiring_at_batch`.
+
+    Row shape mirrors ``/api/license/is-expired-at-batch`` per-row so
+    a caller assembling a renewal timeline can zip the two responses
+    index-for-index. Same query-string posture: ``epochs=`` required
+    (missing / blank / only-commas -> ``400``), comma-separated tokens
+    deduped by parsed int key preserving first-seen order, non-int /
+    ``bool`` / ``None`` tokens collapse to ``is_expiring=false``.
+    Never 5xxs.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "kind":  "is_expiring_at",
+          "count": <int>,
+          "rows":  [
+            {"epoch": <int|"<raw>">, "is_expiring": <bool>},
+            ...
+          ],
+          "state":       "<active|expired|invalid|no_license>",  # NOW
+          "expires_at":  <int|null>,
+          "has_license": <bool>,
+          "valid":       <bool>
+        }
+
+    Deliberately strict on validity, unlike the sibling
+    ``/api/license/days-until-expiry-at-batch`` (which is lenient on
+    expiry so a support tile can render "expired 12 days ago"). See
+    :func:`clawmetry.license.is_expiring_at` for the rationale: a
+    predicate that fired ``true`` on a lapsed key would push callers
+    to gate renewal UI on a value that no longer implies entitlement.
+
+    Per-row parity with ``/api/license/is-expiring-at?epoch=<n>`` is
+    pinned in the test suite so the batch cannot silently drift from
+    the scalar endpoint.
+    """
+    tokens, err = _parse_license_epochs_csv("epochs")
+    if err == "missing":
+        return jsonify({"error": "missing epochs"}), 400
+    try:
+        snap = _license_state_at_snapshot()
+    except Exception as exc:
+        logger.warning(
+            "api_license_is_expiring_at_batch: snapshot error: %s", exc
+        )
+        snap = {
+            "state": "no_license",
+            "expires_at": None,
+            "has_license": False,
+            "valid": False,
+        }
+    try:
+        from clawmetry import license as _lic
+
+        rows = _lic.is_expiring_at_batch(tokens)
+    except Exception as exc:
+        logger.warning(
+            "api_license_is_expiring_at_batch: derive error: %s", exc
+        )
+        rows = []
+    return jsonify(
+        {
+            "kind": "is_expiring_at",
+            "count": len(rows),
+            "rows": rows,
+            "state": snap["state"],
+            "expires_at": snap["expires_at"],
+            "has_license": snap["has_license"],
+            "valid": snap["valid"],
+        }
+    )
+
+
+@bp_entitlement.route("/api/license/age-days-at-batch")
+def api_license_age_days_at_batch():
+    """``GET /api/license/age-days-at-batch?epochs=<int>,<int>,...`` --
+    per-value batch sibling of ``/api/license/age-days-at``.
+
+    License-age axis batch companion to the ``exp``-derived
+    ``/api/license/days-until-expiry-at-batch``. Where the singular
+    endpoint folds ONE perspective epoch to ONE signed "days from
+    ``iat`` to epoch" scalar, this preserves per-value rows so a
+    scheduled-audit / retrospective tile that wants to plot license
+    age across a sequence of perspective dates (e.g. "how old was the
+    key when we shipped each of these builds?") renders off ONE
+    round-trip instead of N calls to the scalar. Wraps
+    :func:`clawmetry.license.license_age_days_at_batch`.
+
+    Row shape mirrors ``/api/license/days-until-expiry-at-batch``
+    per-row so a caller assembling a full audit timeline can zip the
+    two responses index-for-index -- "N days old and M days
+    remaining" per epoch. Same query-string posture: ``epochs=``
+    required (missing / blank / only-commas -> ``400``), comma-
+    separated tokens deduped by parsed int key preserving first-seen
+    order, non-int / ``bool`` / ``None`` tokens collapse to
+    ``days=null``. Never 5xxs.
+
+    Response shape (always HTTP 200)::
+
+        {
+          "kind":  "license_age_days_at",
+          "count": <int>,
+          "rows":  [
+            {"epoch": <int|"<raw>">, "days": <int|null>},
+            ...
+          ],
+          "issued_at":   <int|null>,        # current on-disk iat
+          "age_days":    <int|null>,        # age NOW (clamped >= 0)
+          "has_license": <bool>,
+          "valid":       <bool>             # signature-valid AND not expired NOW
+        }
+
+    Snapshot fields are drawn from :func:`_license_issued_snapshot`
+    (the ``iat``-derived quartet), matching the singular
+    ``/api/license/age-days-at`` endpoint, so a UI binding both for
+    the same install cannot catch them disagreeing on ``issued_at`` /
+    ``has_license`` / ``valid`` / current-time ``age_days``. Note the
+    snapshot's ``age_days`` is the "now" flavour (clamped to ``>= 0``
+    for clock-skew), whereas per-row ``days`` in ``rows`` is the
+    signed perspective value -- deliberately different by design so
+    the retrospective column can render "N days before issuance" while
+    the header still hides clock-skew.
+
+    Deliberately lenient on expiry, mirroring
+    ``/api/license/age-days-at``: a signed-but-lapsed key still
+    surfaces its real per-row ``days`` and current ``age_days`` so a
+    support/audit tile can render "was 12 days old as of that date"
+    without special-casing the expired branch. The ``valid`` field
+    independently carries the "signature-valid AND not expired"
+    signal for callers that DO want to hide the row on lapsed keys.
+
+    Per-row parity with ``/api/license/age-days-at?epoch=<n>`` is
+    pinned in the test suite so the batch cannot silently drift from
+    the scalar endpoint.
+    """
+    tokens, err = _parse_license_epochs_csv("epochs")
+    if err == "missing":
+        return jsonify({"error": "missing epochs"}), 400
+    try:
+        snap = _license_issued_snapshot()
+    except Exception as exc:
+        logger.warning(
+            "api_license_age_days_at_batch: snapshot error: %s", exc
+        )
+        snap = {
+            "issued_at": None,
+            "age_days": None,
+            "has_license": False,
+            "valid": False,
+        }
+    try:
+        from clawmetry import license as _lic
+
+        rows = _lic.license_age_days_at_batch(tokens)
+    except Exception as exc:
+        logger.warning(
+            "api_license_age_days_at_batch: derive error: %s", exc
+        )
+        rows = []
+    return jsonify(
+        {
+            "kind": "license_age_days_at",
+            "count": len(rows),
+            "rows": rows,
+            "issued_at": snap["issued_at"],
+            "age_days": snap["age_days"],
             "has_license": snap["has_license"],
             "valid": snap["valid"],
         }

@@ -44,6 +44,48 @@ class AutoScalingSpec:
 
 
 @dataclass
+class GrpcReadinessProbe:
+    """gRPC readiness probe configuration for a scaling group container.
+
+    Model deployments only support gRPC readiness checks.
+
+    Parameters
+    ----------
+    service
+        gRPC health-check service name to probe. Leave unset (or empty) to
+        check overall server health.
+    period_seconds
+        How often, in seconds, to perform the probe.
+    timeout_seconds
+        Number of seconds after which the probe times out.
+    failure_threshold
+        Number of consecutive failures required to mark the container as not
+        ready.
+    """
+
+    service: Optional[str] = None
+    period_seconds: Optional[int] = None
+    timeout_seconds: Optional[int] = None
+    failure_threshold: Optional[int] = None
+
+
+@dataclass
+class GrpcStartupProbe:
+    """gRPC startup probe configuration for a scaling group container.
+
+    Model deployments only support gRPC startup checks.
+
+    Parameters
+    ----------
+    method
+        Fully qualified gRPC method to call (e.g. "/grpc.health.v1.Health/Check").
+        If omitted, defaults to the standard gRPC health check method.
+    """
+
+    method: Optional[str] = None
+
+
+@dataclass
 class ResourceLimits:
     """Resource limits for a container.
 

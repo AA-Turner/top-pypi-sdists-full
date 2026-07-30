@@ -229,23 +229,6 @@ class ExtractedFact(BaseModel):
     def ensure_entities_list(cls, v):
         return _coerce_entity_strings(v)
 
-    def build_fact_text(self) -> str:
-        """Combine all dimensions into a single comprehensive fact string."""
-        parts = [self.what]
-
-        # Add 'who' if not N/A
-        if self.who and self.who.upper() != "N/A":
-            parts.append(f"Involving: {self.who}")
-
-        # Add 'why' if not N/A
-        if self.why and self.why.upper() != "N/A":
-            parts.append(self.why)
-
-        if len(parts) == 1:
-            return parts[0]
-
-        return " | ".join(parts)
-
 
 class FactExtractionResponse(BaseModel):
     """Response containing all extracted facts (causal relations are embedded in each fact)."""
@@ -1485,6 +1468,8 @@ async def _extract_facts_from_chunk(
                 if not what:
                     what = get_value("factual_core")
                 if not what:
+                    what = get_value("text")
+                if not what:
                     # In verbatim mode, 'what' is intentionally absent — text is backfilled from chunk
                     if extraction_mode != "verbatim":
                         logger.warning(f"Skipping fact {i}: missing 'what' field")
@@ -2247,6 +2232,8 @@ async def extract_facts_from_contents_batch_api(
             if not what:
                 what = get_value("factual_core")
             if not what:
+                what = get_value("text")
+            if not what:
                 continue
 
             when = get_value("when")
@@ -2425,6 +2412,7 @@ async def extract_facts_from_contents_batch_api(
 
     for chunk_meta, chunk_facts in facts_by_chunk:
         content = contents[chunk_meta.content_index]
+        extraction_group_start_idx = global_fact_idx
 
         for fact_from_llm in chunk_facts:
             extracted_fact = ExtractedFactType(
@@ -2433,7 +2421,9 @@ async def extract_facts_from_contents_batch_api(
                 entities=list(fact_from_llm.entities or []),
                 occurred_start=_parse_datetime(fact_from_llm.occurred_start) if fact_from_llm.occurred_start else None,
                 occurred_end=_parse_datetime(fact_from_llm.occurred_end) if fact_from_llm.occurred_end else None,
-                causal_relations=_convert_causal_relations(fact_from_llm.causal_relations or [], global_fact_idx),
+                causal_relations=_convert_causal_relations(
+                    fact_from_llm.causal_relations or [], extraction_group_start_idx, len(chunk_facts)
+                ),
                 content_index=chunk_meta.content_index,
                 chunk_index=chunk_meta.chunk_index,
                 context=content.context,
@@ -2558,8 +2548,7 @@ async def extract_facts_from_contents(
     # Step 1: Create parallel fact extraction tasks
     fact_extraction_tasks = []
     for item in contents:
-        # Call extract_facts_from_text directly (defined earlier in this file)
-        # to avoid circular import with utils.extract_facts
+        # Call extract_facts_from_text directly (defined earlier in this file).
         task = extract_facts_from_text(
             text=item.content,
             event_date=item.event_date,
@@ -2617,40 +2606,37 @@ async def extract_facts_from_contents(
         fact_idx_in_content = 0
         for chunk_idx_in_content, (chunk_text, chunk_fact_count) in enumerate(chunks_from_llm):
             chunk_global_idx = chunk_start_idx + chunk_idx_in_content
+            extraction_group_start_idx = global_fact_idx
+            chunk_facts = facts_from_llm[fact_idx_in_content : fact_idx_in_content + chunk_fact_count]
 
-            for _ in range(chunk_fact_count):
-                if fact_idx_in_content < len(facts_from_llm):
-                    fact_from_llm = facts_from_llm[fact_idx_in_content]
+            for fact_from_llm in chunk_facts:
+                # Convert Fact model from LLM to ExtractedFactType dataclass
+                # mentioned_at is always the event_date (when the conversation/document occurred)
+                extracted_fact = ExtractedFactType(
+                    fact_text=fact_from_llm.fact,
+                    fact_type=fact_from_llm.fact_type,
+                    entities=list(fact_from_llm.entities or []),
+                    # occurred_start/end: from LLM only, leave None if not provided
+                    occurred_start=_parse_datetime(fact_from_llm.occurred_start)
+                    if fact_from_llm.occurred_start
+                    else None,
+                    occurred_end=_parse_datetime(fact_from_llm.occurred_end) if fact_from_llm.occurred_end else None,
+                    causal_relations=_convert_causal_relations(
+                        fact_from_llm.causal_relations or [], extraction_group_start_idx, len(chunk_facts)
+                    ),
+                    content_index=content_index,
+                    chunk_index=chunk_global_idx,
+                    context=content.context,
+                    # mentioned_at: always the event_date (when the conversation/document occurred)
+                    mentioned_at=content.event_date,
+                    metadata=content.metadata,
+                    tags=content.tags,
+                    observation_scopes=content.observation_scopes,
+                )
 
-                    # Convert Fact model from LLM to ExtractedFactType dataclass
-                    # mentioned_at is always the event_date (when the conversation/document occurred)
-                    extracted_fact = ExtractedFactType(
-                        fact_text=fact_from_llm.fact,
-                        fact_type=fact_from_llm.fact_type,
-                        entities=list(fact_from_llm.entities or []),
-                        # occurred_start/end: from LLM only, leave None if not provided
-                        occurred_start=_parse_datetime(fact_from_llm.occurred_start)
-                        if fact_from_llm.occurred_start
-                        else None,
-                        occurred_end=_parse_datetime(fact_from_llm.occurred_end)
-                        if fact_from_llm.occurred_end
-                        else None,
-                        causal_relations=_convert_causal_relations(
-                            fact_from_llm.causal_relations or [], global_fact_idx
-                        ),
-                        content_index=content_index,
-                        chunk_index=chunk_global_idx,
-                        context=content.context,
-                        # mentioned_at: always the event_date (when the conversation/document occurred)
-                        mentioned_at=content.event_date,
-                        metadata=content.metadata,
-                        tags=content.tags,
-                        observation_scopes=content.observation_scopes,
-                    )
-
-                    extracted_facts.append(extracted_fact)
-                    global_fact_idx += 1
-                    fact_idx_in_content += 1
+                extracted_facts.append(extracted_fact)
+                global_fact_idx += 1
+                fact_idx_in_content += 1
 
     # Step 4: For verbatim mode, collapse to one fact per chunk with original text
     if config.retain_extraction_mode == "verbatim":
@@ -2702,7 +2688,9 @@ def _parse_datetime(date_str: str):
         return None
 
 
-def _convert_causal_relations(relations_from_llm, fact_start_idx: int) -> list[CausalRelationType]:
+def _convert_causal_relations(
+    relations_from_llm, extraction_group_start_idx: int, extraction_group_size: int
+) -> list[CausalRelationType]:
     """
     Convert causal relations from LLM format to ExtractedFact format.
 
@@ -2710,9 +2698,16 @@ def _convert_causal_relations(relations_from_llm, fact_start_idx: int) -> list[C
     """
     causal_relations = []
     for rel in relations_from_llm:
+        target_fact_index = rel.target_fact_index
+        if (
+            not isinstance(target_fact_index, int)
+            or isinstance(target_fact_index, bool)
+            or not 0 <= target_fact_index < extraction_group_size
+        ):
+            continue
         causal_relation = CausalRelationType(
             relation_type=rel.relation_type,
-            target_fact_index=fact_start_idx + rel.target_fact_index,
+            target_fact_index=extraction_group_start_idx + target_fact_index,
         )
         causal_relations.append(causal_relation)
     return causal_relations

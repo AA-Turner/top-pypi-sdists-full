@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mysql-connector-python
-Version: 9.7.0
+Version: 26.7.0
 Summary: A self-contained Python driver for communicating with MySQL servers, using an API that is compliant with the Python Database API Specification v2.0 (PEP 249).
 Author: Oracle and/or its affiliates
 Author-email: 
@@ -99,6 +99,17 @@ Features
 
 
 
+
+Licensing
+---------
+
+Please refer to the `README.txt <https://github.com/mysql/mysql-connector-python/blob/trunk/README.txt>`__ and `LICENSE.txt <https://github.com/mysql/mysql-connector-python/blob/trunk/LICENSE.txt>`__
+files, available in this repository, for further details.
+
+Contributing
+------------
+
+We greatly appreciate feedback from our users, including bug reports and code contributions. Your input helps us improve, and we thank you for any issues you report or code you contribute. Please refer to the `CONTRIBUTING.md <https://github.com/mysql/mysql-connector-python/blob/trunk/CONTRIBUTING.md>`__ document for additional information.
 
 Installation
 ------------
@@ -314,15 +325,3 @@ Additional Resources
 - `Oracle Blogs <https://blogs.oracle.com/search.html?q=connector-python>`__
 
 
-
-Contributing
-------------
-
-There are a few ways to contribute to the Connector/Python code. Please refer
-to the `contributing guidelines <https://github.com/mysql/mysql-connector-python/blob/trunk/CONTRIBUTING.md>`__ for additional information.
-
-License
--------
-
-Please refer to the `README.txt <https://github.com/mysql/mysql-connector-python/blob/trunk/README.txt>`__ and `LICENSE.txt <https://github.com/mysql/mysql-connector-python/blob/trunk/LICENSE.txt>`__
-files, available in this repository, for further details.

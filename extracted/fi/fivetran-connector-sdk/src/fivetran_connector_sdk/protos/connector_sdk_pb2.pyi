@@ -105,20 +105,22 @@ class TableSelection(_message.Message):
     def __init__(self, included: bool = ..., table_name: _Optional[str] = ..., columns: _Optional[_Mapping[str, bool]] = ..., include_new_columns: bool = ...) -> None: ...
 
 class UpdateResponse(_message.Message):
-    __slots__ = ("structured_record", "schema_change", "checkpoint", "warning", "task", "structured_records")
+    __slots__ = ("structured_record", "schema_change", "checkpoint", "warning", "task", "structured_records", "unstructured_record")
     STRUCTURED_RECORD_FIELD_NUMBER: _ClassVar[int]
     SCHEMA_CHANGE_FIELD_NUMBER: _ClassVar[int]
     CHECKPOINT_FIELD_NUMBER: _ClassVar[int]
     WARNING_FIELD_NUMBER: _ClassVar[int]
     TASK_FIELD_NUMBER: _ClassVar[int]
     STRUCTURED_RECORDS_FIELD_NUMBER: _ClassVar[int]
+    UNSTRUCTURED_RECORD_FIELD_NUMBER: _ClassVar[int]
     structured_record: StructuredRecord
     schema_change: SchemaChange
     checkpoint: Checkpoint
     warning: _common_pb2.Warning
     task: _common_pb2.Task
     structured_records: StructuredRecords
-    def __init__(self, structured_record: _Optional[_Union[StructuredRecord, _Mapping]] = ..., schema_change: _Optional[_Union[SchemaChange, _Mapping]] = ..., checkpoint: _Optional[_Union[Checkpoint, _Mapping]] = ..., warning: _Optional[_Union[_common_pb2.Warning, _Mapping]] = ..., task: _Optional[_Union[_common_pb2.Task, _Mapping]] = ..., structured_records: _Optional[_Union[StructuredRecords, _Mapping]] = ...) -> None: ...
+    unstructured_record: UnstructuredRecord
+    def __init__(self, structured_record: _Optional[_Union[StructuredRecord, _Mapping]] = ..., schema_change: _Optional[_Union[SchemaChange, _Mapping]] = ..., checkpoint: _Optional[_Union[Checkpoint, _Mapping]] = ..., warning: _Optional[_Union[_common_pb2.Warning, _Mapping]] = ..., task: _Optional[_Union[_common_pb2.Task, _Mapping]] = ..., structured_records: _Optional[_Union[StructuredRecords, _Mapping]] = ..., unstructured_record: _Optional[_Union[UnstructuredRecord, _Mapping]] = ...) -> None: ...
 
 class SchemaChange(_message.Message):
     __slots__ = ("with_schema", "without_schema")
@@ -135,7 +137,7 @@ class StructuredRecords(_message.Message):
     def __init__(self, structured_records: _Optional[_Iterable[_Union[StructuredRecord, _Mapping]]] = ...) -> None: ...
 
 class StructuredRecord(_message.Message):
-    __slots__ = ("schema_name", "table_name", "type", "data")
+    __slots__ = ("schema_name", "table_name", "type", "data", "row_data")
     class DataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -143,15 +145,40 @@ class StructuredRecord(_message.Message):
         key: str
         value: _common_pb2.ValueType
         def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[_common_pb2.ValueType, _Mapping]] = ...) -> None: ...
+    class RowDataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: bytes
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[bytes] = ...) -> None: ...
     SCHEMA_NAME_FIELD_NUMBER: _ClassVar[int]
     TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
     DATA_FIELD_NUMBER: _ClassVar[int]
+    ROW_DATA_FIELD_NUMBER: _ClassVar[int]
     schema_name: str
     table_name: str
     type: _common_pb2.RecordType
     data: _containers.MessageMap[str, _common_pb2.ValueType]
-    def __init__(self, schema_name: _Optional[str] = ..., table_name: _Optional[str] = ..., type: _Optional[_Union[_common_pb2.RecordType, str]] = ..., data: _Optional[_Mapping[str, _common_pb2.ValueType]] = ...) -> None: ...
+    row_data: _containers.ScalarMap[str, bytes]
+    def __init__(self, schema_name: _Optional[str] = ..., table_name: _Optional[str] = ..., type: _Optional[_Union[_common_pb2.RecordType, str]] = ..., data: _Optional[_Mapping[str, _common_pb2.ValueType]] = ..., row_data: _Optional[_Mapping[str, bytes]] = ...) -> None: ...
+
+class UnstructuredRecord(_message.Message):
+    __slots__ = ("schema_name", "storage_name", "file_path", "chunk_data", "expected_bytes", "is_last")
+    SCHEMA_NAME_FIELD_NUMBER: _ClassVar[int]
+    STORAGE_NAME_FIELD_NUMBER: _ClassVar[int]
+    FILE_PATH_FIELD_NUMBER: _ClassVar[int]
+    CHUNK_DATA_FIELD_NUMBER: _ClassVar[int]
+    EXPECTED_BYTES_FIELD_NUMBER: _ClassVar[int]
+    IS_LAST_FIELD_NUMBER: _ClassVar[int]
+    schema_name: str
+    storage_name: str
+    file_path: str
+    chunk_data: bytes
+    expected_bytes: int
+    is_last: bool
+    def __init__(self, schema_name: _Optional[str] = ..., storage_name: _Optional[str] = ..., file_path: _Optional[str] = ..., chunk_data: _Optional[bytes] = ..., expected_bytes: _Optional[int] = ..., is_last: bool = ...) -> None: ...
 
 class Checkpoint(_message.Message):
     __slots__ = ("state_json",)

@@ -258,8 +258,18 @@ def _render_active_rollouts_table() -> None:
                     sortable=True,
                 ),
                 DataTableColumn(
-                    key="tier_summary",
-                    header="Tiers",
+                    key="tier_2_display",
+                    header="Tier 2",
+                    sortable=True,
+                ),
+                DataTableColumn(
+                    key="tier_1_display",
+                    header="Tier 1",
+                    sortable=True,
+                ),
+                DataTableColumn(
+                    key="tier_0_display",
+                    header="Tier 0",
                     sortable=True,
                 ),
                 DataTableColumn(

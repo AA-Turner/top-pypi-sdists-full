@@ -16,6 +16,7 @@ _sym_db = _symbol_database.Default()
 
 from google.protobuf import duration_pb2 as google_dot_protobuf_dot_duration__pb2
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
+from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 from temporalio.api.enums.v1 import (
     common_pb2 as temporal_dot_api_dot_enums_dot_v1_dot_common__pb2,
@@ -28,7 +29,7 @@ from temporalio.api.enums.v1 import (
 )
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n$temporal/api/common/v1/message.proto\x12\x16temporal.api.common.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a"temporal/api/enums/v1/common.proto\x1a&temporal/api/enums/v1/event_type.proto\x1a!temporal/api/enums/v1/reset.proto"T\n\x08\x44\x61taBlob\x12:\n\rencoding_type\x18\x01 \x01(\x0e\x32#.temporal.api.enums.v1.EncodingType\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\x0c"=\n\x08Payloads\x12\x31\n\x08payloads\x18\x01 \x03(\x0b\x32\x1f.temporal.api.common.v1.Payload"\x8a\x02\n\x07Payload\x12?\n\x08metadata\x18\x01 \x03(\x0b\x32-.temporal.api.common.v1.Payload.MetadataEntry\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\x0c\x12Q\n\x11\x65xternal_payloads\x18\x03 \x03(\x0b\x32\x36.temporal.api.common.v1.Payload.ExternalPayloadDetails\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x0c:\x02\x38\x01\x1a,\n\x16\x45xternalPayloadDetails\x12\x12\n\nsize_bytes\x18\x01 \x01(\x03"\xbe\x01\n\x10SearchAttributes\x12S\n\x0eindexed_fields\x18\x01 \x03(\x0b\x32;.temporal.api.common.v1.SearchAttributes.IndexedFieldsEntry\x1aU\n\x12IndexedFieldsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12.\n\x05value\x18\x02 \x01(\x0b\x32\x1f.temporal.api.common.v1.Payload:\x02\x38\x01"\x90\x01\n\x04Memo\x12\x38\n\x06\x66ields\x18\x01 \x03(\x0b\x32(.temporal.api.common.v1.Memo.FieldsEntry\x1aN\n\x0b\x46ieldsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12.\n\x05value\x18\x02 \x01(\x0b\x32\x1f.temporal.api.common.v1.Payload:\x02\x38\x01"\x94\x01\n\x06Header\x12:\n\x06\x66ields\x18\x01 \x03(\x0b\x32*.temporal.api.common.v1.Header.FieldsEntry\x1aN\n\x0b\x46ieldsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12.\n\x05value\x18\x02 \x01(\x0b\x32\x1f.temporal.api.common.v1.Payload:\x02\x38\x01"8\n\x11WorkflowExecution\x12\x13\n\x0bworkflow_id\x18\x01 \x01(\t\x12\x0e\n\x06run_id\x18\x02 \x01(\t"\x1c\n\x0cWorkflowType\x12\x0c\n\x04name\x18\x01 \x01(\t"\x1c\n\x0c\x41\x63tivityType\x12\x0c\n\x04name\x18\x01 \x01(\t"\xd1\x01\n\x0bRetryPolicy\x12\x33\n\x10initial_interval\x18\x01 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x1b\n\x13\x62\x61\x63koff_coefficient\x18\x02 \x01(\x01\x12\x33\n\x10maximum_interval\x18\x03 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x18\n\x10maximum_attempts\x18\x04 \x01(\x05\x12!\n\x19non_retryable_error_types\x18\x05 \x03(\t"F\n\x10MeteringMetadata\x12\x32\n*nonfirst_local_activity_execution_attempts\x18\r \x01(\r">\n\x12WorkerVersionStamp\x12\x10\n\x08\x62uild_id\x18\x01 \x01(\t\x12\x16\n\x0euse_versioning\x18\x03 \x01(\x08"e\n\x19WorkerVersionCapabilities\x12\x10\n\x08\x62uild_id\x18\x01 \x01(\t\x12\x16\n\x0euse_versioning\x18\x02 \x01(\x08\x12\x1e\n\x16\x64\x65ployment_series_name\x18\x04 \x01(\t"\xed\x02\n\x0cResetOptions\x12\x35\n\x13\x66irst_workflow_task\x18\x01 \x01(\x0b\x32\x16.google.protobuf.EmptyH\x00\x12\x34\n\x12last_workflow_task\x18\x02 \x01(\x0b\x32\x16.google.protobuf.EmptyH\x00\x12\x1a\n\x10workflow_task_id\x18\x03 \x01(\x03H\x00\x12\x12\n\x08\x62uild_id\x18\x04 \x01(\tH\x00\x12G\n\x12reset_reapply_type\x18\n \x01(\x0e\x32\'.temporal.api.enums.v1.ResetReapplyTypeB\x02\x18\x01\x12\x18\n\x10\x63urrent_run_only\x18\x0b \x01(\x08\x12S\n\x1breset_reapply_exclude_types\x18\x0c \x03(\x0e\x32..temporal.api.enums.v1.ResetReapplyExcludeTypeB\x08\n\x06target"\xe4\x02\n\x08\x43\x61llback\x12\x37\n\x05nexus\x18\x02 \x01(\x0b\x32&.temporal.api.common.v1.Callback.NexusH\x00\x12=\n\x08internal\x18\x03 \x01(\x0b\x32).temporal.api.common.v1.Callback.InternalH\x00\x12+\n\x05links\x18\x64 \x03(\x0b\x32\x1c.temporal.api.common.v1.Link\x1a\x87\x01\n\x05Nexus\x12\x0b\n\x03url\x18\x01 \x01(\t\x12\x42\n\x06header\x18\x02 \x03(\x0b\x32\x32.temporal.api.common.v1.Callback.Nexus.HeaderEntry\x1a-\n\x0bHeaderEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a\x18\n\x08Internal\x12\x0c\n\x04\x64\x61ta\x18\x01 \x01(\x0c\x42\t\n\x07variantJ\x04\x08\x01\x10\x02"\x8a\x08\n\x04Link\x12\x44\n\x0eworkflow_event\x18\x01 \x01(\x0b\x32*.temporal.api.common.v1.Link.WorkflowEventH\x00\x12:\n\tbatch_job\x18\x02 \x01(\x0b\x32%.temporal.api.common.v1.Link.BatchJobH\x00\x12\x39\n\x08\x61\x63tivity\x18\x03 \x01(\x0b\x32%.temporal.api.common.v1.Link.ActivityH\x00\x12\x46\n\x0fnexus_operation\x18\x04 \x01(\x0b\x32+.temporal.api.common.v1.Link.NexusOperationH\x00\x12\x39\n\x08workflow\x18\x05 \x01(\x0b\x32%.temporal.api.common.v1.Link.WorkflowH\x00\x1a\xb7\x03\n\rWorkflowEvent\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x13\n\x0bworkflow_id\x18\x02 \x01(\t\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x12N\n\tevent_ref\x18\x64 \x01(\x0b\x32\x39.temporal.api.common.v1.Link.WorkflowEvent.EventReferenceH\x00\x12W\n\x0erequest_id_ref\x18\x65 \x01(\x0b\x32=.temporal.api.common.v1.Link.WorkflowEvent.RequestIdReferenceH\x00\x1aX\n\x0e\x45ventReference\x12\x10\n\x08\x65vent_id\x18\x01 \x01(\x03\x12\x34\n\nevent_type\x18\x02 \x01(\x0e\x32 .temporal.api.enums.v1.EventType\x1a^\n\x12RequestIdReference\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12\x34\n\nevent_type\x18\x02 \x01(\x0e\x32 .temporal.api.enums.v1.EventTypeB\x0b\n\treference\x1a\x1a\n\x08\x42\x61tchJob\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x1a\x42\n\x08\x41\x63tivity\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x13\n\x0b\x61\x63tivity_id\x18\x02 \x01(\t\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x1aI\n\x0eNexusOperation\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x14\n\x0coperation_id\x18\x02 \x01(\t\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x1aR\n\x08Workflow\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x13\n\x0bworkflow_id\x18\x02 \x01(\t\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x12\x0e\n\x06reason\x18\x04 \x01(\tB\t\n\x07variant"\'\n\tPrincipal\x12\x0c\n\x04type\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t"O\n\x08Priority\x12\x14\n\x0cpriority_key\x18\x01 \x01(\x05\x12\x14\n\x0c\x66\x61irness_key\x18\x02 \x01(\t\x12\x17\n\x0f\x66\x61irness_weight\x18\x03 \x01(\x02";\n\x0eWorkerSelector\x12\x1d\n\x13worker_instance_key\x18\x01 \x01(\tH\x00\x42\n\n\x08selector"i\n\x11OnConflictOptions\x12\x19\n\x11\x61ttach_request_id\x18\x01 \x01(\x08\x12#\n\x1b\x61ttach_completion_callbacks\x18\x02 \x01(\x08\x12\x14\n\x0c\x61ttach_links\x18\x03 \x01(\x08\x42\x89\x01\n\x19io.temporal.api.common.v1B\x0cMessageProtoP\x01Z#go.temporal.io/api/common/v1;common\xaa\x02\x18Temporalio.Api.Common.V1\xea\x02\x1bTemporalio::Api::Common::V1b\x06proto3'
+    b'\n$temporal/api/common/v1/message.proto\x12\x16temporal.api.common.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a"temporal/api/enums/v1/common.proto\x1a&temporal/api/enums/v1/event_type.proto\x1a!temporal/api/enums/v1/reset.proto"T\n\x08\x44\x61taBlob\x12:\n\rencoding_type\x18\x01 \x01(\x0e\x32#.temporal.api.enums.v1.EncodingType\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\x0c"=\n\x08Payloads\x12\x31\n\x08payloads\x18\x01 \x03(\x0b\x32\x1f.temporal.api.common.v1.Payload"\x8a\x02\n\x07Payload\x12?\n\x08metadata\x18\x01 \x03(\x0b\x32-.temporal.api.common.v1.Payload.MetadataEntry\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\x0c\x12Q\n\x11\x65xternal_payloads\x18\x03 \x03(\x0b\x32\x36.temporal.api.common.v1.Payload.ExternalPayloadDetails\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x0c:\x02\x38\x01\x1a,\n\x16\x45xternalPayloadDetails\x12\x12\n\nsize_bytes\x18\x01 \x01(\x03"\xbe\x01\n\x10SearchAttributes\x12S\n\x0eindexed_fields\x18\x01 \x03(\x0b\x32;.temporal.api.common.v1.SearchAttributes.IndexedFieldsEntry\x1aU\n\x12IndexedFieldsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12.\n\x05value\x18\x02 \x01(\x0b\x32\x1f.temporal.api.common.v1.Payload:\x02\x38\x01"\x90\x01\n\x04Memo\x12\x38\n\x06\x66ields\x18\x01 \x03(\x0b\x32(.temporal.api.common.v1.Memo.FieldsEntry\x1aN\n\x0b\x46ieldsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12.\n\x05value\x18\x02 \x01(\x0b\x32\x1f.temporal.api.common.v1.Payload:\x02\x38\x01"\x94\x01\n\x06Header\x12:\n\x06\x66ields\x18\x01 \x03(\x0b\x32*.temporal.api.common.v1.Header.FieldsEntry\x1aN\n\x0b\x46ieldsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12.\n\x05value\x18\x02 \x01(\x0b\x32\x1f.temporal.api.common.v1.Payload:\x02\x38\x01"8\n\x11WorkflowExecution\x12\x13\n\x0bworkflow_id\x18\x01 \x01(\t\x12\x0e\n\x06run_id\x18\x02 \x01(\t"d\n\tExecution\x12\x32\n\x04type\x18\x01 \x01(\x0e\x32$.temporal.api.enums.v1.ExecutionType\x12\x13\n\x0b\x62usiness_id\x18\x02 \x01(\t\x12\x0e\n\x06run_id\x18\x03 \x01(\t"\x1c\n\x0cWorkflowType\x12\x0c\n\x04name\x18\x01 \x01(\t"\x1c\n\x0c\x41\x63tivityType\x12\x0c\n\x04name\x18\x01 \x01(\t"\xd1\x01\n\x0bRetryPolicy\x12\x33\n\x10initial_interval\x18\x01 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x1b\n\x13\x62\x61\x63koff_coefficient\x18\x02 \x01(\x01\x12\x33\n\x10maximum_interval\x18\x03 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x18\n\x10maximum_attempts\x18\x04 \x01(\x05\x12!\n\x19non_retryable_error_types\x18\x05 \x03(\t"F\n\x10MeteringMetadata\x12\x32\n*nonfirst_local_activity_execution_attempts\x18\r \x01(\r">\n\x12WorkerVersionStamp\x12\x10\n\x08\x62uild_id\x18\x01 \x01(\t\x12\x16\n\x0euse_versioning\x18\x03 \x01(\x08"e\n\x19WorkerVersionCapabilities\x12\x10\n\x08\x62uild_id\x18\x01 \x01(\t\x12\x16\n\x0euse_versioning\x18\x02 \x01(\x08\x12\x1e\n\x16\x64\x65ployment_series_name\x18\x04 \x01(\t"\xed\x02\n\x0cResetOptions\x12\x35\n\x13\x66irst_workflow_task\x18\x01 \x01(\x0b\x32\x16.google.protobuf.EmptyH\x00\x12\x34\n\x12last_workflow_task\x18\x02 \x01(\x0b\x32\x16.google.protobuf.EmptyH\x00\x12\x1a\n\x10workflow_task_id\x18\x03 \x01(\x03H\x00\x12\x12\n\x08\x62uild_id\x18\x04 \x01(\tH\x00\x12G\n\x12reset_reapply_type\x18\n \x01(\x0e\x32\'.temporal.api.enums.v1.ResetReapplyTypeB\x02\x18\x01\x12\x18\n\x10\x63urrent_run_only\x18\x0b \x01(\x08\x12S\n\x1breset_reapply_exclude_types\x18\x0c \x03(\x0e\x32..temporal.api.enums.v1.ResetReapplyExcludeTypeB\x08\n\x06target"\xe4\x02\n\x08\x43\x61llback\x12\x37\n\x05nexus\x18\x02 \x01(\x0b\x32&.temporal.api.common.v1.Callback.NexusH\x00\x12=\n\x08internal\x18\x03 \x01(\x0b\x32).temporal.api.common.v1.Callback.InternalH\x00\x12+\n\x05links\x18\x64 \x03(\x0b\x32\x1c.temporal.api.common.v1.Link\x1a\x87\x01\n\x05Nexus\x12\x0b\n\x03url\x18\x01 \x01(\t\x12\x42\n\x06header\x18\x02 \x03(\x0b\x32\x32.temporal.api.common.v1.Callback.Nexus.HeaderEntry\x1a-\n\x0bHeaderEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a\x18\n\x08Internal\x12\x0c\n\x04\x64\x61ta\x18\x01 \x01(\x0c\x42\t\n\x07variantJ\x04\x08\x01\x10\x02"\x8a\x08\n\x04Link\x12\x44\n\x0eworkflow_event\x18\x01 \x01(\x0b\x32*.temporal.api.common.v1.Link.WorkflowEventH\x00\x12:\n\tbatch_job\x18\x02 \x01(\x0b\x32%.temporal.api.common.v1.Link.BatchJobH\x00\x12\x39\n\x08\x61\x63tivity\x18\x03 \x01(\x0b\x32%.temporal.api.common.v1.Link.ActivityH\x00\x12\x46\n\x0fnexus_operation\x18\x04 \x01(\x0b\x32+.temporal.api.common.v1.Link.NexusOperationH\x00\x12\x39\n\x08workflow\x18\x05 \x01(\x0b\x32%.temporal.api.common.v1.Link.WorkflowH\x00\x1a\xb7\x03\n\rWorkflowEvent\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x13\n\x0bworkflow_id\x18\x02 \x01(\t\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x12N\n\tevent_ref\x18\x64 \x01(\x0b\x32\x39.temporal.api.common.v1.Link.WorkflowEvent.EventReferenceH\x00\x12W\n\x0erequest_id_ref\x18\x65 \x01(\x0b\x32=.temporal.api.common.v1.Link.WorkflowEvent.RequestIdReferenceH\x00\x1aX\n\x0e\x45ventReference\x12\x10\n\x08\x65vent_id\x18\x01 \x01(\x03\x12\x34\n\nevent_type\x18\x02 \x01(\x0e\x32 .temporal.api.enums.v1.EventType\x1a^\n\x12RequestIdReference\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12\x34\n\nevent_type\x18\x02 \x01(\x0e\x32 .temporal.api.enums.v1.EventTypeB\x0b\n\treference\x1a\x1a\n\x08\x42\x61tchJob\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x1a\x42\n\x08\x41\x63tivity\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x13\n\x0b\x61\x63tivity_id\x18\x02 \x01(\t\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x1aI\n\x0eNexusOperation\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x14\n\x0coperation_id\x18\x02 \x01(\t\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x1aR\n\x08Workflow\x12\x11\n\tnamespace\x18\x01 \x01(\t\x12\x13\n\x0bworkflow_id\x18\x02 \x01(\t\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x12\x0e\n\x06reason\x18\x04 \x01(\tB\t\n\x07variant"\'\n\tPrincipal\x12\x0c\n\x04type\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t"O\n\x08Priority\x12\x14\n\x0cpriority_key\x18\x01 \x01(\x05\x12\x14\n\x0c\x66\x61irness_key\x18\x02 \x01(\t\x12\x17\n\x0f\x66\x61irness_weight\x18\x03 \x01(\x02";\n\x0eWorkerSelector\x12\x1d\n\x13worker_instance_key\x18\x01 \x01(\tH\x00\x42\n\n\x08selector"i\n\x11OnConflictOptions\x12\x19\n\x11\x61ttach_request_id\x18\x01 \x01(\x08\x12#\n\x1b\x61ttach_completion_callbacks\x18\x02 \x01(\x08\x12\x14\n\x0c\x61ttach_links\x18\x03 \x01(\x08"s\n\x12TimeSkippingConfig\x12\x0f\n\x07\x65nabled\x18\x01 \x01(\x08\x12/\n\x0c\x66\x61st_forward\x18\x02 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x1b\n\x13\x64isable_propagation\x18\x03 \x01(\x08"\x99\x01\n\x1cTimeSkippingStatePropagation\x12;\n\x18initial_skipped_duration\x18\x01 \x01(\x0b\x32\x19.google.protobuf.Duration\x12<\n\x18\x66\x61st_forward_target_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x89\x01\n\x19io.temporal.api.common.v1B\x0cMessageProtoP\x01Z#go.temporal.io/api/common/v1;common\xaa\x02\x18Temporalio.Api.Common.V1\xea\x02\x1bTemporalio::Api::Common::V1b\x06proto3'
 )
 
 
@@ -48,6 +49,7 @@ _MEMO_FIELDSENTRY = _MEMO.nested_types_by_name["FieldsEntry"]
 _HEADER = DESCRIPTOR.message_types_by_name["Header"]
 _HEADER_FIELDSENTRY = _HEADER.nested_types_by_name["FieldsEntry"]
 _WORKFLOWEXECUTION = DESCRIPTOR.message_types_by_name["WorkflowExecution"]
+_EXECUTION = DESCRIPTOR.message_types_by_name["Execution"]
 _WORKFLOWTYPE = DESCRIPTOR.message_types_by_name["WorkflowType"]
 _ACTIVITYTYPE = DESCRIPTOR.message_types_by_name["ActivityType"]
 _RETRYPOLICY = DESCRIPTOR.message_types_by_name["RetryPolicy"]
@@ -77,6 +79,10 @@ _PRINCIPAL = DESCRIPTOR.message_types_by_name["Principal"]
 _PRIORITY = DESCRIPTOR.message_types_by_name["Priority"]
 _WORKERSELECTOR = DESCRIPTOR.message_types_by_name["WorkerSelector"]
 _ONCONFLICTOPTIONS = DESCRIPTOR.message_types_by_name["OnConflictOptions"]
+_TIMESKIPPINGCONFIG = DESCRIPTOR.message_types_by_name["TimeSkippingConfig"]
+_TIMESKIPPINGSTATEPROPAGATION = DESCRIPTOR.message_types_by_name[
+    "TimeSkippingStatePropagation"
+]
 DataBlob = _reflection.GeneratedProtocolMessageType(
     "DataBlob",
     (_message.Message,),
@@ -203,6 +209,17 @@ WorkflowExecution = _reflection.GeneratedProtocolMessageType(
     },
 )
 _sym_db.RegisterMessage(WorkflowExecution)
+
+Execution = _reflection.GeneratedProtocolMessageType(
+    "Execution",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _EXECUTION,
+        "__module__": "temporalio.api.common.v1.message_pb2",
+        # @@protoc_insertion_point(class_scope:temporal.api.common.v1.Execution)
+    },
+)
+_sym_db.RegisterMessage(Execution)
 
 WorkflowType = _reflection.GeneratedProtocolMessageType(
     "WorkflowType",
@@ -447,6 +464,28 @@ OnConflictOptions = _reflection.GeneratedProtocolMessageType(
 )
 _sym_db.RegisterMessage(OnConflictOptions)
 
+TimeSkippingConfig = _reflection.GeneratedProtocolMessageType(
+    "TimeSkippingConfig",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _TIMESKIPPINGCONFIG,
+        "__module__": "temporalio.api.common.v1.message_pb2",
+        # @@protoc_insertion_point(class_scope:temporal.api.common.v1.TimeSkippingConfig)
+    },
+)
+_sym_db.RegisterMessage(TimeSkippingConfig)
+
+TimeSkippingStatePropagation = _reflection.GeneratedProtocolMessageType(
+    "TimeSkippingStatePropagation",
+    (_message.Message,),
+    {
+        "DESCRIPTOR": _TIMESKIPPINGSTATEPROPAGATION,
+        "__module__": "temporalio.api.common.v1.message_pb2",
+        # @@protoc_insertion_point(class_scope:temporal.api.common.v1.TimeSkippingStatePropagation)
+    },
+)
+_sym_db.RegisterMessage(TimeSkippingStatePropagation)
+
 if _descriptor._USE_C_DESCRIPTORS == False:
     DESCRIPTOR._options = None
     DESCRIPTOR._serialized_options = b"\n\031io.temporal.api.common.v1B\014MessageProtoP\001Z#go.temporal.io/api/common/v1;common\252\002\030Temporalio.Api.Common.V1\352\002\033Temporalio::Api::Common::V1"
@@ -462,74 +501,80 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _RESETOPTIONS.fields_by_name["reset_reapply_type"]._serialized_options = b"\030\001"
     _CALLBACK_NEXUS_HEADERENTRY._options = None
     _CALLBACK_NEXUS_HEADERENTRY._serialized_options = b"8\001"
-    _DATABLOB._serialized_start = 236
-    _DATABLOB._serialized_end = 320
-    _PAYLOADS._serialized_start = 322
-    _PAYLOADS._serialized_end = 383
-    _PAYLOAD._serialized_start = 386
-    _PAYLOAD._serialized_end = 652
-    _PAYLOAD_METADATAENTRY._serialized_start = 559
-    _PAYLOAD_METADATAENTRY._serialized_end = 606
-    _PAYLOAD_EXTERNALPAYLOADDETAILS._serialized_start = 608
-    _PAYLOAD_EXTERNALPAYLOADDETAILS._serialized_end = 652
-    _SEARCHATTRIBUTES._serialized_start = 655
-    _SEARCHATTRIBUTES._serialized_end = 845
-    _SEARCHATTRIBUTES_INDEXEDFIELDSENTRY._serialized_start = 760
-    _SEARCHATTRIBUTES_INDEXEDFIELDSENTRY._serialized_end = 845
-    _MEMO._serialized_start = 848
-    _MEMO._serialized_end = 992
-    _MEMO_FIELDSENTRY._serialized_start = 914
-    _MEMO_FIELDSENTRY._serialized_end = 992
-    _HEADER._serialized_start = 995
-    _HEADER._serialized_end = 1143
-    _HEADER_FIELDSENTRY._serialized_start = 914
-    _HEADER_FIELDSENTRY._serialized_end = 992
-    _WORKFLOWEXECUTION._serialized_start = 1145
-    _WORKFLOWEXECUTION._serialized_end = 1201
-    _WORKFLOWTYPE._serialized_start = 1203
-    _WORKFLOWTYPE._serialized_end = 1231
-    _ACTIVITYTYPE._serialized_start = 1233
-    _ACTIVITYTYPE._serialized_end = 1261
-    _RETRYPOLICY._serialized_start = 1264
-    _RETRYPOLICY._serialized_end = 1473
-    _METERINGMETADATA._serialized_start = 1475
-    _METERINGMETADATA._serialized_end = 1545
-    _WORKERVERSIONSTAMP._serialized_start = 1547
-    _WORKERVERSIONSTAMP._serialized_end = 1609
-    _WORKERVERSIONCAPABILITIES._serialized_start = 1611
-    _WORKERVERSIONCAPABILITIES._serialized_end = 1712
-    _RESETOPTIONS._serialized_start = 1715
-    _RESETOPTIONS._serialized_end = 2080
-    _CALLBACK._serialized_start = 2083
-    _CALLBACK._serialized_end = 2439
-    _CALLBACK_NEXUS._serialized_start = 2261
-    _CALLBACK_NEXUS._serialized_end = 2396
-    _CALLBACK_NEXUS_HEADERENTRY._serialized_start = 2351
-    _CALLBACK_NEXUS_HEADERENTRY._serialized_end = 2396
-    _CALLBACK_INTERNAL._serialized_start = 2398
-    _CALLBACK_INTERNAL._serialized_end = 2422
-    _LINK._serialized_start = 2442
-    _LINK._serialized_end = 3476
-    _LINK_WORKFLOWEVENT._serialized_start = 2771
-    _LINK_WORKFLOWEVENT._serialized_end = 3210
-    _LINK_WORKFLOWEVENT_EVENTREFERENCE._serialized_start = 3013
-    _LINK_WORKFLOWEVENT_EVENTREFERENCE._serialized_end = 3101
-    _LINK_WORKFLOWEVENT_REQUESTIDREFERENCE._serialized_start = 3103
-    _LINK_WORKFLOWEVENT_REQUESTIDREFERENCE._serialized_end = 3197
-    _LINK_BATCHJOB._serialized_start = 3212
-    _LINK_BATCHJOB._serialized_end = 3238
-    _LINK_ACTIVITY._serialized_start = 3240
-    _LINK_ACTIVITY._serialized_end = 3306
-    _LINK_NEXUSOPERATION._serialized_start = 3308
-    _LINK_NEXUSOPERATION._serialized_end = 3381
-    _LINK_WORKFLOW._serialized_start = 3383
-    _LINK_WORKFLOW._serialized_end = 3465
-    _PRINCIPAL._serialized_start = 3478
-    _PRINCIPAL._serialized_end = 3517
-    _PRIORITY._serialized_start = 3519
-    _PRIORITY._serialized_end = 3598
-    _WORKERSELECTOR._serialized_start = 3600
-    _WORKERSELECTOR._serialized_end = 3659
-    _ONCONFLICTOPTIONS._serialized_start = 3661
-    _ONCONFLICTOPTIONS._serialized_end = 3766
+    _DATABLOB._serialized_start = 269
+    _DATABLOB._serialized_end = 353
+    _PAYLOADS._serialized_start = 355
+    _PAYLOADS._serialized_end = 416
+    _PAYLOAD._serialized_start = 419
+    _PAYLOAD._serialized_end = 685
+    _PAYLOAD_METADATAENTRY._serialized_start = 592
+    _PAYLOAD_METADATAENTRY._serialized_end = 639
+    _PAYLOAD_EXTERNALPAYLOADDETAILS._serialized_start = 641
+    _PAYLOAD_EXTERNALPAYLOADDETAILS._serialized_end = 685
+    _SEARCHATTRIBUTES._serialized_start = 688
+    _SEARCHATTRIBUTES._serialized_end = 878
+    _SEARCHATTRIBUTES_INDEXEDFIELDSENTRY._serialized_start = 793
+    _SEARCHATTRIBUTES_INDEXEDFIELDSENTRY._serialized_end = 878
+    _MEMO._serialized_start = 881
+    _MEMO._serialized_end = 1025
+    _MEMO_FIELDSENTRY._serialized_start = 947
+    _MEMO_FIELDSENTRY._serialized_end = 1025
+    _HEADER._serialized_start = 1028
+    _HEADER._serialized_end = 1176
+    _HEADER_FIELDSENTRY._serialized_start = 947
+    _HEADER_FIELDSENTRY._serialized_end = 1025
+    _WORKFLOWEXECUTION._serialized_start = 1178
+    _WORKFLOWEXECUTION._serialized_end = 1234
+    _EXECUTION._serialized_start = 1236
+    _EXECUTION._serialized_end = 1336
+    _WORKFLOWTYPE._serialized_start = 1338
+    _WORKFLOWTYPE._serialized_end = 1366
+    _ACTIVITYTYPE._serialized_start = 1368
+    _ACTIVITYTYPE._serialized_end = 1396
+    _RETRYPOLICY._serialized_start = 1399
+    _RETRYPOLICY._serialized_end = 1608
+    _METERINGMETADATA._serialized_start = 1610
+    _METERINGMETADATA._serialized_end = 1680
+    _WORKERVERSIONSTAMP._serialized_start = 1682
+    _WORKERVERSIONSTAMP._serialized_end = 1744
+    _WORKERVERSIONCAPABILITIES._serialized_start = 1746
+    _WORKERVERSIONCAPABILITIES._serialized_end = 1847
+    _RESETOPTIONS._serialized_start = 1850
+    _RESETOPTIONS._serialized_end = 2215
+    _CALLBACK._serialized_start = 2218
+    _CALLBACK._serialized_end = 2574
+    _CALLBACK_NEXUS._serialized_start = 2396
+    _CALLBACK_NEXUS._serialized_end = 2531
+    _CALLBACK_NEXUS_HEADERENTRY._serialized_start = 2486
+    _CALLBACK_NEXUS_HEADERENTRY._serialized_end = 2531
+    _CALLBACK_INTERNAL._serialized_start = 2533
+    _CALLBACK_INTERNAL._serialized_end = 2557
+    _LINK._serialized_start = 2577
+    _LINK._serialized_end = 3611
+    _LINK_WORKFLOWEVENT._serialized_start = 2906
+    _LINK_WORKFLOWEVENT._serialized_end = 3345
+    _LINK_WORKFLOWEVENT_EVENTREFERENCE._serialized_start = 3148
+    _LINK_WORKFLOWEVENT_EVENTREFERENCE._serialized_end = 3236
+    _LINK_WORKFLOWEVENT_REQUESTIDREFERENCE._serialized_start = 3238
+    _LINK_WORKFLOWEVENT_REQUESTIDREFERENCE._serialized_end = 3332
+    _LINK_BATCHJOB._serialized_start = 3347
+    _LINK_BATCHJOB._serialized_end = 3373
+    _LINK_ACTIVITY._serialized_start = 3375
+    _LINK_ACTIVITY._serialized_end = 3441
+    _LINK_NEXUSOPERATION._serialized_start = 3443
+    _LINK_NEXUSOPERATION._serialized_end = 3516
+    _LINK_WORKFLOW._serialized_start = 3518
+    _LINK_WORKFLOW._serialized_end = 3600
+    _PRINCIPAL._serialized_start = 3613
+    _PRINCIPAL._serialized_end = 3652
+    _PRIORITY._serialized_start = 3654
+    _PRIORITY._serialized_end = 3733
+    _WORKERSELECTOR._serialized_start = 3735
+    _WORKERSELECTOR._serialized_end = 3794
+    _ONCONFLICTOPTIONS._serialized_start = 3796
+    _ONCONFLICTOPTIONS._serialized_end = 3901
+    _TIMESKIPPINGCONFIG._serialized_start = 3903
+    _TIMESKIPPINGCONFIG._serialized_end = 4018
+    _TIMESKIPPINGSTATEPROPAGATION._serialized_start = 4021
+    _TIMESKIPPINGSTATEPROPAGATION._serialized_end = 4174
 # @@protoc_insertion_point(module_scope)

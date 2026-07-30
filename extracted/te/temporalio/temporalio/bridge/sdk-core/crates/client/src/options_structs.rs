@@ -2,6 +2,7 @@ use crate::{HttpConnectProxyOptions, RetryOptions, VERSION, callback_based};
 use http::Uri;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use temporalio_common::{
+    RetryPolicy,
     data_converters::DataConverter,
     protos::temporal::api::{
         common::{
@@ -85,6 +86,11 @@ pub struct ConnectionOptions {
     /// If service_override is specified, is forced to `None`.
     #[builder(default)]
     pub grpc_compression: GrpcCompression,
+    /// Payload size limit options for this connection. Defaults to the standard warning thresholds;
+    /// disable an individual warning by setting its threshold to `0`.
+    /// NOTE: Experimental
+    #[builder(default)]
+    pub payload_limits: PayloadLimitsOptions,
 
     // Internal / Core-based SDK only options below =============================================
     /// If set true, get_system_info will not be called upon connection.
@@ -245,6 +251,27 @@ impl Default for DnsLoadBalancingOptions {
     }
 }
 
+/// Payload size limit options for a connection.
+/// NOTE: Experimental
+#[derive(Clone, Debug)]
+pub struct PayloadLimitsOptions {
+    /// Warning threshold (bytes) for the size of an outbound payload-bearing field; over-threshold
+    /// fields are logged but still sent to server. Defaults to 512 KiB. Set to `0` to disable.
+    pub payloads_warn_size: u64,
+    /// Warning threshold (bytes) for outbound memo sizes; over-threshold memos are logged but still
+    /// sent to server. Defaults to 2 KiB. Set to `0` to disable.
+    pub memo_warn_size: u64,
+}
+
+impl Default for PayloadLimitsOptions {
+    fn default() -> Self {
+        Self {
+            payloads_warn_size: 512 * 1024,
+            memo_warn_size: 2 * 1024,
+        }
+    }
+}
+
 impl std::fmt::Debug for ClientTlsOptions {
     // Intentionally omit details here since they could leak a key if ever printed
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -296,7 +323,8 @@ pub struct WorkflowStartOptions {
     pub enable_eager_workflow_start: bool,
 
     /// Optionally set a retry policy for the workflow
-    pub retry_policy: Option<common::v1::RetryPolicy>,
+    #[builder(into)]
+    pub retry_policy: Option<RetryPolicy>,
 
     /// If set, send a signal to the workflow atomically with start.
     /// The workflow will receive this signal before its first task.

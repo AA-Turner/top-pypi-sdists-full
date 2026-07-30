@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 # CPU SLM selector + tier-1 judges currently need 10-40s per span.
 _DEFAULT_TIMEOUT_S = 120
 
-# Keep capability registration bounded and fail-open.
+# Registration is advisory; keep retries bounded.
 _REGISTER_TIMEOUT_S = 10
 _REGISTER_MAX_ATTEMPTS = 3
 _REGISTER_RETRY_BACKOFF_S = 0.5
@@ -55,9 +55,23 @@ def _capability_registration_counter() -> Any:
     )
 
 
+def _tool_catalog_registration_counter() -> Any:
+    return get_meter(_METER_NAME).create_counter(
+        "kytte.decision.tool_catalog_registration",
+        description="RegisterToolCatalog outcomes (attr: outcome=success|failure)",
+        unit="1",
+    )
+
+
 def _verb_spec_proto(spec: VerbSpec) -> Any:
     out = step_pb.VerbSpec(name=spec.name, description=spec.description)
     json_format.ParseDict(spec.param_schema, out.param_schema)
+    return out
+
+
+def _tool_proto(tool: dict[str, Any]) -> Any:
+    out = step_pb.Tool(name=tool["name"], description=tool.get("description", ""))
+    json_format.ParseDict(tool.get("input_schema") or {}, out.input_schema)
     return out
 
 
@@ -129,6 +143,25 @@ class DecisionClient:
             self._swallow_rpc_error(e, f"EvaluateSpan span={span.span_id}")
             return None
 
+    async def _register_with_retry(self, rpc_name: str, request: Any, counter: Any) -> Any | None:
+        """Call an advisory registration RPC with bounded retries."""
+        for attempt in range(1, _REGISTER_MAX_ATTEMPTS + 1):
+            try:
+                stub = self._ensure_channel()
+                response = await getattr(stub, rpc_name)(
+                    request, metadata=self._metadata, timeout=_REGISTER_TIMEOUT_S
+                )
+                self._unreachable_logged = False
+                _metric_add(counter, 1, {"outcome": "success"})
+                return response
+            except Exception as e:  # noqa: BLE001 — registration must never crash
+                if attempt < _REGISTER_MAX_ATTEMPTS:
+                    await asyncio.sleep(_REGISTER_RETRY_BACKOFF_S * attempt)
+                    continue
+                _metric_add(counter, 1, {"outcome": "failure"})
+                self._swallow_rpc_error(e, rpc_name)
+        return None
+
     async def register_capabilities(self, *, schema_version: int = 1) -> int | None:
         """Advertise the executor's supported verbs and return the accepted count."""
         if self._step_executor is None:
@@ -137,26 +170,42 @@ class DecisionClient:
             schema_version=schema_version,
             verbs=[_verb_spec_proto(s) for s in self._step_executor.capabilities()],
         )
-        for attempt in range(1, _REGISTER_MAX_ATTEMPTS + 1):
-            try:
-                stub = self._ensure_channel()
-                response = await stub.RegisterCapabilities(
-                    request, metadata=self._metadata, timeout=_REGISTER_TIMEOUT_S
-                )
-                self._unreachable_logged = False
-                _metric_add(_capability_registration_counter, 1, {"outcome": "success"})
-                logger.info(
-                    "[AIGIE] advertised %d remediation verbs to the Decision Orchestrator",
-                    response.accepted,
-                )
-                return int(response.accepted)
-            except Exception as e:  # noqa: BLE001 — startup must never crash
-                if attempt < _REGISTER_MAX_ATTEMPTS:
-                    await asyncio.sleep(_REGISTER_RETRY_BACKOFF_S * attempt)
-                    continue
-                _metric_add(_capability_registration_counter, 1, {"outcome": "failure"})
-                self._swallow_rpc_error(e, "RegisterCapabilities")
-        return None
+        response = await self._register_with_retry(
+            "RegisterCapabilities",
+            request,
+            _capability_registration_counter,
+        )
+        if response is None:
+            return None
+        logger.info(
+            "[AIGIE] advertised %d remediation verbs to the Decision Orchestrator",
+            response.accepted,
+        )
+        return int(response.accepted)
+
+    async def register_tool_catalog(
+        self, tool_registry_hash: str, catalog: list[dict[str, Any]]
+    ) -> int | None:
+        """Register a run's tool inventory by content hash."""
+        if not catalog:
+            return None
+        request = pb.RegisterToolCatalogRequest(
+            tool_registry_hash=tool_registry_hash,
+            tools=[_tool_proto(t) for t in catalog],
+        )
+        response = await self._register_with_retry(
+            "RegisterToolCatalog",
+            request,
+            _tool_catalog_registration_counter,
+        )
+        if response is None:
+            return None
+        logger.info(
+            "[AIGIE] registered tool catalog (%d tools, hash=%s) with the Decision Orchestrator",
+            response.accepted,
+            tool_registry_hash[:12],
+        )
+        return int(response.accepted)
 
     def _log_decision(self, span: Any, decision: RemediationDecision) -> None:
         level = logging.INFO if decision.action_selected else logging.DEBUG

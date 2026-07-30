@@ -17,7 +17,17 @@ from typing import (
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class ModelContainerSpec(_message.Message):
-    __slots__ = ("tags", "resources", "env_vars", "volumes", "routing", "authentication", "secret_refs")
+    __slots__ = (
+        "tags",
+        "resources",
+        "env_vars",
+        "volumes",
+        "routing",
+        "authentication",
+        "secret_refs",
+        "readiness_probe",
+        "startup_probe",
+    )
     class TagsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -41,6 +51,8 @@ class ModelContainerSpec(_message.Message):
     ROUTING_FIELD_NUMBER: _ClassVar[int]
     AUTHENTICATION_FIELD_NUMBER: _ClassVar[int]
     SECRET_REFS_FIELD_NUMBER: _ClassVar[int]
+    READINESS_PROBE_FIELD_NUMBER: _ClassVar[int]
+    STARTUP_PROBE_FIELD_NUMBER: _ClassVar[int]
     tags: _containers.ScalarMap[str, str]
     resources: _service_pb2.ResourceLimits
     env_vars: _containers.ScalarMap[str, str]
@@ -48,6 +60,8 @@ class ModelContainerSpec(_message.Message):
     routing: str
     authentication: str
     secret_refs: _containers.RepeatedCompositeFieldContainer[_service_pb2.SecretRef]
+    readiness_probe: _service_pb2.ReadinessProbe
+    startup_probe: _service_pb2.StartupProbe
     def __init__(
         self,
         tags: _Optional[_Mapping[str, str]] = ...,
@@ -57,6 +71,8 @@ class ModelContainerSpec(_message.Message):
         routing: _Optional[str] = ...,
         authentication: _Optional[str] = ...,
         secret_refs: _Optional[_Iterable[_Union[_service_pb2.SecretRef, _Mapping]]] = ...,
+        readiness_probe: _Optional[_Union[_service_pb2.ReadinessProbe, _Mapping]] = ...,
+        startup_probe: _Optional[_Union[_service_pb2.StartupProbe, _Mapping]] = ...,
     ) -> None: ...
 
 class CreateModelScalingGroupRequest(_message.Message):

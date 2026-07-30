@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: libcst
-Version: 1.8.6
-Summary: A concrete syntax tree with AST-like properties for Python 3.0 through 3.14 programs.
+Version: 1.9.0
+Summary: A concrete syntax tree with AST-like properties for Python 3.0 through 3.15 programs.
 License: All contributions towards LibCST are MIT licensed.
         
         Some Python files have been derived from the standard library and are therefore
@@ -116,6 +116,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Free Threading
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
@@ -166,7 +167,7 @@ A Concrete Syntax Tree (CST) parser and serializer library for Python
 
 .. intro-start
 
-LibCST parses Python 3.0 -> 3.14 source code as a CST tree that keeps
+LibCST parses Python 3.0 -> 3.15 source code as a CST tree that keeps
 all formatting details (comments, whitespaces, parentheses, etc). It's useful for
 building automated refactoring (codemod) applications and linters.
 

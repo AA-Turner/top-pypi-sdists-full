@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: abxbus
-Version: 2.5.40
+Version: 2.5.43
 Summary: Advanced Pydantic-powered event bus with async support
 Author: Nick Sweeting, ArchiveBox
 Classifier: Programming Language :: Python :: 3
@@ -33,7 +33,7 @@ Provides-Extra: redis
 Provides-Extra: tachyon
 Description-Content-Type: text/markdown
 
-# `abxbus`: 📢 Production-ready multi-language event bus
+# `abxbus`: 📢 Fast, in-memory, multi-language event bus
 
 <img width="200" alt="image" src="https://github.com/user-attachments/assets/b3525c24-51ba-496c-b327-ccdfe46a7362" align="right" />
 

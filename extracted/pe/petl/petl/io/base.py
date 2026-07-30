@@ -62,11 +62,11 @@ class ColumnsView(Table):
 
     def __init__(self, cols, header=None, missing=None):
         self.cols = cols
-        self.header = header
+        self._header = header
         self.missing = missing
 
     def __iter__(self):
-        return itercolumns(self.cols, self.header, self.missing)
+        return itercolumns(self.cols, self._header, self.missing)
 
 
 def itercolumns(cols, header, missing):

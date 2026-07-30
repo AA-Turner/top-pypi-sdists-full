@@ -3,7 +3,7 @@ import flask
 from abstra_internals.cloud_api import save_editor_auth_token_to_file
 from abstra_internals.controllers.file_locks import FileLockedException
 from abstra_internals.controllers.main import MainController
-from abstra_internals.environment import PROJECT_ID
+from abstra_internals.environment import EDITOR_MODE, EXTERNAL_PLAYER_URL, PROJECT_ID
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.server.routes import access_control as ac_router
 from abstra_internals.server.routes import agents as agents_router
@@ -154,6 +154,30 @@ def _get_api_bp(controller: MainController):
 
     deploy_bp = deploy_router.get_editor_bp(controller)
     bp.register_blueprint(deploy_bp, url_prefix="/deploy")
+
+    @bp.get("/player-url")
+    def _player_url():
+        """Player preview URL for the editor UI.
+
+        With an external (cloud-api-served) player, the preview host is a
+        different origin, so the URL bounces through its set-cookie endpoint
+        carrying this session's editor_auth token.
+        """
+        from urllib.parse import quote
+
+        path = flask.request.args.get("path", "/")
+        if not path.startswith("/") or path.startswith("//"):
+            path = "/"
+
+        if EDITOR_MODE == "web" and EXTERNAL_PLAYER_URL:
+            token = flask.request.cookies.get("editor_auth") or ""
+            url = (
+                f"{EXTERNAL_PLAYER_URL}/_web-editor/auth/set-cookie"
+                f"?token={quote(token)}&redirect={quote(path)}"
+            )
+            return {"url": url, "external": True}
+
+        return {"url": path, "external": False}
 
     return bp
 

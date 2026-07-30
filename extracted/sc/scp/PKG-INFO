@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scp
-Version: 0.16.0
+Version: 0.16.1
 Summary: scp module for paramiko
 Home-page: https://github.com/jbardin/scp.py
 Author: James Bardin

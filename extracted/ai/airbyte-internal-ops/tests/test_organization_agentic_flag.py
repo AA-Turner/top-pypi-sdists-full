@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -13,10 +12,15 @@ from airbyte_ops_mcp.cloud_admin.organization_agentic_flag import (
     set_organization_agentic_status,
 )
 from airbyte_ops_mcp.mcp import organization_admin
+from airbyte_ops_mcp.tier_cache import OrgTierResult
 
 
-def _tier_result(customer_tier: str) -> SimpleNamespace:
-    return SimpleNamespace(customer_tier=customer_tier)
+def _tier_result(customer_tier: str) -> OrgTierResult:
+    return OrgTierResult(
+        organization_id="org-1",
+        customer_tier=customer_tier,
+        is_in_cache=True,
+    )
 
 
 @pytest.mark.unit
@@ -66,7 +70,7 @@ def test_get_organization_agentic_flag_reads_multiple_orgs_from_db(
     monkeypatch.setattr(
         organization_admin,
         "get_org_tier",
-        lambda organization_id: _tier_result(
+        lambda organization_id, **_: _tier_result(
             "TIER_1" if organization_id == "org-1" else "TIER_2"
         ),
     )
@@ -107,7 +111,7 @@ def test_get_organization_agentic_flag_uses_config_api_override(
     monkeypatch.setattr(
         organization_admin,
         "get_org_tier",
-        lambda organization_id: _tier_result("TIER_2"),
+        lambda organization_id, **_: _tier_result("TIER_2"),
     )
 
     result = organization_admin.get_organization_agentic_flag(
@@ -258,7 +262,7 @@ def test_update_organization_agentic_flag_validates_and_updates_list(
     monkeypatch.setattr(
         organization_admin,
         "get_org_tier",
-        lambda organization_id: _tier_result("TIER_2"),
+        lambda organization_id, **_: _tier_result("TIER_2"),
     )
 
     result = organization_admin.update_organization_agentic_flag(
@@ -304,7 +308,7 @@ def test_update_organization_agentic_flag_rejects_tier_mismatch(
     monkeypatch.setattr(
         organization_admin,
         "get_org_tier",
-        lambda organization_id: _tier_result("TIER_1"),
+        lambda organization_id, **_: _tier_result("TIER_1"),
     )
     update = MagicMock()
     monkeypatch.setattr(organization_admin, "_set_organization_agentic_status", update)
@@ -385,7 +389,7 @@ def test_update_organization_agentic_flag_uses_production_config_api_root(
     monkeypatch.setattr(
         organization_admin,
         "get_org_tier",
-        lambda organization_id: _tier_result("TIER_2"),
+        lambda organization_id, **_: _tier_result("TIER_2"),
     )
     monkeypatch.setattr(
         organization_admin,

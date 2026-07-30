@@ -10,6 +10,7 @@ import pytest
 
 from airbyte_ops_mcp.cloud_admin.version_overrides import ResolvedCloudAuth
 from airbyte_ops_mcp.connector_ops.rollouts import _helpers, autopilot
+from airbyte_ops_mcp.connector_ops.rollouts import constants as rollout_constants
 from airbyte_ops_mcp.connector_ops.rollouts._helpers import (
     ELIGIBILITY_WARN_AT_OR_BELOW,
     TierEligibilityEstimate,
@@ -586,6 +587,13 @@ def test_run_auto_advance_unavailable_estimate_holds(
             True,
             id="operator_cancel",
         ),
+        pytest.param(
+            "canceled",
+            rollout_constants.NO_OP_EMPTY_TIER_MARKER,
+            None,
+            False,
+            id="no_op_empty_tier_cancel",
+        ),
         pytest.param("succeeded", "healthy", None, False, id="succeeded"),
         pytest.param("errored", "workflow error", None, True, id="errored"),
         pytest.param("paused", None, "manual pause", True, id="paused_with_reason"),
@@ -625,6 +633,152 @@ def test_blocking_sibling_reason_uses_recorded_outcome(
     reason = autopilot.blocking_sibling_reason(current, [current, sibling])
 
     assert (reason is not None) is blocked
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "error_msg,failed_reason,paused_reason",
+    [
+        pytest.param(
+            f"operator canceled: {rollout_constants.NO_OP_EMPTY_TIER_MARKER}",
+            None,
+            None,
+            id="marker_buried_in_error_msg",
+        ),
+        pytest.param(
+            "operator canceled",
+            rollout_constants.NO_OP_EMPTY_TIER_MARKER,
+            None,
+            id="marker_in_failed_reason",
+        ),
+        pytest.param(
+            "operator canceled",
+            None,
+            rollout_constants.NO_OP_EMPTY_TIER_MARKER,
+            id="marker_in_paused_reason",
+        ),
+    ],
+)
+def test_no_op_exemption_requires_error_msg_prefix(
+    error_msg: str,
+    failed_reason: str | None,
+    paused_reason: str | None,
+) -> None:
+    """Only an AutoPilot-written `error_msg` prefix is exempted."""
+    current = autopilot.ConnectorRolloutRecord.from_db_row(
+        {
+            "rollout_id": "current",
+            "actor_definition_id": "def-1",
+            "state": "in_progress",
+            "rc_docker_repository": "airbyte/source-faker",
+            "rc_docker_image_tag": "1.2.3",
+            "tag": "TIER_1",
+        }
+    )
+    sibling = autopilot.ConnectorRolloutRecord.from_db_row(
+        {
+            "rollout_id": "sibling",
+            "actor_definition_id": "def-1",
+            "state": "canceled",
+            "rc_docker_repository": "airbyte/source-faker",
+            "rc_docker_image_tag": "1.2.3",
+            "tag": "TIER_2",
+            "error_msg": error_msg,
+            "failed_reason": failed_reason,
+            "paused_reason": paused_reason,
+        }
+    )
+
+    assert autopilot.blocking_sibling_reason(current, [current, sibling]) is not None
+
+
+@pytest.mark.unit
+def test_run_auto_start_skips_non_autopilot_before_sibling_hold(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A manual connector is skipped without recording a sibling hold."""
+    active = {
+        "rollout_id": "rollout-1",
+        "actor_definition_id": "def-1",
+        "state": "initialized",
+        "rc_docker_repository": "airbyte/source-faker",
+        "rc_docker_image_tag": "7.2.0-rc.1",
+        "tag": "TIER_1",
+    }
+    sibling = {
+        **active,
+        "rollout_id": "rollout-2",
+        "state": "canceled",
+        "tag": "TIER_2",
+    }
+    monkeypatch.setattr(
+        autopilot,
+        "query_connector_rollouts",
+        lambda **kwargs: [active, sibling],
+    )
+    monkeypatch.setattr(autopilot, "get_admin_user_id", lambda **_: "user-1")
+    monkeypatch.setattr(
+        autopilot,
+        "get_connector_rollout_config",
+        lambda *_args, **_kwargs: _FakeRolloutConfig(
+            default_rollout_mode=autopilot.RolloutMode.manual,
+            autopilot_config=_FakeAutopilotConfig(),
+        ),
+    )
+    monkeypatch.setattr(
+        autopilot.api_client,
+        "start_connector_rollout",
+        lambda **_: pytest.fail("manual connector must not start"),
+    )
+
+    result = autopilot.run_auto_start(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert not result.holds
+    assert len(result.skipped) == 1
+
+
+@pytest.mark.unit
+def test_run_auto_promote_skips_non_autopilot_before_sibling_hold(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A manual connector is skipped without recording a sibling hold."""
+    active = {
+        "rollout_id": "rollout-1",
+        "actor_definition_id": "def-1",
+        "state": "in_progress",
+        "rc_docker_repository": "airbyte/source-faker",
+        "rc_docker_image_tag": "7.2.0-rc.1",
+        "tag": "TIER_1",
+    }
+    sibling = {
+        **active,
+        "rollout_id": "rollout-2",
+        "state": "canceled",
+        "tag": "TIER_2",
+    }
+    monkeypatch.setattr(
+        autopilot,
+        "query_connector_rollouts",
+        lambda **kwargs: [active, sibling],
+    )
+    monkeypatch.setattr(autopilot, "get_admin_user_id", lambda **_: "user-1")
+    monkeypatch.setattr(
+        autopilot,
+        "get_connector_rollout_config",
+        lambda *_args, **_kwargs: _FakeRolloutConfig(
+            default_rollout_mode=autopilot.RolloutMode.manual,
+            autopilot_config=_FakeAutopilotConfig(),
+        ),
+    )
+
+    result = autopilot.run_auto_promote(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert not result.holds
+    assert len(result.skipped) == 1
 
 
 @pytest.mark.unit

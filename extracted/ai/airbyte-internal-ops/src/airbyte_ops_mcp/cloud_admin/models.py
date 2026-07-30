@@ -67,7 +67,7 @@ class VersionOverrideOperationResult(BaseModel):
     )
     customer_tier: str | None = Field(
         default=None,
-        description="Customer tier of the affected entity (TIER_0, TIER_1, TIER_2). "
+        description="Customer tier of the affected entity (TIER_0, TIER_1, TIER_2, UNKNOWN). "
         "Included as a guardrail annotation.",
     )
     is_eu: bool | None = Field(
@@ -77,6 +77,10 @@ class VersionOverrideOperationResult(BaseModel):
     tier_warning: str | None = Field(
         default=None,
         description="Warning message if the operation targets a sensitive customer tier.",
+    )
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Warnings raised by this operation.",
     )
 
     def __str__(self) -> str:
@@ -108,7 +112,7 @@ class WorkspaceVersionOverrideResult(BaseModel):
     )
     customer_tier: str | None = Field(
         default=None,
-        description="Customer tier of the workspace's organization (TIER_0, TIER_1, TIER_2). "
+        description="Customer tier of the workspace's organization (TIER_0, TIER_1, TIER_2, UNKNOWN). "
         "Included as a guardrail annotation.",
     )
     is_eu: bool | None = Field(
@@ -118,6 +122,10 @@ class WorkspaceVersionOverrideResult(BaseModel):
     tier_warning: str | None = Field(
         default=None,
         description="Warning message if the operation targets a sensitive customer tier.",
+    )
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Warnings raised by this operation.",
     )
 
     def __str__(self) -> str:
@@ -149,12 +157,16 @@ class OrganizationVersionOverrideResult(BaseModel):
     )
     customer_tier: str | None = Field(
         default=None,
-        description="Customer tier of the organization (TIER_0, TIER_1, TIER_2). "
+        description="Customer tier of the organization (TIER_0, TIER_1, TIER_2, UNKNOWN). "
         "Included as a guardrail annotation.",
     )
     tier_warning: str | None = Field(
         default=None,
         description="Warning message if the operation targets a sensitive customer tier.",
+    )
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Warnings raised by this operation.",
     )
 
     def __str__(self) -> str:
@@ -211,11 +223,15 @@ class OrganizationAgenticFlagInfo(BaseModel):
     )
     customer_tier: str | None = Field(
         default=None,
-        description="Customer tier of the organization (TIER_0, TIER_1, TIER_2)",
+        description="Customer tier of the organization (TIER_0, TIER_1, TIER_2, UNKNOWN)",
     )
     tier_warning: str | None = Field(
         default=None,
         description="Warning message if the organization is a sensitive customer tier",
+    )
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Warnings raised while resolving this result.",
     )
 
 
@@ -255,11 +271,15 @@ class OrganizationAgenticFlagUpdateResult(BaseModel):
     )
     customer_tier: str | None = Field(
         default=None,
-        description="Customer tier of the organization (TIER_0, TIER_1, TIER_2)",
+        description="Customer tier of the organization (TIER_0, TIER_1, TIER_2, UNKNOWN)",
     )
     tier_warning: str | None = Field(
         default=None,
         description="Warning message if the organization is a sensitive customer tier",
+    )
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Warnings raised by this operation.",
     )
 
     def __str__(self) -> str:
@@ -345,11 +365,15 @@ class OrganizationPaymentConfigInfo(BaseModel):
     )
     customer_tier: str | None = Field(
         default=None,
-        description="Customer tier of the organization (TIER_0, TIER_1, TIER_2)",
+        description="Customer tier of the organization (TIER_0, TIER_1, TIER_2, UNKNOWN)",
     )
     tier_warning: str | None = Field(
         default=None,
         description="Warning message if the organization is a sensitive customer tier",
+    )
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Warnings raised while resolving this result.",
     )
     orb_subscription: OrbSubscriptionInfo | None = Field(
         default=None,
@@ -392,11 +416,15 @@ class OrganizationPaymentConfigUpdateResult(BaseModel):
     )
     customer_tier: str | None = Field(
         default=None,
-        description="Customer tier of the organization (TIER_0, TIER_1, TIER_2)",
+        description="Customer tier of the organization (TIER_0, TIER_1, TIER_2, UNKNOWN)",
     )
     tier_warning: str | None = Field(
         default=None,
         description="Warning message if the organization is a sensitive customer tier",
+    )
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Warnings raised by this operation.",
     )
     orb_plan_change: str | None = Field(
         default=None,

@@ -1,39 +1,39 @@
 [build-system]
-requires = ["poetry-core>=2.3.2,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.poetry]
+[project]
 name = "anomalo"
-version = "0.45.3"
+version = "0.45.4"
 description = "Python bindings for the Anomalo API"
-homepage = "https://anomalo.com"
-license = "Apache-2.0"
-authors = ["Anomalo <support@anomalo.com>"]
 readme = "README.public.md"
+license = "Apache-2.0"
+requires-python = ">=3.9"
+authors = [{ name = "Anomalo", email = "support@anomalo.com" }]
 classifiers = [
     "Operating System :: OS Independent",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
+dependencies = [
+    "dataclasses-json>=0.5.7",
+    "fire>=0.7.0",
+    "pyyaml>=6.0.1",
+    "requests>=2.20.0",
+    "tenacity>=8.1.0",
+    "casefy>=1.1.0",
+]
 
-[tool.poetry.dependencies]
-python = "^3.9"
-dataclasses-json = "^0.5.7"
-fire = "^0.7.0"
-pyyaml = "^6.0.1"
-pyshacl = {version = "^0.29.0", optional = true}
-rdflib = {version = "^7.6.0", optional = true}
-requests = "^2.20.0"
-tenacity = "^8.1.0"
-casefy = "^1.1.0"
+[project.optional-dependencies]
+shacl = ["pyshacl>=0.29.0", "rdflib>=7.6.0"]
 
-[tool.poetry.extras]
-shacl = ["pyshacl", "rdflib"]
+[project.scripts]
+anomalo = "anomalo.anomalo:main"
 
-[tool.poetry.dev-dependencies]
+[project.urls]
+Homepage = "https://anomalo.com"
 
-[tool.poetry.scripts]
-anomalo = "anomalo:anomalo.main"
-
+[tool.hatch.build.targets.wheel]
+packages = ["anomalo"]
 
 [tool.uv]
 exclude-newer = "4 days"

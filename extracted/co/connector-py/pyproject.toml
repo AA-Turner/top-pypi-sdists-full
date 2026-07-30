@@ -24,7 +24,7 @@ dependencies = [
     "pydantic~=2.9.2",
     "urllib3~=2.7.0",
     "botocore~=1.40.61",
-    "PyJWT~=2.10.1",
+    "PyJWT~=2.13.0",
     "datadog~=0.49.1",
     "pip-system-certs~=5.2.0 ; platform_system == 'Windows'",
     "tomli~=2.4.1",

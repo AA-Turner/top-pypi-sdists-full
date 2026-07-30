@@ -48,12 +48,13 @@ if TYPE_CHECKING:  # pragma: no cover
 
     from . import Context
 
-    class _StateKwargs(TypedDict, total=False):
-        config: Mapping[str, str | int | float | bool]
-        relations: Iterable[RelationBase]
+    # Fields that from_context() forwards through **kwargs to State.__init__.
+    # These are the State fields that from_context() does not accept as
+    # explicit parameters — the explicit ones (config, relations, containers,
+    # storages, stored_states) merge with or replace metadata-derived
+    # defaults; these have no metadata equivalent and pass straight through.
+    class _StateKwargsRest(TypedDict, total=False):
         networks: Iterable[Network]
-        containers: Iterable[Container]
-        storages: Iterable[Storage]
         opened_ports: Iterable[Port]
         leader: bool
         model: Model
@@ -61,7 +62,6 @@ if TYPE_CHECKING:  # pragma: no cover
         resources: Iterable[Resource]
         planned_units: int
         deferred: Iterable[DeferredEvent]
-        stored_states: Iterable[StoredState]
         app_status: _EntityStatus
         unit_status: _EntityStatus
         workload_version: str
@@ -186,10 +186,12 @@ class CloudCredential:  # noqa: D101
         object.__setattr__(self, 'redacted', _list_of_str(redacted, 'redacted'))
 
     def _to_ops(self) -> CloudCredential_Ops:
+        # ops.model.CloudCredential is frozen with concrete dict/list types;
+        # we convert here rather than widening the ops annotations.
         return CloudCredential_Ops(
             auth_type=self.auth_type,
-            attributes=self.attributes,
-            redacted=self.redacted,
+            attributes=dict(self.attributes),
+            redacted=list(self.redacted),
         )
 
 
@@ -255,6 +257,8 @@ class CloudSpec:  # noqa: D101
         object.__setattr__(self, 'is_controller_cloud', is_controller_cloud)
 
     def _to_ops(self) -> CloudSpec_Ops:
+        # ops.model.CloudSpec is frozen with concrete list typing;
+        # we convert here rather than widening the ops annotations.
         return CloudSpec_Ops(
             type=self.type,
             name=self.name,
@@ -263,7 +267,7 @@ class CloudSpec:  # noqa: D101
             identity_endpoint=self.identity_endpoint,
             storage_endpoint=self.storage_endpoint,
             credential=self.credential._to_ops() if self.credential else None,
-            ca_certificates=self.ca_certificates,
+            ca_certificates=list(self.ca_certificates),
             skip_tls_verify=self.skip_tls_verify,
             is_controller_cloud=self.is_controller_cloud,
         )
@@ -379,7 +383,7 @@ class Secret:
         return hash(self.id)
 
     @staticmethod
-    def _validate_content(content: dict[str, str], name: str):
+    def _validate_content(content: Mapping[str, str], name: str):
         if not isinstance(content, dict):
             raise StateValidationError(
                 f'Secret.{name} should be a dict, not {type(content)}',
@@ -431,9 +435,60 @@ class Secret:
             object.__setattr__(self, 'rotate', rotate)
 
 
-def _normalise_name(s: str):
-    """Event names, in Scenario, uniformly use underscores instead of dashes."""
+def _to_python_attr(s: str):
+    """Translate a Juju metadata name (which may contain hyphens) into attribute form.
+
+    This is **lossy** — calling it on an already-hyphen-free name discards no
+    information, but a verbatim metadata name like ``foo-bar`` and the
+    Python attribute form ``foo_bar`` are not distinguishable afterwards. Use it
+    only for matching/dispatch; never round-trip through it to build outgoing
+    Juju env vars, since Juju preserves the metadata name verbatim.
+    """
     return s.replace('-', '_')
+
+
+# Juju's naming rules for charm metadata entities. Scenario enforces these
+# these so that tests cannot pass with names that a real deployment would reject.
+#
+# Sources (juju/names and juju/charm, identical in Juju 3.6 and 4.0):
+# - relation endpoints: RelationSnippet — underscores ARE allowed.
+# - storage: StorageNameSnippet — hyphen-separated, each segment needs a letter.
+# - actions: actionNameRule from actions.yaml parsing.
+# - containers: Juju passes the name verbatim as the Kubernetes container
+#   name, so the RFC 1123 DNS-label rule applies (max 63 characters).
+_NAME_RULES: dict[str, tuple[re.Pattern[str], str]] = {
+    'relation endpoint': (
+        re.compile(r'^[a-z][a-z0-9]*(?:[_-][a-z0-9]+)*$'),
+        'lowercase alphanumeric characters separated by single hyphens or '
+        'underscores, starting with a letter',
+    ),
+    'storage': (
+        re.compile(r'^[a-z][a-z0-9]*(?:-[a-z0-9]*[a-z][a-z0-9]*)*$'),
+        'lowercase alphanumeric characters separated by single hyphens, '
+        'starting with a letter, with each hyphen-separated part '
+        'containing at least one letter',
+    ),
+    'action': (
+        re.compile(r'^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$'),
+        'lowercase alphanumeric characters and hyphens, starting and '
+        'ending with an alphanumeric character',
+    ),
+    'container': (
+        re.compile(r'^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$'),
+        'lowercase alphanumeric characters and hyphens, starting and '
+        'ending with an alphanumeric character',
+    ),
+}
+_K8S_CONTAINER_NAME_MAX_LENGTH = 63
+
+
+def _check_name(name: str, kind: str):
+    pattern, requirements = _NAME_RULES[kind]
+    if not pattern.match(name):
+        raise StateValidationError(
+            f'invalid {kind} name {name!r}: Juju requires {kind} names to '
+            f'consist of {requirements}',
+        )
 
 
 @dataclasses.dataclass(frozen=True)
@@ -464,9 +519,7 @@ class Address:
 class BindAddress:
     """An address bound to a network interface in a Juju space."""
 
-    # This has the 'ops.testing.' prefix so that Sphinx knows which
-    # 'Address' class it is (it's not the one from 'hookcmds').
-    addresses: Sequence[ops.testing.Address]
+    addresses: Sequence[Address]
     """The addresses in the space."""
 
     _: dataclasses.KW_ONLY
@@ -598,7 +651,7 @@ class RelationBase:
     """Juju relation ID. Every new Relation instance gets a unique one,
     if there's trouble, override."""
 
-    local_app_data: RawDataBagContents = dataclasses.field(default_factory=dict)
+    local_app_data: RawDataBagContents = dataclasses.field(default_factory=dict[str, str])
     """This application's databag for this relation."""
 
     local_unit_data: RawDataBagContents = dataclasses.field(
@@ -616,7 +669,7 @@ class RelationBase:
 
     @property
     def _databags(self):
-        """Yield all databags in this relation."""
+        """All databags in this relation."""
         yield self.local_app_data
         yield self.local_unit_data
 
@@ -639,18 +692,20 @@ class RelationBase:
                 'please use Relation, PeerRelation, or SubordinateRelation',
             )
 
+        _check_name(self.endpoint, 'relation endpoint')
+
         for databag in self._databags:
             self._validate_databag(databag)
 
         # Deepcopy mutable fields to disassociate from the caller's objects.
         for attr, value in self.__dict__.items():
             if isinstance(value, (dict, list)):
-                object.__setattr__(self, attr, copy.deepcopy(value))
+                object.__setattr__(self, attr, copy.deepcopy(value))  # pyright: ignore[reportUnknownArgumentType]
 
     def __hash__(self) -> int:
         return hash(self.id)
 
-    def _validate_databag(self, databag: dict[str, str]):
+    def _validate_databag(self, databag: Mapping[str, str]):
         if not isinstance(databag, dict):
             raise StateValidationError(
                 f'all databags should be dicts, not {type(databag)}',
@@ -663,7 +718,7 @@ class RelationBase:
 
 
 _DEFAULT_IP = '192.0.2.0'
-_DEFAULT_JUJU_DATABAG = {
+_DEFAULT_JUJU_DATABAG: dict[str, str] = {
     'egress-subnets': _DEFAULT_IP,
     'ingress-address': _DEFAULT_IP,
     'private-address': _DEFAULT_IP,
@@ -681,7 +736,7 @@ class Relation(RelationBase):
     limit: int = 1
     """The maximum number of relations on this endpoint."""
 
-    remote_app_data: RawDataBagContents = dataclasses.field(default_factory=dict)
+    remote_app_data: RawDataBagContents = dataclasses.field(default_factory=dict[str, str])
     """The current content of the application databag."""
     remote_units_data: Mapping[UnitID, RawDataBagContents] = dataclasses.field(
         default_factory=lambda: {0: _DEFAULT_JUJU_DATABAG.copy()},  # dedup
@@ -710,7 +765,7 @@ class Relation(RelationBase):
 
     @property
     def _databags(self):  # type: ignore
-        """Yield all databags in this relation."""
+        """All databags in this relation."""
         yield self.local_app_data
         yield self.local_unit_data
         yield self.remote_app_data
@@ -721,7 +776,7 @@ class Relation(RelationBase):
 class SubordinateRelation(RelationBase):
     """A relation to share data between a subordinate and a principal charm."""
 
-    remote_app_data: RawDataBagContents = dataclasses.field(default_factory=dict)
+    remote_app_data: RawDataBagContents = dataclasses.field(default_factory=dict[str, str])
     """The current content of the remote application databag."""
     remote_unit_data: RawDataBagContents = dataclasses.field(
         default_factory=lambda: _DEFAULT_JUJU_DATABAG.copy(),
@@ -752,7 +807,7 @@ class SubordinateRelation(RelationBase):
 
     @property
     def _databags(self):
-        """Yield all databags in this relation."""
+        """All databags in this relation."""
         yield self.local_app_data
         yield self.local_unit_data
         yield self.remote_app_data
@@ -768,7 +823,9 @@ class SubordinateRelation(RelationBase):
 class PeerRelation(RelationBase):
     """A relation to share data between units of the charm."""
 
-    peers_data: Mapping[UnitID, RawDataBagContents] = dataclasses.field(default_factory=dict)
+    peers_data: Mapping[UnitID, RawDataBagContents] = dataclasses.field(
+        default_factory=dict[UnitID, RawDataBagContents],
+    )
     """Current contents of the peer databags.
 
     Note that this does not include data for the unit being tested. Data for
@@ -782,7 +839,7 @@ class PeerRelation(RelationBase):
 
     @property
     def _databags(self):  # type: ignore
-        """Yield all databags in this relation."""
+        """All databags in this relation."""
         yield self.local_app_data
         yield self.local_unit_data
         yield from self.peers_data.values()
@@ -1036,7 +1093,7 @@ class Notice:
             last_occurred=self.last_occurred,
             last_repeated=self.last_repeated,
             occurrences=self.occurrences,
-            last_data=self.last_data,
+            last_data=dict(self.last_data),
             repeat_after=self.repeat_after,
             expire_after=self.expire_after,
         )
@@ -1111,7 +1168,7 @@ class CheckInfo:
         object.__setattr__(self, 'threshold', threshold)
         if change_id is None:
             if self.status == pebble.CheckStatus.INACTIVE:
-                change_id = ''
+                change_id = pebble.ChangeID('')
             else:
                 change_id = pebble.ChangeID(_generate_new_change_id())
         object.__setattr__(self, 'change_id', change_id)
@@ -1229,6 +1286,14 @@ class Container:
         notices: Iterable[Notice] = (),
         check_infos: Iterable[CheckInfo] = (),
     ):
+        # Juju passes the charm container name verbatim through to Kubernetes,
+        # so the Kubernetes naming rules (RFC 1123 DNS label) apply.
+        _check_name(name, 'container')
+        if len(name) > _K8S_CONTAINER_NAME_MAX_LENGTH:
+            raise StateValidationError(
+                f'invalid container name {name!r}: must be at most '
+                f'{_K8S_CONTAINER_NAME_MAX_LENGTH} characters long',
+            )
         object.__setattr__(self, 'name', name)
         object.__setattr__(self, 'can_connect', can_connect)
         # _base_plan values are arbitrary JSON-ish data, and pebble.Layer is not
@@ -1348,10 +1413,10 @@ def layer_from_rockcraft(path: pathlib.Path | str) -> pebble.Layer:
     """Create a layer from a `rockcraft.yaml` file.
 
     This is a convenience function to create a Pebble layer from a
-    rockcraft.yaml file, that can then be passed to :class:`testing.Container`,
+    rockcraft.yaml file, that can then be passed to :class:`Container`,
     rather than duplicating the layer content in the test code. For example::
 
-        container = Container(
+        container = testing.Container(
             name='my-container',
             layers={'rock': layer_from_rockcraft(pathlib.Path('rockcraft.yaml'))},
         )
@@ -1685,6 +1750,9 @@ class Storage:
     For Kubernetes charms, this will always be 1. For machine charms, each new
     Storage instance gets a new index."""
 
+    def __post_init__(self):
+        _check_name(self.name, 'storage')
+
     def __eq__(self, other: object) -> bool:
         if isinstance(other, (Storage, ops.Storage)):
             return (self.name, self.index) == (other.name, other.index)
@@ -1968,16 +2036,13 @@ class State:
         raise KeyError(f'relation: id={rel_id} not found in the State')
 
     def get_relations(self, endpoint: str) -> tuple[RelationBase, ...]:
-        """Get all relations on this endpoint from the current state."""
-        # we rather normalize the endpoint than worry about cursed metadata situations such as:
-        # requires:
-        #   foo-bar: ...
-        #   foo_bar: ...
+        """Get all relations on this endpoint from the current state.
 
-        normalized_endpoint = _normalise_name(endpoint)
-        return tuple(
-            r for r in self.relations if _normalise_name(r.endpoint) == normalized_endpoint
-        )
+        The endpoint is matched verbatim against the names declared in the
+        charm's metadata — pass ``foo-bar`` to find a relation declared as
+        ``foo-bar``, not ``foo_bar``.
+        """
+        return tuple(r for r in self.relations if r.endpoint == endpoint)
 
     @classmethod
     def from_context(
@@ -1990,7 +2055,7 @@ class State:
         containers: Iterable[Container] | None = None,
         storages: Iterable[Storage] | None = None,
         stored_states: Iterable[StoredState] | None = None,
-        **kwargs: Unpack[_StateKwargs],
+        **kwargs: Unpack[_StateKwargsRest],
     ) -> State:
         """Create a State from the charm context.
 
@@ -2021,7 +2086,7 @@ class State:
         """
         meta = ctx._charm_spec.meta
         spec_config = ctx._charm_spec.config
-        config = {} if config is None else config
+        config = dict(config) if config is not None else {}
         if spec_config:
             options = spec_config.get('options', {})
             for option, details in options.items():
@@ -2112,20 +2177,22 @@ def _apply_extensions(meta: dict[str, Any], extensions: list[str]) -> None:
             if key not in meta:
                 meta[key] = copy.deepcopy(ext_value)
             elif isinstance(ext_value, dict) and isinstance(meta[key], dict):
-                overlap = set(ext_value) & set(meta[key])
+                ext_dict = cast('dict[str, Any]', ext_value)
+                overlap = set(ext_dict) & set(meta[key])
                 if overlap:
                     raise ValueError(
                         f'overlapping keys {overlap} in {key} of '
                         f'charmcraft.yaml which conflict with the '
                         f'{ext_name} extension, please rename or remove them'
                     )
-                merged = copy.deepcopy(ext_value)
-                merged.update(meta[key])
-                meta[key] = merged
+                merged_dict: dict[str, Any] = copy.deepcopy(ext_dict)
+                merged_dict.update(meta[key])
+                meta[key] = merged_dict
             elif isinstance(ext_value, list) and isinstance(meta[key], list):
-                merged = copy.deepcopy(ext_value)
-                merged.extend(i for i in meta[key] if i not in merged)
-                meta[key] = merged
+                ext_list = cast('list[Any]', ext_value)
+                merged_list: list[Any] = copy.deepcopy(ext_list)
+                merged_list.extend(i for i in meta[key] if i not in merged_list)
+                meta[key] = merged_list
             else:
                 raise ValueError(
                     'Conflict between local and extension metadata. '
@@ -2166,7 +2233,7 @@ def _apply_extensions(meta: dict[str, Any], extensions: list[str]) -> None:
 class _CharmSpec(Generic[CharmType]):
     """Charm spec."""
 
-    charm_type: type[CharmBase]
+    charm_type: type[CharmType]
     meta: Mapping[str, Any]
     actions: Mapping[str, Any] | None = None
     config: Mapping[str, Any] | None = None
@@ -2277,7 +2344,7 @@ class DeferredEvent:
     observer: str
 
     # needs to be marshal.dumps-able.
-    snapshot_data: dict[Any, Any] = dataclasses.field(default_factory=dict)
+    snapshot_data: dict[Any, Any] = dataclasses.field(default_factory=dict[Any, Any])
 
     # It would be nicer if people could do something like:
     #   `isinstance(state.deferred[0], ops.StartEvent)`
@@ -2304,29 +2371,30 @@ class _EventType(str, Enum):
 
 class _EventPath(str):
     if TYPE_CHECKING:  # pragma: no cover
-        name: str
+        python_name: str
         owner_path: list[str]
-        suffix: str
-        prefix: str
-        original_prefix: str
-        is_custom: bool
+        python_suffix: str
+        juju_prefix: str
         type: _EventType
 
     def __new__(cls, string: str):
-        original_string = string
-        string = _normalise_name(string)
         instance = super().__new__(cls, string)
 
-        instance.name = name = string.split('.')[-1]
+        raw_name = string.split('.')[-1]
         instance.owner_path = string.split('.')[:-1] or ['on']
 
-        instance.suffix, instance.type = _EventPath._get_suffix_and_type(name)
-        instance.prefix = string.removesuffix(instance.suffix)
-        # The original (un-normalised) prefix, preserving the exact spelling
-        # of the entity name as declared in the charm metadata. _normalise_name
-        # only swaps dashes for underscores, so lengths match.
-        instance.original_prefix = original_string[: len(instance.prefix)]
-        instance._is_custom = instance.suffix == ''
+        # `python_name` is the Python-attribute form: what the event is called
+        # on `charm.on`, and the event kind ops uses in handle paths (for
+        # example ``foo_bar_pebble_ready`` for container ``foo-bar``).
+        instance.python_name = _to_python_attr(raw_name)
+        instance.python_suffix, instance.type = _EventPath._get_suffix_and_type(
+            instance.python_name,
+        )
+        # The prefix is sliced from the raw string by length so the entity
+        # name is preserved verbatim (e.g. ``foo-bar`` in
+        # ``foo-bar_pebble_ready``): Juju hook names keep the metadata name
+        # exactly as declared, and only the suffix is known to be hyphenated.
+        instance.juju_prefix = raw_name[: len(raw_name) - len(instance.python_suffix)]
 
         return instance
 
@@ -2361,7 +2429,9 @@ class _EventPath(str):
             return _PEBBLE_CHECK_RECOVERED_EVENT_SUFFIX, _EventType.WORKLOAD
 
         if s in _BUILTIN_EVENTS:
-            return '', _EventType.BUILTIN
+            # The whole name is the suffix, so that the Juju hook name gets
+            # hyphenated (for example ``update_status`` -> ``update-status``).
+            return s, _EventType.BUILTIN
 
         return '', _EventType.CUSTOM
 
@@ -2414,10 +2484,10 @@ class _Event:  # type: ignore
     custom_event_args: Iterable[Any] = dataclasses.field(default_factory=tuple)
     """If this is a custom event, the arguments to pass to the event."""
 
-    custom_event_kwargs: Mapping[str, Any] = dataclasses.field(default_factory=dict)
+    custom_event_kwargs: Mapping[str, Any] = dataclasses.field(default_factory=dict[str, Any])
     """If this is a custom event, the keyword arguments to pass to the event."""
 
-    _owner_path: list[str] = dataclasses.field(default_factory=list)
+    _owner_path: list[str] = dataclasses.field(default_factory=list[str])
 
     # The event name as Juju provides it. Set in __post_init__ via
     # object.__setattr__ (frozen dataclass), so it's excluded from init.
@@ -2427,26 +2497,15 @@ class _Event:  # type: ignore
         path = _EventPath(self.path)
         # bypass frozen dataclass
         object.__setattr__(self, 'path', path)
-        # This is the event name as Juju provides it. Juju keeps the entity
-        # name (a relation endpoint, storage name, or container name) exactly
-        # as it is declared in the charm metadata -- which may contain dashes
-        # *or* underscores -- and only ever uses dashes in the event-type
-        # suffix. For events that are not tied to such an entity, the whole
-        # name uses dashes. See #2511.
-        object.__setattr__(self, '_juju_name', self._build_juju_name(path))
-
-    @staticmethod
-    def _build_juju_name(path: _EventPath) -> str:
-        suffix = path.suffix
-        if suffix and path.type in (
-            _EventType.RELATION,
-            _EventType.STORAGE,
-            _EventType.WORKLOAD,
-        ):
-            # Preserve the entity name (the prefix) verbatim; only the suffix
-            # is normalised to dashes.
-            return f'{path.original_prefix}{suffix.replace("_", "-")}'
-        return path.name.replace('_', '-')
+        # This is the hook name as Juju provides it: the entity name
+        # (container/relation/storage) carries verbatim from the path; only
+        # the event-type suffix is hyphenated. (Not meaningful for action or
+        # custom events, which have no Juju hook name.)
+        object.__setattr__(
+            self,
+            '_juju_name',
+            f'{path.juju_prefix}{path.python_suffix.replace("_", "-")}',
+        )
 
     @property
     def _path(self) -> _EventPath:
@@ -2455,16 +2514,19 @@ class _Event:  # type: ignore
 
     @property
     def name(self) -> str:
-        """Full event name.
+        """Full event name, in Python-attribute form (as ops names the event).
 
         Consists of a 'prefix' and a 'suffix'. The suffix denotes the type of the event, the
-        prefix the name of the entity the event is about.
+        prefix the name of the entity the event is about. Hyphens in the entity name are
+        translated to underscores, so an event for relation endpoint "foo-bar" has the name:
 
-        "foo-relation-changed":
-         - "foo"=prefix (name of a relation),
-         - "-relation-changed"=suffix (relation event)
+        "foo_bar_relation_changed":
+         - "foo_bar"=prefix (name of a relation, hyphens translated to underscores),
+         - "_relation_changed"=suffix (relation event)
+
+        The verbatim endpoint name is preserved in ``self._path.juju_prefix``.
         """
-        return self._path.name
+        return self._path.python_name
 
     @property
     def owner_path(self) -> list[str]:
@@ -2679,7 +2741,7 @@ class _Action:
         def test_backup_action():
             ctx = Context(MyCharm)
             state = ctx.run(
-                ctx.on.action('do_backup', params={'filename': 'foo'}),
+                ctx.on.action('do-backup', params={'filename': 'foo'}),
                 State(),
             )
             assert ctx.action_results == ...
@@ -2690,7 +2752,7 @@ class _Action:
 
     _: dataclasses.KW_ONLY
 
-    params: Mapping[str, AnyJson] = dataclasses.field(default_factory=dict)
+    params: Mapping[str, AnyJson] = dataclasses.field(default_factory=dict[str, AnyJson])
     """Parameter values passed to the action."""
 
     id: str = dataclasses.field(default_factory=_next_action_id)
@@ -2698,3 +2760,6 @@ class _Action:
 
     Every action invocation is automatically assigned a new one. Override in
     the rare cases where a specific ID is required."""
+
+    def __post_init__(self):
+        _check_name(self.name, 'action')

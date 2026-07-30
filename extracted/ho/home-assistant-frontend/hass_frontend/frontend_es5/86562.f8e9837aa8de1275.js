@@ -1,2 +1,0 @@
-"use strict";(self.rspackChunkhome_assistant_frontend=self.rspackChunkhome_assistant_frontend||[]).push([[86562],{19929:function(n,t,e){e.a(n,async function(n,r){try{e.r(t);var s=e(25979),a=e(57567),c=e(12463),o=e(16472),u=e(15697),i=e(51209),h=e(4460),f=n([h]),d=function(n){function t(){return(0,a.A)(this,t),(0,o.A)(this,t,arguments)}return(0,c.A)(t,n),(0,s.A)(t)}((h=(f.then?(await f)():f)[0]).HaAppSelector);d=(0,u.Cg)([(0,i.EM)("ha-selector-addon")],d),e.d(t,{HaAddonSelector:function(){return d}}),r()}catch(A){r(A)}})}}]);
-//# sourceMappingURL=86562.f8e9837aa8de1275.js.map

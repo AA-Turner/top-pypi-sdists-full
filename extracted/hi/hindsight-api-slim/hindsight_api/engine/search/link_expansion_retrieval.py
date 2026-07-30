@@ -9,8 +9,8 @@ first-class signals stored in memory_links:
                    COUNT(DISTINCT entity_id). Uses a LATERAL per-entity cap
                    (graph_per_entity_limit, default 200) to prevent high-fanout entities
                    from exploding the self-join intermediate rows.
-2. Semantic links — precomputed kNN graph (each new fact linked to its top-5 most
-                    similar existing facts at insert time, similarity >= 0.7). Checked
+2. Semantic links — precomputed kNN graph (each new fact linked to its most
+                    similar existing facts at insert time, subject to the configured threshold). Checked
                     in both directions since the graph is not symmetric. Score = weight.
 3. Causal links  — explicit causal chains (causes/caused_by/enables/prevents).
                    Score = weight + 1.0 (boosted as highest-quality signal).
@@ -31,7 +31,7 @@ import time
 from datetime import datetime
 from typing import Any
 
-from ...config import get_config
+from ...config import DEFAULT_GRAPH_SEED_MIN_SIMILARITY, get_config
 from ..db_utils import acquire_with_retry
 from ..memory_engine import fq_table
 from .graph_retrieval import GraphRetriever
@@ -40,6 +40,8 @@ from .types import GraphRetrievalTimings, RetrievalResult
 
 logger = logging.getLogger(__name__)
 
+GRAPH_SEED_LIMIT = 20
+
 
 async def _find_semantic_seeds(
     conn,
@@ -47,7 +49,7 @@ async def _find_semantic_seeds(
     bank_id: str,
     fact_type: str,
     limit: int = 20,
-    threshold: float = 0.3,
+    threshold: float = DEFAULT_GRAPH_SEED_MIN_SIMILARITY,
     tags: list[str] | None = None,
     tags_match: TagsMatch = "any",
     tag_groups: list[TagGroup] | None = None,
@@ -133,6 +135,7 @@ class LinkExpansionRetriever(GraphRetriever):
         tag_groups: list[TagGroup] | None = None,
         created_after: "datetime | None" = None,
         created_before: "datetime | None" = None,
+        preselected_semantic_seeds: list[RetrievalResult] | None = None,
     ) -> tuple[list[RetrievalResult], GraphRetrievalTimings | None]:
         """
         Retrieve facts by expanding links from seeds.
@@ -146,6 +149,7 @@ class LinkExpansionRetriever(GraphRetriever):
             query_text: Original query text (unused)
             adjacency: Unused, kept for interface compatibility
             tags: Optional list of tags for visibility filtering
+            preselected_semantic_seeds: Graph-specific entry points derived from a shared semantic candidate pool
 
         Returns:
             Tuple of (results, timings)
@@ -154,27 +158,34 @@ class LinkExpansionRetriever(GraphRetriever):
         timings = GraphRetrievalTimings(fact_type=fact_type)
 
         async with acquire_with_retry(pool) as conn:
-            # Graph traversal deliberately chooses its own bounded seeds. The semantic and temporal
-            # retrieval arms have independent candidate limits and thresholds, so reusing their
-            # results would silently change graph-retrieval recall behavior.
-            seeds_start = time.time()
-            all_seeds = await _find_semantic_seeds(
-                conn,
-                query_embedding_str,
-                bank_id,
-                fact_type,
-                limit=20,
-                threshold=0.3,
-                tags=tags,
-                tags_match=tags_match,
-                tag_groups=tag_groups,
-                created_after=created_after,
-                created_before=created_before,
-            )
-            timings.seeds_time = time.time() - seeds_start
+            if preselected_semantic_seeds is None:
+                # A shared semantic pool is reusable only when its SQL threshold
+                # covers the independently configured graph threshold. Otherwise
+                # retain graph retrieval's own query and result semantics.
+                seeds_start = time.time()
+                all_seeds = await _find_semantic_seeds(
+                    conn,
+                    query_embedding_str,
+                    bank_id,
+                    fact_type,
+                    limit=GRAPH_SEED_LIMIT,
+                    threshold=get_config().graph_seed_min_similarity,
+                    tags=tags,
+                    tags_match=tags_match,
+                    tag_groups=tag_groups,
+                    created_after=created_after,
+                    created_before=created_before,
+                )
+                timings.seeds_time = time.time() - seeds_start
+            else:
+                all_seeds = preselected_semantic_seeds
+
             logger.debug(
-                f"[LinkExpansion] Found {len(all_seeds)} semantic seeds for fact_type={fact_type} "
-                f"(tags={tags}, tags_match={tags_match})"
+                "LinkExpansion found %s semantic seeds for fact_type=%s (tags=%s, tags_match=%s)",
+                len(all_seeds),
+                fact_type,
+                tags,
+                tags_match,
             )
 
             if not all_seeds:
@@ -203,7 +214,7 @@ class LinkExpansionRetriever(GraphRetriever):
         #
         # Entity score: tanh(count × 0.5) maps shared-entity count to [0, 1]:
         #   1 entity → 0.46,  2 → 0.76,  3 → 0.91,  4 → 0.96  (saturates naturally)
-        # Semantic score: similarity weight, already ∈ [0.7, 1.0].
+        # Semantic score: similarity weight, already above the configured construction floor.
         # Causal score:   link weight, already ∈ [0, 1].
         #
         # Facts appearing in multiple signals accumulate higher scores, rewarding

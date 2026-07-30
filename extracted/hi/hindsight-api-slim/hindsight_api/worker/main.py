@@ -18,7 +18,7 @@ import sys
 import warnings
 from collections.abc import Callable
 
-from ..config import get_config
+from ..config import get_config, load_dotenv_for_entrypoint
 from ..engine.task_backend import WorkerTaskBackend
 from .poller import WorkerPoller
 
@@ -125,6 +125,8 @@ def create_worker_app(poller: WorkerPoller, memory):
 
 def main():
     """Main entry point for the hindsight-worker CLI."""
+    load_dotenv_for_entrypoint()
+
     # Load configuration from environment
     config = get_config()
 
@@ -320,6 +322,13 @@ def main():
         )
         server = uvicorn.Server(uvicorn_config)
 
+        # Start the event-loop stall watchdog: if a task blocks the loop, this
+        # logs the culprit stack so a failing /health can be attributed to a
+        # blocked loop (vs DB-pool exhaustion, which the pool instrumentation logs).
+        from ..loop_watchdog import start_loop_watchdog
+
+        loop_watchdog = start_loop_watchdog(loop)
+
         # Run the poller and HTTP server concurrently
         poller_task = asyncio.create_task(poller.run())
         http_task = asyncio.create_task(server.serve())
@@ -333,6 +342,9 @@ def main():
             print("\nReceived interrupt, initiating graceful shutdown...")
 
         # Graceful shutdown
+        if loop_watchdog is not None:
+            loop_watchdog.stop()
+
         print("Shutting down HTTP server...")
         server.should_exit = True
 

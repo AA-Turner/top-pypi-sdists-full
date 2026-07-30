@@ -153,6 +153,7 @@ fn parse_expr(expression_pairs: Pairs<'_, Rule>) -> Result<Expr, Error> {
                             .next()
                             .ok_or(Error::MissingArgument("timestamp"))?,
                     }),
+                    "bbox" => Ok(Expr::BBox { bbox: args }),
                     _ => Ok(Expr::Operation { op, args }),
                 }
             }
@@ -298,10 +299,15 @@ fn parse_expr(expression_pairs: Pairs<'_, Rule>) -> Result<Expr, Error> {
                     op: "not".to_string(),
                     args: vec![Box::new(child)],
                 }),
-                Rule::Negative => Ok(Expr::Operation {
-                    op: "*".to_string(),
-                    args: vec![Box::new(Expr::Float(-1.0)), Box::new(child)],
-                }),
+                Rule::Negative => match child {
+                    // A negated numeric literal is itself a numeric literal, e.g.
+                    // `-2` is `Float(-2.0)`, not `-1 * 2`.
+                    Expr::Float(v) => Ok(Expr::Float(-v)),
+                    _ => Ok(Expr::Operation {
+                        op: "*".to_string(),
+                        args: vec![Box::new(Expr::Float(-1.0)), Box::new(child)],
+                    }),
+                },
                 rule => unreachable!("Expr::parse expected prefix operator, found {:?}", rule),
             }
         })
@@ -329,10 +335,18 @@ fn parse_expr(expression_pairs: Pairs<'_, Rule>) -> Result<Expr, Error> {
 #[cfg(test)]
 mod tests {
     use super::{CQL2Parser, Rule};
+    use crate::Expr;
     use pest::Parser;
 
     #[test]
     fn point_zm() {
         let _ = CQL2Parser::parse(Rule::GEOMETRY, "POINT ZM(-105.1019 40.1672 4981 42)").unwrap();
+    }
+
+    #[test]
+    fn bbox() {
+        let bbox: Expr =
+            super::parse_text("bbox(9.978199, 53.541309, 10.010294, 53.557241)").unwrap();
+        assert!(matches!(bbox, Expr::BBox { .. }));
     }
 }

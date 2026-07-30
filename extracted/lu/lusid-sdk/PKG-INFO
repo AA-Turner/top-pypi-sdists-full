@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lusid-sdk
-Version: 2.3.160
+Version: 2.3.162
 Summary: LUSID API
 License: MIT
 Keywords: OpenAPI,OpenAPI-Generator,LUSID API,lusid-sdk
@@ -1684,6 +1684,11 @@ Class | Method | HTTP request | Description
  - [PerpetualEntityState](docs/PerpetualEntityState.md)
  - [PerpetualProperty](docs/PerpetualProperty.md)
  - [Person](docs/Person.md)
+ - [PikBondCashCouponEvent](docs/PikBondCashCouponEvent.md)
+ - [PikBondCouponEvent](docs/PikBondCouponEvent.md)
+ - [PikBondInterestCapitalisationEvent](docs/PikBondInterestCapitalisationEvent.md)
+ - [PikBondPrincipalEvent](docs/PikBondPrincipalEvent.md)
+ - [PikElection](docs/PikElection.md)
  - [PlaceBlocksRequest](docs/PlaceBlocksRequest.md)
  - [Placement](docs/Placement.md)
  - [PlacementRequest](docs/PlacementRequest.md)
@@ -1785,6 +1790,7 @@ Class | Method | HTTP request | Description
  - [QuoteType](docs/QuoteType.md)
  - [RateCurveShiftDefinition](docs/RateCurveShiftDefinition.md)
  - [RateCurveShiftMode](docs/RateCurveShiftMode.md)
+ - [RateCurveShiftScale](docs/RateCurveShiftScale.md)
  - [RawVendorEvent](docs/RawVendorEvent.md)
  - [ReOpenPeriodDiaryEntryRequest](docs/ReOpenPeriodDiaryEntryRequest.md)
  - [RealisedGainLoss](docs/RealisedGainLoss.md)
@@ -1951,6 +1957,7 @@ Class | Method | HTTP request | Description
  - [RunCheckResponse](docs/RunCheckResponse.md)
  - [ScalingMethodology](docs/ScalingMethodology.md)
  - [ScenarioDefinition](docs/ScenarioDefinition.md)
+ - [ScenarioReference](docs/ScenarioReference.md)
  - [ScenarioShiftDefinition](docs/ScenarioShiftDefinition.md)
  - [ScenarioShiftType](docs/ScenarioShiftType.md)
  - [Schedule](docs/Schedule.md)

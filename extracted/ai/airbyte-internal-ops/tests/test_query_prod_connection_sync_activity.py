@@ -135,7 +135,7 @@ def test_query_prod_connection_sync_activity_delegates_to_prod_db() -> None:
         enrich = stack.enter_context(
             patch(
                 "airbyte_ops_mcp.mcp.prod_db_ops.enrich_rows_by_org",
-                side_effect=lambda rows: [
+                side_effect=lambda rows, **_: [
                     {**r, "customer_tier": "TIER_2"} for r in rows
                 ],
             )

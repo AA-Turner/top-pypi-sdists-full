@@ -35,6 +35,10 @@ from abstra_internals.environment import (
 from abstra_internals.logger import AbstraLogger
 
 Emit = Callable[[str, Dict[str, Any]], None]
+# Reports a finished stall episode (aggregates only) to an external sink,
+# e.g. cloud-api so stalls become a Prometheus metric. Kept separate from
+# Emit (the lifecycle log) so a failure in one never affects the other.
+Report = Callable[[Dict[str, Any]], None]
 
 # AbstraLogger.lifecycle relies on os.write atomicity up to PIPE_BUF (4096
 # bytes); capping the reported durations keeps the line safely below that
@@ -52,6 +56,7 @@ class EditorStallWatchdog:
         batch_window_seconds: Optional[float] = None,
         monotonic: Callable[[], float] = time.monotonic,
         emit: Optional[Emit] = None,
+        report: Optional[Report] = None,
     ):
         self._interval = (
             interval_seconds
@@ -70,6 +75,7 @@ class EditorStallWatchdog:
         )
         self._monotonic = monotonic
         self._emit: Emit = emit or AbstraLogger.lifecycle
+        self._report = report
 
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
@@ -129,21 +135,47 @@ class EditorStallWatchdog:
         if not stalls or started_at is None:
             return
 
-        attrs: Dict[str, Any] = {
-            "stage": "editor.stall",
-            "stallCount": len(stalls),
-            "stallTotalSeconds": round(sum(stalls), 3),
-            "stallMaxSeconds": round(max(stalls), 3),
-            "stallsSeconds": [round(s, 3) for s in stalls[:MAX_REPORTED_STALLS]],
-            "episodeSeconds": round(now - started_at, 3),
-            "thresholdSeconds": self._threshold,
-        }
+        stall_count = len(stalls)
+        stall_total = round(sum(stalls), 3)
+        stall_max = round(max(stalls), 3)
+        episode_seconds = round(now - started_at, 3)
+
         try:
-            self._emit("[Editor] Process stall detected", attrs)
+            self._emit(
+                "[Editor] Process stall detected",
+                {
+                    "stage": "editor.stall",
+                    "stallCount": stall_count,
+                    "stallTotalSeconds": stall_total,
+                    "stallMaxSeconds": stall_max,
+                    "stallsSeconds": [
+                        round(s, 3) for s in stalls[:MAX_REPORTED_STALLS]
+                    ],
+                    "episodeSeconds": episode_seconds,
+                    "thresholdSeconds": self._threshold,
+                },
+            )
         except Exception:
             # The watchdog must never die on a reporting failure; the
             # batch was already reset, so a broken emitter cannot loop.
             pass
+
+        # Cloud report carries aggregates only (no per-stall list): it feeds a
+        # Prometheus metric, not the log. Independent try/except so a failing
+        # cloud sink never suppresses the lifecycle log and vice versa.
+        if self._report is not None:
+            try:
+                self._report(
+                    {
+                        "stallCount": stall_count,
+                        "stallTotalSeconds": stall_total,
+                        "stallMaxSeconds": stall_max,
+                        "episodeSeconds": episode_seconds,
+                        "thresholdSeconds": self._threshold,
+                    }
+                )
+            except Exception:
+                pass
 
     def start(self) -> None:
         if self._thread is not None:

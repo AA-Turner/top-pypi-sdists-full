@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import functools
 import itertools
 import logging
@@ -27,6 +26,7 @@ if TYPE_CHECKING:
     from angr.simos.javavm import SimJavaVM
 
     from .state_plugins.callstack import CallStack
+    from .state_plugins.heap.heap_base import SimHeapBase
     from .state_plugins.history import SimStateHistory
     from .state_plugins.inspect import SimInspector
     from .state_plugins.jni_references import SimStateJNIReferences
@@ -91,6 +91,7 @@ class SimState[IPTypeConc, IPTypeSym](PluginHub[SimStatePlugin]):
     inspect: SimInspector
     jni_references: SimStateJNIReferences
     scratch: SimStateScratch
+    heap: SimHeapBase
 
     def __init__(
         self,
@@ -165,10 +166,6 @@ class SimState[IPTypeConc, IPTypeSym](PluginHub[SimStatePlugin]):
 
         self.uninitialized_access_handler = None
         self._special_memory_filler = special_memory_filler
-
-        # this is a global condition, applied to all added constraints, memory reads, etc
-        self._global_condition = None
-        self.ip_constraints = []
 
         # plugins. lord help us
         if plugin_preset is not None:
@@ -288,8 +285,6 @@ class SimState[IPTypeConc, IPTypeSym](PluginHub[SimStatePlugin]):
         self.__dict__.update(s)
         for p in self.plugins.values():
             p.set_state(self)
-            if p.STRONGREF_STATE:
-                p.set_strongref_state(self)
 
     def _get_weakref(self):
         return weakref.proxy(self)
@@ -302,12 +297,8 @@ class SimState[IPTypeConc, IPTypeSym](PluginHub[SimStatePlugin]):
             addr = self.addr
             if type(addr) is int:
                 ip_str = f"{addr:#x}"
-                try:
-                    scratch = self.scratch
-                    if scratch.is_ail and scratch.ail_block_idx is not None:
-                        ip_str = f"{addr:#x}.{scratch.ail_block_idx}"
-                except Exception:
-                    pass
+                if self.scratch.is_ail and self.scratch.ail_block_idx is not None:
+                    ip_str = f"{addr:#x}.{self.scratch.ail_block_idx}"
             else:
                 ip_str = repr(addr)
         except (SimValueError, SimSolverModeError):
@@ -459,8 +450,6 @@ class SimState[IPTypeConc, IPTypeSym](PluginHub[SimStatePlugin]):
 
     def _set_plugin_state(self, plugin: SimStatePlugin, inhibit_init: bool = False):
         plugin.set_state(self)
-        if plugin.STRONGREF_STATE:
-            plugin.set_strongref_state(self)
         if not inhibit_init:
             plugin.init_state()
 
@@ -566,9 +555,6 @@ class SimState[IPTypeConc, IPTypeSym](PluginHub[SimStatePlugin]):
         Returns a copy of the state.
         """
 
-        if self._global_condition is not None:
-            raise SimStateError("global condition was not cleared before state.copy().")
-
         c_plugins = self._copy_plugins()
         state = SimState(
             project=self.project,
@@ -585,7 +571,6 @@ class SimState[IPTypeConc, IPTypeSym](PluginHub[SimStatePlugin]):
 
         state.uninitialized_access_handler = self.uninitialized_access_handler
         state._special_memory_filler = self._special_memory_filler
-        state.ip_constraints = self.ip_constraints
 
         return state
 
@@ -677,32 +662,6 @@ class SimState[IPTypeConc, IPTypeSym](PluginHub[SimStatePlugin]):
 
         merged.add_constraints(claripy.Or(*merge_conditions))
         return merged, merge_conditions, merging_occurred
-
-    def widen(self, *others):
-        """
-        Perform a widening between self and other states
-        :param others:
-        :return:
-        """
-
-        if len({frozenset(o.plugins.keys()) for o in others}) != 1:
-            raise SimMergeError("Unable to widen due to different sets of plugins.")
-        if len({o.arch.name for o in others}) != 1:
-            raise SimMergeError("Unable to widen due to different architectures.")
-
-        widened = self.copy()
-        widening_occurred = False
-
-        # plugins
-        for p in self.plugins:
-            if p in ("solver", "unicorn"):
-                continue
-            plugin_state_widened = widened.plugins[p].widen([_.plugins[p] for _ in others])
-            if plugin_state_widened:
-                l.debug("Widening occurred in %s", p)
-                widening_occurred = True
-
-        return widened, widening_occurred
 
     #############################################
     ### Accessors for tmps, registers, memory ###
@@ -875,38 +834,6 @@ class SimState[IPTypeConc, IPTypeSym](PluginHub[SimStatePlugin]):
 
         concrete_ip = self.solver.eval(self.regs.ip)
         return concrete_ip % 2 == 1
-
-    #
-    # Some pretty fancy global condition stuff!
-    #
-
-    @property
-    def with_condition(self):
-        @contextlib.contextmanager
-        def ctx(c):
-            old_condition = self._global_condition
-            try:
-                new_condition = c if old_condition is None else claripy.And(old_condition, c)
-                self._global_condition = new_condition
-                yield
-            finally:
-                self._global_condition = old_condition
-
-        return ctx
-
-    def _adjust_condition(self, c):
-        if self._global_condition is None:
-            return c
-        if c is None:
-            return self._global_condition
-        return claripy.And(self._global_condition, c)
-
-    def _adjust_condition_list(self, conditions):
-        if self._global_condition is None:
-            return conditions
-        if len(conditions) == 0:
-            return conditions.__class__((self._global_condition,))
-        return conditions.__class__((self._adjust_condition(claripy.And(*conditions)),))
 
 
 default_state_plugin_preset = PluginPreset()

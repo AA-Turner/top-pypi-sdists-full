@@ -234,6 +234,84 @@ def test_devin_session_feedback_rejects_invalid_context_ids(
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize(
+    "feedback_type,category,expected_behavior,observed_behavior,what_went_well",
+    [
+        pytest.param(
+            "negative",
+            "tool_failure",
+            "The workflow posts feedback.",
+            "The workflow failed to post feedback.",
+            None,
+            id="negative-triage-path",
+        ),
+        pytest.param(
+            "positive",
+            "great_results",
+            None,
+            None,
+            "The workflow posted feedback.",
+            id="positive-escalation-path",
+        ),
+    ],
+)
+def test_devin_session_feedback_uses_feedback_cc_usergroups(
+    feedback_type: str,
+    category: str,
+    expected_behavior: str | None,
+    observed_behavior: str | None,
+    what_went_well: str | None,
+) -> None:
+    """Feedback dispatches include both configured usergroup CC targets."""
+    with patch(
+        "airbyte_ops_mcp.mcp.devin_ops.resolve_ci_trigger_github_token",
+        return_value="fake-token",
+    ), patch(
+        "airbyte_ops_mcp.mcp.devin_ops.trigger_workflow_dispatch",
+        return_value=WorkflowDispatchResult(
+            workflow_url="https://github.com/airbytehq/ai-skills/actions/workflows/test.yml",
+            run_id=123,
+            run_url="https://github.com/airbytehq/ai-skills/actions/runs/123",
+        ),
+    ) as mock_trigger, patch(
+        "airbyte_ops_mcp.mcp.devin_ops.dispatch_escalation",
+        return_value=WorkflowDispatchResult(
+            workflow_url="https://github.com/airbytehq/airbyte-ops-mcp/actions/workflows/test.yml",
+            run_id=456,
+            run_url="https://github.com/airbytehq/airbyte-ops-mcp/actions/runs/456",
+        ),
+    ) as mock_escalation:
+        result = devin_session_feedback(
+            feedback_type=feedback_type,
+            category=category,
+            task_description="Report a Devin session experience",
+            agent_session_url="https://app.devin.ai/sessions/test123",
+            reporting_user="aj@airbyte.io",
+            session_playbook="none",
+            related_skill_name=None,
+            expected_behavior=expected_behavior,
+            observed_behavior=observed_behavior,
+            what_went_well=what_went_well,
+            severity="medium" if feedback_type == "negative" else None,
+            steps_to_reproduce=None,
+            session_to_evaluate=None,
+        )
+
+    assert result.success is True
+    if feedback_type == "negative":
+        assert mock_trigger.call_args.kwargs["inputs"]["cc_persons"] == (
+            "S0BJ4K3LC4X,S0BKR63VAN5"
+        )
+        mock_escalation.assert_not_called()
+    else:
+        assert mock_escalation.call_args.kwargs["cc"] == [
+            "S0BJ4K3LC4X",
+            "S0BKR63VAN5",
+        ]
+        mock_trigger.assert_not_called()
+
+
+@pytest.mark.unit
 def test_wrap_followup_message_structure() -> None:
     """Wrapped message has header, body, and non-interactive footer."""
     body = "Here are my triage findings."

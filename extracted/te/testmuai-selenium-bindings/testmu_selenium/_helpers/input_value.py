@@ -25,6 +25,45 @@ _log = logging.getLogger(__name__)
 SET_SELECTION_RANGE_ELIGIBLE_INPUT = ["text", "password", "search", "tel", "url"]
 
 
+def _coerce_scalar_to_str(value):
+    """Coerce a type-preserving scalar to str for typing.
+
+    execute_js/set_var/var() keep values as their native type, so an int/float/
+    bool can reach here and break the string ops below (value[-4:], len(value),
+    send_keys char iteration). int/float/bool -> str (bool -> "True"/"False");
+    str/None pass through; dict/list are left unchanged so a structural value
+    fails loudly downstream rather than being silently stringified.
+    """
+    if isinstance(value, bool):
+        return "True" if value else "False"
+    if isinstance(value, (int, float)):
+        return str(value)
+    return value
+
+
+def _coerce_fill_value(value):
+    """Normalize a user-supplied value at the typing boundary.
+
+    Scalars are stringified; a structural dict/list is rejected loudly because
+    ``send_keys`` would otherwise iterate it — typing a dict's KEY NAMES into
+    the field — instead of failing.
+
+    Every path that delivers a value to the keyboard must go through here.
+    ``input_value`` is only one of them: the coordinate-tier fallbacks in
+    ``_action_type``/``_action_search`` bypass ``input_value`` entirely and
+    talk to ``ActionBuilder.key_action`` directly, so without this shared
+    boundary the same step behaved differently depending on which heal tier
+    resolved the element.
+    """
+    value = _coerce_scalar_to_str(value)
+    if isinstance(value, (dict, list)):
+        raise TypeError(
+            f"cannot type a structural {type(value).__name__} value into an "
+            f"input; expected a scalar (str/int/float/bool)."
+        )
+    return value
+
+
 def input_value(
     element,
     driver,
@@ -54,6 +93,9 @@ def input_value(
     Returns:
         None on success. Re-raises on uncaught errors.
     """
+    # Normalize at the entry so every downstream branch (month split, per-char,
+    # coords, send_keys) sees a string, and a structural value fails loudly.
+    value = _coerce_fill_value(value)
     try:
         if coords is not None:
             x, y = coords

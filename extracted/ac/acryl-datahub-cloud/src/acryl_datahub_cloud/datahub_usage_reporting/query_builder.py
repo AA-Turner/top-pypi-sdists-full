@@ -118,6 +118,93 @@ class QueryBuilder:
         }
 
     @staticmethod
+    def get_document_usage_query(days: int) -> Dict:
+        return {
+            # "sort": [{"urn": {"order": "asc"}}],
+            "_source": {
+                "includes": [
+                    "timestampMillis",
+                    "systemMetadata.lastObserved",
+                    "urn",
+                    "eventGranularity",
+                    "viewsCount",
+                    "agentViewsCount",
+                    "uniqueUserCount",
+                    "event.userCounts",
+                ]
+            },
+            "query": {
+                "bool": {
+                    "filter": [
+                        {
+                            "range": {
+                                "@timestamp": {"gte": f"now-{days}d", "lt": "now/d"}
+                            }
+                        },
+                        {"term": {"isExploded": False}},
+                    ]
+                }
+            },
+        }
+
+    @staticmethod
+    def get_document_view_events_query(days: int) -> Dict:
+        # Human document reads: EntityViewEvent rows for urn:li:document:* in the
+        # datahub_usage_event analytics index. entityUrn is dynamically mapped
+        # (text + .keyword); the prefix must target the .keyword sub-field, since a
+        # prefix on the analyzed text field tokenizes on ":" and matches nothing.
+        return {
+            "_source": {"includes": ["timestamp", "entityUrn", "actorUrn"]},
+            "query": {
+                "bool": {
+                    "filter": [
+                        {"term": {"type": "EntityViewEvent"}},
+                        {"prefix": {"entityUrn.keyword": "urn:li:document:"}},
+                        {
+                            "range": {
+                                "@timestamp": {"gte": f"now-{days}d/d", "lt": "now/d"}
+                            }
+                        },
+                    ]
+                }
+            },
+        }
+
+    @staticmethod
+    def get_document_agent_read_events_query(days: int) -> Dict:
+        # Agent document reads: ToolInvocation rows that returned a document urn in
+        # tool_result_urns. The .keyword prefix pushes the document filter into ES
+        # (the field is dynamically mapped text + .keyword). tool_result_urns is
+        # added by the ToolInvocationEvent URN-capture change; until that lands the
+        # field is absent and the prefix matches nothing, so this returns nothing.
+        # conversation_urn / session_id let us de-dupe reads per conversation (a
+        # document surfaced across several tool calls in one conversation is one read).
+        return {
+            "_source": {
+                "includes": [
+                    "timestamp",
+                    "tool_result_urns",
+                    "actorUrn",
+                    "conversation_urn",
+                    "session_id",
+                ]
+            },
+            "query": {
+                "bool": {
+                    "filter": [
+                        {"term": {"type": "ToolInvocation"}},
+                        {"prefix": {"tool_result_urns.keyword": "urn:li:document:"}},
+                        {
+                            "range": {
+                                "@timestamp": {"gte": f"now-{days}d/d", "lt": "now/d"}
+                            }
+                        },
+                    ]
+                }
+            },
+        }
+
+    @staticmethod
     def get_dataset_usage_query(days: int) -> Dict:
         return {
             # "sort": [{"urn": {"order": "asc"}}],

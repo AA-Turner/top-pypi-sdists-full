@@ -34,8 +34,8 @@ from ......schema_classes import GlobalVisualSettingsClass
 from ......schema_classes import HelpLinkClass
 from ......schema_classes import MaintenanceSeverityClass
 from ......schema_classes import MaintenanceWindowSettingsClass
+from ......schema_classes import McpInstructionSizeClass
 from ......schema_classes import McpServerConfigClass
-from ......schema_classes import McpServerSettingsClass
 from ......schema_classes import McpSettingsClass
 from ......schema_classes import OAuthAiPluginConfigClass
 from ......schema_classes import OAuthProviderClass
@@ -81,8 +81,8 @@ GlobalVisualSettings = GlobalVisualSettingsClass
 HelpLink = HelpLinkClass
 MaintenanceSeverity = MaintenanceSeverityClass
 MaintenanceWindowSettings = MaintenanceWindowSettingsClass
+McpInstructionSize = McpInstructionSizeClass
 McpServerConfig = McpServerConfigClass
-McpServerSettings = McpServerSettingsClass
 McpSettings = McpSettingsClass
 OAuthAiPluginConfig = OAuthAiPluginConfigClass
 OAuthProvider = OAuthProviderClass

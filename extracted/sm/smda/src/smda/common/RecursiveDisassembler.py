@@ -7,6 +7,7 @@ from bisect import bisect_right
 
 from smda.common.BinaryInfo import BinaryInfo
 from smda.common.labelprovider.DelphiKbSymbolProvider import DelphiKbSymbolProvider
+from smda.common.labelprovider.DelphiPythiaProvider import DelphiPythiaProvider
 from smda.common.labelprovider.DelphiReSymProvider import DelphiReSymProvider
 from smda.common.labelprovider.ElfApiResolver import ElfApiResolver
 from smda.common.labelprovider.ElfSymbolProvider import ElfSymbolProvider
@@ -63,6 +64,7 @@ class RecursiveDisassembler:
         self._registerLabelProvider(GoSymbolProvider(self.config))
         self._registerLabelProvider(DelphiKbSymbolProvider(self.config))
         self._registerLabelProvider(DelphiReSymProvider(self.config))
+        self._registerLabelProvider(DelphiPythiaProvider(self.config))
         # Generic binary format providers (fallback)
         self._registerLabelProvider(ElfSymbolProvider(self.config))
         self._registerLabelProvider(PeSymbolProvider(self.config))
@@ -375,7 +377,6 @@ class RecursiveDisassembler:
             binary_info.binary_size,
             binary_info.base_addr,
         )
-        self._updateLabelProviders(binary_info)
         self._symbol_cache = {}
         self._api_cache = {}
         self.disassembly = DisassemblyResult()
@@ -397,6 +398,9 @@ class RecursiveDisassembler:
         if self._forced_bitness:
             self.disassembly.binary_info.bitness = self._forced_bitness
             LOGGER.debug("Forced Bitness override to: %d", self.disassembly.binary_info.bitness)
+
+        # update providers after bitness is finalized: some (e.g. DelphiPythiaProvider) key parsing on it
+        self._updateLabelProviders(self.disassembly.binary_info)
 
         self.tailcall_analyzer = TailcallAnalyzer()
         self.indcall_analyzer = self.backend.createIndirectCallAnalyzer(self)
@@ -486,6 +490,7 @@ class RecursiveDisassembler:
             self.disassembly.language = lang_analyzer.rescore(
                 self.disassembly.language, len(self.disassembly.functions)
             )
+            self.disassembly.language_guess = lang_analyzer.getGuess()
         self.disassembly.analysis_end_ts = datetime.datetime.now(datetime.timezone.utc)
         if cbAnalysisTimeout and cbAnalysisTimeout():
             self.disassembly.analysis_timeout = True

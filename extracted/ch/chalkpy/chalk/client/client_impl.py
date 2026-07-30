@@ -206,6 +206,8 @@ from chalk.queries.query_context import ContextJsonDict, JsonValue
 from chalk.scalinggroup.spec import (
     AutoScalingSpec,
     DeleteScalingGroupResponse,
+    GrpcReadinessProbe,
+    GrpcStartupProbe,
     ListScalingGroupsResponse,
     ScalingGroup,
     ScalingGroupResourceRequest,
@@ -6392,6 +6394,8 @@ https://docs.chalk.ai/cli/apply
         handler: Optional[str] = None,
         env_vars: Optional[Dict[str, str]] = None,
         secrets: Optional[List[Any]] = None,
+        readiness_probe: Optional["GrpcReadinessProbe"] = None,
+        startup_probe: Optional["GrpcStartupProbe"] = None,
         environment: Optional[EnvironmentId] = None,
     ) -> dict[str, Any]:
         """Deploy a registered model version as a scaling group.
@@ -6414,6 +6418,13 @@ https://docs.chalk.ai/cli/apply
             Extra environment variables to inject into the container.
         secrets
             List of Secret Registry secrets to be injected into the Scaling Group.
+        readiness_probe
+            Optional gRPC readiness probe configuration. Model deployments only
+            support gRPC readiness checks.
+        startup_probe
+            Optional gRPC startup probe configuration. Model deployments only
+            support gRPC startup checks; if omitted, defaults to the standard
+            gRPC health check method.
         environment
             Environment to deploy to.
         """
@@ -6433,6 +6444,8 @@ https://docs.chalk.ai/cli/apply
             handler=handler,
             env_vars=env_vars,
             secrets=secrets,
+            readiness_probe=readiness_probe,
+            startup_probe=startup_probe,
         )
 
     def list_scaling_groups(self, environment: Optional[EnvironmentId] = None) -> ListScalingGroupsResponse:

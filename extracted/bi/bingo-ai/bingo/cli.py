@@ -685,6 +685,8 @@ def main() -> None:
     # ── v7 엔진 실행 ─────────────────────────────────────────────
     s = get_strings(cfg.lang)
     from .engine.loop import AgentLoop
+    from .web.event_bus import EventBus as _EventBus
+    from .web.server import start_web_server as _start_web, _is_wsl2 as _wsl2
     from pathlib import Path as _Path
     from datetime import datetime as _dt
     import re as _re
@@ -692,6 +694,20 @@ def main() -> None:
     # 화면 초기화 후 배너 출력
     os.system("cls" if os.name == "nt" else "clear")
     _print_banner_v7(cfg, s)
+
+    # ── Web UI 시작 ───────────────────────────────────────────────
+    _no_web = "--no-web" in args
+    _event_bus: "_EventBus | None" = None
+    if not _no_web:
+        try:
+            _event_bus = _EventBus()
+            _web_port = _start_web(_event_bus)
+            console.print(f"  [#00ff41]⚡ Web UI:[/] [#00e5ff]http://127.0.0.1:{_web_port}[/]  [#546e7a](--no-web to disable)[/]")
+            if _wsl2():
+                console.print(f"  [#546e7a]WSL2: Windows 브라우저에서 [/][#00e5ff]http://localhost:{_web_port}[/][#546e7a] 접속[/]")
+            console.print()
+        except Exception as _web_err:
+            console.print(f"  [#546e7a]Web UI unavailable: {_web_err}[/]")
 
     _current_target = ""
     _session_log_lines: list[str] = []
@@ -729,7 +745,10 @@ def main() -> None:
   /status        — 현재 상태 표시
   /clear         — 화면 초기화
   /session       — 세션 로그 경로 표시
-  /exit          — 종료""")
+  /exit          — 종료
+
+[#546e7a]Flags (startup):[/]
+  --no-web       — Web UI 비활성화""")
             continue
         if _cmd == "/clear":
             os.system("cls" if os.name == "nt" else "clear")
@@ -781,7 +800,7 @@ def main() -> None:
         # ── 에이전트 루프 실행 ─────────────────────────────────
         _session_log_lines.append(f"## [{_dt.now().strftime('%H:%M:%S')}] User: {user_input}")
         try:
-            loop = AgentLoop(target=_current_target, config=cfg, console=console)
+            loop = AgentLoop(target=_current_target, config=cfg, console=console, event_bus=_event_bus)
             loop.run(user_input)
             _session_log_lines.append(f"  Findings: {len(loop.findings._findings)}")
         except KeyboardInterrupt:

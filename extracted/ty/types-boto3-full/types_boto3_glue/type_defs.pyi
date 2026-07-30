@@ -73,6 +73,7 @@ from .literals import (
     FieldFilterOperatorType,
     FieldNameType,
     FilterLogicalOperatorType,
+    FilterModeType,
     FilterOperationType,
     FilterOperatorType,
     FilterValueTypeType,
@@ -260,6 +261,7 @@ __all__ = (
     "BatchUpdatePartitionRequestEntryTypeDef",
     "BatchUpdatePartitionRequestTypeDef",
     "BatchUpdatePartitionResponseTypeDef",
+    "BetweenConfigurationTypeDef",
     "BinaryColumnStatisticsDataTypeDef",
     "BlobTypeDef",
     "BlueprintDetailsTypeDef",
@@ -599,15 +601,21 @@ __all__ = (
     "FederatedCatalogTypeDef",
     "FederatedDatabaseTypeDef",
     "FederatedTableTypeDef",
+    "FieldDefinitionOutputTypeDef",
     "FieldDefinitionTypeDef",
     "FieldTypeDef",
     "FillMissingValuesOutputTypeDef",
     "FillMissingValuesTypeDef",
     "FillMissingValuesUnionTypeDef",
+    "FilterConfigurationOutputTypeDef",
+    "FilterConfigurationTypeDef",
     "FilterExpressionOutputTypeDef",
     "FilterExpressionTypeDef",
     "FilterExpressionUnionTypeDef",
     "FilterOutputTypeDef",
+    "FilterOverridesOutputTypeDef",
+    "FilterOverridesTypeDef",
+    "FilterStringConfigurationTypeDef",
     "FilterTypeDef",
     "FilterUnionTypeDef",
     "FilterValueOutputTypeDef",
@@ -1661,6 +1669,11 @@ class BatchStopJobRunSuccessfulSubmissionTypeDef(TypedDict):
     JobName: NotRequired[str]
     JobRunId: NotRequired[str]
 
+class BetweenConfigurationTypeDef(TypedDict):
+    LowBoundKey: NotRequired[str]
+    HighBoundKey: NotRequired[str]
+    Template: NotRequired[str]
+
 class BinaryColumnStatisticsDataTypeDef(TypedDict):
     MaximumLength: int
     AverageLength: float
@@ -1888,6 +1901,7 @@ ConnectorPropertyTypeDef = TypedDict(
         "DefaultValue": NotRequired[str],
         "AllowedValues": NotRequired[Sequence[str]],
         "PropertyLocation": NotRequired[PropertyLocationType],
+        "Format": NotRequired[str],
     },
 )
 
@@ -2202,6 +2216,7 @@ ConnectorPropertyOutputTypeDef = TypedDict(
         "DefaultValue": NotRequired[str],
         "AllowedValues": NotRequired[list[str]],
         "PropertyLocation": NotRequired[PropertyLocationType],
+        "Format": NotRequired[str],
     },
 )
 
@@ -2851,10 +2866,6 @@ class S3EncryptionTypeDef(TypedDict):
     S3EncryptionMode: NotRequired[S3EncryptionModeType]
     KmsKeyArn: NotRequired[str]
 
-class FieldDefinitionTypeDef(TypedDict):
-    Name: str
-    FieldDataType: FieldDataTypeType
-
 class EntityTypeDef(TypedDict):
     EntityName: NotRequired[str]
     Label: NotRequired[str]
@@ -2885,6 +2896,11 @@ class FillMissingValuesTypeDef(TypedDict):
     Inputs: Sequence[str]
     ImputedPath: str
     FilledPath: NotRequired[str]
+
+class FilterStringConfigurationTypeDef(TypedDict):
+    QueryParameterName: str
+    QuoteStringValues: NotRequired[bool]
+    QuoteCharacter: NotRequired[str]
 
 FilterValueOutputTypeDef = TypedDict(
     "FilterValueOutputTypeDef",
@@ -4964,6 +4980,18 @@ class BatchPutDataQualityStatisticAnnotationRequestTypeDef(TypedDict):
     InclusionAnnotations: Sequence[DatapointInclusionAnnotationTypeDef]
     ClientToken: NotRequired[str]
 
+class FilterOverridesOutputTypeDef(TypedDict):
+    FieldName: NotRequired[str]
+    OperatorMappings: NotRequired[dict[str, str]]
+    BetweenConfiguration: NotRequired[BetweenConfigurationTypeDef]
+    DateTimeFormat: NotRequired[str]
+
+class FilterOverridesTypeDef(TypedDict):
+    FieldName: NotRequired[str]
+    OperatorMappings: NotRequired[Mapping[str, str]]
+    BetweenConfiguration: NotRequired[BetweenConfigurationTypeDef]
+    DateTimeFormat: NotRequired[str]
+
 class DecimalNumberTypeDef(TypedDict):
     UnscaledValue: BlobTypeDef
     Scale: int
@@ -5921,6 +5949,22 @@ class ExtractedParameterTypeDef(TypedDict):
 
 FillMissingValuesUnionTypeDef = Union[FillMissingValuesTypeDef, FillMissingValuesOutputTypeDef]
 
+class FilterConfigurationOutputTypeDef(TypedDict):
+    FilterMode: FilterModeType
+    OperatorMappings: NotRequired[dict[str, str]]
+    DateTimeFormat: NotRequired[str]
+    StripQuotes: NotRequired[bool]
+    BetweenConfiguration: NotRequired[BetweenConfigurationTypeDef]
+    FilterStringConfiguration: NotRequired[FilterStringConfigurationTypeDef]
+
+class FilterConfigurationTypeDef(TypedDict):
+    FilterMode: FilterModeType
+    OperatorMappings: NotRequired[Mapping[str, str]]
+    DateTimeFormat: NotRequired[str]
+    StripQuotes: NotRequired[bool]
+    BetweenConfiguration: NotRequired[BetweenConfigurationTypeDef]
+    FilterStringConfiguration: NotRequired[FilterStringConfigurationTypeDef]
+
 class FilterExpressionOutputTypeDef(TypedDict):
     Operation: FilterOperationType
     Values: list[FilterValueOutputTypeDef]
@@ -6509,6 +6553,26 @@ class StatusDetailsPaginatorTypeDef(TypedDict):
 class StatusDetailsTypeDef(TypedDict):
     RequestedChange: NotRequired[dict[str, Any]]
     ViewValidations: NotRequired[list[ViewValidationTypeDef]]
+
+class FieldDefinitionOutputTypeDef(TypedDict):
+    Name: str
+    FieldDataType: FieldDataTypeType
+    ResponseDateFormat: NotRequired[str]
+    IsPartitionable: NotRequired[bool]
+    IsNullable: NotRequired[bool]
+    IsQueryable: NotRequired[bool]
+    IsOrderable: NotRequired[bool]
+    FilterOverrides: NotRequired[FilterOverridesOutputTypeDef]
+
+class FieldDefinitionTypeDef(TypedDict):
+    Name: str
+    FieldDataType: FieldDataTypeType
+    ResponseDateFormat: NotRequired[str]
+    IsPartitionable: NotRequired[bool]
+    IsNullable: NotRequired[bool]
+    IsQueryable: NotRequired[bool]
+    IsOrderable: NotRequired[bool]
+    FilterOverrides: NotRequired[FilterOverridesTypeDef]
 
 DecimalNumberUnionTypeDef = Union[DecimalNumberTypeDef, DecimalNumberOutputTypeDef]
 
@@ -8596,6 +8660,7 @@ class SourceConfigurationOutputTypeDef(TypedDict):
     RequestParameters: NotRequired[list[ConnectorPropertyOutputTypeDef]]
     ResponseConfiguration: NotRequired[ResponseConfigurationTypeDef]
     PaginationConfiguration: NotRequired[PaginationConfigurationTypeDef]
+    FilterConfiguration: NotRequired[FilterConfigurationOutputTypeDef]
 
 class SourceConfigurationTypeDef(TypedDict):
     RequestMethod: NotRequired[HTTPMethodType]
@@ -8603,6 +8668,7 @@ class SourceConfigurationTypeDef(TypedDict):
     RequestParameters: NotRequired[Sequence[ConnectorPropertyTypeDef]]
     ResponseConfiguration: NotRequired[ResponseConfigurationTypeDef]
     PaginationConfiguration: NotRequired[PaginationConfigurationTypeDef]
+    FilterConfiguration: NotRequired[FilterConfigurationTypeDef]
 
 CodeGenConfigurationNodeOutputTypeDef = TypedDict(
     "CodeGenConfigurationNodeOutputTypeDef",
@@ -8995,7 +9061,7 @@ class GetUnfilteredPartitionsMetadataResponseTypeDef(TypedDict):
 
 class EntityConfigurationOutputTypeDef(TypedDict):
     SourceConfiguration: NotRequired[SourceConfigurationOutputTypeDef]
-    Schema: NotRequired[dict[str, FieldDefinitionTypeDef]]
+    Schema: NotRequired[dict[str, FieldDefinitionOutputTypeDef]]
 
 class EntityConfigurationTypeDef(TypedDict):
     SourceConfiguration: NotRequired[SourceConfigurationTypeDef]

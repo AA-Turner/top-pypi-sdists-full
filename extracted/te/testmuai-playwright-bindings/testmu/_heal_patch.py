@@ -132,6 +132,8 @@ def _make_wrapper(name, original, heal_fn):
         # wrapper would dispatch into the engine again → RecursionError. Inert
         # on the autoheal path (default False).
         if _in_engine.get():
+            # Capture the resolved element's bounding rect here so its coordinates are recorded on the happy path. Best-effort (swallows).
+            await _capture_element_bounds(self, _current_step.get())
             return await original(self, *args, **kwargs)
 
         step = _current_step.get()

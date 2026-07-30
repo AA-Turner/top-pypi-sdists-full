@@ -12,12 +12,16 @@ Usage::
 
     from mypy_boto3_iotsitewise.client import IoTSiteWiseClient
     from mypy_boto3_iotsitewise.paginator import (
+        DescribePipelineExecutionPaginator,
         ExecuteQueryPaginator,
         GetAssetPropertyAggregatesPaginator,
         GetAssetPropertyValueHistoryPaginator,
         GetInterpolatedAssetPropertyValuesPaginator,
+        GetQueryResultsPaginator,
+        GetSearchResultsPaginator,
         ListAccessPoliciesPaginator,
         ListActionsPaginator,
+        ListApplicationsPaginator,
         ListAssetModelCompositeModelsPaginator,
         ListAssetModelPropertiesPaginator,
         ListAssetModelsPaginator,
@@ -31,25 +35,39 @@ Usage::
         ListComputationModelResolveToResourcesPaginator,
         ListComputationModelsPaginator,
         ListDashboardsPaginator,
+        ListDatasetDataSegmentRelationshipsPaginator,
+        ListDatasetDataSegmentsPaginator,
+        ListDatasetExportJobsPaginator,
         ListDatasetsPaginator,
+        ListEnrichmentJobsPaginator,
         ListExecutionsPaginator,
         ListGatewaysPaginator,
         ListInterfaceRelationshipsPaginator,
+        ListPipelineExecutionsPaginator,
+        ListPipelinesPaginator,
         ListPortalsPaginator,
         ListProjectAssetsPaginator,
         ListProjectsPaginator,
+        ListQueriesPaginator,
+        ListSearchesPaginator,
+        ListTasksPaginator,
         ListTimeSeriesPaginator,
+        ListWorkspacesPaginator,
     )
 
     session = Session()
     client: IoTSiteWiseClient = session.client("iotsitewise")
 
+    describe_pipeline_execution_paginator: DescribePipelineExecutionPaginator = client.get_paginator("describe_pipeline_execution")
     execute_query_paginator: ExecuteQueryPaginator = client.get_paginator("execute_query")
     get_asset_property_aggregates_paginator: GetAssetPropertyAggregatesPaginator = client.get_paginator("get_asset_property_aggregates")
     get_asset_property_value_history_paginator: GetAssetPropertyValueHistoryPaginator = client.get_paginator("get_asset_property_value_history")
     get_interpolated_asset_property_values_paginator: GetInterpolatedAssetPropertyValuesPaginator = client.get_paginator("get_interpolated_asset_property_values")
+    get_query_results_paginator: GetQueryResultsPaginator = client.get_paginator("get_query_results")
+    get_search_results_paginator: GetSearchResultsPaginator = client.get_paginator("get_search_results")
     list_access_policies_paginator: ListAccessPoliciesPaginator = client.get_paginator("list_access_policies")
     list_actions_paginator: ListActionsPaginator = client.get_paginator("list_actions")
+    list_applications_paginator: ListApplicationsPaginator = client.get_paginator("list_applications")
     list_asset_model_composite_models_paginator: ListAssetModelCompositeModelsPaginator = client.get_paginator("list_asset_model_composite_models")
     list_asset_model_properties_paginator: ListAssetModelPropertiesPaginator = client.get_paginator("list_asset_model_properties")
     list_asset_models_paginator: ListAssetModelsPaginator = client.get_paginator("list_asset_models")
@@ -63,14 +81,24 @@ Usage::
     list_computation_model_resolve_to_resources_paginator: ListComputationModelResolveToResourcesPaginator = client.get_paginator("list_computation_model_resolve_to_resources")
     list_computation_models_paginator: ListComputationModelsPaginator = client.get_paginator("list_computation_models")
     list_dashboards_paginator: ListDashboardsPaginator = client.get_paginator("list_dashboards")
+    list_dataset_data_segment_relationships_paginator: ListDatasetDataSegmentRelationshipsPaginator = client.get_paginator("list_dataset_data_segment_relationships")
+    list_dataset_data_segments_paginator: ListDatasetDataSegmentsPaginator = client.get_paginator("list_dataset_data_segments")
+    list_dataset_export_jobs_paginator: ListDatasetExportJobsPaginator = client.get_paginator("list_dataset_export_jobs")
     list_datasets_paginator: ListDatasetsPaginator = client.get_paginator("list_datasets")
+    list_enrichment_jobs_paginator: ListEnrichmentJobsPaginator = client.get_paginator("list_enrichment_jobs")
     list_executions_paginator: ListExecutionsPaginator = client.get_paginator("list_executions")
     list_gateways_paginator: ListGatewaysPaginator = client.get_paginator("list_gateways")
     list_interface_relationships_paginator: ListInterfaceRelationshipsPaginator = client.get_paginator("list_interface_relationships")
+    list_pipeline_executions_paginator: ListPipelineExecutionsPaginator = client.get_paginator("list_pipeline_executions")
+    list_pipelines_paginator: ListPipelinesPaginator = client.get_paginator("list_pipelines")
     list_portals_paginator: ListPortalsPaginator = client.get_paginator("list_portals")
     list_project_assets_paginator: ListProjectAssetsPaginator = client.get_paginator("list_project_assets")
     list_projects_paginator: ListProjectsPaginator = client.get_paginator("list_projects")
+    list_queries_paginator: ListQueriesPaginator = client.get_paginator("list_queries")
+    list_searches_paginator: ListSearchesPaginator = client.get_paginator("list_searches")
+    list_tasks_paginator: ListTasksPaginator = client.get_paginator("list_tasks")
     list_time_series_paginator: ListTimeSeriesPaginator = client.get_paginator("list_time_series")
+    list_workspaces_paginator: ListWorkspacesPaginator = client.get_paginator("list_workspaces")
     ```
 """
 
@@ -82,19 +110,26 @@ from typing import TYPE_CHECKING
 from botocore.paginate import PageIterator, Paginator
 
 from .type_defs import (
+    DescribePipelineExecutionRequestPaginateTypeDef,
+    DescribePipelineExecutionResponseTypeDef,
     ExecuteQueryRequestPaginateTypeDef,
     ExecuteQueryResponsePaginatorTypeDef,
-    ExecuteQueryResponseWaiterTypeDef,
     GetAssetPropertyAggregatesRequestPaginateTypeDef,
     GetAssetPropertyAggregatesResponseTypeDef,
     GetAssetPropertyValueHistoryRequestPaginateTypeDef,
     GetAssetPropertyValueHistoryResponseTypeDef,
     GetInterpolatedAssetPropertyValuesRequestPaginateTypeDef,
     GetInterpolatedAssetPropertyValuesResponseTypeDef,
+    GetQueryResultsRequestPaginateTypeDef,
+    GetQueryResultsResponseTypeDef,
+    GetSearchResultsRequestPaginateTypeDef,
+    GetSearchResultsResponseTypeDef,
     ListAccessPoliciesRequestPaginateTypeDef,
     ListAccessPoliciesResponseTypeDef,
     ListActionsRequestPaginateTypeDef,
     ListActionsResponseTypeDef,
+    ListApplicationsRequestPaginateTypeDef,
+    ListApplicationsResponseTypeDef,
     ListAssetModelCompositeModelsRequestPaginateTypeDef,
     ListAssetModelCompositeModelsResponseTypeDef,
     ListAssetModelPropertiesRequestPaginateTypeDef,
@@ -121,22 +156,42 @@ from .type_defs import (
     ListComputationModelsResponseTypeDef,
     ListDashboardsRequestPaginateTypeDef,
     ListDashboardsResponseTypeDef,
+    ListDatasetDataSegmentRelationshipsRequestPaginateTypeDef,
+    ListDatasetDataSegmentRelationshipsResponseTypeDef,
+    ListDatasetDataSegmentsRequestPaginateTypeDef,
+    ListDatasetDataSegmentsResponseTypeDef,
+    ListDatasetExportJobsRequestPaginateTypeDef,
+    ListDatasetExportJobsResponseTypeDef,
     ListDatasetsRequestPaginateTypeDef,
     ListDatasetsResponseTypeDef,
+    ListEnrichmentJobsRequestPaginateTypeDef,
+    ListEnrichmentJobsResponseTypeDef,
     ListExecutionsRequestPaginateTypeDef,
     ListExecutionsResponseTypeDef,
     ListGatewaysRequestPaginateTypeDef,
     ListGatewaysResponseTypeDef,
     ListInterfaceRelationshipsRequestPaginateTypeDef,
     ListInterfaceRelationshipsResponseTypeDef,
+    ListPipelineExecutionsRequestPaginateTypeDef,
+    ListPipelineExecutionsResponseTypeDef,
+    ListPipelinesRequestPaginateTypeDef,
+    ListPipelinesResponseTypeDef,
     ListPortalsRequestPaginateTypeDef,
     ListPortalsResponseTypeDef,
     ListProjectAssetsRequestPaginateTypeDef,
     ListProjectAssetsResponseTypeDef,
     ListProjectsRequestPaginateTypeDef,
     ListProjectsResponseTypeDef,
+    ListQueriesRequestPaginateTypeDef,
+    ListQueriesResponseTypeDef,
+    ListSearchesRequestPaginateTypeDef,
+    ListSearchesResponseTypeDef,
+    ListTasksRequestPaginateTypeDef,
+    ListTasksResponseTypeDef,
     ListTimeSeriesRequestPaginateTypeDef,
     ListTimeSeriesResponseTypeDef,
+    ListWorkspacesRequestPaginateTypeDef,
+    ListWorkspacesResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -145,12 +200,16 @@ else:
     from typing_extensions import Unpack
 
 __all__ = (
+    "DescribePipelineExecutionPaginator",
     "ExecuteQueryPaginator",
     "GetAssetPropertyAggregatesPaginator",
     "GetAssetPropertyValueHistoryPaginator",
     "GetInterpolatedAssetPropertyValuesPaginator",
+    "GetQueryResultsPaginator",
+    "GetSearchResultsPaginator",
     "ListAccessPoliciesPaginator",
     "ListActionsPaginator",
+    "ListApplicationsPaginator",
     "ListAssetModelCompositeModelsPaginator",
     "ListAssetModelPropertiesPaginator",
     "ListAssetModelsPaginator",
@@ -164,18 +223,46 @@ __all__ = (
     "ListComputationModelResolveToResourcesPaginator",
     "ListComputationModelsPaginator",
     "ListDashboardsPaginator",
+    "ListDatasetDataSegmentRelationshipsPaginator",
+    "ListDatasetDataSegmentsPaginator",
+    "ListDatasetExportJobsPaginator",
     "ListDatasetsPaginator",
+    "ListEnrichmentJobsPaginator",
     "ListExecutionsPaginator",
     "ListGatewaysPaginator",
     "ListInterfaceRelationshipsPaginator",
+    "ListPipelineExecutionsPaginator",
+    "ListPipelinesPaginator",
     "ListPortalsPaginator",
     "ListProjectAssetsPaginator",
     "ListProjectsPaginator",
+    "ListQueriesPaginator",
+    "ListSearchesPaginator",
+    "ListTasksPaginator",
     "ListTimeSeriesPaginator",
+    "ListWorkspacesPaginator",
 )
 
 if TYPE_CHECKING:
-    _ExecuteQueryPaginatorBase = Paginator[ExecuteQueryResponseWaiterTypeDef]
+    _DescribePipelineExecutionPaginatorBase = Paginator[DescribePipelineExecutionResponseTypeDef]
+else:
+    _DescribePipelineExecutionPaginatorBase = Paginator  # type: ignore[assignment]
+
+class DescribePipelineExecutionPaginator(_DescribePipelineExecutionPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/DescribePipelineExecution.html#IoTSiteWise.Paginator.DescribePipelineExecution)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#describepipelineexecutionpaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribePipelineExecutionRequestPaginateTypeDef]
+    ) -> PageIterator[DescribePipelineExecutionResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/DescribePipelineExecution.html#IoTSiteWise.Paginator.DescribePipelineExecution.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#describepipelineexecutionpaginator)
+        """
+
+if TYPE_CHECKING:
+    _ExecuteQueryPaginatorBase = Paginator[ExecuteQueryResponsePaginatorTypeDef]
 else:
     _ExecuteQueryPaginatorBase = Paginator  # type: ignore[assignment]
 
@@ -251,6 +338,42 @@ class GetInterpolatedAssetPropertyValuesPaginator(_GetInterpolatedAssetPropertyV
         """
 
 if TYPE_CHECKING:
+    _GetQueryResultsPaginatorBase = Paginator[GetQueryResultsResponseTypeDef]
+else:
+    _GetQueryResultsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class GetQueryResultsPaginator(_GetQueryResultsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/GetQueryResults.html#IoTSiteWise.Paginator.GetQueryResults)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#getqueryresultspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[GetQueryResultsRequestPaginateTypeDef]
+    ) -> PageIterator[GetQueryResultsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/GetQueryResults.html#IoTSiteWise.Paginator.GetQueryResults.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#getqueryresultspaginator)
+        """
+
+if TYPE_CHECKING:
+    _GetSearchResultsPaginatorBase = Paginator[GetSearchResultsResponseTypeDef]
+else:
+    _GetSearchResultsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class GetSearchResultsPaginator(_GetSearchResultsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/GetSearchResults.html#IoTSiteWise.Paginator.GetSearchResults)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#getsearchresultspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[GetSearchResultsRequestPaginateTypeDef]
+    ) -> PageIterator[GetSearchResultsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/GetSearchResults.html#IoTSiteWise.Paginator.GetSearchResults.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#getsearchresultspaginator)
+        """
+
+if TYPE_CHECKING:
     _ListAccessPoliciesPaginatorBase = Paginator[ListAccessPoliciesResponseTypeDef]
 else:
     _ListAccessPoliciesPaginatorBase = Paginator  # type: ignore[assignment]
@@ -284,6 +407,24 @@ class ListActionsPaginator(_ListActionsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/ListActions.html#IoTSiteWise.Paginator.ListActions.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#listactionspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListApplicationsPaginatorBase = Paginator[ListApplicationsResponseTypeDef]
+else:
+    _ListApplicationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListApplicationsPaginator(_ListApplicationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/ListApplications.html#IoTSiteWise.Paginator.ListApplications)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#listapplicationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListApplicationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListApplicationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/ListApplications.html#IoTSiteWise.Paginator.ListApplications.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#listapplicationspaginator)
         """
 
 if TYPE_CHECKING:
@@ -533,6 +674,64 @@ class ListDashboardsPaginator(_ListDashboardsPaginatorBase):
         """
 
 if TYPE_CHECKING:
+    _ListDatasetDataSegmentRelationshipsPaginatorBase = Paginator[
+        ListDatasetDataSegmentRelationshipsResponseTypeDef
+    ]
+else:
+    _ListDatasetDataSegmentRelationshipsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListDatasetDataSegmentRelationshipsPaginator(
+    _ListDatasetDataSegmentRelationshipsPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/ListDatasetDataSegmentRelationships.html#IoTSiteWise.Paginator.ListDatasetDataSegmentRelationships)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#listdatasetdatasegmentrelationshipspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListDatasetDataSegmentRelationshipsRequestPaginateTypeDef]
+    ) -> PageIterator[ListDatasetDataSegmentRelationshipsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/ListDatasetDataSegmentRelationships.html#IoTSiteWise.Paginator.ListDatasetDataSegmentRelationships.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#listdatasetdatasegmentrelationshipspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListDatasetDataSegmentsPaginatorBase = Paginator[ListDatasetDataSegmentsResponseTypeDef]
+else:
+    _ListDatasetDataSegmentsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListDatasetDataSegmentsPaginator(_ListDatasetDataSegmentsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/ListDatasetDataSegments.html#IoTSiteWise.Paginator.ListDatasetDataSegments)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#listdatasetdatasegmentspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListDatasetDataSegmentsRequestPaginateTypeDef]
+    ) -> PageIterator[ListDatasetDataSegmentsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/ListDatasetDataSegments.html#IoTSiteWise.Paginator.ListDatasetDataSegments.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#listdatasetdatasegmentspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListDatasetExportJobsPaginatorBase = Paginator[ListDatasetExportJobsResponseTypeDef]
+else:
+    _ListDatasetExportJobsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListDatasetExportJobsPaginator(_ListDatasetExportJobsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/ListDatasetExportJobs.html#IoTSiteWise.Paginator.ListDatasetExportJobs)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#listdatasetexportjobspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListDatasetExportJobsRequestPaginateTypeDef]
+    ) -> PageIterator[ListDatasetExportJobsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/ListDatasetExportJobs.html#IoTSiteWise.Paginator.ListDatasetExportJobs.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#listdatasetexportjobspaginator)
+        """
+
+if TYPE_CHECKING:
     _ListDatasetsPaginatorBase = Paginator[ListDatasetsResponseTypeDef]
 else:
     _ListDatasetsPaginatorBase = Paginator  # type: ignore[assignment]
@@ -548,6 +747,24 @@ class ListDatasetsPaginator(_ListDatasetsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/ListDatasets.html#IoTSiteWise.Paginator.ListDatasets.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#listdatasetspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListEnrichmentJobsPaginatorBase = Paginator[ListEnrichmentJobsResponseTypeDef]
+else:
+    _ListEnrichmentJobsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListEnrichmentJobsPaginator(_ListEnrichmentJobsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/ListEnrichmentJobs.html#IoTSiteWise.Paginator.ListEnrichmentJobs)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#listenrichmentjobspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListEnrichmentJobsRequestPaginateTypeDef]
+    ) -> PageIterator[ListEnrichmentJobsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/ListEnrichmentJobs.html#IoTSiteWise.Paginator.ListEnrichmentJobs.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#listenrichmentjobspaginator)
         """
 
 if TYPE_CHECKING:
@@ -605,6 +822,42 @@ class ListInterfaceRelationshipsPaginator(_ListInterfaceRelationshipsPaginatorBa
         """
 
 if TYPE_CHECKING:
+    _ListPipelineExecutionsPaginatorBase = Paginator[ListPipelineExecutionsResponseTypeDef]
+else:
+    _ListPipelineExecutionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListPipelineExecutionsPaginator(_ListPipelineExecutionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/ListPipelineExecutions.html#IoTSiteWise.Paginator.ListPipelineExecutions)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#listpipelineexecutionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPipelineExecutionsRequestPaginateTypeDef]
+    ) -> PageIterator[ListPipelineExecutionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/ListPipelineExecutions.html#IoTSiteWise.Paginator.ListPipelineExecutions.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#listpipelineexecutionspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListPipelinesPaginatorBase = Paginator[ListPipelinesResponseTypeDef]
+else:
+    _ListPipelinesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListPipelinesPaginator(_ListPipelinesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/ListPipelines.html#IoTSiteWise.Paginator.ListPipelines)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#listpipelinespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPipelinesRequestPaginateTypeDef]
+    ) -> PageIterator[ListPipelinesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/ListPipelines.html#IoTSiteWise.Paginator.ListPipelines.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#listpipelinespaginator)
+        """
+
+if TYPE_CHECKING:
     _ListPortalsPaginatorBase = Paginator[ListPortalsResponseTypeDef]
 else:
     _ListPortalsPaginatorBase = Paginator  # type: ignore[assignment]
@@ -659,6 +912,60 @@ class ListProjectsPaginator(_ListProjectsPaginatorBase):
         """
 
 if TYPE_CHECKING:
+    _ListQueriesPaginatorBase = Paginator[ListQueriesResponseTypeDef]
+else:
+    _ListQueriesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListQueriesPaginator(_ListQueriesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/ListQueries.html#IoTSiteWise.Paginator.ListQueries)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#listqueriespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListQueriesRequestPaginateTypeDef]
+    ) -> PageIterator[ListQueriesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/ListQueries.html#IoTSiteWise.Paginator.ListQueries.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#listqueriespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListSearchesPaginatorBase = Paginator[ListSearchesResponseTypeDef]
+else:
+    _ListSearchesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListSearchesPaginator(_ListSearchesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/ListSearches.html#IoTSiteWise.Paginator.ListSearches)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#listsearchespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListSearchesRequestPaginateTypeDef]
+    ) -> PageIterator[ListSearchesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/ListSearches.html#IoTSiteWise.Paginator.ListSearches.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#listsearchespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListTasksPaginatorBase = Paginator[ListTasksResponseTypeDef]
+else:
+    _ListTasksPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListTasksPaginator(_ListTasksPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/ListTasks.html#IoTSiteWise.Paginator.ListTasks)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#listtaskspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListTasksRequestPaginateTypeDef]
+    ) -> PageIterator[ListTasksResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/ListTasks.html#IoTSiteWise.Paginator.ListTasks.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#listtaskspaginator)
+        """
+
+if TYPE_CHECKING:
     _ListTimeSeriesPaginatorBase = Paginator[ListTimeSeriesResponseTypeDef]
 else:
     _ListTimeSeriesPaginatorBase = Paginator  # type: ignore[assignment]
@@ -674,4 +981,22 @@ class ListTimeSeriesPaginator(_ListTimeSeriesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/ListTimeSeries.html#IoTSiteWise.Paginator.ListTimeSeries.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#listtimeseriespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListWorkspacesPaginatorBase = Paginator[ListWorkspacesResponseTypeDef]
+else:
+    _ListWorkspacesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListWorkspacesPaginator(_ListWorkspacesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/ListWorkspaces.html#IoTSiteWise.Paginator.ListWorkspaces)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#listworkspacespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListWorkspacesRequestPaginateTypeDef]
+    ) -> PageIterator[ListWorkspacesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/paginator/ListWorkspaces.html#IoTSiteWise.Paginator.ListWorkspaces.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsitewise/paginators/#listworkspacespaginator)
         """

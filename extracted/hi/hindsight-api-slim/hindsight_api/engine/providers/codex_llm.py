@@ -172,8 +172,8 @@ class CodexLLM(LLMInterface):
         if self.model.startswith("openai/"):
             self.model = self.model[len("openai/") :]
 
-        # Map reasoning effort to Codex reasoning summary format
-        # Codex supports: "auto", "concise", "detailed"
+        # Reasoning summary controls presentation separately from the backend's
+        # reasoning effort, which is sent unchanged in each request payload.
         self.reasoning_summary = self._map_reasoning_effort(reasoning_effort)
 
         # HTTP client for SSE streaming
@@ -448,7 +448,7 @@ class CodexLLM(LLMInterface):
             "tools": [],
             "tool_choice": "auto",
             "parallel_tool_calls": True,
-            "reasoning": {"summary": reasoning_summary},
+            "reasoning": {"effort": self.reasoning_effort, "summary": reasoning_summary},
             "store": False,  # Codex uses stateless mode
             "stream": True,  # SSE streaming
             "include": ["reasoning.encrypted_content"],
@@ -573,7 +573,7 @@ class CodexLLM(LLMInterface):
 
                 # Record trace span
                 try:
-                    from hindsight_api.tracing import get_span_recorder
+                    from hindsight_api.tracing import _serialize_for_span, get_span_recorder
 
                     # Estimate tokens for tracing
                     estimated_input = sum(len(m.get("content", "")) for m in messages) // 4
@@ -584,15 +584,17 @@ class CodexLLM(LLMInterface):
                         model=self.model,
                         scope=scope,
                         messages=messages,
-                        response_content=result if isinstance(result, str) else result.model_dump_json(),
+                        response_content=_serialize_for_span(result),
                         input_tokens=estimated_input,
                         output_tokens=estimated_output,
                         duration=duration,
                         finish_reason=None,
                         error=None,
                     )
-                except Exception:
-                    pass  # logging failure must never affect the operation
+                except Exception as span_error:
+                    # Tracing must remain best-effort, but expose instrumentation
+                    # bugs that would otherwise silently erase spans (#3025).
+                    logger.debug("Codex span recording failed: %s", span_error, exc_info=True)
 
                 if return_usage:
                     # Codex doesn't provide token counts, estimate based on content
@@ -831,7 +833,7 @@ class CodexLLM(LLMInterface):
                 else tool_choice.mode.value
             ),
             "parallel_tool_calls": True,
-            "reasoning": {"summary": reasoning_summary},
+            "reasoning": {"effort": self.reasoning_effort, "summary": reasoning_summary},
             "store": False,
             "stream": True,
             "include": ["reasoning.encrypted_content"],

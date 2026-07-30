@@ -14,12 +14,16 @@ use futures::{
 use http::header::{HeaderName, HeaderValue};
 #[cfg(feature = "s3")]
 use icechunk_storage::s3_config::{S3Credentials, S3Options};
-use icechunk_storage::strip_quotes;
 use icechunk_storage::{
     ConcurrencySettings, DeleteObjectsResult, ETag, Generation, GetModifiedResult,
     ListInfo, RepositoryCreation, RetriesSettings, Settings, Storage, StorageError,
     StorageErrorKind, StorageInfo, StorageResult, VersionInfo, VersionedUpdateResult,
-    obj_not_found_res, obj_store_error, obj_store_error_res, other_error, sealed,
+    obj_not_found_res, obj_store_error, obj_store_error_res, other_error,
+    readback::{
+        ReadbackOutcome, WRITE_ID_METADATA_KEY, resolve_lost_response,
+        resolve_precondition, write_id_for,
+    },
+    sealed,
 };
 use icechunk_types::ICResultExt as _;
 #[cfg(any(feature = "s3", feature = "gcs", feature = "azure", feature = "http"))]
@@ -61,8 +65,9 @@ use std::{
 use tokio::sync::{OnceCell, RwLock};
 
 use tokio_util::io::StreamReader;
-use tracing::instrument;
+use tracing::{instrument, warn};
 use url::Url;
+use uuid::Uuid;
 
 /// Whether a storage operation reads from or writes to the object store.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -575,6 +580,16 @@ impl Storage for ObjectStorage {
         };
 
         let mode = self.get_put_mode(settings, previous_version);
+        let is_conditional = !matches!(mode, PutMode::Overwrite);
+        let write_id =
+            write_id_for(settings, is_conditional, || Uuid::new_v4().to_string());
+        if let Some(id) = &write_id {
+            attributes.insert(
+                Attribute::Metadata(std::borrow::Cow::Borrowed(WRITE_ID_METADATA_KEY)),
+                AttributeValue::from(id.clone()),
+            );
+        }
+
         let options = PutOptions { mode, attributes, ..PutOptions::default() };
         // FIXME: use multipart
         let res = self
@@ -592,11 +607,29 @@ impl Storage for ObjectStorage {
             }
             Err(object_store::Error::Precondition { .. })
             | Err(object_store::Error::AlreadyExists { .. }) => {
-                Ok(VersionedUpdateResult::NotOnLatestVersion)
+                let outcome = self
+                    .read_back_after_conditional_failure(
+                        settings,
+                        &path,
+                        write_id.as_deref(),
+                    )
+                    .await;
+                resolve_precondition(outcome, path.as_ref())
             }
-            Err(err) => {
-                Err(StorageError::capture(StorageErrorKind::ObjectStore(Box::new(err))))
+            // Only `Generic` can hide a landed-but-ack-lost write as a transport
+            // failure; `Precondition`/`AlreadyExists` have their own arm above.
+            // Then only `OurWrite` flips to success; the rest propagate.
+            Err(err) if matches!(err, object_store::Error::Generic { .. }) => {
+                let outcome = self
+                    .read_back_after_conditional_failure(
+                        settings,
+                        &path,
+                        write_id.as_deref(),
+                    )
+                    .await;
+                resolve_lost_response(outcome, path.as_ref(), obj_store_error(err))
             }
+            Err(err) => Err(obj_store_error(err)),
         }
     }
 
@@ -615,7 +648,7 @@ impl Storage for ObjectStorage {
             // object_store has no conditional copy, so we do a conditional GET
             // (verifying the source etag) followed by a PUT.
             let opts = GetOptions {
-                if_match: version.etag().map(|e| strip_quotes(e).into()),
+                if_match: version.etag().map(|e| e.into()),
                 ..Default::default()
             };
             let result =
@@ -766,6 +799,47 @@ impl Storage for ObjectStorage {
 }
 
 impl ObjectStorage {
+    /// HEAD `path` and classify it against our write-id. `Err` only on a HEAD
+    /// failure. `head: true` keeps `GetResult::attributes`; bare `head()` drops
+    /// user metadata.
+    async fn read_back_after_conditional_failure(
+        &self,
+        settings: &Settings,
+        path: &ObjectPath,
+        write_id: Option<&str>,
+    ) -> StorageResult<ReadbackOutcome> {
+        let Some(write_id) = write_id else { return Ok(ReadbackOutcome::NotOurs) };
+        let client = self.get_client(settings, Role::Write).await?;
+        let opts = GetOptions { head: true, ..Default::default() };
+        let (stored_write_id, version) = match client.get_opts(path, opts).await {
+            Ok(result) => (
+                result
+                    .attributes
+                    .get(&Attribute::Metadata(std::borrow::Cow::Borrowed(
+                        WRITE_ID_METADATA_KEY,
+                    )))
+                    .map(|v| v.as_ref().to_string()),
+                VersionInfo {
+                    etag: result.meta.e_tag.as_ref().cloned().map(ETag),
+                    generation: result.meta.version.as_ref().cloned().map(Generation),
+                },
+            ),
+            // Absent is conclusive (not a failed read-back): our write didn't land.
+            Err(object_store::Error::NotFound { .. }) => {
+                return Ok(ReadbackOutcome::NotOurs);
+            }
+            Err(err) => {
+                warn!(
+                    %path,
+                    error = %err,
+                    "readback HEAD failed; propagating the HEAD error"
+                );
+                return Err(obj_store_error(err));
+            }
+        };
+        Ok(ReadbackOutcome::classify(write_id, stored_write_id.as_deref(), &version))
+    }
+
     async fn get_object_range_conditional(
         &self,
         settings: &Settings,
@@ -787,7 +861,7 @@ impl ObjectStorage {
             range,
             if_none_match: previous_version
                 .as_ref()
-                .and_then(|v| v.etag().map(|e| strip_quotes(e).into())),
+                .and_then(|v| v.etag().map(|e| e.into())),
             ..Default::default()
         };
         let res =
@@ -1647,7 +1721,12 @@ mod tests {
     use icechunk_macros::tokio_test;
     use tempfile::TempDir;
 
-    use super::ObjectStorage;
+    use super::{
+        Bytes, ObjectPath, ObjectStorage, ReadbackOutcome, Settings, Storage as _,
+        VersionedUpdateResult,
+    };
+    #[cfg(feature = "http")]
+    use super::{NonZeroU16, RetriesSettings, Url};
 
     #[tokio_test]
     async fn test_serialize_object_store() {
@@ -1695,6 +1774,89 @@ mod tests {
         let store =
             ObjectStorage::new_local_filesystem(PathBuf::from(&rel_path).as_path()).await;
         assert!(store.is_ok());
+    }
+
+    #[tokio_test]
+    async fn readback_of_absent_object_is_not_ours() {
+        // Absent is conclusive: our write didn't land.
+        let store = ObjectStorage::new_in_memory().await.unwrap();
+        let outcome = store
+            .read_back_after_conditional_failure(
+                &Settings::default(),
+                &ObjectPath::from("missing"),
+                Some("some-write-id"),
+            )
+            .await
+            .unwrap();
+        assert_eq!(outcome, ReadbackOutcome::NotOurs);
+    }
+
+    #[tokio_test]
+    async fn conditional_copy_and_get_roundtrip_etag() {
+        // Etags must round-trip verbatim into if_match/if_none_match:
+        // object_store compares them by exact string equality, so stripping
+        // quotes turns every conditional copy into a spurious conflict.
+        let store = ObjectStorage::new_in_memory().await.unwrap();
+        let settings = store.default_settings().await.unwrap();
+        let path = "conditional-roundtrip";
+        let version = match store
+            .put_object(
+                &settings,
+                path,
+                Bytes::from_static(b"payload"),
+                None,
+                Default::default(),
+                None,
+            )
+            .await
+            .unwrap()
+        {
+            VersionedUpdateResult::Updated { new_version } => new_version,
+            VersionedUpdateResult::NotOnLatestVersion => {
+                panic!("unconditional put must succeed")
+            }
+        };
+
+        let copied = store
+            .copy_object(&settings, path, "conditional-roundtrip-copy", None, &version)
+            .await
+            .unwrap();
+        assert!(matches!(copied, VersionedUpdateResult::Updated { .. }));
+
+        let not_modified = store
+            .get_object_range_conditional(&settings, path, None, Some(&version))
+            .await
+            .unwrap();
+        assert!(not_modified.is_none());
+    }
+
+    #[cfg(feature = "http")]
+    #[tokio_test]
+    async fn readback_head_failure_propagates() {
+        // Unreachable endpoint: the readback HEAD fails with a non-NotFound
+        // error, which must propagate instead of faking a conflict.
+        let store = ObjectStorage::new_http(
+            &Url::parse("http://127.0.0.1:9").unwrap(),
+            None,
+            None,
+        )
+        .unwrap();
+        let settings = Settings {
+            retries: Some(RetriesSettings {
+                max_tries: Some(NonZeroU16::new(1).unwrap()),
+                initial_backoff_ms: Some(1),
+                max_backoff_ms: Some(1),
+            }),
+            ..Default::default()
+        };
+        store
+            .read_back_after_conditional_failure(
+                &settings,
+                &ObjectPath::from("missing"),
+                Some("some-write-id"),
+            )
+            .await
+            .expect_err("HEAD against an unreachable endpoint must fail");
     }
 }
 

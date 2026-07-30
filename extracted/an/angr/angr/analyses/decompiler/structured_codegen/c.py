@@ -1,4 +1,4 @@
-# pylint:disable=missing-class-docstring,too-many-boolean-expressions,unused-argument,no-self-use
+# pylint:disable=missing-class-docstring,too-many-boolean-expressions,unused-argument,no-self-use,protected-access
 from __future__ import annotations
 
 import logging
@@ -33,6 +33,7 @@ from angr.analyses.decompiler.variable_map import VariableMap
 from angr.errors import UnsupportedNodeTypeError
 from angr.knowledge_plugins.cfg.memory_data import MemoryData, MemoryDataSort
 from angr.knowledge_plugins.functions import Function
+from angr.serializable import Serializable
 from angr.sim_type import (
     SimCppClass,
     SimStruct,
@@ -339,12 +340,16 @@ class CConstruct:
     Acts as the base class for all other representation constructions.
     """
 
-    __slots__ = ("codegen", "idx", "tags")
+    __slots__ = ("codegen", "ident", "idx", "tags")
 
     def __init__(self, codegen, tags=None):
+        # a CConstruct cannot exist without its owning codegen: ``idx`` (the per-codegen unique node identity) and
+        # ``ident`` (a per-class-name display label; NOT unique) are both allocated from it
+        assert codegen is not None
         self.tags = tags or {}
-        self.codegen: CStructuredCodeGenerator = codegen  # type: ignore[assignment]
-        self.idx = codegen.next_idx(self.__class__.__name__)
+        self.codegen: CStructuredCodeGenerator = codegen
+        self.ident: str = codegen.next_ident(self.__class__.__name__)
+        self.idx: int = codegen.next_node_idx()
 
     def c_repr(self, initial_pos=0, indent=0, pos_to_node=None, pos_to_addr=None, addr_to_pos=None):
         """
@@ -731,7 +736,7 @@ class CFunction(CConstruct):  # pylint:disable=abstract-method
                     if isinstance(field, SimStruct) and field not in extern_types:
                         if field.name and not field.fields and field.name in defined_struct_names:
                             continue
-                        extern_types.append(field)
+                        extern_types.append(field)  # pylint:disable=modified-iterating-list
 
             # Emit in reverse order: nested structs first
             for ty in reversed(extern_types):
@@ -853,7 +858,7 @@ class CStatement(CConstruct):  # pylint:disable=abstract-method
     Represents a statement in C.
     """
 
-    def __init__(self, tags=None, codegen=None):
+    def __init__(self, tags=None, *, codegen):
         super().__init__(codegen=codegen, tags=tags)
 
 
@@ -864,7 +869,7 @@ class CExpression(CConstruct):
 
     __slots__ = ("_type", "collapsed")
 
-    def __init__(self, collapsed=False, tags=None, codegen=None):
+    def __init__(self, collapsed=False, tags=None, *, codegen):
         super().__init__(codegen=codegen, tags=tags)
         self._type = None
         self.collapsed = collapsed
@@ -1441,12 +1446,12 @@ class CAssignment(CStatement):
             and self.rhs.op in compound_assignment_ops
             and self.lhs.unified_variable is not None
         ):
-            if isinstance(self.rhs.lhs, CVariable) and self.lhs.unified_variable is self.rhs.lhs.unified_variable:
+            if isinstance(self.rhs.lhs, CVariable) and self.lhs.unified_variable == self.rhs.lhs.unified_variable:
                 compound_expr_rhs = self.rhs.rhs
             elif (
                 self.rhs.op in commutative_ops
                 and isinstance(self.rhs.rhs, CVariable)
-                and self.lhs.unified_variable is self.rhs.rhs.unified_variable
+                and self.lhs.unified_variable == self.rhs.rhs.unified_variable
             ):
                 compound_expr_rhs = self.rhs.lhs
 
@@ -1511,7 +1516,8 @@ class CFunctionCall(CExpression):
         show_demangled_name=True,
         show_disambiguated_name: bool = True,
         tags=None,
-        codegen=None,
+        *,
+        codegen,
         **kwargs,
     ):
         super().__init__(tags=tags, codegen=codegen, **kwargs)
@@ -2265,6 +2271,34 @@ class CBinaryOp(CExpression):
         yield from self._c_repr_chunks(" << ")
 
     def _c_repr_chunks_sar(self):
+        # Sar is an arithmetic (signed) right shift, but it renders as the C `>>` operator, which only performs an
+        # arithmetic shift when its left operand is signed. If the left operand renders as an unsigned integer, emit
+        # an explicit signed cast; otherwise `>>` would be a logical shift and silently drop the sign bit. The cast is
+        # emitted here at render time because the earlier typecast-collapsing passes treat same-size signed/unsigned
+        # integer casts as redundant and would strip a cast added during code generation.
+        lhs_ty = self.lhs.type
+        if (
+            isinstance(lhs_ty, (SimTypeInt, SimTypeChar, SimTypeNum))
+            and getattr(lhs_ty, "signed", None) is False
+            and lhs_ty.size is not None
+        ):
+            signed_ty = self.codegen.default_simtype_from_bits(lhs_ty.size, signed=True)
+            paren = CClosingObject("(")
+            yield "(", paren
+            yield f"{signed_ty.c_repr(name=None)}", signed_ty
+            yield ")", paren
+            yield "(", paren
+            yield from self._try_c_repr_chunks(self.lhs)
+            yield ")", paren
+            yield " >> ", self
+            if isinstance(self.rhs, CBinaryOp) and self.op_precedence > self.rhs.op_precedence:
+                paren2 = CClosingObject("(")
+                yield "(", paren2
+                yield from self._try_c_repr_chunks(self.rhs)
+                yield ")", paren2
+            else:
+                yield from self._try_c_repr_chunks(self.rhs)
+            return
         yield from self._c_repr_chunks(" >> ")
 
     def _c_repr_chunks_logicaland(self):
@@ -2494,7 +2528,8 @@ class CConstant(CExpression):
                         return
                     yield hex(self.reference_values[self._type]), self
                     return
-                elif isinstance(self._type, SimTypePointer) and isinstance(self._type.pts_to, SimTypeChar):
+
+                if isinstance(self._type, SimTypePointer) and isinstance(self._type.pts_to, SimTypeChar):
                     refval = self.reference_values[self._type]
                     if isinstance(refval, MemoryData):
                         v = refval.content.decode("utf-8") if refval.content else f"<unknown@{refval.addr:#x}>"
@@ -2506,7 +2541,8 @@ class CConstant(CExpression):
                         assert isinstance(v, str)
                     yield CConstant.str_to_c_str(v, maxlen=self.codegen.max_str_len), self
                     return
-                elif isinstance(self._type, SimTypePointer) and isinstance(self._type.pts_to, SimTypeWideChar):
+
+                if isinstance(self._type, SimTypePointer) and isinstance(self._type.pts_to, SimTypeWideChar):
                     refval = self.reference_values[self._type]
                     if isinstance(refval, MemoryData):
                         v = decode_utf16_string(refval.content) if refval.content else f"<unknown@{refval.addr:#x}>"
@@ -2516,17 +2552,17 @@ class CConstant(CExpression):
                         assert False, f"Unexpected reference value type {type(refval)} for wide char pointer"
                     yield CConstant.str_to_c_str(v, prefix="L", maxlen=self.codegen.max_str_len), self
                     return
-                else:
-                    if isinstance(self.reference_values[self._type], int):
-                        yield self.fmt_int(self.reference_values[self._type]), self
-                        return
-                    o = _default_output(self.reference_values[self.type])
-                    if o is not None:
-                        yield o, self
-                        return
+
+                if isinstance(self.reference_values[self._type], int):
+                    yield self.fmt_int(self.reference_values[self._type]), self
+                    return
+                o = _default_output(self.reference_values[self.type])
+                if o is not None:
+                    yield o, self
+                    return
 
             # default priority: string references -> variables -> other reference values
-            for _ty, v in self.reference_values.items():  # pylint:disable=unused-variable
+            for v in self.reference_values.values():  # pylint:disable=unused-variable
                 o = _default_output(v)
                 if o is not None:
                     yield o, self
@@ -2768,14 +2804,13 @@ class CStructFieldNameDef:
         self.name = name
 
 
-class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
+class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializable):
     def __init__(
         self,
         func,
         sequence,
         indent=0,
         cfg=None,
-        variable_kb=None,
         func_args: list[SimVariable] | None = None,
         binop_depth_cutoff: int = 16,
         show_casts=True,
@@ -2863,7 +2898,6 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
         self._func_args = func_args
         self._cfg = cfg
         self._sequence = sequence
-        self._variable_kb = variable_kb if variable_kb is not None else self.kb
         self._variable_map: VariableMap = variable_map if variable_map is not None else VariableMap()
         self.binop_depth_cutoff = binop_depth_cutoff
 
@@ -2942,7 +2976,7 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
 
         arg_list = [self._variable(arg, None) for arg in self._func_args] if self._func_args else []
 
-        self.reset_idx_counters()
+        self.reset_ident_counters()
         obj = self._handle(self._sequence)
 
         self.cnode2ailexpr = {v: k[0] for k, v in self.ailexpr2cnode.items()}
@@ -2954,7 +2988,7 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
             arg_list,
             obj,
             self._variables_in_use,
-            self._variable_kb.variables[self._func.addr],
+            self.kb.dec_variables[self._func.addr],
             demangled_name=self._func.demangled_name,
             show_demangled_name=self.show_demangled_name,
             codegen=self,
@@ -2989,6 +3023,9 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
         """
         if self.cfunc is None:
             return
+        # recompute the unified local variables and their types from the (possibly updated or freshly deserialized)
+        # variable manager, so re-rendering reflects the current variable types
+        self.cfunc.refresh()
         self.cleanup()
         (
             self.text,
@@ -3059,8 +3096,8 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
 
     def _get_variable_type(self, var, is_global=False):
         if is_global:
-            return self._variable_kb.variables["global"].get_variable_type(var)
-        return self._variable_kb.variables[self._func.addr].get_variable_type(var)
+            return self.kb.dec_variables["global"].get_variable_type(var)
+        return self.kb.dec_variables[self._func.addr].get_variable_type(var)
 
     def _get_derefed_type(self, ty: SimType) -> SimType | None:
         if ty is None:
@@ -3117,7 +3154,7 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
     ) -> CVariable:
         # TODO: we need to fucking make sure that variable recovery and type inference actually generates a size
         # TODO: for each variable it links into the fucking ail. then we can remove fallback_type_size.
-        unified = self._variable_kb.variables[self._func.addr].unified_variable(variable)
+        unified = self.kb.dec_variables[self._func.addr].unified_variable(variable)
         variable_type = self._get_variable_type(
             variable, is_global=isinstance(variable, SimMemoryVariable) and not isinstance(variable, SimStackVariable)
         )
@@ -3362,7 +3399,10 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
                     )
                 result = piece if result is None else CBinaryOp(op, result, piece, codegen=self)
             if o_constant != 0:
-                result = CBinaryOp("Add", CConstant(o_constant, SimTypeInt(), codegen=self), result, codegen=self)
+                if o_constant < 0:
+                    result = CBinaryOp("Sub", result, CConstant(-o_constant, SimTypeInt(), codegen=self), codegen=self)
+                else:
+                    result = CBinaryOp("Add", result, CConstant(o_constant, SimTypeInt(), codegen=self), codegen=self)
 
             return CUnaryOp(
                 "Dereference", CTypeCast(result.type, SimTypePointer(data_type), result, codegen=self), codegen=self
@@ -3373,7 +3413,7 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
         # also identify the "kernel", the root of the expression
         constant, terms = o_constant, list(o_terms)
         if constant < 0:
-            constant = -constant  # TODO: This may not be correct. investigate later
+            return bail_out()
 
         i = 0
         kernel = None
@@ -3692,7 +3732,7 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
         return CAssignment(cdst, cdata, tags=stmt.tags, codegen=self)
 
     def variables_unify(self, v1: Expr.VirtualVariable, v2: Expr.VirtualVariable) -> bool:
-        vmi = self._variable_kb.variables[self._func.addr]
+        vmi = self.kb.dec_variables[self._func.addr]
         v1_var = self._variable_map.variable(v1)
         v2_var = self._variable_map.variable(v2)
         v1v = vmi.unified_variable(v1_var) if v1_var is not None else None
@@ -4360,6 +4400,27 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
         stack_base = CFakeVariable("stack_base", SimTypePointer(SimTypeBottom()), codegen=self)
         return CBinaryOp("Add", stack_base, CConstant(expr.offset, SimTypeInt(), codegen=self), codegen=self)
 
+    #
+    # Serialization
+    #
+
+    @classmethod
+    def _get_cmsg(cls):
+        from angr.protos import codegen_pb2  # pylint:disable=import-outside-toplevel
+
+        return codegen_pb2.Codegen()  # pylint:disable=no-member
+
+    def serialize_to_cmessage(self):
+        from . import c_serialize  # pylint:disable=import-outside-toplevel
+
+        return c_serialize.serialize_codegen(self)
+
+    @classmethod
+    def parse_from_cmessage(cls, cmsg, *, project=None, kb=None, func=None, **kwargs):
+        from . import c_serialize  # pylint:disable=import-outside-toplevel
+
+        return c_serialize.parse_codegen(cmsg, project=project, kb=kb, func=func)
+
 
 class CStructuredCodeWalker:
     def handle(self, obj):
@@ -4607,3 +4668,10 @@ class PointerArithmeticFixer(CStructuredCodeWalker):
 
 # StructuredCodeGenerator = CStructuredCodeGenerator
 register_analysis(CStructuredCodeGenerator, "CStructuredCodeGenerator")
+
+
+# Register protobuf serializer/parser pairs for every concrete CConstruct subclass. Imported after all classes are
+# defined so that ``c_serialize.register_all`` can reference them by name.
+from . import c_serialize as _c_serialize  # pylint: disable=wrong-import-position
+
+_c_serialize.register_all()

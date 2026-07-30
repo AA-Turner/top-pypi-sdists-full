@@ -53,14 +53,6 @@ class TraceContext:
 
     async def __aenter__(self):
         """Create the trace when entering context."""
-        # Track feature usage (best-effort).
-        try:
-            from aigie.licensing import track_feature
-
-            track_feature("tracing")
-        except Exception as e:
-            logger.debug("Feature tracking failed: %s", e)
-
         # Set this trace as the current trace for auto-instrumentation
         from aigie.auto_instrument.trace import set_current_trace
 

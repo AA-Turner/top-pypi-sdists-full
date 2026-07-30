@@ -15,6 +15,13 @@ from .....schema_classes import DataHubMetricCubeMeasureClass
 from .....schema_classes import DataHubMetricCubeMeasuresClass
 from .....schema_classes import DataHubMetricCubeOriginClass
 from .....schema_classes import DataHubMetricSourceTypeClass
+from .....schema_classes import DerivedMetricInputClass
+from .....schema_classes import DialectClass
+from .....schema_classes import DialectExpressionClass
+from .....schema_classes import MetricExpressionClass
+from .....schema_classes import MetricInfoClass
+from .....schema_classes import MetricRelationshipsClass
+from .....schema_classes import MetricUpstreamsClass
 
 
 DataHubMetricCubeDefinition = DataHubMetricCubeDefinitionClass
@@ -25,5 +32,12 @@ DataHubMetricCubeMeasure = DataHubMetricCubeMeasureClass
 DataHubMetricCubeMeasures = DataHubMetricCubeMeasuresClass
 DataHubMetricCubeOrigin = DataHubMetricCubeOriginClass
 DataHubMetricSourceType = DataHubMetricSourceTypeClass
+DerivedMetricInput = DerivedMetricInputClass
+Dialect = DialectClass
+DialectExpression = DialectExpressionClass
+MetricExpression = MetricExpressionClass
+MetricInfo = MetricInfoClass
+MetricRelationships = MetricRelationshipsClass
+MetricUpstreams = MetricUpstreamsClass
 
 # fmt: on

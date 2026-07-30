@@ -22,6 +22,11 @@ BUILD_ID = os.getenv("ABSTRA_BUILD_ID") or "dev"
 PROJECT_ID = os.getenv("ABSTRA_PROJECT_ID") or "dev-project-id"
 PROJECT_URL = os.getenv("ABSTRA_PROJECT_URL")
 
+# Web editor with cloud-api-served player: when set, the editor pod does not
+# register the player blueprint — player routes are served by cloud-api at
+# this URL (see /_editor/player-url for the authenticated hand-off).
+EXTERNAL_PLAYER_URL = os.getenv("ABSTRA_EXTERNAL_PLAYER_URL")
+
 # PASSWORDLESS AUTHENTICATION
 EMAIL_JWT_AUDIENCE = f"abstra:email:{PROJECT_ID}"
 PUBLIC_KEY = os.getenv("ABSTRA_JWT_PUBLIC_KEY_PEM")

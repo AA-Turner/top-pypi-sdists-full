@@ -13,7 +13,7 @@ from abstra_internals.repositories.linter.models import (
 )
 from abstra_internals.repositories.linter.process_actions import (
     RESTART_NOTICE,
-    restart_editor_and_workers,
+    restart_or_defer_after_install,
 )
 from abstra_internals.services.requirements import (
     Requirements,
@@ -49,10 +49,10 @@ class AddPackageToRequirements(LinterFix):
         req = create_requirement(self.package_name, self.version)
         if Requirements([req]).install_succeeded():
             # The package is now on disk but invisible to the long-lived editor
-            # and worker processes — restart both so the linter re-checks
-            # against it, otherwise this issue would never clear (only a manual
-            # editor restart would). A failed install leaves things as-is.
-            restart_editor_and_workers("[InstallPackage]")
+            # and worker processes. On the web editor this defers a restart (the
+            # user applies it via "Restart editor"); elsewhere it restarts now so
+            # the linter re-checks against it. A failed install leaves things as-is.
+            restart_or_defer_after_install()
 
 
 class MissingPackageInRequirements(LinterIssue):

@@ -256,7 +256,7 @@ def set_cloud_connector_version_override(
         TierFilter,
         Field(
             description=(
-                "Required tier filter: 'TIER_0', 'TIER_1', 'TIER_2', or 'ALL'. "
+                "Required tier filter: 'TIER_0', 'TIER_1', 'TIER_2', 'UNKNOWN', or 'ALL'. "
                 "The operation will be rejected if the actual customer tier does not match. "
                 "Use 'ALL' to proceed regardless of tier (a warning is shown for sensitive tiers)."
             ),
@@ -298,7 +298,10 @@ def set_cloud_connector_version_override(
     resolved_workspace_id = WorkspaceAliasEnum.resolve(workspace_id)
     assert resolved_workspace_id is not None  # workspace_id is required
 
-    ws_resolution = resolve_workspace(resolved_workspace_id)
+    ws_resolution = resolve_workspace(
+        workspace_id=resolved_workspace_id,
+        allow_degraded=True,
+    )
     if not ws_resolution.organization_id:
         return VersionOverrideOperationResult(
             success=False,
@@ -437,7 +440,7 @@ def set_workspace_connector_version_override(
         TierFilter,
         Field(
             description=(
-                "Required tier filter: 'TIER_0', 'TIER_1', 'TIER_2', or 'ALL'. "
+                "Required tier filter: 'TIER_0', 'TIER_1', 'TIER_2', 'UNKNOWN', or 'ALL'. "
                 "The operation will be rejected if the actual customer tier does not match. "
                 "Use 'ALL' to proceed regardless of tier (a warning is shown for sensitive tiers)."
             ),
@@ -468,7 +471,10 @@ def set_workspace_connector_version_override(
     resolved_workspace_id = WorkspaceAliasEnum.resolve(workspace_id)
     assert resolved_workspace_id is not None  # workspace_id is required
 
-    ws_resolution = resolve_workspace(resolved_workspace_id)
+    ws_resolution = resolve_workspace(
+        workspace_id=resolved_workspace_id,
+        allow_degraded=True,
+    )
     if not ws_resolution.organization_id:
         return WorkspaceVersionOverrideResult(
             success=False,
@@ -605,7 +611,7 @@ def set_organization_connector_version_override(
         TierFilter,
         Field(
             description=(
-                "Required tier filter: 'TIER_0', 'TIER_1', 'TIER_2', or 'ALL'. "
+                "Required tier filter: 'TIER_0', 'TIER_1', 'TIER_2', 'UNKNOWN', or 'ALL'. "
                 "The operation will be rejected if the actual customer tier does not match. "
                 "Use 'ALL' to proceed regardless of tier (a warning is shown for sensitive tiers)."
             ),

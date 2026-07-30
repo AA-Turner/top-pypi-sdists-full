@@ -92,15 +92,14 @@ from .events import (
     slow_warning_timeout,
 )
 from .heartbeat import CrawlHeartbeat
-from .models import Snapshot, write_jsonl
-from .models import Hook, Plugin, RequiredBinary, discover_plugins, filter_plugins
+from .models import Hook, Plugin, RequiredBinary, Snapshot, discover_plugins, filter_plugins, write_jsonl
 from .services import (
     AbxDlEnvConfigFileBinaryCacheBackend,
     ArchiveResultService,
     CrawlService,
     MachineService,
-    ProcessService,
     PluginBinariesService,
+    ProcessService,
     SnapshotService,
     TagService,
 )
@@ -132,6 +131,7 @@ def setup_services(
     emit_jsonl: bool = True,
     interactive_tty: bool | None = None,
     abort_requested: Any | None = None,
+    allowed_binproviders: Sequence[str] | None = None,
     MachineService: type[MachineService] | None = MachineService,
     PluginBinariesService: type[PluginBinariesService] | None = PluginBinariesService,
     BinaryCacheService: type[BinaryCacheService] | None = BinaryCacheService,
@@ -210,6 +210,7 @@ def setup_services(
             output_dir=output_dir,
             snapshot=snapshot,
             abort_requested=abort_requested,
+            allowed_binproviders=allowed_binproviders,
         )
 
     if ProcessService is not None:
@@ -270,8 +271,6 @@ def setup_services(
                 abort_requested=abort_requested,
             )
 
-    return None
-
 
 def get_install_plugins(plugins: dict[str, Plugin]) -> list[Plugin]:
     """Return plugins that declare required binaries for the install phase."""
@@ -322,6 +321,7 @@ async def install_plugins(
     emit_jsonl: bool = False,
     bus: EventBus | None = None,
     dry_run: bool = False,
+    allowed_binproviders: Sequence[str] | None = None,
     MachineService: type[MachineService] | None = MachineService,
     PluginBinariesService: type[PluginBinariesService] | None = PluginBinariesService,
     BinaryCacheService: type[BinaryCacheService] | None = BinaryCacheService,
@@ -336,7 +336,11 @@ async def install_plugins(
     later ``on_CrawlSetup__*`` or ``on_Snapshot__*`` plugin phases.
     """
     all_plugins = plugins or discover_plugins()
-    selected = filter_plugins(all_plugins, list(plugin_names), include_providers=True) if plugin_names else all_plugins
+    selected = filter_plugins(
+        all_plugins,
+        list(plugin_names) if plugin_names else None,
+        include_providers=True,
+    )
     if not selected:
         return []
 
@@ -384,6 +388,7 @@ async def install_plugins(
             auto_install=True,
             emit_jsonl=emit_jsonl,
             interactive_tty=sys.stdout.isatty() or sys.stderr.isatty(),
+            allowed_binproviders=allowed_binproviders,
             MachineService=MachineService,
             PluginBinariesService=PluginBinariesService,
             BinaryCacheService=BinaryCacheService,
@@ -448,7 +453,7 @@ def get_plugin_timeout(plugin: Plugin, config: dict[str, Any] | None = None) -> 
         return int(os.environ["TIMEOUT"])
     # Check plugin schema defaults
     schema_key = f"{name_upper}_TIMEOUT"
-    schema_def = plugin.config.properties[schema_key] if schema_key in plugin.config.properties else {}
+    schema_def = plugin.config.properties.get(schema_key, {})
     if isinstance(schema_def, dict) and "default" in schema_def:
         return int(schema_def["default"])
     return 60
@@ -601,8 +606,7 @@ async def download(
         interactive_tty = stdout_is_tty or sys.stderr.isatty()
 
     # Filter plugins for runtime phases; binary providers are handled by abxpkg.
-    if selected_plugins:
-        plugins = filter_plugins(plugins, selected_plugins)
+    plugins = filter_plugins(plugins, selected_plugins)
 
     # Create snapshot record and write it as the first line of index.jsonl
     snapshot_payload: dict[str, Any] = {"url": url}

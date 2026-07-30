@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mail-parser
-Version: 4.4.0
+Version: 4.5.0
 Summary: A tool that parses emails by enhancing the Python standard library, extracting all details into a comprehensive object.
 Author-email: Fedele Mantuano <mantuano.fedele@gmail.com>
 Maintainer-email: Fedele Mantuano <mantuano.fedele@gmail.com>

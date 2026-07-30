@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: histoprint
-Version: 2.6.0
+Version: 2.7.0
 Summary: Pretty print of NumPy (and other) histograms to the console
 Project-URL: Homepage, https://github.com/scikit-hep/histoprint
 Author-email: Lukas Koch <lukas.koch@mailbox.org>
@@ -12,19 +12,26 @@ Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Requires-Dist: click>=7.0.0
 Requires-Dist: numpy
 Requires-Dist: uhi>=0.2.1
+Provides-Extra: all
+Requires-Dist: awkward>=1; extra == 'all'
+Requires-Dist: boost-histogram>=1.1; extra == 'all'
+Requires-Dist: pandas>=2.3; extra == 'all'
+Requires-Dist: rich>=12; extra == 'all'
+Requires-Dist: uproot>=4; extra == 'all'
 Provides-Extra: boost
 Requires-Dist: boost-histogram>=1.1; extra == 'boost'
+Provides-Extra: csv
+Requires-Dist: pandas>=2.3; extra == 'csv'
 Provides-Extra: rich
 Requires-Dist: rich>=12; extra == 'rich'
 Provides-Extra: test
@@ -33,6 +40,8 @@ Provides-Extra: uproot
 Requires-Dist: awkward>=1; extra == 'uproot'
 Requires-Dist: uproot>=4; extra == 'uproot'
 Description-Content-Type: text/x-rst
+
+.. image:: logo/light_on_transparent.png
 
 ========================================================================
 histoprint - pretty print of NumPy (and other) histograms to the console
@@ -57,6 +66,7 @@ Installation
 ::
 
     $ python -m pip install histoprint
+    $ python -m pip install "histoprint[all]"   # with all optional dependencies
 
 ::
 

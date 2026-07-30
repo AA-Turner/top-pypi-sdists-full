@@ -1,6 +1,6 @@
 [project]
 name = "cadwyn"
-version = "7.1.2"
+version = "7.2.0"
 description = "Production-ready community-driven modern Stripe-like API versioning in FastAPI"
 authors = [{ name = "Stanislav Zmiev", email = "zmievsa@gmail.com" }]
 license = "MIT"
@@ -155,6 +155,9 @@ filterwarnings = [
     # Older starlette syntax is currently supported.
     "ignore:The `name` is not the first parameter anymore:DeprecationWarning:starlette.templating",
     "ignore:The on_startup and on_shutdown parameters are deprecated:DeprecationWarning:starlette.routing",
+
+    # Most tests construct Cadwyn with its backwards-compatible default changelog endpoint.
+    "ignore:Cadwyn's changelog feature is deprecated and will be removed in a future version.:DeprecationWarning",
 
     # FastAPI still uses httpx, we cannot fix it
     "ignore: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead",

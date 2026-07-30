@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: niquests
-Version: 3.20.1
+Version: 3.21.0
 Summary: Niquests is a simple, yet elegant, HTTP library. It is a drop-in replacement for Requests, which is under feature freeze.
 Project-URL: Changelog, https://github.com/jawah/niquests/blob/main/HISTORY.md
 Project-URL: Documentation, https://niquests.readthedocs.io
@@ -10,9 +10,12 @@ Author-email: Kenneth Reitz <me@kennethreitz.org>
 Maintainer-email: "Ahmed R. TAHRI" <tahri.ahmed@proton.me>
 License-Expression: Apache-2.0
 License-File: LICENSE
-Keywords: QUIC,crl,dns-over-https,dns-over-quic,dns-over-tls,dnssec,doh,doq,dot,http,http client,http/1.1,http2,http3,https,multiplexed,ocsp,requests,revocation,sse,tls,websocket
+Keywords: QUIC,crl,dns-over-https,dns-over-quic,dns-over-tls,dnssec,doh,doq,dot,http,http client,http/1.1,http2,http3,https,multiplexed,ocsp,requests,revocation,sse,tls,wasi,wasmtime,websocket
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
+Classifier: Environment :: WebAssembly
+Classifier: Environment :: WebAssembly :: Emscripten
+Classifier: Environment :: WebAssembly :: WASI
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
@@ -28,7 +31,8 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Programming Language :: Python :: Free Threading :: 4 - Resilient
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Internet :: WWW/HTTP
@@ -125,6 +129,7 @@ Niquests, is the “**Safest**, **Fastest[^10]**, **Easiest**, and **Most advanc
 | `Automatic Connection Upgrade / Downgrade` |      ✅       |    N/A    |       ❌       | N/A           |
 | `Server Side Event (SSE)`                  |      ✅       |     ❌     |       ❌       | ❌             |
 | `WASM / Pyodide`                           |      ✅       |     ✅     |       ❌       | ❌             |
+| `WASM / WASI`                              |      ✅       |     ❌     |       ❌       | ❌             |
 | `Swappable TLS Backend`                    |      ✅       |     ❌     |       ❌       | ❌             |
 | `Browser TLS Impersonation`                |    ✅[^15]    |     ❌     |       ❌       | ❌             |
 </details>
@@ -205,7 +210,7 @@ Niquests is available on PyPI:
 $ python -m pip install niquests
 ```
 
-Niquests officially supports Python or PyPy 3.7+.
+Niquests officially supports Python or PyPy 3.7+. Even WASI or Pyodide!
 
 ## 🚀 Supported Features & Best–Practices
 
@@ -248,6 +253,7 @@ Niquests is ready for the demands of building scalable, robust and reliable HTTP
 - Trailers!
 - DNSSEC!
 - Async!
+- WASI!
 - SSE!
 - ECH!
 

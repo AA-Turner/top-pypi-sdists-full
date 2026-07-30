@@ -160,6 +160,15 @@ class TOCAnalyzer:
                             "body-header item(s): %s",
                             sorted(missing), len(recovered), sorted(recovered))
                 result.update(recovered)
+
+        # Anchor-collision repair (GH #920): two distinct item keys sharing
+        # one anchor slice to the identical span downstream — Regions Financial's
+        # Item 7 and Item 7A both target the page-41 anchor because this TOC's
+        # only links are page numbers and both items begin on page 41, so
+        # `obj['Item 7A']` silently returns Item 7's MD&A. The body carries each
+        # item's own heading with its own preceding anchor; when the body scan
+        # resolves a displaced item to a distinct, well-placed anchor, adopt it.
+        result = self._resolve_anchor_collisions(result, html_content, tree, body)
         return result
 
     @staticmethod
@@ -204,6 +213,96 @@ class TOCAnalyzer:
         Other forms return 0 (fallback never triggers).
         """
         return 8 if (self.form or '10-K').replace('/A', '') == '10-K' else 0
+
+    # A canonical SEC item key, optionally part-prefixed (item_7, part_ii_item_7a).
+    _ITEM_KEY_RE = re.compile(r'^(?:part_[ivxlcdm]+_)?item_\d+[a-z]?$', re.IGNORECASE)
+
+    def _doc_positions(self, tree) -> Dict[str, int]:
+        """Map each anchor id / ``<a name>`` to its first document-order index."""
+        positions: Dict[str, int] = {}
+        if tree is None:
+            return positions
+        for idx, el in enumerate(tree.iter()):
+            eid = el.get('id')
+            if eid and eid not in positions:
+                positions[eid] = idx
+            if el.tag == 'a':
+                name = el.get('name')
+                if name and name not in positions:
+                    positions[name] = idx
+        return positions
+
+    def _resolve_anchor_collisions(self, result: Dict[str, str], html_content: str,
+                                   tree=None, body: Optional[Dict[str, str]] = None
+                                   ) -> Dict[str, str]:
+        """Split two item keys that resolved to a single anchor (GH #920).
+
+        When a filer's linked TOC only carries page numbers (no per-item
+        anchors) and two items begin on the same page, both item keys map to
+        that page's anchor. Downstream every consumer slices them to the
+        identical span, so ``obj['Item 7A']`` silently returns Item 7's body.
+
+        The body carries each item's own heading, each preceded by its own
+        anchor. Consult the body-header scan: the item whose body anchor equals
+        the shared anchor is its rightful owner; each other colliding item is
+        re-pointed at its own body anchor, but only when that anchor is distinct,
+        unclaimed, and sits after the shared anchor and before the next item in
+        document order (so a boundary can never be inverted). If the body cannot
+        separate them, the mapping is left unchanged.
+        """
+        if tree is None or not result:
+            return result
+
+        # Group only canonical item keys by the anchor they resolved to.
+        by_anchor: Dict[str, List[str]] = {}
+        for key, anchor in result.items():
+            if self._ITEM_KEY_RE.match(key):
+                by_anchor.setdefault(anchor, []).append(key)
+        collisions = {a: keys for a, keys in by_anchor.items() if len(keys) > 1}
+        if not collisions:
+            return result
+
+        if body is None:
+            body = self._analyze_body_item_headers(html_content, tree=tree)
+        if not body:
+            # Nothing to re-resolve against — surface the un-separated collision
+            # so a filing that duplicates a section stays diagnosable rather than
+            # silently returning a neighbour's text.
+            logger.warning("TOC anchor collision(s) %s could not be separated: "
+                           "no body-header anchors available",
+                           {a: sorted(keys) for a, keys in collisions.items()})
+            return result
+
+        positions = self._doc_positions(tree)
+        claimed = set(result.values())
+
+        for anchor, keys in collisions.items():
+            keys_sorted = sorted(keys, key=lambda k: self._get_section_type_and_order(k)[1])
+            # Owner = the item whose body anchor is this shared anchor; else the
+            # logically-first item keeps it (MD&A owns the page it starts on).
+            owner = next((k for k in keys_sorted if body.get(k) == anchor), keys_sorted[0])
+            shared_pos = positions.get(anchor)
+            for key in keys_sorted:
+                if key is owner:
+                    continue
+                new_anchor = body.get(key)
+                if not new_anchor or new_anchor == anchor or new_anchor in claimed:
+                    continue
+                new_pos = positions.get(new_anchor)
+                if new_pos is None or shared_pos is None or new_pos <= shared_pos:
+                    continue
+                # Must fall before the next distinct item anchor in document
+                # order, so the re-pointed section stays between its neighbours.
+                nexts = [positions[a] for a in claimed
+                         if a in positions and positions[a] > shared_pos]
+                if nexts and new_pos >= min(nexts):
+                    continue
+                result[key] = new_anchor
+                claimed.add(new_anchor)
+                logger.info("Separated colliding item %s from %s: re-pointed to "
+                            "body-header anchor %s", key, owner, new_anchor)
+
+        return result
 
     def _analyze_generic_toc(self, html_content: str, tree=None) -> Dict[str, str]:
         """
@@ -1123,6 +1222,17 @@ class TOCAnalyzer:
         2. Process each <tr> — group <a> tags by shared href
         3. Combine text from grouped links to reassemble item + title
         4. Extract item number from combined text (anchor IDs are opaque UUIDs)
+
+        Some Workiva filings (Tesla 10-K, GH Item-3-overflow report) give the
+        "Item N." label link a *different* href than the title/page links, and
+        the label hrefs are broken: they point at targets that don't exist, or
+        at unrelated page-break divs. Taking the first group that parses to an
+        item then anchors the item at the wrong place, or drops it entirely
+        when the label target is missing and the title isn't in the keyword
+        vocabulary — so downstream section boundaries overshoot into later
+        items. Each row is therefore resolved as a whole: parse every href
+        group first, and when the row names a single item, pick the anchor
+        whose target exists and whose neighbourhood matches the item heading.
         """
         try:
             tree = self._ensure_tree(html_content, tree)
@@ -1164,6 +1274,9 @@ class TOCAnalyzer:
                         href_order.append(href)
                     href_groups[href].append(text)
 
+                # First pass: parse every href group so anchor selection can
+                # consider the whole row, not just the first group that parses.
+                candidates: List[Tuple[str, Optional[str]]] = []
                 for href in href_order:
                     texts = href_groups[href]
                     anchor_id = href[1:]
@@ -1190,25 +1303,81 @@ class TOCAnalyzer:
                     if not parsed and len(href_order) == 1:
                         parsed = self._parse_item_from_text(row_text)
 
-                    if not parsed:
-                        continue
-
                     # Track part context
-                    if parsed.startswith('Part'):
+                    if parsed and parsed.startswith('Part'):
                         current_part = parsed
                         continue
 
-                    # Verify target exists
-                    if find_anchor_targets(tree, anchor_id):
-                        key = self._make_section_key(parsed, current_part)
+                    candidates.append((anchor_id, parsed))
+
+                if not candidates:
+                    continue
+
+                existing = [(anchor_id, parsed) for anchor_id, parsed in candidates
+                            if find_anchor_targets(tree, anchor_id)]
+                parsed_items = {parsed for _, parsed in candidates if parsed}
+
+                if len(parsed_items) == 1:
+                    # The row names one item; choose its anchor across ALL of
+                    # the row's href groups. When label and title links carry
+                    # different hrefs, the item's identity comes from whichever
+                    # group parsed, but the label href may be broken (target
+                    # missing) or wrong (an unrelated page-break div) — prefer
+                    # a target that exists and sits next to the item's heading.
+                    item = next(iter(parsed_items))
+                    anchor_id = self._choose_row_anchor(tree, item, existing)
+                    if anchor_id:
+                        key = self._make_section_key(item, current_part)
                         if key and key not in mapping:
                             mapping[key] = anchor_id
+                elif not parsed_items and len(existing) == 1:
+                    # No group parsed — a split row whose label href is broken
+                    # and whose title isn't in the keyword vocabulary ("Mine
+                    # Safety Disclosures"). The full row text still reads
+                    # "Item N. <title>", and exactly one group has a real
+                    # target (the title link), so the number can't be
+                    # mis-attributed the way a multi-item row could.
+                    item = self._parse_item_from_text(row_text)
+                    if item and not item.startswith('Part'):
+                        key = self._make_section_key(item, current_part)
+                        if key and key not in mapping:
+                            mapping[key] = existing[0][0]
+                else:
+                    # Multiple distinct items in one row — keep the historical
+                    # per-group behaviour so each item maps to its own anchor.
+                    for anchor_id, parsed in existing:
+                        if parsed:
+                            key = self._make_section_key(parsed, current_part)
+                            if key and key not in mapping:
+                                mapping[key] = anchor_id
 
             return mapping
 
         except Exception:
             logger.debug("Workiva TOC parser failed", exc_info=True)
             return {}
+
+    def _choose_row_anchor(self, tree, item: str,
+                           existing: List[Tuple[str, Optional[str]]]) -> Optional[str]:
+        """Pick one TOC row's anchor among its existing-target href groups.
+
+        `existing` holds (anchor_id, parsed) pairs in row order, already
+        filtered to targets that exist. With one candidate there is nothing to
+        arbitrate. With several (split label/title hrefs), prefer the anchor
+        whose neighbourhood carries the item's own heading — on split-href
+        Workiva rows the label href can point at an unrelated page-break div
+        while the title href points at the real section start. When no
+        candidate passes the heading check (named sections like Signatures
+        never can — the check is Item-number based), keep row order, which is
+        the historical first-group-wins behaviour.
+        """
+        if not existing:
+            return None
+        if len(existing) > 1:
+            for anchor_id, _ in existing:
+                if self._anchor_matches_heading(tree, anchor_id, item):
+                    return anchor_id
+        return existing[0][0]
 
     def _analyze_dfin_toc(self, html_content: str, tree=None) -> Dict[str, str]:
         """

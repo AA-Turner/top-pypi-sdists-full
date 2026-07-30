@@ -9,13 +9,19 @@
 # isort: skip_file
 from .....schema_classes import McpServerPropertiesClass
 from .....schema_classes import McpTransportClass
+from .....schema_classes import ServiceDefinitionClass
+from .....schema_classes import ServiceDefinitionFormatClass
 from .....schema_classes import ServiceKeyClass
+from .....schema_classes import ServiceLifecycleClass
 from .....schema_classes import ServicePropertiesClass
 
 
 McpServerProperties = McpServerPropertiesClass
 McpTransport = McpTransportClass
+ServiceDefinition = ServiceDefinitionClass
+ServiceDefinitionFormat = ServiceDefinitionFormatClass
 ServiceKey = ServiceKeyClass
+ServiceLifecycle = ServiceLifecycleClass
 ServiceProperties = ServicePropertiesClass
 
 # fmt: on

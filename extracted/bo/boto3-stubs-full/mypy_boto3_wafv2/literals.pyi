@@ -52,6 +52,7 @@ __all__ = (
     "PayloadTypeType",
     "PlatformType",
     "PositionalConstraintType",
+    "PreParseTextTransformationTypeType",
     "RankingSortByType",
     "RankingStatisticTypeType",
     "RateBasedStatementAggregateKeyTypeType",
@@ -369,6 +370,13 @@ PlatformType = Literal["ANDROID", "IOS"]
 PositionalConstraintType = Literal[
     "CONTAINS", "CONTAINS_WORD", "ENDS_WITH", "EXACTLY", "STARTS_WITH"
 ]
+PreParseTextTransformationTypeType = Literal[
+    "COMBINE_DUPLICATE_QUERY_ARGS_BY_COMMA",
+    "NONE",
+    "REPLACE_SEMICOLONS_WITH_AMPERSANDS",
+    "URL_DECODE",
+    "URL_DECODE_UNI",
+]
 RankingSortByType = Literal["NAME", "PERCENTAGE", "REVENUE"]
 RankingStatisticTypeType = Literal["TOP_PATHS_BY_REVENUE", "TOP_SOURCES_BY_REVENUE"]
 RateBasedStatementAggregateKeyTypeType = Literal["CONSTANT", "CUSTOM_KEYS", "FORWARDED_IP", "IP"]
@@ -396,21 +404,31 @@ TextTransformationTypeType = Literal[
     "BASE64_DECODE",
     "BASE64_DECODE_EXT",
     "CMD_LINE",
+    "CMD_LINE_UNIX",
+    "CMD_LINE_WIN",
     "COMPRESS_WHITE_SPACE",
     "CSS_DECODE",
     "ESCAPE_SEQ_DECODE",
     "HEX_DECODE",
     "HTML_ENTITY_DECODE",
     "JS_DECODE",
+    "JS_DECODE_EXT",
     "LOWERCASE",
     "MD5",
     "NONE",
     "NORMALIZE_PATH",
     "NORMALIZE_PATH_WIN",
+    "REMOVE_COMMENTS_CHAR",
     "REMOVE_NULLS",
+    "REMOVE_WHITESPACE",
     "REPLACE_COMMENTS",
     "REPLACE_NULLS",
+    "SHA256",
     "SQL_HEX_DECODE",
+    "TRIM",
+    "TRIM_LEFT",
+    "TRIM_RIGHT",
+    "UPPERCASE",
     "URL_DECODE",
     "URL_DECODE_UNI",
     "UTF8_TO_UNICODE",

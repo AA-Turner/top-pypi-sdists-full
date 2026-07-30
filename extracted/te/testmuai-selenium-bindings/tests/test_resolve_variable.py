@@ -1,6 +1,9 @@
 """Tests for testmu_selenium.resolve_variable — public V3 binding."""
 import pytest
+import pytest
+
 from testmu_selenium import _config
+from testmu_selenium._errors import TestmuConfigError
 from testmu_selenium._vars import set_var, clear_state, resolve_variable
 
 
@@ -89,8 +92,13 @@ class TestResolveVariablePlainFallback:
 
 
 class TestResolveVariableNamespaceFallback:
-    """Reserved-namespace resolvers raise TestmuConfigError on hard failure;
-    resolve_variable must treat that as "unresolved" and return template."""
+    """Reserved-namespace resolvers raise TestmuConfigError on hard failure.
+
+    Bug-D2 fix: resolve_variable no longer swallows TestmuConfigError and
+    returns the raw literal/default — that caused false-passes (test looked
+    green but the variable was never resolved). Hard failures now propagate
+    so the test aborts loudly rather than silently using an unresolved value.
+    """
 
     @pytest.fixture
     def no_lt_auth(self, monkeypatch):
@@ -99,14 +107,15 @@ class TestResolveVariableNamespaceFallback:
 
     def test_plain_default_when_global_namespace_raises(self, no_lt_auth):
         """V3 emit shape: resolve_variable("global.lt_email", "user@example.com")
-        must return the plain default when no creds + no env override."""
-        assert resolve_variable("global.lt_email", "user@example.com") == "user@example.com"
+        raises when no creds + no env override (no false-pass from swallowing)."""
+        with pytest.raises(TestmuConfigError):
+            resolve_variable("global.lt_email", "user@example.com")
 
     def test_embedded_template_default_when_global_namespace_raises(self, no_lt_auth):
-        """Embedded {{global.x}} in the default string returns the literal back
-        rather than blowing up — preserves the fallback contract."""
+        """Embedded {{global.x}} in template raises rather than returning the literal."""
         tmpl = "prefix-{{global.lt_email}}-suffix"
-        assert resolve_variable("global.lt_email", tmpl) == tmpl
+        with pytest.raises(TestmuConfigError):
+            resolve_variable("global.lt_email", tmpl)
 
 
 class TestResolveVariableStateIsolation:

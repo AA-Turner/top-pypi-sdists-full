@@ -1085,39 +1085,40 @@ MOD = "abstra_internals.repositories.linter.rules.imports_analyzer"
 
 class TestFixRestartsAfterInstall(BaseTest):
     """A pip install lands files on disk that the long-lived editor/worker
-    processes can't see. The fixes must restart both on a successful install
-    (and only then), otherwise the linter would keep reporting the issue."""
+    processes can't see. On a successful install (and only then) the fixes call
+    restart_or_defer_after_install, which restarts now (desktop) or defers via
+    "Restart editor" (web); otherwise the linter would keep reporting the issue."""
 
-    def test_add_package_restarts_when_install_succeeds(self):
+    def test_add_package_applies_when_install_succeeds(self):
         fix = AddPackageToRequirements("pandas")
         with (
             patch(f"{MOD}.get_installed_version", return_value=None),
             patch.object(Requirements, "install_succeeded", return_value=True),
-            patch(f"{MOD}.restart_editor_and_workers") as restart,
+            patch(f"{MOD}.restart_or_defer_after_install") as apply,
         ):
             fix.fix()
-        restart.assert_called_once()
+        apply.assert_called_once_with()
 
-    def test_add_package_does_not_restart_when_install_fails(self):
+    def test_add_package_does_not_apply_when_install_fails(self):
         fix = AddPackageToRequirements("pandas")
         with (
             patch(f"{MOD}.get_installed_version", return_value=None),
             patch.object(Requirements, "install_succeeded", return_value=False),
-            patch(f"{MOD}.restart_editor_and_workers") as restart,
+            patch(f"{MOD}.restart_or_defer_after_install") as apply,
         ):
             fix.fix()
-        restart.assert_not_called()
+        apply.assert_not_called()
 
-    def test_add_package_skips_install_and_restart_when_already_installed(self):
+    def test_add_package_skips_install_and_apply_when_already_installed(self):
         fix = AddPackageToRequirements("pandas")
         with (
             patch(f"{MOD}.get_installed_version", return_value="2.2.3"),
             patch.object(Requirements, "install_succeeded") as install,
-            patch(f"{MOD}.restart_editor_and_workers") as restart,
+            patch(f"{MOD}.restart_or_defer_after_install") as apply,
         ):
             fix.fix()
         install.assert_not_called()
-        restart.assert_not_called()
+        apply.assert_not_called()
 
 
 class TestMissingPackageRestartNotice(BaseTest):

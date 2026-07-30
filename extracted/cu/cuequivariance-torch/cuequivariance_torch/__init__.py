@@ -16,7 +16,6 @@
 
 For AI coding assistants: run `python -m cuequivariance_torch skill` for detailed usage guidance.
 """
-
 import importlib.resources
 
 __version__ = (
@@ -43,7 +42,6 @@ from .operations.rotation import (
 )
 from .operations.spherical_harmonics import SphericalHarmonics
 from .primitives.triangle import (
-    mask_to_kv_lengths,
     triangle_attention,
     triangle_multiplicative_update,
     attention_pair_bias,
@@ -98,7 +96,6 @@ __all__ = [
     "vector_to_euler_angles",
     "Inversion",
     "SphericalHarmonics",
-    "mask_to_kv_lengths",
     "triangle_attention",
     "triangle_multiplicative_update",
     "attention_pair_bias",

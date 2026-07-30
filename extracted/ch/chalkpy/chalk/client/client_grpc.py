@@ -221,6 +221,8 @@ from chalk.ml.utils import ModelClass, model_class_from_proto, model_encoding_fr
 from chalk.parsed._proto.utils import datetime_to_proto_timestamp, value_to_proto
 from chalk.scalinggroup.spec import (
     DeleteScalingGroupResponse,
+    GrpcReadinessProbe,
+    GrpcStartupProbe,
     ListScalingGroupsResponse,
     ScalingGroup,
     proto_to_scaling_group,
@@ -4668,6 +4670,8 @@ class ChalkGRPCClient:
         target_cpu_utilization_percentage: Optional[int] = None,
         validate: bool = True,
         secrets: Optional[List[Any]] = None,
+        readiness_probe: Optional["GrpcReadinessProbe"] = None,
+        startup_probe: Optional["GrpcStartupProbe"] = None,
     ) -> dict[str, Any]:
         """Deploy a registered model version as a scaling group.
 
@@ -4732,6 +4736,25 @@ class ChalkGRPCClient:
 
         if inferred_volumes:
             container_spec["volumes"] = inferred_volumes
+
+        if readiness_probe is not None:
+            grpc_readiness_probe: Dict[str, Any] = {}
+            if readiness_probe.service is not None:
+                grpc_readiness_probe["service"] = readiness_probe.service
+            readiness_probe_data: Dict[str, Any] = {"grpc": grpc_readiness_probe}
+            if readiness_probe.period_seconds is not None:
+                readiness_probe_data["period_seconds"] = readiness_probe.period_seconds
+            if readiness_probe.timeout_seconds is not None:
+                readiness_probe_data["timeout_seconds"] = readiness_probe.timeout_seconds
+            if readiness_probe.failure_threshold is not None:
+                readiness_probe_data["failure_threshold"] = readiness_probe.failure_threshold
+            container_spec["readiness_probe"] = readiness_probe_data
+
+        if startup_probe is not None:
+            grpc_startup_probe: Dict[str, Any] = {}
+            if startup_probe.method is not None:
+                grpc_startup_probe["method"] = startup_probe.method
+            container_spec["startup_probe"] = {"grpc": grpc_startup_probe}
 
         if container_spec:
             request_data["container_spec"] = container_spec

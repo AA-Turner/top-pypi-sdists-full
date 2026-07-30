@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rustworkx
-Version: 0.18.0
+Version: 0.18.1
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Programming Language :: Rust
@@ -26,6 +26,7 @@ Summary: A High-Performance Graph Library for Python
 Keywords: Networks,Network,Graph,Graph Theory,DAG
 Author-email: Matthew Treinish <mtreinish@kortar.org>
 Maintainer-email: Ivan Carvalho <ivancarvalho@gatech.edu>
+License-Expression: Apache-2.0
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Project-URL: documentation, https://www.rustworkx.org/

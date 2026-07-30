@@ -1053,8 +1053,8 @@ def _normalize_socks_string_url(url: str) -> str:
 def _extract_proxy_url(proxy: str | ProxySettings | None) -> str | None:
     """Extract and normalize proxy URL string from proxy param.
 
-    For SOCKS5 dicts with separate username/password fields, reconstructs
-    the full URL with inline credentials so SOCKS5 auth works.
+    For proxy dicts with separate username/password fields, reconstructs
+    the full URL with inline credentials so proxy auth works.
     """
     if proxy is None:
         return None
@@ -1062,8 +1062,11 @@ def _extract_proxy_url(proxy: str | ProxySettings | None) -> str | None:
         server = proxy.get("server", "")
         if not server:
             return None
-        if _is_socks_proxy(proxy):
-            return _reconstruct_socks_url(proxy)
+        if proxy.get("username"):
+            return (
+                _reconstruct_socks_url(proxy) if _is_socks_proxy(proxy)
+                else _reconstruct_http_url(proxy)
+            )
         return _ensure_proxy_scheme(server)
     return _ensure_proxy_scheme(proxy)
 
@@ -1218,6 +1221,18 @@ def build_args(
             if key in seen:
                 logger.debug("Arg override: %s -> %s", seen[key], arg)
             seen[key] = arg
+
+    # Playwright's default launch args switch off a browser feature that stock Chrome
+    # ships enabled. Re-enable it alongside the Windows font-metrics profile so the
+    # feature set matches a stock browser rather than a test harness. Merged into any
+    # existing --enable-features value rather than added as a second flag.
+    if "--fingerprint-windows-font-metrics" in seen:
+        key = "--enable-features"
+        current = seen[key].split("=", 1)[-1] if key in seen else ""
+        features = [f for f in current.split(",") if f]
+        if "MediaRouter" not in features:
+            features.append("MediaRouter")
+            seen[key] = f"{key}={','.join(features)}"
 
     # Timezone/locale flags are independent of stealth_args — always inject when set
     if timezone:

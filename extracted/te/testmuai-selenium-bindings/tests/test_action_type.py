@@ -5,6 +5,8 @@ path and assert kwarg threading + runner positional ordering.
 """
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from testmu_selenium import _action_type as at
 from testmu_selenium._action_type import (
     type as type_fn, _TYPE_SPEC, _type_runner, _type_coord_runner,
@@ -168,6 +170,82 @@ def test_type_coord_runner_real_click_then_sends_keys():
     # Every builder is performed.
     for ab in instances:
         ab.perform.assert_called_once()
+
+
+def test_type_coord_runner_coerces_int_value_to_string():
+    """A numeric variable reaching the coord-tier fallback must be coerced to a
+    string before key_action.send_keys — send_keys iterates chars and an int
+    would crash on a real driver."""
+    driver = MagicMock(name="driver")
+    instances = []
+
+    class CapturingAB:
+        def __init__(self, _driver):
+            self.pointer_action = MagicMock()
+            self.key_action = MagicMock()
+            self.perform = MagicMock()
+            instances.append(self)
+
+    with patch.object(at, "ActionBuilder", side_effect=CapturingAB):
+        _type_coord_runner(
+            driver, 10, 20,
+            {"driver": driver, "frame_info": None, "value": 123},
+        )
+
+    assert any(
+        ab.key_action.send_keys.call_args is not None
+        and ab.key_action.send_keys.call_args.args == ("123",)
+        for ab in instances
+    ), "int value must be coerced to '123' before send_keys"
+
+
+def test_type_coord_runner_coerces_bool_value_to_python_str():
+    """bool must reach send_keys as Python's str(True) == 'True' — the format
+    every sibling binding emits (playwright-python _coerce_text, csharp
+    ActionEngine, java VarStore all produce 'True'/'False')."""
+    driver = MagicMock(name="driver")
+    instances = []
+
+    class CapturingAB:
+        def __init__(self, _driver):
+            self.pointer_action = MagicMock()
+            self.key_action = MagicMock()
+            self.perform = MagicMock()
+            instances.append(self)
+
+    with patch.object(at, "ActionBuilder", side_effect=CapturingAB):
+        _type_coord_runner(
+            driver, 10, 20,
+            {"driver": driver, "frame_info": None, "value": True},
+        )
+
+    assert any(
+        ab.key_action.send_keys.call_args is not None
+        and ab.key_action.send_keys.call_args.args == ("True",)
+        for ab in instances
+    ), "bool must be coerced to 'True' before send_keys"
+
+
+@pytest.mark.parametrize("structural", [{"a": 1}, [1, 2]])
+def test_type_coord_runner_rejects_structural_value(structural):
+    """The coord fallback must enforce the SAME structural-value guard as
+    input_value. Without it, send_keys silently iterates a dict (typing its
+    KEY NAMES) or a list, so an un-stringified API variable produced garbage
+    input on the coord tier while failing loudly on the selector tier."""
+    driver = MagicMock(name="driver")
+
+    class CapturingAB:
+        def __init__(self, _driver):
+            self.pointer_action = MagicMock()
+            self.key_action = MagicMock()
+            self.perform = MagicMock()
+
+    with patch.object(at, "ActionBuilder", side_effect=CapturingAB):
+        with pytest.raises(TypeError, match="structural"):
+            _type_coord_runner(
+                driver, 10, 20,
+                {"driver": driver, "frame_info": None, "value": structural},
+            )
 
 
 def test_type_coord_runner_still_clicks_with_empty_value():

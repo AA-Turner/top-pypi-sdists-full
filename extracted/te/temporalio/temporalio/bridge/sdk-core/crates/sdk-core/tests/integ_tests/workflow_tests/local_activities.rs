@@ -28,7 +28,8 @@ use temporalio_common::{
             activity_result::ActivityExecutionResult,
             workflow_activation::{WorkflowActivationJob, workflow_activation_job},
             workflow_commands::{
-                ActivityCancellationType, ScheduleLocalActivity, workflow_command::Variant,
+                ActivityCancellationType as ProtoActivityCancellationType, ScheduleLocalActivity,
+                workflow_command::Variant,
             },
             workflow_completion::{
                 self, WorkflowActivationCompletion, workflow_activation_completion,
@@ -37,7 +38,9 @@ use temporalio_common::{
         temporal::api::{
             command::v1::{RecordMarkerCommandAttributes, command},
             common::v1::RetryPolicy,
-            enums::v1::{CommandType, EventType, TimeoutType, WorkflowTaskFailedCause},
+            enums::v1::{
+                CommandType, EventType, TimeoutType as ProtoTimeoutType, WorkflowTaskFailedCause,
+            },
             failure::v1::Failure,
             history::v1::history_event::Attributes::MarkerRecordedEventAttributes,
             query::v1::WorkflowQuery,
@@ -46,8 +49,9 @@ use temporalio_common::{
 };
 use temporalio_macros::{activities, workflow, workflow_methods};
 use temporalio_sdk::{
-    ActivityExecutionError, ActivityOptions, ApplicationFailure, CancellableFuture,
-    LocalActivityOptions, WorkflowContext, WorkflowContextView, WorkflowResult,
+    ActivityCancellationType, ActivityExecutionError, ActivityOptions, ApplicationFailure,
+    CancellableFuture, LocalActivityOptions, TimeoutType, WorkflowContext, WorkflowContextView,
+    WorkflowResult,
     activities::{ActivityContext, ActivityError},
     interceptors::{FailOnNondeterminismInterceptor, WorkerInterceptor},
 };
@@ -75,7 +79,7 @@ impl OneLocalActivityWf {
     #[run]
     pub(crate) async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
         let initial_workflow_time = ctx.workflow_time().expect("Workflow time should be set");
-        ctx.start_local_activity(
+        ctx.execute_local_activity(
             StdActivities::echo,
             "hi!".to_string(),
             LocalActivityOptions::default(),
@@ -118,7 +122,7 @@ pub(crate) struct LocalActConcurrentWithTimerWf;
 impl LocalActConcurrentWithTimerWf {
     #[run]
     pub(crate) async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
-        let la = ctx.start_local_activity(
+        let la = ctx.execute_local_activity(
             StdActivities::echo,
             "hi!".to_string(),
             LocalActivityOptions::default(),
@@ -159,7 +163,7 @@ struct LocalActThenTimerThenWaitResult;
 impl LocalActThenTimerThenWaitResult {
     #[run]
     pub(crate) async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
-        let la = ctx.start_local_activity(
+        let la = ctx.execute_local_activity(
             StdActivities::echo,
             "hi!".to_string(),
             LocalActivityOptions::default(),
@@ -201,7 +205,7 @@ pub(crate) struct LocalActThenTimerThenWait;
 impl LocalActThenTimerThenWait {
     #[run]
     pub(crate) async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
-        let la = ctx.start_local_activity(
+        let la = ctx.execute_local_activity(
             StdActivities::delay,
             Duration::from_secs(4),
             LocalActivityOptions::default(),
@@ -246,7 +250,11 @@ impl LocalActFanoutWf {
     pub(crate) async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
         let las: Vec<_> = (1..=50)
             .map(|i| {
-                ctx.start_local_activity(StdActivities::echo, format!("Hi {i}"), Default::default())
+                ctx.execute_local_activity(
+                    StdActivities::echo,
+                    format!("Hi {i}"),
+                    Default::default(),
+                )
             })
             .collect();
         ctx.timer(Duration::from_secs(1)).await;
@@ -285,7 +293,7 @@ impl LocalActRetryTimerBackoff {
     #[run]
     pub(crate) async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
         let res = ctx
-            .start_local_activity(
+            .execute_local_activity(
                 StdActivities::always_fail,
                 (),
                 LocalActivityOptions {
@@ -296,7 +304,8 @@ impl LocalActRetryTimerBackoff {
                         maximum_interval: Some(prost_dur!(from_millis(1500))),
                         maximum_attempts: 4,
                         non_retryable_error_types: vec![],
-                    },
+                    }
+                    .into(),
                     timer_backoff_threshold: Some(Duration::from_secs(1)),
                     ..Default::default()
                 },
@@ -339,8 +348,6 @@ async fn local_act_retry_timer_backoff() {
 #[case::abandon(ActivityCancellationType::Abandon)]
 #[tokio::test]
 async fn cancel_immediate(#[case] cancel_type: ActivityCancellationType) {
-    use temporalio_sdk::WorkflowContextView;
-
     let wf_name = format!("cancel_immediate_{cancel_type:?}");
     // If we don't use this, we'd hang on shutdown for abandon cancel modes.
     let manual_cancel = CancellationToken::new();
@@ -389,7 +396,7 @@ async fn cancel_immediate(#[case] cancel_type: ActivityCancellationType) {
         #[run]
         pub(crate) async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
             let cancel_type = ctx.state(|wf| wf.cancel_type);
-            let la = ctx.start_local_activity(
+            let la = ctx.execute_local_activity(
                 EchoWithManualCancel::echo,
                 "hi".to_string(),
                 LocalActivityOptions {
@@ -530,7 +537,7 @@ async fn cancel_after_act_starts(
             ctx: &mut WorkflowContext<Self>,
             (bo_dur, cancel_type): (Duration, ActivityCancellationType),
         ) -> WorkflowResult<()> {
-            let la = ctx.start_local_activity(
+            let la = ctx.execute_local_activity(
                 EchoWithManualCancelAndBackoff::echo,
                 "hi".to_string(),
                 LocalActivityOptions {
@@ -540,7 +547,8 @@ async fn cancel_after_act_starts(
                         maximum_interval: Some(bo_dur.try_into().unwrap()),
                         // Retry forever until cancelled
                         ..Default::default()
-                    },
+                    }
+                    .into(),
                     timer_backoff_threshold: Some(Duration::from_secs(1)),
                     cancel_type,
                     ..Default::default()
@@ -636,10 +644,10 @@ async fn x_to_close_timeout(#[case] is_schedule: bool) {
         #[run]
         async fn run(
             ctx: &mut WorkflowContext<Self>,
-            (sched, start, timeout_type): (Option<Duration>, Option<Duration>, i32),
+            (sched, start, is_schedule): (Option<Duration>, Option<Duration>, bool),
         ) -> WorkflowResult<()> {
             let res = ctx
-                .start_local_activity(
+                .execute_local_activity(
                     LongRunningWithCancellation::go,
                     (),
                     LocalActivityOptions {
@@ -649,7 +657,8 @@ async fn x_to_close_timeout(#[case] is_schedule: bool) {
                             maximum_interval: Some(prost_dur!(from_millis(1500))),
                             maximum_attempts: 4,
                             non_retryable_error_types: vec![],
-                        },
+                        }
+                        .into(),
                         timer_backoff_threshold: Some(Duration::from_secs(1)),
                         schedule_to_close_timeout: sched,
                         start_to_close_timeout: start,
@@ -659,10 +668,12 @@ async fn x_to_close_timeout(#[case] is_schedule: bool) {
                 .await;
             let err = res.unwrap_err();
             let timeout = err.as_timeout().unwrap();
-            assert_eq!(
-                timeout.timeout_type(),
-                TimeoutType::try_from(timeout_type).unwrap()
-            );
+            let expected_timeout = if is_schedule {
+                TimeoutType::ScheduleToClose
+            } else {
+                TimeoutType::StartToClose
+            };
+            assert_eq!(timeout.timeout_type(), expected_timeout);
             Ok(())
         }
     }
@@ -673,18 +684,13 @@ async fn x_to_close_timeout(#[case] is_schedule: bool) {
     } else {
         (None, Some(Duration::from_secs(2)))
     };
-    let timeout_type = if is_schedule {
-        TimeoutType::ScheduleToClose
-    } else {
-        TimeoutType::StartToClose
-    };
     worker.register_workflow::<XToCloseTimeoutWf>().unwrap();
 
     let task_queue = starter.get_task_queue().to_owned();
     worker
         .submit_workflow(
             XToCloseTimeoutWf::run,
-            (sched, start, timeout_type as i32),
+            (sched, start, is_schedule),
             WorkflowStartOptions::new(task_queue, wf_name.to_owned()).build(),
         )
         .await
@@ -715,7 +721,7 @@ async fn schedule_to_close_timeout_across_timer_backoff(#[case] cached: bool) {
         #[run]
         pub(crate) async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
             let res = ctx
-                .start_local_activity(
+                .execute_local_activity(
                     FailWithAtomicCounter::go,
                     "hi".to_string(),
                     LocalActivityOptions {
@@ -725,7 +731,8 @@ async fn schedule_to_close_timeout_across_timer_backoff(#[case] cached: bool) {
                             maximum_interval: Some(prost_dur!(from_millis(1000))),
                             maximum_attempts: 40,
                             non_retryable_error_types: vec![],
-                        },
+                        }
+                        .into(),
                         timer_backoff_threshold: Some(Duration::from_millis(500)),
                         schedule_to_close_timeout: Some(Duration::from_secs(2)),
                         ..Default::default()
@@ -796,7 +803,7 @@ async fn timer_backoff_concurrent_with_non_timer_backoff() {
     impl TimerBackoffConcurrentWf {
         #[run]
         async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
-            let r1 = ctx.start_local_activity(
+            let r1 = ctx.execute_local_activity(
                 StdActivities::always_fail,
                 (),
                 LocalActivityOptions {
@@ -806,12 +813,13 @@ async fn timer_backoff_concurrent_with_non_timer_backoff() {
                         maximum_interval: Some(prost_dur!(from_millis(1500))),
                         maximum_attempts: 4,
                         non_retryable_error_types: vec![],
-                    },
+                    }
+                    .into(),
                     timer_backoff_threshold: Some(Duration::from_secs(1)),
                     ..Default::default()
                 },
             );
-            let r2 = ctx.start_local_activity(
+            let r2 = ctx.execute_local_activity(
                 StdActivities::always_fail,
                 (),
                 LocalActivityOptions {
@@ -821,7 +829,8 @@ async fn timer_backoff_concurrent_with_non_timer_backoff() {
                         maximum_interval: Some(prost_dur!(from_millis(1500))),
                         maximum_attempts: 4,
                         non_retryable_error_types: vec![],
-                    },
+                    }
+                    .into(),
                     timer_backoff_threshold: Some(Duration::from_secs(10)),
                     ..Default::default()
                 },
@@ -865,7 +874,7 @@ async fn repro_nondeterminism_with_timer_bug() {
         #[run]
         async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
             let mut t1 = ctx.timer(Duration::from_secs(30));
-            let mut r1 = ctx.start_local_activity(
+            let mut r1 = ctx.execute_local_activity(
                 StdActivities::delay,
                 Duration::from_secs(2),
                 LocalActivityOptions {
@@ -875,7 +884,8 @@ async fn repro_nondeterminism_with_timer_bug() {
                         maximum_interval: Some(prost_dur!(from_millis(1500))),
                         maximum_attempts: 4,
                         non_retryable_error_types: vec![],
-                    },
+                    }
+                    .into(),
                     timer_backoff_threshold: Some(Duration::from_secs(1)),
                     ..Default::default()
                 },
@@ -1020,7 +1030,7 @@ async fn la_resolve_same_time_as_other_cancel() {
     impl LaResolveSameTimeAsOtherCancelWf {
         #[run]
         async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
-            let mut normal_act = ctx.start_activity(
+            let mut normal_act = ctx.execute_activity(
                 DelayWithCancellation::delay,
                 Duration::from_secs(9),
                 ActivityOptions::with_start_to_close_timeout(Duration::from_secs(9000))
@@ -1031,7 +1041,7 @@ async fn la_resolve_same_time_as_other_cancel() {
             ctx.timer(Duration::from_millis(1)).await;
 
             // Start LA and cancel the activity at the same time
-            let mut local_act = ctx.start_local_activity(
+            let mut local_act = ctx.execute_local_activity(
                 DelayWithCancellation::delay,
                 Duration::from_millis(100),
                 LocalActivityOptions {
@@ -1114,7 +1124,7 @@ async fn long_local_activity_with_update(
 
         #[run]
         async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<usize> {
-            ctx.start_local_activity(
+            ctx.execute_local_activity(
                 StdActivities::delay,
                 Duration::from_secs(6),
                 LocalActivityOptions::default(),
@@ -1210,7 +1220,7 @@ async fn local_activity_with_heartbeat_only_causes_one_wakeup() {
             // TODO [rust-sdk-branch] - See if we can fix this and know that we should re-poll.
             temporalio_sdk::workflows::join!(
                 async {
-                    ctx.start_local_activity(
+                    ctx.execute_local_activity(
                         StdActivities::delay,
                         Duration::from_secs(6),
                         LocalActivityOptions::default(),
@@ -1259,7 +1269,7 @@ pub(crate) struct LocalActivityWithSummaryWf;
 impl LocalActivityWithSummaryWf {
     #[run(name = "local_activity_with_summary")]
     pub(crate) async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
-        ctx.start_local_activity(
+        ctx.execute_local_activity(
             StdActivities::echo,
             "hi".to_string(),
             LocalActivityOptions {
@@ -1354,7 +1364,7 @@ async fn local_act_two_wfts_before_marker(#[case] replay: bool, #[case] cached: 
     impl LocalActTwoWftsBeforeMarkerWf {
         #[run(name = DEFAULT_WORKFLOW_TYPE)]
         async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
-            let la = ctx.start_local_activity(StdActivities::default, (), Default::default());
+            let la = ctx.execute_local_activity(StdActivities::default, (), Default::default());
             ctx.timer(Duration::from_secs(1)).await;
             let _ = la.await;
             Ok(())
@@ -1432,7 +1442,7 @@ async fn local_act_heartbeat(#[case] shutdown_middle: bool) {
         #[run(name = DEFAULT_WORKFLOW_TYPE)]
         async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
             dbg!("dafuq");
-            ctx.start_local_activity(
+            ctx.execute_local_activity(
                 EchoWithConditionalBarrier::echo,
                 "hi".to_string(),
                 LocalActivityOptions::default(),
@@ -1511,7 +1521,7 @@ async fn local_act_fail_and_retry(#[case] eventually_pass: bool) {
         #[run(name = DEFAULT_WORKFLOW_TYPE)]
         async fn run(ctx: &mut WorkflowContext<Self>, eventually_pass: bool) -> WorkflowResult<()> {
             let la_res = ctx
-                .start_local_activity(
+                .execute_local_activity(
                     EventuallyPassingActivity::echo,
                     "hi".to_string(),
                     LocalActivityOptions {
@@ -1521,7 +1531,8 @@ async fn local_act_fail_and_retry(#[case] eventually_pass: bool) {
                             maximum_interval: None,
                             maximum_attempts: 5,
                             non_retryable_error_types: vec![],
-                        },
+                        }
+                        .into(),
                         ..Default::default()
                     },
                 )
@@ -1612,7 +1623,7 @@ async fn local_act_retry_long_backoff_uses_timer() {
         #[run(name = DEFAULT_WORKFLOW_TYPE)]
         async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
             let la_res = ctx
-                .start_local_activity(
+                .execute_local_activity(
                     StdActivities::always_fail,
                     (),
                     LocalActivityOptions {
@@ -1622,7 +1633,8 @@ async fn local_act_retry_long_backoff_uses_timer() {
                             maximum_interval: Some(prost_dur!(from_secs(600))),
                             maximum_attempts: 3,
                             non_retryable_error_types: vec![],
-                        },
+                        }
+                        .into(),
                         ..Default::default()
                     },
                 )
@@ -1661,7 +1673,7 @@ async fn local_act_null_result() {
     impl LocalActNullResultWf {
         #[run(name = DEFAULT_WORKFLOW_TYPE)]
         async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
-            ctx.start_local_activity(StdActivities::default, (), LocalActivityOptions::default())
+            ctx.execute_local_activity(StdActivities::default, (), LocalActivityOptions::default())
                 .await?;
             Ok(())
         }
@@ -1697,7 +1709,7 @@ async fn local_act_command_immediately_follows_la_marker() {
     impl LocalActCommandImmediatelyFollowsLaMarkerWf {
         #[run(name = DEFAULT_WORKFLOW_TYPE)]
         async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
-            ctx.start_local_activity(StdActivities::default, (), LocalActivityOptions::default())
+            ctx.execute_local_activity(StdActivities::default, (), LocalActivityOptions::default())
                 .await?;
             ctx.timer(Duration::from_secs(1)).await;
             Ok(())
@@ -1765,7 +1777,7 @@ async fn query_during_wft_heartbeat_doesnt_accidentally_fail_to_continue_heartbe
             schedule_local_activity_cmd(
                 1,
                 "1",
-                ActivityCancellationType::TryCancel,
+                ProtoActivityCancellationType::TryCancel,
                 Duration::from_secs(60),
             ),
         ))
@@ -1908,7 +1920,7 @@ async fn la_resolve_during_legacy_query_does_not_combine(#[case] impossible_quer
             schedule_local_activity_cmd(
                 1,
                 "act-id",
-                ActivityCancellationType::TryCancel,
+                ProtoActivityCancellationType::TryCancel,
                 Duration::from_secs(60),
             ),
         ))
@@ -1987,7 +1999,7 @@ async fn test_schedule_to_start_timeout() {
         #[run(name = DEFAULT_WORKFLOW_TYPE)]
         async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
             let la_res = ctx
-                .start_local_activity(
+                .execute_local_activity(
                     StdActivities::echo,
                     "hi".to_string(),
                     LocalActivityOptions {
@@ -2002,11 +2014,7 @@ async fn test_schedule_to_start_timeout() {
                     panic!("expected timeout cause, got {fail:?}");
                 };
                 assert_eq!(timeout.timeout_type(), TimeoutType::ScheduleToStart);
-                assert_eq!(
-                    fail.activity_type()
-                        .map(|activity_type| activity_type.name.as_str()),
-                    Some(StdActivities::echo.name())
-                );
+                assert_eq!(fail.activity_type(), Some(StdActivities::echo.name()));
             }
             Ok(())
         }
@@ -2081,7 +2089,7 @@ async fn test_schedule_to_start_timeout_not_based_on_original_time(
         ) -> WorkflowResult<()> {
             let (is_sched_to_start, schedule_to_close_timeout) = input;
             let la_res = ctx
-                .start_local_activity(
+                .execute_local_activity(
                     StdActivities::echo,
                     "hi".to_string(),
                     LocalActivityOptions {
@@ -2091,7 +2099,8 @@ async fn test_schedule_to_start_timeout_not_based_on_original_time(
                             maximum_interval: None,
                             maximum_attempts: 5,
                             non_retryable_error_types: vec![],
-                        },
+                        }
+                        .into(),
                         schedule_to_start_timeout: Some(Duration::from_secs(60)),
                         schedule_to_close_timeout,
                         ..Default::default()
@@ -2131,7 +2140,7 @@ async fn start_to_close_timeout_allows_retries(#[values(true, false)] la_complet
             1,
             "1",
             None,
-            Some(Failure::timeout(TimeoutType::StartToClose)),
+            Some(Failure::timeout(ProtoTimeoutType::StartToClose)),
             |_| {},
         );
     }
@@ -2157,7 +2166,7 @@ async fn start_to_close_timeout_allows_retries(#[values(true, false)] la_complet
         #[run(name = DEFAULT_WORKFLOW_TYPE)]
         async fn run(ctx: &mut WorkflowContext<Self>, la_completes: bool) -> WorkflowResult<()> {
             let la_res = ctx
-                .start_local_activity(
+                .execute_local_activity(
                     ActivityWithRetriesAndCancellation::go,
                     (),
                     LocalActivityOptions {
@@ -2167,7 +2176,8 @@ async fn start_to_close_timeout_allows_retries(#[values(true, false)] la_complet
                             maximum_interval: None,
                             maximum_attempts: 5,
                             non_retryable_error_types: vec![],
-                        },
+                        }
+                        .into(),
                         start_to_close_timeout: Some(prost_dur!(from_millis(25))),
                         ..Default::default()
                     },
@@ -2248,7 +2258,7 @@ async fn wft_failure_cancels_running_las() {
     impl WftFailureCancelsRunningLasWf {
         #[run(name = DEFAULT_WORKFLOW_TYPE)]
         async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
-            let la_handle = ctx.start_local_activity(
+            let la_handle = ctx.execute_local_activity(
                 ActivityThatExpectsCancellation::go,
                 (),
                 Default::default(),
@@ -2320,7 +2330,7 @@ async fn resolved_las_not_recorded_if_wft_fails_many_times() {
         #[run(name = DEFAULT_WORKFLOW_TYPE)]
         #[allow(unreachable_code)]
         async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
-            ctx.start_local_activity(
+            ctx.execute_local_activity(
                 StdActivities::echo,
                 "hi".to_string(),
                 LocalActivityOptions {
@@ -2374,7 +2384,7 @@ async fn local_act_records_nonfirst_attempts_ok() {
     impl LocalActRecordsNonfirstAttemptsOkWf {
         #[run(name = DEFAULT_WORKFLOW_TYPE)]
         async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
-            ctx.start_local_activity(
+            ctx.execute_local_activity(
                 StdActivities::always_fail,
                 (),
                 LocalActivityOptions {
@@ -2384,7 +2394,8 @@ async fn local_act_records_nonfirst_attempts_ok() {
                         maximum_interval: None,
                         maximum_attempts: 0,
                         non_retryable_error_types: vec![],
-                    },
+                    }
+                    .into(),
                     ..Default::default()
                 },
             )
@@ -2526,7 +2537,7 @@ async fn queries_can_be_received_while_heartbeating() {
         schedule_local_activity_cmd(
             1,
             "act-id",
-            ActivityCancellationType::TryCancel,
+            ProtoActivityCancellationType::TryCancel,
             Duration::from_secs(60),
         ),
     ))
@@ -2693,7 +2704,7 @@ async fn local_act_retry_explicit_delay() {
         #[run(name = DEFAULT_WORKFLOW_TYPE)]
         async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
             let la_res = ctx
-                .start_local_activity(
+                .execute_local_activity(
                     ActivityWithExplicitBackoff::go,
                     (),
                     LocalActivityOptions {
@@ -2702,7 +2713,8 @@ async fn local_act_retry_explicit_delay() {
                             backoff_coefficient: 1.0,
                             maximum_attempts: 5,
                             ..Default::default()
-                        },
+                        }
+                        .into(),
                         ..Default::default()
                     },
                 )
@@ -2759,14 +2771,15 @@ impl LaWf {
     #[run(name = DEFAULT_WORKFLOW_TYPE)]
     async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
         let _ = ctx
-            .start_local_activity(
+            .execute_local_activity(
                 StdActivities::default,
                 (),
                 LocalActivityOptions {
                     retry_policy: RetryPolicy {
                         maximum_attempts: 1,
                         ..Default::default()
-                    },
+                    }
+                    .into(),
                     ..Default::default()
                 },
             )
@@ -2882,9 +2895,9 @@ struct TwoLaWf;
 impl TwoLaWf {
     #[run(name = DEFAULT_WORKFLOW_TYPE)]
     async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
-        ctx.start_local_activity(StdActivities::default, (), LocalActivityOptions::default())
+        ctx.execute_local_activity(StdActivities::default, (), LocalActivityOptions::default())
             .await?;
-        ctx.start_local_activity(StdActivities::default, (), LocalActivityOptions::default())
+        ctx.execute_local_activity(StdActivities::default, (), LocalActivityOptions::default())
             .await?;
         Ok(())
     }
@@ -2899,8 +2912,8 @@ impl TwoLaWfParallel {
     #[run(name = DEFAULT_WORKFLOW_TYPE)]
     async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
         let _ = temporalio_sdk::workflows::join!(
-            ctx.start_local_activity(StdActivities::default, (), LocalActivityOptions::default()),
-            ctx.start_local_activity(StdActivities::default, (), LocalActivityOptions::default())
+            ctx.execute_local_activity(StdActivities::default, (), LocalActivityOptions::default()),
+            ctx.execute_local_activity(StdActivities::default, (), LocalActivityOptions::default())
         );
         Ok(())
     }
@@ -3017,10 +3030,10 @@ struct LaTimerLaWf;
 impl LaTimerLaWf {
     #[run(name = DEFAULT_WORKFLOW_TYPE)]
     async fn run(ctx: &mut WorkflowContext<Self>) -> WorkflowResult<()> {
-        ctx.start_local_activity(StdActivities::default, (), LocalActivityOptions::default())
+        ctx.execute_local_activity(StdActivities::default, (), LocalActivityOptions::default())
             .await?;
         ctx.timer(Duration::from_secs(5)).await;
-        ctx.start_local_activity(StdActivities::default, (), LocalActivityOptions::default())
+        ctx.execute_local_activity(StdActivities::default, (), LocalActivityOptions::default())
             .await?;
         Ok(())
     }
@@ -3175,7 +3188,7 @@ async fn immediate_cancel(
             ctx: &mut WorkflowContext<Self>,
             cancel_type: ActivityCancellationType,
         ) -> WorkflowResult<()> {
-            let la = ctx.start_local_activity(
+            let la = ctx.execute_local_activity(
                 StdActivities::default,
                 (),
                 LocalActivityOptions {
@@ -3292,7 +3305,7 @@ async fn cancel_after_act_starts_canned(
             ctx: &mut WorkflowContext<Self>,
             cancel_type: ActivityCancellationType,
         ) -> WorkflowResult<()> {
-            let la = ctx.start_local_activity(
+            let la = ctx.execute_local_activity(
                 ActivityWithConditionalCancelWait::echo,
                 (),
                 LocalActivityOptions {

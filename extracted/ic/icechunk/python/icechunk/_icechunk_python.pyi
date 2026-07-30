@@ -1094,6 +1094,7 @@ class ManifestConfig:
         splitting: ManifestSplittingConfig | None = None,
         virtual_chunk_location_compression: ManifestVirtualChunkLocationCompressionConfig
         | None = None,
+        max_concurrent_manifest_fetches_during_commit: int | None = None,
     ) -> ManifestConfig:
         """
         Create a new `ManifestConfig` object
@@ -1112,6 +1113,10 @@ class ManifestConfig:
             The configuration for zstd compression of virtual chunk location URLs.
             When None, the default `ManifestVirtualChunkLocationCompressionConfig` is used.
             Default: None
+        max_concurrent_manifest_fetches_during_commit: int | None
+            How many manifests are fetched and updated concurrently during a
+            commit, amend, flush, or rewrite_manifests.
+            Default: 1
         """
         ...
     @property
@@ -1192,6 +1197,34 @@ class ManifestConfig:
         ----------
         value: ManifestVirtualChunkLocationCompressionConfig | None
             The compression configuration.
+        """
+        ...
+
+    @property
+    def max_concurrent_manifest_fetches_during_commit(self) -> int | None:
+        """
+        How many manifests are fetched and updated concurrently during a
+        commit, amend, flush, or rewrite_manifests.
+
+        Default: 1
+
+        Returns
+        -------
+        int | None
+            The number of manifests fetched and updated concurrently during a commit.
+        """
+        ...
+
+    @max_concurrent_manifest_fetches_during_commit.setter
+    def max_concurrent_manifest_fetches_during_commit(self, value: int | None) -> None:
+        """
+        Set how many manifests are fetched and updated concurrently during a
+        commit, amend, flush, or rewrite_manifests.
+
+        Parameters
+        ----------
+        value: int | None
+            The number of manifests to fetch and update concurrently.
         """
         ...
 
@@ -3576,16 +3609,23 @@ class ConflictDetector(ConflictSolver):
 class IcechunkError(Exception):
     """Base class for all Icechunk errors"""
 
+    def __new__(cls, message: str, kind: str | None = None) -> IcechunkError: ...
     @property
     def message(self) -> str: ...
+    @property
+    def kind(self) -> str:
+        """Stable machine-readable error code, see `icechunk.ErrorKind`"""
+        ...
 
-class ConflictError(Exception):
+class ConflictError(IcechunkError):
     """An error that occurs when a conflict is detected"""
 
     def __new__(
         cls,
         expected_parent: str | None = None,
         actual_parent: str | None = None,
+        message: str | None = None,
+        kind: str | None = None,
     ) -> ConflictError:
         """
         Create a new ConflictError.
@@ -3596,6 +3636,10 @@ class ConflictError(Exception):
             The expected parent snapshot ID.
         actual_parent: str | None
             The actual parent snapshot ID of the branch.
+        message: str | None
+            Error message; a default is synthesized from the parents.
+        kind: str | None
+            Machine-readable error code, see `icechunk.ErrorKind`.
         """
         ...
 
@@ -3707,7 +3751,7 @@ class Conflict:
         """
         ...
 
-class RebaseFailedError(IcechunkError):
+class RebaseFailedError(ConflictError):
     """An error that occurs when a rebase operation fails"""
 
     def __new__(cls, snapshot: str, conflicts: list[Conflict]) -> RebaseFailedError:
@@ -3810,6 +3854,10 @@ def user_agent() -> str:
     Returns:
         str: The user-agent string (e.g., "icechunk-rust-2.0.0-alpha.3")
     """
+    ...
+
+def _all_error_kinds() -> list[str]:
+    """All `kind` codes raised exceptions can carry; mirrored by `icechunk.ErrorKind`."""
     ...
 
 def _upgrade_icechunk_repository(

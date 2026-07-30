@@ -4,6 +4,7 @@ from scipy.io import loadmat as scipy_loadmat
 import os
 import numpy as np
 from scipy.stats import linregress
+from numba import njit, prange
 
 # Optional cupy import for GPU acceleration
 try:
@@ -464,3 +465,44 @@ def calculate_angle_from_delays(delays, c=1540):
         theta = 0.0
 
     return int(np.round(theta, 0))
+
+@njit(parallel=True, fastmath=True)
+def compute_field_numba(field, t, active_indices, apod_window, weight_base, 
+                        x_start_probe_fine, x_pivot_px_fine, dx_fine, c0, angle_rad, 
+                        n_t_burst, enveloppe_t, el_width_px_fine, cos_a, sin_a, 
+                        factor, Nt, Nz, Nx, Nx_fine, Nz_fine):
+    """
+    Kernel compilé en C pour le calcul intensif de la propagation acoustique.
+    """
+    for idx in prange(len(active_indices)):
+        i = active_indices[idx]
+        val_i = weight_base * apod_window[i]
+
+        x_i_px_fine = x_start_probe_fine + (i * el_width_px_fine)
+        dist_to_pivot = (x_i_px_fine - x_pivot_px_fine) * dx_fine
+        delay_i = (abs(dist_to_pivot) * np.sin(abs(angle_rad))) / c0
+
+        for t_idx in range(Nt):
+            t_eff = t[t_idx] - delay_i
+            if t_eff <= 0 or t_eff >= t[-1]:
+                continue
+                
+            dist_travelled = c0 * t_eff
+            z_px_fine = int((dist_travelled * cos_a) / dx_fine)
+            x_px_fine_base = int((x_i_px_fine * dx_fine + dist_travelled * sin_a) / dx_fine)
+
+            for b_shift in range(n_t_burst):
+                st = t_idx + b_shift
+                if st >= Nt:
+                    continue
+                    
+                val_final = enveloppe_t[b_shift] * val_i
+
+                for offset_x in range(el_width_px_fine):
+                    curr_x = x_px_fine_base + offset_x
+                    
+                    if 0 <= z_px_fine < Nz_fine and 0 <= curr_x < Nx_fine:
+                        zf = z_px_fine // factor
+                        xf = curr_x // factor
+                        
+                        field[st, zf, xf] += val_final

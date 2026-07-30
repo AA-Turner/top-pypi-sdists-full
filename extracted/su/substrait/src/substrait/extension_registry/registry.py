@@ -25,6 +25,9 @@ class ExtensionRegistry:
         self._urn_id_generator = itertools.count(1)
         self._function_mapping: dict = defaultdict(lambda: defaultdict(list))
         self._id_generator = itertools.count(1)
+        # {type_url: detail class} for user-defined extension relations, so an
+        # extension relation's output schema can be derived during inference.
+        self._extension_relations: dict = {}
         if load_default_extensions:
             for fpath in importlib_files("substrait_extensions.extensions").glob(  # type: ignore
                 "functions*.yaml"
@@ -43,6 +46,22 @@ class ExtensionRegistry:
         with open(fname) as f:  # type: ignore
             extension_definitions = yaml.safe_load(f)
         self.register_extension_dict(extension_definitions)
+
+    def register_extension_relation(self, detail_cls) -> None:
+        """Register an extension-relation detail class (by its ``type_url``).
+
+        Enables schema inference for ``ExtensionLeaf/Single/MultiRel`` built with
+        an instance of ``detail_cls``: inference reconstructs the detail from the
+        plan's ``Any`` and calls its ``derive_schema``. See
+        :mod:`substrait.dataframe.extension_relations`. Registration is scoped to
+        this ``ExtensionRegistry`` instance, so inference must be given this same
+        registry (as it is when a plan is built or re-inferred through it).
+        """
+        self._extension_relations[detail_cls.type_url] = detail_cls
+
+    def lookup_extension_relation(self, type_url: str):
+        """The extension-relation detail class registered for ``type_url``, or None."""
+        return self._extension_relations.get(type_url)
 
     def register_extension_dict(self, definitions: dict) -> None:
         """Register extensions from a dictionary (parsed YAML).
@@ -135,8 +154,41 @@ class ExtensionRegistry:
         """List all matching functions across all URNs."""
         return self._find_matching_functions(function_name, signature)
 
+    def find_function(
+        self,
+        function_name: str,
+        signature: tuple[Type] | list[Type],
+        urns: Optional[list[str]] = None,
+    ) -> Optional[tuple[FunctionEntry, Type]]:
+        """Find the best-matching function for ``function_name`` across ``urns``.
+
+        Searches ``urns`` in order (every registered URN when ``None``) and returns
+        the first ``(FunctionEntry, output_type)`` whose overload satisfies
+        ``signature``, or ``None``. The winning extension URN is ``entry.urn``.
+
+        Generalizes :meth:`lookup_function` (a single URN) and
+        :meth:`list_functions_across_urns` (every URN) to an ordered subset, so a
+        caller resolving a name that lives in several extensions -- preferring, say,
+        the base arithmetic extension over its decimal variant -- needs one call
+        rather than a per-URN ``lookup_function`` loop.
+        """
+        matches = self._find_matching_functions(function_name, signature, urns)
+        return matches[0] if matches else None
+
     def lookup_urn(self, urn: str) -> Optional[int]:
         return self._urn_mapping.get(urn, None)
+
+    def iter_functions(self):
+        """Yield ``(urn, name, function_type)`` for every registered function.
+
+        One tuple per ``(urn, name)`` group (overloads are collapsed). Useful for
+        discovering the full set of available functions, e.g. to build a
+        function-helper namespace.
+        """
+        for urn, names in self._function_mapping.items():
+            for name, entries in names.items():
+                if entries:
+                    yield urn, name, entries[0].function_type
 
 
 def validate_urn_format(urn: str) -> str:

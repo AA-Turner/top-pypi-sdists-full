@@ -142,7 +142,7 @@ def get_gcp_credentials_for_tier_gcs_ro() -> google.auth.credentials.Credentials
     """Resolve credentials for the customer-tier GCS export bucket.
 
     Customer tiers are read from the platform's GCS export of
-    `sales_customer_attributes` in `gs://airbyte_warehouse_exports`
+    `organization_customer_tiers` in `gs://airbyte_warehouse_exports`
     (`prod-ab-cloud-proj`). Resolves via SA/ADC for all callers (backend, CLI,
     and the webapp runtime service account).
     """

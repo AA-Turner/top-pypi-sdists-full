@@ -33,13 +33,16 @@ __all__ = (
     "ListStreamGroupsPaginatorName",
     "ListStreamSessionsByAccountPaginatorName",
     "ListStreamSessionsPaginatorName",
+    "ListStreamUrlsPaginatorName",
     "PaginatorName",
     "ProtocolType",
     "RegionName",
     "ReplicationStatusTypeType",
     "ResourceServiceName",
+    "RevocationModeType",
     "RuntimeEnvironmentTypeType",
     "ServiceName",
+    "ShaderCacheStatusType",
     "StreamClassType",
     "StreamGroupActiveWaiterName",
     "StreamGroupDeletedWaiterName",
@@ -49,6 +52,8 @@ __all__ = (
     "StreamSessionActiveWaiterName",
     "StreamSessionStatusReasonType",
     "StreamSessionStatusType",
+    "StreamUrlStatusReasonType",
+    "StreamUrlStatusType",
     "WaiterName",
 )
 
@@ -62,9 +67,12 @@ ListApplicationsPaginatorName = Literal["list_applications"]
 ListStreamGroupsPaginatorName = Literal["list_stream_groups"]
 ListStreamSessionsByAccountPaginatorName = Literal["list_stream_sessions_by_account"]
 ListStreamSessionsPaginatorName = Literal["list_stream_sessions"]
+ListStreamUrlsPaginatorName = Literal["list_stream_urls"]
 ProtocolType = Literal["WebRTC"]
 ReplicationStatusTypeType = Literal["COMPLETED", "REPLICATING"]
+RevocationModeType = Literal["REVOKE_AND_TERMINATE_SESSIONS", "REVOKE_URL"]
 RuntimeEnvironmentTypeType = Literal["PROTON", "UBUNTU", "WINDOWS"]
+ShaderCacheStatusType = Literal["DELETING", "ERROR", "INITIALIZED", "PROCESSING", "READY"]
 StreamClassType = Literal[
     "gen4n_high",
     "gen4n_ultra",
@@ -121,6 +129,14 @@ StreamSessionStatusType = Literal[
     "TERMINATED",
     "TERMINATING",
 ]
+StreamUrlStatusReasonType = Literal[
+    "applicationDeleted",
+    "revokedAndSessionsTerminated",
+    "revokedAndTerminatingSessions",
+    "streamGroupDeleted",
+    "userRevoked",
+]
+StreamUrlStatusType = Literal["ACTIVE", "EXPIRED", "LIMIT_REACHED", "REVOKED"]
 GameLiftStreamsServiceName = Literal["gameliftstreams"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -557,6 +573,7 @@ PaginatorName = Literal[
     "list_stream_groups",
     "list_stream_sessions",
     "list_stream_sessions_by_account",
+    "list_stream_urls",
 ]
 WaiterName = Literal[
     "application_deleted",

@@ -6,9 +6,43 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-from aigie.rewind.protocol import Corrective, RewindHandle, RewindOutcome
+from aigie.rewind.protocol import Corrective, RewindHandle, RewindOutcome, ToolCallOverride
 
 logger = logging.getLogger(__name__)
+
+
+def _append_message(values: dict[str, Any], message: Any) -> None:
+    values["messages"] = [*(values.get("messages") or []), message]
+
+
+def _last_tool_call_message(state: dict[str, Any] | None) -> Any | None:
+    for message in reversed((state or {}).get("messages") or []):
+        if getattr(message, "tool_calls", None):
+            return message
+    return None
+
+
+def _select_call(calls: list[dict[str, Any]], override: ToolCallOverride) -> tuple[int, str | None]:
+    """Locate the failed call among an assistant turn's parallel calls.
+
+    Never falls back to a positional guess when several calls are present:
+    redirecting the wrong one breaks a working call and leaves the failed one
+    untouched, which is worse than declining.
+    """
+    if override.source_call_id:
+        matches = [i for i, call in enumerate(calls) if call.get("id") == override.source_call_id]
+        # An id we cannot find means our identification is wrong, not that some
+        # other call is fair game.
+        return (matches[0], None) if matches else (-1, "no_tool_call")
+    if override.source_tool:
+        matches = [i for i, call in enumerate(calls) if call.get("name") == override.source_tool]
+        if len(matches) == 1:
+            return matches[0], None
+        if matches:
+            return -1, "ambiguous_tool_call"
+    if len(calls) == 1:
+        return 0, None
+    return -1, "ambiguous_tool_call"
 
 
 @dataclass(frozen=True)
@@ -86,7 +120,11 @@ class LangGraphRewindCapability:
         payload = handle.payload
         cfg = self._base_config(payload)
         if corrective is not None and not corrective.is_empty:
-            cfg = await self._apply_corrective(payload.app, cfg, corrective)
+            values, declined = self._corrective_values(payload.app, cfg, corrective)
+            if declined is not None:
+                return RewindOutcome.skipped(declined, handle=handle)
+            if values:
+                cfg = await self._update_state(payload.app, cfg, values)
         await self._invoke(payload.app, cfg)
         return RewindOutcome.ok(handle)
 
@@ -100,20 +138,60 @@ class LangGraphRewindCapability:
             }
         }
 
-    async def _apply_corrective(
+    def _corrective_values(
         self, app: Any, cfg: dict[str, Any], corrective: Corrective
-    ) -> dict[str, Any]:
+    ) -> tuple[dict[str, Any], str | None]:
         values: dict[str, Any] = dict(corrective.state_patch or {})
+        state = (
+            self._state_values(app, cfg)
+            if corrective.prompt or corrective.tool_call is not None
+            else None
+        )
         if corrective.prompt:
-            self._merge_prompt(app, cfg, values, corrective.prompt)
-        if not values:
-            return cfg
-        return await self._update_state(app, cfg, values)
+            self._merge_prompt(state, values, corrective.prompt)
+        if corrective.tool_call is not None:
+            message, declined = self._rewrite_tool_call(state, corrective.tool_call)
+            if declined is not None:
+                return values, declined
+            _append_message(values, message)
+        return values, None
+
+    def _state_values(self, app: Any, cfg: dict[str, Any]) -> dict[str, Any] | None:
+        try:
+            state = app.get_state(cfg)
+        except Exception:  # noqa: BLE001 — a missing checkpoint is a skip, not a crash
+            logger.debug("rewind corrective: get_state failed", exc_info=True)
+            return None
+        values = getattr(state, "values", None)
+        return values if isinstance(values, dict) else None
+
+    def _rewrite_tool_call(
+        self, state: dict[str, Any] | None, override: ToolCallOverride
+    ) -> tuple[Any, str | None]:
+        message = _last_tool_call_message(state)
+        if message is None:
+            return None, "no_tool_call"
+        calls = list(message.tool_calls)
+        index, declined = _select_call(calls, override)
+        if declined is not None:
+            return None, declined
+        target = dict(calls[index])
+        missing = override.missing_required(target.get("args"))
+        if missing:
+            return None, "unmappable_args"
+        target["name"] = override.name
+        target["args"] = override.resolve_args(target.get("args"))
+        calls[index] = target
+        return self._copy_with_tool_calls(message, calls), None
+
+    def _copy_with_tool_calls(self, message: Any, calls: list[dict[str, Any]]) -> Any:
+        copy = getattr(message, "model_copy", None) or message.copy  # pydantic v2 / v1
+        return copy(update={"tool_calls": calls})
 
     def _merge_prompt(
-        self, app: Any, cfg: dict[str, Any], values: dict[str, Any], prompt: str
+        self, state: dict[str, Any] | None, values: dict[str, Any], prompt: str
     ) -> None:
-        if "messages" not in values and not self._state_has_messages(app, cfg):
+        if "messages" not in values and not (state is not None and "messages" in state):
             logger.debug("rewind prompt corrective skipped: no 'messages' state key")
             return
         try:
@@ -121,16 +199,7 @@ class LangGraphRewindCapability:
         except ImportError:
             logger.debug("rewind prompt corrective skipped: langchain_core missing")
             return
-        existing = values.get("messages") or []
-        values["messages"] = [*existing, HumanMessage(content=prompt)]
-
-    def _state_has_messages(self, app: Any, cfg: dict[str, Any]) -> bool:
-        try:
-            state = app.get_state(cfg)
-        except Exception:  # noqa: BLE001
-            return False
-        current = getattr(state, "values", None)
-        return isinstance(current, dict) and "messages" in current
+        _append_message(values, HumanMessage(content=prompt))
 
     async def _update_state(
         self, app: Any, cfg: dict[str, Any], values: dict[str, Any]

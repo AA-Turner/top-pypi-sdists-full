@@ -85,16 +85,18 @@ pub mod workflows;
 pub use crate::error::{
     ActivityExecutionError, ApplicationFailure, ChildWorkflowExecutionError,
     ChildWorkflowStartError, OutgoingActivityError, OutgoingError, OutgoingWorkflowError,
-    WorkflowRegistrationError, WorkflowSignalError,
+    RetryState, TimeoutType, WorkflowRegistrationError, WorkflowSignalError,
 };
 pub use temporalio_client::Namespace;
 pub use temporalio_workflow::{
-    ActivityCloseTimeouts, ActivityOptions, BaseWorkflowContext, CancellableFuture,
-    ChildWorkflowOptions, ContinueAsNewOptions, ContinueAsNewVersioningBehavior,
-    ExternalWorkflowHandle, LocalActivityOptions, NexusOperationOptions, ParentWorkflowInfo,
-    RootWorkflowInfo, Signal, SignalData, StartChildWorkflowExecutionFailedCause,
-    StartedChildWorkflow, SyncWorkflowContext, TimerOptions, TimerResult, WorkflowContext,
-    WorkflowContextView, WorkflowResult, WorkflowTermination,
+    ActivityCancellationType, ActivityCloseTimeouts, ActivityOptions, BaseWorkflowContext,
+    CancellableFuture, ChildWorkflowCancellationType, ChildWorkflowOptions, ContinueAsNewOptions,
+    ContinueAsNewVersioningBehavior, ExternalWorkflowHandle, LocalActivityOptions, Memo, MemoValue,
+    MemoValues, NamespacedWorkflowInfo, NexusOperationCancellationType, NexusOperationOptions,
+    ParentClosePolicy, PatchActivationCallback, PatchActivationInput, RetryPolicy, Signal,
+    SignalData, StartChildWorkflowExecutionFailedCause, StartedChildWorkflow, SyncWorkflowContext,
+    TimerOptions, TimerResult, VersioningIntent, WorkflowContext, WorkflowContextView,
+    WorkflowIdReusePolicy, WorkflowRandomValue, WorkflowResult, WorkflowTermination,
 };
 #[cfg(feature = "wasm-workflows")]
 pub use workflow_wasm::WasmWorkflowComponent;
@@ -243,6 +245,10 @@ pub struct WorkerOptions {
     /// would cause it to exceed this limit. Negative, zero, or NaN values will cause building
     /// the options to fail.
     pub max_worker_activities_per_second: Option<f64>,
+    /// Maximum number of activity slots that may be reserved for eager execution when completing
+    /// a workflow task. The default is 3. Setting this to zero disables eager activity execution.
+    #[builder(default = 3)]
+    pub max_eager_activity_reservations_per_workflow_task: usize,
     /// Any error types listed here will cause any workflow being processed by this worker to fail,
     /// rather than simply failing the workflow task.
     #[builder(default)]
@@ -259,6 +265,20 @@ pub struct WorkerOptions {
     /// channels, etc.) will have their tasks failed with a descriptive error.
     #[builder(default = true)]
     pub detect_nondeterministic_futures: bool,
+    /// If set true, the worker will not proactively fail workflow/activity tasks whose payloads
+    /// exceed the namespace error limits; oversized payloads are sent to server, which enforces the
+    /// limit. Defaults to false.
+    /// NOTE: Experimental
+    #[builder(default = false)]
+    pub disable_payload_error_limit: bool,
+    /// Experimental callback that decides whether the first non-replay call to
+    /// [`SyncWorkflowContext::patched`] for a patch ID should activate that patch.
+    ///
+    /// The callback receives an immutable workflow information snapshot and patch ID. Returning
+    /// `true` records the patch marker; returning `false` leaves the patch inactive for the
+    /// workflow run. For registered WASM workflow components, the callback remains on the worker
+    /// host and is invoked through the workflow component's synchronous host interface.
+    pub patch_activation_callback: Option<PatchActivationCallback>,
 }
 
 impl<S: worker_options_builder::State> WorkerOptionsBuilder<S> {
@@ -422,12 +442,16 @@ impl WorkerOptions {
             .default_heartbeat_throttle_interval(self.default_heartbeat_throttle_interval)
             .maybe_max_task_queue_activities_per_second(self.max_task_queue_activities_per_second)
             .maybe_max_worker_activities_per_second(self.max_worker_activities_per_second)
+            .max_eager_activity_reservations_per_workflow_task(
+                self.max_eager_activity_reservations_per_workflow_task,
+            )
             .maybe_graceful_shutdown_period(self.graceful_shutdown_period)
             .versioning_strategy(WorkerVersioningStrategy::WorkerDeploymentBased(
                 self.deployment_options.clone(),
             ))
             .workflow_failure_errors(self.workflow_failure_errors.clone())
             .workflow_types_to_failure_errors(self.workflow_types_to_failure_errors.clone())
+            .disable_payload_error_limit(self.disable_payload_error_limit)
             .build()
     }
 }
@@ -456,6 +480,7 @@ struct WorkflowHalf {
     workflow_definitions: WorkflowDefinitions,
     workflow_removed_from_map: Notify,
     detect_nondeterministic_futures: bool,
+    patch_activation_callback: Option<PatchActivationCallback>,
 }
 struct WorkflowData {
     /// Channel used to send the workflow activations
@@ -553,6 +578,7 @@ impl Worker {
         let wasm_components = std::mem::take(&mut options.wasm_workflow_components);
         let mut me = Self::new_from_core_definitions(worker, client_options, acts, wfs);
         me.set_detect_nondeterministic_futures(options.detect_nondeterministic_futures);
+        me.workflow_half.patch_activation_callback = options.patch_activation_callback;
         #[cfg(feature = "wasm-workflows")]
         me.workflow_half
             .workflow_definitions
@@ -581,6 +607,7 @@ impl Worker {
                 workflow_definitions: workflows,
                 workflow_removed_from_map: Default::default(),
                 detect_nondeterministic_futures: false,
+                patch_activation_callback: None,
             },
             activity_half: ActivityHalf {
                 activities,
@@ -924,6 +951,7 @@ impl WorkflowHalf {
                         completions_tx.clone(),
                         common.data_converter.clone(),
                         self.detect_nondeterministic_futures,
+                        self.patch_activation_callback.clone(),
                     ) {
                         Ok(result) => result,
                         Err(e) => {
@@ -950,6 +978,9 @@ impl WorkflowHalf {
                     return Ok(None);
                 }
             };
+            // The executor consumes self-wakes synchronously, so cooperative budget exhaustion
+            // would otherwise re-poll the workflow forever without returning to Tokio.
+            let wff = tokio::task::coop::unconstrained(wff);
             // TODO [rust-sdk-branch]: Deadlock detection
             let jh = executor.spawn(async move {
                 tokio::select! {
@@ -1066,8 +1097,8 @@ impl ActivityHalf {
                     let act_fut = async move {
                         if let Some(info) = &ctx.info().workflow_execution {
                             Span::current()
-                                .record("temporalWorkflowID", &info.workflow_id)
-                                .record("temporalRunID", &info.run_id);
+                                .record("temporalWorkflowID", info.workflow_id())
+                                .record("temporalRunID", info.run_id());
                         }
                         (act_fn)(args, data_converter, ctx, activity_inbound_interceptors).await
                     }
@@ -1222,22 +1253,22 @@ mod tests {
     #[allow(unused, clippy::diverging_sub_expression)]
     fn test_activity_via_workflow_context() {
         let wf_ctx: WorkflowContext<MyWorkflow> = unimplemented!();
-        wf_ctx.start_activity(
+        wf_ctx.execute_activity(
             MyActivities::my_activity,
             (),
             ActivityOptions::start_to_close_timeout(Duration::from_secs(5)),
         );
-        wf_ctx.start_activity(
+        wf_ctx.execute_activity(
             SharedActivities::greet,
             "Hi".to_owned(),
             ActivityOptions::start_to_close_timeout(Duration::from_secs(5)),
         );
-        wf_ctx.start_activity(
+        wf_ctx.execute_activity(
             MyActivities::greet,
             "Hi".to_owned(),
             ActivityOptions::start_to_close_timeout(Duration::from_secs(5)),
         );
-        wf_ctx.start_activity(
+        wf_ctx.execute_activity(
             MyActivities::takes_self,
             "Hi".to_owned(),
             ActivityOptions::start_to_close_timeout(Duration::from_secs(5)),
@@ -1372,5 +1403,34 @@ mod tests {
             .to_core_options("ns".into(), connection_identity.into())
             .unwrap();
         assert_eq!(config.client_identity_override, expected);
+    }
+
+    #[rstest::rstest]
+    #[case::default_enforces_error_limit(None, false)]
+    #[case::opt_out_disables_error_limit(Some(true), true)]
+    #[case::explicit_enable_error_limit(Some(false), false)]
+    #[test]
+    fn disable_payload_error_limit_propagates(
+        #[case] override_value: Option<bool>,
+        #[case] expected: bool,
+    ) {
+        let config = WorkerOptions::new("task_q")
+            .task_types(WorkerTaskTypes::activity_only())
+            .maybe_disable_payload_error_limit(override_value)
+            .build()
+            .to_core_options("ns".into(), String::new())
+            .unwrap();
+        assert_eq!(config.disable_payload_error_limit, expected);
+    }
+
+    #[test]
+    fn max_eager_activity_reservations_per_workflow_task_propagates() {
+        let config = WorkerOptions::new("task_q")
+            .task_types(WorkerTaskTypes::activity_only())
+            .max_eager_activity_reservations_per_workflow_task(7)
+            .build()
+            .to_core_options("ns".into(), String::new())
+            .unwrap();
+        assert_eq!(config.max_eager_activity_reservations_per_workflow_task, 7);
     }
 }

@@ -6,6 +6,8 @@ from time import sleep
 
 import pytest
 
+from .util import strip_ansi
+
 # note: IPython should be imported within each test. Importing it in our tests
 # seems to cause problems with subsequent tests.
 
@@ -49,10 +51,11 @@ def test_magics(ip):
 
     assert "function_a" in output.data["text/html"]
     assert "<iframe" in output.data["text/html"]
-    assert "function_a" in output.data["text/plain"]
+    plain_text = strip_ansi(output.data["text/plain"])
+    assert "function_a" in plain_text
 
-    assert "- 0.200 function_a" in output.data["text/plain"]
-    assert "- 0.100 FakeClock.sleep" in output.data["text/plain"]
+    assert "0.200 function_a" in plain_text
+    assert "0.100 FakeClock.sleep" in plain_text
 
     with fake_time():
         with capture_ipython_output() as captured:
@@ -62,8 +65,9 @@ def test_magics(ip):
     assert len(captured.outputs) == 1
     output = captured.outputs[0]
 
-    assert "function_a" in output.data["text/plain"]
-    assert "- 0.100 FakeClock.sleep" in output.data["text/plain"]
+    plain_text = strip_ansi(output.data["text/plain"])
+    assert "function_a" in plain_text
+    assert "0.100 FakeClock.sleep" in plain_text
 
 
 @pytest.mark.ipythonmagic

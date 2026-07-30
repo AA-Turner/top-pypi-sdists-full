@@ -6,6 +6,33 @@ from geocif import utils
 from geocif.progress import pbar as _pbar
 
 
+def _is_calendar_method(method):
+    """True for calendar-based methods (dekad/biweekly/monthly and their ``_r``
+    variants) whose stage numbers map through a month/dekad/biweek dictionary.
+
+    The season-normalized methods ``fraction_season`` / ``phenological_stages``
+    / ``full_season`` are NOT calendar-based: their stage tokens are fractions
+    of the growing season (deciles 10..100) or phenological growth-stage codes
+    (1,2,3), which must NOT be routed through a calendar dictionary.
+    """
+    return any(k in method for k in ("dekad", "biweekly", "monthly"))
+
+
+def _numeric_stage_label(method, start, end):
+    """Human-readable Stage Name for season-normalized (non-calendar) methods.
+
+    fraction_season -> "10%-100%" (or "10%" for a single decile);
+    full_season     -> "Full Season";
+    phenological_stages (and any other non-calendar fallback) -> "Stages 1-3"
+    (or "Stage 1" for a single stage).
+    """
+    if "fraction_season" in method:
+        return f"{start}%" if start == end else f"{start}%-{end}%"
+    if "full_season" in method:
+        return "Full Season"
+    return f"Stage {start}" if start == end else f"Stages {start}-{end}"
+
+
 def add_stage_information(df, method, label=""):
     """
 
@@ -34,38 +61,48 @@ def add_stage_information(df, method, label=""):
     def _start_stage(x):
         if x.startswith(("PS", "IS")):
             return 0
-        return int(x.split("_")[0])
+        # int(float(...)) tolerates float-formatted tokens ("10.0") that may be
+        # baked into older cached CID CSVs written before the source-int fix.
+        return int(float(x.split("_")[0]))
 
     def _end_stage(x):
         if x.startswith(("PS", "IS")):
             return 0
-        return int(x.split("_")[-1])
+        return int(float(x.split("_")[-1]))
 
     df["Stage Range"] = df["Stage"].apply(_stage_range)
     df["Starting Stage"] = df["Stage"].apply(_start_stage)
     df["Ending Stage"] = df["Stage"].apply(_end_stage)
 
-    # Create a column called Stage Names that applies utils.dict_growth_stages
-    # to the Starting Stage and Ending Stage
-    if "dekad" in method:
-        stage_dict = utils.dict_growth_stages
-        stage_dict_end = utils.dict_growth_stages_end
-    elif "biweekly" in method:
-        stage_dict = utils.dict_growth_stages_biweekly
-        stage_dict_end = utils.dict_growth_stages_biweekly_end
-    elif "monthly" in method:
-        stage_dict = utils.dict_growth_stages_monthly
-        stage_dict_end = utils.dict_growth_stages_monthly_end
-    # Wrap around for stages beyond the dictionary length
-    n = len(stage_dict)
-    wrap_start = lambda x: stage_dict[((x - 1) % n) + 1] if x > 0 else "Pre-Season"
-    wrap_end = lambda x: stage_dict_end[((x - 1) % n) + 1] if x > 0 else "Pre-Season"
+    # Create a column called Stage Names. Calendar methods map the stage
+    # numbers through a month/dekad/biweek dictionary; season-normalized
+    # methods (fraction_season/phenological_stages/full_season) have no
+    # calendar dict -- their stage tokens ARE the label.
+    if _is_calendar_method(method):
+        if "dekad" in method:
+            stage_dict = utils.dict_growth_stages
+            stage_dict_end = utils.dict_growth_stages_end
+        elif "biweekly" in method:
+            stage_dict = utils.dict_growth_stages_biweekly
+            stage_dict_end = utils.dict_growth_stages_biweekly_end
+        elif "monthly" in method:
+            stage_dict = utils.dict_growth_stages_monthly
+            stage_dict_end = utils.dict_growth_stages_monthly_end
+        # Wrap around for stages beyond the dictionary length
+        n = len(stage_dict)
+        wrap_start = lambda x: stage_dict[((x - 1) % n) + 1] if x > 0 else "Pre-Season"
+        wrap_end = lambda x: stage_dict_end[((x - 1) % n) + 1] if x > 0 else "Pre-Season"
+        df["Stage Names"] = (
+            df["Starting Stage"].map(wrap_start) + " - " + df["Ending Stage"].map(wrap_end)
+        )
+    else:
+        df["Stage Names"] = df.apply(
+            lambda r: _numeric_stage_label(method, r["Starting Stage"], r["Ending Stage"]),
+            axis=1,
+        )
 
     # Pre-season rows get their Stage_ID as Stage Names (e.g., "PS_9")
     is_ps = df["Stage"].str.startswith("PS") | df["Stage"].str.startswith("IS")
-    df["Stage Names"] = (
-        df["Starting Stage"].map(wrap_start) + " - " + df["Ending Stage"].map(wrap_end)
-    )
     df.loc[is_ps, "Stage Names"] = df.loc[is_ps, "Stage"]
 
     df["Percentage Season"] = float("nan")
@@ -278,6 +315,17 @@ def get_stage_information_dict(stage_str, method):
     stage_info["Starting Stage"] = int(start_stage)
     stage_info["Ending Stage"] = int(end_stage)
 
+    # Season-normalized methods (fraction_season/phenological_stages/
+    # full_season) have no calendar dictionary: their stage tokens ARE the
+    # label. Skip the month-lookup machinery below entirely.
+    if not _is_calendar_method(method):
+        label = _numeric_stage_label(
+            method, stage_info["Starting Stage"], stage_info["Ending Stage"]
+        )
+        stage_info["Stage Name"] = label
+        stage_info["Stage Window Display"] = label
+        return stage_info
+
     if "dekad" in method:
         stage_dict = utils.dict_growth_stages
         stage_dict_end = utils.dict_growth_stages_end
@@ -437,32 +485,37 @@ def update_feature_names(df, method):
         end_stage = numeric_parts[-1]
 
         # Convert starting and ending stage using utils.dict_growth_stages
-        if "dekad" in method:
-            stage_dict = utils.dict_growth_stages
-            stage_dict_end = utils.dict_growth_stages_end
-        elif "biweekly" in method:
-            stage_dict = utils.dict_growth_stages_biweekly
-            stage_dict_end = utils.dict_growth_stages_biweekly_end
-        elif "monthly" in method:
-            stage_dict = utils.dict_growth_stages_monthly
-            stage_dict_end = utils.dict_growth_stages_monthly_end
-        # Wrap around for stages beyond the dictionary length (e.g. stage 13 → month 1)
-        n = len(stage_dict)
-        if fldas_lead is not None:
-            # FLDAS features are now single-month: the runtime uses ONLY the
-            # latest init-month row in the cumulative stage window (see
-            # compute_eo_indices FLDAS branch). The label therefore describes
-            # a single target month = init_month + lead (mod 12), not a range.
-            # For forward stages the latest month is numeric_parts[-1]
-            # (end_stage); for reverse ``_r`` stages the window grows backward
-            # in time so the latest month is numeric_parts[0] (start_stage).
-            init_month = int(numeric_parts[0]) if "_r" in method else int(numeric_parts[-1])
-            target = (((init_month - 1) + fldas_lead) % n) + 1
-            start_stage = stage_dict[target]
-            end_stage = stage_dict_end[target]
-        else:
-            start_stage = stage_dict[(((int(start_stage) - 1)) % n) + 1]
-            end_stage = stage_dict_end[(((int(end_stage) - 1)) % n) + 1]
+        # (calendar methods only). Season-normalized methods keep the numeric
+        # tokens verbatim (start_stage/end_stage already hold numeric_parts[0]/
+        # [-1]) so column names stay ASCII/underscore-safe for the select_*
+        # filters and other parsers -- e.g. "vDTR 10-100", "vDTR 1-3".
+        if _is_calendar_method(method):
+            if "dekad" in method:
+                stage_dict = utils.dict_growth_stages
+                stage_dict_end = utils.dict_growth_stages_end
+            elif "biweekly" in method:
+                stage_dict = utils.dict_growth_stages_biweekly
+                stage_dict_end = utils.dict_growth_stages_biweekly_end
+            elif "monthly" in method:
+                stage_dict = utils.dict_growth_stages_monthly
+                stage_dict_end = utils.dict_growth_stages_monthly_end
+            # Wrap around for stages beyond the dictionary length (e.g. stage 13 → month 1)
+            n = len(stage_dict)
+            if fldas_lead is not None:
+                # FLDAS features are now single-month: the runtime uses ONLY the
+                # latest init-month row in the cumulative stage window (see
+                # compute_eo_indices FLDAS branch). The label therefore describes
+                # a single target month = init_month + lead (mod 12), not a range.
+                # For forward stages the latest month is numeric_parts[-1]
+                # (end_stage); for reverse ``_r`` stages the window grows backward
+                # in time so the latest month is numeric_parts[0] (start_stage).
+                init_month = int(numeric_parts[0]) if "_r" in method else int(numeric_parts[-1])
+                target = (((init_month - 1) + fldas_lead) % n) + 1
+                start_stage = stage_dict[target]
+                end_stage = stage_dict_end[target]
+            else:
+                start_stage = stage_dict[(((int(start_stage) - 1)) % n) + 1]
+                end_stage = stage_dict_end[(((int(end_stage) - 1)) % n) + 1]
 
         new_column_name = f"{cid} {start_stage}-{end_stage}"
 

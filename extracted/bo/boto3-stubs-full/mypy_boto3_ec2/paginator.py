@@ -174,6 +174,7 @@ Usage::
         GetTransitGatewayAttachmentPropagationsPaginator,
         GetTransitGatewayMulticastDomainAssociationsPaginator,
         GetTransitGatewayPolicyTableAssociationsPaginator,
+        GetTransitGatewayPolicyTableEntriesPaginator,
         GetTransitGatewayPrefixListReferencesPaginator,
         GetTransitGatewayRouteTableAssociationsPaginator,
         GetTransitGatewayRouteTablePropagationsPaginator,
@@ -350,6 +351,7 @@ Usage::
     get_transit_gateway_attachment_propagations_paginator: GetTransitGatewayAttachmentPropagationsPaginator = client.get_paginator("get_transit_gateway_attachment_propagations")
     get_transit_gateway_multicast_domain_associations_paginator: GetTransitGatewayMulticastDomainAssociationsPaginator = client.get_paginator("get_transit_gateway_multicast_domain_associations")
     get_transit_gateway_policy_table_associations_paginator: GetTransitGatewayPolicyTableAssociationsPaginator = client.get_paginator("get_transit_gateway_policy_table_associations")
+    get_transit_gateway_policy_table_entries_paginator: GetTransitGatewayPolicyTableEntriesPaginator = client.get_paginator("get_transit_gateway_policy_table_entries")
     get_transit_gateway_prefix_list_references_paginator: GetTransitGatewayPrefixListReferencesPaginator = client.get_paginator("get_transit_gateway_prefix_list_references")
     get_transit_gateway_route_table_associations_paginator: GetTransitGatewayRouteTableAssociationsPaginator = client.get_paginator("get_transit_gateway_route_table_associations")
     get_transit_gateway_route_table_propagations_paginator: GetTransitGatewayRouteTablePropagationsPaginator = client.get_paginator("get_transit_gateway_route_table_propagations")
@@ -694,6 +696,8 @@ from .type_defs import (
     GetTransitGatewayMulticastDomainAssociationsResultTypeDef,
     GetTransitGatewayPolicyTableAssociationsRequestPaginateTypeDef,
     GetTransitGatewayPolicyTableAssociationsResultTypeDef,
+    GetTransitGatewayPolicyTableEntriesRequestPaginateTypeDef,
+    GetTransitGatewayPolicyTableEntriesResultTypeDef,
     GetTransitGatewayPrefixListReferencesRequestPaginateTypeDef,
     GetTransitGatewayPrefixListReferencesResultTypeDef,
     GetTransitGatewayRouteTableAssociationsRequestPaginateTypeDef,
@@ -883,6 +887,7 @@ __all__ = (
     "GetTransitGatewayAttachmentPropagationsPaginator",
     "GetTransitGatewayMulticastDomainAssociationsPaginator",
     "GetTransitGatewayPolicyTableAssociationsPaginator",
+    "GetTransitGatewayPolicyTableEntriesPaginator",
     "GetTransitGatewayPrefixListReferencesPaginator",
     "GetTransitGatewayRouteTableAssociationsPaginator",
     "GetTransitGatewayRouteTablePropagationsPaginator",
@@ -4537,6 +4542,31 @@ class GetTransitGatewayPolicyTableAssociationsPaginator(
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/GetTransitGatewayPolicyTableAssociations.html#EC2.Paginator.GetTransitGatewayPolicyTableAssociations.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/paginators/#gettransitgatewaypolicytableassociationspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _GetTransitGatewayPolicyTableEntriesPaginatorBase = Paginator[
+        GetTransitGatewayPolicyTableEntriesResultTypeDef
+    ]
+else:
+    _GetTransitGatewayPolicyTableEntriesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class GetTransitGatewayPolicyTableEntriesPaginator(
+    _GetTransitGatewayPolicyTableEntriesPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/GetTransitGatewayPolicyTableEntries.html#EC2.Paginator.GetTransitGatewayPolicyTableEntries)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/paginators/#gettransitgatewaypolicytableentriespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[GetTransitGatewayPolicyTableEntriesRequestPaginateTypeDef]
+    ) -> PageIterator[GetTransitGatewayPolicyTableEntriesResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/GetTransitGatewayPolicyTableEntries.html#EC2.Paginator.GetTransitGatewayPolicyTableEntries.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/paginators/#gettransitgatewaypolicytableentriespaginator)
         """
 
 

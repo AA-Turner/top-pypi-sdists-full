@@ -361,10 +361,15 @@ def _atms_auth_headers() -> dict:
     }
 
 
+_ATMS_DEFAULT_URL = "https://test-manager-api.lambdatest.com"
+
+
 def _atms_get_variable(variable_name: str, environment_id: int = 0) -> dict:
     """GET {ATMS_URL}/api/v1/variables/{name} — returns the data dict."""
     import requests
-    atms_url = os.getenv("ATMS_URL", "")
+    # Bug-D1 fix: default to the production test-manager URL (matches PW sibling).
+    # "" causes "No scheme supplied" errors when ATMS_URL env var is unset.
+    atms_url = os.getenv("ATMS_URL", _ATMS_DEFAULT_URL)
     url = f"{atms_url}/api/v1/variables/{variable_name}?environment_id={environment_id}"
     resp = requests.get(url=url, headers=_atms_auth_headers())
     if resp.status_code != 200:
@@ -375,7 +380,8 @@ def _atms_get_variable(variable_name: str, environment_id: int = 0) -> dict:
 def _atms_get_totp_seed(variable_name: str) -> str:
     """GET {ATMS_URL}/api/v1/variables/totp/{name} — returns the seed string."""
     import requests
-    atms_url = os.getenv("ATMS_URL", "")
+    # Bug-D1 fix: same default as _atms_get_variable (matches PW sibling).
+    atms_url = os.getenv("ATMS_URL", _ATMS_DEFAULT_URL)
     url = f"{atms_url}/api/v1/variables/totp/{variable_name}"
     resp = requests.get(url=url, headers=_atms_auth_headers())
     if resp.status_code != 200:
@@ -559,22 +565,19 @@ def resolve_variable(name: Any, template: Any = None) -> Any:
         returning the plain ``template`` when the name is absent.
 
     Reserved namespaces (global/environment/totp) raise TestmuConfigError on
-    hard failure inside ``var()``. The codegen contract is that ``template`` is
-    a user-provided default — catch the typed exception and fall back rather
-    than aborting the test.
+    hard failure. Bug-D2 fix: these errors propagate rather than being caught
+    and silently returning the raw mustache literal (which caused false-passes
+    where a test looked green but the variable was never resolved).
     """
     template_str = str(template) if template is not None else ""
     if "{{" in template_str or "${" in template_str:
-        try:
-            return var(template)
-        except TestmuConfigError:
-            return template
+        # Bug-D2 fix: let TestmuConfigError propagate — reserved-ns failures must
+        # be loud (false-pass from swallowing was worse than a loud abort).
+        return var(template)
     if name:
         wrapped = "{{" + str(name) + "}}"
-        try:
-            resolved = var(wrapped)
-        except TestmuConfigError:
-            return template
+        # Bug-D2 fix: same — bare-name path must also propagate hard failures.
+        resolved = var(wrapped)
         if resolved != wrapped:
             return resolved
     return template

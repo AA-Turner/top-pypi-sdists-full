@@ -291,19 +291,6 @@ __all__ = [
     "create_leaderboard_manager",
     "create_model_leaderboard",
     "create_prompt_leaderboard",
-    # License Management (Self-Hosted)
-    "LicenseValidator",
-    "LicenseInfo",
-    "UsageSummary",
-    "LicenseError",
-    "LicenseExpiredError",
-    "LicenseRevokedError",
-    "LicenseLimitExceededError",
-    # Telemetry (SDK Feature Tracking)
-    "track_feature",
-    "record_error",
-    "FeatureTracker",
-    "ErrorCollector",
     # Agent Observability (new!)
     "LoopDetectedError",
     # Agent Framework
@@ -354,7 +341,7 @@ __all__ = [
     "EvalStats",
 ]
 
-__version__ = "0.3.7"
+__version__ = "0.3.9"
 
 
 # Lazy imports for performance
@@ -1345,63 +1332,6 @@ def __getattr__(name: str) -> Any:  # noqa: C901, PLR0911, PLR0912
 
         return create_prompt_leaderboard
 
-    # License Management (Self-Hosted)
-    if name == "LicenseValidator":
-        from aigie.licensing import LicenseValidator
-
-        return LicenseValidator
-
-    if name == "LicenseInfo":
-        from aigie.licensing import LicenseInfo
-
-        return LicenseInfo
-
-    if name == "UsageSummary":
-        from aigie.licensing import UsageSummary
-
-        return UsageSummary
-
-    if name == "LicenseError":
-        from aigie.licensing import LicenseError
-
-        return LicenseError
-
-    if name == "LicenseExpiredError":
-        from aigie.licensing import LicenseExpiredError
-
-        return LicenseExpiredError
-
-    if name == "LicenseRevokedError":
-        from aigie.licensing import LicenseRevokedError
-
-        return LicenseRevokedError
-
-    if name == "LicenseLimitExceededError":
-        from aigie.licensing import LicenseLimitExceededError
-
-        return LicenseLimitExceededError
-
-    # Telemetry (SDK Feature Tracking)
-    if name == "track_feature":
-        from aigie.licensing import track_feature
-
-        return track_feature
-
-    if name == "record_error":
-        from aigie.licensing import record_error
-
-        return record_error
-
-    if name == "FeatureTracker":
-        from aigie.licensing import FeatureTracker
-
-        return FeatureTracker
-
-    if name == "ErrorCollector":
-        from aigie.licensing import ErrorCollector
-
-        return ErrorCollector
-
     # Agent Observability (new!)
     if name == "LoopDetectedError":
         from aigie.exceptions import LoopDetectedError
@@ -1974,15 +1904,6 @@ if TYPE_CHECKING:
         LearningClient,
         LearningPattern,
         LearningStats,
-    )
-    from aigie.licensing import (
-        LicenseError,
-        LicenseExpiredError,
-        LicenseInfo,
-        LicenseLimitExceededError,
-        LicenseRevokedError,
-        LicenseValidator,
-        UsageSummary,
     )
     from aigie.observe import observe
     from aigie.playground import (

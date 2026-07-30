@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1fkytte/remediation/v1/step.proto\x12\x14kytte.remediation.v1\x1a\x1cgoogle/protobuf/struct.proto\"\x87\x01\n\x0fRemediationStep\x12\x0f\n\x07step_id\x18\x08 \x01(\t\x12\x0c\n\x04verb\x18\t \x01(\t\x12\x16\n\x0eschema_version\x18\n \x01(\r\x12\x0e\n\x06reason\x18\x0b \x01(\t\x12\'\n\x06params\x18\x0c \x01(\x0b\x32\x17.google.protobuf.StructJ\x04\x08\x01\x10\x08\"\\\n\x08VerbSpec\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x12-\n\x0cparam_schema\x18\x03 \x01(\x0b\x32\x17.google.protobuf.Struct\"\\\n\x07StepRun\x12\x0f\n\x07step_id\x18\x01 \x01(\t\x12\x0c\n\x04verb\x18\x02 \x01(\t\x12\x0e\n\x06status\x18\x03 \x01(\t\x12\x0e\n\x06reason\x18\x04 \x01(\t\x12\x12\n\nlatency_ms\x18\x05 \x01(\rBh\n\x17\x61i.kytte.remediation.v1P\x01ZKgithub.com/Kytte-AI/kytte-platfrom/proto/kytte/remediation/v1;remediationv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1fkytte/remediation/v1/step.proto\x12\x14kytte.remediation.v1\x1a\x1cgoogle/protobuf/struct.proto\"\x87\x01\n\x0fRemediationStep\x12\x0f\n\x07step_id\x18\x08 \x01(\t\x12\x0c\n\x04verb\x18\t \x01(\t\x12\x16\n\x0eschema_version\x18\n \x01(\r\x12\x0e\n\x06reason\x18\x0b \x01(\t\x12\'\n\x06params\x18\x0c \x01(\x0b\x32\x17.google.protobuf.StructJ\x04\x08\x01\x10\x08\"\\\n\x08VerbSpec\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x12-\n\x0cparam_schema\x18\x03 \x01(\x0b\x32\x17.google.protobuf.Struct\"X\n\x04Tool\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x12-\n\x0cinput_schema\x18\x03 \x01(\x0b\x32\x17.google.protobuf.Struct\"\\\n\x07StepRun\x12\x0f\n\x07step_id\x18\x01 \x01(\t\x12\x0c\n\x04verb\x18\x02 \x01(\t\x12\x0e\n\x06status\x18\x03 \x01(\t\x12\x0e\n\x06reason\x18\x04 \x01(\t\x12\x12\n\nlatency_ms\x18\x05 \x01(\rBh\n\x17\x61i.kytte.remediation.v1P\x01ZKgithub.com/Kytte-AI/kytte-platfrom/proto/kytte/remediation/v1;remediationv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -37,6 +37,8 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_REMEDIATIONSTEP']._serialized_end=223
   _globals['_VERBSPEC']._serialized_start=225
   _globals['_VERBSPEC']._serialized_end=317
-  _globals['_STEPRUN']._serialized_start=319
-  _globals['_STEPRUN']._serialized_end=411
+  _globals['_TOOL']._serialized_start=319
+  _globals['_TOOL']._serialized_end=407
+  _globals['_STEPRUN']._serialized_start=409
+  _globals['_STEPRUN']._serialized_end=501
 # @@protoc_insertion_point(module_scope)

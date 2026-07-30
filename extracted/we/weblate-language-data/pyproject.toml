@@ -8,7 +8,7 @@ requires = [
 
 [dependency-groups]
 build = [
-  "translate-toolkit==3.19.9"
+  "translate-toolkit==3.19.15"
 ]
 dev = [
   {include-group = "build"},
@@ -20,14 +20,14 @@ lint = [
   {include-group = "pre-commit"}
 ]
 pre-commit = [
-  "prek==0.4.0"
+  "prek==0.4.11"
 ]
 test = [
 ]
 types = [
   "django-types==0.24.0",
-  "mypy==2.1.0",
-  "types-setuptools==82.0.0.20260508"
+  "mypy==2.3.0",
+  "types-setuptools==83.0.0.20260724"
 ]
 
 [project]
@@ -62,7 +62,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 name = "weblate-language-data"
 requires-python = ">=3.11"
-version = "2026.8"
+version = "2026.10"
 
 [project.optional-dependencies]
 django = [
@@ -141,6 +141,11 @@ ignore = [
   "TRY003"  # WONTFIX: Avoid specifying long messages outside the exception class
 ]
 select = ["ALL"]
+
+[tool.ruff.lint.flake8-copyright]
+min-file-size = 2
+# Copyright without a year, see https://github.com/astral-sh/ruff/issues/10062
+notice-rgx = "(?i)Copyright\\s+©\\s+"
 
 [tool.ruff.lint.mccabe]
 max-complexity = 16

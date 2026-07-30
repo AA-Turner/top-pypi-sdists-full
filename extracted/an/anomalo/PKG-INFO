@@ -1,36 +1,26 @@
 Metadata-Version: 2.4
 Name: anomalo
-Version: 0.45.3
+Version: 0.45.4
 Summary: Python bindings for the Anomalo API
-License: Apache-2.0
-License-File: LICENSE
-Author: Anomalo
-Author-email: support@anomalo.com
-Requires-Python: >=3.9,<4.0
-Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.14
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Provides-Extra: shacl
-Requires-Dist: casefy (>=1.1.0,<2.0.0)
-Requires-Dist: dataclasses-json (>=0.5.7,<0.6.0)
-Requires-Dist: fire (>=0.7.0,<0.8.0)
-Requires-Dist: pyshacl (>=0.29.0,<0.30.0) ; extra == "shacl"
-Requires-Dist: pyyaml (>=6.0.1,<7.0.0)
-Requires-Dist: rdflib (>=7.6.0,<8.0.0) ; extra == "shacl"
-Requires-Dist: requests (>=2.20.0,<3.0.0)
-Requires-Dist: tenacity (>=8.1.0,<9.0.0)
 Project-URL: Homepage, https://anomalo.com
+Author-email: Anomalo <support@anomalo.com>
+License-Expression: Apache-2.0
+License-File: LICENSE
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.9
+Requires-Dist: casefy>=1.1.0
+Requires-Dist: dataclasses-json>=0.5.7
+Requires-Dist: fire>=0.7.0
+Requires-Dist: pyyaml>=6.0.1
+Requires-Dist: requests>=2.20.0
+Requires-Dist: tenacity>=8.1.0
+Provides-Extra: shacl
+Requires-Dist: pyshacl>=0.29.0; extra == 'shacl'
+Requires-Dist: rdflib>=7.6.0; extra == 'shacl'
 Description-Content-Type: text/markdown
 
 A basic REST API client and command line client for [Anomalo][anomalo]
 
 
 [anomalo]: https://anomalo.com
-

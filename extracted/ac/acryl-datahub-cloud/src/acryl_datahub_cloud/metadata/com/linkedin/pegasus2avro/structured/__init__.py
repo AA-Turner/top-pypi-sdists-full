@@ -9,6 +9,7 @@
 # isort: skip_file
 from .....schema_classes import PropertyCardinalityClass
 from .....schema_classes import PropertyValueClass
+from .....schema_classes import RelationshipDirectionModeClass
 from .....schema_classes import StructuredPropertiesClass
 from .....schema_classes import StructuredPropertyDefinitionClass
 from .....schema_classes import StructuredPropertyFilterStatusClass
@@ -19,6 +20,7 @@ from .....schema_classes import StructuredPropertyValueAssignmentClass
 
 PropertyCardinality = PropertyCardinalityClass
 PropertyValue = PropertyValueClass
+RelationshipDirectionMode = RelationshipDirectionModeClass
 StructuredProperties = StructuredPropertiesClass
 StructuredPropertyDefinition = StructuredPropertyDefinitionClass
 StructuredPropertyFilterStatus = StructuredPropertyFilterStatusClass

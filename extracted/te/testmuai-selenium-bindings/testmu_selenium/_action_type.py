@@ -5,6 +5,7 @@
 from selenium.webdriver.common.actions.action_builder import ActionBuilder
 
 from testmu_selenium._action_engine import _ActionSpec, _run_action
+from testmu_selenium._helpers.input_value import _coerce_fill_value
 
 
 def _type_runner(element, ctx):
@@ -33,13 +34,18 @@ def _type_runner(element, ctx):
 # do. Strategy/multiple_inputs/manual_interaction_tag are not honoured on the
 # coord fallback — visual-location typing only.
 def _type_coord_runner(driver, x, y, ctx):
+    # Normalize before touching the driver: the selector tier gets this via
+    # input_value, so the coord tier must apply the same boundary or a
+    # structural value silently types its dict keys instead of failing.
+    value = _coerce_fill_value(ctx['value'])
+
     click = ActionBuilder(driver)
     click.pointer_action.move_to_location(x, y)
     click.pointer_action.click()
     click.perform()
 
     keyboard = ActionBuilder(driver)
-    keyboard.key_action.send_keys(ctx['value'])
+    keyboard.key_action.send_keys(value)
     keyboard.perform()
     return True
 

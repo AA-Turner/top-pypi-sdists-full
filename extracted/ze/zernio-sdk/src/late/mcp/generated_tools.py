@@ -1213,6 +1213,56 @@ def register_generated_tools(mcp, _get_client):
         except Exception as e:
             return f"Error: {e}"
 
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get Slack account settings",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def accounts_get_slack_settings(account_id: str) -> str:
+        """Get Slack account settings
+
+        Args:
+            account_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.accounts.get_slack_settings(account_id=account_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update Slack account settings",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def accounts_update_slack_settings(
+        account_id: str,
+        default_username: str | None = None,
+        default_icon_url: str | None = None,
+    ) -> str:
+        """Update Slack account settings
+
+        Args:
+            account_id: (required)
+            default_username: Author name shown on posts. Empty string clears it.
+            default_icon_url: Author avatar image URL. Empty string clears it."""
+        client = _get_client()
+        try:
+            response = client.accounts.update_slack_settings(
+                account_id=account_id,
+                default_username=default_username,
+                default_icon_url=default_icon_url,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
     # AD_ACCOUNTS
 
     @mcp.tool(
@@ -2781,7 +2831,7 @@ def register_generated_tools(mcp, _get_client):
         creates 1 campaign + 1 ad set + N ads (one per entry here).
         Top-level `headline` / `body` / `imageUrl` / `linkUrl` /
         `callToAction` are ignored in this mode. Mutually exclusive with `adSetId`.
-                ad_set_id: Meta-only. When present, switches to the attach shape: adds
+                ad_set_id: When present, switches to the attach shape: adds
         one new ad to this existing ad set without creating a new
         campaign. Budget, targeting, goal, schedule, AND bid strategy
         are inherited from the ad set on Meta — passing `bidStrategy`
@@ -3478,6 +3528,102 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Generate keyword ideas (Google Keyword Planner)",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_insights_generate_keyword_ideas(
+        account_id: str,
+        customer_id: str | None = None,
+        seed_keywords: list[str] | None = None,
+        seed_url: str | None = None,
+        countries: list[str] | None = None,
+        language_constant_id: str = "1000",
+        network: str = "GOOGLE_SEARCH",
+        include_adult_keywords: bool | None = None,
+        page_size: int | None = None,
+        page_token: str | None = None,
+    ) -> str:
+        """Generate keyword ideas (Google Keyword Planner)
+
+        Args:
+            account_id: Zernio googleads SocialAccount id. (required)
+            customer_id: Numeric Google Ads customer id (no dashes); only needed when the connection has several accounts.
+            seed_keywords: Seed terms. Provide these, seedUrl, or both.
+            seed_url: Landing page to mine for ideas. Provide this, seedKeywords, or both.
+            countries: ISO 3166-1 alpha-2 country codes. Omitted = worldwide.
+            language_constant_id: Google languageConstant id (1000 = English).
+            network
+            include_adult_keywords
+            page_size
+            page_token: Cursor from paging.nextPageToken of the previous page."""
+        client = _get_client()
+        try:
+            response = client.ad_insights.generate_keyword_ideas(
+                account_id=account_id,
+                customer_id=customer_id,
+                seed_keywords=seed_keywords,
+                seed_url=seed_url,
+                countries=countries,
+                language_constant_id=language_constant_id,
+                network=network,
+                include_adult_keywords=include_adult_keywords,
+                page_size=page_size,
+                page_token=page_token,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Historical keyword metrics (Google Keyword Planner)",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_insights_generate_keyword_historical_metrics(
+        account_id: str,
+        keywords: list[str] | None,
+        customer_id: str | None = None,
+        countries: list[str] | None = None,
+        language_constant_id: str = "1000",
+        network: str = "GOOGLE_SEARCH",
+        include_adult_keywords: bool | None = None,
+        include_average_cpc: bool | None = None,
+    ) -> str:
+        """Historical keyword metrics (Google Keyword Planner)
+
+        Args:
+            account_id: Zernio googleads SocialAccount id. (required)
+            customer_id: Numeric Google Ads customer id (no dashes); only needed when the connection has several accounts.
+            keywords: (required)
+            countries: ISO 3166-1 alpha-2 country codes. Omitted = worldwide.
+            language_constant_id: Google languageConstant id (1000 = English).
+            network
+            include_adult_keywords
+            include_average_cpc: Adds averageCpcMicros to each row's keywordMetrics."""
+        client = _get_client()
+        try:
+            response = client.ad_insights.generate_keyword_historical_metrics(
+                account_id=account_id,
+                customer_id=customer_id,
+                keywords=keywords,
+                countries=countries,
+                language_constant_id=language_constant_id,
+                network=network,
+                include_adult_keywords=include_adult_keywords,
+                include_average_cpc=include_average_cpc,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Flexible live insights query",
             readOnlyHint=True,
             destructiveHint=False,
@@ -3486,7 +3632,10 @@ def register_generated_tools(mcp, _get_client):
     )
     def ad_insights_query_ad_insights(
         account_id: str,
-        object_id: str,
+        object_id: str | None = None,
+        query: str | None = None,
+        customer_id: str | None = None,
+        page_token: str | None = None,
         level: str | None = None,
         fields: str | None = None,
         breakdowns: str | None = None,
@@ -3505,8 +3654,11 @@ def register_generated_tools(mcp, _get_client):
         """Flexible live insights query
 
         Args:
-            account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)
-            object_id: Meta insights node: act_<n>, campaign id, ad set id or ad id. (required)
+            account_id: Zernio SocialAccount id (posting or ads variant); its platform selects the Meta or Google contract. (required)
+            object_id: Meta only (required there): insights node — act_<n>, campaign id, ad set id or ad id.
+            query: Google only (required there): the GAQL SELECT statement to run.
+            customer_id: Google only: numeric customer id (no dashes) when the connection has several Google Ads accounts.
+            page_token: Google only: cursor from paging.nextPageToken of the previous page.
             level: Row granularity
             fields: Comma-separated Graph insights fields (e.g. spend,impressions,frequency,website_purchase_roas). Omitted = Meta's default set.
             breakdowns: Comma-separated Graph breakdowns (e.g. age,gender or publisher_platform).
@@ -3526,6 +3678,9 @@ def register_generated_tools(mcp, _get_client):
             response = client.ad_insights.query_ad_insights(
                 account_id=account_id,
                 object_id=object_id,
+                query=query,
+                customer_id=customer_id,
+                page_token=page_token,
                 level=level,
                 fields=fields,
                 breakdowns=breakdowns,
@@ -10263,16 +10418,17 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Purchase phone number
 
-        Args:
-            profile_id: Profile to associate the number with (required)
-            country: ISO 3166-1 alpha-2 country for the number (default US). International numbers require usage-based billing. Tier 3/4 countries return 202 { status: "kyc_required", kycUrl } — the customer must complete KYC at that URL before the number is ordered. See GET /v1/phone-numbers/countries.
-            number_type: Which of the country's offered number types to order (see `types[]` on GET /v1/phone-numbers/countries). Omitted = the country's default type, which is always the WhatsApp-safe choice. Capabilities, price, and KYC requirements are per (country, type): toll_free can never connect WhatsApp (400 when combined with connectWhatsapp:true), and wantsSms:true requires an SMS-capable type.
-            area_code: Area code (national destination code, e.g. 11 for Sao Paulo) the number must be in. Hard constraint: when the area has no deliverable inventory the purchase fails with 409 code AREA_CODE_UNAVAILABLE instead of assigning a number from another area, and later replacements stay in this area too. Omit for any area. Get live options from GET /v1/phone-numbers/availability (areaOptions).
-            connect_whatsapp: A phone number is the unit; WhatsApp is one optional feature. Pass false to buy a STANDALONE number (Calls/SMS only): provisioning skips the Meta pre-verify/OTP steps and the number activates immediately. Omitted defaults to the WhatsApp provisioning path. WhatsApp can be connected to a standalone number later from the connect flow.
-            wants_sms: SMS capability is per-number, not per-country. Pass true to provision from the SMS-capable inventory pool so the number can actually text (see also GET /v1/phone-numbers/available with sms=true, and smsAvailable on GET /v1/phone-numbers/countries).
-            wants_whatsapp: Declare WhatsApp intent on a STANDALONE purchase (connectWhatsapp:false). The number still activates and bills immediately, but if WhatsApp's buy-time check rejects the assigned number, it is automatically swapped for a WhatsApp-eligible one during the purchase instead of being delivered with WhatsApp unavailable. Ignored on the WhatsApp provisioning path (connectWhatsapp omitted or true), which always delivers a WhatsApp-verified number.
-            purchase_intent_id: Optional idempotency key. Send the same value when retrying a purchase: if a number was already bought under this key, the API returns { status: "already_purchased", numberId, phoneNumber } instead of provisioning a second number. Generate a fresh key for each genuinely new purchase.
-            allow_multiple: Any second purchase within 10 minutes of a previous one is rejected with 409 code PURCHASE_VELOCITY as duplicate protection. Pass true to confirm the additional purchase is intentional (e.g. bulk provisioning)."""
+           Args:
+               profile_id: Preferred profile for the number. One number = one profile, so when the requested profile already holds a number the API assigns the next free profile instead (or creates one) and returns the actual assignment in `profileId` on the response.
+        (required)
+               country: ISO 3166-1 alpha-2 country for the number (default US). International numbers require usage-based billing. Tier 3/4 countries return 202 { status: "kyc_required", kycUrl } — the customer must complete KYC at that URL before the number is ordered. See GET /v1/phone-numbers/countries.
+               number_type: Which of the country's offered number types to order (see `types[]` on GET /v1/phone-numbers/countries). Omitted = the country's default type, which is always the WhatsApp-safe choice. Capabilities, price, and KYC requirements are per (country, type): toll_free can never connect WhatsApp (400 when combined with connectWhatsapp:true), and wantsSms:true requires an SMS-capable type.
+               area_code: Area code (national destination code, e.g. 11 for Sao Paulo) the number must be in. Hard constraint: when the area has no deliverable inventory the purchase fails with 409 code AREA_CODE_UNAVAILABLE instead of assigning a number from another area, and later replacements stay in this area too. Omit for any area. Get live options from GET /v1/phone-numbers/availability (areaOptions).
+               connect_whatsapp: A phone number is the unit; WhatsApp is one optional feature. Pass false to buy a STANDALONE number (Calls/SMS only): provisioning skips the Meta pre-verify/OTP steps and the number activates immediately. Omitted defaults to the WhatsApp provisioning path. WhatsApp can be connected to a standalone number later from the connect flow.
+               wants_sms: SMS capability is per-number, not per-country. Pass true to provision from the SMS-capable inventory pool so the number can actually text (see also GET /v1/phone-numbers/available with sms=true, and smsAvailable on GET /v1/phone-numbers/countries).
+               wants_whatsapp: Declare WhatsApp intent on a STANDALONE purchase (connectWhatsapp:false). The number still activates and bills immediately, but if WhatsApp's buy-time check rejects the assigned number, it is automatically swapped for a WhatsApp-eligible one during the purchase instead of being delivered with WhatsApp unavailable. Ignored on the WhatsApp provisioning path (connectWhatsapp omitted or true), which always delivers a WhatsApp-verified number.
+               purchase_intent_id: Optional idempotency key. Send the same value when retrying a purchase: if a number was already bought under this key, the API returns { status: "already_purchased", numberId, phoneNumber, profileId } instead of provisioning a second number. Generate a fresh key for each genuinely new purchase.
+               allow_multiple: Any second purchase within 10 minutes of a previous one is rejected with 409 code PURCHASE_VELOCITY as duplicate protection. Pass true to confirm the additional purchase is intentional (e.g. bulk provisioning)."""
         client = _get_client()
         try:
             response = client.phone_numbers.purchase_phone_number(
@@ -12363,7 +12519,7 @@ def register_generated_tools(mcp, _get_client):
     )
     def sms_start_sms_registration(
         registration_type: str,
-        phone_numbers: list[str] | None,
+        phone_numbers: list[str] | None = None,
         brand: dict[str, Any] | None = None,
         campaign: dict[str, Any] | None = None,
         messaging_brand_name: str | None = None,
@@ -12375,7 +12531,7 @@ def register_generated_tools(mcp, _get_client):
 
             Args:
                 registration_type: (required)
-                phone_numbers: Your numbers this registration covers. (required)
+                phone_numbers: Your numbers this registration covers. When omitted or empty on a 10DLC registration, defaults to your active SMS-enabled US local numbers not already covered by another registration.
                 brand: Required for 10DLC. The legal entity behind the traffic (TCR brand).
                 campaign: Required for 10DLC. What you'll send and how recipients opt in/out.
         The opt-in/opt-out/help auto-responses (`optinMessage`,

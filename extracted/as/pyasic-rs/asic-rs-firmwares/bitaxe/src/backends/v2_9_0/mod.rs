@@ -26,6 +26,7 @@ use asic_rs_makes_bitaxe::hardware::BitaxeControlBoard;
 use async_trait::async_trait;
 use macaddr::MacAddr;
 use measurements::{AngularVelocity, Frequency, Power, Temperature, Voltage};
+use semver::Version;
 use serde_json::Value;
 use web::BitaxeWebAPI;
 
@@ -282,12 +283,24 @@ impl GetHashboards for Bitaxe290 {
                 }
                 .as_unit(HashRateUnit::default())
             });
+        // `vrTemp` is the VR/board sensor; `temp` is the ASIC chip sensor.
+        let chip_temp = api_data
+            .get("temp")
+            .and_then(|v| v.as_f64())
+            .filter(|t| *t > -50.0)
+            .or_else(|| {
+                chip_data
+                    .and_then(|c| c.get("temp"))
+                    .and_then(|v| v.as_f64())
+                    .filter(|t| *t > -50.0)
+            })
+            .map(Temperature::from_celsius);
         board.board_temperature = api_data
             .get("vrTemp")
             .and_then(|v| v.as_f64())
             .map(Temperature::from_celsius);
-        board.inlet_chip_temperature = board.board_temperature;
-        board.outlet_chip_temperature = board.board_temperature;
+        board.inlet_chip_temperature = chip_temp;
+        board.outlet_chip_temperature = chip_temp;
         board.working_chips = api_data
             .get("asicCount")
             .and_then(|v| v.as_u64())
@@ -300,13 +313,10 @@ impl GetHashboards for Bitaxe290 {
             .get("frequency")
             .and_then(|v| v.as_f64())
             .map(Frequency::from_megahertz);
-        if let Some(chip_data) = chip_data {
+        if chip_data.is_some() {
             board.chips = vec![ChipData {
                 position: 0,
-                temperature: chip_data
-                    .get("temp")
-                    .and_then(|v| v.as_f64())
-                    .map(Temperature::from_celsius),
+                temperature: chip_temp,
                 voltage: board.voltage,
                 frequency: board.frequency,
                 tuned: Some(true),
@@ -545,6 +555,14 @@ impl UpgradeFirmware for Bitaxe290 {
 
 impl HasAuth for Bitaxe290 {}
 impl HasDefaultAuth for Bitaxe290 {}
+
+impl Validate for Bitaxe290 {
+    type Firmware = BitaxeFirmware;
+
+    fn validate(version: Option<&semver::Version>) -> bool {
+        version.is_some_and(|v| *v >= Version::new(2, 9, 0))
+    }
+}
 
 #[async_trait]
 impl SupportsTuningConfig for Bitaxe290 {

@@ -26,6 +26,7 @@ use std::{
     time::{Duration, Instant},
 };
 use temporalio_common::{
+    payload_limits::{LimitClass, LimitSeverity, PayloadLimitViolation},
     protos::{
         coresdk::{
             ActivityTaskCompletion,
@@ -46,6 +47,7 @@ use temporalio_common::{
         temporal::api::{
             command::v1::{ScheduleActivityTaskCommandAttributes, command::Attributes},
             enums::v1::EventType,
+            failure::v1::failure::FailureInfo,
             workflowservice::v1::{
                 PollActivityTaskQueueResponse, RecordActivityTaskHeartbeatResponse,
                 RespondActivityTaskCanceledResponse, RespondActivityTaskCompletedResponse,
@@ -707,6 +709,129 @@ async fn complete_act_with_fail_flushes_heartbeat() {
     assert_eq!(last_seen_payload.data, &[last_hb]);
 }
 
+/// Builds a tonic `Status` carrying a `PayloadLimitViolation` source, exactly as the gRPC client
+/// layer produces when an outbound payload exceeds the error limit.
+fn payload_too_large_status() -> tonic::Status {
+    let violation = PayloadLimitViolation {
+        path: "details".to_string(),
+        class: LimitClass::Blob,
+        severity: LimitSeverity::Error,
+        size: 1024,
+        limit: 10,
+    };
+    let mut status = tonic::Status::invalid_argument("Payload size limit exceeded");
+    status.set_source(Arc::new(violation));
+    status
+}
+
+fn assert_payloads_too_large_retryable(
+    failure: &Option<temporalio_common::protos::temporal::api::failure::v1::Failure>,
+) {
+    let failure = failure.as_ref().expect("failure present");
+    assert_matches!(
+        &failure.failure_info,
+        Some(FailureInfo::ApplicationFailureInfo(afi))
+            if afi.r#type == crate::worker::PAYLOADS_TOO_LARGE_FAILURE_TYPE && !afi.non_retryable
+    );
+}
+
+/// An oversized cancel `details` payload must be reported as a (retryable) activity task failure
+/// rather than a cancellation — mirroring the success path and the server's own behavior.
+#[tokio::test]
+async fn oversized_cancel_details_fails_activity() {
+    let mut mock_client = mock_worker_client();
+    mock_client
+        .expect_cancel_activity_task()
+        .times(1)
+        .returning(|_, _| Err(payload_too_large_status()));
+    mock_client
+        .expect_fail_activity_task()
+        .times(1)
+        .returning(|_, failure| {
+            assert_payloads_too_large_retryable(&failure);
+            Ok(RespondActivityTaskFailedResponse::default())
+        });
+
+    let core = mock_worker(MocksHolder::from_client_with_activities(
+        mock_client,
+        [PollActivityTaskQueueResponse {
+            task_token: vec![1],
+            activity_id: "act1".to_string(),
+            ..Default::default()
+        }
+        .into()],
+    ));
+
+    let act = core.poll_activity_task().await.unwrap();
+    core.complete_activity_task(ActivityTaskCompletion {
+        task_token: act.task_token,
+        result: Some(ActivityExecutionResult::cancel_from_details(Some(
+            vec![1_u8; 1024].into(),
+        ))),
+    })
+    .await
+    .unwrap();
+    core.drain_activity_poller_and_shutdown().await;
+}
+
+/// An oversized heartbeat `details` payload must fail the activity task (retryably) and stop the
+/// running activity with a `Cancelled` cancel — replicating the server, which fails the activity
+/// task and returns `cancel_requested = true`.
+#[tokio::test]
+async fn oversized_heartbeat_fails_activity() {
+    let mut mock_client = mock_worker_client();
+    mock_client
+        .expect_record_activity_heartbeat()
+        .times(1)
+        .returning(|_, _| Err(payload_too_large_status()));
+    mock_client
+        .expect_fail_activity_task()
+        .times(1)
+        .returning(|_, failure| {
+            assert_payloads_too_large_retryable(&failure);
+            Ok(RespondActivityTaskFailedResponse::default())
+        });
+    // The activity winds down after the stop-cancel and reports its cancellation, which races to a
+    // NotFound (already failed); allow that call.
+    mock_client
+        .expect_cancel_activity_task()
+        .returning(|_, _| Ok(RespondActivityTaskCanceledResponse::default()));
+
+    let core = mock_worker(MocksHolder::from_client_with_activities(
+        mock_client,
+        [PollActivityTaskQueueResponse {
+            task_token: vec![1],
+            activity_id: "act1".to_string(),
+            heartbeat_timeout: Some(prost_dur!(from_millis(1))),
+            ..Default::default()
+        }
+        .into()],
+    ));
+
+    let act = core.poll_activity_task().await.unwrap();
+    core.record_activity_heartbeat(ActivityHeartbeat {
+        task_token: act.task_token.clone(),
+        details: vec![vec![1_u8; 1024].into()],
+    });
+    // Wait for the heartbeat to be processed and the stop-cancel to be issued.
+    sleep(Duration::from_millis(10)).await;
+    let cancel = core.poll_activity_task().await.unwrap();
+    assert_matches!(
+        &cancel,
+        ActivityTask {
+            variant: Some(activity_task::Variant::Cancel(Cancel { reason, .. })),
+            ..
+        } if *reason == ActivityCancelReason::Cancelled as i32
+    );
+    core.complete_activity_task(ActivityTaskCompletion {
+        task_token: cancel.task_token,
+        result: Some(ActivityExecutionResult::cancel_from_details(None)),
+    })
+    .await
+    .unwrap();
+    core.drain_activity_poller_and_shutdown().await;
+}
+
 #[tokio::test]
 async fn max_tq_acts_set_passed_to_poll_properly() {
     let rate = 9.28;
@@ -854,8 +979,7 @@ async fn no_eager_activities_requested_when_worker_options_disable_it(
 #[tokio::test]
 async fn activity_tasks_from_completion_are_delivered() {
     // Construct the history - one task with 5 activities, 4 on the same task queue, and 1 on a
-    // different queue, 3 activities will be executed eagerly as specified by the
-    // MAX_EAGER_ACTIVITY_RESERVATIONS_PER_WORKFLOW_TASK constant.
+    // different queue. Two activities will be executed eagerly as configured below.
     let wfid = "fake_wf_id";
     let mut t = TestHistoryBuilder::default();
     t.add_by_type(EventType::WorkflowExecutionStarted);
@@ -897,7 +1021,7 @@ async fn activity_tasks_from_completion_are_delivered() {
             num_eager_requested_clone.store(count, Ordering::Relaxed);
             Ok(RespondWorkflowTaskCompletedResponse {
                 workflow_task: None,
-                activity_tasks: (1..4)
+                activity_tasks: (1..3)
                     .map(|i| PollActivityTaskQueueResponse {
                         task_token: vec![i],
                         activity_id: format!("act_id_{i}_same_queue"),
@@ -908,14 +1032,17 @@ async fn activity_tasks_from_completion_are_delivered() {
             })
         });
     mock.expect_complete_activity_task()
-        .times(3)
+        .times(2)
         .returning(|_, _| Ok(RespondActivityTaskCompletedResponse::default()));
     let act_tasks: Vec<QueueResponse<PollActivityTaskQueueResponse>> = vec![];
     let mut mh = MockPollCfg::from_resp_batches(wfid, t, [1], mock);
     mh.enforce_correct_number_of_polls = true;
     mh.activity_responses = Some(act_tasks);
     let mut mock = build_mock_pollers(mh);
-    mock.worker_cfg(|wc| wc.max_cached_workflows = 2);
+    mock.worker_cfg(|wc| {
+        wc.max_cached_workflows = 2;
+        wc.max_eager_activity_reservations_per_workflow_task = 2;
+    });
     let core = mock_worker(mock);
     let task_queue = core.get_config().task_queue.clone();
 
@@ -961,8 +1088,8 @@ async fn activity_tasks_from_completion_are_delivered() {
     .await
     .unwrap();
 
-    // We should see the 3 eager activities when we poll now
-    for i in 1..4 {
+    // We should see the 2 eager activities when we poll now
+    for i in 1..3 {
         let act_task = core.poll_activity_task().await.unwrap();
         assert_eq!(act_task.task_token, vec![i]);
 
@@ -976,8 +1103,8 @@ async fn activity_tasks_from_completion_are_delivered() {
 
     core.drain_pollers_and_shutdown().await;
 
-    // Verify only a single eager activity was scheduled (the one on our worker's task queue)
-    assert_eq!(num_eager_requested.load(Ordering::Relaxed), 3);
+    // Verify the configured number of eager activities were requested.
+    assert_eq!(num_eager_requested.load(Ordering::Relaxed), 2);
 }
 
 #[tokio::test]

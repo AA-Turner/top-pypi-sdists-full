@@ -3,9 +3,10 @@ from __future__ import annotations
 
 import enum
 import logging
-from collections import defaultdict
+from collections import defaultdict, deque
+from collections.abc import Collection
 from contextlib import suppress
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import networkx
 from sortedcontainers import SortedDict
@@ -142,85 +143,133 @@ PRIMITIVE_TYPES = {
 }
 
 
+class TypeLattice:
+    """
+    A lattice of type constants with a lowest-common-ancestor table for caching purposes.
+
+    The lattice graph (`self.g`) should be treated as read-only, otherwise the cached LCA table will be invalidated
+    once the lattice graph changes.
+    """
+
+    __slots__ = ("_lca_table", "g")
+
+    def __init__(self, g: networkx.DiGraph):
+        self.g: networkx.DiGraph = g
+        self._lca_table: dict[tuple, Any] | None = None
+
+    def __contains__(self, node) -> bool:
+        return node in self.g
+
+    def inverted(self) -> TypeLattice:
+        """
+        Return a new lattice with every edge reversed, i.e. ordered from the most specific to the most general.
+        """
+
+        inverted_g = networkx.DiGraph()
+        for src, dst in self.g.edges:
+            inverted_g.add_edge(dst, src)
+        return TypeLattice(inverted_g)
+
+    def lca(self, node_a, node_b):
+        """
+        Return the lowest common ancestor of ``node_a`` and ``node_b``, or None if they have none. Initialize the LCA
+        table on the first query and memoize it for subsequent queries. This is critical for performance when the
+        lattice is relatively small (< 100 nodes) and the number of queries is large.
+
+        Reconsider this implementation when the type lattice is large.
+        """
+
+        if self._lca_table is None:
+            table: dict[tuple, Any] = {}
+            for (a, b), ancestor in networkx.all_pairs_lowest_common_ancestor(self.g):
+                # LCA is symmetric; all_pairs_lowest_common_ancestor only yields one direction of each pair
+                table[(a, b)] = ancestor
+                table[(b, a)] = ancestor
+            self._lca_table = table
+        return self._lca_table.get((node_a, node_b))
+
+
 # lattice for 64-bit binaries
-BASE_LATTICE_64 = networkx.DiGraph()
-BASE_LATTICE_64.add_edge(Top_, Int_)
-BASE_LATTICE_64.add_edge(Int_, Int512_)
-BASE_LATTICE_64.add_edge(Int_, Int256_)
-BASE_LATTICE_64.add_edge(Int_, Int128_)
-BASE_LATTICE_64.add_edge(Int_, Int64_)
-BASE_LATTICE_64.add_edge(Int_, Int32_)
-BASE_LATTICE_64.add_edge(Int_, Int16_)
-BASE_LATTICE_64.add_edge(Int_, Int8_)
-BASE_LATTICE_64.add_edge(Int512_, Bottom_)
-BASE_LATTICE_64.add_edge(Int256_, Bottom_)
-BASE_LATTICE_64.add_edge(Int128_, Bottom_)
+BASE_LATTICE_64_g = networkx.DiGraph()
+BASE_LATTICE_64_g.add_edge(Top_, Int_)
+BASE_LATTICE_64_g.add_edge(Int_, Int512_)
+BASE_LATTICE_64_g.add_edge(Int_, Int256_)
+BASE_LATTICE_64_g.add_edge(Int_, Int128_)
+BASE_LATTICE_64_g.add_edge(Int_, Int64_)
+BASE_LATTICE_64_g.add_edge(Int_, Int32_)
+BASE_LATTICE_64_g.add_edge(Int_, Int16_)
+BASE_LATTICE_64_g.add_edge(Int_, Int8_)
+BASE_LATTICE_64_g.add_edge(Int512_, Bottom_)
+BASE_LATTICE_64_g.add_edge(Int256_, Bottom_)
+BASE_LATTICE_64_g.add_edge(Int128_, Bottom_)
 # Int8: signed/unsigned children
-BASE_LATTICE_64.add_edge(Int8_, SInt8_)
-BASE_LATTICE_64.add_edge(Int8_, UInt8_)
-BASE_LATTICE_64.add_edge(SInt8_, Bottom_)
-BASE_LATTICE_64.add_edge(UInt8_, Bottom_)
+BASE_LATTICE_64_g.add_edge(Int8_, SInt8_)
+BASE_LATTICE_64_g.add_edge(Int8_, UInt8_)
+BASE_LATTICE_64_g.add_edge(SInt8_, Bottom_)
+BASE_LATTICE_64_g.add_edge(UInt8_, Bottom_)
 # Int16: signed/unsigned children
-BASE_LATTICE_64.add_edge(Int16_, SInt16_)
-BASE_LATTICE_64.add_edge(Int16_, UInt16_)
-BASE_LATTICE_64.add_edge(SInt16_, Bottom_)
-BASE_LATTICE_64.add_edge(UInt16_, Bottom_)
+BASE_LATTICE_64_g.add_edge(Int16_, SInt16_)
+BASE_LATTICE_64_g.add_edge(Int16_, UInt16_)
+BASE_LATTICE_64_g.add_edge(SInt16_, Bottom_)
+BASE_LATTICE_64_g.add_edge(UInt16_, Bottom_)
 # Int32: signed/unsigned children + Enum, Fd
-BASE_LATTICE_64.add_edge(Int32_, SInt32_)
-BASE_LATTICE_64.add_edge(Int32_, UInt32_)
-BASE_LATTICE_64.add_edge(SInt32_, Bottom_)
-BASE_LATTICE_64.add_edge(UInt32_, Bottom_)
-BASE_LATTICE_64.add_edge(Int32_, Enum_)
-BASE_LATTICE_64.add_edge(Enum_, Bottom_)
-BASE_LATTICE_64.add_edge(Int32_, Fd_)
-BASE_LATTICE_64.add_edge(Fd_, Bottom_)
+BASE_LATTICE_64_g.add_edge(Int32_, SInt32_)
+BASE_LATTICE_64_g.add_edge(Int32_, UInt32_)
+BASE_LATTICE_64_g.add_edge(SInt32_, Bottom_)
+BASE_LATTICE_64_g.add_edge(UInt32_, Bottom_)
+BASE_LATTICE_64_g.add_edge(Int32_, Enum_)
+BASE_LATTICE_64_g.add_edge(Enum_, Bottom_)
+BASE_LATTICE_64_g.add_edge(Int32_, Fd_)
+BASE_LATTICE_64_g.add_edge(Fd_, Bottom_)
 # Int64: signed/unsigned children + Pointer64
-BASE_LATTICE_64.add_edge(Int64_, SInt64_)
-BASE_LATTICE_64.add_edge(Int64_, UInt64_)
-BASE_LATTICE_64.add_edge(SInt64_, Bottom_)
-BASE_LATTICE_64.add_edge(UInt64_, Bottom_)
-BASE_LATTICE_64.add_edge(Int64_, Pointer64_)
-BASE_LATTICE_64.add_edge(Pointer64_, Bottom_)
+BASE_LATTICE_64_g.add_edge(Int64_, SInt64_)
+BASE_LATTICE_64_g.add_edge(Int64_, UInt64_)
+BASE_LATTICE_64_g.add_edge(SInt64_, Bottom_)
+BASE_LATTICE_64_g.add_edge(UInt64_, Bottom_)
+BASE_LATTICE_64_g.add_edge(Int64_, Pointer64_)
+BASE_LATTICE_64_g.add_edge(Pointer64_, Bottom_)
+BASE_LATTICE_64 = TypeLattice(BASE_LATTICE_64_g)
 
 # lattice for 32-bit binaries
-BASE_LATTICE_32 = networkx.DiGraph()
-BASE_LATTICE_32.add_edge(Top_, Int_)
-BASE_LATTICE_32.add_edge(Int_, Int512_)
-BASE_LATTICE_32.add_edge(Int_, Int256_)
-BASE_LATTICE_32.add_edge(Int_, Int128_)
-BASE_LATTICE_32.add_edge(Int_, Int64_)
-BASE_LATTICE_32.add_edge(Int_, Int32_)
-BASE_LATTICE_32.add_edge(Int_, Int16_)
-BASE_LATTICE_32.add_edge(Int_, Int8_)
-BASE_LATTICE_32.add_edge(Int512_, Bottom_)
-BASE_LATTICE_32.add_edge(Int256_, Bottom_)
-BASE_LATTICE_32.add_edge(Int128_, Bottom_)
+BASE_LATTICE_32_g = networkx.DiGraph()
+BASE_LATTICE_32_g.add_edge(Top_, Int_)
+BASE_LATTICE_32_g.add_edge(Int_, Int512_)
+BASE_LATTICE_32_g.add_edge(Int_, Int256_)
+BASE_LATTICE_32_g.add_edge(Int_, Int128_)
+BASE_LATTICE_32_g.add_edge(Int_, Int64_)
+BASE_LATTICE_32_g.add_edge(Int_, Int32_)
+BASE_LATTICE_32_g.add_edge(Int_, Int16_)
+BASE_LATTICE_32_g.add_edge(Int_, Int8_)
+BASE_LATTICE_32_g.add_edge(Int512_, Bottom_)
+BASE_LATTICE_32_g.add_edge(Int256_, Bottom_)
+BASE_LATTICE_32_g.add_edge(Int128_, Bottom_)
 # Int8: signed/unsigned children
-BASE_LATTICE_32.add_edge(Int8_, SInt8_)
-BASE_LATTICE_32.add_edge(Int8_, UInt8_)
-BASE_LATTICE_32.add_edge(SInt8_, Bottom_)
-BASE_LATTICE_32.add_edge(UInt8_, Bottom_)
+BASE_LATTICE_32_g.add_edge(Int8_, SInt8_)
+BASE_LATTICE_32_g.add_edge(Int8_, UInt8_)
+BASE_LATTICE_32_g.add_edge(SInt8_, Bottom_)
+BASE_LATTICE_32_g.add_edge(UInt8_, Bottom_)
 # Int16: signed/unsigned children
-BASE_LATTICE_32.add_edge(Int16_, SInt16_)
-BASE_LATTICE_32.add_edge(Int16_, UInt16_)
-BASE_LATTICE_32.add_edge(SInt16_, Bottom_)
-BASE_LATTICE_32.add_edge(UInt16_, Bottom_)
+BASE_LATTICE_32_g.add_edge(Int16_, SInt16_)
+BASE_LATTICE_32_g.add_edge(Int16_, UInt16_)
+BASE_LATTICE_32_g.add_edge(SInt16_, Bottom_)
+BASE_LATTICE_32_g.add_edge(UInt16_, Bottom_)
 # Int32: signed/unsigned children + Pointer32, Enum, Fd
-BASE_LATTICE_32.add_edge(Int32_, SInt32_)
-BASE_LATTICE_32.add_edge(Int32_, UInt32_)
-BASE_LATTICE_32.add_edge(SInt32_, Bottom_)
-BASE_LATTICE_32.add_edge(UInt32_, Bottom_)
-BASE_LATTICE_32.add_edge(Int32_, Pointer32_)
-BASE_LATTICE_32.add_edge(Pointer32_, Bottom_)
-BASE_LATTICE_32.add_edge(Int32_, Enum_)
-BASE_LATTICE_32.add_edge(Enum_, Bottom_)
-BASE_LATTICE_32.add_edge(Int32_, Fd_)
-BASE_LATTICE_32.add_edge(Fd_, Bottom_)
+BASE_LATTICE_32_g.add_edge(Int32_, SInt32_)
+BASE_LATTICE_32_g.add_edge(Int32_, UInt32_)
+BASE_LATTICE_32_g.add_edge(SInt32_, Bottom_)
+BASE_LATTICE_32_g.add_edge(UInt32_, Bottom_)
+BASE_LATTICE_32_g.add_edge(Int32_, Pointer32_)
+BASE_LATTICE_32_g.add_edge(Pointer32_, Bottom_)
+BASE_LATTICE_32_g.add_edge(Int32_, Enum_)
+BASE_LATTICE_32_g.add_edge(Enum_, Bottom_)
+BASE_LATTICE_32_g.add_edge(Int32_, Fd_)
+BASE_LATTICE_32_g.add_edge(Fd_, Bottom_)
 # Int64: signed/unsigned children
-BASE_LATTICE_32.add_edge(Int64_, SInt64_)
-BASE_LATTICE_32.add_edge(Int64_, UInt64_)
-BASE_LATTICE_32.add_edge(SInt64_, Bottom_)
-BASE_LATTICE_32.add_edge(UInt64_, Bottom_)
+BASE_LATTICE_32_g.add_edge(Int64_, SInt64_)
+BASE_LATTICE_32_g.add_edge(Int64_, UInt64_)
+BASE_LATTICE_32_g.add_edge(SInt64_, Bottom_)
+BASE_LATTICE_32_g.add_edge(UInt64_, Bottom_)
+BASE_LATTICE_32 = TypeLattice(BASE_LATTICE_32_g)
 
 BASE_LATTICES = {
     32: BASE_LATTICE_32,
@@ -228,14 +277,7 @@ BASE_LATTICES = {
 }
 
 
-def _invert_lattice(lattice: networkx.DiGraph) -> networkx.DiGraph:
-    inverted = networkx.DiGraph()
-    for src, dst in lattice.edges:
-        inverted.add_edge(dst, src)
-    return inverted
-
-
-BASE_LATTICES_INVERTED = {bits: _invert_lattice(lattice) for bits, lattice in BASE_LATTICES.items()}
+BASE_LATTICES_INVERTED = {bits: lattice.inverted() for bits, lattice in BASE_LATTICES.items()}
 
 
 #
@@ -256,12 +298,13 @@ class SketchNode(SketchNodeBase):
     Represents a node in a sketch graph.
     """
 
-    __slots__ = ("lower_bound", "typevar", "upper_bound")
+    __slots__ = ("_hash", "lower_bound", "typevar", "upper_bound")
 
     def __init__(self, typevar: TypeVariable | DerivedTypeVariable):
         self.typevar: TypeVariable | DerivedTypeVariable = typevar
         self.upper_bound: TypeConstant = TopType()
         self.lower_bound: TypeConstant = BottomType()
+        self._hash = hash((_SKETCH_NODE_TAG, typevar))
 
     def __repr__(self):
         return f"{self.lower_bound} <: {self.typevar} <: {self.upper_bound}"
@@ -270,7 +313,7 @@ class SketchNode(SketchNodeBase):
         return isinstance(other, SketchNode) and self.typevar == other.typevar
 
     def __hash__(self):
-        return hash((type_tag(SketchNode), self.typevar))
+        return self._hash
 
     @property
     def size(self) -> int | None:
@@ -289,6 +332,9 @@ class SketchNode(SketchNodeBase):
             with suppress(NotImplementedError):
                 return self.upper_bound.size * 8
         return None
+
+
+_SKETCH_NODE_TAG = type_tag(SketchNode)
 
 
 class RecursiveRefNode(SketchNodeBase):
@@ -442,24 +488,30 @@ class Sketch:
 
 
 class ConstraintGraphTag(enum.Enum):
+    def __init__(self, n):
+        self._hash = hash(("ConstraintGraphTag", n))
+
+    def __hash__(self):
+        return self._hash
+
     LEFT = 0
     RIGHT = 1
     UNKNOWN = 2
 
-    def __hash__(self):
-        return hash((type_tag(ConstraintGraphTag), self.value))
-
 
 class FORGOTTEN(enum.Enum):
+    def __init__(self, n):
+        self._hash = hash(("FORGOTTEN", n))
+
+    def __hash__(self):
+        return self._hash
+
     PRE_FORGOTTEN = 0
     POST_FORGOTTEN = 1
 
-    def __hash__(self):
-        return hash((type_tag(FORGOTTEN), self.value))
-
 
 class ConstraintGraphNode:
-    __slots__ = ("forgotten", "tag", "typevar", "variance")
+    __slots__ = ("_hash", "forgotten", "tag", "typevar", "variance")
 
     def __init__(
         self,
@@ -472,6 +524,7 @@ class ConstraintGraphNode:
         self.variance = variance
         self.tag = tag
         self.forgotten = forgotten
+        self._hash = hash(("ConstraintGraphNode", typevar, variance, tag, forgotten))
 
     def __repr__(self):
         variance_str = "CO" if self.variance == Variance.COVARIANT else "CONTRA"
@@ -498,7 +551,7 @@ class ConstraintGraphNode:
         )
 
     def __hash__(self):
-        return hash((type_tag(ConstraintGraphNode), self.typevar, self.variance, self.tag, self.forgotten))
+        return self._hash
 
     def forget_last_label(self) -> tuple[ConstraintGraphNode, BaseLabel] | None:
         if isinstance(self.typevar, DerivedTypeVariable) and self.typevar.labels:
@@ -586,9 +639,7 @@ class SimpleSolver:
         self.stackvar_max_sizes = stackvar_max_sizes if stackvar_max_sizes is not None else {}
         self._constraint_set_degradation_threshold = constraint_set_degradation_threshold
         self._base_lattice = BASE_LATTICES[bits]
-        self._base_lattice_inverted = networkx.DiGraph()
-        for src, dst in self._base_lattice.edges:
-            self._base_lattice_inverted.add_edge(dst, src)
+        self._base_lattice_inverted = BASE_LATTICES_INVERTED[bits]
 
         # statistics
         self.processed_constraints_count: int = 0
@@ -709,18 +760,23 @@ class SimpleSolver:
                         constrained_typevars.add(t)
 
         constraintset2tvs = defaultdict(set)
+        # build a mapping from type variable to constraints for faster lookups during constraint subset generation
+        tv_to_constraints = self._index_subtype_constraints(constraints) if constrained_typevars else {}
         tvs_seen = set()
         for idx, tv in enumerate(sorted(constrained_typevars, key=lambda x: x.idx)):
             _l.debug("Collecting constraints for type variable %r (%d/%d)", tv, idx + 1, len(constrained_typevars))
             if tv in tvs_seen:
                 continue
             # build a sub constraint set for the type variable
-            constraint_subset, related_tvs = self._generate_constraint_subset(constraints, {tv})
+            constraint_subset, related_tvs = self._generate_constraint_subset(
+                constraints, {tv}, tv_to_constraints=tv_to_constraints
+            )
             # drop all type vars outside constrained_typevars
             related_tvs = related_tvs.intersection(constrained_typevars)
             tvs_seen |= related_tvs
             frozen_constraint_subset = frozenset(constraint_subset)
             constraintset2tvs[frozen_constraint_subset] = related_tvs
+        del tv_to_constraints
 
         for idx, (constraint_subset, tvs) in enumerate(constraintset2tvs.items()):
             _l.debug(
@@ -1580,38 +1636,55 @@ class SimpleSolver:
     #
 
     @staticmethod
+    def _index_subtype_constraints(
+        constraints: Collection[TypeConstraint],
+    ) -> dict[TypeVariable | TypeConstant, set[Subtype]]:
+        tv_to_constraints: dict[TypeVariable | TypeConstant, set[Subtype]] = defaultdict(set)
+        for constraint in constraints:
+            if not isinstance(constraint, Subtype):
+                continue
+            for type_ in (constraint.sub_type, constraint.super_type):
+                tv = (
+                    type_.type_var
+                    if isinstance(type_, DerivedTypeVariable)
+                    else type_
+                    if isinstance(type_, TypeVariable)
+                    else None
+                )
+                if tv is not None:
+                    tv_to_constraints[tv].add(constraint)
+        return tv_to_constraints
+
+    @staticmethod
     def _generate_constraint_subset(
-        constraints: set[TypeConstraint], typevars: set[TypeVariable]
-    ) -> tuple[set[TypeConstraint], set[TypeVariable]]:
-        subset = set()
+        constraints: Collection[TypeConstraint],
+        typevars: Collection[TypeVariable | TypeConstant],
+        *,
+        tv_to_constraints: dict[TypeVariable | TypeConstant, set[Subtype]] | None = None,
+    ) -> tuple[set[TypeConstraint], set[TypeVariable | TypeConstant]]:
+        if tv_to_constraints is None:
+            tv_to_constraints = SimpleSolver._index_subtype_constraints(constraints)
+
+        subset: set[TypeConstraint] = set()
         related_typevars = set(typevars)
-        while True:
-            new = set()
-            for constraint in constraints:
+        pending_typevars = deque(typevars)
+        while pending_typevars:
+            typevar = pending_typevars.pop()
+            for constraint in tv_to_constraints.get(typevar, ()):
                 if constraint in subset:
                     continue
-                if isinstance(constraint, Subtype):
-                    if isinstance(constraint.sub_type, DerivedTypeVariable):
-                        subt = constraint.sub_type.type_var
-                    elif isinstance(constraint.sub_type, TypeVariable):
-                        subt = constraint.sub_type
-                    else:
-                        subt = None
-                    if isinstance(constraint.super_type, DerivedTypeVariable):
-                        supert = constraint.super_type.type_var
-                    elif isinstance(constraint.super_type, TypeVariable):
-                        supert = constraint.super_type
-                    else:
-                        supert = None
-                    if subt in related_typevars or supert in related_typevars:
-                        new.add(constraint)
-                        if subt is not None:
-                            related_typevars.add(subt)
-                        if supert is not None:
-                            related_typevars.add(supert)
-            if not new:
-                break
-            subset |= new
+                subset.add(constraint)
+                for type_ in (constraint.sub_type, constraint.super_type):
+                    tv = (
+                        type_.type_var
+                        if isinstance(type_, DerivedTypeVariable)
+                        else type_
+                        if isinstance(type_, TypeVariable)
+                        else None
+                    )
+                    if tv is not None and tv not in related_typevars:
+                        related_typevars.add(tv)
+                        pending_typevars.append(tv)
         return subset, related_typevars
 
     def _generate_constraint_graph(
@@ -1822,7 +1895,7 @@ class SimpleSolver:
     def _lattice_op(
         t1: TypeConstant,
         t2: TypeConstant,
-        lattice: networkx.DiGraph,
+        lattice: TypeLattice,
         unit: TypeConstant,
     ) -> TypeConstant:
         """
@@ -1837,7 +1910,7 @@ class SimpleSolver:
         abstract_t1 = SimpleSolver.abstract(t1)
         abstract_t2 = SimpleSolver.abstract(t2)
         if abstract_t1 in lattice and abstract_t2 in lattice:
-            ancestor = networkx.lowest_common_ancestor(lattice, abstract_t1, abstract_t2)
+            ancestor = lattice.lca(abstract_t1, abstract_t2)
 
             if (
                 isinstance(ancestor, Pointer)
@@ -1897,7 +1970,7 @@ class SimpleSolver:
 
     @classmethod
     def _simtype_lattice_op(
-        cls, t1: SimType, t2: SimType, arch: archinfo.Arch, lattices: dict[int, networkx.DiGraph], unit: TypeConstant
+        cls, t1: SimType, t2: SimType, arch: archinfo.Arch, lattices: dict[int, TypeLattice], unit: TypeConstant
     ) -> SimType:
         if arch.bits not in lattices:
             raise ValueError(f"Pointer size {arch.bits} is not supported. Expect 32 or 64.")
@@ -2024,7 +2097,7 @@ class SimpleSolver:
                 elif isinstance(last_label, FuncOut):
                     func_outputs[last_label.loc].add(succ)
                 else:
-                    raise RuntimeError("Unreachable")
+                    raise TypeError("Unreachable")
 
             input_args = []
             output_values = []
@@ -2257,7 +2330,7 @@ class SimpleSolver:
 
         return paths
 
-    def _pointer_class(self) -> type[Pointer32] | type[Pointer64]:
+    def _pointer_class(self) -> type[Pointer32 | Pointer64]:
         if self.bits == 32:
             return Pointer32
         if self.bits == 64:

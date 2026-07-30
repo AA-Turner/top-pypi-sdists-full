@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "websockets"
 description = "An implementation of the WebSocket Protocol (RFC 6455 & 7692)"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "BSD-3-Clause"
 authors = [
     { name = "Aymeric Augustin", email = "aymeric.augustin@m4x.org" },
@@ -18,11 +18,11 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
 ]
 dynamic = ["version", "readme"]
 
@@ -39,13 +39,14 @@ websockets = "websockets.cli:main"
 [tool.cibuildwheel]
 enable = ["pypy"]
 
-# On a macOS runner, build Intel, Universal, and Apple Silicon wheels.
-[tool.cibuildwheel.macos]
-archs = ["x86_64", "universal2", "arm64"]
-
-# On an Linux Intel runner with QEMU installed, build Intel and ARM wheels.
 [tool.cibuildwheel.linux]
-archs = ["auto", "aarch64", "armv7l", "ppc64le", "riscv64", "s390x"]
+archs = ["x86_64", "aarch64", "i686", "armv7l", "ppc64le", "riscv64", "s390x"]
+
+[tool.cibuildwheel.macos]
+archs = ["arm64", "x86_64", "universal2"]
+
+[tool.cibuildwheel.windows]
+archs = ["AMD64", "ARM64", "x86"]
 
 [tool.codespell]
 skip = "docs/_build,docs/_static,*.svg"
@@ -57,8 +58,6 @@ core = "ctrace"
 omit = [
     # */websockets matches src/websockets and .tox/**/site-packages/websockets
     "*/websockets/__main__.py",
-    "*/websockets/asyncio/async_timeout.py",
-    "*/websockets/asyncio/compatibility.py",
     "tests/maxi_cov.py",
 ]
 

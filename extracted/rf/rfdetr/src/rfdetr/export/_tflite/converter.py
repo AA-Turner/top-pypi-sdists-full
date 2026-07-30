@@ -64,6 +64,7 @@ from __future__ import annotations
 import contextlib
 import os
 import sys
+import threading
 from pathlib import Path
 from typing import Any, Generator, cast
 
@@ -435,7 +436,7 @@ def _replace_gridsample_for_tflite(onnx_path: Path, output_dir: Path) -> Path:
     except ImportError as exc:
         raise ImportError(
             "onnx and onnx_graphsurgeon are required for the GridSample TFLite "
-            "patch.  Install with: pip install rfdetr[onnx,tflite]"
+            "patch.  Install with: pip install rfdetr[tflite]"
         ) from exc
 
     model = onnx.load(str(onnx_path))
@@ -481,9 +482,8 @@ def _check_onnx2tf_available() -> None:
         import onnx2tf  # noqa: F401
     except ImportError as exc:
         raise ImportError(
-            "onnx2tf is not installed. TFLite export requires both ONNX and "
-            "TFLite export dependencies. Install them with: "
-            "pip install rfdetr[onnx,tflite]"
+            "onnx2tf is not installed. TFLite export requires the tflite extra. "
+            "Install it with: pip install rfdetr[tflite]"
         ) from exc
 
     from importlib.metadata import PackageNotFoundError as _PkgNotFound
@@ -511,6 +511,11 @@ def _check_onnx2tf_available() -> None:
         )
 
 
+# Serializes the global ``np.load`` monkey-patch below so concurrent conversions in the
+# same process cannot clobber each other's patch/restore cycle.
+_NUMPY_LOAD_PATCH_LOCK = threading.Lock()
+
+
 @contextlib.contextmanager
 def _numpy_allow_pickle() -> Generator[None, None, None]:
     """Temporarily patch :func:`numpy.load` to set ``allow_pickle=True``.
@@ -519,19 +524,21 @@ def _numpy_allow_pickle() -> Generator[None, None, None]:
     1.16.3 defaults that flag to ``False`` and raises :class:`ValueError` for pickled files.
 
     This context manager monkey-patches ``np.load`` for the duration of the ``onnx2tf`` conversion and restores the
-    original afterwards.
+    original afterwards.  Because ``np.load`` is process-global, the patch/restore cycle is guarded by a module-level
+    lock so it is safe when multiple conversions run on separate threads.
     """
-    _original_load = np.load
+    with _NUMPY_LOAD_PATCH_LOCK:
+        _original_load = np.load
 
-    def _patched_load(*args: Any, **kwargs: Any) -> Any:
-        kwargs.setdefault("allow_pickle", True)
-        return _original_load(*args, **kwargs)
+        def _patched_load(*args: Any, **kwargs: Any) -> Any:
+            kwargs.setdefault("allow_pickle", True)
+            return _original_load(*args, **kwargs)
 
-    np.load = _patched_load  # type: ignore[assignment,unused-ignore]
-    try:
-        yield
-    finally:
-        np.load = _original_load  # type: ignore[assignment,unused-ignore]
+        np.load = _patched_load  # type: ignore[assignment,unused-ignore]
+        try:
+            yield
+        finally:
+            np.load = _original_load  # type: ignore[assignment,unused-ignore]
 
 
 @contextlib.contextmanager
@@ -559,12 +566,12 @@ def _patch_validation_download(npy_path: str) -> Generator[None, None, None]:
             NHWC format.
     """
 
-    def _replacement() -> NDArray[Any]:
+    def _replacement() -> NDArray[np.float32]:
         # Calibration data prepared by _prepare_calibration_data() is always
         # a plain float32 ndarray — never pickled.  allow_pickle=False is
         # intentional here; allow_pickle=True is handled by _numpy_allow_pickle()
         # for onnx2tf's own internal np.load calls.
-        return cast(NDArray[Any], np.load(npy_path, allow_pickle=False))
+        return cast(NDArray[np.float32], np.load(npy_path, allow_pickle=False))
 
     originals: dict[str, Any] = {}
     modules = [
@@ -657,9 +664,8 @@ def _get_onnx_input_info(onnx_path: Path) -> tuple[str, list[int]]:
         import onnx
     except ImportError as exc:
         raise ImportError(
-            "onnx is not installed. TFLite export requires both ONNX and "
-            "TFLite export dependencies. Install them with: "
-            "pip install rfdetr[onnx,tflite]"
+            "onnx is not installed. TFLite export requires the tflite extra. "
+            "Install it with: pip install rfdetr[tflite]"
         ) from exc
 
     model = onnx.load(str(onnx_path))
@@ -671,7 +677,7 @@ def _get_onnx_input_info(onnx_path: Path) -> tuple[str, list[int]]:
 
 def _prepare_calibration_data(
     onnx_path: Path,
-    calibration_data: str | os.PathLike[str] | np.ndarray | None,
+    calibration_data: str | os.PathLike[str] | NDArray[np.float32] | None,
     output_dir: Path,
     quantization: str | None,
     max_images: int = _DEFAULT_DIR_CALIB_SAMPLES,
@@ -774,7 +780,7 @@ def export_tflite(
     onnx_path: str | os.PathLike[str],
     output_dir: str | os.PathLike[str],
     quantization: str | None = None,
-    calibration_data: str | os.PathLike[str] | np.ndarray | None = None,
+    calibration_data: str | os.PathLike[str] | NDArray[np.float32] | None = None,
     verbosity: str = "error",
     max_images: int = _DEFAULT_DIR_CALIB_SAMPLES,
     *,
@@ -879,7 +885,7 @@ def export_tflite(
         logger.warning(
             "GridSample TFLite patch skipped — onnx/onnx_graphsurgeon not available (%s). "
             "TFLite inference may produce incorrect scores if the model contains GridSample nodes. "
-            "Install with: pip install rfdetr[onnx,tflite]",
+            "Install with: pip install rfdetr[tflite]",
             exc,
         )
 

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "django-test-plus"
-version = "2.4.1"
+version = "2.5.0"
 description = "django-test-plus provides useful additions to Django's default TestCase"
 authors = [
     { name = "Frank Wiles", email = "frank@revsys.com" },
@@ -19,6 +19,7 @@ classifiers = [
     "Framework :: Django :: 5.1",
     "Framework :: Django :: 5.2",
     "Framework :: Django :: 6.0",
+    "Framework :: Django :: 6.1",
     "Framework :: Pytest",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: BSD License",
@@ -29,6 +30,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Free Threading :: 3 - Stable",
 ]
 dependencies = ["packaging"]
 requires-python = ">=3.10"
@@ -45,13 +47,14 @@ Homepage = "https://github.com/revsys/django-test-plus/"
 pytest11 = { test_plus = "test_plus.plugin" }
 
 [project.optional-dependencies]
-docs = ["sphinx", "furo", "sphinx-copybutton", "sphinx-prompt"]
-lint = ["pre-commit"]
+# docs/conf.py calls django.setup(), so Django is needed to build the docs.
+docs = ["django", "sphinx", "furo", "sphinx-copybutton", "sphinx-prompt"]
+lint = ["prek"]
 test = ["factory-boy", "pytest", "pytest-cov", "pytest-django"]
 testing = ["django-test-plus[test]"]
 
 [tool.bumpver]
-current_version = "2.4.1"
+current_version = "2.5.0"
 version_pattern = "MAJOR.MINOR.PATCH"
 commit_message = "Bump version {old_version} -> {new_version}"
 commit = true
@@ -60,7 +63,7 @@ push = false
 
 [tool.bumpver.file_patterns]
 "pyproject.toml" = ['current_version = "{version}"', 'version = "{version}"']
-"docs/conf.py" = ["version = '{version}'"]
+"docs/conf.py" = ['version = "{version}"']
 
 [tool.coverage.paths]
 source = ["test_plus"]
@@ -96,6 +99,13 @@ honor_noqa = true
 
 [tool.ruff]
 line-length = 120
+
+[tool.ruff.lint.per-file-ignores]
+# Django declares these as plain class attributes by convention; ClassVar
+# annotations would be wrong here (migrations are generated code).
+"**/migrations/*.py" = ["RUF012"]
+"**/forms.py" = ["RUF012"]
+"**/models.py" = ["RUF012"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "test_project.settings"

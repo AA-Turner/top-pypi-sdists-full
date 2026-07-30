@@ -6,7 +6,11 @@ mod slot_provider;
 pub(crate) mod tuner;
 mod workflow;
 
-use temporalio_client::Connection;
+/// The failure `type` set on the task failures workers synthesize when an outbound payload exceeds
+/// the error limit, shared so every conversion site reports the same identifier.
+pub(crate) const PAYLOADS_TOO_LARGE_FAILURE_TYPE: &str = "PayloadsTooLarge";
+
+use temporalio_client::{Connection, PayloadErrorLimits};
 use temporalio_common::{
     protos::{
         coresdk::{
@@ -23,8 +27,8 @@ use temporalio_common::{
 };
 pub use tuner::{
     FixedSizeSlotSupplier, ResourceBasedSlotsOptions, ResourceBasedSlotsOptionsBuilder,
-    ResourceBasedTuner, ResourceSlotOptions, SlotSupplierOptions, TunerBuilder, TunerHolder,
-    TunerHolderOptions,
+    ResourceBasedTuner, ResourceBasedTunerConfig, ResourceController, ResourceSlotOptions,
+    SlotSupplierOptions, TunerBuilder, TunerHolder, TunerHolderOptions,
 };
 // Re-export the generated builder (it's in the tuner module)
 pub use tuner::TunerHolderOptionsBuilder;
@@ -93,7 +97,7 @@ use temporalio_common::{
         },
         temporal::api::{
             deployment,
-            enums::v1::{TaskQueueKind, WorkerStatus},
+            enums::v1::{TaskQueueKind, TaskQueueType, WorkerStatus},
             taskqueue::v1::{StickyExecutionAttributes, TaskQueue},
             worker::v1::{WorkerHeartbeat, WorkerHostInfo, WorkerPollerInfo, WorkerSlotsInfo},
         },
@@ -198,6 +202,11 @@ pub struct WorkerConfig {
     /// the options to fail.
     pub max_worker_activities_per_second: Option<f64>,
 
+    /// Maximum number of activity slots that may be reserved for eager execution when completing
+    /// a workflow task. The default is 3. Setting this to zero disables eager activity execution.
+    #[builder(default = 3)]
+    pub max_eager_activity_reservations_per_workflow_task: usize,
+
     /// If set false (default), shutdown will not finish until all pending evictions have been
     /// issued and replied to. If set true shutdown will be considered complete when the only
     /// remaining work is pending evictions.
@@ -273,6 +282,13 @@ pub struct WorkerConfig {
     /// List of storage drivers used by lang.
     #[builder(default)]
     pub storage_drivers: HashSet<StorageDriverInfo>,
+
+    /// If set, the worker won't enforce server payload/memo error limits on outbound completions —
+    /// oversized payloads are still warned about, and the server still rejects them. When unset, an
+    /// oversized completion is proactively failed as a WFT/activity rather than sent.
+    /// NOTE: Experimental
+    #[builder(default = false)]
+    pub disable_payload_error_limit: bool,
 }
 
 impl WorkerConfig {
@@ -531,6 +547,17 @@ impl Worker {
                         memo_size_limit_error: api_limits.memo_size_limit_error,
                     })
                 });
+                // Install the namespace error limits on the client (enforced on completions) unless
+                // opted out; warn-level enforcement is always on, configured on the connection.
+                if !self.config.disable_payload_error_limit
+                    && let Some(limits) = limits.as_ref()
+                {
+                    self.client
+                        .set_payload_error_limits(Some(PayloadErrorLimits {
+                            blob: limits.blob_size_limit_error.max(0) as usize,
+                            memo: limits.memo_size_limit_error.max(0) as usize,
+                        }));
+                }
                 if let Some(caps) = ns_info.and_then(|ns| ns.capabilities) {
                     if caps.worker_poll_complete_on_shutdown {
                         self.capabilities
@@ -631,7 +658,6 @@ impl Worker {
             sys_info = tuner_builder.get_sys_info();
             Arc::new(tuner_builder.build())
         });
-        let sys_info = sys_info.unwrap_or_else(|| Arc::new(RealSysInfo::new()));
 
         metrics.worker_registered();
         let shutdown_token = CancellationToken::new();
@@ -861,6 +887,8 @@ impl Worker {
 
         let sdk_name_and_ver = client.sdk_name_and_version();
         let worker_heartbeat = worker_heartbeat_interval.map(|hb_interval| {
+            let heartbeat_sys_info =
+                sys_info.unwrap_or_else(|| Arc::new(RealSysInfo::new(hb_interval)));
             let hb_metrics = HeartbeatMetrics {
                 in_mem_metrics: metrics.in_memory_meter(),
                 wft_slots: wft_slots.clone(),
@@ -872,7 +900,7 @@ impl Worker {
                 act_last_suc_poll_time,
                 nexus_last_suc_poll_time,
                 status: worker_status.clone(),
-                sys_info,
+                sys_info: heartbeat_sys_info,
             };
             WorkerHeartbeatManager::new(
                 config.clone(),
@@ -1455,7 +1483,16 @@ impl Worker {
             .and_then(|wf| wf.get_sticky_queue_name())
             .unwrap_or_default();
         let task_queue = self.config.task_queue.clone();
-        let task_queue_types = self.config.task_types.to_task_queue_types();
+        let mut task_queue_types = Vec::new();
+        if self.config.task_types.enable_workflows {
+            task_queue_types.push(TaskQueueType::Workflow);
+        }
+        if self.config.task_types.enable_remote_activities {
+            task_queue_types.push(TaskQueueType::Activity);
+        }
+        if self.config.task_types.enable_nexus {
+            task_queue_types.push(TaskQueueType::Nexus);
+        }
         let heartbeat = self
             .client_worker_registrator
             .heartbeat_manager
@@ -1964,7 +2001,7 @@ impl WorkerVersioningStrategy {
     pub fn default_versioning_behavior(&self) -> Option<VersioningBehavior> {
         match self {
             WorkerVersioningStrategy::WorkerDeploymentBased(opts) => {
-                opts.default_versioning_behavior
+                opts.default_versioning_behavior.map(Into::into)
             }
             _ => None,
         }
@@ -2502,7 +2539,7 @@ mod tests {
                         build_id: "1.0".to_string(),
                     },
                     use_worker_versioning: false,
-                    default_versioning_behavior: Some(VersioningBehavior::AutoUpgrade),
+                    default_versioning_behavior: Some(VersioningBehavior::AutoUpgrade.into()),
                 },
             ))
             .task_types(WorkerTaskTypes::all())

@@ -93,7 +93,11 @@ async def execute_db(
     """
     from testmu import _config
 
-    if not _config.lt_auth:
+    # Raise only when NEITHER a caller-supplied auth_header NOR LT creds are
+    # available (parity with selenium-python execute_db). A supplied header is
+    # honored even without env creds; a blank header still falls back to the
+    # LT creds below.
+    if not auth_header and not _config.lt_auth:
         raise RuntimeError("DB query requires LT_USERNAME and LT_ACCESS_KEY")
 
     # Fall back to environment variables

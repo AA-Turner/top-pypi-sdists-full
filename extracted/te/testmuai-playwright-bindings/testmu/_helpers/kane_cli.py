@@ -12,6 +12,7 @@ existing page unchanged (branch unresolved).
 import asyncio
 import logging
 import os
+import shutil
 
 from testmu import _config
 from testmu._errors import TestmuConfigError
@@ -70,10 +71,17 @@ async def execute_kane_cli(objective: str, *, page):
     access_key = os.getenv("LT_ACCESS_KEY", "")
     env_name = os.getenv("TESTMUAI_ENV", "prod")
 
+    # shutil.which resolves PATHEXT on Windows (e.g. an npm-installed "kane-cli"
+    # is a kane-cli.cmd shim there) — create_subprocess_exec's underlying Win32
+    # CreateProcess has no shell to do that resolution itself and fails the
+    # bare name with WinError 2. Falls back to the bare name if not found so
+    # the failure mode is unchanged when kane-cli truly isn't installed.
+    kane_cli_bin = shutil.which("kane-cli") or "kane-cli"
+
     _log.info("    [execute_kane_cli] objective=%s", objective[:80])
     try:
         v_proc = await asyncio.create_subprocess_exec(
-            "kane-cli", "--version",
+            kane_cli_bin, "--version",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -99,7 +107,7 @@ async def execute_kane_cli(objective: str, *, page):
 
         # 2. Spawn kane-cli pointing at our relay URL.
         cmd = [
-            "kane-cli", "run", objective,
+            kane_cli_bin, "run", objective,
             "--ws-endpoint", relay_url,
             "--username", username,
             "--access-key", access_key,

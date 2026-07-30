@@ -38,10 +38,16 @@ class RustSimType:
 
 class RustSimTypeInt(RustSimType, SimTypeInt):
     _ident = "rust_int"
+    # unlike SimTypeInt, the size is explicit and arch-independent, so it must participate in equality and hashing
+    _fields = (*SimTypeInt._fields, "_size")
+    _args = ("size", "signed", "label")
 
     def __init__(self, size=32, signed=True, label=None):
         super().__init__(signed, label)
         self._size = size
+
+    def copy(self):
+        return self.__class__(size=self._size, signed=self.signed, label=self.label).with_arch(self._arch)
 
     def repr(self, name=None, full=0, memo=None, indent: int | None = 0):
         if name is None or len(name) == 0:
@@ -347,7 +353,7 @@ class RustSimStruct(RustSimType, SimStruct):
 
         # Fixup the offsets to byte aligned addresses for all SimTypeNumOffset types
         offset_so_far = 0
-        for _name, ty in out.fields.items():
+        for ty in out.fields.values():
             if isinstance(ty, RustSimTypeNumOffset):
                 out._pack = True
                 ty.offset = offset_so_far % arch.byte_width
@@ -772,7 +778,7 @@ class RustSimEnum(RustSimType, SimType):
         return len(self.variants)
 
     def as_struct_ty(self):
-        largest = sorted(self.variants, key=lambda variant: variant.bits)[-1]
+        largest = max(self.variants, key=lambda variant: variant.bits)
         struct_ty = largest.as_struct_ty()
         struct_ty.name = self.name
         return struct_ty

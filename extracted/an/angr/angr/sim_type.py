@@ -8,6 +8,7 @@ import logging
 import re
 from collections import ChainMap, OrderedDict, defaultdict
 from collections.abc import Iterable, MutableMapping
+from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Literal, cast, overload
 
 import claripy
@@ -1746,7 +1747,7 @@ class SimStruct(NamedTypeMixin, SimType):
 
         # Fixup the offsets to byte aligned addresses for all SimTypeNumOffset types
         offset_so_far = 0
-        for _, ty in out.fields.items():
+        for ty in out.fields.values():
             if isinstance(ty, SimTypeNumOffset):
                 out._pack = True
                 ty.offset = offset_so_far % arch.byte_width
@@ -2466,7 +2467,7 @@ class SimCppClass(SimStruct):
 
         # Fixup the offsets to byte aligned addresses for all SimTypeNumOffset types
         offset_so_far = 0
-        for _, ty in out.members.items():
+        for ty in out.members.values():
             if isinstance(ty, SimTypeNumOffset):
                 out._pack = True
                 ty.offset = offset_so_far % arch.byte_width
@@ -3819,7 +3820,7 @@ def parse_file(
     # pylint: disable=unexpected-keyword-arg
     node = pycparser.c_parser.CParser().parse(defn, scope_stack=_make_scope(predefined_types))
     if not isinstance(node, c_ast.FileAST):
-        raise ValueError("Something went horribly wrong using pycparser")
+        raise TypeError("Something went horribly wrong using pycparser")
     out = {}
     out_types = {}
     extra_types = ChainMap(side_effect_types if side_effect_types is not None else out_types, predefined_types or {})
@@ -3837,7 +3838,7 @@ def parse_file(
             if isinstance(ty_real, (SimStruct, SimUnion)) and ty_real.name != "<anon>":
                 if piece.name is None:
                     out_types[("struct " if isinstance(ty, SimStruct) else "union ") + ty_real.name] = ty_real
-                for _, i in out_types.items():
+                for i in out_types.values():
                     if isinstance(i, type(ty_real)) and i.name == ty_real.name:
                         if isinstance(ty_real, SimStruct):
                             assert isinstance(i, SimStruct)
@@ -4425,6 +4426,25 @@ def normalize_cpp_function_name(name: str) -> str:
     return name.removesuffix(";")
 
 
+@lru_cache(maxsize=32768)
+def _parse_cpp_decl(s: str) -> cxxheaderparser.simple.ParsedData | None:
+    """
+    Run cxxheaderparser on a normalized C++ declaration and return its parse tree, or None if it cannot be parsed.
+
+    This method is cached to avoid re-parsing of the same declaration, which happens a lot during decompilation.
+    """
+    try:
+        return cxxheaderparser.simple.parse_string(s)
+    except cxxheaderparser.errors.CxxParseError:
+        # GCC-mangled (and thus, demangled) function names do not have return types encoded; let's try to prefix s with
+        # "void" and try again
+        try:
+            return cxxheaderparser.simple.parse_string("void " + s)
+        except cxxheaderparser.errors.CxxParseError:
+            # if it still fails, we give up
+            return None
+
+
 def parse_cpp_file(cpp_decl, with_param_names: bool = False):  # pylint: disable=unused-argument
     #
     # A series of hacks to make cxxheaderparser happy with whatever C++ function prototypes we feed in
@@ -4439,19 +4459,9 @@ def parse_cpp_file(cpp_decl, with_param_names: bool = False):  # pylint: disable
     # CppHeaderParser does not like missing function body
     s += "\n\n{}"
 
-    try:
-        h = cxxheaderparser.simple.parse_string(s)
-    except cxxheaderparser.errors.CxxParseError:
-        # GCC-mangled (and thus, demangled) function names do not have return types encoded; let's try to prefix s with
-        # "void" and try again
-        s = "void " + s
-        try:
-            h = cxxheaderparser.simple.parse_string(s)
-        except cxxheaderparser.errors.CxxParseError:
-            # if it still fails, we give up
-            return None, None
+    h = _parse_cpp_decl(s)
 
-    if not h.namespace:
+    if h is None or not h.namespace:
         return None, None
 
     func_decls: dict[str, SimTypeCppFunction | SimTypeFunction] = {}

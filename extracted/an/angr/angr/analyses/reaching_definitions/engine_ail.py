@@ -11,7 +11,7 @@ import claripy
 from archinfo.types import RegisterOffset
 from claripy import FSORT_DOUBLE, FSORT_FLOAT
 
-import angr.ailment as ailment
+from angr import ailment
 from angr.calling_conventions import SimRegArg, SimTypeBottom, default_cc
 from angr.code_location import CodeLocation, ExternalCodeLocation
 from angr.engines.light import SpOffset
@@ -603,6 +603,10 @@ class SimEngineRDAIL(
     def _handle_unop_Default(self, expr):
         return self._top(expr.bits)
 
+    def _handle_unop_Abs(self, expr):
+        self._expr(expr.operand)
+        return self._top(expr.bits)
+
     _handle_unop_Reference = _handle_unop_Default
     _handle_unop_Ctz = _handle_unop_Default
     _handle_unop_Dereference = _handle_unop_Default
@@ -788,6 +792,7 @@ class SimEngineRDAIL(
     _handle_binop_CmpLTV = _handle_binop_Default
     _handle_binop_MinV = _handle_binop_Default
     _handle_binop_MaxV = _handle_binop_Default
+    _handle_binop_HAddV = _handle_binop_Default
     _handle_binop_QAddV = _handle_binop_Default
     _handle_binop_QSubV = _handle_binop_Default
     _handle_binop_QNarrowBinV = _handle_binop_Default

@@ -133,10 +133,10 @@ class SetHeaderView(Table):
 
     def __init__(self, source, header):
         self.source = source
-        self.header = header
+        self._header = header
 
     def __iter__(self):
-        return itersetheader(self.source, self.header)
+        return itersetheader(self.source, self._header)
 
 
 def itersetheader(source, header):
@@ -236,17 +236,17 @@ class PushHeaderView(Table):
         self.args = args
         # if user passes header as a list, just use this and ignore args
         if isinstance(header, (list, tuple)):
-            self.header = header
+            self._header = header
         # otherwise,
         elif len(args) > 0:
-            self.header = []
-            self.header.append(header)  # first argument is named header
-            self.header.extend(args)  # add the other positional arguments
+            self._header = []
+            self._header.append(header)  # first argument is named header
+            self._header.extend(args)  # add the other positional arguments
         else:
             assert False, 'bad parameters'
 
     def __iter__(self):
-        return iterpushheader(self.source, self.header)
+        return iterpushheader(self.source, self._header)
 
 
 def iterpushheader(source, header):

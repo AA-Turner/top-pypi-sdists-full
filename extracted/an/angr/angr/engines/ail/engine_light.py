@@ -642,6 +642,12 @@ class SimEngineAILSimState(SimEngineLightAIL[StateType, DataType, bool, None]):
         v = self._expr_bv(expr.operand)
         return ~v
 
+    def _handle_unop_Abs(self, expr: ailment.UnaryOp) -> DataType:
+        value = self._expr(expr.operand)
+        if isinstance(value, claripy.ast.FP):
+            return claripy.fpAbs(value)
+        return self._top(expr.bits)
+
     def _handle_unop_Reference(self, expr: ailment.expression.UnaryOp) -> DataType:
         match expr.operand:
             case ailment.expression.VirtualVariable():
@@ -956,6 +962,19 @@ class SimEngineAILSimState(SimEngineLightAIL[StateType, DataType, bool, None]):
 
     def _handle_binop_MaxV(self, expr: ailment.expression.BinaryOp) -> DataType:
         raise NotImplementedError("Not sure of the semantics of this op")
+
+    def _handle_binop_HAddV(self, expr: ailment.expression.BinaryOp) -> DataType:
+        assert expr.vector_size is not None
+        extend = claripy.SignExt if expr.signed else claripy.ZeroExt
+        return claripy.Concat(
+            *(
+                (extend(expr.vector_size, a) + extend(expr.vector_size, b))[expr.vector_size : 1]
+                for a, b in zip(
+                    self._expr_bv(expr.operands[0]).chop(expr.vector_size),
+                    self._expr_bv(expr.operands[1]).chop(expr.vector_size),
+                )
+            )
+        )
 
     def _handle_binop_QAddV(self, expr: ailment.expression.BinaryOp) -> DataType:
         raise NotImplementedError("Not sure of the semantics of this op")

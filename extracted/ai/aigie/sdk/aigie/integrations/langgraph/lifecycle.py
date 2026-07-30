@@ -19,9 +19,11 @@ from typing import TYPE_CHECKING, Any
 from aigie.auto_instrument._callback_utils import normalize_callbacks
 from aigie.auto_instrument.trace import get_or_create_trace, get_or_create_trace_sync
 from aigie.context_manager import merge_metadata
+from aigie.decision.tool_catalog import bind_trace_hash
 from aigie.integrations.langgraph.control_flow import is_control_flow_signal
 from aigie.integrations.langgraph.native_callback import LangGraphNativeCallback
 from aigie.integrations.langgraph.rewind import LangGraphRewindCapability
+from aigie.integrations.langgraph.tool_catalog import register_graph_tools, stashed_hash
 from aigie.integrations.langgraph.utils import extract_reasoning_plan
 from aigie.rewind.coordinator import RewindCoordinator
 from aigie.tracing.callback_lifecycle import CallbackLifecycle
@@ -30,6 +32,7 @@ from aigie.tracing.reasoning_plan import ReasoningPlan
 from aigie.tracing.trace_state import (
     _dec_thread_counter,
     _inc_thread_counter,
+    current_trace_id,
     get_resumed_trace,
     is_inside_traced_run,
     pop_resumable_trace,
@@ -225,6 +228,7 @@ class LangGraphLifecycle(FrameworkLifecycleBridge, CallbackLifecycle):
         self, handler: Any, framework_handle: Any, input: Any, config: dict | None
     ) -> None:
         handler.open_workflow_span(input=input)
+        self._stamp_tool_catalog(handler, framework_handle)
         if config is not None and self._adapter is not None:
             self._adapter.register_callback(handler, config)
         self._synthesize_thread_id(framework_handle, config)
@@ -233,6 +237,13 @@ class LangGraphLifecycle(FrameworkLifecycleBridge, CallbackLifecycle):
         # ambient ContextVar doesn't propagate (e.g. LangChain dispatching
         # callbacks from a threadpool without copy_context).
         _inc_thread_counter()
+
+    def _stamp_tool_catalog(self, handler: Any, framework_handle: Any) -> None:
+        """Copy the compiled graph's tool hash onto this run."""
+        catalog_hash = stashed_hash(framework_handle)
+        if catalog_hash:
+            handler._aigie_tool_registry_hash = catalog_hash
+            bind_trace_hash(current_trace_id(), catalog_hash)
 
     def _synthesize_thread_id(self, app: Any, config: dict | None) -> None:
         """Add a per-invoke thread_id for Aigie-injected checkpointers."""
@@ -332,6 +343,7 @@ class LangGraphLifecycle(FrameworkLifecycleBridge, CallbackLifecycle):
                 with contextlib.suppress(AttributeError, TypeError):
                     app._aigie_injected_checkpointer = injected  # type: ignore[attr-defined]
             lifecycle._capture_schema(graph_self)
+            register_graph_tools(graph_self, app)
             lifecycle._wrap_compiled_app(app)
             return app
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: titiler-application
-Version: 2.2.0
+Version: 2.2.1
 Summary: A modern dynamic tile server built on top of FastAPI and Rasterio/GDAL.
 Project-URL: Homepage, https://developmentseed.org/titiler/
 Project-URL: Documentation, https://developmentseed.org/titiler/
@@ -23,10 +23,10 @@ Classifier: Topic :: Scientific/Engineering :: GIS
 Requires-Python: >=3.11
 Requires-Dist: pydantic-settings~=2.0
 Requires-Dist: starlette-cramjam<1.0,>=0.4
-Requires-Dist: titiler-core[telemetry]==2.2.0
-Requires-Dist: titiler-extensions[cogeo,stac]==2.2.0
-Requires-Dist: titiler-mosaic[mosaicjson]==2.2.0
-Requires-Dist: titiler-xarray==2.2.0
+Requires-Dist: titiler-core[telemetry]==2.2.1
+Requires-Dist: titiler-extensions[cogeo,stac]==2.2.1
+Requires-Dist: titiler-mosaic[mosaicjson]==2.2.1
+Requires-Dist: titiler-xarray==2.2.1
 Provides-Extra: server
 Requires-Dist: uvicorn[standard]>=0.12.0; extra == 'server'
 Description-Content-Type: text/markdown

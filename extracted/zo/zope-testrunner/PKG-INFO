@@ -1,16 +1,17 @@
 Metadata-Version: 2.4
 Name: zope.testrunner
-Version: 8.2
+Version: 8.3
 Summary: Zope testrunner script.
-Home-page: https://github.com/zopefoundation/zope.testrunner
-Author: Zope Foundation and Contributors
-Author-email: zope-dev@zope.dev
-License: ZPL-2.1
+Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
+Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
+License-Expression: ZPL-2.1
+Project-URL: Source, https://github.com/zopefoundation/zope.testrunner
+Project-URL: Issues, https://github.com/zopefoundation/zope.testrunner/issues
+Project-URL: Changelog, https://github.com/zopefoundation/zope.testrunner/blob/master/CHANGES.rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Framework :: Zope :: 3
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -36,18 +37,7 @@ Requires-Dist: testtools>=0.9.30; extra == "subunit"
 Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: sphinxcontrib-programoutput; extra == "docs"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 =================
  zope.testrunner
@@ -76,7 +66,6 @@ Dynamic: summary
 This package provides a flexible test runner with layer support.
 
 Detailed documentation is hosted at https://zopetestrunner.readthedocs.io
-
 
 =======================
  Using zope.testrunner
@@ -225,10 +214,21 @@ test execution order, and run multiple tests in parallel.
 .. _zc.recipe.testrunner: https://pypi.python.org/pypi/zc.recipe.testrunner
 .. _subunit: https://pypi.python.org/pypi/python-subunit
 
-
 ===========================
  zope.testrunner Changelog
 ===========================
+
+8.3 (2026-07-30)
+================
+
+- Move package metadata from setup.py to pyproject.toml.
+
+- Add support for Python 3.15: Restore the pre-3.15 behavior of reporting a
+  doctest as a single test even if it contains multiple examples.  Python 3.15
+  changed ``doctest.DocTestCase`` to report each example as a separate subtest
+  (`python/cpython#108885 <https://github.com/python/cpython/issues/108885>`_),
+  which broke zope.testrunner's failure reporting.
+
 
 8.2 (2026-01-23)
 ================

@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 import pytest
 
+from airbyte_ops_mcp.tier_cache import TierCacheLoadResult
 from airbyte_ops_mcp.version_summaries import (
     ActorHealthState,
     classify_actor_health,
@@ -24,13 +25,14 @@ from airbyte_ops_mcp.version_summaries import (
 _TIER_CACHE = {
     "org-tier0": {"customer_tier": "Tier 0"},
     "org-tier1": {"customer_tier": "Tier 1"},
+    "org-other": {"customer_tier": "Tier 2"},
 }
 
 
 def _patch_tier_cache() -> Any:
     return patch(
         "airbyte_ops_mcp.tier_cache._load_tier_cache",
-        return_value=_TIER_CACHE,
+        return_value=TierCacheLoadResult(data=_TIER_CACHE),
     )
 
 

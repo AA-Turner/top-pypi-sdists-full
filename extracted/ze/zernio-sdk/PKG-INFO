@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zernio-sdk
-Version: 1.4.353
+Version: 1.4.373
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -65,7 +65,7 @@ Description-Content-Type: text/markdown
 </p>
 
 <p align="center">
-  <strong>One API to post everywhere. 14 platforms, zero headaches.</strong>
+  <strong>One API to post everywhere. 16 platforms, zero headaches.</strong>
 </p>
 
 The official Python SDK for the [Zernio API](https://zernio.com) — schedule and publish social media posts across Instagram, TikTok, YouTube, LinkedIn, X/Twitter, Facebook, Pinterest, Threads, Bluesky, Reddit, Snapchat, Telegram, WhatsApp, and Google Business Profile with a single integration.
@@ -255,8 +255,10 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `accounts.get_follower_stats()` | Get follower stats |
 | `accounts.get_google_business_reviews()` | Get reviews |
 | `accounts.get_linked_in_mentions()` | Resolve LinkedIn mention |
+| `accounts.get_slack_settings()` | Get Slack account settings |
 | `accounts.get_tik_tok_creator_info()` | Get TikTok creator info |
 | `accounts.update_account()` | Update account |
+| `accounts.update_slack_settings()` | Update Slack account settings |
 | `accounts.delete_account()` | Disconnect account |
 | `accounts.delete_google_business_review_reply()` | Delete a review reply |
 | `accounts.batch_get_google_business_reviews()` | Batch get reviews |
@@ -503,6 +505,8 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_insights.get_ad_analytics()` | Get ad analytics |
 | `ad_insights.get_ad_insights_report()` | Poll an async insights report run |
 | `ad_insights.get_campaign_analytics()` | Get campaign analytics |
+| `ad_insights.generate_keyword_historical_metrics()` | Historical keyword metrics (Google Keyword Planner) |
+| `ad_insights.generate_keyword_ideas()` | Generate keyword ideas (Google Keyword Planner) |
 | `ad_insights.query_ad_insights()` | Flexible live insights query |
 
 ### Ad Targeting

@@ -4,10 +4,11 @@
 This module provides a two-layer disk cache for resolving customer tiers:
 
 1. **Org tier cache** (`tier_cache.json`): Maps `organization_id` to `customer_tier`.
-   Bulk-loaded from the platform's GCS export of `sales_customer_attributes`
-   (the newest `.jsonl` under `gs://airbyte_warehouse_exports/data/sales_customer_attributes/`,
-   the same dump the platform backend reads). Contains only Tier 0 and Tier 1 orgs
-   (approximately 288 rows). Any org not in the cache defaults to `TIER_2`.
+   Bulk-loaded from the platform's GCS export of `organization_customer_tiers`
+   (the newest `.jsonl` under
+   `gs://airbyte_warehouse_exports/data/organization_customer_tiers/`, the same
+   dump the platform backend reads). Contains one entry per Cloud organization.
+   Any org not in the cache resolves to `UNKNOWN`.
    Refreshed every 24 hours.
 
 2. **Workspace-org cache** (`workspace_org_cache.json`): Maps `workspace_id` to
@@ -28,9 +29,10 @@ from __future__ import annotations
 import json
 import logging
 import os
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Callable, Literal, TypeVar, cast
 
 import google.auth.credentials
 from google.api_core.exceptions import GoogleAPICallError
@@ -45,6 +47,7 @@ from airbyte_ops_mcp.gcp_auth import (
 from airbyte_ops_mcp.prod_db_access.queries import query_workspace_info
 
 logger = logging.getLogger(__name__)
+NumberT = TypeVar("NumberT", float, int)
 
 # Type aliases for cache data structures
 TierData = dict[str, dict[str, str]]
@@ -52,10 +55,41 @@ WorkspaceData = dict[str, dict[str, str]]
 
 
 # Type alias for customer tier values
-CustomerTier = Literal["TIER_0", "TIER_1", "TIER_2"]
+CustomerTier = Literal["TIER_0", "TIER_1", "TIER_2", "UNKNOWN"]
 
 # Type alias for tier filter values (includes ALL for no filtering)
-TierFilter = Literal["TIER_0", "TIER_1", "TIER_2", "ALL"]
+TierFilter = Literal["TIER_0", "TIER_1", "TIER_2", "UNKNOWN", "ALL"]
+
+
+def _parse_positive_env_value(
+    name: str,
+    default: NumberT,
+    parser: Callable[[str], NumberT],
+) -> NumberT:
+    """Parse a positive numeric environment override or use its default."""
+    raw_value = os.environ.get(name)
+    if raw_value is None:
+        return default
+    try:
+        value = parser(raw_value)
+    except ValueError:
+        logger.warning(
+            "Ignoring invalid %s value %r; using default %s",
+            name,
+            raw_value,
+            default,
+        )
+        return default
+    if value <= 0:
+        logger.warning(
+            "Ignoring non-positive %s value %r; using default %s",
+            name,
+            raw_value,
+            default,
+        )
+        return default
+    return value
+
 
 # Cache configuration
 CACHE_DIR = Path(
@@ -64,10 +98,23 @@ CACHE_DIR = Path(
 TIER_CACHE_FILE = CACHE_DIR / "tier_cache.json"
 WORKSPACE_CACHE_FILE = CACHE_DIR / "workspace_org_cache.json"
 CACHE_TTL_SECONDS = 24 * 60 * 60  # 24 hours
+TIER_EXPORT_MAX_AGE_SECONDS = _parse_positive_env_value(
+    "AIRBYTE_OPS_TIER_EXPORT_MAX_AGE_SECONDS",
+    48 * 60 * 60,
+    float,
+)
+# This floor mirrors the platform monitor's organization_attribute_count alert.
+TIER_EXPORT_MIN_ORGANIZATION_ROWS = _parse_positive_env_value(
+    "AIRBYTE_OPS_TIER_EXPORT_MIN_ORGANIZATION_ROWS",
+    150_000,
+    int,
+)
+TIER_EXPORT_BYPASS_GUARDS_ENV = "AIRBYTE_OPS_TIER_EXPORT_BYPASS_GUARDS"
 
-# GCS source for tier data — the platform's `sales_customer_attributes` export.
+# GCS source for tier data — the platform's `organization_customer_tiers` export.
 # Defaults match the prod backend config; env vars mirror the platform's
-# `GCS_AIRBYTE_WAREHOUSE_EXPORTS_*` / `GCS_DATA_SALES_CUSTOMER_ATTRIBUTES_*` names.
+# `GCS_AIRBYTE_WAREHOUSE_EXPORTS_*` /
+# `GCS_DATA_ORGANIZATION_CUSTOMER_TIERS_*` names.
 TIER_EXPORT_PROJECT = os.environ.get(
     "GCS_AIRBYTE_WAREHOUSE_EXPORTS_PROJECT_ID", "prod-ab-cloud-proj"
 )
@@ -75,15 +122,9 @@ TIER_EXPORT_BUCKET = os.environ.get(
     "GCS_AIRBYTE_WAREHOUSE_EXPORTS_BUCKET_NAME", "airbyte_warehouse_exports"
 )
 TIER_EXPORT_PREFIX = os.environ.get(
-    "GCS_DATA_SALES_CUSTOMER_ATTRIBUTES_OBJECT_PREFIX", "data/sales_customer_attributes"
+    "GCS_DATA_ORGANIZATION_CUSTOMER_TIERS_OBJECT_PREFIX",
+    "data/organization_customer_tiers",
 )
-
-# Sentinel values the export uses for rows with no resolved org/tier.
-_NO_ORGANIZATION_ID = "No Organization Id"
-_NO_CUSTOMER_TIER = "No Customer Tier"
-
-# Only Tier 0 and Tier 1 orgs are cached (Tier 2 is the default for cache misses).
-_CACHED_TIER_VALUES = frozenset({"tier 0", "tier 1"})
 
 # Mapping from raw tier strings to rollout tier values (lowercase keys for case-insensitive lookup)
 _TIER_VALUE_TO_ROLLOUT_TIER: dict[str, CustomerTier] = {
@@ -92,14 +133,70 @@ _TIER_VALUE_TO_ROLLOUT_TIER: dict[str, CustomerTier] = {
     "tier 2": "TIER_2",
 }
 
-# Default tier for orgs not in the cache
-DEFAULT_TIER: CustomerTier = "TIER_2"
+# Default tier for orgs not in the cache or with an unrecognized value.
+DEFAULT_TIER: CustomerTier = "UNKNOWN"
+
+
+class TierExportValidationError(RuntimeError):
+    """Base error for a tier export that cannot be trusted."""
+
+    export_age_seconds: float | None
+    export_row_count: int | None
+
+
+class TierExportStaleError(TierExportValidationError):
+    """Raised when the tier export is older than the allowed age."""
+
+    def __init__(self, age_seconds: float, max_age_seconds: float) -> None:
+        self.export_age_seconds = age_seconds
+        self.export_row_count = None
+        super().__init__(
+            f"Tier export is stale: age_seconds={age_seconds:.0f}, "
+            f"max_age_seconds={max_age_seconds:.0f}."
+        )
+
+
+class TierExportTooSmallError(TierExportValidationError):
+    """Raised when the tier export contains too few organizations."""
+
+    def __init__(
+        self, row_count: int, min_row_count: int, age_seconds: float | None = None
+    ) -> None:
+        self.export_age_seconds = age_seconds
+        self.export_row_count = row_count
+        super().__init__(
+            f"Tier export is too small: organization_rows={row_count}, "
+            f"minimum_organization_rows={min_row_count}."
+        )
+
+
+class TierExportTimestampError(TierExportValidationError):
+    """Raised when the tier export timestamp cannot be established."""
+
+    def __init__(self, timestamp: int) -> None:
+        self.export_age_seconds = None
+        self.export_row_count = None
+        super().__init__(
+            f"Tier export freshness is unknown: export_timestamp_ms={timestamp}."
+        )
+
+
+@dataclass(frozen=True)
+class TierCacheLoadResult:
+    """Tier data plus source-health signals for the current load."""
+
+    data: TierData
+    degraded: bool = False
+    reason: str | None = None
+    export_age_seconds: float | None = None
+    export_row_count: int | None = None
 
 
 def _resolve_tier_value(tier_value: str) -> CustomerTier:
     """Resolve a raw customer-tier string to a normalized CustomerTier value.
 
-    Case-insensitive lookup. Logs a warning and defaults to TIER_2 for unknown values.
+    Case-insensitive lookup. Logs a warning and resolves unknown values to
+    `UNKNOWN`, matching the platform backend's rollout exclusion behavior.
     """
     resolved = _TIER_VALUE_TO_ROLLOUT_TIER.get(tier_value.lower().strip())
     if resolved is not None:
@@ -135,15 +232,40 @@ class WorkspaceOrgEntry(BaseModel):
     )
 
 
+class TierSourceHealth(BaseModel):
+    """Health signals for the tier export used to classify rows."""
+
+    degraded: bool = Field(
+        default=False,
+        description="Whether tier classifications are degraded and not authoritative",
+    )
+    reason: str | None = Field(
+        default=None,
+        description="Reason the tier source is degraded",
+    )
+    export_age_seconds: float | None = Field(
+        default=None,
+        description="Underlying export age in seconds, when known",
+    )
+    export_row_count: int | None = Field(
+        default=None,
+        description="Underlying export organization row count, when known",
+    )
+
+
 class OrgTierResult(BaseModel):
     """Result of resolving an organization's customer tier."""
 
     organization_id: str = Field(description="The organization UUID")
     customer_tier: CustomerTier = Field(
-        description="Resolved tier: TIER_0, TIER_1, or TIER_2"
+        description="Resolved tier: TIER_0, TIER_1, TIER_2, or UNKNOWN"
     )
     is_in_cache: bool = Field(
-        description="Whether this org was found in the tier cache (False means defaulted to TIER_2)"
+        description="Whether this org was found in the tier cache (False means resolved to UNKNOWN)"
+    )
+    source_health: TierSourceHealth | None = Field(
+        default=None,
+        description="Tier export health when classifications are not authoritative",
     )
 
 
@@ -156,7 +278,8 @@ class WorkspaceResolution(BaseModel):
         description="The resolved organization UUID (None if workspace not found)",
     )
     customer_tier: CustomerTier = Field(
-        default="TIER_2", description="Resolved tier: TIER_0, TIER_1, or TIER_2"
+        default="UNKNOWN",
+        description="Resolved tier: TIER_0, TIER_1, TIER_2, or UNKNOWN",
     )
     dataplane_name: str | None = Field(
         default=None, description="Dataplane region name (e.g., 'US', 'EU')"
@@ -166,6 +289,10 @@ class WorkspaceResolution(BaseModel):
     )
     resolved: bool = Field(
         default=False, description="Whether the workspace was successfully resolved"
+    )
+    source_health: TierSourceHealth | None = Field(
+        default=None,
+        description="Tier export health when classifications are not authoritative",
     )
 
 
@@ -179,6 +306,12 @@ class TierCacheStats(BaseModel):
     tier_cache_age_seconds: float | None = Field(
         default=None,
         description="Age of the tier cache in seconds (None if not cached)",
+    )
+    tier_export_age_seconds: float | None = Field(
+        default=None, description="Age of the underlying tier export in seconds"
+    )
+    tier_export_row_count: int | None = Field(
+        default=None, description="Number of organization rows in the tier export"
     )
     workspace_cache_age_seconds: float | None = Field(
         default=None,
@@ -194,14 +327,71 @@ class TierSummary(BaseModel):
     tier_0_count: int = Field(default=0, description="Number of TIER_0 entries")
     tier_1_count: int = Field(default=0, description="Number of TIER_1 entries")
     tier_2_count: int = Field(default=0, description="Number of TIER_2 entries")
+    unknown_count: int = Field(default=0, description="Number of UNKNOWN entries")
     total: int = Field(default=0, description="Total number of entries")
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Warnings raised while building this summary.",
+    )
 
     def __str__(self) -> str:
         """Return a human-readable summary string."""
         return (
             f"{self.tier_0_count} TIER_0, {self.tier_1_count} TIER_1, "
-            f"{self.tier_2_count} TIER_2 (total: {self.total})"
+            f"{self.tier_2_count} TIER_2, {self.unknown_count} UNKNOWN "
+            f"(total: {self.total})"
         )
+
+
+def tier_source_warnings(source_health: TierSourceHealth | None) -> list[str]:
+    """Build agent-facing warnings for degraded tier classifications."""
+    if source_health is None or not source_health.degraded:
+        return []
+    details = [
+        (source_health.reason or "tier export source is unavailable").rstrip(".")
+    ]
+    if source_health.export_age_seconds is not None:
+        details.append(
+            f"export age: {source_health.export_age_seconds / 3600:.0f}h old"
+        )
+    if source_health.export_row_count is not None:
+        row_label = (
+            "organization row"
+            if source_health.export_row_count == 1
+            else "organization rows"
+        )
+        details.append(f"{source_health.export_row_count:,} {row_label}")
+    return [
+        "Customer tier is indeterminable: "
+        f"{'; '.join(details)}. Tier classifications are not authoritative."
+    ]
+
+
+def _source_health_from_load_result(
+    load_result: TierCacheLoadResult,
+) -> TierSourceHealth | None:
+    """Convert cache load health into the typed carrier used by callers."""
+    if not load_result.degraded:
+        return None
+    return TierSourceHealth(
+        degraded=True,
+        reason=load_result.reason,
+        export_age_seconds=load_result.export_age_seconds,
+        export_row_count=load_result.export_row_count,
+    )
+
+
+class TierFilteredRows(list[dict[str, Any]]):
+    """Filtered rows carrying source-health metadata, including when empty."""
+
+    def __init__(
+        self,
+        rows: list[dict[str, Any]],
+        source_health: TierSourceHealth,
+    ) -> None:
+        """Create filtered rows with explicit source-health metadata."""
+        super().__init__(rows)
+        self.source_health = source_health
 
 
 # =============================================================================
@@ -214,32 +404,48 @@ def _ensure_cache_dir() -> None:
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def _read_cache_file(path: Path) -> tuple[dict[str, Any] | None, float | None]:
-    """Read a cache file and return (data, fetched_at_timestamp).
+def _read_cache_file(
+    path: Path,
+) -> tuple[dict[str, Any] | None, float | None, int | None]:
+    """Read a cache file and return data, fetch time, and export timestamp.
 
-    Returns `(None, None)` if the file does not exist, is unreadable, or is malformed.
+    Returns `(None, None, None)` if the file does not exist, is unreadable, or is malformed.
     """
     if not path.exists():
-        return None, None
+        return None, None, None
     try:
         raw = json.loads(path.read_text())
     except (json.JSONDecodeError, OSError, UnicodeDecodeError):
         logger.warning("Cache file %s is corrupt or unreadable, ignoring", path.name)
-        return None, None
+        return None, None, None
     fetched_at = raw.get("fetched_at")
     data = raw.get("data")
     if not isinstance(data, dict) or not isinstance(fetched_at, (int, float)):
-        return None, None
-    return data, float(fetched_at)
+        return None, None, None
+    export_timestamp = raw.get("export_timestamp_ms")
+    if export_timestamp is not None and not isinstance(export_timestamp, (int, float)):
+        return None, None, None
+    return (
+        data,
+        float(fetched_at),
+        (int(export_timestamp) if export_timestamp is not None else None),
+    )
 
 
-def _write_cache_file(path: Path, data: dict[str, Any]) -> None:
-    """Write data to a cache file with a `fetched_at` timestamp."""
+def _write_cache_file(
+    path: Path,
+    data: dict[str, Any],
+    *,
+    export_timestamp_ms: int | None = None,
+) -> None:
+    """Write data to a cache file with fetch and export timestamps."""
     _ensure_cache_dir()
     payload = {
         "fetched_at": datetime.now(timezone.utc).timestamp(),
         "data": data,
     }
+    if export_timestamp_ms is not None:
+        payload["export_timestamp_ms"] = export_timestamp_ms
     path.write_text(json.dumps(payload, indent=2, default=str))
     logger.info("Wrote cache file %s (%d entries)", path.name, len(data))
 
@@ -263,12 +469,13 @@ def _extract_export_timestamp(blob_name: str) -> int:
     Mirrors the platform backend's selection logic
     (`OrganizationCustomerAttributesServiceDataImpl.extractTimestamp`): split the
     *full* object name on `_` and take index `5` (0-based). The
-    `data/sales_customer_attributes/` prefix contributes two underscores, and
+    `data/organization_customer_tiers/` prefix contributes two underscores, and
     the export basename is `YYYY_MM_DD_<epoch_ms>_<part>.jsonl`, so for
-    `data/sales_customer_attributes/2024_11_24_1732490206044_0.jsonl` the parts
-    are `[data/sales, customer, attributes/2024, 11, 24, 1732490206044, 0.jsonl]`
-    and index `5` (`1732490206044`) is the epoch-ms timestamp. Returns `0` when
-    that field is missing or non-numeric, so unparseable names sort oldest.
+    `data/organization_customer_tiers/2024_11_24_1732490206044_0.jsonl` the
+    timestamp is still at index `5`. This index depends on the prefix's
+    underscore count; changing the prefix requires revisiting this logic.
+    Returns `0` when that field is missing or non-numeric, so unparseable names
+    sort oldest.
     """
     timestamp_part = blob_name.split("_")
     if len(timestamp_part) <= 5:
@@ -286,14 +493,13 @@ def _parse_tier_export_line(line: str) -> tuple[str, str] | None:
     """Parse one `.jsonl` line into `(organization_id, customer_tier)`.
 
     Reads the `_airbyte_data.organization_id` / `_airbyte_data.customer_tier`
-    fields the export writes. Returns `None` for blank lines, rows missing
-    either field, or the export's sentinel (`No Organization Id` /
-    `No Customer Tier`) rows.
+    fields the export writes. Returns `None` for blank lines or rows missing
+    either field.
 
     Raises `json.JSONDecodeError` on a malformed line. The caller treats that
     as a hard failure rather than silently skipping the row: a dropped line
-    could omit a Tier 0/1 org, silently degrading it to the `TIER_2` default
-    and bypassing tier protection.
+    could omit a protected organization, silently degrading it to `UNKNOWN`
+    and hiding the source problem.
     """
     if not line.strip():
         return None
@@ -305,21 +511,19 @@ def _parse_tier_export_line(line: str) -> tuple[str, str] | None:
     tier = airbyte_data.get("customer_tier")
     if not org_id or not tier:
         return None
-    if org_id == _NO_ORGANIZATION_ID or tier == _NO_CUSTOMER_TIER:
-        return None
     return str(org_id), str(tier)
 
 
 def _fetch_tier_data_from_gcs(
     credentials: google.auth.credentials.Credentials | None = None,
-) -> dict[str, dict[str, str]]:
+) -> tuple[TierData, int]:
     """Fetch org -> tier mappings from the platform's GCS export.
 
     Reads the newest `.jsonl` under
     `gs://{TIER_EXPORT_BUCKET}/{TIER_EXPORT_PREFIX}/` (selected by the timestamp
     embedded in the file name, mirroring the platform backend), and returns a
-    dict of `{org_id: {"customer_tier": "Tier 0"}}`. Only Tier 0 and Tier 1
-    orgs are kept (Tier 2 is the default for cache misses).
+    dict of `{org_id: {"customer_tier": "Tier 0"}}`. Every row with an
+    organization ID and tier is retained, including explicit Tier 2 rows.
 
     Returns an empty dict when the export prefix contains no `.jsonl` file (the
     caller hard-fails on an empty result). Raises `RuntimeError` on a malformed
@@ -339,7 +543,7 @@ def _fetch_tier_data_from_gcs(
             TIER_EXPORT_BUCKET,
             TIER_EXPORT_PREFIX,
         )
-        return {}
+        return {}, 0
 
     most_recent = max(blobs, key=lambda blob: _extract_export_timestamp(blob.name))
     logger.info("Reading tier export gs://%s/%s", TIER_EXPORT_BUCKET, most_recent.name)
@@ -358,18 +562,69 @@ def _fetch_tier_data_from_gcs(
         if parsed is None:
             continue
         org_id, tier = parsed
-        if tier.lower().strip() in _CACHED_TIER_VALUES:
-            tier_data[org_id] = {"customer_tier": tier}
+        tier_data[org_id] = {"customer_tier": tier}
 
     logger.info("Loaded %d tier entries from GCS export", len(tier_data))
-    return tier_data
+    return tier_data, _extract_export_timestamp(most_recent.name)
+
+
+def _bypass_guards_enabled() -> bool:
+    """Return whether operational tier-export validation bypass is enabled."""
+    return os.environ.get(TIER_EXPORT_BYPASS_GUARDS_ENV, "").lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _validate_tier_export(
+    *,
+    export_timestamp_ms: int,
+    row_count: int,
+    bypass_guards: bool,
+) -> tuple[float | None, str | None]:
+    """Validate export freshness and completeness, optionally bypassing guards."""
+    if export_timestamp_ms <= 0:
+        error: TierExportValidationError = TierExportTimestampError(export_timestamp_ms)
+        if not bypass_guards:
+            raise error
+        logger.warning("Bypassing tier export timestamp guard: %s", error)
+        return None, str(error)
+
+    age_seconds = datetime.now(timezone.utc).timestamp() - (export_timestamp_ms / 1000)
+    if age_seconds < 0:
+        error = TierExportTimestampError(export_timestamp_ms)
+        if not bypass_guards:
+            raise error
+        logger.warning("Bypassing tier export timestamp guard: %s", error)
+        return None, str(error)
+    if age_seconds > TIER_EXPORT_MAX_AGE_SECONDS:
+        error = TierExportStaleError(age_seconds, TIER_EXPORT_MAX_AGE_SECONDS)
+        if not bypass_guards:
+            raise error
+        logger.warning("Bypassing tier export age guard: %s", error)
+        return age_seconds, str(error)
+
+    if row_count < TIER_EXPORT_MIN_ORGANIZATION_ROWS:
+        error = TierExportTooSmallError(
+            row_count, TIER_EXPORT_MIN_ORGANIZATION_ROWS, age_seconds
+        )
+        if not bypass_guards:
+            raise error
+        logger.warning("Bypassing tier export size guard: %s", error)
+        return age_seconds, str(error)
+
+    return age_seconds, None
 
 
 def _load_tier_cache(
     *,
     force_refresh: bool = False,
     credentials: google.auth.credentials.Credentials | None = None,
-) -> dict[str, dict[str, str]]:
+    allow_degraded: bool = False,
+    bypass_guards: bool | None = None,
+) -> TierCacheLoadResult:
     """Load the org tier cache, refreshing from the GCS export if stale or missing.
 
     `force_refresh` bypasses the TTL check and reloads from GCS. `credentials`
@@ -379,36 +634,117 @@ def _load_tier_cache(
     A failed GCS refresh — auth failure, listing/download error, an empty
     export, or a malformed line — is a **hard failure** and raises
     `RuntimeError`. It deliberately does *not* fall back to a stale cache:
-    masking a broken tier source would let a Tier 0/1 org silently degrade to
-    the `TIER_2` default (bypassing tier protection) and would hide a
-    service-account access regression indefinitely.
+    masking a broken tier source would hide protected organizations as
+    `UNKNOWN` and would hide a service-account access regression indefinitely.
     """
+    if bypass_guards is None:
+        bypass_guards = _bypass_guards_enabled()
     if not force_refresh:
-        data, fetched_at = _read_cache_file(TIER_CACHE_FILE)
+        data, fetched_at, export_timestamp_ms = _read_cache_file(TIER_CACHE_FILE)
         if data is not None and _is_cache_fresh(fetched_at):
-            logger.debug("Tier cache is fresh (%d entries)", len(data))
-            return cast(TierData, data)
+            if export_timestamp_ms is None:
+                logger.info("Legacy tier cache has no export timestamp; refreshing")
+            else:
+                try:
+                    export_age_seconds, reason = _validate_tier_export(
+                        export_timestamp_ms=export_timestamp_ms,
+                        row_count=len(data),
+                        bypass_guards=bypass_guards,
+                    )
+                except TierExportValidationError as exc:
+                    if not allow_degraded:
+                        raise
+                    logger.warning(
+                        "Tier export degraded; returning UNKNOWN tiers: %s", exc
+                    )
+                    return TierCacheLoadResult(
+                        data={},
+                        degraded=True,
+                        reason=str(exc),
+                        export_age_seconds=exc.export_age_seconds,
+                        export_row_count=exc.export_row_count or len(data),
+                    )
+                logger.debug("Tier cache is fresh (%d entries)", len(data))
+                return TierCacheLoadResult(
+                    data=cast(TierData, data),
+                    degraded=reason is not None,
+                    reason=reason,
+                    export_age_seconds=export_age_seconds,
+                    export_row_count=len(data),
+                )
 
     effective_credentials = credentials or get_gcp_credentials_for_tier_gcs_ro()
     identity = (
         _get_identity_from_credentials(effective_credentials) or "application_default"
     )
     try:
-        tier_data = _fetch_tier_data_from_gcs(credentials=effective_credentials)
+        tier_data, export_timestamp_ms = _fetch_tier_data_from_gcs(
+            credentials=effective_credentials
+        )
     except (GoogleAPICallError, GoogleAuthError) as exc:
+        if allow_degraded:
+            reason = (
+                "Tier export unavailable; tier classifications are not authoritative: "
+                f"{exc}"
+            )
+            logger.warning(reason)
+            return TierCacheLoadResult(data={}, degraded=True, reason=reason)
         raise RuntimeError(
             f"GCS tier refresh failed. Cannot proceed without tier data "
             f"(would bypass tier protection). Identity attempted: {identity}. "
             f"Original error: {exc}"
         ) from exc
+    except RuntimeError as exc:
+        if allow_degraded:
+            reason = (
+                "Tier export unavailable; tier classifications are not authoritative: "
+                f"{exc}"
+            )
+            logger.warning(reason)
+            return TierCacheLoadResult(data={}, degraded=True, reason=reason)
+        raise
     if not tier_data:
+        if allow_degraded:
+            reason = (
+                "Tier export returned no rows; tier classifications are not "
+                "authoritative."
+            )
+            logger.warning(reason)
+            return TierCacheLoadResult(
+                data={}, degraded=True, reason=reason, export_row_count=0
+            )
         raise RuntimeError(
             f"GCS tier export returned no rows. Cannot proceed without tier data "
             f"(would bypass tier protection). Identity attempted: {identity}. "
             f"Check GCS access and gs://{TIER_EXPORT_BUCKET}/{TIER_EXPORT_PREFIX}."
         )
-    _write_cache_file(TIER_CACHE_FILE, tier_data)
-    return tier_data
+    try:
+        export_age_seconds, reason = _validate_tier_export(
+            export_timestamp_ms=export_timestamp_ms,
+            row_count=len(tier_data),
+            bypass_guards=bypass_guards,
+        )
+    except TierExportValidationError as exc:
+        if not allow_degraded:
+            raise
+        logger.warning("Tier export degraded; returning UNKNOWN tiers: %s", exc)
+        return TierCacheLoadResult(
+            data={},
+            degraded=True,
+            reason=str(exc),
+            export_age_seconds=exc.export_age_seconds,
+            export_row_count=exc.export_row_count or len(tier_data),
+        )
+    _write_cache_file(
+        TIER_CACHE_FILE, tier_data, export_timestamp_ms=export_timestamp_ms
+    )
+    return TierCacheLoadResult(
+        data=tier_data,
+        degraded=reason is not None,
+        reason=reason,
+        export_age_seconds=export_age_seconds,
+        export_row_count=len(tier_data),
+    )
 
 
 # =============================================================================
@@ -422,7 +758,7 @@ def _load_workspace_cache() -> dict[str, dict[str, str]]:
     Returns:
         Dict mapping workspace_id to `{"organization_id": "...", "dataplane_name": "..."}`.
     """
-    data, fetched_at = _read_cache_file(WORKSPACE_CACHE_FILE)
+    data, fetched_at, _ = _read_cache_file(WORKSPACE_CACHE_FILE)
     if data is not None and _is_cache_fresh(fetched_at):
         return cast(WorkspaceData, data)
     # Stale or missing — return empty; entries will be lazy-populated
@@ -457,17 +793,21 @@ def get_org_tier(
     organization_id: str,
     *,
     credentials: google.auth.credentials.Credentials | None = None,
+    allow_degraded: bool = False,
 ) -> OrgTierResult:
     """Resolve a single organization's customer tier.
 
     Loads the tier cache (refreshing from the GCS export if stale), looks up the
-    org, and returns the tier. Orgs not in the cache default to TIER_2.
+    org, and returns the tier. Orgs not in the cache resolve to UNKNOWN.
 
     Args:
         organization_id: The organization ID to look up.
         credentials: Optional GCP credentials for the tier-export refresh. Falls back to default.
     """
-    tier_cache = _load_tier_cache(credentials=credentials)
+    load_result = _load_tier_cache(
+        credentials=credentials, allow_degraded=allow_degraded
+    )
+    tier_cache = load_result.data
     entry = tier_cache.get(organization_id)
     if entry is not None:
         tier_value = entry.get("customer_tier", "")
@@ -475,17 +815,22 @@ def get_org_tier(
             organization_id=organization_id,
             customer_tier=_resolve_tier_value(tier_value),
             is_in_cache=True,
+            source_health=_source_health_from_load_result(load_result),
         )
     return OrgTierResult(
         organization_id=organization_id,
         customer_tier=DEFAULT_TIER,
         is_in_cache=False,
+        source_health=_source_health_from_load_result(load_result),
     )
 
 
-def get_org_tiers(organization_ids: list[str]) -> list[OrgTierResult]:
+def get_org_tiers(
+    organization_ids: list[str], *, allow_degraded: bool = False
+) -> list[OrgTierResult]:
     """Resolve customer tiers for multiple organizations in a single cache load."""
-    tier_cache = _load_tier_cache()
+    load_result = _load_tier_cache(allow_degraded=allow_degraded)
+    tier_cache = load_result.data
     results: list[OrgTierResult] = []
     for org_id in organization_ids:
         entry = tier_cache.get(org_id)
@@ -496,6 +841,7 @@ def get_org_tiers(organization_ids: list[str]) -> list[OrgTierResult]:
                     organization_id=org_id,
                     customer_tier=_resolve_tier_value(tier_value),
                     is_in_cache=True,
+                    source_health=_source_health_from_load_result(load_result),
                 )
             )
         else:
@@ -504,6 +850,7 @@ def get_org_tiers(organization_ids: list[str]) -> list[OrgTierResult]:
                     organization_id=org_id,
                     customer_tier=DEFAULT_TIER,
                     is_in_cache=False,
+                    source_health=_source_health_from_load_result(load_result),
                 )
             )
     return results
@@ -518,20 +865,28 @@ def resolve_workspace(
     workspace_id: str,
     *,
     credentials: google.auth.credentials.Credentials | None = None,
+    allow_degraded: bool = False,
 ) -> WorkspaceResolution:
     """Resolve a workspace to its organization, tier, and region.
 
     Uses the workspace cache (lazy-populated from Prod DB) and tier cache.
     """
     ws_cache = _load_workspace_cache()
-    tier_cache = _load_tier_cache(credentials=credentials)
+    load_result = _load_tier_cache(
+        credentials=credentials, allow_degraded=allow_degraded
+    )
+    tier_cache = load_result.data
 
     ws_entry = ws_cache.get(workspace_id)
     if ws_entry is None:
         # Cache miss — resolve from Prod DB
         db_result = _resolve_workspace_from_db(workspace_id)
         if db_result is None:
-            return WorkspaceResolution(workspace_id=workspace_id, resolved=False)
+            return WorkspaceResolution(
+                workspace_id=workspace_id,
+                resolved=False,
+                source_health=_source_health_from_load_result(load_result),
+            )
 
         # Populate cache
         ws_entry = {
@@ -559,16 +914,20 @@ def resolve_workspace(
         dataplane_name=dataplane_name,
         is_eu=dataplane_name == "EU",
         resolved=True,
+        source_health=_source_health_from_load_result(load_result),
     )
 
 
-def resolve_workspaces(workspace_ids: list[str]) -> list[WorkspaceResolution]:
+def resolve_workspaces(
+    workspace_ids: list[str], *, allow_degraded: bool = False
+) -> list[WorkspaceResolution]:
     """Resolve multiple workspaces to their organizations, tiers, and regions.
 
     Batches cache reads to minimize I/O.
     """
     ws_cache = _load_workspace_cache()
-    tier_cache = _load_tier_cache()
+    load_result = _load_tier_cache(allow_degraded=allow_degraded)
+    tier_cache = load_result.data
     cache_updated = False
 
     results: list[WorkspaceResolution] = []
@@ -578,7 +937,13 @@ def resolve_workspaces(workspace_ids: list[str]) -> list[WorkspaceResolution]:
             # Cache miss — resolve from Prod DB
             db_result = _resolve_workspace_from_db(ws_id)
             if db_result is None:
-                results.append(WorkspaceResolution(workspace_id=ws_id, resolved=False))
+                results.append(
+                    WorkspaceResolution(
+                        workspace_id=ws_id,
+                        resolved=False,
+                        source_health=_source_health_from_load_result(load_result),
+                    )
+                )
                 continue
 
             ws_entry = {
@@ -606,6 +971,7 @@ def resolve_workspaces(workspace_ids: list[str]) -> list[WorkspaceResolution]:
                 dataplane_name=dataplane_name,
                 is_eu=dataplane_name == "EU",
                 resolved=True,
+                source_health=_source_health_from_load_result(load_result),
             )
         )
 
@@ -626,7 +992,8 @@ def enrich_rows_by_org(
     dataplane_name_key: str = "dataplane_name",
     *,
     credentials: google.auth.credentials.Credentials | None = None,
-) -> list[dict[str, Any]]:
+    allow_degraded: bool = False,
+) -> TierFilteredRows:
     """Add `customer_tier` and `is_eu` fields to each row based on organization_id.
 
     Uses the org tier cache to resolve tiers. Each row must have an `organization_id`
@@ -638,7 +1005,10 @@ def enrich_rows_by_org(
 
     This mutates and returns the same list (no copy).
     """
-    tier_cache = _load_tier_cache(credentials=credentials)
+    load_result = _load_tier_cache(
+        credentials=credentials, allow_degraded=allow_degraded
+    )
+    tier_cache = load_result.data
 
     for row in rows:
         org_id = str(row.get(org_id_key, ""))
@@ -651,40 +1021,60 @@ def enrich_rows_by_org(
 
         dataplane_name = row.get(dataplane_name_key, "")
         row["is_eu"] = dataplane_name == "EU"
-
-    return rows
+    return TierFilteredRows(
+        rows,
+        _source_health_from_load_result(load_result) or TierSourceHealth(),
+    )
 
 
 def filter_rows_by_tier(
     rows: list[dict[str, Any]],
     tier_filter: TierFilter,
-) -> list[dict[str, Any]]:
+) -> TierFilteredRows:
     """Filter rows by customer tier.
 
     Rows must already have a `customer_tier` field (from `enrich_rows_by_org`).
     If `tier_filter` is `"ALL"`, no filtering is applied.
     """
-    if tier_filter == "ALL":
-        return rows
-    return [r for r in rows if r.get("customer_tier") == tier_filter]
+    source_health = (
+        rows.source_health if isinstance(rows, TierFilteredRows) else TierSourceHealth()
+    )
+    filtered = (
+        rows
+        if tier_filter == "ALL"
+        else [r for r in rows if r.get("customer_tier") == tier_filter]
+    )
+    return TierFilteredRows(filtered, source_health)
 
 
-def build_tier_summary(rows: list[dict[str, Any]]) -> TierSummary:
+def build_tier_summary(
+    rows: list[dict[str, Any]],
+    *,
+    source_health: TierSourceHealth | None = None,
+) -> TierSummary:
     """Build a tier distribution summary from enriched rows."""
     tier_0 = sum(1 for r in rows if r.get("customer_tier") == "TIER_0")
     tier_1 = sum(1 for r in rows if r.get("customer_tier") == "TIER_1")
     tier_2 = sum(1 for r in rows if r.get("customer_tier") == "TIER_2")
+    unknown = sum(1 for r in rows if r.get("customer_tier") == "UNKNOWN")
+    source_health = source_health or (
+        rows.source_health if isinstance(rows, TierFilteredRows) else TierSourceHealth()
+    )
     return TierSummary(
         tier_0_count=tier_0,
         tier_1_count=tier_1,
         tier_2_count=tier_2,
+        unknown_count=unknown,
         total=len(rows),
+        warnings=tier_source_warnings(source_health),
     )
 
 
 def build_weighted_tier_summary(
     rows: list[dict[str, Any]],
     count_key: str,
+    *,
+    source_health: TierSourceHealth | None = None,
 ) -> TierSummary:
     """Build a tier distribution summary weighting each row by `count_key`.
 
@@ -703,11 +1093,19 @@ def build_weighted_tier_summary(
     tier_2 = sum(
         int(r.get(count_key, 0)) for r in rows if r.get("customer_tier") == "TIER_2"
     )
+    unknown = sum(
+        int(r.get(count_key, 0)) for r in rows if r.get("customer_tier") == "UNKNOWN"
+    )
+    source_health = source_health or (
+        rows.source_health if isinstance(rows, TierFilteredRows) else TierSourceHealth()
+    )
     return TierSummary(
         tier_0_count=tier_0,
         tier_1_count=tier_1,
         tier_2_count=tier_2,
-        total=tier_0 + tier_1 + tier_2,
+        unknown_count=unknown,
+        total=tier_0 + tier_1 + tier_2 + unknown,
+        warnings=tier_source_warnings(source_health),
     )
 
 
@@ -724,8 +1122,8 @@ def refresh_tier_cache() -> TierCacheStats:
 
 def get_cache_stats() -> TierCacheStats:
     """Return current cache statistics."""
-    tier_data, tier_ts = _read_cache_file(TIER_CACHE_FILE)
-    ws_data, ws_ts = _read_cache_file(WORKSPACE_CACHE_FILE)
+    tier_data, tier_ts, export_timestamp_ms = _read_cache_file(TIER_CACHE_FILE)
+    ws_data, ws_ts, _ = _read_cache_file(WORKSPACE_CACHE_FILE)
 
     now = datetime.now(timezone.utc).timestamp()
 
@@ -733,6 +1131,10 @@ def get_cache_stats() -> TierCacheStats:
         tier_cache_size=len(tier_data) if tier_data else 0,
         workspace_cache_size=len(ws_data) if ws_data else 0,
         tier_cache_age_seconds=(now - tier_ts) if tier_ts else None,
+        tier_export_age_seconds=(
+            now - (export_timestamp_ms / 1000) if export_timestamp_ms else None
+        ),
+        tier_export_row_count=len(tier_data) if tier_data is not None else None,
         workspace_cache_age_seconds=(now - ws_ts) if ws_ts else None,
         tier_cache_path=str(TIER_CACHE_FILE),
         workspace_cache_path=str(WORKSPACE_CACHE_FILE),

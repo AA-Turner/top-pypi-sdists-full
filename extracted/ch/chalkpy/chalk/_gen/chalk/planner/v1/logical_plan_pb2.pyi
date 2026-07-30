@@ -126,6 +126,7 @@ class LogicalPlanArgument(_message.Message):
     __slots__ = (
         "primitive_value",
         "expr_value",
+        "flat_expr_value",
         "batch_udf_v3",
         "list_value",
         "unordered_dict_value",
@@ -145,6 +146,7 @@ class LogicalPlanArgument(_message.Message):
     )
     PRIMITIVE_VALUE_FIELD_NUMBER: _ClassVar[int]
     EXPR_VALUE_FIELD_NUMBER: _ClassVar[int]
+    FLAT_EXPR_VALUE_FIELD_NUMBER: _ClassVar[int]
     BATCH_UDF_V3_FIELD_NUMBER: _ClassVar[int]
     LIST_VALUE_FIELD_NUMBER: _ClassVar[int]
     UNORDERED_DICT_VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -163,6 +165,7 @@ class LogicalPlanArgument(_message.Message):
     BATCH_UDF_V2_FIELD_NUMBER: _ClassVar[int]
     primitive_value: _primitive_pb2.Primitive
     expr_value: _expression_pb2.LogicalExprNode
+    flat_expr_value: _expression_pb2.FlatLogicalExpr
     batch_udf_v3: _expression_pb2.BatchUDF
     list_value: LogicalPlanArgumentList
     unordered_dict_value: LogicalPlanUnorderedDict
@@ -183,6 +186,7 @@ class LogicalPlanArgument(_message.Message):
         self,
         primitive_value: _Optional[_Union[_primitive_pb2.Primitive, _Mapping]] = ...,
         expr_value: _Optional[_Union[_expression_pb2.LogicalExprNode, _Mapping]] = ...,
+        flat_expr_value: _Optional[_Union[_expression_pb2.FlatLogicalExpr, _Mapping]] = ...,
         batch_udf_v3: _Optional[_Union[_expression_pb2.BatchUDF, _Mapping]] = ...,
         list_value: _Optional[_Union[LogicalPlanArgumentList, _Mapping]] = ...,
         unordered_dict_value: _Optional[_Union[LogicalPlanUnorderedDict, _Mapping]] = ...,

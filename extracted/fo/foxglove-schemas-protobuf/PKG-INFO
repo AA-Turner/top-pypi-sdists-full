@@ -1,21 +1,16 @@
 Metadata-Version: 2.3
 Name: foxglove-schemas-protobuf
-Version: 0.3.0
+Version: 0.4.0
 Summary: Precompiled protocol buffer schemas for Foxglove
-License: MIT
 Author: Foxglove
-Author-email: support@foxglove.dev
-Requires-Python: >=3.9
+Author-email: Foxglove <support@foxglove.dev>
+License: MIT
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: protobuf (>=3.20)
-Project-URL: Documentation, https://docs.foxglove.dev/
-Project-URL: Repository, https://github.com/foxglove/schemas
+Requires-Dist: protobuf>=3.20
+Requires-Python: >=3.10
+Project-URL: repository, https://github.com/foxglove/foxglove-sdk
+Project-URL: documentation, https://docs.foxglove.dev/
 Description-Content-Type: text/markdown
 
 # Foxglove Schemas (Protobuf)
@@ -30,6 +25,12 @@ Install via [Poetry](https://python-poetry.org/):
 poetry add foxglove-schemas-protobuf
 ```
 
+Or install via [uv](https://docs.astral.sh/uv/):
+
+```sh
+uv add foxglove-schemas-protobuf
+```
+
 ## Usage
 
 Import types from the `foxglove_schemas_protobuf` module as follows:
@@ -40,5 +41,4 @@ from foxglove_schemas_protobuf.CompressedImage_pb2 import CompressedImage
 
 ## Stay in touch
 
-Join our [Slack channel](https://foxglove.dev/slack) to ask questions, share feedback, and stay up to date on what our team is working on.
-
+Join our [Discord](https://foxglove.dev/chat) to ask questions, share feedback, and stay up to date on what our team is working on.

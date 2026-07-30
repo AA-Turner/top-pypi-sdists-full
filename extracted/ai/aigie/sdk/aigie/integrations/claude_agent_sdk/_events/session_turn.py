@@ -13,6 +13,7 @@ import uuid
 from typing import TYPE_CHECKING, Any
 
 from aigie.context_manager import merge_metadata
+from aigie.integrations.claude_agent_sdk._events import _tool_catalog
 from aigie.integrations.claude_agent_sdk._events.completion import CompletionEvents
 from aigie.integrations.claude_agent_sdk.native_callback import (
     _sanitize_error,
@@ -60,6 +61,11 @@ class SessionTurnEvents(CompletionEvents):
         # Cache so subagent / LLM spans can pick it up from one place.
         self.metadata["model"] = model
 
+        # Extract the tool catalog (MCP servers / allowed_tools resolved upstream)
+        # so the session and every child span carry the tool_registry_hash.
+        tools = options.get("tools", [])
+        tool_names, tool_definitions = _tool_catalog.extract_tool_defs(tools)
+
         # Build metadata
         trace_metadata = merge_metadata(
             {
@@ -67,8 +73,11 @@ class SessionTurnEvents(CompletionEvents):
                 "framework": "claude_agent_sdk",
                 "session_type": "stateful",
                 "model": model,
+                "tool_count": len(tools),
+                "tool_names": tool_names[:10],
             }
         )
+        _tool_catalog.stamp_catalog(tool_definitions, trace_metadata, self.trace_id)
 
         # Capture system prompt for drift detection
         system_prompt = options.get("system_prompt", "")
@@ -170,6 +179,7 @@ class SessionTurnEvents(CompletionEvents):
             }
             if self.session_id:
                 session_update["session_id"] = self.session_id
+                session_update["metadata"] = {"claude_session_id": self.session_id}
 
             if error:
                 session_update["error"] = error

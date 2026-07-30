@@ -272,7 +272,7 @@ def _resolve_org_id(
             )
 
         # Not found as org — try as workspace ID
-        ws_result = resolve_workspace(query)
+        ws_result = resolve_workspace(query, allow_degraded=True)
         if ws_result.resolved and ws_result.organization_id:
             label = f"Resolved from workspace {query} → org {ws_result.organization_id}"
             return ws_result.organization_id, label, None

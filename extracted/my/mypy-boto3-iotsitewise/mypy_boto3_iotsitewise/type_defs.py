@@ -26,6 +26,7 @@ from botocore.response import StreamingBody
 
 from .literals import (
     AggregateTypeType,
+    ApplicationStatusType,
     AssetModelStateType,
     AssetModelTypeType,
     AssetModelVersionTypeType,
@@ -40,14 +41,27 @@ from .literals import (
     ColumnNameType,
     ComputationModelStateType,
     ComputeLocationType,
+    ComputeNodeErrorCodeType,
+    ComputeNodeExecutionStateType,
     ConfigurationStateType,
     CoreDeviceOperatingSystemType,
+    DataSegmentErrorCodeType,
+    DatasetEnrichmentStatusType,
+    DatasetExportJobFilterType,
+    DatasetExportJobStatusType,
+    DatasetSourceFormatType,
+    DatasetSourceTypeType,
     DatasetStateType,
+    DatasetTypeEnumType,
     DetailedErrorCodeType,
+    DetailedPipelineErrorCodeType,
     DisassociatedDataStorageStateType,
     EncryptionTypeType,
+    EnrichmentJobStatusType,
+    EnrichmentStatusType,
     ErrorCodeType,
     ExecutionStateType,
+    ExportDataTypeType,
     ForwardingConfigStateType,
     IdentityTypeType,
     JobStatusType,
@@ -59,19 +73,29 @@ from .literals import (
     LoggingLevelType,
     MonitorErrorCodeType,
     PermissionType,
+    PipelineErrorCodeType,
+    PipelineExecutionStateType,
     PortalStateType,
     PortalTypeType,
+    ProcessingTypeType,
+    ProcessingUnitType,
     PropertyDataTypeType,
     PropertyNotificationStateType,
     QualityType,
+    QueryStatusType,
     RawValueTypeType,
+    ResourceErrorCodeType,
+    ResourceStateType,
     ResourceTypeType,
     ScalarTypeType,
+    SearchStatusType,
+    SearchTypeType,
     StorageTypeType,
     TargetResourceTypeType,
     TimeOrderingType,
     TraversalDirectionType,
     WarmTierStateType,
+    WorkspaceStateType,
 )
 
 if sys.version_info >= (3, 12):
@@ -89,6 +113,7 @@ __all__ = (
     "AggregatedValueTypeDef",
     "AggregatesTypeDef",
     "AlarmsTypeDef",
+    "ApplicationSummaryTypeDef",
     "AssetBindingValueFilterTypeDef",
     "AssetCompositeModelPathSegmentTypeDef",
     "AssetCompositeModelSummaryTypeDef",
@@ -125,11 +150,18 @@ __all__ = (
     "AssetStatusTypeDef",
     "AssetSummaryTypeDef",
     "AssociateAssetsRequestTypeDef",
+    "AssociateDataSegmentEntryTypeDef",
     "AssociateTimeSeriesToAssetPropertyRequestTypeDef",
     "AssociatedAssetsSummaryTypeDef",
     "AttributeTypeDef",
+    "BatchAssociateDataSegmentsToDatasetRequestTypeDef",
+    "BatchAssociateDataSegmentsToDatasetResponseTypeDef",
     "BatchAssociateProjectAssetsRequestTypeDef",
     "BatchAssociateProjectAssetsResponseTypeDef",
+    "BatchDeleteDatasetDataSegmentsRequestTypeDef",
+    "BatchDeleteDatasetDataSegmentsResponseTypeDef",
+    "BatchDisassociateDataSegmentsFromDatasetRequestTypeDef",
+    "BatchDisassociateDataSegmentsFromDatasetResponseTypeDef",
     "BatchDisassociateProjectAssetsRequestTypeDef",
     "BatchDisassociateProjectAssetsResponseTypeDef",
     "BatchGetAssetPropertyAggregatesEntryTypeDef",
@@ -158,8 +190,15 @@ __all__ = (
     "BatchPutAssetPropertyValueRequestTypeDef",
     "BatchPutAssetPropertyValueResponseTypeDef",
     "BlobTypeDef",
+    "CancelEnrichmentJobRequestTypeDef",
+    "CancelEnrichmentJobResponseTypeDef",
+    "CancelPipelineExecutionRequestTypeDef",
+    "CancelPipelineExecutionResponseTypeDef",
+    "CancelQueryRequestTypeDef",
+    "CancelQueryResponseTypeDef",
     "CitationTypeDef",
     "ColumnInfoTypeDef",
+    "ColumnInformationTypeDef",
     "ColumnTypeTypeDef",
     "CompositeModelPropertyTypeDef",
     "CompositionDetailsTypeDef",
@@ -174,12 +213,22 @@ __all__ = (
     "ComputationModelResolveToResourceSummaryTypeDef",
     "ComputationModelStatusTypeDef",
     "ComputationModelSummaryTypeDef",
+    "ComputeNodeExecutionDetailsTypeDef",
+    "ComputeNodeExecutionStateDetailsTypeDef",
+    "ComputeNodeExecutionStatusTypeDef",
+    "ComputeNodeOutputTypeDef",
+    "ComputeNodeTypeDef",
+    "ComputeNodeUnionTypeDef",
     "ConfigurationErrorDetailsTypeDef",
     "ConfigurationStatusTypeDef",
     "ConflictingOperationExceptionTypeDef",
+    "ContainerTaskConfigurationOutputTypeDef",
+    "ContainerTaskConfigurationTypeDef",
     "ContentTypeDef",
     "CreateAccessPolicyRequestTypeDef",
     "CreateAccessPolicyResponseTypeDef",
+    "CreateApplicationRequestTypeDef",
+    "CreateApplicationResponseTypeDef",
     "CreateAssetModelCompositeModelRequestTypeDef",
     "CreateAssetModelCompositeModelResponseTypeDef",
     "CreateAssetModelRequestTypeDef",
@@ -192,28 +241,47 @@ __all__ = (
     "CreateComputationModelResponseTypeDef",
     "CreateDashboardRequestTypeDef",
     "CreateDashboardResponseTypeDef",
+    "CreateDatasetExportJobRequestTypeDef",
+    "CreateDatasetExportJobResponseTypeDef",
     "CreateDatasetRequestTypeDef",
     "CreateDatasetResponseTypeDef",
+    "CreateEnrichmentJobRequestTypeDef",
+    "CreateEnrichmentJobResponseTypeDef",
     "CreateGatewayRequestTypeDef",
     "CreateGatewayResponseTypeDef",
+    "CreatePipelineRequestTypeDef",
+    "CreatePipelineResponseTypeDef",
     "CreatePortalRequestTypeDef",
     "CreatePortalResponseTypeDef",
     "CreateProjectRequestTypeDef",
     "CreateProjectResponseTypeDef",
+    "CreateTaskRequestTypeDef",
+    "CreateTaskResponseTypeDef",
+    "CreateWorkspaceRequestTypeDef",
+    "CreateWorkspaceResponseTypeDef",
     "CsvOutputTypeDef",
     "CsvTypeDef",
+    "CsvUnionTypeDef",
     "CustomerManagedS3StorageTypeDef",
     "DashboardSummaryTypeDef",
     "DataBindingValueFilterTypeDef",
     "DataBindingValueTypeDef",
+    "DataSegmentEnrichmentTypeDef",
+    "DataSegmentRelationshipSummaryTypeDef",
+    "DataSegmentSummaryTypeDef",
     "DataSetReferenceTypeDef",
+    "DatasetConfigTypeDef",
+    "DatasetEnrichmentEntryTypeDef",
+    "DatasetEnrichmentTypeDef",
+    "DatasetItemOutputTypeDef",
+    "DatasetItemTypeDef",
     "DatasetSourceTypeDef",
     "DatasetStatusTypeDef",
     "DatasetSummaryTypeDef",
     "DatumPaginatorTypeDef",
     "DatumTypeDef",
-    "DatumWaiterTypeDef",
     "DeleteAccessPolicyRequestTypeDef",
+    "DeleteApplicationRequestTypeDef",
     "DeleteAssetModelCompositeModelRequestTypeDef",
     "DeleteAssetModelCompositeModelResponseTypeDef",
     "DeleteAssetModelInterfaceRelationshipRequestTypeDef",
@@ -225,17 +293,26 @@ __all__ = (
     "DeleteComputationModelRequestTypeDef",
     "DeleteComputationModelResponseTypeDef",
     "DeleteDashboardRequestTypeDef",
+    "DeleteDataSegmentEntryTypeDef",
     "DeleteDatasetRequestTypeDef",
     "DeleteDatasetResponseTypeDef",
     "DeleteGatewayRequestTypeDef",
+    "DeletePipelineRequestTypeDef",
+    "DeletePipelineResponseTypeDef",
     "DeletePortalRequestTypeDef",
     "DeletePortalResponseTypeDef",
     "DeleteProjectRequestTypeDef",
+    "DeleteTaskRequestTypeDef",
+    "DeleteTaskResponseTypeDef",
     "DeleteTimeSeriesRequestTypeDef",
+    "DeleteWorkspaceRequestTypeDef",
+    "DeleteWorkspaceResponseTypeDef",
     "DescribeAccessPolicyRequestTypeDef",
     "DescribeAccessPolicyResponseTypeDef",
     "DescribeActionRequestTypeDef",
     "DescribeActionResponseTypeDef",
+    "DescribeApplicationRequestTypeDef",
+    "DescribeApplicationResponseTypeDef",
     "DescribeAssetCompositeModelRequestTypeDef",
     "DescribeAssetCompositeModelResponseTypeDef",
     "DescribeAssetModelCompositeModelRequestTypeDef",
@@ -260,46 +337,81 @@ __all__ = (
     "DescribeComputationModelResponseTypeDef",
     "DescribeDashboardRequestTypeDef",
     "DescribeDashboardResponseTypeDef",
+    "DescribeDatasetExportJobRequestTypeDef",
+    "DescribeDatasetExportJobResponseTypeDef",
     "DescribeDatasetRequestTypeDef",
     "DescribeDatasetResponseTypeDef",
     "DescribeDefaultEncryptionConfigurationResponseTypeDef",
+    "DescribeEnrichmentJobRequestTypeDef",
+    "DescribeEnrichmentJobResponseTypeDef",
     "DescribeExecutionRequestTypeDef",
     "DescribeExecutionResponseTypeDef",
     "DescribeGatewayCapabilityConfigurationRequestTypeDef",
     "DescribeGatewayCapabilityConfigurationResponseTypeDef",
     "DescribeGatewayRequestTypeDef",
     "DescribeGatewayResponseTypeDef",
+    "DescribeLoggingOptionsRequestTypeDef",
     "DescribeLoggingOptionsResponseTypeDef",
+    "DescribePipelineExecutionRequestPaginateTypeDef",
+    "DescribePipelineExecutionRequestTypeDef",
+    "DescribePipelineExecutionResponseTypeDef",
+    "DescribePipelineRequestTypeDef",
+    "DescribePipelineResponseTypeDef",
     "DescribePortalRequestTypeDef",
     "DescribePortalRequestWaitExtraTypeDef",
     "DescribePortalRequestWaitTypeDef",
     "DescribePortalResponseTypeDef",
     "DescribeProjectRequestTypeDef",
     "DescribeProjectResponseTypeDef",
+    "DescribeQueryRequestTypeDef",
+    "DescribeQueryResponseTypeDef",
+    "DescribeSearchRequestTypeDef",
+    "DescribeSearchResponseTypeDef",
     "DescribeStorageConfigurationResponseTypeDef",
+    "DescribeTaskRequestTypeDef",
+    "DescribeTaskResponseTypeDef",
     "DescribeTimeSeriesRequestTypeDef",
     "DescribeTimeSeriesResponseTypeDef",
+    "DescribeWorkspaceRequestTypeDef",
+    "DescribeWorkspaceResponseTypeDef",
     "DetailedErrorTypeDef",
+    "DetailedPipelineErrorTypeDef",
     "DisassociateAssetsRequestTypeDef",
+    "DisassociateDataSegmentEntryTypeDef",
     "DisassociateTimeSeriesFromAssetPropertyRequestTypeDef",
     "EmptyResponseMetadataTypeDef",
+    "EnrichmentJobConfigurationTypeDef",
+    "EnrichmentJobSummaryTypeDef",
+    "EnrichmentTrimSettingsTypeDef",
     "ErrorDetailsTypeDef",
     "ErrorReportLocationTypeDef",
+    "EventDetectionTypeDef",
     "ExecuteActionRequestTypeDef",
     "ExecuteActionResponseTypeDef",
     "ExecuteQueryRequestPaginateTypeDef",
     "ExecuteQueryRequestTypeDef",
     "ExecuteQueryResponsePaginatorTypeDef",
     "ExecuteQueryResponseTypeDef",
-    "ExecuteQueryResponseWaiterTypeDef",
+    "ExecutionEnvironmentVariablesOutputTypeDef",
+    "ExecutionEnvironmentVariablesTypeDef",
+    "ExecutionEnvironmentVariablesUnionTypeDef",
     "ExecutionStatusTypeDef",
     "ExecutionSummaryTypeDef",
+    "ExportErrorReportLocationTypeDef",
+    "ExportJobSummaryTypeDef",
     "ExpressionVariableOutputTypeDef",
     "ExpressionVariableTypeDef",
     "ExpressionVariableUnionTypeDef",
+    "FailedDataSegmentAssociationTypeDef",
+    "FailedDataSegmentDeletionTypeDef",
+    "FailedDataSegmentDisassociationTypeDef",
     "FileFormatOutputTypeDef",
     "FileFormatTypeDef",
+    "FileFormatUnionTypeDef",
+    "FileOutputTypeDef",
     "FileTypeDef",
+    "FileUnionTypeDef",
+    "FormatSettingsTypeDef",
     "ForwardingConfigTypeDef",
     "GatewayCapabilitySummaryTypeDef",
     "GatewayPlatformTypeDef",
@@ -312,9 +424,17 @@ __all__ = (
     "GetAssetPropertyValueHistoryResponseTypeDef",
     "GetAssetPropertyValueRequestTypeDef",
     "GetAssetPropertyValueResponseTypeDef",
+    "GetCaptureDataRequestTypeDef",
+    "GetCaptureDataResponseTypeDef",
     "GetInterpolatedAssetPropertyValuesRequestPaginateTypeDef",
     "GetInterpolatedAssetPropertyValuesRequestTypeDef",
     "GetInterpolatedAssetPropertyValuesResponseTypeDef",
+    "GetQueryResultsRequestPaginateTypeDef",
+    "GetQueryResultsRequestTypeDef",
+    "GetQueryResultsResponseTypeDef",
+    "GetSearchResultsRequestPaginateTypeDef",
+    "GetSearchResultsRequestTypeDef",
+    "GetSearchResultsResponseTypeDef",
     "GreengrassTypeDef",
     "GreengrassV2TypeDef",
     "GroupIdentityTypeDef",
@@ -346,6 +466,9 @@ __all__ = (
     "ListActionsRequestPaginateTypeDef",
     "ListActionsRequestTypeDef",
     "ListActionsResponseTypeDef",
+    "ListApplicationsRequestPaginateTypeDef",
+    "ListApplicationsRequestTypeDef",
+    "ListApplicationsResponseTypeDef",
     "ListAssetModelCompositeModelsRequestPaginateTypeDef",
     "ListAssetModelCompositeModelsRequestTypeDef",
     "ListAssetModelCompositeModelsResponseTypeDef",
@@ -385,9 +508,21 @@ __all__ = (
     "ListDashboardsRequestPaginateTypeDef",
     "ListDashboardsRequestTypeDef",
     "ListDashboardsResponseTypeDef",
+    "ListDatasetDataSegmentRelationshipsRequestPaginateTypeDef",
+    "ListDatasetDataSegmentRelationshipsRequestTypeDef",
+    "ListDatasetDataSegmentRelationshipsResponseTypeDef",
+    "ListDatasetDataSegmentsRequestPaginateTypeDef",
+    "ListDatasetDataSegmentsRequestTypeDef",
+    "ListDatasetDataSegmentsResponseTypeDef",
+    "ListDatasetExportJobsRequestPaginateTypeDef",
+    "ListDatasetExportJobsRequestTypeDef",
+    "ListDatasetExportJobsResponseTypeDef",
     "ListDatasetsRequestPaginateTypeDef",
     "ListDatasetsRequestTypeDef",
     "ListDatasetsResponseTypeDef",
+    "ListEnrichmentJobsRequestPaginateTypeDef",
+    "ListEnrichmentJobsRequestTypeDef",
+    "ListEnrichmentJobsResponseTypeDef",
     "ListExecutionsRequestPaginateTypeDef",
     "ListExecutionsRequestTypeDef",
     "ListExecutionsResponseTypeDef",
@@ -397,6 +532,12 @@ __all__ = (
     "ListInterfaceRelationshipsRequestPaginateTypeDef",
     "ListInterfaceRelationshipsRequestTypeDef",
     "ListInterfaceRelationshipsResponseTypeDef",
+    "ListPipelineExecutionsRequestPaginateTypeDef",
+    "ListPipelineExecutionsRequestTypeDef",
+    "ListPipelineExecutionsResponseTypeDef",
+    "ListPipelinesRequestPaginateTypeDef",
+    "ListPipelinesRequestTypeDef",
+    "ListPipelinesResponseTypeDef",
     "ListPortalsRequestPaginateTypeDef",
     "ListPortalsRequestTypeDef",
     "ListPortalsResponseTypeDef",
@@ -406,11 +547,24 @@ __all__ = (
     "ListProjectsRequestPaginateTypeDef",
     "ListProjectsRequestTypeDef",
     "ListProjectsResponseTypeDef",
+    "ListQueriesRequestPaginateTypeDef",
+    "ListQueriesRequestTypeDef",
+    "ListQueriesResponseTypeDef",
+    "ListSearchesFiltersTypeDef",
+    "ListSearchesRequestPaginateTypeDef",
+    "ListSearchesRequestTypeDef",
+    "ListSearchesResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "ListTasksRequestPaginateTypeDef",
+    "ListTasksRequestTypeDef",
+    "ListTasksResponseTypeDef",
     "ListTimeSeriesRequestPaginateTypeDef",
     "ListTimeSeriesRequestTypeDef",
     "ListTimeSeriesResponseTypeDef",
+    "ListWorkspacesRequestPaginateTypeDef",
+    "ListWorkspacesRequestTypeDef",
+    "ListWorkspacesResponseTypeDef",
     "LocationTypeDef",
     "LoggingOptionsTypeDef",
     "MatchedDataBindingTypeDef",
@@ -424,12 +578,19 @@ __all__ = (
     "MonitorErrorDetailsTypeDef",
     "MultiLayerStorageTypeDef",
     "PaginatorConfigTypeDef",
+    "PipelineExecutionStateDetailsTypeDef",
+    "PipelineExecutionStatusTypeDef",
+    "PipelineExecutionSummaryTypeDef",
+    "PipelineSummaryTypeDef",
     "PortalResourceTypeDef",
     "PortalStatusTypeDef",
     "PortalSummaryTypeDef",
     "PortalTypeEntryOutputTypeDef",
     "PortalTypeEntryTypeDef",
     "PortalTypeEntryUnionTypeDef",
+    "ProcessingInputOutputTypeDef",
+    "ProcessingInputTypeDef",
+    "ProcessingInputUnionTypeDef",
     "ProjectResourceTypeDef",
     "ProjectSummaryTypeDef",
     "PropertyMappingConfigurationTypeDef",
@@ -448,30 +609,50 @@ __all__ = (
     "PutLoggingOptionsRequestTypeDef",
     "PutStorageConfigurationRequestTypeDef",
     "PutStorageConfigurationResponseTypeDef",
+    "QueryStatisticsTypeDef",
+    "QuerySummaryTypeDef",
     "ReferenceTypeDef",
     "ResolveToTypeDef",
+    "ResourceErrorTypeDef",
     "ResourceNotFoundExceptionTypeDef",
+    "ResourceStatusTypeDef",
     "ResourceTypeDef",
     "ResponseMetadataTypeDef",
     "ResponseStreamTypeDef",
     "RetentionPeriodTypeDef",
     "RowPaginatorTypeDef",
     "RowTypeDef",
-    "RowWaiterTypeDef",
+    "SearchFiltersTypeDef",
+    "SearchResultTypeDef",
+    "SearchSummaryTypeDef",
+    "SessionConfigTypeDef",
     "SiemensIETypeDef",
     "SourceDetailTypeDef",
     "SourceTypeDef",
+    "StartPipelineExecutionRequestTypeDef",
+    "StartPipelineExecutionResponseTypeDef",
+    "StartQueryRequestTypeDef",
+    "StartQueryResponseTypeDef",
+    "StartSearchRequestTypeDef",
+    "StartSearchResponseTypeDef",
     "TagResourceRequestTypeDef",
     "TargetResourceTypeDef",
+    "TaskConfigurationOutputTypeDef",
+    "TaskConfigurationTypeDef",
+    "TaskConfigurationUnionTypeDef",
+    "TaskSummaryTypeDef",
     "ThrottlingExceptionTypeDef",
     "TimeInNanosTypeDef",
+    "TimeIntervalTypeDef",
     "TimeSeriesSummaryTypeDef",
+    "TimeseriesItemTypeDef",
     "TimestampTypeDef",
     "TraceTypeDef",
     "TransformOutputTypeDef",
     "TransformProcessingConfigTypeDef",
     "TransformTypeDef",
     "TransformUnionTypeDef",
+    "TrimSettingsTypeDef",
     "TumblingWindowTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateAccessPolicyRequestTypeDef",
@@ -490,9 +671,15 @@ __all__ = (
     "UpdateGatewayCapabilityConfigurationRequestTypeDef",
     "UpdateGatewayCapabilityConfigurationResponseTypeDef",
     "UpdateGatewayRequestTypeDef",
+    "UpdatePipelineRequestTypeDef",
+    "UpdatePipelineResponseTypeDef",
     "UpdatePortalRequestTypeDef",
     "UpdatePortalResponseTypeDef",
     "UpdateProjectRequestTypeDef",
+    "UpdateTaskRequestTypeDef",
+    "UpdateTaskResponseTypeDef",
+    "UpdateWorkspaceRequestTypeDef",
+    "UpdateWorkspaceResponseTypeDef",
     "UserIdentityTypeDef",
     "VariableValueOutputTypeDef",
     "VariableValueTypeDef",
@@ -500,6 +687,11 @@ __all__ = (
     "VariantTypeDef",
     "WaiterConfigTypeDef",
     "WarmTierRetentionPeriodTypeDef",
+    "WorkspaceEncryptionConfigurationInfoTypeDef",
+    "WorkspaceEncryptionConfigurationTypeDef",
+    "WorkspaceErrorDetailsTypeDef",
+    "WorkspaceStatusTypeDef",
+    "WorkspaceSummaryTypeDef",
 )
 
 
@@ -542,6 +734,19 @@ AggregatesTypeDef = TypedDict(
 class AlarmsTypeDef(TypedDict):
     alarmRoleArn: str
     notificationLambdaArn: NotRequired[str]
+
+
+ApplicationSummaryTypeDef = TypedDict(
+    "ApplicationSummaryTypeDef",
+    {
+        "arn": str,
+        "id": str,
+        "name": str,
+        "status": ApplicationStatusType,
+        "createdAt": datetime,
+        "workspaceName": str,
+    },
+)
 
 
 class AssetBindingValueFilterTypeDef(TypedDict):
@@ -680,18 +885,18 @@ class AttributeTypeDef(TypedDict):
     defaultValue: NotRequired[str]
 
 
-class BatchAssociateProjectAssetsRequestTypeDef(TypedDict):
-    projectId: str
-    assetIds: Sequence[str]
-    clientToken: NotRequired[str]
-
-
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
     HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
+
+
+class BatchAssociateProjectAssetsRequestTypeDef(TypedDict):
+    projectId: str
+    assetIds: Sequence[str]
+    clientToken: NotRequired[str]
 
 
 class BatchDisassociateProjectAssetsRequestTypeDef(TypedDict):
@@ -746,6 +951,23 @@ class BatchGetAssetPropertyValueHistoryErrorInfoTypeDef(TypedDict):
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 
 
+class CancelEnrichmentJobRequestTypeDef(TypedDict):
+    workspaceName: str
+    jobId: str
+
+
+class CancelPipelineExecutionRequestTypeDef(TypedDict):
+    workspaceName: str
+    pipelineName: str
+    pipelineExecutionId: str
+    reason: NotRequired[str]
+
+
+class CancelQueryRequestTypeDef(TypedDict):
+    workspaceName: str
+    queryId: str
+
+
 class ContentTypeDef(TypedDict):
     text: NotRequired[str]
 
@@ -754,6 +976,13 @@ class ColumnTypeTypeDef(TypedDict):
     scalarType: NotRequired[ScalarTypeType]
 
 
+ColumnInformationTypeDef = TypedDict(
+    "ColumnInformationTypeDef",
+    {
+        "name": str,
+        "type": str,
+    },
+)
 CompositionRelationshipItemTypeDef = TypedDict(
     "CompositionRelationshipItemTypeDef",
     {
@@ -773,6 +1002,25 @@ class ComputationModelAnomalyDetectionConfigurationTypeDef(TypedDict):
     resultProperty: str
 
 
+class DetailedPipelineErrorTypeDef(TypedDict):
+    code: DetailedPipelineErrorCodeType
+    message: str
+
+
+class ComputeNodeOutputTypeDef(TypedDict):
+    computeNodeName: str
+    taskName: str
+    environmentVariables: NotRequired[dict[str, str]]
+    dependsOn: NotRequired[list[str]]
+
+
+class ComputeNodeTypeDef(TypedDict):
+    computeNodeName: str
+    taskName: str
+    environmentVariables: NotRequired[Mapping[str, str]]
+    dependsOn: NotRequired[Sequence[str]]
+
+
 class ConfigurationErrorDetailsTypeDef(TypedDict):
     code: ErrorCodeType
     message: str
@@ -782,6 +1030,35 @@ class ConflictingOperationExceptionTypeDef(TypedDict):
     message: str
     resourceId: str
     resourceArn: str
+
+
+class ContainerTaskConfigurationOutputTypeDef(TypedDict):
+    ecrUri: str
+    taskExecutionRole: str
+    processingType: ProcessingTypeType
+    processingUnit: ProcessingUnitType
+    command: NotRequired[list[str]]
+    timeoutSeconds: NotRequired[int]
+    environmentVariables: NotRequired[dict[str, str]]
+
+
+class ContainerTaskConfigurationTypeDef(TypedDict):
+    ecrUri: str
+    taskExecutionRole: str
+    processingType: ProcessingTypeType
+    processingUnit: ProcessingUnitType
+    command: NotRequired[Sequence[str]]
+    timeoutSeconds: NotRequired[int]
+    environmentVariables: NotRequired[Mapping[str, str]]
+
+
+class CreateApplicationRequestTypeDef(TypedDict):
+    idcInstanceArn: str
+    workspaceName: str
+    name: str
+    clientToken: NotRequired[str]
+    description: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
 
 
 class CreateAssetRequestTypeDef(TypedDict):
@@ -799,12 +1076,6 @@ class ErrorReportLocationTypeDef(TypedDict):
     prefix: str
 
 
-class FileTypeDef(TypedDict):
-    bucket: str
-    key: str
-    versionId: NotRequired[str]
-
-
 class CreateDashboardRequestTypeDef(TypedDict):
     projectId: str
     dashboardName: str
@@ -814,12 +1085,21 @@ class CreateDashboardRequestTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
 
 
+class ExportErrorReportLocationTypeDef(TypedDict):
+    s3Uri: str
+
+
 class CreateProjectRequestTypeDef(TypedDict):
     portalId: str
     projectName: str
     projectDescription: NotRequired[str]
     clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
+
+
+class WorkspaceEncryptionConfigurationTypeDef(TypedDict):
+    encryptionType: EncryptionTypeType
+    kmsKeyId: NotRequired[str]
 
 
 class CsvOutputTypeDef(TypedDict):
@@ -847,6 +1127,16 @@ DashboardSummaryTypeDef = TypedDict(
 )
 
 
+class DataSegmentEnrichmentTypeDef(TypedDict):
+    status: EnrichmentStatusType
+    lastEnrichedAt: NotRequired[datetime]
+
+
+class DatasetEnrichmentEntryTypeDef(TypedDict):
+    status: DatasetEnrichmentStatusType
+    lastEnrichedAt: NotRequired[datetime]
+
+
 class DatumPaginatorTypeDef(TypedDict):
     scalarValue: NotRequired[str]
     arrayValue: NotRequired[list[dict[str, Any]]]
@@ -861,16 +1151,18 @@ class DatumTypeDef(TypedDict):
     nullValue: NotRequired[bool]
 
 
-class DatumWaiterTypeDef(TypedDict):
-    scalarValue: NotRequired[str]
-    arrayValue: NotRequired[list[dict[str, Any]]]
-    rowValue: NotRequired[dict[str, Any]]
-    nullValue: NotRequired[bool]
-
-
 class DeleteAccessPolicyRequestTypeDef(TypedDict):
     accessPolicyId: str
     clientToken: NotRequired[str]
+
+
+DeleteApplicationRequestTypeDef = TypedDict(
+    "DeleteApplicationRequestTypeDef",
+    {
+        "workspaceName": str,
+        "id": str,
+    },
+)
 
 
 class DeleteAssetModelCompositeModelRequestTypeDef(TypedDict):
@@ -913,11 +1205,17 @@ class DeleteDashboardRequestTypeDef(TypedDict):
 
 class DeleteDatasetRequestTypeDef(TypedDict):
     datasetId: str
+    workspaceName: NotRequired[str]
     clientToken: NotRequired[str]
 
 
 class DeleteGatewayRequestTypeDef(TypedDict):
     gatewayId: str
+
+
+class DeletePipelineRequestTypeDef(TypedDict):
+    workspaceName: str
+    pipelineName: str
 
 
 class DeletePortalRequestTypeDef(TypedDict):
@@ -930,10 +1228,21 @@ class DeleteProjectRequestTypeDef(TypedDict):
     clientToken: NotRequired[str]
 
 
+class DeleteTaskRequestTypeDef(TypedDict):
+    workspaceName: str
+    taskName: str
+
+
 class DeleteTimeSeriesRequestTypeDef(TypedDict):
     alias: NotRequired[str]
     assetId: NotRequired[str]
     propertyId: NotRequired[str]
+    clientToken: NotRequired[str]
+    workspaceName: NotRequired[str]
+
+
+class DeleteWorkspaceRequestTypeDef(TypedDict):
+    workspaceName: str
     clientToken: NotRequired[str]
 
 
@@ -943,6 +1252,15 @@ class DescribeAccessPolicyRequestTypeDef(TypedDict):
 
 class DescribeActionRequestTypeDef(TypedDict):
     actionId: str
+
+
+DescribeApplicationRequestTypeDef = TypedDict(
+    "DescribeApplicationRequestTypeDef",
+    {
+        "workspaceName": str,
+        "id": str,
+    },
+)
 
 
 class DescribeAssetCompositeModelRequestTypeDef(TypedDict):
@@ -1002,6 +1320,7 @@ class DescribeAssetRequestTypeDef(TypedDict):
 
 class DescribeBulkImportJobRequestTypeDef(TypedDict):
     jobId: str
+    workspaceName: NotRequired[str]
 
 
 class DescribeComputationModelExecutionSummaryRequestTypeDef(TypedDict):
@@ -1019,8 +1338,20 @@ class DescribeDashboardRequestTypeDef(TypedDict):
     dashboardId: str
 
 
+class DescribeDatasetExportJobRequestTypeDef(TypedDict):
+    workspaceName: str
+    jobId: str
+
+
 class DescribeDatasetRequestTypeDef(TypedDict):
     datasetId: str
+    workspaceName: NotRequired[str]
+    datasetVersion: NotRequired[str]
+
+
+class DescribeEnrichmentJobRequestTypeDef(TypedDict):
+    workspaceName: str
+    jobId: str
 
 
 class DescribeExecutionRequestTypeDef(TypedDict):
@@ -1045,8 +1376,41 @@ class GatewayCapabilitySummaryTypeDef(TypedDict):
     capabilitySyncStatus: CapabilitySyncStatusType
 
 
+class DescribeLoggingOptionsRequestTypeDef(TypedDict):
+    workspaceName: NotRequired[str]
+
+
 class LoggingOptionsTypeDef(TypedDict):
     level: LoggingLevelType
+
+
+class PaginatorConfigTypeDef(TypedDict):
+    MaxItems: NotRequired[int]
+    PageSize: NotRequired[int]
+    StartingToken: NotRequired[str]
+
+
+class DescribePipelineExecutionRequestTypeDef(TypedDict):
+    workspaceName: str
+    pipelineName: str
+    pipelineExecutionId: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+
+ExecutionEnvironmentVariablesOutputTypeDef = TypedDict(
+    "ExecutionEnvironmentVariablesOutputTypeDef",
+    {
+        "global": NotRequired[dict[str, str]],
+        "computeNodes": NotRequired[dict[str, dict[str, str]]],
+    },
+)
+
+
+class DescribePipelineRequestTypeDef(TypedDict):
+    workspaceName: str
+    pipelineName: str
+    pipelineVersion: NotRequired[str]
 
 
 class DescribePortalRequestTypeDef(TypedDict):
@@ -1070,6 +1434,22 @@ class DescribeProjectRequestTypeDef(TypedDict):
     projectId: str
 
 
+class DescribeQueryRequestTypeDef(TypedDict):
+    workspaceName: str
+    queryId: str
+
+
+class QueryStatisticsTypeDef(TypedDict):
+    rowCount: int
+    bytesScanned: int
+    executionTimeInMillis: int
+
+
+class DescribeSearchRequestTypeDef(TypedDict):
+    workspaceName: str
+    searchId: str
+
+
 class RetentionPeriodTypeDef(TypedDict):
     numberOfDays: NotRequired[int]
     unlimited: NotRequired[bool]
@@ -1080,10 +1460,26 @@ class WarmTierRetentionPeriodTypeDef(TypedDict):
     unlimited: NotRequired[bool]
 
 
+class DescribeTaskRequestTypeDef(TypedDict):
+    workspaceName: str
+    taskName: str
+    taskVersion: NotRequired[str]
+
+
 class DescribeTimeSeriesRequestTypeDef(TypedDict):
     alias: NotRequired[str]
     assetId: NotRequired[str]
     propertyId: NotRequired[str]
+    workspaceName: NotRequired[str]
+
+
+class DescribeWorkspaceRequestTypeDef(TypedDict):
+    workspaceName: str
+
+
+class WorkspaceEncryptionConfigurationInfoTypeDef(TypedDict):
+    encryptionType: EncryptionTypeType
+    kmsKeyArn: NotRequired[str]
 
 
 class DetailedErrorTypeDef(TypedDict):
@@ -1105,10 +1501,16 @@ class DisassociateTimeSeriesFromAssetPropertyRequestTypeDef(TypedDict):
     clientToken: NotRequired[str]
 
 
-class PaginatorConfigTypeDef(TypedDict):
-    MaxItems: NotRequired[int]
-    PageSize: NotRequired[int]
-    StartingToken: NotRequired[str]
+class EnrichmentJobSummaryTypeDef(TypedDict):
+    jobId: str
+    status: EnrichmentJobStatusType
+    workspaceName: str
+    jobType: Literal["EVENT_DETECTION"]
+    datasetId: str
+    createdAt: datetime
+    propertyAlias: NotRequired[str]
+    timeSeriesId: NotRequired[str]
+    updatedAt: NotRequired[datetime]
 
 
 class ExecuteQueryRequestTypeDef(TypedDict):
@@ -1116,6 +1518,29 @@ class ExecuteQueryRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
     clientToken: NotRequired[str]
+
+
+ExecutionEnvironmentVariablesTypeDef = TypedDict(
+    "ExecutionEnvironmentVariablesTypeDef",
+    {
+        "global": NotRequired[Mapping[str, str]],
+        "computeNodes": NotRequired[Mapping[str, Mapping[str, str]]],
+    },
+)
+
+
+class ExportJobSummaryTypeDef(TypedDict):
+    jobId: str
+    status: DatasetExportJobStatusType
+    startedAt: datetime
+    destinationS3Uri: str
+    completedAt: NotRequired[datetime]
+
+
+class FormatSettingsTypeDef(TypedDict):
+    framesPerSecond: NotRequired[int]
+    widthInPixels: NotRequired[int]
+    heightInPixels: NotRequired[int]
 
 
 class ForwardingConfigTypeDef(TypedDict):
@@ -1159,6 +1584,22 @@ GetInterpolatedAssetPropertyValuesRequestTypeDef = TypedDict(
         "intervalWindowInSeconds": NotRequired[int],
     },
 )
+
+
+class GetQueryResultsRequestTypeDef(TypedDict):
+    workspaceName: str
+    queryId: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class GetSearchResultsRequestTypeDef(TypedDict):
+    searchId: str
+    workspaceName: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
 GroupIdentityTypeDef = TypedDict(
     "GroupIdentityTypeDef",
     {
@@ -1241,6 +1682,11 @@ class ListActionsRequestTypeDef(TypedDict):
     resolveToResourceId: NotRequired[str]
 
 
+class ListApplicationsRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
 class ListAssetModelCompositeModelsRequestTypeDef(TypedDict):
     assetModelId: str
     nextToken: NotRequired[str]
@@ -1310,6 +1756,7 @@ ListBulkImportJobsRequestTypeDef = TypedDict(
         "nextToken": NotRequired[str],
         "maxResults": NotRequired[int],
         "filter": NotRequired[ListBulkImportJobsFilterType],
+        "workspaceName": NotRequired[str],
     },
 )
 
@@ -1338,8 +1785,36 @@ class ListDashboardsRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
 
 
+class ListDatasetDataSegmentRelationshipsRequestTypeDef(TypedDict):
+    datasetId: str
+    workspaceName: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListDatasetDataSegmentsRequestTypeDef(TypedDict):
+    datasetId: str
+    workspaceName: str
+    datasetVersion: NotRequired[str]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+ListDatasetExportJobsRequestTypeDef = TypedDict(
+    "ListDatasetExportJobsRequestTypeDef",
+    {
+        "workspaceName": str,
+        "filter": NotRequired[DatasetExportJobFilterType],
+        "maxResults": NotRequired[int],
+        "nextToken": NotRequired[str],
+    },
+)
+
+
 class ListDatasetsRequestTypeDef(TypedDict):
-    sourceType: Literal["KENDRA"]
+    sourceType: DatasetSourceTypeType
+    workspaceName: NotRequired[str]
+    datasetType: NotRequired[DatasetTypeEnumType]
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
 
@@ -1361,6 +1836,12 @@ class ListGatewaysRequestTypeDef(TypedDict):
 
 class ListInterfaceRelationshipsRequestTypeDef(TypedDict):
     interfaceAssetModelId: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+
+class ListPipelinesRequestTypeDef(TypedDict):
+    workspaceName: str
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
 
@@ -1392,10 +1873,43 @@ ProjectSummaryTypeDef = TypedDict(
         "lastUpdateDate": NotRequired[datetime],
     },
 )
+ListQueriesRequestTypeDef = TypedDict(
+    "ListQueriesRequestTypeDef",
+    {
+        "workspaceName": str,
+        "filter": NotRequired[str],
+        "maxResults": NotRequired[int],
+        "nextToken": NotRequired[str],
+    },
+)
+
+
+class QuerySummaryTypeDef(TypedDict):
+    queryId: str
+    status: QueryStatusType
+    submittedAt: datetime
+    completedAt: NotRequired[datetime]
+
+
+class SearchSummaryTypeDef(TypedDict):
+    searchId: str
+    workspaceName: str
+    status: SearchStatusType
+    queryStatement: str
+    searchType: SearchTypeType
+    statusReason: NotRequired[str]
+    startedAt: NotRequired[datetime]
+    groupId: NotRequired[str]
 
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
+
+
+class ListTasksRequestTypeDef(TypedDict):
+    workspaceName: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
 
 
 class ListTimeSeriesRequestTypeDef(TypedDict):
@@ -1404,6 +1918,7 @@ class ListTimeSeriesRequestTypeDef(TypedDict):
     assetId: NotRequired[str]
     aliasPrefix: NotRequired[str]
     timeSeriesType: NotRequired[ListTimeSeriesTypeType]
+    workspaceName: NotRequired[str]
 
 
 class TimeSeriesSummaryTypeDef(TypedDict):
@@ -1416,6 +1931,11 @@ class TimeSeriesSummaryTypeDef(TypedDict):
     propertyId: NotRequired[str]
     alias: NotRequired[str]
     dataTypeSpec: NotRequired[str]
+
+
+class ListWorkspacesRequestTypeDef(TypedDict):
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
 
 
 class LocationTypeDef(TypedDict):
@@ -1465,6 +1985,11 @@ class PutDefaultEncryptionConfigurationRequestTypeDef(TypedDict):
     kmsKeyId: NotRequired[str]
 
 
+class ResourceErrorTypeDef(TypedDict):
+    code: NotRequired[ResourceErrorCodeType]
+    message: NotRequired[str]
+
+
 class ResourceNotFoundExceptionTypeDef(TypedDict):
     message: str
 
@@ -1475,6 +2000,12 @@ class ThrottlingExceptionTypeDef(TypedDict):
 
 class TraceTypeDef(TypedDict):
     text: NotRequired[str]
+
+
+class StartQueryRequestTypeDef(TypedDict):
+    workspaceName: str
+    queryStatement: str
+    clientToken: NotRequired[str]
 
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -1528,6 +2059,11 @@ class UpdateProjectRequestTypeDef(TypedDict):
     projectName: str
     projectDescription: NotRequired[str]
     clientToken: NotRequired[str]
+
+
+class WorkspaceErrorDetailsTypeDef(TypedDict):
+    code: ErrorCodeType
+    message: str
 
 
 class ComputationModelResolveToResourceSummaryTypeDef(TypedDict):
@@ -1656,10 +2192,95 @@ AssetPropertyTypeDef = TypedDict(
 )
 
 
+class AssociateDataSegmentEntryTypeDef(TypedDict):
+    sourceDatasetId: str
+    timeSeriesId: str
+    startTimestamp: TimeInNanosTypeDef
+    endTimestamp: TimeInNanosTypeDef
+
+
 class BatchPutAssetPropertyErrorTypeDef(TypedDict):
     errorCode: BatchPutAssetPropertyValueErrorCodeType
     errorMessage: str
     timestamps: list[TimeInNanosTypeDef]
+
+
+class DataSegmentRelationshipSummaryTypeDef(TypedDict):
+    targetDatasetId: str
+    sourceDatasetId: str
+    timeSeriesId: str
+    startTimestamp: TimeInNanosTypeDef
+    endTimestamp: TimeInNanosTypeDef
+
+
+class DeleteDataSegmentEntryTypeDef(TypedDict):
+    timeSeriesId: str
+    startTimestamp: TimeInNanosTypeDef
+    endTimestamp: TimeInNanosTypeDef
+
+
+class DisassociateDataSegmentEntryTypeDef(TypedDict):
+    sourceDatasetId: str
+    timeSeriesId: str
+    startTimestamp: TimeInNanosTypeDef
+    endTimestamp: TimeInNanosTypeDef
+
+
+class EnrichmentTrimSettingsTypeDef(TypedDict):
+    startTime: TimeInNanosTypeDef
+    endTime: TimeInNanosTypeDef
+
+
+class FailedDataSegmentAssociationTypeDef(TypedDict):
+    sourceDatasetId: str
+    timeSeriesId: str
+    startTimestamp: TimeInNanosTypeDef
+    endTimestamp: TimeInNanosTypeDef
+    errorCode: DataSegmentErrorCodeType
+    errorMessage: str
+
+
+class FailedDataSegmentDeletionTypeDef(TypedDict):
+    timeSeriesId: str
+    startTimestamp: TimeInNanosTypeDef
+    endTimestamp: TimeInNanosTypeDef
+    errorCode: DataSegmentErrorCodeType
+    errorMessage: str
+
+
+class FailedDataSegmentDisassociationTypeDef(TypedDict):
+    sourceDatasetId: str
+    timeSeriesId: str
+    startTimestamp: TimeInNanosTypeDef
+    endTimestamp: TimeInNanosTypeDef
+    errorCode: DataSegmentErrorCodeType
+    errorMessage: str
+
+
+class SearchResultTypeDef(TypedDict):
+    searchId: str
+    workspaceName: str
+    datasetId: str
+    timeSeriesId: str
+    startTimestamp: TimeInNanosTypeDef
+    endTimestamp: TimeInNanosTypeDef
+    topTimestamp: TimeInNanosTypeDef
+    score: float
+
+
+class SessionConfigTypeDef(TypedDict):
+    sessionStartTimestamp: TimeInNanosTypeDef
+    sessionEndTimestamp: TimeInNanosTypeDef
+
+
+class TimeIntervalTypeDef(TypedDict):
+    startTime: TimeInNanosTypeDef
+    endTime: TimeInNanosTypeDef
+
+
+class TrimSettingsTypeDef(TypedDict):
+    startTime: TimeInNanosTypeDef
+    endTime: TimeInNanosTypeDef
 
 
 class BatchAssociateProjectAssetsResponseTypeDef(TypedDict):
@@ -1672,10 +2293,40 @@ class BatchDisassociateProjectAssetsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CancelEnrichmentJobResponseTypeDef(TypedDict):
+    jobId: str
+    status: EnrichmentJobStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CancelPipelineExecutionResponseTypeDef(TypedDict):
+    state: PipelineExecutionStateType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CancelQueryResponseTypeDef(TypedDict):
+    queryId: str
+    status: QueryStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateAccessPolicyResponseTypeDef(TypedDict):
     accessPolicyId: str
     accessPolicyArn: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+CreateApplicationResponseTypeDef = TypedDict(
+    "CreateApplicationResponseTypeDef",
+    {
+        "arn": str,
+        "id": str,
+        "dnsSubdomain": str,
+        "name": str,
+        "status": ApplicationStatusType,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 
 
 class CreateBulkImportJobResponseTypeDef(TypedDict):
@@ -1688,6 +2339,19 @@ class CreateBulkImportJobResponseTypeDef(TypedDict):
 class CreateDashboardResponseTypeDef(TypedDict):
     dashboardId: str
     dashboardArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateDatasetExportJobResponseTypeDef(TypedDict):
+    jobId: str
+    workspaceName: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateEnrichmentJobResponseTypeDef(TypedDict):
+    jobId: str
+    status: EnrichmentJobStatusType
+    createdAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1711,6 +2375,24 @@ class DescribeActionResponseTypeDef(TypedDict):
     executionTime: datetime
     resolveTo: ResolveToTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+DescribeApplicationResponseTypeDef = TypedDict(
+    "DescribeApplicationResponseTypeDef",
+    {
+        "arn": str,
+        "createdAt": datetime,
+        "dnsSubdomain": str,
+        "description": str,
+        "id": str,
+        "idcApplicationArn": str,
+        "name": str,
+        "status": ApplicationStatusType,
+        "updatedAt": datetime,
+        "workspaceName": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 
 
 class DescribeComputationModelExecutionSummaryResponseTypeDef(TypedDict):
@@ -1751,6 +2433,18 @@ class DescribeProjectResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DescribeSearchResponseTypeDef(TypedDict):
+    searchId: str
+    workspaceName: str
+    status: SearchStatusType
+    queryStatement: str
+    searchType: SearchTypeType
+    statusReason: str
+    startedAt: datetime
+    groupId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DescribeTimeSeriesResponseTypeDef(TypedDict):
     assetId: str
     propertyId: str
@@ -1761,6 +2455,7 @@ class DescribeTimeSeriesResponseTypeDef(TypedDict):
     timeSeriesCreationDate: datetime
     timeSeriesLastUpdateDate: datetime
     timeSeriesArn: str
+    workspaceName: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1773,6 +2468,21 @@ class ExecuteActionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetCaptureDataResponseTypeDef(TypedDict):
+    data: bytes
+    startTime: TimeInNanosTypeDef
+    endTime: TimeInNanosTypeDef
+    dataType: Literal["VIDEO-MP4"]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListApplicationsResponseTypeDef(TypedDict):
+    applications: list[ApplicationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class ListProjectAssetsResponseTypeDef(TypedDict):
     assetIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1781,6 +2491,25 @@ class ListProjectAssetsResponseTypeDef(TypedDict):
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
     tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartPipelineExecutionResponseTypeDef(TypedDict):
+    pipelineExecutionId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartQueryResponseTypeDef(TypedDict):
+    queryId: str
+    status: QueryStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartSearchResponseTypeDef(TypedDict):
+    searchId: str
+    workspaceName: str
+    status: SearchStatusType
+    groupId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1840,6 +2569,39 @@ class GetAssetPropertyValueHistoryRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
 
 
+class ListEnrichmentJobsRequestTypeDef(TypedDict):
+    workspaceName: str
+    datasetId: NotRequired[str]
+    propertyAlias: NotRequired[str]
+    timeSeriesId: NotRequired[str]
+    status: NotRequired[EnrichmentJobStatusType]
+    jobType: NotRequired[Literal["EVENT_DETECTION"]]
+    startDate: NotRequired[TimestampTypeDef]
+    endDate: NotRequired[TimestampTypeDef]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListPipelineExecutionsRequestTypeDef(TypedDict):
+    workspaceName: str
+    pipelineName: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+    state: NotRequired[PipelineExecutionStateType]
+    startTimeAfter: NotRequired[TimestampTypeDef]
+    startTimeBefore: NotRequired[TimestampTypeDef]
+    endTimeAfter: NotRequired[TimestampTypeDef]
+    endTimeBefore: NotRequired[TimestampTypeDef]
+
+
+class ListSearchesFiltersTypeDef(TypedDict):
+    statusFilter: NotRequired[Sequence[SearchStatusType]]
+    startedAfter: NotRequired[TimestampTypeDef]
+    startedBefore: NotRequired[TimestampTypeDef]
+    groupIdFilter: NotRequired[Sequence[str]]
+    searchTypeFilter: NotRequired[Sequence[SearchTypeType]]
+
+
 class BatchGetAssetPropertyAggregatesSkippedEntryTypeDef(TypedDict):
     entryId: str
     completionStatus: BatchEntryCompletionStatusType
@@ -1879,6 +2641,13 @@ ColumnInfoTypeDef = TypedDict(
 )
 
 
+class GetQueryResultsResponseTypeDef(TypedDict):
+    columnInfo: list[ColumnInformationTypeDef]
+    rows: list[list[str]]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class CompositionDetailsTypeDef(TypedDict):
     compositionRelationship: NotRequired[list[CompositionRelationshipItemTypeDef]]
 
@@ -1893,19 +2662,57 @@ class ComputationModelConfigurationTypeDef(TypedDict):
     anomalyDetection: NotRequired[ComputationModelAnomalyDetectionConfigurationTypeDef]
 
 
+class ComputeNodeExecutionStateDetailsTypeDef(TypedDict):
+    code: ComputeNodeErrorCodeType
+    message: str
+    details: NotRequired[list[DetailedPipelineErrorTypeDef]]
+
+
+class PipelineExecutionStateDetailsTypeDef(TypedDict):
+    message: str
+    code: NotRequired[PipelineErrorCodeType]
+    details: NotRequired[list[DetailedPipelineErrorTypeDef]]
+
+
+ComputeNodeUnionTypeDef = Union[ComputeNodeTypeDef, ComputeNodeOutputTypeDef]
+
+
 class ConfigurationStatusTypeDef(TypedDict):
     state: ConfigurationStateType
     error: NotRequired[ConfigurationErrorDetailsTypeDef]
 
 
+class TaskConfigurationOutputTypeDef(TypedDict):
+    containerTaskConfiguration: NotRequired[ContainerTaskConfigurationOutputTypeDef]
+
+
+class TaskConfigurationTypeDef(TypedDict):
+    containerTaskConfiguration: NotRequired[ContainerTaskConfigurationTypeDef]
+
+
+class CreateWorkspaceRequestTypeDef(TypedDict):
+    workspaceName: str
+    encryptionConfiguration: WorkspaceEncryptionConfigurationTypeDef
+    workspaceDescription: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+    clientToken: NotRequired[str]
+
+
+class UpdateWorkspaceRequestTypeDef(TypedDict):
+    workspaceName: str
+    workspaceDescription: NotRequired[str]
+    encryptionConfiguration: NotRequired[WorkspaceEncryptionConfigurationTypeDef]
+    clientToken: NotRequired[str]
+
+
 class FileFormatOutputTypeDef(TypedDict):
     csv: NotRequired[CsvOutputTypeDef]
     parquet: NotRequired[dict[str, Any]]
+    mp4: NotRequired[dict[str, Any]]
+    annotation: NotRequired[dict[str, Any]]
 
 
-class FileFormatTypeDef(TypedDict):
-    csv: NotRequired[CsvTypeDef]
-    parquet: NotRequired[Mapping[str, Any]]
+CsvUnionTypeDef = Union[CsvTypeDef, CsvOutputTypeDef]
 
 
 class MultiLayerStorageTypeDef(TypedDict):
@@ -1918,16 +2725,26 @@ class ListDashboardsResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class DataSegmentSummaryTypeDef(TypedDict):
+    sourceDatasetId: str
+    timeSeriesId: str
+    startTimestamp: TimeInNanosTypeDef
+    endTimestamp: TimeInNanosTypeDef
+    alias: str
+    dataType: PropertyDataTypeType
+    enrichment: NotRequired[DataSegmentEnrichmentTypeDef]
+
+
+class DatasetEnrichmentTypeDef(TypedDict):
+    video: NotRequired[DatasetEnrichmentEntryTypeDef]
+
+
 class RowPaginatorTypeDef(TypedDict):
     data: list[DatumPaginatorTypeDef]
 
 
 class RowTypeDef(TypedDict):
     data: list[DatumTypeDef]
-
-
-class RowWaiterTypeDef(TypedDict):
-    data: list[DatumWaiterTypeDef]
 
 
 class DescribeAssetModelInterfaceRelationshipResponseTypeDef(TypedDict):
@@ -2014,12 +2831,14 @@ class DescribeLoggingOptionsResponseTypeDef(TypedDict):
 
 class PutLoggingOptionsRequestTypeDef(TypedDict):
     loggingOptions: LoggingOptionsTypeDef
+    workspaceName: NotRequired[str]
 
 
-class ErrorDetailsTypeDef(TypedDict):
-    code: ErrorCodeType
-    message: str
-    details: NotRequired[list[DetailedErrorTypeDef]]
+class DescribePipelineExecutionRequestPaginateTypeDef(TypedDict):
+    workspaceName: str
+    pipelineName: str
+    pipelineExecutionId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
 class ExecuteQueryRequestPaginateTypeDef(TypedDict):
@@ -2071,6 +2890,18 @@ GetInterpolatedAssetPropertyValuesRequestPaginateTypeDef = TypedDict(
 )
 
 
+class GetQueryResultsRequestPaginateTypeDef(TypedDict):
+    workspaceName: str
+    queryId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class GetSearchResultsRequestPaginateTypeDef(TypedDict):
+    searchId: str
+    workspaceName: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListAccessPoliciesRequestPaginateTypeDef(TypedDict):
     identityType: NotRequired[IdentityTypeType]
     identityId: NotRequired[str]
@@ -2085,6 +2916,10 @@ class ListActionsRequestPaginateTypeDef(TypedDict):
     targetResourceId: str
     resolveToResourceType: NotRequired[Literal["ASSET"]]
     resolveToResourceId: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListApplicationsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -2148,6 +2983,7 @@ ListBulkImportJobsRequestPaginateTypeDef = TypedDict(
     "ListBulkImportJobsRequestPaginateTypeDef",
     {
         "filter": NotRequired[ListBulkImportJobsFilterType],
+        "workspaceName": NotRequired[str],
         "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
     },
 )
@@ -2173,8 +3009,45 @@ class ListDashboardsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListDatasetDataSegmentRelationshipsRequestPaginateTypeDef(TypedDict):
+    datasetId: str
+    workspaceName: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListDatasetDataSegmentsRequestPaginateTypeDef(TypedDict):
+    datasetId: str
+    workspaceName: str
+    datasetVersion: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+ListDatasetExportJobsRequestPaginateTypeDef = TypedDict(
+    "ListDatasetExportJobsRequestPaginateTypeDef",
+    {
+        "workspaceName": str,
+        "filter": NotRequired[DatasetExportJobFilterType],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
+
+
 class ListDatasetsRequestPaginateTypeDef(TypedDict):
-    sourceType: Literal["KENDRA"]
+    sourceType: DatasetSourceTypeType
+    workspaceName: NotRequired[str]
+    datasetType: NotRequired[DatasetTypeEnumType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListEnrichmentJobsRequestPaginateTypeDef(TypedDict):
+    workspaceName: str
+    datasetId: NotRequired[str]
+    propertyAlias: NotRequired[str]
+    timeSeriesId: NotRequired[str]
+    status: NotRequired[EnrichmentJobStatusType]
+    jobType: NotRequired[Literal["EVENT_DETECTION"]]
+    startDate: NotRequired[TimestampTypeDef]
+    endDate: NotRequired[TimestampTypeDef]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -2196,6 +3069,22 @@ class ListInterfaceRelationshipsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListPipelineExecutionsRequestPaginateTypeDef(TypedDict):
+    workspaceName: str
+    pipelineName: str
+    state: NotRequired[PipelineExecutionStateType]
+    startTimeAfter: NotRequired[TimestampTypeDef]
+    startTimeBefore: NotRequired[TimestampTypeDef]
+    endTimeAfter: NotRequired[TimestampTypeDef]
+    endTimeBefore: NotRequired[TimestampTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListPipelinesRequestPaginateTypeDef(TypedDict):
+    workspaceName: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListPortalsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -2210,11 +3099,74 @@ class ListProjectsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+ListQueriesRequestPaginateTypeDef = TypedDict(
+    "ListQueriesRequestPaginateTypeDef",
+    {
+        "workspaceName": str,
+        "filter": NotRequired[str],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
+
+
+class ListTasksRequestPaginateTypeDef(TypedDict):
+    workspaceName: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListTimeSeriesRequestPaginateTypeDef(TypedDict):
     assetId: NotRequired[str]
     aliasPrefix: NotRequired[str]
     timeSeriesType: NotRequired[ListTimeSeriesTypeType]
+    workspaceName: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListWorkspacesRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DescribeQueryResponseTypeDef(TypedDict):
+    queryId: str
+    status: QueryStatusType
+    submittedAt: datetime
+    completedAt: datetime
+    statistics: QueryStatisticsTypeDef
+    errorMessage: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ErrorDetailsTypeDef(TypedDict):
+    code: ErrorCodeType
+    message: str
+    details: NotRequired[list[DetailedErrorTypeDef]]
+
+
+class ListEnrichmentJobsResponseTypeDef(TypedDict):
+    jobs: list[EnrichmentJobSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+ExecutionEnvironmentVariablesUnionTypeDef = Union[
+    ExecutionEnvironmentVariablesTypeDef, ExecutionEnvironmentVariablesOutputTypeDef
+]
+
+
+class ListDatasetExportJobsResponseTypeDef(TypedDict):
+    jobs: list[ExportJobSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class GetCaptureDataRequestTypeDef(TypedDict):
+    workspaceName: str
+    startTime: TimeInNanosTypeDef
+    endTime: TimeInNanosTypeDef
+    timeSeriesId: NotRequired[str]
+    propertyAlias: NotRequired[str]
+    formatSettings: NotRequired[FormatSettingsTypeDef]
+    nextToken: NotRequired[str]
 
 
 class MeasurementProcessingConfigTypeDef(TypedDict):
@@ -2261,8 +3213,21 @@ class ListProjectsResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ListQueriesResponseTypeDef(TypedDict):
+    queries: list[QuerySummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListSearchesResponseTypeDef(TypedDict):
+    searchSummaries: list[SearchSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class ListTimeSeriesResponseTypeDef(TypedDict):
     TimeSeriesSummaries: list[TimeSeriesSummaryTypeDef]
+    workspaceName: str
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2295,6 +3260,16 @@ class VariantTypeDef(TypedDict):
     doubleValue: NotRequired[float]
     booleanValue: NotRequired[bool]
     nullValue: NotRequired[PropertyValueNullValueTypeDef]
+
+
+class ResourceStatusTypeDef(TypedDict):
+    error: NotRequired[ResourceErrorTypeDef]
+    state: NotRequired[ResourceStateType]
+
+
+class WorkspaceStatusTypeDef(TypedDict):
+    state: WorkspaceStateType
+    error: NotRequired[WorkspaceErrorDetailsTypeDef]
 
 
 class ListComputationModelResolveToResourcesResponseTypeDef(TypedDict):
@@ -2395,9 +3370,99 @@ class DescribeAssetCompositeModelResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class BatchAssociateDataSegmentsToDatasetRequestTypeDef(TypedDict):
+    datasetId: str
+    workspaceName: str
+    associateDataSegmentEntries: Sequence[AssociateDataSegmentEntryTypeDef]
+    clientToken: NotRequired[str]
+
+
 class BatchPutAssetPropertyErrorEntryTypeDef(TypedDict):
     entryId: str
     errors: list[BatchPutAssetPropertyErrorTypeDef]
+
+
+class ListDatasetDataSegmentRelationshipsResponseTypeDef(TypedDict):
+    dataSegmentRelationshipSummaries: list[DataSegmentRelationshipSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class BatchDeleteDatasetDataSegmentsRequestTypeDef(TypedDict):
+    datasetId: str
+    workspaceName: str
+    deleteDataSegmentEntries: Sequence[DeleteDataSegmentEntryTypeDef]
+    clientToken: NotRequired[str]
+
+
+class BatchDisassociateDataSegmentsFromDatasetRequestTypeDef(TypedDict):
+    datasetId: str
+    workspaceName: str
+    disassociateDataSegmentEntries: Sequence[DisassociateDataSegmentEntryTypeDef]
+    clientToken: NotRequired[str]
+
+
+class EventDetectionTypeDef(TypedDict):
+    datasetId: str
+    trimSettings: EnrichmentTrimSettingsTypeDef
+    timeSeriesId: NotRequired[str]
+    propertyAlias: NotRequired[str]
+
+
+class BatchAssociateDataSegmentsToDatasetResponseTypeDef(TypedDict):
+    datasetId: str
+    datasetVersion: str
+    failedAssociations: list[FailedDataSegmentAssociationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class BatchDeleteDatasetDataSegmentsResponseTypeDef(TypedDict):
+    datasetId: str
+    datasetVersion: str
+    errors: list[FailedDataSegmentDeletionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class BatchDisassociateDataSegmentsFromDatasetResponseTypeDef(TypedDict):
+    datasetId: str
+    datasetVersion: str
+    failedDisassociations: list[FailedDataSegmentDisassociationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetSearchResultsResponseTypeDef(TypedDict):
+    searchResults: list[SearchResultTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class DatasetConfigTypeDef(TypedDict):
+    session: NotRequired[SessionConfigTypeDef]
+
+
+class SearchFiltersTypeDef(TypedDict):
+    timeSeriesIds: NotRequired[Sequence[str]]
+    datasetIds: NotRequired[Sequence[str]]
+    timeIntervals: NotRequired[Sequence[TimeIntervalTypeDef]]
+
+
+class DatasetItemOutputTypeDef(TypedDict):
+    datasetId: str
+    trimSettings: NotRequired[TrimSettingsTypeDef]
+    exportDataTypes: NotRequired[list[ExportDataTypeType]]
+
+
+class DatasetItemTypeDef(TypedDict):
+    datasetId: str
+    trimSettings: NotRequired[TrimSettingsTypeDef]
+    exportDataTypes: NotRequired[Sequence[ExportDataTypeType]]
+
+
+class TimeseriesItemTypeDef(TypedDict):
+    timeSeriesId: NotRequired[str]
+    propertyAlias: NotRequired[str]
+    trimSettings: NotRequired[TrimSettingsTypeDef]
+    formatSettings: NotRequired[FormatSettingsTypeDef]
 
 
 class BatchGetAssetPropertyAggregatesRequestTypeDef(TypedDict):
@@ -2412,6 +3477,19 @@ class BatchGetAssetPropertyValueHistoryRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
 
 
+class ListSearchesRequestPaginateTypeDef(TypedDict):
+    workspaceName: str
+    listSearchesFilters: NotRequired[ListSearchesFiltersTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListSearchesRequestTypeDef(TypedDict):
+    workspaceName: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    listSearchesFilters: NotRequired[ListSearchesFiltersTypeDef]
+
+
 ImageTypeDef = TypedDict(
     "ImageTypeDef",
     {
@@ -2419,6 +3497,34 @@ ImageTypeDef = TypedDict(
         "file": NotRequired[ImageFileTypeDef],
     },
 )
+
+
+class ComputeNodeExecutionStatusTypeDef(TypedDict):
+    state: ComputeNodeExecutionStateType
+    stateDetails: NotRequired[ComputeNodeExecutionStateDetailsTypeDef]
+
+
+class PipelineExecutionStatusTypeDef(TypedDict):
+    state: PipelineExecutionStateType
+    stateDetails: NotRequired[PipelineExecutionStateDetailsTypeDef]
+
+
+class CreatePipelineRequestTypeDef(TypedDict):
+    workspaceName: str
+    pipelineName: str
+    computations: Sequence[ComputeNodeUnionTypeDef]
+    description: NotRequired[str]
+    environmentVariables: NotRequired[Mapping[str, str]]
+    tags: NotRequired[Mapping[str, str]]
+    clientToken: NotRequired[str]
+
+
+class UpdatePipelineRequestTypeDef(TypedDict):
+    workspaceName: str
+    pipelineName: str
+    description: NotRequired[str]
+    environmentVariables: NotRequired[Mapping[str, str]]
+    computations: NotRequired[Sequence[ComputeNodeUnionTypeDef]]
 
 
 class DescribeDefaultEncryptionConfigurationResponseTypeDef(TypedDict):
@@ -2435,12 +3541,27 @@ class PutDefaultEncryptionConfigurationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+TaskConfigurationUnionTypeDef = Union[TaskConfigurationTypeDef, TaskConfigurationOutputTypeDef]
+
+
+class FileOutputTypeDef(TypedDict):
+    bucket: str
+    key: str
+    versionId: NotRequired[str]
+    alias: NotRequired[str]
+    startTime: NotRequired[TimeInNanosTypeDef]
+    fileFormat: NotRequired[FileFormatOutputTypeDef]
+
+
 class JobConfigurationOutputTypeDef(TypedDict):
-    fileFormat: FileFormatOutputTypeDef
+    fileFormat: NotRequired[FileFormatOutputTypeDef]
 
 
-class JobConfigurationTypeDef(TypedDict):
-    fileFormat: FileFormatTypeDef
+class FileFormatTypeDef(TypedDict):
+    csv: NotRequired[CsvUnionTypeDef]
+    parquet: NotRequired[Mapping[str, Any]]
+    mp4: NotRequired[Mapping[str, Any]]
+    annotation: NotRequired[Mapping[str, Any]]
 
 
 class DescribeStorageConfigurationResponseTypeDef(TypedDict):
@@ -2478,6 +3599,12 @@ class PutStorageConfigurationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ListDatasetDataSegmentsResponseTypeDef(TypedDict):
+    dataSegments: list[DataSegmentSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class ExecuteQueryResponsePaginatorTypeDef(TypedDict):
     columns: list[ColumnInfoTypeDef]
     rows: list[RowPaginatorTypeDef]
@@ -2488,13 +3615,6 @@ class ExecuteQueryResponsePaginatorTypeDef(TypedDict):
 class ExecuteQueryResponseTypeDef(TypedDict):
     columns: list[ColumnInfoTypeDef]
     rows: list[RowTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
-class ExecuteQueryResponseWaiterTypeDef(TypedDict):
-    columns: list[ColumnInfoTypeDef]
-    rows: list[RowWaiterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2532,6 +3652,14 @@ class DatasetStatusTypeDef(TypedDict):
     error: NotRequired[ErrorDetailsTypeDef]
 
 
+class StartPipelineExecutionRequestTypeDef(TypedDict):
+    workspaceName: str
+    pipelineName: str
+    executionEnvironmentVariableOverrides: NotRequired[ExecutionEnvironmentVariablesUnionTypeDef]
+    executionPriority: NotRequired[int]
+    clientToken: NotRequired[str]
+
+
 class MeasurementTypeDef(TypedDict):
     processingConfig: NotRequired[MeasurementProcessingConfigTypeDef]
 
@@ -2566,8 +3694,8 @@ class GatewaySummaryTypeDef(TypedDict):
 
 
 class DatasetSourceTypeDef(TypedDict):
-    sourceType: Literal["KENDRA"]
-    sourceFormat: Literal["KNOWLEDGE_BASE"]
+    sourceType: DatasetSourceTypeType
+    sourceFormat: DatasetSourceFormatType
     sourceDetail: NotRequired[SourceDetailTypeDef]
 
 
@@ -2698,6 +3826,127 @@ class InterpolatedAssetPropertyValueTypeDef(TypedDict):
     value: VariantTypeDef
 
 
+class CreatePipelineResponseTypeDef(TypedDict):
+    pipelineName: str
+    pipelineArn: str
+    version: str
+    status: ResourceStatusTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateTaskResponseTypeDef(TypedDict):
+    taskName: str
+    taskArn: str
+    version: str
+    status: ResourceStatusTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeletePipelineResponseTypeDef(TypedDict):
+    status: ResourceStatusTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteTaskResponseTypeDef(TypedDict):
+    status: ResourceStatusTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribePipelineResponseTypeDef(TypedDict):
+    pipelineName: str
+    workspaceName: str
+    description: str
+    pipelineArn: str
+    version: str
+    environmentVariables: dict[str, str]
+    computations: list[ComputeNodeOutputTypeDef]
+    status: ResourceStatusTypeDef
+    createdAt: datetime
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeTaskResponseTypeDef(TypedDict):
+    workspaceName: str
+    taskName: str
+    description: str
+    taskArn: str
+    version: str
+    taskConfiguration: TaskConfigurationOutputTypeDef
+    status: ResourceStatusTypeDef
+    createdAt: datetime
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class PipelineSummaryTypeDef(TypedDict):
+    pipelineName: str
+    pipelineArn: str
+    version: str
+    status: ResourceStatusTypeDef
+    createdAt: datetime
+    updatedAt: datetime
+    description: NotRequired[str]
+
+
+class TaskSummaryTypeDef(TypedDict):
+    taskName: str
+    taskArn: str
+    version: str
+    status: ResourceStatusTypeDef
+    createdAt: datetime
+    updatedAt: datetime
+    description: NotRequired[str]
+
+
+class UpdatePipelineResponseTypeDef(TypedDict):
+    version: str
+    status: ResourceStatusTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateTaskResponseTypeDef(TypedDict):
+    version: str
+    status: ResourceStatusTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateWorkspaceResponseTypeDef(TypedDict):
+    workspaceName: str
+    workspaceArn: str
+    workspaceStatus: WorkspaceStatusTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteWorkspaceResponseTypeDef(TypedDict):
+    workspaceStatus: WorkspaceStatusTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeWorkspaceResponseTypeDef(TypedDict):
+    workspaceArn: str
+    workspaceName: str
+    workspaceDescription: str
+    workspaceStatus: WorkspaceStatusTypeDef
+    encryptionConfiguration: WorkspaceEncryptionConfigurationInfoTypeDef
+    createdAt: datetime
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateWorkspaceResponseTypeDef(TypedDict):
+    workspaceStatus: WorkspaceStatusTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class WorkspaceSummaryTypeDef(TypedDict):
+    name: str
+    arn: str
+    status: WorkspaceStatusTypeDef
+    createdAt: datetime
+    updatedAt: datetime
+
+
 class BatchGetAssetPropertyAggregatesResponseTypeDef(TypedDict):
     errorEntries: list[BatchGetAssetPropertyAggregatesErrorEntryTypeDef]
     successEntries: list[BatchGetAssetPropertyAggregatesSuccessEntryTypeDef]
@@ -2752,6 +4001,29 @@ class BatchPutAssetPropertyValueResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class EnrichmentJobConfigurationTypeDef(TypedDict):
+    eventDetection: NotRequired[EventDetectionTypeDef]
+
+
+class StartSearchRequestTypeDef(TypedDict):
+    workspaceName: str
+    queryStatement: str
+    clientToken: NotRequired[str]
+    searchType: NotRequired[SearchTypeType]
+    searchFilters: NotRequired[SearchFiltersTypeDef]
+    groupId: NotRequired[str]
+
+
+class ProcessingInputOutputTypeDef(TypedDict):
+    timeseries: NotRequired[list[TimeseriesItemTypeDef]]
+    dataset: NotRequired[DatasetItemOutputTypeDef]
+
+
+class ProcessingInputTypeDef(TypedDict):
+    timeseries: NotRequired[Sequence[TimeseriesItemTypeDef]]
+    dataset: NotRequired[DatasetItemTypeDef]
+
+
 class UpdatePortalRequestTypeDef(TypedDict):
     portalId: str
     portalName: str
@@ -2766,22 +4038,67 @@ class UpdatePortalRequestTypeDef(TypedDict):
     portalTypeConfiguration: NotRequired[Mapping[str, PortalTypeEntryUnionTypeDef]]
 
 
+class ComputeNodeExecutionDetailsTypeDef(TypedDict):
+    computeNodeName: str
+    taskName: str
+    taskArn: str
+    taskVersion: str
+    dependsOn: list[str]
+    status: ComputeNodeExecutionStatusTypeDef
+    startTime: NotRequired[datetime]
+    endTime: NotRequired[datetime]
+    executionEnvironmentVariables: NotRequired[dict[str, str]]
+
+
+class PipelineExecutionSummaryTypeDef(TypedDict):
+    pipelineExecutionId: str
+    pipelineVersion: str
+    status: PipelineExecutionStatusTypeDef
+    executionPriority: NotRequired[int]
+    startTime: NotRequired[datetime]
+    endTime: NotRequired[datetime]
+
+
+class CreateTaskRequestTypeDef(TypedDict):
+    workspaceName: str
+    taskName: str
+    taskConfiguration: TaskConfigurationUnionTypeDef
+    description: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+    clientToken: NotRequired[str]
+
+
+class UpdateTaskRequestTypeDef(TypedDict):
+    workspaceName: str
+    taskName: str
+    description: NotRequired[str]
+    taskConfiguration: NotRequired[TaskConfigurationUnionTypeDef]
+
+
 class DescribeBulkImportJobResponseTypeDef(TypedDict):
     jobId: str
     jobName: str
     jobStatus: JobStatusType
     jobRoleArn: str
-    files: list[FileTypeDef]
+    files: list[FileOutputTypeDef]
     errorReportLocation: ErrorReportLocationTypeDef
     jobConfiguration: JobConfigurationOutputTypeDef
     jobCreationDate: datetime
     jobLastUpdateDate: datetime
     adaptiveIngestion: bool
     deleteFilesAfterImport: bool
+    datasetId: str
+    workspaceName: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-JobConfigurationUnionTypeDef = Union[JobConfigurationTypeDef, JobConfigurationOutputTypeDef]
+FileFormatUnionTypeDef = Union[FileFormatTypeDef, FileFormatOutputTypeDef]
+
+
+class JobConfigurationTypeDef(TypedDict):
+    fileFormat: NotRequired[FileFormatTypeDef]
+
+
 AssetModelSummaryTypeDef = TypedDict(
     "AssetModelSummaryTypeDef",
     {
@@ -2803,6 +4120,7 @@ class CreateAssetModelCompositeModelResponseTypeDef(TypedDict):
     assetModelCompositeModelId: str
     assetModelCompositeModelPath: list[AssetModelCompositeModelPathSegmentTypeDef]
     assetModelStatus: AssetModelStatusTypeDef
+    assetModelId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2815,6 +4133,7 @@ class CreateAssetModelResponseTypeDef(TypedDict):
 
 class DeleteAssetModelCompositeModelResponseTypeDef(TypedDict):
     assetModelStatus: AssetModelStatusTypeDef
+    assetModelId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2827,6 +4146,7 @@ class DeleteAssetModelInterfaceRelationshipResponseTypeDef(TypedDict):
 
 
 class DeleteAssetModelResponseTypeDef(TypedDict):
+    assetModelId: str
     assetModelStatus: AssetModelStatusTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2842,10 +4162,12 @@ class PutAssetModelInterfaceRelationshipResponseTypeDef(TypedDict):
 class UpdateAssetModelCompositeModelResponseTypeDef(TypedDict):
     assetModelCompositeModelPath: list[AssetModelCompositeModelPathSegmentTypeDef]
     assetModelStatus: AssetModelStatusTypeDef
+    assetModelId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class UpdateAssetModelResponseTypeDef(TypedDict):
+    assetModelId: str
     assetModelStatus: AssetModelStatusTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2890,6 +4212,7 @@ class CreateAssetResponseTypeDef(TypedDict):
 
 
 class DeleteAssetResponseTypeDef(TypedDict):
+    assetId: str
     assetStatus: AssetStatusTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2912,6 +4235,7 @@ class DescribeAssetResponseTypeDef(TypedDict):
 
 
 class UpdateAssetResponseTypeDef(TypedDict):
+    assetId: str
     assetStatus: AssetStatusTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2981,6 +4305,9 @@ DatasetSummaryTypeDef = TypedDict(
         "creationDate": datetime,
         "lastUpdateDate": datetime,
         "status": DatasetStatusTypeDef,
+        "sourceType": NotRequired[DatasetSourceTypeType],
+        "datasetType": NotRequired[DatasetTypeEnumType],
+        "enrichmentStatus": NotRequired[DatasetEnrichmentTypeDef],
     },
 )
 
@@ -3008,6 +4335,10 @@ class CreateDatasetRequestTypeDef(TypedDict):
     datasetSource: DatasetSourceTypeDef
     datasetId: NotRequired[str]
     datasetDescription: NotRequired[str]
+    datasetType: NotRequired[DatasetTypeEnumType]
+    datasetConfig: NotRequired[DatasetConfigTypeDef]
+    workspaceName: NotRequired[str]
+    metadata: NotRequired[Mapping[str, str]]
     clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
@@ -3017,11 +4348,16 @@ class DescribeDatasetResponseTypeDef(TypedDict):
     datasetArn: str
     datasetName: str
     datasetDescription: str
+    datasetType: DatasetTypeEnumType
+    datasetConfig: DatasetConfigTypeDef
+    workspaceName: str
+    metadata: dict[str, str]
     datasetSource: DatasetSourceTypeDef
     datasetStatus: DatasetStatusTypeDef
     datasetCreationDate: datetime
     datasetLastUpdateDate: datetime
     datasetVersion: str
+    enrichmentStatus: DatasetEnrichmentTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3029,7 +4365,10 @@ class UpdateDatasetRequestTypeDef(TypedDict):
     datasetId: str
     datasetName: str
     datasetSource: DatasetSourceTypeDef
+    workspaceName: NotRequired[str]
     datasetDescription: NotRequired[str]
+    datasetConfig: NotRequired[DatasetConfigTypeDef]
+    metadata: NotRequired[Mapping[str, str]]
     clientToken: NotRequired[str]
 
 
@@ -3084,6 +4423,24 @@ class GetInterpolatedAssetPropertyValuesResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ListPipelinesResponseTypeDef(TypedDict):
+    pipelineSummaries: list[PipelineSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListTasksResponseTypeDef(TypedDict):
+    taskSummaries: list[TaskSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListWorkspacesResponseTypeDef(TypedDict):
+    workspaceSummaries: list[WorkspaceSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class PropertyTypeOutputTypeDef(TypedDict):
     attribute: NotRequired[AttributeTypeDef]
     measurement: NotRequired[MeasurementTypeDef]
@@ -3100,14 +4457,74 @@ class ListComputationModelDataBindingUsagesResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
-class CreateBulkImportJobRequestTypeDef(TypedDict):
-    jobName: str
-    jobRoleArn: str
-    files: Sequence[FileTypeDef]
-    errorReportLocation: ErrorReportLocationTypeDef
-    jobConfiguration: JobConfigurationUnionTypeDef
-    adaptiveIngestion: NotRequired[bool]
-    deleteFilesAfterImport: NotRequired[bool]
+class CreateEnrichmentJobRequestTypeDef(TypedDict):
+    workspaceName: str
+    jobConfiguration: EnrichmentJobConfigurationTypeDef
+    clientToken: NotRequired[str]
+
+
+class DescribeEnrichmentJobResponseTypeDef(TypedDict):
+    jobId: str
+    status: EnrichmentJobStatusType
+    workspaceName: str
+    jobType: Literal["EVENT_DETECTION"]
+    jobConfiguration: EnrichmentJobConfigurationTypeDef
+    createdAt: datetime
+    updatedAt: datetime
+    completedAt: datetime
+    cancelledAt: datetime
+    failureMessage: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+DescribeDatasetExportJobResponseTypeDef = TypedDict(
+    "DescribeDatasetExportJobResponseTypeDef",
+    {
+        "jobId": str,
+        "workspaceName": str,
+        "status": DatasetExportJobStatusType,
+        "startedAt": datetime,
+        "completedAt": datetime,
+        "destinationS3Uri": str,
+        "errorReportLocation": ExportErrorReportLocationTypeDef,
+        "input": ProcessingInputOutputTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+ProcessingInputUnionTypeDef = Union[ProcessingInputTypeDef, ProcessingInputOutputTypeDef]
+
+
+class DescribePipelineExecutionResponseTypeDef(TypedDict):
+    pipelineExecutionId: str
+    pipelineName: str
+    workspaceName: str
+    pipelineVersion: str
+    status: PipelineExecutionStatusTypeDef
+    startTime: datetime
+    endTime: datetime
+    requestEnvironmentVariables: ExecutionEnvironmentVariablesOutputTypeDef
+    executionPriority: int
+    computeNodeExecutionDetails: list[ComputeNodeExecutionDetailsTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListPipelineExecutionsResponseTypeDef(TypedDict):
+    pipelineExecutionSummaries: list[PipelineExecutionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class FileTypeDef(TypedDict):
+    bucket: str
+    key: str
+    versionId: NotRequired[str]
+    alias: NotRequired[str]
+    startTime: NotRequired[TimeInNanosTypeDef]
+    fileFormat: NotRequired[FileFormatUnionTypeDef]
+
+
+JobConfigurationUnionTypeDef = Union[JobConfigurationTypeDef, JobConfigurationOutputTypeDef]
 
 
 class ListAssetModelsResponseTypeDef(TypedDict):
@@ -3136,6 +4553,7 @@ class ListComputationModelsResponseTypeDef(TypedDict):
 
 class ListDatasetsResponseTypeDef(TypedDict):
     datasetSummaries: list[DatasetSummaryTypeDef]
+    workspaceName: str
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -3223,6 +4641,19 @@ class TransformTypeDef(TypedDict):
     processingConfig: NotRequired[TransformProcessingConfigTypeDef]
 
 
+CreateDatasetExportJobRequestTypeDef = TypedDict(
+    "CreateDatasetExportJobRequestTypeDef",
+    {
+        "workspaceName": str,
+        "destinationS3Uri": str,
+        "input": ProcessingInputUnionTypeDef,
+        "errorReportLocation": ExportErrorReportLocationTypeDef,
+        "clientToken": NotRequired[str],
+    },
+)
+FileUnionTypeDef = Union[FileTypeDef, FileOutputTypeDef]
+
+
 class InvocationOutputTypeDef(TypedDict):
     message: NotRequired[str]
     citations: NotRequired[list[CitationTypeDef]]
@@ -3274,6 +4705,18 @@ CompositeModelPropertyTypeDef = TypedDict(
 )
 MetricUnionTypeDef = Union[MetricTypeDef, MetricOutputTypeDef]
 TransformUnionTypeDef = Union[TransformTypeDef, TransformOutputTypeDef]
+
+
+class CreateBulkImportJobRequestTypeDef(TypedDict):
+    jobName: str
+    jobRoleArn: str
+    files: Sequence[FileUnionTypeDef]
+    errorReportLocation: ErrorReportLocationTypeDef
+    jobConfiguration: NotRequired[JobConfigurationUnionTypeDef]
+    adaptiveIngestion: NotRequired[bool]
+    deleteFilesAfterImport: NotRequired[bool]
+    datasetId: NotRequired[str]
+    workspaceName: NotRequired[str]
 
 
 class ResponseStreamTypeDef(TypedDict):

@@ -8,11 +8,13 @@
 # fmt: off
 # isort: skip_file
 from .....schema_classes import ApplicationKeyClass
+from .....schema_classes import ApplicationLineageClass
 from .....schema_classes import ApplicationPropertiesClass
 from .....schema_classes import ApplicationsClass
 
 
 ApplicationKey = ApplicationKeyClass
+ApplicationLineage = ApplicationLineageClass
 ApplicationProperties = ApplicationPropertiesClass
 Applications = ApplicationsClass
 

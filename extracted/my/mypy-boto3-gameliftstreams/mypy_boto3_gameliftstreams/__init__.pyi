@@ -18,6 +18,7 @@ Usage::
         ListStreamGroupsPaginator,
         ListStreamSessionsByAccountPaginator,
         ListStreamSessionsPaginator,
+        ListStreamUrlsPaginator,
         StreamGroupActiveWaiter,
         StreamGroupDeletedWaiter,
         StreamSessionActiveWaiter,
@@ -36,6 +37,7 @@ Usage::
     list_stream_groups_paginator: ListStreamGroupsPaginator = client.get_paginator("list_stream_groups")
     list_stream_sessions_by_account_paginator: ListStreamSessionsByAccountPaginator = client.get_paginator("list_stream_sessions_by_account")
     list_stream_sessions_paginator: ListStreamSessionsPaginator = client.get_paginator("list_stream_sessions")
+    list_stream_urls_paginator: ListStreamUrlsPaginator = client.get_paginator("list_stream_urls")
     ```
 """
 
@@ -45,6 +47,7 @@ from .paginator import (
     ListStreamGroupsPaginator,
     ListStreamSessionsByAccountPaginator,
     ListStreamSessionsPaginator,
+    ListStreamUrlsPaginator,
 )
 from .waiter import (
     ApplicationDeletedWaiter,
@@ -65,6 +68,7 @@ __all__ = (
     "ListStreamGroupsPaginator",
     "ListStreamSessionsByAccountPaginator",
     "ListStreamSessionsPaginator",
+    "ListStreamUrlsPaginator",
     "StreamGroupActiveWaiter",
     "StreamGroupDeletedWaiter",
     "StreamSessionActiveWaiter",

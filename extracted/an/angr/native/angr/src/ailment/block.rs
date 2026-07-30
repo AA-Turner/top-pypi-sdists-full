@@ -4,10 +4,11 @@ use std::hash::{Hash, Hasher};
 use std::sync::atomic::Ordering;
 
 use pyo3::IntoPyObjectExt;
+use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
-use pyo3::types::{PyList, PyTuple};
+use pyo3::types::{PyBytes, PyList, PyTuple};
 
-use crate::ailment::ail_stmt::Statement;
+use crate::ailment::ail_stmt::{AilStatement, Statement};
 use crate::ailment::{CachedHash, hash_of};
 
 #[pyclass(
@@ -254,34 +255,24 @@ impl Block {
         s.statements.bind(py).as_any().eq(o.statements.bind(py))
     }
 
-    fn likes(slf: Bound<'_, Self>, other: &Bound<'_, PyAny>) -> PyResult<bool> {
+    fn likes(slf: Bound<'_, Self>, other: &Bound<'_, Self>) -> PyResult<bool> {
         let py = slf.py();
-        if !py.get_type::<Block>().is(other.get_type()) {
-            return Ok(false);
-        }
         let s = slf.borrow();
-        let o = other.cast::<Block>()?.borrow();
+        let o = other.borrow();
         let sa = s.statements.bind(py);
         let ob = o.statements.bind(py);
         if sa.len() != ob.len() {
             return Ok(false);
         }
         for (xa, xb) in sa.iter().zip(ob.iter()) {
-            // Fast path: both elements are AIL Statements -- compare via the
-            // native `AilStatement::likes` instead of dispatching through the
-            // Python `likes` method. Falls back to Python dispatch for any
-            // non-Statement element so behavior stays identical.
-            match (xa.cast::<Statement>(), xb.cast::<Statement>()) {
-                (Ok(a), Ok(b)) => {
-                    if !a.borrow().stmt.likes(&b.borrow().stmt) {
-                        return Ok(false);
-                    }
-                }
-                _ => {
-                    if !xa.call_method1("likes", (&xb,))?.is_truthy()? {
-                        return Ok(false);
-                    }
-                }
+            // `Block.statements` only holds AIL Statements; compare via the native `AilStatement::likes` directly.
+            if !xa
+                .cast::<Statement>()?
+                .borrow()
+                .stmt
+                .likes(&xb.cast::<Statement>()?.borrow().stmt)
+            {
+                return Ok(false);
             }
         }
         Ok(true)
@@ -312,6 +303,57 @@ impl Block {
 
     fn __copy__<'py>(slf: Bound<'py, Self>) -> PyResult<Py<PyAny>> {
         Ok(slf.call_method0("copy")?.unbind())
+    }
+
+    // --- Byte serialization --------------------------------------------
+
+    /// Postcard-encode the full Block state -- ``(addr, original_size,
+    /// idx, statements)``, with statements embedded as their
+    /// [`AilStatement`] payloads. ``cached_hash`` is transient and is
+    /// recomputed after ``from_bytes``. Every statement must be an AIL
+    /// ``Statement``; anything else raises ``TypeError``.
+    fn to_bytes<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
+        let stmt_list = self.statements.bind(py);
+        let mut stmts: Vec<AilStatement> = Vec::with_capacity(stmt_list.len());
+        for item in stmt_list.iter() {
+            let st = item.cast::<Statement>().map_err(|_| {
+                PyTypeError::new_err(format!(
+                    "Block.to_bytes: statements must all be AIL Statements, got {}",
+                    item.get_type()
+                ))
+            })?;
+            stmts.push(st.borrow().stmt.clone());
+        }
+        let payload = (self.addr, self.original_size, self.idx, stmts);
+        let bytes = postcard::to_stdvec(&payload)
+            .map_err(|e| PyTypeError::new_err(format!("serialize: {}", e)))?;
+        Ok(PyBytes::new(py, &bytes))
+    }
+
+    /// Inverse of ``to_bytes``.
+    #[classmethod]
+    fn from_bytes<'py>(
+        _cls: &Bound<'_, pyo3::types::PyType>,
+        py: Python<'py>,
+        data: &[u8],
+    ) -> PyResult<Py<Block>> {
+        let (addr, original_size, idx, stmts): (i64, Option<i64>, Option<i64>, Vec<AilStatement>) =
+            postcard::from_bytes(data)
+                .map_err(|e| PyTypeError::new_err(format!("deserialize: {}", e)))?;
+        let list = PyList::empty(py);
+        for st in stmts {
+            list.append(Py::new(py, Statement::wrap(st))?)?;
+        }
+        Py::new(
+            py,
+            Self {
+                addr,
+                original_size,
+                statements: list.unbind(),
+                idx,
+                cached_hash: CachedHash::new(),
+            },
+        )
     }
 
     fn __reduce__<'py>(slf: Bound<'py, Self>) -> PyResult<Bound<'py, PyTuple>> {

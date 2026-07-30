@@ -11,7 +11,7 @@ import urllib.parse
 import urllib.request
 from collections.abc import Mapping
 from pathlib import Path
-from typing import ClassVar, Self
+from typing import ClassVar, Self, cast
 
 from platformdirs import user_cache_path
 from pydantic import Field, TypeAdapter, computed_field, model_validator
@@ -30,6 +30,7 @@ from .base_types import (
 )
 from .binary import Binary
 from .binprovider import (
+    BinaryOverrides,
     BinProvider,
     EnvProvider,
     env_flag_is_true,
@@ -37,7 +38,7 @@ from .binprovider import (
     remap_kwargs,
 )
 from .config import load_derived_cache
-from .exceptions import BinaryInstallError, BinProviderInstallError
+from .exceptions import BinaryInstallError, BinaryLoadError, BinProviderInstallError
 from .logging import format_subprocess_output
 from .semver import SemVer
 
@@ -313,13 +314,69 @@ class PnpmProvider(BinProvider):
         bin_name: BinName,
         no_cache: bool = False,
     ):
+        from . import PROVIDER_CLASS_BY_NAME
+
+        provider_names: tuple[BinProviderName, ...]
+        overrides: BinaryOverrides = {}
+        min_version = None
+        if str(bin_name) == "node":
+            provider_names = ("env", "node", "brew", "apt")
+            min_version = SemVer.parse("22.12.0")
+            overrides = cast(
+                BinaryOverrides,
+                {
+                    "apt": {
+                        "install_args": ["nodejs"],
+                    },
+                    "brew": {
+                        "install_args": ["node"],
+                    },
+                },
+            )
+        elif str(bin_name) == "npm":
+            provider_names = ("env", "node", "brew", "apt")
+            overrides = cast(
+                BinaryOverrides,
+                {
+                    "apt": {
+                        "install_args": ["npm"],
+                    },
+                    "brew": {
+                        "install_args": ["node"],
+                    },
+                },
+            )
+        else:
+            provider_names = ("env",)
+
+        env_provider = self._managed_env_provider()
+        managed_lib_dir = self._managed_lib_dir()
+        providers: list[BinProvider] = []
+        for provider_name in provider_names:
+            if provider_name not in PROVIDER_CLASS_BY_NAME:
+                continue
+            if provider_name == "env":
+                providers.append(env_provider)
+            elif provider_name == "node" and managed_lib_dir is not None:
+                providers.append(
+                    PROVIDER_CLASS_BY_NAME[provider_name](
+                        install_root=managed_lib_dir / "node",
+                    ),
+                )
+            else:
+                providers.append(PROVIDER_CLASS_BY_NAME[provider_name]())
         try:
             loaded = Binary(
                 name=bin_name,
-                binproviders=[self._managed_env_provider()],
-            ).load(no_cache=no_cache)
+                binproviders=providers,
+                overrides=overrides,
+                postinstall_scripts=True,
+                min_release_age=0,
+                min_version=min_version,
+            ).install(no_cache=no_cache)
         except (
             AssertionError,
+            BinaryLoadError,
             BinProviderInstallError,
             BinaryInstallError,
             OSError,
@@ -332,11 +389,19 @@ class PnpmProvider(BinProvider):
             and loaded.loaded_version
             and loaded.loaded_sha256
         ):
+            projected_abspath = env_provider.project_binary(loaded, bin_name)
+            if projected_abspath is not None:
+                loaded = loaded.model_copy(update={"loaded_abspath": projected_abspath})
+            loaded_abspath = loaded.loaded_abspath
+            loaded_version = loaded.loaded_version
+            loaded_sha256 = loaded.loaded_sha256
+            if not (loaded_abspath and loaded_version and loaded_sha256):
+                return loaded
             self.write_cached_binary(
                 bin_name,
-                loaded.loaded_abspath,
-                loaded.loaded_version,
-                loaded.loaded_sha256,
+                loaded_abspath,
+                loaded_version,
+                loaded_sha256,
                 resolved_provider_name=(
                     loaded.loaded_binprovider.name
                     if loaded.loaded_binprovider is not None
@@ -357,9 +422,7 @@ class PnpmProvider(BinProvider):
     def _pnpm_package_for_node(node_version: SemVer | None) -> str:
         """Select the newest pnpm major supported by the discovered Node runtime."""
         version = tuple(node_version) if node_version is not None else None
-        if version is None or version >= (22, 13, 0):
-            return "pnpm"
-        if version >= (18, 12, 0):
+        if version is None or version >= (18, 12, 0):
             return "pnpm@10.19.0"
         if version >= (16, 14, 0):
             return "pnpm@8"

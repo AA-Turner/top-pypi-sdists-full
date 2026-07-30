@@ -51,6 +51,7 @@ from .literals import (
     PayloadTypeType,
     PlatformType,
     PositionalConstraintType,
+    PreParseTextTransformationTypeType,
     RankingSortByType,
     RankingStatisticTypeType,
     RateBasedStatementAggregateKeyTypeType,
@@ -327,6 +328,7 @@ __all__ = (
     "PaymentNetworkOutputTypeDef",
     "PaymentNetworkTypeDef",
     "PhoneNumberFieldTypeDef",
+    "PreParseTextTransformationTypeDef",
     "PriceTypeDef",
     "PutLoggingConfigurationRequestTypeDef",
     "PutLoggingConfigurationResponseTypeDef",
@@ -501,6 +503,13 @@ class BotStatisticsTypeDef(TypedDict):
     RequestCount: int
     Percentage: float
 
+PreParseTextTransformationTypeDef = TypedDict(
+    "PreParseTextTransformationTypeDef",
+    {
+        "Priority": int,
+        "Type": PreParseTextTransformationTypeType,
+    },
+)
 TextTransformationTypeDef = TypedDict(
     "TextTransformationTypeDef",
     {
@@ -1760,31 +1769,37 @@ class ByteMatchStatementOutputTypeDef(TypedDict):
     FieldToMatch: FieldToMatchOutputTypeDef
     TextTransformations: list[TextTransformationTypeDef]
     PositionalConstraint: PositionalConstraintType
+    PreParseTextTransformations: NotRequired[list[PreParseTextTransformationTypeDef]]
 
 class RegexMatchStatementOutputTypeDef(TypedDict):
     RegexString: str
     FieldToMatch: FieldToMatchOutputTypeDef
     TextTransformations: list[TextTransformationTypeDef]
+    PreParseTextTransformations: NotRequired[list[PreParseTextTransformationTypeDef]]
 
 class RegexPatternSetReferenceStatementOutputTypeDef(TypedDict):
     ARN: str
     FieldToMatch: FieldToMatchOutputTypeDef
     TextTransformations: list[TextTransformationTypeDef]
+    PreParseTextTransformations: NotRequired[list[PreParseTextTransformationTypeDef]]
 
 class SizeConstraintStatementOutputTypeDef(TypedDict):
     FieldToMatch: FieldToMatchOutputTypeDef
     ComparisonOperator: ComparisonOperatorType
     Size: int
     TextTransformations: list[TextTransformationTypeDef]
+    PreParseTextTransformations: NotRequired[list[PreParseTextTransformationTypeDef]]
 
 class SqliMatchStatementOutputTypeDef(TypedDict):
     FieldToMatch: FieldToMatchOutputTypeDef
     TextTransformations: list[TextTransformationTypeDef]
+    PreParseTextTransformations: NotRequired[list[PreParseTextTransformationTypeDef]]
     SensitivityLevel: NotRequired[SensitivityLevelType]
 
 class XssMatchStatementOutputTypeDef(TypedDict):
     FieldToMatch: FieldToMatchOutputTypeDef
     TextTransformations: list[TextTransformationTypeDef]
+    PreParseTextTransformations: NotRequired[list[PreParseTextTransformationTypeDef]]
 
 JsonBodyUnionTypeDef = Union[JsonBodyTypeDef, JsonBodyOutputTypeDef]
 
@@ -2051,31 +2066,37 @@ class ByteMatchStatementTypeDef(TypedDict):
     FieldToMatch: FieldToMatchUnionTypeDef
     TextTransformations: Sequence[TextTransformationTypeDef]
     PositionalConstraint: PositionalConstraintType
+    PreParseTextTransformations: NotRequired[Sequence[PreParseTextTransformationTypeDef]]
 
 class RegexMatchStatementTypeDef(TypedDict):
     RegexString: str
     FieldToMatch: FieldToMatchUnionTypeDef
     TextTransformations: Sequence[TextTransformationTypeDef]
+    PreParseTextTransformations: NotRequired[Sequence[PreParseTextTransformationTypeDef]]
 
 class RegexPatternSetReferenceStatementTypeDef(TypedDict):
     ARN: str
     FieldToMatch: FieldToMatchUnionTypeDef
     TextTransformations: Sequence[TextTransformationTypeDef]
+    PreParseTextTransformations: NotRequired[Sequence[PreParseTextTransformationTypeDef]]
 
 class SizeConstraintStatementTypeDef(TypedDict):
     FieldToMatch: FieldToMatchUnionTypeDef
     ComparisonOperator: ComparisonOperatorType
     Size: int
     TextTransformations: Sequence[TextTransformationTypeDef]
+    PreParseTextTransformations: NotRequired[Sequence[PreParseTextTransformationTypeDef]]
 
 class SqliMatchStatementTypeDef(TypedDict):
     FieldToMatch: FieldToMatchUnionTypeDef
     TextTransformations: Sequence[TextTransformationTypeDef]
+    PreParseTextTransformations: NotRequired[Sequence[PreParseTextTransformationTypeDef]]
     SensitivityLevel: NotRequired[SensitivityLevelType]
 
 class XssMatchStatementTypeDef(TypedDict):
     FieldToMatch: FieldToMatchUnionTypeDef
     TextTransformations: Sequence[TextTransformationTypeDef]
+    PreParseTextTransformations: NotRequired[Sequence[PreParseTextTransformationTypeDef]]
 
 LoggingConfigurationUnionTypeDef = Union[
     LoggingConfigurationTypeDef, LoggingConfigurationOutputTypeDef

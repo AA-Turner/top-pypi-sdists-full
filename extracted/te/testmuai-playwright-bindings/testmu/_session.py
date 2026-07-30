@@ -124,7 +124,7 @@ async def _create_page():
         _log.info(
             "CDP URL (capabilities URL-encoded): %s", get_cdp_url_for_log(caps)
         )
-        viewport = get_viewport()
+        viewport = get_viewport(lt_opts.get("resolution"))
 
         # Cloud sessions route through a local relay proxy so kane-cli
         # can take over the browser mid-test and the main session can

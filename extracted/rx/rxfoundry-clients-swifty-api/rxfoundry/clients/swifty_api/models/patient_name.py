@@ -31,10 +31,11 @@ class PatientName(BaseModel):
     first_name: Annotated[str, Field(strict=True, max_length=255)] = Field(description="The first name of the patient")
     last_name: Annotated[str, Field(strict=True, max_length=255)] = Field(description="The last name of the patient")
     middle_name: Optional[Annotated[str, Field(strict=True, max_length=255)]] = Field(default=None, description="The middle name of the patient")
+    preferred_name: Optional[Annotated[str, Field(strict=True, max_length=255)]] = Field(default=None, description="The preferred name/nickname of the patient")
     suffix: Optional[Annotated[str, Field(strict=True, max_length=10)]] = Field(default=None, description="The suffix of the patient (e.g. Jr., Sr., III)")
     prefix: Optional[Annotated[str, Field(strict=True, max_length=10)]] = Field(default=None, description="The prefix of the patient (e.g. Dr., Rev., Hon.)")
     credentials: Optional[Annotated[str, Field(strict=True, max_length=35)]] = Field(default=None, description="The credentials of the patient (e.g. MD, DDS, RN)")
-    __properties: ClassVar[List[str]] = ["first_name", "last_name", "middle_name", "suffix", "prefix", "credentials"]
+    __properties: ClassVar[List[str]] = ["first_name", "last_name", "middle_name", "preferred_name", "suffix", "prefix", "credentials"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -90,6 +91,7 @@ class PatientName(BaseModel):
             "first_name": obj.get("first_name"),
             "last_name": obj.get("last_name"),
             "middle_name": obj.get("middle_name"),
+            "preferred_name": obj.get("preferred_name"),
             "suffix": obj.get("suffix"),
             "prefix": obj.get("prefix"),
             "credentials": obj.get("credentials")

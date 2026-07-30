@@ -339,6 +339,7 @@ __all__ = (
     "GetTransitGatewayAttachmentPropagationsPaginatorName",
     "GetTransitGatewayMulticastDomainAssociationsPaginatorName",
     "GetTransitGatewayPolicyTableAssociationsPaginatorName",
+    "GetTransitGatewayPolicyTableEntriesPaginatorName",
     "GetTransitGatewayPrefixListReferencesPaginatorName",
     "GetTransitGatewayRouteTableAssociationsPaginatorName",
     "GetTransitGatewayRouteTablePropagationsPaginatorName",
@@ -639,6 +640,7 @@ __all__ = (
     "TransitGatewayMeteringPolicyStateType",
     "TransitGatewayMulitcastDomainAssociationStateType",
     "TransitGatewayMulticastDomainStateType",
+    "TransitGatewayPolicyTableEntryStateType",
     "TransitGatewayPolicyTableStateType",
     "TransitGatewayPrefixListReferenceStateType",
     "TransitGatewayPropagationStateType",
@@ -1287,6 +1289,9 @@ GetTransitGatewayMulticastDomainAssociationsPaginatorName = Literal[
 ]
 GetTransitGatewayPolicyTableAssociationsPaginatorName = Literal[
     "get_transit_gateway_policy_table_associations"
+]
+GetTransitGatewayPolicyTableEntriesPaginatorName = Literal[
+    "get_transit_gateway_policy_table_entries"
 ]
 GetTransitGatewayPrefixListReferencesPaginatorName = Literal[
     "get_transit_gateway_prefix_list_references"
@@ -3588,6 +3593,7 @@ TransitGatewayMulitcastDomainAssociationStateType = Literal[
     "rejected",
 ]
 TransitGatewayMulticastDomainStateType = Literal["available", "deleted", "deleting", "pending"]
+TransitGatewayPolicyTableEntryStateType = Literal["active", "deleted"]
 TransitGatewayPolicyTableStateType = Literal["available", "deleted", "deleting", "pending"]
 TransitGatewayPrefixListReferenceStateType = Literal[
     "available", "deleting", "modifying", "pending"
@@ -4290,6 +4296,7 @@ PaginatorName = Literal[
     "get_transit_gateway_attachment_propagations",
     "get_transit_gateway_multicast_domain_associations",
     "get_transit_gateway_policy_table_associations",
+    "get_transit_gateway_policy_table_entries",
     "get_transit_gateway_prefix_list_references",
     "get_transit_gateway_route_table_associations",
     "get_transit_gateway_route_table_propagations",

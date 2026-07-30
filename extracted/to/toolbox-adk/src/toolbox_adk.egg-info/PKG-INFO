@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: toolbox-adk
-Version: 1.3.0
+Version: 1.3.1
 Summary: Agent Development Kit Integration for MCP Toolbox
 Author-email: Google LLC <googleapis-packages@google.com>
 Project-URL: Homepage, https://github.com/googleapis/mcp-toolbox-sdk-python/blob/main/packages/toolbox-adk
@@ -19,7 +19,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: toolbox-core==1.1.0
+Requires-Dist: toolbox-core==1.3.0
 Requires-Dist: google-auth<3.0.0,>=2.47.0
 Requires-Dist: google-auth-oauthlib<2.0.0,>=1.2.0
 Requires-Dist: google-adk<3.0.0,>=1.27.4

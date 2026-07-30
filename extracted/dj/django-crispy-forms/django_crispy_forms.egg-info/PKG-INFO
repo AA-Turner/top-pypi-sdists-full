@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-crispy-forms
-Version: 2.6
+Version: 2.7
 Summary: Best way to have Django DRY forms
 Author-email: Miguel Araujo <miguel.araujo.perez@gmail.com>
 License-Expression: MIT
@@ -13,6 +13,7 @@ Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: JavaScript
 Classifier: Programming Language :: Python :: 3

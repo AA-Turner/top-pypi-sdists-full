@@ -398,26 +398,27 @@ class UninstalledLibsTest(BaseTest):
 
 class InstallRequirementsFixTest(BaseTest):
     """A pip install lands files on disk that the long-lived editor/worker
-    processes can't see. The fix must restart both on a successful install
-    (and only then), otherwise the linter would keep reporting the issue."""
+    processes can't see. On a successful install (and only then) the fix calls
+    restart_or_defer_after_install, which restarts now (desktop) or defers via
+    "Restart editor" (web); otherwise the linter would keep reporting the issue."""
 
-    def test_restarts_when_install_succeeds(self):
+    def test_applies_when_install_succeeds(self):
         (self.root / "requirements.txt").write_text("pandas\n")
         with (
             patch.object(Requirements, "install_succeeded", return_value=True),
-            patch(f"{RA_MOD}.restart_editor_and_workers") as restart,
+            patch(f"{RA_MOD}.restart_or_defer_after_install") as apply,
         ):
             InstallRequirements().fix()
-        restart.assert_called_once()
+        apply.assert_called_once_with()
 
-    def test_does_not_restart_when_install_fails(self):
+    def test_does_not_apply_when_install_fails(self):
         (self.root / "requirements.txt").write_text("pandas\n")
         with (
             patch.object(Requirements, "install_succeeded", return_value=False),
-            patch(f"{RA_MOD}.restart_editor_and_workers") as restart,
+            patch(f"{RA_MOD}.restart_or_defer_after_install") as apply,
         ):
             InstallRequirements().fix()
-        restart.assert_not_called()
+        apply.assert_not_called()
 
     def test_noop_without_requirements_file(self):
         req = self.root / "requirements.txt"
@@ -425,8 +426,8 @@ class InstallRequirementsFixTest(BaseTest):
             req.unlink()
         with (
             patch.object(Requirements, "install_succeeded") as install,
-            patch(f"{RA_MOD}.restart_editor_and_workers") as restart,
+            patch(f"{RA_MOD}.restart_or_defer_after_install") as apply,
         ):
             InstallRequirements().fix()
         install.assert_not_called()
-        restart.assert_not_called()
+        apply.assert_not_called()

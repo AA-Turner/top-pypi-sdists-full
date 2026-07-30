@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unsloth
-Version: 2026.7.5
+Version: 2026.7.6
 Summary: 2-5X faster training, reinforcement learning & finetuning
 Author: Unsloth AI team
 Author-email: info@unsloth.ai
@@ -18,7 +18,7 @@ Requires-Python: <3.15,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: COPYING
-Requires-Dist: unsloth_zoo>=2026.7.6
+Requires-Dist: unsloth_zoo>=2026.7.7
 Requires-Dist: wheel>=0.42.0
 Requires-Dist: packaging
 Requires-Dist: torch<2.12.0,>=2.4.0
@@ -45,11 +45,37 @@ Requires-Dist: typer>=0.12.0
 Requires-Dist: pydantic
 Requires-Dist: pyyaml
 Requires-Dist: nest-asyncio
+Requires-Dist: structlog>=24.1.0
+Requires-Dist: click>=8.0
+Requires-Dist: rich
+Provides-Extra: studio
+Requires-Dist: typer; extra == "studio"
+Requires-Dist: fastapi; extra == "studio"
+Requires-Dist: uvicorn; extra == "studio"
+Requires-Dist: pydantic; extra == "studio"
+Requires-Dist: packaging; extra == "studio"
+Requires-Dist: matplotlib==3.10.9; extra == "studio"
+Requires-Dist: pandas; extra == "studio"
+Requires-Dist: nest_asyncio; extra == "studio"
+Requires-Dist: datasets==4.3.0; extra == "studio"
+Requires-Dist: pyjwt; extra == "studio"
+Requires-Dist: huggingface-hub==0.36.2; extra == "studio"
+Requires-Dist: structlog>=24.1.0; extra == "studio"
+Requires-Dist: diceware; extra == "studio"
+Requires-Dist: ddgs; extra == "studio"
+Requires-Dist: cryptography>=42.0.0; extra == "studio"
+Requires-Dist: boto3>=1.34.0; extra == "studio"
+Requires-Dist: httpx>=0.27.0; extra == "studio"
+Requires-Dist: fastmcp>=3.0.2; extra == "studio"
+Requires-Dist: sqlite-vec==0.1.9; extra == "studio"
+Requires-Dist: pymupdf==1.27.2.3; extra == "studio"
+Requires-Dist: pymupdf4llm==0.3.4; extra == "studio"
+Requires-Dist: python-docx==1.2.0; extra == "studio"
 Provides-Extra: triton
 Requires-Dist: triton>=3.0.0; "linux" in sys_platform and extra == "triton"
 Requires-Dist: triton-windows; (sys_platform == "win32" and (platform_machine == "AMD64" or platform_machine == "x86_64")) and extra == "triton"
 Provides-Extra: huggingface
-Requires-Dist: unsloth_zoo>=2026.7.6; extra == "huggingface"
+Requires-Dist: unsloth_zoo>=2026.7.7; extra == "huggingface"
 Requires-Dist: wheel>=0.42.0; extra == "huggingface"
 Requires-Dist: packaging; extra == "huggingface"
 Requires-Dist: torchvision; extra == "huggingface"
@@ -72,6 +98,29 @@ Requires-Dist: typer>=0.12.0; extra == "huggingface"
 Requires-Dist: pydantic; extra == "huggingface"
 Requires-Dist: pyyaml; extra == "huggingface"
 Requires-Dist: nest-asyncio; extra == "huggingface"
+Provides-Extra: huggingfacenotorch
+Requires-Dist: unsloth_zoo>=2026.7.7; extra == "huggingfacenotorch"
+Requires-Dist: wheel>=0.42.0; extra == "huggingfacenotorch"
+Requires-Dist: packaging; extra == "huggingfacenotorch"
+Requires-Dist: numpy; extra == "huggingfacenotorch"
+Requires-Dist: tqdm; extra == "huggingfacenotorch"
+Requires-Dist: psutil; extra == "huggingfacenotorch"
+Requires-Dist: tyro; extra == "huggingfacenotorch"
+Requires-Dist: protobuf; extra == "huggingfacenotorch"
+Requires-Dist: sentencepiece>=0.2.0; extra == "huggingfacenotorch"
+Requires-Dist: datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1; extra == "huggingfacenotorch"
+Requires-Dist: accelerate>=0.34.1; extra == "huggingfacenotorch"
+Requires-Dist: peft!=0.11.0,>=0.18.0; extra == "huggingfacenotorch"
+Requires-Dist: huggingface_hub>=0.34.0; extra == "huggingfacenotorch"
+Requires-Dist: hf_transfer; extra == "huggingfacenotorch"
+Requires-Dist: diffusers; extra == "huggingfacenotorch"
+Requires-Dist: transformers!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.0,!=4.57.4,!=4.57.5,!=5.0.0,!=5.1.0,<=5.5.0,>=4.51.3; extra == "huggingfacenotorch"
+Requires-Dist: trl!=0.19.0,<=0.24.0,>=0.18.2; extra == "huggingfacenotorch"
+Requires-Dist: sentence-transformers; extra == "huggingfacenotorch"
+Provides-Extra: amd
+Requires-Dist: unsloth[huggingfacenotorch]; extra == "amd"
+Requires-Dist: bitsandbytes>=0.50.0; ("linux" in sys_platform and (platform_machine == "AMD64" or platform_machine == "x86_64" or platform_machine == "aarch64")) and extra == "amd"
+Requires-Dist: bitsandbytes>=0.50.0; (sys_platform == "win32" and (platform_machine == "AMD64" or platform_machine == "x86_64")) and extra == "amd"
 Provides-Extra: windows
 Requires-Dist: unsloth[huggingface]; extra == "windows"
 Requires-Dist: bitsandbytes!=0.46.0,!=0.48.0,>=0.45.5; sys_platform == "win32" and extra == "windows"
@@ -315,14 +364,17 @@ Provides-Extra: cu126-torch2100
 Requires-Dist: unsloth[huggingface]; extra == "cu126-torch2100"
 Requires-Dist: bitsandbytes!=0.46.0,!=0.48.0,>=0.45.5; extra == "cu126-torch2100"
 Requires-Dist: unsloth[cu126onlytorch2100]; extra == "cu126-torch2100"
+Requires-Dist: unsloth[audio-torch210]; extra == "cu126-torch2100"
 Provides-Extra: cu128-torch2100
 Requires-Dist: unsloth[huggingface]; extra == "cu128-torch2100"
 Requires-Dist: bitsandbytes!=0.46.0,!=0.48.0,>=0.45.5; extra == "cu128-torch2100"
 Requires-Dist: unsloth[cu128onlytorch2100]; extra == "cu128-torch2100"
+Requires-Dist: unsloth[audio-torch210]; extra == "cu128-torch2100"
 Provides-Extra: cu130-torch2100
 Requires-Dist: unsloth[huggingface]; extra == "cu130-torch2100"
 Requires-Dist: bitsandbytes!=0.46.0,!=0.48.0,>=0.45.5; extra == "cu130-torch2100"
 Requires-Dist: unsloth[cu130onlytorch2100]; extra == "cu130-torch2100"
+Requires-Dist: unsloth[audio-torch210]; extra == "cu130-torch2100"
 Provides-Extra: kaggle
 Requires-Dist: unsloth[huggingface]; extra == "kaggle"
 Provides-Extra: kaggle-new
@@ -338,6 +390,12 @@ Provides-Extra: flashattention
 Requires-Dist: packaging; "linux" in sys_platform and extra == "flashattention"
 Requires-Dist: ninja; "linux" in sys_platform and extra == "flashattention"
 Requires-Dist: flash-attn>=2.6.3; "linux" in sys_platform and extra == "flashattention"
+Provides-Extra: audio-torch280
+Requires-Dist: torchcodec<0.8.0,>=0.6.0; (python_version >= "3.9" and (((sys_platform == "linux" or sys_platform == "win32") and (platform_machine == "x86_64" or platform_machine == "AMD64")) or (sys_platform == "darwin" and platform_machine == "arm64"))) and extra == "audio-torch280"
+Provides-Extra: audio-torch290
+Requires-Dist: torchcodec<0.10.0,>=0.8.0; (python_version >= "3.10" and (((sys_platform == "linux" or sys_platform == "win32") and (platform_machine == "x86_64" or platform_machine == "AMD64")) or (sys_platform == "darwin" and platform_machine == "arm64"))) and extra == "audio-torch290"
+Provides-Extra: audio-torch210
+Requires-Dist: torchcodec<0.11.0,>=0.10.0; (python_version >= "3.10" and (((sys_platform == "linux" or sys_platform == "win32") and (platform_machine == "x86_64" or platform_machine == "AMD64")) or (sys_platform == "darwin" and platform_machine == "arm64"))) and extra == "audio-torch210"
 Provides-Extra: colab-ampere-torch211
 Requires-Dist: unsloth[huggingface]; extra == "colab-ampere-torch211"
 Requires-Dist: bitsandbytes!=0.46.0,!=0.48.0,>=0.45.5; extra == "colab-ampere-torch211"
@@ -353,7 +411,7 @@ Requires-Dist: bitsandbytes!=0.46.0,!=0.48.0,>=0.45.5; extra == "colab-ampere-to
 Requires-Dist: unsloth[cu121onlytorch220]; extra == "colab-ampere-torch220"
 Requires-Dist: unsloth[flashattention]; extra == "colab-ampere-torch220"
 Provides-Extra: colab-new
-Requires-Dist: unsloth_zoo>=2026.7.6; extra == "colab-new"
+Requires-Dist: unsloth_zoo>=2026.7.7; extra == "colab-new"
 Requires-Dist: packaging; extra == "colab-new"
 Requires-Dist: tyro; extra == "colab-new"
 Requires-Dist: transformers!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.0,!=4.57.4,!=4.57.5,!=5.0.0,!=5.1.0,<=5.5.0,>=4.51.3; extra == "colab-new"
@@ -534,6 +592,7 @@ Provides-Extra: cu130-ampere-torch280
 Requires-Dist: unsloth[huggingface]; extra == "cu130-ampere-torch280"
 Requires-Dist: bitsandbytes!=0.46.0,!=0.48.0,>=0.45.5; extra == "cu130-ampere-torch280"
 Requires-Dist: unsloth[cu130onlytorch280]; extra == "cu130-ampere-torch280"
+Requires-Dist: unsloth[flashattention]; extra == "cu130-ampere-torch280"
 Provides-Extra: cu126-ampere-torch290
 Requires-Dist: unsloth[huggingface]; extra == "cu126-ampere-torch290"
 Requires-Dist: bitsandbytes!=0.46.0,!=0.48.0,>=0.45.5; extra == "cu126-ampere-torch290"
@@ -562,14 +621,17 @@ Provides-Extra: cu126-ampere-torch2100
 Requires-Dist: unsloth[huggingface]; extra == "cu126-ampere-torch2100"
 Requires-Dist: bitsandbytes!=0.46.0,!=0.48.0,>=0.45.5; extra == "cu126-ampere-torch2100"
 Requires-Dist: unsloth[cu126onlytorch2100]; extra == "cu126-ampere-torch2100"
+Requires-Dist: unsloth[audio-torch210]; extra == "cu126-ampere-torch2100"
 Provides-Extra: cu128-ampere-torch2100
 Requires-Dist: unsloth[huggingface]; extra == "cu128-ampere-torch2100"
 Requires-Dist: bitsandbytes!=0.46.0,!=0.48.0,>=0.45.5; extra == "cu128-ampere-torch2100"
 Requires-Dist: unsloth[cu128onlytorch2100]; extra == "cu128-ampere-torch2100"
+Requires-Dist: unsloth[audio-torch210]; extra == "cu128-ampere-torch2100"
 Provides-Extra: cu130-ampere-torch2100
 Requires-Dist: unsloth[huggingface]; extra == "cu130-ampere-torch2100"
 Requires-Dist: bitsandbytes!=0.46.0,!=0.48.0,>=0.45.5; extra == "cu130-ampere-torch2100"
 Requires-Dist: unsloth[cu130onlytorch2100]; extra == "cu130-ampere-torch2100"
+Requires-Dist: unsloth[audio-torch210]; extra == "cu130-ampere-torch2100"
 Dynamic: license-file
 
 <h1 align="center" style="margin:0;">
@@ -658,9 +720,8 @@ Replace `claude` with any supported agent:
 | Hermes Agent | `unsloth start hermes` |
 | OpenClaw | `unsloth start openclaw` |
 | OpenCode | `unsloth start opencode` |
-| Pi Coding Agent | `unsloth start pi` |
 
-Claude Code, Codex, OpenCode and Pi can keep their current model and use Unsloth as a local
+Claude Code, Codex and OpenCode can keep their current model and use Unsloth as a local
 subagent:
 
 ```bash
@@ -677,7 +738,7 @@ Unsloth Studio (Beta) works on **Windows, Linux, WSL** and **macOS**.
 * **NVIDIA:** Training works on RTX 30/40/50, Blackwell, DGX Spark, Station and more
 * **macOS:** Training, MLX and GGUF inference are ALL supported.
 * **AMD:** Training, RL, chat and deployment work on Windows, WSL and Linux. [Read the AMD guide](https://unsloth.ai/docs/basics/amd).
-* **Vulkan:** GGUF inference is supported on [compatible GPUs, including Intel GPUs](https://github.com/unslothai/unsloth/pull/5819).
+* **Vulkan:** GGUF inference is supported on [compatible GPUs, including Intel GPUs](https://github.com/unslothai/unsloth/pull/5819). Vulkan accelerates GGUF inference only; training still requires a supported PyTorch or MLX backend.
 * **Multi-GPU:** Available now, with a major upgrade on the way
 
 #### macOS, Linux, WSL:
@@ -686,11 +747,27 @@ curl -fsSL https://unsloth.ai/install.sh | sh
 ```
 Use the same command to update.
 
+To force the Vulkan llama.cpp backend, set `UNSLOTH_FORCE_VULKAN=1` **before installing or updating**. The setting selects the llama.cpp binary bundle, so setting it only when launching Studio cannot replace an existing CPU bundle:
+
+```bash
+export UNSLOTH_FORCE_VULKAN=1
+curl -fsSL https://unsloth.ai/install.sh | sh
+```
+
 #### Windows:
 ```powershell
 irm https://unsloth.ai/install.ps1 | iex
 ```
 Use the same command to update.
+
+To force the Vulkan llama.cpp backend, set the environment variable before running the installer or updater:
+
+```powershell
+$env:UNSLOTH_FORCE_VULKAN=1
+irm https://unsloth.ai/install.ps1 | iex
+```
+
+Re-running the current installer replaces a previously selected CPU bundle when the backend differs. A separate Vulkan SDK is not required; the GPU driver must provide a working Vulkan runtime.
 
 #### Launch
 ```bash
@@ -762,7 +839,7 @@ Read our [guide](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide). Ad
 ## 🦥 Unsloth News
 - **AMD training**: Train, run RL, chat and deploy on AMD GPUs across Windows, WSL and Linux. [Guide](https://unsloth.ai/docs/basics/amd)
 - **GGUF hardware controls**: Choose GPU/layer placement, offload MoE experts and use multi-GPU or Tensor Parallelism. [#6414](https://github.com/unslothai/unsloth/pull/6414)
-- **Local models for any agent**: Use `unsloth start` with Claude Code, Codex, Hermes, OpenCode, OpenClaw, Pi and more through Unsloth's OpenAI- and Anthropic-compatible APIs. [Guide](https://unsloth.ai/docs/basics/api)
+- **Local models for any agent**: Use `unsloth start` with Claude Code, Codex, Hermes, OpenCode, OpenClaw and more through Unsloth's OpenAI- and Anthropic-compatible APIs. [Guide](https://unsloth.ai/docs/basics/api)
 - **MCP control endpoint**: Let compatible clients manage models, training, recipes, checkpoints and exports. [#7191](https://github.com/unslothai/unsloth/pull/7191)
 - **Local inference reliability**: Resume long chats faster, recover stalled downloads and reuse existing GGUF files. [#7204](https://github.com/unslothai/unsloth/pull/7204) • [#6858](https://github.com/unslothai/unsloth/pull/6858) • [#7209](https://github.com/unslothai/unsloth/pull/7209)
 - **New models**: [Qwen-AgentWorld](https://huggingface.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF), [Ornith](https://huggingface.co/unsloth/models?search=ornith), [Kimi K2.7 Code](https://unsloth.ai/docs/models/kimi-k2.7-code) and [MiniMax M3](https://unsloth.ai/docs/models/minimax-m3)
@@ -836,6 +913,8 @@ unsloth studio --secure -p 8888
 unsloth studio -H 0.0.0.0 -p 8888
 ```
 The Cloudflare tunnel is **off by default**: `-H 0.0.0.0` exposes the raw port only, not a public internet URL. Pair the wildcard bind with `--cloudflare` (`unsloth studio -H 0.0.0.0 --cloudflare`) to also publish a public `https://*.trycloudflare.com` link, or prefer `--secure` (above), which keeps the raw port private. `--cloudflare` has no effect on a loopback bind.
+
+On a wildcard bind Unsloth works out the address to share by asking `ifconfig.me` for the public IP, then asks `check-host.net` whether that port is reachable so it can tell you if a firewall is in the way. Both contact a third party. Set `UNSLOTH_STUDIO_DISABLE_PUBLIC_CHECK=1` to skip them; the banner then shows the LAN address and no reachability line.
 
 The first time Unsloth is published on a public URL (`--secure` or `--cloudflare`) with the auto-generated admin password still in place, it asks for a new admin password in the terminal (masked input with confirmation) before the public link goes up. Without an attached terminal it warns instead and keeps the bootstrap deadline: Unsloth shuts down after `UNSLOTH_STUDIO_BOOTSTRAP_TIMEOUT` (default 1 hour) unless the password is changed in the web UI.
 

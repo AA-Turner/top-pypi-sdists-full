@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litellm-enterprise
-Version: 0.1.51
+Version: 0.1.52
 Summary: Package for LiteLLM Enterprise features
 Author: BerriAI
 License-Expression: LicenseRef-Proprietary

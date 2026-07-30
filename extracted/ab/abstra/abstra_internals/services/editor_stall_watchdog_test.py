@@ -176,6 +176,64 @@ class StallBatchingTest(unittest.TestCase):
         self.assertEqual(summaries[1]["stallsSeconds"], [3.0])
 
 
+class StallCloudReportTest(unittest.TestCase):
+    """The optional `report` callback pushes finished episodes to cloud-api
+    (aggregates only, no per-stall list). It is independent from the
+    lifecycle log."""
+
+    def setUp(self):
+        self.events: List[Tuple[str, Dict[str, Any]]] = []
+        self.reports: List[Dict[str, Any]] = []
+        self.watchdog = EditorStallWatchdog(
+            interval_seconds=INTERVAL,
+            threshold_seconds=THRESHOLD,
+            batch_window_seconds=BATCH_WINDOW,
+            emit=lambda msg, attrs: self.events.append((msg, attrs)),
+            report=lambda episode: self.reports.append(episode),
+        )
+        self.watchdog._last_wake = 0.0
+
+    def _stall_tick(self, stall_seconds: float) -> None:
+        self.watchdog._tick(self.watchdog._last_wake + INTERVAL + stall_seconds)
+
+    def _quiet_tick(self) -> None:
+        self.watchdog._tick(self.watchdog._last_wake + INTERVAL)
+
+    def test_reports_episode_aggregates_without_per_stall_list(self):
+        self._stall_tick(3.0)
+        self._stall_tick(30.0)
+        self.assertEqual(self.reports, [])  # episode still open
+        self._quiet_tick()
+
+        self.assertEqual(len(self.reports), 1)
+        episode = self.reports[0]
+        self.assertEqual(episode["stallCount"], 2)
+        self.assertAlmostEqual(episode["stallTotalSeconds"], 33.0)
+        self.assertAlmostEqual(episode["stallMaxSeconds"], 30.0)
+        self.assertIn("episodeSeconds", episode)
+        self.assertEqual(episode["thresholdSeconds"], THRESHOLD)
+        # The per-stall list and log-only stage never reach the cloud report.
+        self.assertNotIn("stallsSeconds", episode)
+        self.assertNotIn("stage", episode)
+
+    def test_marker_start_does_not_report(self):
+        # Only finished episodes are reported; the live marker is log-only.
+        self._stall_tick(5.0)
+        self.assertEqual(self.reports, [])
+
+    def test_report_failure_does_not_break_lifecycle_log(self):
+        def boom(_episode):
+            raise RuntimeError("cloud down")
+
+        self.watchdog._report = boom
+        self._stall_tick(4.0)
+        self._quiet_tick()
+        # The lifecycle summary still went out despite the report throwing.
+        self.assertEqual(
+            len([a for _, a in self.events if a["stage"] == "editor.stall"]), 1
+        )
+
+
 class FloatEnvParsingTest(unittest.TestCase):
     """environment.py is imported by every abstra entrypoint: a malformed
     watchdog knob must never crash the boot."""

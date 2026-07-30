@@ -1119,14 +1119,19 @@ def test_sticky_bit_fallback_handles_concurrent_unlink(tmp_path: Path, mocker: M
     lock = FileLock(str(lock_path), is_singleton=False)
 
     real_open = os.open
-    call_count = 0
+    denied_create = False
+    unlinked_open = False
 
+    # Key the injections off each open's signature rather than a global call count: GraalPy opens unrelated paths
+    # mid-acquire, which would shift a counter and land the errors on the wrong opens. Deny the first create, then
+    # unlink under the first no-create open, so the sticky-bit fallback must retry once more to succeed.
     def open_permission_then_unlink(path: str, flags: int, mode: int = 0o777, *, dir_fd: int | None = None) -> int:
-        nonlocal call_count
-        call_count += 1
-        if call_count == 1 and flags & os.O_CREAT and "test.lock" in path:
+        nonlocal denied_create, unlinked_open
+        if not denied_create and flags & os.O_CREAT and "test.lock" in path:
+            denied_create = True
             raise PermissionError(13, "Permission denied", path)
-        if call_count == 2 and not (flags & os.O_CREAT) and "test.lock" in path:
+        if not unlinked_open and not flags & os.O_CREAT and "test.lock" in path:
+            unlinked_open = True
             lock_path.unlink(missing_ok=True)
             raise FileNotFoundError(2, "No such file or directory", path)
         return real_open(path, flags, mode) if dir_fd is None else real_open(path, flags, mode, dir_fd=dir_fd)
@@ -1134,7 +1139,7 @@ def test_sticky_bit_fallback_handles_concurrent_unlink(tmp_path: Path, mocker: M
     mocker.patch("os.open", side_effect=open_permission_then_unlink)
     lock.acquire()
     assert lock.is_locked
-    assert call_count == 3
+    assert (denied_create, unlinked_open) == (True, True)
     lock.release()
 
 
@@ -1992,8 +1997,9 @@ def test_final_symlink_stays_a_distinct_key(tmp_path: Path) -> None:
 def test_final_symlink_backend_refuses_to_lock(tmp_path: Path) -> None:
     (tmp_path / "target").write_text("")
     (tmp_path / "link").symlink_to(tmp_path / "target")
-    # Keeping the final symlink a distinct key is safe because the backend still refuses to lock through it.
-    with pytest.raises(OSError, match=r"Too many levels of symbolic links|symbolic link"):
+    # Keeping the final symlink a distinct key is safe because the backend still refuses to lock through it. O_NOFOLLOW
+    # reports the refusal as ELOOP on Linux and macOS, and as EFTYPE ("inappropriate file type") on NetBSD.
+    with pytest.raises(OSError, match=r"Too many levels of symbolic links|symbolic link|Inappropriate file type"):
         FileLock(str(tmp_path / "link")).acquire()
 
 
@@ -2187,6 +2193,10 @@ def test_lock_descriptor_blocking_retries_until_free(tmp_path: Path, mocker: Moc
         os.close(fd)
 
 
+#: NetBSD has no CLOCK_THREAD_CPUTIME_ID, so time.thread_time is absent; process CPU time proves "not spinning" too.
+_CPU_TIME: Final[Callable[[], float]] = getattr(time, "thread_time", time.process_time)
+
+
 def test_lock_descriptor_blocking_wait_does_not_spin(tmp_path: Path) -> None:
     path = str(tmp_path / "a")
     holder = os.open(path, os.O_RDWR | os.O_CREAT)
@@ -2196,9 +2206,9 @@ def test_lock_descriptor_blocking_wait_does_not_spin(tmp_path: Path) -> None:
 
     def acquire() -> float:
         started.set()
-        before = time.thread_time()
+        before = _CPU_TIME()
         lock_descriptor(contender, poll_interval=0.01)
-        return time.thread_time() - before
+        return _CPU_TIME() - before
 
     try:
         with ThreadPoolExecutor(max_workers=1) as executor:

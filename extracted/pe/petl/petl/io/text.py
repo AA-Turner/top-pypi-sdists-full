@@ -68,7 +68,7 @@ class TextView(Table):
     def __init__(self, source, header=('lines',), encoding=None,
                  errors='strict', strip=None):
         self.source = source
-        self.header = header
+        self._header = header
         self.encoding = encoding
         self.errors = errors
         self.strip = strip
@@ -88,8 +88,8 @@ class TextView(Table):
 
             # generate the table
             try:
-                if self.header is not None:
-                    yield tuple(self.header)
+                if self._header is not None:
+                    yield tuple(self._header)
                 if self.strip is False:
                     for line in f:
                         yield (line,)

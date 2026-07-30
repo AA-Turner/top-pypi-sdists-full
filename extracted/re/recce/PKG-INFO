@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: recce
-Version: 1.57.0
+Version: 1.58.1
 Summary: Environment diff tool for dbt
 Project-URL: Bug Tracker, https://github.com/InfuseAI/recce/issues
 Project-URL: Homepage, https://github.com/InfuseAI/recce
@@ -57,7 +57,7 @@ Requires-Dist: tox; extra == 'dev'
 Requires-Dist: tox-uv; extra == 'dev'
 Requires-Dist: twine; extra == 'dev'
 Provides-Extra: mcp
-Requires-Dist: mcp>=1.23.0; extra == 'mcp'
+Requires-Dist: mcp~=1.23; extra == 'mcp'
 Description-Content-Type: text/markdown
 
 <p align="center">

@@ -1,11 +1,12 @@
 Metadata-Version: 2.4
 Name: aa-memberaudit
-Version: 5.0.4
+Version: 5.1.0
 Summary: An Alliance Auth app that provides full access to Eve characters
 Keywords: allianceauth,eveonline,memberaudit
-Author-email: Erik Kalkoken <kalkoken87@gmail.com>, Peter Pfeufer <develop@ppfeufer.de>, Rebecca Murphy <rebecca@rcmurphy.me>
+Author-email: Erik Kalkoken <erik.kalkoken@gmail.com>, Peter Pfeufer <develop@ppfeufer.de>, Rebecca Murphy <rebecca@rcmurphy.me>
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
+License-Expression: MIT
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2

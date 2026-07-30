@@ -244,7 +244,6 @@ class ActionTracker:
                     access_key=os.environ["MATRICE_ACCESS_KEY_ID"],
                 )
             self.session = session
-            self.rpc = self.session.rpc
             if action_id is None:
                 self.action_id = None
                 print("ActionTracker initialized but no action found")
@@ -272,6 +271,15 @@ class ActionTracker:
             except Exception:
                 logger.exception("Failed to report initialization error via update_status")
             sys.exit(1)
+
+    @property
+    def rpc(self):
+        """Current RPC client, read live from the session.
+
+        session.update() can rebuild the RPC client, so this is not cached —
+        it always returns whatever client the session currently has.
+        """
+        return self.session.rpc
 
     @log_errors(raise_exception=True, log_error=False)
     def _init_action_tracker_attributes(self, action_id):

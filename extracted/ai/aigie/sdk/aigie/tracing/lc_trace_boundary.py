@@ -190,4 +190,7 @@ class LangChainTraceBoundary:
         execution_data = self._execution.to_execution_data()
         if execution_data["execution_path"]:
             metadata["execution_data"] = execution_data
+        catalog_hash = getattr(self, "_aigie_tool_registry_hash", None)
+        if catalog_hash:
+            metadata["tool_registry_hash"] = catalog_hash
         return metadata

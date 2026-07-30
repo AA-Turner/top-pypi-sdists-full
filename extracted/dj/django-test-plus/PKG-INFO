@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-test-plus
-Version: 2.4.1
+Version: 2.5.0
 Summary: django-test-plus provides useful additions to Django's default TestCase
 Project-URL: Changelog, https://github.com/revsys/django-test-plus/blob/main/CHANGELOG.md
 Project-URL: Homepage, https://github.com/revsys/django-test-plus/
@@ -15,6 +15,7 @@ Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
@@ -25,15 +26,17 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading :: 3 - Stable
 Requires-Python: >=3.10
 Requires-Dist: packaging
 Provides-Extra: docs
+Requires-Dist: django; extra == 'docs'
 Requires-Dist: furo; extra == 'docs'
 Requires-Dist: sphinx; extra == 'docs'
 Requires-Dist: sphinx-copybutton; extra == 'docs'
 Requires-Dist: sphinx-prompt; extra == 'docs'
 Provides-Extra: lint
-Requires-Dist: pre-commit; extra == 'lint'
+Requires-Dist: prek; extra == 'lint'
 Provides-Extra: test
 Requires-Dist: factory-boy; extra == 'test'
 Requires-Dist: pytest; extra == 'test'
@@ -67,9 +70,10 @@ to help your team dramatically improve your productivity.
 
 ## Support
 
-- Python 3.10, 3.11, 3.12, 3.13, and 3.14.
+- Python 3.10, 3.11, 3.12, 3.13, and 3.14, including the 3.14 free-threaded
+  build (3.14t).
 
-- Django 4.2 LTS, 5.1, 5.2 LTS, and 6.0.
+- Django 4.2 LTS, 5.1, 5.2 LTS, 6.0, and 6.1.
 
 ## Documentation
 
@@ -132,6 +136,14 @@ def test_url_reverse(tp):
     expected_url = '/api/'
     reversed_url = tp.reverse('api')
     assert expected_url == reversed_url
+```
+
+The pytest plugin is auto-registered via `pytest11`, so no extra configuration is required beyond installing the package and pytest-django. In addition to `tp` and `tp_api`, the plugin also provides a raw `api_client` fixture:
+
+```python
+def test_api_client(api_client):
+    response = api_client.get("/api/")
+    assert response.status_code == 200
 ```
 
 The `tp_api` fixture will provide a `TestCase` that uses django-rest-framework's `APIClient()`:
@@ -319,6 +331,38 @@ The `response_###()` methods that are deprecated, but still available for use, i
 
 All of which take an optional Django test client response and a str msg argument that, if specified, is used as the error message when a failure occurs. Just like the `assert_http_###_<status_name>()` methods, these methods will use the last response if it's available.
 
+## Response helpers and stored context
+
+Every request made through `test_plus` stores the last response on `self.last_response` and the template context on `self.context`.
+These methods build on that behavior:
+
+- `assertResponseContains(text, response=None, html=True, **kwargs)`
+- `assertResponseNotContains(text, response=None, html=True, **kwargs)`
+- `assertResponseHeaders(headers, response=None)` - compares only the provided headers
+- `assertResponseTemplateUsed(template_name, response=None, **kwargs)`
+- `assertResponseTemplateNotUsed(template_name, response=None, **kwargs)`
+- `assertResponseMessages(expected_messages, response=None, ordered=True)` - Django 5.0+
+
+The context helpers work against the last response:
+
+- `get_context(key)`
+- `assertInContext(key)`
+- `assertContext(key, value)`
+
+`assertResponseMessages` wraps Django's `MessagesTestMixin.assertMessages`:
+
+```python
+from django.contrib.messages import Message
+from django.contrib.messages.constants import SUCCESS
+
+def test_success_message(self):
+    self.post('my-form-view', data={'name': 'Test'})
+    self.assertResponseMessages([Message(level=SUCCESS, message='Form saved successfully!')])
+```
+
+Pass `ordered=False` if the order of the messages does not matter. On Django
+versions before 5.0 this method raises `NotImplementedError`.
+
 ## `get_check_200(url_name, *args, **kwargs)`
 
 GETing and checking views return status 200 is a common test. This method makes it more convenient::
@@ -397,7 +441,7 @@ class MyFormTest(TestCase):
 
 ## Authentication Helpers
 
-### `assertLoginRequired(url_name, *args, **kwargs)`
+### `assertLoginRequired(url_name, *args, method='get', **kwargs)`
 
 This method helps you test that a given named URL requires authorization:
 
@@ -407,6 +451,25 @@ def test_auth(self):
     self.assertLoginRequired('my-restricted-object', pk=12)
     self.assertLoginRequired('my-restricted-object', slug='something')
 ```
+
+Like `self.get()` and friends, a plain URL works too when the name cannot be
+reversed:
+
+```python
+def test_auth_by_url(self):
+    self.assertLoginRequired('/restricted/')
+```
+
+Pass `method` to check a verb other than GET, which is useful for views that
+only accept writes:
+
+```python
+def test_auth_on_post(self):
+    self.assertLoginRequired('my-restricted-url', method='post')
+```
+
+`method` accepts any verb supported by `request()`: `get`, `post`, `put`,
+`patch`, `head`, `trace`, `options`, and `delete`.
 
 ### `login()` context
 
@@ -471,7 +534,9 @@ def test_something_out(self):
         self.get('some-view-with-6-queries')
 ```
 
-### `assertGoodView(url_name, *args, **kwargs)`
+`assertNumQueriesLessThan` also supports `verbose=True` to include the SQL in assertion failures, and `using="alias"` for multi-database projects. If you pass `func=callable`, it will execute the callable inside the query context.
+
+### `assertGoodView(url_name, *args, verbose=False, **kwargs)`
 
 This method does a few things for you. It:
 
@@ -487,6 +552,9 @@ can use it like this:
 def test_better_than_nothing(self):
     response = self.assertGoodView('my-url-name')
 ```
+
+If you want a different query threshold, pass `test_query_count=...` to `assertGoodView`.
+Pass `verbose=True` to include the executed SQL in the assertion failure.
 
 ## Testing DRF views
 

@@ -33,6 +33,8 @@ class PyObjectType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     PY_OBJECT_TYPE_CALLABLE: _ClassVar[PyObjectType]
     PY_OBJECT_TYPE_CALL: _ClassVar[PyObjectType]
     PY_OBJECT_TYPE_PYARROW_SCHEMA: _ClassVar[PyObjectType]
+    PY_OBJECT_TYPE_BOOL: _ClassVar[PyObjectType]
+    PY_OBJECT_TYPE_STRUCT_PACKING_INFO: _ClassVar[PyObjectType]
 
 class ScalarFunction(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -251,6 +253,8 @@ PY_OBJECT_TYPE_BYTES: PyObjectType
 PY_OBJECT_TYPE_CALLABLE: PyObjectType
 PY_OBJECT_TYPE_CALL: PyObjectType
 PY_OBJECT_TYPE_PYARROW_SCHEMA: PyObjectType
+PY_OBJECT_TYPE_BOOL: PyObjectType
+PY_OBJECT_TYPE_STRUCT_PACKING_INFO: PyObjectType
 SCALAR_FUNCTION_UNSPECIFIED: ScalarFunction
 SCALAR_FUNCTION_ABS: ScalarFunction
 SCALAR_FUNCTION_ACOS: ScalarFunction
@@ -832,6 +836,18 @@ class ExprLiteral(_message.Message):
         self, value: _Optional[_Union[_arrow_pb2.ScalarValue, _Mapping]] = ..., is_arrow_scalar_object: bool = ...
     ) -> None: ...
 
+class FlatLogicalExpr(_message.Message):
+    __slots__ = ("flat_nodes",)
+    FLAT_NODES_FIELD_NUMBER: _ClassVar[int]
+    flat_nodes: _containers.RepeatedCompositeFieldContainer[LogicalExprNode]
+    def __init__(self, flat_nodes: _Optional[_Iterable[_Union[LogicalExprNode, _Mapping]]] = ...) -> None: ...
+
+class LogicalExprNodeReference(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: int
+    def __init__(self, id: _Optional[int] = ...) -> None: ...
+
 class LogicalExprNode(_message.Message):
     __slots__ = (
         "identifier",
@@ -841,6 +857,8 @@ class LogicalExprNode(_message.Message):
         "literal_value",
         "typed_identifier",
         "blocking_call",
+        "reference",
+        "this_reference",
         "expr_id",
         "column",
         "alias",
@@ -884,6 +902,8 @@ class LogicalExprNode(_message.Message):
     LITERAL_VALUE_FIELD_NUMBER: _ClassVar[int]
     TYPED_IDENTIFIER_FIELD_NUMBER: _ClassVar[int]
     BLOCKING_CALL_FIELD_NUMBER: _ClassVar[int]
+    REFERENCE_FIELD_NUMBER: _ClassVar[int]
+    THIS_REFERENCE_FIELD_NUMBER: _ClassVar[int]
     EXPR_ID_FIELD_NUMBER: _ClassVar[int]
     COLUMN_FIELD_NUMBER: _ClassVar[int]
     ALIAS_FIELD_NUMBER: _ClassVar[int]
@@ -926,6 +946,8 @@ class LogicalExprNode(_message.Message):
     literal_value: ExprLiteral
     typed_identifier: TypedIdentifier
     blocking_call: ExprBlockingCall
+    reference: LogicalExprNodeReference
+    this_reference: LogicalExprNodeReference
     expr_id: str
     column: Column
     alias: AliasNode
@@ -970,6 +992,8 @@ class LogicalExprNode(_message.Message):
         literal_value: _Optional[_Union[ExprLiteral, _Mapping]] = ...,
         typed_identifier: _Optional[_Union[TypedIdentifier, _Mapping]] = ...,
         blocking_call: _Optional[_Union[ExprBlockingCall, _Mapping]] = ...,
+        reference: _Optional[_Union[LogicalExprNodeReference, _Mapping]] = ...,
+        this_reference: _Optional[_Union[LogicalExprNodeReference, _Mapping]] = ...,
         expr_id: _Optional[str] = ...,
         column: _Optional[_Union[Column, _Mapping]] = ...,
         alias: _Optional[_Union[AliasNode, _Mapping]] = ...,

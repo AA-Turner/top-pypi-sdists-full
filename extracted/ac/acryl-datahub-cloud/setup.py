@@ -3,14 +3,15 @@ import pathlib
 
 from setuptools import setup
 
+_here = pathlib.Path(__file__).parent
+
 _codegen_config_file = pathlib.Path("./src/acryl_datahub_cloud/_codegen_config.json")
 _codegen_config: dict = json.loads(_codegen_config_file.read_text())
 
 acryl_datahub = [
-    # 1.3.0: Pydantic v2 was introduced in 1.2.0.10 and later RCs fixed in OSS some missing code from /metadata-ingestion SaaS
     # 1.5.0.8: acryl-datahub exposes redshift-slim (Wolfi executor venv; no sql_common / GE / urllib3 1.x stack).
     # Needs to stay pinned to prevent breaking changes
-    "acryl-datahub==1.6.0.3"
+    "acryl-datahub==1.6.0.15"
 ]
 
 # Note: We are using the croniter library for cron parsing which is different from executor, which uses apscheduler, so there is a risk of mismatch here.
@@ -53,6 +54,7 @@ plugins = {
     "datahub-action-request-owner": {"tenacity"},
     "acryl-cs-issues": {"zenpy", "openai", "jinja2", "slack-sdk"},
     "datahub-forms-notifications": {"tenacity"},
+    "datahub-periodic-analytics": stats_common | aws_common | {"polars==1.34.0"},
 }
 
 dev_requirements = {
@@ -76,6 +78,7 @@ dev_requirements = {
             "datahub-metadata-sharing",
             "acryl-cs-issues",
             "datahub-forms-notifications",
+            "datahub-periodic-analytics",
         ]
         for dependency in plugins[plugin]
     ),
@@ -84,7 +87,31 @@ dev_requirements = {
 setup(
     **{
         **_codegen_config,
+        "description": "Extend DataHub with DataHub Cloud features: usage reporting, lineage enrichment, metadata sharing, and more.",
+        "long_description": (_here / "README.md").read_text(),
+        "long_description_content_type": "text/markdown",
+        "url": "https://datahub.com/",
+        "project_urls": {
+            "Documentation": "https://docs.datahub.com",
+            "Source": "https://github.com/acryldata/datahub-fork",
+            "Changelog": "https://github.com/acryldata/datahub-fork/releases",
+            "Releases": "https://github.com/acryldata/datahub-fork/releases",
+        },
+        "license": "Proprietary",
         "python_requires": ">=3.10",
+        "classifiers": [
+            "Development Status :: 5 - Production/Stable",
+            "Intended Audience :: Developers",
+            "Intended Audience :: Information Technology",
+            "License :: Other/Proprietary License",
+            "Operating System :: OS Independent",
+            "Programming Language :: Python",
+            "Programming Language :: Python :: 3",
+            "Programming Language :: Python :: 3.10",
+            "Programming Language :: Python :: 3.11",
+            "Topic :: Software Development :: Libraries :: Python Modules",
+            "Topic :: Database",
+        ],
         "install_requires": [
             *_codegen_config["install_requires"],
             *base_requirements,
@@ -106,6 +133,9 @@ setup(
                 "datahub-action-request-owner = acryl_datahub_cloud.action_request.action_request_owner_source:ActionRequestOwnerSource",
                 "datahub-forms-notifications = acryl_datahub_cloud.datahub_forms_notifications.forms_notifications_source:DataHubFormsNotificationsSource",
                 "datahub-user-entity-resolution = acryl_datahub_cloud.user_entity_resolution.source:UserEntityResolutionSource",
+                "github-documents-cloud = acryl_datahub_cloud.github_documents_cloud.source:GitHubDocumentsCloudSource",
+                "datahub-periodic-analytics-rollup = acryl_datahub_cloud.periodic_analytics.rollup_source:DataHubPeriodicAnalyticsRollupSource",
+                "datahub-periodic-analytics-billing-sync = acryl_datahub_cloud.periodic_analytics.billing_sync_source:DataHubPeriodicAnalyticsBillingSyncSource",
             ],
         },
         "include_package_data": True,
@@ -125,6 +155,7 @@ setup(
                 "send_form_notification_request.gql",
                 "get_feature_flag.gql",
             ],
+            "acryl_datahub_cloud.periodic_analytics.registries": ["*.yaml"],
         },
     },
     extras_require={

@@ -556,6 +556,11 @@ async def _heal_cascade(
     if tiers is None:
         tiers = _DEFAULT_HEAL_TIERS
 
+    # Entering the cascade means the authored locator didn't resolve, so flag the step as auto-healing now (even if the cascade later exhausts).
+    # Local import avoids an import cycle with _step.
+    from testmu._step import mark_autoheal
+    mark_autoheal()
+
     for tier in tiers:
         dispatcher = _TIER_DISPATCHERS.get(tier)
         if dispatcher is None:

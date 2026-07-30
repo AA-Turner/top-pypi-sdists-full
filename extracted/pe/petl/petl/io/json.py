@@ -96,7 +96,7 @@ class JsonView(Table):
     def __init__(self, source, *args, **kwargs):
         self.source = source
         self.missing = kwargs.pop('missing', None)
-        self.header = kwargs.pop('header', None)
+        self._header = kwargs.pop('header', None)
         self.sample = kwargs.pop('sample', 1000)
         self.lines = kwargs.pop('lines', False)
         self.args = args
@@ -110,11 +110,11 @@ class JsonView(Table):
                                      write_through=True)
             try:
                 if self.lines:
-                    for row in iterjlines(f, self.header, self.missing):
+                    for row in iterjlines(f, self._header, self.missing):
                         yield row
                 else:
                     dicts = json.load(f, *self.args, **self.kwargs)
-                    for row in iterdicts(dicts, self.header, self.sample,
+                    for row in iterdicts(dicts, self._header, self.sample,
                                          self.missing):
                         yield row
             finally:

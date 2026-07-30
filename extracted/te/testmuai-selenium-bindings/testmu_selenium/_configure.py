@@ -12,6 +12,8 @@ _ALLOWED_KWARGS = {
     # V2/V4 capability-parity metadata
     "tc_id", "network", "timezone", "chrome_options",
     "multiple_profiles", "custom_headers",
+    # V3 instance-view opt-in: the generator sets kane_run_v3=True so build_capability emits kaneRunV3 + preCmdVisual.
+    "kane_run_v3",
 }
 
 

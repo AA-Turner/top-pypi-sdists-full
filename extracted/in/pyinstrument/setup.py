@@ -9,7 +9,7 @@ long_description = (PROJECT_ROOT / "README.md").read_text(encoding="utf8")
 setup(
     name="pyinstrument",
     packages=find_namespace_packages(include=["pyinstrument*"]),
-    version="5.1.2",
+    version="5.1.3",
     ext_modules=[
         Extension(
             "pyinstrument.low_level.stat_profile",
@@ -41,7 +41,10 @@ setup(
         ],
         "bin": [
             "click",
+        ],
+        "tools": [
             "nox",
+            "prek",
         ],
         "docs": [
             "sphinx==7.4.7",

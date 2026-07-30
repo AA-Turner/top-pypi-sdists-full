@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: x-transformers
-Version: 2.24.0
+Version: 2.24.1
 Summary: X-Transformers
 Project-URL: Homepage, https://pypi.org/project/x-transformers/
 Project-URL: Repository, https://codeberg.org/lucidrains/x-transformers
@@ -38,7 +38,7 @@ Requires-Dist: einops>=0.8.0
 Requires-Dist: einx>=0.3.0
 Requires-Dist: loguru
 Requires-Dist: packaging>=21.0
-Requires-Dist: torch-einops-utils>=0.1.2
+Requires-Dist: torch-einops-utils>=0.1.12
 Requires-Dist: torch>=2.0
 Provides-Extra: examples
 Requires-Dist: adam-atan2-pytorch>=0.2.2; extra == 'examples'

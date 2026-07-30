@@ -13,8 +13,8 @@ use std::{
     time::{Duration, SystemTime},
 };
 use temporalio_client::{
-    Connection, Namespace, NamespacedClient, RetryOptions, SharedReplaceableClient,
-    grpc::WorkflowService,
+    Connection, NamespacedClient, PayloadErrorLimits, RetryOptions, SharedReplaceableClient,
+    grpc::{PayloadLimitsClient, WorkflowService},
     request_extensions::{IsWorkerTaskLongPoll, NoRetryOnMatching, RetryConfigForCall},
     worker::ClientWorkerSet,
 };
@@ -57,7 +57,13 @@ pub enum LegacyQueryResult {
 
 /// Contains everything a worker needs to interact with the server
 pub(crate) struct WorkerClientBag {
+    /// Shared connection handle, used for management operations (capabilities, identity, client
+    /// replacement, etc.).
     connection: SharedReplaceableClient<Connection>,
+    /// Issues outbound gRPC calls, automatically attaching this worker's payload/memo error limits
+    /// (set via `set_payload_error_limits`) so the gRPC layer can enforce them. Wraps a clone of
+    /// `connection`, so a client replacement on `connection` is reflected here too.
+    client: PayloadLimitsClient<SharedReplaceableClient<Connection>>,
     namespace: String,
     worker_versioning_strategy: WorkerVersioningStrategy,
     worker_instance_key: Uuid,
@@ -72,6 +78,7 @@ impl WorkerClientBag {
         worker_instance_key: Uuid,
     ) -> Self {
         Self {
+            client: PayloadLimitsClient::new(connection.clone()),
             connection,
             namespace,
             worker_versioning_strategy,
@@ -139,7 +146,12 @@ impl WorkerClientBag {
     }
 
     fn worker_control_task_queue(&self) -> String {
-        worker_control_task_queue(&self.namespace, &self.worker_grouping_key().to_string())
+        let workers = self.connection.inner_cow().workers();
+        if workers.worker_control_task_queue_enabled(&self.namespace) {
+            worker_control_task_queue(&self.namespace, &workers.worker_grouping_key().to_string())
+        } else {
+            String::new()
+        }
     }
 }
 
@@ -267,6 +279,8 @@ pub trait WorkerClient: Sync + Send {
     /// Sets the client-reliant fields for WorkerHeartbeat. This also updates client-level tracking
     /// of heartbeat fields, like last heartbeat timestamp.
     fn set_heartbeat_client_fields(&self, heartbeat: &mut WorkerHeartbeat);
+    /// Set the worker's payload/memo error limits
+    fn set_payload_error_limits(&self, _limits: Option<PayloadErrorLimits>) {}
 }
 
 /// Configuration options shared by workflow, activity, and Nexus polling calls
@@ -341,7 +355,7 @@ impl WorkerClient for WorkerClientBag {
         }
 
         Ok(self
-            .connection
+            .client
             .clone()
             .poll_workflow_task_queue(request)
             .await?
@@ -381,7 +395,7 @@ impl WorkerClient for WorkerClientBag {
         }
 
         Ok(self
-            .connection
+            .client
             .clone()
             .poll_activity_task_queue(request)
             .await?
@@ -393,11 +407,18 @@ impl WorkerClient for WorkerClientBag {
         poll_options: PollOptions,
         nexus_options: PollNexusOptions,
     ) -> Result<PollNexusTaskQueueResponse> {
-        let kind = if nexus_options.worker_commands_queue {
-            TaskQueueKind::WorkerCommands
-        } else {
-            TaskQueueKind::Normal
-        };
+        let (kind, worker_version_capabilities, deployment_options) =
+            if nexus_options.worker_commands_queue {
+                // Worker-command partitions do not support versioning, even when the client was
+                // created for a versioned application worker.
+                (TaskQueueKind::WorkerCommands, None, None)
+            } else {
+                (
+                    TaskQueueKind::Normal,
+                    self.worker_version_capabilities(),
+                    self.deployment_options(),
+                )
+            };
         #[allow(deprecated)] // want to list all fields explicitly
         let mut request = PollNexusTaskQueueRequest {
             namespace: self.namespace.clone(),
@@ -407,8 +428,8 @@ impl WorkerClient for WorkerClientBag {
                 normal_name: "".to_string(),
             }),
             identity: self.identity(),
-            worker_version_capabilities: self.worker_version_capabilities(),
-            deployment_options: self.deployment_options(),
+            worker_version_capabilities,
+            deployment_options,
             // TODO: Piggyback worker heartbeats here if this is the system nexus worker and reset
             //   heartbeating ticker when done
             worker_heartbeat: Vec::new(),
@@ -425,7 +446,7 @@ impl WorkerClient for WorkerClientBag {
         }
 
         Ok(self
-            .connection
+            .client
             .clone()
             .poll_nexus_task_queue(request)
             .await?
@@ -477,9 +498,13 @@ impl WorkerClient for WorkerClientBag {
             worker_instance_key: self.worker_instance_key.to_string(),
             worker_control_task_queue: self.worker_control_task_queue(),
             resource_id: Default::default(),
+            // Pagination fields: default to a single, final page. Pagination logic will
+            // populate these when splitting large completions.
+            page_number: 0,
+            intermediate_page: false,
         };
         Ok(self
-            .connection
+            .client
             .clone()
             .respond_workflow_task_completed(request.into_request())
             .await?
@@ -492,7 +517,7 @@ impl WorkerClient for WorkerClientBag {
         result: Option<Payloads>,
     ) -> Result<RespondActivityTaskCompletedResponse> {
         Ok(self
-            .connection
+            .client
             .clone()
             .respond_activity_task_completed(
                 #[allow(deprecated)] // want to list all fields explicitly
@@ -519,7 +544,7 @@ impl WorkerClient for WorkerClientBag {
         response: nexus::v1::Response,
     ) -> Result<RespondNexusTaskCompletedResponse> {
         Ok(self
-            .connection
+            .client
             .clone()
             .respond_nexus_task_completed(
                 RespondNexusTaskCompletedRequest {
@@ -541,7 +566,7 @@ impl WorkerClient for WorkerClientBag {
         details: Option<Payloads>,
     ) -> Result<RecordActivityTaskHeartbeatResponse> {
         Ok(self
-            .connection
+            .client
             .clone()
             .record_activity_task_heartbeat(
                 RecordActivityTaskHeartbeatRequest {
@@ -563,7 +588,7 @@ impl WorkerClient for WorkerClientBag {
         details: Option<Payloads>,
     ) -> Result<RespondActivityTaskCanceledResponse> {
         Ok(self
-            .connection
+            .client
             .clone()
             .respond_activity_task_canceled(
                 #[allow(deprecated)] // want to list all fields explicitly
@@ -590,7 +615,7 @@ impl WorkerClient for WorkerClientBag {
         failure: Option<Failure>,
     ) -> Result<RespondActivityTaskFailedResponse> {
         Ok(self
-            .connection
+            .client
             .clone()
             .respond_activity_task_failed(
                 #[allow(deprecated)] // want to list all fields explicitly
@@ -635,7 +660,7 @@ impl WorkerClient for WorkerClientBag {
             resource_id: Default::default(),
         };
         Ok(self
-            .connection
+            .client
             .clone()
             .respond_workflow_task_failed(request.into_request())
             .await?
@@ -653,7 +678,7 @@ impl WorkerClient for WorkerClientBag {
         };
 
         Ok(self
-            .connection
+            .client
             .clone()
             .respond_nexus_task_failed(
                 #[allow(deprecated)]
@@ -678,7 +703,7 @@ impl WorkerClient for WorkerClientBag {
         page_token: Vec<u8>,
     ) -> Result<GetWorkflowExecutionHistoryResponse> {
         Ok(self
-            .connection
+            .client
             .clone()
             .get_workflow_execution_history(
                 GetWorkflowExecutionHistoryRequest {
@@ -714,7 +739,7 @@ impl WorkerClient for WorkerClientBag {
         let (_, completed_type, query_result, error_message) = query_result.into_components();
 
         Ok(self
-            .connection
+            .client
             .clone()
             .respond_query_task_completed(
                 RespondQueryTaskCompletedRequest {
@@ -735,12 +760,14 @@ impl WorkerClient for WorkerClientBag {
 
     async fn describe_namespace(&self) -> Result<DescribeNamespaceResponse> {
         Ok(self
-            .connection
+            .client
             .clone()
             .describe_namespace(
-                Namespace::Name(self.namespace.clone())
-                    .into_describe_namespace_request()
-                    .into_request(),
+                DescribeNamespaceRequest {
+                    namespace: self.namespace.clone(),
+                    ..Default::default()
+                }
+                .into_request(),
             )
             .await?
             .into_inner())
@@ -773,7 +800,7 @@ impl WorkerClient for WorkerClientBag {
             .insert(RetryConfigForCall(RetryOptions::no_retries()));
 
         Ok(
-            WorkflowService::shutdown_worker(&mut self.connection.clone(), request)
+            WorkflowService::shutdown_worker(&mut self.client.clone(), request)
                 .await?
                 .into_inner(),
         )
@@ -791,7 +818,7 @@ impl WorkerClient for WorkerClientBag {
             resource_id: Default::default(),
         };
         Ok(self
-            .connection
+            .client
             .clone()
             .record_worker_heartbeat(request.into_request())
             .await?
@@ -881,6 +908,10 @@ impl WorkerClient for WorkerClientBag {
             &mut client_heartbeat_data.local_activity_slots_info,
         );
     }
+
+    fn set_payload_error_limits(&self, limits: Option<PayloadErrorLimits>) {
+        self.client.set_error_limits(limits);
+    }
 }
 
 impl NamespacedClient for WorkerClientBag {
@@ -944,5 +975,153 @@ fn update_slots(slots_info: &mut Option<WorkerSlotsInfo>, client_heartbeat_data:
 
         client_heartbeat_data.total_processed_tasks = wft_slot_info.total_processed_tasks;
         client_heartbeat_data.total_failed_tasks = wft_slot_info.total_failed_tasks;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use prost::Message;
+    use std::sync::{Arc, Mutex};
+    use temporalio_client::{
+        ConnectionOptions,
+        callback_based::{CallbackBasedGrpcService, GrpcSuccessResponse},
+    };
+    use temporalio_common::worker::{WorkerDeploymentOptions, WorkerDeploymentVersion};
+
+    #[allow(deprecated)]
+    #[tokio::test]
+    async fn worker_command_nexus_polls_omit_versioning_metadata() {
+        let strategies = [
+            (
+                "deployment",
+                WorkerVersioningStrategy::WorkerDeploymentBased(WorkerDeploymentOptions {
+                    version: WorkerDeploymentVersion {
+                        deployment_name: "deployment".to_string(),
+                        build_id: "deployment-build".to_string(),
+                    },
+                    use_worker_versioning: true,
+                    default_versioning_behavior: None,
+                }),
+            ),
+            (
+                "legacy",
+                WorkerVersioningStrategy::LegacyBuildIdBased {
+                    build_id: "legacy-build".to_string(),
+                },
+            ),
+        ];
+
+        for (strategy_name, strategy) in strategies {
+            let requests = Arc::new(Mutex::new(Vec::new()));
+            let requests_clone = requests.clone();
+            let service_override = CallbackBasedGrpcService {
+                callback: Arc::new(move |request| {
+                    let requests = requests_clone.clone();
+                    Box::pin(async move {
+                        let proto = match request.rpc.as_str() {
+                            "GetSystemInfo" => GetSystemInfoResponse {
+                                capabilities: Some(Capabilities {
+                                    build_id_based_versioning: true,
+                                    ..Default::default()
+                                }),
+                                ..Default::default()
+                            }
+                            .encode_to_vec(),
+                            "PollNexusTaskQueue" => {
+                                requests.lock().unwrap().push(
+                                    PollNexusTaskQueueRequest::decode(request.proto)
+                                        .expect("poll request is valid"),
+                                );
+                                PollNexusTaskQueueResponse::default().encode_to_vec()
+                            }
+                            rpc => panic!("unexpected RPC: {rpc}"),
+                        };
+                        Ok(GrpcSuccessResponse {
+                            headers: Default::default(),
+                            proto,
+                        })
+                    })
+                }),
+            };
+            let connection = Connection::connect(
+                ConnectionOptions::new(url::Url::parse("http://localhost:7233").unwrap())
+                    .service_override(service_override)
+                    .dns_load_balancing(None)
+                    .build(),
+            )
+            .await
+            .unwrap();
+            let client = WorkerClientBag::new(
+                SharedReplaceableClient::new(connection),
+                "namespace".to_string(),
+                strategy,
+                Uuid::new_v4(),
+            );
+
+            client
+                .poll_nexus_task(
+                    PollOptions {
+                        task_queue: "application-queue".to_string(),
+                        no_retry: None,
+                        timeout_override: None,
+                    },
+                    PollNexusOptions {
+                        worker_commands_queue: false,
+                    },
+                )
+                .await
+                .unwrap();
+            client
+                .poll_nexus_task(
+                    PollOptions {
+                        task_queue: "worker-command-queue".to_string(),
+                        no_retry: None,
+                        timeout_override: None,
+                    },
+                    PollNexusOptions {
+                        worker_commands_queue: true,
+                    },
+                )
+                .await
+                .unwrap();
+
+            let requests = requests.lock().unwrap();
+            assert_eq!(requests.len(), 2, "{strategy_name}");
+            let normal_poll = &requests[0];
+            assert_eq!(
+                normal_poll.task_queue.as_ref().unwrap().kind,
+                TaskQueueKind::Normal as i32,
+                "{strategy_name}",
+            );
+            assert!(
+                normal_poll
+                    .worker_version_capabilities
+                    .as_ref()
+                    .is_some_and(|capabilities| capabilities.use_versioning)
+                    || normal_poll
+                        .deployment_options
+                        .as_ref()
+                        .is_some_and(|options| {
+                            options.worker_versioning_mode == WorkerVersioningMode::Versioned as i32
+                        }),
+                "{strategy_name}",
+            );
+
+            let worker_command_poll = &requests[1];
+            assert_eq!(
+                worker_command_poll.task_queue.as_ref().unwrap().kind,
+                TaskQueueKind::WorkerCommands as i32,
+                "{strategy_name}",
+            );
+            assert!(
+                worker_command_poll.worker_version_capabilities.is_none(),
+                "{strategy_name}",
+            );
+            assert!(
+                worker_command_poll.deployment_options.is_none(),
+                "{strategy_name}",
+            );
+        }
     }
 }

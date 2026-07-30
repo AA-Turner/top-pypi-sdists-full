@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 import logging
 from dataclasses import dataclass
 from typing import Any
 
-from aigie.rewind.protocol import Corrective, RewindHandle, RewindOutcome
+from aigie.rewind.protocol import Corrective, RewindHandle, RewindOutcome, ToolCallOverride
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,40 @@ def _extract_session_id(message: Any) -> str | None:
         sid = data.get("session_id") or data.get("sessionId")
         return str(sid) if sid else None
     return None
+
+
+def _tool_call_directive(override: ToolCallOverride) -> str:
+    """Render a tool redirect as a fork-and-steer instruction.
+
+    A rename can only be stated, not applied: the fork point carries no tool
+    args, so there is nothing here to rename. The forked session still holds the
+    original call, so the model is told which keys to rename and left to do it.
+    """
+    # Name the replaced tool when we know it: "the one you called" is ambiguous
+    # once a turn has made several parallel calls.
+    replaced = f"`{override.source_tool}`" if override.source_tool else "the one you called"
+    parts = [f"Use the `{override.name}` tool instead of {replaced}."]
+    if override.args is not None:
+        rendered = json.dumps(override.args, default=str, sort_keys=True)
+        parts.append(f"Call it with exactly these arguments: {rendered}")
+    elif override.arg_mapping:
+        renames = ", ".join(
+            f"`{old}` -> `{new}`" for old, new in sorted(override.arg_mapping.items())
+        )
+        parts.append(
+            f"Reuse the arguments from your previous call, renaming {renames}. "
+            "Keep every other argument unchanged."
+        )
+    return " ".join(parts)
+
+
+def _steering_query(corrective: Corrective | None) -> str | None:
+    if corrective is None:
+        return None
+    parts = [corrective.prompt] if corrective.prompt else []
+    if corrective.tool_call is not None:
+        parts.append(_tool_call_directive(corrective.tool_call))
+    return "\n\n".join(parts) if parts else None
 
 
 class ClaudeAgentSDKRewindCapability:
@@ -60,13 +95,14 @@ class ClaudeAgentSDKRewindCapability:
         )
 
     async def rewind(self, handle: RewindHandle, corrective: Corrective | None) -> RewindOutcome:
-        if corrective is None or not corrective.prompt:
-            return RewindOutcome.unsupported(reason="nothing to steer (no corrective prompt)")
+        query = _steering_query(corrective)
+        if query is None:
+            return RewindOutcome.unsupported(reason="nothing to steer (no prompt or tool_call)")
         payload: ClaudeForkPoint = handle.payload
         options = self._fork_options(payload)
         forked = await self._spawn_fork(options)
         try:
-            await forked.query(corrective.prompt)
+            await forked.query(query)
             forked_session_id = await self._drive(forked, payload.session_id)
         finally:
             await self._disconnect(forked)

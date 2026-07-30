@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal, TypeVar
 
-from angr.code_location import ExternalCodeLocation
+from angr.code_location import AILCodeLocation, ExternalCodeLocation
 from angr.engines.light import SpOffset
 from angr.knowledge_plugins.variables.variable_manager import VariableManagerInternal
 from angr.misc.ux import once
@@ -20,7 +20,7 @@ from .atoms import Atom, AtomKind, MemoryLocation, Register, Tmp, VirtualVariabl
 from .tag import Tag
 
 if TYPE_CHECKING:
-    from angr.code_location import AILCodeLocation, CodeLocation
+    from angr.code_location import CodeLocation
 
 log = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ class DefinitionMatchPredicate:
     bbl_addr: int | None = None
     ins_addr: int | None = None
     variable: SimVariable | None = None
-    variable_manager: VariableManagerInternal | None | Literal[False] = None
+    variable_manager: VariableManagerInternal | Literal[False] | None = None
     stack_offset: int | None = None
     reg_name: str | int | None = None
     heap_offset: int | None = None

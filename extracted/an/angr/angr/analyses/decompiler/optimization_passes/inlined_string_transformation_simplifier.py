@@ -347,6 +347,9 @@ class InlinedStringTransformationAILEngine(
             return ~v
         return None
 
+    def _handle_unop_Abs(self, expr: UnaryOp):
+        self._expr(expr.operand)
+
     def _handle_unop_Default(self, expr: UnaryOp):
         return None
 
@@ -502,6 +505,7 @@ class InlinedStringTransformationAILEngine(
     _handle_binop_SubV = _handle_binop_Default
     _handle_binop_MinV = _handle_binop_Default
     _handle_binop_MaxV = _handle_binop_Default
+    _handle_binop_HAddV = _handle_binop_Default
     _handle_binop_QAddV = _handle_binop_Default
     _handle_binop_QSubV = _handle_binop_Default
     _handle_binop_QNarrowBinV = _handle_binop_Default

@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "Pretty print of NumPy (and other) histograms to the console"
 readme = "README.rst"
 license = "MIT"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 authors = [
     { name = "Lukas Koch", email = "lukas.koch@mailbox.org" },
 ]
@@ -19,12 +19,12 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
+
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering",
 ]
 dependencies = [
@@ -47,6 +47,12 @@ uproot = [
     "awkward>=1",
     "uproot>=4",
 ]
+csv = [
+    "pandas>=2.3"
+]
+all = [
+    "histoprint[boost,rich,uproot,csv]",
+]
 
 [project.scripts]
 histoprint = "histoprint.cli:histoprint"
@@ -55,18 +61,20 @@ histoprint = "histoprint.cli:histoprint"
 Homepage = "https://github.com/scikit-hep/histoprint"
 
 
+[dependency-groups]
+dev = ["histoprint[all,test]"]
+
+
 [tool.hatch]
 version.source = "vcs"
-build.hooks.vcs.version-file = "histoprint/version.py"
+build.hooks.vcs.version-file = "src/histoprint/version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/histoprint"]
 
 
 [tool.setuptools_scm]
-write_to = "histoprint/version.py"
-
-
-[tool.uv]
-dev-dependencies = ["histoprint[boost,rich,test,uproot]", "pandas"]
-environments = ["python_version >= '3.11'"]
+write_to = "src/histoprint/version.py"
 
 
 [tool.pytest.ini_options]
@@ -78,8 +86,8 @@ testpaths = [
 
 
 [tool.mypy]
-files = ["histoprint"]
-python_version = "3.8"
+files = ["src/histoprint"]
+python_version = "3.10"
 show_error_codes = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 warn_unused_configs = true
@@ -87,6 +95,7 @@ check_untyped_defs = true
 
 [[tool.mypy.overrides]]
 module = [
+    "numpy",
     "pandas",
     "uproot",
     "awkward",

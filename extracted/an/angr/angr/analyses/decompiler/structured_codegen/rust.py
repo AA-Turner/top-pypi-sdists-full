@@ -78,8 +78,6 @@ from angr.utils.loader import is_in_readonly_section, is_in_readonly_segment
 from .base import BaseStructuredCodeGenerator, InstructionMapping, PositionMapping, PositionMappingElement
 
 if TYPE_CHECKING:
-    import archinfo
-
     import angr
     from angr.knowledge_plugins.variables.variable_manager import VariableManagerInternal
 
@@ -190,7 +188,7 @@ def is_machine_word_size_type(type_: SimType, arch: archinfo.Arch) -> bool:
     return isinstance(type_, SimTypeReg) and type_.size == arch.bits
 
 
-def guess_value_type(value: int | float, project: angr.Project) -> SimType | None:
+def guess_value_type(value: float, project: angr.Project) -> SimType | None:
     if not isinstance(value, int):
         return None
     if project.kb.functions.contains_addr(value):
@@ -611,8 +609,8 @@ class RustFunction(RustConstruct):  # pylint:disable=abstract-method
             yield " ", None
         yield "{", brace
         yield "\n", None
-        yield from self.variable_list_repr_chunks(indent=indent + INDENT_DELTA)
-        yield from self.statements.c_repr_chunks(indent=indent + INDENT_DELTA)
+        yield from self.variable_list_repr_chunks(indent=indent + self.codegen.indent_delta)
+        yield from self.statements.c_repr_chunks(indent=indent + self.codegen.indent_delta)
         yield indent_str, None
         yield "}", brace
         yield "\n", None
@@ -756,7 +754,7 @@ class RustInfiniteLoop(RustLoop):
         else:
             yield "{", brace
             yield "\n", None
-            yield from self.body.c_repr_chunks(indent=indent + INDENT_DELTA)
+            yield from self.body.c_repr_chunks(indent=indent + self.codegen.indent_delta)
             yield indent_str, None
             yield "}", brace
             yield "\n", None
@@ -804,7 +802,7 @@ class RustWhileLoop(RustLoop):
         else:
             yield "{", brace
             yield "\n", None
-            yield from self.body.c_repr_chunks(indent=indent + INDENT_DELTA)
+            yield from self.body.c_repr_chunks(indent=indent + self.codegen.indent_delta)
             yield indent_str, None
             yield "}", brace
             yield "\n", None
@@ -843,7 +841,7 @@ class RustDoWhileLoop(RustLoop):
         if self.body is not None:
             yield "{", brace
             yield "\n", None
-            yield from self.body.c_repr_chunks(indent=indent + INDENT_DELTA)
+            yield from self.body.c_repr_chunks(indent=indent + self.codegen.indent_delta)
             yield indent_str, None
             yield "}", brace
         else:
@@ -905,7 +903,7 @@ class RustForLoop(RustStatement):
 
             yield "{", brace
             yield "\n", None
-            yield from self.body.c_repr_chunks(indent=indent + INDENT_DELTA)
+            yield from self.body.c_repr_chunks(indent=indent + self.codegen.indent_delta)
             yield indent_str, None
             yield "}", brace
         else:
@@ -976,7 +974,7 @@ class RustIfElse(RustStatement):
             yield "\n", None
 
             if node is not None:
-                yield from node.c_repr_chunks(indent=INDENT_DELTA + indent)
+                yield from node.c_repr_chunks(indent=self.codegen.indent_delta + indent)
 
             yield indent_str, None
             yield "}", brace
@@ -1002,7 +1000,7 @@ class RustIfElse(RustStatement):
 
                 yield "{", brace
                 yield "\n", None
-                yield from self.else_node.c_repr_chunks(indent=indent + INDENT_DELTA)
+                yield from self.else_node.c_repr_chunks(indent=indent + self.codegen.indent_delta)
                 yield indent_str, None
                 yield "}", brace
 
@@ -1044,12 +1042,12 @@ class RustIfBreak(RustStatement):
         else:
             yield " ", None
         if self.cstyle_ifs:
-            yield self.indent_str(indent=INDENT_DELTA), self
+            yield self.indent_str(indent=self.codegen.indent_delta), self
             yield "break;\n", self
         else:
             yield "{", brace
             yield "\n", None
-            yield self.indent_str(indent=indent + INDENT_DELTA), self
+            yield self.indent_str(indent=indent + self.codegen.indent_delta), self
             yield "break;\n", self
             yield indent_str, None
             yield "}", brace
@@ -1127,7 +1125,7 @@ class RustSwitchCase(RustStatement):
         yield "\n", None
 
         # cases
-        indent_str = self.indent_str(indent=indent + INDENT_DELTA)
+        indent_str = self.indent_str(indent=indent + self.codegen.indent_delta)
         for id_or_ids, case in self.cases:
             yield indent_str, None
             if isinstance(id_or_ids, int):
@@ -1155,14 +1153,14 @@ class RustSwitchCase(RustStatement):
                     if i != len(ranges) - 1:
                         yield "| ", None
                 yield "=> {\n", None
-            yield from case.c_repr_chunks(indent=indent + INDENT_DELTA * 2)
+            yield from case.c_repr_chunks(indent=indent + self.codegen.indent_delta * 2)
             yield indent_str, None
             yield "}\n", None
 
         if self.default is not None:
             yield indent_str, None
             yield "_ => {\n", self
-            yield from self.default.c_repr_chunks(indent=indent + INDENT_DELTA * 2)
+            yield from self.default.c_repr_chunks(indent=indent + self.codegen.indent_delta * 2)
             yield indent_str, None
             yield "}\n", None
 
@@ -1199,7 +1197,7 @@ class RustPatternMatch(RustStatement):
         yield "{", brace
         yield "\n", None
 
-        arm_indent_str = self.indent_str(indent=indent + INDENT_DELTA)
+        arm_indent_str = self.indent_str(indent=indent + self.codegen.indent_delta)
 
         # arms
         for (variant, bound_vars), arm in self.arms:
@@ -1216,14 +1214,14 @@ class RustPatternMatch(RustStatement):
                         yield "_", None
                 yield ")", paren
             yield " => {\n", self
-            yield from arm.c_repr_chunks(indent=indent + 2 * INDENT_DELTA)
+            yield from arm.c_repr_chunks(indent=indent + 2 * self.codegen.indent_delta)
             yield arm_indent_str, None
             yield "},\n", self
 
         if self.default is not None:
             yield arm_indent_str, None
             yield "_ => {\n", self
-            yield from self.default.c_repr_chunks(indent=indent + 2 * INDENT_DELTA)
+            yield from self.default.c_repr_chunks(indent=indent + 2 * self.codegen.indent_delta)
             yield arm_indent_str, None
             yield "}\n", self
 
@@ -1274,7 +1272,7 @@ class RustIfLet(RustStatement):
         yield " ", None
         yield "{", brace
         yield "\n", None
-        yield from self.true_node.c_repr_chunks(indent=indent + INDENT_DELTA)
+        yield from self.true_node.c_repr_chunks(indent=indent + self.codegen.indent_delta)
         yield indent_str, None
         yield "}", brace
 
@@ -1282,7 +1280,7 @@ class RustIfLet(RustStatement):
             yield " else ", self
             yield "{", brace
             yield "\n", None
-            yield from self.false_node.c_repr_chunks(indent=indent + INDENT_DELTA)
+            yield from self.false_node.c_repr_chunks(indent=indent + self.codegen.indent_delta)
             yield indent_str, None
             yield "}", brace
 
@@ -1657,7 +1655,7 @@ class RustStruct(RustExpression):
             yield "...", self
             return
         indent_str = self.indent_str(indent=indent)
-        field_indent_str = self.indent_str(indent=indent + INDENT_DELTA)
+        field_indent_str = self.indent_str(indent=indent + self.codegen.indent_delta)
         yield str(self.name), self
         if not self.field_names:
             yield " {", brace
@@ -1669,7 +1667,9 @@ class RustStruct(RustExpression):
                 yield name, self
                 yield ": ", self
                 if offset in self.fields:
-                    yield from RustExpression._try_c_repr_chunks(self.fields[offset], indent + INDENT_DELTA)
+                    yield from RustExpression._try_c_repr_chunks(
+                        self.fields[offset], indent + self.codegen.indent_delta
+                    )
                 else:
                     yield "<UNKNOWN>", None
                 yield "\n", None
@@ -2478,7 +2478,7 @@ class RustConstant(RustExpression):
 
         # default priority: string references -> variables -> other reference values
         if self.reference_values is not None:
-            for _ty, v in self.reference_values.items():  # pylint:disable=unused-variable
+            for v in self.reference_values.values():  # pylint:disable=unused-variable
                 if isinstance(v, MemoryData) and v.sort == MemoryDataSort.String and v.content is not None:
                     yield RustConstant.str_to_rust_str(v.content.decode("utf-8")), self
                     return
@@ -2728,7 +2728,6 @@ class RustStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
         sequence,
         indent=0,
         cfg=None,
-        variable_kb=None,
         func_args: list[SimVariable] | None = None,
         binop_depth_cutoff: int = 16,
         show_casts=True,
@@ -2754,9 +2753,16 @@ class RustStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
         min_data_addr: int = 0x400_000,
         notes=None,
         display_notes: bool = True,
+        max_str_len: int | None = None,
+        prettify_thiscall: bool = False,
+        cstyle_void_param: bool = True,
+        indent_size: int = INDENT_DELTA,
         variable_map: VariableMap | None = None,
     ):
-        super().__init__(flavor=flavor, notes=notes)
+        super().__init__(
+            flavor=flavor,
+            notes=notes,
+        )
 
         self._handlers = {
             CodeNode: self._handle_Code,
@@ -2809,7 +2815,6 @@ class RustStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
         self._func_args = func_args
         self._cfg = cfg
         self._sequence = sequence
-        self._variable_kb = variable_kb if variable_kb is not None else self.kb
         self._variable_map: VariableMap = variable_map if variable_map is not None else VariableMap()
         self.binop_depth_cutoff = binop_depth_cutoff
 
@@ -2831,9 +2836,14 @@ class RustStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
         self.externs = externs or set()
         self.show_externs = show_externs
         self.show_demangled_name = show_demangled_name
+        self.show_disambiguated_name = show_disambiguated_name
         self.ail_graph = ail_graph
         self.simplify_else_scope = simplify_else_scope
         self.cstyle_ifs = cstyle_ifs
+        self.omit_func_header = omit_func_header
+        self.display_block_addrs = display_block_addrs
+        self.display_vvar_ids = display_vvar_ids
+        self.min_data_addr = min_data_addr
         self.text = None
         self.map_pos_to_node = None
         self.map_pos_to_addr = None
@@ -2843,6 +2853,10 @@ class RustStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
         self.rust_func: RustFunction | None = None
         self.cexterns: set[RustVariable] | None = None
         self.display_notes = display_notes
+        self.max_str_len = max_str_len
+        self.prettify_thiscall = prettify_thiscall
+        self.cstyle_void_param = cstyle_void_param
+        self.indent_delta = indent_size
 
         self._analyze()
 
@@ -2868,6 +2882,10 @@ class RustStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
                 self.simplify_else_scope = value
             elif option.param == "cstyle_ifs":
                 self.cstyle_ifs = value
+            elif option.param == "cstyle_void_param":
+                self.cstyle_void_param = value
+            elif option.param == "indent_size":
+                self.indent_delta = value
 
     def _translate_prototype_to_rust(self, prototype: SimTypeFunction):
         translator = RustTypeTranslator(self.project.arch)
@@ -2905,7 +2923,7 @@ class RustStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
             arg_list,
             obj,
             self._variables_in_use,
-            self._variable_kb.variables[self._func.addr],
+            self.kb.dec_variables[self._func.addr],
             demangled_name=self._func.demangled_name,
             show_demangled_name=self.show_demangled_name,
             codegen=self,
@@ -3007,8 +3025,8 @@ class RustStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
 
     def _get_variable_type(self, var, is_global=False):
         if is_global:
-            return self._variable_kb.variables["global"].get_variable_type(var)
-        return self._variable_kb.variables[self._func.addr].get_variable_type(var)
+            return self.kb.dec_variables["global"].get_variable_type(var)
+        return self.kb.dec_variables[self._func.addr].get_variable_type(var)
 
     def _get_derefed_type(self, ty: SimType) -> SimType | None:
         if ty is None:
@@ -3053,7 +3071,7 @@ class RustStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
         #     import ipdb
         #
         #     ipdb.set_trace()
-        unified = self._variable_kb.variables[self._func.addr].unified_variable(variable)
+        unified = self.kb.dec_variables[self._func.addr].unified_variable(variable)
         variable_type = self._get_variable_type(
             variable, is_global=isinstance(variable, SimMemoryVariable) and not isinstance(variable, SimStackVariable)
         )

@@ -6934,6 +6934,10 @@ CommonDeploymentResourcesOrganizationDeploymentResourcesUseCloudApiPlayer = typi
 
 CommonDeploymentResourcesOrganizationDeploymentResourcesUseCloudApiPlayerValues:typing.List[CommonDeploymentResourcesOrganizationDeploymentResourcesUseCloudApiPlayer] = ["true", "false"]
 
+CommonDeploymentResourcesOrganizationDeploymentResourcesUseCloudApiWebEditorPlayer = typing.Union[typing.Literal["true"], typing.Literal["false"]]
+
+CommonDeploymentResourcesOrganizationDeploymentResourcesUseCloudApiWebEditorPlayerValues:typing.List[CommonDeploymentResourcesOrganizationDeploymentResourcesUseCloudApiWebEditorPlayer] = ["true", "false"]
+
 CommonDeploymentResourcesOrganizationDeploymentResourcesRequestsCPU = str
 
 CommonDeploymentResourcesOrganizationDeploymentResourcesLimitsCPU = str
@@ -7031,6 +7035,7 @@ class CommonDeploymentResourcesOrganizationDeploymentResources:
     native_temp_dir: typing.Optional[CommonDeploymentResourcesOrganizationDeploymentResourcesNativeTempDir] = field(default_factory=lambda: None)
     notifications_enabled: typing.Optional[CommonDeploymentResourcesOrganizationDeploymentResourcesNotificationsEnabled] = field(default_factory=lambda: None)
     use_cloud_api_player: typing.Optional[CommonDeploymentResourcesOrganizationDeploymentResourcesUseCloudApiPlayer] = field(default_factory=lambda: None)
+    use_cloud_api_web_editor_player: typing.Optional[CommonDeploymentResourcesOrganizationDeploymentResourcesUseCloudApiWebEditorPlayer] = field(default_factory=lambda: None)
     requests_c_p_u: typing.Optional[CommonDeploymentResourcesOrganizationDeploymentResourcesRequestsCPU] = field(default_factory=lambda: None)
     limits_c_p_u: typing.Optional[CommonDeploymentResourcesOrganizationDeploymentResourcesLimitsCPU] = field(default_factory=lambda: None)
     requests_memory: typing.Optional[CommonDeploymentResourcesOrganizationDeploymentResourcesRequestsMemory] = field(default_factory=lambda: None)
@@ -7071,6 +7076,8 @@ class CommonDeploymentResourcesOrganizationDeploymentResources:
             data['notificationsEnabled'] = self.notifications_enabled
         if self.use_cloud_api_player is not None:
             data['useCloudApiPlayer'] = self.use_cloud_api_player
+        if self.use_cloud_api_web_editor_player is not None:
+            data['useCloudApiWebEditorPlayer'] = self.use_cloud_api_web_editor_player
         if self.requests_c_p_u is not None:
             data['requestsCPU'] = self.requests_c_p_u
         if self.limits_c_p_u is not None:
@@ -7138,6 +7145,7 @@ class CommonDeploymentResourcesOrganizationDeploymentResources:
             native_temp_dir=None if data.get('nativeTempDir') is None else data['nativeTempDir'],
             notifications_enabled=None if data.get('notificationsEnabled') is None else data['notificationsEnabled'],
             use_cloud_api_player=None if data.get('useCloudApiPlayer') is None else data['useCloudApiPlayer'],
+            use_cloud_api_web_editor_player=None if data.get('useCloudApiWebEditorPlayer') is None else data['useCloudApiWebEditorPlayer'],
             requests_c_p_u=None if data.get('requestsCPU') is None else str(data['requestsCPU']),
             limits_c_p_u=None if data.get('limitsCPU') is None else str(data['limitsCPU']),
             requests_memory=None if data.get('requestsMemory') is None else str(data['requestsMemory']),
@@ -7181,6 +7189,10 @@ CommonDeploymentResourcesProjectDeploymentResourcesSeleniumInstanceEnabledValues
 CommonDeploymentResourcesProjectDeploymentResourcesUseCloudApiPlayer = typing.Union[typing.Literal["true"], typing.Literal["false"]]
 
 CommonDeploymentResourcesProjectDeploymentResourcesUseCloudApiPlayerValues:typing.List[CommonDeploymentResourcesProjectDeploymentResourcesUseCloudApiPlayer] = ["true", "false"]
+
+CommonDeploymentResourcesProjectDeploymentResourcesUseCloudApiWebEditorPlayer = typing.Union[typing.Literal["true"], typing.Literal["false"]]
+
+CommonDeploymentResourcesProjectDeploymentResourcesUseCloudApiWebEditorPlayerValues:typing.List[CommonDeploymentResourcesProjectDeploymentResourcesUseCloudApiWebEditorPlayer] = ["true", "false"]
 
 CommonDeploymentResourcesProjectDeploymentResourcesNotificationsEnabled = typing.Union[typing.Literal["true"], typing.Literal["false"]]
 
@@ -7370,6 +7382,7 @@ class CommonDeploymentResourcesProjectDeploymentResources:
     watermark_enabled: typing.Optional[CommonDeploymentResourcesProjectDeploymentResourcesWatermarkEnabled] = field(default_factory=lambda: None)
     selenium_instance_enabled: typing.Optional[CommonDeploymentResourcesProjectDeploymentResourcesSeleniumInstanceEnabled] = field(default_factory=lambda: None)
     use_cloud_api_player: typing.Optional[CommonDeploymentResourcesProjectDeploymentResourcesUseCloudApiPlayer] = field(default_factory=lambda: None)
+    use_cloud_api_web_editor_player: typing.Optional[CommonDeploymentResourcesProjectDeploymentResourcesUseCloudApiWebEditorPlayer] = field(default_factory=lambda: None)
     notifications_enabled: typing.Optional[CommonDeploymentResourcesProjectDeploymentResourcesNotificationsEnabled] = field(default_factory=lambda: None)
     requests_c_p_u: typing.Optional[CommonDeploymentResourcesProjectDeploymentResourcesRequestsCPU] = field(default_factory=lambda: None)
     limits_c_p_u: typing.Optional[CommonDeploymentResourcesProjectDeploymentResourcesLimitsCPU] = field(default_factory=lambda: None)
@@ -7414,6 +7427,8 @@ class CommonDeploymentResourcesProjectDeploymentResources:
             data['seleniumInstanceEnabled'] = self.selenium_instance_enabled
         if self.use_cloud_api_player is not None:
             data['useCloudApiPlayer'] = self.use_cloud_api_player
+        if self.use_cloud_api_web_editor_player is not None:
+            data['useCloudApiWebEditorPlayer'] = self.use_cloud_api_web_editor_player
         if self.notifications_enabled is not None:
             data['notificationsEnabled'] = self.notifications_enabled
         if self.requests_c_p_u is not None:
@@ -7492,6 +7507,7 @@ class CommonDeploymentResourcesProjectDeploymentResources:
             watermark_enabled=None if data.get('watermarkEnabled') is None else data['watermarkEnabled'],
             selenium_instance_enabled=None if data.get('seleniumInstanceEnabled') is None else data['seleniumInstanceEnabled'],
             use_cloud_api_player=None if data.get('useCloudApiPlayer') is None else data['useCloudApiPlayer'],
+            use_cloud_api_web_editor_player=None if data.get('useCloudApiWebEditorPlayer') is None else data['useCloudApiWebEditorPlayer'],
             notifications_enabled=None if data.get('notificationsEnabled') is None else data['notificationsEnabled'],
             requests_c_p_u=None if data.get('requestsCPU') is None else str(data['requestsCPU']),
             limits_c_p_u=None if data.get('limitsCPU') is None else str(data['limitsCPU']),
@@ -7893,6 +7909,10 @@ CommonOrganizationDeploymentResourcesUseCloudApiPlayer = typing.Union[typing.Lit
 
 CommonOrganizationDeploymentResourcesUseCloudApiPlayerValues:typing.List[CommonOrganizationDeploymentResourcesUseCloudApiPlayer] = ["true", "false"]
 
+CommonOrganizationDeploymentResourcesUseCloudApiWebEditorPlayer = typing.Union[typing.Literal["true"], typing.Literal["false"]]
+
+CommonOrganizationDeploymentResourcesUseCloudApiWebEditorPlayerValues:typing.List[CommonOrganizationDeploymentResourcesUseCloudApiWebEditorPlayer] = ["true", "false"]
+
 CommonOrganizationDeploymentResourcesRequestsCPU = str
 
 CommonOrganizationDeploymentResourcesLimitsCPU = str
@@ -7990,6 +8010,7 @@ class CommonOrganizationDeploymentResources:
     native_temp_dir: typing.Optional[CommonOrganizationDeploymentResourcesNativeTempDir] = field(default_factory=lambda: None)
     notifications_enabled: typing.Optional[CommonOrganizationDeploymentResourcesNotificationsEnabled] = field(default_factory=lambda: None)
     use_cloud_api_player: typing.Optional[CommonOrganizationDeploymentResourcesUseCloudApiPlayer] = field(default_factory=lambda: None)
+    use_cloud_api_web_editor_player: typing.Optional[CommonOrganizationDeploymentResourcesUseCloudApiWebEditorPlayer] = field(default_factory=lambda: None)
     requests_c_p_u: typing.Optional[CommonOrganizationDeploymentResourcesRequestsCPU] = field(default_factory=lambda: None)
     limits_c_p_u: typing.Optional[CommonOrganizationDeploymentResourcesLimitsCPU] = field(default_factory=lambda: None)
     requests_memory: typing.Optional[CommonOrganizationDeploymentResourcesRequestsMemory] = field(default_factory=lambda: None)
@@ -8030,6 +8051,8 @@ class CommonOrganizationDeploymentResources:
             data['notificationsEnabled'] = self.notifications_enabled
         if self.use_cloud_api_player is not None:
             data['useCloudApiPlayer'] = self.use_cloud_api_player
+        if self.use_cloud_api_web_editor_player is not None:
+            data['useCloudApiWebEditorPlayer'] = self.use_cloud_api_web_editor_player
         if self.requests_c_p_u is not None:
             data['requestsCPU'] = self.requests_c_p_u
         if self.limits_c_p_u is not None:
@@ -8097,6 +8120,7 @@ class CommonOrganizationDeploymentResources:
             native_temp_dir=None if data.get('nativeTempDir') is None else data['nativeTempDir'],
             notifications_enabled=None if data.get('notificationsEnabled') is None else data['notificationsEnabled'],
             use_cloud_api_player=None if data.get('useCloudApiPlayer') is None else data['useCloudApiPlayer'],
+            use_cloud_api_web_editor_player=None if data.get('useCloudApiWebEditorPlayer') is None else data['useCloudApiWebEditorPlayer'],
             requests_c_p_u=None if data.get('requestsCPU') is None else str(data['requestsCPU']),
             limits_c_p_u=None if data.get('limitsCPU') is None else str(data['limitsCPU']),
             requests_memory=None if data.get('requestsMemory') is None else str(data['requestsMemory']),
@@ -8433,6 +8457,10 @@ CommonProjectDeploymentResourcesUseCloudApiPlayer = typing.Union[typing.Literal[
 
 CommonProjectDeploymentResourcesUseCloudApiPlayerValues:typing.List[CommonProjectDeploymentResourcesUseCloudApiPlayer] = ["true", "false"]
 
+CommonProjectDeploymentResourcesUseCloudApiWebEditorPlayer = typing.Union[typing.Literal["true"], typing.Literal["false"]]
+
+CommonProjectDeploymentResourcesUseCloudApiWebEditorPlayerValues:typing.List[CommonProjectDeploymentResourcesUseCloudApiWebEditorPlayer] = ["true", "false"]
+
 CommonProjectDeploymentResourcesNotificationsEnabled = typing.Union[typing.Literal["true"], typing.Literal["false"]]
 
 CommonProjectDeploymentResourcesNotificationsEnabledValues:typing.List[CommonProjectDeploymentResourcesNotificationsEnabled] = ["true", "false"]
@@ -8621,6 +8649,7 @@ class CommonProjectDeploymentResources:
     watermark_enabled: typing.Optional[CommonProjectDeploymentResourcesWatermarkEnabled] = field(default_factory=lambda: None)
     selenium_instance_enabled: typing.Optional[CommonProjectDeploymentResourcesSeleniumInstanceEnabled] = field(default_factory=lambda: None)
     use_cloud_api_player: typing.Optional[CommonProjectDeploymentResourcesUseCloudApiPlayer] = field(default_factory=lambda: None)
+    use_cloud_api_web_editor_player: typing.Optional[CommonProjectDeploymentResourcesUseCloudApiWebEditorPlayer] = field(default_factory=lambda: None)
     notifications_enabled: typing.Optional[CommonProjectDeploymentResourcesNotificationsEnabled] = field(default_factory=lambda: None)
     requests_c_p_u: typing.Optional[CommonProjectDeploymentResourcesRequestsCPU] = field(default_factory=lambda: None)
     limits_c_p_u: typing.Optional[CommonProjectDeploymentResourcesLimitsCPU] = field(default_factory=lambda: None)
@@ -8665,6 +8694,8 @@ class CommonProjectDeploymentResources:
             data['seleniumInstanceEnabled'] = self.selenium_instance_enabled
         if self.use_cloud_api_player is not None:
             data['useCloudApiPlayer'] = self.use_cloud_api_player
+        if self.use_cloud_api_web_editor_player is not None:
+            data['useCloudApiWebEditorPlayer'] = self.use_cloud_api_web_editor_player
         if self.notifications_enabled is not None:
             data['notificationsEnabled'] = self.notifications_enabled
         if self.requests_c_p_u is not None:
@@ -8743,6 +8774,7 @@ class CommonProjectDeploymentResources:
             watermark_enabled=None if data.get('watermarkEnabled') is None else data['watermarkEnabled'],
             selenium_instance_enabled=None if data.get('seleniumInstanceEnabled') is None else data['seleniumInstanceEnabled'],
             use_cloud_api_player=None if data.get('useCloudApiPlayer') is None else data['useCloudApiPlayer'],
+            use_cloud_api_web_editor_player=None if data.get('useCloudApiWebEditorPlayer') is None else data['useCloudApiWebEditorPlayer'],
             notifications_enabled=None if data.get('notificationsEnabled') is None else data['notificationsEnabled'],
             requests_c_p_u=None if data.get('requestsCPU') is None else str(data['requestsCPU']),
             limits_c_p_u=None if data.get('limitsCPU') is None else str(data['limitsCPU']),
@@ -14370,26 +14402,7 @@ class AbstraLibApiEditorStatusMessageRestartStatusAbstraUpdate:
         )
 
 
-AbstraLibApiEditorStatusMessageRestartStatusDependenciesPackagesItem = str
-
-AbstraLibApiEditorStatusMessageRestartStatusDependenciesPackages = typing.List[AbstraLibApiEditorStatusMessageRestartStatusDependenciesPackagesItem]
-
-
-@dataclass
-class AbstraLibApiEditorStatusMessageRestartStatusDependencies:
-    packages: AbstraLibApiEditorStatusMessageRestartStatusDependenciesPackages
-
-    def to_dict(self) -> typing.Dict[str, typing.Any]:
-        data = {}
-        data['packages'] = self.packages
-        return data
-
-    @classmethod
-    def from_dict(cls, data: typing.Dict[str, typing.Any]) -> "AbstraLibApiEditorStatusMessageRestartStatusDependencies":
-        return cls(
-            packages=[str(item) for item in data['packages']],
-        )
-
+AbstraLibApiEditorStatusMessageRestartStatusDependencies = bool
 
 
 @dataclass
@@ -14404,7 +14417,7 @@ class AbstraLibApiEditorStatusMessageRestartStatus:
         if self.abstra_update is not None:
             data['abstra_update'] = self.abstra_update.to_dict()
         if self.dependencies is not None:
-            data['dependencies'] = self.dependencies.to_dict()
+            data['dependencies'] = self.dependencies
         return data
 
     @classmethod
@@ -14412,7 +14425,7 @@ class AbstraLibApiEditorStatusMessageRestartStatus:
         return cls(
             required=bool(data['required']),
             abstra_update=None if data.get('abstra_update') is None else AbstraLibApiEditorStatusMessageRestartStatusAbstraUpdate.from_dict(data['abstra_update']),
-            dependencies=None if data.get('dependencies') is None else AbstraLibApiEditorStatusMessageRestartStatusDependencies.from_dict(data['dependencies']),
+            dependencies=None if data.get('dependencies') is None else bool(data['dependencies']),
         )
 
 

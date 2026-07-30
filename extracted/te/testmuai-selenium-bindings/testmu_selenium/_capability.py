@@ -75,6 +75,20 @@ def build_capability(
     _platform = platform or os.getenv("LT_PLATFORM", "Windows 11")
     _resolution = resolution or os.getenv("LT_RESOLUTION", "1920x1080")
 
+    # Export the RESOLVED session platform/browser as smart.* env vars from the
+    # exact values this session is built with, so the binding's
+    # {{smart.os_type|os_version|browser_name|browser_version}} resolver
+    # (_vars._resolve_smart, which reads these env keys) returns the real session
+    # values. Selenium V3 is configure-based with no auteur test-file wrapper to
+    # set these (unlike the Playwright export, where format_python_code does it),
+    # so build_capability — the single source of truth for the webdriver.Remote()
+    # caps — is the correct place. os_version mirrors the Playwright builder
+    # ('latest'); platformName already encodes the concrete OS.
+    os.environ["smart_os"] = _platform
+    os.environ["smart_os_version"] = "latest"
+    os.environ["smart_browser_name"] = _browser
+    os.environ["smart_browser_version"] = _browser_version
+
     cap: dict[str, Any] = {
         "browserName": _browser,
         "browserVersion": _browser_version,
@@ -129,12 +143,10 @@ def build_capability(
     if _resolution:
         lt_options["resolution"] = _resolution
 
-    # This selenium binding runs in V3 binding-mode only. V3 runs report steps
-    # independently (LTReporter / AUTOMIND), so they must NOT emit
-    # kaneRun/preCmdVisual: the instance-page gate routes a v3 run to the V3 view by
-    # the absence of kaneRun. This was previously emitted under KANE_NEW_VIEW_ENABLED,
-    # but forge's run/scheduled paths re-set that env at run time, so a v3-only
-    # binding must never emit kaneRun regardless of the env.
+    # Emit kaneRunV3 + preCmdVisual only when the generated test opted in via configure(kane_run_v3=True); captures per-step screenshots for v3 runs.
+    if _cfg.get("kane_run_v3"):
+        lt_options["kaneRunV3"] = True
+        lt_options["preCmdVisual"] = True
     lt_options["visual"] = _visual
 
     if os.getenv("GEO_LOCATION", ""):

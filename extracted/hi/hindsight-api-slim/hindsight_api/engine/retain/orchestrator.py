@@ -22,6 +22,7 @@ from ...extensions.memory_defense import (
     apply_redaction,
     parse_policy,
 )
+from ...metrics import get_metrics_collector
 from ...worker.stage import set_stage
 from ..db_utils import acquire_with_retry
 from ..memory_engine import count_tokens, fq_table
@@ -69,6 +70,25 @@ def _redact_document_body(body: str, config: Any) -> str:
     if not any(r.on == "sensitive_data" for r in policy.rules):
         return body
     return apply_redaction(body).content
+
+
+def _is_strict_append_of_stored_document(
+    stored_original_text: str | None,
+    document_body_override: str | None,
+    config: Any,
+) -> bool:
+    """Return whether an oversized document body strictly appends stored text.
+
+    ``documents.original_text`` is sanitized and may also be Memory Defense
+    redacted before persistence. Apply those same transformations to the
+    complete incoming body before comparing it with the stored prefix.
+    """
+    if stored_original_text is None or document_body_override is None:
+        return False
+
+    redacted_body = _redact_document_body(document_body_override, config)
+    sanitized_body = fact_extraction._sanitize_text(redacted_body) or ""
+    return len(sanitized_body) > len(stored_original_text) and sanitized_body.startswith(stored_original_text)
 
 
 async def _fire_memory_defense_webhook(
@@ -275,6 +295,30 @@ class _ProcessedFactBatch:
     retained_index_by_original: list[int | None]
 
 
+async def _record_retain_document_outcome(pool: Any, bank_id: str, document_id: str, units_created: int) -> None:
+    """Emit the per-document retain outcome metric.
+
+    The metric reports the document's unit count *after* this retain, not what
+    this call created: a delta retain that touches one chunk can legitimately
+    create zero units while the document keeps the units of its unchanged chunks,
+    and an oversized document is retained as several sequential sub-batches. Only
+    a document left with zero units is unreachable through recall/reflect and
+    worth alerting on (#3040).
+
+    ``units_created > 0`` already settles the outcome, so the count query only
+    runs on the zero case — which is exactly the cheap path (nothing was written).
+    Best-effort: telemetry must never fail a retain.
+    """
+    try:
+        total = units_created
+        if total == 0:
+            async with acquire_with_retry(pool) as conn:
+                total = await fact_storage.count_document_memory_units(conn, bank_id, document_id)
+        get_metrics_collector().record_retain_document(bank_id=bank_id, memory_unit_count=total)
+    except Exception:
+        logger.debug("Failed to record retain document outcome metric", exc_info=True)
+
+
 def _resolve_narrator(profile_name: str, bank_id: str) -> str | None:
     """Resolve the narrator (memory owner) used to prime fact extraction.
 
@@ -377,7 +421,13 @@ async def _pre_resolve_phase1(
         if not skip_semantic_ann:
             fact_types = [fact.fact_type for fact in processed_facts]
             semantic_ann_links = await compute_semantic_links_ann(
-                resolve_conn, bank_id, placeholder_unit_ids, embeddings, fact_types=fact_types, log_buffer=log_buffer
+                resolve_conn,
+                bank_id,
+                placeholder_unit_ids,
+                embeddings,
+                fact_types=fact_types,
+                threshold=config.semantic_link_min_similarity,
+                log_buffer=log_buffer,
             )
 
     return Phase1Result(
@@ -496,6 +546,7 @@ async def _insert_facts_and_links(
                 bank_id,
                 unit_ids,
                 embeddings_for_links,
+                threshold=config.semantic_link_min_similarity,
                 pre_computed_ann_links=semantic_ann_links,
                 ops=ops,
             )
@@ -1098,6 +1149,8 @@ async def _run_final_semantic_ann(
     pool: Any,
     bank_id: str,
     unit_ids: list[str],
+    *,
+    threshold: float,
     log_buffer: list[str],
 ) -> None:
     """
@@ -1176,6 +1229,7 @@ async def _run_final_semantic_ann(
                     chunk_embs,
                     fact_types=chunk_ftypes,
                     top_k=20,  # Recall uses at most 20 neighbors
+                    threshold=threshold,
                     log_buffer=log_buffer,
                 )
                 if ann_links:
@@ -1384,26 +1438,38 @@ async def _streaming_retain_batch(
 
         tasks: list[asyncio.Task] = []
         skipped_total = 0
-        for i, chunk_text in enumerate(all_pre_chunks):
-            chunk_hash = chunk_storage.compute_chunk_hash(chunk_text)
-            if chunk_hash in existing_chunk_hashes:
-                # Memory: skipped chunks aren't needed either.
-                all_pre_chunks[i] = ""
-                skipped_total += 1
-                continue
-            tasks.append(asyncio.create_task(_extract_one(i, chunk_text)))
+        try:
+            for i, chunk_text in enumerate(all_pre_chunks):
+                chunk_hash = chunk_storage.compute_chunk_hash(chunk_text)
+                if chunk_hash in existing_chunk_hashes:
+                    # Memory: skipped chunks aren't needed either.
+                    all_pre_chunks[i] = ""
+                    skipped_total += 1
+                    continue
+                tasks.append(asyncio.create_task(_extract_one(i, chunk_text)))
 
-        if skipped_total > 0:
-            log_buffer.append(f"[streaming] Producer: skipped {skipped_total}/{total_chunks} already-committed chunks")
+            if skipped_total > 0:
+                log_buffer.append(
+                    f"[streaming] Producer: skipped {skipped_total}/{total_chunks} already-committed chunks"
+                )
 
-        # Wait for all extractions; collect exceptions
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        for r in results:
-            if isinstance(r, BaseException):
-                producer_error.append(r)
+            # Wait for all extractions; collect exceptions
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for r in results:
+                if isinstance(r, BaseException):
+                    producer_error.append(r)
 
-        # Signal the consumer that production is done
-        await chunk_queue.put(None)
+            # Signal the consumer that production is done
+            await chunk_queue.put(None)
+        finally:
+            # Cancellation arriving mid-fan-out (the consumer failed, or the worker's
+            # wall-clock ceiling fired) must not strand extraction tasks. Cancelling
+            # the gather above already propagates to them, but tasks created before
+            # we reach it would otherwise survive and park on `chunk_queue.put()`
+            # for the life of the process.
+            for extraction in tasks:
+                if not extraction.done():
+                    extraction.cancel()
 
     # ---- DB Consumer ----
     # Drains enriched chunks from the queue in batches and runs
@@ -1558,6 +1624,7 @@ async def _streaming_retain_batch(
                                 combined_content,
                                 retain_params,
                                 merged_tags,
+                                store_document_text=getattr(config, "store_document_text", True),
                             )
                         else:
                             await fact_storage.handle_document_tracking(
@@ -1569,6 +1636,7 @@ async def _streaming_retain_batch(
                                 retain_params,
                                 merged_tags,
                                 ops=pool.ops,
+                                store_document_text=getattr(config, "store_document_text", True),
                             )
                         doc_tracking_done[0] = True
                         # Memory: combined_content has been persisted; release
@@ -1660,6 +1728,7 @@ async def _streaming_retain_batch(
                                 combined_content,
                                 retain_params,
                                 merged_tags,
+                                store_document_text=getattr(config, "store_document_text", True),
                             )
                             log_buffer.append(
                                 f"[streaming] Document {effective_doc_id} updated "
@@ -1675,6 +1744,7 @@ async def _streaming_retain_batch(
                                 retain_params,
                                 merged_tags,
                                 ops=pool.ops,
+                                store_document_text=getattr(config, "store_document_text", True),
                             )
                             log_buffer.append(f"[streaming] Document {effective_doc_id} tracked (full content)")
                         doc_tracking_done[0] = True
@@ -1701,7 +1771,12 @@ async def _streaming_retain_batch(
                     chunk_id_map = {}
                     if batch_chunk_meta:
                         chunk_id_map = await chunk_storage.store_chunks_batch(
-                            conn, bank_id, effective_doc_id, batch_chunk_meta, ops=pool.ops
+                            conn,
+                            bank_id,
+                            effective_doc_id,
+                            batch_chunk_meta,
+                            ops=pool.ops,
+                            store_document_text=getattr(config, "store_document_text", True),
                         )
                         log_buffer.append(
                             f"  Store chunks: {len(batch_chunk_meta)} chunks in {time.time() - step_start:.3f}s"
@@ -1743,13 +1818,21 @@ async def _streaming_retain_batch(
                 if is_last and outbox_callback is not None:
                     outbox_fired[0] = True
 
-                # Best-effort: flush entity_cooccurrences and other deferred stats.
-                try:
-                    await entity_resolver.flush_pending_stats()
-                except Exception:
-                    logger.warning(
-                        f"Entity stats flush (consumer batch {consumer_batch_idx + 1}) failed", exc_info=True
-                    )
+            # Best-effort: flush entity_cooccurrences and other deferred stats.
+            #
+            # This MUST run after the `acquire_with_retry` block above has exited,
+            # not inside it: flush_pending_stats() acquires its own connection, and
+            # the write above is only committed when the enclosing acquire() block
+            # exits. On Oracle (oracledb does not autocommit — the backend commits
+            # on clean exit of acquire()) doing this inside the block deadlocks
+            # permanently: connection #2 waits on the row locks the still-open
+            # connection #1 holds on `entities`, while connection #1 cannot commit
+            # until this call returns. Oracle never reports ORA-00060 for it,
+            # because session #1 is blocked in Python rather than on the database.
+            try:
+                await entity_resolver.flush_pending_stats()
+            except Exception:
+                logger.warning(f"Entity stats flush (consumer batch {consumer_batch_idx + 1}) failed", exc_info=True)
 
             logger.info(
                 f"[streaming] Consumer batch {consumer_batch_idx + 1} total "
@@ -1824,8 +1907,27 @@ async def _streaming_retain_batch(
             logger.warning("Failed to check operation recovery state", exc_info=True)
 
     if not facts_already_committed:
-        # Run producer and consumer concurrently
-        await asyncio.gather(_llm_producer(), _db_consumer())
+        # Run producer and consumer concurrently.
+        #
+        # Cancellation is explicit because plain gather() leaks: when the consumer
+        # raises (a deadlock victim, a lock timeout) gather propagates that error
+        # immediately but leaves the producer — and every extraction task under it
+        # — running. Those tasks then block forever on `chunk_queue.put()` into a
+        # queue nobody drains, pinning their chunk payloads and still spending LLM
+        # permits and tokens on an operation that already failed (#3002). The same
+        # applies when the worker's wall-clock ceiling cancels us from above.
+        producer_task = asyncio.create_task(_llm_producer())
+        consumer_task = asyncio.create_task(_db_consumer())
+        try:
+            await asyncio.gather(producer_task, consumer_task)
+        finally:
+            for pipeline_task in (producer_task, consumer_task):
+                if not pipeline_task.done():
+                    pipeline_task.cancel()
+            # Await the cancellations so neither half outlives this call; the
+            # results are already accounted for by the gather above (or by the
+            # exception that is propagating).
+            await asyncio.gather(producer_task, consumer_task, return_exceptions=True)
 
         # Propagate producer errors (e.g. LLM failures)
         if producer_error:
@@ -1858,6 +1960,7 @@ async def _streaming_retain_batch(
                             combined_content,
                             retain_params,
                             merged_tags,
+                            store_document_text=getattr(config, "store_document_text", True),
                         )
                     else:
                         await fact_storage.handle_document_tracking(
@@ -1869,6 +1972,7 @@ async def _streaming_retain_batch(
                             retain_params,
                             merged_tags,
                             ops=pool.ops,
+                            store_document_text=getattr(config, "store_document_text", True),
                         )
                     doc_tracking_done[0] = True
                     # Memory: combined_content has been persisted and won't be
@@ -1944,7 +2048,13 @@ async def _streaming_retain_batch(
     if all_unit_ids and not pipeline_aborted[0]:
         ann_start = time.time()
         try:
-            await _run_final_semantic_ann(pool, bank_id, all_unit_ids, log_buffer)
+            await _run_final_semantic_ann(
+                pool,
+                bank_id,
+                all_unit_ids,
+                threshold=config.semantic_link_min_similarity,
+                log_buffer=log_buffer,
+            )
         except Exception:
             # ANN pass is best-effort. FK violations can occur if a concurrent
             # retain cascade-deleted our units between the batch commit and here.
@@ -1969,6 +2079,9 @@ async def _streaming_retain_batch(
     log_buffer.append(f"Document: {effective_doc_id}")
     log_buffer.append(f"{'=' * 60}")
     logger.info("\n" + "\n".join(log_buffer) + "\n")
+
+    if not pipeline_aborted[0]:
+        await _record_retain_document_outcome(pool, bank_id, effective_doc_id, len(all_unit_ids))
 
     # Map all unit_ids back to the original content items.
     # For streaming mode with a single document, all units belong to content 0.
@@ -2058,12 +2171,26 @@ async def _try_delta_retain(
     # between this read and the write. The write TXN verifies the hash hasn't
     # changed; if it has, we fall back to streaming (which has full protection).
     async with acquire_with_retry(pool) as conn:
+        if document_body_override is not None:
+            doc_row_at_load = await conn.fetchrow(
+                f"SELECT content_hash, original_text FROM {fq_table('documents')} WHERE id = $1 AND bank_id = $2",
+                effective_doc_id,
+                bank_id,
+            )
+            doc_hash_at_load = doc_row_at_load["content_hash"] if doc_row_at_load else None
+            original_text_at_load = doc_row_at_load["original_text"] if doc_row_at_load else None
+        else:
+            doc_hash_at_load = await conn.fetchval(
+                f"SELECT content_hash FROM {fq_table('documents')} WHERE id = $1 AND bank_id = $2",
+                effective_doc_id,
+                bank_id,
+            )
+            original_text_at_load = None
+
+        # Load chunks after the document version. If a concurrent writer commits
+        # between these reads, the hash precondition on metadata-only writes (or
+        # the extraction freshness recheck below) forces a streaming fallback.
         existing_chunks = await chunk_storage.load_existing_chunks(conn, bank_id, effective_doc_id)
-        doc_hash_at_load = await conn.fetchval(
-            f"SELECT content_hash FROM {fq_table('documents')} WHERE id = $1 AND bank_id = $2",
-            effective_doc_id,
-            bank_id,
-        )
 
     if not existing_chunks:
         return None
@@ -2095,6 +2222,30 @@ async def _try_delta_retain(
     )
 
     if not unchanged_indices:
+        if _is_strict_append_of_stored_document(
+            original_text_at_load,
+            document_body_override,
+            config,
+        ):
+            log_buffer.append(
+                "[delta] First oversized slice has no stored chunk match, but "
+                "the complete document strictly appends the stored source — "
+                "preserving historical chunks and advancing document metadata"
+            )
+            return await _delta_metadata_only(
+                pool,
+                bank_id,
+                contents_dicts,
+                contents,
+                effective_doc_id,
+                document_tags,
+                log_buffer,
+                start_time,
+                outbox_callback,
+                document_body_override=document_body_override,
+                config=config,
+                expected_content_hash=doc_hash_at_load,
+            )
         logger.info(f"Delta retain: no unchanged chunks for {effective_doc_id}, falling back to full retain")
         return None
 
@@ -2115,6 +2266,7 @@ async def _try_delta_retain(
             outbox_callback,
             document_body_override=document_body_override,
             config=config,
+            expected_content_hash=doc_hash_at_load,
         )
 
     # Build content items for only the changed/new chunks
@@ -2133,6 +2285,7 @@ async def _try_delta_retain(
             outbox_callback,
             document_body_override=document_body_override,
             config=config,
+            expected_content_hash=doc_hash_at_load,
         )
 
     # Freshness recheck BEFORE the (expensive) LLM extraction.
@@ -2185,6 +2338,7 @@ async def _try_delta_retain(
                 outbox_callback,
                 document_body_override=document_body_override,
                 config=config,
+                expected_content_hash=recheck_hash,
             )
         log_buffer.append(
             f"[delta] Recheck: {len(recheck.changed) + len(recheck.new) + len(recheck.removed)} chunks still differ — "
@@ -2314,7 +2468,12 @@ async def _try_delta_retain(
                         for cm in new_chunk_metadata
                     ]
                     chunk_id_map = await chunk_storage.store_chunks_batch(
-                        conn, bank_id, effective_doc_id, remapped_chunks, ops=pool.ops
+                        conn,
+                        bank_id,
+                        effective_doc_id,
+                        remapped_chunks,
+                        ops=pool.ops,
+                        store_document_text=getattr(config, "store_document_text", True),
                     )
                     for chunk_idx, chunk_id in chunk_id_map.items():
                         chunk_id_map_by_doc[(effective_doc_id, chunk_idx)] = chunk_id
@@ -2351,12 +2510,6 @@ async def _try_delta_retain(
                     ops=pool.ops,
                 )
 
-            # Flush deferred entity_cooccurrences stats (post-transaction, best-effort).
-            try:
-                await entity_resolver.flush_pending_stats()
-            except Exception:
-                logger.warning("Entity stats flush failed — retrieval unaffected", exc_info=True)
-
             total_time = time.time() - start_time
             log_buffer.append(f"{'=' * 60}")
             log_buffer.append(
@@ -2367,11 +2520,20 @@ async def _try_delta_retain(
             log_buffer.append(f"{'=' * 60}")
             logger.info("\n" + "\n".join(log_buffer) + "\n")
 
+        # Flush deferred entity_cooccurrences stats (best-effort). Must run after
+        # the acquire() block above has exited — see the streaming path for why
+        # doing this while still holding the connection deadlocks on Oracle.
+        try:
+            await entity_resolver.flush_pending_stats()
+        except Exception:
+            logger.warning("Entity stats flush failed — retrieval unaffected", exc_info=True)
+
     if db_semaphore is not None:
         async with db_semaphore:
             await _run_delta_db_work()
     else:
         await _run_delta_db_work()
+    await _record_retain_document_outcome(pool, bank_id, effective_doc_id, sum(len(ids) for ids in result_unit_ids))
     # Count content + context tokens that actually went through extraction.
     # ``delta_contents`` holds the per-chunk RetainContent items for the
     # changed/new chunks (see ``_build_delta_contents``) — i.e. exactly what
@@ -2393,16 +2555,22 @@ async def _delta_metadata_only(
     *,
     document_body_override: str | None = None,
     config: Any = None,
-):
+    expected_content_hash: str | None = None,
+) -> tuple[list[list[str]], TokenUsage, int] | None:
     """Handle the case where no chunks changed — just update document metadata and tags."""
     async with acquire_with_retry(pool) as conn:
         async with conn.transaction():
             # Lock the document row to serialize with concurrent retains
-            await conn.fetchval(
+            current_content_hash = await conn.fetchval(
                 f"SELECT content_hash FROM {fq_table('documents')} WHERE id = $1 AND bank_id = $2 FOR UPDATE",
                 document_id,
                 bank_id,
             )
+            if expected_content_hash is not None and current_content_hash != expected_content_hash:
+                log_buffer.append(
+                    f"[delta] Document {document_id} changed before metadata update — falling back to full retain"
+                )
+                return None
             # When this sub-batch is a slice of an oversized item, write the
             # full original body (issue #1838) instead of just the slice.
             # Redact the override since it bypassed per-chunk screening.

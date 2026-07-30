@@ -164,5 +164,50 @@ class UpdateAbstraFixFlowTest(unittest.TestCase):
         exit_.assert_not_called()
 
 
+_RESTART_MOD = "abstra_internals.controllers.editor_restart"
+_STATUS_MOD = "abstra_internals.controllers.editor_status_events"
+
+
+class MarkNeedsRestartTest(unittest.TestCase):
+    """PR1b: a dependency install on the web editor defers the restart — it marks
+    a restart as pending (surfaced as a "Restart editor" button) instead of
+    dropping the pod. MARK_NEEDS_RESTART is a bare signal: it carries no data
+    because the restart never needs the package names and the UI is generic."""
+
+    def tearDown(self):
+        process_actions.set_process_action_handler(None)
+
+    def test_execute_marks_pending_and_rebroadcasts(self):
+        with (
+            patch("os._exit") as exit_,
+            patch("os.execv") as execv,
+            patch(
+                f"{_RESTART_MOD}.EditorRestartController.mark_dependencies_installed"
+            ) as mark,
+            patch(f"{_STATUS_MOD}.EditorStatusEventController.broadcast") as broadcast,
+        ):
+            process_actions.execute_process_action(process_actions.MARK_NEEDS_RESTART)
+        mark.assert_called_once_with()
+        broadcast.assert_called_once()
+        # Marking must NOT restart — that is the whole point of deferring.
+        exit_.assert_not_called()
+        execv.assert_not_called()
+
+    def test_web_defers_by_requesting_the_mark_action(self):
+        collected = []
+        process_actions.set_process_action_handler(collected.append)
+        with patch.object(process_actions, "EDITOR_MODE", "web"):
+            process_actions.restart_or_defer_after_install()
+        self.assertEqual(collected, [process_actions.MARK_NEEDS_RESTART])
+
+    def test_non_web_restarts_immediately(self):
+        with (
+            patch.object(process_actions, "EDITOR_MODE", "local"),
+            patch.object(process_actions, "restart_editor_and_workers") as restart,
+        ):
+            process_actions.restart_or_defer_after_install()
+        restart.assert_called_once()
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -848,8 +848,9 @@ class DatabaseMigrationServiceClient(BaseClient):
         self, **kwargs: Unpack[DescribeExtensionPackAssociationsMessageTypeDef]
     ) -> DescribeExtensionPackAssociationsResponseTypeDef:
         """
-        Returns a paginated list of extension pack associations for the specified
-        migration project.
+        Returns a paginated list of extension pack installation requests for a
+        migration project, initiated by <a
+        href="https://docs.aws.amazon.com/dms/latest/APIReference/API_StartExtensionPackAssociation.html">StartExtensionPackAssociation</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/describe_extension_pack_associations.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#describe_extension_pack_associations)
@@ -937,8 +938,9 @@ class DatabaseMigrationServiceClient(BaseClient):
         self, **kwargs: Unpack[DescribeMetadataModelAssessmentsMessageTypeDef]
     ) -> DescribeMetadataModelAssessmentsResponseTypeDef:
         """
-        Returns a paginated list of metadata model assessments for your account in the
-        current region.
+        Returns a paginated list of metadata model assessment requests for a migration
+        project, initiated by <a
+        href="https://docs.aws.amazon.com/dms/latest/APIReference/API_StartMetadataModelAssessment.html">StartMetadataModelAssessment</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/describe_metadata_model_assessments.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#describe_metadata_model_assessments)
@@ -959,7 +961,9 @@ class DatabaseMigrationServiceClient(BaseClient):
         self, **kwargs: Unpack[DescribeMetadataModelConversionsMessageTypeDef]
     ) -> DescribeMetadataModelConversionsResponseTypeDef:
         """
-        Returns a paginated list of metadata model conversions for a migration project.
+        Returns a paginated list of metadata model conversion requests for a migration
+        project, initiated by <a
+        href="https://docs.aws.amazon.com/dms/latest/APIReference/API_StartMetadataModelConversion.html">StartMetadataModelConversion</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/describe_metadata_model_conversions.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#describe_metadata_model_conversions)
@@ -970,7 +974,8 @@ class DatabaseMigrationServiceClient(BaseClient):
     ) -> DescribeMetadataModelCreationsResponseTypeDef:
         """
         Returns a paginated list of metadata model creation requests for a migration
-        project.
+        project, initiated by <a
+        href="https://docs.aws.amazon.com/dms/latest/APIReference/API_StartMetadataModelCreation.html">StartMetadataModelCreation</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/describe_metadata_model_creations.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#describe_metadata_model_creations)
@@ -980,7 +985,9 @@ class DatabaseMigrationServiceClient(BaseClient):
         self, **kwargs: Unpack[DescribeMetadataModelExportsAsScriptMessageTypeDef]
     ) -> DescribeMetadataModelExportsAsScriptResponseTypeDef:
         """
-        Returns a paginated list of metadata model exports.
+        Returns a paginated list of metadata model export requests for a migration
+        project, initiated by <a
+        href="https://docs.aws.amazon.com/dms/latest/APIReference/API_StartMetadataModelExportAsScript.html">StartMetadataModelExportAsScript</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/describe_metadata_model_exports_as_script.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#describe_metadata_model_exports_as_script)
@@ -990,7 +997,9 @@ class DatabaseMigrationServiceClient(BaseClient):
         self, **kwargs: Unpack[DescribeMetadataModelExportsToTargetMessageTypeDef]
     ) -> DescribeMetadataModelExportsToTargetResponseTypeDef:
         """
-        Returns a paginated list of metadata model exports.
+        Returns a paginated list of metadata model export requests for a migration
+        project, initiated by <a
+        href="https://docs.aws.amazon.com/dms/latest/APIReference/API_StartMetadataModelExportToTarget.html">StartMetadataModelExportToTarget</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/describe_metadata_model_exports_to_target.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#describe_metadata_model_exports_to_target)
@@ -1000,7 +1009,9 @@ class DatabaseMigrationServiceClient(BaseClient):
         self, **kwargs: Unpack[DescribeMetadataModelImportsMessageTypeDef]
     ) -> DescribeMetadataModelImportsResponseTypeDef:
         """
-        Returns a paginated list of metadata model imports.
+        Returns a paginated list of metadata model import requests for a migration
+        project, initiated by <a
+        href="https://docs.aws.amazon.com/dms/latest/APIReference/API_StartMetadataModelImport.html">StartMetadataModelImport</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/describe_metadata_model_imports.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#describe_metadata_model_imports)
@@ -1439,7 +1450,7 @@ class DatabaseMigrationServiceClient(BaseClient):
         self, **kwargs: Unpack[StartExtensionPackAssociationMessageTypeDef]
     ) -> StartExtensionPackAssociationResponseTypeDef:
         """
-        Applies the extension pack to your target database.
+        Queues the installation of the extension pack on your target database.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/start_extension_pack_association.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#start_extension_pack_association)
@@ -1449,8 +1460,9 @@ class DatabaseMigrationServiceClient(BaseClient):
         self, **kwargs: Unpack[StartMetadataModelAssessmentMessageTypeDef]
     ) -> StartMetadataModelAssessmentResponseTypeDef:
         """
-        Creates a database migration assessment report by assessing the migration
-        complexity for your source database.
+        Queues an assessment of the selected source metadata models (database objects
+        such as tables, views, and procedures) to evaluate conversion complexity to the
+        target database format.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/start_metadata_model_assessment.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#start_metadata_model_assessment)
@@ -1460,8 +1472,8 @@ class DatabaseMigrationServiceClient(BaseClient):
         self, **kwargs: Unpack[StartMetadataModelConversionMessageTypeDef]
     ) -> StartMetadataModelConversionResponseTypeDef:
         """
-        Converts your source database objects to a format compatible with the target
-        database.
+        Queues a conversion of the selected source metadata models (database objects
+        such as tables, views, and procedures) to the target database format.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/start_metadata_model_conversion.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#start_metadata_model_conversion)
@@ -1471,8 +1483,7 @@ class DatabaseMigrationServiceClient(BaseClient):
         self, **kwargs: Unpack[StartMetadataModelCreationMessageTypeDef]
     ) -> StartMetadataModelCreationResponseTypeDef:
         """
-        Creates source metadata model of the given type with the specified properties
-        for schema conversion operations.
+        Queues the creation of a metadata model in the source metadata tree.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/start_metadata_model_creation.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#start_metadata_model_creation)
@@ -1482,8 +1493,8 @@ class DatabaseMigrationServiceClient(BaseClient):
         self, **kwargs: Unpack[StartMetadataModelExportAsScriptMessageTypeDef]
     ) -> StartMetadataModelExportAsScriptResponseTypeDef:
         """
-        Saves your converted code to a file as a SQL script, and stores this file on
-        your Amazon S3 bucket.
+        Queues an export of metadata models (database objects such as tables, views,
+        and procedures) as a data definition language (DDL) script.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/start_metadata_model_export_as_script.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#start_metadata_model_export_as_script)
@@ -1493,7 +1504,8 @@ class DatabaseMigrationServiceClient(BaseClient):
         self, **kwargs: Unpack[StartMetadataModelExportToTargetMessageTypeDef]
     ) -> StartMetadataModelExportToTargetResponseTypeDef:
         """
-        Applies converted database objects to your target database.
+        Queues an export of the selected converted metadata models (database objects
+        such as tables, views, and procedures) to your target database.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/start_metadata_model_export_to_target.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#start_metadata_model_export_to_target)
@@ -1503,7 +1515,8 @@ class DatabaseMigrationServiceClient(BaseClient):
         self, **kwargs: Unpack[StartMetadataModelImportMessageTypeDef]
     ) -> StartMetadataModelImportResponseTypeDef:
         """
-        Loads the metadata for all the dependent database objects of the parent object.
+        Queues an import of metadata models (database objects such as tables, views,
+        and procedures) from your data provider into the metadata tree.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/start_metadata_model_import.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dms/client/#start_metadata_model_import)

@@ -2816,6 +2816,7 @@ class DenialReason(sgqlc.types.Enum):
     * `MONTHLY_USAGE_LIMIT_REACHED`None
     * `TROUBLESHOOTING_AGENT_OFF`None
     * `TSA_FEATURE_FLAG_OFF`None
+    * `USER_NOT_PERMITTED`None
     """
 
     __schema__ = schema
@@ -2825,6 +2826,7 @@ class DenialReason(sgqlc.types.Enum):
         "MONTHLY_USAGE_LIMIT_REACHED",
         "TROUBLESHOOTING_AGENT_OFF",
         "TSA_FEATURE_FLAG_OFF",
+        "USER_NOT_PERMITTED",
     )
 
 
@@ -3063,6 +3065,7 @@ class EtlType(sgqlc.types.Enum):
     * `INFORMATICA`None
     * `INFORMATICA_V2`None
     * `MULESOFT`None
+    * `POWER_BI_DATAFLOW`None
     * `SNOWFLAKE`None
     """
 
@@ -3078,6 +3081,7 @@ class EtlType(sgqlc.types.Enum):
         "INFORMATICA",
         "INFORMATICA_V2",
         "MULESOFT",
+        "POWER_BI_DATAFLOW",
         "SNOWFLAKE",
     )
 
@@ -5020,6 +5024,7 @@ class LineageNodeJobType(sgqlc.types.Enum):
     * `INFORMATICA_V2`None
     * `MSK_KAFKA_CONNECT`None
     * `MULESOFT`None
+    * `POWER_BI_DATAFLOW`None
     * `SELF_HOSTED_KAFKA_CONNECT`None
     * `SNOWFLAKE`None
     * `UNKNOWN`None
@@ -5040,6 +5045,7 @@ class LineageNodeJobType(sgqlc.types.Enum):
         "INFORMATICA_V2",
         "MSK_KAFKA_CONNECT",
         "MULESOFT",
+        "POWER_BI_DATAFLOW",
         "SELF_HOSTED_KAFKA_CONNECT",
         "SNOWFLAKE",
         "UNKNOWN",
@@ -5796,6 +5802,9 @@ class Permission(sgqlc.types.Enum):
 
     Enumeration Choices:
 
+    * `AiAgentsAccess`None
+    * `AiAgentsTriageEdit`None
+    * `AiAgentsTroubleshootingAccess`None
     * `AlertsAccess`None
     * `AlertsEdit`None
     * `AlertsUpdateStatus`None
@@ -5911,6 +5920,9 @@ class Permission(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = (
+        "AiAgentsAccess",
+        "AiAgentsTriageEdit",
+        "AiAgentsTroubleshootingAccess",
         "AlertsAccess",
         "AlertsEdit",
         "AlertsUpdateStatus",
@@ -6707,6 +6719,18 @@ class ResourcePolicyPath(sgqlc.types.Enum):
 
     Enumeration Choices:
 
+    * `AiAgentsAll`None
+    * `AiAgentsPropose`None
+    * `AiAgentsRead`None
+    * `AiAgentsTriageAll`None
+    * `AiAgentsTriagePropose`None
+    * `AiAgentsTriageRead`None
+    * `AiAgentsTriageWrite`None
+    * `AiAgentsTroubleshootingAll`None
+    * `AiAgentsTroubleshootingPropose`None
+    * `AiAgentsTroubleshootingRead`None
+    * `AiAgentsTroubleshootingWrite`None
+    * `AiAgentsWrite`None
     * `AlertsAll`None
     * `AlertsPropose`None
     * `AlertsRead`None
@@ -6891,6 +6915,18 @@ class ResourcePolicyPath(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = (
+        "AiAgentsAll",
+        "AiAgentsPropose",
+        "AiAgentsRead",
+        "AiAgentsTriageAll",
+        "AiAgentsTriagePropose",
+        "AiAgentsTriageRead",
+        "AiAgentsTriageWrite",
+        "AiAgentsTroubleshootingAll",
+        "AiAgentsTroubleshootingPropose",
+        "AiAgentsTroubleshootingRead",
+        "AiAgentsTroubleshootingWrite",
+        "AiAgentsWrite",
         "AlertsAll",
         "AlertsPropose",
         "AlertsRead",
@@ -9233,7 +9269,7 @@ class AgentSpanInput(sgqlc.types.Input):
 
 class AgenticPlatformConfigInput(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("is_enabled", "scope", "agentic_scope_uuids", "triage_batch_cadence_minutes")
+    __field_names__ = ("is_enabled", "scope", "agentic_scope_uuids")
     is_enabled = sgqlc.types.Field(Boolean, graphql_name="isEnabled")
     """Pause or resume the agentic platform for the account. Pass false
     to pause triage runs, true to resume. Omit to leave unchanged.
@@ -9250,9 +9286,6 @@ class AgenticPlatformConfigInput(sgqlc.types.Input):
     """Agentic domain UUIDs to watch when scope is DOMAIN_SCOPED. Ignored
     for ACCOUNT scope.
     """
-
-    triage_batch_cadence_minutes = sgqlc.types.Field(Int, graphql_name="triageBatchCadenceMinutes")
-    """How often the triage batch should run, in minutes."""
 
 
 class AggregateInput(sgqlc.types.Input):
@@ -19313,6 +19346,17 @@ class AddPlatformService(sgqlc.types.Type):
     """The UUID of to the new service"""
 
 
+class AddPowerBiDataflowsConnection(sgqlc.types.relay.Connection):
+    """Enable Power BI Dataflows (ETL) monitoring on an existing Power BI
+    connection. Dataflow definitions and refresh runs are collected
+    alongside the connection's BI reports.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("connection",)
+    connection = sgqlc.types.Field("Connection", graphql_name="connection")
+
+
 class AddRedshiftConsumerConnectionMutation(sgqlc.types.Type):
     """Add a Redshift consumer connection. Used for DataShare lineage."""
 
@@ -20400,12 +20444,38 @@ class AgentHealthEvidenceSample(sgqlc.types.Type):
     """Deep-link target for one observed occurrence of an evidence fact."""
 
     __schema__ = schema
-    __field_names__ = ("span_id", "trace_id")
+    __field_names__ = ("span_id", "trace_id", "trace_start_time", "trace_end_time")
     span_id = sgqlc.types.Field(String, graphql_name="spanId")
     """Span id of the sampled occurrence."""
 
     trace_id = sgqlc.types.Field(String, graphql_name="traceId")
     """Trace id of the sampled occurrence."""
+
+    trace_start_time = sgqlc.types.Field(DateTime, graphql_name="traceStartTime")
+    """Start bound for looking up this sample's trace — pass to
+    getTraceTreeNodes' traceStartTime. Span event time (the trace's
+    earliest span timestamp, padded by 5 minutes), not ingestion time.
+    Evidence samples may cite traces outside the finding's
+    windowStart/windowEnd (e.g. a historical comparison period), so
+    prefer these bounds over the finding window. Sourced from the
+    persisted sample when the pipeline recorded it, otherwise resolved
+    from the trace store at read time — legacy findings need no
+    backfill. Null when the trace can no longer be found (expired
+    retention or lookup failure); fall back to the finding window.
+    """
+
+    trace_end_time = sgqlc.types.Field(DateTime, graphql_name="traceEndTime")
+    """End bound for looking up this sample's trace — pass to
+    getTraceTreeNodes' traceEndTime. Span event time (the trace's
+    latest span timestamp, padded by 5 minutes), not ingestion time.
+    Evidence samples may cite traces outside the finding's
+    windowStart/windowEnd (e.g. a historical comparison period), so
+    prefer these bounds over the finding window. Sourced from the
+    persisted sample when the pipeline recorded it, otherwise resolved
+    from the trace store at read time — legacy findings need no
+    backfill. Null when the trace can no longer be found (expired
+    retention or lookup failure); fall back to the finding window.
+    """
 
 
 class AgentHealthFindingPayload(sgqlc.types.Type):
@@ -20645,6 +20715,37 @@ class AgentHealthIssue(sgqlc.types.Type):
     """The ServiceNow incident created for this issue, if any. Null means
     no incident has been created yet.
     """
+
+
+class AgentHealthIssueFinding(sgqlc.types.Type):
+    """One deduped agent-health issue: its oldest finding within the
+    queried window.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("issue_id", "finding_uuid", "detection_time", "report_finding_uuid", "issue")
+    issue_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="issueId")
+    """Deterministic issue id (<issueType>-<hash>) — the cross-run 'same
+    problem' handle the window is deduped on.
+    """
+
+    finding_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="findingUuid")
+    """UUID of the oldest in-window child finding carrying this issue."""
+
+    detection_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="detectionTime")
+    """Detection time of that oldest finding — when the issue first
+    appeared within the queried window.
+    """
+
+    report_finding_uuid = sgqlc.types.Field(
+        sgqlc.types.non_null(UUID), graphql_name="reportFindingUuid"
+    )
+    """UUID of the parent report finding the occurrence belongs to (the
+    AgentHealthFindingResult uuid, not the payload's reportUuid).
+    """
+
+    issue = sgqlc.types.Field(sgqlc.types.non_null(AgentHealthIssue), graphql_name="issue")
+    """The issue payload as of its oldest in-window occurrence."""
 
 
 class AgentHealthIssueJiraTicket(sgqlc.types.Type):
@@ -21243,7 +21344,6 @@ class AgenticPlatformConfigOutput(sgqlc.types.Type):
         "scope",
         "agentic_scope_uuids",
         "agentic_scopes",
-        "triage_batch_cadence_minutes",
         "status",
         "last_run_at",
     )
@@ -21274,11 +21374,6 @@ class AgenticPlatformConfigOutput(sgqlc.types.Type):
         graphql_name="agenticScopes",
     )
     """Resolved agentic domains for display in the settings UI."""
-
-    triage_batch_cadence_minutes = sgqlc.types.Field(
-        sgqlc.types.non_null(Int), graphql_name="triageBatchCadenceMinutes"
-    )
-    """How often the triage batch runs, in minutes."""
 
     status = sgqlc.types.Field(sgqlc.types.non_null(AgenticPlatformStatus), graphql_name="status")
     """Current runtime status for the agentic platform."""
@@ -32303,13 +32398,20 @@ class DomainTableCounts(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("monitored", "not_monitored", "total")
     monitored = sgqlc.types.Field(Int, graphql_name="monitored")
-    """Number of monitored tables"""
+    """Number of monitored tables. Null when the breakdown was skipped
+    because the domain holds more than 100,000 tables; `total` is
+    still populated in that case.
+    """
 
     not_monitored = sgqlc.types.Field(Int, graphql_name="notMonitored")
-    """Number of non-monitored tables"""
+    """Number of non-monitored tables. Null under the same condition as
+    `monitored`.
+    """
 
     total = sgqlc.types.Field(Int, graphql_name="total")
-    """Total number of tables"""
+    """Total number of tables. Populated whether or not the breakdown was
+    skipped.
+    """
 
 
 class DomainsByTagMatchOutput(sgqlc.types.Type):
@@ -32653,7 +32755,8 @@ class EstimatedCredits(sgqlc.types.Type):
     spec.  The estimate is computed from the validated input spec, not
     from persisted DB state — so dry-run, draft, and normal
     create/update all return a consistent "what this config will cost"
-    value.
+    value. The same type also backs `Finding.estimatedCredits` for
+    staged monitor proposals.
     """
 
     __schema__ = schema
@@ -32686,6 +32789,64 @@ class EstimatedCredits(sgqlc.types.Type):
     )
     """Human-readable caveats the caller should surface alongside the
     estimate (e.g. unresolved segment count, implicit fields).
+    """
+
+
+class EstimatedCreditsRollup(sgqlc.types.Type):
+    """Aggregate credit estimate for a monitoring-plan container.  Backs
+    `Finding.estimatedCreditsRollup`. Exists because the plan surface
+    cannot sum client-side: monitor leaves load lazily per selected
+    stage, so a client-side total would sit permanently partial.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "total_credits_per_day",
+        "pending_monitor_count",
+        "estimated_count",
+        "null_estimate_count",
+        "unresolved_segment_count",
+    )
+    total_credits_per_day = sgqlc.types.Field(
+        sgqlc.types.non_null(Float), graphql_name="totalCreditsPerDay"
+    )
+    """Summed expected daily credits across this container's pending
+    staged monitors — what enabling the rest of the plan would add.
+    Already-applied monitors are excluded; their cost is live, not
+    prospective. Treat this as a LOWER BOUND (render e.g. “at least
+    ~X”) whenever `nullEstimateCount` or `unresolvedSegmentCount` is
+    non-zero.
+    """
+
+    pending_monitor_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="pendingMonitorCount"
+    )
+    """Staged monitors under this container that are not yet applied —
+    the population the total covers, and the denominator for the
+    counts below.
+    """
+
+    estimated_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="estimatedCount")
+    """How many of those pending monitors produced an estimate that is
+    included in the total. `0` with a non-zero `pendingMonitorCount`
+    means nothing could be estimated — the total is `0.0` but carries
+    no information, so present it as unknown rather than as zero cost.
+    """
+
+    null_estimate_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="nullEstimateCount"
+    )
+    """Pending monitors whose estimate could not be computed (e.g. an
+    invalid staged configuration) and so contribute nothing to the
+    total. Non-zero means the total understates the real cost.
+    """
+
+    unresolved_segment_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="unresolvedSegmentCount"
+    )
+    """Pending monitors estimated without a segment multiplier because no
+    segment count was resolvable (staged monitors have no run
+    history). Non-zero means the total understates the real cost.
     """
 
 
@@ -32735,8 +32896,6 @@ class EtlContainer(sgqlc.types.Type):
         "adftaskmodel_set",
         "adfjobrunmodel_set",
         "adftaskrunmodel_set",
-        "informaticamappingtaskmodel_set",
-        "informaticamappingtaskrunmodel_set",
         "job_count",
         "webhook_status",
         "push_events",
@@ -33090,54 +33249,6 @@ class EtlContainer(sgqlc.types.Type):
     adftaskrunmodel_set = sgqlc.types.Field(
         sgqlc.types.non_null(AdfTaskRunConnection),
         graphql_name="adftaskrunmodelSet",
-        args=sgqlc.types.ArgDict(
-            (
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """ETL container associated with the event
-
-    Arguments:
-
-    * `offset` (`Int`)None
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-    informaticamappingtaskmodel_set = sgqlc.types.Field(
-        sgqlc.types.non_null("InformaticaMappingTaskConnection"),
-        graphql_name="informaticamappingtaskmodelSet",
-        args=sgqlc.types.ArgDict(
-            (
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """ETL container associated with the pipeline
-
-    Arguments:
-
-    * `offset` (`Int`)None
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-    informaticamappingtaskrunmodel_set = sgqlc.types.Field(
-        sgqlc.types.non_null("InformaticaMappingTaskRunConnection"),
-        graphql_name="informaticamappingtaskrunmodelSet",
         args=sgqlc.types.ArgDict(
             (
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -36883,93 +36994,6 @@ class IndexedFieldSpecType(sgqlc.types.Type):
     )
 
 
-class InformaticaMappingTaskConnection(sgqlc.types.relay.Connection):
-    __schema__ = schema
-    __field_names__ = ("page_info", "edges")
-    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
-    """Pagination data for this connection."""
-
-    edges = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of("InformaticaMappingTaskEdge")),
-        graphql_name="edges",
-    )
-    """Contains the nodes in this connection."""
-
-
-class InformaticaMappingTaskEdge(sgqlc.types.Type):
-    """A Relay edge containing a `InformaticaMappingTask` and its cursor."""
-
-    __schema__ = schema
-    __field_names__ = ("node", "cursor")
-    node = sgqlc.types.Field("InformaticaMappingTask", graphql_name="node")
-    """The item at the end of the edge"""
-
-    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
-    """A cursor for use in pagination"""
-
-
-class InformaticaMappingTaskRunConnection(sgqlc.types.relay.Connection):
-    __schema__ = schema
-    __field_names__ = ("page_info", "edges")
-    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
-    """Pagination data for this connection."""
-
-    edges = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of("InformaticaMappingTaskRunEdge")),
-        graphql_name="edges",
-    )
-    """Contains the nodes in this connection."""
-
-
-class InformaticaMappingTaskRunEdge(sgqlc.types.Type):
-    """A Relay edge containing a `InformaticaMappingTaskRun` and its
-    cursor.
-    """
-
-    __schema__ = schema
-    __field_names__ = ("node", "cursor")
-    node = sgqlc.types.Field("InformaticaMappingTaskRun", graphql_name="node")
-    """The item at the end of the edge"""
-
-    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
-    """A cursor for use in pagination"""
-
-
-class InformaticaMappingTaskRunsConnection(sgqlc.types.relay.Connection):
-    """Informatica mapping-task runs response"""
-
-    __schema__ = schema
-    __field_names__ = ("page_info", "edges", "edge_count", "total_count")
-    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
-    """Pagination data for this connection."""
-
-    edges = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of("InformaticaMappingTaskRunsEdge")),
-        graphql_name="edges",
-    )
-    """Contains the nodes in this connection."""
-
-    edge_count = sgqlc.types.Field(Int, graphql_name="edgeCount")
-    """Total number of edges returned (page count)"""
-
-    total_count = sgqlc.types.Field(Int, graphql_name="totalCount")
-    """Total number of edges matching filter (total count)"""
-
-
-class InformaticaMappingTaskRunsEdge(sgqlc.types.Type):
-    """A Relay edge containing a `InformaticaMappingTaskRuns` and its
-    cursor.
-    """
-
-    __schema__ = schema
-    __field_names__ = ("node", "cursor")
-    node = sgqlc.types.Field("InformaticaMappingTaskRun", graphql_name="node")
-    """The item at the end of the edge"""
-
-    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
-    """A cursor for use in pagination"""
-
-
 class InfrastructureDetails(sgqlc.types.Type):
     """Infrastructure information"""
 
@@ -40563,6 +40587,7 @@ class MonitorTuningSuggestion(sgqlc.types.Type):
         "monitor_name",
         "monitor_type",
         "monitor_url",
+        "is_template_managed",
         "run_uuid",
         "created_time",
         "recommendation_count",
@@ -40580,6 +40605,15 @@ class MonitorTuningSuggestion(sgqlc.types.Type):
 
     monitor_url = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="monitorUrl")
     """Deep link to the monitor's details page in the web app."""
+
+    is_template_managed = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="isTemplateManaged"
+    )
+    """True when the monitor is deployed via Monitors-as-Code. Its
+    recommendations are read-only — applyMonitorTuningRun rejects
+    them, and the user applies them by editing their Monitors-as-Code
+    configuration.
+    """
 
     run_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="runUuid")
     """UUID of the underlying tuning run backing this suggestion."""
@@ -41480,6 +41514,8 @@ class Mutation(sgqlc.types.Type):
         "add_etl_connection",
         "add_snowflake_tasks_connection",
         "remove_snowflake_tasks_from_connection",
+        "add_power_bi_dataflows_connection",
+        "remove_power_bi_dataflows_from_connection",
         "toggle_event_config",
         "configure_metadata_events",
         "configure_query_log_events",
@@ -57089,7 +57125,9 @@ class Mutation(sgqlc.types.Type):
     )
     """(experimental) Manually triggers a run of the specified agentic
     platform pipeline. Disabled pipelines stay manually triggerable
-    (disabled only pauses the schedule). Requests matching an in-
+    (disabled only pauses the schedule). `triage` and `monitoring`
+    pipelines are rejected — use `triageAlerts` and
+    `runMonitoringForDomain` respectively. Requests matching an in-
     flight (running or queued) execution for the same user are
     silently dropped; externally scheduled anchor pipelines (e.g.
     agent_health) instead fail while any execution is in flight.
@@ -57097,11 +57135,10 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `config_overrides` (`JSONString`): Per-run overrides merged onto
-      the pipeline's config. Triage pipelines accept
-      `lookback_seconds`, `limit`, and `include_non_agent_monitors`
-      (bool — when true, includes incidents from monitors not created
-      by an agent user); `monitor_tuning` accepts `monitor_uuid` to
-      target a single monitor.
+      the pipeline's config. `monitor_tuning` accepts `monitor_uuid`
+      to target a single monitor. Triage pipelines are not triggerable
+      here — use the `triageAlerts` mutation to triage specific
+      alerts.
     * `pipeline_uuid` (`UUID!`): UUID of the pipeline to run.
     """
 
@@ -61554,6 +61591,55 @@ class Mutation(sgqlc.types.Type):
 
     * `connection_id` (`UUID!`): ID of the Snowflake connection to
       stop monitoring Tasks on.
+    """
+
+    add_power_bi_dataflows_connection = sgqlc.types.Field(
+        AddPowerBiDataflowsConnection,
+        graphql_name="addPowerBiDataflowsConnection",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "connection_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="connectionId", default=None
+                    ),
+                ),
+                ("name", sgqlc.types.Arg(String, graphql_name="name", default=None)),
+            )
+        ),
+    )
+    """(experimental) Enable Power BI Dataflows (ETL) monitoring on a
+    Power BI connection
+
+    Arguments:
+
+    * `connection_id` (`UUID!`): Enable Dataflows on this existing
+      Power BI connection, reusing its credentials and data collector.
+    * `name` (`String`): Friendly name for the Power BI Dataflows
+      integration (the ETL container).
+    """
+
+    remove_power_bi_dataflows_from_connection = sgqlc.types.Field(
+        "RemovePowerBiDataflowsFromConnection",
+        graphql_name="removePowerBiDataflowsFromConnection",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "connection_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="connectionId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Stop monitoring Power BI Dataflows on a Power BI
+    connection
+
+    Arguments:
+
+    * `connection_id` (`UUID!`): ID of the Power BI connection to stop
+      monitoring Dataflows on.
     """
 
     toggle_event_config = sgqlc.types.Field(
@@ -66444,7 +66530,7 @@ class PerformancePageInsightsOutput(sgqlc.types.Type):
     """Cost insights surfaced on the Performance Page."""
 
     __schema__ = schema
-    __field_names__ = ("is_enabled", "insights", "thread_id")
+    __field_names__ = ("is_enabled", "insights", "thread_id", "created_time")
     is_enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isEnabled")
     """Whether cost insights are enabled for the caller's account. When
     false, the Performance Page insights section should not be shown.
@@ -66462,6 +66548,11 @@ class PerformancePageInsightsOutput(sgqlc.types.Type):
 
     thread_id = sgqlc.types.Field(String, graphql_name="threadId")
     """Identifier of the run that produced these insights. Null when
+    insights are unavailable for the caller's account.
+    """
+
+    created_time = sgqlc.types.Field(DateTime, graphql_name="createdTime")
+    """When the run that produced these insights started. Null when
     insights are unavailable for the caller's account.
     """
 
@@ -68046,6 +68137,7 @@ class Query(sgqlc.types.Type):
         "get_platform_agents",
         "get_latest_agent_health_finding",
         "get_latest_agent_health_finding_summaries",
+        "get_agent_health_issue_findings",
         "get_linear_teams",
         "get_linear_integration",
         "get_available_platform_agents",
@@ -68160,7 +68252,6 @@ class Query(sgqlc.types.Type):
         "get_etl_group_v3",
         "get_etl_groups_v3",
         "get_etl_task_performance_v3",
-        "get_informatica_mapping_task_runs",
         "get_adf_job_runs",
         "get_adf_task_runs",
         "get_databricks_job_runs",
@@ -69223,6 +69314,65 @@ class Query(sgqlc.types.Type):
     * `trace_table_mcon` (`String!`): MCON of the agent's trace table
       — same value passed as `traceTableMcon` on getAgentGraph.
       Disambiguates agents with identical names across trace tables.
+    """
+
+    get_agent_health_issue_findings = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AgentHealthIssueFinding))),
+        graphql_name="getAgentHealthIssueFindings",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
+                    ),
+                ),
+                (
+                    "workflow_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="workflowName", default=None
+                    ),
+                ),
+                (
+                    "trace_table_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="traceTableMcon", default=None
+                    ),
+                ),
+                (
+                    "start_time",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DateTime), graphql_name="startTime", default=None
+                    ),
+                ),
+                (
+                    "end_time",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DateTime), graphql_name="endTime", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Agent-health issues detected in a time window for
+    an (agent_name, workflow_name, trace_table_mcon) combo,
+    deduplicated by issue id: for each issue id, the OLDEST finding in
+    the window — its first in-window occurrence — with the issue
+    payload resolved inline. Ordered by that first-occurrence
+    detection time, newest first. Empty when nothing matches.
+
+    Arguments:
+
+    * `agent_name` (`String!`): Observability agent name.
+    * `workflow_name` (`String!`): Workflow within the agent.
+    * `trace_table_mcon` (`String!`): MCON of the agent's trace table
+      — same value passed as `traceTableMcon` on getAgentGraph.
+      Disambiguates agents with identical names across trace tables.
+    * `start_time` (`DateTime!`): Include findings with detectionTime
+      at or after this instant (inclusive). Pass an ISO-8601 datetime
+      with a UTC offset.
+    * `end_time` (`DateTime!`): Include findings with detectionTime at
+      or before this instant (inclusive). Must not precede startTime.
     """
 
     get_linear_teams = sgqlc.types.Field(
@@ -72593,43 +72743,6 @@ class Query(sgqlc.types.Type):
     * `paging` (`EtlTaskPerformanceV3PagingInput`): Relay-style cursor
       pagination plus task-summary sort field and direction. Defaults
       to the first 20 by LAST_RUN_START_TIME.
-    """
-
-    get_informatica_mapping_task_runs = sgqlc.types.Field(
-        InformaticaMappingTaskRunsConnection,
-        graphql_name="getInformaticaMappingTaskRuns",
-        args=sgqlc.types.ArgDict(
-            (
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                (
-                    "job_mcon",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="jobMcon", default=None
-                    ),
-                ),
-                ("from_date", sgqlc.types.Arg(DateTime, graphql_name="fromDate", default=None)),
-                ("to_date", sgqlc.types.Arg(DateTime, graphql_name="toDate", default=None)),
-            )
-        ),
-    )
-    """(experimental) List of runs for a given Informatica mapping task
-
-    Arguments:
-
-    * `first` (`Int`): When paging forward: the number of items to
-      return (page size)
-    * `after` (`String`): When paging forward: the cursor of the last
-      item on the previous page of results
-    * `last` (`Int`): When paging backward: the number of items to
-      return (page size)
-    * `before` (`String`): When paging backward: the cursor of the
-      first item on the next page of results
-    * `job_mcon` (`String!`): Mapping-task MCON to filter by
-    * `from_date` (`DateTime`): Filter date range start
-    * `to_date` (`DateTime`): Filter date range end
     """
 
     get_adf_job_runs = sgqlc.types.Field(
@@ -85436,7 +85549,15 @@ class Query(sgqlc.types.Type):
     )
     """(experimental) Get monitored/non-monitored/total table counts for
     a single domain. Returns zero counts when the UUID is not in the
-    caller's account.
+    caller's account. Selecting `total` on its own resolves it from
+    the domain's assignments, which is far cheaper on large domains
+    but can read slightly high; select `monitored` or `notMonitored`
+    to get all three from the exact per-table breakdown. Domains
+    holding more than 100,000 tables are too large to break down
+    within the request budget: they return `total` with `monitored`
+    and `notMonitored` null. A null breakdown is therefore a
+    deterministic answer, not a failure — a failed count yields a
+    GraphQL error and no data at all.
 
     Arguments:
 
@@ -93024,6 +93145,17 @@ class RemoveMonitorsLabels(sgqlc.types.Type):
     success = sgqlc.types.Field(Boolean, graphql_name="success")
 
 
+class RemovePowerBiDataflowsFromConnection(sgqlc.types.relay.Connection):
+    """Stop monitoring Power BI Dataflows on a connection. Dataflow
+    monitoring is turned off and the connection's BI reports
+    monitoring is kept.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+
+
 class RemoveSnowflakeTasksFromConnection(sgqlc.types.relay.Connection):
     """Stop monitoring Snowflake Tasks on a connection. If the connection
     is used only for Snowflake Tasks it is removed; otherwise
@@ -93457,8 +93589,11 @@ class RunMonitoringForDomain(sgqlc.types.Type):
     SUGGEST mode — it emits the staged finding tree for the user to
     review and apply, and never deploys monitors live. There is no
     create-mode option; deploying the suggested monitors is a
-    separate, Write-gated step.  Poll the resulting run's state via
-    ``getMonitoringRunForDomain``.
+    separate, Write-gated step.  The run dispatches as the calling
+    user, and at most one run per domain is in flight at a time —
+    calling this while the domain is already running returns that run
+    instead of starting a second one.  Poll the resulting run's state
+    via ``getMonitoringRunForDomain``.
     """
 
     __schema__ = schema
@@ -93467,8 +93602,9 @@ class RunMonitoringForDomain(sgqlc.types.Type):
         sgqlc.types.non_null(AgenticPlatformPipelineExecutionOutput), graphql_name="execution"
     )
     """The monitoring-run execution. A freshly created RUNNING row, or
-    the already-in-flight run when an equivalent one is still
-    executing.
+    the domain's already-running execution when one is still in flight
+    — at most one run per domain runs at a time, whoever started it,
+    so poll the returned execution and re-run once it finishes.
     """
 
 
@@ -99950,7 +100086,11 @@ class TriggerAgenticPlatformPipeline(sgqlc.types.Type):
     findings endpoint. Fan-out pipelines (e.g. ``monitor_tuning``)
     return one execution per resolved target — pass a narrowing
     override (e.g. ``monitor_uuid``) in ``config_overrides`` to target
-    a single run.
+    a single run.  ``triage`` and ``monitoring`` pipelines are
+    rejected: each has a dedicated entry point that this generic path
+    cannot honour — ``triageAlerts`` (which claims each incident) and
+    ``runMonitoringForDomain`` (which pins the run to suggest mode and
+    the calling user).
     """
 
     __schema__ = schema
@@ -101553,6 +101693,7 @@ class UserAuthorizationOutput(sgqlc.types.Type):
         "permissions",
         "performance_dashboard_access",
         "can_edit_table_monitors",
+        "allowed_agent_capabilities",
     )
     groups = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="groups"
@@ -101587,6 +101728,16 @@ class UserAuthorizationOutput(sgqlc.types.Type):
 
     can_edit_table_monitors = sgqlc.types.Field(Boolean, graphql_name="canEditTableMonitors")
     """Whether the user can create, update or delete table monitors."""
+
+    allowed_agent_capabilities = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="allowedAgentCapabilities",
+    )
+    """AI agent capabilities available to the authenticated user,
+    combining the account's agent availability with the user's
+    resolved permissions (e.g. tsa, triage, monitoring, sql, chat,
+    use_run_llm, pr_agent).
+    """
 
 
 class UserBasicInfoConnection(sgqlc.types.relay.Connection):
@@ -108914,7 +109065,17 @@ class DomainOutputV2(sgqlc.types.Type, NodeWithUUID):
     """
 
     table_counts = sgqlc.types.Field(DomainTableCounts, graphql_name="tableCounts")
-    """Table counts grouped by monitoring status"""
+    """Table counts grouped by monitoring status. Selecting `total` on
+    its own resolves it from the domain's assignments, which is far
+    cheaper on large domains but can read slightly high; select
+    `monitored` or `notMonitored` to get all three from the exact per-
+    table breakdown. Domains holding more than 100,000 tables are too
+    large to break down within the request budget: they return `total`
+    with `monitored` and `notMonitored` null, and are skipped
+    individually so the other domains on the page still get exact
+    counts. A null breakdown is a deterministic answer, not a failure
+    — a failed count yields a GraphQL error and no counts at all.
+    """
 
     monitor_counts = sgqlc.types.Field(
         sgqlc.types.list_of(DomainMonitorCounts), graphql_name="monitorCounts"
@@ -109610,6 +109771,8 @@ class Finding(sgqlc.types.Type, Node):
         "deployed_monitors",
         "deployed_monitors_count",
         "proposed_monitor",
+        "estimated_credits",
+        "estimated_credits_rollup",
         "related_assets",
         "related_assets_count",
         "tsa_analysis",
@@ -109764,6 +109927,36 @@ class Finding(sgqlc.types.Type, Node):
     lifecycle (pending/in_progress/applied/failed), eligibility, and
     the deployed monitor once applied. Null for findings that are not
     individual monitor proposals.
+    """
+
+    estimated_credits = sgqlc.types.Field(EstimatedCredits, graphql_name="estimatedCredits")
+    """Expected daily credit consumption for the monitor this finding
+    proposes, derived from its staged configuration — the same preview
+    shown when creating a monitor directly. Only present on individual
+    monitor proposals for accounts on the per-monitor credit
+    consumption pricing model; null when no estimate can be computed
+    (e.g. an invalid staged configuration). Staged monitors have no
+    run history to resolve segment counts from, so segmented
+    configurations estimate without the segment multiplier and carry
+    an unresolved-segment-count warning.
+    """
+
+    estimated_credits_rollup = sgqlc.types.Field(
+        EstimatedCreditsRollup, graphql_name="estimatedCreditsRollup"
+    )
+    """Aggregate credit estimate for a monitoring-plan container — the
+    sum across the staged monitors beneath it that are not yet
+    applied, i.e. what enabling the rest of it would add per day.
+    Present only on `MONITORING_GAP` findings (both a plan's top-level
+    container and an individual stage) for accounts on the per-monitor
+    credit consumption pricing model; null on monitor proposals
+    themselves (use `estimatedCredits`) and on containers with nothing
+    left to enable. Aggregates every monitor leaf beneath the finding,
+    not just direct children, so a container's total spans its stages.
+    Consult the returned counts before rendering: the total is a lower
+    bound whenever `nullEstimateCount` or `unresolvedSegmentCount` is
+    non-zero, and a plan spanning several containers must be summed
+    across them.
     """
 
     related_assets = sgqlc.types.Field(
@@ -110344,206 +110537,6 @@ class Incident(sgqlc.types.Type, Node):
     """Latest triage outcome for this incident, or null if it has never
     been triaged. Status PENDING means a run is in flight.
     """
-
-
-class InformaticaMappingTask(sgqlc.types.Type, Node):
-    __schema__ = schema
-    __field_names__ = (
-        "account",
-        "generates_incidents",
-        "updated_time",
-        "uuid",
-        "resource",
-        "mcon",
-        "job_id",
-        "job_name",
-        "job_description",
-        "last_run_date",
-        "last_update_time",
-        "created_time",
-        "created_by",
-        "updated_by",
-        "mapping_id",
-        "mapping_name",
-        "path",
-        "runs",
-        "etl_type",
-        "source_tables",
-        "dest_tables",
-        "recent_run_count",
-        "generates_alerts",
-    )
-    account = sgqlc.types.Field(sgqlc.types.non_null(Account), graphql_name="account")
-
-    generates_incidents = sgqlc.types.Field(
-        sgqlc.types.non_null(Boolean), graphql_name="generatesIncidents"
-    )
-
-    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
-
-    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
-    """UUID of Run"""
-
-    resource = sgqlc.types.Field(sgqlc.types.non_null(EtlContainer), graphql_name="resource")
-    """ETL container associated with the pipeline"""
-
-    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
-
-    job_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="jobId")
-    """Job ID"""
-
-    job_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="jobName")
-    """Job Name"""
-
-    job_description = sgqlc.types.Field(String, graphql_name="jobDescription")
-    """Job Description"""
-
-    last_run_date = sgqlc.types.Field(DateTime, graphql_name="lastRunDate")
-    """The date of the last run"""
-
-    last_update_time = sgqlc.types.Field(
-        sgqlc.types.non_null(DateTime), graphql_name="lastUpdateTime"
-    )
-    """Informatica updateTime; drives upsert dedup"""
-
-    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
-
-    created_by = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="createdBy")
-
-    updated_by = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="updatedBy")
-
-    mapping_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mappingId")
-
-    mapping_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mappingName")
-
-    path = sgqlc.types.Field(String, graphql_name="path")
-
-    runs = sgqlc.types.Field(
-        sgqlc.types.non_null(InformaticaMappingTaskRunConnection),
-        graphql_name="runs",
-        args=sgqlc.types.ArgDict(
-            (
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """Mapping task associated with the run
-
-    Arguments:
-
-    * `offset` (`Int`)None
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-    etl_type = sgqlc.types.Field(sgqlc.types.non_null(EtlType), graphql_name="etlType")
-    """Etl type of the job"""
-
-    source_tables = sgqlc.types.Field(
-        sgqlc.types.list_of("WarehouseTable"), graphql_name="sourceTables"
-    )
-    """Tables read from in this job"""
-
-    dest_tables = sgqlc.types.Field(
-        sgqlc.types.list_of("WarehouseTable"), graphql_name="destTables"
-    )
-    """Tables modified in this job"""
-
-    recent_run_count = sgqlc.types.Field(Int, graphql_name="recentRunCount")
-    """Number of runs of this job within the last 30 days"""
-
-    generates_alerts = sgqlc.types.Field(
-        sgqlc.types.non_null(Boolean), graphql_name="generatesAlerts"
-    )
-    """Whether this job generates alerts when it fails"""
-
-
-class InformaticaMappingTaskRun(sgqlc.types.Type, Node):
-    __schema__ = schema
-    __field_names__ = (
-        "created_time",
-        "updated_time",
-        "uuid",
-        "resource",
-        "success",
-        "log_entry_id",
-        "run_id",
-        "task_id",
-        "started_at",
-        "finished_at",
-        "started_by",
-        "status",
-        "total_success_rows",
-        "total_failed_rows",
-        "error_message",
-        "run_url",
-        "associated_task",
-    )
-    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
-
-    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
-
-    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
-    """UUID of Run"""
-
-    resource = sgqlc.types.Field(sgqlc.types.non_null(EtlContainer), graphql_name="resource")
-    """ETL container associated with the event"""
-
-    success = sgqlc.types.Field(Boolean, graphql_name="success")
-    """run was successful or not"""
-
-    log_entry_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="logEntryId")
-    """Informatica activity-log entry id (the `id` field on each entry);
-    bulletproof unique key per run, used as the dedup gate
-    """
-
-    run_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="runId")
-    """Informatica's runId (informational; what users see in the
-    Informatica UI). In practice 1:1 with log_entry_id but not
-    enforced as unique
-    """
-
-    task_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="taskId")
-    """Mapping task ID"""
-
-    started_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startedAt")
-
-    finished_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="finishedAt")
-
-    started_by = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="startedBy")
-    """User or system that started the run"""
-
-    status = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="status")
-    """Run status from Informatica"""
-
-    total_success_rows = sgqlc.types.Field(
-        sgqlc.types.non_null(Int), graphql_name="totalSuccessRows"
-    )
-
-    total_failed_rows = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalFailedRows")
-
-    error_message = sgqlc.types.Field(String, graphql_name="errorMessage")
-    """Informatica's errorMsg; only emitted on the top-level activity-log
-    entry for failed runs
-    """
-
-    run_url = sgqlc.types.Field(String, graphql_name="runUrl")
-    """Customer-facing deep link to the Informatica monitor run-detail
-    page. Nullable because the resolved POD URL needed to construct it
-    isn't always available — older apollo-agent versions pre-date the
-    metadata RPC used to fetch it on the agent path
-    """
-
-    associated_task = sgqlc.types.Field(
-        sgqlc.types.non_null(InformaticaMappingTask), graphql_name="associatedTask"
-    )
-    """Mapping task associated with the run"""
 
 
 class JiraTicket(sgqlc.types.Type, NodeWithUUID):
@@ -115104,7 +115097,7 @@ class WidgetOptionsText(sgqlc.types.Type, WidgetOptionsInterface):
 ########################################################################
 class ETLJobUnionType(sgqlc.types.Union):
     __schema__ = schema
-    __types__ = (AirflowDag, DatabricksJob, AdfJob, DbtJob, InformaticaMappingTask)
+    __types__ = (AirflowDag, DatabricksJob, AdfJob, DbtJob)
 
 
 class ETLTaskUnionType(sgqlc.types.Union):

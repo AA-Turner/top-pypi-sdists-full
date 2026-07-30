@@ -10,6 +10,7 @@ from selenium.webdriver.common.actions.action_builder import ActionBuilder
 from selenium.webdriver.common.keys import Keys
 
 from testmu_selenium._action_engine import _ActionSpec, _run_action
+from testmu_selenium._helpers.input_value import _coerce_fill_value
 
 
 def _search_runner(element, ctx):
@@ -31,13 +32,17 @@ def _search_runner(element, ctx):
 # bare <canvas> and leaves keystrokes undelivered (see _action_type for the full
 # rationale) — then type the value and submit with Enter via the keyboard source.
 def _search_coord_runner(driver, x, y, ctx):
+    # _search_runner normalizes via input_value; this tier bypasses it, so the
+    # same coerce + structural-reject boundary has to be applied here.
+    value = _coerce_fill_value(ctx['value'])
+
     click = ActionBuilder(driver)
     click.pointer_action.move_to_location(x, y)
     click.pointer_action.click()
     click.perform()
 
     keyboard = ActionBuilder(driver)
-    keyboard.key_action.send_keys(ctx['value'])
+    keyboard.key_action.send_keys(value)
     keyboard.key_action.send_keys(Keys.ENTER)
     keyboard.perform()
     return True

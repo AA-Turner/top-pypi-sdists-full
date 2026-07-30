@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-boto3-ec2
-Version: 1.43.46
-Summary: Type annotations for boto3 EC2 1.43.46 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.59
+Summary: Type annotations for boto3 EC2 1.43.59 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 EC2 1.43.46](https://pypi.org/project/boto3/)
+Type annotations for [boto3 EC2 1.43.59](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -108,7 +108,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.46' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.59' mypy-boto3-builder`
 2. Select `boto3` AWS SDK.
 3. Add `EC2` service.
 4. Use provided commands to install generated packages.
@@ -504,6 +504,7 @@ from types_boto3_ec2.paginator import (
     GetTransitGatewayAttachmentPropagationsPaginator,
     GetTransitGatewayMulticastDomainAssociationsPaginator,
     GetTransitGatewayPolicyTableAssociationsPaginator,
+    GetTransitGatewayPolicyTableEntriesPaginator,
     GetTransitGatewayPrefixListReferencesPaginator,
     GetTransitGatewayRouteTableAssociationsPaginator,
     GetTransitGatewayRouteTablePropagationsPaginator,
@@ -984,6 +985,9 @@ get_transit_gateway_multicast_domain_associations_paginator: GetTransitGatewayMu
 )
 get_transit_gateway_policy_table_associations_paginator: GetTransitGatewayPolicyTableAssociationsPaginator = client.get_paginator(
     "get_transit_gateway_policy_table_associations"
+)
+get_transit_gateway_policy_table_entries_paginator: GetTransitGatewayPolicyTableEntriesPaginator = (
+    client.get_paginator("get_transit_gateway_policy_table_entries")
 )
 get_transit_gateway_prefix_list_references_paginator: GetTransitGatewayPrefixListReferencesPaginator = client.get_paginator(
     "get_transit_gateway_prefix_list_references"

@@ -327,7 +327,7 @@ The exact CloudFormation realization depends on the strength and whether the ref
 crosses region or account boundaries:
 
 |                            | Strong (default)                                  | Both                                                                                         | Weak                                                            |
-|----------------------------|---------------------------------------------------|----------------------------------------------------------------------------------------------|-----------------------------------------------------------------|
+| -------------------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
 | Same account and region    | Generates a `Fn::ImportValue` reference           | Generates a `Fn::GetStackOutput` reference AND an Export, but not the `Fn::ImportValue`      | Generates a `Fn::GetStackOutput` reference                      |
 | Same account, cross-region | Generates a pair of `ExportWriter`/`ExportReader` | Generates a `Fn::GetStackOutput` reference AND an `ExportWriter`, but not the `ExportReader` | Generates a `Fn::GetStackOutput` reference                      |
 | Cross-account              | Not possible. Falls back to weak.                 | Generates a `Fn::GetStackOutput` reference + cross-account role                              | Generates a `Fn::GetStackOutput` reference + cross-account role |
@@ -693,7 +693,7 @@ happens when an resource from one stack is referenced in another stack. In
 that case, CDK records the cross-stack referencing of resources,
 automatically produces the right CloudFormation primitives, and adds a
 dependency between the two stacks. You can also manually add a dependency
-between two stacks by using the `stackA.addDependency(stackB)` method.
+between two stacks by using the `stackA.addStackDependency(stackB)` method.
 
 A stack dependency has the following implications:
 
@@ -708,7 +708,7 @@ A stack dependency has the following implications:
 
 ### CfnResource Dependencies
 
-To make declaring dependencies between `CfnResource` objects easier, you can declare dependencies from one `CfnResource` object on another by using the `cfnResource1.addDependency(cfnResource2)` method. This method will work for resources both within the same stack and across stacks as it detects the relative location of the two resources and adds the dependency either to the resource or between the relevant stacks, as appropriate. If more complex logic is in needed, you can similarly remove, replace, or view dependencies between `CfnResource` objects with the `CfnResource` `removeDependency`, `replaceDependency`, and `obtainDependencies` methods, respectively.
+To make declaring dependencies between `CfnResource` objects easier, you can declare dependencies from one `CfnResource` object on another by using the `cfnResource1.addResourceDependency(cfnResource2)` method. This method will work for resources both within the same stack and across stacks as it detects the relative location of the two resources and adds the dependency either to the resource or between the relevant stacks, as appropriate. If more complex logic is in needed, you can similarly remove, replace, or view dependencies between `CfnResource` objects with the `CfnResource` `removeResourceDependency`, `replaceDependency`, and `obtainDependencies` methods, respectively.
 
 ## Custom Resources
 
@@ -1133,7 +1133,7 @@ Resource dependencies (the `DependsOn` attribute) is modified using the
 resource_a = CfnResource(self, "ResourceA", resource_props)
 resource_b = CfnResource(self, "ResourceB", resource_props)
 
-resource_b.add_dependency(resource_a)
+resource_b.add_resource_dependency(resource_a)
 ```
 
 #### CreationPolicy
@@ -9205,9 +9205,6 @@ class CfnResource(
     def add_depends_on(self, target: "CfnResource") -> None:
         '''(deprecated) Indicates that this resource depends on another resource and cannot be provisioned unless the other resource has been successfully provisioned.
 
-        This can be used for resources across stacks (or nested stack) boundaries
-        and the dependency will automatically be transferred to the relevant scope.
-
         This method has been renamed to ``addResourceDependency``, which makes it
         more clear that this method operates at a different level from the
         construct-level ``construct.node.addDependency()`` mechanism.
@@ -9459,14 +9456,13 @@ class CfnResource(
         return typing.cast(typing.Any, jsii.invoke(self, "getMetadata", [key]))
 
     @jsii.member(jsii_name="obtainDependencies")
-    def obtain_dependencies(self) -> typing.List[typing.Union["Stack", "CfnResource"]]:
-        '''Retrieves an array of resources and stacks this resource depends on.
+    def obtain_dependencies(self) -> typing.List[typing.Union["CfnResource", "Stack"]]:
+        '''Retrieves an array of resources this resource depends on.
 
-        For resources depended on directly, returns the ``CfnResource`` object. For
-        dependencies on other stacks, returns the ``Stack`` object. The order of the
-        array is not guaranteed.
+        This assembles dependencies on resources across stacks (including nested stacks)
+        automatically.
         '''
-        return typing.cast(typing.List[typing.Union["Stack", "CfnResource"]], jsii.invoke(self, "obtainDependencies", []))
+        return typing.cast(typing.List[typing.Union["CfnResource", "Stack"]], jsii.invoke(self, "obtainDependencies", []))
 
     @jsii.member(jsii_name="removeDependency")
     def remove_dependency(self, target: "CfnResource") -> None:

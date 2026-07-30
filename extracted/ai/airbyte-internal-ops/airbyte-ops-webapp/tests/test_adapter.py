@@ -753,6 +753,68 @@ def test_rollout_rows_fall_back_when_query_fails() -> None:
     assert error == "Progressive rollout status could not be loaded."
 
 
+def test_progressive_rollout_rows_split_tier_displays(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rollouts = (
+        ConnectorRollout(
+            rollout_id="rollout-tier-2",
+            connector_id="source-postgres-id",
+            connector_name="source-postgres",
+            connector_type="source",
+            docker_repository="airbyte/source-postgres",
+            state="in_progress",
+            rc_docker_image_tag="3.8.0-rc.1",
+            initial_docker_image_tag="3.8.0",
+            current_target_rollout_pct="100",
+            final_target_rollout_pct="100",
+            created_at="2026-06-10T00:00:00Z",
+            updated_at="2026-06-11T00:00:00Z",
+            tier="TIER_2",
+        ),
+        ConnectorRollout(
+            rollout_id="rollout-tier-0",
+            connector_id="source-postgres-id",
+            connector_name="source-postgres",
+            connector_type="source",
+            docker_repository="airbyte/source-postgres",
+            state="in_progress",
+            rc_docker_image_tag="3.8.0-rc.1",
+            initial_docker_image_tag="3.8.0",
+            current_target_rollout_pct="50",
+            final_target_rollout_pct="100",
+            created_at="2026-06-10T00:00:00Z",
+            updated_at="2026-06-11T00:00:00Z",
+            tier="TIER_0",
+        ),
+    )
+
+    class FakeAdapter:
+        def list_progressive_rollouts(self) -> tuple[ConnectorRollout, ...]:
+            return rollouts
+
+    monkeypatch.setattr(helpers_module, "get_adapter", lambda: FakeAdapter())
+    monkeypatch.setattr(
+        helpers_module, "_autopilot_display", lambda _connector_id, _rc_tag: "OFF"
+    )
+
+    rows = helpers_module.progressive_rollout_rows()
+
+    assert rows == [
+        {
+            "connector_id": "source-postgres-id",
+            "connector_name": "source-postgres",
+            "rc_docker_image_tag": "3.8.0-rc.1",
+            "tier_2_display": "🟢 100%",
+            "tier_1_display": "⚪ —",
+            "tier_0_display": "🔵 50%",
+            "state": "in_progress",
+            "autopilot_display": "OFF",
+            "rc_pin_count_display": "0",
+        }
+    ]
+
+
 def test_connector_version_manager_initial_state_uses_resolved_context(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

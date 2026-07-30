@@ -338,10 +338,10 @@ class CatView(Table):
     def __init__(self, sources, missing=None, header=None):
         self.sources = sources
         self.missing = missing
-        self.header = header
+        self._header = header
 
     def __iter__(self):
-        return itercat(self.sources, self.missing, self.header)
+        return itercat(self.sources, self.missing, self._header)
 
 
 def itercat(sources, missing, header):

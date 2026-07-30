@@ -4,12 +4,15 @@ import typing as t
 
 from pydantic import UUID4, BaseModel, parse_obj_as
 
+from taktile_auth._logging import get_logger
 from taktile_auth._metrics import emit_metric
 from taktile_auth.entities import Permission, Role
 from taktile_auth.entities.role import RoleDefinition
 from taktile_auth.exceptions import InsufficientRightsException
 from taktile_auth.parser import RESOURCES, ROLES
 from taktile_auth.parser.utils import parse_permission
+
+logger = get_logger()
 
 
 def _arg_matches(role_value: str, filter_value: str) -> bool:
@@ -210,3 +213,48 @@ class TaktileIdToken(BaseModel):
                 duration_ms,
                 {"Allowed": str(allowed)},
             )
+
+    def has_access(self, permission: t.Union[str, t.Sequence[str]]) -> bool:
+        """Like ``assert_access``, but returns a boolean instead of raising."""
+        try:
+            self.assert_access(permission)
+        except InsufficientRightsException:
+            return False
+        return True
+
+    def assert_access_with_fallback(
+        self,
+        permission: t.Union[str, t.Sequence[str]],
+        *,
+        fallback_permission: t.Union[str, t.Sequence[str], None] = None,
+    ) -> None:
+        """Assert access against a new permission with an optional fallback.
+
+        Access is granted if either the new permission or the fallback
+        (old) permission allows it. Any disagreement between the two is
+        logged as a warning so rule divergences can be found before the
+        new rules are enforced exclusively. Without a fallback, this is
+        equivalent to ``assert_access``.
+        """
+        if fallback_permission is None:
+            self.assert_access(permission)
+            return
+
+        allowed = self.has_access(permission)
+        fallback_allowed = self.has_access(fallback_permission)
+
+        if allowed != fallback_allowed:
+            logger.warning(
+                "authz-discrepancy: permission and fallback disagree",
+                extra={
+                    "permission": permission,
+                    "fallback_permission": fallback_permission,
+                    "permission_allowed": allowed,
+                    "fallback_allowed": fallback_allowed,
+                    "sub": self.sub,
+                    "roles": self.roles,
+                },
+            )
+
+        if not allowed and not fallback_allowed:
+            raise InsufficientRightsException

@@ -10,7 +10,9 @@
 from ......schema_classes import AIAgentKeyClass
 from ......schema_classes import ActionRequestKeyClass
 from ......schema_classes import ActionWorkflowKeyClass
+from ......schema_classes import AgentSkillKeyClass
 from ......schema_classes import AnomalyKeyClass
+from ......schema_classes import ApiKeyClass
 from ......schema_classes import AssertionAssignmentRuleKeyClass
 from ......schema_classes import AssertionInferenceAdjustmentRuleKeyClass
 from ......schema_classes import AssertionKeyClass
@@ -69,6 +71,7 @@ from ......schema_classes import MLModelDeploymentKeyClass
 from ......schema_classes import MLModelGroupKeyClass
 from ......schema_classes import MLModelKeyClass
 from ......schema_classes import MLPrimaryKeyKeyClass
+from ......schema_classes import MetricKeyClass
 from ......schema_classes import MonitorKeyClass
 from ......schema_classes import MonitorSuiteKeyClass
 from ......schema_classes import NotebookKeyClass
@@ -81,6 +84,7 @@ from ......schema_classes import RemoteExecutorKeyClass
 from ......schema_classes import RemoteExecutorPoolKeyClass
 from ......schema_classes import RoleKeyClass
 from ......schema_classes import SchemaFieldKeyClass
+from ......schema_classes import SemanticModelKeyClass
 from ......schema_classes import SubscriptionKeyClass
 from ......schema_classes import TagKeyClass
 from ......schema_classes import TelemetryKeyClass
@@ -91,7 +95,9 @@ from ......schema_classes import VersionSetKeyClass
 AIAgentKey = AIAgentKeyClass
 ActionRequestKey = ActionRequestKeyClass
 ActionWorkflowKey = ActionWorkflowKeyClass
+AgentSkillKey = AgentSkillKeyClass
 AnomalyKey = AnomalyKeyClass
+ApiKey = ApiKeyClass
 AssertionAssignmentRuleKey = AssertionAssignmentRuleKeyClass
 AssertionInferenceAdjustmentRuleKey = AssertionInferenceAdjustmentRuleKeyClass
 AssertionKey = AssertionKeyClass
@@ -150,6 +156,7 @@ MLModelDeploymentKey = MLModelDeploymentKeyClass
 MLModelGroupKey = MLModelGroupKeyClass
 MLModelKey = MLModelKeyClass
 MLPrimaryKeyKey = MLPrimaryKeyKeyClass
+MetricKey = MetricKeyClass
 MonitorKey = MonitorKeyClass
 MonitorSuiteKey = MonitorSuiteKeyClass
 NotebookKey = NotebookKeyClass
@@ -162,6 +169,7 @@ RemoteExecutorKey = RemoteExecutorKeyClass
 RemoteExecutorPoolKey = RemoteExecutorPoolKeyClass
 RoleKey = RoleKeyClass
 SchemaFieldKey = SchemaFieldKeyClass
+SemanticModelKey = SemanticModelKeyClass
 SubscriptionKey = SubscriptionKeyClass
 TagKey = TagKeyClass
 TelemetryKey = TelemetryKeyClass

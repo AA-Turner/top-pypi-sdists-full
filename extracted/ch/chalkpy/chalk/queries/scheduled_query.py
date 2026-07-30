@@ -19,8 +19,8 @@ class ScheduledQuery:
         output: Collection[FeatureReference],
         recompute_features: bool | Collection[FeatureReference] = True,
         max_samples: int | None = None,
-        lower_bound: datetime | None = None,
-        upper_bound: datetime | None = None,
+        lower_bound: datetime | timedelta | None = None,
+        upper_bound: datetime | timedelta | None = None,
         tags: Collection[str] | None = None,
         dataset_name: str | None = None,
         required_resolver_tags: Collection[str] | None = None,
@@ -68,11 +68,12 @@ class ScheduledQuery:
         max_samples
             The maximum number of samples to compute.
         lower_bound
-            A hard-coded lower bound for the query. If set, the query will not use
-            incrementalization.
+            A lower bound for the query. If set, the query will not use incrementalization.
+            A `datetime` is a fixed bound; a `timedelta` is resolved relative to each run
+            (e.g. `-timedelta(days=7)` is the last 7 days as of the run).
         upper_bound
-            A hard-coded upper bound for the query. If set, the query will not use
-            incrementalization.
+            An upper bound for the query. If set, the query will not use incrementalization.
+            A `datetime` is a fixed bound; a `timedelta` is resolved relative to each run.
         tags
             Allows selecting resolvers with these tags.
         dataset_name
@@ -132,9 +133,9 @@ class ScheduledQuery:
                 f"Scheduled query '{name}' was instantiated with an empty set of outputs. At least one output is required."
             )
 
-        if lower_bound is not None:
+        if isinstance(lower_bound, datetime):
             lower_bound = lower_bound.astimezone(tz=timezone.utc)
-        if upper_bound is not None:
+        if isinstance(upper_bound, datetime):
             upper_bound = upper_bound.astimezone(tz=timezone.utc)
 
         caller_filename = None

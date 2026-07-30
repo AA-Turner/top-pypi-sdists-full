@@ -76,6 +76,8 @@ if TYPE_CHECKING:
     from chalk.scalinggroup.spec import (
         AutoScalingSpec,
         DeleteScalingGroupResponse,
+        GrpcReadinessProbe,
+        GrpcStartupProbe,
         ListScalingGroupsResponse,
         ScalingGroup,
         ScalingGroupResourceRequest,
@@ -3131,6 +3133,8 @@ class ChalkClient:
         handler: Optional[str] = None,
         env_vars: Optional[Dict[str, str]] = None,
         secrets: Optional[List[Any]] = None,
+        readiness_probe: Optional["GrpcReadinessProbe"] = None,
+        startup_probe: Optional["GrpcStartupProbe"] = None,
     ) -> dict[str, Any]:
         """Deploy a registered model version as a scaling group.
 
@@ -3152,6 +3156,13 @@ class ChalkClient:
             Extra environment variables to inject into the container.
         secrets
             List of Secret Registry secrets to be injected into the Scaling Group
+        readiness_probe
+            Optional gRPC readiness probe configuration. Model deployments only
+            support gRPC readiness checks.
+        startup_probe
+            Optional gRPC startup probe configuration. Model deployments only
+            support gRPC startup checks; if omitted, defaults to the standard
+            gRPC health check method.
 
         Examples
         --------

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyter_server_documents
-Version: 0.3.1
+Version: 0.3.2
 Summary: A JupyterLab extension that provides RTC capabilities.
 Project-URL: Homepage, https://github.com/jupyter-ai-contrib/jupyter-server-documents
 Project-URL: Bug Tracker, https://github.com/jupyter-ai-contrib/jupyter-server-documents/issues
@@ -53,7 +53,7 @@ Requires-Python: >=3.10
 Requires-Dist: jupyter-collaboration-ui<4,>=2.4.0
 Requires-Dist: jupyter-docprovider<4,>=2.4.0
 Requires-Dist: jupyter-server-fileid<0.10.0,>=0.9.0
-Requires-Dist: jupyter-server<3,>=2.4.0
+Requires-Dist: jupyter-server<3,>=2.13
 Requires-Dist: jupyter-ydoc<5.0.0,>=3.0.0
 Requires-Dist: pycrdt>=0.12.49
 Provides-Extra: test

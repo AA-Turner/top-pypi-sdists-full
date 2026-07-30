@@ -15,17 +15,12 @@
 from .transposition import transpose
 from .irreps_tp import (
     full_tensor_product,
-    full_tensor_product_ir_dict,
     fully_connected_tensor_product,
-    fully_connected_tensor_product_ir_dict,
     channelwise_tensor_product,
-    channelwise_tensor_product_ir_dict,
     elementwise_tensor_product,
-    elementwise_tensor_product_ir_dict,
     linear,
-    linear_ir_dict,
 )
-from .symmetric_contractions import symmetric_contraction, symmetric_contraction_ir_dict
+from .symmetric_contractions import symmetric_contraction
 from .rotations import (
     fixed_axis_angle_rotation,
     y_rotation,
@@ -35,26 +30,16 @@ from .rotations import (
     yxy_rotation,
     inversion,
 )
-from .spherical_harmonics_ import (
-    sympy_spherical_harmonics,
-    spherical_harmonics,
-    spherical_harmonics_ir_dict,
-)
+from .spherical_harmonics_ import sympy_spherical_harmonics, spherical_harmonics
 
 __all__ = [
     "transpose",
     "full_tensor_product",
-    "full_tensor_product_ir_dict",
     "fully_connected_tensor_product",
-    "fully_connected_tensor_product_ir_dict",
     "channelwise_tensor_product",
-    "channelwise_tensor_product_ir_dict",
     "elementwise_tensor_product",
-    "elementwise_tensor_product_ir_dict",
     "linear",
-    "linear_ir_dict",
     "symmetric_contraction",
-    "symmetric_contraction_ir_dict",
     "fixed_axis_angle_rotation",
     "y_rotation",
     "x_rotation",
@@ -64,5 +49,4 @@ __all__ = [
     "inversion",
     "sympy_spherical_harmonics",
     "spherical_harmonics",
-    "spherical_harmonics_ir_dict",
 ]

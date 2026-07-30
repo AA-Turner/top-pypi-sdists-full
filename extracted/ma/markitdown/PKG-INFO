@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: markitdown
-Version: 0.1.6
+Version: 0.1.7
 Summary: Utility tool for converting various files to Markdown
 Project-URL: Documentation, https://github.com/microsoft/markitdown#readme
 Project-URL: Issues, https://github.com/microsoft/markitdown/issues
@@ -70,7 +70,7 @@ Description-Content-Type: text/markdown
 # MarkItDown
 
 > [!TIP]
-> MarkItDown is a Python package and command-line utility for converting various files to Markdown (e.g., for indexing, text analysis, etc). 
+> MarkItDown is a Python package and command-line utility for converting various files to Markdown (e.g., for indexing, text analysis, etc).
 >
 > For more information, and full documentation, see the project [README.md](https://github.com/microsoft/markitdown) on GitHub.
 
@@ -82,7 +82,7 @@ Description-Content-Type: text/markdown
 From PyPI:
 
 ```bash
-pip install markitdown[all]
+pip install 'markitdown[all]'
 ```
 
 From source:
@@ -90,7 +90,7 @@ From source:
 ```bash
 git clone git@github.com:microsoft/markitdown.git
 cd markitdown
-pip install -e packages/markitdown[all]
+pip install -e 'packages/markitdown[all]'
 ```
 
 ## Usage

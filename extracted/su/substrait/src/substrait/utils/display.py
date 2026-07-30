@@ -171,6 +171,8 @@ class PlanPrinter:
             self._stream_extension_single_rel(rel.extension_single, stream, depth)
         elif rel.HasField("extension_multi"):
             self._stream_extension_multi_rel(rel.extension_multi, stream, depth)
+        elif rel.HasField("window"):
+            self._stream_window_rel(rel.window, stream, depth)
         else:
             stream.write(f"{indent}<unknown_relation>\n")
 
@@ -187,25 +189,16 @@ class PlanPrinter:
             stream.write(
                 f"{indent}{self._color('read:', Colors.GREEN)} {self._color('virtual_table', Colors.YELLOW)}\n"
             )
-            if read.virtual_table.values:
+            rows = read.virtual_table.expressions
+            if rows:
                 stream.write(
-                    f"{self._get_indent_with_arrow(depth + 1)}{self._color('values:', Colors.BLUE)} {self._color(len(read.virtual_table.values), Colors.YELLOW)}\n"
+                    f"{self._get_indent_with_arrow(depth + 1)}{self._color('rows:', Colors.BLUE)} {self._color(len(rows), Colors.YELLOW)}\n"
                 )
-                # Show the actual values, not just count
-                for i, value in enumerate(read.virtual_table.values):
-                    # Handle struct values properly
-                    if hasattr(value, "fields"):
-                        stream.write(
-                            f"{self._get_indent_with_arrow(depth + 2)}value[{i}]: "
-                        )
-                        self._stream_struct_literal(
-                            value, stream, depth + 2, inline=True
-                        )
-                    else:
-                        stream.write(
-                            f"{self._get_indent_with_arrow(depth + 2)}value[{i}]: "
-                        )
-                        self._stream_literal_value(value, stream, depth + 2)
+                # Each row is a struct expression; show its field expressions.
+                for i, row in enumerate(rows):
+                    stream.write(f"{self._get_indent_with_arrow(depth + 2)}row[{i}]:\n")
+                    for field in row.fields:
+                        self._stream_expression(field, stream, depth + 3)
 
         if read.HasField("base_schema"):
             # Capture schema names for field resolution
@@ -317,12 +310,29 @@ class PlanPrinter:
         )
         self._stream_rel(cross.right, stream, depth + 1)
 
+    @staticmethod
+    def _fetch_bound_str(fetch: stalg.FetchRel, field: str, default: str) -> str:
+        """Compact string for a FetchRel ``offset_expr``/``count_expr`` bound.
+
+        Returns the i64 literal value when the bound is a simple integer literal
+        (what the ``fetch`` builder always emits), ``default`` when the field is
+        unset, or ``<expr>`` for any other (non-literal) expression.
+        """
+        if not fetch.HasField(field):
+            return default
+        expr = getattr(fetch, field)
+        if expr.HasField("literal") and expr.literal.HasField("i64"):
+            return str(expr.literal.i64)
+        return "<expr>"
+
     def _stream_fetch_rel(self, fetch: stalg.FetchRel, stream, depth: int):
         """Print a fetch relation concisely"""
         indent = " " * (depth * self.indent_size)
 
+        offset = self._fetch_bound_str(fetch, "offset_expr", default="0")
+        count = self._fetch_bound_str(fetch, "count_expr", default="all")
         stream.write(
-            f"{indent}{self._color('fetch:', Colors.YELLOW)} {self._color(f'offset={fetch.offset}, count={fetch.count}', Colors.YELLOW)}\n"
+            f"{indent}{self._color('fetch:', Colors.YELLOW)} {self._color(f'offset={offset}, count={count}', Colors.YELLOW)}\n"
         )
         stream.write(
             f"{self._get_indent_with_arrow(depth + 1)}{self._color('input:', Colors.BLUE)}\n"
@@ -401,6 +411,43 @@ class PlanPrinter:
                     f"{self._get_indent_with_arrow(depth + 2)}<unpackable_detail>\n"
                 )
 
+    def _stream_window_rel(
+        self, window: stalg.ConsistentPartitionWindowRel, stream, depth: int
+    ):
+        """Print a consistent partition window relation concisely"""
+        indent = " " * (depth * self.indent_size)
+
+        stream.write(
+            f"{indent}{self._color('window', Colors.MAGENTA)}: "
+            f"{self._color(str(len(window.window_functions)), Colors.YELLOW)} functions\n"
+        )
+        stream.write(
+            f"{self._get_indent_with_arrow(depth + 1)}{self._color('input:', Colors.BLUE)}\n"
+        )
+        self._stream_rel(window.input, stream, depth + 1)
+
+        if window.partition_expressions:
+            stream.write(
+                f"{self._get_indent_with_arrow(depth + 1)}"
+                f"{self._color('partitions:', Colors.BLUE)} "
+                f"{self._color(str(len(window.partition_expressions)), Colors.YELLOW)}\n"
+            )
+
+        if window.sorts:
+            stream.write(
+                f"{self._get_indent_with_arrow(depth + 1)}"
+                f"{self._color('sorts:', Colors.BLUE)} "
+                f"{self._color(str(len(window.sorts)), Colors.YELLOW)}\n"
+            )
+
+        for i, wf in enumerate(window.window_functions):
+            stream.write(
+                f"{self._get_indent_with_arrow(depth + 1)}"
+                f"{self._color('window_fn', Colors.BLUE)}"
+                f"[{self._color(str(i), Colors.CYAN)}]: "
+                f"func_ref={wf.function_reference}\n"
+            )
+
     def _stream_expression(self, expression: stalg.Expression, stream, depth: int):
         """Print an expression concisely"""
         indent = " " * (depth * self.indent_size)
@@ -438,8 +485,6 @@ class PlanPrinter:
             stream.write(f'{indent}literal: "{literal.string}"\n')
         elif literal.HasField("date"):
             stream.write(f"{indent}literal: date={literal.date}\n")
-        elif literal.HasField("timestamp"):
-            stream.write(f"{indent}literal: timestamp={literal.timestamp}\n")
         elif literal.HasField("map"):
             stream.write(f"{indent}literal: map\n")
             self._stream_map_literal(literal.map, stream, depth + 1)
@@ -587,8 +632,6 @@ class PlanPrinter:
                     return f'literal: "{arg.value.literal.string}"'
                 elif arg.value.literal.HasField("date"):
                     return f"literal: date={arg.value.literal.date}"
-                elif arg.value.literal.HasField("timestamp"):
-                    return f"literal: timestamp={arg.value.literal.timestamp}"
                 elif arg.value.literal.HasField("map"):
                     # For maps, we'll handle them specially in the main printing
                     return "<map_literal>"
@@ -640,10 +683,6 @@ class PlanPrinter:
                     stream.write(f'{indent}literal: "{arg.value.literal.string}"\n')
                 elif arg.value.literal.HasField("date"):
                     stream.write(f"{indent}literal: date={arg.value.literal.date}\n")
-                elif arg.value.literal.HasField("timestamp"):
-                    stream.write(
-                        f"{indent}literal: timestamp={arg.value.literal.timestamp}\n"
-                    )
                 elif arg.value.literal.HasField("map"):
                     # Handle map literals with proper indentation
                     stream.write(f"{indent}literal: map\n")
@@ -729,10 +768,6 @@ class PlanPrinter:
             stream.write(
                 f"{indent}{self._color('date', Colors.BLUE)}: {self._color(literal.date, Colors.GREEN)}\n"
             )
-        elif literal.HasField("timestamp"):
-            stream.write(
-                f"{indent}{self._color('timestamp', Colors.BLUE)}: {self._color(literal.timestamp, Colors.GREEN)}\n"
-            )
         elif literal.HasField("map"):
             # Recursively handle nested maps
             stream.write(f"{indent}{self._color('map', Colors.BLUE)}:\n")
@@ -749,54 +784,6 @@ class PlanPrinter:
             stream.write(
                 f"{indent}{self._color('<unknown_literal_type>', Colors.RED)}\n"
             )
-
-    def _stream_struct_literal(
-        self, struct_literal, stream, depth: int, inline: bool = False
-    ):
-        """Print a struct literal value with proper indentation"""
-        if inline:
-            # When inline, don't add extra indentation since we're already on the same line
-            indent = ""
-        else:
-            indent = " " * (depth * self.indent_size)
-
-        if hasattr(struct_literal, "fields") and struct_literal.fields:
-            stream.write(f"{indent}{self._color('struct', Colors.BLUE)}\n")
-            for i, field in enumerate(struct_literal.fields):
-                # Show field index
-                stream.write(f"{self._get_indent_with_arrow(depth + 1)}field[{i}]:\n")
-                # Show the actual field value with proper indentation
-                if field.HasField("i64"):
-                    stream.write(
-                        f"{self._get_indent_with_arrow(depth + 2)}{self._color('i64', Colors.BLUE)}: {self._color(field.i64, Colors.GREEN)}\n"
-                    )
-                elif field.HasField("fp64"):
-                    stream.write(
-                        f"{self._get_indent_with_arrow(depth + 2)}{self._color('fp64', Colors.BLUE)}: {self._color(field.fp64, Colors.GREEN)}\n"
-                    )
-                elif field.HasField("fp32"):
-                    stream.write(
-                        f"{self._get_indent_with_arrow(depth + 2)}{self._color('fp32', Colors.BLUE)}: {self._color(field.fp32, Colors.GREEN)}\n"
-                    )
-                elif field.HasField("i32"):
-                    stream.write(
-                        f"{self._get_indent_with_arrow(depth + 2)}{self._color('i32', Colors.BLUE)}: {self._color(field.i32, Colors.GREEN)}\n"
-                    )
-                elif field.HasField("string"):
-                    field_string_value = f'"{field.string}"'
-                    stream.write(
-                        f"{self._get_indent_with_arrow(depth + 2)}{self._color('string', Colors.BLUE)}: {self._color(field_string_value, Colors.GREEN)}\n"
-                    )
-                elif field.HasField("boolean"):
-                    stream.write(
-                        f"{self._get_indent_with_arrow(depth + 2)}{self._color('boolean', Colors.BLUE)}: {self._color(field.boolean, Colors.GREEN)}\n"
-                    )
-                else:
-                    stream.write(
-                        f"{self._get_indent_with_arrow(depth + 2)}{self._color('<unknown_field_type>', Colors.RED)}\n"
-                    )
-        else:
-            stream.write(f"{indent}{self._color('empty_struct', Colors.YELLOW)}\n")
 
     def _type_to_string(self, type_info: stt.Type) -> str:
         """Convert a type to a concise string representation"""

@@ -152,7 +152,8 @@ class StatelessMCPServerProvider:
         Args:
             name: The name of the MCP server.
             server_factory: A function which will produce MCPServer instances. It should return a new server each time
-                so that state is not shared between workflow runs.
+                so that state is not shared between workflow runs. It may accept a single positional parameter, which
+                receives a ``factory_argument`` from the workflow.
         """
         self._server_factory = server_factory
 
@@ -414,7 +415,7 @@ class _StatefulMCPServerReference(MCPServer, AbstractAsyncContextManager):  # ty
 class StatefulMCPServerProvider:
     """A stateful MCP server implementation for Temporal workflows.
 
-    This class wraps an function to create MCP servers to maintain a persistent connection throughout
+    This class wraps a function to create MCP servers to maintain a persistent connection throughout
     the workflow execution. It creates a dedicated worker that stays connected to
     the MCP server and processes operations on a dedicated task queue.
 
@@ -437,7 +438,8 @@ class StatefulMCPServerProvider:
         Args:
             name: The name of the MCP server.
             server_factory: A function which will produce MCPServer instances. It should return a new server each time
-                so that state is not shared between workflow runs
+                so that state is not shared between workflow runs. It receives an optional ``factory_argument`` from the
+                workflow.
         """
         self._server_factory = server_factory
         self._name = name + "-stateful"

@@ -27,6 +27,7 @@ class _Boundary:
     trace_id: str
     root_inv_key: str | None = None
     ambient_token: Any = None
+    tool_catalog_stamped: bool = False
 
 
 _boundary: ContextVar[_Boundary | None] = ContextVar("_aigie_strands_boundary", default=None)
@@ -130,17 +131,33 @@ class StrandsHookProvider:
             if self._flag("capture_inputs")
             else None
         )
+        metadata = merge_metadata(_BASE_META)
+        # In strands_session, the sentinel root is not an invocation.
+        if not boundary.tool_catalog_stamped:
+            self._stamp_tool_catalog(event.agent, metadata, boundary.trace_id)
+            boundary.tool_catalog_stamped = True
         self.spans.open_span(
             run_id=key,
             parent_run_id=None,
             name=name,
             span_type="workflow" if is_root else "agent",
             input=input_value,
-            metadata=merge_metadata(_BASE_META),
+            metadata=metadata,
             span_id=boundary.trace_id if is_root else None,
         )
         if (root := current_workflow_root()) is not None:
             root.note_input(input_value)
+
+    def _stamp_tool_catalog(
+        self, agent: Any, metadata: dict[str, Any], trace_id: str | None
+    ) -> None:
+        """Stamp this root span with the agent's tool catalog hash."""
+        try:
+            from aigie.decision.tool_catalog import stamp_tool_registry_hash
+
+            stamp_tool_registry_hash(_spans.agent_tools(agent), metadata, trace_id)
+        except Exception:  # noqa: BLE001, S110 - never break the agent run
+            return
 
     def _on_after_invocation(self, event: Any) -> None:
         if not self._flag("trace_agents"):

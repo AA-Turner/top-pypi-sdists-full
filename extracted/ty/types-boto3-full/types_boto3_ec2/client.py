@@ -189,6 +189,7 @@ from .paginator import (
     GetTransitGatewayAttachmentPropagationsPaginator,
     GetTransitGatewayMulticastDomainAssociationsPaginator,
     GetTransitGatewayPolicyTableAssociationsPaginator,
+    GetTransitGatewayPolicyTableEntriesPaginator,
     GetTransitGatewayPrefixListReferencesPaginator,
     GetTransitGatewayRouteTableAssociationsPaginator,
     GetTransitGatewayRouteTablePropagationsPaginator,
@@ -482,6 +483,8 @@ from .type_defs import (
     CreateTransitGatewayMulticastDomainResultTypeDef,
     CreateTransitGatewayPeeringAttachmentRequestTypeDef,
     CreateTransitGatewayPeeringAttachmentResultTypeDef,
+    CreateTransitGatewayPolicyTableEntryRequestTypeDef,
+    CreateTransitGatewayPolicyTableEntryResultTypeDef,
     CreateTransitGatewayPolicyTableRequestTypeDef,
     CreateTransitGatewayPolicyTableResultTypeDef,
     CreateTransitGatewayPrefixListReferenceRequestTypeDef,
@@ -652,6 +655,8 @@ from .type_defs import (
     DeleteTransitGatewayMulticastDomainResultTypeDef,
     DeleteTransitGatewayPeeringAttachmentRequestTypeDef,
     DeleteTransitGatewayPeeringAttachmentResultTypeDef,
+    DeleteTransitGatewayPolicyTableEntryRequestTypeDef,
+    DeleteTransitGatewayPolicyTableEntryResultTypeDef,
     DeleteTransitGatewayPolicyTableRequestTypeDef,
     DeleteTransitGatewayPolicyTableResultTypeDef,
     DeleteTransitGatewayPrefixListReferenceRequestTypeDef,
@@ -1485,6 +1490,8 @@ from .type_defs import (
     ModifyTrafficMirrorSessionResultTypeDef,
     ModifyTransitGatewayMeteringPolicyRequestTypeDef,
     ModifyTransitGatewayMeteringPolicyResultTypeDef,
+    ModifyTransitGatewayPolicyTableEntryRequestTypeDef,
+    ModifyTransitGatewayPolicyTableEntryResultTypeDef,
     ModifyTransitGatewayPrefixListReferenceRequestTypeDef,
     ModifyTransitGatewayPrefixListReferenceResultTypeDef,
     ModifyTransitGatewayRequestTypeDef,
@@ -3293,6 +3300,17 @@ class EC2Client(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#create_transit_gateway_policy_table)
         """
 
+    def create_transit_gateway_policy_table_entry(
+        self, **kwargs: Unpack[CreateTransitGatewayPolicyTableEntryRequestTypeDef]
+    ) -> CreateTransitGatewayPolicyTableEntryResultTypeDef:
+        """
+        Creates an entry in a transit gateway policy table to route matching traffic to
+        a specified route table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_transit_gateway_policy_table_entry.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#create_transit_gateway_policy_table_entry)
+        """
+
     def create_transit_gateway_prefix_list_reference(
         self, **kwargs: Unpack[CreateTransitGatewayPrefixListReferenceRequestTypeDef]
     ) -> CreateTransitGatewayPrefixListReferenceResultTypeDef:
@@ -4231,6 +4249,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_transit_gateway_policy_table.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#delete_transit_gateway_policy_table)
+        """
+
+    def delete_transit_gateway_policy_table_entry(
+        self, **kwargs: Unpack[DeleteTransitGatewayPolicyTableEntryRequestTypeDef]
+    ) -> DeleteTransitGatewayPolicyTableEntryResultTypeDef:
+        """
+        Deletes the specified transit gateway policy table entry.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_transit_gateway_policy_table_entry.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#delete_transit_gateway_policy_table_entry)
         """
 
     def delete_transit_gateway_prefix_list_reference(
@@ -8621,6 +8649,16 @@ class EC2Client(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#modify_transit_gateway_metering_policy)
         """
 
+    def modify_transit_gateway_policy_table_entry(
+        self, **kwargs: Unpack[ModifyTransitGatewayPolicyTableEntryRequestTypeDef]
+    ) -> ModifyTransitGatewayPolicyTableEntryResultTypeDef:
+        """
+        Modifies the specified transit gateway policy table entry.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_transit_gateway_policy_table_entry.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#modify_transit_gateway_policy_table_entry)
+        """
+
     def modify_transit_gateway_prefix_list_reference(
         self, **kwargs: Unpack[ModifyTransitGatewayPrefixListReferenceRequestTypeDef]
     ) -> ModifyTransitGatewayPrefixListReferenceResultTypeDef:
@@ -11503,6 +11541,17 @@ class EC2Client(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["get_transit_gateway_policy_table_associations"]
     ) -> GetTransitGatewayPolicyTableAssociationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_transit_gateway_policy_table_entries"]
+    ) -> GetTransitGatewayPolicyTableEntriesPaginator:
         """
         Create a paginator for an operation.
 

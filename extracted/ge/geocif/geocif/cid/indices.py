@@ -224,10 +224,11 @@ def add_season_information(
         if method == "fraction_season":
             step = 10
             N = len(df_adm1_season)
-            # Create a fraction_season column: 10,20,...,100
+            # Create a fraction_season column: 10,20,...,100 (integer deciles;
+            # keep int dtype so the Stage label is "10_20_..." not "10.0_20.0_...").
             df_adm1_season["fraction_season"] = (
                                                     np.linspace(10, 100 + step, N + 1) // step * step
-                                                )[:-1]
+                                                )[:-1].astype(int)
 
         elif method in ["dekad", "dekad_r"]:
             df_adm1_season[method] = df_adm1_season["Doy"] // 10 + 1
@@ -1473,7 +1474,7 @@ class CIDs:
         df["Crop"] = self.crop.replace("_", " ").title()
         df["Season"] = self.season
         df["Method"] = self.method
-        df["Stage"] = "_".join(map(str, stage)) if len(stage) else None
+        df["Stage"] = "_".join(str(int(s)) for s in stage) if len(stage) else None
         df["Harvest Year"] = self.harvest_year
 
         return df[[
@@ -1744,7 +1745,7 @@ class CIDs:
                 "Crop": self.crop.replace("_", " ").title(),
                 "Season": self.season,
                 "Method": self.method,
-                "Stage": "_".join(map(str, stage)) if len(stage) else None,
+                "Stage": "_".join(str(int(s)) for s in stage) if len(stage) else None,
                 "Harvest Year": self.harvest_year,
                 "Index": iname,
                 "Type": itype

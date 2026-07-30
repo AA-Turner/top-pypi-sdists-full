@@ -86,6 +86,7 @@ from airbyte_ops_mcp.tier_cache import (
     CustomerTier,
     TierCacheStats,
     TierFilter,
+    TierSourceHealth,
     TierSummary,
     build_tier_summary,
     get_cache_stats,
@@ -93,6 +94,7 @@ from airbyte_ops_mcp.tier_cache import (
     get_org_tiers,
     refresh_tier_cache,
     resolve_workspaces,
+    tier_source_warnings,
 )
 
 
@@ -134,6 +136,7 @@ def _org_info_to_flag_info(
     org_info: OrganizationInfo,
     customer_tier: str | None = None,
     tier_warning: str | None = None,
+    source_health: TierSourceHealth | None = None,
 ) -> OrganizationAgenticFlagInfo:
     """Convert Config API organization info into agentic flag info."""
     return OrganizationAgenticFlagInfo(
@@ -144,6 +147,7 @@ def _org_info_to_flag_info(
         is_agentic=org_info.is_agentic or False,
         customer_tier=customer_tier,
         tier_warning=tier_warning,
+        warnings=tier_source_warnings(source_health),
     )
 
 
@@ -151,6 +155,7 @@ def _row_to_flag_info(
     row: dict[str, object],
     customer_tier: str | None = None,
     tier_warning: str | None = None,
+    source_health: TierSourceHealth | None = None,
 ) -> OrganizationAgenticFlagInfo:
     """Convert a DB row into agentic flag info."""
     return OrganizationAgenticFlagInfo(
@@ -163,6 +168,7 @@ def _row_to_flag_info(
         is_agentic=bool(row["is_agentic"]),
         customer_tier=customer_tier,
         tier_warning=tier_warning,
+        warnings=tier_source_warnings(source_health),
     )
 
 
@@ -205,12 +211,16 @@ def get_organization_agentic_flag(
             row = rows_by_org_id.get(organization_id)
             if row is None:
                 continue
-            tier_result = get_org_tier(organization_id)
+            tier_result = get_org_tier(
+                organization_id=organization_id,
+                allow_degraded=True,
+            )
             organizations.append(
                 _row_to_flag_info(
                     row,
                     customer_tier=tier_result.customer_tier,
                     tier_warning=_build_tier_warning(tier_result.customer_tier),
+                    source_health=tier_result.source_health,
                 )
             )
         return OrganizationAgenticFlagBatchInfo(
@@ -243,12 +253,16 @@ def get_organization_agentic_flag(
             missing_organization_ids.append(organization_id)
             continue
 
-        tier_result = get_org_tier(organization_id)
+        tier_result = get_org_tier(
+            organization_id=organization_id,
+            allow_degraded=True,
+        )
         organizations.append(
             _org_info_to_flag_info(
                 org_info,
                 customer_tier=tier_result.customer_tier,
                 tier_warning=_build_tier_warning(tier_result.customer_tier),
+                source_health=tier_result.source_health,
             )
         )
 
@@ -305,7 +319,7 @@ def update_organization_agentic_flag(
         TierFilter,
         Field(
             description=(
-                "Required tier filter: 'TIER_0', 'TIER_1', 'TIER_2', or 'ALL'. "
+                "Required tier filter: 'TIER_0', 'TIER_1', 'TIER_2', 'UNKNOWN', or 'ALL'. "
                 "The operation is rejected if the actual customer tier does not match. "
                 "Use 'ALL' to proceed regardless of tier after human approval."
             ),
@@ -407,10 +421,19 @@ def update_organization_agentic_flag(
             )
             continue
 
-        tier_result = get_org_tier(organization_id)
+        tier_result = get_org_tier(
+            organization_id=organization_id,
+            allow_degraded=True,
+        )
         customer_tier = tier_result.customer_tier
         tier_warning = _build_tier_warning(customer_tier)
-        tier_ok, tier_error = validate_tier_filter(customer_tier, customer_tier_filter)
+        warnings = tier_source_warnings(tier_result.source_health)
+        tier_ok, tier_error = validate_tier_filter(
+            customer_tier,
+            customer_tier_filter,
+            source_health=tier_result.source_health,
+            organization_id=organization_id,
+        )
         if not tier_ok:
             results.append(
                 OrganizationAgenticFlagUpdateResult(
@@ -422,6 +445,7 @@ def update_organization_agentic_flag(
                     previous_is_agentic=current_info.is_agentic,
                     customer_tier=customer_tier,
                     tier_warning=tier_warning,
+                    warnings=warnings,
                 )
             )
             continue
@@ -442,6 +466,7 @@ def update_organization_agentic_flag(
                     new_is_agentic=is_agentic,
                     customer_tier=customer_tier,
                     tier_warning=tier_warning,
+                    warnings=warnings,
                 )
             )
             continue
@@ -466,6 +491,7 @@ def update_organization_agentic_flag(
                     previous_is_agentic=previous_is_agentic,
                     customer_tier=customer_tier,
                     tier_warning=tier_warning,
+                    warnings=warnings,
                 )
             )
             continue
@@ -489,6 +515,7 @@ def update_organization_agentic_flag(
                 new_is_agentic=updated_info.is_agentic,
                 customer_tier=customer_tier,
                 tier_warning=tier_warning,
+                warnings=warnings,
             )
         )
 
@@ -735,7 +762,10 @@ def get_organization_payment_config(
     )
 
     # Enrich with tier info
-    tier_result = get_org_tier(organization_id)
+    tier_result = get_org_tier(
+        organization_id=organization_id,
+        allow_degraded=True,
+    )
     tier_warning = _build_tier_warning(tier_result.customer_tier)
 
     # Enrich with Orb subscription info (best-effort)
@@ -750,6 +780,7 @@ def get_organization_payment_config(
         usage_category_overwrite=data.get("usageCategoryOverwrite"),
         customer_tier=tier_result.customer_tier,
         tier_warning=tier_warning,
+        warnings=tier_source_warnings(tier_result.source_health),
         orb_subscription=orb_subscription,
     )
 
@@ -953,9 +984,13 @@ def update_organization_payment_config(
         )
 
     # --- Enrich with tier info ---
-    tier_result = get_org_tier(organization_id)
+    tier_result = get_org_tier(
+        organization_id=organization_id,
+        allow_degraded=True,
+    )
     customer_tier = tier_result.customer_tier
     tier_warning = _build_tier_warning(customer_tier)
+    warnings = tier_source_warnings(tier_result.source_health)
 
     # --- Permanent-waiver-only path (no grace period change) ---
     #
@@ -982,6 +1017,7 @@ def update_organization_payment_config(
                 organization_id=organization_id,
                 customer_tier=customer_tier,
                 tier_warning=tier_warning,
+                warnings=warnings,
             )
         current_status = current_config["paymentStatus"]
 
@@ -1011,6 +1047,7 @@ def update_organization_payment_config(
                     payment_status=current_status,
                     customer_tier=customer_tier,
                     tier_warning=tier_warning,
+                    warnings=warnings,
                 )
 
         try:
@@ -1035,6 +1072,7 @@ def update_organization_payment_config(
                 payment_status=target_status,
                 customer_tier=customer_tier,
                 tier_warning=tier_warning,
+                warnings=warnings,
             )
         parts = [
             f"Permanent waiver type set to '{set_permanent_waiver_type}' "
@@ -1117,6 +1155,7 @@ def update_organization_payment_config(
             permanent_waiver_type=data.get("usageCategoryOverwrite"),
             customer_tier=customer_tier,
             tier_warning=tier_warning,
+            warnings=warnings,
             orb_plan_change=orb_plan_change_result,
             entitlement_plan_change=entitlement_plan_change_result,
         )
@@ -1130,6 +1169,7 @@ def update_organization_payment_config(
             organization_id=organization_id,
             customer_tier=customer_tier,
             tier_warning=tier_warning,
+            warnings=warnings,
         )
 
     assert parsed_value is not None
@@ -1150,6 +1190,7 @@ def update_organization_payment_config(
             organization_id=organization_id,
             customer_tier=customer_tier,
             tier_warning=tier_warning,
+            warnings=warnings,
         )
 
     current_status = current_config["paymentStatus"]
@@ -1166,6 +1207,7 @@ def update_organization_payment_config(
                 payment_status=current_status,
                 customer_tier=customer_tier,
                 tier_warning=tier_warning,
+                warnings=warnings,
             )
 
         # Cancel grace period by setting status to manual
@@ -1188,6 +1230,7 @@ def update_organization_payment_config(
                 organization_id=organization_id,
                 customer_tier=customer_tier,
                 tier_warning=tier_warning,
+                warnings=warnings,
             )
 
         return OrganizationPaymentConfigUpdateResult(
@@ -1200,6 +1243,7 @@ def update_organization_payment_config(
             permanent_waiver_type=data.get("usageCategoryOverwrite"),
             customer_tier=customer_tier,
             tier_warning=tier_warning,
+            warnings=warnings,
         )
 
     # --- Setting/extending grace period ---
@@ -1211,6 +1255,7 @@ def update_organization_payment_config(
             organization_id=organization_id,
             customer_tier=customer_tier,
             tier_warning=tier_warning,
+            warnings=warnings,
         )
 
     # The API only allows setting grace_period from manual status.
@@ -1239,6 +1284,7 @@ def update_organization_payment_config(
                 organization_id=organization_id,
                 customer_tier=customer_tier,
                 tier_warning=tier_warning,
+                warnings=warnings,
             )
 
     # Now set the grace period
@@ -1269,6 +1315,7 @@ def update_organization_payment_config(
             payment_status="manual" if transitioned_to_manual else None,
             customer_tier=customer_tier,
             tier_warning=tier_warning,
+            warnings=warnings,
         )
 
     return OrganizationPaymentConfigUpdateResult(
@@ -1281,6 +1328,7 @@ def update_organization_payment_config(
         permanent_waiver_type=data.get("usageCategoryOverwrite"),
         customer_tier=customer_tier,
         tier_warning=tier_warning,
+        warnings=warnings,
     )
 
 
@@ -1302,7 +1350,7 @@ class TierLookupEntry(BaseModel):
         default=None, description="Connection UUID (if input was connection)"
     )
     customer_tier: CustomerTier = Field(
-        description="Resolved tier: TIER_0, TIER_1, or TIER_2"
+        description="Resolved tier: TIER_0, TIER_1, TIER_2, or UNKNOWN"
     )
     dataplane_name: str | None = Field(
         default=None, description="Dataplane region name (e.g., 'US', 'EU')"
@@ -1312,6 +1360,10 @@ class TierLookupEntry(BaseModel):
     )
     resolved: bool = Field(
         default=True, description="Whether the ID was successfully resolved"
+    )
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Warnings raised while resolving this result.",
     )
 
 
@@ -1325,6 +1377,10 @@ class TierLookupResult(BaseModel):
         description="Tier distribution summary across all resolved entries"
     )
     summary_text: str = Field(description="Human-readable tier distribution summary")
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Warnings raised while resolving this result.",
+    )
 
 
 class TierCacheRefreshResult(BaseModel):
@@ -1374,10 +1430,11 @@ def lookup_customer_tiers(
     """Look up customer tier classification for organizations, workspaces, and/or connections.
 
     Accepts mixed lists of organization IDs, workspace IDs, and connection IDs.
-    Resolves each to its organization and maps to a customer tier (TIER_0, TIER_1, or TIER_2).
+    Resolves each to its organization and maps to a customer tier
+    (TIER_0, TIER_1, TIER_2, or UNKNOWN).
 
-    Tier 0 and Tier 1 orgs are explicitly tracked in Salesforce and cached from the GCS export.
-    Any org not in the cache defaults to TIER_2.
+    The GCS export contains one row per Cloud organization, including explicit
+    Tier 2 rows. Any org not in the export resolves to UNKNOWN.
 
     Returns enriched entries with tier, region (EU/US), and a summary of the distribution.
     """
@@ -1386,7 +1443,10 @@ def lookup_customer_tiers(
     # Resolve organization IDs directly
     org_ids = organization_ids or []
     if org_ids:
-        org_results = get_org_tiers(org_ids)
+        org_results = get_org_tiers(
+            organization_ids=org_ids,
+            allow_degraded=True,
+        )
         for result in org_results:
             entries.append(
                 TierLookupEntry(
@@ -1394,6 +1454,7 @@ def lookup_customer_tiers(
                     input_type="organization",
                     organization_id=result.organization_id,
                     customer_tier=result.customer_tier,
+                    warnings=tier_source_warnings(result.source_health),
                     resolved=True,
                 )
             )
@@ -1401,7 +1462,10 @@ def lookup_customer_tiers(
     # Resolve workspace IDs -> org -> tier
     ws_ids = workspace_ids or []
     if ws_ids:
-        ws_results = resolve_workspaces(ws_ids)
+        ws_results = resolve_workspaces(
+            workspace_ids=ws_ids,
+            allow_degraded=True,
+        )
         for result in ws_results:
             entries.append(
                 TierLookupEntry(
@@ -1410,6 +1474,7 @@ def lookup_customer_tiers(
                     organization_id=result.organization_id,
                     workspace_id=result.workspace_id,
                     customer_tier=result.customer_tier,
+                    warnings=tier_source_warnings(result.source_health),
                     dataplane_name=result.dataplane_name,
                     is_eu=result.is_eu,
                     resolved=result.resolved,
@@ -1432,7 +1497,7 @@ def lookup_customer_tiers(
                         input_id=conn_id,
                         input_type="connection",
                         connection_id=conn_id,
-                        customer_tier="TIER_2",
+                        customer_tier="UNKNOWN",
                         resolved=False,
                     )
                 )
@@ -1440,7 +1505,10 @@ def lookup_customer_tiers(
 
             org_id = str(row["organization_id"])
             dataplane_name = row.get("dataplane_name") or "US"
-            org_result = get_org_tier(org_id)
+            org_result = get_org_tier(
+                organization_id=org_id,
+                allow_degraded=True,
+            )
 
             entries.append(
                 TierLookupEntry(
@@ -1450,6 +1518,7 @@ def lookup_customer_tiers(
                     workspace_id=str(row["workspace_id"]),
                     connection_id=conn_id,
                     customer_tier=org_result.customer_tier,
+                    warnings=tier_source_warnings(org_result.source_health),
                     dataplane_name=dataplane_name,
                     is_eu=dataplane_name == "EU",
                     resolved=True,
@@ -1459,11 +1528,13 @@ def lookup_customer_tiers(
     # Build summary from enriched entries
     summary_rows = [{"customer_tier": e.customer_tier} for e in entries if e.resolved]
     summary = build_tier_summary(summary_rows)
+    warnings = sorted({warning for entry in entries for warning in entry.warnings})
 
     return TierLookupResult(
         entries=entries,
         summary=summary,
         summary_text=str(summary),
+        warnings=warnings,
     )
 
 

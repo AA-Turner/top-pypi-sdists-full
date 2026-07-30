@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import weakref
 from collections import namedtuple
 from collections.abc import Generator
 from enum import Enum
@@ -13,6 +14,7 @@ import angr
 from angr import ailment
 from angr.ailment.manager import Manager
 from angr.analyses.decompiler.ailgraph_walker import AILGraphWalker
+from angr.analyses.decompiler.block_simplifier import BlockSimplifier, PeepholeOptimizationBundle
 from angr.analyses.decompiler.condition_processor import ConditionProcessor
 from angr.analyses.decompiler.counters import ControlFlowStructureCounter
 from angr.analyses.decompiler.goto_manager import Goto, GotoManager
@@ -20,6 +22,7 @@ from angr.analyses.decompiler.structuring import RecursiveStructurer, SAILRStruc
 from angr.analyses.decompiler.utils import add_labels, is_empty_node, remove_edges_in_ailgraph
 
 if TYPE_CHECKING:
+    from angr.analyses.decompiler.region_identifier import RegionIdentifier, RegionOverlay
     from angr.analyses.decompiler.stack_item import StackItem
     from angr.knowledge_plugins.functions import Function
     from angr.project import Project
@@ -125,6 +128,9 @@ class OptimizationPass(BaseOptimizationPass):
 
     _graph: networkx.DiGraph
 
+    # self._scratch[_STRUCTURABILITY_CACHE_KEY] = weakref(graph), params for applying the structurability result
+    _STRUCTURABILITY_CACHE_KEY = "structurability_cache"
+
     def __init__(
         self,
         func,
@@ -133,7 +139,7 @@ class OptimizationPass(BaseOptimizationPass):
         graph,
         blocks_by_addr=None,
         blocks_by_addr_and_idx=None,
-        variable_kb=None,
+        kb=None,
         region_identifier=None,
         reaching_definitions=None,
         vvar_id_start: int = 0,
@@ -155,7 +161,7 @@ class OptimizationPass(BaseOptimizationPass):
         self._blocks_by_addr: dict[int, set[ailment.Block]] = blocks_by_addr or {}
         self._blocks_by_addr_and_idx: dict[tuple[int, int | None], ailment.Block] = blocks_by_addr_and_idx or {}
         self._graph = graph
-        self._variable_kb = variable_kb
+        self._dvars_kb = kb
         self._ri = region_identifier
         self._rd = reaching_definitions
         self._scratch = scratch if scratch is not None else {}
@@ -177,6 +183,24 @@ class OptimizationPass(BaseOptimizationPass):
         # output
         self.out_graph: networkx.DiGraph | None = None
         self.stack_items: dict[int, StackItem] = {}
+
+    def analyze(self):
+        super().analyze()
+        self._invalidate_structurability_cache_if_modified()
+
+    def _invalidate_structurability_cache_if_modified(self) -> None:
+        """
+        Drop the shared structurability cache if this pass produced an output graph.
+
+        ``out_graph`` is the single channel through which a pass reports a graph change, and it covers both flavors:
+        a freshly built graph object (which would miss the identity-keyed cache anyway) and an in-place mutation of
+        the graph the pass was handed (which would *wrongly hit* it). Invalidating on any non-None ``out_graph``
+        keeps the cache sound without having to fingerprint AIL contents -- note that ``Block.__hash__`` is memoized
+        by the Rust backend and does not track in-place statement edits, so content fingerprints based on it would be
+        unsound.
+        """
+        if self.out_graph is not None:
+            self._scratch.pop(self._STRUCTURABILITY_CACHE_KEY, None)
 
     @property
     def blocks_by_addr(self) -> dict[int, set[ailment.Block]]:
@@ -342,8 +366,9 @@ class OptimizationPass(BaseOptimizationPass):
                 ail_block,
                 cache=cache,
             )
-            key = ail_block.addr, ail_block.idx
-            blocks_by_addr_and_idx[key] = simplified
+            if simplified is not None:
+                key = ail_block.addr, ail_block.idx
+                blocks_by_addr_and_idx[key] = simplified
 
         # update blocks_map to allow node_addr to node lookup
         def _replace_node_handler(node):
@@ -355,6 +380,21 @@ class OptimizationPass(BaseOptimizationPass):
         AILGraphWalker(ail_graph, _replace_node_handler, replace_nodes=True).walk()
 
         return ail_graph
+
+    def _get_peephole_bundle(self) -> PeepholeOptimizationBundle:
+        bundle: PeepholeOptimizationBundle | None = self._scratch.get("peephole_bundle")
+        if bundle is None or not bundle.matches(
+            self.project, self.manager, self._func.addr, None, None, self._peephole_optimizations
+        ):
+            bundle = PeepholeOptimizationBundle(
+                self.project,
+                self.kb,
+                self.manager,
+                func_addr=self._func.addr,
+                peephole_optimizations=self._peephole_optimizations,
+            )
+            self._scratch["peephole_bundle"] = bundle
+        return bundle
 
     def _simplify_block(self, ail_block, cache=None):
         """
@@ -374,13 +414,14 @@ class OptimizationPass(BaseOptimizationPass):
                 cached_rd = cache_item.rd
                 cached_prop = cache_item.prop
 
-        simp = self.project.analyses.AILBlockSimplifier(
+        simp = BlockSimplifier(
+            self.project,
             ail_block,
             self.manager,
             self._func.addr,
-            peephole_optimizations=self._peephole_optimizations,
             cached_reaching_definitions=cached_rd,
             cached_propagator=cached_prop,
+            peephole_bundle=self._get_peephole_bundle(),
         )
         # update the cache
         if cache is not None:
@@ -500,6 +541,12 @@ class StructuringOptimizationPass(OptimizationPass):
         raise NotImplementedError
 
     def analyze(self):
+        try:
+            self._analyze_and_verify()
+        finally:
+            self._invalidate_structurability_cache_if_modified()
+
+    def _analyze_and_verify(self):
         """
         Wrapper for _analyze() that verifies the graph is structurable before and after the optimization.
         """
@@ -600,18 +647,55 @@ class StructuringOptimizationPass(OptimizationPass):
         if not had_any_changes:
             self.out_graph = None
 
-    def _graph_is_structurable(self, graph, readd_labels=False, initial=False) -> bool:
+    def _graph_is_structurable(self, graph, readd_labels: bool = False, initial: bool = False) -> bool:
         """
         Checks weather the input graph is structurable under the Phoenix schema-matching structuring algorithm.
         As a side effect, this will also update the region identifier and goto manager of this optimization pass.
-        Consequently, a true return guarantees up-to-date goto information in the goto manager.
+        Consequently, a True return guarantees up-to-date goto information in the goto manager.
+
+        We cache the structurability probe result in self._scratch. An optimization pass invalidates the cached
+        structurability result if it updates the graph.
+        """
+        # Only the probe of an unmodified input graph is cacheable
+        cacheable = initial and not readd_labels
+        if self._edges_to_remove:
+            # remove_edges_in_ailgraph() below mutates the graph in place, so anything cached for it describes the
+            # graph as it was before those edges were dropped.
+            self._scratch.pop(self._STRUCTURABILITY_CACHE_KEY, None)
+            cacheable = False
+
+        if cacheable:
+            # check cache
+            entry = self._scratch.get(self._STRUCTURABILITY_CACHE_KEY)
+            if entry is not None and entry[0]() is graph:
+                structurable, ri, goto_manager, region = entry[1]
+                self._apply_structurability_result(structurable, ri, goto_manager, region, initial=initial)
+                return structurable
+
+        # the old route
+        structurable, ri, goto_manager, region = self._compute_structurability(graph, readd_labels)
+        if cacheable:
+            # cache the result
+            self._scratch[self._STRUCTURABILITY_CACHE_KEY] = (
+                weakref.ref(graph),
+                (structurable, ri, goto_manager, region),
+            )
+        self._apply_structurability_result(structurable, ri, goto_manager, region, initial=initial)
+        return structurable
+
+    def _compute_structurability(
+        self, graph, readd_labels: bool
+    ) -> tuple[bool, RegionIdentifier | None, GotoManager | None, RegionOverlay | None]:
+        """
+        Run region identification, structuring, and region simplification on ``graph`` to determine whether it is
+        structurable or not.
         """
         if readd_labels:
             graph = add_labels(graph, self.manager)
 
         remove_edges_in_ailgraph(graph, self._edges_to_remove)
 
-        self._ri = self.project.analyses[angr.analyses.decompiler.RegionIdentifier].prep(kb=self.kb)(
+        ri = self.project.analyses[angr.analyses.decompiler.RegionIdentifier].prep(kb=self.kb)(
             self._func,
             graph=graph,
             ail_manager=self.manager,
@@ -622,15 +706,15 @@ class StructuringOptimizationPass(OptimizationPass):
             expose_loop_head_backedges=True,
             entry_node_addr=self.entry_node_addr,
         )
-        if self._ri is None:
-            return False
+        if ri is None:
+            return False, None, None, None
 
         # we should try-catch structuring here because we can often pass completely invalid graphs
         # that break the assumptions of the structuring algorithm
         try:
             rs = self.project.analyses[RecursiveStructurer].prep(kb=self.kb)(
-                self._ri.region,
-                cond_proc=self._ri.cond_proc,
+                ri.region,
+                cond_proc=ri.cond_proc,
                 ail_manager=self.manager,
                 func=self._func,
                 structurer_cls=SAILRStructurer,
@@ -641,17 +725,29 @@ class StructuringOptimizationPass(OptimizationPass):
             rs = None
 
         if not rs or not rs.result or is_empty_node(rs.result) or rs.result_incomplete:
-            return False
+            return False, ri, None, None
 
         rs = self.project.analyses.RegionSimplifier(
             self._func, rs.result, self.manager, arg_vvars=self._arg_vvars, kb=self.kb
         )
         if not rs or rs.goto_manager is None or rs.result is None:
-            return False
+            return False, ri, None, None
 
-        self._analyze_simplified_region(rs.result, initial=initial)
-        self._goto_manager = rs.goto_manager
-        return True
+        return True, ri, rs.goto_manager, rs.result
+
+    def _apply_structurability_result(
+        self,
+        structurable: bool,
+        ri: RegionIdentifier | None,
+        goto_manager: GotoManager | None,
+        region: RegionOverlay | None,
+        initial: bool = False,
+    ) -> None:
+        self._ri = ri
+        if structurable:
+            assert ri is not None and goto_manager is not None and region is not None
+            self._analyze_simplified_region(region, initial=initial)
+            self._goto_manager = goto_manager
 
     # pylint:disable=no-self-use
     def _analyze_simplified_region(self, region, initial=False):

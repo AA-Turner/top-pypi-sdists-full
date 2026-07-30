@@ -349,7 +349,14 @@ def _ancestors_to_column_values(
     column_values = {'Root': None}
     ancestors = ancestors.copy()
     if len(ancestors) > 0:
-        if ancestors[0].translation_key is not None:
+        if (len(ancestors) >= 2 and context.session.corporate_folder is not None and
+                ancestors[1].id == context.session.corporate_folder.id):
+            # Workaround for CRAB-62692: Sometimes "USERS >> Corporate folder" is incorrectly returned
+            # by the GET /folders endpoint
+            column_values['Root'] = _folder.CORPORATE
+            ancestors.pop(0)
+            ancestors.pop(0)
+        elif ancestors[0].translation_key is not None:
             column_values['Root'] = getattr(_folder, ancestors[0].translation_key)
             ancestors.pop(0)
     column_values['Path'] = _common.path_list_to_string([a.name for a in ancestors])

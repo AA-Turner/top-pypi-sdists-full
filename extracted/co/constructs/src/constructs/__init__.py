@@ -717,17 +717,29 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
     @builtins.property
     @jsii.member(jsii_name="addr")
     def addr(self) -> builtins.str:
-        '''Returns an opaque tree-unique address for this construct.
+        '''An opaque, deterministic address for this construct, derived from its path.
 
-        Addresses are 42 characters hexadecimal strings. They begin with "c8"
-        followed by 40 lowercase hexadecimal characters (0-9a-f).
-
-        Addresses are calculated using a SHA-1 of the components of the construct
-        path.
+        The address is a 42 character string: the prefix "c8" followed by 40
+        lowercase hexadecimal characters (0-9a-f). It is a SHA-1 over the ids of
+        the constructs on the path from the root of the tree down to this
+        construct.
 
         To enable refactoring of construct trees, constructs with the ID ``Default``
-        will be excluded from the calculation. In those cases constructs in the
-        same tree may have the same address.
+        are excluded from the calculation. Within a tree, ``a/Default/b`` and ``a/b``
+        have the same address.
+
+        This means the address is *not* guaranteed to identify a construct uniquely:
+
+        - Any construct whose path is made up of the same ids has the same address.
+          Two trees that are shaped alike therefore hand out the same addresses.
+        - As described above, a construct under a ``Default`` scope has the same
+          address as its counterpart outside of that scope.
+        - The digest is of fixed width, so even distinct paths can in principle hash
+          to the same address. SHA-1 in particular is no longer collision resistant.
+
+        Use an address to derive stable, deterministic names from the location of a
+        construct in the tree. Do not use it as the identity of a construct:
+        instead, compare construct instances or use the ``path``.
 
         Example::
 
@@ -756,7 +768,8 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
     def id(self) -> builtins.str:
         '''The id of this construct within the current scope.
 
-        This is a scope-unique id. To obtain an app-unique id for this construct, use ``addr``.
+        This is a scope-unique id. To obtain an id that reflects the full location
+        of this construct in the tree, use ``path`` or ``addr``.
         '''
         return typing.cast(builtins.str, jsii.get(self, "id"))
 
@@ -943,7 +956,7 @@ class Construct(metaclass=jsii.JSIIMeta, jsii_type="constructs.Construct"):
         '''Creates a new construct node.
 
         :param scope: The scope in which to define this construct.
-        :param id: The scoped construct ID. Must be unique amongst siblings. If the ID includes a path separator (``/``), then it will be replaced by double dash ``--``.
+        :param id: The scoped construct ID. Must be unique amongst siblings. If the ID includes a path separator (``/``) or a newline, then it will be replaced by double dash ``--``.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__020ca90e326a91c7b0f70a5c5df3471c78175b709d5adcbee2cb463d0367e387)
@@ -1023,7 +1036,7 @@ class RootConstruct(
     def __init__(self, id: typing.Optional[builtins.str] = None) -> None:
         '''Creates a new root construct node.
 
-        :param id: The scoped construct ID. Must be unique amongst siblings. If the ID includes a path separator (``/``), then it will be replaced by double dash ``--``.
+        :param id: The scoped construct ID. Must be unique amongst siblings. If the ID includes a path separator (``/``) or a newline, then it will be replaced by double dash ``--``.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__43869d89939a2770444321abd60b2fdb0daaa395e2fa7d025fe7acd93e2d4dc3)

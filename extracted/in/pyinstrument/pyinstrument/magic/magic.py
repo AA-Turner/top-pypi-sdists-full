@@ -268,7 +268,7 @@ class PyinstrumentMagic(Magics):
         )
 
         text_config = compute_render_options(
-            args, renderer_class=HTMLRenderer, unicode_support=True, color_support=True
+            args, renderer_class=ConsoleRenderer, unicode_support=True, color_support=True
         )
 
         html_renderer = renderers.HTMLRenderer(show_all=args.show_all, timeline=args.timeline)

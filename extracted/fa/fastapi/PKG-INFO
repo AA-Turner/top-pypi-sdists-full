@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastapi
-Version: 0.140.13
+Version: 0.141.1
 Summary: FastAPI framework, high performance, easy to learn, fast to code, ready for production
 Author-Email: =?utf-8?q?Sebasti=C3=A1n_Ram=C3=ADrez?= <tiangolo@gmail.com>
 License-Expression: MIT
@@ -43,7 +43,7 @@ Requires-Dist: typing-extensions>=4.8.0
 Requires-Dist: typing-inspection>=0.4.2
 Requires-Dist: annotated-doc>=0.0.2
 Provides-Extra: standard
-Requires-Dist: fastapi-cli[standard]>=0.0.8; extra == "standard"
+Requires-Dist: fastapi-cli[standard]>=0.0.32; extra == "standard"
 Requires-Dist: fastar>=0.9.0; extra == "standard"
 Requires-Dist: httpx<1.0.0,>=0.23.0; extra == "standard"
 Requires-Dist: jinja2>=3.1.5; extra == "standard"
@@ -53,7 +53,7 @@ Requires-Dist: uvicorn[standard]>=0.12.0; extra == "standard"
 Requires-Dist: pydantic-settings>=2.0.0; extra == "standard"
 Requires-Dist: pydantic-extra-types>=2.0.0; extra == "standard"
 Provides-Extra: standard-no-fastapi-cloud-cli
-Requires-Dist: fastapi-cli[standard-no-fastapi-cloud-cli]>=0.0.8; extra == "standard-no-fastapi-cloud-cli"
+Requires-Dist: fastapi-cli[standard-no-fastapi-cloud-cli]>=0.0.32; extra == "standard-no-fastapi-cloud-cli"
 Requires-Dist: httpx<1.0.0,>=0.23.0; extra == "standard-no-fastapi-cloud-cli"
 Requires-Dist: jinja2>=3.1.5; extra == "standard-no-fastapi-cloud-cli"
 Requires-Dist: python-multipart>=0.0.18; extra == "standard-no-fastapi-cloud-cli"
@@ -62,7 +62,7 @@ Requires-Dist: uvicorn[standard]>=0.12.0; extra == "standard-no-fastapi-cloud-cl
 Requires-Dist: pydantic-settings>=2.0.0; extra == "standard-no-fastapi-cloud-cli"
 Requires-Dist: pydantic-extra-types>=2.0.0; extra == "standard-no-fastapi-cloud-cli"
 Provides-Extra: all
-Requires-Dist: fastapi-cli[standard]>=0.0.8; extra == "all"
+Requires-Dist: fastapi-cli[standard]>=0.0.32; extra == "all"
 Requires-Dist: httpx<1.0.0,>=0.23.0; extra == "all"
 Requires-Dist: jinja2>=3.1.5; extra == "all"
 Requires-Dist: python-multipart>=0.0.18; extra == "all"

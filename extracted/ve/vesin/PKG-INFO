@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vesin
-Version: 0.6.0
+Version: 0.6.1
 Summary: Computing neighbor lists for atomistic system
 Author-email: Guillaume Fraux <guillaume.fraux@epfl.ch>
 License-Expression: BSD-3-Clause
@@ -77,7 +77,7 @@ i, j, S, d = calculator.compute(
     points=positions,
     box=box,
     periodic=True,
-    quantities="ijSd"
+    quantities="ijSd",
 )
 ```
 

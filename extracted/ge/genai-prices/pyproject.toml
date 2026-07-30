@@ -4,10 +4,9 @@ build-backend = "uv_build"
 
 [project]
 name = "genai-prices"
-version = "0.0.72"
+version = "0.0.73"
 description = "Calculate prices for calling LLM inference APIs."
 readme = "README.md"
-authors = [{ name = "Samuel Colvin", email = "samuel@pydantic.dev" }]
 requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -36,6 +35,10 @@ dependencies = [
     "httpx2>=2.0",
     "pydantic>=2.10",
 ]
+
+[[project.authors]]
+name = "Samuel Colvin"
+email = "samuel@pydantic.dev"
 
 [project.optional-dependencies]
 cli = [

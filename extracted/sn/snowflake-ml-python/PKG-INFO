@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-ml-python
-Version: 1.48.0
+Version: 1.49.0
 Summary: The machine learning client library that is used for interacting with Snowflake to build machine learning solutions.
 Author-email: "Snowflake, Inc" <support@snowflake.com>
 License: 
@@ -234,7 +234,7 @@ Requires-Python: <3.14,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: anyio<5,>=3.5.0
-Requires-Dist: cachetools<6,>=3.1.1
+Requires-Dist: cachetools>=3.1.1
 Requires-Dist: cloudpickle>=2.0.0
 Requires-Dist: cryptography
 Requires-Dist: fsspec[http]<2026,>=2024.6.1
@@ -417,7 +417,25 @@ NOTE: Version 1.7.0 is used as example here. Please choose the the latest versio
 
 # Release History
 
-## 1.48.0
+## 1.49.0
+
+### New Features
+
+### Bug Fixes
+
+* Registry: Fixed a bug where logging a model with explainability enabled could fail with a data validation error
+  ("There is no non-null data in column ...") when a numeric input column was entirely null within the background
+  sample. The `explain` method now reuses the model's existing input signature instead of re-inferring it from the
+  sample.
+
+* Feature Store: Fixed a bug where `get_feature_view()` could return stale metadata after re-registering a feature
+  view with `overwrite=True`. Metadata reads now select the most recently written row.
+
+### Behavior Changes
+
+### Deprecations
+
+## 1.48.0 (2026-07-22)
 
 ### New Features
 

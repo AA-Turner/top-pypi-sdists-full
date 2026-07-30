@@ -94,6 +94,25 @@ def _is_ws_closed(ws) -> bool:
     return ws.close_code is not None
 
 
+def _is_response_message(msg) -> bool:
+    """Check if a message is an RPC response (carries a truthy "id").
+
+    Matches playwright._impl._connection.Connection.dispatch() exactly: it pops
+    self._callbacks[id] whenever `id` is truthy, unconditionally — it does not
+    check for the absence of "method" first. Some response envelopes carry a
+    "method" alongside "id", so filtering on "method not in data" as well let
+    those slip through replay and still triggered KeyError on the new client's
+    Connection, which never registered that id.
+    """
+    if not isinstance(msg, str):
+        return False
+    try:
+        data = json.loads(msg)
+    except (json.JSONDecodeError, TypeError):
+        return False
+    return bool(data.get("id"))
+
+
 class UpstreamConnectionError(Exception):
     """Raised when the upstream connection fails or is lost."""
     pass
@@ -206,7 +225,10 @@ class PlaywrightRelayProxy:
             try:
                 msg = await asyncio.wait_for(self._upstream_ws.recv(), timeout=0.5)
                 self._track_server_message(msg)
-                self._buffer.add(msg)
+                # Orphaned responses (answering a now-dead client's own call) must
+                # not be replayed to whichever different client connects next.
+                if not _is_response_message(msg):
+                    self._buffer.add(msg)
             except asyncio.TimeoutError:
                 continue
             except websockets.exceptions.ConnectionClosed:
@@ -219,14 +241,9 @@ class PlaywrightRelayProxy:
         self._snapshot.track(msg)
         # Store all non-response messages for full replay
         if isinstance(msg, str):
-            try:
-                data = json.loads(msg)
-                # Skip response messages (they have "id" but no "method")
-                if "id" in data and "method" not in data:
-                    return
-                self._server_messages.append(msg)
-            except (json.JSONDecodeError, TypeError):
-                self._server_messages.append(msg)
+            if _is_response_message(msg):
+                return
+            self._server_messages.append(msg)
         else:
             self._server_messages.append(msg)
 

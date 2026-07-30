@@ -64,15 +64,30 @@ logger = logging.getLogger(__name__)
 
 # List all the helper functions, these functions perform a single rest call to opensearch
 # these functions will be used in tools folder to eventually write more complex tools
-async def list_indices(args: ListIndicesArgs) -> json:
-    """List indices matching the given pattern."""
+async def list_indices(args: ListIndicesArgs) -> tuple[list, bool]:
+    """List indices matching the given pattern.
+
+    Uses _cat/indices (requires cluster:monitor permission). If a 403 is returned,
+    falls back to _resolve/index which only requires index-level permissions but
+    returns less information (no size or health status).
+
+    Returns:
+        A tuple of (indices_list, is_fallback). When is_fallback is True the
+        response only contains index names.
+    """
     from .client import get_opensearch_client
+    from opensearchpy.exceptions import AuthorizationException
 
     async with get_opensearch_client(args) as client:
-        # Pass index parameter if provided to filter results by pattern or specific index
         index_param = args.index if args.index else None
-        response = await client.cat.indices(index=index_param, format='json')
-        return response
+        try:
+            response = await client.cat.indices(index=index_param, format='json')
+            return response, False
+        except AuthorizationException:
+            resolve_pattern = index_param if index_param else '*'
+            resolve_response = await client.indices.resolve_index(name=resolve_pattern)
+            indices = [{'index': idx['name']} for idx in resolve_response.get('indices', [])]
+            return indices, True
 
 
 async def get_index(args: ListIndicesArgs) -> json:
@@ -1288,3 +1303,30 @@ def normalize_scientific_notation(body):
     else:
         # Treat as Python object (dict / list / etc.)
         return _convert_value(body)
+
+
+async def ppl_query(args) -> json:
+    """Execute a PPL query via /_plugins/_ppl endpoint."""
+    from .client import get_opensearch_client
+
+    async with get_opensearch_client(args) as client:
+        body = {'query': args.query}
+        fmt = args.format if args.format else 'jdbc'
+        params = {}
+        if fmt != 'jdbc':
+            params['format'] = fmt
+
+        try:
+            response = await client.transport.perform_request(
+                method='POST',
+                url='/_plugins/_ppl',
+                body=json.dumps(body),
+                params=params,
+            )
+            return response
+        except Exception as e:
+            # For text formats (csv/raw), the transport may fail to parse JSON
+            # but the raw text is available in the exception args
+            if fmt in ('csv', 'raw') and e.args and isinstance(e.args[0], str):
+                return e.args[0]
+            raise

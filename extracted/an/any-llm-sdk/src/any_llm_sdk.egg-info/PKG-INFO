@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: any-llm-sdk
-Version: 1.22.1
+Version: 1.23.0
 License: Apache-2.0
 Project-URL: Documentation, https://docs.mozilla.ai/any-llm/
 Project-URL: Issues, https://github.com/mozilla-ai/any-llm/issues
@@ -16,7 +16,7 @@ Requires-Dist: rich
 Requires-Dist: httpx
 Requires-Dist: typing_extensions>=4.5.0
 Provides-Extra: all
-Requires-Dist: any-llm-sdk[anthropic,atlascloud,azure,azureanthropic,azureopenai,bedrock,cascadia,cerebras,cohere,dashscope,databricks,deepinfra,deepseek,edenai,fireworks,gemini,github,gmi,groq,huggingface,inception,llama,llamacpp,llamafile,lmstudio,minimax,mistral,moonshot,mzai,nebius,neosantara,ollama,openai,openrouter,otari,perplexity,platform,portkey,qiniu,requesty,sagemaker,sambanova,telnyx,together,vertexai,vertexaianthropic,vllm,voyage,watsonx,xai,zai]; extra == "all"
+Requires-Dist: any-llm-sdk[anthropic,atlascloud,azure,azureanthropic,azureopenai,bedrock,cascadia,cerebras,cohere,dashscope,databricks,deepinfra,deepseek,edenai,fireworks,gemini,github,gmi,groq,huggingface,inception,kenari,llama,llamacpp,llamafile,lmstudio,minimax,mistral,moonshot,mzai,nebius,neosantara,ollama,openai,openrouter,otari,perplexity,platform,portkey,qiniu,requesty,sagemaker,sambanova,telnyx,together,vertexai,vertexaianthropic,vllm,voyage,watsonx,xai,zai]; extra == "all"
 Provides-Extra: platform
 Requires-Dist: any-llm-platform-client>=0.3.0; extra == "platform"
 Requires-Dist: opentelemetry-sdk>=1.30.0; extra == "platform"
@@ -72,6 +72,7 @@ Provides-Extra: otari
 Requires-Dist: otari>=0.2.0; extra == "otari"
 Provides-Extra: github
 Provides-Extra: inception
+Provides-Extra: kenari
 Provides-Extra: llama
 Provides-Extra: llamacpp
 Provides-Extra: llamafile

@@ -49,6 +49,7 @@ from abstra_internals.services.notifiers import (
     RequirementsChangeNotifier,
 )
 from abstra_internals.services.periodic_version_check import PeriodicVersionChecker
+from abstra_internals.services.web_editor_events import report_stall_episode
 from abstra_internals.services.web_editor_heartbeat import WebEditorHeartbeat
 from abstra_internals.settings import Settings
 from abstra_internals.signals import SignalHandlers
@@ -454,7 +455,10 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
 
     stall_watchdog: Optional[EditorStallWatchdog] = None
     if is_web_editor:
-        stall_watchdog = EditorStallWatchdog()
+        # report= pushes each stall episode to cloud-api so it becomes a
+        # Prometheus metric; the lifecycle log to the ES pipeline continues
+        # regardless.
+        stall_watchdog = EditorStallWatchdog(report=report_stall_episode)
         stall_watchdog.start()
 
     shutdown_started = threading.Event()

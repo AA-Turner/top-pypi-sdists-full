@@ -9,7 +9,7 @@ import logging
 import uuid
 from datetime import datetime
 
-from ...config import get_config
+from ...config import _get_raw_config, get_config
 from ..memory_engine import fq_table
 from .bank_utils import DEFAULT_DISPOSITION, create_bank_vector_indexes
 from .fact_extraction import _sanitize_text
@@ -33,6 +33,26 @@ async def get_document_content(
         bank_id,
     )
     return row
+
+
+async def count_document_memory_units(
+    conn,
+    bank_id: str,
+    document_id: str,
+) -> int:
+    """Count the memory units a document currently owns.
+
+    This is the number reported as ``memory_unit_count`` by the Documents API and
+    by the ``retain.completed`` webhook. Zero means the document is stored but
+    unreachable through recall/reflect — only memory units carry embeddings, so a
+    document without them cannot be retrieved until it is reprocessed (#3040).
+    """
+    count = await conn.fetchval(
+        f"SELECT COUNT(*) FROM {fq_table('memory_units')} WHERE bank_id = $1 AND document_id = $2",
+        bank_id,
+        document_id,
+    )
+    return int(count or 0)
 
 
 async def insert_facts_batch(
@@ -271,6 +291,7 @@ async def handle_document_tracking(
     retain_params: dict | None = None,
     document_tags: list[str] | None = None,
     ops=None,
+    store_document_text: bool | None = None,
 ) -> None:
     """
     Handle document tracking in the database (full-replace mode).
@@ -358,6 +379,7 @@ async def handle_document_tracking(
         retain_params,
         document_tags,
         preserved_created_at=preserved_created_at,
+        store_document_text=store_document_text,
     )
 
 
@@ -368,6 +390,7 @@ async def upsert_document_metadata(
     combined_content: str,
     retain_params: dict | None = None,
     document_tags: list[str] | None = None,
+    store_document_text: bool | None = None,
 ) -> None:
     """
     Update document metadata without deleting existing facts/chunks.
@@ -380,7 +403,16 @@ async def upsert_document_metadata(
     combined_content = _sanitize_text(combined_content) or ""
     content_hash = hashlib.sha256(combined_content.encode()).hexdigest()
 
-    await _upsert_document_row(conn, bank_id, document_id, combined_content, content_hash, retain_params, document_tags)
+    await _upsert_document_row(
+        conn,
+        bank_id,
+        document_id,
+        combined_content,
+        content_hash,
+        retain_params,
+        document_tags,
+        store_document_text=store_document_text,
+    )
 
 
 async def _upsert_document_row(
@@ -392,6 +424,7 @@ async def _upsert_document_row(
     retain_params: dict | None = None,
     document_tags: list[str] | None = None,
     preserved_created_at: datetime | None = None,
+    store_document_text: bool | None = None,
 ) -> None:
     """Insert or update a document row.
 
@@ -403,8 +436,13 @@ async def _upsert_document_row(
     When ``store_document_text`` is disabled, the raw source text
     is dropped and ``original_text`` is stored as NULL. The ``content_hash`` is
     still computed from the real content so delta-retain dedup is unaffected.
+    ``store_document_text`` defaults to the server-level config when ``None``;
+    the retain path passes the per-bank resolved value.
     """
-    original_text = combined_content if get_config().store_document_text else None
+    # Fallback to the raw global default (not get_config(), which guards
+    # bank-configurable fields); the retain path always passes the resolved value.
+    store_text = store_document_text if store_document_text is not None else _get_raw_config().store_document_text
+    original_text = combined_content if store_text else None
     await conn.execute(
         f"""
         INSERT INTO {fq_table("documents")} (id, bank_id, original_text, content_hash, retain_params, tags, created_at, updated_at)

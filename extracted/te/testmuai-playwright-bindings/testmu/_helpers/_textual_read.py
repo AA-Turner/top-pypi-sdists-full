@@ -234,6 +234,15 @@ async def _populate_attribute(el, requested_attribute: str) -> Any:
     if requested_attribute == "attributes":
         return await el.evaluate("e => Array.from(e.attributes).map(a => a.name)") or []
 
+    # Presence query: "does element have attribute X?" (mirrors selenium's
+    # textual_query has_ branch). The producer emits the raw HTML attribute
+    # name after the "has_" prefix (e.g. 'has_aria-expanded' -> 'aria-expanded'),
+    # so no underscore->hyphen conversion is applied. get_attribute returns None
+    # iff the attribute is absent, making `is not None` the presence test.
+    if requested_attribute.startswith("has_"):
+        base_attr = requested_attribute[4:]
+        return (await el.get_attribute(base_attr)) is not None
+
     raise ValueError(f"Unknown attribute: {requested_attribute!r}")
 
 

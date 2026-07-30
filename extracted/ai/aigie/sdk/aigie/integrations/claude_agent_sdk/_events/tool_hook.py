@@ -19,6 +19,7 @@ from aigie.integrations.claude_agent_sdk.native_callback import (
     _utc_isoformat,
     _utc_now,
 )
+from aigie.tracing.trace_state import register_resumable_trace
 
 if TYPE_CHECKING:
     pass
@@ -349,6 +350,8 @@ class ToolEvents:
         if not sdk_session_id or sdk_session_id == self.session_id:
             return
         self.session_id = sdk_session_id
+        if self._session_context is not None:
+            register_resumable_trace(sdk_session_id, self._session_context)
 
     async def handle_hook_event(self, message: Any) -> None:
         """Record a HookEventMessage emitted by the CLI (when

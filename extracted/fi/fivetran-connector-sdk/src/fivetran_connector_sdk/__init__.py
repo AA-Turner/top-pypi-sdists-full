@@ -19,6 +19,7 @@ from fivetran_connector_sdk.protos import connector_sdk_pb2
 from fivetran_connector_sdk.protos import connector_sdk_pb2_grpc
 
 from fivetran_connector_sdk.logger import Logging
+from fivetran_connector_sdk.file_upload import ByteStream, FileUpload
 from fivetran_connector_sdk.operations import Operations
 from fivetran_connector_sdk.configuration_form import ConfigurationForm
 from fivetran_connector_sdk.test import Test
@@ -48,10 +49,10 @@ from fivetran_connector_sdk.connector_helper import (
 
 # Version format: <major_version>.<minor_version>.<patch_version>
 # (where Major Version = 2, Minor Version is incremental MM from Aug 25 onwards, Patch Version is incremental within a month)
-__version__ = "2.10.3"
+__version__ = "2.10.4"
 MAX_MESSAGE_LENGTH = 128 * 1024 * 1024 # 128MB
 
-__all__ = [cls.__name__ for cls in [Logging, Operations, ConfigurationForm, Test]] + ["form_field"]
+__all__ = [cls.__name__ for cls in [ByteStream, FileUpload, Logging, Operations, ConfigurationForm, Test]] + ["form_field"]
 
 def package(
         project_path: str,
@@ -241,7 +242,8 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
             ]
         )
         connector_sdk_pb2_grpc.add_SourceConnectorServicer_to_server(self, server)
-        server.add_insecure_port("[::]:" + str(port))
+        bind_address = "127.0.0.1" if constants.DEBUGGING else "[::]"
+        server.add_insecure_port(bind_address + ":" + str(port))
         server.start()
         if constants.DEBUGGING:
             return server
@@ -519,12 +521,15 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
 
             # consumer - yield the operations in the operation_stream.
             for response in Operations.operation_stream:
-                # checkpoint call always returns list of responses.
+                # checkpoint and file-upload-chunk flushes both return a list of responses.
                 if isinstance(response, list):
                     for res in response:
                         yield res
-                    # checkpoint call blocks the queue (see _OperationStream.add method). unblock the queue after yielding all responses.
-                    Operations.operation_stream.unblock()
+                    # add_checkpoint blocks the producer until its checkpoint response is yielded.
+                    # File-upload flushes also return lists, but they do not block the producer, so
+                    # unblock only when this batch contains a checkpoint.
+                    if any(res.WhichOneof("operation") == "checkpoint" for res in response):
+                        Operations.operation_stream.unblock()
                 else:
                     yield response
 

@@ -78,6 +78,44 @@ class UsageFeaturePatchBuilder(MetadataPatchProposal):
         )
         return self
 
+    def setAgentViewCountLast30Days(
+        self, count: Optional[int]
+    ) -> "UsageFeaturePatchBuilder":
+        """Sets the agent view count for the last 30 days.
+
+        Args:
+            count: The agent view count for the last 30 days.
+
+        Returns:
+            UsageFeaturePatchBuilder: The instance of the builder.
+        """
+        self._add_patch(
+            UsageFeaturesClass.ASPECT_NAME,
+            "add",
+            path=("agentViewCountLast30Days",),
+            value=count,
+        )
+        return self
+
+    def setAgentViewCountTotal(
+        self, count: Optional[int]
+    ) -> "UsageFeaturePatchBuilder":
+        """Sets the total agent view count.
+
+        Args:
+            count: The total agent view count.
+
+        Returns:
+            UsageFeaturePatchBuilder: The instance of the builder.
+        """
+        self._add_patch(
+            UsageFeaturesClass.ASPECT_NAME,
+            "add",
+            path=("agentViewCountTotal",),
+            value=count,
+        )
+        return self
+
     def setViewCountPercentileLast30Days(
         self, count: Optional[int]
     ) -> "UsageFeaturePatchBuilder":
@@ -437,6 +475,8 @@ class UsageFeaturePatchBuilder(MetadataPatchProposal):
             "queryCountLast30Days": self.setQueryCountLast30Days,
             "viewCountLast30Days": self.setViewCountLast30Days,
             "viewCountTotal": self.setViewCountTotal,
+            "agentViewCountLast30Days": self.setAgentViewCountLast30Days,
+            "agentViewCountTotal": self.setAgentViewCountTotal,
             "viewCountPercentileLast30Days": self.setViewCountPercentileLast30Days,
             "usageCountLast30Days": self.setUsageCountLast30Days,
             "uniqueUserCountLast30Days": self.setUniqueUserCountLast30Days,

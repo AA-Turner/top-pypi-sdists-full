@@ -27,6 +27,7 @@ from typing import (
     cast,
 )
 
+import anyio
 import fastapi
 import httpx
 import markupsafe
@@ -276,7 +277,9 @@ class App(FastAPI):
         self.cwd = os.getcwd()
         self.favicon_path = blocks.favicon_path
         self.tokens = {}
-        self.root_path = blocks.root_path or ""
+        self.root_path = blocks.root_path or (
+            "" if blocks.custom_mount_path is not None else self.root_path
+        )
         self.state_holder.set_blocks(blocks)
 
     def get_blocks(self) -> gradio.Blocks:
@@ -1335,15 +1338,26 @@ class App(FastAPI):
             request: fastapi.Request,
             username: str = Depends(get_current_user),
         ):
-            parameters_info = app.api_info["named_endpoints"]["/" + api_name][  # type: ignore
-                "parameters"
-            ]
+            endpoint_info = app.api_info["named_endpoints"]["/" + api_name]  # type: ignore
+            parameters_info = endpoint_info["parameters"]
+            body = dict(body)
+            oauth_token = None
+            if endpoint_info.get("oauth_token"):
+                oauth_token = body.pop("oauth_token", None)
+            elif not any(
+                p.get("parameter_name") == "oauth_token" for p in parameters_info
+            ):
+                # Not this endpoint's to receive, and not one of its parameters
+                # either, so drop it rather than report an unknown argument.
+                body.pop("oauth_token", None)
             processed_args = client_utils.construct_args(
                 parameters_info,
                 (),
                 body,
             )
-            simple_body = SimplePredictBody(data=processed_args)
+            simple_body = SimplePredictBody(
+                data=processed_args, oauth_token=oauth_token
+            )
             full_body = PredictBody(**simple_body.model_dump(), simple_format=True)  # type: ignore
             fn = route_utils.get_fn(
                 blocks=app.get_blocks(), api_name=api_name, body=full_body
@@ -1689,7 +1703,9 @@ class App(FastAPI):
             if inspect.iscoroutinefunction(fn):
                 return await fn(*processed_input)
             else:
-                return fn(*processed_input)
+                return await anyio.to_thread.run_sync(
+                    fn, *processed_input, limiter=app.get_blocks().limiter
+                )
 
         @router.get(
             "/queue/status",

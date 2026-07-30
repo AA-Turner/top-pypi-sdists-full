@@ -10,9 +10,12 @@ The state is a SET of typed reasons so multiple causes can coexist:
 - ``abstra_update`` — DERIVED FROM DISK (the staged-but-not-flipped slot), so it
   survives a crash / scale-to-zero between the stage and the restart, and never
   drifts from what the flip will actually apply.
-- ``dependencies`` — packages installed by the linter that the running
-  processes haven't loaded yet. In-memory, accumulated via a process action.
-  (Not wired yet; the linter still restarts immediately for now.)
+- ``dependencies`` — a presence flag set when the linter installs a package the
+  running processes haven't loaded yet. In-memory (a bare "mark needs restart"
+  process action carries no data), cleared on restart. Presence-only: the UI
+  shows a generic "restart to load new dependencies" message; it does not name
+  the packages (they would need a payload on the child->editor signal, and the
+  restart itself never needs them).
 
 The reasons are informational (they feed the UI message). The mechanical action
 of "Restart now" is derived from disk regardless of the reasons: always restart,
@@ -20,7 +23,7 @@ and flip first iff a staged slot is pending.
 """
 
 import threading
-from typing import List, Optional, TypedDict
+from typing import Optional, TypedDict
 
 from abstra_internals.repositories.linter.process_actions import (
     restart_editor_and_workers,
@@ -36,27 +39,25 @@ class AbstraUpdateReason(TypedDict):
     target_version: str
 
 
-class DependenciesReason(TypedDict):
-    packages: List[str]
-
-
 class RestartStatus(TypedDict):
     required: bool
-    # None when the reason is not active. Presence == reason active.
+    # None when the abstra-update reason is not active; presence == active.
     abstra_update: Optional[AbstraUpdateReason]
-    dependencies: Optional[DependenciesReason]
+    # True when a dependency install is pending a restart. Presence only — no
+    # package detail (see module docstring).
+    dependencies: bool
 
 
 class EditorRestartController:
     _lock = threading.Lock()
-    # Packages installed but not yet visible to the running processes,
-    # accumulated in-memory. Cleared naturally on restart (fresh process).
-    _pending_packages: set = set()
+    # Set when the linter installs a dependency the running processes can't see
+    # yet; cleared naturally on restart (fresh process). Presence only.
+    _dependencies_pending: bool = False
 
     @classmethod
-    def mark_dependencies_installed(cls, packages: List[str]) -> None:
+    def mark_dependencies_installed(cls) -> None:
         with cls._lock:
-            cls._pending_packages.update(packages)
+            cls._dependencies_pending = True
 
     @classmethod
     def _abstra_update_reason(cls) -> Optional[AbstraUpdateReason]:
@@ -69,19 +70,12 @@ class EditorRestartController:
         return AbstraUpdateReason(target_version=version)
 
     @classmethod
-    def _dependencies_reason(cls) -> Optional[DependenciesReason]:
-        with cls._lock:
-            packages = sorted(cls._pending_packages)
-        if not packages:
-            return None
-        return DependenciesReason(packages=packages)
-
-    @classmethod
     def state(cls) -> RestartStatus:
         abstra_update = cls._abstra_update_reason()
-        dependencies = cls._dependencies_reason()
+        with cls._lock:
+            dependencies = cls._dependencies_pending
         return RestartStatus(
-            required=abstra_update is not None or dependencies is not None,
+            required=abstra_update is not None or dependencies,
             abstra_update=abstra_update,
             dependencies=dependencies,
         )

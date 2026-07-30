@@ -13,6 +13,7 @@ import uuid
 from typing import TYPE_CHECKING, Any
 
 from aigie.context_manager import merge_metadata
+from aigie.integrations.claude_agent_sdk._events import _tool_catalog
 from aigie.integrations.claude_agent_sdk.cost_tracking import calculate_claude_cost
 from aigie.integrations.claude_agent_sdk.monitoring import DriftDetector
 from aigie.integrations.claude_agent_sdk.native_callback import (
@@ -97,24 +98,7 @@ class QueryEvents:
 
         # Extract tool names and schemas if present
         tools = options.get("tools", [])
-        tool_names = []
-        tool_definitions = []
-        if tools:
-            for t in tools[:10]:
-                if hasattr(t, "name"):
-                    tool_names.append(t.name)
-                    # Capture tool schema for Tool Usage Judge
-                    tool_def = {"name": t.name}
-                    if hasattr(t, "description"):
-                        tool_def["description"] = t.description
-                    if hasattr(t, "input_schema"):
-                        tool_def["input_schema"] = t.input_schema
-                    elif hasattr(t, "parameters"):
-                        tool_def["parameters"] = t.parameters
-                    tool_definitions.append(tool_def)
-                elif isinstance(t, dict) and "name" in t:
-                    tool_names.append(t["name"])
-                    tool_definitions.append(t)
+        tool_names, tool_definitions = _tool_catalog.extract_tool_defs(tools)
 
         # Extract model parameters
         model_parameters = {}
@@ -149,8 +133,7 @@ class QueryEvents:
 
         if model_parameters:
             trace_metadata["model_parameters"] = model_parameters
-        if tool_definitions:
-            trace_metadata["available_tools"] = tool_definitions
+        _tool_catalog.stamp_catalog(tool_definitions, trace_metadata, self.trace_id)
 
         # Capture full system prompt in metadata
         system_prompt = options.get("system_prompt", "")
@@ -468,7 +451,8 @@ class QueryEvents:
                 query_metadata["thinking"] = thinking_content
             if usage.get("reasoning_tokens"):
                 query_metadata["reasoning_tokens"] = usage["reasoning_tokens"]
-
+            if self.session_id:
+                query_metadata["claude_session_id"] = self.session_id
             query_update = {
                 "id": self.query_span_id,
                 "trace_id": self.trace_id,  # Required for backend merge

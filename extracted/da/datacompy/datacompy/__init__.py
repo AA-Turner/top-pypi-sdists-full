@@ -18,16 +18,32 @@ Originally started to be something of a replacement for SAS's PROC COMPARE for P
 Then extended to carry that functionality over to Spark Dataframes.
 """
 
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 
 from datacompy.base import BaseCompare
 from datacompy.pandas import PandasCompare
 from datacompy.polars import PolarsCompare
+from datacompy.report import (
+    ColumnComparison,
+    ColumnSummary,
+    MismatchStat,
+    MismatchStats,
+    ReportData,
+    RowSummary,
+    UniqueRowsData,
+)
 
 __all__ = [
     "BaseCompare",
+    "ColumnComparison",
+    "ColumnSummary",
+    "MismatchStat",
+    "MismatchStats",
     "PandasCompare",
     "PolarsCompare",
+    "ReportData",
+    "RowSummary",
+    "UniqueRowsData",
 ]
 
 try:

@@ -27,10 +27,13 @@ class GetEndpointResult:
     """
     A collection of values returned by getEndpoint.
     """
-    def __init__(__self__, account_id=None, azure_private_endpoint_info=None, create_time=None, display_name=None, endpoint_id=None, id=None, name=None, region=None, state=None, use_case=None):
+    def __init__(__self__, account_id=None, aws_vpc_endpoint_info=None, azure_private_endpoint_info=None, create_time=None, display_name=None, endpoint_id=None, gcp_psc_endpoint_info=None, name=None, region=None, state=None, use_case=None):
         if account_id and not isinstance(account_id, str):
             raise TypeError("Expected argument 'account_id' to be a str")
         pulumi.set(__self__, "account_id", account_id)
+        if aws_vpc_endpoint_info and not isinstance(aws_vpc_endpoint_info, dict):
+            raise TypeError("Expected argument 'aws_vpc_endpoint_info' to be a dict")
+        pulumi.set(__self__, "aws_vpc_endpoint_info", aws_vpc_endpoint_info)
         if azure_private_endpoint_info and not isinstance(azure_private_endpoint_info, dict):
             raise TypeError("Expected argument 'azure_private_endpoint_info' to be a dict")
         pulumi.set(__self__, "azure_private_endpoint_info", azure_private_endpoint_info)
@@ -43,9 +46,9 @@ class GetEndpointResult:
         if endpoint_id and not isinstance(endpoint_id, str):
             raise TypeError("Expected argument 'endpoint_id' to be a str")
         pulumi.set(__self__, "endpoint_id", endpoint_id)
-        if id and not isinstance(id, str):
-            raise TypeError("Expected argument 'id' to be a str")
-        pulumi.set(__self__, "id", id)
+        if gcp_psc_endpoint_info and not isinstance(gcp_psc_endpoint_info, dict):
+            raise TypeError("Expected argument 'gcp_psc_endpoint_info' to be a dict")
+        pulumi.set(__self__, "gcp_psc_endpoint_info", gcp_psc_endpoint_info)
         if name and not isinstance(name, str):
             raise TypeError("Expected argument 'name' to be a str")
         pulumi.set(__self__, "name", name)
@@ -66,6 +69,14 @@ class GetEndpointResult:
         (string) - The Databricks Account in which the endpoint object exists
         """
         return pulumi.get(self, "account_id")
+
+    @_builtins.property
+    @pulumi.getter(name="awsVpcEndpointInfo")
+    def aws_vpc_endpoint_info(self) -> 'outputs.GetEndpointAwsVpcEndpointInfoResult':
+        """
+        (AwsVpcEndpointInfo) - Info for an AWS VPC endpoint
+        """
+        return pulumi.get(self, "aws_vpc_endpoint_info")
 
     @_builtins.property
     @pulumi.getter(name="azurePrivateEndpointInfo")
@@ -102,12 +113,12 @@ class GetEndpointResult:
         return pulumi.get(self, "endpoint_id")
 
     @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
+    @pulumi.getter(name="gcpPscEndpointInfo")
+    def gcp_psc_endpoint_info(self) -> 'outputs.GetEndpointGcpPscEndpointInfoResult':
         """
-        The provider-assigned unique ID for this managed resource.
+        (GcpPscEndpointInfo) - Info for a GCP Private Service Connect endpoint
         """
-        return pulumi.get(self, "id")
+        return pulumi.get(self, "gcp_psc_endpoint_info")
 
     @_builtins.property
     @pulumi.getter
@@ -150,11 +161,12 @@ class AwaitableGetEndpointResult(GetEndpointResult):
             yield self
         return GetEndpointResult(
             account_id=self.account_id,
+            aws_vpc_endpoint_info=self.aws_vpc_endpoint_info,
             azure_private_endpoint_info=self.azure_private_endpoint_info,
             create_time=self.create_time,
             display_name=self.display_name,
             endpoint_id=self.endpoint_id,
-            id=self.id,
+            gcp_psc_endpoint_info=self.gcp_psc_endpoint_info,
             name=self.name,
             region=self.region,
             state=self.state,
@@ -187,11 +199,12 @@ def get_endpoint(name: Optional[_builtins.str] = None,
 
     return AwaitableGetEndpointResult(
         account_id=pulumi.get(__ret__, 'account_id'),
+        aws_vpc_endpoint_info=pulumi.get(__ret__, 'aws_vpc_endpoint_info'),
         azure_private_endpoint_info=pulumi.get(__ret__, 'azure_private_endpoint_info'),
         create_time=pulumi.get(__ret__, 'create_time'),
         display_name=pulumi.get(__ret__, 'display_name'),
         endpoint_id=pulumi.get(__ret__, 'endpoint_id'),
-        id=pulumi.get(__ret__, 'id'),
+        gcp_psc_endpoint_info=pulumi.get(__ret__, 'gcp_psc_endpoint_info'),
         name=pulumi.get(__ret__, 'name'),
         region=pulumi.get(__ret__, 'region'),
         state=pulumi.get(__ret__, 'state'),
@@ -221,11 +234,12 @@ def get_endpoint_output(name: pulumi.Input[Optional[_builtins.str]] = None,
     __ret__ = pulumi.runtime.invoke_output('databricks:index/getEndpoint:getEndpoint', __args__, opts=opts, typ=GetEndpointResult)
     return __ret__.apply(lambda __response__: GetEndpointResult(
         account_id=pulumi.get(__response__, 'account_id'),
+        aws_vpc_endpoint_info=pulumi.get(__response__, 'aws_vpc_endpoint_info'),
         azure_private_endpoint_info=pulumi.get(__response__, 'azure_private_endpoint_info'),
         create_time=pulumi.get(__response__, 'create_time'),
         display_name=pulumi.get(__response__, 'display_name'),
         endpoint_id=pulumi.get(__response__, 'endpoint_id'),
-        id=pulumi.get(__response__, 'id'),
+        gcp_psc_endpoint_info=pulumi.get(__response__, 'gcp_psc_endpoint_info'),
         name=pulumi.get(__response__, 'name'),
         region=pulumi.get(__response__, 'region'),
         state=pulumi.get(__response__, 'state'),

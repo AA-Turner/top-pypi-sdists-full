@@ -7,6 +7,8 @@ one-directional (no import cycle).
 
 from __future__ import annotations
 
+import contextlib
+import json
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -71,3 +73,15 @@ def params_to_dict(step: Any) -> dict[str, Any]:
     if not step.HasField("params"):
         return {}
     return json_format.MessageToDict(step.params)  # type: ignore[no-any-return]
+
+
+def span_metadata(span: Any) -> dict[str, Any]:
+    """Decode a span's ``metadata_json``; empty dict when absent or malformed."""
+    raw = getattr(span, "metadata_json", None)
+    if not raw:
+        return {}
+    with contextlib.suppress(ValueError, TypeError):
+        metadata = json.loads(raw)
+        if isinstance(metadata, dict):
+            return metadata
+    return {}

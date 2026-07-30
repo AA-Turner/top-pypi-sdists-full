@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fivetran_connector_sdk
-Version: 2.10.3
+Version: 2.10.4
 Summary: Build custom connectors on Fivetran platform
 Author-email: Fivetran <developers@fivetran.com>
 Project-URL: Homepage, https://fivetran.com/docs/connectors/connector-sdk

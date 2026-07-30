@@ -166,6 +166,25 @@ def test_process_single_entity_implicit_share(
     assert source.report.entities_failed == 0
 
 
+@pytest.mark.parametrize(
+    "entity_result",
+    [
+        # A hit can resolve to a null entity or null share; neither should crash.
+        {"entity": None},
+        {"entity": {"urn": "urn:li:corpuser:john", "share": None}},
+    ],
+)
+def test_process_single_entity_null_share_is_skipped(
+    source: DataHubMetadataSharingSource, entity_result: dict
+) -> None:
+    """Null entity / null share hits are skipped without raising or sharing."""
+    source._process_single_entity(entity_result)
+
+    assert source.report.entities_shared == 0
+    assert source.report.entities_failed == 0
+    assert source.report.implicit_entities_skipped == 0
+
+
 def test_process_single_entity_failure(source: DataHubMetadataSharingSource) -> None:
     """Test handling failed entity sharing"""
     assert source.graph is not None  # For mypy

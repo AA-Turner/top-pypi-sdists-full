@@ -99,13 +99,23 @@ def _evaluate_v3_condition(condition: str) -> bool:
         PossibleCondition,
         ConcatenationOperator,
     )
+    # Assertion lives in _assertion_v3_eval (not condition.py); imported lazily
+    # here to avoid a circular import at module load.
+    from testmu._helpers._assertion_v3_eval import Assertion
     from testmu._vars import get_variable_value
     from testmu._errors import ConditionEvaluationError
 
     # The module-level Condition now defaults is_v3 from kane_version config, so a
     # plain Condition(...) already evaluates with V3 semantics here — no wrapper needed.
     _log.info("    [check_until_condition v3] condition=%s", condition[:80])
+    # Union of every condition-family name the producer/cgf can bake into a
+    # while/until condition string (parity with the selenium binding's
+    # allowed_names). Missing a bakeable name makes the eval NameError on every
+    # loop. `Mathmatic` is intentionally absent: playwright has no Mathmatic
+    # class — cgf emits math as `testmu.evaluate_math(...)` into a variable, so
+    # the condition string references `{{var}}`, never a bare `Mathmatic(...)`.
     allowed_names = {
+        "Assertion": Assertion,
         "Condition": Condition,
         "ResolvedCondition": ResolvedCondition,
         "PossibleCondition": PossibleCondition,

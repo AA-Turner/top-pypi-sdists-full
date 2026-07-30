@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from math import gcd
 
+from angr.ailment import ExpressionKind
 from angr.ailment.expression import BinaryOp, Const, Convert, StackBaseOffset, UnaryOp
 from angr.utils.bits import sign_extend
 
@@ -29,6 +30,10 @@ class EagerEvaluation(PeepholeOptimizationExprBase):
 
     @staticmethod
     def _optimize_binaryop(expr: BinaryOp):
+        # The identities below assume integer arithmetic and are not generally valid under IEEE 754.
+        if expr.floating_point:
+            return None
+
         op0, op1 = expr.operands
         if expr.op == "Add":
             if (
@@ -212,7 +217,7 @@ class EagerEvaluation(PeepholeOptimizationExprBase):
                 # constant multiplication
                 mask = (1 << expr.bits) - 1
                 return Const(expr.idx, (op0.value * op1.value) & mask, expr.bits, **expr.tags)
-            if {type(op0), type(op1)} == {BinaryOp, Const}:
+            if {op0.pykind, op1.pykind} == {ExpressionKind.BinaryOp, ExpressionKind.Const}:
                 op0, op1 = expr.operands
                 const_, x0 = (op0, op1) if isinstance(op0, Const) else (op1, op0)
                 if x0.op == "Mul" and (isinstance(x0.operands[0], Const) or isinstance(x0.operands[1], Const)):
@@ -227,17 +232,20 @@ class EagerEvaluation(PeepholeOptimizationExprBase):
         elif (
             expr.op == "Div"
             and isinstance(op1, Const)
+            and op1.is_int
             and isinstance(op0, BinaryOp)
             and op0.op == "Mul"
+            and not op0.floating_point
             and isinstance(op0.operands[1], Const)
+            and op0.operands[1].is_int
         ):
             expr0, const_0 = expr.operands
             const_1 = expr0.operands[1]
-            if const_0.value != 0 and const_1.value != 0:
-                gcd_ = gcd(const_0.value, const_1.value)
+            if const_0.value_int != 0 and const_1.value_int != 0:
+                gcd_ = gcd(const_0.value_int, const_1.value_int)
                 if gcd_ != 1:
-                    new_const_1 = Const(const_1.idx, const_1.value // gcd_, const_1.bits, **const_1.tags)
-                    new_const_0 = Const(const_0.idx, const_0.value // gcd_, const_0.bits, **const_0.tags)
+                    new_const_1 = Const(const_1.idx, const_1.value_int // gcd_, const_1.bits, **const_1.tags)
+                    new_const_0 = Const(const_0.idx, const_0.value_int // gcd_, const_0.bits, **const_0.tags)
                     mul = BinaryOp(
                         expr0.idx,
                         "Mul",

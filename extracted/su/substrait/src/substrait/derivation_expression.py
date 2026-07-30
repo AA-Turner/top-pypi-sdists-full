@@ -1,32 +1,80 @@
+import operator
 from typing import Optional
 
 from antlr4 import CommonTokenStream, InputStream
+from antlr4.error.ErrorListener import ErrorListener
 from substrait.type_pb2 import NamedStruct, Type
 from substrait_antlr.substrait_type.SubstraitTypeLexer import SubstraitTypeLexer
 from substrait_antlr.substrait_type.SubstraitTypeParser import SubstraitTypeParser
 
 
+class DerivationExpressionParseError(Exception):
+    """Raised when a derivation expression cannot be parsed."""
+
+
+class _RaisingErrorListener(ErrorListener):
+    """ANTLR error listener that raises instead of recovering.
+
+    ANTLR's default behaviour on a syntax error is to print a warning to
+    stderr and continue with a partial (possibly ``None``-containing) parse
+    tree.  We want the parse to fail loudly with a message naming the offending
+    input instead.
+    """
+
+    def __init__(self, expression: str):
+        super().__init__()
+        self._expression = expression
+
+    def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
+        raise DerivationExpressionParseError(
+            f"Could not parse derivation expression {self._expression!r} "
+            f"at line {line}:{column}: {msg}"
+        ) from e
+
+
+# Binary operators keyed by the token text the grammar attaches to `op`.
+# (Integer division: type parameters like precision/scale are integers.)
+_BINARY_OPS = {
+    "*": operator.mul,
+    "/": operator.floordiv,
+    "+": operator.add,
+    "-": operator.sub,
+    "<": operator.lt,
+    ">": operator.gt,
+    "<=": operator.le,
+    ">=": operator.ge,
+    "=": operator.eq,
+    "!=": operator.ne,
+}
+
+# The 0.95 grammar split the single BinaryExpr rule into these per-operator rules.
+_BINARY_CONTEXTS = (
+    SubstraitTypeParser.MulDivContext,
+    SubstraitTypeParser.AddSubContext,
+    SubstraitTypeParser.ComparisonContext,
+    SubstraitTypeParser.EqualityContext,
+)
+
+
 def _evaluate(x, values: dict):
-    if isinstance(x, SubstraitTypeParser.BinaryExprContext):
+    if isinstance(x, _BINARY_CONTEXTS):
         left = _evaluate(x.left, values)
         right = _evaluate(x.right, values)
-
-        if x.op.text == "+":
-            return left + right
-        elif x.op.text == "-":
-            return left - right
-        elif x.op.text == "*":
-            return left * right
-        elif x.op.text == ">":
-            return left > right
-        elif x.op.text == ">=":
-            return left >= right
-        elif x.op.text == "<":
-            return left < right
-        elif x.op.text == "<=":
-            return left <= right
-        else:
-            raise Exception(f"Unknown binary op {x.op.text}")
+        return _BINARY_OPS[x.op.text](left, right)
+    elif isinstance(x, SubstraitTypeParser.AndContext):
+        return _evaluate(x.left, values) and _evaluate(x.right, values)
+    elif isinstance(x, SubstraitTypeParser.OrContext):
+        return _evaluate(x.left, values) or _evaluate(x.right, values)
+    elif isinstance(x, SubstraitTypeParser.NotExprContext):
+        return not _evaluate(x.expr(), values)
+    elif isinstance(
+        x, (SubstraitTypeParser.IfExprContext, SubstraitTypeParser.TernaryContext)
+    ):
+        return (
+            _evaluate(x.thenExpr, values)
+            if _evaluate(x.ifExpr, values)
+            else _evaluate(x.elseExpr, values)
+        )
     elif isinstance(x, SubstraitTypeParser.LiteralNumberContext):
         return int(x.Number().symbol.text)
     elif isinstance(x, SubstraitTypeParser.ParameterNameContext):
@@ -68,8 +116,6 @@ def _evaluate(x, values: dict):
                 return Type(bool=Type.Boolean(nullability=nullability))
             elif isinstance(scalar_type, SubstraitTypeParser.StringContext):
                 return Type(string=Type.String(nullability=nullability))
-            elif isinstance(scalar_type, SubstraitTypeParser.TimestampContext):
-                return Type(timestamp=Type.Timestamp(nullability=nullability))
             elif isinstance(scalar_type, SubstraitTypeParser.DateContext):
                 return Type(date=Type.Date(nullability=nullability))
             elif isinstance(scalar_type, SubstraitTypeParser.IntervalYearContext):
@@ -78,10 +124,6 @@ def _evaluate(x, values: dict):
                 return Type(uuid=Type.UUID(nullability=nullability))
             elif isinstance(scalar_type, SubstraitTypeParser.BinaryContext):
                 return Type(binary=Type.Binary(nullability=nullability))
-            elif isinstance(scalar_type, SubstraitTypeParser.TimeContext):
-                return Type(time=Type.Time(nullability=nullability))
-            elif isinstance(scalar_type, SubstraitTypeParser.TimestampTzContext):
-                return Type(timestamp_tz=Type.TimestampTZ(nullability=nullability))
             else:
                 raise Exception(f"Unknown scalar type {type(scalar_type)}")
         elif parametrized_type:
@@ -148,6 +190,16 @@ def _evaluate(x, values: dict):
                         nullability=nullability,
                     )
                 )
+            elif isinstance(
+                parametrized_type, SubstraitTypeParser.PrecisionIntervalDayContext
+            ):
+                precision = _evaluate(parametrized_type.precision, values)
+                return Type(
+                    interval_day=Type.IntervalDay(
+                        precision=precision,
+                        nullability=nullability,
+                    )
+                )
             elif isinstance(parametrized_type, SubstraitTypeParser.StructContext):
                 types = list(
                     map(lambda x: _evaluate(x, values), parametrized_type.expr())
@@ -201,12 +253,6 @@ def _evaluate(x, values: dict):
             )
     elif isinstance(x, SubstraitTypeParser.NumericExpressionContext):
         return _evaluate(x.expr(), values)
-    elif isinstance(x, SubstraitTypeParser.TernaryContext):
-        ifExpr = _evaluate(x.ifExpr, values)
-        thenExpr = _evaluate(x.thenExpr, values)
-        elseExpr = _evaluate(x.elseExpr, values)
-
-        return thenExpr if ifExpr else elseExpr
     elif isinstance(x, SubstraitTypeParser.MultilineDefinitionContext):
         lines = zip(x.Identifier(), x.expr())
 
@@ -225,9 +271,18 @@ def _evaluate(x, values: dict):
 
 
 def _parse(x: str):
+    error_listener = _RaisingErrorListener(x)
+
     lexer = SubstraitTypeLexer(InputStream(x))
+    lexer.removeErrorListeners()
+    lexer.addErrorListener(error_listener)
+
     stream = CommonTokenStream(lexer)
+
     parser = SubstraitTypeParser(stream)
+    parser.removeErrorListeners()
+    parser.addErrorListener(error_listener)
+
     return parser.expr()
 
 

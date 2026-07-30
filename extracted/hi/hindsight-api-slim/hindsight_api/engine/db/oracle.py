@@ -23,6 +23,8 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any, NamedTuple
 
+from .pool_instrumentation import PoolStats, acquire_conn
+
 
 class _OracleJSONEncoder(json.JSONEncoder):
     """JSON encoder that handles datetime and UUID objects."""
@@ -146,6 +148,7 @@ _JSON_COL_NAMES = {
     "config",
     "observation_scopes",
     "source_memory_ids",
+    "causal_links",
     "trigger",
     "http_config",
     "event_types",
@@ -444,9 +447,6 @@ def _rewrite_pg_to_oracle(query: str) -> RewriteResult:
     if has_for_update:
         # FOR UPDATE path: use ROWNUM instead of FETCH FIRST.
         # Extract and remove LIMIT clause, inject ROWNUM into WHERE.
-        def _limit_to_rownum(m):
-            return ""  # Remove the LIMIT clause; we'll add ROWNUM below
-
         limit_val = None
         limit_match = re.search(r"\bLIMIT\s+(\d+|:\w+)\b", query, re.IGNORECASE)
         if limit_match:
@@ -1246,6 +1246,7 @@ class OracleBackend(DatabaseBackend):
         # SESSION_USER so default-schema acquisitions can explicitly reset a
         # connection that was previously used for a tenant schema.
         self._default_schema: str | None = None
+        self._acquire_warn_threshold_s: float = 1.0
 
     async def initialize(
         self,
@@ -1260,6 +1261,10 @@ class OracleBackend(DatabaseBackend):
     ) -> None:
         oracledb = _import_oracledb()
         self._oracledb = oracledb
+
+        from ...config import get_config
+
+        self._acquire_warn_threshold_s = get_config().db_acquire_warn_threshold_ms / 1000.0
 
         # Parse URL-format DSN (oracle://user:pass@host:port/service)
         from urllib.parse import urlparse
@@ -1322,10 +1327,23 @@ class OracleBackend(DatabaseBackend):
             # expression" and aborts every acquire().
             cursor.close()
 
+    def _pool_stats(self) -> PoolStats | None:
+        """Snapshot for slow-acquire logs, from oracledb pool attributes."""
+        pool = self._pool
+        if pool is None:
+            return None
+        try:
+            busy = pool.busy
+            return PoolStats(in_use=busy, max=pool.max, idle=pool.opened - busy)
+        except Exception:
+            return None
+
     @asynccontextmanager
     async def acquire(self) -> AsyncIterator[OracleConnection]:
         pool = self._ensure_pool()
-        conn = await pool.acquire()
+        conn = await acquire_conn(
+            pool.acquire(), pool_stats=self._pool_stats, warn_threshold_s=self._acquire_warn_threshold_s
+        )
         try:
             await self._set_session_schema(conn)
             yield OracleConnection(conn)
@@ -1341,7 +1359,9 @@ class OracleBackend(DatabaseBackend):
     @asynccontextmanager
     async def transaction(self) -> AsyncIterator[OracleConnection]:
         pool = self._ensure_pool()
-        conn = await pool.acquire()
+        conn = await acquire_conn(
+            pool.acquire(), pool_stats=self._pool_stats, warn_threshold_s=self._acquire_warn_threshold_s
+        )
         try:
             await self._set_session_schema(conn)
             yield OracleConnection(conn)

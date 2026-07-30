@@ -92,6 +92,7 @@ struct PyTextItem {
     /// True when the trailing source space was synthesized by PDFium.
     #[pyo3(get)]
     trailing_space_generated: bool,
+    /// OCR confidence score (0.0-1.0). None for native PDF text.
     #[pyo3(get)]
     confidence: Option<f64>,
     /// Rotation in degrees (viewport space). Defaults to 0.
@@ -372,7 +373,7 @@ impl PyTextItem {
             stroke_color: item.stroke_color,
             char_codes: item.char_codes,
             trailing_space_generated: item.trailing_space_generated,
-            confidence: item.confidence.map(|v| v as f64).or(Some(1.0)),
+            confidence: item.confidence.map(|v| v as f64),
             rotation: item.rotation as f64,
             words: item.words.into_iter().map(PyWordBox::from_rust).collect(),
         }
@@ -892,12 +893,24 @@ struct PyPageComplexityStats {
     text_coverage: f32,
     #[pyo3(get)]
     has_substantial_images: bool,
+    /// Number of counted raster images — inline figures only; full-page
+    /// backgrounds are excluded (see `full_page_image`).
     #[pyo3(get)]
     image_block_count: usize,
+    /// Summed image-bbox area over page area, clamped to 1. Counts inline
+    /// figures only: a full-page scan raster contributes 0 here — check
+    /// `full_page_image` for that.
     #[pyo3(get)]
     image_coverage: f32,
+    /// Largest single counted image's area over page area, clamped to 1. Same
+    /// exclusion as `image_coverage`: a full-page raster contributes 0.
     #[pyo3(get)]
     largest_image_coverage: f32,
+    /// A single raster covering ≥90% of the page is present. Such full-page
+    /// backgrounds are excluded from `image_coverage`/`largest_image_coverage`
+    /// (they're not inline figures), so this flag is the only signal that
+    /// distinguishes a scan from a genuinely blank page — both otherwise
+    /// report no text and no counted images.
     #[pyo3(get)]
     full_page_image: bool,
     #[pyo3(get)]

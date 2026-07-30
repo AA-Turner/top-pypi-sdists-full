@@ -1845,7 +1845,7 @@ document.getElementById('stopSidecarBtn').addEventListener('click', stopSidecar)
 const FEATURE_META = {
   enable_tool_search: {
     label: "Enable tool search",
-    help: "Replace the full tool catalog with search-based discovery. Reduces idle context from ~46K to ~5K tokens. ⚠️ Do NOT enable this if you use Claude in Sonnet or Opus modes. Those models have their own built-in tool search / deferred tools, which conflicts with ours. To use ha-mcp's tool search with Claude, disable Claude's built-in tool search first; otherwise leave this off. Use this only with LLMs that lack native deferred tools (e.g. Claude Haiku, local OpenAI-compatible models) or with smaller context windows. Tools are found via ha_search_tools and executed via categorized proxies (read/write/delete). Requires restart to take effect.",
+    help: "Replace the full tool catalog with search-based discovery. Reduces idle context by roughly 90%, to about 5K tokens. ⚠️ Do NOT enable this in clients with their own built-in tool search / deferred tools (claude.ai, Claude Desktop, Claude Code) — the two search layers conflict, and the client's built-in tool search is the better choice there; leave this off. Whether tools are deferred depends on your client and model combination: use this when your setup loads the full catalog up front — models without native deferred tools (e.g. Gemini, OpenAI-compatible local models, Claude Haiku), clients that inline all tool schemas regardless of model (e.g. GitHub Copilot CLI), or smaller context windows. Some Codex models and ChatGPT include deferred tools too — check your client/model directly to confirm its features so you don't leave this enabled unnecessarily. Tools are found via ha_search_tools and executed via categorized proxies (read/write/delete). Requires restart to take effect.",
   },
   tool_search_max_results: {
     label: "Tool search max results",
@@ -3313,18 +3313,57 @@ async function policyDecide(token, action) {
     return;
   }
   if (!resp.ok) {
-    let body;
-    try { body = await resp.json(); } catch (_) { body = {error: 'HTTP ' + resp.status}; }
+    // Only a body that actually parsed can carry a server message, so an
+    // unparsable one leaves serverError empty rather than standing in with the
+    // status line: a stand-in reads as a server message to both branches that
+    // consult it — the 503 default and the generic detail — and shadows the
+    // translated line meant to cover exactly this case.
+    let body = {};
+    let serverError = '';
+    try {
+      body = (await resp.json()) || {};
+      if (typeof body.error === 'string') serverError = body.error;
+    } catch (_) { /* not JSON — no server message to show */ }
     if (resp.status === 409 && body.current_decision) {
+      // current_decision is a backend enum, not display text: interpolating it
+      // raw leaves an English word inside a translated sentence.
+      const decision = t(
+        'policies.pending.decision.' + body.current_decision,
+        {},
+        body.current_decision
+      );
       alert(t(
         'policies.pending.already_decided',
-        {decision: body.current_decision},
-        'This approval was already ' + body.current_decision + ', possibly by another tab or session.'
+        {decision},
+        'This approval was already ' + decision + ', possibly by another tab or session.'
       ));
     } else if (resp.status === 404) {
       alert(t('policies.pending.invalid_token', {}, 'This approval token is no longer valid (already consumed or expired).'));
+    } else if (resp.status === 503) {
+      // Same three causes as policyLoadPending's 503, answered the same way.
+      // The 503 body is a fixed English paragraph, so folding it into
+      // 'policies.pending.action_failed' spliced five English lines into the
+      // middle of a translated clause.
+      if (policyState.enabledKnown && !policyState.enabled) {
+        alert(t(
+          'policies.pending.disabled',
+          {},
+          'Tool Security Policies is turned off. Toggle it on (top of this tab or in Server Settings) and restart the App (add-on) to enable gating.'
+        ));
+      } else {
+        // Feature is on (or we could not determine the flag). The server's
+        // message names which of the remaining causes applied, so it stands
+        // on its own rather than inside a sentence. Without one — a 503 from
+        // an ingress or reverse proxy in front of us — the translated line is
+        // all the user gets, which is what policyLoadPending does too.
+        alert(serverError || t(
+          'policies.pending.unavailable',
+          {},
+          'Live approvals unavailable. Check the App (add-on) log for ImportError / RuntimeError details.'
+        ));
+      }
     } else {
-      const detail = body.error || resp.statusText;
+      const detail = serverError || resp.statusText || 'HTTP ' + resp.status;
       alert(t('policies.pending.action_failed', {detail}, 'Approval action failed: ' + detail));
     }
   }
@@ -3475,10 +3514,9 @@ const ADVANCED_FIELD_META = {
   max_retries:         { label: "HA request max retries",      help: "Retry budget per failed REST call. Range 0–20. Restart required." },
   verify_ssl:          { label: "Verify SSL certificates",     help: "Skip TLS verification only on trusted networks (self-signed certs, hostname mismatch). Restart required." },
   fuzzy_threshold:     { label: "Fuzzy-search threshold",      help: "Lower = looser entity match. Range 0–100." },
-  entity_search_limit: { label: "Entity search result limit",  help: "Max entities returned by ha_search_entities. Range 1–1000." },
-  automation_config_time_budget: { label: "Automation config time budget (s)", help: "Max seconds ha_search/ha_deep_search spends fetching automation configs before returning a partial result. Raise on instances with many automations. Range 1–600. Restart required." },
-  script_config_time_budget:     { label: "Script config time budget (s)",     help: "Max seconds ha_search/ha_deep_search spends fetching script configs before returning a partial result. Range 1–600. Restart required." },
-  scene_config_time_budget:      { label: "Scene config time budget (s)",      help: "Max seconds ha_search/ha_deep_search spends fetching scene configs before returning a partial result. Range 1–600. Restart required." },
+  automation_config_time_budget: { label: "Automation config time budget (s)", help: "Max seconds deep search spends fetching automation configs before returning a partial result. Raise on instances with many automations. Range 1–600. Restart required." },
+  script_config_time_budget:     { label: "Script config time budget (s)",     help: "Max seconds deep search spends fetching script configs before returning a partial result. Range 1–600. Restart required." },
+  scene_config_time_budget:      { label: "Scene config time budget (s)",      help: "Max seconds deep search spends fetching scene configs before returning a partial result. Range 1–600. Restart required." },
   individual_config_timeout:     { label: "Per-request config fetch timeout (s)", help: "Timeout for each individual automation/script/scene config fetch during deep search. On HA servers that serve config reads serially, raise this and/or lower the batch size so queued requests don't time out. Values above the HA request timeout (HA_TIMEOUT, default 30) have no extra effect — the HTTP client gives up first. Range 1–600. Restart required." },
   individual_fetch_batch_size:   { label: "Config fetch batch size",          help: "How many per-id config fetches deep search issues concurrently. Lower toward 1 on HA servers that serve config reads serially (symptom: 'timed out' partial-result warnings). Range 1–100. Restart required." },
   backup_hint:         { label: "Backup-hint level",           help: "Tunes how strongly the LLM is prompted to take a full-HA snapshot before risky writes." },
@@ -3512,7 +3550,7 @@ const ADVANCED_RESTART_REQUIRED = new Set([
   "log_level", "debug",
   "mcp_server_name", "mcp_server_version", "environment",
   // fuzzy_threshold is read once by SmartSearchTools at the
-  // lazy-init singleton (tools/smart_search.py) — changes
+  // lazy-init singleton (tools/smart_search/) — changes
   // need restart to rebuild the searcher.
   "fuzzy_threshold",
   // The three smart-search time budgets are read once at import by

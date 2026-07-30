@@ -368,7 +368,9 @@ def escalate_to_human(
 logger = logging.getLogger(__name__)
 
 _NEWSLETTER_CHANNELS: dict[str, tuple[str, str]] = {
-    "Hydra": ("C0AH48172M6", "#daily-newsletters"),
+    "DR": ("C0AH48172M6", "#daily-newsletters"),
+    "Internal AI": ("C0AH48172M6", "#daily-newsletters"),
+    "AJ": ("C0BLUPJ0X0R", "#aj-release-notes"),
 }
 
 _REPO_OWNER = "airbytehq"
@@ -458,10 +460,11 @@ def post_slack_newsletter(
         "Do NOT include markdown tables — they will be rejected.",
     ],
     newsletter_name: Annotated[
-        Literal["Hydra"],
+        Literal["DR", "Internal AI", "AJ"],
         "Name of the newsletter to post to. "
         "Determines which Slack channel receives the message. "
-        "Currently only 'Hydra' is supported (posts to #daily-newsletters). "
+        "DR and Internal AI both post to #daily-newsletters; AJ posts to "
+        "#aj-release-notes. "
         "Ignored when dry_run is 'slack_test_channel'.",
     ],
     dry_run: Annotated[

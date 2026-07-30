@@ -349,6 +349,10 @@ def convert_type_to_gql(
             )
 
     if isinstance(t, ScheduledQuery):
+        # Local import: chalk.client's package init pulls in branch_state, which imports this
+        # module, so importing TIMEDELTA_PREFIX at module top risks a circular import.
+        from chalk.client.models import TIMEDELTA_PREFIX
+
         if t.errors:
             error_string = "\n".join(f" - {e}" for e in t.errors)
             raise ValueError(f"Found errors in ScheduledQuery '{t.name}':\n{error_string}")
@@ -367,8 +371,16 @@ def convert_type_to_gql(
             lowerBound=None,
             upperBound=None,
             datasetName=t.dataset_name,
-            lowerBoundStr=datetime.isoformat(t.lower_bound) if t.lower_bound is not None else None,
-            upperBoundStr=datetime.isoformat(t.upper_bound) if t.upper_bound is not None else None,
+            lowerBoundStr=(
+                TIMEDELTA_PREFIX + timedelta_to_duration(t.lower_bound)
+                if isinstance(t.lower_bound, timedelta)
+                else datetime.isoformat(t.lower_bound) if t.lower_bound is not None else None
+            ),
+            upperBoundStr=(
+                TIMEDELTA_PREFIX + timedelta_to_duration(t.upper_bound)
+                if isinstance(t.upper_bound, timedelta)
+                else datetime.isoformat(t.upper_bound) if t.upper_bound is not None else None
+            ),
             tags=list(t.tags) if t.tags is not None else None,
             requiredResolverTags=list(t.required_resolver_tags) if t.required_resolver_tags is not None else None,
             storeOnline=t.store_online,

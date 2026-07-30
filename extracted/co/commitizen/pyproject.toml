@@ -1,20 +1,13 @@
 [project]
 name = "commitizen"
-version = "4.16.5"
+version = "4.17.0"
 description = "Python commitizen client tool"
-authors = [{ name = "Santiago Fraire", email = "santiwilly@gmail.com" }]
-maintainers = [
-    { name = "Wei Lee", email = "weilee.rx@gmail.com" },
-    { name = "Axel H.", email = "noirbizarre@gmail.com" },
-    { name = "Tim Hsiung", email = "bear890707@gmail.com" },
-]
 license = "MIT"
 license-files = ["LICENSE"]
 readme = "docs/README.md"
 requires-python = ">=3.10,<4.0"
 dependencies = [
     "questionary (>=2.0,<3.0)",
-    # Exclude transitive dependency due to known issue in questionary: https://github.com/tmbo/questionary/issues/454
     "prompt_toolkit!=3.0.52",
     "decli (>=0.6.0,<1.0)",
     "colorama (>=0.4.1,<1.0)",
@@ -27,11 +20,14 @@ dependencies = [
     "typing-extensions (>=4.0.1,<5.0.0) ; python_version < '3.11'",
     "charset-normalizer (>=2.1.0,<4)",
     "deprecated (>=1.2.13, <2)",
-    # Use the Python 3.11 and 3.12 compatible API: https://github.com/python/importlib_metadata#compatibility
     "importlib-metadata >=8.0.0,<8.7.0 ; python_version < '3.10'",
 ]
-keywords = ["commitizen", "conventional", "commits", "git"]
-# See also: https://pypi.org/classifiers/
+keywords = [
+    "commitizen",
+    "conventional",
+    "commits",
+    "git",
+]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
@@ -47,6 +43,22 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
 ]
+
+[[project.authors]]
+name = "Santiago Fraire"
+email = "santiwilly@gmail.com"
+
+[[project.maintainers]]
+name = "Wei Lee"
+email = "weilee.rx@gmail.com"
+
+[[project.maintainers]]
+name = "Axel H."
+email = "noirbizarre@gmail.com"
+
+[[project.maintainers]]
+name = "Tim Hsiung"
+email = "bear890707@gmail.com"
 
 [project.urls]
 Homepage = "https://github.com/commitizen-tools/commitizen"
@@ -96,9 +108,10 @@ dev = [
     "tox>4",
     "tox-uv",
 ]
-
-base = ["mkdocs-llmstxt>=0.5.0", "poethepoet>=0.34.0"]
-
+base = [
+    "mkdocs-llmstxt>=0.5.0",
+    "poethepoet>=0.34.0",
+]
 test = [
     "pytest>=9",
     "pytest-cov>=4",
@@ -109,7 +122,6 @@ test = [
     "pytest-gitconfig>=0.9.0",
     "pre-commit>=4.5.1",
 ]
-
 linters = [
     "ruff>=0.11.5",
     "mypy>=1.16.0",
@@ -120,22 +132,16 @@ linters = [
     "types-colorama>=0.4.15.20240311",
     "prek>=0.2.28",
 ]
-
 documentation = [
     "mkdocs>=1.4.2,<2",
     "mkdocs-git-revision-date-localized-plugin>=1.5.0",
     "mkdocs-material>=9.1.6",
 ]
-
-script = [
-    # for scripts/gen_cli_help_screenshots.py
-    "rich>=13.7.1",
-]
+script = ["rich>=13.7.1"]
 
 [build-system]
-requires = ["uv_build >= 0.9.17, <0.12"]
+requires = ["uv_build >= 0.9.17, < 0.13"]
 build-backend = "uv_build"
-
 
 [tool.commitizen]
 tag_format = "v$version"
@@ -152,52 +158,49 @@ module-name = "commitizen"
 module-root = ""
 include = ["commitizen/py.typed"]
 
-[tool.coverage]
 [tool.coverage.report]
 show_missing = true
 exclude_lines = [
-    # Have to re-enable the standard pragma
-    'pragma: no cover',
-
-    # Don't complain about missing debug-only code:
-    'def __repr__',
+    "pragma: no cover",
+    "def __repr__",
     'if self\.debug',
-
-    # Don't complain if tests don't hit defensive assertion code:
-    'raise AssertionError',
-    'raise NotImplementedError',
-
-    # Don't complain if non-runnable code isn't run:
-    'if 0:',
-    'if __name__ == .__main__.:',
-    'if TYPE_CHECKING:',
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
 ]
 omit = [
-    'env/*',
-    'venv/*',
-    '.venv/*',
-    '*/virtualenv/*',
-    '*/virtualenvs/*',
-    '*/tests/*',
+    "env/*",
+    "venv/*",
+    ".venv/*",
+    "*/virtualenv/*",
+    "*/virtualenvs/*",
+    "*/tests/*",
 ]
-
 
 [tool.pytest]
 addopts = ["--strict-markers"]
 testpaths = ["tests/"]
-filterwarnings = [
-    # get_smart_tag_range is deprecated and will be removed in v5
-    "ignore:Call to deprecated function \\(or staticmethod\\) get_smart_tag_range:DeprecationWarning",
-]
+filterwarnings = ['ignore:Call to deprecated function \(or staticmethod\) get_smart_tag_range:DeprecationWarning']
 
 [tool.tox]
 requires = ["tox>=4.22"]
-env_list = ["3.10", "3.11", "3.12", "3.13", "3.14"]
+env_list = [
+    "3.10",
+    "3.11",
+    "3.12",
+    "3.13",
+    "3.14",
+]
 
 [tool.tox.env_run_base]
 description = "Run tests suite against Python {base_python}"
 dependency_groups = ["test"]
-commands = [["pytest", { replace = "posargs", extend = true }]]
+commands = [[
+    "pytest",
+    { replace = "posargs", extend = true },
+]]
 
 [tool.ruff]
 required-version = ">=0.11.5"
@@ -205,29 +208,18 @@ line-length = 88
 
 [tool.ruff.lint]
 select = [
-    # flake8-annotations
     "ANN001",
     "ANN2",
-    # pycodestyle
     "E",
-    # Pyflakes
     "F",
-    # pyupgrade
     "UP",
-    # isort
     "I",
-    # pygrep-hooks
     "PGH003",
     "PGH004",
-    # unsorted-dunder-all
     "RUF022",
-    # unused-noqa
     "RUF100",
-    # flake8-pytest-style
     "PT",
-    # Checks for uses of the assert keyword.
     "S101",
-    # flake8-type-checking (TC)
     "TC001",
     "TC002",
     "TC003",
@@ -235,24 +227,38 @@ select = [
     "TC005",
     "TC006",
 ]
-ignore = ["E501", "D1", "D415"]
+ignore = [
+    "E501",
+    "D1",
+    "D415",
+]
 extend-safe-fixes = [
-    "TC",    # Move imports inside/outside TYPE_CHECKING blocks
-    "UP",    # Update syntaxes for current Python version recommendations
-    "PT006", # Use tuple in pytest.mark.parametrize
+    "TC",
+    "UP",
+    "PT006",
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["ANN", "S101"]
+"tests/*" = [
+    "ANN",
+    "S101",
+]
 
 [tool.ruff.lint.isort]
-known-first-party = ["commitizen", "tests"]
+known-first-party = [
+    "commitizen",
+    "tests",
+]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
 [tool.mypy]
-files = ["commitizen", "tests", "scripts"]
+files = [
+    "commitizen",
+    "tests",
+    "scripts",
+]
 disallow_untyped_decorators = true
 disallow_subclassing_any = true
 warn_return_any = true
@@ -261,61 +267,97 @@ warn_unused_ignores = true
 warn_unused_configs = true
 
 [[tool.mypy.overrides]]
-module = "py.*"               # Legacy pytest dependencies
+module = "py.*"
 ignore_missing_imports = true
 
 [tool.codespell]
-# Ref: https://github.com/codespell-project/codespell#using-a-config-file
-skip = '.git*,*.svg,*.lock'
+skip = ".git*,*.svg,*.lock"
 check-hidden = true
-ignore-words-list = 'asend'
+ignore-words-list = "asend"
 
-[tool.poe]
-executor.type = "uv"
+[tool.poe.executor]
+type = "uv"
 
-[tool.poe.tasks]
-format.help = "Format the code"
-format.sequence = [{ cmd = "ruff check --fix" }, { cmd = "ruff format" }]
+[tool.poe.tasks.format]
+help = "Format the code"
 
-lint.help = "Lint the code"
-lint.sequence = [{ cmd = "ruff check" }, { cmd = "mypy" }]
+[[tool.poe.tasks.format.sequence]]
+cmd = "ruff check --fix"
 
-check-commit.help = "Check the commit messages"
-check-commit.cmd = "cz --no-raise 3 check --rev-range origin/master.."
+[[tool.poe.tasks.format.sequence]]
+cmd = "ruff format"
 
-test.help = "Run the test suite"
-test.cmd = "pytest -n auto --dist=loadfile"
+[tool.poe.tasks.lint]
+help = "Lint the code"
 
-"test:all".help = "Run the test suite on all supported Python versions"
-"test:all".cmd = "tox --parallel"
+[[tool.poe.tasks.lint.sequence]]
+cmd = "ruff check"
 
-"test:regen".help = "Regenerate the test fixtures"
-"test:regen".parallel = [
-    { ref = "test -k 'not py_' --regen-all" },
-    { ref = "test:all -- -k py_ --regen-all" },
+[[tool.poe.tasks.lint.sequence]]
+cmd = "mypy"
+
+[tool.poe.tasks.check-commit]
+help = "Check the commit messages"
+cmd = "cz --no-raise 3 check --rev-range origin/master.."
+
+[tool.poe.tasks.test]
+help = "Run the test suite"
+cmd = "pytest -n auto --dist=loadfile"
+
+[tool.poe.tasks."test:all"]
+help = "Run the test suite on all supported Python versions"
+cmd = "tox --parallel"
+
+[tool.poe.tasks."test:regen"]
+help = "Regenerate the test fixtures"
+
+[[tool.poe.tasks."test:regen".parallel]]
+ref = "test -k 'not py_' --regen-all"
+
+[[tool.poe.tasks."test:regen".parallel]]
+ref = "test:all -- -k py_ --regen-all"
+
+[tool.poe.tasks.cover]
+help = "Run the test suite with coverage"
+ref = "test --cov-report term-missing --cov-report=xml:coverage.xml --cov=commitizen  --junitxml=junit.xml -o junit_family=legacy"
+
+[tool.poe.tasks.all]
+help = "Run all tasks"
+sequence = [
+    "format",
+    "lint",
+    "check-commit",
+    "cover",
 ]
 
-cover.help = "Run the test suite with coverage"
-cover.ref = "test --cov-report term-missing --cov-report=xml:coverage.xml --cov=commitizen  --junitxml=junit.xml -o junit_family=legacy"
+[tool.poe.tasks."doc:screenshots"]
+help = "Render documentation screenshots"
 
-all.help = "Run all tasks"
-all.sequence = ["format", "lint", "check-commit", "cover"]
+[[tool.poe.tasks."doc:screenshots".parallel]]
+script = "scripts.gen_cli_help_screenshots:gen_cli_help_screenshots"
 
-"doc:screenshots".help = "Render documentation screenshots"
-"doc:screenshots".parallel = [
-    { script = "scripts.gen_cli_help_screenshots:gen_cli_help_screenshots" },
-    { script = "scripts.gen_cli_interactive_gifs:gen_cli_interactive_gifs" },
+[[tool.poe.tasks."doc:screenshots".parallel]]
+script = "scripts.gen_cli_interactive_gifs:gen_cli_interactive_gifs"
+
+[tool.poe.tasks."doc:build"]
+help = "Build the documentation"
+cmd = "mkdocs build"
+
+[tool.poe.tasks.doc]
+help = "Live documentation server"
+cmd = "mkdocs serve --livereload"
+
+[tool.poe.tasks.ci]
+help = "Run all tasks in CI"
+sequence = [
+    "check-commit",
+    { cmd = "prek run --all-files" },
+    "cover",
 ]
 
-"doc:build".help = "Build the documentation"
-"doc:build".cmd = "mkdocs build"
+[tool.poe.tasks.ci.env]
+SKIP = "no-commit-to-branch"
 
-doc.help = "Live documentation server"
-doc.cmd = "mkdocs serve --livereload"  # mkdocs hot reload failure workaround. Ref: https://github.com/mkdocs/mkdocs/issues/4032#issuecomment-3591002290
-
-ci.help = "Run all tasks in CI"
-ci.sequence = ["check-commit", { cmd = "prek run --all-files" }, "cover"]
-ci.env = { SKIP = "no-commit-to-branch" }
-
-setup-pre-commit.help = "Install pre-commit hooks"
-setup-pre-commit.cmd = "prek install"
+[tool.poe.tasks.setup-pre-commit]
+help = "Install pre-commit hooks"
+cmd = "prek install"

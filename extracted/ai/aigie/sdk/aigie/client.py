@@ -7,9 +7,10 @@ import logging
 import os
 import signal
 import time
-from collections.abc import Callable, Coroutine
+from collections import OrderedDict
+from collections.abc import Callable, Coroutine, Iterable
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, TypeVar
 
 import grpc
 import httpx
@@ -17,9 +18,6 @@ import httpx
 from aigie.buffer import BufferedEvent, EventBuffer
 from aigie.config import Config
 from aigie.diagnostics import (
-    A001,
-    A002,
-    A003,
     C002,
     C003,
     I004,
@@ -38,7 +36,6 @@ if TYPE_CHECKING:
     from aigie.diagnostics import DoctorResult
     from aigie.drift import DriftMonitor
     from aigie.interceptor import InterceptionContext, InterceptorChain, PostCallHook, PreCallHook
-    from aigie.licensing import LicenseInfo, LicenseValidator
     from aigie.rules import LocalRulesEngine, Rule
 
 logger = logging.getLogger(__name__)
@@ -47,6 +44,11 @@ logger = logging.getLogger(__name__)
 # Buffering
 _BATCH_SIZE: int = 100
 _FLUSH_INTERVAL: float = 5.0  # seconds
+# Cap the per-trace tool_registry_hash registry so a long-lived process can't
+# grow it unbounded; traces are short-lived, so oldest-out is safe.
+_TOOL_HASH_TRACE_CAP: int = 4096
+# Bounded hash -> catalog retention for local remediation validation.
+_TOOL_CATALOG_CAP: int = 64
 # Retries
 _MAX_RETRIES: int = 3
 _RETRY_DELAY: float = 1.0  # base delay in seconds
@@ -66,6 +68,16 @@ _instrumentation_enabled: bool = False
 import threading
 
 _global_lock = threading.Lock()
+
+_V = TypeVar("_V")
+
+
+def _lru_put(registry: OrderedDict[str, _V], key: str, value: _V, cap: int) -> None:
+    """Insert into a bounded most-recently-used registry, evicting oldest first."""
+    registry[key] = value
+    registry.move_to_end(key)
+    while len(registry) > cap:
+        registry.popitem(last=False)
 
 
 class Aigie:
@@ -169,10 +181,6 @@ class Aigie:
         self._interceptor_chain: InterceptorChain | None = None
         self._rules_engine: LocalRulesEngine | None = None
         self._drift_monitor: DriftMonitor | None = None
-
-        # License validation (for self-hosted installations)
-        self._license_validator: LicenseValidator | None = None
-        self._license_info: LicenseInfo | None = None
 
         # Callback handlers (LiteLLM-style)
         self._callbacks: list[Any] = []
@@ -280,12 +288,14 @@ class Aigie:
                     self.config.kytte_grpc_use_tls,
                 )
 
-            # Determine Error MVP: when configured, one fire-and-forget
-            # EvaluateSpan is sent per finalized span to the Decision
-            # Orchestrator (verdicts land platform-side; the SDK ignores the
-            # response).
             self._decision_client = None
             self._decision_tasks: set = set()
+            self._tool_catalog_hashes: set[str] = set()
+            self._tool_catalog_by_hash: OrderedDict[str, list[dict[str, Any]]] = OrderedDict()
+            # trace_id -> tool_registry_hash for the run; ToolHashStamper folds
+            # it onto every span of the trace (bounded to cap process memory).
+            self._tool_hash_by_trace: OrderedDict[str, str] = OrderedDict()
+
             if self.config.kytte_decision_grpc_url:
                 from aigie.decision import DecisionClient as _DecisionClient
                 from aigie.decision.executor import StepExecutor
@@ -345,10 +355,6 @@ class Aigie:
             if self._aigie_url:
                 parallel_tasks.append(_safe_init("platform", self._check_platform_health(), 5.0))
 
-            # License validation
-            if self.config.aigie_token and not self.config.skip_license_validation:
-                parallel_tasks.append(_safe_init("license", self._initialize_license(), 5.0))
-
             if parallel_tasks:
                 results = await asyncio.gather(*parallel_tasks)
             else:
@@ -402,12 +408,14 @@ class Aigie:
             version = "unknown"
 
         # Auth status
-        if self._auth_token and self._license_info and self._license_info.valid:
-            auth = ("ok", f"connected (tier: {self._license_info.tier})")
-        elif self._auth_token:
-            auth = ("ok", "token set (license not validated)")
-        else:
+        if not self._auth_token:
             auth = ("error", "no token [AIGIE-C002]")
+        elif not self._aigie_url:
+            auth = ("error", "no platform URL configured [AIGIE-C001]")
+        elif any(err.startswith("platform:") for err in self._init_errors):
+            auth = ("error", "token set, platform unreachable")
+        else:
+            auth = ("ok", "connected")
 
         # Interception
         if self._interceptor_chain is not None:
@@ -523,52 +531,6 @@ class Aigie:
             self._interceptor_chain.set_aigie_client(self)
 
         logger.debug("Component wiring complete")
-
-    async def _initialize_license(self) -> None:
-        """Initialize license validation for self-hosted installations."""
-        from aigie.licensing import (
-            LicenseError,
-            LicenseExpiredError,
-            LicenseRevokedError,
-            LicenseValidator,
-        )
-
-        logger.info("Initializing license validation")
-
-        self._license_validator = LicenseValidator(
-            aigie_token=self.config.aigie_token,
-            license_server_url=self.config.license_server_url,
-            installation_id=self.config.installation_id,
-            enable_telemetry=True,
-        )
-
-        try:
-            # Validate license with the licensing server
-            self._license_info = await self._license_validator.validate()
-
-            if not self._license_info.valid:
-                raise LicenseError(self._license_info.error or "License validation failed")
-
-            logger.info(
-                f"License validated: tier={self._license_info.tier}, "
-                f"features={list(self._license_info.features.keys())}"
-            )
-
-            # Start background tasks for heartbeat and usage reporting
-            await self._license_validator.start_background_tasks()
-
-        except LicenseExpiredError as e:
-            # License expired - log warning but don't crash the customer's app
-            # SDK will operate in degraded mode (stop sending data)
-            logger.warning(format_diagnostic(A001, extra=str(e)))
-        except LicenseRevokedError as e:
-            # License revoked - log warning but don't crash the customer's app
-            logger.warning(format_diagnostic(A002, extra=str(e)))
-        except LicenseError as e:
-            logger.warning(format_diagnostic(A003, extra=str(e)))
-        except Exception as e:
-            # For network errors, log warning but allow operation if license was previously valid
-            logger.warning(f"License validation error (non-fatal): {e}")
 
     def trace(
         self,
@@ -1060,6 +1022,71 @@ class Aigie:
                 continue
             self._track_decision_task(decision_client.evaluate_span(span_pb))
 
+    def register_tool_catalog(self, tools: Iterable[Any]) -> str | None:
+        """Register tools once by content hash and return that hash for span metadata."""
+        from aigie.decision.tool_catalog import catalog_hash, normalize_tools
+
+        if getattr(self, "_decision_client", None) is None:
+            return None
+        catalog = normalize_tools(tools)
+        if not catalog:
+            return None
+        digest = catalog_hash(catalog)
+        self._retain_tool_catalog(digest, catalog)
+        if digest not in self._tool_catalog_hashes:
+            self._schedule_tool_catalog_registration(digest, catalog)
+        return digest
+
+    def _retain_tool_catalog(self, digest: str, catalog: list[dict[str, Any]]) -> None:
+        _lru_put(self._tool_catalog_by_hash, digest, catalog, _TOOL_CATALOG_CAP)
+
+    def tool_catalog_for_hash(self, tool_registry_hash: str | None) -> list[dict[str, Any]] | None:
+        """Return the normalized catalog registered under ``tool_registry_hash``."""
+        if not tool_registry_hash:
+            return None
+        return self._tool_catalog_by_hash.get(tool_registry_hash)
+
+    def bind_trace_tool_hash(self, trace_id: str, tool_hash: str) -> None:
+        """Bind a run's ``tool_registry_hash`` to its trace so ``ToolHashStamper``
+        stamps every span of the trace. Bounded to cap process memory."""
+        _lru_put(self._tool_hash_by_trace, trace_id, tool_hash, _TOOL_HASH_TRACE_CAP)
+
+    def tool_hash_for_trace(self, trace_id: str | None) -> str | None:
+        """Return the ``tool_registry_hash`` bound to ``trace_id``, if any."""
+        if not trace_id:
+            return None
+        return self._tool_hash_by_trace.get(trace_id)
+
+    def _schedule_tool_catalog_registration(
+        self, digest: str, catalog: list[dict[str, Any]]
+    ) -> None:
+        """Schedule RegisterToolCatalog on the buffer's owner loop."""
+        owner = getattr(getattr(self, "_buffer", None), "_owner_loop", None)
+        if owner is None or owner.is_closed():
+            return
+        try:
+            current = asyncio.get_running_loop()
+        except RuntimeError:
+            current = None
+        if current is owner:
+            self._track_decision_task(self._register_and_mark_catalog(digest, catalog))
+        elif owner.is_running():
+            # Ignore shutdown races with the owner loop.
+            try:
+                owner.call_soon_threadsafe(
+                    lambda: self._track_decision_task(
+                        self._register_and_mark_catalog(digest, catalog)
+                    )
+                )
+            except RuntimeError:
+                logger.debug("owner loop closed before tool-catalog registration scheduled")
+
+    async def _register_and_mark_catalog(self, digest: str, catalog: list[dict[str, Any]]) -> None:
+        """Register catalog, then mark its hash for dedupe."""
+        accepted = await self._decision_client.register_tool_catalog(digest, catalog)
+        if accepted is not None:
+            self._tool_catalog_hashes.add(digest)
+
     def _track_decision_task(self, coro: Coroutine[Any, Any, Any]) -> None:
         """Schedule a fire-and-forget decision-path task, holding a strong
         reference in ``_decision_tasks`` until it completes so it isn't GC'd
@@ -1162,16 +1189,7 @@ class Aigie:
 
         # Authentication
         if self._auth_token:
-            if self._license_info and self._license_info.valid:
-                tier = self._license_info.tier or "unknown"
-                expires = (
-                    self._license_info.expires_at.strftime("%Y-%m-%d")
-                    if self._license_info.expires_at
-                    else "n/a"
-                )
-                checks.append(("Authentication", "ok", f"valid (tier: {tier}, expires: {expires})"))
-            else:
-                checks.append(("Authentication", "ok", "token set (license not validated)"))
+            checks.append(("Authentication", "ok", "token set"))
         else:
             checks.append(("Authentication", "error", "no token [AIGIE-C002]"))
             errors.append("AIGIE-C002")
@@ -1196,33 +1214,6 @@ class Aigie:
                 errors.append("AIGIE-N002")
         else:
             checks.append(("Ingestion API", "skip", "skipped (no URL configured)"))
-
-        # License
-        if self._license_validator and getattr(self._license_validator, "usage_summary", None):
-            summary = self._license_validator.usage_summary
-            limit = self._license_info.max_traces_per_month if self._license_info else 0
-            if limit and limit < 0:
-                checks.append(
-                    (
-                        "License",
-                        "ok",
-                        f"active (unlimited, {summary.traces_this_month} traces this month)",
-                    )
-                )
-            elif limit and limit > 0:
-                checks.append(
-                    (
-                        "License",
-                        "ok",
-                        f"active ({summary.traces_this_month:,} / {limit:,} traces this month)",
-                    )
-                )
-            else:
-                checks.append(("License", "ok", "active"))
-        elif self._license_info:
-            checks.append(("License", "ok", f"valid (tier: {self._license_info.tier})"))
-        else:
-            checks.append(("License", "skip", "not validated"))
 
         # Compression
         try:
@@ -1332,17 +1323,6 @@ class Aigie:
             except Exception as e:
                 logger.debug(f"Judge LLM client close: {e}")
             self._judge_llm_client = None
-
-        # Close license validator (stops background tasks, reports final usage)
-        if self._license_validator:
-            try:
-                # Report any pending usage before closing
-                await self._license_validator.report_usage()
-            except Exception as e:
-                logger.debug(f"Failed to report final usage: {e}")
-            finally:
-                await self._license_validator.close()
-                self._license_validator = None
 
         if self.client:
             await self.client.aclose()
@@ -1714,127 +1694,6 @@ class Aigie:
 
         return stats
 
-    # ========== License Management ==========
-
-    @property
-    def license_info(self) -> Optional["LicenseInfo"]:
-        """Get the current license information."""
-        return self._license_info
-
-    @property
-    def license_tier(self) -> str | None:
-        """Get the current license tier (starter, pro, enterprise)."""
-        return self._license_info.tier if self._license_info else None
-
-    @property
-    def license_features(self) -> dict[str, bool]:
-        """Get available features based on license."""
-        return self._license_info.features if self._license_info else {}
-
-    def has_feature(self, feature: str) -> bool:
-        """
-        Check if a feature is available in the current license.
-
-        Args:
-            feature: Feature name (e.g., 'realtime', 'drift_detection', 'auto_remediation')
-
-        Returns:
-            True if feature is available
-        """
-        if not self._license_info:
-            return True  # No license configured, allow all features
-        return self._license_info.features.get(feature, False)
-
-    def is_within_limits(self, metric: str, value: int) -> bool:
-        """
-        Check if a usage metric is within license limits.
-
-        Args:
-            metric: Metric name ('traces', 'seats', 'projects')
-            value: Current value to check
-
-        Returns:
-            True if within limits
-        """
-        if not self._license_validator:
-            return True  # No license configured, no limits
-        return self._license_validator.is_within_limits(metric, value)
-
-    def track_usage(self, traces: int = 0, spans: int = 0, api_calls: int = 0) -> None:
-        """
-        Track usage for license telemetry.
-
-        This is called automatically by trace/span creation, but can be
-        called manually for custom tracking.
-
-        Args:
-            traces: Number of traces created
-            spans: Number of spans created
-            api_calls: Number of API calls made
-        """
-        if self._license_validator:
-            self._license_validator.track_usage(
-                traces=traces,
-                spans=spans,
-                api_calls=api_calls,
-            )
-
-    async def validate_license(self, force: bool = False) -> Optional["LicenseInfo"]:
-        """
-        Manually validate the license.
-
-        Args:
-            force: Force validation even if cached
-
-        Returns:
-            LicenseInfo if valid, raises exception otherwise
-        """
-        if self._license_validator:
-            self._license_info = await self._license_validator.validate(force=force)
-            return self._license_info
-        return None
-
-    def get_license_status(self) -> dict[str, Any]:
-        """
-        Get comprehensive license status for display.
-
-        Returns:
-            Dict with license status information
-        """
-        if not self._license_info:
-            return {
-                "configured": False,
-                "valid": True,  # No license = no restrictions
-                "tier": None,
-                "features": {},
-                "usage": None,
-            }
-
-        usage = None
-        if self._license_validator and self._license_validator.usage_summary:
-            summary = self._license_validator.usage_summary
-            usage = {
-                "traces_this_month": summary.traces_this_month,
-                "traces_remaining": summary.traces_remaining,
-                "spans_this_month": summary.spans_this_month,
-                "active_users": summary.active_users,
-            }
-
-        return {
-            "configured": True,
-            "valid": self._license_info.valid,
-            "tier": self._license_info.tier,
-            "features": self._license_info.features,
-            "max_seats": self._license_info.max_seats,
-            "max_traces_per_month": self._license_info.max_traces_per_month,
-            "max_projects": self._license_info.max_projects,
-            "expires_at": self._license_info.expires_at.isoformat()
-            if self._license_info.expires_at
-            else None,
-            "is_unlimited": self._license_info.is_unlimited,
-            "usage": usage,
-        }
-
     # ========== Self-Hosted Health Checks ==========
 
     async def check_connection(self, timeout: float = 5.0) -> dict[str, Any]:
@@ -1900,7 +1759,6 @@ class Aigie:
 
         Returns a complete health check including:
         - Backend connectivity
-        - License status
         - Configuration validation
         - Feature availability
 
@@ -1936,25 +1794,6 @@ class Aigie:
             }
         else:
             status["components"]["configuration"] = {"status": "healthy"}
-
-        # Check license status
-        license_status = self.get_license_status()
-        if license_status["configured"]:
-            if license_status["valid"]:
-                status["components"]["license"] = {
-                    "status": "healthy",
-                    "tier": license_status["tier"],
-                    "features": list(license_status.get("features", {}).keys()),
-                }
-            else:
-                status["healthy"] = False
-                status["errors"].append("License validation failed")
-                status["components"]["license"] = {"status": "unhealthy"}
-        else:
-            status["components"]["license"] = {
-                "status": "not_configured",
-                "message": "No license configured - operating in unlimited mode",
-            }
 
         # Check buffer status
         if self._buffer:

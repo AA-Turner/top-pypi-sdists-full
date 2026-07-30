@@ -19,9 +19,6 @@ import numpy as np
 
 import cuequivariance as cue
 from cuequivariance.etc.linalg import round_to_sqrt_rational, triu_array
-from cuequivariance.group_theory.descriptors.symmetric_contractions import (
-    _symmetric_contraction_core as _std_symmetric_contraction_core,
-)
 
 
 def symmetric_contraction(
@@ -46,54 +43,21 @@ def symmetric_contraction(
         x = cuex.randn(jax.random.key(1), e.inputs[1])
         y = cuex.equivariant_polynomial(e, [w, x])
     """
-    poly, projection = _symmetric_contraction_cached(
-        irreps_in, irreps_out, tuple(degrees)
-    )
-    return cue.EquivariantPolynomial(
-        [
-            cue.IrrepsAndLayout(irreps_in.new_scalars(poly.inputs[0].size), cue.ir_mul),
-            cue.IrrepsAndLayout(irreps_in, cue.ir_mul),
-        ],
-        [cue.IrrepsAndLayout(irreps_out, cue.ir_mul)],
-        poly,
-    ), projection
-
-
-def symmetric_contraction_ir_dict(
-    irreps_in: cue.Irreps, irreps_out: cue.Irreps, degrees: tuple[int, ...]
-) -> tuple[cue.IrDictPolynomial, np.ndarray]:
-    r"""``ir_dict`` variant of :func:`symmetric_contraction`.
-
-    Returns:
-        tuple of (:class:`~cuequivariance.IrDictPolynomial`, np.ndarray):
-            The polynomial (with ``input_irreps = (weight_irreps, irreps_in)``
-            and ``output_irreps = (irreps_out,)``) and the projection matrix.
-    """
-    poly, projection = _symmetric_contraction_cached(
-        irreps_in, irreps_out, tuple(degrees)
-    )
-    weight_irreps = irreps_in.new_scalars(poly.inputs[0].size)
-    poly = cue.split_polynomial_by_irreps(poly, 1, irreps_in)
-    poly = cue.split_polynomial_by_irreps(poly, -1, irreps_out)
-    return cue.IrDictPolynomial(
-        polynomial=poly,
-        input_irreps=(weight_irreps, irreps_in),
-        output_irreps=(irreps_out,),
-    ), projection
+    return symmetric_contraction_cached(irreps_in, irreps_out, tuple(degrees))
 
 
 @cache
-def _symmetric_contraction_cached(
+def symmetric_contraction_cached(
     irreps_in: cue.Irreps, irreps_out: cue.Irreps, degrees: tuple[int, ...]
-) -> tuple[cue.SegmentedPolynomial, np.ndarray]:
+) -> tuple[cue.EquivariantPolynomial, np.ndarray]:
     assert min(degrees) > 0
 
     # poly1 replicates the behavior of the original MACE implementation
-    poly1 = cue.SegmentedPolynomial.stack(
+    poly1 = cue.EquivariantPolynomial.stack(
         [
-            cue.SegmentedPolynomial.stack(
+            cue.EquivariantPolynomial.stack(
                 [
-                    _symmetric_contraction_poly(irreps_in, irreps_out[i : i + 1], deg)
+                    _symmetric_contraction(irreps_in, irreps_out[i : i + 1], deg)
                     for deg in reversed(degrees)
                 ],
                 [True, False, False],
@@ -102,7 +66,7 @@ def _symmetric_contraction_cached(
         ],
         [True, False, True],
     )
-    poly2 = _std_symmetric_contraction_core(irreps_in, irreps_out, tuple(degrees))
+    poly2 = cue.descriptors.symmetric_contraction(irreps_in, irreps_out, degrees)
     a1, a2 = [
         np.concatenate(
             [
@@ -111,7 +75,7 @@ def _symmetric_contraction_cached(
                     1,
                     None,
                 )
-                for _, d in pol.operations
+                for _, d in pol.polynomial.operations
             ],
             axis=1,
         )
@@ -156,9 +120,9 @@ def _stp_to_matrix(
 
 
 # This function is an adaptation of https://github.com/ACEsuit/mace/blob/bd412319b11c5f56c37cec6c4cfae74b2a49ff43/mace/modules/symmetric_contraction.py
-def _symmetric_contraction_poly(
+def _symmetric_contraction(
     irreps_in: cue.Irreps, irreps_out: cue.Irreps, degree: int
-) -> cue.SegmentedPolynomial:
+) -> cue.EquivariantPolynomial:
     mul = irreps_in.muls[0]
     assert all(mul == m for m in irreps_in.muls)
     assert all(mul == m for m in irreps_out.muls)
@@ -193,8 +157,15 @@ def _symmetric_contraction_poly(
     assert d.num_operands >= 3
     [w, x], y = d.operands[:2], d.operands[-1]
 
-    return cue.SegmentedPolynomial(
-        [w, x], [y], [(cue.Operation([0] + [1] * degree + [2]), d)]
+    return cue.EquivariantPolynomial(
+        [
+            cue.IrrepsAndLayout(irreps_in.new_scalars(w.size), cue.ir_mul),
+            cue.IrrepsAndLayout(mul * irreps_in, cue.ir_mul),
+        ],
+        [cue.IrrepsAndLayout(mul * irreps_out, cue.ir_mul)],
+        cue.SegmentedPolynomial(
+            [w, x], [y], [(cue.Operation([0] + [1] * degree + [2]), d)]
+        ),
     )
 
 

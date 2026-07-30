@@ -148,6 +148,10 @@ plugins:
   - mkdocs-jupyter:
       include_source: True
       # include: ["*.ipynb"] # Default: ["*.py", "*.ipynb"]
+      # skip jupytext probing of plain .md pages: mkdocstrings "::: module"
+      # directives look like pandoc markdown and trigger pandoc subprocess
+      # conversions where pandoc is installed (e.g. RTD builders)
+      ignore: ["*.md"]
   - markdown-exec
   - redirects:
       redirect_maps:
@@ -248,6 +252,7 @@ nav:
     - Zarr: guides/zarr.md
     - Tuning Performance: guides/performance.md
     - Flaky Networks: guides/flaky-networks.md
+    - Error Handling: guides/error-handling.md
     - Observability: guides/observability.md
     - Virtual Datasets: guides/virtual.md
     - Async Usage: guides/async.md

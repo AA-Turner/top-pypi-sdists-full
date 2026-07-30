@@ -16,12 +16,14 @@ readme = "README.md"
 authors = [{ name = "Matrice.ai", email = "dipendra@matrice.ai" }]
 license = {text = "MIT"}
 requires-python = ">=3.8"
-# Runtime dependencies are intentionally NOT declared as hard `dependencies`
-# to avoid TestPyPI dependency-backtracking issues. In Docker images these
-# packages are pre-installed via requirements.txt, so the default install
-# stays lightweight. For a standalone install that pulls the runtime stack,
-# use the `runtime` extra:  pip install matrice_common[runtime]
-# (see [project.optional-dependencies] below).
+# Runtime dependencies are intentionally NOT declared as hard `dependencies`.
+# The Docker image / deployment env ships them (often as system/Debian packages
+# pip cannot uninstall), so forcing versions here breaks installs
+# ("Cannot uninstall X, RECORD file not found"). Instead the module-load imports
+# are self-healed at import time by dependencies_check() in __init__.py using
+# `suggested` (install-only-if-missing, never override the image) at org-approved
+# versions. Standalone installs can still pull the full stack via the `runtime`
+# extra:  pip install matrice_common[runtime]  (see [project.optional-dependencies]).
 keywords = ["matrice", "common", "utilities", "mypyc", "compiled"]
 classifiers = [
     "Development Status :: 4 - Beta",

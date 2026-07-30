@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import ast
 import enum
+import json
 import re
 import unicodedata
 from typing import Any, Callable, List, Optional, Union
@@ -78,6 +79,44 @@ def _normalize_bool_str(left: Any, right: Any):
         isinstance(left, str) and isinstance(right, bool)
     ):
         return str(left).lower(), str(right).lower()
+    return left, right
+
+
+def _string_to_float(value: Any):
+    """Currency-tolerant numeric parse, reproduced from V2 UIActions.string_to_float.
+
+    An already-numeric value passes through. A plain ``float()`` handles
+    scientific notation. On ``ValueError`` keep only digits and dots
+    (so ``"$7"`` -> ``"7"``, ``"7a"`` -> ``"7"``, ``"abc"`` -> ``""`` -> ``0``)
+    and negate if a ``'-'`` appears anywhere. A multi-dot residue like
+    ``"v1.2.3"`` -> ``"1.2.3"`` re-raises ``ValueError`` uncaught -- V2 crashed
+    here and the loud failure is the faithful behavior.
+    """
+    if isinstance(value, (int, float)):
+        return value
+    try:
+        return float(value)
+    except ValueError:
+        is_negative = "-" in value
+        a = "".join(c for c in value if c.isdigit() or c == ".")
+        if a == "":
+            return 0
+        result = float(a)
+        return -result if is_negative else result
+
+
+def _coerce_numeric_mixed(left: Any, right: Any):
+    """V2 evaluate_assertion parity: coerce ONLY on mixed exact type.
+
+    When exactly one operand is a real ``int``/``float`` and the other a ``str``,
+    ``string_to_float`` BOTH so a numeric variable compares numerically to an
+    authored numeric string. The check is an EXACT ``type`` test (bool is a
+    subclass of int but ``type(True) is bool``, so bool is excluded). Two strings
+    are left untouched, so ``"007" == "7"`` stays raw and case-sensitive.
+    """
+    lt, rt = type(left), type(right)
+    if (lt in (int, float) and rt is str) or (lt is str and rt in (int, float)):
+        return _string_to_float(left), _string_to_float(right)
     return left, right
 
 
@@ -156,6 +195,23 @@ def _are_types_equal(value1: str, value2: str) -> bool:
     return _to_type(value1) == _to_type(value2)
 
 
+def _json_coerce(value: Any) -> Any:
+    """Parse a stringified JSON operand, reproduced from V2 UIActions._json_obj/_json_arr.
+
+    A real dict/list passes through untouched. A string is parsed with
+    ``json.loads``; on ``json.JSONDecodeError`` it falls back to
+    ``ast.literal_eval`` (so a Python-repr'd container like ``"{'a': 1}"`` is
+    accepted too). Parse failures are deliberately NOT swallowed — they raise,
+    matching V2, so a malformed operand fails loudly rather than silently.
+    """
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return ast.literal_eval(value)
+    return value
+
+
 class AssertionCondition(enum.Enum):
     EQUALS = "equals"
     NOT_EQUALS = "not_equals"
@@ -219,6 +275,7 @@ class AssertionCondition(enum.Enum):
 class ConcatenationOperator(enum.Enum):
     AND = "AND"
     OR = "OR"
+    NOT = "NOT"
 
 
 class Assertion:
@@ -277,16 +334,12 @@ class Assertion:
     def _resolve(self, value, variables: dict, get_variable_value: Callable, *args, **kwargs):
         if isinstance(value, str):
             if isinstance(get_variable_value, Callable) and get_variable_value is not None:
-                s = get_variable_value(value, variables, *args, **kwargs)
-                # Preserve booleans: bool is an int subclass, so float(True)==1.0
-                # would silently destroy the type and break `{{js_bool}} equals
-                # 'true'` (the leaf normalizer below needs the bool intact).
-                if isinstance(s, bool):
-                    return s, {value: s}
-                try:
-                    return float(s), {value: s}
-                except Exception:
-                    return s, {value: s}
+                # Return the resolved value with its native type intact. No
+                # float coercion here: coercion is applied later in the compare
+                # step, operator- and type-aware, so two strings like "007" and
+                # "7" stay strings and compare raw (V2 parity).
+                resolved = get_variable_value(value, variables, *args, **kwargs)
+                return resolved, {value: resolved}
             s = value.strip()
             if s.startswith("{{") and s.endswith("}}"):
                 key = s[2:-2].strip()
@@ -296,11 +349,8 @@ class Assertion:
                 key = s[2:-1].strip()
                 resolved_value = self._access_nested_value(variables, key)
                 return resolved_value, {key: resolved_value}
-            # best-effort numeric parse; otherwise leave as string
-            try:
-                return float(s), {}
-            except Exception:
-                return s, {}
+            # Plain literal: keep as-is (no numeric coercion; see compare step).
+            return value, {}
         return value, {}
 
     def _access_nested_value(self, variable_dump, name):
@@ -325,22 +375,35 @@ class Assertion:
             left_color, right_color = _normalize_color(left), _normalize_color(right)
             if left_color is not None and right_color is not None:
                 return left_color == right_color
+            left, right = _coerce_numeric_mixed(left, right)
             l, r = _normalize_bool_str(left, right)
             return l == r
         if cond == AssertionCondition.NOT_EQUALS:
             left_color, right_color = _normalize_color(left), _normalize_color(right)
             if left_color is not None and right_color is not None:
                 return left_color != right_color
+            left, right = _coerce_numeric_mixed(left, right)
             l, r = _normalize_bool_str(left, right)
             return l != r
+        # V2 applies the bool<->str lowering for EVERY operator (it runs before
+        # _compare_atomic, outside any operator branch), so ordering compares
+        # the lowered strings ("true" > "0") rather than raising on bool vs str.
         if cond == AssertionCondition.GREATER_THAN:
-            return left > right
+            left, right = _coerce_numeric_mixed(left, right)
+            l, r = _normalize_bool_str(left, right)
+            return l > r
         if cond == AssertionCondition.LESS_THAN:
-            return left < right
+            left, right = _coerce_numeric_mixed(left, right)
+            l, r = _normalize_bool_str(left, right)
+            return l < r
         if cond == AssertionCondition.GREATER_THAN_OR_EQUALS:
-            return left >= right
+            left, right = _coerce_numeric_mixed(left, right)
+            l, r = _normalize_bool_str(left, right)
+            return l >= r
         if cond == AssertionCondition.LESS_THAN_OR_EQUALS:
-            return left <= right
+            left, right = _coerce_numeric_mixed(left, right)
+            l, r = _normalize_bool_str(left, right)
+            return l <= r
         if cond == AssertionCondition.CONTAINS:
             return _normalize_text(right, case_insensitive=True) in _normalize_text(left, case_insensitive=True)
         if cond == AssertionCondition.NOT_CONTAINS:
@@ -366,19 +429,24 @@ class Assertion:
                 return left not in right
             return _normalize_text(left, case_insensitive=True) not in _normalize_text(right, case_insensitive=True)
         if cond == AssertionCondition.JSON_KEY_EXISTS:
-            return isinstance(left, dict) and str(right) in left
+            coerced = _json_coerce(left)  # V2 parity: accept stringified dict
+            return isinstance(coerced, dict) and str(right) in coerced
         if cond == AssertionCondition.JSON_KEYS_COUNT:
-            return isinstance(left, dict) and len(left.keys()) == int(right)
+            coerced = _json_coerce(left)  # V2 parity: accept stringified dict
+            return isinstance(coerced, dict) and len(coerced.keys()) == int(right)
         if cond == AssertionCondition.JSON_ARRAY_LENGTH_EQUALS:
-            return isinstance(left, list) and len(left) == int(right)
+            coerced = _json_coerce(left)  # V2 parity: accept stringified list
+            return isinstance(coerced, list) and len(coerced) == int(right)
         if cond == AssertionCondition.JSON_ARRAY_CONTAINS:
-            return isinstance(left, list) and right in left
+            coerced = _json_coerce(left)  # V2 parity: accept stringified list
+            return isinstance(coerced, list) and right in coerced
         if cond == AssertionCondition.JSON_VALUE_EQUALS:
+            coerced = _json_coerce(left)  # V2 parity: accept stringified dict
             return (
-                isinstance(left, dict)
+                isinstance(coerced, dict)
                 and isinstance(right, (list, tuple))
                 and len(right) == 2
-                and left.get(str(right[0])) == right[1]
+                and coerced.get(str(right[0])) == right[1]
             )
         raise ValueError(f"Unsupported condition: {cond}")
 
@@ -399,6 +467,14 @@ class Assertion:
                     op = ConcatenationOperator.AND
             else:
                 op = self.assertion_operands[0]
+
+            # NOT is unary: negate the single child (e.g. "does not contain",
+            # "is not integer" arrive as NOT[<leaf>]).
+            if op == ConcatenationOperator.NOT:
+                if len(self.operands) != 1:
+                    raise ValueError(f"NOT requires exactly one operand, got {len(self.operands)}")
+                result, used_variables = self.operands[0].evaluate(variables, get_variable_value, *args, **kwargs)
+                return not result, used_variables
 
             result, used_variables = self.operands[0].evaluate(variables, get_variable_value, *args, **kwargs)
             for idx in range(1, len(self.operands)):

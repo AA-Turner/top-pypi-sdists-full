@@ -571,6 +571,7 @@ class SimEngineLightAIL[StateType, DataType_co, StmtDataType, ResultType](
             "ComboRegister": self._handle_expr_ComboRegister,
         }
         self._unop_handlers: dict[str, Callable[[ailment.UnaryOp], DataType_co]] = {
+            "Abs": self._handle_unop_Abs,
             "Not": self._handle_unop_Not,
             "Neg": self._handle_unop_Neg,
             "BitwiseNeg": self._handle_unop_BitwiseNeg,
@@ -637,6 +638,7 @@ class SimEngineLightAIL[StateType, DataType_co, StmtDataType, ResultType](
             "CmpLTV": self._handle_binop_CmpLEV,
             "MinV": self._handle_binop_MinV,
             "MaxV": self._handle_binop_MaxV,
+            "HAddV": self._handle_binop_HAddV,
             "QAddV": self._handle_binop_QAddV,
             "QSubV": self._handle_binop_QSubV,
             "QNarrowBinV": self._handle_binop_QNarrowBinV,
@@ -851,6 +853,10 @@ class SimEngineLightAIL[StateType, DataType_co, StmtDataType, ResultType](
     # UnOps
     #
 
+    def _handle_unop_Abs(self, expr: ailment.expression.UnaryOp) -> DataType_co:
+        self._expr(expr.operand)
+        return self._top(expr.bits)
+
     @abstractmethod
     def _handle_unop_Not(self, expr: ailment.expression.UnaryOp) -> DataType_co: ...
 
@@ -1045,6 +1051,9 @@ class SimEngineLightAIL[StateType, DataType_co, StmtDataType, ResultType](
 
     @abstractmethod
     def _handle_binop_MaxV(self, expr: ailment.expression.BinaryOp) -> DataType_co: ...
+
+    @abstractmethod
+    def _handle_binop_HAddV(self, expr: ailment.expression.BinaryOp) -> DataType_co: ...
 
     @abstractmethod
     def _handle_binop_QAddV(self, expr: ailment.expression.BinaryOp) -> DataType_co: ...

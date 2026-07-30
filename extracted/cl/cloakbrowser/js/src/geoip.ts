@@ -15,7 +15,7 @@ import dns from "node:dns/promises";
 import net from "node:net";
 import { getCacheDir } from "./config.js";
 import type { LaunchOptions } from "./types.js";
-import { ensureProxyScheme, isSocksProxy, reconstructSocksUrl, type ProxyDict } from "./proxy.js";
+import { ensureProxyScheme, isSocksProxy, reconstructHttpUrl, reconstructSocksUrl, type ProxyDict } from "./proxy.js";
 
 // P3TERX mirror of MaxMind GeoLite2-City — no license key needed
 const GEOIP_DB_URL =
@@ -286,7 +286,12 @@ async function resolveExitIp(proxyUrl: string | null | undefined, timeoutMs?: nu
             const innerRemaining = remainingMs(deadline);
             const req = https.request(
               echoUrl,
-              { socket, timeout: Math.min(5_000, innerRemaining ?? 5_000) } as any,
+              // agent:false is load-bearing. The global agent pools by target
+              // (api.ipify.org:443), which is identical for every proxy, so it
+              // reuses an earlier proxy's pooled socket and silently discards
+              // the tunnel just built here — a second launch in the same process
+              // would inherit the first proxy's exit IP, timezone and locale.
+              { socket, agent: false, timeout: Math.min(5_000, innerRemaining ?? 5_000) } as any,
               (res) => {
                 let data = "";
                 res.on("data", (chunk: Buffer) => (data += chunk.toString()));
@@ -408,16 +413,16 @@ function maybeTriggerUpdate(dbPath: string): void {
 
 /**
  * Extract a usable proxy URL from LaunchOptions.proxy.
- * For SOCKS5 dicts with separate credentials, reconstructs the full URL
- * with inline credentials so SOCKS5 auth works.
+ * For proxy dicts with separate credentials, reconstructs the full URL
+ * with inline credentials so proxy auth works.
  */
 function extractProxyUrl(proxy: string | ProxyDict | undefined): string | null {
   if (!proxy) return null;
   if (typeof proxy === "string") return ensureProxyScheme(proxy);
   const p = proxy as ProxyDict;
   if (!p.server) return null;
-  if (p.username && isSocksProxy(p)) {
-    return reconstructSocksUrl(p);
+  if (p.username) {
+    return isSocksProxy(p) ? reconstructSocksUrl(p) : reconstructHttpUrl(p);
   }
   return ensureProxyScheme(p.server);
 }

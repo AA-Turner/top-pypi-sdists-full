@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 
-import angr.ailment as ailment
+from angr import ailment
 from angr.engines.light import SimEngineLightAIL
 
 _l = logging.getLogger(name=__name__)
@@ -377,6 +377,7 @@ class SimplifierAILEngine(
             return ailment.expression.UnaryOp(expr.idx, expr.op, operand, **expr.tags)
         return expr
 
+    _handle_unop_Abs = _handle_unop_Default
     _handle_unop_Not = _handle_unop_Default
     _handle_unop_Neg = _handle_unop_Default
     _handle_unop_BitwiseNeg = _handle_unop_Default
@@ -508,6 +509,8 @@ class SimplifierAILEngine(
     _handle_binop_MinV = _handle_binop_Default
 
     _handle_binop_MaxV = _handle_binop_Default
+
+    _handle_binop_HAddV = _handle_binop_Default
 
     _handle_binop_QAddV = _handle_binop_Default
 

@@ -5,7 +5,7 @@ from enum import Enum, auto
 import claripy
 from archinfo import Arch, Endness, RegisterOffset
 
-import angr.ailment as ailment
+from angr import ailment
 from angr.calling_conventions import SimFunctionArgument, SimRegArg, SimStackArg
 from angr.engines.light import SpOffset
 
@@ -169,6 +169,9 @@ class Atom:
 
     def __eq__(self, other):
         return type(self) is type(other) and self._identity() == other._identity()
+
+    # The atom is serialized as a wrapping ``Atom`` cmessage carrying the per-kind inner cmessage in a oneof field;
+    # ``parse_from_cmessage`` dispatches on ``WhichOneof("kind")`` to the right subclass.
 
 
 class GuardUse(Atom):

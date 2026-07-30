@@ -103,7 +103,7 @@ class PluginConfig(BaseModel):
     x_accepts_internal_input: bool = Field(default=False, alias="x-accepts-internal-input")
     output_mimetypes: list[str] = Field(default_factory=list)  # e.g. ['text/html', 'video/']
     properties: dict[str, dict[str, Any]] = Field(default_factory=dict)  # JSONSchema format describing plugin config
-    required_binaries: list[RequiredBinary] = Field(default_factory=list)  # e.g. [{'name': 'wget', 'binproviders': 'env,apt,brew'}]
+    required_binaries: list[RequiredBinary] = Field(default_factory=list)  # e.g. [{'name': 'wget', 'binproviders': 'env,brew,apt'}]
     required_plugins: list[str] = Field(default_factory=list)  # e.g. ['chrome', 'pdf']
 
 
@@ -569,13 +569,14 @@ def filter_plugins(
     disabled = {n.lower() for n in disabled_names or []}
     explicit_names = names is not None
     if not names:
-        if not disabled:
-            return plugins
         names = [name for name in plugins if name.lower() not in disabled]
     else:
         names = [name for name in names if name.lower() not in disabled]
     if not names:
         return {} if explicit_names else plugins
+
+    plugins_by_lower = {name.lower(): plugin for name, plugin in plugins.items()}
+    plugin_names_by_lower = {name.lower(): name for name in plugins}
 
     # walk the required_plugins DAG and add required plugins
     resolved: set[str] = set()
@@ -588,9 +589,9 @@ def filter_plugins(
             continue
         if name in resolved or name in blocked:
             continue
-        plugin = next((plugin for plugin_name, plugin in plugins.items() if plugin_name.lower() == name), None)
-        required = {dep.lower() for dep in plugin.config.required_plugins} if plugin else set()
-        if required.intersection(disabled | blocked):
+        plugin = plugins_by_lower.get(name)
+        required = [dep.lower() for dep in plugin.config.required_plugins] if plugin else []
+        if set(required).intersection(disabled | blocked):
             blocked.add(name)
             continue
         resolved.add(name)
@@ -607,4 +608,32 @@ def filter_plugins(
         resolved.difference_update(newly_blocked)
         blocked.update(newly_blocked)
 
-    return {name: plugin for name, plugin in plugins.items() if name.lower() in resolved}
+    ordered: dict[str, Plugin] = {}
+    visited: set[str] = set()
+    visiting: list[str] = []
+
+    def add_with_dependencies(name: str) -> None:
+        lower_name = name.lower()
+        if lower_name in visited or lower_name not in resolved:
+            return
+        if lower_name in visiting:
+            cycle_start = visiting.index(lower_name)
+            cycle = [*visiting[cycle_start:], lower_name]
+            raise ValueError(f"Plugin dependency cycle: {' -> '.join(cycle)}")
+
+        plugin = plugins_by_lower.get(lower_name)
+        if plugin is None:
+            return
+        visiting.append(lower_name)
+        for dependency in plugin.config.required_plugins:
+            dependency_name = dependency.lower()
+            add_with_dependencies(dependency_name)
+        visiting.pop()
+        visited.add(lower_name)
+        ordered[plugin_names_by_lower[lower_name]] = plugin
+
+    for name in plugins:
+        if name.lower() in resolved:
+            add_with_dependencies(name)
+
+    return ordered

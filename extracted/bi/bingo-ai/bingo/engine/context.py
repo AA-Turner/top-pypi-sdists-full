@@ -43,7 +43,10 @@ class ContextManager:
 
     def append_tool_result(self, tool_call_id: str, name: str, content: str) -> None:
         self._messages.append(Message(
-            role="user", content=f"[TOOL_RESULT: {name}]\n{content}",
+            role="tool",
+            content=content,
+            tool_call_id=tool_call_id,
+            name=name,
         ))
 
     def append_nudge(self, lang: str = "en") -> None:
@@ -84,5 +87,11 @@ class ContextManager:
 
         keep_recent = 8
         recent = self._messages[-keep_recent:] if len(self._messages) > keep_recent else list(self._messages)
+        # Trim orphaned tool messages from the head of the slice.
+        # When compaction discards the paired assistant(tool_calls) message,
+        # the tool result at the start of `recent` has no preceding tool_calls —
+        # DeepSeek and other providers reject this with a 400 error.
+        while recent and recent[0].role == "tool":
+            recent.pop(0)
         compact_msg = Message(role="user", content=f"[CONTEXT SUMMARY]\n{summary}")
         self._messages = [compact_msg] + recent

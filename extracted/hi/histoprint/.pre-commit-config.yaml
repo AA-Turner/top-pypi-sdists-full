@@ -5,7 +5,7 @@ ci:
 
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: "v5.0.0"
+  rev: "v6.0.0"
   hooks:
   - id: check-added-large-files
   - id: check-case-conflict
@@ -19,16 +19,16 @@ repos:
   - id: trailing-whitespace
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: "v0.8.3"
+  rev: "v0.16.0"
   hooks:
   - id: ruff
     args: [--fix, --show-fixes]
   - id: ruff-format
 
 - repo: https://github.com/pre-commit/mirrors-mypy
-  rev: "v1.13.0"
+  rev: "v2.3.0"
   hooks:
   - id: mypy
-    files: histoprint
-    args: []
+    files: src/histoprint
+    args: [--python-version=3.12]
     additional_dependencies: [numpy, types-click, uhi, rich]

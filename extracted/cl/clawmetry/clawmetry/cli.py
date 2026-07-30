@@ -759,6 +759,33 @@ def _keychain_set(node_id: str, key: str) -> None:
         pass
 
 
+def _reset_family_sync_marks() -> int:
+    """Drop the family-runtime high-water marks so the next daemon pass
+    re-ingests every session and pushes the full set to the cloud.
+
+    Sessions ingested during local-only operation are stamped "done" in
+    ``family_event_high_water``; without this reset, the first pass after
+    ``clawmetry connect`` skips them all and the cloud account never sees
+    the node's history. Local re-ingest is idempotent (PK upserts), so the
+    only cost is one full re-read. Returns the number of session marks
+    cleared (0 when there is nothing to backfill)."""
+    import json as _json
+    state_file = Path.home() / ".clawmetry" / "sync-state.json"
+    try:
+        with open(state_file, encoding="utf-8") as fh:
+            state = _json.load(fh)
+    except (FileNotFoundError, ValueError, OSError):
+        return 0
+    marks = state.pop("family_event_high_water", None)
+    if not marks:
+        return 0
+    tmp = state_file.with_suffix(".json.tmp")
+    with open(tmp, "w", encoding="utf-8") as fh:
+        _json.dump(state, fh)
+    os.replace(tmp, state_file)
+    return len(marks)
+
+
 def _cmd_connect(args) -> None:
     """clawmetry connect — validate key, save config, start daemon."""
     # #1937: respect the persistent local-only marker. If the user did
@@ -994,6 +1021,20 @@ def _cmd_connect(args) -> None:
     except Exception:
         pass
 
+    # Backfill guarantee: sessions ingested while the node ran local-only are
+    # stamped "done" in the family high-water marks, so the first cloud-
+    # connected pass would skip them all and the cloud dashboard would sit at
+    # 0 sessions forever (founder live-hit 2026-07-29: local said Connected,
+    # cloud said "No machines connected yet"). Clearing the marks makes the
+    # next family pass re-ingest every session (idempotent PK upserts locally)
+    # and push the full set to the newly connected account.
+    try:
+        _cleared = _reset_family_sync_marks()
+        if _cleared:
+            print(f"  Queued {_cleared} existing session(s) for cloud backfill")
+    except Exception:
+        pass  # connect must never fail because of backfill housekeeping
+
     print()
     print(f"  Connected as: {node_id}")
 
@@ -1073,6 +1114,107 @@ def _cmd_connect(args) -> None:
         webbrowser.open(_dashboard_url)
     except Exception:
         pass
+
+
+def _ensure_local_dashboard(port: int = 8900, wait_secs: float = 12.0) -> bool:
+    """Make ``http://localhost:<port>`` actually serve the dashboard.
+
+    For a local-only install the URL IS the product, and onboard used to
+    print it while nothing listened (founder report 2026-07-29:
+    ERR_CONNECTION_REFUSED straight after "Watching your agents locally") —
+    the sync daemon was the only thing ever started. Any HTTP answer counts
+    as alive (an auth page or 404 still proves a server); when the port is
+    silent, register a KeepAlive launchd job on macOS or fall back to a
+    detached subprocess, then poll within a hard bound (NEVER-HANG: this
+    returns within ~``wait_secs`` no matter what). Returns True only when
+    the port actually answered — callers print the truth either way.
+    """
+    import platform as _plat
+    import subprocess as _sp
+    import time as _t
+    import urllib.error as _ue
+    import urllib.request as _ur
+
+    def _alive() -> bool:
+        try:
+            _ur.urlopen(f"http://127.0.0.1:{port}/", timeout=2)
+            return True
+        except _ue.HTTPError:
+            return True  # the server answered; status code is irrelevant here
+        except Exception:
+            return False
+
+    if _alive():
+        return True
+
+    exe = os.path.join(os.path.dirname(sys.executable), "clawmetry")
+    cmd = ([exe, "--port", str(port)] if os.path.exists(exe)
+           else [sys.executable, "-m", "clawmetry", "--port", str(port)])
+    log_path = os.path.expanduser("~/.clawmetry/dashboard.log")
+    system = _plat.system()
+    started = False
+
+    if system == "Darwin":
+        try:
+            from pathlib import Path as _P
+
+            label = "com.clawmetry.dashboard"
+            plist_path = _P.home() / "Library" / "LaunchAgents" / f"{label}.plist"
+            _args_xml = "\n".join(f"        <string>{a}</string>" for a in cmd)
+            plist = f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>             <string>{label}</string>
+    <key>ProgramArguments</key>
+    <array>
+{_args_xml}
+    </array>
+    <key>RunAtLoad</key>         <true/>
+    <key>KeepAlive</key>         <true/>
+    <key>StandardOutPath</key>   <string>{log_path}</string>
+    <key>StandardErrorPath</key> <string>{log_path}</string>
+    <key>ThrottleInterval</key>  <integer>30</integer>
+</dict>
+</plist>"""
+            plist_path.parent.mkdir(parents=True, exist_ok=True)
+            plist_path.write_text(plist)
+            uid = os.getuid()
+            r = _sp.run(
+                ["launchctl", "bootstrap", f"gui/{uid}", str(plist_path)],
+                capture_output=True, check=False,
+            )
+            if r.returncode != 0:
+                # Already bootstrapped (e.g. re-onboard) — restart it; legacy
+                # load for pre-10.11 launchctl.
+                _sp.run(["launchctl", "kickstart", "-k", f"gui/{uid}/{label}"],
+                        capture_output=True, check=False)
+                _sp.run(["launchctl", "load", "-w", str(plist_path)],
+                        capture_output=True, check=False)
+            started = True
+        except Exception:
+            started = False
+
+    if not started:
+        try:
+            os.makedirs(os.path.dirname(log_path), exist_ok=True)
+            log = open(log_path, "ab")
+            kw = {"stdout": log, "stderr": log, "stdin": _sp.DEVNULL}
+            if system == "Windows":
+                # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+                kw["creationflags"] = 0x00000208
+            else:
+                kw["start_new_session"] = True
+            _sp.Popen(cmd, **kw)
+        except Exception:
+            return False
+
+    deadline = _t.time() + wait_secs
+    while _t.time() < deadline:
+        if _alive():
+            return True
+        _t.sleep(0.5)
+    return _alive()
 
 
 def _start_daemon(config: dict, args) -> None:
@@ -1295,8 +1437,24 @@ def _register_launchd(config: dict) -> None:
             capture_output=True,
             check=False,
         )
-    print("  Running in the background. Your data is syncing to the cloud.")
+    print(f"  Running in the background. {_daemon_mode_line(config)}")
     print("  To stop: clawmetry disconnect")
+
+
+def _daemon_mode_line(config: dict) -> str:
+    """Truthful one-liner for daemon registration: a LOCAL-ONLY node must
+    never be told its data is syncing to the cloud (founder report
+    2026-07-29 — this printed right above "Nothing leaves this machine")."""
+    local = bool(isinstance(config, dict) and config.get("local_only"))
+    if not local:
+        try:
+            from clawmetry.config import is_cloud_disabled
+
+            local = is_cloud_disabled()
+        except Exception:
+            pass
+    return ("Nothing leaves this machine." if local
+            else "Your data is syncing to the cloud.")
 
 
 def _register_systemd(config: dict) -> None:
@@ -1369,7 +1527,7 @@ WantedBy={wanted_by}
 
     if _installed:
         _how = "system service" if _is_root else "user service"
-        print(f"  Running in the background as a systemd {_how}. Your data is syncing to the cloud.")
+        print(f"  Running in the background as a systemd {_how}. {_daemon_mode_line(config)}")
         print("  To stop: clawmetry disconnect")
     else:
         if sys.stdout.isatty():
@@ -2927,18 +3085,20 @@ def _cmd_onboard(args) -> None:
         for _i, _line in enumerate(_detect_lines):
             if _i == 0:
                 print(f"  {BOLD(_line)}")
-            elif _line.startswith("  [x]"):
-                print(f"  {GREEN('✓')} {_line[6:]}")
+            elif "[x]" in _line:
+                # Grid rows carry several "[x] Label" cells; the uniform
+                # marker swap keeps the pure renderer's column padding intact.
+                print(f"  {_line.replace('[x]', GREEN('✓'))}")
             else:
                 print(f"  {DIM(_line)}" if _line else "")
     print()
     print(f"  {BOLD('How do you want to run ClawMetry?')}")
     print()
-    print(f"    {BOLD('[1] Local only')}    {DIM('Free. No account, nothing leaves this machine.')}")
-    print(f"                     {DIM('Watch OpenClaw and NeMo at http://localhost:8900.')}")
-    print(f"    {BOLD('[2] Cloud')}         {DIM('Free trial. A dashboard you can open from anywhere.')}")
-    print(f"                     {DIM('Creates an account for this machine. No card needed.')}")
-    print(f"    {BOLD('[3] License key')}   {DIM('Self-Hosted Pro: all 14 runtimes, offline. Paste a key.')}")
+    print(f"    {BOLD('[1] Sign in / Sign up')}  {DIM('Google, GitHub, or an email code. No card needed.')}")
+    print(f"                           {DIM('Starts your free 7-day Pro trial: every detected')}")
+    print(f"                           {DIM('runtime, right here plus a dashboard from anywhere.')}")
+    print(f"    {BOLD('[2] License key')}        {DIM('Self-Hosted Pro: all 14 runtimes, offline.')}")
+    print(f"    {BOLD('[3] Skip for now')}       {DIM('No account. OpenClaw + NeMo free at localhost:8900.')}")
     print()
 
     def _write_nocloud_marker():
@@ -2977,23 +3137,33 @@ def _cmd_onboard(args) -> None:
             })
         except Exception:
             pass
-        print(f"  Starting local dashboard...")
+        print(f"  Starting background collector...")
         _stop_existing_daemon()
         _start_daemon({"local_only": True}, args)
+        print(f"  Starting local dashboard...")
+        # The URL below is the whole product for a local-only node — verify
+        # the port ANSWERS before promising it (found live 2026-07-29:
+        # onboard printed localhost:8900 while nothing was listening).
+        _dash_up = _ensure_local_dashboard()
         print()
-        print(f"  {GREEN(BOLD('Watching your agents locally.'))}")
-        print(f"     {BOLD('http://localhost:8900')}")
+        if _dash_up:
+            print(f"  {GREEN(BOLD('Watching your agents locally.'))}")
+            print(f"     {BOLD('http://localhost:8900')} {DIM('(live now)')}")
+        else:
+            print(f"  ⚠️  The dashboard did not come up at {BOLD('http://localhost:8900')}.")
+            print(f"     {DIM('Start it yourself:')} {CYAN('clawmetry')}   {DIM('logs: ~/.clawmetry/dashboard.log')}")
         print(f"     {DIM('Nothing leaves this machine. Enable cloud anytime: clawmetry connect')}")
         print()
 
     # Scriptable / non-interactive overrides. A headless install (curl | bash
     # with no /dev/tty) must NEVER silently create a cloud account, so the
-    # default AND the EOF fallback are both LOCAL.
+    # EOF fallback is LOCAL ([3] Skip) even though the interactive default
+    # keypress is [1] Sign in.
     _env_local = _os.environ.get("CLAWMETRY_LOCAL_ONLY", "").strip().lower() in ("1", "true", "yes", "on")
     if getattr(args, "local", False) or _env_local:
-        choice = "1"
+        choice = "3"
     elif getattr(args, "cloud", False):
-        choice = "2"
+        choice = "1"
     else:
         # When already connected, the default on an empty Enter is "keep current
         # setup" (return without changes) so re-running onboard never silently
@@ -3003,8 +3173,13 @@ def _cmd_onboard(args) -> None:
         try:
             choice = _input(_prompt).strip()
         except (EOFError, KeyboardInterrupt):
-            choice = ""
+            # No interactive answer possible: never mint an account. A
+            # connected node keeps its setup; a fresh one goes local ([3]).
             print()
+            if already_connected:
+                print(f"\n  {DIM('Keeping your current setup. Run  clawmetry status  to check sync health.')}\n")
+                return
+            choice = "3"
         if not choice:
             if already_connected:
                 print(f"\n  {DIM('Keeping your current setup. Run  clawmetry status  to check sync health.')}\n")
@@ -3013,15 +3188,23 @@ def _cmd_onboard(args) -> None:
 
     print()
 
-    if choice == "3":
-        # ── Self-Hosted Pro license (local, offline, all 14 runtimes) ──────
+    if choice == "2":
+        # ── Self-Hosted license key (local, offline, all 14 runtimes) ──────
         _write_nocloud_marker()
         try:
-            _lic_key = _input("  Paste your license key (CLAW1...), or press Enter to do it later: ").strip()
+            _has_key = (_input("  Do you already have a license key? [y/N]: ").strip().lower() or "n")
         except (EOFError, KeyboardInterrupt):
-            _lic_key = ""
+            _has_key = "n"
             print()
         print()
+        _lic_key = ""
+        if _has_key in ("y", "yes"):
+            try:
+                _lic_key = _input("  Paste your license key (CLAW1...), or press Enter to do it later: ").strip()
+            except (EOFError, KeyboardInterrupt):
+                _lic_key = ""
+                print()
+            print()
         if _lic_key:
             try:
                 from clawmetry import license as _lic
@@ -3033,116 +3216,113 @@ def _cmd_onboard(args) -> None:
                 print(f"  ⚠️  Activation failed: {_e}")
                 print(f"     {DIM('Try again later:')} {CYAN('clawmetry activate <key>')}")
         else:
-            print(f"  {DIM('No problem. Buy a key at')} {CYAN('https://clawmetry.com/pricing')}")
-            print(f"  {DIM('then run')} {CYAN('clawmetry activate <key>')}")
+            # No key yet: hand them license pricing with the Self-Hosted
+            # toggle preselected (?deploy=self is honored by the pricing page).
+            _pricing_url = "https://clawmetry.com/pricing?deploy=self"
+            print(f"  {DIM('Get one at')} {CYAN(_pricing_url)}")
+            print(f"  {DIM('then run')} {CYAN('clawmetry activate <key>')} {DIM('on this machine.')}")
+            try:
+                import webbrowser
+                if webbrowser.open(_pricing_url):
+                    print(f"  {DIM('(opened in your browser)')}")
+            except Exception:
+                pass
         print()
         _maybe_apply_nemoclaw_preset(_input, BOLD, CYAN, DIM)
         _finish_local()
         return
 
-    if choice == "2":
-        # ── Cloud (free trial) ────────────────────────────────────────────
-        try:
-            has_acct = (_input("  Already have a ClawMetry account? [y/N]: ").strip().lower() or "n")
-        except (EOFError, KeyboardInterrupt):
-            has_acct = "n"
-            print()
+    if choice == "3":
+        # ── [3] Skip for now: local only, no account ──────────────────────
+        print(f"  {GREEN(BOLD('Local only.'))} {DIM('No account, no cloud.')}")
         print()
-        if has_acct in ("y", "yes"):
-            # Existing user: email -> OTP -> connect
-            import argparse as _ap
-
-            _fake_args = _ap.Namespace(
-                key=None, foreground=False, custom_node_id=None,
-                enc_key=None, key_only=False, no_daemon=False,
-            )
-            _cmd_connect(_fake_args)
-
-            print()
-            _maybe_apply_nemoclaw_preset(_input, BOLD, CYAN, DIM)
-            return
-
-        # New user: instant registration (no OTP)
-        print(f"  Setting up your cloud dashboard...")
-        print()
-
-        result = _instant_register(BOLD, GREEN, DIM)
-        if result is None:
-            # Registration failed -- fall back to local mode
-            print(f"  {GREEN('Installed')} (local mode)\n")
-            print("  Start your dashboard:")
-            print(
-                f"    {CYAN('clawmetry --host 0.0.0.0 --port 8900')}          {DIM('# foreground (LAN)')}"
-            )
-            print(f"\n  {DIM('Connect to cloud later: clawmetry setup')}\n")
-            _print_nemoclaw_preset_hint(BOLD, CYAN, DIM)
-            return
-
-        api_key = result.get("api_key", "")
-        dashboard_url = result.get("dashboard_url", "")
-        dashboard_id = result.get("dashboard_id", "")
-        node_id = result.get("node_id", "")
-
-        # Build the bookmarkable URL
-        if dashboard_id:
-            bookmark_url = f"https://app.clawmetry.com/d/{dashboard_id}"
-        else:
-            bookmark_url = dashboard_url
-
-        # Generate E2E encryption key and save config
-        from clawmetry.sync import generate_encryption_key, save_config
-        import platform
-
-        enc_key = generate_encryption_key()
-        config = {
-            "api_key": api_key,
-            "node_id": node_id,
-            "platform": platform.system(),
-            "connected_at": __import__("datetime").datetime.now().isoformat(),
-            "encryption_key": enc_key,
-            "dashboard_id": dashboard_id,
-        }
-        save_config(config)
-
-        print(f"  {GREEN(BOLD('Dashboard ready!'))}")
-        print()
-        print(f"     {BOLD(bookmark_url)}")
-        print()
-        print(f"     Bookmark this URL -- it's your private dashboard.")
-        print(f"     Data is E2E encrypted. Only you can read it.")
-        print()
-        print(f"  {BOLD('Your secret key')} (paste this when opening the dashboard):")
-        print()
-        print(f"     {CYAN(enc_key)}")
-        print()
-        print(f"     {DIM('Keep this safe -- you need it to view your data.')}")
-        print(f"     {DIM('Run')} {CYAN('clawmetry status --show-key')} {DIM('to see it again.')}")
-
-        # Auto-open the dashboard in browser
-        try:
-            import webbrowser
-            webbrowser.open(bookmark_url)
-            print(f"     {DIM('(opened in your browser)')}")
-        except Exception:
-            pass
-        print()
-        print(f"  {DIM('Want to add more nodes or never lose access?')}")
-        print(f"  {DIM('Run:')} {CYAN('clawmetry account')}")
-        print(f"  {DIM('(creates an email-based account to manage all your nodes)')}")
-        print()
-
+        _write_nocloud_marker()
         _maybe_apply_nemoclaw_preset(_input, BOLD, CYAN, DIM)
-
-        # Start sync daemon
-        print(f"  Starting sync daemon...")
-        _stop_existing_daemon()
-        _start_daemon(config, args)
-        print(f"  {GREEN(BOLD('Your agent is now being monitored!'))}")
-        print()
+        _finish_local()
         return
 
-    # ── [1] Local only (default) ──────────────────────────────────────────
-    print(f"  {GREEN(BOLD('Local only.'))} {DIM('No account, no cloud.')}")
+    # ── [1] Sign in / Sign up (default): identify first, trial second ────────
+    # Auth rides the existing connect flow (GitHub / Google OAuth incl. the
+    # headless paste-code path, or email OTP). Success is a cm_ api_key in
+    # ~/.clawmetry/config.json; then the account's ONE 7-day Pro trial
+    # license is minted-or-reused server-side and activated locally, so
+    # every runtime unlocks on the same rail Self-Hosted Pro uses.
+
+    def _config_api_key() -> str:
+        try:
+            import json as _jk
+            with open(_os.path.expanduser("~/.clawmetry/config.json"), "r", encoding="utf-8") as _fh:
+                return (_jk.load(_fh).get("api_key") or "").strip()
+        except Exception:
+            return ""
+
+    def _activate_signup_trial() -> None:
+        """Mint-or-reuse this account's 7-day Pro trial license and activate
+        it locally. Best-effort: any failure leaves onboarding as it was
+        (the account still works, runtimes just stay tier-gated). Never
+        raises; re-runs never reset a trial (server reissues the original
+        expiry)."""
+        api_key = _config_api_key()
+        if not api_key.startswith("cm_"):
+            return
+        try:
+            import json as _jk
+            import time as _tm
+            import urllib.request as _ur
+
+            from clawmetry import license as _lic
+
+            req = _ur.Request(
+                _lic._cloud_base() + "/api/license/trial/signup",
+                data=_jk.dumps({"api_key": api_key}).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with _ur.urlopen(req, timeout=15) as resp:
+                body = _jk.loads(resp.read().decode())
+            if not (isinstance(body, dict) and body.get("ok") and body.get("key")):
+                return
+            if body.get("expired"):
+                print(f"  {DIM('Your 7-day Pro trial has ended. Keep every runtime:')} {CYAN('https://clawmetry.com/pricing')}")
+                print()
+                return
+            ok, _msg = _lic.activate(body["key"], node_id=_lic._node_id())
+            if not ok:
+                return
+            _left = max(1, int((float(body.get("expires_at", 0)) - _tm.time() + 86399) // 86400))
+            _days = "day" if _left == 1 else "days"
+            print(f"  {GREEN(BOLD('Pro trial active:'))} {DIM(f'every runtime unlocked on this machine, {_left} {_days} left.')}")
+            print()
+        except Exception:
+            return
+
+    import argparse as _ap
+
+    # The user's [1] keypress IS the local-only conversion answer: clear the
+    # nocloud marker so connect goes straight to sign-in instead of
+    # re-asking "keep local-only?" and silently dropping the auth on [2]
+    # (founder report 2026-07-29). An incomplete sign-in below re-writes it.
+    try:
+        from clawmetry.config import NOCLOUD_MARKER_PATH as _nocloud_path
+
+        _os.unlink(_nocloud_path)
+    except Exception:
+        pass
+
+    _fake_args = _ap.Namespace(
+        key=None, foreground=False, custom_node_id=None,
+        enc_key=None, key_only=False, no_daemon=False,
+    )
+    _cmd_connect(_fake_args)
+    print()
+
+    if _config_api_key():
+        _activate_signup_trial()
+        _maybe_apply_nemoclaw_preset(_input, BOLD, CYAN, DIM)
+        return
+
+    # Sign-in didn't complete: keep the machine useful locally, no account.
+    print(f"  {DIM('No account connected. Running local-only; try again anytime:')} {CYAN('clawmetry onboard')}")
     print()
     _write_nocloud_marker()
     _maybe_apply_nemoclaw_preset(_input, BOLD, CYAN, DIM)
