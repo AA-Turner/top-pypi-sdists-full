@@ -2774,8 +2774,12 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook, yield_units="Mg/h
                     dir_csvs_comp / f"error_vs_area_{country}_{crop}.csv",
                     index=False,
                 )
-                # One PNG per metric: MAPE panel + RMSE panel.
-                _models_ordered = sorted(_df_area["Model"].unique())
+                # Model column order: baselines (null, trend) on the LEFT, then
+                # the ML models grouped on the right.
+                _all_models = sorted(_df_area["Model"].unique())
+                _models_ordered = [m for m in _all_models if m in ("null", "trend")] + [
+                    m for m in _all_models if m not in ("null", "trend")
+                ]
                 _n_models = len(_models_ordered)
                 # Local palette — can't reference the later _MODEL_COLORS
                 # definition from here because Python's function-scope name
@@ -2790,16 +2794,17 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook, yield_units="Mg/h
                     (0.890, 0.467, 0.761, 1.0),  # pink
                     (0.498, 0.498, 0.498, 1.0),  # grey
                 ]
+                # Key colors off the SORTED model list so each model keeps a
+                # stable color regardless of the (baseline-first) column order.
                 _ev_colors = {
                     m: _EV_PALETTE[i % len(_EV_PALETTE)]
-                    for i, m in enumerate(_models_ordered)
+                    for i, m in enumerate(_all_models)
                 }
-                # Combined per-region error diagnostic: one big figure per
-                # metric (MAPE, RMSE) with 3 rows × N-models columns. Rows
-                # cover different regional-scale attributes; columns are
-                # per-model panels. Sharing Y across all panels; sharing X
-                # within each row (same X-dim across models). No Pearson r
-                # annotations (removed per user request 2026-07-04).
+                # Per-region error diagnostic. ONE figure PER (metric,
+                # regional-scale attribute): each row of the old combined grid
+                # is now its own standalone plot (1 × N-models). Columns are
+                # per-model panels sharing Y and X. No Pearson r annotations
+                # (removed per user request 2026-07-04).
                 from .viz.diagnostics import is_production_share_shown
                 _row_dims = [
                     ("area_pct_of_country", "Region % of country area"),
@@ -2815,24 +2820,23 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook, yield_units="Mg/h
                     (c, l) for (c, l) in _row_dims
                     if c in _df_area.columns and _df_area[c].notna().any()
                 ]
-                _n_rows = len(_row_dims)
                 _metrics = [
                     ("MAPE", "MAPE (%)"),
                     ("RMSE", f"RMSE ({yield_units})"),
                 ]
                 for _metric, _ylabel in _metrics:
-                    _fname = f"region_error_{_metric}_{country}_{crop}.png"
-                    with plt.style.context(["science", "no-latex"]):
-                        fig, axes = plt.subplots(
-                            _n_rows, _n_models,
-                            figsize=(max(10.0, 3.0 * _n_models), 3.5 * _n_rows),
-                            sharey=True, sharex='row',
-                            squeeze=False,
-                        )
-                        _global_mean = float(_df_area[_metric].mean())
-                        for _ri, (_xcol, _xlabel) in enumerate(_row_dims):
+                    _global_mean = float(_df_area[_metric].mean())
+                    for _xcol, _xlabel in _row_dims:
+                        _fname = f"region_error_{_metric}_{_xcol}_{country}_{crop}.png"
+                        with plt.style.context(["science", "no-latex"]):
+                            fig, axes = plt.subplots(
+                                1, _n_models,
+                                figsize=(max(10.0, 3.0 * _n_models), 3.8),
+                                sharey=True, sharex=True,
+                                squeeze=False,
+                            )
                             for _ci, _mdl in enumerate(_models_ordered):
-                                _ax = axes[_ri, _ci]
+                                _ax = axes[0, _ci]
                                 _sub = _df_area[_df_area["Model"] == _mdl].dropna(subset=[_xcol])
                                 _color = _ev_colors.get(_mdl, "steelblue")
                                 if not _sub.empty:
@@ -2853,27 +2857,20 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook, yield_units="Mg/h
                                     linewidth=0.8, alpha=0.7,
                                 )
                                 _ax.grid(True, linestyle="--", alpha=0.4)
-                                # Column titles on TOP row only
-                                if _ri == 0:
-                                    _ax.set_title(_display_model_name(_mdl), fontsize=10)
-                                # X labels on BOTTOM row of each row-group.
-                                # Since each row shares X but rows are stacked,
-                                # put X-label on the last panel of the row.
-                                if _ci == _n_models - 1 or _n_rows == 1:
-                                    pass  # let x label be on all panels for clarity
-                                _ax.set_xlabel(_xlabel if _ci == 0 else "")
+                                _ax.set_title(_display_model_name(_mdl), fontsize=10)
+                                _ax.set_xlabel(_xlabel)
                                 if _ci == 0:
                                     _ax.set_ylabel(_ylabel)
-                        fig.suptitle(
-                            f"Per-region {_metric} vs regional scale — {base_title} (latest stage)",
-                            fontweight="bold", fontsize=11,
-                        )
-                        plt.tight_layout()
-                        fig.savefig(
-                            dir_comp / _fname,
-                            dpi=250, bbox_inches="tight",
-                        )
-                        plt.close(fig)
+                            fig.suptitle(
+                                f"Per-region {_metric} vs {_xlabel} — {base_title} (latest stage)",
+                                fontweight="bold", fontsize=11,
+                            )
+                            plt.tight_layout()
+                            fig.savefig(
+                                dir_comp / _fname,
+                                dpi=250, bbox_inches="tight",
+                            )
+                            plt.close(fig)
 
         # Consistent model colors across all plots
         all_models_sorted = sorted(df_region["Model"].unique())

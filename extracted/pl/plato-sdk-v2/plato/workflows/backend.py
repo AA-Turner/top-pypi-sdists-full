@@ -146,6 +146,10 @@ class AgentCallOutcome(BaseModel):
     # workspace. Only set on non-ok outcomes.
     salvage_ref: str | None = None
     merged: bool = False
+    # SHA of the resulting commit on shared main for merge_to_main calls.
+    # Squash-merging rewrites history, so any hash the agent reported from
+    # inside its VM does not exist on main — this is the authoritative one.
+    merged_sha: str | None = None
     attempts: int = 1
     agent_task_span_id: str | None = None
     error: str | None = None
@@ -253,6 +257,8 @@ class WorldAgentBackend:
                 span.set_attribute("plato.workflow.salvage_ref", outcome.salvage_ref)
             if outcome.merged:
                 span.set_attribute("plato.workflow.merged", True)
+            if outcome.merged_sha:
+                span.set_attribute("plato.workflow.merged_sha", outcome.merged_sha)
             if outcome.error:
                 span.set_attribute("plato.workflow.error", outcome.error[:2000])
             return outcome
@@ -322,6 +328,13 @@ class WorldAgentBackend:
                 ),
             )
 
+        # Pre-create the call's result directory on the shared results mount.
+        # The agent must never construct this path itself: a mistyped call id
+        # (observed in the wild: one dropped hex char) writes to a sibling dir
+        # the exit condition can never see, and the agent then trusts that
+        # stray file through every retry.
+        await asyncio.to_thread((self._results_dir / request.scoped_id).mkdir, parents=True, exist_ok=True)
+
         full_instruction = (
             request.prompt
             + "\n\n"
@@ -385,6 +398,7 @@ class WorldAgentBackend:
         if code_mount is not None and opts.sync == "publish_ref":
             published_ref = await self._verify_published_ref(code_mount, request.scoped_id)
         merged = runner.merged
+        merged_sha = runner.merged_commit
 
         # The result is ALWAYS read from the results workspace after the run —
         # runner.run() only returns the runtime id.
@@ -396,6 +410,7 @@ class WorldAgentBackend:
                 result_json=value if schema is not None else None,
                 published_ref=published_ref,
                 merged=merged,
+                merged_sha=merged_sha,
                 attempts=attempts,
                 agent_task_span_id=agent_task_span_id,
             )
@@ -407,6 +422,7 @@ class WorldAgentBackend:
             status=status,
             published_ref=published_ref,
             merged=merged,
+            merged_sha=merged_sha,
             attempts=attempts,
             agent_task_span_id=agent_task_span_id,
             error=validation_error,

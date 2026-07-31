@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2025 Arista Networks, Inc.
+# Copyright (c) 2021-2026 Arista Networks, Inc.
 # Use of this source code is governed by the MIT license
 # that can be found in the LICENSE file.
 """runner.py - Class to run the rules collection for all the files."""
@@ -53,6 +53,7 @@ class Runner:
             A tuple containing the list of linting errors and the list of linting warnings found.
 
         TODO: refactor this - it is quite weird to do the conversion from tuple to dict here maybe simply init with the dict
+        TODO: the warning stuff is also very weird..
         """
         files: list[Path] = []
         for index, file in enumerate(self.files):

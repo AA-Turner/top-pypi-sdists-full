@@ -104,6 +104,21 @@ class Guardian:
         self._unsynced_count = 0
         self._last_sync = time.time()
         self._server_blocked_error = None
+        import atexit
+        atexit.register(self._flush_usage_on_exit)
+
+    def _flush_usage_on_exit(self):
+        if self._unsynced_count > 0:
+            try:
+                from vnai.beam.auth import authenticator
+                if authenticator.has_active_subscription():
+                    api_key = authenticator.get_api_key()
+                    if api_key:
+                        usage_to_sync = self._unsynced_count
+                        self._unsynced_count = 0
+                        self._sync_to_backend(api_key, usage_to_sync)
+            except Exception:
+                pass
 
     def _sync_to_backend(self, api_key, usage_count):
         try:
@@ -154,6 +169,13 @@ class Guardian:
             return None
 
     def verify(self, operation_id, resource_type="default", api_key=None):
+        if not api_key:
+            try:
+                from vnai.beam.auth import authenticator
+                if authenticator.has_active_subscription():
+                    api_key = authenticator.get_api_key()
+            except Exception:
+                pass
         if getattr(self, '_server_blocked_error', None):
             current_tier = self._get_current_tier()
             raise RateLimitExceeded(

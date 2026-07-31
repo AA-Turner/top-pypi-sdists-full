@@ -1,8 +1,10 @@
 import asyncio
+import os
 from typing import Literal
 
 import structlog
 from mcp import StdioServerParameters
+from mcp.client.stdio import get_default_environment
 from pydantic import BaseModel
 
 from mistralai.extra.mcp.sse import MCPClientSSE, SSEServerParams
@@ -18,6 +20,35 @@ class MCPStdioConfig(BaseModel):
     command: str
     args: list[str]
     name: str
+    env_mapping: dict[str, str] | None = None
+
+
+def _resolve_env(env_mapping: dict[str, str] | None) -> dict[str, str] | None:
+    """Resolve an env_mapping into a concrete subprocess environment.
+
+    The mapping goes from subprocess var name to worker var name, e.g.
+    ``{"NOTION_TOKEN": "NOTION_TOKEN_BOT_A"}``. Only the mapping names are ever
+    serialized into Temporal activity params and event history; the secret
+    values are read from the worker's ``os.environ`` here, inside the activity,
+    and must never be logged or serialized.
+
+    Returns ``None`` when ``env_mapping`` is ``None`` (unchanged behavior:
+    the subprocess receives ``get_default_environment()`` only). Raises
+    ``RuntimeError`` if any source var is missing from the worker environment,
+    since these are explicitly declared, not best-effort defaults.
+    """
+    if env_mapping is None:
+        return None
+    resolved = get_default_environment()
+    for subprocess_name, worker_name in env_mapping.items():
+        value = os.environ.get(worker_name)
+        if value is None:
+            raise RuntimeError(
+                f"env_mapping source variable '{worker_name}' "
+                f"(for subprocess var '{subprocess_name}') is not set in the worker environment"
+            )
+        resolved[subprocess_name] = value
+    return resolved
 
 
 class MCPSSEConfig(BaseModel):
@@ -65,7 +96,10 @@ async def collect_tools_stdio(config: MCPStdioConfig) -> list[dict]:
     """Spawn stdio client temporarily to collect tools."""
     logger.info("collecting tools from stdio mcp", command=config.command)
     client = MCPClientSTDIO(
-        stdio_params=StdioServerParameters(command=config.command, args=config.args), name=config.name
+        stdio_params=StdioServerParameters(
+            command=config.command, args=config.args, env=_resolve_env(config.env_mapping)
+        ),
+        name=config.name,
     )
     try:
         await client.initialize()
@@ -178,7 +212,10 @@ async def execute_mcp_tool(params: ExecuteMCPToolParams) -> ExecuteMCPToolResult
 
     if config.type == "stdio":
         stdio_client = MCPClientSTDIO(
-            stdio_params=StdioServerParameters(command=config.command, args=config.args), name=config.name
+            stdio_params=StdioServerParameters(
+                command=config.command, args=config.args, env=_resolve_env(config.env_mapping)
+            ),
+            name=config.name,
         )
         try:
             await stdio_client.initialize()

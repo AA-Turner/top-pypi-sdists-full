@@ -1,19 +1,41 @@
-
 """
 SQLAlchemy database session management with enterprise-grade connection pooling
 """
+
 import logging
+import os
 import sqlite3
 import threading
 from contextlib import contextmanager
 from typing import Generator, Optional
 
 from sqlalchemy import create_engine, event, pool
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import Pool
 
-from auth.config import DatabaseType, get_settings
+from auth.config import DatabaseType, get_settings, warn_on_weak_secrets
+
+
+def _forced_sslmode(database_url: str) -> Optional[str]:
+    """The sslmode to force via connect_args, or None to leave it alone.
+
+    Secure-by-default SSL for remote hosts — but never overriding an explicit
+    caller choice. connect_args beat URL conninfo in psycopg, so forcing
+    sslmode here would silently discard a ``?sslmode=...`` the caller wrote
+    (highway report, agent-mail thr-7745c815fd0a425cabac). Precedence:
+    URL sslmode param > PGSSLMODE env > require-for-remote. The host is
+    decided by component comparison, not URL substring — a URL carrying
+    ``?fallback_application_name=localhost`` must not skip SSL.
+    """
+    url = make_url(database_url)
+    if "sslmode" in url.query or os.environ.get("PGSSLMODE"):
+        return None
+    host = (url.host or "").lower()
+    if host in ("localhost", "127.0.0.1", "::1"):
+        return None
+    return "require"
+
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +45,7 @@ class SingletonMeta(type):
     Thread-safe Singleton metaclass for database engine
     Ensures only one engine instance exists per process (Gunicorn worker)
     """
+
     _instances: dict[type, object] = {}
     _lock: threading.Lock = threading.Lock()
 
@@ -86,9 +109,9 @@ class DatabaseEngine(metaclass=SingletonMeta):
             "options": "-c statement_timeout=30000",  # 30 seconds
         }
 
-        # Enable SSL for remote connections
-        if "localhost" not in database_url and "127.0.0.1" not in database_url:
-            connect_args["sslmode"] = "require"
+        forced = _forced_sslmode(database_url)
+        if forced:
+            connect_args["sslmode"] = forced
 
         return create_engine(
             database_url,
@@ -99,12 +122,10 @@ class DatabaseEngine(metaclass=SingletonMeta):
             pool_timeout=30,  # Wait up to 30s for a connection
             pool_recycle=3600,  # Recycle connections after 1 hour
             pool_pre_ping=True,  # Verify connections before using them
-
             # Performance settings
             echo=False,  # Disable SQL logging in production
             echo_pool=False,  # Disable pool logging (we use events instead)
             isolation_level="READ COMMITTED",  # PostgreSQL default
-
             connect_args=connect_args,
         )
 
@@ -290,6 +311,10 @@ def create_tables(raise_on_error: bool = False):
     from auth.models.sql import Base
 
     settings = get_settings()
+    # An embedded consumer reaching create_tables *is* running the server side
+    # of auth, so weak server secrets are actionable for them here (they are
+    # not for a client-only consumer, which never gets this far).
+    warn_on_weak_secrets(settings)
     try:
         if (
             settings.database_type == DatabaseType.POSTGRESQL
@@ -300,11 +325,155 @@ def create_tables(raise_on_error: bool = False):
                     text(f'CREATE SCHEMA IF NOT EXISTS "{settings.database_schema}"')
                 )
         Base.metadata.create_all(bind=engine, checkfirst=True)
+        _reconcile_text_columns(engine)
+        _grandfather_strict_users(engine)
         logger.info("Tables created successfully.")
     except Exception:
         logger.exception("create_tables failed")
         if raise_on_error:
             raise
+
+
+def _reconcile_text_columns(target_engine: Engine) -> None:
+    """Widen live ``character varying`` columns to TEXT where the current models
+    declare :class:`~sqlalchemy.Text` (issuedb #21).
+
+    ``create_all(checkfirst=True)`` creates missing tables but never ALTERs an
+    existing one, so an embedded database created by a pre-2.x version keeps the
+    narrow ``varchar`` widths those versions declared. Encryption made several of
+    those columns hold ciphertext far longer than the plaintext they used to, so
+    the mismatch surfaces as ``StringDataRightTruncation`` on write — highway hit
+    exactly this on ``auth_membership.user`` (varchar(64)) when a longer email
+    was encrypted, inside ``add_membership`` (agent-mail thr-d99bb6c79b894ff69f16).
+
+    Only columns the models declare as Text are touched. A bounded ``String`` is
+    a deliberate width — ``audit_log.user`` is a 64-char fingerprint, not a user
+    identifier — and is left alone. PostgreSQL only: SQLite does not enforce
+    varchar length, so there is nothing to reconcile there.
+
+    Non-raising, like everything else in ``create_tables``: a runtime role
+    without DDL rights must still be able to start the app.
+    """
+    from sqlalchemy import Text, inspect, text
+
+    import auth.audit  # noqa: F401  (registers AuditLog in Base.metadata)
+    from auth.models.sql import Base
+
+    if target_engine.dialect.name != "postgresql":
+        return
+
+    settings = get_settings()
+    schema = settings.database_schema or None
+    inspector = inspect(target_engine)
+    try:
+        existing_tables = set(inspector.get_table_names(schema=schema))
+    except Exception:
+        logger.exception("text-column reconciliation could not list tables")
+        return
+
+    widened: list[str] = []
+    for table in Base.metadata.sorted_tables:
+        if table.name not in existing_tables:
+            continue
+        wanted = {c.name for c in table.columns if isinstance(c.type, Text)}
+        if not wanted:
+            continue
+        try:
+            live = inspector.get_columns(table.name, schema=schema)
+        except Exception:
+            logger.exception(
+                "text-column reconciliation could not inspect %s", table.name
+            )
+            continue
+        for col in live:
+            if col["name"] not in wanted:
+                continue
+            # VARCHAR carries a length; TEXT does not. Anything already
+            # unbounded needs no ALTER, which keeps this pass a no-op on a
+            # database that already matches the models.
+            if getattr(col["type"], "length", None) is None:
+                continue
+            qualified = f'"{schema}".' if schema else ""
+            stmt = (
+                f'ALTER TABLE {qualified}"{table.name}" '
+                f'ALTER COLUMN "{col["name"]}" TYPE TEXT'
+            )
+            try:
+                with target_engine.begin() as conn:
+                    conn.execute(text(stmt))
+                widened.append(f"{table.name}.{col['name']}")
+            except Exception:
+                logger.exception(
+                    "could not widen %s.%s to TEXT; a pre-2.x column width "
+                    "remains and long encrypted values may fail to write",
+                    table.name,
+                    col["name"],
+                )
+
+    if widened:
+        logger.warning(
+            "widened %d pre-2.x varchar column(s) to TEXT to match the current "
+            "models: %s",
+            len(widened),
+            ", ".join(widened),
+        )
+
+
+# Marker creator recording that the one-shot 3.0.0 grandfathering pass ran on
+# this database. Reserved — never use it as a real tenant identifier.
+GRANDFATHER_MARKER = "__meta:grandfathered-3.0__"
+
+
+def _grandfather_strict_users(target_engine: Engine) -> None:
+    """One-shot 3.0.0 flip protection (SPEC 0012): write explicit
+    ``strict_users = false`` rows for every creator that exists on this
+    database, then record a marker so the pass never runs again.
+
+    3.0.0 makes no-settings-row tenants strict by default; this pass is what
+    guarantees that flip reaches ONLY tenants created after it ran — every
+    pre-existing tenant keeps its behavior as an explicit, auditable opt-out
+    it can change later. Runs inside create_tables so embedded consumers get
+    the same protection our deployment gets from the migretti migration
+    (both are marker-guarded, so they compose idempotently).
+    """
+    from typing import cast
+
+    from sqlalchemy import Table, literal, select, union
+
+    from auth.models.sql import (
+        AuthApiKey,
+        AuthGroup,
+        AuthMembership,
+        AuthPermission,
+        AuthTenantSettings,
+    )
+
+    settings_t = cast(Table, AuthTenantSettings.__table__)
+    with target_engine.begin() as conn:
+        marker_exists = conn.execute(
+            select(settings_t.c.id).where(settings_t.c.creator == GRANDFATHER_MARKER)
+        ).first()
+        if marker_exists:
+            return
+        creators = union(
+            *(
+                select(t.__table__.c.creator)
+                for t in (AuthGroup, AuthMembership, AuthPermission, AuthApiKey)
+            )
+        ).subquery()
+        already = select(settings_t.c.creator)
+        conn.execute(
+            settings_t.insert().from_select(
+                ["creator", "strict_users"],
+                select(creators.c.creator, literal(False)).where(
+                    creators.c.creator.notin_(already)
+                ),
+            )
+        )
+        conn.execute(
+            settings_t.insert().values(creator=GRANDFATHER_MARKER, strict_users=False)
+        )
+    logger.info("strict_users grandfathering pass completed (one-shot).")
 
 
 def log_pool_stats():

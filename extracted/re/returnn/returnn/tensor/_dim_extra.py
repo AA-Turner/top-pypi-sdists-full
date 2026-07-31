@@ -25,6 +25,12 @@ from . import tensor as _t
 from . import marked_dim as _m
 
 
+# Dims whose capacity was memoized by Dim._derived_capacity.
+# The bound-shape regime clears them when it disables its declared capacities
+# (e.g. around eval), see returnn.torch.util.graph_capture.
+derived_capacity_memoized_dims = weakref.WeakSet()
+
+
 class DimTypes:
     """
     Defines possible values for ``kind``.
@@ -101,6 +107,12 @@ class _DimExtra:
         self.same_as: Optional[Dim] = None
         self.copy_same_as: Optional[Dim] = None
         self.derived_from_tag = derived_from_tag
+        # Set via Dim(..., bounded_by=...): unlike a plain derived_from_tag
+        # (arbitrary relation: down/up sampled, padded, ...),
+        # this declares that the sizes never exceed that dim's extent,
+        # so the source's capacity is a valid bound
+        # (see :func:`_DimMixin._derived_capacity`).
+        self.bounded_by: Optional[Dim] = None
         self.derived_from_op = derived_from_op
         if derived_from_op and not derived_from_op.output:
             derived_from_op.output = dim
@@ -1031,6 +1043,12 @@ class _DimMixin:
             if self.capacity is not None:
                 return self.size < self.capacity
             return False
+        import returnn.frontend as rf
+
+        if rf.is_static_traceable():
+            # bound regime: ALL raw buffers are bound-sized, so any dynamic dim needs masking
+            # (a silent maskless reduce would sum the junk tail)
+            return True
         if self.capacity is not None:
             return True
         if self.dyn_size_ext is None:  # unknown, so we can only guess
@@ -1321,6 +1339,33 @@ class _DimMixin:
             else:
                 raise TypeError(f"complete_dyn_size: _relu: unexpected type {type(a)}")
 
+        # noinspection PyShadowingNames
+        def _batch_size_scalar(x_dim_: Dim) -> Optional[Union[int, _t.Tensor]]:
+            # A batch dim has no dyn_size_ext (resolved via the batch info),
+            # but a dim derived from it is not batch-kind anymore (see :func:`_get_merged_dim_kind`),
+            # so it needs a defined size: fetch the batch size scalar.
+            # TF only in practice (the eager backends set a scalar dyn_size_ext on the batch dim);
+            # any fetched TF value must belong to the CURRENT graph:
+            # the globally shared batch dim can hold values from an earlier graph.
+            x_size = None
+            # noinspection PyProtectedMember
+            src_data = x_dim_._extra.src_data if x_dim_._extra else None
+            if src_data is not None and tf is not None:
+                ph = src_data.placeholder
+                if ph is None or ph.graph is not tf.compat.v1.get_default_graph():
+                    src_data = None  # stale, from another graph
+            if src_data is not None:
+                x_size = src_data.get_batch_dim()
+            elif x_dim_.batch:
+                x_size = x_dim_.batch.dim
+            if tf is not None and isinstance(x_size, tf.Tensor):
+                if x_size.graph is not tf.compat.v1.get_default_graph():
+                    x_size = None  # stale, from another graph
+            if isinstance(x_size, int) or x_size is None and not template_only:
+                return x_size
+            # template phase without batch info: a scalar template, the real value comes in a later pass
+            return _t.Tensor("batch", dims=(), dtype=size_dtype, raw_tensor=x_size)
+
         y: Optional[_t.Tensor] = None  # resulting dyn size
         inputs = list(op.inputs)
         assert inputs
@@ -1329,9 +1374,12 @@ class _DimMixin:
             if self.batch:
                 x_dim = x_dim.get_for_batch_ctx(self.batch, self.control_flow_ctx)
             x_dim.complete_dyn_size(template_only=template_only, _backend=backend)
-            if x_dim.dyn_size_ext is None and x_dim.dimension is None:
+            x_size = x_dim.dimension if x_dim.dimension is not None else x_dim.dyn_size_ext
+            if x_size is None and x_dim.is_batch_dim():
+                x_size = _batch_size_scalar(x_dim)
+            if x_size is None:
                 return
-            y = _bin_op(y, x_dim.dimension if x_dim.dimension is not None else x_dim.dyn_size_ext)
+            y = _bin_op(y, x_size)
         assert y is not None, f"op {op}?"
         if self.dyn_size_ext is not None:
             assert self.dyn_size_ext.dim_tags == y.dim_tags
@@ -2027,8 +2075,25 @@ class _DimMixin:
         # static dims always carry a capacity (Dim.__init__ defaults it to the dimension),
         # so a static dim here means that invariant was violated
         assert self.dimension is None, f"{self}: static dim without capacity"
-        if not self._extra or not self._extra.derived_from_op:
+        if not self._extra:
             return None
+        if not self._extra.derived_from_op:
+            # No op chain: fall back to the declared bound source (``Dim(..., bounded_by=...)``):
+            # the source's capacity is a valid bound (identity copy).
+            # Resolved lazily, so a capacity declared on the source after this dim was created still applies.
+            # Deliberately NOT the plain derived_from_tag:
+            # that marks an ARBITRARY dependency (down/up sampled, padded, ...),
+            # which implies no extent relation.
+            tag = self._extra.bounded_by
+            if tag is None or tag is self:
+                return None
+            # noinspection PyProtectedMember
+            res = tag._derived_capacity()
+            if res is None:
+                return None
+            derived_capacity_memoized_dims.add(self)
+            self.capacity = res
+            return res
         op = self._extra.derived_from_op
         kind = op.kind
         if not op.inputs:
@@ -2063,6 +2128,7 @@ class _DimMixin:
                 # else: keep res as the (loose) bound, the divisor dim is >= 1
             else:
                 return None
+        derived_capacity_memoized_dims.add(self)
         self.capacity = res
         return res
 
@@ -2094,6 +2160,16 @@ class _DimMixin:
             cap = self._derived_capacity()
             if cap is not None:
                 return cap
+            # No capacity: contract violation.
+            # Static traceable == static shapes == every dim has a (derivable) static upper bound;
+            # a dyn size without capacity changes across steps.
+            # (A host-side size would even be baked as a stale constant;
+            # a device-side size used as a shape would make downstream shapes data-dependent.)
+            raise Exception(
+                f"{self}: get_dim_value under static traceable: no (derivable) capacity --"
+                f" the value is not static across steps."
+                f" Declare a capacity (Dim(..., capacity=...) / torch_cuda_graph dim_capacity)."
+            )
         if self._dyn_size_max_value is not None:  # fast path, precomputed
             assert self._dyn_size_max_value.raw_tensor is not None
             return self._dyn_size_max_value

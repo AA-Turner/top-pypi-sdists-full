@@ -237,7 +237,7 @@ BuiltinBooleanDtypeArg: TypeAlias = type[bool] | Literal["bool"]
 PandasBooleanDtypeArg: TypeAlias = pd.BooleanDtype | Literal["boolean"]
 # Numpy bool type
 # https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.bool_
-NumpyBooleanDtypeArg: TypeAlias = type[np.bool_] | Literal["?", "b1", "bool_"]
+NumpyBooleanDtypeArg: TypeAlias = type[np.bool] | Literal["?", "b1", "bool_"]
 # PyArrow boolean type and its string alias
 PyArrowBooleanDtypeArg: TypeAlias = Literal["bool[pyarrow]", "boolean[pyarrow]"]
 BooleanDtypeArg: TypeAlias = (
@@ -400,22 +400,25 @@ PandasAstypeTimedeltaDtypeArg: TypeAlias = Literal[
     "<m8[as]",
 ]
 # Refer to https://numpy.org/doc/stable/reference/arrays.datetime.html#datetime-units
-NumpyTimedeltaDtypeArg: TypeAlias = Literal[
-    "timedelta64[s]",
-    "timedelta64[ms]",
-    "timedelta64[us]",
-    "timedelta64[ns]",
-    # numpy type codes
-    "m8[s]",
-    "m8[ms]",
-    "m8[us]",
-    "m8[ns]",
-    # little endian
-    "<m8[s]",
-    "<m8[ms]",
-    "<m8[us]",
-    "<m8[ns]",
-]
+NumpyTimedeltaDtypeArg: TypeAlias = (
+    Literal[
+        "timedelta64[s]",
+        "timedelta64[ms]",
+        "timedelta64[us]",
+        "timedelta64[ns]",
+        # numpy type codes
+        "m8[s]",
+        "m8[ms]",
+        "m8[us]",
+        "m8[ns]",
+        # little endian
+        "<m8[s]",
+        "<m8[ms]",
+        "<m8[us]",
+        "<m8[ns]",
+    ]
+    | np.dtype[np.timedelta64]
+)
 # PyArrow duration type and its string alias
 PyArrowTimedeltaDtypeArg: TypeAlias = Literal[
     "duration[s][pyarrow]",
@@ -468,22 +471,25 @@ PandasAstypeTimestampDtypeArg: TypeAlias = Literal[
     "<M8[as]",
 ]
 # Numpy timestamp type and its string alias
-NumpyTimestampDtypeArg: TypeAlias = Literal[
-    "datetime64[s]",
-    "datetime64[ms]",
-    "datetime64[us]",
-    "datetime64[ns]",
-    # numpy type codes
-    "M8[s]",
-    "M8[ms]",
-    "M8[us]",
-    "M8[ns]",
-    # little endian
-    "<M8[s]",
-    "<M8[ms]",
-    "<M8[us]",
-    "<M8[ns]",
-]
+NumpyTimestampDtypeArg: TypeAlias = (
+    Literal[
+        "datetime64[s]",
+        "datetime64[ms]",
+        "datetime64[us]",
+        "datetime64[ns]",
+        # numpy type codes
+        "M8[s]",
+        "M8[ms]",
+        "M8[us]",
+        "M8[ns]",
+        # little endian
+        "<M8[s]",
+        "<M8[ms]",
+        "<M8[us]",
+        "<M8[ns]",
+    ]
+    | np.dtype[np.datetime64]
+)
 # PyArrow timestamp type and its string alias
 PyArrowTimestampDtypeArg: TypeAlias = Literal[
     "date32[pyarrow]",
@@ -1241,10 +1247,6 @@ class CovariantList(Protocol[_T_co]):
         self, value: type[list[Any]], /
     ) -> None: ...
     def __iter__(self) -> Iterator[_T_co]: ...
-    # copy() is only TEMPORARILY needed because `__class__` is a property
-    # and ty doesn't support property protocol members. Remove when
-    # https://github.com/astral-sh/ty/issues/1379 is resolved
-    def copy(self) -> list[Any]: ...
 
 class SupportsTrueDiv(Protocol[_T_contra, _T_co]):
     def __truediv__(self, x: _T_contra, /) -> _T_co: ...

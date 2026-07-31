@@ -2,17 +2,24 @@ from __future__ import annotations
 
 import hashlib
 from datetime import timedelta
-from typing import Any
+from typing import Any, Sequence
 
 import structlog
 import temporalio.client
 import temporalio.common
 import temporalio.worker
+from pydantic import BaseModel
 from temporalio import workflow
 
 from mistralai.workflows.core._registration.registration_activity import (
     _register_execution,
 )
+from mistralai.workflows.core._registration.search_keys import extract_search_key_metadata
+from mistralai.workflows.core.definition.workflow_definition import (
+    get_workflow_entrypoint_param_names,
+    get_workflow_search_keys,
+)
+from mistralai.workflows.core.logging import extract_error_context
 from mistralai.workflows.core.temporal.context_handler_interceptor import (
     retrieve_context,
     workflow_context_var,
@@ -24,6 +31,29 @@ logger = structlog.get_logger(__name__)
 
 def _hash_token(raw_token: str) -> str:
     return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+
+def _resolve_search_key_metadata(workflow_name: str, args: Sequence[Any]) -> dict[str, str]:
+    try:
+        search_keys = get_workflow_search_keys(workflow_name)
+        if not search_keys:
+            return {}
+        params = args[0] if args else None
+        # A single scalar-param entrypoint arrives as a raw primitive, not a dict;
+        # wrap it under the param name so path-based extraction can reach it (mirrors
+        # the runtime's own param normalization).
+        param_names = get_workflow_entrypoint_param_names(workflow_name)
+        if params is not None and not isinstance(params, (dict, BaseModel)) and len(param_names) == 1:
+            params = {param_names[0]: params}
+        return extract_search_key_metadata(params, search_keys)
+    except Exception as exc:
+        logger.warning(
+            "Failed to resolve search key metadata",
+            workflow_type=workflow_name,
+            **extract_error_context(exc),
+            exc_info=exc,
+        )
+        return {}
 
 
 class _ExecutionRegistrationWorkflowInboundInterceptor(temporalio.worker.WorkflowInboundInterceptor):
@@ -50,6 +80,8 @@ class _ExecutionRegistrationWorkflowInboundInterceptor(temporalio.worker.Workflo
 
         token_hash = _hash_token(raw_token)
 
+        search_key_metadata = _resolve_search_key_metadata(info.workflow_type, input.args)
+
         raw_result = await workflow.execute_local_activity(
             _register_execution,
             args=[
@@ -60,6 +92,7 @@ class _ExecutionRegistrationWorkflowInboundInterceptor(temporalio.worker.Workflo
                 info.parent.workflow_id if info.parent else None,
                 info.root.workflow_id if info.root else None,
                 token_hash,
+                search_key_metadata or None,
             ],
             start_to_close_timeout=timedelta(seconds=10),
             retry_policy=temporalio.common.RetryPolicy(maximum_attempts=3),

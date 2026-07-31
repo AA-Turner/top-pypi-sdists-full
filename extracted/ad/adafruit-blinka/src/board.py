@@ -10,7 +10,7 @@ See `CircuitPython:board` in CircuitPython for more details.
 * Author(s): cefn, Melissa LeBlanc-Williams
 """
 
-__version__ = "9.1.0"
+__version__ = "9.2.0"
 __repo__ = "https://github.com/adafruit/Adafruit_Blinka.git"
 __blinka__ = True
 
@@ -48,16 +48,14 @@ with open(get_import_file("board_imports.json", __file__)) as f:
 
         elif board_id is None:
             import platform
-            import pkg_resources
+            from importlib.metadata import version
 
-            package = str(
-                pkg_resources.get_distribution("adafruit_platformdetect")
-            ).split()
+            package_version = version("adafruit_platformdetect")
             raise NotImplementedError(
                 f"""
-                {package[0]} version {package[1]} was unable to identify the board and/or
-                microcontroller running the {platform.system()} platform. Please be sure you
-                have the latest packages by running:
+                adafruit-platformdetect version {package_version} was unable to identify the board
+                and/or microcontroller running the {platform.system()} platform.
+                Please be sure you have the latest packages by running:
                 'pip3 install --upgrade adafruit-blinka adafruit-platformdetect'
 
                 If you are running the latest package, your board may not yet be supported. Please

@@ -8,4 +8,5 @@ from typing import Literal
 LocationType = Literal[
     "local",
     "k8s",
+    "managed",
 ]

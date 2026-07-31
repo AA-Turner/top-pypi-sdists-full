@@ -2,16 +2,53 @@
 # @generated-id: 845a8902b661
 
 from __future__ import annotations
-from mistralai.workflows.worker_client.types import BaseModel
-from typing_extensions import TypedDict
+from mistralai.workflows.worker_client.types import (
+    BaseModel,
+    UNSET_SENTINEL,
+    UnrecognizedStr,
+)
+from pydantic import model_serializer
+from typing import Literal, Optional, Union
+from typing_extensions import NotRequired, TypedDict
+
+
+RegisterExecutionResponseMetadataStatus = Union[
+    Literal[
+        "ok",
+        "partial",
+    ],
+    UnrecognizedStr,
+]
+r"""How search_key_metadata was persisted: 'ok', or 'partial' (a value was truncated if too long). A database write error aborts registration so the worker retries."""
 
 
 class RegisterExecutionResponseTypedDict(TypedDict):
     execution_id: str
     created: bool
+    metadata_status: NotRequired[RegisterExecutionResponseMetadataStatus]
+    r"""How search_key_metadata was persisted: 'ok', or 'partial' (a value was truncated if too long). A database write error aborts registration so the worker retries."""
 
 
 class RegisterExecutionResponse(BaseModel):
     execution_id: str
 
     created: bool
+
+    metadata_status: Optional[RegisterExecutionResponseMetadataStatus] = "ok"
+    r"""How search_key_metadata was persisted: 'ok', or 'partial' (a value was truncated if too long). A database write error aborts registration so the worker retries."""
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["metadata_status"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k, serialized.get(n))
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

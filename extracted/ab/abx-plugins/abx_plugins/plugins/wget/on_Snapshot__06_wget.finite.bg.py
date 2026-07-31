@@ -181,6 +181,8 @@ def main(url: str):
     output = None
     error = ""
 
+    print("wget download started", flush=True)
+
     try:
         config = load_config()
 

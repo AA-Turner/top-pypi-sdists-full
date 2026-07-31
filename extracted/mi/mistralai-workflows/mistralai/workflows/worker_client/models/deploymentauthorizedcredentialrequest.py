@@ -2,6 +2,7 @@
 # @generated-id: a499e7795b8d
 
 from __future__ import annotations
+from .principaltype import PrincipalType
 from mistralai.workflows.worker_client.types import (
     BaseModel,
     Nullable,
@@ -10,6 +11,7 @@ from mistralai.workflows.worker_client.types import (
     UNSET_SENTINEL,
 )
 from pydantic import model_serializer
+from typing import Optional
 from typing_extensions import NotRequired, TypedDict
 
 
@@ -18,6 +20,7 @@ class DeploymentAuthorizedCredentialRequestTypedDict(TypedDict):
     r"""Deployment identifier"""
     credential_id: str
     r"""Credential identifier"""
+    principal_type: NotRequired[PrincipalType]
     workspace_id: NotRequired[Nullable[str]]
     r"""Workspace ID to scope the request to. Defaults to the caller's context."""
 
@@ -29,12 +32,14 @@ class DeploymentAuthorizedCredentialRequest(BaseModel):
     credential_id: str
     r"""Credential identifier"""
 
+    principal_type: Optional[PrincipalType] = None
+
     workspace_id: OptionalNullable[str] = UNSET
     r"""Workspace ID to scope the request to. Defaults to the caller's context."""
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["workspace_id"])
+        optional_fields = set(["principal_type", "workspace_id"])
         nullable_fields = set(["workspace_id"])
         serialized = handler(self)
         m = {}

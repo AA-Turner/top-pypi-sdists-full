@@ -40,6 +40,7 @@ from chalk.client.models import (
     ChalkError,
     ColumnMetadata,
     DatasetFilter,
+    DatasetIcebergConversionResponse,
     DatasetRecomputeResponse,
     DatasetResponse,
     DatasetRevisionPreviewResponse,
@@ -1390,6 +1391,22 @@ class DatasetRevisionImpl(DatasetRevision):
             environment=self.environment,
         )
 
+    def promote_to_iceberg(self) -> DatasetIcebergConversionResponse:
+        """Register this revision's parquet output in place as a self-contained Iceberg table.
+
+        No data is rewritten: the Iceberg ``metadata.json`` + manifests are written to a sibling
+        ``iceberg/`` prefix next to the revision's ``outputs/`` and reference the existing parquet.
+        Returns the conversion result, whose ``metadata_location`` points at the ``metadata.json``.
+
+        The resulting table is **not** registered in any Iceberg catalog — you are responsible for
+        registering ``metadata_location`` in your own catalog (Glue, Polaris, BigLake, …) if you
+        want catalog-managed, name-based discovery.
+        """
+        return self._client.convert_revision_to_iceberg(
+            revision_id=str(self.revision_id),
+            environment=self.environment,
+        )
+
     def create_torch_map_dataset(
         self,
         columns: Mapping[str, str] | Collection[str] | None = None,
@@ -1963,6 +1980,12 @@ class DatasetImpl(Dataset):
 
     def set_metadata(self, metadata: Mapping[str, Any]):
         return self.revisions[-1].set_metadata(metadata)
+
+    def promote_to_iceberg(self) -> DatasetIcebergConversionResponse:
+        """Promote the most recent revision to a self-contained Iceberg table (registers its parquet
+        in place, no data rewrite). The table is not registered in any Iceberg catalog — you own
+        registering ``metadata_location`` in your catalog. See :meth:`DatasetRevision.promote_to_iceberg`."""
+        return self.revisions[-1].promote_to_iceberg()
 
     def ingest(
         self,

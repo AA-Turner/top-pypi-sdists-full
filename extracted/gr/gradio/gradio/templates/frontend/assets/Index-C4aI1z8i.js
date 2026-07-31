@@ -1,0 +1,1 @@
+import{Dt as e,Xt as t,Zt as n,o as r}from"./index-BgYNBSAi.js";import{t as i}from"./src-BKGh_--p.js";import"./core-6VOdyL6D.js";function a(a,o){n(o,!0);let s=new i(r(o,[`$$slots`,`$$events`,`$$legacy`]));e(()=>{s.props.value&&s.dispatch(`change`)}),t()}export{a as default};

@@ -21,6 +21,7 @@ class AssayRunCreatedEvent:
     _event_type: Union[Unset, AssayRunCreatedEventEventType] = UNSET
     _created_at: Union[Unset, datetime.datetime] = UNSET
     _deprecated: Union[Unset, bool] = UNSET
+    _deprecation_date: Union[Unset, datetime.datetime] = UNSET
     _excluded_properties: Union[Unset, List[str]] = UNSET
     _id: Union[Unset, str] = UNSET
     _schema: Union[Unset, None, EventBaseSchema] = UNSET
@@ -32,6 +33,7 @@ class AssayRunCreatedEvent:
         fields.append("event_type={}".format(repr(self._event_type)))
         fields.append("created_at={}".format(repr(self._created_at)))
         fields.append("deprecated={}".format(repr(self._deprecated)))
+        fields.append("deprecation_date={}".format(repr(self._deprecation_date)))
         fields.append("excluded_properties={}".format(repr(self._excluded_properties)))
         fields.append("id={}".format(repr(self._id)))
         fields.append("schema={}".format(repr(self._schema)))
@@ -52,6 +54,10 @@ class AssayRunCreatedEvent:
             created_at = self._created_at.isoformat()
 
         deprecated = self._deprecated
+        deprecation_date: Union[Unset, str] = UNSET
+        if not isinstance(self._deprecation_date, Unset):
+            deprecation_date = self._deprecation_date.isoformat()
+
         excluded_properties: Union[Unset, List[Any]] = UNSET
         if not isinstance(self._excluded_properties, Unset):
             excluded_properties = self._excluded_properties
@@ -72,6 +78,8 @@ class AssayRunCreatedEvent:
             field_dict["createdAt"] = created_at
         if deprecated is not UNSET:
             field_dict["deprecated"] = deprecated
+        if deprecation_date is not UNSET:
+            field_dict["deprecationDate"] = deprecation_date
         if excluded_properties is not UNSET:
             field_dict["excludedProperties"] = excluded_properties
         if id is not UNSET:
@@ -145,6 +153,21 @@ class AssayRunCreatedEvent:
                 raise
             deprecated = cast(Union[Unset, bool], UNSET)
 
+        def get_deprecation_date() -> Union[Unset, datetime.datetime]:
+            deprecation_date: Union[Unset, datetime.datetime] = UNSET
+            _deprecation_date = d.pop("deprecationDate")
+            if _deprecation_date is not None and not isinstance(_deprecation_date, Unset):
+                deprecation_date = isoparse(cast(str, _deprecation_date))
+
+            return deprecation_date
+
+        try:
+            deprecation_date = get_deprecation_date()
+        except KeyError:
+            if strict:
+                raise
+            deprecation_date = cast(Union[Unset, datetime.datetime], UNSET)
+
         def get_excluded_properties() -> Union[Unset, List[str]]:
             excluded_properties = cast(List[str], d.pop("excludedProperties"))
 
@@ -189,6 +212,7 @@ class AssayRunCreatedEvent:
             event_type=event_type,
             created_at=created_at,
             deprecated=deprecated,
+            deprecation_date=deprecation_date,
             excluded_properties=excluded_properties,
             id=id,
             schema=schema,
@@ -271,6 +295,21 @@ class AssayRunCreatedEvent:
     @deprecated.deleter
     def deprecated(self) -> None:
         self._deprecated = UNSET
+
+    @property
+    def deprecation_date(self) -> datetime.datetime:
+        """Present only when `deprecated` is true. The date at which this event version is deprecated and may stop being sent."""
+        if isinstance(self._deprecation_date, Unset):
+            raise NotPresentError(self, "deprecation_date")
+        return self._deprecation_date
+
+    @deprecation_date.setter
+    def deprecation_date(self, value: datetime.datetime) -> None:
+        self._deprecation_date = value
+
+    @deprecation_date.deleter
+    def deprecation_date(self) -> None:
+        self._deprecation_date = UNSET
 
     @property
     def excluded_properties(self) -> List[str]:

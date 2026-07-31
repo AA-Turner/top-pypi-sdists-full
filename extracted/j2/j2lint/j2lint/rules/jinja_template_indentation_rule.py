@@ -1,14 +1,12 @@
-# Copyright (c) 2021-2025 Arista Networks, Inc.
+# Copyright (c) 2021-2026 Arista Networks, Inc.
 # Use of this source code is governed by the MIT license
 # that can be found in the LICENSE file.
 """jinja_template_indentation_rule.py - Rule class to check the jinja statement indentation is correct."""
 
 from __future__ import annotations
 
-from typing import Any
-
 from j2lint.linter.error import JinjaLinterError, LinterError
-from j2lint.linter.indenter.node import Node, NodeIndentationError
+from j2lint.linter.indenter.node import Node, NodeIndentationError, jinja_node_stack
 from j2lint.linter.rule import Rule
 from j2lint.logger import logger
 from j2lint.utils import get_jinja_statements
@@ -22,7 +20,7 @@ class JinjaTemplateIndentationRule(Rule):
     description = "All J2 statements must be indented by 4 more spaces within jinja delimiter. To close a control, end tag must have same indentation level."
     severity = "HIGH"
 
-    def __init__(self, ignore: bool = False, warn: list[Any] | None = None) -> None:
+    def __init__(self, ignore: bool = False, warn: list[Rule] | None = None) -> None:
         super().__init__(ignore=ignore, warn=warn)
 
     def checktext(self, filename: str, text: str) -> list[LinterError]:
@@ -47,6 +45,7 @@ class JinjaTemplateIndentationRule(Rule):
         # indentation level for each statement
         root = Node()
         node_errors: list[NodeIndentationError] = []
+        jinja_node_stack.clear()
         try:
             root.check_indentation(node_errors, lines, 0)
 
@@ -57,6 +56,10 @@ class JinjaTemplateIndentationRule(Rule):
                 filename,
                 str(exc),
             )
+        finally:
+            # A parse failure can leave nodes from this file on the module-level
+            # stack, which would corrupt the check of the next file.
+            jinja_node_stack.clear()
 
         return [LinterError(line_no, section, filename, self, message) for line_no, section, message in node_errors]
 

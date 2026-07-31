@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-simple-captcha
-Version: 0.6.3
+Version: 0.7.0
 Summary: A very simple, yet powerful, Django captcha application
 Home-page: https://github.com/mbi/django-simple-captcha
 Author: Marco Bonetti

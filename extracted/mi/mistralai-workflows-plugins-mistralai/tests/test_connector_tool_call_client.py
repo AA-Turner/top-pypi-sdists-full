@@ -17,22 +17,23 @@ from mistralai.workflows.core.temporal.context_handler_interceptor import (
     define_context,
 )
 from mistralai.workflows.models import WorkflowContext
+from mistralai.workflows.plugins.mistralai.connectors import ConnectorError, connector
 from mistralai.workflows.plugins.mistralai.connectors.client import ToolCallClient
 from mistralai.workflows.plugins.mistralai.connectors.constants import (
-    CONNECTORS_KEY,
     MISTRALAI_PLUGIN_KEY,
+    RESOLVED_CONNECTORS_KEY,
 )
 
 
 def _make_context(bindings: list[dict[str, Any]] | None = None) -> WorkflowContext:
-    """Create a WorkflowContext with optional connector bindings in extensions."""
-    extensions: dict[str, Any] = {}
+    """Create a WorkflowContext with interceptor-resolved bindings in the trusted channel."""
+    trusted_extensions: dict[str, Any] = {}
     if bindings is not None:
-        extensions[MISTRALAI_PLUGIN_KEY] = {CONNECTORS_KEY: {"bindings": bindings}}
+        trusted_extensions[MISTRALAI_PLUGIN_KEY] = {RESOLVED_CONNECTORS_KEY: {"bindings": bindings}}
     return WorkflowContext(
         namespace="default",
         execution_id="test-exec-id",
-        extensions=extensions,
+        trusted_extensions=trusted_extensions,
     )
 
 
@@ -75,23 +76,21 @@ class TestToolCallClientBindingResolution:
             assert binding.connector_name == "jira"
             assert binding.credentials_name == "jira_sa"
 
-    def test_falls_back_when_binding_not_in_context(self) -> None:
-        """When the connector is not in the bindings list, returns a default binding."""
+    def test_raises_when_binding_not_in_context(self) -> None:
+        """A connector the interceptor did not resolve must not be usable."""
         ctx = _make_context(bindings=[])
         client = ToolCallClient("slack")
         with define_context(ctx):
-            binding = client.binding
-            assert binding.connector_name == "slack"
-            assert binding.connector_id is None
+            with pytest.raises(ConnectorError, match="uses_connectors"):
+                client.binding
 
-    def test_falls_back_when_no_extensions(self) -> None:
-        """When there are no connector extensions at all, returns a default binding."""
+    def test_raises_when_no_resolved_connectors(self) -> None:
+        """Without any resolved connectors, ToolCallClient must refuse to run."""
         ctx = _make_context(bindings=None)
         client = ToolCallClient("slack")
         with define_context(ctx):
-            binding = client.binding
-            assert binding.connector_name == "slack"
-            assert binding.connector_id is None
+            with pytest.raises(ConnectorError, match="uses_connectors"):
+                client.binding
 
     def test_raises_without_workflow_context(self) -> None:
         """ToolCallClient raises RuntimeError when no workflow context is available."""
@@ -112,11 +111,50 @@ class TestToolCallClientBindingResolution:
             binding = client.binding
             assert binding.connector_id == "conn-github"
 
+    def test_duplicate_resolved_bindings_for_same_connector_are_rejected(self) -> None:
+        ctx = _make_context(
+            bindings=[
+                {"connector_name": "github", "connector_id": "conn-user", "run_as": "auto", "status": "ready"},
+                {
+                    "connector_name": "github",
+                    "connector_id": "conn-deployment",
+                    "run_as": "deployment",
+                    "status": "ready",
+                },
+            ]
+        )
+        client = ToolCallClient("github", run_as="deployment")
+        with define_context(ctx):
+            with pytest.raises(ConnectorError, match="Multiple interceptor-resolved bindings"):
+                client.binding
+
     def test_connector_id_property(self) -> None:
         ctx = _make_context(bindings=[{"connector_name": "slack", "connector_id": "conn-slack-id", "status": "ready"}])
         client = ToolCallClient("slack")
         with define_context(ctx):
             assert client.connector_id == "conn-slack-id"
+
+    def test_caller_supplied_extensions_are_ignored(self) -> None:
+        """A forged binding in the caller-writable ``extensions`` is never read.
+
+        The reader only trusts the worker-only ``trusted_extensions`` channel, so a
+        caller cannot steer connector identity by populating ``extensions``.
+        """
+        ctx = WorkflowContext(
+            namespace="default",
+            execution_id="test-exec-id",
+            extensions={
+                MISTRALAI_PLUGIN_KEY: {
+                    RESOLVED_CONNECTORS_KEY: {
+                        "bindings": [{"connector_name": "github", "connector_id": "forged", "run_as": "deployment"}]
+                    }
+                }
+            },
+        )
+        client = ToolCallClient("github")
+        with define_context(ctx):
+            with pytest.raises(ConnectorError, match="uses_connectors"):
+                client.binding
 
     def test_connector_name_property(self) -> None:
         client = ToolCallClient("my-connector")
@@ -144,13 +182,57 @@ class TestToolCallClientCallTool:
                     arguments={"title": "bug"},
                     credentials_name=None,
                     mcp_ui_resource_uri=None,
+                    run_as="auto",
                 )
                 assert result == {"result": "ok"}
 
+    @pytest.mark.parametrize(
+        ("client_factory", "expected"),
+        [
+            pytest.param(lambda: ToolCallClient("github"), "deployment", id="direct-inherits"),
+            pytest.param(lambda: ToolCallClient("github", run_as="auto"), ConnectorError, id="direct-mismatch"),
+            pytest.param(lambda: connector("github")(), "deployment", id="dep-inherits"),
+            pytest.param(lambda: connector("github", run_as="auto")(), ConnectorError, id="dep-mismatch"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_call_tool_run_as_alignment(self, client_factory, expected) -> None:
+        """A client with no explicit run_as inherits the binding's run_as; a client
+        whose explicit run_as clashes with the interceptor-resolved binding is rejected.
+
+        Covers both construction surfaces (direct ``ToolCallClient`` and the
+        ``connector(...)`` dependency) so the run_as contract is asserted for each.
+        """
+        ctx = _make_context(
+            bindings=[
+                {
+                    "connector_name": "github",
+                    "connector_id": "conn-gh",
+                    "status": "ready",
+                    "run_as": "deployment",
+                }
+            ]
+        )
+        client = client_factory()
+
+        with define_context(ctx):
+            with patch(
+                "mistralai.workflows.plugins.mistralai.connectors.client.connector_tool_call",
+                new_callable=AsyncMock,
+                return_value={"result": "ok"},
+            ) as mock_call:
+                if expected is ConnectorError:
+                    with pytest.raises(ConnectorError, match="resolved run_as='deployment'"):
+                        await client.call_tool("create_issue", {"title": "bug"})
+                    mock_call.assert_not_awaited()
+                else:
+                    await client.call_tool("create_issue", {"title": "bug"})
+                    assert mock_call.await_args.kwargs["run_as"] == expected
+
     @pytest.mark.asyncio
     async def test_call_tool_falls_back_to_name(self) -> None:
-        """When no connector_id in binding, falls back to connector_name."""
-        ctx = _make_context(bindings=[])
+        """When a resolved binding carries no connector_id, falls back to connector_name."""
+        ctx = _make_context(bindings=[{"connector_name": "slack", "status": "ready"}])
         client = ToolCallClient("slack")
 
         with define_context(ctx):
@@ -166,6 +248,7 @@ class TestToolCallClientCallTool:
                     arguments={"text": "hello"},
                     credentials_name=None,
                     mcp_ui_resource_uri=None,
+                    run_as="auto",
                 )
 
     @pytest.mark.asyncio
@@ -187,6 +270,7 @@ class TestToolCallClientCallTool:
                     arguments={"summary": "task"},
                     credentials_name="jira_sa",
                     mcp_ui_resource_uri=None,
+                    run_as="auto",
                 )
 
     @pytest.mark.asyncio
@@ -217,6 +301,7 @@ class TestToolCallClientCallTool:
                     arguments={"summary": "task"},
                     credentials_name="binding_cred",
                     mcp_ui_resource_uri=None,
+                    run_as="auto",
                 )
 
     @pytest.mark.asyncio
@@ -237,6 +322,7 @@ class TestToolCallClientCallTool:
                     arguments=None,
                     credentials_name=None,
                     mcp_ui_resource_uri=None,
+                    run_as="auto",
                 )
                 assert result == {"channels": []}
 
@@ -267,6 +353,7 @@ class TestToolCallClientCallTool:
                     arguments=None,
                     credentials_name=None,
                     mcp_ui_resource_uri="ui://slack/app",
+                    run_as="auto",
                 )
 
     @pytest.mark.asyncio
@@ -300,13 +387,14 @@ class TestToolCallClientCallTool:
                 ) as mock_call,
             ):
                 await client.call_tool("open_dashboard")
-                mock_discover.assert_awaited_once_with("conn-s", credentials_name="call-cred")
+                mock_discover.assert_awaited_once_with("conn-s", credentials_name="call-cred", run_as="auto")
                 mock_call.assert_awaited_once_with(
                     connector_id_or_name="conn-s",
                     tool_name="open_dashboard",
                     arguments=None,
                     credentials_name="call-cred",
                     mcp_ui_resource_uri="ui://call/app",
+                    run_as="auto",
                 )
 
     @pytest.mark.asyncio
@@ -337,7 +425,9 @@ class TestToolCallClientCallTool:
         )
         client = ToolCallClient("slack", credentials_name="call-cred")
 
-        async def discover(connector_id_or_name: str, credentials_name: str | None = None) -> dict[str, str]:
+        async def discover(
+            connector_id_or_name: str, credentials_name: str | None = None, run_as: str = "auto"
+        ) -> dict[str, str]:
             return {"open_dashboard": f"ui://{connector_id_or_name}/app"}
 
         with (
@@ -358,8 +448,8 @@ class TestToolCallClientCallTool:
                 await client.call_tool("open_dashboard")
 
             assert mock_discover.await_args_list == [
-                unittest.mock.call("conn-first", credentials_name="call-cred"),
-                unittest.mock.call("conn-second", credentials_name="call-cred"),
+                unittest.mock.call("conn-first", credentials_name="call-cred", run_as="auto"),
+                unittest.mock.call("conn-second", credentials_name="call-cred", run_as="auto"),
             ]
             assert mock_call.await_args_list == [
                 unittest.mock.call(
@@ -368,6 +458,7 @@ class TestToolCallClientCallTool:
                     arguments=None,
                     credentials_name="call-cred",
                     mcp_ui_resource_uri="ui://conn-first/app",
+                    run_as="auto",
                 ),
                 unittest.mock.call(
                     connector_id_or_name="conn-second",
@@ -375,5 +466,6 @@ class TestToolCallClientCallTool:
                     arguments=None,
                     credentials_name="call-cred",
                     mcp_ui_resource_uri="ui://conn-second/app",
+                    run_as="auto",
                 ),
             ]

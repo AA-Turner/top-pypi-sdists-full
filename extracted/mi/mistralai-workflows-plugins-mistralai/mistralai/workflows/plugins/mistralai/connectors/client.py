@@ -3,11 +3,14 @@ from __future__ import annotations
 from typing import Any
 
 from mistralai.workflows.core.temporal.context_handler_interceptor import retrieve_context
+from mistralai.workflows.models import WorkflowContext
 
 from .activities import connector_tool_call
-from .constants import CONNECTORS_KEY, MISTRALAI_PLUGIN_KEY
+from .constants import MISTRALAI_PLUGIN_KEY
+from .decorator import ConnectorError
 from .mcp_apps import connector_get_mcp_app_resource_uris
-from .models import ResolvedConnectorBinding
+from .models import ResolvedConnectorBinding, resolved_connector_bindings_from_extension
+from .run_as import ConnectorRunAs, RunAsArg, normalize_run_as
 
 
 class ToolCallClient:
@@ -24,10 +27,25 @@ class ToolCallClient:
     when a method is actually called during activity execution.
     """
 
-    def __init__(self, connector_name: str, *, credentials_name: str | None = None):
+    def __init__(
+        self,
+        connector_name: str,
+        *,
+        credentials_name: str | None = None,
+        run_as: RunAsArg = None,
+    ):
         self._connector_name = connector_name
         self._credentials_name = credentials_name
+        # None means "unspecified" — inherit run_as from the resolved binding at
+        # call time. An explicit value always wins.
+        self._run_as = normalize_run_as(run_as) if run_as is not None else None
         self._mcp_ui_resource_uris_by_binding: dict[tuple[str, str | None], dict[str, str]] = {}
+
+    @staticmethod
+    def _resolved_bindings_from_context(context: WorkflowContext) -> list[ResolvedConnectorBinding]:
+        if MISTRALAI_PLUGIN_KEY not in context.trusted_extensions:
+            return []
+        return resolved_connector_bindings_from_extension(context.trusted_extensions[MISTRALAI_PLUGIN_KEY])
 
     def _resolve_binding(self) -> ResolvedConnectorBinding:
         """Resolve the connector binding from the current workflow context."""
@@ -38,12 +56,30 @@ class ToolCallClient:
                 f"'{self._connector_name}' must be used inside a workflow activity"
             )
 
-        mistralai_ext = context.extensions.get(MISTRALAI_PLUGIN_KEY, {})
-        bindings = mistralai_ext.get(CONNECTORS_KEY, {}).get("bindings", [])
-        raw = next((b for b in bindings if b["connector_name"] == self._connector_name), None)
-        if raw is not None:
-            return ResolvedConnectorBinding(**raw)
-        return ResolvedConnectorBinding(connector_name=self._connector_name)
+        resolved_bindings = [
+            binding
+            for binding in self._resolved_bindings_from_context(context)
+            if binding.connector_name == self._connector_name
+        ]
+        if len(resolved_bindings) > 1:
+            raise ConnectorError(
+                f"Multiple interceptor-resolved bindings found for connector {self._connector_name!r}. "
+                "Connector names must be unique in @uses_connectors(...)."
+            )
+        if resolved_bindings:
+            binding = resolved_bindings[0]
+            if self._run_as is not None and self._run_as != binding.run_as:
+                raise ConnectorError(
+                    f"ToolCallClient for connector {self._connector_name!r} has run_as='{self._run_as.value}' "
+                    f"but @uses_connectors(...) resolved run_as='{binding.run_as.value}'. "
+                    "Use the same connector declaration for preflight and tool calls."
+                )
+            return binding
+        raise ConnectorError(
+            f"Connector {self._connector_name!r} is not resolved for this workflow. Add "
+            f'@uses_connectors(connector("{self._connector_name}")) to your workflow class so the '
+            f"interceptor runs connector auth preflight before the tool call."
+        )
 
     @property
     def binding(self) -> ResolvedConnectorBinding:
@@ -61,13 +97,15 @@ class ToolCallClient:
         """Call a connector tool via the MistralPrivate SDK."""
         binding = self._resolve_binding()
         credentials_name = self._credentials_name or binding.credentials_name
-        mcp_ui_resource_uri = await self._get_mcp_ui_resource_uri(binding, credentials_name, tool_name)
+        run_as = binding.run_as
+        mcp_ui_resource_uri = await self._get_mcp_ui_resource_uri(binding, credentials_name, tool_name, run_as)
         return await connector_tool_call(
             connector_id_or_name=binding.connector_id or binding.connector_name,
             tool_name=tool_name,
             arguments=arguments,
             credentials_name=credentials_name,
             mcp_ui_resource_uri=mcp_ui_resource_uri,
+            run_as=run_as,
         )
 
     async def _get_mcp_ui_resource_uri(
@@ -75,6 +113,7 @@ class ToolCallClient:
         binding: ResolvedConnectorBinding,
         credentials_name: str | None,
         tool_name: str,
+        run_as: ConnectorRunAs,
     ) -> str | None:
         if credentials_name == binding.credentials_name and (
             binding.mcp_ui_resource_uris or binding.mcp_ui_resource_uris_fetched
@@ -90,5 +129,6 @@ class ToolCallClient:
             self._mcp_ui_resource_uris_by_binding[cache_key] = await connector_get_mcp_app_resource_uris(
                 connector_id_or_name,
                 credentials_name=credentials_name,
+                run_as=run_as,
             )
         return self._mcp_ui_resource_uris_by_binding[cache_key].get(tool_name)

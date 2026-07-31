@@ -1,6 +1,6 @@
 import os
 import socket
-from enum import StrEnum
+from enum import StrEnum, auto
 from pathlib import Path
 from typing import Annotated, Any, Self
 
@@ -123,6 +123,34 @@ class _ConflictDetectionMixin:
         )
 
 
+class OtelRedactionMode(StrEnum):
+    """Client-side redaction policy applied to spans before OTLP export.
+
+    - DEFAULT: content-oriented regex policy; scans string values and redacts
+      matched secrets/PII substrings while preserving keys and structure.
+    - STRICT: key-oriented policy; redacts whole values for sensitive keys and
+      non-primitive values (destructive, high recall).
+    - NONE: no redaction.
+    """
+
+    DEFAULT = auto()
+    NONE = auto()
+    STRICT = auto()
+
+
+class EventsApiVersion(StrEnum):
+    """Which event route the worker publishes over.
+
+    - V1: legacy event route.
+    - V2: v2 event route, falling back to v1 when a v2 publish is not possible.
+    - V2_ONLY: v2 event route with no fallback — any v1 emit raises (for v2 integration tests).
+    """
+
+    V1 = "v1"
+    V2 = "v2"
+    V2_ONLY = "v2-only"
+
+
 class CommonConfig(_ConflictDetectionMixin, BaseSettings):
     app_name: str = "mistral-workflows"
     app_version: str = "0.0.0"
@@ -141,9 +169,13 @@ class CommonConfig(_ConflictDetectionMixin, BaseSettings):
     otel_logs_endpoint: str | None = None
     otel_sample_rate: float = 1.0
     otel_export_interval_ms: int = 30000
+    temporal_runtime_metrics_buffer_size: int = 30000
+    temporal_runtime_metrics_drain_interval_s: float = 5.0
     otel_tail_sampling: bool = False
     otel_local: bool = False
     otel_inject_logs: bool = True
+    # Client-side redaction applied to all spans before OTLP export.
+    otel_redaction: OtelRedactionMode = OtelRedactionMode.DEFAULT
 
     ca_bundle: str | None = Field(  # type: ignore[pydantic-alias]
         default=None,
@@ -152,6 +184,13 @@ class CommonConfig(_ConflictDetectionMixin, BaseSettings):
     )
 
     mistral_api_key: Annotated[SecretStr | None, DetectEnvConflict()] = Field(default=None)
+    mistral_sa_token_path: Annotated[str | None, DetectEnvConflict()] = Field(
+        default=None,
+        description=(
+            "Path to a file holding a service-account bearer token, re-read periodically "
+            "so rotated tokens are picked up."
+        ),
+    )
 
     model_config = SettingsConfigDict(
         env_file=env_file,
@@ -173,6 +212,11 @@ RESERVED_QUERY_NAMES: frozenset[str] = frozenset({"__get_pending_inputs"})
 INTERNAL_ACTIVITY_PREFIX: str = "__internal__"
 
 RESERVED_INPUT_ATTRIBUTE_PREFIX: str = "__internal_"
+
+# Search-key size limits (RFC-402), shared by SDK validation/extraction and the abraxas API.
+MAX_SEARCH_KEYS: int = 20
+MAX_SEARCH_KEY_CHARS: int = 256
+MAX_SEARCH_KEY_VALUE_CHARS: int = 8 * 1024  # 8 KiB
 
 
 class ReservedExtraFieldsAttribute(StrEnum):
@@ -358,7 +402,8 @@ def _detect_k8s_namespace() -> str | None:
 class DeploymentLocationConfig(BaseSettings):
     location_type: LocationType = Field(
         default_factory=_detect_location_type,
-        description="Where this deployment is running: 'local' or 'k8s'. Auto-detected from KUBERNETES_SERVICE_HOST.",
+        description="Where this deployment is running: 'local', 'k8s', or 'managed'. "
+        "Auto-detected from KUBERNETES_SERVICE_HOST.",
     )
     k8s_cluster: str | None = Field(
         default=None,
@@ -418,7 +463,7 @@ class WorkerConfig(BaseSettings):
         validation_alias=AliasChoices("SERVER_URL", "server_url"),
     )
     api_version: str = "v1"
-    events_api_version: str = "v1"
+    events_api_version: EventsApiVersion = EventsApiVersion.V1
     allow_multiple_workers: bool = True
     enable_config_discovery: bool = True
     mistral_api_headers: dict[str, str] | None = None

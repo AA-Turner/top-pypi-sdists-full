@@ -4,6 +4,12 @@ v2-compatibility chunk key encoding (Zarr v3 core spec).
 Intended only to allow existing v2 arrays to be converted to v3 without
 having to rename chunks. Not recommended for new arrays.
 
+Naming note: these are Zarr **v3** types. The leading `V2` in
+`V2ChunkKeyEncodingMetadata` (and friends) is the encoding's registered
+*entity name* (`"v2"`), not the format-version marker that `ZarrV2...`
+names carry — this package's version-prefixed names always spell it
+`ZarrV2` / `ZarrV3`.
+
 See https://zarr-specs.readthedocs.io/en/latest/v3/core/index.html#chunk-key-encoding
 """
 
@@ -18,10 +24,13 @@ V2ChunkKeyEncodingName = Literal["v2"]
 """Literal type of the `name` field of the v2 chunk key encoding."""
 
 V2ChunkKeyEncodingSeparator = Literal["/", "."]
-"""Permitted `separator` values for the v2 chunk key encoding.
+"""Literal type of permitted `separator` values for the v2 chunk key encoding.
 
 Defaults to `"."` if absent.
 """
+
+V2_CHUNK_KEY_ENCODING_SEPARATOR: Final = ("/", ".")
+"""Tuple of permitted values for the `separator` field of the v2 chunk key encoding."""
 
 
 class V2ChunkKeyEncodingConfiguration(TypedDict):
@@ -49,6 +58,7 @@ so the short-hand-name form is permitted in addition to the object form.
 
 __all__ = [
     "V2_CHUNK_KEY_ENCODING_NAME",
+    "V2_CHUNK_KEY_ENCODING_SEPARATOR",
     "V2ChunkKeyEncodingConfiguration",
     "V2ChunkKeyEncodingMetadata",
     "V2ChunkKeyEncodingName",

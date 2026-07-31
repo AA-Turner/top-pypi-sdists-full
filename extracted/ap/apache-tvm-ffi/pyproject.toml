@@ -31,7 +31,7 @@ classifiers = [
   "Intended Audience :: Science/Research",
 ]
 keywords = ["machine learning", "inference"]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = ["typing-extensions>=4.5"]
 
 [project.urls]
@@ -49,21 +49,27 @@ torch = [
   "numpy",
   "ml_dtypes",
 ]
-test = [{ include-group = "torch" }, "pytest"]
+test = [{ include-group = "torch" }, "pytest", "pytest-xdist"]
 dev = [
   { include-group = "test" },
   "pre-commit",
-  "ruff",
+  "pre-commit-hooks==6.0.0",
+  "ruff==0.14.9",
   "ty==0.0.15",
-  "clang-format",
+  "clang-format==21.1.7",
   "clang-tidy",
+  "cmakelang==0.6.13",
   "ipdb",
   "ipython",
-  "cython>=3.0",
+  # cython>=3.2.8: see the [build-system] requires note (free-threaded __dealloc__ fix).
+  "cython>=3.2.8",
+  "cython-lint==0.18.1",
   "cmake",
   "scikit-build-core",
+  "shellcheck-py==0.11.0.1",
   "tomli",
   "setuptools-scm",
+  "yamllint==1.37.1",
 ]
 docs = [
   "autodocsumm",
@@ -100,12 +106,18 @@ tvm-ffi-config = "tvm_ffi.config:__main__"
 tvm-ffi-stubgen = "tvm_ffi.stub.cli:__main__"
 
 [build-system]
-requires = ["scikit-build-core>=0.10.0", "cython>=3.0", "setuptools-scm"]
+# cython>=3.2.8: the PyObject-tying dealloc handshake runs inside the wrapper's
+# __dealloc__, and Cython 3.2.8 (2026-06-30) fixed the free-threaded object
+# keep-alive scheme for code executed there (cython#7769). Earlier Cython can
+# collect the wrapper mid-__dealloc__ on the 3.14t build.
+requires = ["scikit-build-core>=0.10.0", "cython>=3.2.8", "setuptools-scm"]
 build-backend = "scikit_build_core.build"
 
 [tool.scikit-build]
 metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
-wheel.py-api = "cp312"
+# Per-Python-version wheels (no abi3 / limited API): the core extension builds
+# against the full per-version Python C API (WITH_SOABI in CMakeLists.txt), so the
+# wheel must be tagged per-version (cp312-cp312, ...) rather than cp312-abi3.
 minimum-version = "build-system.requires"
 ninja.version = ">=1.11"
 ninja.make-fallback = false
@@ -176,12 +188,16 @@ sdist.exclude = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Run the suite in parallel across all available cores. GPU-touching tests
+# serialize on a shared machine-local lock via tvm_ffi.testing.run_with_gpu_lock,
+# so parallel workers do not contend for the device. Pass "-n0" to disable.
+addopts = ["-n", "auto"]
 
 [tool.ruff]
 include = ["python/**/*.py", "tests/**/*.py"]
 line-length = 100
 indent-width = 4
-target-version = "py38"
+target-version = "py39"
 
 [tool.ruff.lint]
 select = [
@@ -213,6 +229,7 @@ unfixable = []
   "E741", # pycodestyle: ambiguous-variable-name
   "D100", # pydocstyle: undocumented-public-module
   "D101", # pydocstyle: undocumented-public-class
+  "D102", # pydocstyle: undocumented-public-method
   "D103", # pydocstyle: undocumented-public-function
   "D107", # pydocstyle: undocumented-public-init
   "D205", # pydocstyle: missing-blank-line-after-summary
@@ -232,14 +249,11 @@ docstring-code-line-length = 80
 [tool.cibuildwheel]
 build-verbosity = 1
 
-# only build up to cp312, cp312
-# will be abi3 and can be used in future versions
-# ship 314t threaded nogil version
-build = ["cp38-*", "cp39-*", "cp310-*", "cp311-*", "cp312-*", "cp314t-*"]
+# Per-Python-version wheels (no abi3 / limited API).
+build = ["cp39-*", "cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp314t-*"]
 skip = ["*musllinux*"]
-# we only need to test on cp312
-test-skip = ["cp38-*", "cp39-*", "cp310-*", "cp311-*"]
-# focus on testing abi3 wheel
+# cp39-cp311 are covered by the cp312 test run.
+test-skip = ["cp39-*", "cp310-*", "cp311-*"]
 build-frontend = "build[uv]"
 test-command = "pytest {package}/tests/python -vvs"
 test-groups = ["test"]
@@ -253,6 +267,7 @@ environment = { MACOSX_DEPLOYMENT_TARGET = "10.14" }
 
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
+repair-wheel-command = "delvewheel repair --ignore-existing -w {dest_dir} -v {wheel}"
 
 [tool.ty.environment]
 python-version = "3.9"
@@ -267,6 +282,7 @@ unused-ignore-comment = "ignore"
 
 [tool.ty.analysis]
 allowed-unresolved-imports = [
+  "tvm_ffi._version",
   "torch",
   "torch.*",
   "torch.utils.*",
@@ -288,6 +304,7 @@ allowed-unresolved-imports = [
 exclude-newer = "14 days"
 
 [tool.uv.dependency-groups]
+dev = { requires-python = ">=3.10" }
 docs = { requires-python = ">=3.13" }
 
 [tool.setuptools_scm]

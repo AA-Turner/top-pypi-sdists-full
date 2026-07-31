@@ -6,9 +6,12 @@ from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
+from pydantic import SecretStr
 
 from mistralai.workflows._version import __version__
 from mistralai.workflows.client import _get_async_client, _get_sync_client, should_use_executor_credentials
+from mistralai.workflows.core.auth import StaticTokenProvider
+from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.temporal.context_handler_interceptor import define_context
 from mistralai.workflows.core.worker_client import get_worker_client
 from mistralai.workflows.exceptions import WorkflowError
@@ -19,6 +22,10 @@ from mistralai.workflows.hooks.executor_credentials_hook import (
 from mistralai.workflows.hooks.metadata_hook import (
     inject_metadata,
     inject_metadata_async,
+)
+from mistralai.workflows.hooks.token_provider_hook import (
+    AsyncTokenProviderHook,
+    TokenProviderHook,
 )
 from mistralai.workflows.models.payload import WorkflowContext
 from mistralai.workflows.worker_client.models import ExecutorIdentityTokenResponse
@@ -33,15 +40,15 @@ _CLIENT_FACTORIES = [
 @pytest.mark.parametrize("get_client", [_get_async_client, _get_sync_client])
 class TestClientUserAgent:
     def test_default_user_agent_is_sent(self, get_client):
-        client = get_client(api_key="test-key")
+        client = get_client(token_provider=StaticTokenProvider("test-key"))
         assert client.headers["user-agent"] == f"mistral-client-python/workflows-worker/{__version__}"
 
     def test_custom_user_agent_is_preserved(self, get_client):
-        client = get_client(api_key="test-key", headers={"User-Agent": "custom-agent/1.0"})
+        client = get_client(token_provider=StaticTokenProvider("test-key"), headers={"User-Agent": "custom-agent/1.0"})
         assert client.headers["user-agent"] == "custom-agent/1.0"
 
     def test_custom_user_agent_case_insensitive(self, get_client):
-        client = get_client(api_key="test-key", headers={"user-agent": "custom-agent/2.0"})
+        client = get_client(token_provider=StaticTokenProvider("test-key"), headers={"user-agent": "custom-agent/2.0"})
         assert client.headers["user-agent"] == "custom-agent/2.0"
 
 
@@ -49,7 +56,7 @@ class TestClientUserAgent:
 class TestExecutorCredentials:
     def test_client_created_without_activity_context(self, get_client, expected_hook_cls):
         client = get_client(
-            api_key="test-key",
+            token_provider=StaticTokenProvider("test-key"),
             server_url="http://localhost",
             use_executor_credentials=True,
         )
@@ -58,11 +65,44 @@ class TestExecutorCredentials:
 
     def test_raises_without_server_url(self, get_client, expected_hook_cls):
         with pytest.raises(WorkflowError, match="server_url"):
-            get_client(api_key="test-key", use_executor_credentials=True)
+            get_client(token_provider=StaticTokenProvider("test-key"), use_executor_credentials=True)
 
-    def test_raises_without_api_key(self, get_client, expected_hook_cls):
-        with pytest.raises(WorkflowError, match="api_key"):
+    def test_raises_without_token_provider(self, get_client, expected_hook_cls, monkeypatch):
+        # No explicit provider and no configured credential → nothing to resolve, so the hook setup fails.
+        monkeypatch.setattr(config.common, "mistral_api_key", None)
+        monkeypatch.setattr(config.common, "mistral_sa_token_path", None)
+        with pytest.raises(WorkflowError, match="token_provider"):
             get_client(server_url="http://localhost", use_executor_credentials=True)
+
+
+@pytest.mark.parametrize(
+    "get_client,expected_hook_cls",
+    [
+        pytest.param(_get_async_client, AsyncTokenProviderHook, id="async"),
+        pytest.param(_get_sync_client, TokenProviderHook, id="sync"),
+    ],
+)
+class TestImplicitProviderResolution:
+    """A client attaches the auth hook whenever a credential is resolvable from config (no explicit
+    token_provider/api_key), so service-account auth works transparently."""
+
+    def test_attaches_auth_hook_from_sa_token(self, monkeypatch, tmp_path, get_client, expected_hook_cls):
+        monkeypatch.setattr(config.common, "mistral_sa_token_path", str(tmp_path / "token"))
+        monkeypatch.setattr(config.common, "mistral_api_key", None)
+        hooks = get_client().event_hooks.get("request", [])
+        assert any(isinstance(h, expected_hook_cls) for h in hooks)
+
+    def test_attaches_auth_hook_from_config_api_key(self, monkeypatch, get_client, expected_hook_cls):
+        monkeypatch.setattr(config.common, "mistral_sa_token_path", None)
+        monkeypatch.setattr(config.common, "mistral_api_key", SecretStr("config-key"))
+        hooks = get_client().event_hooks.get("request", [])
+        assert any(isinstance(h, expected_hook_cls) for h in hooks)
+
+    def test_no_auth_hook_when_no_credentials_configured(self, monkeypatch, get_client, expected_hook_cls):
+        monkeypatch.setattr(config.common, "mistral_sa_token_path", None)
+        monkeypatch.setattr(config.common, "mistral_api_key", None)
+        hooks = get_client().event_hooks.get("request", [])
+        assert not any(isinstance(h, expected_hook_cls) for h in hooks)
 
 
 class TestSdkClientUserAgent:
@@ -172,7 +212,7 @@ async def _maybe_await(result):
 @pytest.mark.parametrize("get_client,expected_hook", _METADATA_HOOK_FACTORIES)
 class TestMetadataHeader:
     def test_metadata_hook_registered_in_event_hooks(self, get_client, expected_hook):
-        client = get_client(api_key="test-key")
+        client = get_client(token_provider=StaticTokenProvider("test-key"))
         hooks = client.event_hooks.get("request", [])
         assert expected_hook in hooks
 
@@ -249,7 +289,7 @@ class TestOboVsNonOboCredentials:
         request = self._request()
         with define_context(obo_ctx):
             client = get_client(
-                api_key=_WORKER_KEY,
+                token_provider=StaticTokenProvider(_WORKER_KEY),
                 server_url="http://localhost",
                 use_executor_credentials=should_use_executor_credentials(),
             )
@@ -265,7 +305,7 @@ class TestOboVsNonOboCredentials:
         request = self._request()
         with define_context(non_obo_ctx):
             client = get_client(
-                api_key=_WORKER_KEY,
+                token_provider=StaticTokenProvider(_WORKER_KEY),
                 server_url="http://localhost",
                 use_executor_credentials=should_use_executor_credentials(),
             )

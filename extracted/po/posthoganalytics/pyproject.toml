@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "posthoganalytics"
-version = "7.33.0"
+version = "7.35.0"
 description = "Integrate PostHog into any python application."
 authors = [
     { name = "PostHog", email = "engineering@posthog.com" },
@@ -15,13 +15,13 @@ authors = [
 maintainers = [
     { name = "PostHog", email = "engineering@posthog.com" },
 ]
+license = "MIT"
 readme = "README_ANALYTICS.md"
 requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -35,9 +35,6 @@ dependencies = [
     "distro>=1.5.0",
     "typing-extensions>=4.2.0",
 ]
-
-[project.license]
-text = "MIT"
 
 [project.urls]
 Homepage = "https://github.com/posthog/posthog-python"

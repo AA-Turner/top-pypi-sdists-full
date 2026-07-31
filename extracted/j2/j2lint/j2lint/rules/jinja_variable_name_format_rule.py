@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2025 Arista Networks, Inc.
+# Copyright (c) 2021-2026 Arista Networks, Inc.
 # Use of this source code is governed by the MIT license
 # that can be found in the LICENSE file.
 """jinja_variable_name_format_rule.py - Rule class to check that variable names only use underscores."""
@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, ClassVar
+from typing import ClassVar
 
 from j2lint.linter.error import LinterError
 from j2lint.linter.rule import Rule
@@ -23,7 +23,7 @@ class JinjaVariableNameFormatRule(Rule):
 
     regex = re.compile(r"[a-zA-Z0-9-_\"']+[-][a-zA-Z0-9-_\"']+")
 
-    def __init__(self, ignore: bool = False, warn: list[Any] | None = None) -> None:
+    def __init__(self, ignore: bool = False, warn: list[Rule] | None = None) -> None:
         super().__init__(ignore=ignore, warn=warn)
 
     def checktext(self, filename: str, text: str) -> list[LinterError]:

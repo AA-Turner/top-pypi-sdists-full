@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "durabletask"
-version = "1.8.0"
+version = "1.9.0"
 description = "A Durable Task Client SDK for Python"
 keywords = [
     "durable",
@@ -56,4 +56,5 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 markers = [
     "azurite: tests that require Azurite (local Azure Storage emulator)",
+    "functions_e2e: end-to-end tests that require the Azure Functions Core Tools (func) and Azurite",
 ]

@@ -446,9 +446,21 @@ def _build_icon_style(style, base, name, size, states, compound, icon_only=False
         config["compound"] = compound
     if padding is not None:
         config["padding"] = padding
-    style.configure(derived, **config)
+    # Mark this as a framework-derived style, then configure BEFORE registering.
+    # `_derived_styles` excludes it from the durable-options fan-out, so a
+    # `configure("TButton", padding=...)` is NOT stamped onto it -- yet a plain
+    # (text+icon) button still follows that override, because `Icon<digest>.TButton`
+    # inherits the base `configure` through ttk's native dotted-name resolution
+    # while an `icon_only` control keeps its own computed square padding (which it
+    # sets in `config`). Configuring first keeps `registered => configured` true:
+    # if a write raises, the style is never marked built and is retried (#1284).
+    # `_build_configure` is the internal path (not public `Style.configure`), so
+    # this padding is never captured as a durable user override.
+    style._derived_styles.add(derived)
+    style._build_configure(derived, **config)
     if image_map:
         style.map(derived, image=image_map)
+    style._register_ttkstyle(derived)
     return derived
 
 

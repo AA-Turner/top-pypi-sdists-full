@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jcodemunch-mcp
-Version: 1.108.199
+Version: 1.108.204
 Summary: Token-efficient MCP server for source code exploration via tree-sitter AST parsing
 Project-URL: Homepage, https://github.com/jgravelle/jcodemunch-mcp
 Project-URL: Repository, https://github.com/jgravelle/jcodemunch-mcp
@@ -393,12 +393,12 @@ Measured with `tiktoken cl100k_base` across three public repos. Workflow: `searc
 
 | Repository | Files | Symbols | Baseline tokens | jCodeMunch tokens | Reduction |
 |------------|------:|--------:|----------------:|------------------:|----------:|
-| expressjs/express | 172 | 182 | 143,355 | ~1,040 avg | **99.3%** |
-| fastapi/fastapi | 1,000 | 6,722 | 823,784 | ~2,490 avg | **99.7%** |
-| gin-gonic/gin | 109 | 1,502 | 192,800 | ~1,510 avg | **99.2%** |
-| **Grand total (15 task-runs)** | | | **5,799,695** | **25,220** | **99.6%** |
+| expressjs/express | 185 | 200 | 155,960 | 985 avg | **99.4%** |
+| fastapi/fastapi | 1,000 | 6,722 | 823,784 | 2,494 avg | **99.7%** |
+| gin-gonic/gin | 98 | 1,179 | 151,842 | 1,540 avg | **99.0%** |
+| **Grand total (15 task-runs)** | | | **5,657,930** | **25,090** | **99.6%** |
 
-Per-query results range from 99.1% to 99.9%. The 99.6% figure is the aggregate (run 2026-07-23, v1.108.163, full un-capped indexes). Run `python benchmarks/harness/run_benchmark.py` to reproduce.
+Per-query results range from 99.0% to 99.9%. The 99.6% figure is the aggregate (run 2026-07-29, v1.108.199, full un-capped indexes). Run `python benchmarks/harness/run_benchmark.py` to reproduce, or `--reference` to also refresh `benchmarks/jcm_reference.json` — the artifact the RAG and Odysseus comparison harnesses read instead of carrying their own copy of these numbers.
 
 ### A/B test on production codebase
 
@@ -476,7 +476,7 @@ And the questions don't stop at your own code: `index_dependency` resolves a thi
 
 ### Compiler-verified references — no language server required
 
-AST-derived analysis is fast and language-broad, but dynamic dispatch and barrel re-exports can hide references from any static heuristic. `import-scip` closes that gap with evidence instead of guesswork: point it at a SCIP index file — the artifact `scip-typescript`, `scip-python`, `scip-java`, `scip-go`, `rust-analyzer`, and `scip-clang` already emit in CI — and jCodeMunch stores the compiler's own reference and implementation edges alongside the index. `find_references` then labels agreement as `verification: "compiler_verified"` and, more importantly, surfaces the references *only the compiler saw* as additional `source: "scip"` rows. The evidence is honest about its age: results ingested at an older index HEAD carry a `stale` flag and a re-import hint rather than posing as current truth. One command in CI (`scip-typescript index && jcodemunch-mcp import-scip index.scip`), zero language servers running, nothing executed by jCodeMunch itself, and everything stays on your machine.
+AST-derived analysis is fast and language-broad, but dynamic dispatch and barrel re-exports can hide references from any static heuristic. `import-scip` closes that gap with evidence instead of guesswork: point it at a SCIP index file — the artifact `scip-typescript`, `scip-python`, `scip-java`, `scip-go`, `rust-analyzer`, and `scip-clang` already emit in CI — and jCodeMunch stores the compiler's own reference and implementation edges alongside the index. `find_references` then labels agreement as `verification: "compiler_verified"` and, more importantly, surfaces the references *only the compiler saw* as additional `source: "scip"` rows. The evidence is honest about its age: results ingested at an older index HEAD carry a `stale` flag and a re-import hint rather than posing as current truth. One command in CI (`scip-typescript index && jcodemunch-mcp import-scip index.scip`), zero language servers running, nothing executed by jCodeMunch itself, and everything stays on your machine. Per-language recipes and the CI ordering are in **[SCIP.md](SCIP.md)**.
 
 ### Agent config hygiene
 
@@ -511,6 +511,7 @@ Every retrieval result now ships with three machine-readable health signals so a
 - **`_meta.confidence`** — calibrated 0–1 score combining top-1/top-2 score gap, top-1 strength, identity-match presence, and freshness. Lets an agent gate follow-up `get_symbol_source` calls on a single number.
 - **`_freshness ∈ {fresh, edited_uncommitted, stale_index}`** on every result entry, plus a `_meta.freshness` summary. Derived from index SHA vs `git rev-parse HEAD` and per-file mtime checks.
 - **Per-tool latency telemetry** (`p50/p95/max/error_rate`) exposed via `get_session_stats.latency_per_tool` and the `analyze_perf` tool. Optional SQLite sink (`~/.code-index/telemetry.db`) for cross-session analysis.
+- **`source_status`** on `get_symbol_source` / `get_context_bundle` entries — set when a symbol resolved but its body could not be read (the row lives in the `.db`, the bytes live in a separate content directory, and that directory can be pruned, copied without its sibling, or absent by design in a starter pack). The verdict degrades to `state: "degraded"` with `channels.content_cache: "missing"` and an `unavailable_source_count`, so an empty `source` is never presented as a confident answer. A zero-length body is a different case and is untouched.
 
 The `tune_weights` tool reads the persistent ranking ledger and learns per-repo retrieval weights (saved to `~/.code-index/tuning.jsonc`). `check_embedding_drift` pins a 16-string canary to detect silent provider model changes. `benchmarks/replay/` provides a CI-friendly retrieval-quality regression gate (nDCG/MRR/Recall) that every release runs against.
 
@@ -575,10 +576,14 @@ Everything jCodeMunch does beyond answering a tool call is listed here. All of i
 - **Local index storage.** Indexes live at `~/.code-index/` (override with `CODE_INDEX_PATH`). Delete the directory and every trace of indexing is gone.
 - **Live session journal.** While the server runs, it periodically writes a small `_session_live.json` in `~/.code-index/` recording the files and searches the agent touched this session (paths and query strings only, no file contents). It exists so the out-of-process PreCompact hook can restore session orientation after context compaction. Throttled, atomically written, overwritten in place; disable with `JCODEMUNCH_LIVE_JOURNAL=0`.
 - **Process presence file.** While a server runs, it writes one small JSON file at `~/.code-index/_processes/<pid>.json` recording its own PID, transport, version, start time, and the launching client's name — nothing about your code, repos, or queries. It exists so `get_session_stats` can tell you how many jCodeMunch servers are sharing one index store: some MCP clients don't reap stdio servers at session end, and they accumulate invisibly (one user found 25+ holding ~17 GB between them). The file is removed on exit, and any reader prunes entries whose process is no longer alive, so a hard kill leaves nothing behind. No daemon, no timer, no network.
+- **Local performance ledger — off by default.** With `perf_telemetry_enabled: true` in `config.jsonc`, the server records tool latencies, ranking events (query strings and returned symbol ids), and one per-session row of delivery counts (`session_yield`: how many symbols were delivered, how many of those were the same symbol twice, and an estimated token count for the repeats) into `~/.code-index/telemetry.db`. It is what `analyze_perf`, `suggest_corrections`, and the weight tuner read. **This database never leaves your machine** — the anonymous savings meter above sends aggregate counters only and never reads this file. Off unless you turn it on; delete the file to erase it.
 - **User-invoked network calls.** A few commands you run explicitly reach the network. None run in the background or fire on a plain import; each happens only when you invoke the command:
   - **License validation.** `license`, `org-rollup`, and `install-pack --license` send your license key to `validate.php` on `j.gravelle.us` to confirm it. The key travels in the request body / a header, never the URL, so it can't land in intermediary access logs. This gates only the team `org-rollup` feature; the individual tools never call it.
-  - **Starter-pack download.** `install-pack` fetches the pack catalog and any pre-built index pack you request from `j.gravelle.us` (a premium pack also sends your license key).
+  - **Starter-pack download.** `install-pack` fetches the pack catalog and any pre-built index pack you request from `jcodemunch.com` (a premium pack also sends your license key).
   - **Embedding-model download.** `download-model` — and the first semantic encode when the `[local-embed]` extra is installed — downloads the ONNX model (`all-MiniLM-L6-v2`, ~23 MB, one time) from `huggingface.co`; after that, semantic search needs no network.
+  - **Team savings report.** `org-report` (team SKU) sends **only** `org_id`, `seat_id`, `tokens_saved`, `usd`, `calls`, and a date. No code, no file paths, no queries, no repo names. It goes to a host **you** choose, on your own network, never to a jMunch server. With no `--endpoint` or `JCODEMUNCH_ORG_ENDPOINT` set it writes to a local file (`org_savings.db`) and nothing leaves the machine at all. ⚠ **`seat_id` defaults to your machine's hostname**, which often contains a person's name: set `JCODEMUNCH_CLIENT_ID` to send an identifier of your choosing instead. It runs only when you invoke it. There is no scheduler and no background reporting.
+
+- **Accepting reports from other machines. Off by default, behind two explicit opt-ins.** One machine can act as the "org host" that collects the reports above, via `POST /org/report`. This is the only route in jCodeMunch that accepts writes from another computer, so it is gated three ways: the HTTP transport has to be running at all (`serve --transport streamable-http`), `org_ingest_enabled` must be turned on (it defaults to **false**, via `JCODEMUNCH_ORG_INGEST_ENABLED=1`), and the request must carry your `JCODEMUNCH_HTTP_TOKEN` bearer. It stores exactly the six fields listed above, in `org_savings.db` on that host. A default install accepts nothing, listens for nothing, and needs no action from you to keep it that way.
 
 Beyond the user-invoked calls listed above, the base package makes no other network calls and leaves no other persistent processes. AI-summary extras call their configured provider's API only when you enable them — see the extras matrix under [Start fast](#start-fast).
 
@@ -986,7 +991,7 @@ When `adaptive_tiering` is false, `plan_turn(model=...)` and `announce_model(...
 
 #### The Counter — collapse to a 3-tool front door (`tool_surface`)
 
-`tool_surface` goes further than tiering: it collapses the resident tool list to a **three-tool front door** that fronts the entire catalog without losing any capability. Every turn the host serializes each resident tool's schema into context; the front door shrinks that fixed per-turn cost (≈21.6k → ≈0.9k tokens, ~24×) and removes the "pick one of N" dispatch dilution.
+`tool_surface` goes further than tiering: it collapses the resident tool list to a **three-tool front door** that fronts the entire catalog without losing any capability. Every turn the host serializes each resident tool's schema into context; the front door shrinks that fixed per-turn cost and removes the "pick one of N" dispatch dilution. Measured on v1.108.199: **25,801 → 1,038 estimated schema tokens, ~25×**. That figure is an estimate at `bytes/4`, not a tokenizer count, and it moves as the catalog grows — so don't take ours. Run `jcodemunch-mcp surface` for your own install's number.
 
 **New installs default to `counter`** so a first-time user gets maximal token savings out of the box, with every tool one `menu()` / `route()` call away. This default is applied only to a genuinely first-ever install: an **existing install keeps its surface across upgrades** — if you never set `tool_surface`, a package update leaves you on `full` exactly as before, never silently collapsing your tool list. Set it explicitly any time:
 

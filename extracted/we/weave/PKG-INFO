@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weave
-Version: 0.53.3
+Version: 0.53.4
 Summary: A toolkit for building composable interactive data driven applications.
 Project-URL: Company, https://wandb.com
 Project-URL: Documentation, https://docs.wandb.ai
@@ -336,6 +336,7 @@ Requires-Dist: openai>=1.99.9; extra == 'smolagents'
 Requires-Dist: smolagents<1.19.0,>=1.17.0; (python_version >= '3.10') and extra == 'smolagents'
 Requires-Dist: sqlalchemy>=2.0.38; extra == 'smolagents'
 Provides-Extra: trace-server
+Requires-Dist: azure-identity<2.0.0,>=1.25.0; extra == 'trace-server'
 Requires-Dist: azure-storage-blob<12.26.0,>=12.24.0; extra == 'trace-server'
 Requires-Dist: boto3>=1.34.0; extra == 'trace-server'
 Requires-Dist: emoji>=2.12.1; extra == 'trace-server'

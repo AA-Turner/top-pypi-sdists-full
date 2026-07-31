@@ -174,10 +174,12 @@ class ExplainedDecision(google.protobuf.message.Message):
     SKIP_REJECTION_REASON_FIELD_NUMBER: builtins.int
     CLONE_REJECTION_REASON_FIELD_NUMBER: builtins.int
     IS_STALE_FIELD_NUMBER: builtins.int
+    DECISION_DESCRIPTION_FIELD_NUMBER: builtins.int
     decision: global___SubmitSQLResultType.ValueType
     skip_rejection_reason: global___RejectionReason.ValueType
     clone_rejection_reason: global___RejectionReason.ValueType
     is_stale: builtins.bool
+    decision_description: builtins.str
     def __init__(
         self,
         *,
@@ -185,9 +187,10 @@ class ExplainedDecision(google.protobuf.message.Message):
         skip_rejection_reason: global___RejectionReason.ValueType | None = ...,
         clone_rejection_reason: global___RejectionReason.ValueType | None = ...,
         is_stale: builtins.bool = ...,
+        decision_description: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["_clone_rejection_reason", b"_clone_rejection_reason", "_skip_rejection_reason", b"_skip_rejection_reason", "clone_rejection_reason", b"clone_rejection_reason", "skip_rejection_reason", b"skip_rejection_reason"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_clone_rejection_reason", b"_clone_rejection_reason", "_skip_rejection_reason", b"_skip_rejection_reason", "clone_rejection_reason", b"clone_rejection_reason", "decision", b"decision", "is_stale", b"is_stale", "skip_rejection_reason", b"skip_rejection_reason"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["_clone_rejection_reason", b"_clone_rejection_reason", "_skip_rejection_reason", b"_skip_rejection_reason", "clone_rejection_reason", b"clone_rejection_reason", "decision", b"decision", "decision_description", b"decision_description", "is_stale", b"is_stale", "skip_rejection_reason", b"skip_rejection_reason"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_clone_rejection_reason", b"_clone_rejection_reason"]) -> typing.Literal["clone_rejection_reason"] | None: ...
     @typing.overload

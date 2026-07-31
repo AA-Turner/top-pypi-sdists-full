@@ -36,6 +36,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Free Threading :: 4 - Resilient",
     "License :: OSI Approved :: MIT License",
     "Development Status :: 5 - Production/Stable",
     "Environment :: Web Environment",
@@ -76,17 +77,18 @@ exclude = [
 [tool.pylint.master]
 disable = [
     "invalid-name",
+    "too-few-public-methods",
     "too-many-arguments",
     "too-many-boolean-expressions",
     "too-many-branches",
     "too-many-instance-attributes",
     "too-many-lines",
     "too-many-locals",
-    "too-many-positional-arguments",
     "too-many-nested-blocks",
+    "too-many-positional-arguments",
+    "too-many-public-methods",
     "too-many-return-statements",
     "too-many-statements",
-    "too-few-public-methods",
     "unknown-option-value"
 ]
 enable = [
@@ -117,6 +119,16 @@ py-version = "3.7"
 
 [tool.mypy]
 strict = true
+
+[tool.pyright]
+pythonVersion = "3.7"
+typeCheckingMode = "strict"
+reportCallInDefaultInitializer = true
+reportImportCycles = true
+reportPropertyTypeMismatch = true
+reportUninitializedInstanceVariable = true
+reportUnnecessaryTypeIgnoreComment = true
+reportUnreachable = true
 
 [tool.coverage.report]
 exclude_lines = [

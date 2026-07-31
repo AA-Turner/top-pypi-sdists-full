@@ -6,6 +6,7 @@ from .action_types import ActionTypes
 from .activity import Activity
 from .activity_event_names import ActivityEventNames
 from .activity_types import ActivityTypes
+from .adaptive_card_card import AdaptiveCardCard
 from .adaptive_card_invoke_action import AdaptiveCardInvokeAction
 from .adaptive_card_invoke_response import AdaptiveCardInvokeResponse
 from .adaptive_card_invoke_value import AdaptiveCardInvokeValue
@@ -16,11 +17,11 @@ from .attachment_info import AttachmentInfo
 from .attachment_view import AttachmentView
 from .audio_card import AudioCard
 from .basic_card import BasicCard
+from .card import Card
 from .card_action import CardAction
 from .card_image import CardImage
 from .channels import Channels
 from .channel_account import ChannelAccount
-from ._channel_id_field_mixin import _ChannelIdFieldMixin
 from .channel_id import ChannelId
 from .conversation_account import ConversationAccount
 from .conversation_members import ConversationMembers
@@ -28,6 +29,7 @@ from .conversation_parameters import ConversationParameters
 from .conversation_reference import ConversationReference
 from .conversation_resource_response import ConversationResourceResponse
 from .conversations_result import ConversationsResult
+from .content_types import ContentTypes
 from .expected_replies import ExpectedReplies
 from .entity import (
     Entity,
@@ -71,6 +73,7 @@ from .thumbnail_card import ThumbnailCard
 from .thumbnail_url import ThumbnailUrl
 from .token_exchange_invoke_request import TokenExchangeInvokeRequest
 from .token_exchange_invoke_response import TokenExchangeInvokeResponse
+from .token_exchange_request import TokenExchangeRequest
 from .token_exchange_state import TokenExchangeState
 from .token_or_sign_in_resource_response import TokenOrSignInResourceResponse
 from .token_request import TokenRequest
@@ -96,7 +99,6 @@ from .sign_in_resource import SignInResource
 from .token_exchange_resource import TokenExchangeResource
 from .token_post_resource import TokenPostResource
 
-from .delivery_modes import DeliveryModes
 from .caller_id_constants import CallerIdConstants
 
 from .conversation_update_types import ConversationUpdateTypes
@@ -111,6 +113,7 @@ __all__ = [
     "Activity",
     "ActionTypes",
     "ActivityEventNames",
+    "AdaptiveCardCard",
     "AdaptiveCardInvokeAction",
     "AdaptiveCardInvokeResponse",
     "AdaptiveCardInvokeValue",
@@ -121,18 +124,19 @@ __all__ = [
     "AttachmentView",
     "AudioCard",
     "BasicCard",
+    "Card",
     "CardAction",
     "CardImage",
     "Channels",
     "ChannelAccount",
     "ChannelId",
-    "_ChannelIdFieldMixin",
     "ConversationAccount",
     "ConversationMembers",
     "ConversationParameters",
     "ConversationReference",
     "ConversationResourceResponse",
     "ConversationsResult",
+    "ContentTypes",
     "ExpectedReplies",
     "Entity",
     "AIEntity",
@@ -172,6 +176,7 @@ __all__ = [
     "ThumbnailUrl",
     "TokenExchangeInvokeRequest",
     "TokenExchangeInvokeResponse",
+    "TokenExchangeRequest",
     "TokenExchangeState",
     "TokenRequest",
     "TokenResponse",

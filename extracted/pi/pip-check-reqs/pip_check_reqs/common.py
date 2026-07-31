@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from functools import cache
 from importlib.util import find_spec
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 from packaging.markers import Marker
 from packaging.utils import NormalizedName, canonicalize_name
@@ -27,7 +27,7 @@ from pip._internal.req.req_file import ParsedRequirement, parse_requirements
 from . import __version__
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterable
+    from collections.abc import Callable, Generator, Iterable
 
 log = logging.getLogger(__name__)
 
@@ -43,11 +43,12 @@ def cached_resolve_path(path: Path) -> Path:
 # We cache the result to speed up tests.
 @cache
 def get_packages_info() -> list[_PackageInfo]:
-    all_pkgs = [
-        dist.metadata["Name"] for dist in importlib.metadata.distributions()
+    all_pkgs: list[str] = [
+        dist.metadata["Name"]  # pyright: ignore[reportUnknownMemberType]
+        for dist in importlib.metadata.distributions()
     ]
 
-    return list(search_packages_info(query=all_pkgs))
+    return list(search_packages_info(query=all_pkgs, include_files=True))
 
 
 @dataclass

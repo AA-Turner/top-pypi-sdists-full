@@ -151,6 +151,28 @@ def create_record_v3(params, record_type='', title='', fields=None,
     raise KeeperApiError('no_results', 'No results from record creation')
 
 
+def _load_existing_record_data(params, record_uid, rec=None):
+    """Load decrypted record JSON for update"""
+    candidates = []
+    if rec is not None:
+        candidates.append(rec.get('data_unencrypted'))
+    cache_rec = getattr(params, 'record_cache', {}).get(record_uid) or {}
+    candidates.append(cache_rec.get('data_unencrypted'))
+    nsf_data = getattr(params, 'nested_share_record_data', {}).get(record_uid) or {}
+    candidates.append(nsf_data.get('data_json'))
+
+    for raw in candidates:
+        if raw is None:
+            continue
+        if isinstance(raw, bytes):
+            return json.loads(raw.decode('utf-8'))
+        if isinstance(raw, str):
+            return json.loads(raw)
+        if isinstance(raw, dict):
+            return raw.copy()
+    return None
+
+
 def update_record_v3(params, record_uid, data=None, title=None,
                      record_type=None, fields=None, notes=None,
                      non_shared_data=None, revision=None):
@@ -165,13 +187,7 @@ def update_record_v3(params, record_uid, data=None, title=None,
     rk = rec.get('record_key_unencrypted') or get_record_key(params, record_uid)
 
     if data is None:
-        existing = None
-        if 'data_unencrypted' in rec:
-            raw = rec['data_unencrypted']
-            if isinstance(raw, bytes):
-                existing = json.loads(raw.decode('utf-8'))
-            elif isinstance(raw, str):
-                existing = json.loads(raw)
+        existing = _load_existing_record_data(params, record_uid, rec)
         data = existing.copy() if existing else {'fields': []}
         if title is not None:
             data['title'] = title
@@ -328,23 +344,21 @@ def _try_decrypt_record_key(params, enc_rk, rk_type, uid):
     return drk
 
 
-def get_record_accesses_v3(params, record_uids):
-    if not record_uids:
-        raise ValueError("At least one record UID required")
-    rq = record_details_pb2.RecordAccessRequest()
-    for uid in record_uids:
-        rq.recordUids.append(utils.base64_url_decode(uid))
+def _access_type_name(access_type):
+    try:
+        return folder_pb2.AccessType.Name(access_type)
+    except (ValueError, TypeError):
+        return 'AT_UNKNOWN'
 
-    rs = api.communicate_rest(params, rq, 'vault/records/v3/details/access',
-                              rs_type=record_details_pb2.RecordAccessResponse)
-    result = {'record_accesses': [], 'forbidden_records': []}
+
+def _parse_record_access_response(rs, result):
     for ra in rs.recordAccesses:
         d = ra.data
         ai = ra.accessorInfo
         ao = {
             'record_uid': utils.base64_url_encode(d.recordUid),
             'accessor_name': ai.name,
-            'access_type': folder_pb2.AccessType.Name(d.accessType) if hasattr(d, 'accessType') else 'UNKNOWN',
+            'access_type': _access_type_name(d.accessType),
             'access_type_uid': utils.base64_url_encode(d.accessTypeUid),
             'owner': getattr(d, 'owner', False),
             'inherited': bool(getattr(d, 'inherited', False)),
@@ -361,7 +375,46 @@ def get_record_accesses_v3(params, record_uids):
                 getattr(d.tlaProperties, 'rotateOnExpiration', False))
         result['record_accesses'].append(ao)
     for fu in rs.forbiddenRecords:
-        result['forbidden_records'].append(utils.base64_url_encode(fu))
+        fuid = utils.base64_url_encode(fu)
+        if fuid not in result['forbidden_records']:
+            result['forbidden_records'].append(fuid)
+
+
+def get_record_accesses_v3(params, record_uids):
+    if not record_uids:
+        raise ValueError("At least one record UID required")
+    from ..proto import pagination_pb2
+
+    result = {'record_accesses': [], 'forbidden_records': []}
+    cursor = ''
+    page_number = 1
+    use_page = False
+    # Guard against runaway pagination.
+    for _ in range(50):
+        rq = record_details_pb2.RecordAccessRequest()
+        for uid in record_uids:
+            rq.recordUids.append(utils.base64_url_decode(uid))
+        # First request matches historical nsf-get behavior (no page).
+        # Only send Page on follow-ups; forcing pageSize on page 1 caused
+        # incomplete accessor lists for some vaults.
+        if use_page:
+            page = pagination_pb2.Page()
+            page.pageNumber = page_number
+            page.pageSize = 500  # server max
+            if cursor:
+                page.cursorToken = cursor
+            rq.page.CopyFrom(page)
+
+        rs = api.communicate_rest(params, rq, 'vault/records/v3/details/access',
+                                  rs_type=record_details_pb2.RecordAccessResponse)
+        _parse_record_access_response(rs, result)
+
+        page_info = rs.pageInfo if rs.HasField('pageInfo') else None
+        if not page_info or not page_info.hasMore:
+            break
+        cursor = page_info.cursorToken or ''
+        page_number = (page_info.pageNumber or page_number) + 1
+        use_page = True
     return result
 
 
@@ -379,6 +432,17 @@ def find_direct_user_share_access(access_result, record_uid, email):
             return access
     return None
 
+
+def find_record_owner_username(access_result, record_uid):
+    """Return the owner username for *record_uid* from a get_record_accesses_v3 result."""
+    return next(
+        (
+            access.get('accessor_name') or ''
+            for access in access_result.get('record_accesses', [])
+            if access.get('record_uid') == record_uid and access.get('owner')
+        ),
+        '',
+    )
 
 _SHARE_EXPIRATION_NOOP_TOLERANCE_MS = 60_000
 

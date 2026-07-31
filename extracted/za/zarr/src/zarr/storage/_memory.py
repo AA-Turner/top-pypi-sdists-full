@@ -26,6 +26,18 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
+def _copy_buffer(value: Buffer) -> Buffer:
+    """Copy `value` so the store does not retain the caller's memory.
+
+    Encoding a chunk can hand the store a zero-copy view of the user's array
+    (an uncompressed write is the common case), and unlike stores that
+    serialize on write, this one keeps whatever it is given alive in a dict.
+    Without this copy a later mutation of the user's array would rewrite
+    chunks already committed to the store.
+    """
+    return type(value).from_array_like(value.as_array_like().copy())
+
+
 class MemoryStore(Store):
     """
     Store for local memory.
@@ -42,6 +54,12 @@ class MemoryStore(Store):
     supports_writes
     supports_deletes
     supports_listing
+
+    Notes
+    -----
+    Writes copy the buffer they are given, so the store never aliases the
+    caller's memory. Buffers passed via `store_dict` are the caller's
+    responsibility and are stored as-is.
     """
 
     supports_writes: bool = True
@@ -117,7 +135,7 @@ class MemoryStore(Store):
             raise TypeError(
                 f"MemoryStore.set(): `value` must be a Buffer instance. Got an instance of {type(value)} instead."
             )
-        self._store_dict[key] = value
+        self._store_dict[key] = _copy_buffer(value)
 
     def delete_sync(self, key: str) -> None:
         self._check_writable()
@@ -178,13 +196,13 @@ class MemoryStore(Store):
             buf[byte_range[0] : byte_range[1]] = value
             self._store_dict[key] = buf
         else:
-            self._store_dict[key] = value
+            self._store_dict[key] = _copy_buffer(value)
 
     async def set_if_not_exists(self, key: str, value: Buffer) -> None:
         # docstring inherited
         self._check_writable()
         await self._ensure_open()
-        self._store_dict.setdefault(key, value)
+        self._store_dict.setdefault(key, _copy_buffer(value))
 
     async def delete(self, key: str) -> None:
         # docstring inherited
@@ -219,241 +237,11 @@ class MemoryStore(Store):
             keys_unique = {
                 key.removeprefix(f"{prefix}/").split("/")[0]
                 for key in self._store_dict
-                if key.startswith(f"{prefix}/") and key != prefix
+                if key.startswith(f"{prefix}/") and key not in {prefix, f"{prefix}/"}
             }
 
         for key in keys_unique:
             yield key
-
-    async def _get_bytes(
-        self,
-        key: str = "",
-        *,
-        prototype: BufferPrototype | None = None,
-        byte_range: ByteRequest | None = None,
-    ) -> bytes:
-        """
-        Retrieve raw bytes from the memory store asynchronously.
-
-        This is a convenience override that makes the ``prototype`` parameter optional
-        by defaulting to the standard buffer prototype. See the base ``Store.get_bytes``
-        for full documentation.
-
-        Parameters
-        ----------
-        key : str, optional
-            The key identifying the data to retrieve. Defaults to an empty string.
-        prototype : BufferPrototype, optional
-            The buffer prototype to use for reading the data. If None, uses
-            ``default_buffer_prototype()``.
-        byte_range : ByteRequest, optional
-            If specified, only retrieve a portion of the stored data.
-
-        Returns
-        -------
-        bytes
-            The raw bytes stored at the given key.
-
-        Raises
-        ------
-        FileNotFoundError
-            If the key does not exist in the store.
-
-        See Also
-        --------
-        Store.get_bytes : Base implementation with full documentation.
-        get_bytes_sync : Synchronous version of this method.
-
-        Examples
-        --------
-        >>> store = await MemoryStore.open()
-        >>> await store.set("data", Buffer.from_bytes(b"hello"))
-        >>> # No need to specify prototype for MemoryStore
-        >>> data = await store.get_bytes("data")
-        >>> print(data)
-        b'hello'
-        """
-        if prototype is None:
-            prototype = default_buffer_prototype()
-        return await super()._get_bytes(key, prototype=prototype, byte_range=byte_range)
-
-    def _get_bytes_sync(
-        self,
-        key: str = "",
-        *,
-        prototype: BufferPrototype | None = None,
-        byte_range: ByteRequest | None = None,
-    ) -> bytes:
-        """
-        Retrieve raw bytes from the memory store synchronously.
-
-        This is a convenience override that makes the ``prototype`` parameter optional
-        by defaulting to the standard buffer prototype. See the base ``Store.get_bytes``
-        for full documentation.
-
-        Parameters
-        ----------
-        key : str, optional
-            The key identifying the data to retrieve. Defaults to an empty string.
-        prototype : BufferPrototype, optional
-            The buffer prototype to use for reading the data. If None, uses
-            ``default_buffer_prototype()``.
-        byte_range : ByteRequest, optional
-            If specified, only retrieve a portion of the stored data.
-
-        Returns
-        -------
-        bytes
-            The raw bytes stored at the given key.
-
-        Raises
-        ------
-        FileNotFoundError
-            If the key does not exist in the store.
-
-        Warnings
-        --------
-        Do not call this method from async functions. Use ``get_bytes()`` instead.
-
-        See Also
-        --------
-        Store.get_bytes_sync : Base implementation with full documentation.
-        get_bytes : Asynchronous version of this method.
-
-        Examples
-        --------
-        >>> store = MemoryStore()
-        >>> store.set("data", Buffer.from_bytes(b"hello"))
-        >>> # No need to specify prototype for MemoryStore
-        >>> data = store.get_bytes("data")
-        >>> print(data)
-        b'hello'
-        """
-        if prototype is None:
-            prototype = default_buffer_prototype()
-        return super()._get_bytes_sync(key, prototype=prototype, byte_range=byte_range)
-
-    async def _get_json(
-        self,
-        key: str = "",
-        *,
-        prototype: BufferPrototype | None = None,
-        byte_range: ByteRequest | None = None,
-    ) -> Any:
-        """
-        Retrieve and parse JSON data from the memory store asynchronously.
-
-        This is a convenience override that makes the ``prototype`` parameter optional
-        by defaulting to the standard buffer prototype. See the base ``Store.get_json``
-        for full documentation.
-
-        Parameters
-        ----------
-        key : str, optional
-            The key identifying the JSON data to retrieve. Defaults to an empty string.
-        prototype : BufferPrototype, optional
-            The buffer prototype to use for reading the data. If None, uses
-            ``default_buffer_prototype()``.
-        byte_range : ByteRequest, optional
-            If specified, only retrieve a portion of the stored data.
-            Note: Using byte ranges with JSON may result in invalid JSON.
-
-        Returns
-        -------
-        Any
-            The parsed JSON data. This follows the behavior of ``json.loads()`` and
-            can be any JSON-serializable type: dict, list, str, int, float, bool, or None.
-
-        Raises
-        ------
-        FileNotFoundError
-            If the key does not exist in the store.
-        json.JSONDecodeError
-            If the stored data is not valid JSON.
-
-        See Also
-        --------
-        Store.get_json : Base implementation with full documentation.
-        get_json_sync : Synchronous version of this method.
-        get_bytes : Method for retrieving raw bytes without parsing.
-
-        Examples
-        --------
-        >>> store = await MemoryStore.open()
-        >>> import json
-        >>> metadata = {"zarr_format": 3, "node_type": "array"}
-        >>> await store.set("zarr.json", Buffer.from_bytes(json.dumps(metadata).encode()))
-        >>> # No need to specify prototype for MemoryStore
-        >>> data = await store.get_json("zarr.json")
-        >>> print(data)
-        {'zarr_format': 3, 'node_type': 'array'}
-        """
-        if prototype is None:
-            prototype = default_buffer_prototype()
-        return await super()._get_json(key, prototype=prototype, byte_range=byte_range)
-
-    def _get_json_sync(
-        self,
-        key: str = "",
-        *,
-        prototype: BufferPrototype | None = None,
-        byte_range: ByteRequest | None = None,
-    ) -> Any:
-        """
-        Retrieve and parse JSON data from the memory store synchronously.
-
-        This is a convenience override that makes the ``prototype`` parameter optional
-        by defaulting to the standard buffer prototype. See the base ``Store.get_json``
-        for full documentation.
-
-        Parameters
-        ----------
-        key : str, optional
-            The key identifying the JSON data to retrieve. Defaults to an empty string.
-        prototype : BufferPrototype, optional
-            The buffer prototype to use for reading the data. If None, uses
-            ``default_buffer_prototype()``.
-        byte_range : ByteRequest, optional
-            If specified, only retrieve a portion of the stored data.
-            Note: Using byte ranges with JSON may result in invalid JSON.
-
-        Returns
-        -------
-        Any
-            The parsed JSON data. This follows the behavior of ``json.loads()`` and
-            can be any JSON-serializable type: dict, list, str, int, float, bool, or None.
-
-        Raises
-        ------
-        FileNotFoundError
-            If the key does not exist in the store.
-        json.JSONDecodeError
-            If the stored data is not valid JSON.
-
-        Warnings
-        --------
-        Do not call this method from async functions. Use ``get_json()`` instead.
-
-        See Also
-        --------
-        Store.get_json_sync : Base implementation with full documentation.
-        get_json : Asynchronous version of this method.
-        get_bytes_sync : Method for retrieving raw bytes without parsing.
-
-        Examples
-        --------
-        >>> store = MemoryStore()
-        >>> import json
-        >>> metadata = {"zarr_format": 3, "node_type": "array"}
-        >>> store.set("zarr.json", Buffer.from_bytes(json.dumps(metadata).encode()))
-        >>> # No need to specify prototype for MemoryStore
-        >>> data = store.get_json("zarr.json")
-        >>> print(data)
-        {'zarr_format': 3, 'node_type': 'array'}
-        """
-        if prototype is None:
-            prototype = default_buffer_prototype()
-        return super()._get_json_sync(key, prototype=prototype, byte_range=byte_range)
 
 
 class GpuMemoryStore(MemoryStore):
@@ -525,6 +313,19 @@ class GpuMemoryStore(MemoryStore):
         # Convert to gpu.Buffer
         gpu_value = value if isinstance(value, gpu.Buffer) else gpu.Buffer.from_buffer(value)
         await super().set(key, gpu_value, byte_range=byte_range)
+
+    def set_sync(self, key: str, value: Buffer) -> None:
+        # docstring inherited
+        self._check_writable()
+        assert isinstance(key, str)
+        if not isinstance(value, Buffer):
+            raise TypeError(
+                f"GpuMemoryStore.set(): `value` must be a Buffer instance. Got an instance of {type(value)} instead."
+            )
+        # Convert to gpu.Buffer, mirroring `set` above: every value in this store's
+        # backing dict must be a gpu.Buffer, regardless of which API wrote it.
+        gpu_value = value if isinstance(value, gpu.Buffer) else gpu.Buffer.from_buffer(value)
+        super().set_sync(key, gpu_value)
 
 
 # -----------------------------------------------------------------------------
@@ -784,6 +585,26 @@ class ManagedMemoryStore(MemoryStore):
 
     # Override MemoryStore methods to use path prefix and check process
 
+    def get_sync(
+        self,
+        key: str,
+        *,
+        prototype: BufferPrototype | None = None,
+        byte_range: ByteRequest | None = None,
+    ) -> Buffer | None:
+        # docstring inherited
+        return super().get_sync(
+            _join_paths([self.path, key]), prototype=prototype, byte_range=byte_range
+        )
+
+    def set_sync(self, key: str, value: Buffer) -> None:
+        # docstring inherited
+        super().set_sync(_join_paths([self.path, key]), value)
+
+    def delete_sync(self, key: str) -> None:
+        # docstring inherited
+        super().delete_sync(_join_paths([self.path, key]))
+
     async def get(
         self,
         key: str,
@@ -795,14 +616,9 @@ class ManagedMemoryStore(MemoryStore):
             _join_paths([self.path, key]), prototype=prototype, byte_range=byte_range
         )
 
-    async def get_partial_values(
-        self,
-        prototype: BufferPrototype,
-        key_ranges: Iterable[tuple[str, ByteRequest | None]],
-    ) -> list[Buffer | None]:
-        # docstring inherited
-        key_ranges = [(_join_paths([self.path, key]), byte_range) for key, byte_range in key_ranges]
-        return await super().get_partial_values(prototype, key_ranges)
+    # get_partial_values is intentionally NOT overridden here: MemoryStore.get_partial_values
+    # dispatches per-key through `self.get`, which already resolves to the override above.
+    # Re-prefixing the keys here as well would apply `self.path` twice.
 
     async def exists(self, key: str) -> bool:
         # docstring inherited

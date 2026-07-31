@@ -1,2 +1,0 @@
-import"./rolldown-runtime-B4f9JIsa.js";import{H as e,N as t,it as n}from"./vendor-vue-core-cdiTEubU.js";import{t as r}from"./Load3D-BY8DYPfr.js";var i=e({__name:`Load3DAdvanced`,props:{widget:{},nodeId:{}},setup(e){return(i,a)=>(n(),t(r,{widget:e.widget,"node-id":e.nodeId,"can-use-recording":!1,"can-use-hdri":!1,"can-use-background-image":!1},null,8,[`widget`,`node-id`]))}});export{i as t};
-//# sourceMappingURL=Load3DAdvanced-DQ4J8W_0.js.map

@@ -43,8 +43,9 @@ from typing import Any, Sequence, Type
 import structlog
 import temporalio.worker
 import temporalio.workflow
+from pydantic import ValidationError
 
-from mistralai.workflows.core.definition.workflow_definition import get_workflow_definition
+from mistralai.workflows.core.definition.workflow_definition import get_workflow_definition, is_workflow_on_behalf_of
 from mistralai.workflows.core.temporal.context_handler_interceptor import retrieve_context, workflow_context_var
 
 from .activities import (
@@ -55,7 +56,7 @@ from .activities import (
     connector_resolve,
     connector_wait_for_credentials,
 )
-from .constants import CONNECTORS_KEY, MISTRALAI_PLUGIN_KEY
+from .constants import CONNECTORS_KEY, MISTRALAI_PLUGIN_KEY, RESOLVED_CONNECTORS_KEY
 from .decorator import ConnectorAuthTimeout, ConnectorError, ConnectorSlot
 from .event_activities import (
     _emit_connector_auth_completed,
@@ -66,7 +67,9 @@ from .mcp_apps import connector_get_mcp_app_resource_uris
 from .models import (
     ConnectorDefinition,
     ConnectorExtensionBinding,
+    MistralaiExtensionPayload,
 )
+from .run_as import ConnectorRunAs
 
 logger = structlog.get_logger(__name__)
 
@@ -106,7 +109,9 @@ async def _wait_for_connector_auth(
     # Single long-lived activity that polls the credentials API
     # internally with heartbeats — keeps workflow history clean.
     authenticated = await connector_wait_for_credentials(
-        connector_id=connector_id, credentials_name=slot.credentials_name
+        connector_id=connector_id,
+        credentials_name=slot.credentials_name,
+        run_as=slot.run_as,
     )
 
     if not authenticated:
@@ -137,7 +142,7 @@ class ConnectorAuthWorkflowInboundInterceptor(temporalio.worker.WorkflowInboundI
     _metadata_by_name: dict[str, dict[str, Any]] = {}
 
     @staticmethod
-    def _extract_extension_bindings() -> list[ConnectorExtensionBinding]:
+    def _extension_bindings() -> list[ConnectorExtensionBinding]:
         """Read connector binding overrides from the workflow context.
 
         The ``ContextHandlerInterceptor`` (registered on the Temporal client)
@@ -146,42 +151,97 @@ class ConnectorAuthWorkflowInboundInterceptor(temporalio.worker.WorkflowInboundI
         ``retrieve_context()``.
         """
         ctx = retrieve_context()
-        if not ctx or not ctx.extensions:
+        if not ctx or MISTRALAI_PLUGIN_KEY not in ctx.extensions:
             return []
-        raw = ctx.extensions.get(MISTRALAI_PLUGIN_KEY, {}).get(CONNECTORS_KEY, {}).get("bindings", [])
-        return [ConnectorExtensionBinding.model_validate(b) for b in raw]
+        try:
+            payload = MistralaiExtensionPayload.model_validate(ctx.extensions[MISTRALAI_PLUGIN_KEY])
+        except ValidationError as exc:
+            raise ConnectorError(
+                "Malformed runtime connector extension bindings; expected a list of objects with "
+                "optional 'connector_name' and 'credentials_name'. Connector identity is "
+                "interceptor-owned and must come from @uses_connectors(...)."
+            ) from exc
+        return payload.connectors.bindings
+
+    @staticmethod
+    def _resolve_extension_binding_targets(
+        slots: list[ConnectorSlot],
+        bindings: list[ConnectorExtensionBinding],
+        *,
+        workflow_on_behalf_of: bool,
+    ) -> list[tuple[ConnectorSlot, ConnectorExtensionBinding]]:
+        if not bindings:
+            return []
+        if not workflow_on_behalf_of:
+            raise ConnectorError(
+                "Runtime connector credentials_name is only accepted for run_as='auto' connectors "
+                "on on_behalf_of=True workflows."
+            )
+
+        auto_slots = [slot for slot in slots if slot.run_as == ConnectorRunAs.AUTO]
+        auto_slot_by_name = {slot.connector_name: slot for slot in auto_slots}
+        if not auto_slot_by_name:
+            raise ConnectorError(
+                "Runtime connector credentials_name is only accepted when the workflow declares "
+                "run_as='auto' connectors."
+            )
+
+        connector_name_required = len(auto_slot_by_name) > 1
+        targets: list[tuple[ConnectorSlot, ConnectorExtensionBinding]] = []
+        bound_connector_names: set[str] = set()
+        for binding in bindings:
+            connector_name = binding.connector_name
+            if connector_name is None:
+                if connector_name_required:
+                    raise ConnectorError(
+                        "Runtime connector credentials_name must include connector_name when the workflow "
+                        "declares multiple run_as='auto' connectors."
+                    )
+                connector_name = next(iter(auto_slot_by_name))
+
+            target_slot = auto_slot_by_name.get(connector_name)
+            if target_slot is None:
+                raise ConnectorError(
+                    "Runtime connector credentials_name can only target declared run_as='auto' connectors. "
+                    f"Received {connector_name!r}; declared auto connectors: {sorted(auto_slot_by_name)}."
+                )
+            if connector_name in bound_connector_names:
+                raise ConnectorError(
+                    f"Runtime connector credentials_name includes duplicate binding for connector {connector_name!r}."
+                )
+            bound_connector_names.add(connector_name)
+            targets.append((target_slot, binding))
+
+        return targets
 
     @staticmethod
     def _apply_extension_bindings(
         slots: list[ConnectorSlot],
         bindings: list[ConnectorExtensionBinding],
+        *,
+        workflow_on_behalf_of: bool,
     ) -> None:
         """Overlay runtime extension bindings onto the static connector slots.
 
-        Raises :class:`ConnectorError` if any binding names a connector
-        that is not declared in the workflow's ``@uses_connectors`` slots.
+        Runtime connector names are selectors only: each binding must target a
+        statically declared ``run_as='auto'`` connector slot.
         """
-        slot_names = {s.connector_name for s in slots}
-        binding_by_name = {b.connector_name: b for b in bindings}
-
-        unknown = set(binding_by_name) - slot_names
-        if unknown:
-            raise ConnectorError(
-                f"Extension bindings reference unknown connectors: {sorted(unknown)}. "
-                f"Declared connectors: {sorted(slot_names)}"
-            )
-
-        for slot in slots:
-            override = binding_by_name.get(slot.connector_name)
-            if override is None:
-                continue
-            if override.credentials_name is not None:
-                slot.credentials_name = override.credentials_name
+        targets = ConnectorAuthWorkflowInboundInterceptor._resolve_extension_binding_targets(
+            slots,
+            bindings,
+            workflow_on_behalf_of=workflow_on_behalf_of,
+        )
+        for slot, binding in targets:
+            if binding.credentials_name is not None:
+                slot.credentials_name = binding.credentials_name
 
     async def execute_workflow(self, input: temporalio.worker.ExecuteWorkflowInput) -> Any:
         slots = self._get_connector_slots()
         if not slots:
             return await super().execute_workflow(input)
+
+        workflow_on_behalf_of = is_workflow_on_behalf_of(temporalio.workflow.info().workflow_type)
+        ext_bindings = self._extension_bindings()
 
         # Log what was passed to the workflow
         ctx = retrieve_context()
@@ -194,7 +254,6 @@ class ConnectorAuthWorkflowInboundInterceptor(temporalio.worker.WorkflowInboundI
 
         # Merge runtime extension bindings (e.g. credentials_name overrides)
         # into the static slots from the workflow decorator.
-        ext_bindings = self._extract_extension_bindings()
         if ext_bindings:
             logger.info(
                 "Applying runtime extension bindings",
@@ -202,23 +261,28 @@ class ConnectorAuthWorkflowInboundInterceptor(temporalio.worker.WorkflowInboundI
                     {
                         "connector_name": b.connector_name,
                         "credentials_name": b.credentials_name,
-                        "connector_id": b.connector_id,
                     }
                     for b in ext_bindings
                 ],
             )
-            self._apply_extension_bindings(slots, ext_bindings)
+            self._apply_extension_bindings(
+                slots,
+                ext_bindings,
+                workflow_on_behalf_of=workflow_on_behalf_of,
+            )
 
         # Resolve all connectors and run auth preflight for auto_auth ones.
         resolved_bindings: list[dict[str, Any]] = []
         for slot in slots:
+            run_as = slot.run_as
             # Resolve every connector to get its connector_id.
             logger.info(
                 "Resolving connector",
                 connector_name=slot.connector_name,
                 credentials_name=slot.credentials_name,
+                run_as=run_as,
             )
-            resolved = await connector_resolve(slot.connector_name)
+            resolved = await connector_resolve(slot.connector_name, run_as=run_as)
             logger.info(
                 "Connector resolved",
                 connector_name=slot.connector_name,
@@ -235,7 +299,7 @@ class ConnectorAuthWorkflowInboundInterceptor(temporalio.worker.WorkflowInboundI
                 )
             else:
                 # 1. List user credentials for this connector.
-                creds_info = await connector_list_user_credentials(resolved.id)
+                creds_info = await connector_list_user_credentials(resolved.id, run_as=run_as)
                 user_creds = creds_info.credentials
                 preset_auth = creds_info.connector_preset_credentials_for_auth
 
@@ -274,13 +338,16 @@ class ConnectorAuthWorkflowInboundInterceptor(temporalio.worker.WorkflowInboundI
                                 resolved.id,
                                 credentials_name=slot.credentials_name,
                                 raise_on_error=True,
+                                run_as=run_as,
                             )
                             mcp_ui_resource_uris_fetched = True
                             tools_ok = True
                         except Exception:
                             tools_ok = False
                     else:
-                        tools_ok = await connector_list_tools(resolved.id, credentials_name=slot.credentials_name)
+                        tools_ok = await connector_list_tools(
+                            resolved.id, credentials_name=slot.credentials_name, run_as=run_as
+                        )
                     if tools_ok:
                         logger.info(
                             "Credentials verified, skipping auth",
@@ -301,15 +368,24 @@ class ConnectorAuthWorkflowInboundInterceptor(temporalio.worker.WorkflowInboundI
                 if not credentials_verified:
                     # 4. No credentials and no preset — check the connector's
                     #    authentication methods to decide the flow.
-                    auth_methods = await connector_get_auth_methods(resolved.id)
+                    auth_methods = await connector_get_auth_methods(resolved.id, run_as=run_as)
                     method_types = {m.method_type for m in auth_methods}
                     if "oauth2" in method_types:
+                        if slot.run_as == ConnectorRunAs.DEPLOYMENT:
+                            raise ConnectorError(
+                                f"Connector '{slot.connector_name}' runs with run_as='deployment' "
+                                f"and requires OAuth2 authorization, but deployment-identity connectors "
+                                f"cannot complete an interactive OAuth flow. Configure the deployment's "
+                                f"credentials for this connector before running the workflow."
+                            )
                         logger.info(
                             "Starting OAuth2 auth flow",
                             connector_name=slot.connector_name,
                         )
                         auth_url = await connector_get_auth_url(
-                            connector_id_or_name=resolved.id, credentials_name=slot.credentials_name
+                            connector_id_or_name=resolved.id,
+                            credentials_name=slot.credentials_name,
+                            run_as=run_as,
                         )
                         await _wait_for_connector_auth(slot, resolved.id, auth_url)
                     elif "bearer" in method_types:
@@ -330,6 +406,7 @@ class ConnectorAuthWorkflowInboundInterceptor(temporalio.worker.WorkflowInboundI
                     mcp_ui_resource_uris = await connector_get_mcp_app_resource_uris(
                         resolved.id,
                         credentials_name=slot.credentials_name,
+                        run_as=run_as,
                     )
                     mcp_ui_resource_uris_fetched = True
                 logger.info(
@@ -351,6 +428,7 @@ class ConnectorAuthWorkflowInboundInterceptor(temporalio.worker.WorkflowInboundI
                     "connector_name": slot.connector_name,
                     "connector_id": resolved.id,
                     "credentials_name": slot.credentials_name,
+                    "run_as": slot.run_as.value,
                     "allow_mcp_ui": slot.allow_mcp_ui,
                     "mcp_ui_resource_uris": mcp_ui_resource_uris,
                     "mcp_ui_resource_uris_fetched": mcp_ui_resource_uris_fetched,
@@ -366,31 +444,24 @@ class ConnectorAuthWorkflowInboundInterceptor(temporalio.worker.WorkflowInboundI
 
     @staticmethod
     def _store_resolved_bindings(bindings: list[dict[str, Any]]) -> None:
-        """Persist resolved connector bindings into the workflow context.
+        """Persist resolved connector bindings into the worker-only context channel.
 
-        Merges with any existing extension bindings, preferring the freshly
-        resolved ``connector_id`` values.  The updated context is visible to
-        all subsequent activities and session code via ``retrieve_context()``.
+        Written to ``trusted_extensions`` — a channel the caller cannot populate — so
+        downstream readers (``ToolCallClient``, ``RemoteSession``) can trust the bindings
+        as interceptor-owned without any forgery check. Preflight re-runs on every
+        execution (including continue-as-new), so this channel is regenerated each run.
         """
         ctx = retrieve_context()
         if ctx is None:
             return
 
-        extensions = dict(ctx.extensions or {})
-        mistralai_ext = dict(extensions.get(MISTRALAI_PLUGIN_KEY, {}))
-        connectors_ext = dict(mistralai_ext.get(CONNECTORS_KEY, {}))
+        trusted_extensions = dict(ctx.trusted_extensions or {})
+        mistralai_ext = dict(trusted_extensions.get(MISTRALAI_PLUGIN_KEY, {}))
 
-        # Merge: resolved bindings take precedence over existing ones.
-        existing = connectors_ext.get("bindings", [])
-        by_name = {b["connector_name"]: b for b in existing}
-        for binding in bindings:
-            by_name[binding["connector_name"]] = binding
-        connectors_ext["bindings"] = list(by_name.values())
+        mistralai_ext[RESOLVED_CONNECTORS_KEY] = {"bindings": bindings}
+        trusted_extensions[MISTRALAI_PLUGIN_KEY] = mistralai_ext
 
-        mistralai_ext[CONNECTORS_KEY] = connectors_ext
-        extensions[MISTRALAI_PLUGIN_KEY] = mistralai_ext
-
-        updated_ctx = ctx.model_copy(update={"extensions": extensions})
+        updated_ctx = ctx.model_copy(update={"trusted_extensions": trusted_extensions})
         workflow_context_var.set(updated_ctx.model_dump_json())
 
     @classmethod
@@ -402,6 +473,7 @@ class ConnectorAuthWorkflowInboundInterceptor(temporalio.worker.WorkflowInboundI
         return [
             ConnectorSlot(
                 defn.connector_name,
+                run_as=defn.run_as.value,
                 auto_auth=defn.auto_auth,
                 credentials_name=defn.credentials_name,
                 allow_mcp_ui=defn.allow_mcp_ui,

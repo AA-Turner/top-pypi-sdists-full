@@ -42,6 +42,7 @@ except AttributeError:  # pragma: no cover
 # intentional re-exports (PEP 484) so external callers'
 # ``from .helpers.yaml import X`` keeps working unchanged across
 # the split arc.
+from .ap_ssid import fallback_ap_psk as fallback_ap_psk
 from .ap_ssid import fallback_ap_ssid as fallback_ap_ssid
 from .ap_ssid import rewrite_fallback_ap_ssid as rewrite_fallback_ap_ssid
 from .api_encryption import generate_api_encryption_key as generate_api_encryption_key
@@ -50,15 +51,17 @@ from .component import _mapping_body_to_list_item as _mapping_body_to_list_item
 from .component import _normalize_multi_conf_block as _normalize_multi_conf_block
 from .component import _splice_into_domain_block as _splice_into_domain_block
 from .component import _splice_into_multi_conf_block as _splice_into_multi_conf_block
+from .component import component_block_present as component_block_present
 from .component import generate_component_yaml as generate_component_yaml
 from .component import merge_component_yaml as merge_component_yaml
 from .inline import SubEntityRef as SubEntityRef
-from .inline import _block_end as _block_end
 from .inline import _indent_block as _indent_block
 from .inline import remove_inline_handler as remove_inline_handler
+from .inline import remove_nested_handler as remove_nested_handler
 from .inline import remove_subentity_handler as remove_subentity_handler
 from .inline import synthetic_instance_index as synthetic_instance_index
 from .inline import upsert_inline_handler as upsert_inline_handler
+from .inline import upsert_nested_handler as upsert_nested_handler
 from .inline import upsert_subentity_handler as upsert_subentity_handler
 from .scalar import ESPHOME_FRIENDLY_NAME_PATH as ESPHOME_FRIENDLY_NAME_PATH
 from .scalar import ESPHOME_NAME_PATH as ESPHOME_NAME_PATH
@@ -71,6 +74,7 @@ from .scalar import _strip_yaml_quotes as _strip_yaml_quotes
 from .scalar import is_plain_literal_scalar as is_plain_literal_scalar
 from .scalar import read_yaml_scalar as read_yaml_scalar
 from .scalar import rewrite_yaml_scalar as rewrite_yaml_scalar
+from .scan import child_block_end as child_block_end
 from .substitution import is_retargetable_name as is_retargetable_name
 from .substitution import parse_substitution_ref as parse_substitution_ref
 from .substitution import rewrite_name_or_substitution as rewrite_name_or_substitution

@@ -10,6 +10,7 @@ from mistralai.workflows.worker_client.types import (
     UNSET_SENTINEL,
 )
 from pydantic import model_serializer
+from typing import Dict, Optional
 from typing_extensions import NotRequired, TypedDict
 
 
@@ -21,6 +22,8 @@ class RegisterExecutionRequestTypedDict(TypedDict):
     execution_token_hash: str
     temporal_parent_workflow_id: NotRequired[Nullable[str]]
     temporal_root_workflow_id: NotRequired[Nullable[str]]
+    search_key_metadata: NotRequired[Dict[str, str]]
+    r"""Unencrypted key/value metadata extracted from the input, made searchable (RFC-402)"""
 
 
 class RegisterExecutionRequest(BaseModel):
@@ -38,10 +41,17 @@ class RegisterExecutionRequest(BaseModel):
 
     temporal_root_workflow_id: OptionalNullable[str] = UNSET
 
+    search_key_metadata: Optional[Dict[str, str]] = None
+    r"""Unencrypted key/value metadata extracted from the input, made searchable (RFC-402)"""
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
         optional_fields = set(
-            ["temporal_parent_workflow_id", "temporal_root_workflow_id"]
+            [
+                "temporal_parent_workflow_id",
+                "temporal_root_workflow_id",
+                "search_key_metadata",
+            ]
         )
         nullable_fields = set(
             ["temporal_parent_workflow_id", "temporal_root_workflow_id"]

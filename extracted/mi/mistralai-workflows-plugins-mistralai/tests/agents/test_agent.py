@@ -9,8 +9,8 @@ from mistralai.workflows.models import WorkflowContext
 from mistralai.workflows.plugins.mistralai import Agent
 from mistralai.workflows.plugins.mistralai.connectors import connector
 from mistralai.workflows.plugins.mistralai.connectors.constants import (
-    CONNECTORS_KEY,
     MISTRALAI_PLUGIN_KEY,
+    RESOLVED_CONNECTORS_KEY,
 )
 from mistralai.workflows.plugins.mistralai.session.remote_session import RemoteSession
 
@@ -90,13 +90,13 @@ class TestAgent:
 
 
 def _make_context(bindings: list[dict[str, Any]] | None = None) -> WorkflowContext:
-    extensions: dict[str, Any] = {}
+    trusted_extensions: dict[str, Any] = {}
     if bindings is not None:
-        extensions[MISTRALAI_PLUGIN_KEY] = {CONNECTORS_KEY: {"bindings": bindings}}
+        trusted_extensions[MISTRALAI_PLUGIN_KEY] = {RESOLVED_CONNECTORS_KEY: {"bindings": bindings}}
     return WorkflowContext(
         namespace="default",
         execution_id="test-exec-id",
-        extensions=extensions,
+        trusted_extensions=trusted_extensions,
     )
 
 

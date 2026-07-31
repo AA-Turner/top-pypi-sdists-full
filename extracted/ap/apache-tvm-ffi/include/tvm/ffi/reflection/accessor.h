@@ -43,7 +43,8 @@ inline const TVMFFIFieldInfo* GetFieldInfo(std::string_view type_key, const char
   TVM_FFI_CHECK_SAFE_CALL(TVMFFITypeKeyToIndex(&type_key_array, &type_index));
   const TypeInfo* info = TVMFFIGetTypeInfo(type_index);
   for (int32_t i = 0; i < info->num_fields; ++i) {
-    if (std::strncmp(info->fields[i].name.data, field_name, info->fields[i].name.size) == 0) {
+    if (std::strncmp(info->fields[i].name.data, field_name, info->fields[i].name.size) == 0 &&
+        field_name[info->fields[i].name.size] == '\0') {
       return &(info->fields[i]);
     }
   }
@@ -207,7 +208,8 @@ inline const TVMFFIMethodInfo* GetMethodInfo(std::string_view type_key, const ch
   TVM_FFI_CHECK_SAFE_CALL(TVMFFITypeKeyToIndex(&type_key_array, &type_index));
   const TypeInfo* info = TVMFFIGetTypeInfo(type_index);
   for (int32_t i = 0; i < info->num_methods; ++i) {
-    if (std::strncmp(info->methods[i].name.data, method_name, info->methods[i].name.size) == 0) {
+    if (std::strncmp(info->methods[i].name.data, method_name, info->methods[i].name.size) == 0 &&
+        method_name[info->methods[i].name.size] == '\0') {
       return &(info->methods[i]);
     }
   }
@@ -343,13 +345,21 @@ inline constexpr const char* kInit = "__ffi_init__";
 /*!
  * \brief Convert ``AnyView`` to a specific reflected ``TSelf`` type.
  *
- * Registered via ``TypeAttrDef<T>.def(kConvert, &FFIConvertFromAnyViewToObjectRef<T>)``
- * for every type that calls ``.ref<T>()``.  Used by the Python type converter
+ * Registered via ``TypeAttrDef<TObj>().def_convert<TSelf>()`` or
+ * ``ObjectDef<TObj>().def_convert<TSelf>()``. Used by the Python type converter
  * to marshal values into the correct ``TSelf`` subclass.
  *
- * Signature: ``(AnyView src) -> TSelf``, where ``TSelf`` is a subclass of ObjectRef.
+ * Signature: ``(AnyView src) -> TSelf``, where ``TSelf`` has a registered TypeTraits converter.
  */
 inline constexpr const char* kConvert = "__ffi_convert__";
+/*!
+ * \brief Type schema accepted by ``kConvert`` before it returns ``TSelf``.
+ *
+ * Stored as a JSON type schema string or schema-like object.  Python stub
+ * generation uses this attribute to render widened input annotations while
+ * keeping output annotations precise.
+ */
+inline constexpr const char* kConvertTypeSchema = "__ffi_convert_type_schema__";
 /*!
  * \brief Shallow-copy factory.
  *
@@ -467,65 +477,49 @@ inline constexpr const char* kSHash = "__s_hash__";
  */
 inline constexpr const char* kSEqual = "__s_equal__";
 /*!
- * \brief Serialize object data to a JSON-compatible ``Map``.
+ * \brief Custom structural visitor hook (used by ``StructuralVisitor``).
+ *
+ * The hook receives the active visitor and the current object value. Opaque
+ * pointer hooks return a ``TVMFFIAny`` that stores an
+ * ``Expected<Optional<VisitInterrupt>>`` result.
+ *
+ * Value type: either an opaque function pointer to a C++ structural visit hook
+ *
+ * ``TVMFFIAny (*)(StructuralVisitorObj* visitor, AnyView value) noexcept``
+ *
+ * or an ``ffi::Function`` with signature
+ *
+ * ``(StructuralVisitor visitor, Any value) -> Optional<VisitInterrupt>``.
+ *
+ * On success, the hook returns ``None`` for no interrupt, or a
+ * ``VisitInterrupt`` to halt traversal. On failure, it returns an ``Error``.
+ * The ``visitor`` parameter is the active traversal context used to recursively
+ * visit structural children.
+ */
+inline constexpr const char* kStructuralVisit = "__s_visit__";
+/*!
+ * \brief Serialize object data to a JSON-compatible value.
  *
  * If registered, ``ToJSONGraph`` calls this instead of the default
  * field-by-field serialization.  Allows types with non-trivial internal
  * state (e.g. ``TInt`` storing a plain ``int64_t``) to define a compact
  * custom JSON representation.
  *
- * Signature: ``(TSelf self) -> Map<String, Any>``, where ``TSelf`` is a subclass of
- * ``ObjectRef``.
+ * Signature: ``(TSelf self) -> Any``, where ``TSelf`` is a subclass of ``ObjectRef``.
  */
 inline constexpr const char* kDataToJson = "__data_to_json__";
 /*!
- * \brief Deserialize object data from a JSON-compatible ``Map``.
+ * \brief Deserialize object data from a JSON-compatible value.
  *
  * Counterpart to ``kDataToJson``.  If registered, ``FromJSONGraph`` calls
- * this to reconstruct the object from its serialized ``Map`` representation
+ * this to reconstruct the object from its serialized representation
  * instead of using field-by-field deserialization.
  *
- * Signature: ``(Map<String, Any> json_data) -> TSelf``, where ``TSelf`` is a subclass of
- * ``ObjectRef``.
+ * Signature: ``(Any json_data) -> TSelf``, where ``TSelf`` is a subclass of ``ObjectRef``.
  */
 inline constexpr const char* kDataFromJson = "__data_from_json__";
-/*!
- * \brief Per-class enum entry registry.
- *
- * Maps each variant's name to its registered singleton for an
- * ``EnumObj`` subclass.  Populated by ``refl::EnumDef<T>("Name")`` on
- * the C++ side and by ``Enum`` subclass declarations on the Python
- * side; both languages share the same underlying storage.
- *
- * Value type: ``Dict<String, Enum>``.
- */
-inline constexpr const char* kEnumEntries = "__ffi_enum_entries__";
-/*!
- * \brief Per-class column holding extensible attributes for enum variants.
- *
- * The outer dict is keyed by extensible-attribute name; each value is a
- * list indexed by the variant's ordinal (``EnumObj::_value``).  Written
- * by ``refl::EnumDef<T>::set_attr(...)`` on the C++ side and by the
- * ``EnumAttrMap`` returned from Python ``Enum.def_attr(...)``.
- *
- * Value type: ``Dict<String, List<Any>>``.
- */
-inline constexpr const char* kEnumAttrs = "__ffi_enum_attrs__";
-/*!
- * \brief Per-class payload-to-variant index for enums.
- *
- * Parallel to ``kEnumEntries`` (name → variant) but keyed by the
- * user-visible payload carried on each variant — i.e. the ``value``
- * field on Python ``IntEnum`` / ``StrEnum`` subclasses (``int`` or
- * ``str``) or the equivalent payload field on a C++ ``EnumObj``
- * subclass.  Populated by the creator of each variant (Python or C++)
- * when the variant has a payload; absent or partially populated
- * otherwise.  Consumed by FFI converters to resolve a raw payload
- * (``int``/``str``) to its singleton variant in O(1).
- *
- * Value type: ``Dict<Any, Enum>``.
- */
-inline constexpr const char* kEnumValueEntries = "__ffi_enum_value_entries__";
+/*! \brief Per-class enum state: ordered entries, canonical indices, and extensible attrs. */
+inline constexpr const char* kEnumState = "__ffi_enum__";
 }  // namespace type_attr
 
 /*!

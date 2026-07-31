@@ -47,6 +47,8 @@ from .type_defs import (
     BatchAssociateScramSecretResponseTypeDef,
     BatchDisassociateScramSecretRequestTypeDef,
     BatchDisassociateScramSecretResponseTypeDef,
+    CreateChannelRequestTypeDef,
+    CreateChannelResponseTypeDef,
     CreateClusterRequestTypeDef,
     CreateClusterResponseTypeDef,
     CreateClusterV2RequestTypeDef,
@@ -59,6 +61,8 @@ from .type_defs import (
     CreateTopicResponseTypeDef,
     CreateVpcConnectionRequestTypeDef,
     CreateVpcConnectionResponseTypeDef,
+    DeleteChannelRequestTypeDef,
+    DeleteChannelResponseTypeDef,
     DeleteClusterPolicyRequestTypeDef,
     DeleteClusterRequestTypeDef,
     DeleteClusterResponseTypeDef,
@@ -70,6 +74,8 @@ from .type_defs import (
     DeleteTopicResponseTypeDef,
     DeleteVpcConnectionRequestTypeDef,
     DeleteVpcConnectionResponseTypeDef,
+    DescribeChannelRequestTypeDef,
+    DescribeChannelResponseTypeDef,
     DescribeClusterOperationRequestTypeDef,
     DescribeClusterOperationResponseTypeDef,
     DescribeClusterOperationV2RequestTypeDef,
@@ -97,6 +103,8 @@ from .type_defs import (
     GetClusterPolicyResponseTypeDef,
     GetCompatibleKafkaVersionsRequestTypeDef,
     GetCompatibleKafkaVersionsResponseTypeDef,
+    ListChannelsRequestTypeDef,
+    ListChannelsResponseTypeDef,
     ListClientVpcConnectionsRequestTypeDef,
     ListClientVpcConnectionsResponseTypeDef,
     ListClusterOperationsRequestTypeDef,
@@ -138,6 +146,8 @@ from .type_defs import (
     UpdateBrokerStorageResponseTypeDef,
     UpdateBrokerTypeRequestTypeDef,
     UpdateBrokerTypeResponseTypeDef,
+    UpdateChannelRequestTypeDef,
+    UpdateChannelResponseTypeDef,
     UpdateClusterConfigurationRequestTypeDef,
     UpdateClusterConfigurationResponseTypeDef,
     UpdateClusterKafkaVersionRequestTypeDef,
@@ -232,6 +242,17 @@ class KafkaClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafka/client/#batch_associate_scram_secret)
         """
 
+    def create_channel(
+        self, **kwargs: Unpack[CreateChannelRequestTypeDef]
+    ) -> CreateChannelResponseTypeDef:
+        """
+        Creates a Channel that streams records from an Amazon MSK Express cluster topic
+        to Amazon S3 or Apache Iceberg.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/create_channel.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafka/client/#create_channel)
+        """
+
     def create_cluster(
         self, **kwargs: Unpack[CreateClusterRequestTypeDef]
     ) -> CreateClusterResponseTypeDef:
@@ -301,6 +322,17 @@ class KafkaClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/delete_cluster.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafka/client/#delete_cluster)
+        """
+
+    def delete_channel(
+        self, **kwargs: Unpack[DeleteChannelRequestTypeDef]
+    ) -> DeleteChannelResponseTypeDef:
+        """
+        Deletes the channel specified by channelArn from the cluster specified by
+        clusterArn.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/delete_channel.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafka/client/#delete_channel)
         """
 
     def delete_cluster_policy(
@@ -374,6 +406,16 @@ class KafkaClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/describe_cluster_v2.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafka/client/#describe_cluster_v2)
+        """
+
+    def describe_channel(
+        self, **kwargs: Unpack[DescribeChannelRequestTypeDef]
+    ) -> DescribeChannelResponseTypeDef:
+        """
+        Returns the current configuration and state of a channel.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/describe_channel.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafka/client/#describe_channel)
         """
 
     def describe_cluster_operation(
@@ -537,6 +579,16 @@ class KafkaClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/list_clusters_v2.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafka/client/#list_clusters_v2)
+        """
+
+    def list_channels(
+        self, **kwargs: Unpack[ListChannelsRequestTypeDef]
+    ) -> ListChannelsResponseTypeDef:
+        """
+        Returns the list of channels in a cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/list_channels.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafka/client/#list_channels)
         """
 
     def list_configuration_revisions(
@@ -734,6 +786,16 @@ class KafkaClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/update_connectivity.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafka/client/#update_connectivity)
+        """
+
+    def update_channel(
+        self, **kwargs: Unpack[UpdateChannelRequestTypeDef]
+    ) -> UpdateChannelResponseTypeDef:
+        """
+        Updates the destination configuration of an existing channel.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/update_channel.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafka/client/#update_channel)
         """
 
     def update_cluster_configuration(

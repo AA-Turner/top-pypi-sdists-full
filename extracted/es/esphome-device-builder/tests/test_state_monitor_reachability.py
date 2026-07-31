@@ -9,9 +9,9 @@ These tests pin the four hand-offs the monitor makes to the tracker:
 2. ``apply(name, OFFLINE, source)`` does *not* record — an OFFLINE
    transition isn't a freshness signal, the channel stopped hearing
    from the device.
-3. mDNS browser ``Removed`` clears every signal for the device — the
-   intent is "we lost the device", a re-announce should start with
-   fresh timestamps not stale-by-hours ones.
+3. mDNS browser ``Removed`` withdraws the mDNS claim but leaves the
+   other channels' freshness stamps alone — a withdrawal says nothing
+   about what ping / MQTT last heard.
 4. The ping path captures ``Host.min_rtt`` and pairs it with the
    apply call — the "Round trip 4 ms" line in the drawer comes from
    here.
@@ -44,7 +44,6 @@ from esphome_device_builder.controllers._device_state_monitor import (
     DeviceStateMonitor,
     _decode_txt_bytes_to_sorted_pairs,
 )
-from esphome_device_builder.controllers._device_state_monitor import helpers as helpers_module
 from esphome_device_builder.controllers._device_state_monitor._state import MonitorState
 from esphome_device_builder.controllers._device_state_monitor.importable import ImportableDiscovery
 from esphome_device_builder.controllers._device_state_monitor.mdns import MdnsSource
@@ -107,6 +106,7 @@ def _make_monitor(
     monitor.state.reachability = tracker
     monitor._on_state_change = _flip_state(devices)
     monitor._on_ip_change = lambda _n, _i, _l: None
+    monitor._on_resolved_addresses_cleared = None
     monitor._on_source_change = None
     monitor._on_version_change = None
     monitor._on_config_hash_change = None
@@ -530,38 +530,26 @@ def test_forget_drops_source_ledger() -> None:
     assert "kitchen" not in monitor.state.state_source
 
 
-async def test_mdns_removed_via_dispatch_clears_tracker() -> None:
-    """The real browser-callback path (Removed) routes through to ``clear``.
-
-    Sanity-check the integration end-to-end: drive a captured
-    dispatch closure with ``ServiceStateChange.Removed`` and
-    confirm the tracker's per-device entry is gone afterwards.
-    Without this we'd be relying on the test above which calls
-    ``clear`` directly — that misses any future refactor that
-    routes the Removed branch through a path the tracker isn't
-    wired into.
-    """
+async def test_mdns_removed_via_dispatch_keeps_channel_freshness() -> None:
+    """The real browser-callback Removed path leaves ping / MQTT stamps alone."""
     devices = [_make_device(state=DeviceState.ONLINE)]
     tracker = ReachabilityTracker()
-    tracker.observe("kitchen", "mdns")
+    tracker.observe("kitchen", "ping")
+    tracker.observe("kitchen", "mqtt")
 
     monitor = _make_monitor(devices, tracker)
+    monitor.ping.icmp_available = True
 
-    # Replay the Removed branch the same way the dispatch closure
-    # would. The branch lives inline inside ``_start_mdns_browser``;
-    # exercising it without standing up zeroconf means inlining the
-    # six lines here is honest about what we're testing.
-    state_change = ServiceStateChange.Removed
-    name = "kitchen._esphomelib._tcp.local."
-    device_name = helpers_module.device_name_from_service(name)
-    if state_change == ServiceStateChange.Removed:
-        monitor.apply(device_name, DeviceState.OFFLINE, "mdns")
-        monitor.state.state_source.pop(device_name, None)
-        if monitor.state.reachability is not None:
-            monitor.state.reachability.clear(device_name)
+    monitor.mdns._on_esphomelib_service_state_change(
+        MagicMock(),
+        "_esphomelib._tcp.local.",
+        "kitchen._esphomelib._tcp.local.",
+        ServiceStateChange.Removed,
+    )
 
-    snap = tracker.snapshot("kitchen", state=DeviceState.OFFLINE, active_source="unknown", ip="")
-    assert snap["mdns_last_seen_seconds_ago"] is None
+    snap = tracker.snapshot("kitchen", state=DeviceState.UNKNOWN, active_source="unknown", ip="")
+    assert snap["ping_last_seen_seconds_ago"] is not None
+    assert snap["mqtt_last_seen_seconds_ago"] is not None
 
 
 def test_get_mdns_cache_info_no_zeroconf_returns_none() -> None:
@@ -782,6 +770,102 @@ def test_get_mdns_cache_info_decodes_txt_records() -> None:
             "mac": "aabbccddeeff",
             "api_encryption": "Noise_NNpsk0_25519_ChaChaPoly_SHA256",
         }
+    finally:
+        zc.close()
+
+
+def test_get_mdns_cache_info_prefers_the_esphomelib_txt_over_a_fresher_http_txt() -> None:
+    """The identity TXT wins the drawer panel even when web_server's TXT is newer."""
+    zc = Zeroconf(interfaces=["127.0.0.1"])
+    try:
+        esphomelib_txt = DNSText(
+            name="kitchen._esphomelib._tcp.local.",
+            type_=_TYPE_TXT,
+            class_=_CLASS_IN,
+            ttl=4500,
+            text=bytes([len(b"version=2025.4.0")]) + b"version=2025.4.0",
+            created=current_time_millis() - 60_000,
+        )
+        http_txt = DNSText(
+            name="kitchen._http._tcp.local.",
+            type_=_TYPE_TXT,
+            class_=_CLASS_IN,
+            ttl=4500,
+            text=bytes([len(b"path=/")]) + b"path=/",
+            created=current_time_millis() - 2_000,
+        )
+        zc.cache.async_add_records([esphomelib_txt, http_txt])
+
+        monitor = _make_monitor([_make_device()], None)
+        monitor.mdns._zeroconf = MagicMock(zeroconf=zc)
+
+        info = monitor.mdns.get_mdns_cache_info("kitchen")
+        assert info is not None
+        assert info.txt_records == {"version": "2025.4.0"}
+    finally:
+        zc.close()
+
+
+def test_get_mdns_cache_info_keeps_the_aged_esphomelib_txt_when_nothing_is_live() -> None:
+    """With every TXT expired the panel keeps last-known identity instead of going empty."""
+    zc = Zeroconf(interfaces=["127.0.0.1"])
+    try:
+        expired_esphomelib_txt = DNSText(
+            name="kitchen._esphomelib._tcp.local.",
+            type_=_TYPE_TXT,
+            class_=_CLASS_IN,
+            ttl=120,
+            text=bytes([len(b"version=2025.4.0")]) + b"version=2025.4.0",
+            created=current_time_millis() - 500_000,
+        )
+        expired_http_txt = DNSText(
+            name="kitchen._http._tcp.local.",
+            type_=_TYPE_TXT,
+            class_=_CLASS_IN,
+            ttl=120,
+            text=bytes([len(b"path=/")]) + b"path=/",
+            created=current_time_millis() - 400_000,
+        )
+        zc.cache.async_add_records([expired_esphomelib_txt, expired_http_txt])
+
+        monitor = _make_monitor([_make_device()], None)
+        monitor.mdns._zeroconf = MagicMock(zeroconf=zc)
+
+        info = monitor.mdns.get_mdns_cache_info("kitchen")
+        assert info is not None
+        assert info.txt_records == {"version": "2025.4.0"}
+    finally:
+        zc.close()
+
+
+def test_get_mdns_cache_info_expired_esphomelib_txt_yields_to_a_live_http_txt() -> None:
+    """A dead esphomelib TXT (device recompiled without api) can't shadow live http identity."""
+    zc = Zeroconf(interfaces=["127.0.0.1"])
+    try:
+        expired_esphomelib_txt = DNSText(
+            name="kitchen._esphomelib._tcp.local.",
+            type_=_TYPE_TXT,
+            class_=_CLASS_IN,
+            ttl=120,
+            text=bytes([len(b"version=2025.4.0")]) + b"version=2025.4.0",
+            created=current_time_millis() - 500_000,
+        )
+        live_http_txt = DNSText(
+            name="kitchen._http._tcp.local.",
+            type_=_TYPE_TXT,
+            class_=_CLASS_IN,
+            ttl=4500,
+            text=bytes([len(b"version=2026.7.2")]) + b"version=2026.7.2",
+            created=current_time_millis() - 2_000,
+        )
+        zc.cache.async_add_records([expired_esphomelib_txt, live_http_txt])
+
+        monitor = _make_monitor([_make_device()], None)
+        monitor.mdns._zeroconf = MagicMock(zeroconf=zc)
+
+        info = monitor.mdns.get_mdns_cache_info("kitchen")
+        assert info is not None
+        assert info.txt_records == {"version": "2026.7.2"}
     finally:
         zc.close()
 
@@ -1149,3 +1233,75 @@ async def test_refresh_mdns_empty_resolve_no_state_change() -> None:
 
     await monitor.mdns.refresh_mdns("kitchen")
     assert devices[0].runtime_state.state is DeviceState.UNKNOWN
+
+
+def test_get_mdns_cache_info_countdown_rides_the_http_ptr_for_non_api() -> None:
+    """A device with only ``_http._tcp`` records still gets the expiry countdown."""
+    zc = Zeroconf(interfaces=["127.0.0.1"])
+    try:
+        zc.cache.async_add_records(
+            [
+                DNSPointer(
+                    name="_http._tcp.local.",
+                    type_=_TYPE_PTR,
+                    class_=_CLASS_IN,
+                    ttl=4500,
+                    alias="kitchen._http._tcp.local.",
+                    created=current_time_millis() - 10_000,
+                ),
+            ]
+        )
+        monitor = _make_monitor([_make_device()], None)
+        monitor.mdns._zeroconf = MagicMock(zeroconf=zc)
+
+        info = monitor.mdns.get_mdns_cache_info("kitchen")
+
+        assert info is not None
+        assert info.ptr_ttl_seconds == 4500.0
+    finally:
+        zc.close()
+
+
+@pytest.mark.parametrize(
+    ("esphomelib_ttl", "http_ttl"),
+    [
+        pytest.param(4500, 120, id="esphomelib_longer"),
+        pytest.param(120, 4500, id="http_longer"),
+    ],
+)
+def test_get_mdns_cache_info_countdown_prefers_the_esphomelib_ptr(
+    esphomelib_ttl: int, http_ttl: int
+) -> None:
+    """With both PTRs live the countdown rides the esphomelib ownership anchor."""
+    zc = Zeroconf(interfaces=["127.0.0.1"])
+    try:
+        zc.cache.async_add_records(
+            [
+                DNSPointer(
+                    name="_esphomelib._tcp.local.",
+                    type_=_TYPE_PTR,
+                    class_=_CLASS_IN,
+                    ttl=esphomelib_ttl,
+                    alias="kitchen._esphomelib._tcp.local.",
+                    created=current_time_millis(),
+                ),
+                DNSPointer(
+                    name="_http._tcp.local.",
+                    type_=_TYPE_PTR,
+                    class_=_CLASS_IN,
+                    ttl=http_ttl,
+                    alias="kitchen._http._tcp.local.",
+                    created=current_time_millis(),
+                ),
+            ]
+        )
+        monitor = _make_monitor([_make_device()], None)
+        monitor.mdns._zeroconf = MagicMock(zeroconf=zc)
+
+        info = monitor.mdns.get_mdns_cache_info("kitchen")
+
+        assert info is not None
+        assert info.ptr_ttl_seconds == float(esphomelib_ttl)
+        assert info.ttl_remaining_seconds == pytest.approx(float(esphomelib_ttl), abs=0.5)
+    finally:
+        zc.close()

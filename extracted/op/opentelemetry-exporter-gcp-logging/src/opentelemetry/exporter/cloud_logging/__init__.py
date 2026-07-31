@@ -68,6 +68,7 @@ from opentelemetry.util.types import AnyValue
 from proto.datetime_helpers import (  # type: ignore[import]
     DatetimeWithNanoseconds,
 )
+from typing_extensions import deprecated  # type: ignore[attr-defined]
 
 DEFAULT_MAX_ENTRY_SIZE = 256000  # 256 KB
 DEFAULT_MAX_REQUEST_SIZE = 10000000  # 10 MB
@@ -254,6 +255,10 @@ def _get_monitored_resource(
     )
 
 
+@deprecated(
+    "CloudLoggingExporter is deprecated. See migration guide at "
+    "https://github.com/GoogleCloudPlatform/opentelemetry-operations-python/blob/main/MIGRATION.md"
+)
 class CloudLoggingExporter(LogRecordExporter):
     def __init__(
         self,

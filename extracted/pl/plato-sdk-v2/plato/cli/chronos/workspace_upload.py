@@ -148,6 +148,41 @@ def _is_git_workspace_root(path: Path) -> bool:
     return (path / "repo" / ".git").is_dir() and (path / ".git-bare" / "HEAD").exists()
 
 
+def _require_bare_repository(bare_dir: Path) -> None:
+    """Reject a ``.git-bare`` that is not a true bare repository.
+
+    A working checkout's ``.git/`` copied or renamed to ``.git-bare`` passes the
+    HEAD-file shape check but has ``core.bare=false`` (plus ``index``,
+    ``COMMIT_EDITMSG``, …). The upload itself then *appears* to work whenever the
+    working tree's tip already matches the fake bare (``git push`` no-ops as
+    up-to-date), and the breakage only surfaces on the restoring VM, where the
+    runtime's bare-repo maintenance (``git repack -a -d``) dies with
+    ``fatal: not a git repository``. Fail here, at upload time, with the fix.
+    """
+    trust_git_directory(bare_dir)
+    result = subprocess.run(
+        ["git", "--git-dir", str(bare_dir), "rev-parse", "--is-bare-repository"],
+        env={**os.environ, **_PLATO_GIT_ENV},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    is_bare = result.stdout.strip()
+    if result.returncode == 0 and is_bare == "true":
+        return
+    detail = (
+        (result.stderr.strip() or result.stdout.strip() or "git could not read it")
+        if result.returncode != 0
+        else f"rev-parse --is-bare-repository says {is_bare!r} (a working checkout's .git/ copied to .git-bare?)"
+    )
+    raise ValueError(
+        f"'{bare_dir}' is not a bare git repository: {detail}. "
+        "Sessions restoring this workspace will fail at 'git repack' with "
+        "'fatal: not a git repository'. Rebuild it from the working tree with: "
+        f"rm -rf '{bare_dir}' && git clone --bare '{bare_dir.parent / 'repo'}' '{bare_dir}'"
+    )
+
+
 def _require_git_workspace_root(path: Path) -> tuple[Path, Path]:
     """Resolve ``path`` to the (repo_dir, bare_dir) of a git workspace payload.
 
@@ -157,8 +192,10 @@ def _require_git_workspace_root(path: Path) -> tuple[Path, Path]:
     """
     root = path.expanduser().resolve()
     if _is_git_workspace_root(root):
+        _require_bare_repository(root / ".git-bare")
         return root / "repo", root / ".git-bare"
     if (root / ".git").is_dir() and root.name == "repo" and (root.parent / ".git-bare" / "HEAD").exists():
+        _require_bare_repository(root.parent / ".git-bare")
         return root, root.parent / ".git-bare"
     for repo_dir in (root / "repo", root if root.name == "repo" else None):
         if repo_dir is not None and (repo_dir / ".git").is_file() and (repo_dir.parent / ".git-bare" / "HEAD").exists():
@@ -486,7 +523,19 @@ def _sync_repo_to_bare(repo_dir: Path, bare_dir: Path, *, commit_message: str) -
         _run_git(["push", "--force", str(bare_dir), "HEAD:refs/heads/main"], cwd=repo_dir)
     _run_git(["--git-dir", str(bare_dir), "symbolic-ref", "HEAD", "refs/heads/main"])
     _prune_bare_garbage(bare_dir)
-    return _run_git(["--git-dir", str(bare_dir), "rev-parse", "main"])
+    # Invariant gate: after the push, the bare's main must be the working
+    # tree's HEAD commit. A mismatch (or an unresolvable main) means the bare
+    # did not absorb the tip — restoring the archive would hand agents stale
+    # or missing history. Fail at upload time, not on the restoring VM.
+    head_sha = _run_git(["--git-dir", str(bare_dir), "rev-parse", "main"])
+    repo_head = _run_git(["rev-parse", "HEAD"], cwd=repo_dir)
+    if head_sha != repo_head:
+        raise RuntimeError(
+            f"After push, bare main ({head_sha[:12]}) does not match the working tree HEAD "
+            f"({repo_head[:12]}) — the bare did not absorb the tip. Rebuild it with: "
+            f"rm -rf '{bare_dir}' && git clone --bare '{repo_dir}' '{bare_dir}'"
+        )
+    return head_sha
 
 
 def _sync_git_workspace(source: Path, *, commit_message: str) -> tuple[Path, Path, str]:

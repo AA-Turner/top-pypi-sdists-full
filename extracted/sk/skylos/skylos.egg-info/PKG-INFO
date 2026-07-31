@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skylos
-Version: 4.31.1
+Version: 4.32.0
 Summary: Open-source, local-first static analysis and PR gates for Python, TypeScript/JavaScript, Go, Java, Kotlin, PHP, Rust, Dart, C#, and Shell. Finds dead code, security issues, secrets, quality regressions, and AI-code mistakes.
 Author-email: Aaron Oh <aaronoh2015@gmail.com>
 License-Expression: Apache-2.0
@@ -51,12 +51,15 @@ Requires-Dist: mcp>=1.0.0
 Provides-Extra: llm
 Requires-Dist: litellm<1.85.0,>=1.84.0; extra == "llm"
 Requires-Dist: aiohttp>=3.14.0; extra == "llm"
+Provides-Extra: lint
+Requires-Dist: ruff>=0.15.0; extra == "lint"
 Provides-Extra: test
 Requires-Dist: pytest>=9.0.2; extra == "test"
 Provides-Extra: all
 Requires-Dist: pytest>=9.0.2; extra == "all"
 Requires-Dist: litellm<1.85.0,>=1.84.0; extra == "all"
 Requires-Dist: aiohttp>=3.14.0; extra == "all"
+Requires-Dist: ruff>=0.15.0; extra == "all"
 Dynamic: license-file
 
 [![MCP Toplist](https://mcptoplist.com/badge/io.github.duriantaco%2Fskylos.svg)](https://mcptoplist.com/server/io.github.duriantaco%2Fskylos)
@@ -197,10 +200,12 @@ Need more commands? Read the [CLI Reference](https://docs.skylos.dev/cli-referen
 | First dead-code scan | `skylos .` | Finds unused functions, classes, imports, files, and framework entrypoint mistakes | [Dead code docs](https://docs.skylos.dev/dead-code-detection) |
 | Deterministic cleanup preview | `skylos clean . --dry-run --types import,function --confidence 80` | Shows safe import/function removals before writing; add `--apply` to edit files | [Dead code docs](https://docs.skylos.dev/dead-code-detection) |
 | Security and quality audit | `skylos . -a` | Adds dangerous flow, secrets, dependency, config, quality, and AI-defect checks | [Security docs](https://docs.skylos.dev/security-analysis) |
+| Optional Python linting | `pip install "skylos[lint]" && skylos lint .` | Runs Ruff with its native configuration, output, fixes, and exit codes through the Skylos CLI | [Python linting](./docs/python-linting.md) |
 | PR gate | `skylos cicd init` | Generates a GitHub Actions workflow with annotations and failure thresholds | [CI/CD guide](https://docs.skylos.dev/ci-cd) |
 | Readable terminal report | `skylos . --format pretty` | Groups findings by file with severity badges, snippets, and copyable `file:line` locations | [CLI output modes](./docs/cli-output.md) |
+| Single-rule review | `skylos . --select SKY-L012 --format concise` | Enables the matching analyzer family and reports only that exact rule with its full message | [CLI output modes](./docs/cli-output.md) |
 | Selectable terminal triage | `skylos . --tui` | Opens a keyboard-driven category list, finding list, and detail pane | [CLI output modes](./docs/cli-output.md) |
-| IDE/test-script output | `skylos --format concise src/test.py` | Prints only `file:line` findings and exits non-zero when findings exist | [CLI Reference](https://docs.skylos.dev/cli-reference) |
+| IDE/test-script output | `skylos --format concise src/test.py` | Prints untruncated `file:line  RULE_ID  message` findings and exits non-zero when findings exist | [CLI Reference](https://docs.skylos.dev/cli-reference) |
 | In-loop AI-code verification | `skylos verify . --file src/app.py --range 40:75` | Returns narrow JSON for hallucinated helpers, unfinished code, stale references, disabled controls, and API/dependency hallucinations | [AI features](https://docs.skylos.dev/ai-features) |
 | AI hallucination contracts | `skylos contract init && skylos verify .` | Auto-discovers `.skylos/ai-contract.yml` and verifies generated code against repo-specific symbols, dependencies, APIs, route guards, and test requirements | [AI Hallucination Contracts](./docs/ai-hallucination-contracts.md) |
 | Changed-lines review | `skylos . -a --diff origin/main` | Keeps findings focused on active work instead of legacy debt | [Quality gate docs](https://docs.skylos.dev/quality-gate) |
@@ -394,6 +399,9 @@ pip install skylos
 # LLM-powered agent workflows
 pip install "skylos[llm]"
 
+# Ruff Python linting through `skylos lint`
+pip install "skylos[lint]"
+
 # All published optional extras
 pip install "skylos[all]"
 ```
@@ -557,6 +565,7 @@ A local Astronomer scan on April 26, 2026 computed 420 stargazers and returned
 | GitHub Action | [GitHub Action](./action.yml) | PR gates, annotations, and CI enforcement |
 | VS Code extension | [VS Code extension](./editors/vscode/README.md) | in-editor findings and AI-assisted fixes |
 | MCP server | [MCP setup](https://docs.skylos.dev/mcp-server) | expose Skylos scans to AI agents and coding assistants |
+| Ruff | [Python linting](./docs/python-linting.md) | optional Python linting through `skylos lint` |
 | Docker image | [Installation](https://docs.skylos.dev/installation) | run Skylos without a local Python install |
 | Skylos Cloud | [Cloud workflow](https://docs.skylos.dev/cloud-workflow) | optional upload and dashboard workflows |
 
@@ -578,6 +587,7 @@ metadata, and supports monorepo subprojects through `--scan-path`.
 | First scan and core workflows | [Quick Start](https://docs.skylos.dev/quick-start) |
 | CLI commands, flags, and examples | [CLI Reference](https://docs.skylos.dev/cli-reference) |
 | CLI output modes, pretty reports, and TUI controls | [CLI Output Modes](./docs/cli-output.md) |
+| Optional Ruff linting through the Skylos CLI | [Python Linting](./docs/python-linting.md) |
 | CI setup, PR gates, annotations, and branch protection | [CI/CD](https://docs.skylos.dev/ci-cd) |
 | Dead-code behavior and framework awareness | [Dead Code Detection](https://docs.skylos.dev/dead-code-detection) |
 | Security scanning and taint analysis | [Security Analysis](https://docs.skylos.dev/security-analysis) |
@@ -609,6 +619,12 @@ dead code, security, secrets, quality, and AI-defect checks.
 
 No. Core static analysis runs locally without API keys. LLM features are
 optional through `skylos[llm]` and agent commands.
+
+**Does Skylos replace Ruff?**
+
+No. `skylos lint` is an optional convenience entry point that delegates to
+Ruff. Install it with `pip install "skylos[lint]"`; normal Skylos scans do not
+run Ruff or merge Ruff violations into `SKY-*` findings.
 
 **Can I use it only on changed code?**
 

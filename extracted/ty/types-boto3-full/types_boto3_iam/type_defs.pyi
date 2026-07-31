@@ -25,6 +25,7 @@ from .literals import (
     AccessAdvisorUsageGranularityTypeType,
     AssertionEncryptionModeTypeType,
     AssignmentStatusTypeType,
+    AttachmentTypeType,
     ContextKeyTypeEnumType,
     DeletionTaskStatusTypeType,
     EncodingTypeType,
@@ -35,6 +36,7 @@ from .literals import (
     PermissionCheckResultTypeType,
     PermissionCheckStatusTypeType,
     PolicyEvaluationDecisionTypeType,
+    PolicyIdentifierPolicyTypeType,
     PolicyOwnerEntityTypeType,
     PolicyParameterTypeEnumType,
     PolicyScopeTypeType,
@@ -240,6 +242,7 @@ __all__ = (
     "GetUserResponseTypeDef",
     "GroupDetailTypeDef",
     "GroupTypeDef",
+    "InlinePolicyIdentifierTypeTypeDef",
     "InstanceProfileTypeDef",
     "ListAccessKeysRequestPaginateTypeDef",
     "ListAccessKeysRequestTypeDef",
@@ -345,6 +348,7 @@ __all__ = (
     "MFADeviceTypeDef",
     "ManagedPolicyDetailTypeDef",
     "OpenIDConnectProviderListEntryTypeDef",
+    "OrderedOrganizationPolicyTypeTypeDef",
     "OrganizationsDecisionDetailTypeDef",
     "PaginatorConfigTypeDef",
     "PasswordPolicyTypeDef",
@@ -355,6 +359,7 @@ __all__ = (
     "PolicyDocumentTypeDef",
     "PolicyGrantingServiceAccessTypeDef",
     "PolicyGroupTypeDef",
+    "PolicyIdentifierTypeDef",
     "PolicyParameterOutputTypeDef",
     "PolicyParameterTypeDef",
     "PolicyRoleTypeDef",
@@ -979,6 +984,11 @@ class GetUserPolicyRequestTypeDef(TypedDict):
 class GetUserRequestTypeDef(TypedDict):
     UserName: NotRequired[str]
 
+class InlinePolicyIdentifierTypeTypeDef(TypedDict):
+    PolicyName: str
+    AttachmentType: AttachmentTypeType
+    AttachmentName: str
+
 class ListAccessKeysRequestTypeDef(TypedDict):
     UserName: NotRequired[str]
     Marker: NotRequired[str]
@@ -1223,6 +1233,9 @@ class ListVirtualMFADevicesRequestTypeDef(TypedDict):
     AssignmentStatus: NotRequired[AssignmentStatusTypeType]
     Marker: NotRequired[str]
     MaxItems: NotRequired[int]
+
+class OrderedOrganizationPolicyTypeTypeDef(TypedDict):
+    ServiceControlPolicyInputList: NotRequired[Sequence[str]]
 
 class PolicyDocumentStatementTypeDef(TypedDict):
     Effect: str
@@ -1522,33 +1535,6 @@ class UploadSigningCertificateRequestServiceResourceCreateSigningCertificateType
 class UploadSigningCertificateRequestTypeDef(TypedDict):
     CertificateBody: str
     UserName: NotRequired[str]
-
-class SimulateCustomPolicyRequestTypeDef(TypedDict):
-    PolicyInputList: Sequence[str]
-    ActionNames: Sequence[str]
-    PermissionsBoundaryPolicyInputList: NotRequired[Sequence[str]]
-    ResourceArns: NotRequired[Sequence[str]]
-    ResourcePolicy: NotRequired[str]
-    ResourceOwner: NotRequired[str]
-    CallerArn: NotRequired[str]
-    ContextEntries: NotRequired[Sequence[ContextEntryTypeDef]]
-    ResourceHandlingOption: NotRequired[str]
-    MaxItems: NotRequired[int]
-    Marker: NotRequired[str]
-
-class SimulatePrincipalPolicyRequestTypeDef(TypedDict):
-    PolicySourceArn: str
-    ActionNames: Sequence[str]
-    PolicyInputList: NotRequired[Sequence[str]]
-    PermissionsBoundaryPolicyInputList: NotRequired[Sequence[str]]
-    ResourceArns: NotRequired[Sequence[str]]
-    ResourcePolicy: NotRequired[str]
-    ResourceOwner: NotRequired[str]
-    CallerArn: NotRequired[str]
-    ContextEntries: NotRequired[Sequence[ContextEntryTypeDef]]
-    ResourceHandlingOption: NotRequired[str]
-    MaxItems: NotRequired[int]
-    Marker: NotRequired[str]
 
 class CreateAccessKeyResponseTypeDef(TypedDict):
     AccessKey: AccessKeyTypeDef
@@ -2120,31 +2106,6 @@ class ListVirtualMFADevicesRequestPaginateTypeDef(TypedDict):
     AssignmentStatus: NotRequired[AssignmentStatusTypeType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
-class SimulateCustomPolicyRequestPaginateTypeDef(TypedDict):
-    PolicyInputList: Sequence[str]
-    ActionNames: Sequence[str]
-    PermissionsBoundaryPolicyInputList: NotRequired[Sequence[str]]
-    ResourceArns: NotRequired[Sequence[str]]
-    ResourcePolicy: NotRequired[str]
-    ResourceOwner: NotRequired[str]
-    CallerArn: NotRequired[str]
-    ContextEntries: NotRequired[Sequence[ContextEntryTypeDef]]
-    ResourceHandlingOption: NotRequired[str]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class SimulatePrincipalPolicyRequestPaginateTypeDef(TypedDict):
-    PolicySourceArn: str
-    ActionNames: Sequence[str]
-    PolicyInputList: NotRequired[Sequence[str]]
-    PermissionsBoundaryPolicyInputList: NotRequired[Sequence[str]]
-    ResourceArns: NotRequired[Sequence[str]]
-    ResourcePolicy: NotRequired[str]
-    ResourceOwner: NotRequired[str]
-    CallerArn: NotRequired[str]
-    ContextEntries: NotRequired[Sequence[ContextEntryTypeDef]]
-    ResourceHandlingOption: NotRequired[str]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
 class GetAccountPasswordPolicyResponseTypeDef(TypedDict):
     PasswordPolicy: PasswordPolicyTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2182,6 +2143,11 @@ class GetSSHPublicKeyResponseTypeDef(TypedDict):
 class UploadSSHPublicKeyResponseTypeDef(TypedDict):
     SSHPublicKey: SSHPublicKeyTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class PolicyIdentifierTypeDef(TypedDict):
+    PolicyType: NotRequired[PolicyIdentifierPolicyTypeType]
+    PolicyArn: NotRequired[str]
+    InlinePolicyIdentifier: NotRequired[InlinePolicyIdentifierTypeTypeDef]
 
 class ListEntitiesForPolicyResponseTypeDef(TypedDict):
     PolicyGroups: list[PolicyGroupTypeDef]
@@ -2247,6 +2213,33 @@ class ListSigningCertificatesResponseTypeDef(TypedDict):
 class UploadSigningCertificateResponseTypeDef(TypedDict):
     Certificate: SigningCertificateTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class SimulateCustomPolicyRequestPaginateTypeDef(TypedDict):
+    PolicyInputList: Sequence[str]
+    ActionNames: Sequence[str]
+    PermissionsBoundaryPolicyInputList: NotRequired[Sequence[str]]
+    OrderedOrganizationPolicyInputList: NotRequired[Sequence[OrderedOrganizationPolicyTypeTypeDef]]
+    ResourceArns: NotRequired[Sequence[str]]
+    ResourcePolicy: NotRequired[str]
+    ResourceOwner: NotRequired[str]
+    CallerArn: NotRequired[str]
+    ContextEntries: NotRequired[Sequence[ContextEntryTypeDef]]
+    ResourceHandlingOption: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class SimulateCustomPolicyRequestTypeDef(TypedDict):
+    PolicyInputList: Sequence[str]
+    ActionNames: Sequence[str]
+    PermissionsBoundaryPolicyInputList: NotRequired[Sequence[str]]
+    OrderedOrganizationPolicyInputList: NotRequired[Sequence[OrderedOrganizationPolicyTypeTypeDef]]
+    ResourceArns: NotRequired[Sequence[str]]
+    ResourcePolicy: NotRequired[str]
+    ResourceOwner: NotRequired[str]
+    CallerArn: NotRequired[str]
+    ContextEntries: NotRequired[Sequence[ContextEntryTypeDef]]
+    ResourceHandlingOption: NotRequired[str]
+    MaxItems: NotRequired[int]
+    Marker: NotRequired[str]
 
 class PolicyDocumentDictTypeDef(TypedDict):
     Version: str
@@ -2354,6 +2347,35 @@ class GetServiceLastAccessedDetailsWithEntitiesResponseTypeDef(TypedDict):
     Marker: str
     Error: ErrorDetailsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class SimulatePrincipalPolicyRequestPaginateTypeDef(TypedDict):
+    PolicySourceArn: str
+    ActionNames: Sequence[str]
+    PolicyInputList: NotRequired[Sequence[str]]
+    PermissionsBoundaryPolicyInputList: NotRequired[Sequence[str]]
+    PolicyExclusionList: NotRequired[Sequence[PolicyIdentifierTypeDef]]
+    ResourceArns: NotRequired[Sequence[str]]
+    ResourcePolicy: NotRequired[str]
+    ResourceOwner: NotRequired[str]
+    CallerArn: NotRequired[str]
+    ContextEntries: NotRequired[Sequence[ContextEntryTypeDef]]
+    ResourceHandlingOption: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class SimulatePrincipalPolicyRequestTypeDef(TypedDict):
+    PolicySourceArn: str
+    ActionNames: Sequence[str]
+    PolicyInputList: NotRequired[Sequence[str]]
+    PermissionsBoundaryPolicyInputList: NotRequired[Sequence[str]]
+    PolicyExclusionList: NotRequired[Sequence[PolicyIdentifierTypeDef]]
+    ResourceArns: NotRequired[Sequence[str]]
+    ResourcePolicy: NotRequired[str]
+    ResourceOwner: NotRequired[str]
+    CallerArn: NotRequired[str]
+    ContextEntries: NotRequired[Sequence[ContextEntryTypeDef]]
+    ResourceHandlingOption: NotRequired[str]
+    MaxItems: NotRequired[int]
+    Marker: NotRequired[str]
 
 class ListPoliciesGrantingServiceAccessResponseTypeDef(TypedDict):
     PoliciesGrantingServiceAccess: list[ListPoliciesGrantingServiceAccessEntryTypeDef]

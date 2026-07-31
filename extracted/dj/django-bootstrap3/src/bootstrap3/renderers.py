@@ -192,7 +192,7 @@ class FormRenderer(BaseRenderer):
         elif error_types == "non_field_errors":
             form_errors = self.form.non_field_errors()
         elif error_types and error_types != "none":
-            raise Exception('Illegal value "{}" for error_types.')
+            raise Exception(f'Illegal value "{error_types}" for error_types.')
 
         if form_errors:
             return render_template_file(
@@ -236,7 +236,7 @@ class FieldRenderer(BaseRenderer):
             # Or just set it to empty
             self.placeholder = ""
         if self.placeholder:
-            self.placeholder = text_value(mark_safe(self.placeholder))
+            self.placeholder = text_value(self.placeholder)
 
         self.addon_before = kwargs.get("addon_before", self.widget.attrs.pop("addon_before", ""))
         self.addon_after = kwargs.get("addon_after", self.widget.attrs.pop("addon_after", ""))

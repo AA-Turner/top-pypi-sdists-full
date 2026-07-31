@@ -15,9 +15,9 @@ from .http import (
     HttpRequestProtocol,
     HttpResponse,
     HttpResponseFactory,
-    HttpAdapterBase,
     ChannelServiceRoutes,
 )
+from ._http_adapter_base import HttpAdapterBase
 
 # Application Style
 from .app._type_defs import RouteHandler, RouteSelector, StateT
@@ -57,7 +57,7 @@ from .authorization.connections import Connections
 from .authorization.connection_manager import ConnectionManager
 from .authorization.agent_auth_configuration import AgentAuthConfiguration
 from .authorization.claims_identity import ClaimsIdentity
-from .authorization.jwt_token_validator import JwtTokenValidator
+from .authorization.jwt.jwt_token_validator import JwtTokenValidator
 from .authorization.auth_types import AuthTypes
 
 # Client API
@@ -87,6 +87,13 @@ from .connector import (
     TeamsConnectorClient,
     ConnectorClientBase,
     get_product_info,
+)
+
+# Header propagation
+from .header_propagation import (
+    HeaderValueProvider,
+    AgenticHeaderProvider,
+    HeaderPropagationContext,
 )
 
 # State management
@@ -168,6 +175,9 @@ __all__ = [
     "TeamsConnectorClient",
     "ConnectorClientBase",
     "get_product_info",
+    "HeaderValueProvider",
+    "AgenticHeaderProvider",
+    "HeaderPropagationContext",
     "AgentState",
     "StatePropertyAccessor",
     "UserState",

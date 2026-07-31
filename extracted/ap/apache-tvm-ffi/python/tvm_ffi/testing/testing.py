@@ -36,15 +36,11 @@ from typing import Any, ClassVar
 import pytest
 
 from tvm_ffi import Object, get_global_func
-from tvm_ffi.dataclasses import c_class
+from tvm_ffi.dataclasses import IntEnum, StrEnum, c_class, entry
 
 from .. import _ffi_api
 from .. import core as tvm_ffi_core
 
-requires_py39 = pytest.mark.skipif(
-    sys.version_info < (3, 9),
-    reason="requires Python 3.9+",
-)
 requires_py310 = pytest.mark.skipif(
     sys.version_info < (3, 10),
     reason="requires Python 3.10+",
@@ -96,6 +92,23 @@ class TestIntPair(Object):
     # tvm-ffi-stubgen(end)
 
 
+@c_class("testing.TestFrozenCxx", frozen=True)
+class TestFrozenCxx(Object):
+    """C++ object with writable reflection fields frozen by ``@c_class``."""
+
+    __test__: ClassVar[bool] = False
+
+    # tvm-ffi-stubgen(begin): object/testing.TestFrozenCxx
+    # fmt: off
+    value: int
+    tag: str
+    if TYPE_CHECKING:
+        def __init__(self, value: int, tag: str) -> None: ...
+        def __ffi_init__(self, value: int, tag: str) -> None: ...  # ty: ignore[invalid-method-override]
+    # fmt: on
+    # tvm-ffi-stubgen(end)
+
+
 @c_class("testing.TestObjectDerived")
 class TestObjectDerived(TestObjectBase):
     """Test object derived class."""
@@ -109,6 +122,23 @@ class TestObjectDerived(TestObjectBase):
     if TYPE_CHECKING:
         def __init__(self, v_map: Mapping[Any, Any], v_array: Sequence[Any], v_i64: int = ..., v_f64: float = ..., v_str: str = ...) -> None: ...
         def __ffi_init__(self, v_map: Mapping[Any, Any], v_array: Sequence[Any], v_i64: int = ..., v_f64: float = ..., v_str: str = ...) -> None: ...  # ty: ignore[invalid-method-override]
+    # fmt: on
+    # tvm-ffi-stubgen(end)
+
+
+@c_class("testing.TestObjectPtrHolder")
+class TestObjectPtrHolder(Object):
+    """Test object with ``Arc`` and nullable ``ObjectPtr`` fields."""
+
+    __test__ = False
+
+    # tvm-ffi-stubgen(begin): object/testing.TestObjectPtrHolder
+    # fmt: off
+    value: TestObjectBase
+    optional_value: TestObjectBase | None
+    if TYPE_CHECKING:
+        def __init__(self, value: TestObjectBase, optional_value: TestObjectBase | None = ...) -> None: ...
+        def __ffi_init__(self, value: TestObjectBase, optional_value: TestObjectBase | None = ...) -> None: ...  # ty: ignore[invalid-method-override]
     # fmt: on
     # tvm-ffi-stubgen(end)
 
@@ -332,6 +362,36 @@ class _TestCxxClassDerivedDerived(_TestCxxClassDerived):
         def __ffi_init__(self, v_i64: int, v_i32: int, v_f64: float, v_bool: bool, v_f32: float = ..., v_str: str = ...) -> None: ...  # ty: ignore[invalid-method-override]
     # fmt: on
     # tvm-ffi-stubgen(end)
+
+
+class _TestCxxIntEnum(IntEnum, type_key="testing.TestCxxIntEnum"):
+    low = entry(value=10)
+    high = entry(value=20)
+
+
+class _TestCxxStrEnum(StrEnum, type_key="testing.TestCxxStrEnum"):
+    add = entry(value="+")
+    mul = entry(value="*")
+
+
+@c_class("testing.TestCxxEnumHolder")
+class _TestCxxEnumHolder(Object):
+    __test__ = False
+
+    priority: _TestCxxIntEnum
+    opcode: _TestCxxStrEnum
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            priority: _TestCxxIntEnum,
+            opcode: _TestCxxStrEnum,
+        ) -> None: ...
+        def __ffi_init__(
+            self,
+            priority: _TestCxxIntEnum,
+            opcode: _TestCxxStrEnum,
+        ) -> None: ...  # ty: ignore[invalid-method-override]
 
 
 @c_class("testing.TestCxxInitSubset")

@@ -47,15 +47,39 @@ def _make_response(
 
 
 class TestConnectorCredentialResolution:
+    @pytest.mark.asyncio
+    async def test_tool_call_deployment_run_as_uses_service_creds(self) -> None:
+        """A ``deployment`` connector always uses the deployment's service creds,
+        never the executor (OBO) credentials.
+        """
+        response = _make_response(text="ok", is_error=False)
+
+        with patch("mistralai.workflows.plugins.mistralai.connectors.activities.get_mistral_client") as mock_get_client:
+            mock_client = AsyncMock()
+            mock_client.beta.connectors.call_tool_async.return_value = response
+            mock_get_client.return_value = mock_client
+
+            await connector_tool_call.__wrapped__(
+                connector_id_or_name="github",
+                tool_name="issue_read",
+                arguments={"issue_id": "123"},
+                run_as="deployment",
+            )
+
+        mock_get_client.assert_called_once_with(use_executor_credentials=False)
+
     @pytest.mark.parametrize("on_behalf_of", [True, False])
     @pytest.mark.asyncio
-    async def test_tool_call_resolves_executor_credentials_from_obo(self, on_behalf_of: bool) -> None:
+    async def test_tool_call_auto_run_as_follows_obo_flag(self, on_behalf_of: bool) -> None:
+        """An unspecified (``auto``) run_as is backward-compatible: it follows the
+        workflow's ``on_behalf_of`` flag via ``use_executor_credentials_for``.
+        """
         response = _make_response(text="ok", is_error=False)
 
         with (
             patch("mistralai.workflows.plugins.mistralai.connectors.activities.get_mistral_client") as mock_get_client,
             patch(
-                "mistralai.workflows.plugins.mistralai.connectors.activities.should_use_executor_credentials",
+                "mistralai.workflows.plugins.mistralai.connectors.activities.use_executor_credentials_for",
                 return_value=on_behalf_of,
             ),
         ):

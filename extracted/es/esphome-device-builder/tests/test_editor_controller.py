@@ -1257,3 +1257,41 @@ async def test_invalidate_cache_clears_every_session(tmp_path: Path) -> None:
     await controller.validate_yaml(configuration="bedroom.yaml", content="esphome:\n")
 
     assert calls == ["kitchen.yaml", "bedroom.yaml", "kitchen.yaml", "bedroom.yaml"]
+
+
+@pytest.mark.asyncio
+async def test_migrate_config_respells_legacy_content(tmp_path: Path) -> None:
+    controller = _make_controller(tmp_path)
+    content = "api:\n  services:\n    - service: pause\n      then:\n        - delay: 1s\n"
+    result = await controller.migrate_config(content=content)
+    diff = result["yaml_diff"]
+    assert diff is not None
+    assert "actions:" in diff["replacement"]
+    assert "- action: pause" in diff["replacement"]
+
+
+@pytest.mark.asyncio
+async def test_migrate_config_null_when_canonical(tmp_path: Path) -> None:
+    controller = _make_controller(tmp_path)
+    content = "api:\n  actions:\n    - action: pause\n      then: []\n"
+    result = await controller.migrate_config(content=content)
+    assert result["yaml_diff"] is None
+
+
+@pytest.mark.asyncio
+async def test_migrate_config_applies_generated_rules(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from esphome_device_builder.controllers import migrations  # noqa: PLC0415
+    from esphome_device_builder.definitions import MigrationRule  # noqa: PLC0415
+
+    rule = MigrationRule(
+        kind="platform_item_field", old="voc", new="voc_index", domain="sensor", platform="sgp4x"
+    )
+    monkeypatch.setattr(migrations, "load_migration_rules_index", lambda: (rule,))
+    controller = _make_controller(tmp_path)
+    content = "sensor:\n  - platform: sgp4x\n    voc:\n      name: VOC\n"
+    result = await controller.migrate_config(content=content)
+    diff = result["yaml_diff"]
+    assert diff is not None
+    assert "voc_index:" in diff["replacement"]

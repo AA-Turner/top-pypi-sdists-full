@@ -25,10 +25,13 @@
 #define TVM_FFI_ORCJIT_ORCJIT_DYLIB_H_
 
 #include <llvm/ExecutionEngine/Orc/LLJIT.h>
+#include <llvm/Support/MemoryBuffer.h>
 #include <tvm/ffi/container/array.h>
 #include <tvm/ffi/extra/module.h>
 #include <tvm/ffi/object.h>
 #include <tvm/ffi/string.h>
+
+#include <memory>
 
 #include "llvm_patches/macho_cxa_atexit_shim.h"
 #include "orcjit_session.h"
@@ -41,6 +44,11 @@ class ORCJITExecutionSession;
 
 class ORCJITDynamicLibraryObj : public ModuleObj {
  public:
+  // The session is this dylib's factory and lifetime owner (create / teardown);
+  // it also drives the high-level load path (ORCJITExecutionSessionObj::LoadModule)
+  // through the private add and finalize helpers below.
+  friend class ORCJITExecutionSessionObj;
+
   /*!
    * \brief Constructor
    * \param session The parent execution session
@@ -65,13 +73,32 @@ class ORCJITDynamicLibraryObj : public ModuleObj {
   void AddObjectFile(const String& path);
 
   /*!
-   * \brief Set the link order for symbol resolution
-   * \param dylibs Vector of libraries to search for symbols (in order)
-   *
-   * When resolving symbols, this library will search in the specified libraries
-   * in the order provided. This replaces any previous link order.
+   * \brief Add an in-memory object-file image to this library.
+   * \param bytes The object-file bytes. Copied into an owned MemoryBuffer, so
+   *        the caller's bytes need not outlive linking.
    */
-  void SetLinkOrder(const std::vector<llvm::orc::JITDylib*>& dylibs);
+  void AddObjectBytes(const Bytes& bytes);
+
+  /*!
+   * \brief Add an object-file MemoryBuffer to this library (shared back end).
+   * \param buffer The object-file image. LLVM takes ownership.
+   */
+  void AddObjectBuffer(std::unique_ptr<llvm::MemoryBuffer> buffer);
+
+  /*!
+   * \brief Finalize the high-level load: inject context symbols and, if the
+   *        objects embed a library binary, reconstruct the import tree.
+   *
+   * Must run exactly once per dylib (guarded by \c finalized_); a second call
+   * would append duplicate imports, since \c ModuleObj::ImportModule does not
+   * deduplicate. Only \c LoadModule calls this.
+   *
+   * \return The root module (this dylib when there is no embedded binary).
+   */
+  Module Finalize();
+
+  /*! \brief Inject library-context symbols; runs once per dylib (see Finalize). */
+  void InitContextSymbols();
 
   /*!
    * \brief Look up a symbol in this library
@@ -86,12 +113,6 @@ class ORCJITDynamicLibraryObj : public ModuleObj {
    */
   llvm::orc::JITDylib& GetJITDylib();
 
-  /*!
-   * \brief Get the name of this library
-   * \return The library name
-   */
-  String GetName() const { return name_; }
-
   /*! \brief Parent execution session (for lifetime management) */
   ORCJITExecutionSession session_;
 
@@ -104,8 +125,8 @@ class ORCJITDynamicLibraryObj : public ModuleObj {
   /*! \brief Library name */
   String name_;
 
-  /*! \brief Link order tracking (to support incremental linking) */
-  llvm::orc::JITDylibSearchOrder link_order_;
+  /*! \brief Whether Finalize has run; guards against double-finalizing. */
+  bool finalized_{false};
 
 #ifdef __APPLE__
   /*! \brief Per-dylib __cxa_atexit registry.

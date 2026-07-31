@@ -1,0 +1,16 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: workflows-worker-internal
+  description: Internal Temporal worker base image for Mistral-managed workflows.
+  annotations:
+    mistral.ai/channel-support: C08RZBB9EEM #product-workflows
+    mistral.ai/channel-ops: C0A00JTBDKL #eng-alerts-workflows
+  tags:
+    - backend
+    - python
+spec:
+  type: add_python_step
+  lifecycle: production
+  owner: engineering-workflows
+  system: workflows

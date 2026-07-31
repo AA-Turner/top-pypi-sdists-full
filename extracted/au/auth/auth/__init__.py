@@ -3,7 +3,11 @@ __author__ = "Farshid Ashouri"
 from importlib.metadata import PackageNotFoundError, version
 from typing import Optional
 
-from auth.client import Client, EnhancedAuthClient  # Import the new client
+from auth.client import (  # Import the new client
+    AuthTransportError,
+    Client,
+    EnhancedAuthClient,
+)
 from auth.database import SessionLocal
 from auth.services.service import AuthorizationService
 
@@ -34,12 +38,30 @@ api = app
 class Authorization:
     """Compatibility wrapper for old Authorization interface"""
 
-    def __init__(self, client: str, db_session=None):
+    def __init__(
+        self,
+        client: str,
+        db_session=None,
+        strict_users: Optional[bool] = None,
+    ):
+        # Constructing this wrapper means running auth embedded, against a real
+        # database — the one embedded path that never goes through create_app.
+        # Weak server secrets are actionable here; on a bare `import auth` by a
+        # client-only consumer they are not, which is why they are not emitted
+        # at import time (issuedb #20).
+        from auth.config import get_settings, warn_on_weak_secrets
+
+        warn_on_weak_secrets(get_settings())
+
         self.client = client
         # Use provided session or create a new one
         self.db = db_session if db_session else SessionLocal()
-        # Use legacy mode (no client validation) for backward compatibility
-        self.service = AuthorizationService(self.db, client, validate_client=False)
+        # Use legacy mode (no client validation) for backward compatibility.
+        # strict_users: None reads the tenant's stored setting (identical
+        # semantics to the REST layer); an explicit bool pins it per instance.
+        self.service = AuthorizationService(
+            self.db, client, validate_client=False, strict_users=strict_users
+        )
 
     @property
     def roles(self):
@@ -90,10 +112,35 @@ class Authorization:
     def which_users_can(self, name: str):
         return self.service.which_users_can(name)
 
+    # Tenant settings & strict user identity (SPEC 0010) — embedded consumers
+    # get the same semantics the REST layer serves.
+    def get_settings(self):
+        return self.service.get_settings()
+
+    def set_strict_users(self, enabled: bool):
+        return self.service.set_strict_users(enabled)
+
+    # Per-user API keys (SPEC 0004)
+    def create_api_key(self, user: str, label: Optional[str] = None):
+        return self.service.create_api_key(user, label)
+
+    def list_api_keys(self, user: str):
+        return self.service.list_api_keys(user)
+
+    def revoke_api_key(self, user: str, key_id: str):
+        return self.service.revoke_api_key(user, key_id)
+
+    def validate_api_key(self, api_key: str):
+        return self.service.validate_api_key(api_key)
+
+    def check_api_key_permission(self, api_key: str, permission: str):
+        return self.service.check_api_key_permission(api_key, permission)
+
 
 # Export the new client for users who want enhanced features
 __all__ = [
     "Authorization",
+    "AuthTransportError",
     "Client",
     "EnhancedAuthClient",
     "SessionLocal",

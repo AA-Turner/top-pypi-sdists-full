@@ -17,15 +17,18 @@ try:
 except ImportError:
     _HAS_AIOHTTP_INSTRUMENTATION = False
 
+from mistralai.workflows.core.auth import TokenProvider, get_token_provider
 from mistralai.workflows.core.config.config import config
-from mistralai.workflows.core.tracing._otel_config import OtelExportOptions, config_otel, config_otel_local
+from mistralai.workflows.core.temporal.runtime_metrics import build_temporal_metric_views
+from mistralai.workflows.core.tracing._otel_config import (
+    WORKER_SERVICE_NAME,
+    OtelExportOptions,
+    build_runtime_metrics_meter_provider,
+    config_otel,
+    config_otel_local,
+)
 
 logger = structlog.getLogger(__name__)
-
-# Worker telemetry uses a fixed service name so downstream consumers (e.g. Abraxas
-# filtering execution logs by ServiceName) can rely on it. It is intentionally
-# decoupled from the user-configurable app_name and must not be overridable.
-WORKER_SERVICE_NAME = "mistral-workflows-worker"
 
 
 def _build_export_options(
@@ -55,7 +58,7 @@ def init_tracing(
     *,
     deployment_name: str | None = None,
     worker_name: str | None = None,
-) -> Tuple[MeterProvider | None, TracerProvider | None, LoggerProvider | None]:
+) -> Tuple[MeterProvider | None, TracerProvider | None, LoggerProvider | None, MeterProvider | None]:
     """
     Initialize OpenTelemetry tracing for either the API or worker component.
 
@@ -65,11 +68,14 @@ def init_tracing(
         worker_name: Worker name, attached as a `workerName` log attribute
 
     Returns:
-        A tuple of (meter_provider, tracer_provider, logger_provider), all may be None
+        (meter_provider, tracer_provider, logger_provider, runtime_metrics_meter_provider), all may be None.
+        The last is the worker-only provider for re-emitted Temporal runtime metrics (no ``worker_id``);
+        None for non-worker components.
+        TODO: Remove once Temporal handles SA for metrics (then the Rust-core exporter can push directly).
     """
     if not config.common.otel_enabled:
         logger.debug("OpenTelemetry tracing is disabled")
-        return None, None, None
+        return None, None, None, None
 
     service_name = WORKER_SERVICE_NAME if component == "worker" else f"{config.common.app_name}-{component}"
 
@@ -91,15 +97,18 @@ def init_tracing(
             service_name=service_name,
             service_version=config.common.app_version,
             sample_rate=config.common.otel_sample_rate,
-            tail_sampling=config.common.otel_tail_sampling,
+            redaction=config.common.otel_redaction,
+            metric_views=build_temporal_metric_views() if component == "worker" else None,
         )
+        # Local/console dev: the pump reuses this provider (worker_id churn is a prod-mimir concern only).
+        runtime_metrics_meter_provider = meter_provider if component == "worker" else None
     else:
         common = config.common
         if common.otel_endpoint:
             logger.warning(
                 "otel_endpoint is deprecated, use otel_traces_endpoint and otel_metrics_endpoint instead",
             )
-            api_key: str | None = None
+            token_provider: TokenProvider | None = None
             # The deprecated single endpoint applies to every signal and never carries auth.
             trace_endpoint: str | None = common.otel_endpoint
             metric_endpoint: str | None = common.otel_endpoint
@@ -108,11 +117,7 @@ def init_tracing(
         else:
             assert config.worker.agent.mistral_client_server_url is not None  # guaranteed by WorkerConfig validator
             default_endpoint = f"{config.worker.agent.mistral_client_server_url.rstrip('/')}/telemetry"
-            api_key = (
-                config.worker.agent.mistral_client_api_key.get_secret_value()
-                if config.worker.agent.mistral_client_api_key
-                else None
-            )
+            token_provider = get_token_provider(config.worker.agent.mistral_client_api_key)
             trace_endpoint = common.otel_traces_endpoint
             metric_endpoint = common.otel_metrics_endpoint
             log_endpoint = common.otel_logs_endpoint
@@ -138,14 +143,29 @@ def init_tracing(
             service_version=config.common.app_version,
             sample_rate=config.common.otel_sample_rate,
             export_otlp_interval_ms=config.common.otel_export_interval_ms,
-            tail_sampling=config.common.otel_tail_sampling,
             component=component,
-            api_key=api_key,
+            token_provider=token_provider,
             trace_config=trace_config,
             metric_config=metric_config,
             log_config=log_config,
             deployment_name=deployment_name,
             worker_name=worker_name,
+            redaction=config.common.otel_redaction,
+        )
+        # Temporal runtime metrics re-emit through a dedicated provider whose Resource omits worker_id, so
+        # temporal_* keep the old core label set (no per-restart PID churn). Worker-only.
+        # TODO: Remove once Temporal handles SA for metrics (Rust-core exporter can then push directly).
+        runtime_metrics_meter_provider = (
+            build_runtime_metrics_meter_provider(
+                service_name,
+                config.common.app_version,
+                token_provider=token_provider,
+                metric_config=metric_config,
+                export_otlp_interval_ms=config.common.otel_export_interval_ms,
+                views=build_temporal_metric_views(),
+            )
+            if component == "worker"
+            else None
         )
 
     # Instrument common libraries
@@ -156,4 +176,4 @@ def init_tracing(
     if _HAS_AIOHTTP_INSTRUMENTATION:
         AioHttpClientInstrumentor().instrument(meter_provider=meter_provider, tracer_provider=tracer_provider)
 
-    return meter_provider, tracer_provider, logger_provider
+    return meter_provider, tracer_provider, logger_provider, runtime_metrics_meter_provider

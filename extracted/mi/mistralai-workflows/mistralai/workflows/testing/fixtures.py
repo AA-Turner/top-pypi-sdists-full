@@ -30,6 +30,38 @@ def setup_test_config() -> Generator[None, None, None]:
 
 
 @pytest.fixture(autouse=True)
+def disable_otel_export() -> Generator[None, None, None]:
+    """Keep tests hermetic by never spinning up real networked OTLP exporters.
+
+    The per-signal OTLP export toggles are on by default, so the worker startup path
+    (``init_tracing`` -> ``config_otel``) wires up real OTLP exporters against the telemetry
+    endpoint. When that endpoint is reachable in CI it answers 401, and the background
+    batch-exporter thread then crashes trying to log the failure to an already-closed stdout
+    ("I/O operation on closed file").
+
+    Only the OTLP *export* is disabled; ``otel_enabled`` stays on so span creation and
+    global-provider routing keep working for tests that assert on emitted spans.
+    """
+    common = config.common
+    originals = (
+        common.mistral_workflows_otel_traces_export,
+        common.mistral_workflows_otel_metrics_export,
+        common.mistral_workflows_otel_logs_export,
+    )
+    common.mistral_workflows_otel_traces_export = False
+    common.mistral_workflows_otel_metrics_export = False
+    common.mistral_workflows_otel_logs_export = False
+
+    yield
+
+    (
+        common.mistral_workflows_otel_traces_export,
+        common.mistral_workflows_otel_metrics_export,
+        common.mistral_workflows_otel_logs_export,
+    ) = originals
+
+
+@pytest.fixture(autouse=True)
 def clear_dependency_cache() -> Generator[None, None, None]:
     """Clear resolved dependencies between tests to prevent state leakage."""
     yield

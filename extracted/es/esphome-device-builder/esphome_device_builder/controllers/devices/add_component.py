@@ -5,12 +5,34 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from ...helpers.api import CommandError
-from ...helpers.yaml import merge_component_yaml
+from ...helpers.async_ import run_in_executor
+from ...helpers.device_yaml import (
+    CAPTIVE_PORTAL_PLATFORMS,
+    device_ap_label,
+    parse_esphome_meta,
+    parse_platform_from_yaml,
+)
+from ...helpers.secrets_state import (
+    WIFI_PASSWORD_SECRET_REF,
+    WIFI_SSID_SECRET_REF,
+    read_secrets_yaml,
+    wifi_secrets_defined,
+)
+from ...helpers.yaml import (
+    component_block_present,
+    fallback_ap_psk,
+    fallback_ap_ssid,
+    merge_component_yaml,
+)
 from ...models import AddComponentResponse, ErrorCode
+from ...models.boards import normalize_platform
 from .helpers import _apply_featured_presets, _drop_unconfigured_dependent_fields
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from ...models import ComponentCatalogEntry, ConfigEntry
+    from ..components import ComponentCatalog
     from .controller import DevicesController
 
 
@@ -89,7 +111,16 @@ async def add_component(
     # has no ``mqtt:`` block, mirroring what the frontend already
     # does field-by-field on the input form.
     fields = _drop_unconfigured_dependent_fields(fields, component, existing)
-    new_yaml = merge_component_yaml(existing, component, fields)
+    if underlying_component_id == "wifi":
+        new_yaml = await _merge_wifi_with_recovery(
+            controller._db.components,
+            controller._db.settings.config_dir,
+            component,
+            fields,
+            existing,
+        )
+    else:
+        new_yaml = merge_component_yaml(existing, component, fields)
     if yaml is None:
         # Atomic write; wizard-driven add-component should not be able
         # to corrupt the source YAML on a mid-write crash.
@@ -98,6 +129,56 @@ async def add_component(
         )
 
     return AddComponentResponse(yaml=new_yaml)
+
+
+async def _merge_wifi_with_recovery(
+    catalog: ComponentCatalog,
+    config_dir: Path,
+    component: ComponentCatalogEntry,
+    fields: dict[str, Any],
+    existing: str,
+) -> str:
+    """Merge a ``wifi:`` add, filling the wizard's recovery defaults into a new block."""
+    if component_block_present(existing, "wifi"):
+        return merge_component_yaml(existing, component, fields)
+    add_portal = await _apply_wifi_recovery_defaults(config_dir, fields, existing)
+    new_yaml = merge_component_yaml(existing, component, fields)
+    if not add_portal:
+        return new_yaml
+    portal = await catalog.get_component(component_id="captive_portal")
+    if portal is None:
+        return new_yaml
+    return merge_component_yaml(new_yaml, portal, {})
+
+
+async def _apply_wifi_recovery_defaults(
+    config_dir: Path, fields: dict[str, Any], existing: str
+) -> bool:
+    """
+    Fill recovery defaults into a new ``wifi:`` block's *fields*.
+
+    Returns whether ``captive_portal:`` should be merged in as well.
+    """
+    secrets = await run_in_executor(read_secrets_yaml, config_dir)
+    # Credentials are a pair: filling one ref beside a typed other half
+    # would attach the shared secret to a network it doesn't belong to.
+    if wifi_secrets_defined(secrets) and not (fields.get("ssid") or fields.get("password")):
+        fields["ssid"] = WIFI_SSID_SECRET_REF
+        fields["password"] = WIFI_PASSWORD_SECRET_REF
+    # No credentials typed and none to reference: generating an AP-only
+    # device would surprise, so the bare add stays bare.
+    if not fields.get("ssid"):
+        return False
+    # Cheap column-0 scan: a platform arriving through ``packages:``
+    # deliberately forfeits the AP/portal leg rather than paying an
+    # ``esphome config`` resolve on this UI-latency path.
+    platform, _, _ = parse_platform_from_yaml(existing)
+    if normalize_platform(platform) not in CAPTIVE_PORTAL_PLATFORMS:
+        return False
+    if not fields.get("ap"):
+        label = device_ap_label(parse_esphome_meta(existing)) or ""
+        fields["ap"] = {"ssid": fallback_ap_ssid(label), "password": fallback_ap_psk()}
+    return True
 
 
 def _require_present_fields(component: ComponentCatalogEntry, fields: dict[str, Any]) -> None:

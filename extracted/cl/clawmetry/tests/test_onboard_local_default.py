@@ -49,6 +49,9 @@ def onboard_env(monkeypatch, tmp_path):
         # written) -> onboard must fall back to local. Tests that need a
         # successful sign-in override this with a config-writing stub.
         state["connect"] += 1
+        _ns = a[0] if a else None
+        state["connect_keep_local"] = bool(getattr(_ns, "keep_local", False))
+        state["marker_at_connect"] = marker.exists()
         return None
 
     monkeypatch.setattr(cli, "_instant_register", _fake_instant_register)
@@ -114,45 +117,57 @@ def test_env_local_only_forces_local(onboard_env, monkeypatch):
     assert marker.exists()
 
 
-def test_choice_1_reaches_authenticated_connect(onboard_env, monkeypatch):
+def test_selfhosted_trial_reaches_connect_keep_local(onboard_env, monkeypatch):
     state, marker = onboard_env
-    monkeypatch.setattr("builtins.input", lambda _p="": "1")
+    answers = iter(["2", "n", "y"])  # Self-Hosted -> no key -> yes, trial sign-in
+    monkeypatch.setattr("builtins.input", lambda _p="": next(answers))
     cli._cmd_onboard(_args())
-    assert state["connect"] == 1, "[1] Sign in must reach the authenticated connect flow"
+    assert state["connect"] == 1, "the trial path must reach the authenticated connect flow"
+    assert state.get("connect_keep_local") is True, "connect must run in keep-local mode"
+    assert state.get("marker_at_connect") is True, "self-hosted trial keeps the nocloud marker"
     assert state["instant_register"] == 0, "anonymous instant registration must be unreachable"
-    # Connect stub wrote no config -> sign-in incomplete -> local fallback.
+    # Connect stub wrote no config -> sign-in incomplete -> free-local fallback.
     assert marker.exists() and state["start_daemon"] == 1
 
 
-def test_empty_enter_defaults_to_sign_in(onboard_env, monkeypatch):
-    """The interactive default keypress is [1] Sign in (founder 2026-07-29).
-    A human pressing Enter at the visible menu is not a silent mint."""
+def test_selfhosted_trial_declined_is_free_local(onboard_env, monkeypatch, capsys):
     state, marker = onboard_env
-    monkeypatch.setattr("builtins.input", lambda _p="": "")  # just press Enter
+    answers = iter(["2", "n", "n"])  # Self-Hosted -> no key -> no trial
+    monkeypatch.setattr("builtins.input", lambda _p="": next(answers))
+    cli._cmd_onboard(_args())
+    assert state["connect"] == 0 and state["instant_register"] == 0
+    assert marker.exists() and state["start_daemon"] == 1
+    assert "Free plan: OpenClaw + NeMo" in capsys.readouterr().out
+
+
+def test_empty_enter_defaults_to_cloud_signin(onboard_env, monkeypatch):
+    """Enter = [1] Cloud (founder 2026-07-30: lead with full capability).
+    A human pressing Enter at the visible menu is not a silent mint; the
+    headless/EOF path stays account-free (pinned above)."""
+    state, marker = onboard_env
+    monkeypatch.setattr("builtins.input", lambda _p="": "")  # Enter everywhere
     cli._cmd_onboard(_args())
     assert state["connect"] == 1
+    assert not state.get("connect_keep_local"), "default cloud sign-in is not keep-local"
     assert state["instant_register"] == 0
-    assert marker.exists(), "incomplete sign-in must fall back to local"
+    assert marker.exists(), "incomplete sign-in must fall back to free local"
 
 
-def test_choice_2_no_key_points_at_selfhosted_pricing(onboard_env, monkeypatch, capsys):
+def test_selfhosted_key_later_points_at_selfhosted_pricing(onboard_env, monkeypatch, capsys):
     state, marker = onboard_env
-    opened = []
-    monkeypatch.setattr("webbrowser.open", lambda url, *a, **k: opened.append(url) or True)
-    answers = iter(["2", "n"])  # [2] License key, then "don't have one yet"
+    answers = iter(["2", "y", ""])  # Self-Hosted -> have a key -> paste later
     monkeypatch.setattr("builtins.input", lambda _p="": next(answers))
     cli._cmd_onboard(_args())
     out = capsys.readouterr().out
     assert "clawmetry.com/pricing?deploy=self" in out
-    assert opened == ["https://clawmetry.com/pricing?deploy=self"]
     assert state["connect"] == 0 and state["instant_register"] == 0
     assert marker.exists() and state["start_daemon"] == 1
 
 
-def test_choice_1_success_activates_signup_trial(onboard_env, monkeypatch, tmp_path, capsys):
-    """Connect success (api_key in config) must fetch the signup trial and
-    activate the returned key locally."""
-    import io
+def test_choice_1_success_skips_local_fallback(onboard_env, monkeypatch, tmp_path):
+    """Connect success (api_key in config) must NOT fall back to local-only.
+    (Trial mint + activation happens inside connect itself now — pinned by
+    test_activate_signup_trial_* below.)"""
     import json as _json
 
     state, marker = onboard_env
@@ -164,6 +179,23 @@ def test_choice_1_success_activates_signup_trial(onboard_env, monkeypatch, tmp_p
             _json.dumps({"api_key": "cm_fresh_signup", "node_id": "n1"}))
 
     monkeypatch.setattr(cli, "_cmd_connect", _connect_writes_config)
+    monkeypatch.setattr("builtins.input", lambda _p="": "1")
+    cli._cmd_onboard(_args())
+    assert state["connect"] == 1
+    assert not marker.exists(), "successful cloud sign-in clears local-only"
+    assert state["start_daemon"] == 0, "connect owns the daemon on this path"
+
+
+def _trial_env(monkeypatch, tmp_path, response: dict):
+    """HOME with a cm_ config + faked trial endpoint + recorded activation."""
+    import io
+    import json as _json
+
+    home = tmp_path / "home2"
+    (home / ".clawmetry").mkdir(parents=True)
+    (home / ".clawmetry" / "config.json").write_text(
+        _json.dumps({"api_key": "cm_fresh_signup", "node_id": "n1"}))
+    monkeypatch.setenv("HOME", str(home))
 
     posted = {}
 
@@ -177,12 +209,7 @@ def test_choice_1_success_activates_signup_trial(onboard_env, monkeypatch, tmp_p
     def _fake_urlopen(req, timeout=0):
         posted["url"] = req.full_url
         posted["body"] = _json.loads(req.data.decode())
-        import time as _t
-        return _FakeResp(_json.dumps({
-            "ok": True, "key": "CLAW1.trial.key", "tier": "trial",
-            "expires_at": int(_t.time()) + 7 * 86400,
-            "reused": False, "expired": False,
-        }).encode())
+        return _FakeResp(_json.dumps(response).encode())
 
     monkeypatch.setattr("urllib.request.urlopen", _fake_urlopen)
 
@@ -191,16 +218,36 @@ def test_choice_1_success_activates_signup_trial(onboard_env, monkeypatch, tmp_p
     monkeypatch.setattr(_lic, "activate",
                         lambda key, node_id=None, actor="": activated.__setitem__("key", key) or (True, "ok"))
     monkeypatch.setattr(_lic, "_node_id", lambda: "n1")
+    return posted, activated
 
-    monkeypatch.setattr("builtins.input", lambda _p="": "1")
-    cli._cmd_onboard(_args())
 
+def test_activate_signup_trial_mints_and_activates(monkeypatch, tmp_path, capsys):
+    import time as _t
+
+    posted, activated = _trial_env(monkeypatch, tmp_path, {
+        "ok": True, "key": "CLAW1.trial.key", "tier": "trial",
+        "expires_at": int(_t.time()) + 7 * 86400,
+        "reused": False, "expired": False,
+    })
+    assert cli._activate_signup_trial() is True
     assert posted["url"].endswith("/api/license/trial/signup")
     assert posted["body"] == {"api_key": "cm_fresh_signup"}
     assert activated.get("key") == "CLAW1.trial.key"
+    assert "Pro trial active" in capsys.readouterr().out
+
+
+def test_activate_signup_trial_expired_is_honest(monkeypatch, tmp_path, capsys):
+    import time as _t
+
+    posted, activated = _trial_env(monkeypatch, tmp_path, {
+        "ok": True, "key": "CLAW1.trial.key", "tier": "trial",
+        "expires_at": int(_t.time()) - 86400,
+        "reused": True, "expired": True,
+    })
+    assert cli._activate_signup_trial() is False
+    assert activated == {}, "an expired trial key must never be activated"
     out = capsys.readouterr().out
-    assert "Pro trial active" in out
-    assert not marker.exists(), "successful sign-in is a cloud setup, not local-only"
+    assert "trial has ended" in out and "pricing" in out
 
 
 # ── `clawmetry onboard` always shows the options (founder ask 2026-06-30) ────
@@ -224,14 +271,20 @@ def test_already_connected_empty_enter_keeps_current(onboard_env, monkeypatch, t
     assert not marker.exists(), "must NOT switch a connected user to local on empty Enter"
 
 
-def test_already_connected_shows_options_and_choice_3_goes_local(onboard_env, monkeypatch, tmp_path, capsys):
+def test_already_connected_shows_two_options_and_shared_plans(onboard_env, monkeypatch, tmp_path, capsys):
     state, marker = onboard_env
     _make_connected(tmp_path / "home")
-    monkeypatch.setattr("builtins.input", lambda _p="": "3")
+    answers = iter(["2", "y", ""])  # Self-Hosted -> have key -> later
+    monkeypatch.setattr("builtins.input", lambda _p="": next(answers))
     cli._cmd_onboard(_args())
     out = capsys.readouterr().out
-    assert "[1] Sign in / Sign up" in out and "[2] License key" in out and "[3] Skip for now" in out
-    assert marker.exists(), "explicit [3] reconfigures a connected user to local"
+    assert "[1] Managed" in out and "[2] Self-Host" in out
+    assert "We host the dashboard for you" in out
+    assert "Plans" in out and "Starter $9/node/mo" in out and "Pro    $19/node/mo" in out
+    assert out.count("$9") == 1 and out.count("$19") == 1, "plans stated once, not per option"
+    assert "watch OpenClaw + NVIDIA NemoClaw" in out
+    assert "everything in Free +" in out and "everything in Starter +" in out, "tiers must read as stacked"
+    assert marker.exists(), "explicit Self-Hosted reconfigures a connected user to local"
 
 
 def test_already_connected_choice_1_reaches_connect(onboard_env, monkeypatch, tmp_path):
@@ -252,8 +305,7 @@ def test_already_connected_choice_1_reaches_connect(onboard_env, monkeypatch, tm
 
 def test_local_finish_health_checks_dashboard(onboard_env, monkeypatch, capsys):
     state, marker = onboard_env
-    monkeypatch.setattr("builtins.input", lambda _p="": "3")
-    cli._cmd_onboard(_args())
+    cli._cmd_onboard(_args(local=True))
     assert state.get("dash") == 1, "local finish must health-check/start the dashboard"
     out = capsys.readouterr().out
     assert "http://localhost:8900" in out and "live now" in out
@@ -262,28 +314,22 @@ def test_local_finish_health_checks_dashboard(onboard_env, monkeypatch, capsys):
 def test_local_finish_admits_when_dashboard_is_down(onboard_env, monkeypatch, capsys):
     state, marker = onboard_env
     monkeypatch.setattr(cli, "_ensure_local_dashboard", lambda *a, **k: False)
-    monkeypatch.setattr("builtins.input", lambda _p="": "3")
-    cli._cmd_onboard(_args())
+    cli._cmd_onboard(_args(local=True))
     out = capsys.readouterr().out
     assert "did not come up" in out, "a dead port must never be presented as a live URL"
     assert "dashboard.log" in out
 
 
-def test_choice_1_clears_nocloud_marker_before_connect(onboard_env, monkeypatch):
-    """[1] Sign in must not be re-asked 'keep local-only?': the marker is
+def test_cloud_choice_clears_marker_before_connect(onboard_env, monkeypatch):
+    """[2] Cloud must not be re-asked 'keep local-only?': the marker is
     cleared before connect runs (an incomplete sign-in re-writes it)."""
     state, marker = onboard_env
     marker.write_text("")
-    seen = {}
-
-    def _connect_records_marker(*a, **k):
-        state["connect"] += 1
-        seen["marker_at_connect"] = marker.exists()
-
-    monkeypatch.setattr(cli, "_cmd_connect", _connect_records_marker)
     monkeypatch.setattr("builtins.input", lambda _p="": "1")
     cli._cmd_onboard(_args())
-    assert seen["marker_at_connect"] is False
+    assert state["connect"] == 1
+    assert state.get("marker_at_connect") is False
+    assert not state.get("connect_keep_local")
     assert marker.exists(), "failed sign-in must restore the local-only marker"
 
 

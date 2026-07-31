@@ -7,6 +7,7 @@ import structlog
 from httpx import HTTPStatusError
 
 from mistralai.workflows.client import translate_model
+from mistralai.workflows.core.auth import get_token_provider
 from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.worker_client import get_worker_client
 from mistralai.workflows.exceptions import ErrorCode, WorkflowsException
@@ -22,10 +23,11 @@ class WorkerRuntimeConfig(WorkerInfo):
         config.temporal.tls = self.tls
 
 
-async def _fetch_worker_runtime_config(_api_key: str | None = None) -> WorkerRuntimeConfig:
-    api_key = config.common.mistral_api_key.get_secret_value() if config.common.mistral_api_key else None
+async def _fetch_worker_runtime_config() -> WorkerRuntimeConfig:
     async with get_worker_client(
-        base_url=config.worker.server_url, api_key=api_key or None, headers=config.worker.mistral_api_headers
+        base_url=config.worker.server_url,
+        token_provider=get_token_provider(),
+        headers=config.worker.mistral_api_headers,
     ) as worker_client:
         result = await worker_client.whoami_async()
         response = translate_model(WorkerInfo, result)
@@ -34,8 +36,15 @@ async def _fetch_worker_runtime_config(_api_key: str | None = None) -> WorkerRun
 
 
 async def apply_worker_runtime_config(api_key: str | None = None) -> WorkerRuntimeConfig | None:
+    if api_key is not None:
+        warnings.warn(
+            "Passing `api_key` to apply_worker_runtime_config is deprecated and ignored; "
+            "authentication resolves through the token provider.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     try:
-        runtime_config = await _fetch_worker_runtime_config(api_key)
+        runtime_config = await _fetch_worker_runtime_config()
         runtime_config.apply()
         logger.info(
             "Applied worker runtime config",

@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2025 Arista Networks, Inc.
+# Copyright (c) 2021-2026 Arista Networks, Inc.
 # Use of this source code is governed by the MIT license
 # that can be found in the LICENSE file.
 """node.py - Class node for creating a parse tree for jinja statements and checking jinja statement indentation."""
@@ -21,7 +21,6 @@ DEFAULT_WHITESPACES = 1
 JINJA_START_DELIMITERS = ["{%-", "{%+"]
 
 jinja_node_stack: list[Node] = []
-jinja_delimiter_stack: list[str] = []
 
 NodeIndentationError = tuple[int, str, str]
 

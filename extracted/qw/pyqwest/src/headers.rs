@@ -38,6 +38,57 @@ impl Headers {
         }
     }
 
+    /// Returns the object itself if it is already a `Headers`, otherwise
+    /// constructs a `Headers` from it as `Headers(obj)` would.
+    pub(crate) fn coerce<'py>(
+        py: Python<'py>,
+        obj: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, Headers>> {
+        if let Ok(headers) = obj.cast::<Headers>() {
+            Ok(headers.clone())
+        } else {
+            Bound::new(py, Headers::py_new(Some(obj.clone()))?)
+        }
+    }
+
+    /// Returns a copy of these headers with the content-type header set to the
+    /// given value. Any existing content-type must be multipart/form-data and
+    /// is replaced.
+    pub(crate) fn copy_with_content_type(
+        &self,
+        py: Python<'_>,
+        content_type: &Bound<'_, PyString>,
+    ) -> PyResult<Self> {
+        let src = self.store.lock_py_attached(py).unwrap();
+        if let Some(existing) = src.get(header::CONTENT_TYPE) {
+            let form_data = existing.as_mime(py).is_some_and(|mime| {
+                mime.type_() == mime::MULTIPART && mime.subtype() == mime::FORM_DATA
+            });
+            if !form_data {
+                return Err(PyValueError::new_err(
+                    "Content-type header must be unset or multipart/form-data for multipart content",
+                ));
+            }
+        }
+        let mut store: HeaderMap<PyHeaderValue> = HeaderMap::with_capacity(src.len() + 1);
+        for (name, value) in src.iter() {
+            store.append(name, value.clone_ref(py));
+        }
+        drop(src);
+        store.insert(header::CONTENT_TYPE, PyHeaderValue::from_py(content_type)?);
+        Ok(Headers {
+            store: Mutex::new(store),
+        })
+    }
+
+    /// Appends all entries, converted to HTTP values, to `headers`.
+    pub(crate) fn append_to(&self, py: Python<'_>, headers: &mut HeaderMap) -> PyResult<()> {
+        for (name, value) in self.store.lock_py_attached(py).unwrap().iter() {
+            headers.append(name, value.as_http(py)?);
+        }
+        Ok(())
+    }
+
     pub(crate) fn fill(&self, headers: HeaderMap) {
         let mut store = self.store.lock().unwrap();
         store.reserve(headers.len());
@@ -601,6 +652,15 @@ impl PyHeaderValue {
     fn from_http(http: HeaderValue) -> Self {
         Self {
             kind: PyHeaderValueKind::Http(http),
+        }
+    }
+
+    fn clone_ref(&self, py: Python<'_>) -> Self {
+        Self {
+            kind: match &self.kind {
+                PyHeaderValueKind::Py(py_str) => PyHeaderValueKind::Py(py_str.clone_ref(py)),
+                PyHeaderValueKind::Http(http) => PyHeaderValueKind::Http(http.clone()),
+            },
         }
     }
 

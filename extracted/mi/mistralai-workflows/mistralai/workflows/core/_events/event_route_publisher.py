@@ -8,9 +8,9 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
 import httpx
-import structlog
 
 from mistralai.workflows.core._events.event_encoder import maybe_encode_event
+from mistralai.workflows.core.config.config import EventsApiVersion
 from mistralai.workflows.core.temporal.context_handler_interceptor import retrieve_context
 
 if TYPE_CHECKING:
@@ -21,24 +21,11 @@ from mistralai.workflows.protocol.v2.worker import (
     EVENT_ROUTE_TOKEN_EXPIRED_CODE,
     EVENT_ROUTE_TOKEN_HEADER,
     EVENT_ROUTE_TOKEN_INVALID_CODE,
-    EVENT_ROUTE_TOKEN_SCOPE_UNSUPPORTED_CODE,
     EventRouteTokenRequest,
     EventRouteTokenResponse,
 )
 from mistralai.workflows.worker_client.httpclient import AsyncHttpClient
 from mistralai.workflows.worker_client.sdk import PrivateWorkerClient
-
-logger = structlog.get_logger(__name__)
-
-_DOWNGRADABLE_ROUTE_STATUSES = {
-    HTTPStatus.NOT_FOUND,
-    HTTPStatus.METHOD_NOT_ALLOWED,
-    HTTPStatus.NOT_IMPLEMENTED,
-}
-_DOWNGRADABLE_ROUTE_ERROR_CODES = {
-    ErrorCode.POST_EVENT_ROUTE_TOKEN_ERROR,
-    ErrorCode.POST_EVENTS_ERROR,
-}
 
 
 def _build_event_route_exception(
@@ -70,17 +57,6 @@ def _build_event_route_exception(
     )
 
 
-def _should_downgrade_to_v1(exc: WorkflowsException) -> bool:
-    # Downgrade only when v2 routing is unavailable or unsupported, not for domain errors.
-    is_route_unavailable = exc.status in _DOWNGRADABLE_ROUTE_STATUSES and exc.code in _DOWNGRADABLE_ROUTE_ERROR_CODES
-    is_scope_unsupported = exc.status == HTTPStatus.CONFLICT and exc.code == EVENT_ROUTE_TOKEN_SCOPE_UNSUPPORTED_CODE
-    # Token exchange failures are safe to downgrade because no v2 event has been sent yet.
-    is_route_token_exchange_unavailable = (
-        exc.status >= HTTPStatus.INTERNAL_SERVER_ERROR and exc.code == ErrorCode.POST_EVENT_ROUTE_TOKEN_ERROR
-    )
-    return is_route_unavailable or is_scope_unsupported or is_route_token_exchange_unavailable
-
-
 class EventRoutePublisher:
     _EVENT_ROUTE_TOKEN_CACHE_SIZE = 100
     _EVENT_ROUTE_TOKEN_REFRESH_MARGIN_SECONDS = 5
@@ -100,36 +76,37 @@ class EventRoutePublisher:
         self._event_route_token_cache: OrderedDict[tuple[str, str], tuple[str, float]] = OrderedDict()
         self._event_encoder = event_encoder
 
-    async def publish_events(
+    async def try_publish_via_v2(
         self,
         events: list[WorkflowEvent],
         already_encoded: bool = False,
     ) -> bool:
         """Publish events via v2 event route.
 
-        Args:
-            events: List of workflow events to publish.
-            already_encoded: If True, skip encoding (events are already encoded).
-                           If False (default), encode events before publishing.
-
-        Returns:
-            True if events were published via v2, False if v2 is not available.
+        Returns True if published via v2, False if v2 is not the route (caller uses v1).
+        Raises WorkflowsException if a v2 publish is attempted and fails.
         """
         if not events:
             return False
 
-        workflow_context = retrieve_context()
-        execution_token = workflow_context.execution_token if workflow_context else None
-        if self._events_api_version != "v2" or execution_token is None:
+        if self._events_api_version not in (EventsApiVersion.V2, EventsApiVersion.V2_ONLY):
             return False
 
         first_event = events[0]
         first_scope = (first_event.workflow_exec_id, first_event.workflow_run_id)
-        if any(
-            event.parent_workflow_exec_id is not None or (event.workflow_exec_id, event.workflow_run_id) != first_scope
-            for event in events
-        ):
-            return False
+        if any((event.workflow_exec_id, event.workflow_run_id) != first_scope for event in events):
+            raise WorkflowsException(
+                message="v2 event route does not support mixed-scope batches",
+                code=ErrorCode.INVALID_ARGUMENTS_ERROR,
+                status=HTTPStatus.BAD_REQUEST,
+            )
+
+        # Backward compat ONLY: send the execution_token when we have one (entrypoint/activity
+        # events) so older APIs that still require it can mint. Remove this token-send as soon as
+        # the minimum supported API mints by run identity — handler/reset events already rely on
+        # that, and the API no longer needs the token (it has workflow_exec_id/run_id).
+        workflow_context = retrieve_context()
+        execution_token = workflow_context.execution_token if workflow_context is not None else None
 
         if not already_encoded:
             events = list(await asyncio.gather(*[maybe_encode_event(event, self._event_encoder) for event in events]))
@@ -137,19 +114,11 @@ class EventRoutePublisher:
         try:
             await self._publish_events_v2(events, execution_token)
         except WorkflowsException as exc:
-            if not _should_downgrade_to_v1(exc):
-                raise
-
-            logger.info(
-                "Falling back to v1 event route",
-                batch_size=len(events),
-                workflow_exec_id=first_event.workflow_exec_id,
-                workflow_run_id=first_event.workflow_run_id,
-                status=exc.status.value,
-                code=exc.code,
-            )
-            return False
-
+            # An API without run-identity minting rejects a token-less request with 422;
+            # fall back to v1 for those (handler/reset) paths instead of dropping the event.
+            if execution_token is None and exc.status == HTTPStatus.UNPROCESSABLE_ENTITY:
+                return False
+            raise
         return True
 
     # TODO: Replace with generated Speakeasy client methods once v2 event endpoints are published.
@@ -207,30 +176,22 @@ class EventRoutePublisher:
 
     async def _get_route_token(
         self,
-        execution_token: str,
         workflow_exec_id: str,
         workflow_run_id: str,
+        execution_token: str | None = None,
     ) -> str:
         cached_token = self._get_cached_event_route_token(workflow_exec_id, workflow_run_id)
         if cached_token is not None:
             return cached_token
 
-        try:
-            execution_token_uuid = uuid.UUID(execution_token)
-        except ValueError as exc:
-            raise WorkflowsException(
-                message="execution_token must be a valid UUID",
-                code=ErrorCode.INVALID_ARGUMENTS_ERROR,
-                status=HTTPStatus.BAD_REQUEST,
-            ) from exc
-
+        request = EventRouteTokenRequest(
+            workflow_exec_id=workflow_exec_id,
+            workflow_run_id=workflow_run_id,
+            execution_token=uuid.UUID(execution_token) if execution_token is not None else None,
+        )
         response = await self._post_json(
             "/v2/workflows/workers/event-route-token",
-            EventRouteTokenRequest(
-                execution_token=execution_token_uuid,
-                workflow_exec_id=workflow_exec_id,
-                workflow_run_id=workflow_run_id,
-            ).model_dump(mode="json"),
+            request.model_dump(mode="json"),
             "Failed to fetch event route token",
             ErrorCode.POST_EVENT_ROUTE_TOKEN_ERROR,
         )
@@ -262,12 +223,12 @@ class EventRoutePublisher:
             route_token,
         )
 
-    async def _publish_events_v2(self, events: list[WorkflowEvent], execution_token: str) -> None:
+    async def _publish_events_v2(self, events: list[WorkflowEvent], execution_token: str | None = None) -> None:
         first_event = events[0]
         route_token = await self._get_route_token(
-            execution_token,
             first_event.workflow_exec_id,
             first_event.workflow_run_id,
+            execution_token,
         )
 
         try:
@@ -287,8 +248,8 @@ class EventRoutePublisher:
 
             # Expired tokens can be refreshed once before surfacing the error.
             refreshed_route_token = await self._get_route_token(
-                execution_token,
                 first_event.workflow_exec_id,
                 first_event.workflow_run_id,
+                execution_token,
             )
             await self._send_events_with_token(events, refreshed_route_token)

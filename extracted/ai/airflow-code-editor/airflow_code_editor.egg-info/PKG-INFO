@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: airflow_code_editor
-Version: 8.2.4
+Version: 8.3.0
 Summary: Apache Airflow code editor and file manager
 Home-page: https://github.com/andreax79/airflow-code-editor
 Author: Andrea Bonomi
@@ -90,8 +90,8 @@ The image is based on the reference images for Apache Airflow.
 
 You can find the following images there:
 * andreax79/airflow-code-editor:**latest** - the latest released Airflow Code Editor image with the latest Apache Airflow version
-* andreax79/airflow-code-editor:**3.2.2** - the latest released Airflow Code Editor with specific Airflow version
-* andreax79/airflow-code-editor:**3.2.2-8.2.4** - specific version of Airflow and Airflow Code Editor
+* andreax79/airflow-code-editor:**3.3.0** - the latest released Airflow Code Editor with specific Airflow version
+* andreax79/airflow-code-editor:**3.3.0-8.3.0** - specific version of Airflow and Airflow Code Editor
 
 #### Installing from PyPI
 
@@ -237,11 +237,14 @@ For details on configuring the authentication, see
     make npm-build
   ```
 
-6. You can start Airflow webserver with:
+6. You can start Airflow API server with:
 
   ```bash
-    make webserver
+    make api-server
   ```
+
+The predefined users in the dev image are: `admin`, `op`, `user`, and `viewer`.
+The password are auto-generated and are saved in `docker/simple_auth_manager_passwords.json.generated`.
 
 7. Run tests
 

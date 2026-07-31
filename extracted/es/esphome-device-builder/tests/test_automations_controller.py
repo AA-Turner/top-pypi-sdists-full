@@ -18,6 +18,7 @@ from esphome_device_builder.controllers.automations import AutomationsController
 from esphome_device_builder.controllers.automations import controller as automations_controller
 from esphome_device_builder.helpers.api import CommandError
 from esphome_device_builder.models.automations import IntervalLocation, ScriptLocation
+from tests.conftest import apply_yaml_diff
 
 # Co-locate every automations-catalog test on one xdist worker so
 # the slim index (cached after first :func:`catalog._load_index`)
@@ -1033,3 +1034,58 @@ def test_decode_location_compiles_unpacker_once_per_kind() -> None:
         assert model.__dict__["__mashumaro_from_dict__"] is once, (
             f"{model.__name__} unpacker recompiled on second decode"
         )
+
+
+def _apply_diff(text: str, diff: dict) -> str:
+    return apply_yaml_diff(text, diff["fromLine"], diff["toLine"], diff["replacement"])
+
+
+@pytest.mark.usefixtures("_sprinkler_paths")
+async def test_upsert_and_delete_nested_action_field_round_trip(tmp_path: Path) -> None:
+    """A dotted component_action field decodes, splices, and deletes over the WS surface."""
+    config = tmp_path / "s.yaml"
+    text = (
+        "sprinkler:\n"
+        "  - id: lawn\n"
+        "    valves:\n"
+        "      - valve_switch: Front Yard\n"
+        "        run_duration_number:\n"
+        "          id: front_duration\n"
+    )
+    config.write_text(text, encoding="utf-8")
+    controller = _make_controller(tmp_path)
+    location = {
+        "kind": "component_action",
+        "component_id": "lawn",
+        "field": "valves.0.run_duration_number.set_action",
+    }
+    result = await controller.upsert(
+        configuration="s.yaml",
+        automation={
+            "trigger_id": None,
+            "trigger_params": {},
+            "actions": [
+                {
+                    "action_id": "logger.log",
+                    "params": {"format": "changed"},
+                    "children": {},
+                    "conditions": [],
+                },
+            ],
+        },
+        location=location,
+    )
+    assert "set_action" in result["yaml_diff"]["replacement"]
+    new_yaml = _apply_diff(text, result["yaml_diff"])
+
+    rows = [
+        a
+        for a in await controller.parse(configuration="s.yaml", yaml=new_yaml)
+        if a["location"]["kind"] == "component_action"
+    ]
+    assert [r["location"]["field"] for r in rows] == ["valves.0.run_duration_number.set_action"]
+
+    deleted = await controller.delete(configuration="s.yaml", location=location, yaml=new_yaml)
+    final_yaml = _apply_diff(new_yaml, deleted["yaml_diff"])
+    assert "set_action" not in final_yaml
+    assert "valve_switch: Front Yard" in final_yaml

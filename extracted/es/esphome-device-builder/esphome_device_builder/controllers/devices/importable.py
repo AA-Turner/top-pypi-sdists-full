@@ -17,13 +17,13 @@ from ...helpers.json import JSONDecodeError, dumps_indent, loads
 from ...helpers.lazy_module import async_import_module
 from ...models import (
     AdoptableDevice,
-    DeviceState,
     ErrorCode,
     EventType,
     ImportableDeviceAddedData,
     ImportableDeviceRemovedData,
 )
 from ..editor import IMPORT_VALIDATE_TIMEOUT
+from .mutations_yaml import packages_block_span
 
 if TYPE_CHECKING:
     from .controller import DevicesController
@@ -60,8 +60,9 @@ async def import_device(
         None,
     )
     network = adoptable.network if adoptable and adoptable.network else const.CONF_WIFI
+    full_config_import = "full_config" in package_import_url.partition("?")[2]
     try:
-        if "full_config" in package_import_url.partition("?")[2]:
+        if full_config_import:
             # A ``?full_config`` import downloads and rewrites the whole
             # upstream YAML — keep delegating those to esphome's
             # implementation. ``esphome.components.dashboard_import`` pulls
@@ -116,13 +117,18 @@ async def import_device(
     except (OSError, UnicodeDecodeError):
         await run_in_executor(_cleanup)
         raise
-    await controller._validate_rewritten_yaml_or_raise(
+    warning = await controller._validate_rewritten_yaml_or_raise(
         configuration,
         content,
         action="import",
         on_error_cleanup=_cleanup,
         tolerate_unavailable=True,
         timeout=IMPORT_VALIDATE_TIMEOUT,
+        # The delegated full-config path writes verbatim upstream YAML;
+        # only our generated adoption shape gets the keep-with-warning
+        # classification.
+        packages_span=None if full_config_import else packages_block_span(content),
+        failure_tail=". The import was rolled back; nothing was written.",
     )
 
     await controller._commit_history(configuration, f"Import {configuration}")
@@ -135,35 +141,11 @@ async def import_device(
     except Exception:
         _LOGGER.exception("Scan after import failed; will pick up on next poll")
 
-    # Drop any importable rows for this device (matched by URL,
-    # since the user may have edited the name during adoption)
-    # and remember the broadcast name for the zeroconf-cache
-    # lookup below.
-    cached_names = [
-        n
-        for n, d in controller.state.import_result.items()
-        if d.package_import_url == package_import_url
-    ]
-    for cached_name in cached_names:
-        controller._on_importable_removed(cached_name)
-    mdns_name = cached_names[0] if cached_names else name
-
-    # Skip-the-wait state seed; the device was advertising on
-    # mDNS milliseconds ago, so pin ONLINE + the cached IP now
-    # rather than blinking through OFFLINE for ~10s waiting on
-    # the next ping sweep. Probe esphomelib too so version /
-    # config_hash / api_encryption land alongside the IP.
-    controller._state_monitor.apply(name, DeviceState.ONLINE, "mdns", claim=True)
-    cached = controller._state_monitor.mdns.get_cached_addresses(f"{mdns_name}.local")
-    if cached:
-        controller._state_monitor.apply_ip_addresses(name, cached)
-    # Look up the service by ``mdns_name`` (factory firmware is
-    # still broadcasting under that) but apply against the
-    # chosen ``name``. The scan-change handler probes too but
-    # only knows the YAML name, which has no broadcast yet for
-    # the rename-during-adopt case.
-    controller._state_monitor.mdns.probe_device(name, service_name=mdns_name)
-    return {"configuration": configuration}
+    _drop_importable_rows_and_probe(controller, name, package_import_url)
+    result = {"configuration": configuration}
+    if warning:
+        result["warning"] = warning
+    return result
 
 
 async def toggle_ignore(controller: DevicesController, *, name: str, ignore: bool) -> None:
@@ -257,3 +239,41 @@ def save_ignored_devices(controller: DevicesController) -> None:
     storage_path.write_bytes(
         dumps_indent({"ignored_devices": sorted(controller.state.ignored_devices)}),
     )
+
+
+def _drop_importable_rows_and_probe(
+    controller: DevicesController,
+    name: str,
+    package_import_url: str,
+) -> None:
+    """Retire the adopted device's importable rows and kick its first probe."""
+    # Drop any importable rows for this device (matched by URL,
+    # since the user may have edited the name during adoption)
+    # and remember the broadcast name for the zeroconf-cache
+    # lookup below.
+    cached_names = [
+        n
+        for n, d in controller.state.import_result.items()
+        if d.package_import_url == package_import_url
+    ]
+    for cached_name in cached_names:
+        controller._on_importable_removed(cached_name)
+    mdns_name = cached_names[0] if cached_names else name
+
+    # No state seed — the real sources decide. Discovery is
+    # mDNS-based, so a same-name adopt claims ONLINE via the
+    # esphomelib probe's cache hit in this same call; a
+    # rename-during-adopt has no PTR under *name* (an mdns claim
+    # would have no ``Removed`` to withdraw it, #2389), so the
+    # regular sweep pings the cached IP applied below.
+    cached = controller._state_monitor.mdns.get_cached_addresses(f"{mdns_name}.local")
+    if cached:
+        controller._state_monitor.apply_ip_addresses(name, cached)
+    # Normally ``name`` IS the live broadcast — adopt imports the
+    # device under its MAC-suffixed factory name and bakes the
+    # suffix into the literal name (``name_add_mac_suffix: false``),
+    # so the mdns name matches immediately. Only a name edited in
+    # the adopt dialog diverges: the factory service then carries
+    # the device's data until the first flash bakes in the new
+    # name, so probe by ``mdns_name`` and apply against ``name``.
+    controller._state_monitor.mdns.probe_device(name, service_name=mdns_name)

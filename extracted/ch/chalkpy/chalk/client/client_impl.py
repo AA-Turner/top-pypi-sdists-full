@@ -96,6 +96,7 @@ from chalk.client.models import (
     CreateOfflineQueryJobRequest,
     CreateOfflineQueryJobResponse,
     CreatePromptEvaluationRequest,
+    DatasetIcebergConversionResponse,
     DatasetJobStatusRequest,
     DatasetResponse,
     DatasetRevisionPreviewResponse,
@@ -3793,6 +3794,24 @@ https://docs.chalk.ai/cli/apply
                 message=f"Failed to set metadata '{metadata}' for dataset revision: `{revision_id}`",
                 errors=response.errors,
             )
+
+    def convert_revision_to_iceberg(
+        self,
+        environment: EnvironmentId,
+        revision_id: str | uuid.UUID,
+    ) -> DatasetIcebergConversionResponse:
+        # A failed promotion is returned by the engine as a non-2xx response, which `_request`
+        # turns into a raised exception before parsing — so a returned model is always a success.
+        return self._request(
+            method="POST",
+            uri=f"/v1/dataset/{revision_id}/iceberg",
+            response=DatasetIcebergConversionResponse,
+            json=None,
+            environment_override=environment,
+            preview_deployment_id=None,
+            branch=None,
+            metadata_request=False,
+        )
 
     def delete_features(
         self,

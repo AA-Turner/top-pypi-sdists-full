@@ -92,6 +92,7 @@ class ExplainedDecision(BaseSerDeModel):
     skip_rejection_reason: t.Optional[RejectionReason] = None
     clone_rejection_reason: t.Optional[RejectionReason] = None
     is_stale: bool = False
+    decision_description: str = ""
 
     @staticmethod
     def no_match_explained_decision() -> ExplainedDecision:

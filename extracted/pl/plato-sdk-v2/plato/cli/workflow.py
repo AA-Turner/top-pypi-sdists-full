@@ -77,9 +77,24 @@ def _render_event(record: dict[str, Any]) -> str:
         cost = record.get("cost_usd")
         cost_str = f" (${cost:.4f})" if isinstance(cost, (int, float)) else ""
         cached = " [cached]" if record.get("cached_from") else ""
+        merged_sha = record.get("merged_sha")
+        merged_str = f" [merged to main: {merged_sha}]" if merged_sha else ""
         salvage = record.get("salvage_ref")
         salvage_str = f" [salvaged: {salvage}]" if salvage else ""
-        return f"[{seq}] call {record.get('call_id')} {status}{cost_str}{cached}{salvage_str}"
+        published_str = ""
+        error_str = ""
+        if status != "ok":
+            # A failed call's published ref means its git work survived even
+            # though the call soft-failed to None — surface it, or it is only
+            # discoverable by ls-remote.
+            published = record.get("published_ref")
+            published_str = f" [published: {published}]" if published else ""
+            error = record.get("error")
+            error_str = f" — {error}" if error else ""
+        return (
+            f"[{seq}] call {record.get('call_id')} {status}{cost_str}{cached}"
+            f"{merged_str}{published_str}{salvage_str}{error_str}"
+        )
     if rec_type == "workflow_result":
         return f"[{seq}] workflow finished"
     return f"[{seq}] {rec_type}"

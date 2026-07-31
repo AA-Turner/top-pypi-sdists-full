@@ -3,6 +3,7 @@
 
 import asyncio
 import inspect
+import itertools
 import json
 import logging
 import os
@@ -462,6 +463,10 @@ class TaskHubGrpcWorker:
             gRPC resiliency settings retained for reconnect handling.
         concurrency_options (ConcurrencyOptions | None, optional): Configuration for
             controlling worker concurrency limits. If None, default settings are used.
+        emit_trace_spans (bool, optional): Whether the worker emits Durable Task
+            lifecycle spans. Set to ``False`` when the host owns those spans; the
+            worker will still make inbound trace context current during user-code
+            execution. Defaults to ``True``.
 
     Attributes:
         concurrency_options (ConcurrencyOptions): The current concurrency configuration.
@@ -532,8 +537,12 @@ class TaskHubGrpcWorker:
             maximum_timer_interval: timedelta | None = DEFAULT_MAXIMUM_TIMER_INTERVAL,
             payload_store: PayloadStore | None = None,
             data_converter: DataConverter | None = None,
+            emit_trace_spans: bool = True,
     ):
         self._registry = _Registry()
+        # Shared by every entity batch this worker processes so that reflected
+        # entity method signatures are computed once instead of per operation.
+        self._entity_method_cache = _EntityMethodSignatureCache()
         self._host_address = (
             host_address if host_address else shared.get_default_host_address()
         )
@@ -548,6 +557,7 @@ class TaskHubGrpcWorker:
         self._owns_channel = channel is None
         self._secure_channel = secure_channel
         self._payload_store = payload_store
+        self._emit_trace_spans = emit_trace_spans
         self._channel_options = channel_options
         self._resiliency_options = (
             resiliency_options
@@ -592,6 +602,11 @@ class TaskHubGrpcWorker:
     def maximum_timer_interval(self) -> timedelta | None:
         """Get the configured maximum timer interval for long timer chunking."""
         return self._maximum_timer_interval
+
+    @property
+    def emit_trace_spans(self) -> bool:
+        """Return whether this worker emits Durable Task lifecycle spans."""
+        return self._emit_trace_spans
 
     def __enter__(self) -> "TaskHubGrpcWorker":
         return self
@@ -1132,10 +1147,12 @@ class TaskHubGrpcWorker:
         if self._payload_store is not None:
             payload_helpers.deexternalize_payloads(req, self._payload_store)
 
-        # Extract parent trace context from executionStarted event
+        # Extract parent trace context from executionStarted event.
+        # Chain the two event lists lazily so that long histories are not
+        # copied just to locate the first executionStarted event.
         parent_trace_ctx = None
         orchestration_name = "<unknown>"
-        for e in list(req.pastEvents) + list(req.newEvents):
+        for e in itertools.chain(req.pastEvents, req.newEvents):
             if e.HasField("executionStarted"):
                 orchestration_name = e.executionStarted.name
                 if e.executionStarted.HasField("parentTraceContext"):
@@ -1160,7 +1177,11 @@ class TaskHubGrpcWorker:
                 persisted_orch_span_id=persisted_orch_span_id,
                 maximum_timer_interval=self.maximum_timer_interval,
                 data_converter=self._data_converter)
-            result = executor.execute(instance_id, req.pastEvents, req.newEvents)
+            with tracing.suppress_span_emission(not self._emit_trace_spans):
+                with tracing.use_trace_context(
+                        parent_trace_ctx if not self._emit_trace_spans else None):
+                    result = executor.execute(
+                        instance_id, req.pastEvents, req.newEvents)
 
             # Determine completion status for span
             is_complete = False
@@ -1174,7 +1195,7 @@ class TaskHubGrpcWorker:
                         is_failed = True
                         failure_details = action.completeOrchestration.failureDetails
 
-            if is_complete:
+            if is_complete and self._emit_trace_spans:
                 # Orchestration finished — emit a single span covering its lifetime
                 tracing.emit_orchestration_span(
                     orchestration_name,
@@ -1191,8 +1212,12 @@ class TaskHubGrpcWorker:
             orch_span_id = None
             if result._orchestration_trace_context:  # pyright: ignore[reportPrivateUsage]
                 orch_span_id = result._orchestration_trace_context.spanID  # pyright: ignore[reportPrivateUsage]
-            orch_trace_ctx = tracing.build_orchestration_trace_context(
-                start_time_ns, span_id=orch_span_id)
+            orch_trace_ctx = (
+                tracing.build_orchestration_trace_context(
+                    start_time_ns, span_id=orch_span_id)
+                if self._emit_trace_spans
+                else None
+            )
 
             res = pb.OrchestratorResponse(
                 instanceId=instance_id,
@@ -1217,14 +1242,15 @@ class TaskHubGrpcWorker:
             return
         except Exception as ex:
             # Unhandled error — emit a failed span
-            tracing.emit_orchestration_span(
-                orchestration_name,
-                instance_id,
-                start_time_ns,
-                is_failed=True,
-                failure_details=ex,
-                parent_trace_context=parent_trace_ctx,
-            )
+            if self._emit_trace_spans:
+                tracing.emit_orchestration_span(
+                    orchestration_name,
+                    instance_id,
+                    start_time_ns,
+                    is_failed=True,
+                    failure_details=ex,
+                    parent_trace_context=parent_trace_ctx,
+                )
             self._logger.exception(
                 f"An error occurred while trying to execute instance '{instance_id}': {ex}"
             )
@@ -1285,24 +1311,25 @@ class TaskHubGrpcWorker:
                 payload_helpers.deexternalize_payloads(req, self._payload_store)
             try:
                 executor = _ActivityExecutor(self._registry, self._logger, self._data_converter)
-                with tracing.start_span(
-                    tracing.create_span_name("activity", req.name),
-                    trace_context=req.parentTraceContext,
-                    kind=tracing.SpanKind.SERVER,
-                    attributes={
-                        tracing.ATTR_TASK_TYPE: "activity",
-                        tracing.ATTR_TASK_INSTANCE_ID: instance_id,
-                        tracing.ATTR_TASK_NAME: req.name,
-                        tracing.ATTR_TASK_TASK_ID: str(req.taskId),
-                    },
-                ) as span:
-                    try:
-                        result = executor.execute(
-                            instance_id, req.name, req.taskId, req.input.value
-                        )
-                    except Exception as ex:
-                        tracing.set_span_error(span, ex)
-                        raise
+                with tracing.suppress_span_emission(not self._emit_trace_spans):
+                    with tracing.start_span(
+                        tracing.create_span_name("activity", req.name),
+                        trace_context=req.parentTraceContext,
+                        kind=tracing.SpanKind.SERVER,
+                        attributes={
+                            tracing.ATTR_TASK_TYPE: "activity",
+                            tracing.ATTR_TASK_INSTANCE_ID: instance_id,
+                            tracing.ATTR_TASK_NAME: req.name,
+                            tracing.ATTR_TASK_TASK_ID: str(req.taskId),
+                        },
+                    ) as span:
+                        try:
+                            result = executor.execute(
+                                instance_id, req.name, req.taskId, req.input.value
+                            )
+                        except Exception as ex:
+                            tracing.set_span_error(span, ex)
+                            raise
                 res = pb.ActivityResponse(
                     instanceId=instance_id,
                     taskId=req.taskId,
@@ -1370,51 +1397,60 @@ class TaskHubGrpcWorker:
             raise RuntimeError(f"Invalid entity instance ID '{instance_id}' in entity operation request.")
 
         results: list[pb.OperationResult] = []
+        # A single executor serves the whole batch and shares the worker's
+        # bounded signature cache, so entity method reflection is not repeated
+        # for every operation.
+        executor = _EntityExecutor(
+            self._registry,
+            self._logger,
+            self._data_converter,
+            entity_method_cache=self._entity_method_cache,
+        )
         for operation in req.operations:
             start_time = datetime.now(timezone.utc)
-            executor = _EntityExecutor(self._registry, self._logger, self._data_converter)
 
             operation_result = None
 
             # Get the trace context for this operation, if available
             op_trace_ctx = operation.traceContext if operation.HasField("traceContext") else None
 
-            with tracing.start_span(
-                tracing.create_span_name("entity", f"{entity_instance_id.entity}:{operation.operation}"),
-                trace_context=op_trace_ctx,
-                kind=tracing.SpanKind.SERVER,
-                attributes={
-                    tracing.ATTR_TASK_TYPE: "entity",
-                    tracing.ATTR_TASK_INSTANCE_ID: instance_id,
-                    tracing.ATTR_TASK_NAME: entity_instance_id.entity,
-                    "durabletask.entity.operation": operation.operation,
-                },
-            ) as span:
-                try:
-                    entity_result = executor.execute(
-                        instance_id, entity_instance_id, operation.operation, entity_state, operation.input.value
-                    )
+            with tracing.suppress_span_emission(not self._emit_trace_spans):
+                with tracing.start_span(
+                    tracing.create_span_name("entity", f"{entity_instance_id.entity}:{operation.operation}"),
+                    trace_context=op_trace_ctx,
+                    kind=tracing.SpanKind.SERVER,
+                    attributes={
+                        tracing.ATTR_TASK_TYPE: "entity",
+                        tracing.ATTR_TASK_INSTANCE_ID: instance_id,
+                        tracing.ATTR_TASK_NAME: entity_instance_id.entity,
+                        "durabletask.entity.operation": operation.operation,
+                    },
+                ) as span:
+                    try:
+                        entity_result = executor.execute(
+                            instance_id, entity_instance_id, operation.operation, entity_state, operation.input.value
+                        )
 
-                    entity_result = ph.get_string_value_or_empty(entity_result)
-                    operation_result = pb.OperationResult(success=pb.OperationResultSuccess(
-                        result=entity_result,
-                        startTimeUtc=new_timestamp(start_time),
-                        endTimeUtc=new_timestamp(datetime.now(timezone.utc))
-                    ))
-                    results.append(operation_result)
+                        entity_result = ph.get_string_value_or_empty(entity_result)
+                        operation_result = pb.OperationResult(success=pb.OperationResultSuccess(
+                            result=entity_result,
+                            startTimeUtc=new_timestamp(start_time),
+                            endTimeUtc=new_timestamp(datetime.now(timezone.utc))
+                        ))
+                        results.append(operation_result)
 
-                    entity_state.commit()
-                except Exception as ex:
-                    tracing.set_span_error(span, ex)
-                    self._logger.exception(ex)
-                    operation_result = pb.OperationResult(failure=pb.OperationResultFailure(
-                        failureDetails=ph.new_failure_details(ex),
-                        startTimeUtc=new_timestamp(start_time),
-                        endTimeUtc=new_timestamp(datetime.now(timezone.utc))
-                    ))
-                    results.append(operation_result)
+                        entity_state.commit()
+                    except Exception as ex:
+                        tracing.set_span_error(span, ex)
+                        self._logger.exception(ex)
+                        operation_result = pb.OperationResult(failure=pb.OperationResultFailure(
+                            failureDetails=ph.new_failure_details(ex),
+                            startTimeUtc=new_timestamp(start_time),
+                            endTimeUtc=new_timestamp(datetime.now(timezone.utc))
+                        ))
+                        results.append(operation_result)
 
-                    entity_state.rollback()
+                        entity_state.rollback()
 
         batch_result = pb.EntityBatchResult(
             results=results,
@@ -2067,6 +2103,38 @@ class _RuntimeOrchestrationContext(task.OrchestrationContext):
             external_event_task.set_cancel_handler(_cancel_wait)
         return external_event_task
 
+    def send_event(self, instance_id: str, event_name: str, *,
+                   data: Any | None = None) -> None:
+        if not instance_id or not instance_id.strip():
+            raise ValueError("instance_id cannot be empty")
+        if instance_id.startswith("@"):
+            raise ValueError(
+                "Instance IDs starting with '@' are reserved for entities; "
+                "use signal_entity() to send an entity operation."
+            )
+        if not event_name or not event_name.strip():
+            raise ValueError("event_name cannot be empty")
+
+        id = self.next_sequence_number()
+        action = ph.new_send_event_action(
+            id,
+            instance_id,
+            event_name,
+            self._data_converter.serialize(data),
+        )
+        self._pending_actions[id] = action
+
+        if not self._is_replaying:
+            tracing.emit_event_raised_span(
+                event_name,
+                self.instance_id,
+                target_instance_id=instance_id,
+                parent_trace_context=(
+                    self._orchestration_trace_context
+                    or self._parent_trace_context
+                ),
+            )
+
     def continue_as_new(self, new_input: Any, *, save_events: bool = False) -> None:
         if self._is_complete:
             return
@@ -2132,10 +2200,12 @@ class _OrchestrationExecutor:
             old_events: Sequence[pb.HistoryEvent],
             new_events: Sequence[pb.HistoryEvent],
     ) -> ExecutionResults:
-        orchestration_name = "<unknown>"
-        orchestration_started_events = [e for e in old_events if e.HasField("executionStarted")]
-        if len(orchestration_started_events) >= 1:
-            orchestration_name = orchestration_started_events[0].executionStarted.name
+        # Only the first executionStarted event is needed, so stop at the
+        # first match instead of materializing every matching event.
+        orchestration_name = next(
+            (e.executionStarted.name for e in old_events if e.HasField("executionStarted")),
+            "<unknown>",
+        )
         self._orchestration_name = orchestration_name
 
         self._logger.debug(
@@ -2286,21 +2356,22 @@ class _OrchestrationExecutor:
 
         rewind_event: pb.ExecutionRewoundEvent = new_events[1].executionRewound
 
-        all_events = list(old_events) + list(new_events)
         # Generate a new execution ID for the rewound execution.
         new_execution_id = uuid.uuid4().hex
 
         # First pass: collect the task-scheduled IDs that correspond to
         # failed activities so we can remove the matching taskScheduled
-        # events in the second pass.
+        # events in the second pass.  Both arguments are sequences, so each
+        # pass chains them lazily (old events first, then new events)
+        # instead of copying the whole history into a combined list.
         failed_task_ids: set[int] = set()
-        for event in all_events:
+        for event in itertools.chain(old_events, new_events):
             if event.HasField("taskFailed"):
                 failed_task_ids.add(event.taskFailed.taskScheduledId)
 
         # Second pass: build the clean history.
         clean_history: list[pb.HistoryEvent] = []
-        for event in all_events:
+        for event in itertools.chain(old_events, new_events):
             if event.HasField("taskFailed"):
                 continue
             if event.HasField("taskScheduled") and event.eventId in failed_task_ids:
@@ -2927,17 +2998,70 @@ class _OrchestrationExecutor:
                 # matching the .NET worker.
                 pass
             elif event.HasField("eventSent"):
-                # Check if this eventSent corresponds to an entity operation call after being translated to the old
-                # entity protocol by the Durable WebJobs extension. If so, treat this message similarly to
-                # entityOperationCalled and remove the pending action. Also store the entity id and event id for later
                 action = ctx._pending_actions.pop(event.eventId, None)  # pyright: ignore[reportPrivateUsage]
-                if action and action.HasField("sendEntityMessage"):
-                    if action.sendEntityMessage.HasField("entityOperationCalled"):
+                if not action:
+                    raise _get_non_determinism_error(
+                        event.eventId, task.get_name(ctx.send_event)
+                    )
+                if action.HasField("sendEntityMessage"):
+                    # Durable Functions translates entity messages to the
+                    # legacy EventSent shape. Preserve the entity bookkeeping
+                    # that reconstructs calls and lock requests on replay.
+                    entity_message = action.sendEntityMessage
+                    entity_target = None
+                    if entity_message.HasField("entityOperationCalled"):
+                        entity_target = entity_message.entityOperationCalled.targetInstanceId.value
+                    elif entity_message.HasField("entityOperationSignaled"):
+                        entity_target = entity_message.entityOperationSignaled.targetInstanceId.value
+                    elif entity_message.HasField("entityLockRequested"):
+                        lock_request = entity_message.entityLockRequested
+                        if 0 <= lock_request.position < len(lock_request.lockSet):
+                            entity_target = lock_request.lockSet[lock_request.position]
+                    elif entity_message.HasField("entityUnlockSent"):
+                        entity_target = entity_message.entityUnlockSent.targetInstanceId.value
+
+                    if entity_target != event.eventSent.instanceId:
+                        raise _get_wrong_action_type_error(
+                            event.eventId,
+                            task.get_name(ctx.send_event),
+                            action,
+                        )
+
+                    if entity_message.HasField("entityOperationCalled"):
                         entity_id, event_id = self._parse_entity_event_sent_input(event)
-                        ctx._entity_task_id_map[event_id] = (entity_id, action.sendEntityMessage.entityOperationCalled.operation, event.eventId)  # pyright: ignore[reportPrivateUsage]
-                    elif action.sendEntityMessage.HasField("entityLockRequested"):
+                        ctx._entity_task_id_map[event_id] = (entity_id, entity_message.entityOperationCalled.operation, event.eventId)  # pyright: ignore[reportPrivateUsage]
+                    elif entity_message.HasField("entityLockRequested"):
                         entity_id, event_id = self._parse_entity_event_sent_input(event)
                         ctx._entity_lock_task_id_map[event_id] = (entity_id, event.eventId)  # pyright: ignore[reportPrivateUsage]
+                elif not action.HasField("sendEvent"):
+                    raise _get_wrong_action_type_error(
+                        event.eventId,
+                        task.get_name(ctx.send_event),
+                        action,
+                    )
+                elif (
+                        action.sendEvent.instance.instanceId
+                        != event.eventSent.instanceId
+                ):
+                    # Python intentionally validates the target during replay,
+                    # unlike DurableTask.Core, to avoid silently suppressing
+                    # delivery when orchestration code changes the target.
+                    raise _get_wrong_action_target_error(
+                        event.eventId,
+                        method_name=task.get_name(ctx.send_event),
+                        expected_instance_id=event.eventSent.instanceId,
+                        actual_instance_id=action.sendEvent.instance.instanceId,
+                    )
+                elif (
+                        action.sendEvent.name.casefold()
+                        != event.eventSent.name.casefold()
+                ):
+                    raise _get_wrong_action_name_error(
+                        event.eventId,
+                        method_name=task.get_name(ctx.send_event),
+                        expected_task_name=event.eventSent.name,
+                        actual_task_name=action.sendEvent.name,
+                    )
             else:
                 eventType = event.WhichOneof("eventType")
                 raise task.OrchestrationStateError(
@@ -3101,13 +3225,61 @@ class _ActivityExecutor:
         return encoded_output
 
 
+class _EntityMethodSignatureCache:
+    """Bounded, thread-safe cache of reflected entity method signatures.
+
+    Dispatching an operation on a class-based entity requires knowing whether
+    the target method declares a required parameter, which is answered with an
+    ``inspect.signature()`` call. The answer depends only on the entity type
+    and the operation name, so it is cached here and shared across entity
+    batches (and therefore across the worker threads that process them
+    concurrently).
+
+    The cache is bounded because entity types and operation names originate
+    from user code and are unbounded in principle; once the limit is reached
+    the oldest entries are evicted instead of growing without limit.
+    """
+
+    DEFAULT_MAX_SIZE = 1024
+
+    def __init__(self, max_size: int = DEFAULT_MAX_SIZE):
+        self._max_size = max(1, max_size)
+        self._lock = Lock()
+        self._entries: dict[tuple[type, str], bool] = {}
+
+    def get(self, key: tuple[type, str]) -> bool | None:
+        """Returns the cached result for ``key``, or ``None`` when not cached."""
+        return self._entries.get(key)
+
+    def __setitem__(self, key: tuple[type, str], value: bool) -> None:
+        with self._lock:
+            self._entries[key] = value
+            # Dicts preserve insertion order, so the first key is the oldest.
+            while len(self._entries) > self._max_size:
+                self._entries.pop(next(iter(self._entries)), None)
+
+    def __contains__(self, key: object) -> bool:
+        return key in self._entries
+
+    def __len__(self) -> int:
+        return len(self._entries)
+
+
 class _EntityExecutor:
     def __init__(self, registry: _Registry, logger: logging.Logger,
-                 data_converter: DataConverter):
+                 data_converter: DataConverter,
+                 entity_method_cache: _EntityMethodSignatureCache | None = None):
         self._registry = registry
         self._logger = logger
         self._data_converter = data_converter
-        self._entity_method_cache: dict[tuple[type, str], bool] = {}
+        # When the caller supplies a cache (the worker does), reflected entity
+        # method signatures are shared with it and therefore survive beyond the
+        # lifetime of this executor.
+        self._entity_method_cache: _EntityMethodSignatureCache = (
+            entity_method_cache
+            if entity_method_cache is not None
+            else _EntityMethodSignatureCache()
+        )
 
     def execute(
             self,
@@ -3203,6 +3375,21 @@ def _get_wrong_action_name_error(
     )
 
 
+def _get_wrong_action_target_error(
+        task_id: int,
+        method_name: str,
+        expected_instance_id: str,
+        actual_instance_id: str,
+) -> task.NonDeterminismError:
+    return task.NonDeterminismError(
+        f"Failed to restore orchestration state due to a history mismatch: A previous execution called "
+        f"{method_name} with target instance ID='{expected_instance_id}' and sequence number {task_id}, but the "
+        f"current execution is instead targeting instance ID='{actual_instance_id}' as part of rebuilding its "
+        f"history. This kind of mismatch can happen if an orchestration has non-deterministic logic or if the "
+        f"code was changed after an instance of this orchestration already started running."
+    )
+
+
 def _get_method_name_for_action(action: pb.OrchestratorAction) -> str:
     action_type = action.WhichOneof("orchestratorActionType")
     match action_type:
@@ -3212,8 +3399,21 @@ def _get_method_name_for_action(action: pb.OrchestratorAction) -> str:
             return task.get_name(task.OrchestrationContext.create_timer)
         case "createSubOrchestration":
             return task.get_name(task.OrchestrationContext.call_sub_orchestrator)
-        # case "sendEvent":
-        #    return task.get_name(task.OrchestrationContext.send_event)
+        case "sendEvent":
+            return task.get_name(task.OrchestrationContext.send_event)
+        case "sendEntityMessage":
+            entity_message = action.sendEntityMessage
+            if entity_message.HasField("entityOperationCalled"):
+                return task.get_name(task.OrchestrationContext.call_entity)
+            if entity_message.HasField("entityOperationSignaled"):
+                return task.get_name(task.OrchestrationContext.signal_entity)
+            if (
+                    entity_message.HasField("entityLockRequested")
+                    or entity_message.HasField("entityUnlockSent")
+            ):
+                return task.get_name(task.OrchestrationContext.lock_entities)
+            raise NotImplementedError(
+                "SendEntityMessage action type not supported!")
         case _:
             raise NotImplementedError(f"Action type '{action_type}' not supported!")
 
@@ -3434,43 +3634,57 @@ class _AsyncWorkerManager:
                 self._pool_is_shutdown = True
 
     async def _consume_queue(self, queue: asyncio.Queue[_WorkItem], semaphore: asyncio.Semaphore) -> None:
-        # List to track running tasks
+        # Set of running tasks. Completed tasks remove themselves through a done
+        # callback so that this loop never has to scan the whole set.
         running_tasks: set[asyncio.Task[Any]] = set()
 
         while True:
-            # Clean up completed tasks
-            done_tasks = {task for task in running_tasks if task.done()}
-            running_tasks -= done_tasks
-
             # Exit if shutdown is set and the queue is empty and no tasks are running
             if self._shutdown and queue.empty() and not running_tasks:
                 break
 
+            # Reserve concurrency capacity *before* dequeuing a work item so that
+            # the number of allocated tasks stays bounded by the configured
+            # concurrency limit instead of growing with the queue depth. The
+            # permit is handed off to the task created below, which releases it
+            # once the work item has been processed.
+            await semaphore.acquire()
+            permit_owned = True
             try:
-                work = await asyncio.wait_for(queue.get(), timeout=1.0)
-            except asyncio.TimeoutError:
-                continue
+                try:
+                    work = await asyncio.wait_for(queue.get(), timeout=1.0)
+                except asyncio.TimeoutError:
+                    continue
 
-            func, cancellation_func, args, kwargs = work
-            # Create a concurrent task for processing
-            task = asyncio.create_task(
-                self._process_work_item(semaphore, queue, func, cancellation_func, args, kwargs)
-            )
-            running_tasks.add(task)
+                func, cancellation_func, args, kwargs = work
+                # Create a concurrent task for processing
+                task = asyncio.create_task(
+                    self._process_work_item(semaphore, queue, func, cancellation_func, args, kwargs)
+                )
+                permit_owned = False
+                running_tasks.add(task)
+                task.add_done_callback(running_tasks.discard)
+            finally:
+                if permit_owned:
+                    semaphore.release()
 
     async def _process_work_item(
             self, semaphore: asyncio.Semaphore, queue: asyncio.Queue[_WorkItem],
             func: Callable[..., Any], cancellation_func: Callable[..., Any],
             args: tuple[Any, ...], kwargs: dict[str, Any]
     ) -> None:
-        async with semaphore:
+        # The semaphore permit is acquired by ``_consume_queue`` before this task
+        # is created and is released here once the work item is done.
+        try:
+            await self._run_func(func, *args, **kwargs)
+        except Exception as work_exception:
+            self._logger.error(f"Uncaught error while processing work item, item will be abandoned: {work_exception}")
+            await self._run_func(cancellation_func, *args, **kwargs)
+        finally:
             try:
-                await self._run_func(func, *args, **kwargs)
-            except Exception as work_exception:
-                self._logger.error(f"Uncaught error while processing work item, item will be abandoned: {work_exception}")
-                await self._run_func(cancellation_func, *args, **kwargs)
-            finally:
                 queue.task_done()
+            finally:
+                semaphore.release()
 
     async def _run_func(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         if inspect.iscoroutinefunction(func):

@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.26)
 
 project(tvm_ffi LANGUAGES CXX C)
 
@@ -70,11 +70,13 @@ set(_tvm_ffi_objs_sources
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ffi/dtype.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ffi/container.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ffi/init_once.cc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ffi/custom_allocator.cc"
 )
 
 set(_tvm_ffi_extra_objs_sources
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ffi/extra/structural_equal.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ffi/extra/structural_hash.cc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ffi/extra/structural_visit.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ffi/extra/visit_error_context.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ffi/extra/json_parser.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ffi/extra/json_writer.cc"
@@ -126,6 +128,7 @@ endif ()
 
 tvm_ffi_add_msvc_flags(tvm_ffi_objs)
 tvm_ffi_add_target_from_obj(tvm_ffi tvm_ffi_objs)
+tvm_ffi_hide_static_linked_lib_symbols(tvm_ffi_shared)
 
 if (TVM_FFI_USE_THREADS)
   find_package(Threads REQUIRED)
@@ -177,6 +180,7 @@ set_target_properties(
 target_link_libraries(tvm_ffi_testing PRIVATE tvm_ffi_shared)
 target_link_libraries(tvm_ffi_testing PUBLIC tvm_ffi_header)
 tvm_ffi_add_msvc_flags(tvm_ffi_testing)
+tvm_ffi_hide_static_linked_lib_symbols(tvm_ffi_testing)
 tvm_ffi_add_apple_dsymutil(tvm_ffi_testing)
 
 # Set the install RPATH for tvm_ffi_testing so it can find tvm_ffi.so relatively
@@ -236,22 +240,10 @@ if (TVM_FFI_BUILD_PYTHON_MODULE)
 
   find_package(
     Python
-    COMPONENTS Interpreter Development.Module Development.SABIModule
+    COMPONENTS Interpreter
     REQUIRED
   )
-  set(_core_cpp ${CMAKE_CURRENT_BINARY_DIR}/core.cpp)
-  set(_core_pyx ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython/core.pyx)
-  set(_cython_sources
-      ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython/core.pyx
-      ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython/base.pxi
-      ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython/device.pxi
-      ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython/dtype.pxi
-      ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython/error.pxi
-      ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython/function.pxi
-      ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython/tensor.pxi
-      ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython/object.pxi
-      ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython/string.pxi
-  )
+
   # Run a Python script to check for free-threaded build
   execute_process(
     COMMAND ${Python_EXECUTABLE} -c
@@ -263,6 +255,31 @@ if (TVM_FFI_BUILD_PYTHON_MODULE)
     message(STATUS "Free-threaded Python detected.")
   endif ()
 
+  # The PyObject-tying module builds against the per-version ABI (WITH_SOABI below), so it never
+  # needs the limited-API (abi3) SABIModule component -- a plain Development.Module find suffices
+  # for every version, free-threaded or not.
+  set(_tvm_ffi_python_version ${Python_VERSION})
+  find_package(
+    Python ${_tvm_ffi_python_version} EXACT
+    COMPONENTS Interpreter Development.Module
+    REQUIRED
+  )
+  set(_core_cpp ${CMAKE_CURRENT_BINARY_DIR}/core.cpp)
+  set(_core_pyx ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython/core.pyx)
+  set(_cython_sources
+      ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython/core.pyx
+      ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython/base.pxi
+      ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython/type_info.pxi
+      ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython/device.pxi
+      ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython/dtype.pxi
+      ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython/error.pxi
+      ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython/function.pxi
+      ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython/pycallback.pxi
+      ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython/pyclass_type_converter.pxi
+      ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython/tensor.pxi
+      ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython/object.pxi
+      ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython/string.pxi
+  )
   add_custom_command(
     OUTPUT ${_core_cpp}
     COMMAND ${Python_EXECUTABLE} -m cython --cplus ${_core_pyx} -o ${_core_cpp} --module-name
@@ -273,20 +290,11 @@ if (TVM_FFI_BUILD_PYTHON_MODULE)
     VERBATIM
   )
 
-  if (Python_VERSION VERSION_GREATER_EQUAL "3.12" AND NOT PYTHON_IS_FREE_THREADED)
-    # >= Python3.12, use Use_SABI version
-    python_add_library(tvm_ffi_cython MODULE "${_core_cpp}" USE_SABI 3.12)
-    target_link_libraries(tvm_ffi_cython PRIVATE Python::SABIModule)
-    set_target_properties(tvm_ffi_cython PROPERTIES OUTPUT_NAME "core")
-    if (NOT WIN32)
-      target_link_libraries(tvm_ffi_cython PRIVATE Python::Module)
-      set_target_properties(tvm_ffi_cython PROPERTIES SUFFIX ".abi3.so")
-    endif ()
-  else ()
-    # before Python3.12, use WITH_SOABI version
-    python_add_library(tvm_ffi_cython MODULE "${_core_cpp}" WITH_SOABI)
-    set_target_properties(tvm_ffi_cython PROPERTIES OUTPUT_NAME "core")
-  endif ()
+  # The PyObject-tying impl in tvm_ffi_python_object.h uses full Python C API (Py_IncRef,
+  # PyObject_GC_Del, atomic header reads), so we build against the per-version ABI rather than the
+  # limited (abi3) ABI.
+  python_add_library(tvm_ffi_cython MODULE "${_core_cpp}" WITH_SOABI)
+  set_target_properties(tvm_ffi_cython PROPERTIES OUTPUT_NAME "core")
   target_include_directories(
     tvm_ffi_cython PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython
   )
@@ -295,6 +303,7 @@ if (TVM_FFI_BUILD_PYTHON_MODULE)
   target_link_libraries(tvm_ffi_cython PRIVATE tvm_ffi_shared)
   # link against testing to ensure right unloading order (cython first then testing)
   target_link_libraries(tvm_ffi_cython PRIVATE tvm_ffi_testing)
+  tvm_ffi_hide_static_linked_lib_symbols(tvm_ffi_cython)
   # Set RPATH for tvm_ffi_cython to find tvm_ffi_shared.so relatively
   if (APPLE)
     # macOS uses @loader_path
@@ -323,6 +332,9 @@ if (TVM_FFI_BUILD_PYTHON_MODULE)
           DESTINATION share/cmake/tvm_ffi
   )
   install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython/tvm_ffi_python_helpers.h
+          DESTINATION include/
+  )
+  install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/python/tvm_ffi/cython/tvm_ffi_python_object.h
           DESTINATION include/
   )
 endif ()

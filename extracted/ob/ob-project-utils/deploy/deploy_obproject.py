@@ -1247,6 +1247,88 @@ def register_assets():
     )
 
 
+# The list endpoint caps a page here and accepts no continuation token.
+CATALOG_PAGE_LIMIT = 100
+
+
+def _catalog_index(listing):
+    """Asset ids in a list response, and whether that list is the whole catalog."""
+    items = listing.get("items") or []
+    ids = {
+        item["asset"]["id"]
+        for item in items
+        if item.get("asset", {}).get("id")
+    }
+    complete = not listing.get("continuation") and len(items) < CATALOG_PAGE_LIMIT
+    return ids, complete
+
+
+def reconcile_asset_entries(disk_entries, remote_entries, catalog_ids, catalog_complete):
+    """Spec entries for one asset kind, from disk, the deployed spec, and the catalog.
+
+    Disk wins: only a directory carries README card markdown and an icon. Spec
+    entries with no directory are kept, preserving runtime registrations.
+    Catalog assets in neither are added back. Entries are dropped only when the
+    catalog is known complete, since pruning on a truncated listing would delete
+    live assets.
+    """
+    by_id = {}
+
+    for entry in remote_entries:
+        asset_id = entry.get("id")
+        if not asset_id:
+            continue
+        if catalog_complete and asset_id not in catalog_ids:
+            print(f"   🗑️  '{asset_id}' is gone from the catalog, dropping from spec")
+            continue
+        by_id[asset_id] = entry
+
+    for asset_id in sorted(catalog_ids):
+        by_id.setdefault(
+            asset_id,
+            {
+                "id": asset_id,
+                "display_name": asset_id,
+                "description": "",
+                "card_markdown": "",
+            },
+        )
+
+    for entry in disk_entries:
+        if entry.get("id"):
+            by_id[entry["id"]] = entry
+
+    return list(by_id.values())
+
+
+def reconcile_assets(disk_models, disk_data):
+    """Merge disk-declared assets with what the deployed spec and catalog already hold.
+
+    Raises rather than falling back to disk-only: pushing a spec built from
+    partial knowledge of remote state is the data loss this prevents.
+    """
+    from obproject.assets import Asset
+
+    asset = Asset(
+        project=PROJECT,
+        branch=BRANCH,
+        entity_ref={"entity_kind": "task", "entity_id": "deployer"},
+        read_only=True,
+    )
+    spec = asset.get_flowproject_spec() or {}
+
+    model_ids, models_complete = _catalog_index(asset.list_model_assets())
+    data_ids, data_complete = _catalog_index(asset.list_data_assets())
+
+    models = reconcile_asset_entries(
+        disk_models, spec.get("models") or [], model_ids, models_complete
+    )
+    data = reconcile_asset_entries(
+        disk_data, spec.get("data") or [], data_ids, data_complete
+    )
+    return models, data
+
+
 def git_log():
     # `-z` = NUL between commits, %x1f = separator between fields.
     # Neither can appear in commit content, unlike `|` + newline.
@@ -1674,6 +1756,11 @@ def deploy_single_project(project_name=None, skip_apps=False, skip_flows=False, 
             print(
                 f"✅ {len(data)} data assets and {len(models)} models registered successfully"
             )
+
+        # Runs under --skip-assets too, since the spec is pushed unconditionally.
+        print("🟩🟩🟩 Reconciling Asset Metadata")
+        models, data = reconcile_assets(models, data)
+        print(f"✅ {len(data)} data assets and {len(models)} models in the project spec")
 
         print("🟩🟩🟩 Discovering Flows")
         flows, evals = discover_flows()

@@ -29,7 +29,7 @@ from ..events import (
 from ..limits import CrawlLimitState
 from ..models import Snapshot
 from ..models import Hook, Plugin, filter_plugins
-from .base import BaseService
+from .base import BaseService, wait_for_background_ready
 
 
 async def _wait_for_process_completed(event: ProcessCompletedEvent | None, timeout: float | None) -> ProcessCompletedEvent | None:
@@ -238,7 +238,7 @@ class SnapshotService(BaseService):
             if hook.is_background:
                 handler_timeout: float | None = None
                 handler_slow_timeout: float | None = None
-                started_wait_timeout = 60.0
+                started_wait_timeout = float(timeout or 0) + 30.0
             else:
                 handler_timeout = float(timeout or 0) + 30.0
                 handler_slow_timeout = slow_warning_timeout(handler_timeout)
@@ -259,13 +259,6 @@ class SnapshotService(BaseService):
             )
             if hook.is_background:
                 background_process = event.emit(process_event)
-                # First-run PEP-723 hooks need to resolve + install their inline
-                # script deps via ``uv run --script``; on a cold cache that can
-                # take 20–30s. Cap at min(60s, handler_timeout) to absorb that
-                # cold-start latency without hanging indefinitely if the hook
-                # truly fails to launch. ``handler_timeout`` already bounds the
-                # hook's full lifetime, so this is at most an additive 60s on
-                # the start phase.
                 started_process = await self.bus.find(
                     ProcessStartedEvent,
                     child_of=background_process,
@@ -276,6 +269,11 @@ class SnapshotService(BaseService):
                     return
                 if started_process is None:
                     raise RuntimeError(f"Background hook {hook.name} did not start")
+                await wait_for_background_ready(
+                    self.bus,
+                    started_process,
+                    started_wait_timeout,
+                )
             else:
                 foreground_process = event.emit(process_event)
                 await _run_event_now(foreground_process, handler_timeout)

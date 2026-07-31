@@ -129,7 +129,25 @@ UNPARSED_RULE = "UNPARSED"
 _ABS_PATH_RE = re.compile(r"(?<![\w.])/(?:[\w.\-]+/)+")
 
 
-def _normalize_unparsed(line: str) -> str:
+# A DIRECTORY path has no trailing slash, so `_ABS_PATH_RE` leaves its LAST
+# component — which for the two trees compared here IS the checkout name, and
+# those differ by construction. `(.../floor)` vs `(.../base-abc)` on the same
+# finding gave two identities: one phantom net-new plus one phantom
+# disappearance, on every PR emitting such a line (measured 2026-07-31 on
+# scitex-cards: 95 keys each side, 1 new, 1 gone). `audit` is required, so
+# that phantom blocked merges repo-wide.
+#
+# Widening `_ABS_PATH_RE` instead would eat the stable basename of FILE paths
+# and collapse distinct findings — the collision `_unparsed_key` exists to
+# avoid. The roots are known facts the caller already computes.
+# Longest first, so a root prefixing another leaves no fragment.
+def _strip_roots(line: str, roots: tuple[str, ...]) -> str:
+    for root in sorted((r for r in roots if r), key=len, reverse=True):
+        line = line.replace(root, "<TREE>")
+    return line
+
+
+def _normalize_unparsed(line: str, roots: tuple[str, ...] = ()) -> str:
     """Line-stable identity for a finding the structured parser missed.
 
     Applies the same line-number scrubbing as a parsed finding's
@@ -137,7 +155,7 @@ def _normalize_unparsed(line: str) -> str:
     detached baseline worktree — which live at different paths by
     construction — produce the same identity for the same finding.
     """
-    return _normalize_message(_ABS_PATH_RE.sub("", line))
+    return _normalize_message(_ABS_PATH_RE.sub("", _strip_roots(line, roots)))
 
 
 # Strips trailing ``:NN`` line-number suffix from a file-path token.
@@ -212,7 +230,7 @@ class ViolationKey:
     message_excerpt: str
 
 
-def _unparsed_key(stripped_line: str) -> ViolationKey:
+def _unparsed_key(stripped_line: str, roots: tuple[str, ...] = ()) -> ViolationKey:
     """Identity for an ERRO line the structured parser could not key.
 
     Uses the WHOLE normalized line, not a 60-char excerpt. A parsed
@@ -228,7 +246,7 @@ def _unparsed_key(stripped_line: str) -> ViolationKey:
     return ViolationKey(
         rule=UNPARSED_RULE,
         file_line="",
-        message_excerpt=_normalize_unparsed(stripped_line),
+        message_excerpt=_normalize_unparsed(stripped_line, roots),
     )
 
 
@@ -236,6 +254,7 @@ def extract_violation_keys(
     audit_stdout: str,
     *,
     distribution_filter: str | None = None,
+    roots: tuple[str, ...] = (),
 ) -> set[ViolationKey]:
     """Parse a per-auditor stdout stream into a set of violation keys.
 
@@ -257,7 +276,7 @@ def extract_violation_keys(
             # whose this is" must not collapse into "not theirs". An
             # unknown is a third value, not a quiet no.
             if _ERRO_LINE_RE.match(stripped):
-                keys.add(_unparsed_key(stripped))
+                keys.add(_unparsed_key(stripped, roots))
             continue
         if distribution_filter and m.group("dist") != distribution_filter:
             continue
@@ -274,11 +293,58 @@ def extract_violation_keys(
     return keys
 
 
+#: Rules whose findings are NOT a property of the diff, and therefore can
+#: never be attributed to one. A timing measurement describes the repo AND
+#: the machine at that instant; net-new keying claims it describes the
+#: change. Those are different objects, and no amount of best-of-N
+#: reconciles them — widening N shrinks the straddle band around the
+#: threshold without changing what the number is about, which is worse
+#: because it looks fixed.
+#:
+#: Measured by scitex-cards, 2026-07-30, on a full audit of a develop
+#: baseline worktree against each branch — 132 findings vs 132, the SOLE
+#: difference being the §10 line:
+#:
+#:   * a PR adding a JAVASCRIPT file and one test was reported as
+#:     introducing an import-time regression;
+#:   * a PR DELETING a call, which measurably imported FASTER than develop
+#:     (351/295/249ms vs 391/394/359ms, same machine, same minute), was
+#:     reported with the identical finding text.
+#:
+#: So the same code produces the finding on one run and not another, and
+#: under `--new-only` the blame lands on whoever happened to push.
+#:
+#: Excluded from ATTRIBUTION, never from REPORTING: the full audit still
+#: emits these, and `partition_attributable` hands the count back so the
+#: caller can disclose it. A silent exclusion here would rebuild the exact
+#: defect the UNPARSED fail-open above exists to prevent.
+NON_ATTRIBUTABLE_RULES = frozenset({"§10", "§10w"})
+
+
+def is_attributable(key: ViolationKey) -> bool:
+    """Can this finding honestly be blamed on a diff?"""
+    return key.rule not in NON_ATTRIBUTABLE_RULES
+
+
+def partition_attributable(
+    keys: set[ViolationKey],
+) -> tuple[set[ViolationKey], set[ViolationKey]]:
+    """Split keys into (attributable, non_attributable).
+
+    Returns BOTH halves on purpose. A caller that only wanted the first
+    could have filtered inline; handing back the second is what makes the
+    exclusion disclosable rather than invisible.
+    """
+    attributable = {k for k in keys if is_attributable(k)}
+    return attributable, keys - attributable
+
+
 def compute_net_new(
     head_stdout: str,
     base_stdout: str,
     *,
     distribution: str | None = None,
+    roots: tuple[str, ...] = (),
 ) -> set[ViolationKey]:
     """Return the set of violation keys present at HEAD but absent at BASE.
 
@@ -286,10 +352,39 @@ def compute_net_new(
     flags every finding as new (line is part of the identity). Good
     enough for the first cut — refine when the false-positive rate
     becomes a problem.
+
+    Findings from `NON_ATTRIBUTABLE_RULES` are removed: they are real, but
+    they are not evidence about this diff. Use `compute_net_new_detailed`
+    when the caller needs to report what was set aside.
     """
-    head = extract_violation_keys(head_stdout, distribution_filter=distribution)
-    base = extract_violation_keys(base_stdout, distribution_filter=distribution)
-    return head - base
+    net_new, _excluded = compute_net_new_detailed(
+        head_stdout, base_stdout, distribution=distribution, roots=roots
+    )
+    return net_new
+
+
+def compute_net_new_detailed(
+    head_stdout: str,
+    base_stdout: str,
+    *,
+    distribution: str | None = None,
+    roots: tuple[str, ...] = (),
+) -> tuple[set[ViolationKey], set[ViolationKey]]:
+    """`compute_net_new`, plus the keys it declined to attribute.
+
+    The second element is what a caller prints as "N finding(s) present at
+    HEAD but not attributable to this change". Reporting zero when the
+    number is non-zero is the failure mode this split exists to make
+    impossible to reach by accident.
+    """
+    head = extract_violation_keys(
+        head_stdout, distribution_filter=distribution, roots=roots
+    )
+    base = extract_violation_keys(
+        base_stdout, distribution_filter=distribution, roots=roots
+    )
+    raw_net_new = head - base
+    return partition_attributable(raw_net_new)
 
 
 def filter_to_net_new_lines(
@@ -297,6 +392,7 @@ def filter_to_net_new_lines(
     net_new: set[ViolationKey],
     *,
     distribution: str | None = None,
+    roots: tuple[str, ...] = (),
 ) -> str:
     """Re-emit only those output lines whose key is in ``net_new``.
 
@@ -319,7 +415,7 @@ def filter_to_net_new_lines(
             # Non-ERRO lines (banner, summary, advisory prose) are kept
             # unconditionally — they are the audit's framing, not findings.
             if _ERRO_LINE_RE.match(stripped):
-                if _unparsed_key(stripped) in net_new:
+                if _unparsed_key(stripped, roots) in net_new:
                     kept.append(line)
                 continue
             kept.append(line)

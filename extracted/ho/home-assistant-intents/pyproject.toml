@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name        = "home-assistant-intents"
-version     = "2026.6.24"
+version     = "2026.7.30"
 license     = "Apache-2.0"
 description = "Intents for Home Assistant"
 readme      = "README.md"
@@ -35,7 +35,7 @@ dev = [
     "pytest==8.4.1",
     "PyYAML==6.0.2",
     "types-PyYAML==6.0.12.20250822",
-    "hassil==3.7.0",
+    "hassil==3.10.0",
 ]
 
 [project.urls]

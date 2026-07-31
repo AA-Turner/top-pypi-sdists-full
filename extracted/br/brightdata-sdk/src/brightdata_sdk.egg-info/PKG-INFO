@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: brightdata-sdk
-Version: 2.4.1
+Version: 2.5.0
 Summary: Modern async-first Python SDK for Bright Data APIs
 Home-page: https://github.com/brightdata/sdk-python
 Author: Bright Data
@@ -55,6 +55,9 @@ Get your API Token from the [Bright Data Control Panel](https://brightdata.com/c
 ```bash
 export BRIGHTDATA_API_TOKEN="your_api_token_here"
 ```
+
+**Already logged in with the CLI?** The SDK works with no configuration — it automatically
+falls back to the credentials stored by `brightdata login`.
 
 ## Quick Start
 

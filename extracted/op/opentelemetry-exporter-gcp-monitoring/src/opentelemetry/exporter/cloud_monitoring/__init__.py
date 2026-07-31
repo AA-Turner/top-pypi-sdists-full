@@ -68,6 +68,7 @@ from opentelemetry.sdk.metrics.export import (
     NumberDataPoint,
     Sum,
 )
+from typing_extensions import deprecated  # type: ignore[attr-defined]
 
 logger = logging.getLogger(__name__)
 MAX_BATCH_WRITE = 200
@@ -92,6 +93,10 @@ _OPTIONS = [
 # pylint: disable=no-member
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-locals
+@deprecated(
+    "CloudMonitoringMetricsExporter is deprecated. See migration guide at "
+    "https://github.com/GoogleCloudPlatform/opentelemetry-operations-python/blob/main/MIGRATION.md"
+)
 class CloudMonitoringMetricsExporter(MetricExporter):
     """Implementation of Metrics Exporter to Google Cloud Monitoring
 

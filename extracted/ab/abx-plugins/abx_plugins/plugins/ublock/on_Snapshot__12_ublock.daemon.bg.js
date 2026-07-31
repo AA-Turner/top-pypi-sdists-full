@@ -212,7 +212,6 @@ async function main() {
     });
     browser = connection.browser;
     const page = connection.page;
-    emitProgress(blockedRequests, hiddenElements);
 
     page.on("requestfailed", (request) => {
       const url = request.url().toLowerCase();
@@ -226,6 +225,7 @@ async function main() {
         emitProgress(blockedRequests, hiddenElements);
       }
     });
+    emitProgress(blockedRequests, hiddenElements);
 
     try {
       // Pre-navigation observer hooks start before foreground extractors such

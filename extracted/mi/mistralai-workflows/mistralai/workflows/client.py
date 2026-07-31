@@ -1,20 +1,31 @@
 import warnings
-from typing import Any, Type, TypeVar
+from typing import Any, Callable, NamedTuple, Type, TypeVar
 
 import httpx
 import structlog
 from mistralai.client import Mistral
+from mistralai.extra.observability.telemetry import configure_telemetry
 from pydantic import BaseModel
 
 from mistralai.workflows._version import USER_AGENT
+from mistralai.workflows.core.auth import TokenProvider, get_token_provider
 from mistralai.workflows.core.config.config import config
+from mistralai.workflows.core.logging import extract_error_context
 from mistralai.workflows.core.temporal.context_handler_interceptor import retrieve_context
 from mistralai.workflows.exceptions import WorkflowError
+from mistralai.workflows.hooks.cross_origin_auth_guard import (
+    AsyncCrossOriginAuthGuardHook,
+    CrossOriginAuthGuardHook,
+)
 from mistralai.workflows.hooks.executor_credentials_hook import (
     AsyncExecutorCredentialsHook,
     SyncExecutorCredentialsHook,
 )
 from mistralai.workflows.hooks.metadata_hook import inject_metadata, inject_metadata_async
+from mistralai.workflows.hooks.token_provider_hook import (
+    AsyncTokenProviderHook,
+    TokenProviderHook,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -22,7 +33,6 @@ _HttpClientT = TypeVar("_HttpClientT", httpx.Client, httpx.AsyncClient)
 
 
 def _get_headers(
-    api_key: str | None = None,
     headers: httpx.Headers | dict[str, str] | None = None,
 ) -> httpx.Headers:
     headers = (
@@ -30,84 +40,121 @@ def _get_headers(
         if isinstance(headers, httpx.Headers)
         else httpx.Headers(headers or config.worker.mistral_api_headers or {})
     )
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
+    # Authorization is set per-request by the auth/executor hook, never statically here.
     headers.setdefault("User-Agent", USER_AGENT)
     return headers
+
+
+class _HookVariants(NamedTuple):
+    metadata: Callable
+    auth: type[AsyncTokenProviderHook] | type[TokenProviderHook]
+    executor: type[AsyncExecutorCredentialsHook] | type[SyncExecutorCredentialsHook]
+    guard: type[AsyncCrossOriginAuthGuardHook] | type[CrossOriginAuthGuardHook]
+
+
+_ASYNC_HOOKS = _HookVariants(
+    metadata=inject_metadata_async,
+    auth=AsyncTokenProviderHook,
+    executor=AsyncExecutorCredentialsHook,
+    guard=AsyncCrossOriginAuthGuardHook,
+)
+_SYNC_HOOKS = _HookVariants(
+    metadata=inject_metadata,
+    auth=TokenProviderHook,
+    executor=SyncExecutorCredentialsHook,
+    guard=CrossOriginAuthGuardHook,
+)
 
 
 def _get_hooks(
     client_cls: type[httpx.AsyncClient] | type[httpx.Client],
     server_url: str | None = None,
-    api_key: str | None = None,
+    token_provider: TokenProvider | None = None,
     use_executor_credentials: bool = False,
 ) -> dict[str, list]:
-    metadata_hook = inject_metadata_async if client_cls is httpx.AsyncClient else inject_metadata
-    request_hooks: list = [metadata_hook]
+    hooks = _ASYNC_HOOKS if client_cls is httpx.AsyncClient else _SYNC_HOOKS
+    request_hooks: list = [hooks.metadata]
     if use_executor_credentials:
-        missing = [name for name, val in [("server_url", server_url), ("api_key", api_key)] if not val]
+        missing = [name for name, val in [("server_url", server_url), ("token_provider", token_provider)] if not val]
         if missing:
             raise WorkflowError(
                 f"use_executor_credentials requires {', '.join(missing)}",
                 non_retryable=True,
             )
-        assert server_url and api_key
-        hook_cls = AsyncExecutorCredentialsHook if client_cls is httpx.AsyncClient else SyncExecutorCredentialsHook
+        assert server_url and token_provider is not None
         logger.info("ExecutorCredentialsHook registered, using the executor's identity")
-        request_hooks.append(hook_cls(server_url=server_url, api_key=api_key))
+        request_hooks.append(hooks.executor(server_url=server_url, token_provider=token_provider))
+    elif token_provider is not None:
+        request_hooks.append(hooks.auth(token_provider))
+    # Strip the bearer token on cross-origin redirect hops. MUST stay last so it runs after every
+    # token-setting hook above; otherwise a later hook would re-add the header it just removed.
+    request_hooks.append(hooks.guard(server_url or config.worker.server_url))
     return {"request": request_hooks}
 
 
 def _get_client(
     client_cls: type[_HttpClientT],
     timeout: float = 60.0,
-    api_key: str | None = None,
+    *,
+    token_provider: TokenProvider | None = None,
     headers: httpx.Headers | dict[str, str] | None = None,
     server_url: str | None = None,
     use_executor_credentials: bool = False,
+    api_key: str | None = None,
 ) -> _HttpClientT:
+    if token_provider is None:
+        token_provider = get_token_provider(api_key)
     return client_cls(
         timeout=timeout,
         verify=config.common.ca_bundle or True,
-        headers=_get_headers(api_key=api_key, headers=headers),
+        headers=_get_headers(headers=headers),
         follow_redirects=True,
         event_hooks=_get_hooks(
-            client_cls, server_url=server_url, api_key=api_key, use_executor_credentials=use_executor_credentials
+            client_cls,
+            server_url=server_url,
+            token_provider=token_provider,
+            use_executor_credentials=use_executor_credentials,
         ),
     )
 
 
 def _get_sync_client(
     timeout: float = 60.0,
-    api_key: str | None = None,
+    *,
+    token_provider: TokenProvider | None = None,
     headers: httpx.Headers | dict[str, str] | None = None,
     server_url: str | None = None,
     use_executor_credentials: bool = False,
+    api_key: str | None = None,
 ) -> httpx.Client:
     return _get_client(
         httpx.Client,
         timeout=timeout,
-        api_key=api_key,
+        token_provider=token_provider,
         headers=headers,
         server_url=server_url,
         use_executor_credentials=use_executor_credentials,
+        api_key=api_key,
     )
 
 
 def _get_async_client(
     timeout: float = 60.0,
-    api_key: str | None = None,
+    *,
+    token_provider: TokenProvider | None = None,
     headers: httpx.Headers | dict[str, str] | None = None,
     server_url: str | None = None,
     use_executor_credentials: bool = False,
+    api_key: str | None = None,
 ) -> httpx.AsyncClient:
     return _get_client(
         httpx.AsyncClient,
         timeout=timeout,
-        api_key=api_key,
+        token_provider=token_provider,
         headers=headers,
         server_url=server_url,
         use_executor_credentials=use_executor_credentials,
+        api_key=api_key,
     )
 
 
@@ -137,32 +184,47 @@ def get_mistral_client(
     server: str | None = None,
     url_params: dict[str, str] | None = None,
     timeout_ms: int | None = None,
+    token_provider: TokenProvider | None = None,
 ) -> Mistral:
-    if api_key is None:
-        api_key_secret = config.common.mistral_api_key
-        if api_key_secret is not None:
-            api_key = api_key_secret.get_secret_value()
+    provider = token_provider or get_token_provider(api_key)
     resolved_server_url = server_url or config.worker.server_url
     timeout = timeout_ms / 1000 if timeout_ms is not None else 60.0
-    return Mistral(
-        api_key=api_key,
+    # Auth is carried per-request by the token-provider hook on the httpx client below, so the SDK's
+    # own api_key is left unset.
+    client = Mistral(
+        api_key=None,
         server=server,
         server_url=resolved_server_url,
         url_params=url_params,
         timeout_ms=timeout_ms,
         client=_get_sync_client(
             timeout=timeout,
-            api_key=api_key,
+            token_provider=provider,
             server_url=resolved_server_url,
             use_executor_credentials=use_executor_credentials,
         ),
         async_client=_get_async_client(
             timeout=timeout,
-            api_key=api_key,
+            token_provider=provider,
             server_url=resolved_server_url,
             use_executor_credentials=use_executor_credentials,
         ),
     )
+    _configure_client_telemetry(client)
+    return client
+
+
+def _configure_client_telemetry(client: Mistral) -> None:
+    """Route Mistral SDK spans to the workflow's global OTel provider."""
+    if not config.common.otel_enabled:
+        return
+    try:
+        # Note: redaction is set to false as the SDK can't apply it to the global provider
+        # so it logs a warning instead. Redaction is handled when defining the global
+        # provider exporter
+        configure_telemetry(client, provider="global", redaction=False)
+    except Exception as exc:
+        logger.warning("Failed to configure Mistral SDK telemetry", **extract_error_context(exc), exc_info=exc)
 
 
 _TargetModel = TypeVar("_TargetModel", bound=BaseModel)

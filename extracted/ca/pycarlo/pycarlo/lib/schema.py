@@ -888,16 +888,35 @@ class AggregationFunction(pycarlo.lib.types.Enum):
     __choices__ = ("AVG", "MAX", "MEDIAN", "MIN")
 
 
-class AiAgentType(pycarlo.lib.types.Enum):
-    """Types of AI agents available in the system.
+class AiAgentConfigScope(pycarlo.lib.types.Enum):
+    """Whether an AI agent configuration is the account-level default or
+    a per-domain row.
 
     Enumeration Choices:
 
-    * `TROUBLESHOOTING`None
+    * `ACCOUNT`: The account-level default configuration.
+    * `DOMAIN`: A per-domain configuration composed additively with
+      the account default for runs against that domain.
     """
 
     __schema__ = schema
-    __choices__ = ("TROUBLESHOOTING",)
+    __choices__ = ("ACCOUNT", "DOMAIN")
+
+
+class AiAgentType(pycarlo.lib.types.Enum):
+    """Scopes of persisted AI agent context.
+
+    Enumeration Choices:
+
+    * `GENERAL`: Cross-agent account/domain context: persisted
+      instructions read by any agent that runs for the account or
+      domain.
+    * `TROUBLESHOOTING`: Configures the troubleshooting agent used for
+      alert and incident investigation.
+    """
+
+    __schema__ = schema
+    __choices__ = ("GENERAL", "TROUBLESHOOTING")
 
 
 class AirflowRunState(pycarlo.lib.types.Enum):
@@ -5431,10 +5450,11 @@ class MonitorTrainingStatusType(pycarlo.lib.types.Enum):
 
 class MonitorTuningAgentRunSource(pycarlo.lib.types.Enum):
     """Origin of a monitor tuning run.      ``MANUAL`` — triggered in-
-    product by a user (create/apply) or by Bob's     domain-scoped
-    autonomous path. ``PROACTIVE`` — dispatched by the noisy-monitor
-    scheduler. Lets read surfaces (FE button swap, Ops Agent) and
-    analytics single     out proactively-produced suggestions.
+    product by a user (create/apply) or by the agentic     platform's
+    domain-scoped autonomous path. ``PROACTIVE`` — dispatched by the
+    noisy-monitor scheduler. Lets read surfaces (FE button swap, Ops
+    Agent) and     analytics single out proactively-produced
+    suggestions.
 
     Enumeration Choices:
 
@@ -9058,6 +9078,51 @@ class AIMessageInput(sgqlc.types.Input):
     """The mcons for the tables added in this message"""
 
 
+class AddConversationToGoldenSetInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "set_uuid",
+        "agent_name",
+        "trace_table_mcon",
+        "conversation_id",
+        "start_time",
+        "end_time",
+        "target_turn_index",
+        "reference_answer",
+        "capture_response",
+    )
+    set_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="setUuid")
+    """Target set to add the case to."""
+
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Source conversation agent name."""
+
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
+    """MCON of the agent's trace table."""
+
+    conversation_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="conversationId")
+    """Source conversation id."""
+
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """Conversation window start."""
+
+    end_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="endTime")
+    """Conversation window end."""
+
+    target_turn_index = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="targetTurnIndex")
+    """Turn to capture; preceding turns become fixed context, following
+    dropped.
+    """
+
+    reference_answer = sgqlc.types.Field(String, graphql_name="referenceAnswer")
+    """Optional golden answer for correctness-style scoring."""
+
+    capture_response = sgqlc.types.Field(Boolean, graphql_name="captureResponse")
+    """Whether to also capture the target turn's original response."""
+
+
 class AgentCapabilitiesInput(sgqlc.types.Input):
     """Atomic patch over the three agent-assistance capabilities.
     Capabilities omitted from the input are left untouched.
@@ -10592,6 +10657,39 @@ class ConversationFiltersInput(sgqlc.types.Input):
     pass a window generously covering the run's period so boundary
     conversations aggregate completely.
     """
+
+
+class CreateGoldenSetInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "name",
+        "agent_name",
+        "trace_table_mcon",
+        "prod_target_path",
+        "dev_target_path",
+        "eval_config",
+        "retention_days",
+    )
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Display name of the set."""
+
+    agent_name = sgqlc.types.Field(String, graphql_name="agentName")
+    """Observability agent to scope the set to."""
+
+    trace_table_mcon = sgqlc.types.Field(String, graphql_name="traceTableMcon")
+    """MCON of the scoped agent's trace table."""
+
+    prod_target_path = sgqlc.types.Field(String, graphql_name="prodTargetPath")
+    """Baseline (prod) agent REST endpoint path."""
+
+    dev_target_path = sgqlc.types.Field(String, graphql_name="devTargetPath")
+    """Default test (dev) agent REST endpoint path."""
+
+    eval_config = sgqlc.types.Field(GenericScalar, graphql_name="evalConfig")
+    """Version-locked rubric/eval configuration for the set."""
+
+    retention_days = sgqlc.types.Field(Int, graphql_name="retentionDays")
+    """Retention window in days (defaults to 90)."""
 
 
 class CreateJiraTicketForAgentHealthIssueInput(sgqlc.types.Input):
@@ -16597,6 +16695,35 @@ class UpdateDataShareInput(sgqlc.types.Input):
     """
 
 
+class UpdateGoldenSetInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "set_uuid",
+        "name",
+        "prod_target_path",
+        "dev_target_path",
+        "eval_config",
+        "retention_days",
+    )
+    set_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="setUuid")
+    """Set to update."""
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+    """New display name."""
+
+    prod_target_path = sgqlc.types.Field(String, graphql_name="prodTargetPath")
+    """New baseline (prod) path."""
+
+    dev_target_path = sgqlc.types.Field(String, graphql_name="devTargetPath")
+    """New default test (dev) path."""
+
+    eval_config = sgqlc.types.Field(GenericScalar, graphql_name="evalConfig")
+    """New eval configuration."""
+
+    retention_days = sgqlc.types.Field(Int, graphql_name="retentionDays")
+    """New retention window in days."""
+
+
 class UpdateUserStateInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("state", "client_mutation_id")
@@ -18590,7 +18717,9 @@ class Account(sgqlc.types.Type):
     """
 
     validate_monitor_domains = sgqlc.types.Field(Boolean, graphql_name="validateMonitorDomains")
-    """Indicates whether the account is validating monitor domains"""
+    """Whether creating a monitor requires a domain assignment. Always
+    true — a domain is required when creating any monitor.
+    """
 
     custom_dashboard_domain_validation = sgqlc.types.Field(
         Boolean, graphql_name="customDashboardDomainValidation"
@@ -19228,6 +19357,12 @@ class AddConnectionMutation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("connection",)
     connection = sgqlc.types.Field("Connection", graphql_name="connection")
+
+
+class AddConversationToGoldenSet(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("golden_test_case",)
+    golden_test_case = sgqlc.types.Field("GoldenTestCase", graphql_name="goldenTestCase")
 
 
 class AddCustomConnector(sgqlc.types.Type):
@@ -21633,10 +21768,19 @@ class AggregatedQueryResults(sgqlc.types.Type):
 
 
 class AiAgent(sgqlc.types.Type):
-    """AI Agent configuration for an account."""
+    """AI agent configuration — account-level default or per-domain (see
+    `scope`).
+    """
 
     __schema__ = schema
-    __field_names__ = ("created_time", "updated_time", "agent_type", "context_prompt")
+    __field_names__ = (
+        "created_time",
+        "updated_time",
+        "agent_type",
+        "context_prompt",
+        "scope",
+        "domain_uuid",
+    )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
 
     updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
@@ -21645,6 +21789,16 @@ class AiAgent(sgqlc.types.Type):
 
     context_prompt = sgqlc.types.Field(String, graphql_name="contextPrompt")
     """Custom context prompt for the AI agent"""
+
+    scope = sgqlc.types.Field(sgqlc.types.non_null(AiAgentConfigScope), graphql_name="scope")
+    """Whether this configuration is the account default or a per-domain
+    row.
+    """
+
+    domain_uuid = sgqlc.types.Field(UUID, graphql_name="domainUuid")
+    """Domain this configuration applies to; null when scope is ACCOUNT
+    (the account-level default).
+    """
 
 
 class AirflowCapabilitiesResponse(sgqlc.types.Type):
@@ -25621,7 +25775,9 @@ class ConfigureAiAgentPrompt(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("ai_agent", "success")
     ai_agent = sgqlc.types.Field(AiAgent, graphql_name="aiAgent")
-    """The configured AI agent"""
+    """The configured AI agent; null when a domain-scoped prompt was
+    cleared
+    """
 
     success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
     """Whether the operation succeeded"""
@@ -27008,6 +27164,12 @@ class CreateDraftMonitorFromYamlOutput(sgqlc.types.Type):
         sgqlc.types.list_of(sgqlc.types.non_null("MonitorError")), graphql_name="errors"
     )
     """List of errors if creation failed"""
+
+
+class CreateGoldenSet(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("golden_set",)
+    golden_set = sgqlc.types.Field("GoldenSet", graphql_name="goldenSet")
 
 
 class CreateIntegrationKey(sgqlc.types.Type):
@@ -31567,6 +31729,20 @@ class DeleteGitlabInstallation(sgqlc.types.Type):
     __field_names__ = ("deleted",)
     deleted = sgqlc.types.Field(Boolean, graphql_name="deleted")
     """True if deleting the installation was successful"""
+
+
+class DeleteGoldenSet(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(Boolean, graphql_name="success")
+    """Whether the set was deleted."""
+
+
+class DeleteGoldenTestCase(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(Boolean, graphql_name="success")
+    """Whether the test case was deleted."""
 
 
 class DeleteIncidentComment(sgqlc.types.Type):
@@ -36376,6 +36552,153 @@ class GitlabTraversalResult(sgqlc.types.Type):
     projects = sgqlc.types.Field(sgqlc.types.list_of(GitlabEntityRef), graphql_name="projects")
 
 
+class GoldenPriorTurn(sgqlc.types.Type):
+    """A preceding conversation turn captured as fixed context for a test
+    case.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("user_input", "response")
+    user_input = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="userInput")
+    """The context turn's question."""
+
+    response = sgqlc.types.Field(String, graphql_name="response")
+    """The context turn's original response, replayed as history."""
+
+
+class GoldenSet(sgqlc.types.Type):
+    """A named group of golden test cases plus its shared run
+    configuration.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "name",
+        "agent_name",
+        "trace_table_mcon",
+        "prod_target_path",
+        "dev_target_path",
+        "eval_config",
+        "retention_days",
+        "test_case_count",
+        "last_used_at",
+        "expires_at",
+        "created_time",
+        "updated_time",
+    )
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Public identifier of the set."""
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Display name of the set."""
+
+    agent_name = sgqlc.types.Field(String, graphql_name="agentName")
+    """Observability agent the set is scoped to, if any."""
+
+    trace_table_mcon = sgqlc.types.Field(String, graphql_name="traceTableMcon")
+    """MCON of the scoped agent's trace table, if any."""
+
+    prod_target_path = sgqlc.types.Field(String, graphql_name="prodTargetPath")
+    """Baseline (prod) agent REST endpoint path."""
+
+    dev_target_path = sgqlc.types.Field(String, graphql_name="devTargetPath")
+    """Default test (dev) agent REST endpoint path."""
+
+    eval_config = sgqlc.types.Field(GenericScalar, graphql_name="evalConfig")
+    """Version-locked rubric/eval configuration for the set."""
+
+    retention_days = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="retentionDays")
+    """Activity-based sliding retention window, in days."""
+
+    test_case_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="testCaseCount")
+    """Number of test cases in the set."""
+
+    last_used_at = sgqlc.types.Field(DateTime, graphql_name="lastUsedAt")
+    """Last activity timestamp driving the sliding TTL."""
+
+    expires_at = sgqlc.types.Field(DateTime, graphql_name="expiresAt")
+    """When the set expires if left inactive."""
+
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+    """When the set was created."""
+
+    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
+    """When the set was last updated."""
+
+
+class GoldenTestCase(sgqlc.types.Type):
+    """One captured conversation turn, snapshotted as a durable test
+    case.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "user_input",
+        "prior_turns",
+        "is_multi_turn",
+        "context_turn_count",
+        "has_reference",
+        "target_response_captured",
+        "target_turn_index",
+        "source_conversation_id",
+        "source_trace_id",
+        "source_aged_out",
+        "created_time",
+    )
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Public identifier of the test case."""
+
+    user_input = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="userInput")
+    """The captured target-turn question."""
+
+    prior_turns = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(GoldenPriorTurn))),
+        graphql_name="priorTurns",
+    )
+    """Preceding turns captured as fixed context (empty for a single-turn
+    case).
+    """
+
+    is_multi_turn = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isMultiTurn")
+    """Whether the case carries preceding context turns."""
+
+    context_turn_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="contextTurnCount"
+    )
+    """Number of preceding context turns."""
+
+    has_reference = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasReference")
+    """Whether an optional reference answer is set."""
+
+    target_response_captured = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="targetResponseCaptured"
+    )
+    """Whether the target turn's original response was captured."""
+
+    target_turn_index = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="targetTurnIndex")
+    """Index of the captured turn in the source conversation."""
+
+    source_conversation_id = sgqlc.types.Field(String, graphql_name="sourceConversationId")
+    """Loose link to the origin conversation (may age out)."""
+
+    source_trace_id = sgqlc.types.Field(String, graphql_name="sourceTraceId")
+    """Loose link to the origin trace (may age out)."""
+
+    source_aged_out = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="sourceAgedOut")
+    """Best-effort estimate, based on time since capture, of whether the
+    source conversation has aged out of the 30-day trace window.
+    Because it is measured from capture time (not the original
+    conversation time), it can under-report when a conversation was
+    captured well after it occurred. The captured snapshot remains
+    valid regardless.
+    """
+
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+    """When the turn was captured."""
+
+
 class GraphEdge(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("source", "destination", "source_id", "destination_id", "hidden")
@@ -41029,6 +41352,11 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_platform_agent",
         "install_genie_collector",
         "delete_platform_agent",
+        "create_golden_set",
+        "update_golden_set",
+        "delete_golden_set",
+        "delete_golden_test_case",
+        "add_conversation_to_golden_set",
         "create_or_update_slo_policy",
         "delete_slo_policy",
         "set_slo_policies",
@@ -42734,6 +43062,117 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `agent_mcon` (`String!`): MCON of the platform agent to delete
+    """
+
+    create_golden_set = sgqlc.types.Field(
+        CreateGoldenSet,
+        graphql_name="createGoldenSet",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(CreateGoldenSetInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Create a golden set.
+
+    Arguments:
+
+    * `input` (`CreateGoldenSetInput!`)None
+    """
+
+    update_golden_set = sgqlc.types.Field(
+        "UpdateGoldenSet",
+        graphql_name="updateGoldenSet",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UpdateGoldenSetInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Update a golden set's settings.
+
+    Arguments:
+
+    * `input` (`UpdateGoldenSetInput!`)None
+    """
+
+    delete_golden_set = sgqlc.types.Field(
+        DeleteGoldenSet,
+        graphql_name="deleteGoldenSet",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "set_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="setUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Delete a golden set and its test cases.
+
+    Arguments:
+
+    * `set_uuid` (`UUID!`): Set to delete.
+    """
+
+    delete_golden_test_case = sgqlc.types.Field(
+        DeleteGoldenTestCase,
+        graphql_name="deleteGoldenTestCase",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "case_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="caseUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Delete a golden test case.
+
+    Arguments:
+
+    * `case_uuid` (`UUID!`): Test case to delete.
+    """
+
+    add_conversation_to_golden_set = sgqlc.types.Field(
+        AddConversationToGoldenSet,
+        graphql_name="addConversationToGoldenSet",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(AddConversationToGoldenSetInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Snapshot a conversation turn into a golden set.
+
+    Arguments:
+
+    * `input` (`AddConversationToGoldenSetInput!`)None
     """
 
     create_or_update_slo_policy = sgqlc.types.Field(
@@ -57154,6 +57593,10 @@ class Mutation(sgqlc.types.Type):
                         sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
                     ),
                 ),
+                (
+                    "run_instructions",
+                    sgqlc.types.Arg(String, graphql_name="runInstructions", default=None),
+                ),
             )
         ),
     )
@@ -57167,6 +57610,11 @@ class Mutation(sgqlc.types.Type):
 
     * `domain_uuid` (`UUID!`): UUID of the metadata domain to run
       monitoring for.
+    * `run_instructions` (`String`): Optional steering prompt for this
+      run only — e.g. which assets or monitor types to prioritize.
+      Applied in addition to any instructions saved for the account or
+      domain; saved restrictions still apply. Not persisted beyond the
+      run. Truncated to 2000 characters; blank text is ignored.
     """
 
     update_agentic_platform_pipeline = sgqlc.types.Field(
@@ -57260,6 +57708,9 @@ class Mutation(sgqlc.types.Type):
     * `clear_all_domain_overrides` (`Boolean`): When true, remove
       every per-domain override so the account-level settings apply to
       all domains again. Applied before any domainOverrides entries.
+      Spans the whole account, so it requires domain-settings edit
+      access unrestricted by domain; a domain-restricted caller lists
+      its domains in domainOverrides instead.
     * `clear_max_automated_triage_runs_per_day` (`Boolean`): When
       true, remove the per-account daily limit (the fixed safety limit
       on automated triage still applies).
@@ -57269,7 +57720,8 @@ class Mutation(sgqlc.types.Type):
       Domain overrides to set or remove. An entry with both
       triageEnabled and tsaThreshold null removes the domain's
       override so it inherits the account-level settings. When a
-      domain appears more than once, the last entry wins.
+      domain appears more than once, the last entry wins. Every domain
+      named requires domain-settings edit access to it.
     * `max_automated_triage_runs_per_day` (`Int`): Set the optional
       per-account daily limit on triage runs (counts automated and
       manual triage). Must be between 1 and 2000 (2000 is a fixed
@@ -64989,6 +65441,7 @@ class Mutation(sgqlc.types.Type):
                     "context_prompt",
                     sgqlc.types.Arg(String, graphql_name="contextPrompt", default=None),
                 ),
+                ("domain_uuid", sgqlc.types.Arg(UUID, graphql_name="domainUuid", default=None)),
             )
         ),
     )
@@ -64999,6 +65452,12 @@ class Mutation(sgqlc.types.Type):
     * `agent_type` (`AiAgentType!`): Type of AI agent to configure
     * `context_prompt` (`String`): Custom context prompt for the
       agent. Pass null to clear.
+    * `domain_uuid` (`UUID`): Domain to scope the prompt to. When set,
+      configures per-domain context that is composed additively with
+      the account default for runs against that domain; passing a null
+      or empty prompt deletes the domain row so only the account
+      default remains. When omitted, configures the account-level
+      default.
     """
 
     create_account_secret = sgqlc.types.Field(
@@ -68136,6 +68595,9 @@ class Query(sgqlc.types.Type):
         "get_agent_observability_billing_info",
         "get_agent_trace_tables",
         "get_platform_agents",
+        "get_golden_sets",
+        "get_golden_set",
+        "get_golden_test_cases",
         "get_latest_agent_health_finding",
         "get_latest_agent_health_finding_summaries",
         "get_agent_health_issue_findings",
@@ -69237,6 +69699,73 @@ class Query(sgqlc.types.Type):
 
     * `domain_uuid` (`UUID`): Filter results to agents assigned to
       this domain
+    """
+
+    get_golden_sets = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(GoldenSet))),
+        graphql_name="getGoldenSets",
+        args=sgqlc.types.ArgDict(
+            (
+                ("agent_name", sgqlc.types.Arg(String, graphql_name="agentName", default=None)),
+                (
+                    "trace_table_mcon",
+                    sgqlc.types.Arg(String, graphql_name="traceTableMcon", default=None),
+                ),
+            )
+        ),
+    )
+    """(experimental) List the account's golden sets. Pass agentName +
+    traceTableMcon together to scope to one agent; omit both for the
+    full account list.
+
+    Arguments:
+
+    * `agent_name` (`String`): Scope to sets bound to this
+      observability agent (with traceTableMcon).
+    * `trace_table_mcon` (`String`): MCON of the agent's trace table;
+      pair with agentName to scope by agent.
+    """
+
+    get_golden_set = sgqlc.types.Field(
+        GoldenSet,
+        graphql_name="getGoldenSet",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "set_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="setUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Fetch one golden set by uuid.
+
+    Arguments:
+
+    * `set_uuid` (`UUID!`): Set to fetch.
+    """
+
+    get_golden_test_cases = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(GoldenTestCase))),
+        graphql_name="getGoldenTestCases",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "set_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="setUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) List a golden set's test cases.
+
+    Arguments:
+
+    * `set_uuid` (`UUID!`): Set whose test cases to list.
     """
 
     get_latest_agent_health_finding = sgqlc.types.Field(
@@ -91468,15 +91997,21 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.non_null(AiAgentType), graphql_name="agentType", default=None
                     ),
                 ),
+                ("domain_uuid", sgqlc.types.Arg(UUID, graphql_name="domainUuid", default=None)),
             )
         ),
     )
-    """(experimental) Get AI agent configuration for the account
+    """(experimental) Get AI agent configuration for the account, or for
+    a single domain when domainUuid is supplied
 
     Arguments:
 
     * `agent_type` (`AiAgentType!`): Type of AI agent to retrieve
       configuration for
+    * `domain_uuid` (`UUID`): Return the configuration saved for this
+      domain (exact scope — no fallback to the account default, so
+      callers can distinguish a domain-configured value from an
+      inherited one). Omit for the account-level configuration.
     """
 
     get_authorization_prompt = sgqlc.types.Field(
@@ -93240,6 +93775,7 @@ class ResourceModification(sgqlc.types.Type):
         "diff_string",
         "resource_type",
         "resource_index",
+        "estimated_credits",
     )
     type = sgqlc.types.Field(String, graphql_name="type")
 
@@ -93254,6 +93790,13 @@ class ResourceModification(sgqlc.types.Type):
     resource_type = sgqlc.types.Field(String, graphql_name="resourceType")
 
     resource_index = sgqlc.types.Field(Int, graphql_name="resourceIndex")
+
+    estimated_credits = sgqlc.types.Field(EstimatedCredits, graphql_name="estimatedCredits")
+    """Estimated daily credit consumption for this resource, computed
+    during a dry-run. Null for DELETE modifications, monitor types
+    with no credit model, and any resource whose estimate could not be
+    produced.
+    """
 
 
 class ResponseURL(sgqlc.types.Type):
@@ -99886,8 +100429,9 @@ class TriageAutomationConfigOutput(sgqlc.types.Type):
         ),
         graphql_name="domainConfigs",
     )
-    """Per-domain configuration for every domain in the account, each
-    combining the raw override values with the effective resolution.
+    """Per-domain configuration for every domain the caller can access,
+    each combining the raw override values with the effective
+    resolution.
     """
 
 
@@ -100960,6 +101504,12 @@ class UpdateGlueCredentialsV2Mutation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("result",)
     result = sgqlc.types.Field(UpdateCredentialsV2Result, graphql_name="result")
+
+
+class UpdateGoldenSet(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("golden_set",)
+    golden_set = sgqlc.types.Field(GoldenSet, graphql_name="goldenSet")
 
 
 class UpdateInformaticaV2CredentialsV2Mutation(sgqlc.types.Type):
@@ -106833,7 +107383,11 @@ class CustomRule(sgqlc.types.Type, Node):
     suggested_custom_sampling_sql = sgqlc.types.Field(
         String, graphql_name="suggestedCustomSamplingSql"
     )
-    """A suggested investigation query for this rule based on ML model"""
+    """A suggested investigation query for this rule: the monitor's own
+    current custom SQL, base64-encoded. Only populated when no
+    investigation query is explicitly configured (custom_sampling_sql
+    is NULL).
+    """
 
     selection = sgqlc.types.Field(QuerySelection, graphql_name="selection")
     """Selection of the monitored queries"""

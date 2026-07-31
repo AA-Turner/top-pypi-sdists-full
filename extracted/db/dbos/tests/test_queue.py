@@ -8,6 +8,8 @@ import threading
 import time
 import uuid
 import weakref
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Any, List
 
 import pytest
@@ -41,6 +43,7 @@ from tests.conftest import (
     retry_until_success,
     retry_until_success_async,
     set_workflow_status,
+    using_sqlite,
 )
 
 
@@ -874,7 +877,7 @@ def test_multiple_queues(dbos: DBOS) -> None:
     assert queue_entries_are_cleaned_up(dbos)
 
 
-def test_queue_workflow_in_recovered_workflow(dbos: DBOS) -> None:
+def test_queue_workflow_in_recovered_workflow(dbos: DBOS, sqlite_path: Path) -> None:
     # We don't want to be taking queued jobs while subprocess runs
     DBOS.destroy()
 
@@ -884,7 +887,7 @@ def test_queue_workflow_in_recovered_workflow(dbos: DBOS) -> None:
 
     # Run the script as a subprocess to get a workflow stuck
     process = subprocess.run(
-        ["python", "tests/queuedworkflow.py"],
+        ["python", "tests/queuedworkflow.py", str(sqlite_path)],
         cwd=os.getcwd(),
         env=env,
         capture_output=True,
@@ -897,7 +900,7 @@ def test_queue_workflow_in_recovered_workflow(dbos: DBOS) -> None:
 
     # Run script again without crash
     process = subprocess.run(
-        ["python", "tests/queuedworkflow.py"],
+        ["python", "tests/queuedworkflow.py", str(sqlite_path)],
         cwd=os.getcwd(),
         env=os.environ,
         capture_output=True,
@@ -909,7 +912,7 @@ def test_queue_workflow_in_recovered_workflow(dbos: DBOS) -> None:
     assert process.returncode == 0  # Ran to completion
 
     # Launch DBOS to check answer
-    dbos = DBOS(config=default_config())
+    dbos = DBOS(config=default_config(sqlite_path))
     DBOS.launch()
     wfh: WorkflowHandle[int] = DBOS.retrieve_workflow("testqueuedwfcrash")
     assert wfh.get_result() == 5
@@ -975,11 +978,13 @@ def run_dbos_test_in_process(
     i: int,
     start_signal: multiprocessing.synchronize.Event,
     end_signal: multiprocessing.synchronize.Event,
+    sqlite_path: Path,
 ) -> None:
+    config = default_config(sqlite_path)
     dbos_config: DBOSConfig = {
         "name": "test-app",
-        "system_database_url": default_config()["system_database_url"],
-        "application_database_url": default_config()["application_database_url"],
+        "system_database_url": config["system_database_url"],
+        "application_database_url": config["application_database_url"],
         "admin_port": 8001 + i,
     }
     dbos = DBOS(config=dbos_config)
@@ -1006,14 +1011,14 @@ def run_dbos_test_in_process(
 # For the global limit, we fill the queue in 2 steps, ensuring that the 2nd worker is able to cap its local utilization even
 # after having dequeued some tasks already
 def test_worker_concurrency_with_n_dbos_instances(
-    dbos: DBOS, skip_with_sqlite: None
+    dbos: DBOS, sqlite_path: Path, skip_with_sqlite: None
 ) -> None:
     # Ensure children processes do not share global variables (including DBOS instance) with the parent
     multiprocessing.set_start_method("spawn")
 
     # Re-initialize so the parent opts out of dequeuing — only the children should
     # dequeue and run workflows.
-    config = default_config()
+    config = default_config(sqlite_path)
     DBOS.destroy()
     dbos = DBOS(config=config)
     DBOS.listen_queues([])
@@ -1045,7 +1050,8 @@ def test_worker_concurrency_with_n_dbos_instances(
         end_signal = manager.Event()
         end_signals.append(end_signal)
         process = multiprocessing.Process(
-            target=run_dbos_test_in_process, args=(i, start_signal, end_signal)
+            target=run_dbos_test_in_process,
+            args=(i, start_signal, end_signal, sqlite_path),
         )
         process.start()
         processes.append(process)
@@ -1690,7 +1696,9 @@ def test_resuming_queued_workflows(dbos: DBOS) -> None:
     assert queue_entries_are_cleaned_up(dbos)
 
 
-def test_resuming_queued_partitioned_workflows(dbos: DBOS) -> None:
+def test_resuming_queued_partitioned_workflows(
+    dbos: DBOS, skip_with_sqlite_imprecise_time: None
+) -> None:
     start_event = threading.Event()
     blocking_event = threading.Event()
 
@@ -1836,6 +1844,62 @@ async def test_simple_queue_async(dbos: DBOS) -> None:
         assert (await test_workflow("abc", "123")) == "abcd123"
     assert wf_counter == 1  # Direct re-invoke does not re-run the body (#762)
     assert step_counter == 1
+
+
+def test_enqueue_options_require_a_queue(dbos: DBOS) -> None:
+    # These options are interpreted by the queue machinery alone, so setting one
+    # without a queue silently does nothing -- and persisting a dedup ID is unsafe,
+    # because it becomes a unique-constraint violation once anything assigns the
+    # row a queue name (e.g. recovery).
+
+    @DBOS.workflow()
+    def test_workflow(var: str) -> str:
+        return var
+
+    options: List[dict[str, Any]] = [
+        {"deduplication_id": "dedup_without_queue"},
+        {"priority": 5},
+        {"queue_partition_key": "key_without_queue"},
+        {"delay_seconds": 30},
+    ]
+    for option in options:
+        wfid = str(uuid.uuid4())
+        with pytest.raises(DBOSException) as exc_info:
+            with SetEnqueueOptions(**option):
+                with SetWorkflowID(wfid):
+                    DBOS.start_workflow(test_workflow, "bob")
+        message = str(exc_info.value)
+        assert "not being enqueued" in message
+        assert next(iter(option)) in message
+        # The call must be rejected before any row is written, or it would leave
+        # exactly the orphaned PENDING row this validation exists to prevent.
+        assert DBOS.get_workflow_status(wfid) is None
+
+    # app_version is excluded: without a queue it still decides which executors
+    # can recover the workflow, so pinning it is meaningful and must keep working.
+    pinned_id = str(uuid.uuid4())
+    with SetEnqueueOptions(app_version="some_other_version"):
+        with SetWorkflowID(pinned_id):
+            DBOS.start_workflow(test_workflow, "bob")
+    pinned = DBOS.get_workflow_status(pinned_id)
+    assert pinned is not None and pinned.app_version == "some_other_version"
+
+
+@pytest.mark.asyncio
+async def test_enqueue_options_require_a_queue_async(dbos: DBOS) -> None:
+    # start_workflow_async carries the same validation on a separate code path.
+
+    @DBOS.workflow()
+    async def test_workflow(var: str) -> str:
+        return var
+
+    wfid = str(uuid.uuid4())
+    with pytest.raises(DBOSException) as exc_info:
+        with SetEnqueueOptions(deduplication_id="dedup_without_queue"):
+            with SetWorkflowID(wfid):
+                await DBOS.start_workflow_async(test_workflow, "bob")
+    assert "not being enqueued" in str(exc_info.value)
+    assert await DBOS.get_workflow_status_async(wfid) is None
 
 
 def test_queue_deduplication(dbos: DBOS) -> None:
@@ -2533,6 +2597,71 @@ def test_queue_partitions(dbos: DBOS, client: DBOSClient) -> None:
     assert client_handle.get_result()
 
 
+def test_partition_serialization_failure_skips_key(
+    dbos: DBOS, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A serialization failure on one partition key skips only that partition:
+    the same sweep still dequeues other partitions, with no queue-wide backoff."""
+    from psycopg import errors
+    from sqlalchemy.exc import OperationalError
+
+    # concurrency=2 keeps this queue on the per-partition sweep loop; only concurrency=1 uses the batched path.
+    queue = Queue(
+        f"serialization_skip_{uuid.uuid4().hex[:8]}",
+        concurrency=2,
+        partition_queue=True,
+        polling_interval_sec=0.25,
+    )
+    # Sorts before the healthy key, so an escaping error would abort the sweep first.
+    poisoned_key = "a_poisoned"
+    healthy_key = "z_healthy"
+    poison_active = threading.Event()
+    poison_active.set()
+
+    @DBOS.workflow()
+    def wf() -> str:
+        assert DBOS.workflow_id
+        return DBOS.workflow_id
+
+    real_start = dbos._sys_db.start_queued_workflows
+
+    def poisoned_start(
+        queue_arg: Queue,
+        executor_id: str,
+        app_version: str,
+        queue_partition_key: Any = None,
+        local_running_count: int = 0,
+    ) -> List[str]:
+        if (
+            poison_active.is_set()
+            and queue_arg.name == queue.name
+            and queue_partition_key == poisoned_key
+        ):
+            raise OperationalError("dequeue", None, errors.SerializationFailure())
+        return real_start(
+            queue_arg,
+            executor_id,
+            app_version,
+            queue_partition_key,
+            local_running_count,
+        )
+
+    monkeypatch.setattr(dbos._sys_db, "start_queued_workflows", poisoned_start)
+
+    with SetEnqueueOptions(queue_partition_key=poisoned_key):
+        poisoned_handle = queue.enqueue(wf)
+    with SetEnqueueOptions(queue_partition_key=healthy_key):
+        healthy_handle = queue.enqueue(wf)
+
+    # The healthy partition drains even though the poisoned one fails every sweep.
+    assert healthy_handle.get_result()
+    assert poisoned_handle.get_status().status == WorkflowStatusString.ENQUEUED.value
+
+    # Once the contention clears, the poisoned partition drains on a later sweep.
+    poison_active.clear()
+    assert poisoned_handle.get_result()
+
+
 @pytest.mark.asyncio
 async def test_partition_queue_worker_concurrency_async(dbos: DBOS) -> None:
     """worker_concurrency is enforced *per partition* on a partitioned queue.
@@ -2605,6 +2734,486 @@ async def test_partition_queue_worker_concurrency_async(dbos: DBOS) -> None:
     for handle in handles:
         assert await handle.get_result() is not None
 
+    assert queue_entries_are_cleaned_up(dbos)
+
+
+def _enqueue_partition_rows(
+    dbos: DBOS,
+    func: Any,
+    queue_name: str,
+    prefix: str,
+    partitions: List[str],
+    per_partition: int,
+) -> dict[str, List[str]]:
+    """Insert ENQUEUED rows for func across partitions of an unpolled queue.
+    Returns each partition's workflow IDs in enqueue (created_at) order."""
+    from dbos._core import prepare_enqueued_workflow
+
+    ids: dict[str, List[str]] = {p: [] for p in partitions}
+    statuses = []
+    for partition in partitions:
+        for i in range(per_partition):
+            wfid = f"{prefix}-{partition}-{i}"
+            statuses.append(
+                prepare_enqueued_workflow(
+                    dbos,
+                    func,
+                    (wfid,),
+                    {},
+                    queue_name=queue_name,
+                    workflow_id=wfid,
+                    queue_partition_key=partition,
+                )
+            )
+            ids[partition].append(wfid)
+    inserted = dbos._sys_db.init_workflows(statuses)
+    assert len(inserted) == len(partitions) * per_partition
+    return ids
+
+
+def test_partitioned_batch_dequeue_sweep_cap(
+    dbos: DBOS, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A sweep admits at most PARTITIONED_DEQUEUE_SWEEP_CAP heads in partition
+    order; admitted partitions are PENDING-gated, so the next sweep rotates
+    onward to the remaining partitions."""
+
+    @DBOS.workflow()
+    def batch_wf(value: str) -> None:
+        pass
+
+    queue_name = f"unpolled-sweep-{uuid.uuid4().hex[:8]}"
+    queue = Queue(
+        queue_name, concurrency=1, partition_queue=True, database_backed_queue=True
+    )
+    partitions = [f"p{i}" for i in range(8)]
+    ids = _enqueue_partition_rows(dbos, batch_wf, queue_name, "sweep", partitions, 1)
+
+    monkeypatch.setattr(type(dbos._sys_db), "PARTITIONED_DEQUEUE_SWEEP_CAP", 5)
+
+    def start() -> List[str]:
+        return dbos._sys_db.start_queued_partitioned_workflows(
+            queue, GlobalParams.executor_id, GlobalParams.app_version
+        )
+
+    assert start() == [ids[p][0] for p in partitions[:5]]
+    assert start() == [ids[p][0] for p in partitions[5:]]
+    assert start() == []
+
+
+def test_partitioned_batch_dequeue_exclusive_direct(dbos: DBOS) -> None:
+    """With concurrency=1, one batched call admits exactly each partition's
+    head-of-line row; a partition admits nothing more until its head finishes."""
+
+    @DBOS.workflow()
+    def batch_wf(value: str) -> None:
+        pass
+
+    queue_name = f"unpolled-excl-{uuid.uuid4().hex[:8]}"
+    queue = Queue(
+        queue_name, concurrency=1, partition_queue=True, database_backed_queue=True
+    )
+    partitions = ["p0", "p1", "p2"]
+    ids = _enqueue_partition_rows(dbos, batch_wf, queue_name, "excl", partitions, 3)
+
+    def start() -> List[str]:
+        return dbos._sys_db.start_queued_partitioned_workflows(
+            queue, GlobalParams.executor_id, GlobalParams.app_version
+        )
+
+    # Heads only, one per partition
+    assert start() == [ids[p][0] for p in partitions]
+    # Every partition has a PENDING head, so nothing else is admitted
+    assert start() == []
+    # Completing one partition's head opens that partition alone
+    set_workflow_status(dbos._sys_db, ids["p1"][0], WorkflowStatusString.SUCCESS.value)
+    assert start() == [ids["p1"][1]]
+
+
+def test_partitioned_batch_dequeue_skips_requeued_rows(dbos: DBOS) -> None:
+    """A candidate moved to another queue mid-sweep (e.g. by resume_workflows,
+    which rewrites queue_name while leaving status ENQUEUED) must be dropped by
+    the claim guard, not flipped and run under the wrong queue."""
+    from sqlalchemy import event
+
+    @DBOS.workflow()
+    def batch_wf(value: str) -> None:
+        pass
+
+    queue_name = f"unpolled-requeue-{uuid.uuid4().hex[:8]}"
+    queue = Queue(
+        queue_name, concurrency=1, partition_queue=True, database_backed_queue=True
+    )
+    ids = _enqueue_partition_rows(dbos, batch_wf, queue_name, "requeue", ["p0"], 3)
+    head_id = ids["p0"][0]
+    # Resume onto another unpolled queue: the internal queue is live, and its worker would drain the row before the assertions below.
+    resume_target = f"unpolled-resume-{uuid.uuid4().hex[:8]}"
+
+    # Fire between the candidate snapshot (starts WITH RECURSIVE) and the lock select (a plain SELECT ... IN).
+    moved = threading.Event()
+
+    def before_cursor_execute(
+        conn: Any,
+        cursor: Any,
+        statement: str,
+        parameters: Any,
+        context: Any,
+        executemany: bool,
+    ) -> None:
+        stmt = statement.lstrip().upper()
+        if not moved.is_set() and stmt.startswith("SELECT") and " IN " in stmt:
+            moved.set()  # Set first: resume_workflows itself runs a SELECT ... IN
+            dbos._sys_db.resume_workflows([head_id], queue_name=resume_target)
+
+    event.listen(dbos._sys_db.engine, "before_cursor_execute", before_cursor_execute)
+    try:
+        ret = dbos._sys_db.start_queued_partitioned_workflows(
+            queue, GlobalParams.executor_id, GlobalParams.app_version
+        )
+    finally:
+        event.remove(
+            dbos._sys_db.engine, "before_cursor_execute", before_cursor_execute
+        )
+    assert moved.is_set()
+    # The moved head was the sole candidate and must not have been claimed
+    assert ret == []
+    status = dbos._sys_db.get_workflow_status(head_id)
+    assert status is not None
+    assert status["status"] == WorkflowStatusString.ENQUEUED.value
+    assert status["queue_name"] == resume_target
+
+    # The next sweep sees the remaining row as the partition's new head
+    assert dbos._sys_db.start_queued_partitioned_workflows(
+        queue, GlobalParams.executor_id, GlobalParams.app_version
+    ) == [ids["p0"][1]]
+
+    if not using_sqlite():
+        return
+    # SQLite holds no row locks, so a racer can still move a candidate after the lock select:
+    # the flip's own guard must reject it and RETURNING must report it as unclaimed.
+    set_workflow_status(dbos._sys_db, ids["p0"][1], WorkflowStatusString.SUCCESS.value)
+    moved_late = threading.Event()
+
+    def before_update(
+        conn: Any,
+        cursor: Any,
+        statement: str,
+        parameters: Any,
+        context: Any,
+        executemany: bool,
+    ) -> None:
+        if not moved_late.is_set() and statement.lstrip().upper().startswith("UPDATE"):
+            moved_late.set()  # Set first: resume_workflows itself runs an UPDATE
+            dbos._sys_db.resume_workflows([ids["p0"][2]], queue_name=resume_target)
+
+    event.listen(dbos._sys_db.engine, "before_cursor_execute", before_update)
+    try:
+        assert (
+            dbos._sys_db.start_queued_partitioned_workflows(
+                queue, GlobalParams.executor_id, GlobalParams.app_version
+            )
+            == []
+        )
+    finally:
+        event.remove(dbos._sys_db.engine, "before_cursor_execute", before_update)
+    assert moved_late.is_set()
+    late_status = dbos._sys_db.get_workflow_status(ids["p0"][2])
+    assert late_status is not None
+    assert late_status["status"] == WorkflowStatusString.ENQUEUED.value
+
+
+def test_partitioned_batch_dequeue_contention(dbos: DBOS) -> None:
+    """Two workers batch-dequeueing concurrently never co-admit into a
+    partition: candidates are heads only, so racing flips target the same row
+    and SKIP LOCKED/status rechecks make one side lose."""
+
+    @DBOS.workflow()
+    def batch_wf(value: str) -> None:
+        pass
+
+    queue_name = f"unpolled-race-{uuid.uuid4().hex[:8]}"
+    queue = Queue(
+        queue_name, concurrency=1, partition_queue=True, database_backed_queue=True
+    )
+    partitions = [f"p{i}" for i in range(4)]
+    ids = _enqueue_partition_rows(dbos, batch_wf, queue_name, "race", partitions, 2)
+
+    barrier = threading.Barrier(2)
+
+    def call(slot: int) -> List[str]:
+        barrier.wait()
+        return dbos._sys_db.start_queued_partitioned_workflows(
+            queue, f"executor-{slot}", GlobalParams.app_version
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(call, slot) for slot in range(2)]
+        # future.result() re-raises: a racer that dies must fail the test, not silently return nothing
+        admitted = [id for future in futures for id in future.result()]
+
+    # Whichever racer wins each head, every head is claimed exactly once and no follower is
+    assert sorted(admitted) == sorted(ids[p][0] for p in partitions)
+    with dbos._sys_db.engine.begin() as c:
+        rows = c.execute(
+            sa.select(
+                SystemSchema.workflow_status.c.queue_partition_key, sa.func.count()
+            )
+            .where(SystemSchema.workflow_status.c.queue_name == queue_name)
+            .where(
+                SystemSchema.workflow_status.c.status
+                == WorkflowStatusString.PENDING.value
+            )
+            .group_by(SystemSchema.workflow_status.c.queue_partition_key)
+        ).fetchall()
+    # The returned IDs match the rows actually flipped: one PENDING per partition
+    assert {key: count for key, count in rows} == {p: 1 for p in partitions}
+
+
+def test_partitioned_queue_fallback_routing(
+    dbos: DBOS, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Partitioned configs the batched path does not support -- a rate limiter, and
+    worker_concurrency=0 (the pause-dequeue idiom, which it would ignore) -- route to
+    the per-partition sweep, which drains the first and honors the pause on the second.
+    """
+
+    @DBOS.workflow()
+    def routed_wf(tag: str) -> str:
+        return tag
+
+    # Both are concurrency=1 partitioned queues, so only the limiter / the pause excludes them.
+    limiter_queue = Queue(
+        f"limiter_fallback_{uuid.uuid4().hex[:8]}",
+        concurrency=1,
+        limiter={"limit": 10, "period": 60},
+        partition_queue=True,
+        polling_interval_sec=0.25,
+    )
+    paused_queue = Queue(
+        f"paused_fallback_{uuid.uuid4().hex[:8]}",
+        concurrency=1,
+        worker_concurrency=0,
+        partition_queue=True,
+        polling_interval_sec=0.25,
+    )
+
+    batched_queues: List[str] = []
+    swept_queues: List[str] = []
+    real_batched = dbos._sys_db.start_queued_partitioned_workflows
+    real_single = dbos._sys_db.start_queued_workflows
+
+    def spying_batched(queue_arg: Queue, *args: Any, **kwargs: Any) -> List[str]:
+        batched_queues.append(queue_arg.name)
+        return real_batched(queue_arg, *args, **kwargs)
+
+    def spying_single(queue_arg: Queue, *args: Any, **kwargs: Any) -> List[str]:
+        swept_queues.append(queue_arg.name)
+        return real_single(queue_arg, *args, **kwargs)
+
+    monkeypatch.setattr(
+        dbos._sys_db, "start_queued_partitioned_workflows", spying_batched
+    )
+    monkeypatch.setattr(dbos._sys_db, "start_queued_workflows", spying_single)
+
+    handles = []
+    for partition in ["p0", "p1"]:
+        with SetEnqueueOptions(queue_partition_key=partition):
+            handles.append(limiter_queue.enqueue(routed_wf, f"limited-{partition}"))
+    with SetEnqueueOptions(queue_partition_key="p0"):
+        paused_handle = paused_queue.enqueue(routed_wf, "paused")
+
+    for handle in handles:
+        assert handle.get_result()
+
+    def paused_queue_swept() -> None:
+        assert paused_queue.name in swept_queues
+
+    retry_until_success(paused_queue_swept, interval=0.1, max_attempts=100)
+    assert limiter_queue.name not in batched_queues
+    assert paused_queue.name not in batched_queues
+    assert paused_handle.get_status().status == WorkflowStatusString.ENQUEUED.value
+
+
+def test_partitioned_batch_dequeue_version_gating(dbos: DBOS) -> None:
+    """The batched path dequeues only rows of this worker's app version, plus
+    version-less rows while this worker runs the latest registered version. A
+    partition holding no eligible row is skipped without disturbing the others."""
+
+    @DBOS.workflow()
+    def batch_wf(value: str) -> None:
+        pass
+
+    queue_name = f"unpolled-ver-{uuid.uuid4().hex[:8]}"
+    queue = Queue(
+        queue_name, concurrency=1, partition_queue=True, database_backed_queue=True
+    )
+    ids = _enqueue_partition_rows(dbos, batch_wf, queue_name, "ver", ["p0", "p1"], 3)
+
+    def pin_version(wfid: str, version: Any) -> None:
+        with dbos._sys_db.engine.begin() as c:
+            c.execute(
+                sa.update(SystemSchema.workflow_status)
+                .where(SystemSchema.workflow_status.c.workflow_uuid == wfid)
+                .values(application_version=version)
+            )
+
+    pin_version(ids["p0"][0], "some-other-version")
+    pin_version(ids["p0"][1], GlobalParams.app_version)
+    pin_version(ids["p0"][2], None)
+    # p1 is entirely ineligible: its head probe yields nothing, so the partition never appears below.
+    for wfid in ids["p1"]:
+        pin_version(wfid, "some-other-version")
+
+    def start() -> List[str]:
+        return dbos._sys_db.start_queued_partitioned_workflows(
+            queue, GlobalParams.executor_id, GlobalParams.app_version
+        )
+
+    # The other-version row is invisible, so the head is row 1; version-less row 2 follows once it completes (this worker is latest).
+    assert start() == [ids["p0"][1]]
+    set_workflow_status(dbos._sys_db, ids["p0"][1], WorkflowStatusString.SUCCESS.value)
+    assert start() == [ids["p0"][2]]
+
+    # Registering a newer version demotes this worker: version-less rows now belong to the newer one.
+    set_workflow_status(dbos._sys_db, ids["p0"][2], WorkflowStatusString.ENQUEUED.value)
+    pin_version(
+        ids["p0"][2], None
+    )  # dequeueing it above stamped this worker's version on
+    now_ms = int(time.time() * 1000)
+    with dbos._sys_db.engine.begin() as c:
+        c.execute(
+            sa.insert(SystemSchema.application_versions).values(
+                version_id="newer-than-this-worker",
+                version_name="newer-than-this-worker",
+                version_timestamp=now_ms + 3_600_000,
+                created_at=now_ms,
+            )
+        )
+    assert start() == []
+
+
+def test_partitioned_batch_dequeue_sqlite_plan(dbos: DBOS) -> None:
+    """The batched candidates query must seek idx_workflow_status_partition_dequeue_v2.
+    SQLite's partial-index prover runs at prepare time, so this regresses silently
+    (full scan) if the literal predicate conjuncts are dropped from the query."""
+    if not using_sqlite():
+        pytest.skip("Plan assertion is SQLite-specific")
+
+    @DBOS.workflow()
+    def batch_wf(value: str) -> None:
+        pass
+
+    queue_name = f"unpolled-plan-{uuid.uuid4().hex[:8]}"
+    queue = Queue(
+        queue_name, concurrency=1, partition_queue=True, database_backed_queue=True
+    )
+    ids = _enqueue_partition_rows(dbos, batch_wf, queue_name, "plan", ["p0", "p1"], 2)
+
+    captured: List[Any] = []
+
+    def before_cursor_execute(
+        conn: Any,
+        cursor: Any,
+        statement: str,
+        parameters: Any,
+        context: Any,
+        executemany: bool,
+    ) -> None:
+        # The candidates query is the only WITH RECURSIVE this sweep emits (get_queue_partitions, the other one, runs on the fallback path).
+        if "recursive" in statement.lower():
+            captured.append((statement, parameters))
+
+    from sqlalchemy import event
+
+    event.listen(dbos._sys_db.engine, "before_cursor_execute", before_cursor_execute)
+    try:
+        ret = dbos._sys_db.start_queued_partitioned_workflows(
+            queue, GlobalParams.executor_id, GlobalParams.app_version
+        )
+    finally:
+        event.remove(
+            dbos._sys_db.engine, "before_cursor_execute", before_cursor_execute
+        )
+    assert ret == [ids["p0"][0], ids["p1"][0]]
+    assert captured
+    statement, parameters = captured[0]
+    with dbos._sys_db.engine.connect() as conn:
+        plan = conn.exec_driver_sql(
+            f"EXPLAIN QUERY PLAN {statement}", parameters
+        ).fetchall()
+    details = [str(row[-1]) for row in plan]
+    assert any("idx_workflow_status_partition_dequeue_v2" in d for d in details)
+    # Every workflow_status access must be a seek: asserting only that the index is named somewhere still passes when one probe (e.g. the PENDING gate) regresses to a scan.
+    assert not [d for d in details if d.startswith("SCAN") and "workflow_status" in d]
+
+
+def test_partitioned_queue_global_exclusivity(
+    dbos: DBOS,
+    monkeypatch: pytest.MonkeyPatch,
+    skip_with_sqlite_imprecise_time: None,
+) -> None:
+    """End-to-end concurrency=1: the queue worker dispatches to the batched path, and a
+    partition runs strictly one workflow at a time in FIFO order, gated globally (no
+    worker_concurrency is set, so only the PENDING-row check holds followers back)."""
+
+    order_lock = threading.Lock()
+    execution_order: List[str] = []
+    blocking_event = threading.Event()
+    waiting_event = threading.Event()
+
+    @DBOS.workflow()
+    def head_workflow() -> str:
+        with order_lock:
+            execution_order.append("head")
+        waiting_event.set()
+        blocking_event.wait()
+        assert DBOS.workflow_id
+        return DBOS.workflow_id
+
+    @DBOS.workflow()
+    def tagged_workflow(tag: str) -> str:
+        with order_lock:
+            execution_order.append(tag)
+        return tag
+
+    queue = Queue(
+        f"exclusive_{uuid.uuid4().hex[:8]}",
+        concurrency=1,
+        partition_queue=True,
+        polling_interval_sec=0.25,
+    )
+
+    # Every other batched-path test calls the sweep directly, so this is what pins the dispatch itself.
+    batched_queues: List[str] = []
+    real_batched = dbos._sys_db.start_queued_partitioned_workflows
+
+    def spying_batched(queue_arg: Queue, *args: Any, **kwargs: Any) -> List[str]:
+        batched_queues.append(queue_arg.name)
+        return real_batched(queue_arg, *args, **kwargs)
+
+    monkeypatch.setattr(
+        dbos._sys_db, "start_queued_partitioned_workflows", spying_batched
+    )
+
+    with SetEnqueueOptions(queue_partition_key="a"):
+        head_handle = queue.enqueue(head_workflow)
+        follower_1 = queue.enqueue(tagged_workflow, "a1")
+        follower_2 = queue.enqueue(tagged_workflow, "a2")
+    with SetEnqueueOptions(queue_partition_key="b"):
+        other_handle = queue.enqueue(tagged_workflow, "b1")
+
+    waiting_event.wait()
+    # Partition b drains while a's head blocks; its completion proves a full sweep ran, making the follower assertions meaningful.
+    assert other_handle.get_result() == "b1"
+    assert follower_1.get_status().status == WorkflowStatusString.ENQUEUED.value
+    assert follower_2.get_status().status == WorkflowStatusString.ENQUEUED.value
+
+    blocking_event.set()
+    assert head_handle.get_result()
+    assert follower_1.get_result() == "a1"
+    assert follower_2.get_result() == "a2"
+    assert [tag for tag in execution_order if tag != "b1"] == ["head", "a1", "a2"]
+    assert queue.name in batched_queues
     assert queue_entries_are_cleaned_up(dbos)
 
 

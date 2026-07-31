@@ -1,3 +1,4 @@
+from datetime import timedelta
 from typing import Any
 
 import pytest
@@ -80,6 +81,16 @@ class QueryWorkflow:
     @workflow.query()
     def get_value(self) -> GreetingResult:
         return GreetingResult(message=self.value)
+
+
+@workflow.define(name="test-sleep-workflow")
+class SleepWorkflow:
+    @workflow.entrypoint
+    async def run(self, params: GreetingParams) -> GreetingResult:
+        before = workflow.now()
+        await workflow.sleep(timedelta(hours=1))
+        elapsed = (workflow.now() - before).total_seconds()
+        return GreetingResult(message=str(elapsed))
 
 
 @workflow.define(name="test-child-workflow")
@@ -208,6 +219,24 @@ class TestWorkflowQueries:
 
             # Note: Queries on completed workflows aren't well supported in test env
             # Just verify the decorator registration works
+
+
+class TestWorkflowSleep:
+    @pytest.mark.asyncio
+    async def test_sleep_advances_workflow_clock(self, temporal_env: Any) -> None:
+        async with create_test_worker(temporal_env, workflows=[SleepWorkflow], activities=[]):
+            workflow_def = get_workflow_definition(SleepWorkflow)
+            assert workflow_def is not None
+            handle = await temporal_env.client.start_workflow(
+                workflow_def.name,
+                GreetingParams(name="Sleeper").model_dump(),
+                id="test-sleep-workflow",
+                task_queue="test-task-queue",
+            )
+
+            result = await handle.result()
+            elapsed = float(result["message"])
+            assert elapsed >= 3600.0
 
 
 class TestChildWorkflows:

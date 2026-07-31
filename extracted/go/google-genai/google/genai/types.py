@@ -3753,6 +3753,84 @@ class AuthConfigDict(TypedDict, total=False):
 AuthConfigOrDict = Union[AuthConfig, AuthConfigDict]
 
 
+class GoogleMapsPlaces(_common.BaseModel):
+  """Grounding with Google Maps Places data (e.g.
+
+  QueryPlaces). This is the default Google Maps grounding type when no other
+  type is specified. This data type is not supported in Gemini API.
+  """
+
+  pass
+
+
+class GoogleMapsPlacesDict(TypedDict, total=False):
+  """Grounding with Google Maps Places data (e.g.
+
+  QueryPlaces). This is the default Google Maps grounding type when no other
+  type is specified. This data type is not supported in Gemini API.
+  """
+
+  pass
+
+
+GoogleMapsPlacesOrDict = Union[GoogleMapsPlaces, GoogleMapsPlacesDict]
+
+
+class GoogleMapsRouting(_common.BaseModel):
+  """Grounding with Google Maps Routing APIs (ComputeRoutes and SearchAlongRoute).
+
+  This data type is not supported in Gemini API.
+  """
+
+  pass
+
+
+class GoogleMapsRoutingDict(TypedDict, total=False):
+  """Grounding with Google Maps Routing APIs (ComputeRoutes and SearchAlongRoute).
+
+  This data type is not supported in Gemini API.
+  """
+
+  pass
+
+
+GoogleMapsRoutingOrDict = Union[GoogleMapsRouting, GoogleMapsRoutingDict]
+
+
+class GoogleMapsGroundingTypes(_common.BaseModel):
+  """Defines the types of Google Maps grounding that can be enabled and their configurations.
+
+  This data type is not supported in Gemini API.
+  """
+
+  places: Optional[GoogleMapsPlaces] = Field(
+      default=None,
+      description="""Optional. Enables grounding with Google Maps Places. This is the default grounding type when no `GroundingTypes` are specified.""",
+  )
+  routing: Optional[GoogleMapsRouting] = Field(
+      default=None,
+      description="""Optional. Enables grounding with Google Maps Routing APIs (ComputeRoutes and SearchAlongRoute).""",
+  )
+
+
+class GoogleMapsGroundingTypesDict(TypedDict, total=False):
+  """Defines the types of Google Maps grounding that can be enabled and their configurations.
+
+  This data type is not supported in Gemini API.
+  """
+
+  places: Optional[GoogleMapsPlacesDict]
+  """Optional. Enables grounding with Google Maps Places. This is the default grounding type when no `GroundingTypes` are specified."""
+
+  routing: Optional[GoogleMapsRoutingDict]
+  """Optional. Enables grounding with Google Maps Routing APIs (ComputeRoutes and SearchAlongRoute)."""
+
+
+GoogleMapsGroundingTypesOrDict = Union[
+    GoogleMapsGroundingTypes, GoogleMapsGroundingTypesDict
+]
+
+
 class GoogleMaps(_common.BaseModel):
   """Tool to retrieve knowledge from Google Maps."""
 
@@ -3764,6 +3842,10 @@ class GoogleMaps(_common.BaseModel):
       default=None,
       description="""Deprecated. The Google Maps contextual widget behavior in Grounding with Google Maps is being deprecated; this field is planned for removal and no longer has any effect once removed. Optional. Whether to return a widget context token in the GroundingMetadata of the response.""",
   )
+  grounding_types: Optional[GoogleMapsGroundingTypes] = Field(
+      default=None,
+      description="""Optional. Specifies the types of Google Maps grounding to enable. This field is not supported in Gemini API.""",
+  )
 
 
 class GoogleMapsDict(TypedDict, total=False):
@@ -3774,6 +3856,9 @@ class GoogleMapsDict(TypedDict, total=False):
 
   enable_widget: Optional[bool]
   """Deprecated. The Google Maps contextual widget behavior in Grounding with Google Maps is being deprecated; this field is planned for removal and no longer has any effect once removed. Optional. Whether to return a widget context token in the GroundingMetadata of the response."""
+
+  grounding_types: Optional[GoogleMapsGroundingTypesDict]
+  """Optional. Specifies the types of Google Maps grounding to enable. This field is not supported in Gemini API."""
 
 
 GoogleMapsOrDict = Union[GoogleMaps, GoogleMapsDict]

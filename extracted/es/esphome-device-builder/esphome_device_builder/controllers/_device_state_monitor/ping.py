@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 from icmplib import async_ping as icmp_ping
 from icmplib.exceptions import ICMPLibError
 
-from ...helpers.async_ import log_gather_failures
 from ...helpers.hostname import is_local_hostname
 from ...models import Device, DeviceState
 from . import shared
@@ -72,10 +71,11 @@ class PingSource(SweepSource):
         # Set in ``_prepare`` once the privilege probe lands; the pre-
         # ``run`` default is only seen by tests that mock ``icmp_ping``.
         self._privileged: bool = True
-        # Privilege-probe outcome for siblings (the API reviver gates
-        # on it): True once some ICMP socket mode works and the sweep
-        # is running.
-        self.icmp_available: bool = False
+        # Privilege-probe outcome for siblings: None until ``_prepare``
+        # probes (~10s after start), then True once some ICMP socket
+        # mode works and the sweep is running, False when neither mode
+        # opens (the loop exits and no sweep ever runs).
+        self.icmp_available: bool | None = None
 
     async def ping_once(self, target: str, *, retry: bool) -> float | None:
         """
@@ -124,16 +124,12 @@ class PingSource(SweepSource):
         return True
 
     async def _sweep(self) -> None:
-        # Disjoint candidate sets — resolve both concurrently so a
-        # wire-miss in one doesn't delay the sweep behind the other.
         # A failing resolve step is logged and must not skip the
-        # sibling resolve or the ping pass for this interval.
-        results = await asyncio.gather(
-            shared.resolve_non_api_mdns_targets(self._monitor),
-            shared.resolve_api_mdns_targets(self._monitor),
-            return_exceptions=True,
-        )
-        log_gather_failures(results, "mDNS resolve step failed; continuing")
+        # ping pass for this interval.
+        try:
+            await shared.resolve_non_api_mdns_targets(self._monitor)
+        except Exception:
+            _LOGGER.warning("mDNS resolve step failed; continuing", exc_info=True)
         await self._ping_sweep()
 
     async def _ping_sweep(self) -> None:
@@ -188,9 +184,8 @@ class PingSource(SweepSource):
         dns_failed: list[Device] = []
         seen: set[tuple[str, str]] = set()
         monitor = self._monitor
-        live_ptrs = monitor.mdns.live_ptr_service_names()
         for device in monitor._get_devices():
-            if not device.address or not shared.should_ping(monitor, device, live_ptrs):
+            if not device.address or not shared.should_ping(monitor, device):
                 continue
             key = (device.name, device.address)
             if key in seen:

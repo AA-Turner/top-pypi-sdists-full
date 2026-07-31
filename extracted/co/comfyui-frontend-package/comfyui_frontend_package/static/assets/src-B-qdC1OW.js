@@ -1,2 +1,0 @@
-import"./rolldown-runtime-B4f9JIsa.js";import{M as e,j as t}from"./vendor-other-B4sJEKzz.js";var n=t({extend:{classGroups:{"font-size":[`text-xxs`,`text-xxxs`],"max-h":[{"max-h":[`none`]}]}}});function cn(...t){return n(e(t))}export{cn as t};
-//# sourceMappingURL=src-B-qdC1OW.js.map

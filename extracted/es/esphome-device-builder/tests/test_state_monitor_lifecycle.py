@@ -43,7 +43,7 @@ from esphome_device_builder.controllers._reachability_tracker import Reachabilit
 from esphome_device_builder.helpers.async_ import log_task_exit
 from esphome_device_builder.models import RUNTIME_STATE_FIELD_NAMES, Device, DeviceState
 
-from .conftest import RecordingMonitorCallbacks, running_task, stub_async_service_info, wait_until
+from .conftest import RecordingMonitorCallbacks, running_task, wait_until
 from .conftest import make_device as _device
 
 # The service-type strings the production code uses; pinned here so
@@ -481,15 +481,18 @@ async def _drain_tracked_tasks(monitor: DeviceStateMonitor) -> None:
         await asyncio.gather(*list(monitor._tasks), return_exceptions=True)
 
 
-async def test_dispatch_removed_event_flips_offline_keeps_last_known_ip(
+async def test_dispatch_removed_event_marks_unknown_keeps_last_known_ip(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A confirmed ``Removed`` flips OFFLINE and clears the resolved set; ``ip`` survives."""
+    """A ``Removed`` drops to UNKNOWN, wakes ping, and clears the resolved set; ``ip`` survives."""
     device = _device(state=DeviceState.ONLINE, ip="10.0.0.1", ip_addresses=["10.0.0.1"])
     monitor, _callbacks = _make_monitor([device])
     monitor.state.state_source["kitchen"] = "mdns"
     dispatch = await _start_with_captured_dispatch(monitor, monkeypatch)
-    stub_async_service_info(monkeypatch)
+    monkeypatch.setattr(monitor.ping, "wake", MagicMock())
+    monitor.ping.icmp_available = True
+    # No live sibling PTR to defer the withdrawal to.
+    monitor.mdns._zeroconf.zeroconf.cache.current_entry_with_name_and_alias.return_value = None
     try:
         dispatch(
             monitor.mdns._zeroconf.zeroconf,
@@ -498,59 +501,30 @@ async def test_dispatch_removed_event_flips_offline_keeps_last_known_ip(
             ServiceStateChange.Removed,
         )
         await _drain_tracked_tasks(monitor)
-        assert device.runtime_state.state == DeviceState.OFFLINE
+        assert device.runtime_state.state == DeviceState.UNKNOWN
         assert device.ip == "10.0.0.1"
         assert device.runtime_state.ip_addresses == []
         assert "kitchen" not in monitor.state.state_source
+        monitor.ping.wake.assert_called_once()
     finally:
         await _stop_and_drain(monitor)
 
 
-async def test_dispatch_removed_event_stays_online_when_verify_resolves(
+async def test_dispatch_removed_event_keeps_channel_freshness(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A ``Removed`` whose verify-resolve answers keeps the device ONLINE and mdns-owned."""
-    device = _device(state=DeviceState.ONLINE, ip="10.0.0.1")
-    monitor, _callbacks = _make_monitor([device])
-    monitor.state.state_source["kitchen"] = "mdns"
-    dispatch = await _start_with_captured_dispatch(monitor, monkeypatch)
-    stub_async_service_info(monkeypatch, resolved=True, addresses=("10.0.0.1",))
-    try:
-        dispatch(
-            monitor.mdns._zeroconf.zeroconf,
-            ESPHOMELIB_SERVICE_TYPE,
-            f"kitchen.{ESPHOMELIB_SERVICE_TYPE}",
-            ServiceStateChange.Removed,
-        )
-        await _drain_tracked_tasks(monitor)
-        assert device.runtime_state.state == DeviceState.ONLINE
-        assert device.ip == "10.0.0.1"
-        assert monitor.state.state_source["kitchen"] == "mdns"
-    finally:
-        await _stop_and_drain(monitor)
-
-
-async def test_dispatch_removed_event_clears_reachability_tracker(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The dispatch path's Removed branch wipes the tracker for the device.
-
-    Drives the actual browser dispatch closure (rather than
-    replaying the branch by hand) so a future refactor that
-    relocates the ``self._reachability.clear(device_name)`` call
-    out of the closure is caught here. The other reachability
-    tests cover the helper-level contract; this one pins the
-    end-to-end edge.
-    """
+    """A Removed withdrawal leaves other channels' freshness stamps intact."""
     device = _device(state=DeviceState.ONLINE)
     monitor, _callbacks = _make_monitor([device])
     tracker = ReachabilityTracker()
     monitor.state.reachability = tracker
-    tracker.observe("kitchen", "mdns")
     tracker.observe("kitchen", "ping")
     monitor.state.state_source["kitchen"] = "mdns"
     dispatch = await _start_with_captured_dispatch(monitor, monkeypatch)
-    stub_async_service_info(monkeypatch)
+    monkeypatch.setattr(monitor.ping, "wake", MagicMock())
+    monitor.ping.icmp_available = True
+    # No live sibling PTR to defer the withdrawal to.
+    monitor.mdns._zeroconf.zeroconf.cache.current_entry_with_name_and_alias.return_value = None
     try:
         dispatch(
             monitor.mdns._zeroconf.zeroconf,
@@ -560,10 +534,9 @@ async def test_dispatch_removed_event_clears_reachability_tracker(
         )
         await _drain_tracked_tasks(monitor)
         snap = tracker.snapshot(
-            "kitchen", state=DeviceState.OFFLINE, active_source="unknown", ip=""
+            "kitchen", state=DeviceState.UNKNOWN, active_source="unknown", ip=""
         )
-        assert snap["mdns_last_seen_seconds_ago"] is None
-        assert snap["ping_last_seen_seconds_ago"] is None
+        assert snap["ping_last_seen_seconds_ago"] is not None
     finally:
         await _stop_and_drain(monitor)
 
@@ -1886,38 +1859,53 @@ def test_clear_resolved_addresses_without_callback_is_a_noop() -> None:
     assert device.runtime_state.ip_addresses == ["10.0.0.1"]
 
 
-def test_confirmed_offline_tears_down_every_per_name_ledger() -> None:
-    """OFFLINE under the source, addresses cleared, ledger forgotten, freshness cleared."""
+def test_source_withdrawn_releases_the_ledger_and_keeps_freshness() -> None:
+    """UNKNOWN under the source, addresses cleared, ledger forgotten, stamps kept."""
     device = _device(state=DeviceState.ONLINE, ip="10.0.0.1", ip_addresses=["10.0.0.1"])
     monitor, callbacks = _make_monitor([device])
     tracker = ReachabilityTracker()
     monitor.state.reachability = tracker
     tracker.observe("kitchen", "ping")
     monitor.state.state_source["kitchen"] = "mdns"
+    monitor.ping.icmp_available = True
 
-    monitor.confirmed_offline("kitchen", "mdns")
+    monitor.source_withdrawn("kitchen", "mdns")
 
     assert callbacks.calls_for("on_state_change") == [
-        ("on_state_change", "kitchen", DeviceState.OFFLINE, "mdns"),
+        ("on_state_change", "kitchen", DeviceState.UNKNOWN, "mdns"),
     ]
     assert callbacks.calls_for("on_resolved_addresses_cleared") == [
         ("on_resolved_addresses_cleared", "kitchen"),
     ]
     assert monitor.state.state_source == {}
-    snap = tracker.snapshot("kitchen", state=DeviceState.OFFLINE, active_source="unknown", ip="")
-    assert snap["ping_last_seen_seconds_ago"] is None
+    snap = tracker.snapshot("kitchen", state=DeviceState.UNKNOWN, active_source="unknown", ip="")
+    assert snap["ping_last_seen_seconds_ago"] is not None
 
 
-def test_confirmed_offline_without_tracker_is_guarded() -> None:
-    """No reachability tracker wired → the teardown still runs without raising."""
-    device = _device(state=DeviceState.ONLINE, ip="10.0.0.1", ip_addresses=["10.0.0.1"])
-    monitor, _callbacks = _make_monitor([device])
+def test_source_withdrawn_skips_the_state_apply_for_a_confirmed_offline_bucket() -> None:
+    """An already-OFFLINE device keeps its verdict; only the ledger is released."""
+    device = _device(state=DeviceState.OFFLINE, ip="10.0.0.1", ip_addresses=["10.0.0.1"])
+    monitor, callbacks = _make_monitor([device])
     monitor.state.state_source["kitchen"] = "mdns"
 
-    monitor.confirmed_offline("kitchen", "mdns")
+    monitor.source_withdrawn("kitchen", "mdns")
 
     assert device.runtime_state.state is DeviceState.OFFLINE
+    assert callbacks.calls_for("on_state_change") == []
     assert monitor.state.state_source == {}
+
+
+def test_source_withdrawn_is_a_no_op_for_a_source_that_does_not_own_the_name() -> None:
+    """A source releases only a claim it holds."""
+    device = _device(state=DeviceState.ONLINE, ip="10.0.0.1", ip_addresses=["10.0.0.1"])
+    monitor, callbacks = _make_monitor([device])
+    monitor.state.state_source["kitchen"] = "mqtt"
+
+    monitor.source_withdrawn("kitchen", "mdns")
+
+    assert device.runtime_state.state is DeviceState.ONLINE
+    assert monitor.state.state_source["kitchen"] == "mqtt"
+    assert callbacks.calls == []
 
 
 @pytest.mark.parametrize(

@@ -550,13 +550,13 @@ _scrub_foreign_modules()
 del _scrub_foreign_modules
 
 
-__version__ = "8.6.3"
+__version__ = "8.7.0"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "070fd649bce968c30fe48b0e3526885d790510d2"
+__git_tag_sha__ = "917f6e8833d199baa9d26e164b985f2a03acbf05"
 
 
 _LAZY_TEST_TOOLING = {

@@ -17,6 +17,7 @@ from __future__ import annotations
 from esphome.storage_json import StorageJSON
 
 from ._generation import (
+    CAPTIVE_PORTAL_PLATFORMS,
     NETWORK_PROVIDER_COMPONENT_IDS,
     WIFI_RADIO_PROVIDER_COMPONENT_IDS,
     _has_native_wifi,
@@ -44,6 +45,7 @@ from ._parsing import (
     configuration_filename,
     configuration_stem,
     detect_platform_from_yaml,
+    device_ap_label,
     device_uses_mqtt,
     extract_directly_referenced_integrations,
     extract_esphome_meta_from_config,
@@ -62,6 +64,7 @@ from ._parsing import (
 from ._resolve import EsphomeConfigUnavailableError, run_esphome_config
 
 __all__ = [
+    "CAPTIVE_PORTAL_PLATFORMS",
     "DEFAULT_API_PORT",
     "NETWORK_PROVIDER_COMPONENT_IDS",
     "WIFI_RADIO_PROVIDER_COMPONENT_IDS",
@@ -81,6 +84,7 @@ __all__ = [
     "configuration_filename",
     "configuration_stem",
     "detect_platform_from_yaml",
+    "device_ap_label",
     "device_uses_mqtt",
     "extract_directly_referenced_integrations",
     "extract_esphome_meta_from_config",

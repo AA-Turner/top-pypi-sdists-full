@@ -233,7 +233,7 @@ class SnowflakeAdapterExtension(BaseAdapterExtension):
         self._slow_metadata_query_warning_emitted = True
         events.fire_warn_event(
             "Fetching table metadata (e.g., last modified timestamps) from INFORMATION_SCHEMA took "
-            "{}s. Set the `metadata_warehouse` (or `snowflake_metadata_warehouse`) config to route "
+            "{}s. Set the `metadata_warehouse` config to route "
             "these introspection queries to a dedicated warehouse. This will lead to better parallelism "
             "and reduced contention, resulting in these queries being executed significantly faster.",
             round(elapsed_seconds, 1),

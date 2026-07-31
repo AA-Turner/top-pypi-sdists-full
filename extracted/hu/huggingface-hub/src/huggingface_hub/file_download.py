@@ -18,10 +18,12 @@ from tqdm.auto import tqdm as base_tqdm
 from . import constants
 from ._local_folder import (
     _create_cachedir_tag,
+    _validate_relative_filename,
     get_local_download_paths,
     read_download_metadata,
     write_download_metadata,
 )
+from ._revision import ResolvedRevision
 from ._tree_cache import read_tree_cache, tree_cache_folder_for_local_dir
 from .errors import (
     FileMetadataError,
@@ -52,7 +54,7 @@ from .utils._http import (
     http_stream_backoff,
 )
 from .utils._runtime import is_xet_available
-from .utils._xet import XetTokenType, xet_connection_info_refresh_url
+from .utils._xet import XetTokenType, is_valid_xet_hash, xet_connection_info_refresh_url
 from .utils.sha import sha_fileobj
 from .utils.tqdm import _get_progress_bar_context
 
@@ -959,6 +961,10 @@ def hf_hub_download(
 
     if revision is None:
         revision = constants.DEFAULT_REVISION
+    elif isinstance(revision, ResolvedRevision):
+        # Revision has already been resolved to a commit hash (see [`HfApi.resolve_revision`]) => use it directly.
+        # This pins the download to an immutable commit and lets us skip network calls when it's already cached.
+        revision = revision.resolved
 
     if cache_dir is None:
         cache_dir = constants.HF_HUB_CACHE
@@ -1058,14 +1064,9 @@ def _hf_hub_download_to_cache_dir(
     locks_dir = os.path.join(cache_dir, ".locks")
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
 
+    _validate_relative_filename(filename)
     # cross-platform transcription of filename, to be used as a local file path.
     relative_filename = os.path.join(*filename.split("/"))
-    if os.name == "nt":
-        if relative_filename.startswith("..\\") or "\\..\\" in relative_filename:
-            raise ValueError(
-                f"Invalid filename: cannot handle filename '{relative_filename}' on Windows. Please ask the repository"
-                " owner to rename this file."
-            )
 
     # if user provides a commit_hash and they already have the file on disk, shortcut everything.
     if REGEX_COMMIT_HASH.match(revision):
@@ -1823,7 +1824,13 @@ def _xet_file_metadata_from_tree_cache(
     if tree_entries is None:
         return None
     entry = tree_entries.get(filename)
-    if entry is None or entry.xet_hash is None or entry.lfs_sha256 is None or entry.lfs_size is None:
+    if (
+        entry is None
+        or entry.xet_hash is None
+        or not is_valid_xet_hash(entry.xet_hash)
+        or entry.lfs_sha256 is None
+        or entry.lfs_size is None
+    ):
         return None
 
     xet_file_data = XetFileData(

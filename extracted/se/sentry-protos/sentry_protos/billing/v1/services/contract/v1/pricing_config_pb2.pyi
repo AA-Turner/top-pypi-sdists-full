@@ -8,12 +8,19 @@ import collections.abc
 import google.protobuf.descriptor
 import google.protobuf.empty_pb2
 import google.protobuf.internal.containers
+import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
 import google.protobuf.timestamp_pb2
 import sentry_protos.billing.v1.services.contract.v1.billing_config_pb2
 import sentry_protos.billing.v1.services.contract.v1.sku_pb2
 import sentry_protos.billing.v1.sku_pb2
+import sys
 import typing
+
+if sys.version_info >= (3, 10):
+    import typing as typing_extensions
+else:
+    import typing_extensions
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
@@ -198,9 +205,31 @@ class Activation(google.protobuf.message.Message):
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    class _Change:
+        ValueType = typing.NewType("ValueType", builtins.int)
+        V: typing_extensions.TypeAlias = ValueType
+
+    class _ChangeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[Activation._Change.ValueType], builtins.type):
+        DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+        CHANGE_UNSPECIFIED: Activation._Change.ValueType  # 0
+        CHANGE_REMOVE: Activation._Change.ValueType  # 1
+
+    class Change(_Change, metaclass=_ChangeEnumTypeWrapper):
+        """A checkout operation on the activation. The default adds the activation. A
+        contract never stores CHANGE_REMOVE. It is a request to delete the activation.
+        """
+
+    CHANGE_UNSPECIFIED: Activation.Change.ValueType  # 0
+    CHANGE_REMOVE: Activation.Change.ValueType  # 1
+
+    CHANGE_FIELD_NUMBER: builtins.int
+    change: global___Activation.Change.ValueType
     def __init__(
         self,
+        *,
+        change: global___Activation.Change.ValueType = ...,
     ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["change", b"change"]) -> None: ...
 
 global___Activation = Activation
 

@@ -28,6 +28,7 @@ import pytest
 from esphome.components.esp32.boards import BOARDS as ESP32_BOARDS
 
 from esphome_device_builder.definitions import (
+    _generic_image_url,
     build_board_catalog_from_manifests,
     load_board_body_from_disk,
     load_board_catalog,
@@ -768,5 +769,17 @@ def test_every_board_has_a_docs_url() -> None:
     docs = {b.id: b.docs_url for b in load_board_index()}
     assert all(docs.values()), [bid for bid, url in docs.items() if not url]
     # Generated (unmanifested) boards take the per-platform default.
-    assert docs["MyRP_2350B"] == "https://esphome.io/components/rp2040.html"
-    assert docs["rpipico2w"] == "https://esphome.io/components/rp2040.html"
+    assert docs["MyRP_2350B"] == "https://esphome.io/components/rp2.html"
+    assert docs["rpipico2w"] == "https://esphome.io/components/rp2.html"
+
+
+def test_every_platform_has_generic_board_art() -> None:
+    """Each platform resolves generic art through the loader's fallback."""
+    for platform in Platform:
+        assert _generic_image_url(platform.value, None), platform.value
+
+
+def test_every_manifested_board_carries_art() -> None:
+    """Every hand-curated board lands in the catalog with a non-empty ``images``."""
+    catalog = build_board_catalog_from_manifests(strict=True)
+    assert [b.id for b in catalog.boards if not b.images] == []

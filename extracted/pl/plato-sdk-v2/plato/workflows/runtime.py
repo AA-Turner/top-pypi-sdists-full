@@ -283,6 +283,7 @@ class WorkflowRuntime:
                 result=cached.result,
                 published_ref=cached.published_ref,
                 merged=cached.merged,
+                merged_sha=cached.merged_sha,
                 attempts=cached.attempts,
                 cost_usd=0.0,
                 cached_from=cached.call_id,
@@ -354,18 +355,27 @@ class WorkflowRuntime:
         result: Any = None
         if outcome.status == "ok":
             result = outcome.result_json if opts.output_schema is not None else outcome.result_text
+            if outcome.merged_sha:
+                narrator.info("agent call %s merged to main as %s", call_id, outcome.merged_sha)
         else:
             self._stats.calls_failed += 1
+            # A failed call's git work often survives: publish_ref sync-back can
+            # have published before the result hand-off broke (invalid_output),
+            # and crashes get a best-effort salvage ref. Name whichever exists
+            # so the orchestrator can recover the work instead of redoing it.
+            recovery_parts = []
+            if outcome.published_ref:
+                recovery_parts.append(f"published ref {outcome.published_ref} survives (work may be recoverable)")
             if outcome.salvage_ref:
-                narrator.info(
-                    "agent call %s failed: %s (%s) — git state salvaged to %s",
-                    call_id,
-                    outcome.status,
-                    outcome.error,
-                    outcome.salvage_ref,
-                )
-            else:
-                narrator.info("agent call %s failed: %s (%s)", call_id, outcome.status, outcome.error)
+                recovery_parts.append(f"git state salvaged to {outcome.salvage_ref}")
+            recovery = f" — {'; '.join(recovery_parts)}" if recovery_parts else ""
+            narrator.info(
+                "agent call %s failed: %s (%s)%s",
+                call_id,
+                outcome.status,
+                outcome.error,
+                recovery,
+            )
 
         payload = {"agent_task_span_id": outcome.agent_task_span_id} if outcome.agent_task_span_id else None
         await self._append_record(
@@ -378,6 +388,7 @@ class WorkflowRuntime:
             published_ref=outcome.published_ref,
             salvage_ref=outcome.salvage_ref,
             merged=outcome.merged,
+            merged_sha=outcome.merged_sha,
             attempts=outcome.attempts,
             cost_usd=outcome.cost_usd,
             error=outcome.error,

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import threading
 from typing import TYPE_CHECKING
 
 import httpx
 import pytest
 
+from pyqwest import HTTPTransport, SyncHTTPTransport
 from pyqwest.httpx import AsyncPyqwestTransport, PyqwestTransport
 from pyqwest.testing import ASGITransport, WSGITransport
 
@@ -34,11 +36,15 @@ async def echo_app(
             content += message.get("body", b"")
             if not message.get("more_body", False):
                 break
+    headers = [(b"x-request-method", scope["method"].encode("utf-8"))]
+    for name, value in scope["headers"]:
+        if name == b"content-type":
+            headers.append((b"x-request-content-type", value))
     await send(
         {
             "type": "http.response.start",
             "status": 200,
-            "headers": [(b"x-request-method", scope["method"].encode("utf-8"))],
+            "headers": headers,
             "trailers": False,
         }
     )
@@ -49,8 +55,24 @@ def sync_echo_app(
     environ: WSGIEnvironment, start_response: StartResponse
 ) -> Iterable[bytes]:
     content = environ["wsgi.input"].read()
-    start_response("200 OK", [("x-request-method", environ["REQUEST_METHOD"])])
+    headers = [("x-request-method", environ["REQUEST_METHOD"])]
+    if content_type := environ.get("CONTENT_TYPE"):
+        headers.append(("x-request-content-type", content_type))
+    start_response("200 OK", headers)
     return [content]
+
+
+def assert_multipart_echo(res: httpx.Response) -> None:
+    assert res.status_code == 200
+    content_type = res.headers["x-request-content-type"]
+    assert content_type.startswith("multipart/form-data; boundary=")
+    boundary = content_type.removeprefix("multipart/form-data; boundary=")
+    assert res.content.startswith(f"--{boundary}\r\n".encode())
+    assert res.content.rstrip(b"\r\n").endswith(f"--{boundary}--".encode())
+    assert b'name="field"' in res.content
+    assert b"hello" in res.content
+    assert b'filename="f.bin"' in res.content
+    assert b"file bytes" in res.content
 
 
 @pytest.mark.asyncio
@@ -84,6 +106,18 @@ async def test_async_post_content_iterator() -> None:
         res = await client.post("http://localhost/", content=content())
     assert res.status_code == 200
     assert res.content == b"Hello world!"
+
+
+@pytest.mark.asyncio
+async def test_async_post_multipart() -> None:
+    transport = AsyncPyqwestTransport(ASGITransport(echo_app))
+    async with httpx.AsyncClient(transport=transport) as client:
+        res = await client.post(
+            "http://localhost/",
+            data={"field": "hello"},
+            files={"file": ("f.bin", b"file bytes", "application/octet-stream")},
+        )
+    assert_multipart_echo(res)
 
 
 @pytest.mark.asyncio
@@ -188,6 +222,17 @@ def test_sync_post_content() -> None:
     assert res.content == b"Hello world!"
 
 
+def test_sync_post_multipart() -> None:
+    transport = PyqwestTransport(WSGITransport(sync_echo_app))
+    with httpx.Client(transport=transport) as client:
+        res = client.post(
+            "http://localhost/",
+            data={"field": "hello"},
+            files={"file": ("f.bin", b"file bytes", "application/octet-stream")},
+        )
+    assert_multipart_echo(res)
+
+
 def test_sync_timeout() -> None:
     release = threading.Event()
 
@@ -204,3 +249,42 @@ def test_sync_timeout() -> None:
             client.get("http://localhost/")
     finally:
         release.set()
+
+
+def access_records(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
+    return [record for record in caplog.records if record.name == "pyqwest.access"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("http_scheme", ["http"], indirect=True)
+@pytest.mark.parametrize("http_version", ["h1"], indirect=True)
+async def test_async_access_log(url: str, caplog: pytest.LogCaptureFixture) -> None:
+    async with HTTPTransport() as pyqwest_transport:
+        transport = AsyncPyqwestTransport(pyqwest_transport)
+        async with httpx.AsyncClient(transport=transport) as client:
+            with caplog.at_level(logging.DEBUG, logger="pyqwest.access"):
+                res = await client.get(f"{url}/echo")
+    assert res.status_code == 200
+
+    records = access_records(caplog)
+    assert len(records) == 1
+    assert records[0].getMessage() == f'HTTP Request: GET {url}/echo "HTTP/1.1 200 OK"'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("http_scheme", ["http"], indirect=True)
+@pytest.mark.parametrize("http_version", ["h1"], indirect=True)
+async def test_sync_access_log(url: str, caplog: pytest.LogCaptureFixture) -> None:
+    def run() -> httpx.Response:
+        with SyncHTTPTransport() as pyqwest_transport:
+            transport = PyqwestTransport(pyqwest_transport)
+            with httpx.Client(transport=transport) as client:
+                return client.get(f"{url}/echo")
+
+    with caplog.at_level(logging.DEBUG, logger="pyqwest.access"):
+        res = await asyncio.to_thread(run)
+    assert res.status_code == 200
+
+    records = access_records(caplog)
+    assert len(records) == 1
+    assert records[0].getMessage() == f'HTTP Request: GET {url}/echo "HTTP/1.1 200 OK"'

@@ -49,6 +49,7 @@ except ImportError:
 
 from dbt_state import events
 from dbt_state.adapters import create_adapter_extension, BaseAdapterExtension
+from dbt_state.adapters.common import ViewTraversalResult
 from dbt_state.adapters.clock import EngineHeuristicsClock
 from dbt_state.config import RunCacheConfig
 from dbt_state.dev_cloner import DevCloner
@@ -79,6 +80,7 @@ from query_cache_common.models.services import (
     clone_service_models,
     execution_service_models,
 )
+from query_cache_common.models.services.explain_service_models import ExplainMessageEntry
 from query_cache_common.models.services.clone_service_models import TableProperties
 
 # Feature-detect RunStatus.Reused. dbt-core added this member in
@@ -189,12 +191,6 @@ SEED_SEMANTIC_EXTRAS_CONFIG_KEYS = (
 )
 
 _HASH_READ_CHUNK_SIZE = 64 * 1024
-
-
-@dataclass
-class EnrichmentTimings:
-    view_traversal_duration_ms: t.Optional[int] = None
-    last_modified_duration_ms: t.Optional[int] = None
 
 
 @dataclass
@@ -890,7 +886,19 @@ class RunCache:
             self._cache_bypass_responses[node.unique_id] = query_cache_response
             return None
 
-        is_stale = query_cache_response.explained_decision.is_stale
+        explained_decision = query_cache_response.explained_decision
+        explain_message = ExplainMessageEntry(
+            execution_decision_id=query_cache_response.execution_decision_id or "",
+            decision=explained_decision.decision,
+            decision_description=explained_decision.decision_description,
+        )
+        if explain_message.decision_description:
+            events.fire_debug_event(
+                "Explained state decision for node '{}': {}",
+                node.name,
+                explain_message.decision_description,
+            )
+        is_stale = explained_decision.is_stale
         clone_run_status, clone_message = self._clone_status_and_message(is_stale)
         if isinstance(query_cache_response, sql_service_models.SkipExecutionResponse):
             events.fire_debug_event("Received skip execution response for node {}", node.name)
@@ -1088,14 +1096,34 @@ class RunCache:
         request_start_time = perf_counter()
         try:
             self._start_prefetch_last_modified()
+
+            # Resolve inputs and run the (prefetch-independent) view traversal up front. The
+            # traversal blocks on view-definition fetches while the async last-modified prefetch
+            # runs concurrently, so deferring the speculative decision until afterwards lets us
+            # take the accurate non-speculative path for free whenever the prefetch completed
+            # during the traversal window.
+            resolved_sql = sql or node.compiled_code or ""
+            if not resolved_sql:
+                raise RuntimeError(f"Model node '{node.unique_id}' must be compiled")
+            resolved_execution_type = execution_type or shared_models.ModelExecutionType(
+                self._node_execution_type(node)
+            )
+            traversal_result: t.Optional[ViewTraversalResult] = None
+            view_traversal_duration_ms: t.Optional[int] = None
+            if resolved_execution_type != shared_models.ModelExecutionType.VIEW:
+                view_traversal_start = perf_counter()
+                traversal_result = self._adapter_ext.traverse_view_definitions(resolved_sql)
+                view_traversal_duration_ms = int((perf_counter() - view_traversal_start) * 1000)
+
             use_speculative = not self.is_write_only and not self._is_prefetch_ready()
             if not use_speculative:
                 self._await_prefetch_last_modified()
 
-            request, timings = self._build_submit_enriched_sql_request(
+            request, last_modified_duration_ms = self._build_submit_enriched_sql_request(
                 node,
-                sql,
-                execution_type,
+                resolved_sql,
+                resolved_execution_type,
+                traversal_result=traversal_result,
                 microbatch_window=microbatch_window,
                 speculative=use_speculative,
             )
@@ -1109,8 +1137,8 @@ class RunCache:
                 labels=self._get_request_labels(node),
                 num_dependencies=len(request.tables) - 1,  # exclude the target table in count
                 num_view_dependencies=len(request.query_dependencies),
-                view_traversal_duration_ms=timings.view_traversal_duration_ms,
-                last_modified_duration_ms=timings.last_modified_duration_ms,
+                view_traversal_duration_ms=view_traversal_duration_ms,
+                last_modified_duration_ms=last_modified_duration_ms,
             )
 
             if self.is_write_only:
@@ -1138,12 +1166,14 @@ class RunCache:
                     # timestamps (finalized against the completed prefetch) via RecordExecutions.
                     return CacheBypassedResponse(request, node, speculative=True)
                 # Undecided verdict or a speculative error: block on the prefetch and resubmit
-                # a non-speculative request built with real timestamps.
+                # a non-speculative request built with real timestamps. Reuse the traversal
+                # already computed above rather than walking the view graph again.
                 self._await_prefetch_last_modified()
                 request, _ = self._build_submit_enriched_sql_request(
                     node,
-                    sql,
-                    execution_type,
+                    resolved_sql,
+                    resolved_execution_type,
+                    traversal_result=traversal_result,
                     microbatch_window=microbatch_window,
                     speculative=False,
                 )
@@ -1363,19 +1393,12 @@ class RunCache:
     def _build_submit_enriched_sql_request(
         self,
         node: ModelOrSnapshotOrTestNode,
-        sql: t.Optional[str],
-        execution_type: t.Optional[shared_models.ModelExecutionType],
+        sql: str,
+        execution_type: shared_models.ModelExecutionType,
+        traversal_result: t.Optional[ViewTraversalResult],
         microbatch_window: t.Optional[t.Tuple[datetime, datetime]] = None,
         speculative: bool = False,
-    ) -> t.Tuple[sql_service_models.SubmitEnrichedSQLRequest, EnrichmentTimings]:
-        sql = sql or node.compiled_code or ""
-
-        if not sql:
-            raise RuntimeError(f"Model node '{node.unique_id}' must be compiled")
-
-        execution_type = execution_type or shared_models.ModelExecutionType(
-            self._node_execution_type(node)
-        )
+    ) -> t.Tuple[sql_service_models.SubmitEnrichedSQLRequest, int]:
         target_table = (
             self._node_to_table(node).sql(dialect=self.dialect)
             if execution_type != shared_models.ModelExecutionType.DBT_DATA_TEST
@@ -1424,11 +1447,12 @@ class RunCache:
                 compare_unrendered_code=self._run_cache_config.resolve_compare_unrendered_code(
                     node_config
                 ),
-            ), EnrichmentTimings(last_modified_duration_ms=last_modified_duration_ms)
+            ), last_modified_duration_ms
 
-        view_traversal_start = perf_counter()
-        traversal_result = self._adapter_ext.traverse_view_definitions(sql)
-        view_traversal_duration_ms = int((perf_counter() - view_traversal_start) * 1000)
+        # The caller owns the view traversal so the speculative decision can be made after it
+        # completes (see _submit_sql_request); it must be supplied for non-view execution types.
+        if traversal_result is None:
+            raise RuntimeError("Traversal result is required for non-view nodes")
 
         # Include the target table's last modified epoch to enable detection of unobserved modifications
         all_tables = traversal_result.seen_tables.copy()
@@ -1538,10 +1562,7 @@ class RunCache:
             compare_unrendered_code=self._run_cache_config.resolve_compare_unrendered_code(
                 node_config
             ),
-        ), EnrichmentTimings(
-            view_traversal_duration_ms=view_traversal_duration_ms,
-            last_modified_duration_ms=last_modified_duration_ms,
-        )
+        ), last_modified_duration_ms
 
     def _build_clone_request(
         self,

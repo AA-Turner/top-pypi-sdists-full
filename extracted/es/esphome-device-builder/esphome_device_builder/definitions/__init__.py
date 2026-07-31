@@ -37,6 +37,7 @@ from ..helpers.lazy_catalog import (
     is_unsafe_manifest_path,
 )
 from ..helpers.yaml import FastestSafeLoader
+from ..migration_rule_kinds import MIGRATION_RULE_EXTRA_FIELDS
 from ..models import (
     BoardCatalogEntry,
     BoardCatalogIndex,
@@ -64,6 +65,7 @@ _COMPONENTS_INDEX_JSON = _DEFINITIONS_DIR / "components.index.json"
 _FEATURED_COMPONENTS_INDEX_JSON = _DEFINITIONS_DIR / "featured_components.index.json"
 _PIN_REGISTRY_MODES_INDEX_JSON = _DEFINITIONS_DIR / "pin_registry_modes.index.json"
 _PLATFORM_CAPABILITIES_INDEX_JSON = _DEFINITIONS_DIR / "platform_capabilities.index.json"
+_MIGRATION_RULES_INDEX_JSON = _DEFINITIONS_DIR / "migration_rules.index.json"
 
 _IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".svg", ".webp")
 _GENERIC_DIR = _BOARDS_DIR / "_generic"
@@ -560,6 +562,83 @@ def load_pin_registry_modes_index() -> dict[str, list[str]]:
     )
 
 
+class MigrationRule(NamedTuple):
+    """One sync-discovered rename applied generically by the migration engine."""
+
+    kind: str
+    old: str
+    new: str
+    component: str = ""
+    domain: str = ""
+    platform: str = ""
+
+
+MIGRATION_RULE_KINDS = frozenset(MIGRATION_RULE_EXTRA_FIELDS)
+
+
+@cache
+def load_migration_rules_index() -> tuple[MigrationRule, ...]:
+    """Load the sync-discovered rename rules ``editor/migrate_config`` folds.
+
+    Cached — the rules are folded on every migrate call. Missing /
+    malformed artefact yields no rules; the bespoke migrations still run.
+    """
+    return _load_migration_rules(_MIGRATION_RULES_INDEX_JSON)
+
+
+def _load_migration_rules(path: Path) -> tuple[MigrationRule, ...]:
+    """Parse a migration-rules index at *path*; empty on missing / malformed."""
+    return _load_json_artifact(
+        path,
+        default=(),
+        transform=_migration_rules_from_payload,
+        missing_msg=(
+            "migration_rules.index.json missing — generic rename migrations "
+            "disabled. Run script/sync_components.py to generate it."
+        ),
+        error_msg=("Failed to load migration_rules.index.json — generic rename migrations off."),
+    )
+
+
+def _migration_rules_from_payload(payload: Any) -> tuple[MigrationRule, ...]:
+    """Coerce a parsed rules payload, dropping malformed records."""
+    rules = payload.get("rules") if isinstance(payload, dict) else None
+    if not isinstance(rules, list):
+        _LOGGER.warning("migration_rules.index.json has no rules list — ignoring.")
+        return ()
+    out: list[MigrationRule] = []
+    for record in rules:
+        rule = _coerce_migration_rule(record)
+        if rule is None:
+            _LOGGER.warning("Dropping malformed migration rule: %r", record)
+            continue
+        out.append(rule)
+    return tuple(out)
+
+
+def _coerce_migration_rule(record: Any) -> MigrationRule | None:
+    """Build one :class:`MigrationRule`, or ``None`` for a malformed record."""
+
+    def _field(key: str) -> str | None:
+        value = record.get(key)
+        return value if isinstance(value, str) and value else None
+
+    if not isinstance(record, dict):
+        return None
+    kind = record.get("kind")
+    old = _field("old")
+    new = _field("new")
+    if kind not in MIGRATION_RULE_KINDS or old is None or new is None or old == new:
+        return None
+    extra: dict[str, str] = {}
+    for name in MIGRATION_RULE_EXTRA_FIELDS[kind]:
+        value = _field(name)
+        if value is None:
+            return None
+        extra[name] = value
+    return MigrationRule(kind=kind, old=old, new=new, **extra)
+
+
 class PlatformCapabilities(NamedTuple):
     """Static esphome platform metadata snapshotted by script/sync_components.py."""
 
@@ -568,7 +647,7 @@ class PlatformCapabilities(NamedTuple):
     libretiny_families: list[str]
     rp2040_no_wifi_boards: list[str]
     # ``{component: [{title, description, file}]}`` for the platforms whose
-    # download types are static (esp32 / esp8266 / rp2040). Build-dir-dependent
+    # download types are static (esp32 / esp8266 / rp2). Build-dir-dependent
     # platforms (libretiny / nrf52) are absent and resolved via subprocess.
     download_types: dict[str, list[dict[str, str]]]
     # Every shipped component directory name — including the schema-less

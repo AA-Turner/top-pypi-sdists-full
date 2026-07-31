@@ -20,12 +20,15 @@
 #include <gtest/gtest.h>
 #include <tvm/ffi/container/array.h>
 #include <tvm/ffi/container/map.h>
+#include <tvm/ffi/extra/json.h>
 #include <tvm/ffi/object.h>
 #include <tvm/ffi/reflection/access_path.h>
 #include <tvm/ffi/reflection/accessor.h>
 #include <tvm/ffi/reflection/creator.h>
 #include <tvm/ffi/reflection/registry.h>
 #include <tvm/ffi/string.h>
+
+#include <string_view>
 
 #include "./testing_object.h"
 
@@ -59,6 +62,12 @@ struct TestObjRefADerived : public ObjectRef {
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NULLABLE(TestObjRefADerived, ObjectRef, TestObjADerived);
 };
 
+struct PrefixLookupObj : public Object {
+  int64_t stage;
+
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("test.PrefixLookup", PrefixLookupObj, Object);
+};
+
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
 
@@ -66,6 +75,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   TFloatObj::RegisterReflection();
   TPrimExprObj::RegisterReflection();
   TVarObj::RegisterReflection();
+  TPairObj::RegisterReflection();
+  TObjectPtrHolderObj::RegisterReflection();
   TVarWithDepObj::RegisterReflection();
   TDefHolderObj::RegisterReflection();
   TFuncObj::RegisterReflection();
@@ -76,10 +87,24 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   refl::ObjectDef<TestObjA>()
       .def(refl::init<int64_t, int64_t>())
       .def_ro("x", &TestObjA::x)
-      .def_rw("y", &TestObjA::y);
+      .def_rw("y", &TestObjA::y)
+      .def_type_attr("test.attr.object.literal", "literal")
+      .def_type_attr("test.attr.object.string", String("ffi-string"))
+      .def_type_attr("test.attr.object.std_string", std::string("std-string"))
+      .def_type_attr("test.attr.object.int", int64_t{7})
+      .def_type_attr("test.attr.object.bool", true)
+      .def_type_attr("test.attr.object.func", [](int64_t value) -> int64_t { return value + 1; });
   refl::ObjectDef<TestObjADerived>()
       .def(refl::init<int64_t, int64_t, int64_t>())
       .def_ro("z", &TestObjADerived::z);
+  refl::ObjectDef<PrefixLookupObj>()
+      .def_ro("stage", &PrefixLookupObj::stage)
+      .def_static("run", []() -> int64_t { return 1; });
+  refl::TypeAttrDef<TestObjADerived>()
+      .def("test.attr.type_attr_def.literal", "derived-literal")
+      .def("test.attr.type_attr_def.string", String("derived-string"))
+      .def("test.attr.type_attr_def.int", int64_t{11})
+      .def("test.attr.type_attr_def.func", [](int64_t value) -> int64_t { return value * 2; });
 }
 
 TEST(Reflection, GetFieldByteOffset) {
@@ -98,11 +123,119 @@ TEST(Reflection, FieldGetter) {
   EXPECT_EQ(getter_float(b).cast<double>(), 10.0);
 }
 
+TEST(Reflection, FieldLookupRequiresExactName) {
+  const TVMFFIFieldInfo* info = reflection::GetFieldInfo(PrefixLookupObj::_type_key, "stage");
+  EXPECT_EQ(std::string_view(info->name.data, info->name.size), "stage");
+
+  EXPECT_THROW(reflection::GetFieldInfo(PrefixLookupObj::_type_key, "stage_bytes"), Error);
+}
+
 TEST(Reflection, FieldSetter) {
   ObjectRef a = TFloat(10.0);
   reflection::FieldSetter setter("test.Float", "value");
   setter(a, 20.0);
   EXPECT_EQ(a.as<TFloatObj>()->value, 20.0);
+}
+
+TEST(Reflection, ObjectPtrField) {
+  tvm::ffi::Arc<TIntObj> initial = make_arc<TIntObj>(10);
+  TIntObj* initial_raw = initial.get();
+  TObjectPtrHolder holder(initial);
+  EXPECT_EQ(initial.use_count(), 2);
+
+  reflection::FieldGetter getter("test.ObjectPtrHolder", "value");
+  {
+    Any value = getter(holder);
+    EXPECT_EQ(initial.use_count(), 3);
+    tvm::ffi::Arc<TIntObj> reflected = value.cast<tvm::ffi::Arc<TIntObj>>();
+    EXPECT_EQ(initial.use_count(), 4);
+    EXPECT_EQ(reflected.get(), initial_raw);
+  }
+  EXPECT_EQ(initial.use_count(), 2);
+
+  reflection::FieldSetter setter("test.ObjectPtrHolder", "value");
+  tvm::ffi::Arc<TIntObj> replacement = make_arc<TIntObj>(20);
+  setter(holder, replacement);
+  EXPECT_EQ(replacement.use_count(), 2);
+  EXPECT_EQ(holder->value.get(), replacement.get());
+  EXPECT_EQ(initial.use_count(), 1);
+
+  tvm::ffi::Arc<TFloatObj> incompatible = make_arc<TFloatObj>(2.5);
+  EXPECT_THROW(setter(holder, incompatible), Error);
+  EXPECT_EQ(holder->value.get(), replacement.get());
+  EXPECT_EQ(incompatible.use_count(), 1);
+
+  EXPECT_THROW(setter(holder, nullptr), Error);
+  EXPECT_EQ(holder->value.get(), replacement.get());
+
+  ObjectPtr<TIntObj> null_value;
+  EXPECT_THROW(setter(holder, null_value), Error);
+  EXPECT_EQ(holder->value.get(), replacement.get());
+
+  EXPECT_THROW(setter(holder, String("not a number")), Error);
+  EXPECT_EQ(holder->value.get(), replacement.get());
+
+  reflection::FieldGetter optional_getter("test.ObjectPtrHolder", "optional_alias");
+  reflection::FieldSetter optional_setter("test.ObjectPtrHolder", "optional_alias");
+  EXPECT_EQ(optional_getter(holder), nullptr);
+  optional_setter(holder, initial);
+  EXPECT_EQ(optional_getter(holder).cast<ObjectPtr<TNumberObj>>().get(), initial.get());
+  optional_setter(holder, nullptr);
+  EXPECT_EQ(optional_getter(holder), nullptr);
+}
+
+TEST(Reflection, ObjectPtrFieldInfo) {
+  const TVMFFIFieldInfo* info = reflection::GetFieldInfo("test.ObjectPtrHolder", "value");
+  EXPECT_EQ(info->field_static_type_index, TypeIndex::kTVMFFIObject);
+  EXPECT_EQ(info->size, sizeof(tvm::ffi::Arc<TIntObj>));
+  EXPECT_EQ(info->alignment, alignof(tvm::ffi::Arc<TIntObj>));
+  Map<String, Any> metadata = json::Parse(String(info->metadata)).cast<Map<String, Any>>();
+  EXPECT_EQ(metadata["type_schema"].cast<String>(), R"({"type":"test.Int"})");
+
+  const TVMFFIFieldInfo* optional_info =
+      reflection::GetFieldInfo("test.ObjectPtrHolder", "optional_alias");
+  EXPECT_EQ(optional_info->size, sizeof(ObjectPtr<TNumberObj>));
+  EXPECT_EQ(optional_info->alignment, alignof(ObjectPtr<TNumberObj>));
+  Map<String, Any> optional_metadata =
+      json::Parse(String(optional_info->metadata)).cast<Map<String, Any>>();
+  EXPECT_EQ(optional_metadata["type_schema"].cast<String>(),
+            R"({"type":"Optional","args":[{"type":"test.Number"}]})");
+}
+
+TEST(Reflection, ObjectPtrMethod) {
+  Function identity = reflection::GetMethod("test.ObjectPtrHolder", "identity");
+  tvm::ffi::Arc<TIntObj> input = make_arc<TIntObj>(21);
+  TIntObj* raw_input = input.get();
+  Any result = identity(input);
+  EXPECT_EQ(input.use_count(), 2);
+
+  tvm::ffi::Arc<TIntObj> output = std::move(result).cast<tvm::ffi::Arc<TIntObj>>();
+  EXPECT_EQ(result, nullptr);  // NOLINT(bugprone-use-after-move)
+  EXPECT_EQ(output.get(), raw_input);
+  EXPECT_EQ(input.use_count(), 2);
+
+  EXPECT_THROW(identity(nullptr), Error);
+  EXPECT_THROW(identity(ObjectPtr<TIntObj>()), Error);
+  EXPECT_THROW(identity(make_arc<TFloatObj>(2.5)), Error);
+  EXPECT_THROW(identity(String("not a number")), Error);
+
+  Function optional_identity = reflection::GetMethod("test.ObjectPtrHolder", "optional_identity");
+  EXPECT_EQ(optional_identity(nullptr), nullptr);
+  Any optional_result = optional_identity(input);
+  EXPECT_EQ(optional_result.cast<ObjectPtr<TIntObj>>().get(), raw_input);
+
+  const TVMFFIMethodInfo* info = reflection::GetMethodInfo("test.ObjectPtrHolder", "identity");
+  Map<String, Any> metadata = json::Parse(String(info->metadata)).cast<Map<String, Any>>();
+  EXPECT_EQ(metadata["type_schema"].cast<String>(),
+            R"({"type":"ffi.Function","args":[{"type":"test.Int"},{"type":"test.Int"}]})");
+
+  const TVMFFIMethodInfo* optional_info =
+      reflection::GetMethodInfo("test.ObjectPtrHolder", "optional_identity");
+  Map<String, Any> optional_metadata =
+      json::Parse(String(optional_info->metadata)).cast<Map<String, Any>>();
+  EXPECT_EQ(
+      optional_metadata["type_schema"].cast<String>(),
+      R"({"type":"ffi.Function","args":[{"type":"Optional","args":[{"type":"test.Int"}]},{"type":"Optional","args":[{"type":"test.Int"}]}]})");
 }
 
 TEST(Reflection, FieldInfo) {
@@ -138,6 +271,13 @@ TEST(Reflection, MethodInfo) {
   const TVMFFIMethodInfo* info_float_sub = reflection::GetMethodInfo("test.Float", "sub");
   EXPECT_FALSE(info_float_sub->flags & kTVMFFIFieldFlagBitMaskIsStaticMethod);
   EXPECT_EQ(Bytes(info_float_sub->doc).operator std::string(), "");
+}
+
+TEST(Reflection, MethodLookupRequiresExactName) {
+  const TVMFFIMethodInfo* info = reflection::GetMethodInfo(PrefixLookupObj::_type_key, "run");
+  EXPECT_EQ(std::string_view(info->name.data, info->name.size), "run");
+
+  EXPECT_THROW(reflection::GetMethodInfo(PrefixLookupObj::_type_key, "runner"), Error);
 }
 
 TEST(Reflection, CallMethod) {
@@ -203,6 +343,36 @@ TEST(Reflection, TypeAttrColumnBeginIndex) {
   // The result may or may not be None depending on begin_index; the key is no crash.
   // verify the known registered entry still works
   EXPECT_EQ(size_attr[TIntObj::RuntimeTypeIndex()].cast<int>(), sizeof(TIntObj));
+}
+
+TEST(Reflection, ObjectDefTypeAttrDirectValues) {
+  reflection::TypeAttrColumn literal_attr("test.attr.object.literal");
+  reflection::TypeAttrColumn string_attr("test.attr.object.string");
+  reflection::TypeAttrColumn std_string_attr("test.attr.object.std_string");
+  reflection::TypeAttrColumn int_attr("test.attr.object.int");
+  reflection::TypeAttrColumn bool_attr("test.attr.object.bool");
+  reflection::TypeAttrColumn func_attr("test.attr.object.func");
+  int32_t type_index = TestObjA::RuntimeTypeIndex();
+
+  EXPECT_EQ(literal_attr[type_index].cast<String>(), "literal");
+  EXPECT_EQ(string_attr[type_index].cast<String>(), "ffi-string");
+  EXPECT_EQ(std_string_attr[type_index].cast<String>(), "std-string");
+  EXPECT_EQ(int_attr[type_index].cast<int64_t>(), 7);
+  EXPECT_EQ(bool_attr[type_index].cast<bool>(), true);
+  EXPECT_EQ(func_attr[type_index].cast<Function>()(3).cast<int64_t>(), 4);
+}
+
+TEST(Reflection, TypeAttrDefDirectValues) {
+  reflection::TypeAttrColumn literal_attr("test.attr.type_attr_def.literal");
+  reflection::TypeAttrColumn string_attr("test.attr.type_attr_def.string");
+  reflection::TypeAttrColumn int_attr("test.attr.type_attr_def.int");
+  reflection::TypeAttrColumn func_attr("test.attr.type_attr_def.func");
+  int32_t type_index = TestObjADerived::RuntimeTypeIndex();
+
+  EXPECT_EQ(literal_attr[type_index].cast<String>(), "derived-literal");
+  EXPECT_EQ(string_attr[type_index].cast<String>(), "derived-string");
+  EXPECT_EQ(int_attr[type_index].cast<int64_t>(), 11);
+  EXPECT_EQ(func_attr[type_index].cast<Function>()(5).cast<int64_t>(), 10);
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {

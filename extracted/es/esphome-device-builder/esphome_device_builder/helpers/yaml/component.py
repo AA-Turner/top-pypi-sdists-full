@@ -20,6 +20,12 @@ from .scan import block_end_index, find_block_header, leading_ws
 if TYPE_CHECKING:
     from ...models import ComponentCatalogEntry
 
+# Exactly ``!secret`` + one space + a plain dotted/snake/kebab name — the
+# shapes the editor's secret picker submits. Only this form is safe to
+# emit unquoted; anything looser (extra whitespace, quoting-significant
+# characters in the name) keeps scalar-safe quoting.
+_SECRET_REF_RE = re.compile(r"!secret [A-Za-z0-9_.-]+")
+
 
 def _split_platform_id(component_id: str) -> tuple[str | None, str]:
     """
@@ -31,6 +37,12 @@ def _split_platform_id(component_id: str) -> tuple[str | None, str]:
     """
     domain, sep, stem = component_id.partition(".")
     return (domain, stem) if sep else (None, component_id)
+
+
+def component_block_present(existing: str, component_id: str) -> bool:
+    """Whether *existing* has the top-level block the singleton merge no-ops on."""
+    lines = existing.splitlines(keepends=True)
+    return _find_top_level_block_bounds(lines, component_id) is not None
 
 
 def merge_component_yaml(
@@ -399,12 +411,18 @@ def _mapping_body_to_list_item(body_lines: list[str]) -> list[str]:
 
 
 def _format_yaml_value(value: Any) -> str:
-    """Format a Python value for YAML output."""
+    """
+    Format a Python value for YAML output.
+
+    A strict ``!secret <name>`` string emits unquoted, as a tag.
+    """
     if value is None:
         return "null"
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, str):
+        if value.startswith("!") and _SECRET_REF_RE.fullmatch(value):
+            return value
         return _safe_yaml_scalar(value)
     return str(value)
 

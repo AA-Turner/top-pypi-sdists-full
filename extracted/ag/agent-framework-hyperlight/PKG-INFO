@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-hyperlight
-Version: 1.0.0b260721
+Version: 1.0.0b260730
 Summary: Hyperlight CodeAct integrations for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: agent-framework-core>=1.11.0,<2
+Requires-Dist: agent-framework-core>=1.13.0,<2
 Requires-Dist: hyperlight-sandbox>=0.4.0,<0.5
 Requires-Dist: hyperlight-sandbox-backend-wasm>=0.4.0,<0.5 ; ((sys_platform == 'linux' and platform_machine == 'x86_64') or (sys_platform == 'win32' and platform_machine == 'AMD64')) and python_version < '3.14'
 Requires-Dist: hyperlight-sandbox-python-guest>=0.4.0,<0.6

@@ -1,5 +1,6 @@
 import inspect
 import warnings
+from collections.abc import Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -17,6 +18,8 @@ from temporalio.workflow import ParentClosePolicy
 if TYPE_CHECKING:
     from mistralai.workflows.core.execution import workflow_execution
 
+from mistralai.workflows.core._registration.search_key_ingestion import SearchKeyValue, ingest_search_keys
+from mistralai.workflows.core._registration.search_keys import validate_search_key_paths
 from mistralai.workflows.core.config.config import RESERVED_QUERY_NAMES, RESERVED_UPDATE_NAMES, config
 from mistralai.workflows.core.definition.validation._parameter_conversion import (
     convert_params_dict_to_user_args,
@@ -39,6 +42,7 @@ from mistralai.workflows.core.definition.workflow_definition import (
     _get_workflow_entrypoint_method,
     set_workflow_definition,
     set_workflow_entrypoint,
+    set_workflow_search_keys,
 )
 from mistralai.workflows.core.execution.workflow_execution import (  # noqa: F401 - used in static methods below
     execute_workflow,
@@ -102,6 +106,7 @@ class workflow:
         enforce_determinism: bool | None = None,
         execution_timeout: timedelta = timedelta(hours=1),
         on_behalf_of: bool = False,
+        search_keys: list[str] | None = None,
     ) -> Callable[[ClassType], ClassType]:
         """Decorator to define a workflow class.
 
@@ -114,6 +119,13 @@ class workflow:
             schedules: DEPRECATED. Optional list of schedule definitions for automated workflow execution.
                 This parameter is deprecated and will be removed in the next major release. Use the API or
                 AI Studio to create and manage schedules instead (POST /v1/workflows/{id}/schedules).
+            search_keys: Optional dot paths into the entrypoint input whose values are extracted at
+                runtime and stored as searchable execution metadata. Paths are rooted at the
+                input model (e.g. "id", "customer.name") and multi-parameter entrypoints root at the
+                parameter name (e.g. "payload.id"). Only direct attribute access is supported and paths
+                are validated at import/startup. At most 20 keys may be declared, and each extracted
+                value is truncated to 8192 characters. WARNING: the extracted values are stored
+                UNENCRYPTED to be searchable! Do not declare search keys over sensitive fields.
 
         Returns:
             A decorator function that transforms the class into a Mistral workflow.
@@ -166,6 +178,9 @@ class workflow:
                 original_run_method.__name__, user_params_dict, func=original_run_method
             )
             output_model = generate_pydantic_model_from_return_type(original_run_method.__name__, return_type)
+
+            if search_keys:
+                validate_search_key_paths(input_model, search_keys, workflow_name=actual_name)
 
             @wraps(original_run_method, assigned=_WRAPS_ASSIGNED)
             async def run(self: Any, params: dict | None = None) -> Any:
@@ -247,6 +262,7 @@ class workflow:
                 plugin_metadata=plugin_metadata,
             )
             set_workflow_definition(cls_type, workflow_definition_obj)
+            set_workflow_search_keys(actual_name, tuple(search_keys or ()), tuple(user_params_dict))
 
             if not temporalio.workflow.unsafe.in_sandbox():
                 _registered_workflows.append(cls_type)
@@ -659,6 +675,26 @@ class workflow:
         return temporalio.workflow.random()
 
     @staticmethod
+    async def sleep(duration: timedelta | float, *, summary: str | None = None) -> None:
+        """Pause workflow execution for a fixed duration.
+
+        This is a durable timer: the workflow yields and resumes after the given
+        duration elapses, without consuming resources while waiting. This is a
+        pass-through to `temporalio.workflow.sleep()` so SDK users can rely on
+        `mistralai.workflows.workflow` without importing Temporal.
+
+        Args:
+            duration: How long to sleep, as seconds (float) or a timedelta.
+            summary: Optional simple string identifying the timer that may be visible
+                in Temporal UI/CLI. Best treated as a timer ID.
+
+        Example:
+            # Wait an hour before polling again
+            await workflow.sleep(timedelta(hours=1))
+        """
+        await temporalio.workflow.sleep(duration, summary=summary)
+
+    @staticmethod
     async def wait_condition(
         predicate: Callable[[], bool],
         timeout: timedelta | float | None = None,
@@ -751,6 +787,41 @@ class workflow:
         if not temporalio.workflow.in_workflow():
             return False
         return temporalio.workflow.info().is_continue_as_new_suggested()
+
+    @staticmethod
+    async def add_search_keys(search_keys: Mapping[str, SearchKeyValue]) -> None:
+        """Attach searchable key/value metadata to the running execution.
+
+        Use this for values that are only known mid-run and so cannot be declared as
+        `search_keys` on @workflow.define, which extracts from the input. Callable from
+        a workflow body or from inside an activity. Awaiting it means the values have been
+        persisted; a server that cannot store them never fails the execution — transient
+        failures are retried then logged at warning, and permanent rejections are logged
+        at error. Bugs are a separate matter and do raise — see Raises below.
+
+        Keys already set on this execution are updated. At most 20 keys may be sent per
+        call, and an execution holds at most 20 keys in total; new keys beyond that are
+        dropped. Keys over 256 characters are dropped and values over 8192 characters
+        are truncated. WARNING: values are stored UNENCRYPTED to be searchable! Do not
+        pass sensitive data.
+
+        Args:
+            search_keys: Mapping of search key to value. Values are coerced to strings
+                (enums use their value, dates and datetimes use ISO 8601); a None value
+                is skipped.
+
+        Raises:
+            ApplicationError: If a key is empty, contains ':', or if more than 20 keys are
+                passed in one call, and if the upsert itself hits an unexpected error such
+                as a TypeError. Raised non-retryable, so it fails the execution outright
+                rather than wedging it on infinite task retry. Both are code bugs that fail
+                identically on every run, so prefer literals over keys built from data.
+
+        Example:
+            customer = await fetch_customer(payload.id)
+            await workflow.add_search_keys({"customer.tier": customer.tier})
+        """
+        await ingest_search_keys(search_keys)
 
     class unsafe:
         # re-export imports_passed_through

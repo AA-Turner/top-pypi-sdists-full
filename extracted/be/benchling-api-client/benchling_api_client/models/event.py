@@ -33,6 +33,7 @@ from ..models.entry_updated_assigned_reviewers_event import EntryUpdatedAssigned
 from ..models.entry_updated_fields_event import EntryUpdatedFieldsEvent
 from ..models.entry_updated_review_record_event import EntryUpdatedReviewRecordEvent
 from ..models.entry_updated_review_snapshot_beta_event import EntryUpdatedReviewSnapshotBetaEvent
+from ..models.entry_updated_review_snapshot_event import EntryUpdatedReviewSnapshotEvent
 from ..models.request_created_event import RequestCreatedEvent
 from ..models.request_updated_fields_event import RequestUpdatedFieldsEvent
 from ..models.stage_entry_created_event import StageEntryCreatedEvent
@@ -50,6 +51,7 @@ from ..models.workflow_task_updated_fields_event import WorkflowTaskUpdatedField
 from ..models.workflow_task_updated_scheduled_on_event import WorkflowTaskUpdatedScheduledOnEvent
 from ..models.workflow_task_updated_status_event import WorkflowTaskUpdatedStatusEvent
 from ..models.worksheet_updated_review_snapshot_beta_event import WorksheetUpdatedReviewSnapshotBetaEvent
+from ..models.worksheet_updated_review_snapshot_event import WorksheetUpdatedReviewSnapshotEvent
 
 Event = Union[
     EntityRegisteredEvent,
@@ -58,6 +60,7 @@ Event = Union[
     EntryUpdatedReviewRecordEvent,
     EntryUpdatedAssignedReviewersEvent,
     EntryUpdatedReviewSnapshotBetaEvent,
+    EntryUpdatedReviewSnapshotEvent,
     StageEntryCreatedEvent,
     StageEntryUpdatedFieldsEvent,
     StageEntryUpdatedReviewRecordEvent,
@@ -87,5 +90,6 @@ Event = Union[
     WorkflowOutputCreatedEvent,
     WorkflowOutputUpdatedFieldsEvent,
     WorksheetUpdatedReviewSnapshotBetaEvent,
+    WorksheetUpdatedReviewSnapshotEvent,
     UnknownType,
 ]

@@ -14,7 +14,13 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""The ``c_class`` decorator: register_object + structural dunders."""
+"""The ``c_class`` decorator for C++-defined FFI dataclass wrappers.
+
+``@c_class`` builds on :func:`tvm_ffi.register_object`: it attaches Python
+``Field`` compatibility objects to C++-reflected fields, exposes TypeAttrColumn
+hooks on the Python class, marks the class as an FFI dataclass, and installs
+dataclass-style dunder methods.
+"""
 
 from __future__ import annotations
 
@@ -24,12 +30,12 @@ from typing import Any, TypeVar
 
 from typing_extensions import dataclass_transform
 
-from .field import Field
+from .field import Field, _field_converter, field
 
 _T = TypeVar("_T", bound=type)
 
 
-def _attach_field_objects(cls: type, type_info: Any) -> None:
+def _attach_field_objects(cls: type, type_info: Any, *, frozen: bool = False) -> None:
     """Populate ``TypeField.dataclass_field`` for every own reflected field.
 
     ``@c_class`` fields originate from C++ reflection, so there is no
@@ -42,6 +48,8 @@ def _attach_field_objects(cls: type, type_info: Any) -> None:
     except Exception:
         hints = {}
     for tf in type_info.fields:
+        if frozen:
+            tf.frozen = True
         f = Field(
             name=tf.name,
             _ty_schema=tf.ty,
@@ -60,10 +68,31 @@ def _attach_field_objects(cls: type, type_info: Any) -> None:
         tf.dataclass_field = f
 
 
-@dataclass_transform(eq_default=False, order_default=False)
+def _reinstall_field_properties(cls: type, type_info: Any, shadowed_names: set[str]) -> None:
+    """Reinstall reflected field descriptors after metadata changes.
+
+    ``register_object()`` installs field descriptors before ``@c_class`` can
+    apply decorator-level options.  When ``frozen=True`` updates
+    ``TypeField.frozen``, descriptors for non-shadowed fields must be recreated
+    so their public setters are removed.  User class attributes that shadow a
+    field remain untouched.
+    """
+    for tf in type_info.fields:
+        if tf.name in shadowed_names:
+            continue
+        setattr(cls, tf.name, tf.as_property(cls))
+
+
+@dataclass_transform(
+    eq_default=False,
+    order_default=False,
+    field_specifiers=(Field, field),
+    converter=_field_converter,
+)
 def c_class(
     type_key: str,
     *,
+    frozen: bool = False,
     init: bool = True,
     repr: bool = True,
     eq: bool = False,
@@ -97,6 +126,12 @@ def c_class(
         If True, install ``__eq__`` and ``__ne__`` using the C++ recursive
         structural comparison (``RecursiveEq``).  Returns ``NotImplemented``
         for unrelated types.  Defaults to False.
+    frozen
+        If True, fields owned by the decorated C++ type are read-only through
+        normal Python assignment.  Inherited fields keep the setting from their
+        declaring type.  Use ``type(obj).field_name.set(obj, value)`` as an
+        escape hatch when internal construction or translation code needs to
+        update a field.
     order
         If True, install ``__lt__``, ``__le__``, ``__gt__``, ``__ge__``
         using the C++ recursive comparators.  Returns ``NotImplemented``
@@ -146,16 +181,25 @@ def c_class(
     """
     from .._dunder import _install_dataclass_dunders  # noqa: PLC0415
     from ..registry import (  # noqa: PLC0415
+        _add_type_attr_class_attrs,
         _warn_missing_field_annotations,
         register_object,
     )
+    from .py_class import _FFI_TYPE_ATTR_NAMES  # noqa: PLC0415
 
     def decorator(cls: _T) -> _T:
+        for name, value in list(cls.__dict__.items()):
+            if isinstance(value, Field):
+                try:
+                    delattr(cls, name)
+                except AttributeError:
+                    pass
         cls = register_object(type_key, init=False)(cls)
         type_info = getattr(cls, "__tvm_ffi_type_info__", None)
         assert type_info is not None
         _warn_missing_field_annotations(cls, type_info, stacklevel=2)
         _attach_field_objects(cls, type_info)
+        _add_type_attr_class_attrs(cls, type_info, _FFI_TYPE_ATTR_NAMES)
         _install_dataclass_dunders(
             cls,
             init=init,
@@ -168,7 +212,7 @@ def c_class(
         # Marker: distinguishes @c_class / @py_class types from FFI containers
         # (Array, List, Map, Dict) that also have __tvm_ffi_type_info__ but are
         # not dataclasses.  Used by is_dataclass() in common.py.
-        setattr(cls, "__tvm_ffi_is_dataclass__", True)
+        setattr(cls, "__ffi_is_dataclass__", True)
         return cls
 
     return decorator

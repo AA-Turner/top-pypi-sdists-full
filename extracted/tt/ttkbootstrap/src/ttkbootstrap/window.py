@@ -7,6 +7,7 @@ size/position/geometry, resizability, high-DPI, alpha, and icon handling.
 `App` is the application root (one per process, paired with the singleton
 `Style`); `Window` is a permanent, fully-supported alias for `App`.
 """
+import re
 import sys
 import tkinter
 import warnings
@@ -195,6 +196,16 @@ class _BaseWindow(BusyMixin):
     """
 
     winsys: str
+
+    # The size last applied through `geometry`, or None if the window has only
+    # ever been sized by its content. Class-level so it is readable no matter
+    # how early `geometry` is called during construction.
+    _applied_size: Optional[Tuple[int, int]] = None
+    _map_watch: Optional[list] = None
+    # Whether the window has been shown yet. Only a window that has been shown
+    # reports a real size, and there is nothing to read that off: on win32 a
+    # window that has never been mapped already reports Tk's initial size.
+    _ever_shown: bool = False
 
     @property
     def style(self) -> Style:
@@ -412,11 +423,98 @@ class _BaseWindow(BusyMixin):
 
     # -- positioning -------------------------------------------------------
 
+    def geometry(self, newGeometry: Optional[str] = None) -> Any:
+        """Set or query the window geometry, remembering any size it applies.
+
+        Tk does not report the size a window will have until it is mapped:
+        `winfo_reqwidth` is what the *content* asked for, which is nothing like
+        the size a `WxH` geometry pins. Recording the size here is what lets
+        `place_window_center` place a window correctly before it is first
+        shown -- see `_unmapped_size`.
+        """
+        if newGeometry is not None:
+            match = re.match(r"^(\d+)x(\d+)", newGeometry)
+            if match:
+                self._applied_size = (int(match.group(1)), int(match.group(2)))
+                self._watch_for_first_map()
+            elif newGeometry == "":
+                # `geometry("")` hands the window back to its natural size, so
+                # whatever size we were remembering no longer applies.
+                self._applied_size = None
+        return super().geometry(newGeometry)
+
+    wm_geometry = geometry
+
+    def _watch_for_first_map(self) -> None:
+        """Note when the window is shown, and drop any recorded size then.
+
+        Whichever of the two sizes is *newer* is the right one, and this is how
+        that ordering is kept without timestamps: a recorded size survives only
+        until the window is next seen on screen. After that its own realized
+        size is the truth -- a window manager resizes windows without going
+        through `geometry` (maximize, tiling, a frame drag) -- while a size
+        recorded while it was hidden is a request that has not taken effect yet.
+        """
+        if self._map_watch is None:
+            # `<Configure>` as well as `<Map>`, because a `geometry` call made
+            # while the window is already on screen is realized immediately --
+            # there is no next map to retire the record, and a later resize
+            # would leave the stale request winning forever.
+            self._map_watch = [
+                self.bind(sequence, self._on_shown, add="+")
+                for sequence in ("<Map>", "<Configure>")
+            ]
+
+    def _on_shown(self, event: Any) -> None:
+        # The mapped check is what makes this safe: these events are dispatched
+        # when the event queue is drained, not when they occur, so a map the
+        # window has already been withdrawn from can arrive *after* a newer
+        # size was recorded. Such an event is stale by definition -- it reports
+        # a size the window no longer has -- and must not retire that record.
+        if event.widget is not self or not self.winfo_ismapped():
+            return
+        self._ever_shown = True
+        self._applied_size = None
+
+    def _unmapped_size(self) -> Tuple[int, int]:
+        """The size this window will map at, measured before it is mapped.
+
+        A size recorded since the window was last shown is a pending request and
+        wins. Failing that, a window that has been shown keeps reporting its real
+        size while withdrawn, and that beats the content's request. Failing both,
+        the request raised to the `minsize` floor is what Tk will settle on.
+        """
+        if self._applied_size is not None:
+            return self._applied_size
+        # Only a window that has been shown has a size to report. Asking Tk
+        # instead does not work: on x11 a never-mapped window reports 1x1, but
+        # on win32 it reports the size Tk started it at -- a plausible-looking
+        # number that has nothing to do with the size the content will map at.
+        if self._ever_shown:
+            return self.winfo_width(), self.winfo_height()
+        # A window sized by its content has no request until Tk has computed
+        # the layout, so measuring first would center against a stale one.
+        self.update_idletasks()
+        min_width, min_height = self.wm_minsize()
+        return (
+            max(self.winfo_reqwidth(), min_width),
+            max(self.winfo_reqheight(), min_height),
+        )
+
     def place_window_center(self) -> None:
         """Center the window on the screen (monitor under the cursor when
-        `screeninfo` is available), clamped to stay fully visible."""
-        x, y = positioning.center_on_screen(self)
-        x, y = positioning.ensure_on_screen(self, x, y)
+        `screeninfo` is available), clamped to stay fully visible.
+
+        Safe to call before the window is first shown, which is how you get a
+        window that *appears* centered instead of appearing and then jumping:
+        `withdraw()`, center, then `deiconify()`.
+        """
+        # An unmapped window has no realized size for positioning to measure,
+        # and its request is not the size it will have -- pass the size it will
+        # actually map at, or centering lands its top-left at the screen center.
+        size = None if self.winfo_ismapped() else self._unmapped_size()
+        x, y = positioning.center_on_screen(self, size=size)
+        x, y = positioning.ensure_on_screen(self, x, y, size=size)
         self.geometry(f'+{x}+{y}')
 
     position_center = place_window_center  # alias
@@ -582,6 +680,7 @@ class App(_BaseWindow, tkinter.Tk):
 
         super().__init__(**kwargs)
         self.winsys: str = utils.windowing_system(self)
+        self._watch_for_first_map()
 
         if scaling is not None:
             utils.enable_high_dpi_awareness(self, scaling)
@@ -770,6 +869,7 @@ class Toplevel(_BaseWindow, tkinter.Toplevel):
 
         super().__init__(**kwargs)
         self.winsys: str = utils.windowing_system(self)
+        self._watch_for_first_map()
 
         # On aqua, give a borderless popup type (tooltip/splash/...) a native
         # macOS window class instead of the default chrome, so it isn't drawn

@@ -294,8 +294,43 @@ def setup_agent_environment(project_root: str = ".") -> bool:
                 if content.strip().startswith("{") and content.strip().endswith("}"):
                     logger.debug(f"File {target} có vẻ là JSON. Bỏ qua để tránh làm hỏng config.")
                     continue
-                if "# Vnstock Ecosystem Guidelines" in content or "# Vnstock Vibe Onboarding" in content:
-                    logger.debug(f"Rule Vnstock Ecosystem Guidelines đã tồn tại trong {target}. Bỏ qua.")
+                import re
+                pattern = r'(?s)(?:---\n)?name: vnstock-bootstrap.*?\*\s*\(End of Bootstrap\. When in doubt, Route!\)\*(?:\s*---)?'
+                matches = re.findall(pattern, content)
+                if len(matches) > 1:
+                    logger.debug(f"Phát hiện nội dung bị lặp trong {target}, tiến hành dọn dẹp...")
+                    cleaned_content = re.sub(pattern, '', content).strip()
+                    block_to_append = instruction_content.strip() if "name: vnstock-bootstrap" in instruction_content else matches[-1].strip()
+                    final_content = cleaned_content + ("\n\n" if cleaned_content else "") + block_to_append
+                    if not final_content.startswith('---') and "name: vnstock-bootstrap" in final_content:
+                        final_content = "---\n" + final_content
+                    final_content = re.sub(r'\n{3,}', '\n\n', final_content)
+                    with open(target, "w", encoding="utf-8") as f:
+                        f.write(final_content + "\n")
+                    success = True
+                    continue
+                elif len(matches) == 1:
+                    if "name: vnstock-bootstrap" in instruction_content and matches[0].strip() != instruction_content.strip():
+                        logger.debug(f"Cập nhật nội dung mới cho {target}...")
+                        cleaned_content = re.sub(pattern, '', content).strip()
+                        final_content = cleaned_content + ("\n\n" if cleaned_content else "") + instruction_content.strip()
+                        if not final_content.startswith('---') and "name: vnstock-bootstrap" in final_content:
+                            final_content = "---\n" + final_content
+                        final_content = re.sub(r'\n{3,}', '\n\n', final_content)
+                        with open(target, "w", encoding="utf-8") as f:
+                            f.write(final_content + "\n")
+                    else:
+                        logger.debug(f"Rule Vnstock đã tồn tại và hợp lệ trong {target}. Bỏ qua.")
+                    success = True
+                    continue
+                markers = [
+                    "# Vnstock Ecosystem Guidelines",
+                    "# Vnstock Vibe Onboarding",
+                    "# Vnstock AI Agent",
+                    "vnstock-bootstrap"
+                ]
+                if any(marker in content for marker in markers):
+                    logger.debug(f"Rule Vnstock phiên bản cũ đã tồn tại trong {target}. Bỏ qua.")
                     success = True
                     continue
                 with open(target, "a", encoding="utf-8") as f:

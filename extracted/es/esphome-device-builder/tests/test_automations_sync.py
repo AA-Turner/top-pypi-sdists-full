@@ -1079,3 +1079,110 @@ def test_build_automations_drops_groups_over_non_form_keys(tmp_path: Path) -> No
     )
     if_action = next(a for a in result["actions"] if a["id"] == "if")
     assert "required_groups" not in if_action
+
+
+def test_build_automations_applies_registry_refined_types(tmp_path: Path) -> None:
+    """A live-registry refinement promotes an action field's type and units."""
+    schema_dir = _write_schema(
+        tmp_path,
+        "http_request.json",
+        {
+            "http_request": {
+                "action": {
+                    "send": {
+                        "schema": {
+                            "config_vars": {
+                                "max_response_buffer_size": {
+                                    "key": "Optional",
+                                    "docs": "**int**: Response buffer size.",
+                                },
+                            },
+                        },
+                        "type": "schema",
+                        "docs": "Send a request.",
+                    },
+                },
+                "schemas": {},
+            },
+        },
+    )
+    refined = {
+        "action": {
+            "http_request.send": {
+                ("max_response_buffer_size",): sync_components.RefinedType(
+                    "float_with_unit", unit_options=["B", "kB", "MB", "GB"]
+                ),
+            },
+        },
+    }
+    result = sync_components.build_automations(
+        schema_dir=schema_dir, component_ids=set(), registry_refined=refined
+    )
+    action = {a["id"]: a for a in result["actions"]}["http_request.send"]
+    entry = {e["key"]: e for e in action["config_entries"]}["max_response_buffer_size"]
+    assert entry["type"] == "float_with_unit"
+    assert entry["unit_options"] == ["B", "kB", "MB", "GB"]
+
+
+def test_build_automations_applies_registry_ranges(tmp_path: Path) -> None:
+    """A live-registry range lands on a numeric action field, not a string one."""
+    schema_dir = _write_schema(
+        tmp_path,
+        "servo.json",
+        {
+            "servo": {
+                "action": {
+                    "write": {
+                        "schema": {
+                            "config_vars": {
+                                "level": {"key": "Required", "docs": "**int**: Target level."},
+                                "id": {"key": "Required", "type": "use_id"},
+                            },
+                        },
+                        "type": "schema",
+                        "docs": "Write a level.",
+                    },
+                },
+                "schemas": {},
+            },
+        },
+    )
+    ranges = {"action": {"servo.write": {("level",): (-1, 1), ("id",): (0, 9)}}}
+    result = sync_components.build_automations(
+        schema_dir=schema_dir, component_ids=set(), registry_ranges=ranges
+    )
+    action = {a["id"]: a for a in result["actions"]}["servo.write"]
+    entries = {e["key"]: e for e in action["config_entries"]}
+    assert entries["level"]["range"] == [-1, 1]
+    assert entries["id"].get("range") is None
+
+
+def test_registry_range_lands_only_after_refinement(tmp_path: Path) -> None:
+    """A range on a string field bounds it only once refinement retypes it numeric."""
+    schema_dir = _write_schema(
+        tmp_path,
+        "fan.json",
+        {
+            "fan": {
+                "action": {
+                    "set_speed": {
+                        "schema": {"config_vars": {"speed": {"key": "Required"}}},
+                        "type": "schema",
+                        "docs": "Set the speed.",
+                    },
+                },
+                "schemas": {},
+            },
+        },
+    )
+    refined = {
+        "action": {"fan.set_speed": {("speed",): sync_components.RefinedType("float")}},
+    }
+    ranges = {"action": {"fan.set_speed": {("speed",): (0.0, 1.0)}}}
+    result = sync_components.build_automations(
+        schema_dir=schema_dir, component_ids=set(), registry_refined=refined, registry_ranges=ranges
+    )
+    action = {a["id"]: a for a in result["actions"]}["fan.set_speed"]
+    entry = {e["key"]: e for e in action["config_entries"]}["speed"]
+    assert entry["type"] == "float"
+    assert entry["range"] == [0.0, 1.0]

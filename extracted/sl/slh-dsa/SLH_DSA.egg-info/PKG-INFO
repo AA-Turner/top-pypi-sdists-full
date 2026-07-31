@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: SLH-DSA
-Version: 0.2.3
+Version: 0.2.4
 Summary: Pure Python implementation of the SLH-DSA algorithm (based on FIPS 205).
 Home-page: https://github.com/colinxu2020/slhdsa
 Author: Colinxu2020

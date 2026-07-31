@@ -3,10 +3,14 @@ import json
 import warnings
 from collections import defaultdict
 from http import HTTPStatus
-from typing import Any, Callable, DefaultDict, List, Type
+from typing import TYPE_CHECKING, Any, Callable, DefaultDict, List, Type
 from uuid import uuid4
 
 import structlog
+
+if TYPE_CHECKING:
+    from mistralai.client import Mistral
+
 import temporalio.api.workflowservice.v1 as wsv1
 import tenacity
 from opentelemetry.instrumentation.utils import suppress_instrumentation
@@ -26,6 +30,7 @@ from mistralai.workflows.core._registration.execution_registration_interceptor i
     ExecutionRegistrationInterceptor,
 )
 from mistralai.workflows.core.activity import activity, get_all_temporal_activities
+from mistralai.workflows.core.auth import get_token_provider
 from mistralai.workflows.core.config import config_discovery
 from mistralai.workflows.core.config.config import AppConfig, config
 from mistralai.workflows.core.definition.workflow_definition import (
@@ -57,7 +62,16 @@ from mistralai.workflows.core.temporal.payload_codec import MistralWorkflowsPayl
 from mistralai.workflows.core.temporal.payload_converter import (
     MistralWorkflowsPayloadConverter,
 )
-from mistralai.workflows.core.temporal.temporal_client import create_temporal_client
+from mistralai.workflows.core.temporal.runtime_metrics import build_runtime, pump_runtime_metrics
+from mistralai.workflows.core.temporal.temporal_client import (
+    create_temporal_client,
+    refresh_temporal_api_key,
+    set_worker_service_client,
+)
+from mistralai.workflows.core.tracing._temporal_tracing_interceptor import (
+    get_span_recording_interceptors,
+    get_trace_context_interceptors,
+)
 from mistralai.workflows.core.tracing.init_tracing import init_tracing
 from mistralai.workflows.core.utils.health_server import HealthServer
 from mistralai.workflows.core.worker_client import get_worker_client
@@ -428,6 +442,21 @@ def _create_temporal_workers(
 _GRAPH_PAYLOAD_VERSION = 3
 
 
+def _get_summary_config() -> tuple["Mistral", str] | None:
+    """Build a Mistral client and resolve the model for graph summaries.
+
+    Returns ``None`` when summaries are disabled or no API key is configured.
+    """
+    if not config.worker.graph.graph_summarise_enabled:
+        return None
+    provider = get_token_provider()
+    if provider is None:
+        return None
+    from mistralai.workflows.client import get_mistral_client
+
+    return get_mistral_client(token_provider=provider), config.worker.graph.graph_summarise_model
+
+
 async def _upload_workflow_graphs(
     refs: list[WorkflowRegistrationRef],
     classes: list[ClassType],
@@ -444,6 +473,8 @@ async def _upload_workflow_graphs(
         logger.warning("Worker HTTP client unavailable, skipping graph upload")
         return
 
+    summary_config = _get_summary_config()
+
     async def _upload_one(ref: WorkflowRegistrationRef, cls: ClassType) -> None:
         graph_data = None
         error: str | None = None
@@ -455,13 +486,12 @@ async def _upload_workflow_graphs(
                 "Failed to build workflow graph", workflow=cls.__name__, **extract_error_context(exc), exc_info=exc
             )
 
-        if graph_data is not None:
+        if graph_data is not None and summary_config is not None:
+            summary_client, summary_model = summary_config
             try:
-                result = await summarise_workflow(graph_data)
+                result = await summarise_workflow(graph_data, client=summary_client, model=summary_model)
                 if result.summaries:
-                    graph_data.node_summaries = {
-                        nid: {"short": s.short, "long": s.long} for nid, s in result.summaries.items()
-                    }
+                    graph_data.node_summaries = {nid: s.to_dict() for nid, s in result.summaries.items()}
             except SummariseError as exc:
                 error = str(exc) or type(exc).__name__
                 logger.warning(
@@ -479,7 +509,8 @@ async def _upload_workflow_graphs(
         }
 
         try:
-            url = f"{base_url}/v1/workflows/{ref.workflow_id}/graphs"
+            workflow_identifier = get_workflow_definition(cls).name
+            url = f"{base_url}/v1/workflows/{workflow_identifier}/graphs"
             request = http_client.build_request("POST", url, json=payload)
             response = await http_client.send(request)
             response.raise_for_status()
@@ -513,6 +544,9 @@ async def _run_worker(workflows: List[ClassType]) -> None:
         worker_name = config.worker.worker_name
         deployment_location = config.worker.deployment_location
 
+        # Build the worker's runtime + MetricBuffer, drained by pump_runtime_metrics below.
+        runtime, metric_buffer = build_runtime()
+
         logger.info(
             "Deployment location",
             location_type=deployment_location.location_type,
@@ -520,15 +554,14 @@ async def _run_worker(workflows: List[ClassType]) -> None:
             k8s_namespace=deployment_location.k8s_namespace,
         )
 
-        api_key = config.common.mistral_api_key.get_secret_value() if config.common.mistral_api_key else None
         worker_client = get_worker_client(
             base_url=config.worker.server_url,
-            api_key=api_key or None,
+            token_provider=get_token_provider(),
             headers=config.worker.mistral_api_headers,
         )
 
         # Initialize OpenTelemetry tracing for the worker component
-        meter_provider, tracer_provider, logger_provider = init_tracing(
+        meter_provider, tracer_provider, logger_provider, runtime_metrics_meter_provider = init_tracing(
             "worker", deployment_name=deployment_name, worker_name=worker_name
         )
         if meter_provider and tracer_provider:
@@ -543,9 +576,9 @@ async def _run_worker(workflows: List[ClassType]) -> None:
             payload_compression_config=config.worker.temporal_payload_compression,
         )
 
-        # Order matters: ContextHandler must run first (unwraps WorkflowContext),
-        # then ExecutionRegistration (registers run + sets token), then Event
-        # (emits lifecycle events that may need the token).
+        # Order matters: ContextHandler first (unwraps context), ExecutionRegistration before
+        # Event (sets the token Event needs). Trace-context wraps both so their internal local
+        # activities are traced; span-recording is innermost to serialize unwrapped/restored args.
 
         # Create PayloadEncoder for event encryption (reuse the same encryption config)
         event_payload_encoder = None
@@ -561,23 +594,26 @@ async def _run_worker(workflows: List[ClassType]) -> None:
             )
         extra_interceptors: List[Interceptor] = [
             ContextHandlerInterceptor(),
+            *get_trace_context_interceptors(),
             ExecutionRegistrationInterceptor(),
             EventInterceptor(),
-        ]
-
-        extra_interceptors.append(
             ActivityInOutOffloadingInterceptor(
                 offloader=FieldsOffloader(offloading_config=config.worker.activity_attributes_offloading)
-            )
-        )
+            ),
+            *get_span_recording_interceptors(),
+        ]
 
-        # Create Temporal client (with tracing interceptor if enabled)
         temporal_client = await create_temporal_client(
             namespace=config.temporal.namespace,
+            runtime=runtime,
             payload_codec=payload_codec,
             payload_converter=payload_converter,
             extra_interceptors=extra_interceptors,
+            add_tracing_interceptors=False,
         )
+        # Publish the connection whose bearer refresh_temporal_api_key keeps current, so DI-provided
+        # clients (plugin activities) ride it instead of opening an unrefreshed parallel connection.
+        set_worker_service_client(temporal_client.service_client)
 
         # Log installed contributions
         plugins = list_plugins()
@@ -687,6 +723,22 @@ async def _run_worker(workflows: List[ClassType]) -> None:
                         got=len(refs),
                     )
 
+            token_refresh_task = tg.create_task(refresh_temporal_api_key(temporal_client.service_client))
+
+            # Drain the runtime MetricBuffer and re-emit through its dedicated provider (worker_id-free
+            # resource). Both are present only on the worker with metrics enabled.
+            pump_task = None
+            if metric_buffer is not None and runtime_metrics_meter_provider is not None:
+                pump_task = tg.create_task(
+                    pump_runtime_metrics(
+                        metric_buffer,
+                        runtime_metrics_meter_provider.get_meter("mistralai.workflows.temporal_runtime"),
+                        interval_s=config.common.temporal_runtime_metrics_drain_interval_s,
+                        meter_provider=runtime_metrics_meter_provider,
+                        buffer_size=config.common.temporal_runtime_metrics_buffer_size,
+                    )
+                )
+
             logger.info(
                 "Starting Temporal worker",
                 task_queue=task_queue,
@@ -703,11 +755,13 @@ async def _run_worker(workflows: List[ClassType]) -> None:
                 await asyncio.gather(*[worker.run() for worker in workers_and_health_server])
             finally:
                 logger.info("Worker shutting down, cleaning up resources")
+                set_worker_service_client(None)
                 register_task.cancel()
                 if auto_register_task:
                     auto_register_task.cancel()
                 if graph_upload_task:
                     graph_upload_task.cancel()
+                token_refresh_task.cancel()
                 try:
                     await register_task
                 except asyncio.CancelledError:
@@ -722,7 +776,22 @@ async def _run_worker(workflows: List[ClassType]) -> None:
                         await graph_upload_task
                     except asyncio.CancelledError:
                         pass
+                try:
+                    await token_refresh_task
+                except asyncio.CancelledError:
+                    pass
+                # Stop the workers first (core stops emitting), then final-drain the pump so teardown metrics
+                # are captured before the provider is shut down.
                 await asyncio.gather(*[worker.shutdown() for worker in workers])
+                if pump_task:
+                    pump_task.cancel()
+                    try:
+                        await pump_task
+                    except asyncio.CancelledError:
+                        pass
+                # Shut down the dedicated runtime-metrics provider (skip if it's the shared local one).
+                if runtime_metrics_meter_provider is not None and runtime_metrics_meter_provider is not meter_provider:
+                    runtime_metrics_meter_provider.shutdown()
                 if health_server is not None:
                     await asyncio.get_running_loop().run_in_executor(None, health_server.shutdown)
                 # Flush and shutdown OTLP log exporter
@@ -732,13 +801,20 @@ async def _run_worker(workflows: List[ClassType]) -> None:
 
     except WorkflowsException as exc:
         if exc.status == HTTPStatus.UNAUTHORIZED:
-            api_key = config.common.mistral_api_key.get_secret_value() if config.common.mistral_api_key else None
-            key_hint = f"...{api_key[-4:]}" if api_key and len(api_key) >= 4 else "<not set>"
-            logger.error(
-                "Authentication failed. Check your MISTRAL_API_KEY.",
-                api_key_hint=key_hint,
-                http_status=exc.status.value,
-            )
+            if config.common.mistral_sa_token_path:
+                logger.error(
+                    "Authentication failed. Check the service-account token.",
+                    sa_token_path=config.common.mistral_sa_token_path,
+                    http_status=exc.status.value,
+                )
+            else:
+                api_key = config.common.mistral_api_key.get_secret_value() if config.common.mistral_api_key else None
+                key_hint = f"...{api_key[-4:]}" if api_key and len(api_key) >= 4 else "<not set>"
+                logger.error(
+                    "Authentication failed. Check your MISTRAL_API_KEY.",
+                    api_key_hint=key_hint,
+                    http_status=exc.status.value,
+                )
             raise SystemExit(1) from None
         label = exc.terminal_label()
         if label:
@@ -785,7 +861,7 @@ async def run_worker(
     else:
         if namespace is not None:
             warnings.warn("Namespace provided but config discovery is enabled. Ignoring namespace.")
-        await config_discovery.apply_worker_runtime_config(api_key)
+        await config_discovery.apply_worker_runtime_config()
     logger.info("Worker config", config=config.common.model_dump())
     if detach:
         task = asyncio.create_task(_run_worker(workflows))

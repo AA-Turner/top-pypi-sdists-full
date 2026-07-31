@@ -305,20 +305,23 @@ async def poll_workflow_status(
     expected_status: str,
     timeout_seconds: int = 30,
 ) -> dict[str, Any]:
+    last_status: str | None = None
     for _ in range(timeout_seconds):
         await asyncio.sleep(1)
         status_response = await client.get(f"/v1/workflows/executions/{execution_id}")
         status_response.raise_for_status()
         status_data = status_response.json()
-        status = status_data.get("status")
+        last_status = status_data.get("status")
 
-        if status == expected_status:
+        if last_status == expected_status:
             return cast(dict[str, Any], status_data)
-        elif status in ["FAILED", "TERMINATED", "TIMED_OUT", "CANCELED", "COMPLETED"]:
-            if status != expected_status:
-                raise RuntimeError(f"Workflow ended with status: {status}, expected: {expected_status}")
+        elif last_status in ["FAILED", "TERMINATED", "TIMED_OUT", "CANCELED", "COMPLETED"]:
+            if last_status != expected_status:
+                raise RuntimeError(f"Workflow ended with status: {last_status}, expected: {expected_status}")
 
-    raise TimeoutError(f"Workflow did not reach {expected_status} status within {timeout_seconds}s")
+    raise TimeoutError(
+        f"Workflow did not reach {expected_status} status within {timeout_seconds}s (last known status: {last_status})"
+    )
 
 
 async def poll_pending_inputs(
@@ -539,6 +542,7 @@ async def execute_workflow_and_wait(
     if not execution_id:
         raise ValueError(f"No execution_id returned: {data}")
 
+    last_status: str | None = None
     for _ in range(timeout_seconds):
         await asyncio.sleep(1)
 
@@ -546,13 +550,15 @@ async def execute_workflow_and_wait(
         status_response.raise_for_status()
         status_data = status_response.json()
 
-        status = status_data.get("status")
-        if status == "COMPLETED":
+        last_status = status_data.get("status")
+        if last_status == "COMPLETED":
             return cast(dict[str, Any], status_data)
-        elif status in ["FAILED", "TERMINATED", "TIMED_OUT", "CANCELED"]:
-            raise RuntimeError(f"Workflow {workflow_name} ended with status: {status}")
+        elif last_status in ["FAILED", "TERMINATED", "TIMED_OUT", "CANCELED"]:
+            raise RuntimeError(f"Workflow {workflow_name} ended with status: {last_status}")
 
-    raise TimeoutError(f"Workflow {workflow_name} did not complete within {timeout_seconds}s")
+    raise TimeoutError(
+        f"Workflow {workflow_name} did not complete within {timeout_seconds}s (last known status: {last_status})"
+    )
 
 
 async def poll_trace_events_available(
@@ -575,23 +581,34 @@ async def poll_trace_events_available(
         await asyncio.sleep(poll_interval)
 
 
+def _extract_otel_spans(trace_data: dict[str, Any]) -> list[dict[str, Any]]:
+    spans: list[dict[str, Any]] = []
+    for batch in trace_data.get("otel_trace_data", {}).get("batches", []):
+        for scope_span in batch.get("scopeSpans", []):
+            spans.extend(scope_span.get("spans", []))
+    return spans
+
+
 async def poll_trace_otel_data_available(
     client: httpx.AsyncClient,
     execution_id: str,
-    timeout: float = 30.0,
+    timeout: float = 90.0,
     poll_interval: float = 0.5,
-    required_span_prefix: str | None = None,
-) -> None:
+    required_span_prefixes: list[str] | None = None,
+) -> dict[str, Any]:
     """
-    Poll until OTEL trace data is available for an execution.
+    Poll until OTEL trace data is available for an execution and return the trace payload.
 
     Args:
         client: HTTP client to use for requests
         execution_id: The workflow execution ID
-        timeout: Maximum time to wait in seconds
+        timeout: Maximum time to wait in seconds. Defaults to 90s because terminal spans (e.g.
+            "WorkflowReport:") are exported last through the OTEL->store pipeline, whose tail
+            latency exceeds 30s under load on the busy internal worker.
         poll_interval: Time between polls in seconds
-        required_span_prefix: Optional span name prefix to wait for (e.g., "WorkflowReport:")
-            If provided, polling continues until a span with this prefix is found.
+        required_span_prefixes: Optional list of span name prefixes; polling continues until at
+            least one span matches every prefix. When omitted or empty, polling returns as soon
+            as any span is available.
     """
     start_time = asyncio.get_event_loop().time()
 
@@ -601,29 +618,23 @@ async def poll_trace_otel_data_available(
             response.raise_for_status()
 
             trace_data = response.json()
-            otel_data = trace_data.get("otel_trace_data", {})
+            spans = _extract_otel_spans(trace_data)
 
-            batches = otel_data.get("batches", [])
-
-            if required_span_prefix is None and len(batches) > 0:
-                return
-
-            # Check if required span is present
-            if required_span_prefix is not None:
-                for batch in batches:
-                    for scope_span in batch.get("scopeSpans", []):
-                        for span in scope_span.get("spans", []):
-                            span_name = span.get("name", "")
-                            if span_name.startswith(required_span_prefix):
-                                return
+            if not required_span_prefixes:
+                if spans:
+                    return cast(dict[str, Any], trace_data)
+            else:
+                span_names = [span.get("name", "") for span in spans]
+                if all(any(name.startswith(prefix) for name in span_names) for prefix in required_span_prefixes):
+                    return cast(dict[str, Any], trace_data)
         except httpx.HTTPStatusError:
             pass
 
         elapsed = asyncio.get_event_loop().time() - start_time
         if elapsed > timeout:
+            waiting_for = f" (waiting for span prefixes: {required_span_prefixes})" if required_span_prefixes else ""
             raise TimeoutError(
-                f"OTEL trace data not available for execution {execution_id} after {timeout}s"
-                + (f" (waiting for span prefix: {required_span_prefix})" if required_span_prefix else "")
+                f"OTEL trace data not available for execution {execution_id} after {timeout}s{waiting_for}"
             )
 
         await asyncio.sleep(poll_interval)

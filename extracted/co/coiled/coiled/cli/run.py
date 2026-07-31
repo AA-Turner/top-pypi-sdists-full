@@ -317,7 +317,7 @@ def wrap_command_for_logs_and_stdout(
 
     # wrapper file that calls user command, sending output to pseudo-tty and stdout (which goes into logs)
     tee_command = f"{COMMAND_DIR}/{command_id}-tee.sh"
-    escaped_original_command = original_command.replace('"', '"')
+    escaped_original_command = original_command.replace('"', '\\"')
     tee_script = f"""
     echo "{escaped_original_command}\t{command_id}" >> {COMMAND_DIR}/list
     {inner_command_path} 2>&1 | tee -a /proc/1/fd/1

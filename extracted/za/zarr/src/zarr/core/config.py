@@ -99,13 +99,23 @@ config = Config(
                 "read_missing_chunks": True,
                 "target_shard_size_bytes": None,
                 "rectilinear_chunks": False,
+                "sharding_coalesce_max_gap_bytes": 1 << 20,  # 1 MiB
+                "sharding_coalesce_max_bytes": 16 << 20,  # 16 MiB
             },
             "async": {"concurrency": 10, "timeout": None},
             "threading": {"max_workers": None},
             "json_indent": 2,
             "codec_pipeline": {
+                # FusedCodecPipeline is the faster synchronous pipeline, but it stays
+                # opt-in for now so behavior is unchanged for existing users. Early
+                # adopters can switch with
+                #   zarr.config.set(
+                #       {"codec_pipeline.path": "zarr.core.codec_pipeline.FusedCodecPipeline"}
+                #   )
                 "path": "zarr.core.codec_pipeline.BatchedCodecPipeline",
                 "batch_size": 1,
+                # Only read by FusedCodecPipeline (BatchedCodecPipeline ignores it).
+                "max_workers": None,
             },
             "codecs": {
                 "blosc": "zarr.codecs.blosc.BloscCodec",

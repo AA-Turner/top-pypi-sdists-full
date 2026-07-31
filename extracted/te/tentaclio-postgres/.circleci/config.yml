@@ -1,0 +1,155 @@
+---
+# Python CircleCI configuration file
+#
+# INFO: Check CircleCI documentation for more details
+#       https://circleci.com/docs/guides/getting-started/language-python
+
+version: 2.1
+
+executors:
+  standard:
+    parameters:
+      python-version:
+        default: "3.10"
+        type: string
+    docker:
+      - image: cimg/python:<< parameters.python-version >>
+
+  standard-postgres:
+    parameters:
+      python-version:
+        default: "3.10"
+        type: string
+    docker:
+      - image: cimg/python:<< parameters.python-version >>
+        environment:
+          TENTACLIO__CONN__POSTGRES_TEST: postgresql://:@localhost:5432/tentaclio-db
+      - image: cimg/postgres:18.4
+        environment:
+          # CircleCI img run under `circleci` user
+          POSTGRES_USER: circleci
+          POSTGRES_DB: tentaclio-db
+
+
+# -----------------
+# Reusable commands
+# -----------------
+
+commands:
+  configure_github:
+    steps:
+      - run:
+          name: Configure Github access
+          command: |
+            git config --global --unset url.ssh://git@github.com.insteadof;\
+            echo https://${GITHUB_TOKEN}:@github.com > ~/.git-credentials
+            git config --global credential.helper store
+
+  checkout_source:
+    steps:
+      - restore_cache:
+          keys:
+            - source-{{ .Branch }}-{{ .Revision }}
+            - source-{{ .Branch }}-
+            - source-
+      - checkout:
+          method: full
+      - save_cache:
+          key: source-{{ .Branch }}-{{ .Revision }}
+          paths:
+            - "./.git"
+
+  update_virtualenv:
+    parameters:
+      python-version:
+        type: string
+    steps:
+      - restore_cache:
+          keys:
+            - virtualenv-<< parameters.python-version >>-{{ .Environment.CACHE_VERSION }}-{{ .Branch }}-{{ checksum "uv.lock" }}
+            - virtualenv-<< parameters.python-version >>-{{ .Environment.CACHE_VERSION }}-{{ .Branch }}-
+            - virtualenv-<< parameters.python-version >>-{{ .Environment.CACHE_VERSION }}-
+      - configure_github
+      - run:
+          name: Install Python packages
+          command: make sync
+      - save_cache:
+          key: virtualenv-<< parameters.python-version >>-{{ .Environment.CACHE_VERSION }}-{{ .Branch }}-{{ checksum "uv.lock" }}
+          paths:
+            - "./.venv"
+
+
+jobs:
+  lint:
+    parameters:
+      python-version:
+        default: "3.10"
+        type: string
+    executor:
+      name: standard
+      python-version: << parameters.python-version >>
+    steps:
+      - checkout_source
+      - update_virtualenv:
+          python-version: << parameters.python-version >>
+      - run:
+          name: Run Python linter
+          command: make lint
+
+  unit:
+    parameters:
+      python-version:
+        type: string
+    executor:
+      name: standard
+      python-version: << parameters.python-version >>
+    steps:
+      - checkout_source
+      - update_virtualenv:
+          python-version: << parameters.python-version >>
+      - run:
+          name: Run Python unit tests
+          command: make unit
+
+  functional:
+    parameters:
+      python-version:
+        type: string
+    executor:
+      name: standard-postgres
+      python-version: << parameters.python-version >>
+    steps:
+      - checkout_source
+      - update_virtualenv:
+          python-version: << parameters.python-version >>
+      - run:
+          name: Run postgres functional tests
+          command: make functional
+
+
+workflows:
+  version: 2
+
+  test-build-deploy:
+    jobs:
+      - lint:
+        filters:
+          tags:
+            only: /.*/
+      - unit:
+          matrix:
+            parameters:
+              python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+          filters:
+            tags:
+              only: /.*/
+      - functional:
+          matrix:
+            parameters:
+              python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+          filters:
+            tags:
+              only: /.*/
+          requires:
+            - lint
+            - unit-<< matrix.python-version >>

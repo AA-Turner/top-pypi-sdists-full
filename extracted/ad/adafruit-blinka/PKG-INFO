@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Adafruit-Blinka
-Version: 9.1.0
+Version: 9.2.0
 Summary: CircuitPython APIs for non-CircuitPython versions of Python such as CPython on Linux and MicroPython.
 Home-page: https://github.com/adafruit/Adafruit_Blinka
 Author: Adafruit Industries
@@ -9,12 +9,12 @@ License: MIT
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: Implementation :: MicroPython
-Requires-Python: >=3.7.0
+Requires-Python: >=3.9.0
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: Adafruit-PlatformDetect>=3.70.1
+Requires-Dist: Adafruit-PlatformDetect>=3.89.1
 Requires-Dist: Adafruit-PureIO>=1.1.7
 Requires-Dist: binho-host-adapter>=0.1.6
 Requires-Dist: pyftdi>=0.40.0

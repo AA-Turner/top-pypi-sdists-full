@@ -1,5 +1,6 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
+import asyncio
 from datetime import datetime, timedelta, timezone
 from threading import Lock
 
@@ -13,6 +14,7 @@ import durabletask.internal.shared as shared
 class AccessTokenManager:
 
     _token: AccessToken | None
+    expiry_time: datetime | None
 
     def __init__(self, token_credential: TokenCredential | None, refresh_interval_seconds: int = 600):
         self._scope = "https://durabletask.io/.default"
@@ -22,12 +24,12 @@ class AccessTokenManager:
         self._credential = token_credential
         self._refresh_lock = Lock()
 
-        if self._credential is not None:
-            self._token = self._credential.get_token(self._scope)
-            self.expiry_time = datetime.fromtimestamp(self._token.expires_on, tz=timezone.utc)
-        else:
-            self._token = None
-            self.expiry_time = None
+        # Token acquisition is deferred to the first get_access_token() call so that
+        # constructing a client or worker does not perform a blocking credential round
+        # trip. The deferred first acquisition still goes through the double-checked
+        # refresh lock below, so it remains single-flight across threads.
+        self._token = None
+        self.expiry_time = None
 
     def get_access_token(self) -> AccessToken | None:
         if self._token is None or self.is_token_expired():
@@ -70,9 +72,37 @@ class AsyncAccessTokenManager:
         self._token = None
         self.expiry_time = None
 
+        # An asyncio.Lock binds itself to the event loop it is first used on, and this
+        # manager may outlive a loop or be shared across loops. Locks are therefore
+        # created lazily per running loop, guarded by a plain threading lock because
+        # different loops may run on different threads.
+        self._refresh_locks: dict[asyncio.AbstractEventLoop, asyncio.Lock] = {}
+        self._refresh_locks_guard = Lock()
+
+    def _get_refresh_lock(self) -> asyncio.Lock:
+        loop = asyncio.get_running_loop()
+        with self._refresh_locks_guard:
+            lock = self._refresh_locks.get(loop)
+            if lock is None:
+                # Discard locks belonging to loops that are no longer usable so the
+                # mapping does not grow without bound.
+                stale_loops = [
+                    existing for existing in self._refresh_locks if existing.is_closed()
+                ]
+                for stale_loop in stale_loops:
+                    del self._refresh_locks[stale_loop]
+                lock = asyncio.Lock()
+                self._refresh_locks[loop] = lock
+            return lock
+
     async def get_access_token(self) -> AccessToken | None:
         if self._token is None or self.is_token_expired():
-            await self.refresh_token()
+            async with self._get_refresh_lock():
+                # Re-check under the lock: a concurrent caller may have already
+                # refreshed the token while this one was waiting, so only a single
+                # credential request is made per refresh window.
+                if self._token is None or self.is_token_expired():
+                    await self.refresh_token()
         return self._token
 
     def is_token_expired(self) -> bool:

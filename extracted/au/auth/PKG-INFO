@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: auth
-Version: 2.3.1
+Version: 3.0.1
 Summary: Authorization for humans
 Author-email: Farshid Ashouri <farsheed.ashouri@gmail.com>
 License-Expression: MIT
@@ -40,11 +40,11 @@ Requires-Dist: python-json-logger<4,>=3.1.0
 Provides-Extra: ratelimit
 Requires-Dist: flask-limiter>=3.0.0; extra == "ratelimit"
 Provides-Extra: migrations
-Requires-Dist: alembic>=1.13.0; extra == "migrations"
+Requires-Dist: migretti>=0.10.0; extra == "migrations"
 Provides-Extra: dev
 Requires-Dist: pytest>=6.0; extra == "dev"
 Requires-Dist: pytest-cov>=2.0; extra == "dev"
-Requires-Dist: alembic>=1.13.0; extra == "dev"
+Requires-Dist: migretti>=0.10.0; extra == "dev"
 Requires-Dist: ruff>=0.0.260; extra == "dev"
 Requires-Dist: mypy>=1.0; extra == "dev"
 Requires-Dist: types-requests; extra == "dev"
@@ -80,10 +80,31 @@ BASE=https://auth.rodmena.app
 
 curl -X POST -H "Authorization: Bearer $KEY" $BASE/api/role/engineers
 curl -X POST -H "Authorization: Bearer $KEY" $BASE/api/permission/engineers/deploy
+curl -X POST -H "Authorization: Bearer $KEY" $BASE/api/apikeys/user/alice
 curl -X POST -H "Authorization: Bearer $KEY" $BASE/api/membership/alice/engineers
 curl        -H "Authorization: Bearer $KEY" $BASE/api/has_permission/alice/deploy
 # -> {"success": true, "data": {"has_permission": true}, ...}
 ```
+
+**Why the `apikeys` call is in there.** Since 3.0.0 a namespace created from a
+brand-new key is **strict**: a user must hold an API key in your namespace
+before it can be given a role. Omit that line and the membership call answers
+`409 {"reason": "user_not_key_backed", "result": false}` — a permanent refusal,
+so retrying never helps. You need not keep the returned secret if you only want
+the identity to exist.
+
+If your users can never hold auth API keys (you authenticate them yourself and
+your "users" are opaque ids), opt the namespace out once and skip that step
+forever:
+
+```bash
+curl -X PUT -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+     -d '{"strict_users": false}' $BASE/api/settings
+```
+
+The opt-out is audited, per-tenant, and supported indefinitely. Namespaces
+created before 3.0.0 were grandfathered onto it, which is why existing
+integrations saw no change at upgrade.
 
 With the Python client (`pip install auth`):
 
@@ -93,6 +114,7 @@ from auth import Client
 with Client(api_key=KEY, service_url="https://auth.rodmena.app") as c:
     c.create_role("engineers")
     c.add_permission("engineers", "deploy")
+    c.create_api_key("alice")                  # strict default since 3.0.0
     c.add_membership("alice", "engineers")
     c.user_has_permission("alice", "deploy")   # -> {... "has_permission": true}
 ```
@@ -104,9 +126,32 @@ with Client(api_key=KEY, service_url="https://auth.rodmena.app") as c:
 - **Two response shapes** — bare `{"result": ...}` and wrapped
   `{"success", "data", ...}`. The API reference says which per endpoint.
 - **Errors below 2xx are HTML**, not JSON. Branch on the status code first.
+- **Python client: transport failures raise `AuthTransportError`** (3.0.0).
+  The 2.x answer-shaped error dict is gone — an outage can never be misread
+  as a denial. Catch the exception and map it to your unavailable/503 path,
+  never to a permission denial. The old `raise_on_error` constructor argument
+  is a deprecated no-op, so 2.x code keeps constructing.
 - **Reuse one key.** A new key is a new empty namespace, not an error. Keep the
   key out of source control, logs, and URLs — it is the only thing protecting
   your data. Rotate it with `POST /api/keys/rotate` if it leaks.
+- **Per-user API keys** (2.4.0): `/api/apikeys/user/<user>` (create/list),
+  `/api/apikeys/user/<user>/<key_id>` (revoke), `/api/apikeys/validate`. auth
+  mints `rak_...` secrets for *your users*, shows each exactly once, stores only
+  a hash, and validates them inside your namespace — an identity UI fronts the
+  lifecycle, backends validate then use the RBAC checks. Client methods:
+  `create_api_key`, `list_api_keys`, `revoke_api_key`, `validate_api_key`,
+  `check_api_key_permission` (validate + permission in one round trip), plus
+  `get_settings`/`set_strict_users`. All of these also exist on the in-process
+  `Authorization` wrapper for embedded consumers.
+- **Strict user identity is the default for NEW tenants (3.0.0).** A tenant
+  namespace created after 3.0.0 requires key-backed users for authorization
+  decisions (`user_not_key_backed` answers; key-less membership grants answer
+  409) — create the user's API key first, then grant roles. Every tenant that
+  existed before 3.0.0 was **grandfathered** with an explicit
+  `strict_users: false` row (nothing changed for them at upgrade), and the
+  audited per-tenant opt-out (`PUT /api/settings {"strict_users": false}`)
+  survives indefinitely for validated machine-subject architectures.
+  Details: [docs/DEPRECATIONS.md](docs/DEPRECATIONS.md).
 
 ## Documentation
 

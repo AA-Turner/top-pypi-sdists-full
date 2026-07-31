@@ -94,8 +94,10 @@ class PairLabelField(StrEnum):
 _INTENT_RESPONSE_ERRORS: dict[IntentResponse, tuple[ErrorCode, str]] = {
     IntentResponse.NO_PAIRING_WINDOW: (
         ErrorCode.NO_PAIRING_WINDOW,
-        "receiver pairing window closed; ask the receiver-side admin to "
-        "open Settings → Build server → Pairing requests, then retry",
+        (
+            "receiver pairing window closed; ask the receiver-side admin to "
+            "open Settings → Build server → Pairing requests, then retry"
+        ),
     ),
     IntentResponse.REJECTED: (
         ErrorCode.PRECONDITION_FAILED,
@@ -118,6 +120,9 @@ _DOWNLOAD_ARTIFACTS_REASON_TO_ERROR_CODE: dict[str, ErrorCode] = {
     "job_not_completed": ErrorCode.PRECONDITION_FAILED,
     "duplicate_download": ErrorCode.PRECONDITION_FAILED,
     "pack_failed": ErrorCode.UNAVAILABLE,
+    "stream_failed": ErrorCode.UNAVAILABLE,
+    "busy": ErrorCode.UNAVAILABLE,
+    "shutting_down": ErrorCode.UNAVAILABLE,
 }
 
 

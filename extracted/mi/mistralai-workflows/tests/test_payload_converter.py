@@ -128,3 +128,43 @@ class TestMistralWorkflowsPayloadConverter:
         payloads = converter.to_payloads([pwc])
         assert len(payloads) == 1
         assert payloads[0].metadata[PayloadMetadataKeys.ENCODING] == CUSTOM_ENCODING_FORMAT.encode()
+
+
+class TestPayloadMetadataRoundTrip:
+    """build_temporal_payload_metadata <-> build_info_from_payload_metadata."""
+
+    def test_trusted_extensions_round_trips_independently_of_extensions(self):
+        from mistralai.workflows.core.encoding.utils import (
+            build_info_from_payload_metadata,
+            build_temporal_payload_metadata,
+        )
+
+        context = WorkflowContext(
+            namespace="test-ns",
+            execution_id="test-exec-id",
+            extensions={"mistralai": {"connectors": {"bindings": [{"credentials_name": "caller"}]}}},
+            trusted_extensions={"mistralai": {"resolved_connectors": {"bindings": [{"connector_name": "github"}]}}},
+        )
+
+        metadata = build_temporal_payload_metadata(context, encoding_options=[])
+        restored, _, _ = build_info_from_payload_metadata(metadata)
+
+        assert restored.extensions == context.extensions
+        assert restored.trusted_extensions == context.trusted_extensions
+        # Distinct metadata keys — the two channels never bleed into each other.
+        assert PayloadMetadataKeys.EXTENSIONS in metadata
+        assert PayloadMetadataKeys.TRUSTED_EXTENSIONS in metadata
+        assert metadata[PayloadMetadataKeys.EXTENSIONS] != metadata[PayloadMetadataKeys.TRUSTED_EXTENSIONS]
+
+    def test_absent_trusted_extensions_defaults_to_empty(self):
+        from mistralai.workflows.core.encoding.utils import (
+            build_info_from_payload_metadata,
+            build_temporal_payload_metadata,
+        )
+
+        context = WorkflowContext(namespace="test-ns", execution_id="test-exec-id")
+        metadata = build_temporal_payload_metadata(context, encoding_options=[])
+
+        assert PayloadMetadataKeys.TRUSTED_EXTENSIONS not in metadata
+        restored, _, _ = build_info_from_payload_metadata(metadata)
+        assert restored.trusted_extensions == {}

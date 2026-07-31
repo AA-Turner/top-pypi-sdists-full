@@ -1,7 +1,6 @@
 use std::fmt;
 
 use http::HeaderValue;
-use pyo3::sync::MutexExt as _;
 use pyo3::types::{PyAnyMethods as _, PyDict, PyDictMethods as _, PyString, PyStringMethods as _};
 use pyo3::{exceptions::PyValueError, Py, PyResult, Python};
 use pyo3::{Bound, PyAny};
@@ -62,10 +61,7 @@ impl RequestHead {
         if http3 {
             *req.version_mut() = http::Version::HTTP_3;
         }
-        let hdrs = self.headers.bind(py).borrow();
-        for (name, value) in hdrs.store.lock_py_attached(py).unwrap().iter() {
-            req.headers_mut().append(name, value.as_http(py)?);
-        }
+        self.headers.get().append_to(py, req.headers_mut())?;
         if self.json && !req.headers().contains_key(http::header::CONTENT_TYPE) {
             req.headers_mut()
                 .insert(http::header::CONTENT_TYPE, CONTENT_TYPE_JSON);
@@ -170,4 +166,33 @@ pub(crate) fn maybe_encode_json_content<'py>(
     }
     let json_str = constants.json_dumps.bind(py).call1((value,))?;
     Ok(Some(json_str.cast::<PyString>()?.encode_utf8()?.into_any()))
+}
+
+/// If `value` is an instance of `multipart_class`, encodes it with
+/// `encode_fn`, a Python glue function returning a (content-type, bytes
+/// iterator) tuple, and replaces `headers` with a copy holding the
+/// content-type of the generated boundary.
+pub(crate) fn maybe_encode_multipart_content<'py>(
+    py: Python<'py>,
+    value: Option<&Bound<'py, PyAny>>,
+    headers: &mut Py<Headers>,
+    multipart_class: &Py<PyAny>,
+    encode_fn: &Py<PyAny>,
+) -> PyResult<Option<Bound<'py, PyAny>>> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    if !value.is_instance(multipart_class.bind(py))? {
+        return Ok(None);
+    }
+    let encoded = encode_fn.bind(py).call1((value,))?;
+    let content_type = encoded.get_item(0)?;
+    let content = encoded.get_item(1)?;
+    *headers = Py::new(
+        py,
+        headers
+            .get()
+            .copy_with_content_type(py, content_type.cast::<PyString>()?)?,
+    )?;
+    Ok(Some(content))
 }

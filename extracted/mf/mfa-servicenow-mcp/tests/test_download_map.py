@@ -6,7 +6,7 @@ import json
 import logging
 from pathlib import Path
 
-from servicenow_mcp.utils.download_map import merge_map_file
+from servicenow_mcp.utils.download_map import merge_map_file, stale_sys_ids
 
 
 def _writer_compact(path: Path, payload):
@@ -177,3 +177,187 @@ class TestMergeMapFile:
         assert "added=0" in msg
         assert "updated=0" in msg
         assert "preserved=0" in msg
+
+
+class TestStaleSysIds:
+    """The remote-first incremental gate.
+
+    Each record is judged against ITS OWN anchor. The predecessor asked the
+    server for ``sys_updated_on >= max(local anchors)``, which structurally
+    cannot see a record whose anchor lagged behind its siblings — the query
+    excluded it, the download honestly reported "0 changed", and because a max
+    watermark only rises, that record stayed stale forever.
+    """
+
+    def _seed(self, tmp_path, entries, *, make_dirs=True, body="BODY"):
+        """Write the anchor AND the files it claims to describe.
+
+        An anchor is only allowed to suppress a fetch while it still matches the
+        bytes on disk, so a seed with no real files is (correctly) an anchor that
+        vetoes nothing.
+        """
+        from servicenow_mcp.utils.sync_anchor import field_sha
+
+        entries = {k: dict(v) for k, v in entries.items()}
+        for name, entry in entries.items():
+            if not make_dirs:
+                continue
+            (tmp_path / name).mkdir(parents=True, exist_ok=True)
+            (tmp_path / name / "script.js").write_text(body, encoding="utf-8")
+            entry.setdefault("field_shas", {"script": field_sha(body)})
+        path = tmp_path / "_sync_meta.json"
+        path.write_text(json.dumps(entries), encoding="utf-8")
+        return path
+
+    def test_lagging_anchor_is_fetched_even_below_the_max_watermark(self, tmp_path):
+        path = self._seed(
+            tmp_path,
+            {
+                "fresh": {"sys_id": "a", "sys_updated_on": "2026-07-01", "sys_mod_count": "9"},
+                "lagging": {"sys_id": "b", "sys_updated_on": "2026-05-01", "sys_mod_count": "3"},
+            },
+        )
+        rows = [
+            {"sys_id": "a", "sys_updated_on": "2026-07-01", "sys_mod_count": "9"},
+            # Moved since its own anchor, but older than max(anchors) = 2026-07-01.
+            {"sys_id": "b", "sys_updated_on": "2026-06-15", "sys_mod_count": "5"},
+        ]
+
+        assert stale_sys_ids(path, rows, record_root=tmp_path) == {"b"}
+
+    def test_matching_mod_count_is_not_fetched(self, tmp_path):
+        path = self._seed(
+            tmp_path,
+            {"w": {"sys_id": "a", "sys_updated_on": "2026-07-01", "sys_mod_count": "9"}},
+        )
+        rows = [{"sys_id": "a", "sys_updated_on": "2026-07-01", "sys_mod_count": "9"}]
+
+        assert stale_sys_ids(path, rows, record_root=tmp_path) == set()
+
+    def test_mod_count_beats_the_timestamp(self, tmp_path):
+        """sys_mod_count is the server's own counter — the authority on movement."""
+        path = self._seed(
+            tmp_path,
+            {"w": {"sys_id": "a", "sys_updated_on": "2026-01-01", "sys_mod_count": "9"}},
+        )
+        # Stamp looks newer, but the counter says the record never moved.
+        rows = [{"sys_id": "a", "sys_updated_on": "2026-07-01", "sys_mod_count": "9"}]
+
+        assert stale_sys_ids(path, rows, record_root=tmp_path) == set()
+
+    def test_unanchored_record_is_fetched(self, tmp_path):
+        path = self._seed(tmp_path, {})
+        rows = [{"sys_id": "a", "sys_updated_on": "2026-07-01", "sys_mod_count": "9"}]
+
+        assert stale_sys_ids(path, rows, record_root=tmp_path) == {"a"}
+
+    def test_legacy_anchor_without_mod_count_falls_back_to_timestamps(self, tmp_path):
+        path = self._seed(
+            tmp_path,
+            {
+                "old": {"sys_id": "a", "sys_updated_on": "2026-05-01"},
+                "current": {"sys_id": "b", "sys_updated_on": "2026-07-01"},
+            },
+        )
+        rows = [
+            {"sys_id": "a", "sys_updated_on": "2026-06-15", "sys_mod_count": "5"},
+            {"sys_id": "b", "sys_updated_on": "2026-07-01", "sys_mod_count": "5"},
+        ]
+
+        assert stale_sys_ids(path, rows, record_root=tmp_path) == {"a"}
+
+    def test_unprovable_equality_is_fetched(self, tmp_path):
+        """Missing stamps on either side => fetch. Never guess in the skip direction."""
+        path = self._seed(tmp_path, {"w": {"sys_id": "a", "sys_updated_on": ""}})
+        rows = [{"sys_id": "a", "sys_updated_on": "", "sys_mod_count": ""}]
+
+        assert stale_sys_ids(path, rows, record_root=tmp_path) == {"a"}
+
+    def test_anchor_with_no_files_on_disk_is_fetched(self, tmp_path):
+        path = self._seed(
+            tmp_path,
+            {"w": {"sys_id": "a", "sys_updated_on": "2026-07-01", "sys_mod_count": "9"}},
+            make_dirs=False,
+        )
+        rows = [{"sys_id": "a", "sys_updated_on": "2026-07-01", "sys_mod_count": "9"}]
+
+        assert stale_sys_ids(path, rows, record_root=tmp_path) == {"a"}
+        # Without a record_root the caller opted out of the on-disk check.
+        assert stale_sys_ids(path, rows) == set()
+
+    def test_sanitized_folder_name_is_resolved(self, tmp_path):
+        from servicenow_mcp.utils.sync_anchor import field_sha
+
+        (tmp_path / "my_widget").mkdir()
+        (tmp_path / "my_widget" / "script.js").write_text("BODY", encoding="utf-8")
+        path = self._seed(
+            tmp_path,
+            {
+                "my widget": {
+                    "sys_id": "a",
+                    "sys_updated_on": "2026-07-01",
+                    "sys_mod_count": "9",
+                    "field_shas": {"script": field_sha("BODY")},
+                }
+            },
+            make_dirs=False,
+        )
+        rows = [{"sys_id": "a", "sys_updated_on": "2026-07-01", "sys_mod_count": "9"}]
+
+        assert (
+            stale_sys_ids(
+                path,
+                rows,
+                record_root=tmp_path,
+                name_to_folder=lambda n: n.replace(" ", "_"),
+            )
+            == set()
+        )
+
+    def test_missing_sync_meta_fetches_everything(self, tmp_path):
+        rows = [{"sys_id": "a"}, {"sys_id": "b"}]
+
+        assert stale_sys_ids(tmp_path / "_sync_meta.json", rows) == {"a", "b"}
+
+    def test_anchor_that_no_longer_matches_disk_cannot_veto_the_fetch(self, tmp_path):
+        """The bug: an anchor is a CLAIM about local state, not proof of it.
+
+        The server matching the anchor says nothing about the copy you would be
+        left reading if that copy is not what the anchor describes. Skipping on
+        the anchor alone is how a record you needed never arrived.
+        """
+        path = self._seed(
+            tmp_path,
+            {"w": {"sys_id": "a", "sys_updated_on": "2026-07-01", "sys_mod_count": "9"}},
+        )
+        rows = [{"sys_id": "a", "sys_updated_on": "2026-07-01", "sys_mod_count": "9"}]
+        # Server matches the anchor exactly — the skip case...
+        assert stale_sys_ids(path, rows, record_root=tmp_path) == set()
+        # ...until the file on disk stops being what the anchor claims.
+        (tmp_path / "w" / "script.js").write_text("EDITED", encoding="utf-8")
+        assert stale_sys_ids(path, rows, record_root=tmp_path) == {"a"}
+
+    def test_missing_field_file_cannot_veto_the_fetch(self, tmp_path):
+        path = self._seed(
+            tmp_path,
+            {"w": {"sys_id": "a", "sys_updated_on": "2026-07-01", "sys_mod_count": "9"}},
+        )
+        rows = [{"sys_id": "a", "sys_updated_on": "2026-07-01", "sys_mod_count": "9"}]
+        (tmp_path / "w" / "script.js").unlink()
+
+        assert stale_sys_ids(path, rows, record_root=tmp_path) == {"a"}
+
+    def test_anchor_with_no_recorded_shas_cannot_veto_the_fetch(self, tmp_path):
+        """Nothing to verify against => not verifiable => fetch."""
+        (tmp_path / "w").mkdir()
+        (tmp_path / "w" / "script.js").write_text("BODY", encoding="utf-8")
+        path = tmp_path / "_sync_meta.json"
+        path.write_text(
+            json.dumps(
+                {"w": {"sys_id": "a", "sys_updated_on": "2026-07-01", "sys_mod_count": "9"}}
+            ),
+            encoding="utf-8",
+        )
+        rows = [{"sys_id": "a", "sys_updated_on": "2026-07-01", "sys_mod_count": "9"}]
+
+        assert stale_sys_ids(path, rows, record_root=tmp_path) == {"a"}

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openinference-instrumentation-litellm
-Version: 0.1.34
+Version: 0.1.35
 Summary: OpenInference liteLLM Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-litellm
 Author-email: OpenInference Authors <oss@arize.com>
@@ -17,8 +17,8 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.10
-Requires-Dist: openinference-instrumentation>=0.1.51
-Requires-Dist: openinference-semantic-conventions>=0.1.25
+Requires-Dist: openinference-instrumentation>=0.1.54
+Requires-Dist: openinference-semantic-conventions>=0.1.30
 Requires-Dist: opentelemetry-api
 Requires-Dist: opentelemetry-instrumentation
 Requires-Dist: opentelemetry-sdk
@@ -38,8 +38,10 @@ This package implements OpenInference tracing for the following LiteLLM function
 - aembedding()
 - image_generation()
 - aimage_generation()
+- anthropic.messages.create()
+- anthropic.messages.acreate()
 
-These traces are fully OpenTelemetry compatible and can be sent to an OpenTelemetry collector for viewing, such as [Arize Phoenix](https://github.com/Arize-ai/phoenix).
+These traces are fully OpenTelemetry compatible and can be sent to an OpenTelemetry collector for viewing, such as [Arize Phoenix](https://github.com/Arize-ai/phoenix) or [Arize AX](https://arize.com/docs/ax).
 
 
 ## Installation
@@ -132,5 +134,6 @@ Now any liteLLM function calls you make will not send traces to Phoenix until in
 
 * Details on how to setup a [LiteLLM Proxy](https://docs.litellm.ai/docs/observability/arize_integration)
 * [More info on OpenInference and Phoenix](https://docs.arize.com/phoenix)
+* [More info on OpenInference and Arize AX](https://arize.com/docs/ax)
 * [How to customize spans to track sessions, metadata, etc.](https://github.com/Arize-ai/openinference/tree/main/python/openinference-instrumentation#customizing-spans)
 * [How to account for private information and span payload customization](https://github.com/Arize-ai/openinference/tree/main/python/openinference-instrumentation#tracing-configuration)

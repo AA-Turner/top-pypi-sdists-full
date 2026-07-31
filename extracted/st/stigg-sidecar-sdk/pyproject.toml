@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "stigg-sidecar-sdk"
-version = "7.135.4"
+version = "7.137.0"
 description = ""
 authors = ["Stigg <support@stigg.io>"]
 readme = "README.md"

@@ -132,6 +132,10 @@ class AgentTask:
         self._review_compaction_instruction: str | Callable[[], str] | None = None
         # Set to True by the execution manager after a successful merge to main
         self.merged: bool = False
+        # SHA of the resulting commit on main after that merge. Squash-merging
+        # rewrites history, so the hashes the agent saw inside its VM do not
+        # exist on shared main — this is the only authoritative post-merge ref.
+        self.merged_commit: str | None = None
         # Salvage refs: set by the execution manager when a FAILED agent's git
         # state (committed + dirty + untracked) was best-effort captured to a
         # discoverable hidden ref before the VM was destroyed. Read back by the

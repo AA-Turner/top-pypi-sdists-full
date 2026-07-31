@@ -17,16 +17,19 @@
 """Testing utilities."""
 
 from ._ffi_api import *  # noqa: F403
+from ._locking import run_with_gpu_lock
 from .testing import (
     TestCompare,
     TestCustomCompare,
     TestCustomHash,
     TestEqWithoutHash,
+    TestFrozenCxx,
     TestHash,
     TestIntPair,
     TestNonCopyable,
     TestObjectBase,
     TestObjectDerived,
+    TestObjectPtrHolder,
     _SchemaAllTypes,
     _TestCxxAutoInit,
     _TestCxxAutoInitAllInitOff,
@@ -37,9 +40,12 @@ from .testing import (
     _TestCxxClassBase,
     _TestCxxClassDerived,
     _TestCxxClassDerivedDerived,
+    _TestCxxEnumHolder,
     _TestCxxInitSubset,
+    _TestCxxIntEnum,
     _TestCxxKwOnly,
     _TestCxxNoAutoInit,
+    _TestCxxStrEnum,
     add_one,
     create_object,
     make_unregistered_object,

@@ -1,22 +1,28 @@
 """Tests for local source synchronization tools (sync_tools.py)."""
 
 import json
+import logging
 import time
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from servicenow_mcp.tools.sync_tools import (
+    _EDITOR_HISTORY_LIMIT,
+    _NO_EDITOR_HISTORY,
     DiffLocalComponentParams,
     PushLocalComponentParams,
     _alias_for_instance_url,
     _batch_fetch_updated_on,
+    _component_field_verdicts,
+    _editors_since,
     _find_manifest_json,
     _find_settings_json,
     _find_table_dirs,
     _is_download_root,
     _read_map_json,
     _read_sync_meta,
+    _record_update_set_hold,
     _resolve_local_path,
     _resolve_origin_url,
     _resolve_target_by_name,
@@ -29,6 +35,7 @@ from servicenow_mcp.tools.sync_tools import (
     update_remote_from_local,
 )
 from servicenow_mcp.utils.config import ServerConfig
+from servicenow_mcp.utils.sync_anchor import field_sha, mirror_path_for
 
 
 # ---------------------------------------------------------------------------
@@ -642,6 +649,52 @@ class TestDiffLocalComponent:
         statuses = {c["name"]: c["status"] for c in result["components"]}
         assert statuses["my-widget"] == "local_modified"
 
+    @patch("servicenow_mcp.tools.sync_tools._batch_fetch_updated_on_multi")
+    def test_scan_judges_local_edits_by_content_sha_not_file_mtime(
+        self, mock_batch, mock_config, mock_auth, download_root
+    ):
+        """A freshly downloaded tree must not report itself as locally edited.
+
+        The scan used to compare file mtime against downloaded_at. The downloaders
+        stamp downloaded_at ONCE, before the loop that writes the files, so every
+        record written after that instant looked edited the moment the download
+        finished — and this surface then disagreed with sn_health and the push
+        gate, which both judge by the per-field content sha. Sha is the authority
+        here too now; mtime survives only for trees that have no sha to compare.
+        """
+        from servicenow_mcp.utils.sync_anchor import field_sha
+
+        widget_dir = download_root / "global" / "sp_widget" / "my-widget"
+        table_dir = widget_dir.parent
+        meta = _read_sync_meta(table_dir)
+        meta["my-widget"]["field_shas"] = {
+            "template": field_sha((widget_dir / "template.html").read_text()),
+            "script": field_sha((widget_dir / "script.js").read_text()),
+            "client_script": field_sha((widget_dir / "client_script.js").read_text()),
+            "css": field_sha((widget_dir / "css.scss").read_text()),
+        }
+        # Deliberately ancient, and every file's mtime is "now" — the exact shape
+        # that produced the false positive.
+        meta["my-widget"]["downloaded_at"] = "2025-01-10T10:05:00+00:00"
+        _write_sync_meta(table_dir, meta)
+        mock_batch.return_value = {
+            "sp_widget": {"wid-1": {"on": "2025-01-10 10:00:00", "by": "alice"}}
+        }
+
+        result = diff_local_component(
+            mock_config, mock_auth, DiffLocalComponentParams(path=str(download_root))
+        )
+        statuses = {c["name"]: c["status"] for c in result["components"]}
+        assert statuses["my-widget"] == "unchanged"
+
+        # And a real edit is still caught, with no help from the clock.
+        (widget_dir / "script.js").write_text("var x = 999;", encoding="utf-8")
+        result2 = diff_local_component(
+            mock_config, mock_auth, DiffLocalComponentParams(path=str(download_root))
+        )
+        statuses2 = {c["name"]: c["status"] for c in result2["components"]}
+        assert statuses2["my-widget"] == "local_modified"
+
     def test_diff_nonexistent_path_returns_error(self, mock_config, mock_auth, tmp_path):
         result = diff_local_component(
             mock_config, mock_auth, DiffLocalComponentParams(path=str(tmp_path / "nope"))
@@ -1066,13 +1119,21 @@ class TestUpdateRemoteFromLocal:
         assert result["risk"]["other_user"] is False
         assert "confirm" in result["risk"]["message"].lower()
 
+    @patch("servicenow_mcp.tools.sync_tools._editors_since")
     @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
-    def test_push_flags_ownership_changed_since_download(
-        self, mock_fetch, mock_config, mock_auth, download_root
+    def test_push_flags_another_editor_named_by_the_server(
+        self, mock_fetch, mock_editors, mock_config, mock_auth, download_root
     ):
-        # Free signal: the download baseline said 'alice' owned it; remote now
-        # says 'bob' → ownership changed under me. Surfaced from data already on
-        # hand (local baseline + the one fetch), no extra API call.
+        # The handoff is a SERVER fact, read from the record's own version
+        # history — not inferred from an editor name cached in _sync_meta at
+        # download time, which is stale by construction.
+        mock_editors.return_value = {
+            "checked": True,
+            "complete": True,
+            "attributable": True,
+            "others": ["bob"],
+            "versions": 2,
+        }
         si_meta = download_root / "global" / "sys_script_include" / "_sync_meta.json"
         si_meta.write_text(
             json.dumps(
@@ -1102,13 +1163,76 @@ class TestUpdateRemoteFromLocal:
         )
         assert result["risk"]["attribution"] == "ownership_changed"
         assert result["risk"]["ownership_changed"] is True
-        assert "alice" in result["risk"]["message"] and "bob" in result["risk"]["message"]
+        assert "bob" in result["risk"]["message"]
+        assert result["other_editors_since_your_copy"] == ["bob"]
 
+    @patch("servicenow_mcp.tools.sync_tools.update_portal_component")
+    @patch("servicenow_mcp.tools.sync_tools._editors_since")
+    @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
+    def test_holding_the_last_stamp_yourself_does_not_clear_someone_elses_work(
+        self, mock_fetch, mock_editors, mock_update, mock_config, mock_auth, download_root
+    ):
+        """The case sys_updated_by structurally cannot see.
+
+        Download v1 -> bob edits v2 -> you push anything -> sys_updated_by is you
+        again and bob is gone from that one field, while his change is still on
+        the server. The gate read that as your own edit ("no one else's work is
+        at stake") and would revert him.
+        """
+        mock_editors.return_value = {
+            "checked": True,
+            "complete": True,
+            "attributable": True,
+            "others": ["bob"],
+            "versions": 3,
+        }
+        si_meta = download_root / "global" / "sys_script_include" / "_sync_meta.json"
+        si_meta.write_text(
+            json.dumps(
+                {
+                    "MyUtil": {
+                        "sys_id": "si-1",
+                        "sys_updated_on": "2025-01-10 10:00:00",
+                        "downloaded_at": "2025-01-10T10:05:00+00:00",
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        mock_fetch.return_value = {
+            "sys_id": "si-1",
+            "name": "MyUtil",
+            "script": "// bob's change is in here\nvar a = 1;\n",
+            "sys_updated_on": "2025-01-12 10:00:00",
+            "sys_updated_by": "admin",  # the last stamp is MINE
+            "sys_created_by": "admin",
+            "sys_scope": "global",
+        }
+        path = download_root / "global" / "sys_script_include" / "MyUtil.script.js"
+        result = update_remote_from_local(
+            mock_config, mock_auth, PushLocalComponentParams(path=str(path))
+        )
+
+        assert result["error"] == "CONFLICT_OTHER_USER"
+        assert result["other_editors_since_your_copy"] == ["bob"]
+        assert result["risk"]["level"] in ("high", "critical")
+        mock_update.assert_not_called()
+        # And the "clean fast-forward, force is safe" line must not appear.
+        assert "clean fast-forward" not in result["message"]
+
+    @patch("servicenow_mcp.tools.sync_tools._editors_since")
     @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
     def test_diff_surfaces_attribution_before_push(
-        self, mock_fetch, mock_config, mock_auth, download_root
+        self, mock_fetch, mock_editors, mock_config, mock_auth, download_root
     ):
         # The handoff must be visible at REVIEW time (diff), before any push.
+        mock_editors.return_value = {
+            "checked": True,
+            "complete": True,
+            "attributable": True,
+            "others": ["bob"],
+            "versions": 1,
+        }
         si_meta = download_root / "global" / "sys_script_include" / "_sync_meta.json"
         si_meta.write_text(
             json.dumps(
@@ -1392,9 +1516,9 @@ class TestUpdateRemoteFromLocal:
             {
                 "results": [
                     {
-                        "update_set.name": "GwangSung Choi",
+                        "update_set.name": "Sprint 12 fixes",
                         "update_set.state": "in progress",
-                        "sys_updated_by": "gwang.choi",
+                        "sys_updated_by": "other.dev",
                     }
                 ]
             },  # _record_update_set_hold — held by another user, open
@@ -1405,12 +1529,12 @@ class TestUpdateRemoteFromLocal:
         )
 
         assert result["success"] is False
-        assert result["record_hold"]["held_by"] == "gwang.choi"
-        assert result["record_hold"]["update_set"] == "GwangSung Choi"
+        assert result["record_hold"]["held_by"] == "other.dev"
+        assert result["record_hold"]["update_set"] == "Sprint 12 fixes"
         hint = result["hint"].lower()
         # The hold is surfaced as CONTEXT, never asserted as the 403's cause — an
         # open update set does not lock a record against a Table-API write.
-        assert "gwang.choi" in hint
+        assert "other.dev" in hint
         assert "not a confirmed cause" in hint
         assert "does not by itself lock" in hint
         # Deterministic next step: a single action, and an explicit "do not chase
@@ -1456,9 +1580,9 @@ class TestUpdateRemoteFromLocal:
             {
                 "results": [
                     {
-                        "update_set.name": "GwangSung Choi",
+                        "update_set.name": "Sprint 12 fixes",
                         "update_set.state": "complete",  # committed -> released
-                        "sys_updated_by": "gwang.choi",
+                        "sys_updated_by": "other.dev",
                     }
                 ]
             },
@@ -1473,7 +1597,7 @@ class TestUpdateRemoteFromLocal:
         # No live hold → the hint must NOT name/ blame another user, and must point
         # at the real likely cause (Service Portal protection) instead.
         hint = result["hint"].lower()
-        assert "gwang.choi" not in hint
+        assert "other.dev" not in hint
         assert "service portal" in hint
 
     @patch("servicenow_mcp.tools.sync_tools.sn_query")
@@ -1489,7 +1613,11 @@ class TestUpdateRemoteFromLocal:
             "script": "var x = 99;",
             "sys_updated_on": "2025-01-15 12:00:00",  # newer than 2025-01-10 baseline
         }
-        mock_sn_query.return_value = {"results": []}  # no live hold
+        mock_sn_query.side_effect = [
+            # 1. version history: the change is recorded, and it was mine
+            {"results": [{"sys_created_by": "admin", "sys_created_on": "2025-01-15 12:00:00"}]},
+            {"results": []},  # 2. no live hold
+        ]
         path = download_root / "global" / "sp_widget" / "my-widget" / "script.js"
         result = update_remote_from_local(
             mock_config, mock_auth, PushLocalComponentParams(path=str(path))
@@ -1500,6 +1628,33 @@ class TestUpdateRemoteFromLocal:
         msg = result["message"].lower()
         assert "fast-forward" in msg
         assert "force=true" in msg
+
+    @patch("servicenow_mcp.tools.sync_tools.sn_query")
+    @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
+    def test_an_empty_history_is_not_a_clean_bill_of_health(
+        self, mock_fetch, mock_sn_query, mock_config, mock_auth, download_root
+    ):
+        """sys_update_version exists for records captured in update sets, not for
+        every table. We only ask about a record the server ALREADY said moved — so
+        a history with no record of that change is not tracking it, and an empty
+        result would otherwise read as the cleanest possible answer."""
+        mock_fetch.return_value = {
+            "sys_id": "wid-1",
+            "name": "my-widget",
+            "script": "var x = 99;",
+            "sys_updated_on": "2025-01-15 12:00:00",
+        }
+        mock_sn_query.return_value = {"results": []}  # untracked table, and no hold
+        path = download_root / "global" / "sp_widget" / "my-widget" / "script.js"
+
+        result = update_remote_from_local(
+            mock_config, mock_auth, PushLocalComponentParams(path=str(path))
+        )
+
+        msg = result["message"].lower()
+        assert "fast-forward" not in msg
+        assert "not tracked in update sets" in msg
+        assert result["editor_history"]["covers_full_range"] is False
 
     @patch("servicenow_mcp.tools.sync_tools.sn_query")
     @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
@@ -1516,9 +1671,9 @@ class TestUpdateRemoteFromLocal:
         mock_sn_query.return_value = {
             "results": [
                 {
-                    "update_set.name": "GwangSung Choi",
+                    "update_set.name": "Sprint 12 fixes",
                     "update_set.state": "in progress",
-                    "sys_updated_by": "gwang.choi",
+                    "sys_updated_by": "other.dev",
                 }
             ]
         }
@@ -1527,7 +1682,7 @@ class TestUpdateRemoteFromLocal:
             mock_config, mock_auth, PushLocalComponentParams(path=str(path))
         )
 
-        assert result["record_hold"]["held_by"] == "gwang.choi"
+        assert result["record_hold"]["held_by"] == "other.dev"
         assert "still held by" in result["message"].lower()
 
     @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
@@ -2863,6 +3018,390 @@ class TestModCountDriftAuthority:
         assert d["mod_count_known"] is False
 
 
+class TestEditorHistoryLimits:
+    """What a bounded, best-effort history read is allowed to CLAIM.
+
+    This guard exists to remove a false safety claim ("last editor is me, so
+    nobody else is at stake"). It must not manufacture a new one out of a read
+    that was capped, unattributable, or never happened.
+    """
+
+    @patch("servicenow_mcp.tools.sync_tools.sn_query")
+    def test_unconfirmed_identity_names_nobody(self, mock_query, mock_config, mock_auth):
+        """With an unresolved session every author trivially "is not me".
+
+        Counting them as other editors reintroduces the false accusation the push
+        gate hedges against everywhere else — a user whose SSO identity did not
+        resolve would get CONFLICT_OTHER_USER over their own history rows.
+        """
+        mock_query.return_value = {
+            "results": [
+                {"sys_created_by": "admin", "sys_created_on": "2026-07-30 10:00:00"},
+                {"sys_created_by": "bob", "sys_created_on": "2026-07-29 10:00:00"},
+            ]
+        }
+
+        out = _editors_since(
+            mock_config, mock_auth, "sp_widget", "wid-1", "2026-07-01 00:00:00", "", False
+        )
+
+        assert out["attributable"] is False
+        assert out["others"] == []  # never blame on an unconfirmed identity
+
+    @patch("servicenow_mcp.tools.sync_tools.sn_query")
+    def test_a_full_page_that_never_reaches_the_anchor_is_incomplete(
+        self, mock_query, mock_config, mock_auth
+    ):
+        """A coworker edit can hide behind a wall of your own later versions.
+
+        Newest-first, capped: if the page fills without reaching back past your
+        anchor, "no other editor" is not available to say.
+        """
+        mock_query.return_value = {
+            "results": [
+                {"sys_created_by": "me", "sys_created_on": f"2026-07-{30 - i:02d} 10:00:00"}
+                for i in range(_EDITOR_HISTORY_LIMIT)
+            ]
+        }
+
+        out = _editors_since(
+            mock_config, mock_auth, "sp_widget", "wid-1", "2020-01-01 00:00:00", "me", True
+        )
+
+        assert out["checked"] is True
+        assert out["others"] == []
+        assert out["complete"] is False  # ran out of page, not out of history
+
+    @patch("servicenow_mcp.tools.sync_tools.sn_query")
+    def test_reaching_past_the_anchor_completes_the_range(self, mock_query, mock_config, mock_auth):
+        mock_query.return_value = {
+            "results": [
+                {"sys_created_by": "me", "sys_created_on": "2026-07-30 10:00:00"},
+                # At/older than the anchor: everything after it has been seen.
+                {"sys_created_by": "bob", "sys_created_on": "2026-06-01 10:00:00"},
+            ]
+            + [
+                {"sys_created_by": "x", "sys_created_on": "2026-05-01 10:00:00"}
+                for _ in range(_EDITOR_HISTORY_LIMIT - 2)
+            ]
+        }
+
+        out = _editors_since(
+            mock_config, mock_auth, "sp_widget", "wid-1", "2026-07-01 00:00:00", "me", True
+        )
+
+        assert out["complete"] is True
+        assert out["versions"] == 1  # only the one version after the anchor counts
+        assert out["others"] == []  # bob's edit predates your copy — not a conflict
+
+    @patch("servicenow_mcp.tools.sync_tools.sn_query")
+    def test_the_range_is_cut_locally_not_by_an_encoded_date_query(
+        self, mock_query, mock_config, mock_auth
+    ):
+        """Pin the query. A wrong/unsupported date form fails by returning NOTHING,
+        which would read as "no other editor" — a broken query becoming a safety
+        claim. So the query carries no date filter at all and the cut is local."""
+        mock_query.return_value = {"results": []}
+
+        _editors_since(
+            mock_config, mock_auth, "sp_widget", "wid-1", "2026-07-01 00:00:00", "me", True
+        )
+
+        params = mock_query.call_args.args[2]
+        assert params.query == "name=sp_widget_wid-1"
+        assert "javascript:" not in params.query
+        assert "sys_created_on" in params.fields
+        assert params.orderby == "-sys_created_on"
+
+    @patch("servicenow_mcp.tools.sync_tools.sn_query")
+    def test_a_failed_read_is_not_a_clearance(self, mock_query, mock_config, mock_auth):
+        mock_query.side_effect = RuntimeError("ACL")
+
+        out = _editors_since(
+            mock_config, mock_auth, "sp_widget", "wid-1", "2026-07-01 00:00:00", "me", True
+        )
+
+        assert out["checked"] is False
+        assert out["complete"] is False
+        assert out["others"] == []
+
+    @patch("servicenow_mcp.tools.sync_tools._record_update_set_hold", return_value=(None, True))
+    @patch("servicenow_mcp.tools.sync_tools._editors_since")
+    @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
+    def test_inconclusive_history_never_prints_a_clean_fast_forward(
+        self, mock_fetch, mock_editors, _hold, mock_config, mock_auth, download_root
+    ):
+        mock_editors.return_value = {
+            "checked": True,
+            "complete": False,  # capped read
+            "attributable": True,
+            "others": [],
+            "versions": _EDITOR_HISTORY_LIMIT,
+        }
+        widget_dir = download_root / "global" / "sp_widget" / "my-widget"
+        (widget_dir / "script.js").write_text("var x = 2;", encoding="utf-8")
+        mock_fetch.return_value = {
+            "sys_id": "wid-1",
+            "name": "my-widget",
+            "script": "var x = 999;",
+            "sys_updated_on": "2026-07-30 12:00:00",
+            "sys_updated_by": "admin",
+            "sys_created_by": "admin",
+            "sys_scope": "global",
+        }
+
+        result = update_remote_from_local(
+            mock_config,
+            mock_auth,
+            PushLocalComponentParams(path=str(widget_dir / "script.js")),
+        )
+
+        assert "clean fast-forward" not in result["message"]
+        assert "inconclusive" in result["message"]
+        assert str(_EDITOR_HISTORY_LIMIT) in result["message"]  # says WHICH limit
+        assert result["editor_history"]["covers_full_range"] is False
+
+
+class TestSidecarIsVerifiedNotAssumed:
+    """Every surface that points at a '.remote' sidecar holds the live body, so
+    the sidecar it points at is made current first — the claim and the file agree."""
+
+    @patch("servicenow_mcp.tools.sync_tools._editors_since")
+    @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
+    def test_diff_refreshes_a_stale_sidecar_from_the_live_body(
+        self, mock_fetch, mock_editors, mock_config, mock_auth, download_root
+    ):
+        mock_editors.return_value = dict(_NO_EDITOR_HISTORY)
+        widget_dir = download_root / "global" / "sp_widget" / "my-widget"
+        script = widget_dir / "script.js"
+        table_dir = widget_dir.parent
+        meta = _read_sync_meta(table_dir)
+        meta["my-widget"]["field_shas"] = {"script": field_sha("var x = 1;")}
+        _write_sync_meta(table_dir, meta)
+        script.write_text("var x = 2; // mine", encoding="utf-8")
+        # A sidecar left behind by an older download — the server has moved since.
+        mirror = mirror_path_for(script)
+        mirror.write_text("var x = 50; // YESTERDAY", encoding="utf-8")
+        mock_fetch.return_value = {
+            "sys_id": "wid-1",
+            "name": "my-widget",
+            "script": "var x = 99; // what the server has NOW",
+            "sys_updated_on": "2026-07-30 12:00:00",
+            "sys_updated_by": "bob",
+            "sys_created_by": "admin",
+            "sys_scope": "global",
+        }
+
+        result = diff_local_component(
+            mock_config, mock_auth, DiffLocalComponentParams(path=str(script))
+        )
+
+        # The file you are told to merge from is the server's CURRENT body...
+        assert mirror.read_text(encoding="utf-8") == "var x = 99; // what the server has NOW"
+        # ...and your own work was not touched on the way.
+        assert script.read_text(encoding="utf-8") == "var x = 2; // mine"
+        assert "diverged_both_changed" in result["three_way"]
+
+    @patch("servicenow_mcp.tools.sync_tools._editors_since")
+    @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
+    def test_diff_does_not_invent_a_sidecar_that_was_not_there(
+        self, mock_fetch, mock_editors, mock_config, mock_auth, download_root
+    ):
+        mock_editors.return_value = dict(_NO_EDITOR_HISTORY)
+        widget_dir = download_root / "global" / "sp_widget" / "my-widget"
+        script = widget_dir / "script.js"
+        script.write_text("var x = 2;", encoding="utf-8")
+        mock_fetch.return_value = {
+            "sys_id": "wid-1",
+            "name": "my-widget",
+            "script": "var x = 99;",
+            "sys_updated_on": "2026-07-30 12:00:00",
+            "sys_updated_by": "bob",
+            "sys_created_by": "admin",
+            "sys_scope": "global",
+        }
+
+        diff_local_component(mock_config, mock_auth, DiffLocalComponentParams(path=str(script)))
+
+        assert not mirror_path_for(script).exists()
+
+
+class TestATruncatedBodyNeverOverwritesAMirror:
+    """The bulk/Batch read clips large field bodies. Refreshing a sidecar from one
+    would replace a merely STALE server copy with a CORRUPT one — you would then
+    merge from a clipped body. Only an untruncated read may write the mirror."""
+
+    def test_verdict_scan_reads_the_sidecar_but_never_rewrites_it(self, tmp_path):
+        f = tmp_path / "script.js"
+        f.write_text("my local edit", encoding="utf-8")
+        mirror = mirror_path_for(f)
+        mirror.write_text("the full server body, all 80kb of it", encoding="utf-8")
+
+        # remote_is_complete defaults False — the bulk-scan caller's shape.
+        _rows, _states, sidecars = _component_field_verdicts(
+            {"script": f},
+            {"script": "the full server body, all 8"},  # clipped by the bulk read
+            {"script": field_sha("something else")},
+        )
+
+        assert sidecars == [mirror.name]  # still reported as unresolved
+        assert mirror.read_text(encoding="utf-8") == "the full server body, all 80kb of it"
+
+    def test_an_untruncated_read_may_refresh_it(self, tmp_path):
+        f = tmp_path / "script.js"
+        f.write_text("my local edit", encoding="utf-8")
+        mirror = mirror_path_for(f)
+        mirror.write_text("yesterday's server body", encoding="utf-8")
+
+        _component_field_verdicts(
+            {"script": f},
+            {"script": "today's server body"},
+            {"script": field_sha("something else")},
+            remote_is_complete=True,
+        )
+
+        assert mirror.read_text(encoding="utf-8") == "today's server body"
+
+
+class TestADeniedReadIsNotAClearance:
+    """ "We could not find out" and "there is nothing" must never render alike.
+
+    _record_update_set_hold returned a bare None for six reasons — three of them
+    "the read did not come back" (no ACL on sys_update_xml, a failed query, a row
+    with an unreadable set name) — and the caller printed all six as "no one is
+    holding this record now", immediately before offering a forced overwrite as a
+    clean fast-forward.
+    """
+
+    @patch("servicenow_mcp.tools.sync_tools.sn_query")
+    def test_a_failed_hold_query_is_undetermined_not_unheld(
+        self, mock_query, mock_config, mock_auth
+    ):
+        mock_query.side_effect = RuntimeError("ACL: sys_update_xml")
+
+        hold, determined = _record_update_set_hold(
+            mock_config, mock_auth, "sp_widget", "wid-1", "me"
+        )
+
+        assert hold is None
+        assert determined is False
+
+    @patch("servicenow_mcp.tools.sync_tools.sn_query")
+    def test_no_capture_at_all_is_determined(self, mock_query, mock_config, mock_auth):
+        mock_query.return_value = {"results": []}
+
+        hold, determined = _record_update_set_hold(
+            mock_config, mock_auth, "sp_widget", "wid-1", "me"
+        )
+
+        assert hold is None
+        assert determined is True  # asked, and the answer really is "nobody"
+
+    @patch("servicenow_mcp.tools.sync_tools._editors_since")
+    @patch("servicenow_mcp.tools.sync_tools._record_update_set_hold")
+    @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
+    def test_an_undetermined_hold_never_reads_as_a_clean_fast_forward(
+        self, mock_fetch, mock_hold, mock_editors, mock_config, mock_auth, download_root
+    ):
+        mock_hold.return_value = (None, False)  # the read did not come back
+        mock_editors.return_value = {
+            "checked": True,
+            "complete": True,
+            "attributable": True,
+            "others": [],
+            "versions": 2,
+        }
+        widget_dir = download_root / "global" / "sp_widget" / "my-widget"
+        (widget_dir / "script.js").write_text("var x = 2;", encoding="utf-8")
+        mock_fetch.return_value = {
+            "sys_id": "wid-1",
+            "name": "my-widget",
+            "script": "var x = 999;",
+            "sys_updated_on": "2026-07-30 12:00:00",
+            "sys_updated_by": "admin",
+            "sys_created_by": "admin",
+            "sys_scope": "global",
+        }
+
+        result = update_remote_from_local(
+            mock_config,
+            mock_auth,
+            PushLocalComponentParams(path=str(widget_dir / "script.js")),
+        )
+
+        msg = result["message"]
+        assert "no one is holding" not in msg
+        assert "clean fast-forward" not in msg
+        assert "could not determine" in msg
+
+
+class TestBareForceIsStillTheApproval:
+    """Explicit decision: `force=true` alone REMAINS an approval, not a re-gate.
+
+    The history guard makes the REJECTION accurate and the audit log truthful; it
+    is deliberately not a second wall in front of force. Force is how a human says
+    "yes, overwrite that" — turning it into a block would just push people to a
+    cruder tool. What it must never do is overwrite someone quietly, or record the
+    overwrite against the wrong person.
+    """
+
+    @patch("servicenow_mcp.tools.sync_tools._write_sync_meta")
+    @patch("servicenow_mcp.tools.sync_tools.update_portal_component")
+    @patch("servicenow_mcp.tools.sync_tools._editors_since")
+    @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
+    def test_bare_force_pushes_but_logs_the_editor_the_history_names(
+        self,
+        mock_fetch,
+        mock_editors,
+        mock_update,
+        _meta,
+        mock_config,
+        mock_auth,
+        download_root,
+        caplog,
+    ):
+        mock_editors.return_value = {
+            "checked": True,
+            "complete": True,
+            "attributable": True,
+            "others": ["bob"],
+            "versions": 2,
+        }
+        widget_dir = download_root / "global" / "sp_widget" / "my-widget"
+        (widget_dir / "script.js").write_text("var x = 2;", encoding="utf-8")
+        mock_fetch.side_effect = [
+            {
+                "sys_id": "wid-1",
+                "name": "my-widget",
+                "script": "var x = 999;",
+                "sys_updated_on": "2026-07-30 12:00:00",
+                # The last stamp is MINE — logging this name would record the
+                # overwrite against the wrong person.
+                "sys_updated_by": "admin",
+                "sys_created_by": "admin",
+                "sys_scope": "global",
+            },
+            {
+                "sys_id": "wid-1",
+                "script": "var x = 2;",
+                "sys_updated_on": "2026-07-30 13:00:00",
+                "sys_updated_by": "admin",
+            },
+        ]
+        mock_update.return_value = {"message": "Update successful", "sys_id": "wid-1"}
+
+        with caplog.at_level(logging.WARNING, logger="servicenow_mcp.tools.sync_tools"):
+            result = update_remote_from_local(
+                mock_config,
+                mock_auth,
+                PushLocalComponentParams(path=str(widget_dir / "script.js"), force=True),
+            )
+
+        assert "error" not in result
+        mock_update.assert_called_once()  # force remains an approval
+        assert any("bob" in r.getMessage() for r in caplog.records)
+
+
 class TestContentFirstDriftGate:
     """The gate answers "did the SERVER BODY move since my baseline?" by hashing
     content against the pristine _baseline/ snapshot — NOT by comparing
@@ -2993,6 +3532,154 @@ class TestContentFirstDriftGate:
         assert result["error"] in ("CONFLICT", "CONFLICT_OTHER_USER")
         assert result["drift_verified_by"] == "timestamp"
 
+    @staticmethod
+    def _drop_anchor(widget_dir):
+        """The state a mixed-outcome / legacy download leaves: files, no anchor."""
+        table_dir = widget_dir.parent
+        meta = _read_sync_meta(table_dir)
+        meta.pop(widget_dir.name, None)
+        _write_sync_meta(table_dir, meta)
+
+    @patch("servicenow_mcp.tools.sync_tools.update_portal_component")
+    @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
+    def test_unanchored_local_copy_cannot_silently_overwrite_the_server(
+        self, mock_fetch, mock_update, mock_config, mock_auth, download_root
+    ):
+        """No anchor is not "no drift" — it is "no evidence", and it must block.
+
+        With no _sync_meta entry every signal reads empty: no mod_count, no sha,
+        and timestamp_moved is False because there is no local stamp to be older
+        than. The gate scored that as "nothing moved" and pushed an ancient local
+        body over another developer's current work at risk_level 'none'.
+        """
+        widget_dir = download_root / "global" / "sp_widget" / "my-widget"
+        self._drop_anchor(widget_dir)
+        widget_dir.mkdir(parents=True, exist_ok=True)
+        (widget_dir / "script.js").write_text("var x = 1; // ANCIENT", encoding="utf-8")
+        mock_fetch.return_value = {
+            "sys_id": "wid-1",
+            "name": "my-widget",
+            "script": "var x = 999; // bob's current work",
+            "sys_updated_on": "2026-07-30 12:00:00",
+            "sys_updated_by": "bob",
+            "sys_created_by": "admin",
+            "sys_scope": "global",
+            "sys_mod_count": "42",
+        }
+
+        result = update_remote_from_local(
+            mock_config,
+            mock_auth,
+            PushLocalComponentParams(path=str(widget_dir / "script.js")),
+        )
+
+        assert result["error"] == "CONFLICT_NO_ANCHOR"
+        mock_update.assert_not_called()
+        # The message must name the cheap fix, not just refuse.
+        assert "re-download" in result["message"].lower()
+        assert "force=true" in result["message"]
+
+    @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
+    def test_diff_says_no_anchor_rather_than_blaming_the_server(
+        self, mock_fetch, mock_config, mock_auth, download_root
+    ):
+        """ "No evidence" must not be reported as "the server changed"."""
+        widget_dir = download_root / "global" / "sp_widget" / "my-widget"
+        self._drop_anchor(widget_dir)
+        mock_fetch.return_value = {
+            "sys_id": "wid-1",
+            "name": "my-widget",
+            "script": "var x = 999;",
+            "sys_updated_on": "2026-07-30 12:00:00",
+            "sys_updated_by": "bob",
+            "sys_created_by": "admin",
+            "sys_scope": "global",
+            "sys_mod_count": "42",
+        }
+
+        result = diff_local_component(
+            mock_config,
+            mock_auth,
+            DiffLocalComponentParams(path=str(widget_dir / "script.js")),
+        )
+
+        assert "no sync anchor" in result["conflict_warning"].lower()
+        assert "re-download" in result["conflict_warning"].lower()
+
+    @patch("servicenow_mcp.tools.sync_tools.update_portal_component")
+    @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
+    def test_unanchored_copy_identical_to_the_server_is_not_blocked(
+        self, mock_fetch, mock_update, mock_config, mock_auth, download_root
+    ):
+        """Nothing to overwrite => no decision to gate. The block must not be noise."""
+        widget_dir = download_root / "global" / "sp_widget" / "my-widget"
+        self._drop_anchor(widget_dir)
+        widget_dir.mkdir(parents=True, exist_ok=True)
+        (widget_dir / "script.js").write_text("var x = 1;", encoding="utf-8")
+        mock_fetch.return_value = {
+            "sys_id": "wid-1",
+            "name": "my-widget",
+            "script": "var x = 1;",
+            "sys_updated_on": "2026-07-30 12:00:00",
+            "sys_updated_by": "bob",
+            "sys_created_by": "admin",
+            "sys_scope": "global",
+            "sys_mod_count": "42",
+        }
+
+        result = update_remote_from_local(
+            mock_config,
+            mock_auth,
+            PushLocalComponentParams(path=str(widget_dir / "script.js")),
+        )
+
+        assert "error" not in result
+        mock_update.assert_not_called()  # no changes to push
+
+    @patch("servicenow_mcp.tools.sync_tools.update_portal_component")
+    @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
+    def test_unanchored_push_goes_through_on_the_deliberate_second_approval(
+        self, mock_fetch, mock_update, mock_config, mock_auth, download_root
+    ):
+        """A gate, not a wall: force + confirm still lets a human say "yes, overwrite"."""
+        widget_dir = download_root / "global" / "sp_widget" / "my-widget"
+        self._drop_anchor(widget_dir)
+        widget_dir.mkdir(parents=True, exist_ok=True)
+        (widget_dir / "script.js").write_text("var x = 2;", encoding="utf-8")
+        mock_fetch.side_effect = [
+            {
+                "sys_id": "wid-1",
+                "name": "my-widget",
+                "script": "var x = 999;",
+                "sys_updated_on": "2026-07-30 12:00:00",
+                "sys_updated_by": "bob",
+                "sys_created_by": "admin",
+                "sys_scope": "global",
+                "sys_mod_count": "42",
+            },
+            {
+                "sys_id": "wid-1",
+                "script": "var x = 2;",
+                "sys_updated_on": "2026-07-30 13:00:00",
+                "sys_updated_by": "admin",
+                "sys_mod_count": "43",
+            },
+        ]
+        mock_update.return_value = {"message": "Update successful", "sys_id": "wid-1"}
+
+        result = update_remote_from_local(
+            mock_config,
+            mock_auth,
+            PushLocalComponentParams(
+                path=str(widget_dir / "script.js"),
+                force=True,
+                confirm_overwrite_updated_on="2026-07-30 12:00:00",
+            ),
+        )
+
+        assert "error" not in result
+        mock_update.assert_called_once()
+
     @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
     def test_diff_reports_stale_watermark_instead_of_phantom_conflict(
         self, mock_fetch, mock_config, mock_auth, download_root
@@ -3100,7 +3787,7 @@ class TestDiffRefreshFastForward:
             "sys_id": "wid-1",
             "script": "var x = 99; // theirs",
             "sys_updated_on": "2025-01-20 08:00:00",
-            "sys_updated_by": "gschoi",
+            "sys_updated_by": "bob",
             "sys_mod_count": "9",
         }
 
@@ -3119,7 +3806,7 @@ class TestDiffRefreshFastForward:
         assert result["conflict_warning"] is None
         entry = _read_sync_meta(widget_dir.parent)["my-widget"]
         assert entry["sys_mod_count"] == "9"
-        assert entry["sys_updated_by"] == "gschoi"
+        assert entry["sys_updated_by"] == "bob"
 
     @patch("servicenow_mcp.tools.sync_tools.sn_query")
     @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
@@ -3163,7 +3850,7 @@ class TestDiffRefreshFastForward:
             "sys_id": "wid-1",
             "script": "var x = 99; // theirs",
             "sys_updated_on": "2025-01-20 08:00:00",
-            "sys_updated_by": "gschoi",
+            "sys_updated_by": "bob",
             "sys_mod_count": "9",
         }
 
@@ -3200,7 +3887,7 @@ class TestDiffRefreshFastForward:
             "script": "var x = 1;",
             "css": ".a{color:red}",  # server moved this one only
             "sys_updated_on": "2025-01-20 08:00:00",
-            "sys_updated_by": "gschoi",
+            "sys_updated_by": "bob",
             "sys_mod_count": "9",
         }
 

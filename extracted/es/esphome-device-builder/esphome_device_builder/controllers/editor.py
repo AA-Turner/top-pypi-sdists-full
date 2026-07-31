@@ -1,8 +1,8 @@
 """
 Editor controller — supports the in-browser YAML editor.
 
-Currently exposes live YAML validation; future editor utilities (formatting,
-schema-driven completion, etc.) will live here too.
+Exposes live YAML validation and one-click config migration; future
+editor utilities (formatting, schema-driven completion, etc.) live here too.
 """
 
 from __future__ import annotations
@@ -17,11 +17,13 @@ from typing import TYPE_CHECKING, Any
 from fnv_hash_fast import fnv1a_32
 
 from ..helpers.api import api_command
-from ..helpers.async_ import drain_tasks
+from ..helpers.async_ import drain_tasks, run_in_executor
 from ..helpers.json import JSONDecodeError, dumps, loads
 from ..helpers.process import kill_quietly
 from ..helpers.subprocess import create_subprocess_exec
+from ..models.automations import MigrateConfigResponse
 from .firmware.helpers import _find_esphome_cmd
+from .migrations import render_migrations
 
 if TYPE_CHECKING:
     from ..device_builder import DeviceBuilder
@@ -273,6 +275,24 @@ class EditorController:
     # ------------------------------------------------------------------
     # API commands
     # ------------------------------------------------------------------
+
+    @api_command("editor/migrate_config")
+    async def migrate_config(
+        self,
+        *,
+        content: str,
+        **_kwargs: Any,
+    ) -> dict:
+        """
+        Apply every known migration to *content* in one splice.
+
+        Renamed api and homeassistant spellings plus the ethernet
+        ``clk_mode`` -> ``clk`` conversion; ``yaml_diff`` is ``null``
+        when nothing needed migrating.
+        """
+        result = await run_in_executor(render_migrations, content)
+        diff = result[1] if result is not None else None
+        return MigrateConfigResponse(yaml_diff=diff).to_dict()
 
     @api_command("editor/validate_yaml")
     async def validate_yaml(

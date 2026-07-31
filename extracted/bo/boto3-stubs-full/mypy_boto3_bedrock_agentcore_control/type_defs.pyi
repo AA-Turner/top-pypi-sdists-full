@@ -736,6 +736,7 @@ __all__ = (
     "OnBehalfOfTokenExchangeConfigTypeTypeDef",
     "OnBehalfOfTokenExchangeConfigTypeUnionTypeDef",
     "OnlineEvaluationConfigSummaryTypeDef",
+    "OpenResponsesEvaluatorModelConfigTypeDef",
     "OutputConfigTypeDef",
     "PaginatorConfigTypeDef",
     "PassthroughTargetConfigurationTypeDef",
@@ -771,6 +772,7 @@ __all__ = (
     "PutResourcePolicyResponseTypeDef",
     "RatingScaleOutputTypeDef",
     "RatingScaleTypeDef",
+    "ReasoningConfigurationTypeDef",
     "RecordingConfigTypeDef",
     "ReflectionConfigurationTypeDef",
     "RegistryRecordCredentialProviderConfigurationOutputTypeDef",
@@ -2264,6 +2266,9 @@ class Oauth2AuthorizationServerMetadataTypeDef(TypedDict):
 class TokenExchangeGrantTypeConfigTypeOutputTypeDef(TypedDict):
     actorTokenContent: ActorTokenContentTypeType
     actorTokenScopes: NotRequired[list[str]]
+
+class ReasoningConfigurationTypeDef(TypedDict):
+    effort: NotRequired[str]
 
 class StickinessConfigurationTypeDef(TypedDict):
     identifier: str
@@ -3805,6 +3810,13 @@ class OnBehalfOfTokenExchangeConfigTypeOutputTypeDef(TypedDict):
     grantType: OnBehalfOfTokenExchangeGrantTypeTypeType
     tokenExchangeGrantTypeConfig: NotRequired[TokenExchangeGrantTypeConfigTypeOutputTypeDef]
 
+class OpenResponsesEvaluatorModelConfigTypeDef(TypedDict):
+    modelId: str
+    maxOutputTokens: NotRequired[int]
+    temperature: NotRequired[float]
+    topP: NotRequired[float]
+    reasoning: NotRequired[ReasoningConfigurationTypeDef]
+
 class PolicyDefinitionTypeDef(TypedDict):
     cedar: NotRequired[CedarPolicyTypeDef]
     policyGeneration: NotRequired[PolicyGenerationDetailsTypeDef]
@@ -3931,12 +3943,6 @@ class CustomClaimValidationTypeOutputTypeDef(TypedDict):
     inboundTokenClaimName: str
     inboundTokenClaimValueType: InboundTokenClaimValueTypeType
     authorizingClaimMatchValue: AuthorizingClaimMatchValueTypeOutputTypeDef
-
-class EvaluatorModelConfigOutputTypeDef(TypedDict):
-    bedrockEvaluatorModelConfig: NotRequired[BedrockEvaluatorModelConfigOutputTypeDef]
-
-class EvaluatorModelConfigTypeDef(TypedDict):
-    bedrockEvaluatorModelConfig: NotRequired[BedrockEvaluatorModelConfigTypeDef]
 
 BrowserNetworkConfigurationUnionTypeDef = Union[
     BrowserNetworkConfigurationTypeDef, BrowserNetworkConfigurationOutputTypeDef
@@ -4329,6 +4335,14 @@ class Oauth2DiscoveryTypeDef(TypedDict):
     discoveryUrl: NotRequired[str]
     authorizationServerMetadata: NotRequired[Oauth2AuthorizationServerMetadataUnionTypeDef]
 
+class EvaluatorModelConfigOutputTypeDef(TypedDict):
+    bedrockEvaluatorModelConfig: NotRequired[BedrockEvaluatorModelConfigOutputTypeDef]
+    responsesEvaluatorModelConfig: NotRequired[OpenResponsesEvaluatorModelConfigTypeDef]
+
+class EvaluatorModelConfigTypeDef(TypedDict):
+    bedrockEvaluatorModelConfig: NotRequired[BedrockEvaluatorModelConfigTypeDef]
+    responsesEvaluatorModelConfig: NotRequired[OpenResponsesEvaluatorModelConfigTypeDef]
+
 class CreatePolicyRequestTypeDef(TypedDict):
     name: str
     definition: PolicyDefinitionTypeDef
@@ -4506,16 +4520,6 @@ class ListGatewayTargetsResponseTypeDef(TypedDict):
     items: list[TargetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
-
-class LlmAsAJudgeEvaluatorConfigOutputTypeDef(TypedDict):
-    instructions: str
-    ratingScale: RatingScaleOutputTypeDef
-    modelConfig: EvaluatorModelConfigOutputTypeDef
-
-class LlmAsAJudgeEvaluatorConfigTypeDef(TypedDict):
-    instructions: str
-    ratingScale: RatingScaleTypeDef
-    modelConfig: EvaluatorModelConfigTypeDef
 
 NetworkConfigurationUnionTypeDef = Union[
     NetworkConfigurationTypeDef, NetworkConfigurationOutputTypeDef
@@ -4711,6 +4715,16 @@ HarnessGatewayOutboundAuthUnionTypeDef = Union[
 ]
 Oauth2DiscoveryUnionTypeDef = Union[Oauth2DiscoveryTypeDef, Oauth2DiscoveryOutputTypeDef]
 
+class LlmAsAJudgeEvaluatorConfigOutputTypeDef(TypedDict):
+    instructions: str
+    ratingScale: RatingScaleOutputTypeDef
+    modelConfig: EvaluatorModelConfigOutputTypeDef
+
+class LlmAsAJudgeEvaluatorConfigTypeDef(TypedDict):
+    instructions: str
+    ratingScale: RatingScaleTypeDef
+    modelConfig: EvaluatorModelConfigTypeDef
+
 class ListPolicyGenerationAssetsResponseTypeDef(TypedDict):
     policyGenerationAssets: list[PolicyGenerationAssetTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -4771,14 +4785,6 @@ OnBehalfOfTokenExchangeConfigTypeUnionTypeDef = Union[
 class HttpTargetConfigurationTypeDef(TypedDict):
     agentcoreRuntime: NotRequired[RuntimeTargetConfigurationTypeDef]
     passthrough: NotRequired[PassthroughTargetConfigurationTypeDef]
-
-class EvaluatorConfigOutputTypeDef(TypedDict):
-    llmAsAJudge: NotRequired[LlmAsAJudgeEvaluatorConfigOutputTypeDef]
-    codeBased: NotRequired[CodeBasedEvaluatorConfigTypeDef]
-
-class EvaluatorConfigTypeDef(TypedDict):
-    llmAsAJudge: NotRequired[LlmAsAJudgeEvaluatorConfigTypeDef]
-    codeBased: NotRequired[CodeBasedEvaluatorConfigTypeDef]
 
 class HarnessAgentCoreRuntimeEnvironmentRequestTypeDef(TypedDict):
     lifecycleConfiguration: NotRequired[LifecycleConfigurationTypeDef]
@@ -4866,6 +4872,14 @@ class HarnessAgentCoreGatewayConfigTypeDef(TypedDict):
     gatewayArn: str
     outboundAuth: NotRequired[HarnessGatewayOutboundAuthUnionTypeDef]
 
+class EvaluatorConfigOutputTypeDef(TypedDict):
+    llmAsAJudge: NotRequired[LlmAsAJudgeEvaluatorConfigOutputTypeDef]
+    codeBased: NotRequired[CodeBasedEvaluatorConfigTypeDef]
+
+class EvaluatorConfigTypeDef(TypedDict):
+    llmAsAJudge: NotRequired[LlmAsAJudgeEvaluatorConfigTypeDef]
+    codeBased: NotRequired[CodeBasedEvaluatorConfigTypeDef]
+
 class AuthorizerConfigurationOutputTypeDef(TypedDict):
     customJWTAuthorizer: NotRequired[CustomJWTAuthorizerConfigurationOutputTypeDef]
 
@@ -4927,22 +4941,6 @@ class LlmExtractionConfigTypeDef(TypedDict):
 class RouteToTargetActionTypeDef(TypedDict):
     staticRoute: NotRequired[StaticRouteTypeDef]
     weightedRoute: NotRequired[WeightedRouteUnionTypeDef]
-
-class GetEvaluatorResponseTypeDef(TypedDict):
-    evaluatorArn: str
-    evaluatorId: str
-    evaluatorName: str
-    description: str
-    evaluatorConfig: EvaluatorConfigOutputTypeDef
-    level: EvaluatorLevelType
-    status: EvaluatorStatusType
-    createdAt: datetime
-    updatedAt: datetime
-    lockedForModification: bool
-    kmsKeyArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-EvaluatorConfigUnionTypeDef = Union[EvaluatorConfigTypeDef, EvaluatorConfigOutputTypeDef]
 
 class HarnessEnvironmentProviderRequestTypeDef(TypedDict):
     agentCoreRuntimeEnvironment: NotRequired[HarnessAgentCoreRuntimeEnvironmentRequestTypeDef]
@@ -5028,6 +5026,22 @@ CredentialProviderConfigurationUnionTypeDef = Union[
 HarnessAgentCoreGatewayConfigUnionTypeDef = Union[
     HarnessAgentCoreGatewayConfigTypeDef, HarnessAgentCoreGatewayConfigOutputTypeDef
 ]
+
+class GetEvaluatorResponseTypeDef(TypedDict):
+    evaluatorArn: str
+    evaluatorId: str
+    evaluatorName: str
+    description: str
+    evaluatorConfig: EvaluatorConfigOutputTypeDef
+    level: EvaluatorLevelType
+    status: EvaluatorStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    lockedForModification: bool
+    kmsKeyArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+EvaluatorConfigUnionTypeDef = Union[EvaluatorConfigTypeDef, EvaluatorConfigOutputTypeDef]
 
 class CreateGatewayResponseTypeDef(TypedDict):
     gatewayArn: str
@@ -5307,23 +5321,6 @@ RouteToTargetActionUnionTypeDef = Union[
     RouteToTargetActionTypeDef, RouteToTargetActionOutputTypeDef
 ]
 
-class CreateEvaluatorRequestTypeDef(TypedDict):
-    evaluatorName: str
-    evaluatorConfig: EvaluatorConfigUnionTypeDef
-    level: EvaluatorLevelType
-    clientToken: NotRequired[str]
-    description: NotRequired[str]
-    kmsKeyArn: NotRequired[str]
-    tags: NotRequired[Mapping[str, str]]
-
-class UpdateEvaluatorRequestTypeDef(TypedDict):
-    evaluatorId: str
-    clientToken: NotRequired[str]
-    description: NotRequired[str]
-    evaluatorConfig: NotRequired[EvaluatorConfigUnionTypeDef]
-    level: NotRequired[EvaluatorLevelType]
-    kmsKeyArn: NotRequired[str]
-
 class ListGatewayRulesResponseTypeDef(TypedDict):
     gatewayRules: list[GatewayRuleDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -5365,6 +5362,23 @@ class HarnessToolConfigurationTypeDef(TypedDict):
     agentCoreGateway: NotRequired[HarnessAgentCoreGatewayConfigUnionTypeDef]
     inlineFunction: NotRequired[HarnessInlineFunctionConfigUnionTypeDef]
     agentCoreCodeInterpreter: NotRequired[HarnessAgentCoreCodeInterpreterConfigTypeDef]
+
+class CreateEvaluatorRequestTypeDef(TypedDict):
+    evaluatorName: str
+    evaluatorConfig: EvaluatorConfigUnionTypeDef
+    level: EvaluatorLevelType
+    clientToken: NotRequired[str]
+    description: NotRequired[str]
+    kmsKeyArn: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+
+class UpdateEvaluatorRequestTypeDef(TypedDict):
+    evaluatorId: str
+    clientToken: NotRequired[str]
+    description: NotRequired[str]
+    evaluatorConfig: NotRequired[EvaluatorConfigUnionTypeDef]
+    level: NotRequired[EvaluatorLevelType]
+    kmsKeyArn: NotRequired[str]
 
 class CreateHarnessResponseTypeDef(TypedDict):
     harness: HarnessTypeDef

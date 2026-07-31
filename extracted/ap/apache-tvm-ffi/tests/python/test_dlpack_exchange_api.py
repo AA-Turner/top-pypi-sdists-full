@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import ctypes
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -31,6 +32,7 @@ try:
     import tvm_ffi
     from torch.utils import cpp_extension
     from tvm_ffi import libinfo
+    from tvm_ffi.testing import run_with_gpu_lock
 except ImportError:
     torch = None  # ty: ignore[invalid-assignment]
 
@@ -40,7 +42,7 @@ _has_gpu = torch is not None and torch.cuda.is_available()
 
 
 @pytest.mark.skipif(not _has_dlpack_api, reason="PyTorch DLPack Exchange API not available")
-def test_dlpack_exchange_api() -> None:
+def test_dlpack_exchange_api(tmp_path: Path) -> None:
     # xfail the test on windows platform, it seems to be a bug in torch extension building on windows
     if sys.platform.startswith("win"):
         pytest.xfail("DLPack Exchange API test is known to fail on Windows platform")
@@ -209,6 +211,7 @@ def test_dlpack_exchange_api() -> None:
         cpp_sources=[source],
         functions=["test_dlpack_api"],
         extra_include_paths=include_paths,
+        build_directory=str(tmp_path),
     )
 
     # Run the comprehensive test
@@ -223,17 +226,21 @@ def test_dlpack_exchange_api_gpu_tensor_metadata() -> None:
     assert torch is not None
     echo = tvm_ffi.get_global_func("testing.echo")
 
-    for shape in [(512,), (512, 512), (2, 3, 4)]:
-        source = torch.empty(shape, device="cuda", dtype=torch.float16)
+    def run_and_check() -> None:
+        assert torch is not None
+        for shape in [(512,), (512, 512), (2, 3, 4)]:
+            source = torch.empty(shape, device="cuda", dtype=torch.float16)
 
-        tvm_tensor = tvm_ffi.from_dlpack(source)
-        assert tvm_tensor.shape == shape
-        assert tvm_tensor.dtype == tvm_ffi.dtype("float16")
+            tvm_tensor = tvm_ffi.from_dlpack(source)
+            assert tvm_tensor.shape == shape
+            assert tvm_tensor.dtype == tvm_ffi.dtype("float16")
 
-        echoed = echo(source)
-        assert tuple(echoed.shape) == shape
-        assert echoed.dtype == source.dtype
-        assert echoed.device == source.device
+            echoed = echo(source)
+            assert tuple(echoed.shape) == shape
+            assert echoed.dtype == source.dtype
+            assert echoed.device == source.device
+
+    run_with_gpu_lock(run_and_check)
 
 
 @pytest.mark.skipif(not _has_dlpack_api, reason="PyTorch DLPack Exchange API not available")

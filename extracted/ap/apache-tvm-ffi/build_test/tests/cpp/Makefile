@@ -377,6 +377,30 @@ extra/test_structural_key.cc.s:
 	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_structural_key.cc.s
 .PHONY : extra/test_structural_key.cc.s
 
+extra/test_structural_visit.o: extra/test_structural_visit.cc.o
+.PHONY : extra/test_structural_visit.o
+
+# target to build an object file
+extra/test_structural_visit.cc.o:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_structural_visit.cc.o
+.PHONY : extra/test_structural_visit.cc.o
+
+extra/test_structural_visit.i: extra/test_structural_visit.cc.i
+.PHONY : extra/test_structural_visit.i
+
+# target to preprocess a source file
+extra/test_structural_visit.cc.i:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_structural_visit.cc.i
+.PHONY : extra/test_structural_visit.cc.i
+
+extra/test_structural_visit.s: extra/test_structural_visit.cc.s
+.PHONY : extra/test_structural_visit.s
+
+# target to generate assembly for a file
+extra/test_structural_visit.cc.s:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_structural_visit.cc.s
+.PHONY : extra/test_structural_visit.cc.s
+
 extra/test_visit_error_context.o: extra/test_visit_error_context.cc.o
 .PHONY : extra/test_visit_error_context.o
 
@@ -400,6 +424,30 @@ extra/test_visit_error_context.s: extra/test_visit_error_context.cc.s
 extra/test_visit_error_context.cc.s:
 	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_visit_error_context.cc.s
 .PHONY : extra/test_visit_error_context.cc.s
+
+test_abi_object.o: test_abi_object.cc.o
+.PHONY : test_abi_object.o
+
+# target to build an object file
+test_abi_object.cc.o:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_abi_object.cc.o
+.PHONY : test_abi_object.cc.o
+
+test_abi_object.i: test_abi_object.cc.i
+.PHONY : test_abi_object.i
+
+# target to preprocess a source file
+test_abi_object.cc.i:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_abi_object.cc.i
+.PHONY : test_abi_object.cc.i
+
+test_abi_object.s: test_abi_object.cc.s
+.PHONY : test_abi_object.s
+
+# target to generate assembly for a file
+test_abi_object.cc.s:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_abi_object.cc.s
+.PHONY : test_abi_object.cc.s
 
 test_any.o: test_any.cc.o
 .PHONY : test_any.o
@@ -472,6 +520,30 @@ test_base.s: test_base.cc.s
 test_base.cc.s:
 	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_base.cc.s
 .PHONY : test_base.cc.s
+
+test_device.o: test_device.cc.o
+.PHONY : test_device.o
+
+# target to build an object file
+test_device.cc.o:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_device.cc.o
+.PHONY : test_device.cc.o
+
+test_device.i: test_device.cc.i
+.PHONY : test_device.i
+
+# target to preprocess a source file
+test_device.cc.i:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_device.cc.i
+.PHONY : test_device.cc.i
+
+test_device.s: test_device.cc.s
+.PHONY : test_device.s
+
+# target to generate assembly for a file
+test_device.cc.s:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_device.cc.s
+.PHONY : test_device.cc.s
 
 test_dict.o: test_dict.cc.o
 .PHONY : test_dict.o
@@ -737,6 +809,30 @@ test_object.cc.s:
 	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_object.cc.s
 .PHONY : test_object.cc.s
 
+test_object_ptr.o: test_object_ptr.cc.o
+.PHONY : test_object_ptr.o
+
+# target to build an object file
+test_object_ptr.cc.o:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_object_ptr.cc.o
+.PHONY : test_object_ptr.cc.o
+
+test_object_ptr.i: test_object_ptr.cc.i
+.PHONY : test_object_ptr.i
+
+# target to preprocess a source file
+test_object_ptr.cc.i:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_object_ptr.cc.i
+.PHONY : test_object_ptr.cc.i
+
+test_object_ptr.s: test_object_ptr.cc.s
+.PHONY : test_object_ptr.s
+
+# target to generate assembly for a file
+test_object_ptr.cc.s:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_object_ptr.cc.s
+.PHONY : test_object_ptr.cc.s
+
 test_optional.o: test_optional.cc.o
 .PHONY : test_optional.o
 
@@ -991,9 +1087,15 @@ help:
 	@echo "... extra/test_structural_key.o"
 	@echo "... extra/test_structural_key.i"
 	@echo "... extra/test_structural_key.s"
+	@echo "... extra/test_structural_visit.o"
+	@echo "... extra/test_structural_visit.i"
+	@echo "... extra/test_structural_visit.s"
 	@echo "... extra/test_visit_error_context.o"
 	@echo "... extra/test_visit_error_context.i"
 	@echo "... extra/test_visit_error_context.s"
+	@echo "... test_abi_object.o"
+	@echo "... test_abi_object.i"
+	@echo "... test_abi_object.s"
 	@echo "... test_any.o"
 	@echo "... test_any.i"
 	@echo "... test_any.s"
@@ -1003,6 +1105,9 @@ help:
 	@echo "... test_base.o"
 	@echo "... test_base.i"
 	@echo "... test_base.s"
+	@echo "... test_device.o"
+	@echo "... test_device.i"
+	@echo "... test_device.s"
 	@echo "... test_dict.o"
 	@echo "... test_dict.i"
 	@echo "... test_dict.s"
@@ -1036,6 +1141,9 @@ help:
 	@echo "... test_object.o"
 	@echo "... test_object.i"
 	@echo "... test_object.s"
+	@echo "... test_object_ptr.o"
+	@echo "... test_object_ptr.i"
+	@echo "... test_object_ptr.s"
 	@echo "... test_optional.o"
 	@echo "... test_optional.i"
 	@echo "... test_optional.s"

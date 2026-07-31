@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect-client
-Version: 3.8.0
+Version: 3.8.1
 Summary: Workflow orchestration and management.
 Project-URL: Changelog, https://github.com/PrefectHQ/prefect/releases
 Project-URL: Documentation, https://docs.prefect.io
@@ -22,7 +22,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: <3.15,>=3.10
 Requires-Dist: amplitude-analytics<2.0.0,>=1.2.1
-Requires-Dist: anyio!=4.14.2,<5.0.0,>=4.4.0
+Requires-Dist: anyio<5.0.0,>=4.4.0
 Requires-Dist: asgi-lifespan<3.0,>=1.0
 Requires-Dist: cachetools<8.0,>=5.3
 Requires-Dist: cloudpickle<4.0,>=2.0

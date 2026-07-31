@@ -11,14 +11,14 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@aws-cdk/cloud-assembly-schema",
-    "54.14.0",
+    "54.15.0",
     __name__[0:-6],
-    "cloud-assembly-schema@54.14.0.jsii.tgz",
+    "cloud-assembly-schema@54.15.0.jsii.tgz",
 )
 
 __all__ = [

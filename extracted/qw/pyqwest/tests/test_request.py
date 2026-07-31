@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
-from typing import TYPE_CHECKING, cast
+from collections.abc import AsyncIterator, Iterator
+from typing import cast
 
 import pytest
 
-from pyqwest import Headers, Request, SyncRequest
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator
+from pyqwest import Headers, Multipart, Request, SyncMultipart, SyncRequest
 
 
 @pytest.mark.asyncio
@@ -106,7 +103,10 @@ async def test_request_content_invalid():
             content=cast("bytes", "invalid"),
         )
 
-    assert str(excinfo.value) == "Content must be bytes or an async iterator of bytes"
+    assert (
+        str(excinfo.value)
+        == "Content must be bytes, an async iterator of bytes, or Multipart"
+    )
 
 
 def test_sync_request_content_invalid():
@@ -118,6 +118,124 @@ def test_sync_request_content_invalid():
         )
 
     assert str(excinfo.value) == "'int' object is not iterable"
+
+
+def multipart_boundary_from_headers(headers: Headers) -> str:
+    content_type = headers["content-type"]
+    prefix = "multipart/form-data; boundary="
+    assert content_type.startswith(prefix)
+    return content_type.removeprefix(prefix)
+
+
+def expected_multipart_body(boundary: str) -> bytes:
+    return (
+        f"--{boundary}\r\n"
+        'content-disposition: form-data; name="field"\r\n'
+        "\r\n"
+        "value\r\n"
+        f"--{boundary}--\r\n"
+    ).encode()
+
+
+@pytest.mark.asyncio
+async def test_request_content_multipart():
+    headers = Headers({"content-type": "multipart/form-data", "x-hello": "world"})
+    request = Request(
+        method="POST",
+        url="https://example.com/upload",
+        headers=headers,
+        content=Multipart({"field": b"value"}),
+    )
+
+    boundary = multipart_boundary_from_headers(request.headers)
+    assert request.headers["x-hello"] == "world"
+    # The request headers are a copy, leaving the provided headers unchanged.
+    assert headers["content-type"] == "multipart/form-data"
+
+    assert isinstance(request.content, AsyncIterator)
+    content = bytearray()
+    async for chunk in cast("AsyncIterator[bytes]", request.content):
+        content.extend(chunk)
+    assert bytes(content) == expected_multipart_body(boundary)
+
+
+def test_sync_request_content_multipart():
+    headers = Headers({"content-type": "multipart/form-data", "x-hello": "world"})
+    request = SyncRequest(
+        method="POST",
+        url="https://example.com/upload",
+        headers=headers,
+        content=SyncMultipart({"field": b"value"}),
+    )
+
+    boundary = multipart_boundary_from_headers(request.headers)
+    assert request.headers["x-hello"] == "world"
+    # The request headers are a copy, leaving the provided headers unchanged.
+    assert headers["content-type"] == "multipart/form-data"
+
+    assert isinstance(request.content, Iterator)
+    content = cast("Iterator[bytes]", request.content)
+    assert b"".join(content) == expected_multipart_body(boundary)
+
+
+@pytest.mark.parametrize("mode", ["sync", "async"])
+def test_request_multipart_other_content_type(mode: str):
+    headers = Headers({"content-type": "text/plain"})
+    with pytest.raises(ValueError, match="must be unset or multipart/form-data"):
+        if mode == "sync":
+            SyncRequest(
+                method="POST",
+                url="https://example.com/upload",
+                headers=headers,
+                content=SyncMultipart({"field": b"value"}),
+            )
+        else:
+            Request(
+                method="POST",
+                url="https://example.com/upload",
+                headers=headers,
+                content=Multipart({"field": b"value"}),
+            )
+
+
+@pytest.mark.asyncio
+async def test_request_multipart_unique_boundaries():
+    multipart = Multipart({"field": b"value"})
+    boundaries = {
+        multipart_boundary_from_headers(
+            Request(
+                method="POST", url="https://example.com/upload", content=multipart
+            ).headers
+        )
+        for _ in range(2)
+    }
+    assert len(boundaries) == 2
+
+
+@pytest.mark.asyncio
+async def test_request_content_sync_multipart():
+    multipart = SyncMultipart({"field": b"value"})
+    with pytest.raises(TypeError) as excinfo:
+        Request(
+            method="POST",
+            url="https://example.com/upload",
+            content=cast("Multipart", multipart),
+        )
+    assert (
+        str(excinfo.value)
+        == "Content must be bytes, an async iterator of bytes, or Multipart"
+    )
+
+
+def test_sync_request_content_async_multipart():
+    multipart = Multipart({"field": b"value"})
+    with pytest.raises(TypeError) as excinfo:
+        SyncRequest(
+            method="POST",
+            url="https://example.com/upload",
+            content=cast("SyncMultipart", multipart),
+        )
+    assert str(excinfo.value) == "'Multipart' object is not iterable"
 
 
 @pytest.mark.asyncio

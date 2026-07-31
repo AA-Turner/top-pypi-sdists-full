@@ -1,2 +1,0 @@
-import{o as e}from"./vendor-codemirror-BM26gGeY.js";import{i as t,n,t as r}from"./breadcrumb-Kinpr9B5.js";var i=e(),a=()=>(0,i.jsx)(`div`,{className:`flex items-center gap-2`,children:(0,i.jsx)(r,{children:(0,i.jsx)(t,{children:(0,i.jsx)(n,{className:`text-xl font-semibold`,children:`Deployments`})})})});export{a as t};
-//# sourceMappingURL=header-C1zi1-S4.js.map

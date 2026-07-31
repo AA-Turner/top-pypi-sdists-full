@@ -1780,6 +1780,7 @@ def register_generated_tools(mcp, _get_client):
         platform: str | None = None,
         account_id: str | None = None,
         ad_account_id: str | None = None,
+        page_id: str | None = None,
         profile_id: str | None = None,
         campaign_id: str | None = None,
         platform_ad_id: str | None = None,
@@ -1798,6 +1799,7 @@ def register_generated_tools(mcp, _get_client):
             platform
             account_id: Social account ID
             ad_account_id: Platform ad account ID (e.g. act_123 for Meta). Mirrors the same filter on /v1/ads/campaigns and /v1/ads/tree.
+            page_id: Meta only: Facebook Page ID. Returns only ads whose creative is backed by this Page (a Meta ad account serves ads for every Page in the Business Manager). Matches each ad's `creative.pageId`; ads with no page signal (rare IG-only creatives) never match. Mirrors the same filter on /v1/ads/campaigns and /v1/ads/tree.
             profile_id: Profile ID
             campaign_id: Platform campaign ID (filter ads within a campaign)
             platform_ad_id: Meta ad ID. Returns the ad with this platform-side ad ID.
@@ -1815,6 +1817,7 @@ def register_generated_tools(mcp, _get_client):
                 platform=platform,
                 account_id=account_id,
                 ad_account_id=ad_account_id,
+                page_id=page_id,
                 profile_id=profile_id,
                 campaign_id=campaign_id,
                 platform_ad_id=platform_ad_id,
@@ -1896,6 +1899,7 @@ def register_generated_tools(mcp, _get_client):
         platform: str | None = None,
         status: str | None = None,
         ad_account_id: str | None = None,
+        page_id: str | None = None,
         account_id: str | None = None,
         profile_id: str | None = None,
         from_date: str | None = None,
@@ -1910,6 +1914,7 @@ def register_generated_tools(mcp, _get_client):
             platform
             status: Filter by derived campaign status (post-aggregation)
             ad_account_id: Platform ad account ID (e.g. act_123 for Meta)
+            page_id: Meta only: Facebook Page ID. Campaigns have no Page of their own, so this keeps campaigns having at least one ad backed by this Page, with adCount and metrics computed over those ads only. Mirrors the same filter on /v1/ads and /v1/ads/tree.
             account_id: Social account ID
             profile_id: Profile ID
             from_date: Start of metrics date range (YYYY-MM-DD, inclusive). Defaults to 90 days ago when both date params are omitted.
@@ -1923,6 +1928,7 @@ def register_generated_tools(mcp, _get_client):
                 platform=platform,
                 status=status,
                 ad_account_id=ad_account_id,
+                page_id=page_id,
                 account_id=account_id,
                 profile_id=profile_id,
                 from_date=from_date,
@@ -2366,6 +2372,7 @@ def register_generated_tools(mcp, _get_client):
         platform: str | None = None,
         status: str | None = None,
         ad_account_id: str | None = None,
+        page_id: str | None = None,
         account_id: str | None = None,
         profile_id: str | None = None,
         campaign_id: str | None = None,
@@ -2384,6 +2391,7 @@ def register_generated_tools(mcp, _get_client):
             platform
             status: Filter by derived campaign status (post-aggregation)
             ad_account_id: Platform ad account ID
+            page_id: Meta only: Facebook Page ID. Prunes the tree to ads whose creative is backed by this Page — campaigns and ad sets with no ad on the Page drop out, and rolled-up metrics cover only the Page's ads. Mirrors the same filter on /v1/ads and /v1/ads/campaigns.
             account_id: Social account ID
             profile_id: Profile ID
             campaign_id: Restrict the tree to a single campaign by its platform campaign id (the id the platform assigns, e.g. Meta's numeric campaign id). Filters the campaign set itself, so it works regardless of account size and pagination — pass this when you already hold a campaign id instead of paging the tree to find it. Mirrors the `campaignId` filter on GET /v1/ads.
@@ -2401,6 +2409,7 @@ def register_generated_tools(mcp, _get_client):
                 platform=platform,
                 status=status,
                 ad_account_id=ad_account_id,
+                page_id=page_id,
                 account_id=account_id,
                 profile_id=profile_id,
                 campaign_id=campaign_id,
@@ -4371,6 +4380,31 @@ def register_generated_tools(mcp, _get_client):
         left by the page_fan_adds / page_fan_removes deprecation):
           - followers_gained
           - followers_lost
+
+        Monetization (opt-in, not in the defaults):
+          - content_monetization_earnings
+          - monetization_approximate_earnings
+
+        Each monetization metric is fetched with its own separate Graph call, so requesting both
+        adds two calls. Values are approximate and Meta restates them after the fact.
+
+        content_monetization_earnings returns an object per day and always carries unit
+        "micro_amount" plus an ISO 4217 "currency". monetization_approximate_earnings returns a bare
+        number per day, so its unit is always "unspecified" and its "currency" is always null. The two
+        are on different scales and are not comparable to each other. Both keep their daily "values"
+        on every metricType and are never rescaled by Zernio.
+
+        Earnings here are Page-level daily buckets and "total" is their sum. Meta does not
+        document whether a bucket carries that day's earnings or a running total, and every
+        Page measured so far earned exactly 0, so reconcile "total" against the Page's own Meta
+        export before relying on it; the daily "values" are always returned for that purpose.
+        Per-post lifetime earnings are served by GET /v1/analytics/facebook/post-earnings.
+
+        A Page that is not enrolled in monetization, or that earned nothing, returns normal daily
+        buckets of 0 in "metrics": Meta does not distinguish the two, so a 0 total here does NOT mean
+        the Page is enrolled. "unavailableMetrics" covers the narrower case where Meta returned no
+        bucket for the metric at all ("no_data") or rejected the request outright, and the metric is
+        then omitted from "metrics" rather than reported as 0.
                 since: Start date (YYYY-MM-DD). Defaults to 30 days ago.
                 until: End date (YYYY-MM-DD). Defaults to today.
                 metric_type: "total_value" (default) returns aggregated totals only.
@@ -4383,6 +4417,41 @@ def register_generated_tools(mcp, _get_client):
                 since=since,
                 until=until,
                 metric_type=metric_type,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get Facebook post monetization earnings",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def analytics_get_facebook_post_earnings(
+        account_id: str, post_id: str, metrics: str | None = None
+    ) -> str:
+        """Get Facebook post monetization earnings
+
+            Args:
+                account_id: The Zernio SocialAccount ID for the connected Facebook Page. (required)
+                post_id: The platform post ID, exactly as returned in platformAnalytics[].platformPostId by
+        /v1/analytics: "{pageId}_{postId}", or the bare video ID for Reels.
+         (required)
+                metrics: Comma-separated list of monetization metrics. Defaults to both:
+          - content_monetization_earnings
+          - monetization_approximate_earnings
+
+        content_monetization_earnings always carries unit "micro_amount" plus an ISO 4217
+        "currency". monetization_approximate_earnings is always a bare number, so its unit is
+        "unspecified" and its "currency" is null. The two are on different scales and are not
+        comparable to each other. Any other metric name is rejected with 400."""
+        client = _get_client()
+        try:
+            response = client.analytics.get_facebook_post_earnings(
+                account_id=account_id, post_id=post_id, metrics=metrics
             )
             return _format_response(response)
         except Exception as e:
@@ -6548,7 +6617,11 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def connect_whats_app_credentials(
-        profile_id: str, access_token: str, waba_id: str, phone_number_id: str
+        profile_id: str,
+        access_token: str,
+        waba_id: str,
+        phone_number_id: str,
+        pin: str | None = None,
     ) -> str:
         """Connect WhatsApp via credentials
 
@@ -6556,7 +6629,8 @@ def register_generated_tools(mcp, _get_client):
             profile_id: Your Zernio profile ID (required)
             access_token: Permanent System User access token from Meta Business Suite (required)
             waba_id: WhatsApp Business Account ID from Meta (required)
-            phone_number_id: Phone Number ID from Meta WhatsApp Manager (required)"""
+            phone_number_id: Phone Number ID from Meta WhatsApp Manager (required)
+            pin: The 6-digit two-step verification PIN set on the number. Required if you enabled two-step verification for it, otherwise Meta rejects the Cloud API registration with error 133005 and the number cannot send messages."""
         client = _get_client()
         try:
             response = client.connect.connect_whats_app_credentials(
@@ -6564,6 +6638,7 @@ def register_generated_tools(mcp, _get_client):
                 access_token=access_token,
                 waba_id=waba_id,
                 phone_number_id=phone_number_id,
+                pin=pin,
             )
             return _format_response(response)
         except Exception as e:
@@ -11086,12 +11161,12 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             page: Page number
-            limit: Results per page
+            limit: Page size. Values above the maximum return 400 rather than being clamped.
             source: Which collection to read. `zernio` (default) returns posts authored through Zernio. `external` returns posts synced from the platform (existing/historical posts that were published outside Zernio). Combine with `accountId` and paginate via `page`/`limit` to walk the full synced history (we keep up to the last ~12 months per account).
             status
             platform
             profile_id
-            created_by
+            created_by: Filter posts to those created by a specific team user (24-char hex ObjectId).
             date_from
             date_to
             include_hidden
@@ -12922,7 +12997,7 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             ad_id: (required)
-            url_tags: Meta only. Click-URL params appended to a freshly-rebuilt creative.
+            url_tags: Meta only. Click-URL params appended to a freshly-rebuilt creative. Meta dynamic macros ({{ad.id}}, {{campaign.id}}, {{placement}}, ...) are sent through unescaped so Meta expands them; every other character is percent-encoded.
             creative: Meta only. OPTIONAL — omit to preserve the existing creative verbatim (default). Provide it only to rebuild the creative explicitly, or for creatives whose object_story_spec Meta strips.
             tracking_url_template: Google only. Full tracking template (must contain {lpurl}).
             final_url_suffix: Google only. Parse-only key=value params.
@@ -14265,6 +14340,31 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Register a connected WhatsApp number on the Cloud API",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def whatsapp_register_whats_app_number(
+        account_id: str, pin: str | None = None
+    ) -> str:
+        """Register a connected WhatsApp number on the Cloud API
+
+        Args:
+            account_id: The WhatsApp account ID (required)
+            pin: The 6-digit two-step verification PIN set on the number. Omit it only if the number has no PIN of its own."""
+        client = _get_client()
+        try:
+            response = client.whatsapp.register_whats_app_number(
+                account_id=account_id, pin=pin
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Download WhatsApp media",
             readOnlyHint=True,
             destructiveHint=False,
@@ -15236,6 +15336,8 @@ def register_generated_tools(mcp, _get_client):
         sip_auth_password: str | None = None,
         recording_enabled: bool = False,
         call_icon_countries: list[str] | None = None,
+        max_call_duration_seconds: int | None = None,
+        forward_caller_id: str = "business",
     ) -> str:
         """Enable calling on a number
 
@@ -15246,7 +15348,9 @@ def register_generated_tools(mcp, _get_client):
             sip_auth_username
             sip_auth_password: Stored encrypted, never returned by any endpoint.
             recording_enabled
-            call_icon_countries"""
+            call_icon_countries
+            max_call_duration_seconds: Hard cap (seconds) on a forwarded call; the carrier hangs up both legs when it fires. Safety valve against dead-air billing when a destination hangs up but the signal is lost.
+            forward_caller_id: Caller ID presented to the forward destination. caller = the WhatsApp user's number (sip: destinations only; ignored on tel: forwards). Fixes AI-agent trunks that reject seeing the business number call itself."""
         client = _get_client()
         try:
             response = client.whatsapp_calling.enable_whats_app_calling_legacy(
@@ -15257,6 +15361,8 @@ def register_generated_tools(mcp, _get_client):
                 sip_auth_password=sip_auth_password,
                 recording_enabled=recording_enabled,
                 call_icon_countries=call_icon_countries,
+                max_call_duration_seconds=max_call_duration_seconds,
+                forward_caller_id=forward_caller_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -15278,6 +15384,8 @@ def register_generated_tools(mcp, _get_client):
         sip_auth_password: str | None = None,
         recording_enabled: bool | None = None,
         call_icon_countries: str | None = None,
+        max_call_duration_seconds: str | None = None,
+        forward_caller_id: str | None = None,
     ) -> str:
         """Update calling config
 
@@ -15288,7 +15396,9 @@ def register_generated_tools(mcp, _get_client):
             sip_auth_username
             sip_auth_password
             recording_enabled
-            call_icon_countries"""
+            call_icon_countries
+            max_call_duration_seconds: Hard cap (seconds) on forwarded calls; null clears the cap.
+            forward_caller_id: caller = present the WhatsApp user's number to the forward destination (sip: only)."""
         client = _get_client()
         try:
             response = client.whatsapp_calling.update_whats_app_calling_legacy(
@@ -15299,6 +15409,8 @@ def register_generated_tools(mcp, _get_client):
                 sip_auth_password=sip_auth_password,
                 recording_enabled=recording_enabled,
                 call_icon_countries=call_icon_countries,
+                max_call_duration_seconds=max_call_duration_seconds,
+                forward_caller_id=forward_caller_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -15556,6 +15668,8 @@ def register_generated_tools(mcp, _get_client):
         sip_auth_password: str | None = None,
         recording_enabled: bool = False,
         call_icon_countries: list[str] | None = None,
+        max_call_duration_seconds: int | None = None,
+        forward_caller_id: str = "business",
     ) -> str:
         """Enable calling on a number
 
@@ -15566,7 +15680,9 @@ def register_generated_tools(mcp, _get_client):
             sip_auth_username
             sip_auth_password: Stored encrypted, never returned by any endpoint.
             recording_enabled
-            call_icon_countries"""
+            call_icon_countries
+            max_call_duration_seconds: Hard cap (seconds) on a forwarded call; the carrier hangs up both legs when it fires. Safety valve against dead-air billing when a destination hangs up but the signal is lost.
+            forward_caller_id: Caller ID presented to the forward destination. caller = the WhatsApp user's number (sip: destinations only; ignored on tel: forwards). Fixes AI-agent trunks that reject seeing the business number call itself."""
         client = _get_client()
         try:
             response = client.whatsapp_calling.enable_whats_app_calling(
@@ -15577,6 +15693,8 @@ def register_generated_tools(mcp, _get_client):
                 sip_auth_password=sip_auth_password,
                 recording_enabled=recording_enabled,
                 call_icon_countries=call_icon_countries,
+                max_call_duration_seconds=max_call_duration_seconds,
+                forward_caller_id=forward_caller_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -15598,6 +15716,8 @@ def register_generated_tools(mcp, _get_client):
         sip_auth_password: str | None = None,
         recording_enabled: bool | None = None,
         call_icon_countries: str | None = None,
+        max_call_duration_seconds: str | None = None,
+        forward_caller_id: str | None = None,
     ) -> str:
         """Update calling config
 
@@ -15608,7 +15728,9 @@ def register_generated_tools(mcp, _get_client):
             sip_auth_username
             sip_auth_password
             recording_enabled
-            call_icon_countries"""
+            call_icon_countries
+            max_call_duration_seconds: Hard cap (seconds) on forwarded calls; null clears the cap.
+            forward_caller_id: caller = present the WhatsApp user's number to the forward destination (sip: only)."""
         client = _get_client()
         try:
             response = client.whatsapp_calling.update_whats_app_calling(
@@ -15619,6 +15741,8 @@ def register_generated_tools(mcp, _get_client):
                 sip_auth_password=sip_auth_password,
                 recording_enabled=recording_enabled,
                 call_icon_countries=call_icon_countries,
+                max_call_duration_seconds=max_call_duration_seconds,
+                forward_caller_id=forward_caller_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -15642,6 +15766,54 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.whatsapp_calling.disable_whats_app_calling(
                 id=id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Start caller-ID verification for a customer-brought number",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def whatsapp_calling_start_whats_app_caller_id_verification(
+        id: str, method: str = "sms"
+    ) -> str:
+        """Start caller-ID verification for a customer-brought number
+
+        Args:
+            id: Phone number record ID (from GET /v1/phone-numbers). (required)
+            method"""
+        client = _get_client()
+        try:
+            response = client.whatsapp_calling.start_whats_app_caller_id_verification(
+                id=id, method=method
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Confirm the caller-ID verification code",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def whatsapp_calling_verify_whats_app_caller_id(id: str, code: str) -> str:
+        """Confirm the caller-ID verification code
+
+        Args:
+            id: Phone number record ID (from GET /v1/phone-numbers). (required)
+            code: (required)"""
+        client = _get_client()
+        try:
+            response = client.whatsapp_calling.verify_whats_app_caller_id(
+                id=id, code=code
             )
             return _format_response(response)
         except Exception as e:

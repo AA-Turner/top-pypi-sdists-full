@@ -218,6 +218,8 @@ def main(url: str):
     downloaded_count = 0
     error = ""
 
+    print("papers-dl search started", flush=True)
+
     try:
         # Check if papers-dl is enabled
         config = load_config()

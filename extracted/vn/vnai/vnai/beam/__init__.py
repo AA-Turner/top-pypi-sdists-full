@@ -23,4 +23,10 @@ def __getattr__(name):
     elif name == 'authenticator':
         from vnai.beam.auth import authenticator
         return authenticator
+    elif name == 'load_config':
+        from vnai.beam.config import load_config
+        return load_config
+    elif name == 'clear_config_cache':
+        from vnai.beam.config import clear_config_cache
+        return clear_config_cache
     raise AttributeError(f"module 'vnai.beam' has no attribute '{name}'")

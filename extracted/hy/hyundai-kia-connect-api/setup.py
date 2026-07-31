@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 """The setup script."""
 
 from setuptools import find_packages, setup
@@ -53,6 +51,6 @@ setup(
     test_suite="tests",
     tests_require=test_requirements,
     url="https://github.com/Hyundai-Kia-Connect/hyundai_kia_connect_api",
-    version="4.25.5",
+    version="4.26.0",
     zip_safe=False,
 )

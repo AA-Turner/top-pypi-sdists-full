@@ -36,8 +36,20 @@ from .fixtures_execution_registration import (
     ChildWorkflow,
     ContinueAsNewWorkflow,
     IterationInput,
+    MixedScalarModelSearchKeyWorkflow,
+    MultiParamSearchKeyWorkflow,
+    MultiScalarSearchKeyWorkflow,
     ParentWorkflow,
+    ScalarEnumSearchKeyWorkflow,
+    ScalarIntSearchKeyWorkflow,
+    ScalarParamSearchKeyWorkflow,
+    SearchKeyContext,
+    SearchKeyCustomer,
+    SearchKeyInput,
+    SearchKeyWorkflow,
     SingleActivityWorkflow,
+    SingleBaseModelSearchKeyWorkflow,
+    Tier,
     TwoActivityWorkflow,
     capture_token,
 )
@@ -110,6 +122,26 @@ def _make_initial_arg_with_payload(
             execution_token=execution_token,
         ),
     )
+
+
+async def _run_and_get_search_key_metadata(workflow_cls: Any, payload: Any = None) -> dict[str, str] | None:
+    """Run a workflow with the given payload, return the search_key_metadata sent to /register."""
+    tracker = _RegistrationTracker()
+    arg = _make_initial_arg() if payload is None else _make_initial_arg_with_payload(payload)
+    async with _env_with_converter() as env:
+        with tracker.activate():
+            async with create_test_worker(
+                env,
+                workflows=[workflow_cls],
+                activities=[capture_token, _register_execution],
+                interceptors=_make_interceptors(),
+            ):
+                wf = get_workflow_definition(workflow_cls)
+                handle = await env.client.start_workflow(
+                    wf.name, arg, id="test-reg-search-keys", task_queue="test-task-queue"
+                )
+                await handle.result()
+    return tracker.calls[0].get("search_key_metadata")
 
 
 class TestExecutionRegistration:
@@ -333,3 +365,72 @@ class TestExecutionRegistration:
                     )
                     with pytest.raises(WorkflowFailureError):
                         await handle.result()
+
+    @pytest.mark.asyncio
+    async def test_search_key_metadata_is_extracted_and_sent(self) -> None:
+        # `note` is declared but unset (None) → omitted.
+        payload = SearchKeyInput(id="pr-402", customer=SearchKeyCustomer(name="acme", tier=2)).model_dump()
+        metadata = await _run_and_get_search_key_metadata(SearchKeyWorkflow, payload)
+        assert metadata == {"id": "pr-402", "customer.name": "acme", "customer.tier": "2"}
+
+    @pytest.mark.asyncio
+    async def test_search_key_metadata_multi_param_roots_at_param_names(self) -> None:
+        # Multi-param entrypoints root paths at the parameter name; `context.region`
+        # is declared but unset (None) → omitted.
+        payload = {
+            "payload": SearchKeyInput(id="pr-402", customer=SearchKeyCustomer(name="acme", tier=2)).model_dump(),
+            "context": SearchKeyContext(tenant_name="globex").model_dump(),
+        }
+        metadata = await _run_and_get_search_key_metadata(MultiParamSearchKeyWorkflow, payload)
+        assert metadata == {
+            "payload.id": "pr-402",
+            "payload.customer.name": "acme",
+            "context.tenant_name": "globex",
+        }
+
+    @pytest.mark.asyncio
+    async def test_workflow_without_search_keys_sends_no_metadata(self) -> None:
+        metadata = await _run_and_get_search_key_metadata(SingleActivityWorkflow)
+        assert metadata is None
+
+    @pytest.mark.asyncio
+    async def test_search_key_metadata_scalar_param_is_extracted(self) -> None:
+        metadata = await _run_and_get_search_key_metadata(ScalarParamSearchKeyWorkflow, "paris")
+        assert metadata == {"city": "paris"}
+
+    @pytest.mark.asyncio
+    async def test_search_key_metadata_int_scalar_is_stringified(self) -> None:
+        metadata = await _run_and_get_search_key_metadata(ScalarIntSearchKeyWorkflow, 42)
+        assert metadata == {"count": "42"}
+
+    @pytest.mark.asyncio
+    async def test_search_key_metadata_enum_scalar_uses_value(self) -> None:
+        # JSON serializes a str-enum to its value; str() of that is a no-op.
+        metadata = await _run_and_get_search_key_metadata(ScalarEnumSearchKeyWorkflow, Tier.paid)
+        assert metadata == {"tier": "paid"}
+
+    @pytest.mark.asyncio
+    async def test_search_key_metadata_multi_scalar_params(self) -> None:
+        metadata = await _run_and_get_search_key_metadata(MultiScalarSearchKeyWorkflow, {"city": "lyon", "count": 7})
+        assert metadata == {"city": "lyon", "count": "7"}
+
+    @pytest.mark.asyncio
+    async def test_search_key_metadata_mixed_scalar_and_model_params(self) -> None:
+        payload = {
+            "city": "nice",
+            "payload": SearchKeyInput(id="mix-1", customer=SearchKeyCustomer(name="acme", tier=2)).model_dump(),
+        }
+        metadata = await _run_and_get_search_key_metadata(MixedScalarModelSearchKeyWorkflow, payload)
+        assert metadata == {
+            "city": "nice",
+            "payload.id": "mix-1",
+            "payload.customer.name": "acme",
+        }
+
+    @pytest.mark.asyncio
+    async def test_search_key_metadata_single_basemodel_param_roots_at_fields(self) -> None:
+        # A single BaseModel param IS the input model, so paths root at its fields
+        # rather than at the parameter name.
+        payload = SearchKeyInput(id="sbm-1", customer=SearchKeyCustomer(name="acme", tier=2)).model_dump()
+        metadata = await _run_and_get_search_key_metadata(SingleBaseModelSearchKeyWorkflow, payload)
+        assert metadata == {"id": "sbm-1", "customer.name": "acme", "customer.tier": "2"}

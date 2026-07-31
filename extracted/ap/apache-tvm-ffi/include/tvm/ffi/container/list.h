@@ -159,7 +159,7 @@ class List : public ObjectRef {
    * \brief Constructor from another list
    * \tparam U The value type of the other list
    */
-  template <typename U, typename = std::enable_if_t<details::type_contains_v<T, U>>>
+  template <typename U, typename = std::enable_if_t<type_subsumes_v<T, U>>>
   List(List<U>&& other)  // NOLINT(google-explicit-constructor)
       : ObjectRef(std::move(other.data_)) {}
 
@@ -167,7 +167,7 @@ class List : public ObjectRef {
    * \brief Constructor from another list
    * \tparam U The value type of the other list
    */
-  template <typename U, typename = std::enable_if_t<details::type_contains_v<T, U>>>
+  template <typename U, typename = std::enable_if_t<type_subsumes_v<T, U>>>
   List(const List<U>& other)  // NOLINT(google-explicit-constructor)
       : ObjectRef(other.data_) {}
 
@@ -194,7 +194,7 @@ class List : public ObjectRef {
    * \param other The other list.
    * \tparam U The value type of the other list.
    */
-  template <typename U, typename = std::enable_if_t<details::type_contains_v<T, U>>>
+  template <typename U, typename = std::enable_if_t<type_subsumes_v<T, U>>>
   TVM_FFI_INLINE List<T>& operator=(List<U>&& other) {
     data_ = std::move(other.data_);
     return *this;
@@ -205,7 +205,7 @@ class List : public ObjectRef {
    * \param other The other list.
    * \tparam U The value type of the other list.
    */
-  template <typename U, typename = std::enable_if_t<details::type_contains_v<T, U>>>
+  template <typename U, typename = std::enable_if_t<type_subsumes_v<T, U>>>
   TVM_FFI_INLINE List<T>& operator=(const List<U>& other) {
     data_ = other.data_;
     return *this;
@@ -323,7 +323,8 @@ class List : public ObjectRef {
    */
   void push_back(const T& item) {
     ListObj* p = EnsureCapacity(1);
-    p->EmplaceInit(p->TVMFFISeqCell::size++, item);
+    p->EmplaceInit(p->TVMFFISeqCell::size, item);
+    ++p->TVMFFISeqCell::size;
   }
 
   /*!
@@ -333,7 +334,8 @@ class List : public ObjectRef {
   template <typename... Args>
   void emplace_back(Args&&... args) {
     ListObj* p = EnsureCapacity(1);
-    p->EmplaceInit(p->TVMFFISeqCell::size++, std::forward<Args>(args)...);
+    p->EmplaceInit(p->TVMFFISeqCell::size, std::forward<Args>(args)...);
+    ++p->TVMFFISeqCell::size;
   }
 
   /*!
@@ -460,8 +462,10 @@ class List : public ObjectRef {
     }
   }
 
-  /*! \brief specify container node */
+  /// \cond Doxygen_Suppress
   using ContainerType = ListObj;
+  static constexpr bool _type_container_is_exact = false;
+  /// \endcond
 
  private:
   /*!
@@ -516,10 +520,11 @@ struct TypeTraits<List<T>> : public SeqTypeTraitsBase<TypeTraits<List<T>>, List<
   }
 };
 
-namespace details {
+/// \cond Doxygen_Suppress
+/*! \brief Whether target List storage subsumes source List storage element-wise. */
 template <typename T, typename U>
-inline constexpr bool type_contains_v<List<T>, List<U>> = type_contains_v<T, U>;
-}  // namespace details
+inline constexpr bool type_subsumes_v<List<T>, List<U>> = type_subsumes_v<T, U>;
+/// \endcond
 
 }  // namespace ffi
 }  // namespace tvm

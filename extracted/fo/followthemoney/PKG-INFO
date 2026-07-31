@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: followthemoney
-Version: 4.10.0
+Version: 4.10.1
 Summary: A data model for anti corruption data modeling and analysis.
 Project-URL: Documentation, https://followthemoney.tech/
 Project-URL: Repository, https://github.com/opensanctions/followthemoney.git
@@ -32,11 +32,10 @@ License-File: LICENSE
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: babel<3.0.0,>=2.14.0
 Requires-Dist: banal<1.2.0,>=1.0.0
 Requires-Dist: click<9.0.0,>=8.0
@@ -52,19 +51,19 @@ Requires-Dist: pyyaml<7.0.0,>=5.0.0
 Requires-Dist: rdflib<7.7.0,>=6.2.0
 Requires-Dist: requests<3.0.0,>=2.21.0
 Requires-Dist: rich<16.0.0,>=13.0.0
-Requires-Dist: rigour<3.0.0,>=2.0.0
+Requires-Dist: rigour<3.0.0,>=2.3.0
 Requires-Dist: sqlalchemy[mypy]<3.0.0,>=2.0.0
 Provides-Extra: dev
 Requires-Dist: build; extra == 'dev'
 Requires-Dist: bump2version; extra == 'dev'
 Requires-Dist: coverage>=4.1; extra == 'dev'
-Requires-Dist: flake8>=2.6.0; extra == 'dev'
 Requires-Dist: mypy; extra == 'dev'
 Requires-Dist: pip>=10.0.0; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
 Requires-Dist: pytest-cov; extra == 'dev'
 Requires-Dist: recommonmark>=0.4.0; extra == 'dev'
 Requires-Dist: responses>=0.9.0; extra == 'dev'
+Requires-Dist: ruff>=0.16.0; extra == 'dev'
 Requires-Dist: transifex-client; extra == 'dev'
 Requires-Dist: twine; extra == 'dev'
 Requires-Dist: types-openpyxl; extra == 'dev'

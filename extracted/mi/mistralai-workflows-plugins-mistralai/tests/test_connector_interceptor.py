@@ -11,6 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from mistralai.client.models import CredentialsResponse, PublicAuthenticationMethod
+from pydantic import BaseModel
 from pydantic_core import to_json
 from temporalio.client import WorkflowFailureError
 from temporalio.converter import DataConverter
@@ -29,26 +30,36 @@ from mistralai.workflows.core._events.event_context import EventContext
 from mistralai.workflows.core._events.event_interceptor import EventInterceptor
 from mistralai.workflows.core.activity import activity
 from mistralai.workflows.core.sandbox import get_sandbox_restrictions
-from mistralai.workflows.core.temporal.context_handler_interceptor import ContextHandlerInterceptor, retrieve_context
+from mistralai.workflows.core.temporal.context_handler_interceptor import (
+    ContextHandlerInterceptor,
+    define_context,
+    retrieve_context,
+)
 from mistralai.workflows.core.temporal.payload_converter import MistralWorkflowsPayloadConverter
 from mistralai.workflows.models import PayloadWithContext, WorkflowContext
 from mistralai.workflows.plugins.mistralai.connectors import (
     ConnectorAuthInterceptor,
+    ConnectorError,
     connector,
     uses_connectors,
 )
 from mistralai.workflows.plugins.mistralai.connectors.constants import (
     CONNECTORS_KEY,
     MISTRALAI_PLUGIN_KEY,
+    RESOLVED_CONNECTORS_KEY,
 )
 from mistralai.workflows.plugins.mistralai.connectors.event_activities import (
     _emit_connector_auth_completed,
     _emit_connector_auth_failed,
     _emit_connector_auth_started,
 )
+from mistralai.workflows.plugins.mistralai.connectors.interceptor import ConnectorAuthWorkflowInboundInterceptor
 from mistralai.workflows.plugins.mistralai.connectors.models import (
+    ConnectorExtensionBinding,
     ResolvedConnector,
+    resolved_connector_bindings_from_extension,
 )
+from mistralai.workflows.plugins.mistralai.connectors.run_as import ConnectorRunAs
 from mistralai.workflows.testing import (
     create_capturing_mock_events_client,
     create_test_worker,
@@ -80,12 +91,14 @@ def _reset_fake_state() -> None:
 
 
 @activity(name="__internal__connector_resolve", _allow_reserved_name=True, _skip_registering=True)
-async def fake_connector_resolve(connector_id_or_name: str) -> ResolvedConnector:
+async def fake_connector_resolve(connector_id_or_name: str, run_as: str = "auto") -> ResolvedConnector:
     return ResolvedConnector(id=f"conn-{connector_id_or_name}", name=connector_id_or_name, description="")
 
 
 @activity(name="__internal__connector_get_auth_url", _allow_reserved_name=True, _skip_registering=True)
-async def fake_connector_get_auth_url(connector_id_or_name: str, credentials_name: str | None = None) -> str:
+async def fake_connector_get_auth_url(
+    connector_id_or_name: str, credentials_name: str | None = None, run_as: str = "auto"
+) -> str:
     url = f"https://auth.example.com/{connector_id_or_name}"
     if credentials_name is not None:
         url = f"{url}?credentials_name={credentials_name}"
@@ -93,7 +106,7 @@ async def fake_connector_get_auth_url(connector_id_or_name: str, credentials_nam
 
 
 @activity(name="__internal__connector_list_user_credentials", _allow_reserved_name=True, _skip_registering=True)
-async def fake_connector_list_user_credentials(connector_id_or_name: str) -> CredentialsResponse:
+async def fake_connector_list_user_credentials(connector_id_or_name: str, run_as: str = "auto") -> CredentialsResponse:
     _creds_call_count[connector_id_or_name] = _creds_call_count.get(connector_id_or_name, 0) + 1
     if _creds_call_count[connector_id_or_name] > 1 and connector_id_or_name in _fake_poll_credentials:
         return CredentialsResponse.model_validate(_fake_poll_credentials[connector_id_or_name])
@@ -105,7 +118,9 @@ async def fake_connector_list_user_credentials(connector_id_or_name: str) -> Cre
 
 
 @activity(name="__internal__connector_get_auth_methods", _allow_reserved_name=True, _skip_registering=True)
-async def fake_connector_get_auth_methods(connector_id_or_name: str) -> list[PublicAuthenticationMethod]:
+async def fake_connector_get_auth_methods(
+    connector_id_or_name: str, run_as: str = "auto"
+) -> list[PublicAuthenticationMethod]:
     data = _fake_auth_methods.get(
         connector_id_or_name, [{"method_type": "oauth2", "headers": None, "has_default_credentials": False}]
     )
@@ -113,7 +128,9 @@ async def fake_connector_get_auth_methods(connector_id_or_name: str) -> list[Pub
 
 
 @activity(name="__internal__connector_list_tools", _allow_reserved_name=True, _skip_registering=True)
-async def fake_connector_list_tools(connector_id_or_name: str, credentials_name: str | None = None) -> bool:
+async def fake_connector_list_tools(
+    connector_id_or_name: str, credentials_name: str | None = None, run_as: str = "auto"
+) -> bool:
     _list_tools_calls.append((connector_id_or_name, credentials_name))
     return _fake_list_tools_results.get(connector_id_or_name, True)
 
@@ -123,6 +140,7 @@ async def fake_connector_get_mcp_app_resource_uris(
     connector_id_or_name: str,
     credentials_name: str | None = None,
     raise_on_error: bool = False,
+    run_as: str = "auto",
 ) -> dict[str, str]:
     _mcp_app_resource_uri_calls.append((connector_id_or_name, credentials_name))
     return _fake_mcp_app_resource_uris.get(connector_id_or_name, {})
@@ -134,7 +152,9 @@ async def fake_connector_get_mcp_app_resource_uris(
     _skip_registering=True,
     heartbeat_timeout=None,
 )
-async def fake_connector_wait_for_credentials(connector_id: str, credentials_name: str | None = None) -> bool:
+async def fake_connector_wait_for_credentials(
+    connector_id: str, credentials_name: str | None = None, run_as: str = "auto"
+) -> bool:
     """Fake polling activity: returns True if poll credentials are configured.
 
     When credentials_name is provided, verifies that the specific named credential
@@ -200,11 +220,51 @@ class MultiConnectorWorkflow:
         return "multi-done"
 
 
+@workflow.define(name="test-obo-multi-connector-wf", on_behalf_of=True)
+@uses_connectors(slack, github)
+class OboMultiConnectorWorkflow:
+    @workflow.entrypoint
+    async def run(self) -> str:
+        return "obo-multi-done"
+
+
 @workflow.define(name="test-no-connector-wf")
 class NoConnectorWorkflow:
     @workflow.entrypoint
     async def run(self) -> str:
         return "no-connector-done"
+
+
+@workflow.define(name="test-no-connector-tool-call-wf")
+class NoConnectorToolCallWorkflow:
+    """A workflow with no @uses_connectors that builds a ToolCallClient directly.
+
+    Used to prove a caller-forged resolved_connectors binding is inert: the inbound
+    interceptor strips trusted_extensions from caller input, so ToolCallClient finds
+    no resolved binding and raises ConnectorError instead of honouring the forge.
+    """
+
+    @workflow.entrypoint
+    async def run(self) -> str:
+        from mistralai.workflows.plugins.mistralai.connectors.client import ToolCallClient
+
+        client = ToolCallClient("github")
+        await client.call_tool("create_issue", {"title": "bug"})
+        return "should-not-reach"
+
+
+class _CanIteration(BaseModel):
+    iteration: int = 0
+
+
+@workflow.define(name="test-can-connector-wf")
+@uses_connectors(slack)
+class ContinueAsNewConnectorWorkflow:
+    @workflow.entrypoint
+    async def run(self, params: _CanIteration) -> str:
+        if params.iteration == 0:
+            workflow.continue_as_new(_CanIteration(iteration=1))
+        return "continued-done"
 
 
 @workflow.define(name="test-manual-auth-wf")
@@ -271,7 +331,7 @@ class McpAppConnectorWorkflow:
         ctx = retrieve_context()
         if ctx is None:
             return {}
-        return ctx.extensions.get(MISTRALAI_PLUGIN_KEY, {}).get(CONNECTORS_KEY, {})
+        return ctx.trusted_extensions.get(MISTRALAI_PLUGIN_KEY, {}).get(RESOLVED_CONNECTORS_KEY, {})
 
 
 @workflow.define(name="test-preset-creds-wf")
@@ -296,6 +356,22 @@ class SingleConnectorGithubWorkflow:
     @workflow.entrypoint
     async def run(self) -> str:
         return "github-done"
+
+
+@workflow.define(name="test-obo-single-github-connector-wf", on_behalf_of=True)
+@uses_connectors(github)
+class OboSingleConnectorGithubWorkflow:
+    @workflow.entrypoint
+    async def run(self) -> str:
+        return "obo-github-done"
+
+
+@workflow.define(name="test-worker-identity-wf", on_behalf_of=True)
+@uses_connectors(connector("worker-svc", run_as="deployment"))
+class WorkerIdentityWorkflow:
+    @workflow.entrypoint
+    async def run(self) -> str:
+        return "worker-done"
 
 
 def _filter_connector_auth_events(events: list[Any]) -> list[Any]:
@@ -703,6 +779,7 @@ class TestConnectorInterceptorIntegration:
                     "connector_name": "mcp-apps",
                     "connector_id": "conn-mcp-apps",
                     "credentials_name": None,
+                    "run_as": "auto",
                     "allow_mcp_ui": True,
                     "mcp_ui_resource_uris": {"debug-tool": "ui://debug/app"},
                     "mcp_ui_resource_uris_fetched": True,
@@ -796,6 +873,92 @@ class TestConnectorInterceptorIntegration:
             with pytest.raises(WorkflowFailureError) as exc_info:
                 await handle.result()
             assert "requires bearer authentication" in str(exc_info.value.__cause__)
+
+    @pytest.mark.asyncio
+    async def test_worker_identity_oauth2_no_creds_raises_without_callback(
+        self, temporal_env: WorkflowEnvironment
+    ) -> None:
+        """A worker-identity connector must never emit an OAuth callback URL.
+
+        With oauth2 auth and no worker credentials the interceptor fails fast
+        instead of waiting, because the worker has no interactive user to
+        complete the flow.
+        """
+        _reset_fake_state()
+        # Default fake auth method is oauth2; no user credentials configured.
+        interceptor = ConnectorAuthInterceptor(workflows=[WorkerIdentityWorkflow])
+        captured_events: list[Any] = []
+        mock_client = create_capturing_mock_events_client(captured_events)
+        async with EventContext(mock_client):
+            async with Worker(
+                temporal_env.client,
+                task_queue="test-task-queue",
+                workflows=[WorkerIdentityWorkflow],
+                activities=CONNECTOR_ACTIVITIES,
+                interceptors=[interceptor, EventInterceptor()],
+                workflow_failure_exception_types=[Exception],
+                workflow_runner=SandboxedWorkflowRunner(restrictions=get_sandbox_restrictions()),
+            ):
+                handle = await temporal_env.client.start_workflow(
+                    "test-worker-identity-wf",
+                    id="test-worker-identity-no-callback",
+                    task_queue="test-task-queue",
+                )
+                with pytest.raises(WorkflowFailureError) as exc_info:
+                    await handle.result()
+                assert "run_as='deployment'" in str(exc_info.value.__cause__)
+
+        # No OAuth callback marker should ever be emitted for a deployment connector.
+        connector_events = _filter_connector_auth_events(captured_events)
+        started = [e for e in connector_events if e.event_type.value == "CUSTOM_TASK_STARTED"]
+        assert started == [], f"Expected no connector auth started events, got {started}"
+
+    @pytest.mark.asyncio
+    async def test_runtime_extension_credentials_on_worker_identity_rejected(
+        self, temporal_env: WorkflowEnvironment
+    ) -> None:
+        """A runtime binding must never override a deployment connector slot."""
+        _reset_fake_state()
+        _fake_user_credentials["conn-worker-svc"] = {
+            "credentials": [
+                {"name": "my-token", "authentication_type": "bearer", "scope": "deployment", "is_default": False}
+            ],
+            "connector_preset_credentials_for_auth": [],
+        }
+        connector_interceptor = ConnectorAuthInterceptor(workflows=[WorkerIdentityWorkflow])
+        dc = DataConverter(payload_converter_class=MistralWorkflowsPayloadConverter)
+        custom_client = type(temporal_env.client)(
+            temporal_env.client.service_client,
+            namespace=temporal_env.client.namespace,
+            data_converter=dc,
+        )
+        async with Worker(
+            custom_client,
+            task_queue="test-task-queue",
+            workflows=[WorkerIdentityWorkflow],
+            activities=CONNECTOR_ACTIVITIES,
+            interceptors=[ContextHandlerInterceptor(), connector_interceptor, EventInterceptor()],
+            workflow_failure_exception_types=[Exception],
+            workflow_runner=SandboxedWorkflowRunner(restrictions=get_sandbox_restrictions()),
+        ):
+            extensions = {
+                MISTRALAI_PLUGIN_KEY: {
+                    CONNECTORS_KEY: {"bindings": [{"credentials_name": "my-token"}]},
+                },
+            }
+            ctx = WorkflowContext(namespace="default", execution_id="ext-worker-creds", extensions=extensions)
+            arg = PayloadWithContext(payload=to_json(None), empty=True, context=ctx)
+            handle = await custom_client.start_workflow(
+                "test-worker-identity-wf",
+                arg,
+                id="test-ext-worker-creds",
+                task_queue="test-task-queue",
+            )
+            with pytest.raises(WorkflowFailureError) as exc_info:
+                await handle.result()
+
+        assert "declares run_as='auto' connectors" in str(exc_info.value.__cause__)
+        assert ("conn-worker-svc", "my-token") not in _list_tools_calls
 
     @pytest.mark.asyncio
     async def test_missing_credentials_name_raises_error(self, temporal_env: WorkflowEnvironment) -> None:
@@ -1041,7 +1204,7 @@ class TestConnectorInterceptorIntegration:
             "credentials": [{"name": "my-pat", "authentication_type": "bearer", "scope": "user", "is_default": False}],
             "connector_preset_credentials_for_auth": [],
         }
-        connector_interceptor = ConnectorAuthInterceptor(workflows=[SingleConnectorGithubWorkflow])
+        connector_interceptor = ConnectorAuthInterceptor(workflows=[OboSingleConnectorGithubWorkflow])
         dc = DataConverter(payload_converter_class=MistralWorkflowsPayloadConverter)
         custom_client = type(temporal_env.client)(
             temporal_env.client.service_client,
@@ -1053,29 +1216,86 @@ class TestConnectorInterceptorIntegration:
         try:
             async with create_test_worker(
                 temporal_env,
-                workflows=[SingleConnectorGithubWorkflow],
+                workflows=[OboSingleConnectorGithubWorkflow],
                 activities=CONNECTOR_ACTIVITIES,
                 interceptors=[ContextHandlerInterceptor(), connector_interceptor, EventInterceptor()],
             ):
                 extensions = {
                     MISTRALAI_PLUGIN_KEY: {
-                        CONNECTORS_KEY: {"bindings": [{"connector_name": "github", "credentials_name": "my-pat"}]},
+                        CONNECTORS_KEY: {"bindings": [{"credentials_name": "my-pat"}]},
                     },
                 }
                 ctx = WorkflowContext(namespace="default", execution_id="ext-creds-test", extensions=extensions)
                 arg = PayloadWithContext(payload=to_json(None), empty=True, context=ctx)
                 handle = await custom_client.start_workflow(
-                    "test-single-github-connector-wf",
+                    "test-obo-single-github-connector-wf",
                     arg,
                     id="test-ext-creds-skip-auth",
                     task_queue="test-task-queue",
                 )
-                assert _unwrap_result(await handle.result()) == "github-done"
+                assert _unwrap_result(await handle.result()) == "obo-github-done"
         finally:
             temporal_env._client = original_client  # type: ignore[attr-defined]
 
     @pytest.mark.asyncio
-    async def test_runtime_extension_unknown_connector_fails(self, temporal_env: WorkflowEnvironment) -> None:
+    async def test_runtime_extension_credentials_name_can_target_multiple_obo_auto_connectors(
+        self, temporal_env: WorkflowEnvironment
+    ) -> None:
+        _reset_fake_state()
+        _fake_user_credentials["conn-github"] = {
+            "credentials": [
+                {"name": "github-pat", "authentication_type": "bearer", "scope": "user", "is_default": False}
+            ],
+            "connector_preset_credentials_for_auth": [],
+        }
+        _fake_user_credentials["conn-slack"] = {
+            "credentials": [
+                {"name": "slack-token", "authentication_type": "bearer", "scope": "user", "is_default": False}
+            ],
+            "connector_preset_credentials_for_auth": [],
+        }
+        connector_interceptor = ConnectorAuthInterceptor(workflows=[OboMultiConnectorWorkflow])
+        dc = DataConverter(payload_converter_class=MistralWorkflowsPayloadConverter)
+        custom_client = type(temporal_env.client)(
+            temporal_env.client.service_client,
+            namespace=temporal_env.client.namespace,
+            data_converter=dc,
+        )
+        original_client = temporal_env.client
+        temporal_env._client = custom_client  # type: ignore[attr-defined]
+        try:
+            async with create_test_worker(
+                temporal_env,
+                workflows=[OboMultiConnectorWorkflow],
+                activities=CONNECTOR_ACTIVITIES,
+                interceptors=[ContextHandlerInterceptor(), connector_interceptor, EventInterceptor()],
+            ):
+                extensions = {
+                    MISTRALAI_PLUGIN_KEY: {
+                        CONNECTORS_KEY: {
+                            "bindings": [
+                                {"connector_name": "github", "credentials_name": "github-pat"},
+                                {"connector_name": "slack", "credentials_name": "slack-token"},
+                            ]
+                        },
+                    },
+                }
+                ctx = WorkflowContext(namespace="default", execution_id="ext-multi-creds-test", extensions=extensions)
+                arg = PayloadWithContext(payload=to_json(None), empty=True, context=ctx)
+                handle = await custom_client.start_workflow(
+                    "test-obo-multi-connector-wf",
+                    arg,
+                    id="test-ext-multi-creds-skip-auth",
+                    task_queue="test-task-queue",
+                )
+                assert _unwrap_result(await handle.result()) == "obo-multi-done"
+        finally:
+            temporal_env._client = original_client  # type: ignore[attr-defined]
+
+    @pytest.mark.asyncio
+    async def test_runtime_extension_credentials_name_rejected_for_non_obo_auto_connector(
+        self, temporal_env: WorkflowEnvironment
+    ) -> None:
         _reset_fake_state()
         connector_interceptor = ConnectorAuthInterceptor(workflows=[SingleConnectorGithubWorkflow])
         dc = DataConverter(payload_converter_class=MistralWorkflowsPayloadConverter)
@@ -1095,20 +1315,21 @@ class TestConnectorInterceptorIntegration:
         ):
             extensions = {
                 MISTRALAI_PLUGIN_KEY: {
-                    CONNECTORS_KEY: {"bindings": [{"connector_name": "github_app", "credentials_name": "my-pat"}]},
+                    CONNECTORS_KEY: {"bindings": [{"credentials_name": "my-pat"}]},
                 },
             }
-            ctx = WorkflowContext(namespace="default", execution_id="ext-unknown", extensions=extensions)
+            ctx = WorkflowContext(namespace="default", execution_id="ext-non-obo", extensions=extensions)
             arg = PayloadWithContext(payload=to_json(None), empty=True, context=ctx)
             handle = await custom_client.start_workflow(
                 "test-single-github-connector-wf",
                 arg,
-                id="test-ext-unknown-connector",
+                id="test-ext-non-obo-rejected",
                 task_queue="test-task-queue",
             )
             with pytest.raises(WorkflowFailureError) as exc_info:
                 await handle.result()
-            assert "unknown connectors" in str(exc_info.value.__cause__)
+
+        assert "on_behalf_of=True" in str(exc_info.value.__cause__)
 
 
 class TestConnectorInterceptorSlotRetrieval:
@@ -1127,3 +1348,532 @@ class TestConnectorInterceptorSlotRetrieval:
 
     def test_empty_workflows_produces_empty_index(self) -> None:
         assert ConnectorAuthInterceptor(workflows=[])._metadata_by_name == {}
+
+
+class TestRunAsCannotBeCallerInjected:
+    """run_as is interceptor-owned. A direct ToolCallClient inherits it from the
+    persisted binding, so a caller-supplied runtime binding must not be able to carry
+    run_as (or other authority fields). Such fields are silently ignored — never
+    honoured — so they can never influence the slot's identity."""
+
+    @pytest.mark.parametrize(
+        "binding",
+        [
+            {"credentials_name": "x", "run_as": "deployment"},
+            {"credentials_name": "x", "connector_id": "caller-controlled"},
+            {"credentials_name": "x", "authentication_name": "caller-controlled"},
+        ],
+        ids=["run-as", "connector-id", "authentication-name"],
+    )
+    def test_runtime_binding_ignores_caller_authority_fields(self, binding: dict[str, str]) -> None:
+        ctx = WorkflowContext(
+            namespace="default",
+            execution_id="raw-authority-field",
+            extensions={MISTRALAI_PLUGIN_KEY: {CONNECTORS_KEY: {"bindings": [binding]}}},
+        )
+        slot = connector("github")
+
+        with define_context(ctx):
+            bindings = ConnectorAuthWorkflowInboundInterceptor._extension_bindings()
+            ConnectorAuthWorkflowInboundInterceptor._apply_extension_bindings(
+                [slot], bindings, workflow_on_behalf_of=True
+            )
+
+        assert len(bindings) == 1
+        assert bindings[0].credentials_name == "x"
+        # run_as stays interceptor-owned; the caller-supplied field had no effect.
+        assert slot.run_as == ConnectorRunAs.AUTO
+        assert slot.credentials_name == "x"
+
+    def test_runtime_binding_with_unknown_connector_name_is_rejected(self) -> None:
+        ctx = WorkflowContext(
+            namespace="default",
+            execution_id="raw-connector-name",
+            extensions={
+                MISTRALAI_PLUGIN_KEY: {
+                    CONNECTORS_KEY: {"bindings": [{"connector_name": "slack", "credentials_name": "x"}]}
+                }
+            },
+        )
+
+        with define_context(ctx):
+            bindings = ConnectorAuthWorkflowInboundInterceptor._extension_bindings()
+            with pytest.raises(ConnectorError, match="can only target declared run_as='auto' connectors"):
+                ConnectorAuthWorkflowInboundInterceptor._apply_extension_bindings(
+                    [connector("github")], bindings, workflow_on_behalf_of=True
+                )
+
+    @pytest.mark.parametrize(
+        "extensions",
+        [
+            {MISTRALAI_PLUGIN_KEY: "bad"},
+            {MISTRALAI_PLUGIN_KEY: {CONNECTORS_KEY: "bad"}},
+            {MISTRALAI_PLUGIN_KEY: {CONNECTORS_KEY: {"bindings": None}}},
+        ],
+        ids=["mistralai-not-object", "connectors-not-object", "bindings-none"],
+    )
+    def test_runtime_extension_payload_shape_is_rejected(self, extensions: dict[str, Any]) -> None:
+        ctx = WorkflowContext(
+            namespace="default",
+            execution_id="bad-runtime-extension",
+            extensions=extensions,
+        )
+
+        with define_context(ctx):
+            with pytest.raises(ConnectorError, match="Malformed runtime connector extension bindings"):
+                ConnectorAuthWorkflowInboundInterceptor._extension_bindings()
+
+    def test_runtime_binding_unknown_top_level_field_is_ignored(self) -> None:
+        ctx = WorkflowContext(
+            namespace="default",
+            execution_id="connectors-extra-field",
+            extensions={MISTRALAI_PLUGIN_KEY: {CONNECTORS_KEY: {"bindings": [], "run_as": "deployment"}}},
+        )
+
+        with define_context(ctx):
+            bindings = ConnectorAuthWorkflowInboundInterceptor._extension_bindings()
+
+        assert bindings == []
+
+    def test_runtime_multiple_bindings_without_connector_name_are_rejected(self) -> None:
+        ctx = WorkflowContext(
+            namespace="default",
+            execution_id="bad-multiple-bindings",
+            extensions={
+                MISTRALAI_PLUGIN_KEY: {
+                    CONNECTORS_KEY: {"bindings": [{"credentials_name": "x"}, {"credentials_name": "y"}]}
+                }
+            },
+        )
+
+        with define_context(ctx):
+            bindings = ConnectorAuthWorkflowInboundInterceptor._extension_bindings()
+            with pytest.raises(ConnectorError, match="must include connector_name"):
+                ConnectorAuthWorkflowInboundInterceptor._apply_extension_bindings(
+                    [connector("github"), connector("slack")], bindings, workflow_on_behalf_of=True
+                )
+
+    def test_runtime_multiple_bindings_for_multiple_obo_auto_connectors_are_allowed(self) -> None:
+        ctx = WorkflowContext(
+            namespace="default",
+            execution_id="multi-obo-auto",
+            extensions={
+                MISTRALAI_PLUGIN_KEY: {
+                    CONNECTORS_KEY: {
+                        "bindings": [
+                            {"connector_name": "github", "credentials_name": "x"},
+                            {"connector_name": "slack", "credentials_name": "y"},
+                        ]
+                    }
+                }
+            },
+        )
+
+        with define_context(ctx):
+            bindings = ConnectorAuthWorkflowInboundInterceptor._extension_bindings()
+            ConnectorAuthWorkflowInboundInterceptor._apply_extension_bindings(
+                [connector("github"), connector("slack")], bindings, workflow_on_behalf_of=True
+            )
+
+        assert [(b.connector_name, b.credentials_name) for b in bindings] == [("github", "x"), ("slack", "y")]
+
+    @pytest.mark.parametrize("credentials_name", ["", "   "], ids=["empty", "whitespace"])
+    def test_runtime_binding_rejects_blank_credentials_name(self, credentials_name: str) -> None:
+        ctx = WorkflowContext(
+            namespace="default",
+            execution_id="blank-credentials-name",
+            extensions={
+                MISTRALAI_PLUGIN_KEY: {
+                    CONNECTORS_KEY: {"bindings": [{"connector_name": "github", "credentials_name": credentials_name}]}
+                }
+            },
+        )
+
+        with define_context(ctx):
+            with pytest.raises(ConnectorError, match="Malformed runtime connector extension bindings"):
+                ConnectorAuthWorkflowInboundInterceptor._extension_bindings()
+
+    def test_runtime_duplicate_connector_binding_is_rejected(self) -> None:
+        ctx = WorkflowContext(
+            namespace="default",
+            execution_id="duplicate-connector-binding",
+            extensions={
+                MISTRALAI_PLUGIN_KEY: {
+                    CONNECTORS_KEY: {
+                        "bindings": [
+                            {"connector_name": "github", "credentials_name": "x"},
+                            {"connector_name": "github", "credentials_name": "y"},
+                        ]
+                    }
+                }
+            },
+        )
+
+        with define_context(ctx):
+            bindings = ConnectorAuthWorkflowInboundInterceptor._extension_bindings()
+            with pytest.raises(ConnectorError, match="duplicate binding"):
+                ConnectorAuthWorkflowInboundInterceptor._apply_extension_bindings(
+                    [connector("github"), connector("slack")], bindings, workflow_on_behalf_of=True
+                )
+
+    def test_runtime_binding_cannot_target_deployment_connector_when_auto_connector_exists(self) -> None:
+        ctx = WorkflowContext(
+            namespace="default",
+            execution_id="target-deployment-with-auto-present",
+            extensions={
+                MISTRALAI_PLUGIN_KEY: {
+                    CONNECTORS_KEY: {"bindings": [{"connector_name": "worker-svc", "credentials_name": "x"}]}
+                }
+            },
+        )
+
+        with define_context(ctx):
+            bindings = ConnectorAuthWorkflowInboundInterceptor._extension_bindings()
+            with pytest.raises(ConnectorError, match="can only target declared run_as='auto' connectors"):
+                ConnectorAuthWorkflowInboundInterceptor._apply_extension_bindings(
+                    [connector("github"), connector("worker-svc", run_as="deployment")],
+                    bindings,
+                    workflow_on_behalf_of=True,
+                )
+
+    def test_runtime_binding_for_deployment_connector_is_rejected(self) -> None:
+        ctx = WorkflowContext(
+            namespace="default",
+            execution_id="deployment-override",
+            extensions={MISTRALAI_PLUGIN_KEY: {CONNECTORS_KEY: {"bindings": [{"credentials_name": "x"}]}}},
+        )
+
+        with define_context(ctx):
+            bindings = ConnectorAuthWorkflowInboundInterceptor._extension_bindings()
+            with pytest.raises(ConnectorError, match="declares run_as='auto' connectors"):
+                ConnectorAuthWorkflowInboundInterceptor._apply_extension_bindings(
+                    [connector("worker-svc", run_as="deployment")], bindings, workflow_on_behalf_of=True
+                )
+
+    def test_runtime_binding_for_non_obo_auto_connector_is_rejected(self) -> None:
+        ctx = WorkflowContext(
+            namespace="default",
+            execution_id="non-obo-auto",
+            extensions={MISTRALAI_PLUGIN_KEY: {CONNECTORS_KEY: {"bindings": [{"credentials_name": "x"}]}}},
+        )
+
+        with define_context(ctx):
+            bindings = ConnectorAuthWorkflowInboundInterceptor._extension_bindings()
+            with pytest.raises(ConnectorError, match="on_behalf_of=True"):
+                ConnectorAuthWorkflowInboundInterceptor._apply_extension_bindings(
+                    [connector("github")], bindings, workflow_on_behalf_of=False
+                )
+
+    def test_runtime_binding_for_single_obo_auto_connector_is_allowed(self) -> None:
+        ctx = WorkflowContext(
+            namespace="default",
+            execution_id="obo-auto",
+            extensions={MISTRALAI_PLUGIN_KEY: {CONNECTORS_KEY: {"bindings": [{"credentials_name": "x"}]}}},
+        )
+
+        with define_context(ctx):
+            bindings = ConnectorAuthWorkflowInboundInterceptor._extension_bindings()
+            ConnectorAuthWorkflowInboundInterceptor._apply_extension_bindings(
+                [connector("github")], bindings, workflow_on_behalf_of=True
+            )
+
+        assert len(bindings) == 1
+        assert bindings[0].connector_name is None
+        assert bindings[0].credentials_name == "x"
+
+
+class TestApplyExtensionBindings:
+    """A runtime binding carries credentials_name as its only value. A binding
+    without one is a selector with nothing to set, so it must leave the slot's
+    statically declared credentials_name untouched rather than clearing it."""
+
+    def test_name_only_binding_does_not_wipe_static_credentials_name(self) -> None:
+        slot = connector("github", credentials_name="static-token")
+        binding = ConnectorExtensionBinding(connector_name="github", credentials_name=None)
+
+        ConnectorAuthWorkflowInboundInterceptor._apply_extension_bindings([slot], [binding], workflow_on_behalf_of=True)
+
+        assert slot.credentials_name == "static-token"
+
+    def test_binding_with_credentials_name_overrides_static_value(self) -> None:
+        slot = connector("github", credentials_name="static-token")
+        binding = ConnectorExtensionBinding(connector_name="github", credentials_name="runtime-token")
+
+        ConnectorAuthWorkflowInboundInterceptor._apply_extension_bindings([slot], [binding], workflow_on_behalf_of=True)
+
+        assert slot.credentials_name == "runtime-token"
+
+
+class TestResolvedBindingsSeparateChannel:
+    """Resolved bindings live in the worker-only ``trusted_extensions`` channel, separate
+    from the caller-writable ``extensions``. The runtime binding reader (which parses the
+    caller's ``connectors`` input) isn't confused by them, and the resolved reader pulls
+    from the trusted channel."""
+
+    @staticmethod
+    def _reentry_context() -> WorkflowContext:
+        return WorkflowContext(
+            namespace="default",
+            execution_id="reentry",
+            extensions={
+                MISTRALAI_PLUGIN_KEY: {
+                    CONNECTORS_KEY: {"bindings": [{"credentials_name": "user-cred"}]},
+                }
+            },
+            trusted_extensions={
+                MISTRALAI_PLUGIN_KEY: {
+                    RESOLVED_CONNECTORS_KEY: {
+                        "bindings": [
+                            {
+                                "connector_name": "github",
+                                "connector_id": "conn-gh",
+                                "credentials_name": "user-cred",
+                                "run_as": "auto",
+                                "allow_mcp_ui": False,
+                                "status": "ready",
+                            }
+                        ]
+                    },
+                }
+            },
+        )
+
+    def test_runtime_reader_reads_caller_override(self) -> None:
+        with define_context(self._reentry_context()):
+            bindings = ConnectorAuthWorkflowInboundInterceptor._extension_bindings()
+
+        assert [b.credentials_name for b in bindings] == ["user-cred"]
+
+    def test_resolved_reader_reads_trusted_channel(self) -> None:
+        ctx = self._reentry_context()
+        resolved = resolved_connector_bindings_from_extension(ctx.trusted_extensions[MISTRALAI_PLUGIN_KEY])
+        assert [b.connector_name for b in resolved] == ["github"]
+        assert resolved[0].connector_id == "conn-gh"
+
+    def test_store_resolved_bindings_overwrites_pre_planted_forged(self) -> None:
+        """A slotted workflow's interceptor overwrites any pre-planted ``resolved_connectors``
+        in ``trusted_extensions``, so a forged binding cannot survive into the reader.
+        Documents the invariant that ``_store_resolved_bindings`` defends slotted workflows."""
+        ctx = WorkflowContext(
+            namespace="default",
+            execution_id="clobber",
+            trusted_extensions={
+                MISTRALAI_PLUGIN_KEY: {
+                    RESOLVED_CONNECTORS_KEY: {
+                        "bindings": [
+                            {
+                                "connector_name": "github",
+                                "connector_id": "forged",
+                                "credentials_name": "attacker",
+                                "run_as": "deployment",
+                            }
+                        ]
+                    }
+                }
+            },
+        )
+        with define_context(ctx):
+            ConnectorAuthWorkflowInboundInterceptor._store_resolved_bindings(
+                [{"connector_name": "github", "connector_id": "conn-gh", "status": "ready", "run_as": "auto"}]
+            )
+
+            resolved = resolved_connector_bindings_from_extension(
+                retrieve_context().trusted_extensions[MISTRALAI_PLUGIN_KEY]
+            )
+        assert len(resolved) == 1
+        assert resolved[0].connector_id == "conn-gh"
+        assert resolved[0].credentials_name is None
+        assert resolved[0].run_as == ConnectorRunAs.AUTO
+
+
+class TestNoConnectorWorkflowIgnoresInheritedBindings:
+    """A workflow that declares no connectors must not validate connector bindings it
+    inherited from a connector parent's propagated extensions. Regression: the runtime
+    binding check used to run before the no-slots early return."""
+
+    @pytest.mark.asyncio
+    async def test_no_connector_child_ignores_inherited_bindings(self, temporal_env: WorkflowEnvironment) -> None:
+        _reset_fake_state()
+        connector_interceptor = ConnectorAuthInterceptor(workflows=[NoConnectorWorkflow])
+        dc = DataConverter(payload_converter_class=MistralWorkflowsPayloadConverter)
+        custom_client = type(temporal_env.client)(
+            temporal_env.client.service_client,
+            namespace=temporal_env.client.namespace,
+            data_converter=dc,
+        )
+        async with Worker(
+            custom_client,
+            task_queue="test-task-queue",
+            workflows=[NoConnectorWorkflow],
+            activities=CONNECTOR_ACTIVITIES,
+            interceptors=[ContextHandlerInterceptor(), connector_interceptor, EventInterceptor()],
+            workflow_failure_exception_types=[Exception],
+            workflow_runner=SandboxedWorkflowRunner(restrictions=get_sandbox_restrictions()),
+        ):
+            extensions = {
+                MISTRALAI_PLUGIN_KEY: {
+                    CONNECTORS_KEY: {"bindings": [{"credentials_name": "user-cred"}]},
+                },
+            }
+            trusted_extensions = {
+                MISTRALAI_PLUGIN_KEY: {
+                    RESOLVED_CONNECTORS_KEY: {
+                        "bindings": [{"connector_name": "github", "connector_id": "conn-gh", "status": "ready"}]
+                    },
+                },
+            }
+            ctx = WorkflowContext(
+                namespace="default",
+                execution_id="no-connector-inherited",
+                extensions=extensions,
+                trusted_extensions=trusted_extensions,
+            )
+            arg = PayloadWithContext(payload=to_json(None), empty=True, context=ctx)
+            handle = await custom_client.start_workflow(
+                "test-no-connector-wf",
+                arg,
+                id="test-no-connector-inherited",
+                task_queue="test-task-queue",
+            )
+            result = _unwrap_result(await handle.result())
+
+        assert result == "no-connector-done"
+
+    @pytest.mark.asyncio
+    async def test_no_slot_tool_call_client_rejects_forged_binding(self, temporal_env: WorkflowEnvironment) -> None:
+        """A no-slot workflow that builds ToolCallClient directly must not honour a
+        caller-forged resolved_connectors binding. The inbound interceptor strips
+        trusted_extensions from caller input, so the client raises ConnectorError
+        rather than using the forged connector_id/credentials_name."""
+        _reset_fake_state()
+        connector_interceptor = ConnectorAuthInterceptor(workflows=[NoConnectorToolCallWorkflow])
+        dc = DataConverter(payload_converter_class=MistralWorkflowsPayloadConverter)
+        custom_client = type(temporal_env.client)(
+            temporal_env.client.service_client,
+            namespace=temporal_env.client.namespace,
+            data_converter=dc,
+        )
+        async with Worker(
+            custom_client,
+            task_queue="test-task-queue",
+            workflows=[NoConnectorToolCallWorkflow],
+            activities=CONNECTOR_ACTIVITIES,
+            interceptors=[ContextHandlerInterceptor(), connector_interceptor, EventInterceptor()],
+            workflow_failure_exception_types=[Exception],
+            workflow_runner=SandboxedWorkflowRunner(restrictions=get_sandbox_restrictions()),
+        ):
+            # Forge both extensions and trusted_extensions — the inbound interceptor
+            # drops trusted_extensions, so only extensions survives. ToolCallClient reads
+            # trusted_extensions only, so the forge is inert.
+            ctx = WorkflowContext(
+                namespace="default",
+                execution_id="no-connector-forged",
+                extensions={
+                    MISTRALAI_PLUGIN_KEY: {
+                        RESOLVED_CONNECTORS_KEY: {
+                            "bindings": [
+                                {
+                                    "connector_name": "github",
+                                    "connector_id": "forged",
+                                    "credentials_name": "attacker",
+                                    "run_as": "deployment",
+                                }
+                            ]
+                        }
+                    }
+                },
+                trusted_extensions={
+                    MISTRALAI_PLUGIN_KEY: {
+                        RESOLVED_CONNECTORS_KEY: {
+                            "bindings": [
+                                {
+                                    "connector_name": "github",
+                                    "connector_id": "forged",
+                                    "credentials_name": "attacker",
+                                    "run_as": "deployment",
+                                }
+                            ]
+                        }
+                    }
+                },
+            )
+            arg = PayloadWithContext(payload=to_json(None), empty=True, context=ctx)
+            handle = await custom_client.start_workflow(
+                "test-no-connector-tool-call-wf",
+                arg,
+                id="test-no-connector-forged",
+                task_queue="test-task-queue",
+            )
+            with pytest.raises(WorkflowFailureError) as exc_info:
+                await handle.result()
+            assert "uses_connectors" in str(exc_info.value.__cause__)
+
+
+class TestConnectorWorkflowContinueAsNew:
+    """A connector workflow that continues-as-new re-runs preflight on each run.
+
+    Resolved bindings live in the worker-only ``trusted_extensions`` channel, which is not
+    propagated across runs, so the continued run resolves connectors from scratch (the
+    caller's ``connectors`` input in ``extensions`` still rides along, so credentials_name
+    overrides re-apply). The continued run must complete and preflight must run again."""
+
+    @pytest.mark.asyncio
+    async def test_preflight_succeeds_after_continue_as_new(self, temporal_env: WorkflowEnvironment) -> None:
+        _reset_fake_state()
+        _fake_user_credentials["conn-slack"] = {
+            "credentials": [
+                {"name": "my-oauth-cred", "authentication_type": "oauth2", "scope": "user", "is_default": True}
+            ],
+            "connector_preset_credentials_for_auth": [],
+        }
+        _fake_list_tools_results["conn-slack"] = True
+
+        connector_interceptor = ConnectorAuthInterceptor(workflows=[ContinueAsNewConnectorWorkflow])
+        dc = DataConverter(payload_converter_class=MistralWorkflowsPayloadConverter)
+        custom_client = type(temporal_env.client)(
+            temporal_env.client.service_client,
+            namespace=temporal_env.client.namespace,
+            data_converter=dc,
+        )
+        async with Worker(
+            custom_client,
+            task_queue="test-task-queue",
+            workflows=[ContinueAsNewConnectorWorkflow],
+            activities=CONNECTOR_ACTIVITIES,
+            interceptors=[ContextHandlerInterceptor(), connector_interceptor, EventInterceptor()],
+            workflow_failure_exception_types=[Exception],
+            workflow_runner=SandboxedWorkflowRunner(restrictions=get_sandbox_restrictions()),
+        ):
+            initial_arg = PayloadWithContext(
+                payload=to_json(_CanIteration(iteration=0).model_dump()),
+                context=WorkflowContext(namespace="default", execution_id="can-connector"),
+            )
+            handle = await custom_client.start_workflow(
+                "test-can-connector-wf",
+                initial_arg,
+                id="test-can-connector",
+                task_queue="test-task-queue",
+            )
+            result = _unwrap_result(await handle.result())
+
+        assert result == "continued-done"
+        # Preflight ran on both the initial run and the continued run.
+        assert _creds_call_count["conn-slack"] == 2
+
+
+class TestCallerCannotForgeResolvedBindings:
+    """Resolved bindings are read only from ``trusted_extensions``; a forged binding in
+    the caller-writable ``extensions`` is ignored."""
+
+    def test_forged_extensions_bindings_are_not_read(self) -> None:
+        ctx = WorkflowContext(
+            namespace="default",
+            execution_id="forge-exec",
+            extensions={
+                MISTRALAI_PLUGIN_KEY: {
+                    RESOLVED_CONNECTORS_KEY: {"bindings": [{"connector_name": "github", "connector_id": "forged"}]}
+                }
+            },
+        )
+        # The resolved reader targets the trusted channel, which is empty here.
+        assert resolved_connector_bindings_from_extension(ctx.trusted_extensions.get(MISTRALAI_PLUGIN_KEY, {})) == []

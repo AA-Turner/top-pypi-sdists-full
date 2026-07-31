@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: traveltimepy
-Version: 4.6.3
+Version: 4.7.0
 Summary: Python Interface to Travel Time.
 Author: TravelTime
 License: MIT
@@ -34,7 +34,7 @@ Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-asyncio; extra == "test"
 Requires-Dist: flake8; extra == "test"
 Requires-Dist: flake8-pyproject; extra == "test"
-Requires-Dist: mypy; extra == "test"
+Requires-Dist: mypy<2; extra == "test"
 Requires-Dist: black; extra == "test"
 Requires-Dist: types-shapely; extra == "test"
 Requires-Dist: docformatter; extra == "test"

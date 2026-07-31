@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
+from mistralai.workflows.core.auth import StaticTokenProvider
 from mistralai.workflows.exceptions import WorkflowError
 from mistralai.workflows.hooks.executor_credentials_hook import (
     AsyncExecutorCredentialsHook,
@@ -52,7 +53,7 @@ class TestExecutorCredentialsHook:
     async def test_sets_authorization_header(self, hook_cls):
         future_exp = time.time() + 120
         jwt = _make_jwt(future_exp)
-        hook = hook_cls(server_url="http://localhost", api_key="key")
+        hook = hook_cls(server_url="http://localhost", token_provider=StaticTokenProvider("key"))
 
         request = httpx.Request("GET", "http://example.com")
         with _patch_client(jwt, hook_cls), patch(_PATCH_RETRIEVE, return_value=_context_with_token("tok-A")):
@@ -60,11 +61,21 @@ class TestExecutorCredentialsHook:
 
         assert request.headers["Authorization"] == f"Bearer {jwt}"
 
+    def test_api_key_is_deprecated_but_supported(self, hook_cls):
+        with pytest.warns(DeprecationWarning, match="api_key"):
+            hook = hook_cls(server_url="http://localhost", api_key="legacy-key")
+        assert hook._token_provider.get_token() == "legacy-key"
+
+    def test_token_provider_used_without_warning(self, hook_cls, recwarn):
+        hook = hook_cls(server_url="http://localhost", token_provider=StaticTokenProvider("tp-key"))
+        assert hook._token_provider.get_token() == "tp-key"
+        assert not [w for w in recwarn.list if issubclass(w.category, DeprecationWarning)]
+
     @pytest.mark.asyncio
     async def test_caches_jwt_across_calls(self, hook_cls):
         future_exp = time.time() + 120
         jwt = _make_jwt(future_exp)
-        hook = hook_cls(server_url="http://localhost", api_key="key")
+        hook = hook_cls(server_url="http://localhost", token_provider=StaticTokenProvider("key"))
 
         with (
             _patch_client(jwt, hook_cls) as mock_method,
@@ -77,7 +88,7 @@ class TestExecutorCredentialsHook:
 
     @pytest.mark.asyncio
     async def test_raises_when_no_context(self, hook_cls):
-        hook = hook_cls(server_url="http://localhost", api_key="key")
+        hook = hook_cls(server_url="http://localhost", token_provider=StaticTokenProvider("key"))
         request = httpx.Request("GET", "http://example.com")
 
         with patch(_PATCH_RETRIEVE, return_value=None):
@@ -86,7 +97,7 @@ class TestExecutorCredentialsHook:
 
     @pytest.mark.asyncio
     async def test_raises_when_context_has_no_token(self, hook_cls):
-        hook = hook_cls(server_url="http://localhost", api_key="key")
+        hook = hook_cls(server_url="http://localhost", token_provider=StaticTokenProvider("key"))
         request = httpx.Request("GET", "http://example.com")
         ctx = WorkflowContext(namespace="ns", execution_id="exec-1", execution_token=None)
 
@@ -96,7 +107,7 @@ class TestExecutorCredentialsHook:
 
     @pytest.mark.asyncio
     async def test_raises_non_retryable_when_not_on_behalf_of(self, hook_cls):
-        hook = hook_cls(server_url="http://localhost", api_key="key")
+        hook = hook_cls(server_url="http://localhost", token_provider=StaticTokenProvider("key"))
         request = httpx.Request("GET", "http://example.com")
         ctx = _context_with_token("tok-A", on_behalf_of=False)
 
@@ -107,7 +118,7 @@ class TestExecutorCredentialsHook:
 
     @pytest.mark.asyncio
     async def test_server_403_raises_non_retryable(self, hook_cls):
-        hook = hook_cls(server_url="http://localhost", api_key="key")
+        hook = hook_cls(server_url="http://localhost", token_provider=StaticTokenProvider("key"))
         request = httpx.Request("GET", "http://example.com")
         response = httpx.Response(403, text="Workflow is not configured for on-behalf-of execution")
         error = SDKDefaultError("API error occurred", response)

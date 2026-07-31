@@ -75,6 +75,10 @@ class FlatNode(BaseModel):
     dispatch_label: str | None = Field(default=None, description="Protocol dispatch label (dispatch nodes)")
     tools: list[str] | None = Field(default=None, description="Tool names (agent nodes)")
     handoffs: list[str] | None = Field(default=None, description="Handoff agent names (agent nodes)")
+    connectors: list[str] | None = Field(
+        default=None,
+        description="Connector names this node uses (activity nodes via Depends, agent nodes via connectors=)",
+    )
     children: list[str] | None = Field(default=None, description="Child node IDs (loop, try_except)")
     branches: list[list[str]] | None = Field(default=None, description="Per-lane node IDs (parallel)")
     is_error: bool | None = Field(default=None, description="True for error/raise output nodes")
@@ -90,7 +94,14 @@ class FlatNode(BaseModel):
         default=None,
         description="IDs of non-terminal nodes in conditional branches",
     )
-    child_workflow_id: str | None = Field(default=None, description="Child workflow class name (child_workflow nodes)")
+    child_workflow_id: str | None = Field(
+        default=None,
+        description=(
+            "Routing identifier of the child workflow (child_workflow nodes): its registered "
+            "workflow name (the class name when unresolvable). Set only when the child is in "
+            "the scanned set."
+        ),
+    )
     child_workflow_file: str | None = Field(
         default=None,
         description="Source file of the child workflow, when in the scanned set (child_workflow nodes)",
@@ -99,6 +110,10 @@ class FlatNode(BaseModel):
         default=None,
         alias="async",
         description="True for fire-and-forget child workflows (child_workflow nodes)",
+    )
+    param_type: str | None = Field(default=None, description="Type annotation of the first non-self parameter")
+    param_fields: list[dict[str, str]] | None = Field(
+        default=None, description="Structured parameter list: [{name, type, description?}]"
     )
 
 
@@ -125,7 +140,9 @@ class AtlasWireFormat(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     version: Literal[3] = Field(default=3, description="Format version discriminant")
-    workflow_name: str = Field(description="Class name of the workflow")
+    workflow_name: str = Field(
+        description="Registered workflow name (@workflow.define(name=...)); the class name when unresolvable"
+    )
     sources: dict[str, str] | None = Field(default=None, description="Per-file source text, keyed by path")
     files: dict[str, FileRange] = Field(description="Byte ranges per file path")
     primary_file: str | None = Field(default=None, description="File the user selected in the picker")
@@ -137,6 +154,8 @@ class AtlasWireFormat(BaseModel):
     signals: list[HandlerInfo] = Field(default_factory=list, description="@workflow.signal() handlers")
     updates: list[HandlerInfo] = Field(default_factory=list, description="@workflow.update() handlers")
     queries: list[HandlerInfo] = Field(default_factory=list, description="@workflow.query() handlers")
+    connectors: list[str] = Field(default_factory=list, description="@uses_connectors() declared connector names")
+    on_behalf_of: bool = Field(default=False, description="@workflow.define(on_behalf_of=...) flag")
     schedule: str | None = Field(default=None, description="Reserved; always null")
     node_summaries: dict[str, dict[str, str]] | None = Field(
         default=None,
@@ -170,7 +189,8 @@ _NODE_TYPES_TABLE = """\
 | `wait_condition` | Rounded rect | `wait_condition` -- event wait |
 | `parallel` | Wide rect | Parallel fan-out |
 | `task` | Rounded rect | Background task |
-| `memory_op` | Rounded rect | Memory operation (save/load) |\
+| `memory_op` | Rounded rect | Memory operation (save/load) |
+| `continue_as_new` | Rounded rect | `continue_as_new` -- restarts the workflow with fresh history |\
 """
 
 _EDGE_KINDS_TABLE = """\

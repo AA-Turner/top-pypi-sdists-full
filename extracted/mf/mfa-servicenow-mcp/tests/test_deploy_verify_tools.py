@@ -236,9 +236,9 @@ def test_preflight_blocks_when_live_moved_after_the_export(config, tmp_path, liv
     live["sys_script"] = [
         {
             "sys_id": SID,
-            "script": "NEW BODY from gschoi",
+            "script": "NEW BODY from bob",
             "sys_updated_on": LIVE_VERSION,
-            "sys_updated_by": "gschoi",
+            "sys_updated_by": "bob",
             "sys_mod_count": "97",
         }
     ]
@@ -249,7 +249,7 @@ def test_preflight_blocks_when_live_moved_after_the_export(config, tmp_path, liv
     assert res["deployable"] is False
     record = res["records"][0]
     assert record["verdict"] == LIVE_NEWER
-    assert record["live_updated_by"] == "gschoi"
+    assert record["live_updated_by"] == "bob"
     assert record["xml_version"] == XML_VERSION
     assert record["live_version"] == LIVE_VERSION
     assert record["differing_fields"] == ["script"]

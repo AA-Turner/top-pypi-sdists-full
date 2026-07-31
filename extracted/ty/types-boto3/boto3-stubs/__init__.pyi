@@ -338,6 +338,7 @@ from types_boto3_pinpoint_sms_voice_v2.client import PinpointSMSVoiceV2Client
 from types_boto3_pipes.client import EventBridgePipesClient
 from types_boto3_polly.client import PollyClient
 from types_boto3_pricing.client import PricingClient
+from types_boto3_pricing_plan_manager.client import PricingPlanManagerClient
 from types_boto3_proton.client import ProtonClient
 from types_boto3_qapps.client import QAppsClient
 from types_boto3_qbusiness.client import QBusinessClient
@@ -6028,6 +6029,24 @@ def client(
 ) -> PricingClient:
     """
     Create client for Pricing service.
+    """
+
+@overload
+def client(
+    service_name: Literal["pricing-plan-manager"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> PricingPlanManagerClient:
+    """
+    Create client for PricingPlanManager service.
     """
 
 @overload

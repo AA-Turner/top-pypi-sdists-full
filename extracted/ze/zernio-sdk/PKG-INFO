@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zernio-sdk
-Version: 1.4.373
+Version: 1.4.386
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -282,6 +282,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `analytics.get_content_decay()` | Get content performance decay |
 | `analytics.get_daily_metrics()` | Get daily aggregated metrics |
 | `analytics.get_facebook_page_insights()` | Get Facebook Page insights |
+| `analytics.get_facebook_post_earnings()` | Get Facebook post monetization earnings |
 | `analytics.get_facebook_post_reactions()` | Get Facebook post reactions |
 | `analytics.get_google_business_performance()` | Get GBP performance metrics |
 | `analytics.get_google_business_search_keywords()` | Get GBP search keywords |
@@ -907,6 +908,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `whatsapp.add_whats_app_group_participants()` | Add participants |
 | `whatsapp.approve_whats_app_group_join_requests()` | Approve join requests |
 | `whatsapp.block_whats_app_users()` | Block users |
+| `whatsapp.register_whats_app_number()` | Register a connected WhatsApp number on the Cloud API |
 | `whatsapp.reject_whats_app_group_join_requests()` | Reject join requests |
 | `whatsapp.remove_whats_app_group_participants()` | Remove participants |
 | `whatsapp.send_whats_app_conversion()` | Send WhatsApp conversion event |
@@ -931,6 +933,8 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `whatsapp_calling.enable_whats_app_calling()` | Enable calling on a number |
 | `whatsapp_calling.enable_whats_app_calling_legacy()` | Enable calling on a number |
 | `whatsapp_calling.initiate_whats_app_call()` | Initiate outbound call |
+| `whatsapp_calling.start_whats_app_caller_id_verification()` | Start caller-ID verification for a customer-brought number |
+| `whatsapp_calling.verify_whats_app_caller_id()` | Confirm the caller-ID verification code |
 
 ### WhatsApp Flows
 | Method | Description |

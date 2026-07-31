@@ -60,20 +60,40 @@ def _make_init(
     kwargs_obj = core.KWARGS
     missing = core.MISSING
     has_post_init = hasattr(type_cls, "__post_init__")
+    positional_fields, field_by_name = _init_normalization_fields(type_info)
+
+    def normalize_positional(args: tuple[Any, ...]) -> list[Any]:
+        ffi_args = list(args)
+        for i, value in enumerate(ffi_args[: len(positional_fields)]):
+            ffi_args[i] = _normalize_field_value(positional_fields[i], value)
+        return ffi_args
+
+    def append_normalized_kwargs(ffi_args: list[Any], kwargs: dict[str, Any]) -> None:
+        ffi_args.append(kwargs_obj)
+        for key, value in kwargs.items():
+            if value is not missing:
+                normalized_value = value
+                field = field_by_name.get(key)
+                if field is not None:
+                    normalized_value = _normalize_field_value(field, value)
+                ffi_args.append(key)
+                ffi_args.append(normalized_value)
+
+    _ip_funcs = _collect_init_property_funcs(type_cls)
 
     if py_class_mode:
 
         def __init__(self: Any, *args: Any, **kwargs: Any) -> None:
             if self.__chandle__() != 0:
                 return
-            ffi_args: list[Any] = list(args)
+            ffi_args = normalize_positional(args)
             if kwargs:
-                ffi_args.append(kwargs_obj)
-                for key, val in kwargs.items():
-                    if val is not missing:
-                        ffi_args.append(key)
-                        ffi_args.append(val)
+                append_normalized_kwargs(ffi_args, kwargs)
             self.__init_handle_by_constructor__(ffi_init, *ffi_args)
+            if _ip_funcs:
+                _t = type(self)
+                for _name, _func in _ip_funcs:
+                    getattr(_t, _name).set(self, _func(self))
             if has_post_init:
                 self.__post_init__()
 
@@ -87,14 +107,14 @@ def _make_init(
                     f"`{type_name}`. Use @py_class for inheritance with manual "
                     f"__init__, or define `{type(self).__name__}` with init=True."
                 )
-            ffi_args: list[Any] = list(args)
+            ffi_args = normalize_positional(args)
             if kwargs:
-                ffi_args.append(kwargs_obj)
-                for key, val in kwargs.items():
-                    if val is not missing:
-                        ffi_args.append(key)
-                        ffi_args.append(val)
+                append_normalized_kwargs(ffi_args, kwargs)
             self.__init_handle_by_constructor__(ffi_init, *ffi_args)
+            if _ip_funcs:
+                _t = type(self)
+                for _name, _func in _ip_funcs:
+                    getattr(_t, _name).set(self, _func(self))
             if has_post_init:
                 self.__post_init__()
 
@@ -102,6 +122,45 @@ def _make_init(
     __init__.__qualname__ = f"{type_cls.__qualname__}.__init__"
     __init__.__module__ = type_cls.__module__
     return __init__
+
+
+def _collect_init_property_funcs(type_cls: type) -> list[tuple[str, Callable[..., Any]]]:
+    """Collect ``(name, func)`` pairs for all ``init_property`` fields in MRO order.
+
+    Walks from the root toward the most specific class so parent properties are
+    initialized before child properties.  Child definitions replace parent
+    definitions of the same name.
+    """
+    funcs: dict[str, Callable[..., Any]] = {}
+    for cls in reversed(type_cls.__mro__):
+        for name, func in cls.__dict__.get("__ffi_init_property_funcs__", {}).items():
+            funcs[name] = func
+    return list(funcs.items())
+
+
+def _init_normalization_fields(type_info: TypeInfo) -> tuple[list[Any], dict[str, Any]]:
+    """Return reflected init fields in the same order as the generated signature."""
+    all_fields: list[Any] = []
+    ti: TypeInfo | None = type_info
+    chain: list[TypeInfo] = []
+    while ti is not None:
+        chain.append(ti)
+        ti = ti.parent_type_info
+    for ancestor_info in reversed(chain):
+        all_fields.extend(ancestor_info.fields or ())
+
+    positional = [field for field in all_fields if field.c_init and not field.c_kw_only]
+    pos_required = [field for field in positional if not field.c_has_default]
+    pos_default = [field for field in positional if field.c_has_default]
+    field_by_name = {field.name: field for field in all_fields if field.c_init}
+    return pos_required + pos_default, field_by_name
+
+
+def _normalize_field_value(field: Any, value: Any) -> Any:
+    normalize = getattr(field, "normalize_value", None)
+    if normalize is None:
+        return value
+    return normalize(value)
 
 
 def _make_init_signature(type_info: TypeInfo) -> inspect.Signature:

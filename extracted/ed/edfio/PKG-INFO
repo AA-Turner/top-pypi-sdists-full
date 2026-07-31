@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edfio
-Version: 0.4.14
+Version: 0.4.15
 Summary: Read and write EDF/EDF+C/BDF/BDF+C files.
 Project-URL: repository, https://github.com/the-siesta-group/edfio
 Project-URL: documentation, https://edfio.readthedocs.io

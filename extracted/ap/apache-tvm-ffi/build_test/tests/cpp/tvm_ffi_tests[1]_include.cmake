@@ -16,7 +16,7 @@ if(EXISTS "/home/runner/work/tvm-ffi/tvm-ffi/build_test/lib/tvm_ffi_tests")
       NO_PRETTY_VALUES [==[FALSE]==]
       TEST_LIST [==[tvm_ffi_tests_TESTS]==]
       CTEST_FILE [==[/home/runner/work/tvm-ffi/tvm-ffi/build_test/tests/cpp/tvm_ffi_tests[1]_tests.cmake]==]
-      TEST_DISCOVERY_TIMEOUT [==[5]==]
+      TEST_DISCOVERY_TIMEOUT [==[600]==]
       TEST_DISCOVERY_EXTRA_ARGS [==[]==]
       TEST_XML_OUTPUT_DIR [==[]==]
     )

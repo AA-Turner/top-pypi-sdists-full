@@ -10,6 +10,7 @@ import logging
 from contextlib import nullcontext
 from copy import copy
 from functools import partial
+from typing_extensions import deprecated
 
 import re
 from typing import (
@@ -17,7 +18,6 @@ from typing import (
     Awaitable,
     Callable,
     Generic,
-    Optional,
     TypeVar,
     cast,
     overload,
@@ -36,6 +36,7 @@ from microsoft_agents.hosting.core.turn_context import TurnContext
 
 from ..agent import Agent
 from ..authorization import Connections
+from ..header_propagation import AgenticHeaderProvider, HeaderPropagationContext
 from .app_error import ApplicationError
 from .app_options import ApplicationOptions
 
@@ -74,22 +75,22 @@ class AgentApplication(Agent, Generic[StateT]):
     typing: TypingIndicator
 
     _options: ApplicationOptions
-    _adapter: Optional[ChannelServiceAdapter] = None
+    _adapter: ChannelServiceAdapter | None = None
     _auth: Authorization
-    _proactive: Optional[Proactive] = None
+    _proactive: Proactive | None = None
     _internal_before_turn: list[Callable[[TurnContext, StateT], Awaitable[bool]]]
     _internal_after_turn: list[Callable[[TurnContext, StateT], Awaitable[bool]]]
     _route_list: _RouteList[StateT]
-    _error: Optional[Callable[[TurnContext, Exception], Awaitable[None]]] = None
-    _turn_state_factory: Optional[Callable[[TurnContext], StateT]] = None
+    _error: Callable[[TurnContext, Exception], Awaitable[None]] | None = None
+    _turn_state_factory: Callable[[], StateT] | None = None
     _connection_manager: Connections
 
     def __init__(
         self,
-        options: Optional[ApplicationOptions] = None,
+        options: ApplicationOptions | None = None,
         *,
-        connection_manager: Optional[Connections] = None,
-        authorization: Optional[Authorization] = None,
+        connection_manager: Connections | None = None,
+        authorization: Authorization | None = None,
         **kwargs,
     ) -> None:
         """
@@ -107,6 +108,14 @@ class AgentApplication(Agent, Generic[StateT]):
         self._route_list = _RouteList[StateT]()
         self._internal_before_turn = []
         self._internal_after_turn = []
+
+        # Human-friendly agent name surfaced on outgoing agentic headers.
+        # Falls back to the application class name when not explicitly provided.
+        raw_agent_name = kwargs.get("agent_name") or type(self).__name__
+        sanitized_agent_name = re.sub(
+            r"[^A-Za-z0-9 ._-]", "", str(raw_agent_name)
+        ).strip()
+        self._agent_name = sanitized_agent_name or type(self).__name__
 
         configuration = kwargs
 
@@ -131,6 +140,7 @@ class AgentApplication(Agent, Generic[StateT]):
             raise ApplicationError("""
                 The `ApplicationOptions.storage` property is required and was not configured.
                 """)
+        self._storage = self._options.storage
 
         if options.long_running_messages and (
             not options.adapter or not options.bot_app_id
@@ -150,13 +160,13 @@ class AgentApplication(Agent, Generic[StateT]):
         self._turn_state_factory = (
             options.turn_state_factory
             or kwargs.get("turn_state_factory", None)
-            or partial(TurnState.with_storage, self._options.storage)
+            or partial(TurnState.with_storage, self._storage)
         )
 
         if options.proactive:
             proactive_opts = copy(options.proactive)
             if not proactive_opts.storage:
-                proactive_opts.storage = self._options.storage
+                proactive_opts.storage = self._storage
             self._proactive = Proactive(self, proactive_opts)
 
         # TODO: decide how to initialize the Authorization (params vs options vs kwargs)
@@ -183,10 +193,11 @@ class AgentApplication(Agent, Generic[StateT]):
             auth_options = {
                 key: value
                 for key, value in configuration.items()
-                if key not in ["storage", "connection_manager", "handlers"]
+                if key
+                not in ["storage", "connection_manager", "handlers", "agent_name"]
             }
             self._auth = Authorization(
-                storage=self._options.storage,
+                storage=self._storage,
                 connection_manager=connection_manager,
                 auth_handlers=options.authorization_handlers,
                 **auth_options,
@@ -793,7 +804,7 @@ class AgentApplication(Agent, Generic[StateT]):
 
         return func
 
-    def turn_state_factory(self, func: Callable[[TurnContext], Awaitable[StateT]]):
+    def set_turn_state_factory(self, func: Callable[[], StateT]):
         """
         Custom Turn State Factory
         """
@@ -809,6 +820,15 @@ class AgentApplication(Agent, Generic[StateT]):
 
     async def _on_turn(self, context: TurnContext):
         try:
+            # Register Activity-derived header provider for agentic requests so
+            # that agent identity headers are propagated on outgoing requests
+            # made while processing this turn.
+            HeaderPropagationContext.reset()
+            if context.activity and context.activity.is_agentic_request():
+                HeaderPropagationContext.register(
+                    AgenticHeaderProvider(context.activity, self._agent_name)
+                )
+
             with spans.AppOnTurn(context) as on_turn_span:
                 use_typing = (
                     self._options.start_typing_timer
@@ -873,6 +893,9 @@ class AgentApplication(Agent, Generic[StateT]):
             context.activity.text = context.remove_recipient_mention(context.activity)
 
     @staticmethod
+    @deprecated(
+        "Use `load_configuration_from_env` from `microsoft_agents.activity` instead."
+    )
     def parse_env_vars_configuration(vars: dict[str, Any]) -> dict:
         """
         Parses environment variables and returns a dictionary with the relevant configuration.
@@ -908,12 +931,12 @@ class AgentApplication(Agent, Generic[StateT]):
             turn_state = self._turn_state_factory()
         else:
             logger.debug("Using default turn state factory")
-            turn_state = TurnState.with_storage(self._options.storage)
+            turn_state = TurnState.with_storage(self._storage)
 
         turn_state = cast(StateT, turn_state)
 
         logger.debug("Loading turn state from storage")
-        await turn_state.load(context, self._options.storage)
+        await turn_state.load(context, self._storage)
         turn_state.temp.input = context.activity.text
         return turn_state
 

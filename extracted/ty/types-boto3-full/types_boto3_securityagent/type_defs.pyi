@@ -452,6 +452,7 @@ class EndpointTypeDef(TypedDict):
 class IntegratedRepositoryTypeDef(TypedDict):
     integrationId: str
     providerResourceId: str
+    branch: NotRequired[str]
 
 class SourceCodeRepositoryTypeDef(TypedDict):
     s3Location: NotRequired[str]

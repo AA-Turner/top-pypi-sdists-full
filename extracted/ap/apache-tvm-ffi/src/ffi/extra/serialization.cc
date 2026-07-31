@@ -27,7 +27,9 @@
 #include <tvm/ffi/container/list.h>
 #include <tvm/ffi/container/map.h>
 #include <tvm/ffi/container/shape.h>
+#include <tvm/ffi/device.h>
 #include <tvm/ffi/dtype.h>
+#include <tvm/ffi/enum.h>
 #include <tvm/ffi/error.h>
 #include <tvm/ffi/extra/base64.h>
 #include <tvm/ffi/extra/serialization.h>
@@ -195,6 +197,9 @@ class ObjectGraphSerializer {
   // create the data for the object, if the type has a custom data to json function,
   // use it. otherwise, we go over the fields and create the data.
   json::Value CreateObjectData(const Any& value) {
+    const Object* obj = value.cast<const Object*>();
+    if (obj->IsInstance<IntEnumObj>()) return static_cast<const EnumObj*>(obj)->_int_index;
+    if (obj->IsInstance<EnumObj>()) return static_cast<const EnumObj*>(obj)->_str_index;
     static reflection::TypeAttrColumn data_to_json =
         reflection::TypeAttrColumn(reflection::type_attr::kDataToJson);
     if (data_to_json[value.type_index()] != nullptr) {
@@ -207,7 +212,6 @@ class ObjectGraphSerializer {
                                << "` does not support ToJSONGraph "
                                << "(no native creator or __ffi_new__ type attr)";
     }
-    const Object* obj = value.cast<const Object*>();
     json::Object data;
     // go over the content and hash the fields
     reflection::ForEachFieldInfo(type_info, [&](const TVMFFIFieldInfo* field_info) {
@@ -270,6 +274,12 @@ class ObjectGraphDeserializer {
   }
 
   Any GetOrDecodeNode(int64_t node_index) {
+    // node_index comes from the input (root_index and child references), so
+    // validate it before indexing into decoded_nodes_ / nodes_, which would
+    // otherwise read out of bounds.
+    if (node_index < 0 || node_index >= static_cast<int64_t>(nodes_.size())) {
+      TVM_FFI_THROW(ValueError) << "Invalid JSON Object Graph: invalid node index " << node_index;
+    }
     // already decoded null index
     if (node_index == decoded_null_index_) {
       return Any(nullptr);
@@ -312,6 +322,11 @@ class ObjectGraphDeserializer {
       }
       case TypeIndex::kTVMFFIDevice: {
         Array<int32_t> data = node["data"].cast<Array<int32_t>>();
+        if (data.size() != 2) {
+          TVM_FFI_THROW(ValueError)
+              << "Invalid JSON Object Graph: Device data must be an array of "
+              << "[device_type, device_id], got " << data.size() << " element(s)";
+        }
         return DLDevice{static_cast<DLDeviceType>(data[0]), data[1]};
       }
       case TypeIndex::kTVMFFIStr: {
@@ -356,6 +371,13 @@ class ObjectGraphDeserializer {
   MapType DecodeMapLikeData(const json::Array& data) {
     MapType result;
     const int64_t n = static_cast<int64_t>(data.size());
+    // Map/Dict data is a flat array of alternating [key, value] indices, so the
+    // length must be even; an odd length means the input is malformed and would
+    // otherwise read data[i + 1] past the end on the final iteration.
+    if (n % 2 != 0) {
+      TVM_FFI_THROW(ValueError) << "Invalid JSON Object Graph: Map/Dict data must contain an even "
+                                << "number of [key, value] entries, got " << n;
+    }
     for (int64_t i = 0; i < n; i += 2) {
       int64_t key_index = data[i].cast<int64_t>();
       int64_t value_index = data[i + 1].cast<int64_t>();
@@ -365,6 +387,12 @@ class ObjectGraphDeserializer {
   }
 
   Any DecodeObjectData(int32_t type_index, const json::Value& data) {
+    if (details::IsObjectInstance<IntEnumObj>(type_index)) {
+      return EnumObj::_GetByIntIndex(type_index, data.cast<int64_t>());
+    }
+    if (details::IsObjectInstance<EnumObj>(type_index)) {
+      return EnumObj::_GetByStrIndex(type_index, data.cast<String>());
+    }
     static reflection::TypeAttrColumn data_from_json =
         reflection::TypeAttrColumn(reflection::type_attr::kDataFromJson);
     if (data_from_json[type_index] != nullptr) {

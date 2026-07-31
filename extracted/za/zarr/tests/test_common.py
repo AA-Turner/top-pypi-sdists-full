@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, get_args
 
@@ -9,6 +10,8 @@ import pytest
 from zarr.core.common import (
     ANY_ACCESS_MODE,
     AccessModeLiteral,
+    concurrent_iter,
+    parse_int,
     parse_name,
     parse_shapelike,
     product,
@@ -29,6 +32,32 @@ def test_access_modes() -> None:
     Test that the access modes type and variable for run-time checking are equivalent.
     """
     assert set(ANY_ACCESS_MODE) == set(get_args(AccessModeLiteral))
+
+
+async def test_concurrent_iter_schedules_eagerly() -> None:
+    """`concurrent_iter` must return already-scheduled tasks, not a lazy generator.
+
+    Its docstring promises `func(*item)` is launched concurrently for every
+    item up front; a caller that awaits the returned tasks one at a time
+    (rather than via `gather`/`as_completed`, which force iteration) relies
+    on that eager scheduling to get any overlap at all.
+    """
+    started = [False, False, False]
+
+    async def mark(i: int) -> int:
+        started[i] = True
+        return i
+
+    tasks = concurrent_iter([(0,), (1,), (2,)], mark)
+
+    # Give the event loop one chance to run before awaiting anything
+    # individually. If `concurrent_iter` were lazy, nothing would have been
+    # scheduled yet and `started` would still be all-False here.
+    await asyncio.sleep(0)
+    assert started == [True, True, True]
+
+    results = [await t for t in tasks]
+    assert results == [0, 1, 2]
 
 
 # todo: test
@@ -70,6 +99,18 @@ def test_parse_name_valid(data: tuple[Any, Any]) -> None:
 def test_parse_indexing_order_invalid(data: Any) -> None:
     with pytest.raises(ValueError, match="Expected one of"):
         parse_indexing_order(data)
+
+
+@pytest.mark.parametrize("data", ["1", 1.0, True, False, None, [1], (1,)])
+def test_parse_int_invalid(data: Any) -> None:
+    """Non-int values (including bools, which are int subclasses) are rejected."""
+    with pytest.raises(ValueError, match="Expected int"):
+        parse_int(data)
+
+
+@pytest.mark.parametrize("data", [0, 1, -1, 2**63])
+def test_parse_int_valid(data: int) -> None:
+    assert parse_int(data) == data
 
 
 @pytest.mark.parametrize("data", ["C", "F"])

@@ -37,6 +37,8 @@ def build_temporal_payload_metadata(
         metadata[PayloadMetadataKeys.EXECUTION_TOKEN] = context.execution_token.encode()
     if context.extensions:
         metadata[PayloadMetadataKeys.EXTENSIONS] = json.dumps(context.extensions).encode()
+    if context.trusted_extensions:
+        metadata[PayloadMetadataKeys.TRUSTED_EXTENSIONS] = json.dumps(context.trusted_extensions).encode()
     if context.on_behalf_of is not None:
         metadata[PayloadMetadataKeys.ON_BEHALF_OF] = b"true" if context.on_behalf_of else b"false"
 
@@ -58,6 +60,8 @@ def build_info_from_payload_metadata(
     execution_token = execution_token_bytes.decode() if execution_token_bytes else None
     extensions_bytes = metadata.get(PayloadMetadataKeys.EXTENSIONS)
     extensions = json.loads(extensions_bytes) if extensions_bytes else {}
+    trusted_extensions_bytes = metadata.get(PayloadMetadataKeys.TRUSTED_EXTENSIONS)
+    trusted_extensions = json.loads(trusted_extensions_bytes) if trusted_extensions_bytes else {}
 
     on_behalf_of_bytes = metadata.get(PayloadMetadataKeys.ON_BEHALF_OF)
     on_behalf_of: bool | None = on_behalf_of_bytes == b"true" if on_behalf_of_bytes is not None else None
@@ -69,6 +73,7 @@ def build_info_from_payload_metadata(
         parent_workflow_exec_id=parent_workflow_exec_id,
         execution_token=execution_token,
         extensions=extensions,
+        trusted_extensions=trusted_extensions,
         on_behalf_of=on_behalf_of,
     )
 

@@ -1,0 +1,1 @@
+import{i as e}from"./splatFileLoader-DLMPjdkz.js";export{e as gaussianSplattingPixelShader};

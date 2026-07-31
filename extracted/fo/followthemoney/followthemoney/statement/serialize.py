@@ -1,12 +1,13 @@
 import csv
-import click
-import orjson
 import logging
+from collections.abc import Generator, Iterable
 from io import TextIOWrapper
 from pathlib import Path
 from types import TracebackType
-from typing import Dict, Tuple, cast
-from typing import BinaryIO, Generator, Iterable, List, Optional, TextIO, Type
+from typing import BinaryIO, Self, TextIO, cast
+
+import click
+import orjson
 from rigour.boolean import text_bool
 from rigour.env import ENCODING
 
@@ -63,7 +64,7 @@ def read_json_statements(
 
 
 def read_csv_statements(fh: BinaryIO) -> Generator[Statement, None, None]:
-    wrapped = TextIOWrapper(fh, encoding=ENCODING)
+    wrapped = TextIOWrapper(fh, encoding=ENCODING, newline="")
     for row in csv.DictReader(wrapped, dialect=csv.unix_dialect):
         data = cast(StatementDict, row)
         data["external"] = text_bool(row.get("external")) or False
@@ -73,29 +74,35 @@ def read_csv_statements(fh: BinaryIO) -> Generator[Statement, None, None]:
             data["original_value"] = None
         if row.get("origin") == "":
             data["origin"] = None
+        if row.get("first_seen") == "":
+            data["first_seen"] = None
+        if row.get("last_seen") == "":
+            data["last_seen"] = None
+        if row.get("id") == "":
+            data["id"] = None
         yield Statement.from_dict(data)
 
 
 def read_pack_statements(fh: BinaryIO) -> Generator[Statement, None, None]:
-    wrapped = TextIOWrapper(fh, encoding=ENCODING)
+    wrapped = TextIOWrapper(fh, encoding=ENCODING, newline="")
     yield from read_pack_statements_decoded(wrapped)
 
 
 def read_pack_statements_decoded(fh: TextIO) -> Generator[Statement, None, None]:
-    headers: Optional[List[str]] = None
+    headers: list[str] | None = None
     for row in csv.reader(fh, dialect=csv.unix_dialect):
         if headers is None:
             if "entity_id" in row and "prop" in row:
                 headers = row
-            else:
-                # This is a legacy pack file, with no headers.
-                headers = LEGACY_PACK_COLUMNS
-            continue
+                continue
+            # This is a legacy pack file, with no headers. The current row
+            # is data and must be processed, not skipped.
+            headers = LEGACY_PACK_COLUMNS
         data = dict(zip(headers, row))
         try:
             schema, _, prop = unpack_prop(data["prop"])
         except TypeError:
-            log.error("Invalid property in pack statement: %s" % data["prop"])
+            log.error("Invalid property in pack statement: {}".format(data["prop"]))
             continue
         yield Statement(
             entity_id=data["entity_id"],
@@ -134,14 +141,14 @@ def read_path_statements(path: Path, format: str) -> Generator[Statement, None, 
 
 def get_statement_writer(fh: BinaryIO, format: str) -> "StatementWriter":
     if format == CSV:
-        wrapped = TextIOWrapper(fh, encoding=ENCODING)
+        wrapped = TextIOWrapper(fh, encoding=ENCODING, newline="")
         return CSVStatementWriter(wrapped)
     elif format == PACK:
-        wrapped = TextIOWrapper(fh, encoding=ENCODING)
+        wrapped = TextIOWrapper(fh, encoding=ENCODING, newline="")
         return PackStatementWriter(wrapped)
     elif format == JSON:
         return JSONStatementWriter(fh)
-    raise RuntimeError("Unknown statement format: %s" % format)
+    raise RuntimeError(f"Unknown statement format: {format}")
 
 
 def write_statements(
@@ -153,21 +160,21 @@ def write_statements(
     writer.close()
 
 
-class StatementWriter(object):
+class StatementWriter:
     def write(self, stmt: Statement) -> None:
         raise NotImplementedError()
 
     def close(self) -> None:
         raise NotImplementedError()
 
-    def __enter__(self) -> "StatementWriter":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(
         self,
-        type: Optional[Type[BaseException]],
-        value: Optional[BaseException],
-        traceback: Optional[TracebackType],
+        type: type[BaseException] | None,
+        value: BaseException | None,
+        traceback: TracebackType | None,
     ) -> None:
         self.close()
 
@@ -190,7 +197,7 @@ class CSVStatementWriter(StatementWriter):
         self.fh = fh
         self.writer = csv.writer(self.fh, dialect=csv.unix_dialect)
         self.writer.writerow(CSV_COLUMNS)
-        self._batch: List[List[Optional[str]]] = []
+        self._batch: list[list[str | None]] = []
 
     def write(self, stmt: Statement) -> None:
         row = stmt.to_csv_row()
@@ -227,7 +234,7 @@ class PackStatementWriter(StatementWriter):
             "id",
         ]
         self.writer.writerow(columns)
-        self._batch: Dict[str, Tuple[Optional[str], ...]] = {}
+        self._batch: dict[str, tuple[str | None, ...]] = {}
 
     def write(self, stmt: Statement) -> None:
         # HACK: This is very similar to the CSV writer, but at the very inner

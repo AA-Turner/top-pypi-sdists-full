@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: constructs
-Version: 10.7.2
+Version: 10.8.0
 Summary: A programming model for software-defined state
 Home-page: https://github.com/aws/constructs
 Author: Amazon Web Services<aws-cdk-dev@amazon.com>

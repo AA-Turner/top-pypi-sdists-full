@@ -18,7 +18,9 @@ async fn main() -> ExitCode {
         Ok(code) => ExitCode::from(code),
         Err(e) => {
             eprintln!("Error: {e}");
-            ExitCode::FAILURE
+            // invariant: EXIT_ERROR is 2, which fits u8
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            ExitCode::from(pysentry::audit::pipeline::EXIT_ERROR as u8)
         }
     }
 }
@@ -33,11 +35,14 @@ async fn run() -> Result<u8> {
                 Ok(result) => result,
                 Err(e) => {
                     eprintln!("Configuration error: {e}");
-                    return Ok(1);
+                    // invariant: EXIT_ERROR is 2, which fits u8
+                    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                    return Ok(pysentry::audit::pipeline::EXIT_ERROR as u8);
                 }
             };
 
             let mut http_config = config.as_ref().map(|c| c.http.clone()).unwrap_or_default();
+            http_config.service_url = merged_audit_args.service_url.clone();
             if merged_audit_args.is_quiet() {
                 http_config.show_progress = false;
             }

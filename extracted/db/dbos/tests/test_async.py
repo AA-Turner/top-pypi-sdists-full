@@ -1,9 +1,10 @@
 import asyncio
 import functools
+import gc
 import threading
 import time
 import uuid
-from typing import Any, List, Optional, cast
+from typing import Any, Dict, List, Optional, cast
 
 import pytest
 import sqlalchemy as sa
@@ -28,7 +29,7 @@ from dbos._error import (
 )
 from dbos._event_loop import BackgroundEventLoop
 from dbos._schemas.system_database import SystemSchema
-from tests.conftest import retry_until_success_async
+from tests.conftest import retry_until_success, retry_until_success_async
 
 
 @pytest.mark.asyncio
@@ -469,10 +470,14 @@ async def test_set_get_events(dbos: DBOS) -> None:
         await dbos.set_event_async("key2", "value2")
         await dbos.set_event_async("key3", None)
 
+    getevent_counter = 0
+
     @DBOS.workflow()
     async def test_getevent_workflow(
         target_uuid: str, key: str, timeout_seconds: float = 10
     ) -> Optional[str]:
+        nonlocal getevent_counter
+        getevent_counter += 1
         msg = await dbos.get_event_async(target_uuid, key, timeout_seconds)
         return str(msg) if msg is not None else None
 
@@ -510,12 +515,12 @@ async def test_set_get_events(dbos: DBOS) -> None:
         assert duration > 0.7
         assert res is None
 
+    calls_before_replay = getevent_counter
     with SetWorkflowID(timeout_uuid):
-        begin_time = time.time()
         res = await test_getevent_workflow("non-existent-uuid", "key1", 1.0)
-        duration = time.time() - begin_time
-        assert duration < 0.3
         assert res is None
+    # Completed replay returns the recorded result without re-running the wait.
+    assert getevent_counter == calls_before_replay
 
     # No OAOO for getEvent outside of a workflow
     begin_time = time.time()
@@ -538,8 +543,12 @@ async def test_set_get_events(dbos: DBOS) -> None:
 
 @pytest.mark.asyncio
 async def test_sleep(dbos: DBOS) -> None:
+    sleep_counter = 0
+
     @DBOS.workflow()
     async def test_sleep_workflow(secs: float) -> str:
+        nonlocal sleep_counter
+        sleep_counter += 1
         await dbos.sleep_async(secs)
         workflow_id = DBOS.workflow_id
         assert workflow_id is not None
@@ -550,10 +559,10 @@ async def test_sleep(dbos: DBOS) -> None:
     assert time.time() - start_time > 1.4
 
     # Test sleep OAOO, skip sleep
-    start_time = time.time()
     with SetWorkflowID(sleep_uuid):
         assert (await test_sleep_workflow(1.5)) == sleep_uuid
-        assert time.time() - start_time < 0.3
+    # Completed replay returns the recorded result without re-running the sleep.
+    assert sleep_counter == 1
 
 
 def test_async_tx_raises(config: ConfigFile) -> None:
@@ -1418,8 +1427,87 @@ async def test_async_child_id_survives_concurrent_context_clear(dbos: DBOS) -> N
         assert status is not None
 
 
+def test_failed_dequeued_async_workflow_leaves_no_unretrieved_future(
+    dbos: DBOS,
+) -> None:
+    """Regression test for https://github.com/dbos-inc/dbos-transact-py/issues/796
+
+    The dequeue path discards the handle start_workflow_async returns, so nothing
+    ever awaits the asyncio.shield future wrapping the workflow task. If its
+    exception goes unretrieved, asyncio logs an ERROR of its own when the future is
+    collected, on top of the error DBOS already logged: a false positive for the
+    ordinary outcome of a queued workflow failing.
+    """
+    DBOS.register_queue("test_queue")
+    message = "workflow-796-boom"
+
+    @DBOS.workflow()
+    async def failing_workflow() -> None:
+        await asyncio.sleep(0.1)
+        raise Exception(message)
+
+    loop = dbos._background_event_loop.target_loop()
+    assert loop is not None
+    reported: List[Dict[str, Any]] = []
+
+    def handler(_loop: asyncio.AbstractEventLoop, context: Dict[str, Any]) -> None:
+        reported.append(context)
+
+    def unretrieved(needle: str) -> List[Dict[str, Any]]:
+        return [
+            c
+            for c in reported
+            if "never retrieved" in str(c.get("message"))
+            and needle in str(c.get("exception"))
+        ]
+
+    previous_handler = loop.get_exception_handler()
+    loop.set_exception_handler(handler)
+    try:
+        handle = cast(
+            WorkflowHandle[None], DBOS.enqueue_workflow("test_queue", failing_workflow)
+        )
+        with pytest.raises(Exception, match=message):
+            handle.get_result()
+
+        # The error is recorded before the task finishes, so wait for it to be released
+        def workflow_task_released() -> None:
+            assert not dbos._workflow_tasks
+
+        retry_until_success(workflow_task_released, interval=0.1, max_attempts=50)
+        for _ in range(3):
+            gc.collect()
+            time.sleep(0.1)
+
+        leaked = unretrieved(message)
+        assert leaked == [], f"asyncio reported an unretrieved future: {leaked}"
+
+        # Prove the check is not vacuous: the detector must catch a genuine leak
+        control = "workflow-796-control"
+
+        def leak_a_future() -> None:
+            future: asyncio.Future[None] = loop.create_future()
+            future.set_exception(Exception(control))
+
+        loop.call_soon_threadsafe(leak_a_future)
+
+        def control_detected() -> None:
+            gc.collect()
+            assert unretrieved(control)
+
+        retry_until_success(control_detected, interval=0.1, max_attempts=50)
+    finally:
+        loop.set_exception_handler(previous_handler)
+
+
 def test_record_child_workflow_rejects_empty_id(dbos: DBOS) -> None:
     """The persistence guard: an empty child id is never valid and must fail loudly
     rather than silently corrupt operation_outputs."""
     with pytest.raises(DBOSException):
-        dbos._sys_db.record_child_workflow("some-parent-id", "", 0, "some.func")
+        dbos._sys_db.record_child_workflow(
+            "some-parent-id",
+            "",
+            0,
+            "some.func",
+            started_at_epoch_ms=int(time.time() * 1000),
+        )

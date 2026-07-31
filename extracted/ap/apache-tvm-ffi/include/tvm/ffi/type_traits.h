@@ -17,18 +17,16 @@
  * under the License.
  */
 /*!
- * \file tvm/ffi/object.h
- * \brief A managed object in the TVM FFI.
+ * \file tvm/ffi/type_traits.h
+ * \brief Type trait helpers for FFI values and lookup-only ABI objects.
  */
 #ifndef TVM_FFI_TYPE_TRAITS_H_
 #define TVM_FFI_TYPE_TRAITS_H_
 
 #include <tvm/ffi/base_details.h>
 #include <tvm/ffi/c_api.h>
-#include <tvm/ffi/error.h>
-#include <tvm/ffi/object.h>
 
-#include <limits>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -37,6 +35,107 @@ namespace tvm {
 namespace ffi {
 
 class Any;
+
+/*!
+ * \brief TypeIndex enum, alias of TVMFFITypeIndex.
+ */
+using TypeIndex = TVMFFITypeIndex;
+/*!
+ * \brief TypeInfo, alias of TVMFFITypeInfo.
+ */
+using TypeInfo = TVMFFITypeInfo;
+
+/*!
+ * \brief Known type keys for pre-defined types.
+ */
+struct StaticTypeKey {
+  /*! \brief The type key for Any */
+  static constexpr const char* kTVMFFIAny = "Any";
+  /*! \brief The type key for None */
+  static constexpr const char* kTVMFFINone = "None";
+  /*! \brief The type key for bool */
+  static constexpr const char* kTVMFFIBool = "bool";
+  /*! \brief The type key for int */
+  static constexpr const char* kTVMFFIInt = "int";
+  /*! \brief The type key for float */
+  static constexpr const char* kTVMFFIFloat = "float";
+  /*! \brief The type key for void* */
+  static constexpr const char* kTVMFFIOpaquePtr = "void*";
+  /*! \brief The type key for DataType */
+  static constexpr const char* kTVMFFIDataType = "DataType";
+  /*! \brief The type key for Device */
+  static constexpr const char* kTVMFFIDevice = "Device";
+  /*! \brief The type key for DLTensor* */
+  static constexpr const char* kTVMFFIDLTensorPtr = "DLTensor*";
+  /*! \brief The type key for const char* */
+  static constexpr const char* kTVMFFIRawStr = "const char*";
+  /*! \brief The type key for TVMFFIByteArray* */
+  static constexpr const char* kTVMFFIByteArrayPtr = "TVMFFIByteArray*";
+  /*! \brief The type key for ObjectRValueRef */
+  static constexpr const char* kTVMFFIObjectRValueRef = "ObjectRValueRef";
+  /*! \brief The type key for SmallStr */
+  static constexpr const char* kTVMFFISmallStr = "ffi.SmallStr";
+  /*! \brief The type key for SmallBytes */
+  static constexpr const char* kTVMFFISmallBytes = "ffi.SmallBytes";
+  /*! \brief The type key for Error */
+  static constexpr const char* kTVMFFIError = "ffi.Error";
+  /*! \brief The type key for Bytes */
+  static constexpr const char* kTVMFFIBytes = "ffi.Bytes";
+  /*! \brief The type key for String */
+  static constexpr const char* kTVMFFIStr = "ffi.String";
+  /*! \brief The type key for Shape */
+  static constexpr const char* kTVMFFIShape = "ffi.Shape";
+  /*! \brief The type key for Tensor */
+  static constexpr const char* kTVMFFITensor = "ffi.Tensor";
+  /*! \brief The type key for Object */
+  static constexpr const char* kTVMFFIObject = "ffi.Object";
+  /*! \brief The type key for Function */
+  static constexpr const char* kTVMFFIFunction = "ffi.Function";
+  /*! \brief The type key for Array */
+  static constexpr const char* kTVMFFIArray = "ffi.Array";
+  /*! \brief The type key for List */
+  static constexpr const char* kTVMFFIList = "ffi.List";
+  /*! \brief The type key for Map */
+  static constexpr const char* kTVMFFIMap = "ffi.Map";
+  /*! \brief The type key for Module */
+  static constexpr const char* kTVMFFIModule = "ffi.Module";
+  /*! \brief The type key for Dict */
+  static constexpr const char* kTVMFFIDict = "ffi.Dict";
+  /*! \brief The type key for VisitInterrupt */
+  static constexpr const char* kTVMFFIVisitInterrupt = "ffi.VisitInterrupt";
+  /*! \brief The type key for OpaquePyObject */
+  static constexpr const char* kTVMFFIOpaquePyObject = "ffi.OpaquePyObject";
+};
+
+/*!
+ * \brief Get type key from type index
+ * \param type_index The input type index
+ * \return the type key
+ */
+inline std::string TypeIndexToTypeKey(int32_t type_index) {
+  const TypeInfo* type_info = TVMFFIGetTypeInfo(type_index);
+  return std::string(type_info->type_key.data, type_info->type_key.size);
+}
+
+/*!
+ * \brief Whether TargetType subsumes SourceType for direct storage reuse.
+ *
+ * The target type is first and the source type is second. The result is true
+ * exactly when every SourceType value can reuse TargetType storage without
+ * conversion.
+ *
+ * \tparam TargetType The target storage type.
+ * \tparam SourceType The source value type.
+ */
+template <typename TargetType, typename SourceType, typename = void>
+inline constexpr bool type_subsumes_v =
+    std::is_base_of_v<TargetType, SourceType> || std::is_same_v<TargetType, SourceType>;
+
+/// \cond Doxygen_Suppress
+/*! \brief Whether Any subsumes SourceType for direct storage reuse. */
+template <typename SourceType>
+inline constexpr bool type_subsumes_v<Any, SourceType> = true;
+/// \endcond
 
 /*!
  * \brief TypeTraits that specifies the conversion behavior from/to FFI Any.
@@ -124,11 +223,6 @@ struct TypeToRuntimeTypeIndex {
    * \return the runtime type index
    */
   static int32_t v() { return TypeToFieldStaticTypeIndex<T>::value; }
-};
-
-template <typename T>
-struct TypeToRuntimeTypeIndex<T, std::enable_if_t<std::is_base_of_v<ObjectRef, T>>> {
-  static int32_t v() { return T::ContainerType::RuntimeTypeIndex(); }
 };
 
 // None
@@ -277,25 +371,15 @@ struct TypeTraits<bool> : public TypeTraitsBase {
   }
 };
 
-// Integer POD values
 template <typename Int>
-struct TypeTraits<Int, std::enable_if_t<std::is_integral_v<Int>>> : public TypeTraitsBase {
+struct TypeTraitsIntBase : public TypeTraitsBase {
   static constexpr int32_t field_static_type_index = TypeIndex::kTVMFFIInt;
 
-  TVM_FFI_INLINE static void CopyToAnyView(const Int& src, TVMFFIAny* result) {
-    if constexpr (std::is_unsigned_v<Int> && sizeof(Int) >= sizeof(int64_t)) {
-      if (src > static_cast<Int>(std::numeric_limits<int64_t>::max())) {
-        TVM_FFI_THROW(OverflowError)
-            << "Integer value " << src << " is too large to fit in int64_t. "
-            << "Consider explicitly casting to int64_t first if this is intentional.";
-      }
-    }
+  TVM_FFI_INLINE static void CopyInt64ToAnyView(int64_t src, TVMFFIAny* result) {
     result->type_index = TypeIndex::kTVMFFIInt;
     result->zero_padding = 0;
-    result->v_int64 = static_cast<int64_t>(src);  // NOLINT(bugprone-signed-char-misuse)
+    result->v_int64 = src;
   }
-
-  TVM_FFI_INLINE static void MoveToAny(Int src, TVMFFIAny* result) { CopyToAnyView(src, result); }
 
   TVM_FFI_INLINE static bool CheckAnyStrict(const TVMFFIAny* src) {
     // NOTE: CheckAnyStrict is always strict and should be consistent with MoveToAny
@@ -325,6 +409,16 @@ struct TypeTraits<Int, std::enable_if_t<std::is_integral_v<Int>>> : public TypeT
   }
 };
 
+// Integer POD values
+template <typename Int>
+struct TypeTraits<Int, std::enable_if_t<std::is_integral_v<Int>>> : public TypeTraitsIntBase<Int> {
+  TVM_FFI_INLINE static void CopyToAnyView(const Int& src, TVMFFIAny* result) {
+    TypeTraitsIntBase<Int>::CopyInt64ToAnyView(static_cast<int64_t>(src), result);
+  }
+
+  TVM_FFI_INLINE static void MoveToAny(Int src, TVMFFIAny* result) { CopyToAnyView(src, result); }
+};
+
 /// \cond Doxygen_Suppress
 
 // trait to check if a type is an integeral enum
@@ -340,44 +434,14 @@ constexpr bool is_integeral_enum_v<T, true> = std::is_integral_v<std::underlying
 
 // Enum Integer POD values
 template <typename IntEnum>
-struct TypeTraits<IntEnum, std::enable_if_t<is_integeral_enum_v<IntEnum>>> : public TypeTraitsBase {
-  static constexpr int32_t field_static_type_index = TypeIndex::kTVMFFIInt;
-
+struct TypeTraits<IntEnum, std::enable_if_t<is_integeral_enum_v<IntEnum>>>
+    : public TypeTraitsIntBase<IntEnum> {
   TVM_FFI_INLINE static void CopyToAnyView(const IntEnum& src, TVMFFIAny* result) {
-    result->type_index = TypeIndex::kTVMFFIInt;
-    result->zero_padding = 0;
-    result->v_int64 = static_cast<int64_t>(src);
+    TypeTraitsIntBase<IntEnum>::CopyInt64ToAnyView(static_cast<int64_t>(src), result);
   }
 
   TVM_FFI_INLINE static void MoveToAny(IntEnum src, TVMFFIAny* result) {
     CopyToAnyView(src, result);
-  }
-
-  TVM_FFI_INLINE static bool CheckAnyStrict(const TVMFFIAny* src) {
-    // NOTE: CheckAnyStrict is always strict and should be consistent with MoveToAny
-    return src->type_index == TypeIndex::kTVMFFIInt;
-  }
-
-  TVM_FFI_INLINE static IntEnum CopyFromAnyViewAfterCheck(const TVMFFIAny* src) {
-    TVM_FFI_UNSAFE_ASSUME(src->type_index == TypeIndex::kTVMFFIInt);
-    return static_cast<IntEnum>(src->v_int64);
-  }
-
-  TVM_FFI_INLINE static IntEnum MoveFromAnyAfterCheck(TVMFFIAny* src) {
-    // POD type, we can just copy the value
-    return CopyFromAnyViewAfterCheck(src);
-  }
-
-  TVM_FFI_INLINE static std::optional<IntEnum> TryCastFromAnyView(const TVMFFIAny* src) {
-    if (src->type_index == TypeIndex::kTVMFFIInt || src->type_index == TypeIndex::kTVMFFIBool) {
-      return static_cast<IntEnum>(src->v_int64);
-    }
-    return std::nullopt;
-  }
-
-  TVM_FFI_INLINE static std::string TypeStr() { return StaticTypeKey::kTVMFFIInt; }
-  TVM_FFI_INLINE static std::string TypeSchema() {
-    return R"({"type":")" + std::string(StaticTypeKey::kTVMFFIInt) + R"("})";
   }
 };
 
@@ -471,188 +535,6 @@ struct TypeTraits<void*> : public TypeTraitsBase {
   }
 };
 
-// Device
-template <>
-struct TypeTraits<DLDevice> : public TypeTraitsBase {
-  static constexpr int32_t field_static_type_index = TypeIndex::kTVMFFIDevice;
-
-  TVM_FFI_INLINE static void CopyToAnyView(const DLDevice& src, TVMFFIAny* result) {
-    result->type_index = TypeIndex::kTVMFFIDevice;
-    result->zero_padding = 0;
-    result->v_device = src;
-  }
-
-  TVM_FFI_INLINE static void MoveToAny(DLDevice src, TVMFFIAny* result) {
-    result->type_index = TypeIndex::kTVMFFIDevice;
-    result->zero_padding = 0;
-    result->v_device = src;
-  }
-
-  TVM_FFI_INLINE static bool CheckAnyStrict(const TVMFFIAny* src) {
-    return src->type_index == TypeIndex::kTVMFFIDevice;
-  }
-
-  TVM_FFI_INLINE static DLDevice CopyFromAnyViewAfterCheck(const TVMFFIAny* src) {
-    TVM_FFI_UNSAFE_ASSUME(src->type_index == TypeIndex::kTVMFFIDevice);
-    return src->v_device;
-  }
-
-  TVM_FFI_INLINE static DLDevice MoveFromAnyAfterCheck(TVMFFIAny* src) {
-    // POD type, we can just copy the value
-    return CopyFromAnyViewAfterCheck(src);
-  }
-
-  TVM_FFI_INLINE static std::optional<DLDevice> TryCastFromAnyView(const TVMFFIAny* src) {
-    if (src->type_index == TypeIndex::kTVMFFIDevice) {
-      return src->v_device;
-    }
-    return std::nullopt;
-  }
-
-  TVM_FFI_INLINE static std::string TypeStr() { return StaticTypeKey::kTVMFFIDevice; }
-  TVM_FFI_INLINE static std::string TypeSchema() {
-    return R"({"type":")" + std::string(StaticTypeKey::kTVMFFIDevice) + R"("})";
-  }
-};
-
-// DLTensor*, requirement: not nullable, do not retain ownership
-template <>
-struct TypeTraits<DLTensor*> : public TypeTraitsBase {
-  static constexpr bool storage_enabled = false;
-  static constexpr int32_t field_static_type_index = TypeIndex::kTVMFFIDLTensorPtr;
-
-  TVM_FFI_INLINE static void CopyToAnyView(DLTensor* src, TVMFFIAny* result) {
-    TVM_FFI_ICHECK_NOTNULL(src);
-    result->type_index = TypeIndex::kTVMFFIDLTensorPtr;
-    result->zero_padding = 0;
-    TVM_FFI_CLEAR_PTR_PADDING_IN_FFI_ANY(result);
-    result->v_ptr = src;
-  }
-
-  TVM_FFI_INLINE static bool CheckAnyStrict(const TVMFFIAny* src) {
-    return src->type_index == TypeIndex::kTVMFFIDLTensorPtr;
-  }
-
-  TVM_FFI_INLINE static DLTensor* CopyFromAnyViewAfterCheck(const TVMFFIAny* src) {
-    TVM_FFI_UNSAFE_ASSUME(src->type_index == TypeIndex::kTVMFFIDLTensorPtr);
-    return static_cast<DLTensor*>(src->v_ptr);
-  }
-
-  TVM_FFI_INLINE static void MoveToAny(DLTensor*, TVMFFIAny*) {
-    TVM_FFI_THROW(RuntimeError)
-        << "DLTensor* cannot be held in Any as it does not retain ownership, use Tensor instead";
-  }
-
-  TVM_FFI_INLINE static std::optional<DLTensor*> TryCastFromAnyView(const TVMFFIAny* src) {
-    if (src->type_index == TypeIndex::kTVMFFIDLTensorPtr) {
-      return static_cast<DLTensor*>(src->v_ptr);
-    } else if (src->type_index == TypeIndex::kTVMFFITensor) {
-      // Conversion from Tensor pointer to DLTensor
-      // based on the assumption that Tensor always follows the TVMFFIObject header
-      static_assert(sizeof(TVMFFIObject) == 24);
-      return reinterpret_cast<DLTensor*>(reinterpret_cast<char*>(src->v_obj) +
-                                         sizeof(TVMFFIObject));
-    }
-    return std::nullopt;
-  }
-
-  TVM_FFI_INLINE static std::string TypeStr() { return "DLTensor*"; }
-  TVM_FFI_INLINE static std::string TypeSchema() { return R"({"type":"DLTensor*"})"; }
-};
-
-// Traits for ObjectRef, None to ObjectRef will always fail.
-// use std::optional<ObjectRef> instead for nullable references.
-template <typename TObjRef>
-struct ObjectRefTypeTraitsBase : public TypeTraitsBase {
-  static constexpr int32_t field_static_type_index = TypeIndex::kTVMFFIObject;
-  using ContainerType = typename TObjRef::ContainerType;
-
-  TVM_FFI_INLINE static void CopyToAnyView(const TObjRef& src, TVMFFIAny* result) {
-    if constexpr (TObjRef::_type_is_nullable) {
-      if (!src.defined()) {
-        TypeTraits<std::nullptr_t>::CopyToAnyView(nullptr, result);
-        return;
-      }
-    }
-    TVMFFIObject* obj_ptr = details::ObjectUnsafe::TVMFFIObjectPtrFromObjectRef(src);
-    result->type_index = obj_ptr->type_index;
-    result->zero_padding = 0;
-    TVM_FFI_CLEAR_PTR_PADDING_IN_FFI_ANY(result);
-    result->v_obj = obj_ptr;
-  }
-
-  TVM_FFI_INLINE static void MoveToAny(TObjRef src, TVMFFIAny* result) {
-    if constexpr (TObjRef::_type_is_nullable) {
-      if (!src.defined()) {
-        TypeTraits<std::nullptr_t>::CopyToAnyView(nullptr, result);
-        return;
-      }
-    }
-    TVMFFIObject* obj_ptr = details::ObjectUnsafe::MoveObjectRefToTVMFFIObjectPtr(std::move(src));
-    result->type_index = obj_ptr->type_index;
-    result->zero_padding = 0;
-    TVM_FFI_CLEAR_PTR_PADDING_IN_FFI_ANY(result);
-    result->v_obj = obj_ptr;
-  }
-
-  TVM_FFI_INLINE static bool CheckAnyStrict(const TVMFFIAny* src) {
-    if constexpr (TObjRef::_type_is_nullable) {
-      if (src->type_index == TypeIndex::kTVMFFINone) return true;
-    }
-    return (src->type_index >= TypeIndex::kTVMFFIStaticObjectBegin &&
-            details::IsObjectInstance<ContainerType>(src->type_index));
-  }
-
-  TVM_FFI_INLINE static TObjRef CopyFromAnyViewAfterCheck(const TVMFFIAny* src) {
-    if constexpr (TObjRef::_type_is_nullable) {
-      if (src->type_index == TypeIndex::kTVMFFINone) {
-        return details::ObjectUnsafe::ObjectRefFromObjectPtr<TObjRef>(nullptr);
-      }
-    }
-    return details::ObjectUnsafe::ObjectRefFromObjectPtr<TObjRef>(
-        details::ObjectUnsafe::ObjectPtrFromUnowned<Object>(src->v_obj));
-  }
-
-  TVM_FFI_INLINE static TObjRef MoveFromAnyAfterCheck(TVMFFIAny* src) {
-    if constexpr (TObjRef::_type_is_nullable) {
-      if (src->type_index == TypeIndex::kTVMFFINone) {
-        return details::ObjectUnsafe::ObjectRefFromObjectPtr<TObjRef>(nullptr);
-      }
-    }
-    // move out the object pointer
-    ObjectPtr<ContainerType> obj_ptr =
-        details::ObjectUnsafe::ObjectPtrFromOwned<ContainerType>(src->v_obj);
-    // reset the src to nullptr
-    TypeTraits<std::nullptr_t>::MoveToAny(nullptr, src);
-    return details::ObjectUnsafe::ObjectRefFromObjectPtr<TObjRef>(std::move(obj_ptr));
-  }
-
-  TVM_FFI_INLINE static std::optional<TObjRef> TryCastFromAnyView(const TVMFFIAny* src) {
-    if constexpr (TObjRef::_type_is_nullable) {
-      if (src->type_index == TypeIndex::kTVMFFINone) {
-        return details::ObjectUnsafe::ObjectRefFromObjectPtr<TObjRef>(nullptr);
-      }
-    }
-    if (src->type_index >= TypeIndex::kTVMFFIStaticObjectBegin) {
-      if (details::IsObjectInstance<ContainerType>(src->type_index)) {
-        return details::ObjectUnsafe::ObjectRefFromObjectPtr<TObjRef>(
-            details::ObjectUnsafe::ObjectPtrFromUnowned<ContainerType>(src->v_obj));
-      }
-    }
-    return std::nullopt;
-  }
-
-  TVM_FFI_INLINE static std::string TypeStr() { return ContainerType::_type_key; }
-  TVM_FFI_INLINE static std::string TypeSchema() {
-    return R"({"type":")" + std::string(ContainerType::_type_key) + R"("})";
-  }
-};
-
-template <typename TObjRef>
-struct TypeTraits<TObjRef, std::enable_if_t<std::is_base_of_v<ObjectRef, TObjRef> &&
-                                            use_default_type_traits_v<TObjRef>>>
-    : public ObjectRefTypeTraitsBase<TObjRef> {};
-
 /*!
  * \brief Helper class that convert to T only via the FallbackTypes
  *
@@ -689,157 +571,37 @@ struct FallbackOnlyTraitsBase : public TypeTraitsBase {
   /// \endcond
 };
 
-/*!
- * \brief Helper class to define ObjectRef that can be auto-converted from a
- *        fallback type, the Traits<ObjectRefType> must be derived from it
- *        and define a static methods named ConvertFallbackValue for each
- *        FallbackType
- *
- *        The conversion will go through the FallbackTypes in the order
- *        specified in the template parameter.
- * \tparam ObjectRefType The type of the ObjectRef.
- * \tparam FallbackTypes The type of the fallback value.
- */
-template <typename ObjectRefType, typename... FallbackTypes>
-struct ObjectRefWithFallbackTraitsBase : public ObjectRefTypeTraitsBase<ObjectRefType> {
-  /// \cond Doxygen_Suppress
-  TVM_FFI_INLINE static std::optional<ObjectRefType> TryCastFromAnyView(const TVMFFIAny* src) {
-    if (auto opt_obj = ObjectRefTypeTraitsBase<ObjectRefType>::TryCastFromAnyView(src)) {
-      return opt_obj;
-    }
-    // apply fallback types in TryCastFromAnyView
-    return TryFallbackTypes<FallbackTypes...>(src);
-  }
-
-  template <typename FallbackType, typename... Rest>
-  TVM_FFI_INLINE static std::optional<ObjectRefType> TryFallbackTypes(const TVMFFIAny* src) {
-    static_assert(!std::is_same_v<bool, FallbackType>,
-                  "Using bool as FallbackType can cause bug because int will be detected as bool, "
-                  "use tvm::ffi::StrictBool instead");
-    if (auto opt_fallback = TypeTraits<FallbackType>::TryCastFromAnyView(src)) {
-      return TypeTraits<ObjectRefType>::ConvertFallbackValue(*std::move(opt_fallback));
-    }
-    if constexpr (sizeof...(Rest) > 0) {
-      return TryFallbackTypes<Rest...>(src);
-    }
-    return std::nullopt;
-  }
-  /// \endcond
-};
-
-// Traits for weak pointer of object
-// NOTE: we require the weak pointer cast from
-
-template <typename TObject>
-struct TypeTraits<TObject*, std::enable_if_t<std::is_base_of_v<Object, TObject>>>
-    : public TypeTraitsBase {
-  TVM_FFI_INLINE static void CopyToAnyView(TObject* src, TVMFFIAny* result) {
-    TVMFFIObject* obj_ptr = details::ObjectUnsafe::GetHeader(src);
-    result->type_index = obj_ptr->type_index;
-    result->zero_padding = 0;
-    TVM_FFI_CLEAR_PTR_PADDING_IN_FFI_ANY(result);
-    result->v_obj = obj_ptr;
-  }
-
-  TVM_FFI_INLINE static void MoveToAny(TObject* src, TVMFFIAny* result) {
-    TVMFFIObject* obj_ptr = details::ObjectUnsafe::GetHeader(src);
-    result->type_index = obj_ptr->type_index;
-    result->zero_padding = 0;
-    TVM_FFI_CLEAR_PTR_PADDING_IN_FFI_ANY(result);
-    result->v_obj = obj_ptr;
-    // needs to increase ref because original weak ptr do not own the code
-    details::ObjectUnsafe::IncRefObjectHandle(result->v_obj);
-  }
-
-  TVM_FFI_INLINE static bool CheckAnyStrict(const TVMFFIAny* src) {
-    return src->type_index >= TypeIndex::kTVMFFIStaticObjectBegin &&
-           details::IsObjectInstance<TObject>(src->type_index);
-  }
-
-  TVM_FFI_INLINE static TObject* CopyFromAnyViewAfterCheck(const TVMFFIAny* src) {
-    if constexpr (!std::is_const_v<TObject>) {
-      static_assert(TObject::_type_mutable, "TObject must be mutable to enable cast from Any");
-    }
-    return details::ObjectUnsafe::RawObjectPtrFromUnowned<TObject>(src->v_obj);
-  }
-
-  TVM_FFI_INLINE static std::optional<TObject*> TryCastFromAnyView(const TVMFFIAny* src) {
-    if constexpr (!std::is_const_v<TObject>) {
-      static_assert(TObject::_type_mutable, "TObject must be mutable to enable cast from Any");
-    }
-    if (CheckAnyStrict(src)) return CopyFromAnyViewAfterCheck(src);
-    return std::nullopt;
-  }
-
-  TVM_FFI_INLINE static std::string TypeStr() { return TObject::_type_key; }
-  TVM_FFI_INLINE static std::string TypeSchema() {
-    return R"({"type":")" + std::string(TObject::_type_key) + R"("})";
-  }
-};
-
-template <typename T>
-inline constexpr bool use_default_type_traits_v<Optional<T>> = false;
-
-template <typename T>
-struct TypeTraits<Optional<T>> : public TypeTraitsBase {
-  TVM_FFI_INLINE static void CopyToAnyView(const Optional<T>& src, TVMFFIAny* result) {
-    if (src.has_value()) {
-      TypeTraits<T>::CopyToAnyView(*src, result);
-    } else {
-      TypeTraits<std::nullptr_t>::CopyToAnyView(nullptr, result);
-    }
-  }
-
-  TVM_FFI_INLINE static void MoveToAny(Optional<T> src, TVMFFIAny* result) {
-    if (src.has_value()) {
-      TypeTraits<T>::MoveToAny(*std::move(src), result);
-    } else {
-      TypeTraits<std::nullptr_t>::CopyToAnyView(nullptr, result);
-    }
-  }
-
-  TVM_FFI_INLINE static bool CheckAnyStrict(const TVMFFIAny* src) {
-    if (src->type_index == TypeIndex::kTVMFFINone) return true;
-    return TypeTraits<T>::CheckAnyStrict(src);
-  }
-
-  TVM_FFI_INLINE static Optional<T> CopyFromAnyViewAfterCheck(const TVMFFIAny* src) {
-    if (src->type_index == TypeIndex::kTVMFFINone) {
-      return Optional<T>(std::nullopt);
-    }
-    return TypeTraits<T>::CopyFromAnyViewAfterCheck(src);
-  }
-
-  TVM_FFI_INLINE static Optional<T> MoveFromAnyAfterCheck(TVMFFIAny* src) {
-    if (src->type_index == TypeIndex::kTVMFFINone) {
-      return Optional<T>(std::nullopt);
-    }
-    return TypeTraits<T>::MoveFromAnyAfterCheck(src);
-  }
-
-  TVM_FFI_INLINE static std::optional<Optional<T>> TryCastFromAnyView(const TVMFFIAny* src) {
-    if (src->type_index == TypeIndex::kTVMFFINone) return Optional<T>(std::nullopt);
-    if (std::optional<T> opt = TypeTraits<T>::TryCastFromAnyView(src)) {
-      return Optional<T>(*std::move(opt));
-    } else {
-      // important to be explicit here
-      // because nullopt can convert to std::optional<T>(nullopt) which indicate success
-      // return std::optional<Optional<T>>(std::nullopt) to indicate failure
-      return std::optional<Optional<T>>(std::nullopt);
-    }
-  }
-
-  TVM_FFI_INLINE static std::string GetMismatchTypeInfo(const TVMFFIAny* src) {
-    return TypeTraits<T>::GetMismatchTypeInfo(src);
-  }
-
-  TVM_FFI_INLINE static std::string TypeStr() {
-    return "Optional<" + TypeTraits<T>::TypeStr() + ">";
-  }
-  TVM_FFI_INLINE static std::string TypeSchema() {
-    return R"({"type":"Optional","args":[)" + details::TypeSchema<T>::v() + "]}";
-  }
-};
 }  // namespace ffi
 }  // namespace tvm
+
+/*!
+ * \brief Declare lookup-only metadata for an ABI object.
+ *
+ * Unlike TVM_FFI_DECLARE_OBJECT_INFO, this macro only looks up an existing
+ * registered type key and never allocates or registers a type index. Invoke it
+ * in the public section of an object class with a string literal key.
+ *
+ * \note Include `tvm/ffi/function.h` or `tvm/ffi/tvm_ffi.h` before expanding
+ * this macro so safe-call errors can be propagated as C++ exceptions.
+ *
+ * \param RegisteredKey The registered type key of the ABI object.
+ * \param TypeDepth The reflected depth of the type in the object hierarchy.
+ */
+#define TVM_FFI_DECLARE_OBJECT_INFO_LOOKUP(RegisteredKey, TypeDepth)           \
+  static constexpr const char* _type_key = RegisteredKey;                      \
+  static constexpr int32_t _type_depth = TypeDepth;                            \
+  static constexpr bool _type_mutable = true;                                  \
+  static constexpr bool _type_final = false;                                   \
+  static constexpr uint32_t _type_child_slots = 0;                             \
+  static constexpr bool _type_child_slots_can_overflow = true;                 \
+  static int32_t RuntimeTypeIndex() {                                          \
+    static const int32_t type_index = []() {                                   \
+      constexpr TVMFFIByteArray key{RegisteredKey, sizeof(RegisteredKey) - 1}; \
+      int32_t result = -1;                                                     \
+      TVM_FFI_CHECK_SAFE_CALL(TVMFFITypeKeyToIndex(&key, &result));            \
+      return result;                                                           \
+    }();                                                                       \
+    return type_index;                                                         \
+  }
+
 #endif  // TVM_FFI_TYPE_TRAITS_H_

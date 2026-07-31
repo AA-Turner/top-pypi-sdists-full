@@ -207,6 +207,8 @@ def main(url: str):
     status = "failed"
     error = ""
 
+    print("git clone started", flush=True)
+
     try:
         git_url = normalize_git_url(url)
         if git_url is None:

@@ -39,7 +39,6 @@ from typing import (
 
 from _typeshed import (
     SupportsAdd,
-    SupportsGetItem,
     SupportsMul,
     SupportsRAdd,
     SupportsRMul,
@@ -119,7 +118,7 @@ from pandas.core.indexing import _IndexSliceTuple  # pyright: ignore[reportPriva
 from pandas.core.indexing import _LocIndexer  # pyright: ignore[reportPrivateUsage]
 from pandas.core.indexing import _iAtIndexer  # pyright: ignore[reportPrivateUsage]
 from pandas.core.indexing import _iLocIndexer  # pyright: ignore[reportPrivateUsage]
-from pandas.core.strings.accessor import StringMethods
+from pandas.core.strings.accessor import StrDescriptor
 from pandas.core.window import (
     Expanding,
     ExponentialMovingWindow,
@@ -203,6 +202,8 @@ from pandas._typing import (
     NumpyIntDtypeArg,
     NumpyObjectDtypeArg,
     NumpyStrDtypeArg,
+    NumpyTimedeltaDtypeArg,
+    NumpyTimestampDtypeArg,
     NumpyUIntDtypeArg,
     ObjectDtypeArg,
     PandasAstypeTimedeltaDtypeArg,
@@ -1079,9 +1080,7 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     @overload
     def diff(self: Series[Interval], periods: int = ...) -> Never: ...
     @overload
-    def diff(
-        self: SupportsGetItem[Scalar, SupportsSelfSub[S2]], periods: int = ...
-    ) -> Series[S2]: ...
+    def diff(self: Iterable[SupportsSelfSub[S2]], periods: int = ...) -> Series[S2]: ...
     def autocorr(self, lag: int = 1) -> float: ...
     @overload
     def dot(self, other: Series[S1]) -> Scalar: ...
@@ -1470,19 +1469,7 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
         how: ToTimestampHow = "start",
     ) -> Series[S1]: ...
     def to_period(self, freq: PeriodFrequency | None = None) -> DataFrame: ...
-    @property
-    def str(
-        self,
-    ) -> StringMethods[
-        Self,
-        DataFrame,
-        Series[bool],
-        Series[list[_str]],
-        Series[int],
-        Series[bytes],
-        Series[_str],
-        Series,
-    ]: ...
+    str = StrDescriptor()
     dt = DtDescriptor()
     @property
     def plot(self) -> PlotAccessor: ...
@@ -4232,7 +4219,7 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     ) -> Series[int]: ...
     @overload
     def cumprod(
-        self: SupportsGetItem[Scalar, _SupportsMul[S1]],
+        self: Iterable[_SupportsMul[S1]],
         axis: AxisIndex = ...,
         skipna: _bool = ...,
         *args: Any,
@@ -4356,7 +4343,7 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     ) -> Timestamp: ...
     @overload
     def mean(
-        self: SupportsGetItem[Scalar, SupportsTruedivInt[S2]],
+        self: Iterable[SupportsTruedivInt[S2]],
         *,
         axis: AxisIndex | None = 0,
         skipna: _bool = True,
@@ -4386,7 +4373,7 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     ) -> float: ...
     @overload
     def median(
-        self: SupportsGetItem[Scalar, SupportsTruedivInt[S2]],
+        self: Iterable[SupportsTruedivInt[S2]],
         *,
         axis: AxisIndex | None = 0,
         skipna: _bool = True,
@@ -4551,7 +4538,7 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     ) -> Timedelta: ...
     @overload
     def std(
-        self: SupportsGetItem[Scalar, SupportsTruedivInt[S2]],
+        self: Iterable[SupportsTruedivInt[S2]],
         *,
         axis: AxisIndex | None = 0,
         skipna: _bool | None = True,
@@ -4560,7 +4547,7 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
         **kwargs: Any,
     ) -> S2: ...
     def sum(
-        self: SupportsGetItem[Scalar, _SupportsAdd[_T]],
+        self: Iterable[_SupportsAdd[_T]],
         *,
         axis: AxisIndex | None = 0,
         skipna: _bool | None = ...,
@@ -4580,7 +4567,7 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     @overload
     def to_numpy(
         self: Series[Timestamp],
-        dtype: type[np.datetime64] | None = None,
+        dtype: type[np.datetime64] | NumpyTimestampDtypeArg | None = None,
         copy: bool = False,
         na_value: Scalar = ...,
         **kwargs: Any,
@@ -4596,7 +4583,7 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     @overload
     def to_numpy(
         self: Series[Timedelta],
-        dtype: type[np.timedelta64] | None = None,
+        dtype: type[np.timedelta64] | NumpyTimedeltaDtypeArg | None = None,
         copy: bool = False,
         na_value: Scalar = ...,
         **kwargs: Any,
@@ -4826,7 +4813,7 @@ class Series(IndexOpsMixin[S1], ElementOpsMixin[S1], NDFrame):
     ) -> float: ...
     @overload
     def var(
-        self: SupportsGetItem[Scalar, SupportsTruedivInt[S2]],
+        self: Iterable[SupportsTruedivInt[S2]],
         *,
         axis: AxisIndex | None = 0,
         skipna: _bool | None = True,

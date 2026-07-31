@@ -29,6 +29,10 @@ tracer = trace.get_tracer(_get_calling_module_name())
 
 CUSTOM_TRACING_ATTRIBUTES = "custom_tracing_attributes"
 
+# Temporal workflow header set by the API when the caller supplied an explicit traceparent.
+# Its presence tells the worker to reuse the caller's trace/sampling as-is instead of forcing sampling.
+USER_TRACEPARENT_HEADER = "x-mistral-user-traceparent"
+
 
 def get_otel_trace_id(workflow_description: temporalio.client.WorkflowExecutionDescription) -> str | None:
     otel_trace_id_values = workflow_description.search_attributes.get(SearchAttributes.otel_trace_id)
@@ -90,10 +94,15 @@ def get_span_attributes(
         attributes[EventAttributes.activity_execution_id] = activity_info.activity_id
         attributes[EventAttributes.activity_attempt] = activity_info.attempt
         attributes[EventAttributes.activity_max_attempts] = config.worker.retry_policy_max_attempts
+        # Tag with the execution id so trace scoping keeps these (e.g. signal spans beside RunWorkflow).
+        attributes["temporalWorkflowID"] = activity_info.workflow_id
+        attributes["temporalRunID"] = activity_info.workflow_run_id
 
     if temporalio.workflow.in_workflow():
         workflow_info = temporalio.workflow.info()
         attributes[EventAttributes.workflow_type] = workflow_info.workflow_type
+        attributes["temporalWorkflowID"] = workflow_info.workflow_id
+        attributes["temporalRunID"] = workflow_info.run_id
 
     if custom_attributes:
         for key, value in custom_attributes.items():

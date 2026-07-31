@@ -7,6 +7,9 @@ __all__ = [
     "HTTPTransport",
     "HTTPVersion",
     "Headers",
+    "Multipart",
+    "Part",
+    "Proxy",
     "ReadError",
     "Request",
     "Response",
@@ -14,6 +17,8 @@ __all__ = [
     "StreamErrorCode",
     "SyncClient",
     "SyncHTTPTransport",
+    "SyncMultipart",
+    "SyncPart",
     "SyncRequest",
     "SyncResponse",
     "SyncTransport",
@@ -26,12 +31,14 @@ __all__ = [
 from . import _pyqwest
 from ._coro import Client, Response
 from ._errors import StreamError, StreamErrorCode
+from ._multipart import Multipart, Part, SyncMultipart, SyncPart
 from ._pyqwest import (
     FullResponse,
     Headers,
     HTTPHeaderName,
     HTTPTransport,
     HTTPVersion,
+    Proxy,
     ReadError,
     Request,
     SyncClient,

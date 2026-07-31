@@ -9,6 +9,7 @@ from chalk.client._chalkdf_import import ChalkDfDataFrame
 from chalk.client.models import (
     ChalkError,
     DatasetFilter,
+    DatasetIcebergConversionResponse,
     DatasetRevisionPreviewResponse,
     DatasetRevisionSummaryResponse,
     FeatureReference,
@@ -585,6 +586,19 @@ class DatasetRevision(Protocol):
         >>> dataset.ingest(store_offline=True)
         >>> # Load features to online store for serving
         >>> dataset.ingest(store_online=True, store_offline=False)
+        """
+        ...
+
+    def promote_to_iceberg(self) -> DatasetIcebergConversionResponse:
+        """Register the dataset's parquet output in place as a self-contained Iceberg table.
+
+        No data is rewritten: the Iceberg ``metadata.json`` + manifests are written to a sibling
+        ``iceberg/`` prefix next to the revision's ``outputs/`` and reference the existing parquet.
+        Returns the conversion result, whose ``metadata_location`` points at the ``metadata.json``.
+
+        The resulting table is **not** registered in any Iceberg catalog — you are responsible for
+        registering ``metadata_location`` in your own catalog (Glue, Polaris, BigLake, …) if you
+        want catalog-managed, name-based discovery.
         """
         ...
 
@@ -1419,6 +1433,19 @@ class Dataset(Protocol):
         >>> dataset.ingest(store_offline=True)
         >>> # Load features to online store for serving
         >>> dataset.ingest(store_online=True, store_offline=False)
+        """
+        ...
+
+    def promote_to_iceberg(self) -> DatasetIcebergConversionResponse:
+        """Register the dataset's parquet output in place as a self-contained Iceberg table.
+
+        No data is rewritten: the Iceberg ``metadata.json`` + manifests are written to a sibling
+        ``iceberg/`` prefix next to the revision's ``outputs/`` and reference the existing parquet.
+        Returns the conversion result, whose ``metadata_location`` points at the ``metadata.json``.
+
+        The resulting table is **not** registered in any Iceberg catalog — you are responsible for
+        registering ``metadata_location`` in your own catalog (Glue, Polaris, BigLake, …) if you
+        want catalog-managed, name-based discovery.
         """
         ...
 

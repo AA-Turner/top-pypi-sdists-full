@@ -9,6 +9,7 @@ import temporalio.activity
 
 from mistralai.workflows.core._events.event_encoder import EventPayloadEncoder, maybe_encode_event
 from mistralai.workflows.core._events.event_route_publisher import EventRoutePublisher
+from mistralai.workflows.core.config.config import EventsApiVersion
 from mistralai.workflows.core.utils.contextvars import reset_contextvar
 from mistralai.workflows.protocol.v1.events import WorkflowEvent
 from mistralai.workflows.worker_client.errors import SDKError
@@ -44,6 +45,14 @@ _background_event_publisher: ContextVar[Optional["BackgroundEventPublisher"]] = 
 )
 
 
+class V1EventRouteForbiddenError(Exception):
+    """Raised when the worker forbids the v1 event route.
+
+    Triggered by ``EVENTS_API_VERSION=v2-only`` so v2 integration tests fail if any
+    event would be emitted over the v1 route.
+    """
+
+
 class EventContext:
     """Context for publishing workflow and activity lifecycle events sequentially.
 
@@ -61,6 +70,8 @@ class EventContext:
         self.events_client = events_client
         self._token: Optional[Token] = None
         self._batch_events_supported: bool = True
+        # v2-only forbids any v1 fallback (used by v2 integration tests).
+        self._forbid_v1_event_route = events_api_version == EventsApiVersion.V2_ONLY
         # Only create EventPayloadEncoder when encryption is configured
         self._event_encoder: EventPayloadEncoder | None = (
             EventPayloadEncoder(payload_encoder)
@@ -150,13 +161,15 @@ class EventContext:
             events = list(await asyncio.gather(*[maybe_encode_event(event, self._event_encoder) for event in events]))
 
         try:
-            # Try the v2 event-route publisher first when configured; fall back to
-            # the legacy v1 events client when v2 is disabled or downgraded.
-            # Events are already encoded at this point, skip re-encoding.
-            if self._event_route_publisher is not None and await self._event_route_publisher.publish_events(
+            # v2 when configured; False falls through to v1, failures raise (caught below).
+            if self._event_route_publisher is not None and await self._event_route_publisher.try_publish_via_v2(
                 events, already_encoded=True
             ):
                 return
+            if self._forbid_v1_event_route:
+                raise V1EventRouteForbiddenError(
+                    "EVENTS_API_VERSION=v2-only but a v2 publish did not happen; refusing v1 fallback"
+                )
             # Use single event endpoint for one event, batch endpoint for multiple
             if len(events) == 1:
                 await self.events_client.send_event_async(event=self._translate_event(events[0]))
@@ -173,6 +186,8 @@ class EventContext:
                     await self._send_events_batch_fallback(events)
                     return
                 raise
+        except V1EventRouteForbiddenError:
+            raise
         except Exception as e:
             logger.warning(
                 "Failed to send workflow event batch",
@@ -202,6 +217,7 @@ class BackgroundEventPublisher:
         self._event_encoder = event_context._event_encoder
         self._event_queue: asyncio.Queue[Optional[WorkflowEvent]] = asyncio.Queue()
         self._sender_task: Optional[asyncio.Task] = None
+        self._fatal_error: Optional[V1EventRouteForbiddenError] = None
 
     @staticmethod
     def get_current() -> Optional["BackgroundEventPublisher"]:
@@ -225,6 +241,10 @@ class BackgroundEventPublisher:
                 if _queued is None:
                     self._event_queue.task_done()
                     break
+                if self._fatal_error is not None:
+                    # Already fatal: drop-and-ack remaining events so drain()'s join() returns.
+                    self._event_queue.task_done()
+                    continue
                 try:
                     # Encode before measuring size to account for base64 overhead
                     first_event = await maybe_encode_event(_queued, self._event_encoder)
@@ -267,18 +287,22 @@ class BackgroundEventPublisher:
                 ack_count += 1
                 payload_size += event_size
 
-            try:
-                # Events are already encoded, skip re-encoding
-                await self.event_context._publish_events_batch_internal(batch, already_encoded=True)
-            except Exception as e:
-                logger.error(
-                    "Failed to send event batch from background queue",
-                    batch_size=len(batch),
-                    error=str(e),
-                )
-            finally:
-                for _ in range(ack_count):
-                    self._event_queue.task_done()
+            if self._fatal_error is None:
+                try:
+                    # Events are already encoded, skip re-encoding
+                    await self.event_context._publish_events_batch_internal(batch, already_encoded=True)
+                except V1EventRouteForbiddenError as e:
+                    # Forbidden v1 fallback: record it and keep draining the queue (below) so
+                    # drain()'s join() returns promptly; drain() then surfaces the error.
+                    self._fatal_error = e
+                except Exception as e:
+                    logger.error(
+                        "Failed to send event batch from background queue",
+                        batch_size=len(batch),
+                        error=str(e),
+                    )
+            for _ in range(ack_count):
+                self._event_queue.task_done()
 
     def publish_event_background(self, event: WorkflowEvent) -> None:
         """Publish a custom task event to the background queue for streaming.
@@ -301,6 +325,8 @@ class BackgroundEventPublisher:
         The timeout scales with the number of pending events to avoid premature
         timeouts when many events are in flight.
         """
+        if self._fatal_error is not None:
+            raise self._fatal_error
         pending = self._event_queue.qsize()
         timeout = max(min_timeout, pending * per_event_timeout)
         if max_timeout is not None:
@@ -318,6 +344,8 @@ class BackgroundEventPublisher:
                 "Error waiting for event queue to drain",
                 error=str(e),
             )
+        if self._fatal_error is not None:
+            raise self._fatal_error
 
     async def shutdown(self) -> None:
         if self._sender_task is None:

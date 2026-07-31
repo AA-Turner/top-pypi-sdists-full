@@ -8,9 +8,16 @@ crashed on urllib3 >= 2.0.
 
 import uuid
 
+import pytest
 import responses
 
-from auth.client import Client, EnhancedAuthClient, RetryableHTTPAdapter, _build_retry
+from auth.client import (
+    AuthTransportError,
+    Client,
+    EnhancedAuthClient,
+    RetryableHTTPAdapter,
+    _build_retry,
+)
 
 API_KEY = str(uuid.uuid4())
 BASE = "http://auth.test"
@@ -84,14 +91,13 @@ def test_create_role_and_membership_paths():
 
 
 @responses.activate
-def test_error_contract_returns_dict_not_raise():
-    """Transport failures come back as {'error':..., 'success': False} dicts."""
+def test_error_contract_always_raises():
+    """3.0.0: transport failures raise AuthTransportError, never a dict."""
     with make_client() as client:
-        result = client.list_roles()  # nothing registered -> connection error
-        membership = client.add_membership("alice", "admin")
-    assert result["success"] is False and "error" in result
-    assert membership["success"] is False
-    assert membership["data"] == {"user": "alice", "group": "admin"}
+        with pytest.raises(AuthTransportError):
+            client.list_roles()  # nothing registered -> connection error
+        with pytest.raises(AuthTransportError):
+            client.add_membership("alice", "admin")
 
 
 @responses.activate
@@ -117,19 +123,19 @@ def test_rotate_key_switches_the_live_client_to_the_new_key():
 
 
 @responses.activate
-def test_rotate_key_transport_failure_leaves_key_unchanged():
+def test_rotate_key_transport_failure_raises_and_leaves_key_unchanged():
     with make_client() as client:  # nothing registered -> connection error
-        result = client.rotate_key()
-        assert result["success"] is False and "error" in result
+        with pytest.raises(AuthTransportError):
+            client.rotate_key()
         assert client.api_key == API_KEY  # not rotated on failure
 
 
 @responses.activate
-def test_http_error_status_becomes_error_dict():
+def test_http_error_status_raises():
     responses.get(f"{BASE}/api/roles", json={"detail": "boom"}, status=400)
     with make_client() as client:
-        result = client.list_roles()
-    assert result["success"] is False
+        with pytest.raises(AuthTransportError):
+            client.list_roles()
 
 
 @responses.activate
@@ -155,3 +161,196 @@ def test_circuit_breaker_path_still_returns_result():
     )
     assert client.ping() == {"message": "PONG"}
     client.close()
+
+
+def test_pool_params_reach_the_adapter():
+    """Regression (runflow report): pool_connections/pool_maxsize were accepted
+    by the constructor but never passed to the mounted adapter, leaving the
+    pool at urllib3's default 10 regardless of what the caller asked for."""
+    # Known-positive first: a custom value must propagate before the default
+    # asserts below mean anything.
+    with make_client(pool_connections=3, pool_maxsize=7) as client:
+        adapter = client.session.get_adapter("https://x")
+        assert adapter._pool_connections == 3
+        assert adapter._pool_maxsize == 7
+    with make_client() as client:
+        adapter = client.session.get_adapter("https://x")
+        assert adapter._pool_connections == 10
+        assert adapter._pool_maxsize == 64
+    # Both schemes get the same adapter config.
+    with make_client(pool_maxsize=5) as client:
+        assert client.session.get_adapter("http://x")._pool_maxsize == 5
+
+
+@responses.activate
+def test_transport_failure_cannot_reach_callers_as_a_value():
+    """3.0.0 removes the answer-shaped error dict entirely (SPEC 0007)."""
+    with make_client() as client:  # nothing registered -> connection error
+        with pytest.raises(AuthTransportError) as excinfo:
+            client.user_has_permission("alice", "manage_users")
+    assert excinfo.value.__cause__ is not None
+
+
+@responses.activate
+def test_success_payload_has_no_transport_marker():
+    responses.get(
+        f"{BASE}/api/has_permission/alice/manage_users",
+        json={"success": True, "data": {"has_permission": True}},
+    )
+    with make_client() as client:
+        result = client.user_has_permission("alice", "manage_users")
+    assert result["data"]["has_permission"] is True
+    assert "transport_error" not in result
+
+
+@responses.activate
+def test_success_path_then_failure_raises():
+    # Green first: a live endpoint answers normally.
+    responses.get(
+        f"{BASE}/api/has_permission/alice/manage_users",
+        json={"success": True, "data": {"has_permission": True}},
+    )
+    with make_client() as client:
+        ok = client.user_has_permission("alice", "manage_users")
+        assert ok["data"]["has_permission"] is True
+        # Red: unregistered endpoint -> connection error -> raises.
+        with pytest.raises(AuthTransportError):
+            client.get_user_permissions("alice")
+
+
+def test_raise_on_error_kwarg_is_deprecated_noop():
+    """2.x constructor calls keep working; the kwarg only warns."""
+    with pytest.warns(DeprecationWarning):
+        client = EnhancedAuthClient(
+            api_key=API_KEY,
+            service_url=BASE,
+            circuit_breaker_enabled=False,
+            raise_on_error=True,
+        )
+    client.close()
+    with pytest.warns(DeprecationWarning):
+        client = EnhancedAuthClient(
+            api_key=API_KEY,
+            service_url=BASE,
+            circuit_breaker_enabled=False,
+            raise_on_error=False,
+        )
+    client.close()
+
+
+@responses.activate
+def test_http_5xx_raises():
+    """A 5xx after retries is a transport-level failure too."""
+    responses.get(f"{BASE}/api/roles", json={"detail": "boom"}, status=500)
+    with make_client(max_retries=0) as client:
+        with pytest.raises(AuthTransportError):
+            client.list_roles()
+
+
+SECRET = "rak_" + "a1B2" * 10 + "c3d"  # 43-char payload, display prefix rak_a1B2a1B2
+
+
+@responses.activate
+def test_create_api_key_posts_label_and_uses_no_retry_session():
+    responses.post(
+        f"{BASE}/api/apikeys/user/alice",
+        json={"success": True, "data": {"api_key": SECRET, "key_id": "k"}},
+    )
+    with make_client() as client:
+        result = client.create_api_key("alice", label="laptop")
+        assert result["data"]["api_key"] == SECRET
+        assert responses.calls[0].request.body == b'{"label": "laptop"}'
+        # The create path runs on the dedicated no-retry session: its adapter
+        # carries zero retries, while the main session's adapter retries.
+        no_retry_adapter = client._no_retry.get_adapter("https://x")
+        assert no_retry_adapter.max_retries.total == 0
+        assert client.session.get_adapter("https://x").max_retries.total > 0
+        # Both sessions share one header mapping, so rotate_key updates both.
+        assert client._no_retry.headers is client.session.headers
+
+
+@responses.activate
+def test_create_api_key_without_label_sends_no_body():
+    responses.post(
+        f"{BASE}/api/apikeys/user/alice",
+        json={"success": True, "data": {"api_key": SECRET}},
+    )
+    with make_client() as client:
+        client.create_api_key("alice")
+    assert responses.calls[0].request.body is None
+
+
+@responses.activate
+def test_api_key_lifecycle_methods_hit_expected_endpoints():
+    responses.get(
+        f"{BASE}/api/apikeys/user/alice",
+        json={"success": True, "data": {"count": 0, "keys": []}},
+    )
+    responses.delete(
+        f"{BASE}/api/apikeys/user/alice/kid-1",
+        json={"success": True, "data": {"revoked": True, "already_revoked": False}},
+    )
+    responses.post(
+        f"{BASE}/api/apikeys/validate",
+        json={"success": True, "data": {"valid": True, "user": "alice"}},
+    )
+    with make_client() as client:
+        assert client.list_api_keys("alice")["data"]["count"] == 0
+        assert client.revoke_api_key("alice", "kid-1")["data"]["revoked"] is True
+        validated = client.validate_api_key(SECRET)
+        assert validated["data"]["valid"] is True
+    assert responses.calls[2].request.body == (
+        '{"api_key": "%s"}' % SECRET
+    ).encode()
+
+
+@responses.activate
+def test_validate_api_key_failure_raises_and_never_leaks_secret():
+    with make_client() as client:  # nothing registered -> connection error
+        with pytest.raises(AuthTransportError) as excinfo:
+            client.validate_api_key(SECRET)
+    assert SECRET not in str(excinfo.value)
+
+
+@responses.activate
+def test_create_api_key_failure_raises():
+    with make_client() as client:
+        with pytest.raises(AuthTransportError):
+            client.create_api_key("alice")
+
+
+@responses.activate
+def test_check_api_key_permission_and_settings_methods():
+    responses.post(
+        f"{BASE}/api/apikeys/check_permission",
+        json={
+            "success": True,
+            "data": {"valid": True, "user": "alice", "has_permission": True},
+        },
+    )
+    responses.get(
+        f"{BASE}/api/settings",
+        json={"success": True, "data": {"strict_users": False}},
+    )
+    responses.put(
+        f"{BASE}/api/settings",
+        json={"success": True, "data": {"strict_users": True}},
+    )
+    with make_client() as client:
+        checked = client.check_api_key_permission(SECRET, "deploy")
+        assert checked["data"]["has_permission"] is True
+        assert responses.calls[0].request.body == (
+            '{"api_key": "%s", "permission": "deploy"}' % SECRET
+        ).encode()
+        assert client.get_settings()["data"]["strict_users"] is False
+        flipped = client.set_strict_users(True)
+        assert flipped["data"]["strict_users"] is True
+        assert responses.calls[2].request.body == b'{"strict_users": true}'
+
+
+@responses.activate
+def test_check_api_key_permission_failure_raises_and_never_leaks_secret():
+    with make_client() as client:  # nothing registered -> connection error
+        with pytest.raises(AuthTransportError) as excinfo:
+            client.check_api_key_permission(SECRET, "deploy")
+    assert SECRET not in str(excinfo.value)

@@ -4,19 +4,39 @@ import abc
 import base64
 import json
 import time
+import warnings
 from typing import OrderedDict
 
 import httpx
 import structlog
 
 from mistralai.workflows._version import USER_AGENT
+from mistralai.workflows.core.auth import StaticTokenProvider, TokenProvider
 from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.temporal.context_handler_interceptor import retrieve_context
 from mistralai.workflows.exceptions import WorkflowError
+from mistralai.workflows.hooks.token_provider_hook import (
+    AsyncTokenProviderHook,
+    TokenProviderHook,
+)
 from mistralai.workflows.worker_client.errors import SDKError
 from mistralai.workflows.worker_client.sdk import PrivateWorkerClient
 
 logger = structlog.get_logger(__name__)
+
+
+def _resolve_hook_token_provider(api_key: str | None, token_provider: TokenProvider | None) -> TokenProvider:
+    """Resolve the hook's credential, accepting the deprecated ``api_key`` for back compatibility."""
+    if token_provider is not None:
+        return token_provider
+    if api_key is not None:
+        warnings.warn(
+            "Passing `api_key` to the executor-credentials hook is deprecated; pass `token_provider` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return StaticTokenProvider(api_key)
+    raise WorkflowError("executor-credentials hook requires a token_provider (or the deprecated api_key)")
 
 
 class ExecutorCredentialsHook(abc.ABC):
@@ -28,9 +48,14 @@ class ExecutorCredentialsHook(abc.ABC):
     _REFRESH_MARGIN_SECONDS = 30
     _JWT_CACHE_SIZE = 100
 
-    def __init__(self, server_url: str, api_key: str) -> None:
+    def __init__(
+        self,
+        server_url: str,
+        api_key: str | None = None,
+        token_provider: TokenProvider | None = None,
+    ) -> None:
         self._server_url = server_url.rstrip("/")
-        self._api_key = api_key
+        self._token_provider = _resolve_hook_token_provider(api_key, token_provider)
         # execution_token -> (jwt, expiration_timestamp)
         self._jwt_cache: OrderedDict[str, tuple[str, float]] = OrderedDict()
 
@@ -69,10 +94,10 @@ class ExecutorCredentialsHook(abc.ABC):
 
     @property
     def _client_headers(self) -> dict[str, str]:
+        # Authorization is set per-request by the auth hook on the exchange client (below).
         return {
             **(config.worker.mistral_api_headers or {}),
             "User-Agent": USER_AGENT,
-            "Authorization": f"Bearer {self._api_key}",
         }
 
     def _cache_jwt(self, jwt: str, execution_token: str) -> str:
@@ -91,13 +116,20 @@ class ExecutorCredentialsHook(abc.ABC):
 class AsyncExecutorCredentialsHook(ExecutorCredentialsHook):
     """Async httpx event hook for executor credential injection."""
 
-    def __init__(self, server_url: str, api_key: str) -> None:
-        super().__init__(server_url, api_key)
+    def __init__(
+        self,
+        server_url: str,
+        api_key: str | None = None,
+        token_provider: TokenProvider | None = None,
+    ) -> None:
+        super().__init__(server_url, api_key, token_provider)
         self._worker_client = PrivateWorkerClient(
             server_url=self._server_url,
             async_client=httpx.AsyncClient(
                 verify=config.common.ca_bundle or True,
                 headers=self._client_headers,
+                event_hooks={"request": [AsyncTokenProviderHook(self._token_provider)]},
+                follow_redirects=False,
             ),
         )
 
@@ -124,13 +156,20 @@ class AsyncExecutorCredentialsHook(ExecutorCredentialsHook):
 class SyncExecutorCredentialsHook(ExecutorCredentialsHook):
     """Sync httpx event hook for executor credential injection."""
 
-    def __init__(self, server_url: str, api_key: str) -> None:
-        super().__init__(server_url, api_key)
+    def __init__(
+        self,
+        server_url: str,
+        api_key: str | None = None,
+        token_provider: TokenProvider | None = None,
+    ) -> None:
+        super().__init__(server_url, api_key, token_provider)
         self._worker_client = PrivateWorkerClient(
             server_url=self._server_url,
             client=httpx.Client(
                 verify=config.common.ca_bundle or True,
                 headers=self._client_headers,
+                event_hooks={"request": [TokenProviderHook(self._token_provider)]},
+                follow_redirects=False,
             ),
         )
 

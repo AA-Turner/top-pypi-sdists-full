@@ -9,10 +9,11 @@ from typing import Any
 import structlog
 import temporalio.activity
 
-from mistralai.workflows.client import get_mistral_client, should_use_executor_credentials
+from mistralai.workflows.client import get_mistral_client
 from mistralai.workflows.core._events.event_context import BackgroundEventPublisher
 from mistralai.workflows.core._events.event_utils import create_base_event_fields
 from mistralai.workflows.core.activity import activity
+from mistralai.workflows.plugins.mistralai.connectors.run_as import ConnectorRunAs, use_executor_credentials_for
 from mistralai.workflows.protocol.v1.events import (
     CustomTaskCompleted,
     CustomTaskCompletedAttributes,
@@ -121,9 +122,10 @@ async def connector_get_mcp_app_resource_uris(
     connector_id_or_name: str,
     credentials_name: str | None = None,
     raise_on_error: bool = False,
+    run_as: ConnectorRunAs = ConnectorRunAs.AUTO,
 ) -> dict[str, str]:
     """Return tool-name to ``ui://`` URI mappings declared by MCP tool metadata."""
-    client = get_mistral_client(use_executor_credentials=should_use_executor_credentials())
+    client = get_mistral_client(use_executor_credentials=use_executor_credentials_for(run_as))
     try:
         response = await client.beta.connectors.list_tools_async(
             connector_id_or_name=connector_id_or_name,

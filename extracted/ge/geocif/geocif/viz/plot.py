@@ -2,16 +2,17 @@ import logging
 import os
 from pathlib import Path
 
-import cartopy
 import geopandas as gpd
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import cartopy.crs as ccrs
-import pygeoutil.rgeo as rgeo
-from cartopy.feature import ShapelyFeature
 from matplotlib.lines import Line2D as Line
+
+# NOTE: cartopy / pygeoutil are imported lazily inside the matplotlib-path
+# helpers (_draw_regions, _projection_for, _set_extent). The default PyGMT
+# backend does not need them, so importing this module in a pygmt-only env
+# (no cartopy) still works.
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +96,8 @@ def _draw_regions(ax, df_comb, merge_col, name_col, series, dict_lup, use_key,
                   cmap, norm, alpha_feature, do_borders, annotate_regions,
                   annotate_region_column):
     """Color each region polygon and optionally annotate."""
+    import cartopy.crs as ccrs
+    from cartopy.feature import ShapelyFeature
     for i, region in df_comb.iterrows():
         if merge_col in df_comb and df_comb[merge_col][i] == "region":
             continue
@@ -281,6 +284,7 @@ def _projection_for(name_country):
     ``PlateCarree`` (unchanged). Data is always added with a PlateCarree
     ``transform`` (lat/lon), so cartopy reprojects correctly either way.
     """
+    import cartopy.crs as ccrs
     names = name_country if isinstance(name_country, (list, tuple)) else [name_country]
     norm = {str(n).replace("_", " ").lower() for n in names if n}
     if norm & {"united states of america", "united states", "usa"}:
@@ -293,6 +297,9 @@ def _projection_for(name_country):
 
 def _set_extent(ax, name_country):
     """Set map extent and add country borders."""
+    import cartopy
+    import cartopy.crs as ccrs
+    import pygeoutil.rgeo as rgeo
     if not name_country:
         return
 
@@ -379,6 +386,170 @@ def _save(fig, dir_out, fname):
 
 
 # =============================================================================
+# PyGMT rendering backend (default). Same title / labels / categories / colors
+# as the matplotlib path — only the rendering engine differs, for nicer
+# cartography. Standalone only: when ``plot_map`` is given an ``ax`` (embedded
+# multi-panel figure) or when pygmt/GMT is unavailable, it falls back to
+# matplotlib automatically.
+# =============================================================================
+
+def _gmt_projection_for(name_country, width="15c"):
+    """GMT projection string mirroring ``_projection_for`` (Albers for CONUS,
+    Mercator otherwise)."""
+    names = name_country if isinstance(name_country, (list, tuple)) else [name_country]
+    norm = {str(n).replace("_", " ").lower() for n in names if n}
+    if norm & {"united states of america", "united states", "usa"}:
+        return f"B-96/37.5/29.5/45.5/{width}"  # Albers Equal Area (CONUS)
+    return f"M{width}"  # Mercator
+
+
+_GMT_OK = None
+
+
+def _gmt_available():
+    """True iff PyGMT can load the GMT C library in THIS process (cached).
+
+    ``import pygmt`` succeeds without GMT (it loads libgmt lazily), so we
+    actually open a session. False -> use the subprocess bridge to a
+    pygmt-capable env.
+    """
+    global _GMT_OK
+    if _GMT_OK is None:
+        try:
+            from pygmt.clib import Session
+            with Session():
+                pass
+            _GMT_OK = True
+        except Exception:  # noqa: BLE001
+            _GMT_OK = False
+    return _GMT_OK
+
+
+def _plot_map_pygmt(
+    attribute_df, df, dict_lup, merge_col, name_country, name_col,
+    dir_out, fname, title, label, vmin, vmax, cmap, series,
+    do_borders, annotate_regions, annotate_region_column,
+    continuous_colorbar, classify_by, fixed_range, use_key,
+):
+    """Render the same choropleth as ``plot_map`` using PyGMT.
+
+    Reuses ``_compute_norm`` and computes each region's fill with the SAME
+    colormap logic as ``_draw_regions`` (exact color parity). Then renders via
+    :func:`geocif.viz._pygmt_render.render` — in-process when GMT is usable
+    here, otherwise via a subprocess bridge to a pygmt-capable conda env
+    (``GEOCIF_PYGMT_CONDA_ENV``, default ``pygmt_env``). The heavy prep runs in
+    the caller's env (no pygmt needed).
+    """
+    import json
+    import tempfile
+    import subprocess
+    from matplotlib.colors import to_hex
+
+    # --- country filter (ax-free port of _filter_countries) ---
+    adf = attribute_df
+    if name_country and name_country != "world":
+        admin_col = ("ADMIN0" if "ADMIN0" in adf.columns
+                     else ("ADM0_NAME" if "ADM0_NAME" in adf.columns else None))
+        if admin_col:
+            adf = adf[adf[admin_col].str.lower().isin(el.lower() for el in name_country)]
+
+    # --- merge + classification (identical to the matplotlib path) ---
+    df_comb, norm, breaks = _compute_norm(
+        df, adf, merge_col, name_col, series, vmin, vmax,
+        classify_by, continuous_colorbar, cmap, fixed_range,
+    )
+    gdf = gpd.GeoDataFrame(df_comb, geometry="geometry")
+    if gdf.empty:
+        logger.warning(f"pygmt map: no data after merge for {fname}; skipping.")
+        return
+
+    # --- per-region fill color, matching _draw_regions ---
+    def _fill_for(val):
+        if series == "qualitative":
+            key = None
+            for k, v in dict_lup.items():
+                if (use_key and k == val) or (not use_key and v == val):
+                    key = k
+                    break
+            if key is None:
+                return None
+            raw = (cmap[(key - 1) % len(cmap)] if isinstance(cmap, list)
+                   else cmap.colors[(key - 1) % len(cmap.colors)])
+            return to_hex(_normalize_color(raw))
+        if pd.isna(val):
+            return "#d9d9d9"  # region excluded from analysis -> lightgray
+        return to_hex(cmap.mpl_colormap(norm(val)))
+
+    gdf["_fill"] = gdf[name_col].map(_fill_for)
+    gdf = gdf[gdf["_fill"].notna()].copy()
+    if gdf.empty:
+        return
+    gdf["geometry"] = gdf.geometry.simplify(0.01)
+
+    cols_keep = ["_fill", "geometry"]
+    if annotate_regions and annotate_region_column in gdf.columns:
+        gdf["_label"] = gdf[annotate_region_column].astype(str).str.title()
+        cols_keep.insert(1, "_label")
+
+    # --- extent + colorbar spec (same colors + label as the mpl path) ---
+    minx, miny, maxx, maxy = gdf.total_bounds
+    padx = max(0.5, (maxx - minx) * 0.05)
+    pady = max(0.5, (maxy - miny) * 0.05)
+
+    if series == "qualitative":
+        allcols = cmap if isinstance(cmap, list) else list(cmap.colors)
+        cat_labels = [str(x) for x in dict_lup.values()]
+        cbar = {
+            "type": "qualitative",
+            "colors": [to_hex(_normalize_color(c)) for c in allcols][:len(cat_labels)],
+            "cat_labels": cat_labels,
+        }
+    elif not (np.isnan(vmin) or np.isnan(vmax)) and breaks is not None:
+        cbar = {
+            "type": "continuous",
+            "colors": [to_hex(cmap.mpl_colormap(x)) for x in np.linspace(0, 1, 11)],
+            "vmin": float(breaks[0]), "vmax": float(breaks[-1]),
+        }
+    else:
+        cbar = {"type": "none"}
+
+    params = {
+        "out_path": str(Path(dir_out) / fname),
+        "region": [float(minx - padx), float(maxx + padx),
+                   float(miny - pady), float(maxy + pady)],
+        "projection": _gmt_projection_for(name_country),
+        "title": title or "", "label": label or "",
+        "do_borders": bool(do_borders),
+        "annotate": bool(annotate_regions and "_label" in gdf.columns),
+        "colorbar": cbar,
+    }
+
+    os.makedirs(dir_out, exist_ok=True)
+    tmpdir = tempfile.mkdtemp(prefix="pygmt_map_")
+    gj = os.path.join(tmpdir, "data.geojson")
+    pj = os.path.join(tmpdir, "params.json")
+    gdf[cols_keep].to_file(gj, driver="GeoJSON")
+    with open(pj, "w") as fh:
+        json.dump(params, fh)
+
+    if _gmt_available():
+        from . import _pygmt_render
+        _pygmt_render.render(gj, pj)
+    else:
+        # Bridge: render in a pygmt-capable conda env.
+        env = os.environ.get("GEOCIF_PYGMT_CONDA_ENV", "pygmt_env")
+        helper = str(Path(__file__).with_name("_pygmt_render.py"))
+        cmd = f'conda run -n {env} python "{helper}" "{gj}" "{pj}"'
+        proc = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        if proc.returncode != 0:
+            logger.warning(
+                "pygmt bridge failed (rc=%s) for %s; stderr: %s",
+                proc.returncode, fname, (proc.stderr or "")[-600:],
+            )
+            raise RuntimeError(f"pygmt bridge failed for {fname}")
+
+
+# =============================================================================
 # Public API
 # =============================================================================
 
@@ -409,6 +580,7 @@ def plot_map(
     extend="neither",
     fixed_range=None,
     ax=None,
+    backend="pygmt",
 ):
     """Plot a choropleth map of regions colored by a data variable.
 
@@ -441,6 +613,25 @@ def plot_map(
     """
     if fixed_range is None:
         fixed_range = (series == "diverging")
+
+    # PyGMT backend (default) for STANDALONE maps. Falls back to matplotlib
+    # when embedding into a caller-owned axes (pygmt can't render into a
+    # matplotlib ax) or when pygmt/GMT is unavailable at runtime.
+    if backend == "pygmt" and ax is None:
+        try:
+            _plot_map_pygmt(
+                attribute_df, df, dict_lup, merge_col, name_country, name_col,
+                dir_out, fname, title, label, vmin, vmax,
+                _resolve_cmap(cmap, series, vmax), series, do_borders,
+                annotate_regions, annotate_region_column, continuous_colorbar,
+                classify_by, fixed_range, use_key,
+            )
+            return
+        except Exception as e:  # noqa: BLE001
+            logger.warning(
+                "pygmt backend failed (%s: %s); using matplotlib for %s",
+                type(e).__name__, e, fname,
+            )
 
     # When ax is provided, draw into it (caller owns fig/save).
     # When ax is None, create our own fig and save to disk.

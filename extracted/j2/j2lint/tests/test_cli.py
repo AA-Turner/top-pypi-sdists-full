@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2025 Arista Networks, Inc.
+# Copyright (c) 2021-2026 Arista Networks, Inc.
 # Use of this source code is governed by the MIT license
 # that can be found in the LICENSE file.
 """Tests for j2lint.cli.py."""
@@ -8,14 +8,14 @@ from __future__ import annotations
 import logging
 import re
 from argparse import Namespace
+from contextlib import nullcontext as does_not_raise
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
 import pytest
 from rich.console import ConsoleDimensions
 
-import j2lint
 from j2lint import CONSOLE
 from j2lint.cli import (
     create_parser,
@@ -24,6 +24,7 @@ from j2lint.cli import (
     run,
     sort_issues,
 )
+from j2lint.linter.collection import DEFAULT_RULE_DIR
 
 from .utils import (
     NO_ERROR_NO_WARNING_JSON,
@@ -33,12 +34,12 @@ from .utils import (
     ONE_ERROR_ONE_WARNING_VERBOSE,
     ONE_ERROR_REGEX,
     ONE_WARNING_VERBOSE,
-    does_not_raise,
     j2lint_default_rules_string,
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Callable
+    from contextlib import AbstractContextManager
 
     from j2lint.linter.error import LinterError
 
@@ -82,6 +83,63 @@ def test_create_parser(default_namespace: Namespace, argv: list[str], namespace_
     parser = create_parser()
     options = parser.parse_args(argv)
     assert options == expected_namespace
+
+
+@pytest.mark.parametrize(
+    ("argv", "expected_rules_dir", "expected_ignore", "expected_warn", "expected_files"),
+    [
+        pytest.param(
+            ["-r", "custom_rules", "tests/data/test.j2"],
+            [DEFAULT_RULE_DIR, "custom_rules"],
+            [],
+            [],
+            ["tests/data/test.j2"],
+            id="short rules dir",
+        ),
+        pytest.param(
+            ["--rules_dir", "custom_rules", "tests/data/test.j2"],
+            [DEFAULT_RULE_DIR, "custom_rules"],
+            [],
+            [],
+            ["tests/data/test.j2"],
+            id="long rules dir",
+        ),
+        pytest.param(
+            ["--ignore", "jinja-statements-delimiter", "--", "tests/data/test.j2"],
+            [DEFAULT_RULE_DIR],
+            ["jinja-statements-delimiter"],
+            [],
+            ["tests/data/test.j2"],
+            id="ignore by short description",
+        ),
+        pytest.param(["--ignore", "S6", "--", "tests/data/test.j2"], [DEFAULT_RULE_DIR], ["S6"], [], ["tests/data/test.j2"], id="ignore by rule id"),
+        pytest.param(
+            ["--warn", "jinja-statements-delimiter", "--", "tests/data/test.j2"],
+            [DEFAULT_RULE_DIR],
+            [],
+            ["jinja-statements-delimiter"],
+            ["tests/data/test.j2"],
+            id="warn by short description",
+        ),
+        pytest.param(["--warn", "S6", "--", "tests/data/test.j2"], [DEFAULT_RULE_DIR], [], ["S6"], ["tests/data/test.j2"], id="warn by rule id"),
+    ],
+)
+def test_create_parser_documented_options(
+    argv: list[str],
+    expected_rules_dir: list[Path | str],
+    expected_ignore: list[str],
+    expected_warn: list[str],
+    expected_files: list[str],
+) -> None:
+    """Test documented CLI option spellings and rule names."""
+    parser = create_parser()
+
+    options = parser.parse_args(argv)
+
+    assert options.rules_dir == expected_rules_dir
+    assert options.ignore == expected_ignore
+    assert options.warn == expected_warn
+    assert options.files == expected_files
 
 
 @pytest.mark.parametrize(
@@ -195,7 +253,7 @@ def test_sort_issues(
     ],
 )
 def test_print_string_output(
-    capsys: pytest.LogCaptureFixture,
+    capsys: pytest.CaptureFixture[str],
     make_issues: Callable[[int], list[LinterError]],
     options: Namespace,
     number_errors: int,
@@ -204,8 +262,8 @@ def test_print_string_output(
     expected_stdout: str,
 ) -> None:
     """Test j2lint.cli.print_string_output."""
-    errors = {"dummy.j2": make_issues(number_errors)}
-    warnings = {"dummy.j2": make_issues(number_warnings)}
+    errors = {Path("dummy.j2"): make_issues(number_errors)}
+    warnings = {Path("dummy.j2"): make_issues(number_warnings)}
     total_errors, total_warnings = print_string_output(errors, warnings, verbose=options.verbose)
 
     assert total_errors == expected_output[0]
@@ -224,16 +282,16 @@ def test_print_string_output(
     ],
 )
 def test_print_json_output(
-    capsys: pytest.Fixture,
-    make_issues: pytest.Fixture,
+    capsys: pytest.CaptureFixture[str],
+    make_issues: Callable[[int], list[LinterError]],
     number_errors: int,
     number_warnings: int,
     expected_output: tuple[int, int],
     expected_stdout: str,
 ) -> None:
     """Test j2lint.cli.print_json_output."""
-    errors = {"ERRORS": make_issues(number_errors)}
-    warnings = {"WARNINGS": make_issues(number_warnings)}
+    errors = {Path("ERRORS"): make_issues(number_errors)}
+    warnings = {Path("WARNINGS"): make_issues(number_warnings)}
     total_errors, total_warnings = print_json_output(errors, warnings)
 
     assert total_errors == expected_output[0]
@@ -250,7 +308,7 @@ def test_print_json_output(
         pytest.param(["-h"], "HELP", "", 0, pytest.raises(SystemExit), 0, 0, id="help"),
         pytest.param(
             ["--version"],
-            "Jinja2-Linter Version v1.2.0\n",
+            "Jinja2-Linter Version v1.3.0\n",
             "",
             0,
             does_not_raise(),
@@ -321,15 +379,15 @@ def test_print_json_output(
     ],
 )
 def test_run(
-    capsys: pytest.Fixture,
-    caplog: pytest.Fixture,
+    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
     j2lint_usage_string: str,
-    make_issues: pytest.Fixture,
+    make_issues: Callable[[int], list[LinterError]],
     argv: list[str],
     expected_stdout: str,
     expected_stderr: str,
     expected_exit_code: int,
-    expected_raise: Generator,
+    expected_raise: AbstractContextManager[str],
     number_errors: int,
     number_warnings: int,
 ) -> None:
@@ -371,7 +429,7 @@ def test_run(
             assert "DEBUG" in [record.levelname for record in caplog.records]
 
 
-def test_run_stdin(capsys: pytest.LogCaptureFixture) -> None:
+def test_run_stdin(capsys: pytest.CaptureFixture[str]) -> None:
     """Test j2lint.cli.run when using stdin.
 
     Note that the code is checking that this is not run from a tty
@@ -386,7 +444,6 @@ def test_run_stdin(capsys: pytest.LogCaptureFixture) -> None:
     """
     with (
         patch("sys.stdin") as patched_stdin,
-        patch.object(j2lint.cli.Path, "unlink", side_effect=j2lint.cli.Path.unlink, autospec=True) as mocked_os_unlink,
         patch("logging.disable"),
     ):
         patched_stdin.isatty.return_value = False
@@ -402,6 +459,5 @@ def test_run_stdin(capsys: pytest.LogCaptureFixture) -> None:
         )
         assert matches is not None
         path = Path(matches.groups()[0])
-        mocked_os_unlink.assert_called_with(path)
         assert path.exists() is False
         assert run_return_value == 2

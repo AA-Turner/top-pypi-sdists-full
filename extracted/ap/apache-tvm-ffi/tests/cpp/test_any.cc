@@ -18,6 +18,8 @@
  */
 #include <gtest/gtest.h>
 #include <tvm/ffi/any.h>
+#include <tvm/ffi/container/tensor.h>
+#include <tvm/ffi/device.h>
 #include <tvm/ffi/memory.h>
 
 #include <limits>
@@ -28,6 +30,21 @@ namespace {
 
 using namespace tvm::ffi;
 using namespace tvm::ffi::testing;
+
+static_assert(TypeTraits<ObjectPtr<TIntObj>>::convert_enabled);
+static_assert(TypeTraits<ObjectPtr<TIntObj>>::storage_enabled);
+static_assert(!TypeTraits<ObjectPtr<const TIntObj>>::convert_enabled);
+static_assert(!TypeTraits<ObjectPtr<const TIntObj>>::storage_enabled);
+static_assert(!TypeTraits<ObjectPtr<volatile TIntObj>>::convert_enabled);
+static_assert(!TypeTraits<ObjectPtr<volatile TIntObj>>::storage_enabled);
+static_assert(!TypeTraits<ObjectPtr<const volatile TIntObj>>::convert_enabled);
+static_assert(!TypeTraits<ObjectPtr<const volatile TIntObj>>::storage_enabled);
+static_assert(TypeToFieldStaticTypeIndex<ObjectPtr<TIntObj>>::value == TypeIndex::kTVMFFIObject);
+static_assert(is_object_subclass_v<TIntObj>);
+static_assert(!is_object_subclass_v<void>);
+static_assert(type_subsumes_v<ObjectPtr<TNumberObj>, ObjectPtr<TIntObj>>);
+static_assert(!type_subsumes_v<ObjectPtr<TIntObj>, ObjectPtr<TNumberObj>>);
+static_assert(!type_subsumes_v<ObjectPtr<TIntObj>, ObjectPtr<TFloatObj>>);
 
 TEST(Any, Int) {
   AnyView view0;
@@ -312,6 +329,79 @@ TEST(Any, Object) {
   EXPECT_EQ(v1.use_count(), 3);
 }
 
+TEST(Any, ObjectPtr) {
+  {
+    ObjectPtr<TIntObj> ptr = make_object<TIntObj>(11);
+    TIntObj* raw_ptr = ptr.get();
+    EXPECT_EQ(ptr.use_count(), 1);
+
+    AnyView view = ptr;
+    EXPECT_EQ(ptr.use_count(), 1);
+    EXPECT_EQ(view.type_index(), TIntObj::RuntimeTypeIndex());
+
+    ObjectPtr<TIntObj> exact_ptr = view.cast<ObjectPtr<TIntObj>>();
+    EXPECT_EQ(ptr.use_count(), 2);
+    EXPECT_EQ(exact_ptr.get(), raw_ptr);
+    exact_ptr.reset();
+    EXPECT_EQ(ptr.use_count(), 1);
+
+    ObjectPtr<TNumberObj> base_ptr = view.cast<ObjectPtr<TNumberObj>>();
+    EXPECT_EQ(ptr.use_count(), 2);
+    EXPECT_EQ(base_ptr.get(), static_cast<TNumberObj*>(raw_ptr));
+    EXPECT_EQ(static_cast<TIntObj*>(base_ptr.get())->value, 11);
+    base_ptr.reset();
+    EXPECT_EQ(ptr.use_count(), 1);
+
+    EXPECT_FALSE(view.try_cast<ObjectPtr<TFloatObj>>().has_value());
+  }
+
+  {
+    ObjectPtr<TIntObj> ptr = make_object<TIntObj>(12);
+    TIntObj* raw_ptr = ptr.get();
+    Any value = ptr;
+    EXPECT_EQ(ptr.use_count(), 2);
+    EXPECT_EQ(value.type_index(), TIntObj::RuntimeTypeIndex());
+
+    ObjectPtr<TIntObj> copied_ptr = value.cast<ObjectPtr<TIntObj>>();
+    EXPECT_EQ(copied_ptr.get(), raw_ptr);
+    EXPECT_EQ(ptr.use_count(), 3);
+    copied_ptr.reset();
+    EXPECT_EQ(ptr.use_count(), 2);
+
+    value.reset();
+    EXPECT_EQ(ptr.use_count(), 1);
+  }
+
+  {
+    ObjectPtr<TIntObj> ptr = make_object<TIntObj>(13);
+    TIntObj* raw_ptr = ptr.get();
+    Any value = std::move(ptr);
+    EXPECT_TRUE(ptr == nullptr);  // NOLINT(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
+    EXPECT_EQ(raw_ptr->use_count(), 1);
+
+    ObjectPtr<TIntObj> moved_ptr = std::move(value).cast<ObjectPtr<TIntObj>>();
+    EXPECT_TRUE(value == nullptr);  // NOLINT(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
+    EXPECT_EQ(moved_ptr.get(), raw_ptr);
+    EXPECT_EQ(moved_ptr.use_count(), 1);
+  }
+
+  {
+    ObjectPtr<TIntObj> ptr;
+    AnyView view = ptr;
+    EXPECT_EQ(view.type_index(), TypeIndex::kTVMFFINone);
+    EXPECT_EQ(view.cast<ObjectPtr<TIntObj>>(), nullptr);
+
+    Any value = ptr;
+    EXPECT_EQ(value.type_index(), TypeIndex::kTVMFFINone);
+    EXPECT_EQ(std::move(value).cast<ObjectPtr<TIntObj>>(), nullptr);
+    EXPECT_TRUE(value == nullptr);  // NOLINT(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
+  }
+
+  EXPECT_EQ(TypeToRuntimeTypeIndex<ObjectPtr<TIntObj>>::v(), TIntObj::RuntimeTypeIndex());
+  EXPECT_EQ(TypeTraits<ObjectPtr<TNumberObj>>::TypeSchema(),
+            R"({"type":"Optional","args":[{"type":"test.Number"}]})");
+}
+
 TEST(Any, ObjectRefWithFallbackTraits) {
   // Test case for TPrimExpr fallback from Any
   Any any1 = TPrimExpr("float32", 3.14);
@@ -369,6 +459,56 @@ TEST(Any, ObjectRefWithFallbackTraits) {
   EXPECT_EQ(v9->value, 0);
 }
 
+TEST(Any, AsOrThrow) {
+  Any any_int = 1;
+  EXPECT_EQ(any_int.as_or_throw<int>(), 1);
+  EXPECT_EQ(std::move(any_int).as_or_throw<int>(), 1);
+
+  Any any_obj = TInt(11);
+  EXPECT_EQ(any_obj.as_or_throw<const TIntObj*>()->value, 11);
+  EXPECT_EQ(any_obj.as_or_throw<TInt>()->value, 11);
+
+  const Any const_any_obj = TInt(12);
+  auto const_as_obj = const_any_obj.as<TInt>();
+  ASSERT_TRUE(const_as_obj.has_value()) << "Expected const Any as<TInt>() to succeed";
+  EXPECT_EQ((*const_as_obj).get()->value, 12);  // NOLINT(bugprone-unchecked-optional-access)
+  EXPECT_EQ(const_any_obj.as_or_throw<TInt>()->value, 12);
+
+  auto moved_as_obj = Any(TInt(13)).as<TInt>();
+  ASSERT_TRUE(moved_as_obj.has_value()) << "Expected rvalue Any as<TInt>() to succeed";
+  EXPECT_EQ((*moved_as_obj).get()->value, 13);  // NOLINT(bugprone-unchecked-optional-access)
+  EXPECT_EQ(Any(TInt(13)).as_or_throw<TInt>()->value, 13);
+
+  Any any_float = 1;
+  EXPECT_THROW(
+      {
+        try {
+          [[maybe_unused]] auto value = any_float.as_or_throw<double>();
+        } catch (const Error& error) {
+          EXPECT_EQ(error.kind(), "TypeError");
+          std::string what = error.what();
+          EXPECT_NE(what.find("Cannot treat type `int` as type `float`"), std::string::npos);
+          throw;
+        }
+      },
+      ::tvm::ffi::Error);
+
+  Any any_number = TFloat(2.5);
+  EXPECT_THROW(
+      {
+        try {
+          [[maybe_unused]] auto value = any_number.as_or_throw<TInt>();
+        } catch (const Error& error) {
+          EXPECT_EQ(error.kind(), "TypeError");
+          std::string what = error.what();
+          EXPECT_NE(what.find("Cannot treat type `test.Float` as type `test.Int`"),
+                    std::string::npos);
+          throw;
+        }
+      },
+      ::tvm::ffi::Error);
+}
+
 TEST(Any, CastVsAs) {
   AnyView view0 = 1;
   // as only runs strict check
@@ -407,7 +547,7 @@ TEST(Any, ObjectMove) {
   auto v0 = std::move(any1).cast<TPrimExpr>();
   EXPECT_EQ(v0->value, 3.14);
   EXPECT_EQ(v0.use_count(), 1);
-  EXPECT_TRUE(any1 == nullptr);  // NOLINT(bugprone-use-after-move)
+  EXPECT_TRUE(any1 == nullptr);  // NOLINT(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
 }
 
 TEST(Any, AnyEqualHash) {

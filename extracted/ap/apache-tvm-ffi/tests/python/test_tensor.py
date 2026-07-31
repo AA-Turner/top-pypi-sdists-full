@@ -30,6 +30,7 @@ except ImportError:
 
 import numpy as np
 import tvm_ffi
+from tvm_ffi.testing import run_with_gpu_lock
 
 
 def test_tensor_attributes() -> None:
@@ -50,6 +51,16 @@ def test_tensor_attributes() -> None:
     assert x.device.index == 0
     x2 = np.from_dlpack(x)
     np.testing.assert_equal(x2, data)
+
+
+def test_tensor_data_ptr() -> None:
+    data = np.arange(8, dtype="int32")
+    tensor = tvm_ffi.from_dlpack(data)
+    assert tensor.data_ptr() == data.ctypes.data
+
+    view = data[2:]
+    tensor_view = tvm_ffi.from_dlpack(view)
+    assert tensor_view.data_ptr() == view.ctypes.data
 
 
 def test_empty_tensor_is_contiguous() -> None:
@@ -194,10 +205,14 @@ def test_tensor_from_pytorch_rocm() -> None:
     def _check_device(x: tvm_ffi.Tensor) -> str:
         return x.device.type
 
-    # PyTorch uses device name "cuda" to represent ROCm device
-    x = torch.randn(128, device="cuda")
-    device_type = tvm_ffi.get_global_func("testing.check_device")(x)
-    assert device_type == "rocm"
+    def run_and_check() -> None:
+        assert torch is not None
+        # PyTorch uses device name "cuda" to represent ROCm device
+        x = torch.randn(128, device="cuda")
+        device_type = tvm_ffi.get_global_func("testing.check_device")(x)
+        assert device_type == "rocm"
+
+    run_with_gpu_lock(run_and_check)
 
 
 def test_optional_tensor_view() -> None:

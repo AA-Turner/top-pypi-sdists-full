@@ -1,7 +1,10 @@
+from typing import ClassVar
+
 from babel.core import Locale
 
 from followthemoney.types.common import EnumType, EnumValues
-from followthemoney.util import gettext, defer as _
+from followthemoney.util import defer as _
+from followthemoney.util import gettext
 
 
 class TopicType(EnumType):
@@ -22,7 +25,7 @@ class TopicType(EnumType):
     matchable = False
     max_length = 64
 
-    _TOPICS = {
+    _TOPICS: ClassVar[dict[str, str]] = {
         "crime": _("Crime"),
         "crime.fraud": _("Fraud"),
         "crime.cyber": _("Cybercrime"),
@@ -85,21 +88,21 @@ class TopicType(EnumType):
         "pol.union": _("Union"),
         "rel": _("Religion"),
         "mil": _("Military"),
-        "sanction": _("Sanctioned entity"),
-        "sanction.linked": _("Sanction-linked entity"),
-        "sanction.control": _("Controls sanctioned entity"),
-        "sanction.counter": _("Counter-sanctioned entity"),
+        "sanction": _("Sanctioned"),
+        "sanction.linked": _("Sanction-linked"),
+        "sanction.control": _("Sanction ownership or control"),
+        "sanction.counter": _("Counter-sanctioned"),
         "export.control": _("Export controlled"),
         # For BIS 50% rule:
         "export.control.linked": _("Export control-linked"),
         "export.risk": _("Trade risk"),
         "invest.risk": _("Investment risk"),
         "invest.ban": _("Investment ban"),
-        "debarment": _("Debarred entity"),
+        "debarment": _("Debarred"),
         "poi": _("Person of interest"),
     }
 
-    RISKS = {
+    RISKS: ClassVar[set[str]] = {
         "corp.disqual",
         "crime.boss",
         "crime.fin",

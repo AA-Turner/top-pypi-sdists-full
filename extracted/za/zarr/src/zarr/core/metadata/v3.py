@@ -9,8 +9,10 @@ from typing_extensions import TypedDict
 
 from zarr.abc.codec import ArrayArrayCodec, ArrayBytesCodec, BytesBytesCodec, Codec
 from zarr.abc.metadata import Metadata
+from zarr.core._json import json_to_buffer
 from zarr.core.array_spec import ArrayConfig, ArraySpec
 from zarr.core.buffer.core import default_buffer_prototype
+from zarr.core.chunk_grids import is_regular_nd
 from zarr.core.chunk_key_encodings import (
     ChunkKeyEncoding,
     ChunkKeyEncodingLike,
@@ -19,7 +21,6 @@ from zarr.core.chunk_key_encodings import (
 from zarr.core.common import (
     JSON,
     ZARR_JSON,
-    ChunksLike,
     DimensionNamesLike,
     NamedConfig,
     NamedRequiredConfig,
@@ -41,6 +42,7 @@ if TYPE_CHECKING:
     from typing import Self
 
     from zarr.core.buffer import Buffer, BufferPrototype
+    from zarr.core.chunk_grids import ChunksTuple
     from zarr.core.dtype.wrapper import TBaseDType, TBaseScalar
 
 
@@ -288,8 +290,6 @@ class RectilinearChunkGridMetadata(Metadata):
     chunk_shapes: tuple[int | tuple[int, ...], ...]
 
     def __post_init__(self) -> None:
-        from zarr.core.config import config
-
         if not config.get("array.rectilinear_chunks"):
             raise ValueError(
                 "Rectilinear chunk grids are experimental and disabled by default. "
@@ -371,27 +371,33 @@ class RectilinearChunkGridMetadata(Metadata):
 ChunkGridMetadata = RegularChunkGridMetadata | RectilinearChunkGridMetadata
 
 
-def resolve_chunks(
-    chunks: ChunksLike,
-    shape: tuple[int, ...],
-    typesize: int,
+def create_chunk_grid_metadata(
+    chunks: ChunksTuple,
 ) -> ChunkGridMetadata:
-    """Construct a chunk grid from user-facing input (e.g. ``create_array(chunks=...)``).
+    """Construct a chunk grid metadata object from a normalized `ChunksTuple`.
 
-    Nested sequences like ``[[10, 20], [5, 5]]`` produce a ``RectilinearChunkGridMetadata``.
-    Flat inputs like ``(10, 10)`` or a scalar ``int`` produce a ``RegularChunkGridMetadata``
-    after normalization via :func:`~zarr.core.chunk_grids.normalize_chunks`.
+    Regular chunks produce a `RegularChunkGridMetadata`.
+    Rectilinear chunks produce a `RectilinearChunkGridMetadata`.
+
+    Parameters
+    ----------
+    chunks : ChunksTuple
+        Normalized chunk specification, as returned by
+        `normalize_chunks_nd` or `guess_chunks`.
 
     See Also
     --------
     parse_chunk_grid : Deserialize a chunk grid from stored JSON metadata.
     """
-    from zarr.core.chunk_grids import _is_rectilinear_chunks, normalize_chunks
-
-    if _is_rectilinear_chunks(chunks):
-        return RectilinearChunkGridMetadata(chunk_shapes=tuple(tuple(c) for c in chunks))
-
-    return RegularChunkGridMetadata(chunk_shape=normalize_chunks(chunks, shape, typesize))
+    if is_regular_nd(chunks):
+        # If we know the chunks specification is regular, then we can take the first
+        # chunk size for each dimension as the chunk shape.
+        chunk_shape = tuple(int(dim_chunks[0]) for dim_chunks in chunks)
+        return RegularChunkGridMetadata(chunk_shape=chunk_shape)
+    else:
+        return RectilinearChunkGridMetadata(
+            chunk_shapes=tuple(tuple(int(x) for x in d) for d in chunks)
+        )
 
 
 def parse_chunk_grid(
@@ -401,7 +407,7 @@ def parse_chunk_grid(
 
     See Also
     --------
-    resolve_chunks : Construct a chunk grid from user-facing input.
+    create_chunk_grid_metadata : Construct a chunk grid from user-facing input.
     """
     if isinstance(data, (RegularChunkGridMetadata, RectilinearChunkGridMetadata)):
         return data
@@ -599,13 +605,8 @@ class ArrayV3Metadata(Metadata):
         return self.chunk_key_encoding.encode_chunk_key(chunk_coords)
 
     def to_buffer_dict(self, prototype: BufferPrototype) -> dict[str, Buffer]:
-        json_indent = config.get("json_indent")
-        d = self.to_dict()
-        return {
-            ZARR_JSON: prototype.buffer.from_bytes(
-                json.dumps(d, allow_nan=True, indent=json_indent).encode()
-            )
-        }
+        indent = config.get("json_indent")
+        return {ZARR_JSON: json_to_buffer(self.to_dict(), prototype=prototype, indent=indent)}
 
     @classmethod
     def from_dict(cls, data: dict[str, JSON]) -> Self:
@@ -689,6 +690,19 @@ class ArrayV3Metadata(Metadata):
         if isinstance(dtype_meta, ZDType):
             out_dict["data_type"] = dtype_meta.to_json(zarr_format=3)  # type: ignore[unreachable]
         return out_dict
+
+    def __eq__(self, other: object) -> bool:
+        # The default dataclass __eq__ compares fields directly, which is wrong for a NaN
+        # fill_value: NaN != NaN under IEEE 754. Comparing the JSON-serialized form instead
+        # treats matching NaN (and inf) fill values as equal. See issue #2929.
+        if not isinstance(other, ArrayV3Metadata):
+            return NotImplemented
+        return self.to_dict() == other.to_dict()
+
+    def __hash__(self) -> int:
+        # Hash the JSON-serialized form to stay consistent with __eq__: equal metadata
+        # must hash equally, which a field-based hash violates for a NaN fill_value.
+        return hash(json.dumps(self.to_dict(), sort_keys=True))
 
     def update_shape(self, shape: tuple[int, ...]) -> Self:
         chunk_grid = self.chunk_grid

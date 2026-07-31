@@ -1091,11 +1091,12 @@ class ShowParamsOption(ExtraOption, ParamStructure):
             id="id",
             label="ID",
             description=(
-                "Fully-qualified parameter path (`cli.subcommand.param-name`) "
+                "Fully-qualified parameter path (`cli.subcommand.param_name`) "
                 "derived from the [`click.Command`]"
                 "(https://click.palletsprojects.com/en/stable/api/#click.Command) "
                 "tree. Doubles as the key used to address the parameter from a "
-                "configuration file."
+                "configuration file, which also accepts the kebab-case "
+                "spelling of the last segment."
             ),
         ),
         _ColumnSpec(
@@ -1402,6 +1403,14 @@ class ShowParamsOption(ExtraOption, ParamStructure):
         # Exit early if the callback was processed but the option wasn't set.
         if not value:
             return
+
+        # Load the configuration file first, so the value and source columns
+        # reflect it even when this flag was processed ahead of the --config
+        # option. Imported here to avoid a circular import with the config
+        # module, which imports from this one.
+        from .config import ensure_config_loaded
+
+        ensure_config_loaded(ctx)
 
         # Warn when the live command is not a Command: without the captured
         # raw arguments, the value/source columns fall back to defaults.

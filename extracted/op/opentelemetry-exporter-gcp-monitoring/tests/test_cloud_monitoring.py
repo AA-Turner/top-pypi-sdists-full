@@ -54,6 +54,12 @@ LABELS: Attributes = {
 }
 
 
+def test_deprecation_warning() -> None:
+    client = MetricServiceClient(credentials=AnonymousCredentials())
+    with pytest.deprecated_call():
+        CloudMonitoringMetricsExporter(project_id=PROJECT_ID, client=client)
+
+
 def test_create_monitoring_exporter() -> None:
     client = MetricServiceClient(credentials=AnonymousCredentials())
     CloudMonitoringMetricsExporter(project_id=PROJECT_ID, client=client)

@@ -235,7 +235,7 @@ class AgentExecutionManager:
             and published_transport is not None
             and published_transport.published_ref is not None
         ):
-            await self._integrate_published_ref(
+            task.merged_commit = await self._integrate_published_ref(
                 task_name=task_name,
                 published_ref=published_transport.published_ref,
             )
@@ -286,6 +286,7 @@ class AgentExecutionManager:
 
                 await delete_remote_ref(primary_transport.bare_repo_path, pub_ref.ref)
                 task.merged = True
+                task.merged_commit = result.commit_sha or None
                 return ReviewGateMergeResult(merged=True)
 
         result_dir = self._primary_mount.world_path if self._primary_mount else None
@@ -368,9 +369,10 @@ class AgentExecutionManager:
         *,
         task_name: str,
         published_ref: GitPublishedRef,
-    ) -> None:
+    ) -> str | None:
+        """Squash-merge ``published_ref`` into main; returns the new main commit SHA."""
         if self._primary_mount is None or self._primary_mount.transport_kind != "git":
-            return
+            return None
 
         transport = _git_transport_from_mount(self._primary_mount)
 
@@ -387,6 +389,7 @@ class AgentExecutionManager:
             await transport._refresh_local_workspace_from_main()
             await self._checkpoint_tracked_workspace(task_name, published_ref)
             await delete_remote_ref(transport.bare_repo_path, published_ref.ref)
+            return result.commit_sha or None
 
     async def _checkpoint_tracked_workspace(self, task_name: str, published_ref: GitPublishedRef) -> None:
         workspace = self._primary_workspace

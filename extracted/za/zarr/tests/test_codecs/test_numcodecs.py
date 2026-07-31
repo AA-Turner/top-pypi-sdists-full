@@ -85,7 +85,7 @@ ALL_CODECS = tuple(
 
 @pytest.mark.parametrize("codec_cls", ALL_CODECS)
 def test_get_codec_class(codec_cls: type[_numcodecs._NumcodecsCodec]) -> None:
-    assert get_codec_class(codec_cls.codec_name) == codec_cls  # type: ignore[comparison-overlap]
+    assert get_codec_class(codec_cls.codec_name) == codec_cls  # type: ignore[comparison-overlap,misc]
 
 
 @pytest.mark.parametrize("codec_class", ALL_CODECS)
@@ -161,6 +161,40 @@ def test_generic_filter(
     with codec_conf():
         b = open_array(a.store, mode="r")
     np.testing.assert_array_equal(data, b[:, :])
+
+
+@pytest.mark.parametrize(
+    ("codec_class", "codec_config", "dtype"),
+    [
+        (_numcodecs.Delta, {"dtype": "int64"}, "int64"),
+        (_numcodecs.FixedScaleOffset, {"offset": 0, "scale": 1}, "int64"),
+        (_numcodecs.PackBits, {}, "bool"),
+    ],
+    ids=["delta", "fixedscaleoffset", "packbits"],
+)
+def test_generic_filter_f_contiguous(
+    codec_class: type[_numcodecs._NumcodecsArrayArrayCodec],
+    codec_config: dict[str, JSON],
+    dtype: str,
+) -> None:
+    # gh-3558: F-contiguous chunks were handed to numcodecs filters as is, and
+    # numcodecs flattens in memory order, so the elements came back transposed
+    if dtype == "bool":
+        data = np.asfortranarray(np.tril(np.ones((16, 16), dtype=bool)))
+    else:
+        data = np.asfortranarray(np.arange(256, dtype=dtype).reshape(16, 16))
+
+    a = create_array(
+        {},
+        shape=data.shape,
+        chunks=(16, 16),
+        dtype=data.dtype,
+        fill_value=0,
+        filters=[codec_class(**codec_config)],
+    )
+
+    a[:, :] = data
+    np.testing.assert_array_equal(data, a[:, :])
 
 
 def test_generic_filter_bitround() -> None:
@@ -240,7 +274,7 @@ def test_generic_checksum(codec_class: type[_numcodecs._NumcodecsBytesBytesCodec
     try:
         codec_class()._codec  # noqa: B018
     except UnknownCodecError as e:  # pragma: no cover
-        pytest.skip(f"{codec_class.codec_name} is not available in numcodecs: {e}")
+        pytest.skip(f"{codec_class.codec_name} is not available in numcodecs: {e}")  # type: ignore[misc]
 
     data = np.linspace(0, 10, 256, dtype="float32").reshape((16, 16))
 
@@ -265,11 +299,11 @@ def test_generic_bytes_codec(codec_class: type[_numcodecs._NumcodecsArrayBytesCo
         codec_class()._codec  # noqa: B018
     except ValueError as e:  # pragma: no cover
         if "codec not available" in str(e):
-            pytest.xfail(f"{codec_class.codec_name} is not available: {e}")
+            pytest.xfail(f"{codec_class.codec_name} is not available: {e}")  # type: ignore[misc]
         else:
             raise
     except ImportError as e:  # pragma: no cover
-        pytest.xfail(f"{codec_class.codec_name} is not available: {e}")
+        pytest.xfail(f"{codec_class.codec_name} is not available: {e}")  # type: ignore[misc]
 
     data = np.arange(0, 256, dtype="float32").reshape((16, 16))
 
@@ -347,7 +381,7 @@ def test_codecs_pickleable(codec_cls: type[_numcodecs._NumcodecsCodec]) -> None:
     try:
         codec = codec_cls()
     except UnknownCodecError as e:  # pragma: no cover
-        pytest.skip(f"{codec_cls.codec_name} is not available in numcodecs: {e}")
+        pytest.skip(f"{codec_cls.codec_name} is not available in numcodecs: {e}")  # type: ignore[misc]
 
     expected = codec
 

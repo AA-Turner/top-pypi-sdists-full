@@ -66,7 +66,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 from ._jsii import *
@@ -172,7 +172,7 @@ class ArtifactManifest:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8929e1c8fa42a2da90248ef476a9635f914a58bd1f9f1e211137b8ee50724a63)
+            type_hints = cached_type_hints(_typecheckingstub__8929e1c8fa42a2da90248ef476a9635f914a58bd1f9f1e211137b8ee50724a63)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument additional_metadata_file", value=additional_metadata_file, expected_type=type_hints["additional_metadata_file"])
             check_type(argname="argument dependencies", value=dependencies, expected_type=type_hints["dependencies"])
@@ -457,7 +457,7 @@ class AssemblyManifest:
         if isinstance(runtime, dict):
             runtime = RuntimeInfo(**runtime)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c06faab7d400a7929f5b5eff692dad84a33eec00934bd9294bd52a2d2ad1751b)
+            type_hints = cached_type_hints(_typecheckingstub__c06faab7d400a7929f5b5eff692dad84a33eec00934bd9294bd52a2d2ad1751b)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             check_type(argname="argument artifacts", value=artifacts, expected_type=type_hints["artifacts"])
             check_type(argname="argument minimum_cli_version", value=minimum_cli_version, expected_type=type_hints["minimum_cli_version"])
@@ -663,7 +663,7 @@ class AssetManifest:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc97c2081360bde2b73175fa7652c15be644c6613b045edbcf3c646783fb8645)
+            type_hints = cached_type_hints(_typecheckingstub__bc97c2081360bde2b73175fa7652c15be644c6613b045edbcf3c646783fb8645)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             check_type(argname="argument docker_images", value=docker_images, expected_type=type_hints["docker_images"])
             check_type(argname="argument files", value=files, expected_type=type_hints["files"])
@@ -748,7 +748,7 @@ class AssetManifestOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ebe4bdf8ba8d960818ce9fa39d494de457d4fe9e024146bd88e1a7666566a979)
+            type_hints = cached_type_hints(_typecheckingstub__ebe4bdf8ba8d960818ce9fa39d494de457d4fe9e024146bd88e1a7666566a979)
             check_type(argname="argument bootstrap_stack_version_ssm_parameter", value=bootstrap_stack_version_ssm_parameter, expected_type=type_hints["bootstrap_stack_version_ssm_parameter"])
             check_type(argname="argument requires_bootstrap_stack_version", value=requires_bootstrap_stack_version, expected_type=type_hints["requires_bootstrap_stack_version"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -833,7 +833,7 @@ class AssetManifestProperties(AssetManifestOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d1fc2c39e21d6c20f297387785b78bda083811d77cac0b06650331ad43398006)
+            type_hints = cached_type_hints(_typecheckingstub__d1fc2c39e21d6c20f297387785b78bda083811d77cac0b06650331ad43398006)
             check_type(argname="argument bootstrap_stack_version_ssm_parameter", value=bootstrap_stack_version_ssm_parameter, expected_type=type_hints["bootstrap_stack_version_ssm_parameter"])
             check_type(argname="argument requires_bootstrap_stack_version", value=requires_bootstrap_stack_version, expected_type=type_hints["requires_bootstrap_stack_version"])
             check_type(argname="argument file", value=file, expected_type=type_hints["file"])
@@ -996,7 +996,7 @@ class AwsCloudFormationStackProperties:
         if isinstance(lookup_role, dict):
             lookup_role = BootstrapRole(**lookup_role)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__968af3f53980f774832a69be407570b26252cab75e3ca5921b4d3daaf9b50d72)
+            type_hints = cached_type_hints(_typecheckingstub__968af3f53980f774832a69be407570b26252cab75e3ca5921b4d3daaf9b50d72)
             check_type(argname="argument template_file", value=template_file, expected_type=type_hints["template_file"])
             check_type(argname="argument assume_role_additional_options", value=assume_role_additional_options, expected_type=type_hints["assume_role_additional_options"])
             check_type(argname="argument assume_role_arn", value=assume_role_arn, expected_type=type_hints["assume_role_arn"])
@@ -1256,7 +1256,7 @@ class AwsDestination:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d4387902c8044ff57dcc17c7ae5dcff6575e79b8dd9de120108560d27236ca7)
+            type_hints = cached_type_hints(_typecheckingstub__0d4387902c8044ff57dcc17c7ae5dcff6575e79b8dd9de120108560d27236ca7)
             check_type(argname="argument assume_role_additional_options", value=assume_role_additional_options, expected_type=type_hints["assume_role_additional_options"])
             check_type(argname="argument assume_role_arn", value=assume_role_arn, expected_type=type_hints["assume_role_arn"])
             check_type(argname="argument assume_role_external_id", value=assume_role_external_id, expected_type=type_hints["assume_role_external_id"])
@@ -1378,7 +1378,7 @@ class BootstrapRole:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8312254ba026da8d32fb0402fe23fbcb07a4862942025fa5bd9da926fa1da89d)
+            type_hints = cached_type_hints(_typecheckingstub__8312254ba026da8d32fb0402fe23fbcb07a4862942025fa5bd9da926fa1da89d)
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
             check_type(argname="argument assume_role_additional_options", value=assume_role_additional_options, expected_type=type_hints["assume_role_additional_options"])
             check_type(argname="argument assume_role_external_id", value=assume_role_external_id, expected_type=type_hints["assume_role_external_id"])
@@ -1496,7 +1496,7 @@ class CdkCommand:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__537cc0a582eff90f545dcbb5cf71b07a8103291f955df39810623c4c1f2dc33c)
+            type_hints = cached_type_hints(_typecheckingstub__537cc0a582eff90f545dcbb5cf71b07a8103291f955df39810623c4c1f2dc33c)
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument expected_message", value=expected_message, expected_type=type_hints["expected_message"])
             check_type(argname="argument expect_error", value=expect_error, expected_type=type_hints["expect_error"])
@@ -1662,7 +1662,7 @@ class CdkCommands:
         if isinstance(destroy, dict):
             destroy = DestroyCommand(**destroy)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e70083930fac08756906559ae682dfd16e60aaa124657034325e3065df265084)
+            type_hints = cached_type_hints(_typecheckingstub__e70083930fac08756906559ae682dfd16e60aaa124657034325e3065df265084)
             check_type(argname="argument deploy", value=deploy, expected_type=type_hints["deploy"])
             check_type(argname="argument destroy", value=destroy, expected_type=type_hints["destroy"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1741,7 +1741,7 @@ class CloudFormationResourceJson:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__196f925349696ccfb09b5c5688d15502322c2b6b9f4c3c70f64845094a7db00a)
+            type_hints = cached_type_hints(_typecheckingstub__196f925349696ccfb09b5c5688d15502322c2b6b9f4c3c70f64845094a7db00a)
             check_type(argname="argument logical_id", value=logical_id, expected_type=type_hints["logical_id"])
             check_type(argname="argument template_path", value=template_path, expected_type=type_hints["template_path"])
             check_type(argname="argument property_paths", value=property_paths, expected_type=type_hints["property_paths"])
@@ -1828,7 +1828,7 @@ class ContainerImageAssetCacheOption:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a176d2c2028cf996606e36d65f059e663cfcb4be9d776ed736d8d3a953f4a65)
+            type_hints = cached_type_hints(_typecheckingstub__7a176d2c2028cf996606e36d65f059e663cfcb4be9d776ed736d8d3a953f4a65)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument params", value=params, expected_type=type_hints["params"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1968,7 +1968,7 @@ class ContainerImageAssetMetadataEntry:
         if isinstance(cache_to, dict):
             cache_to = ContainerImageAssetCacheOption(**cache_to)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a05965a1e03a347027556ee3281fdb462dd892ed3c599d69d7cd7444c1a7d659)
+            type_hints = cached_type_hints(_typecheckingstub__a05965a1e03a347027556ee3281fdb462dd892ed3c599d69d7cd7444c1a7d659)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument packaging", value=packaging, expected_type=type_hints["packaging"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
@@ -2285,7 +2285,7 @@ class ContextLookupRoleOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8cac551258c664fa22546d9e22165fa40b5f44145662e897e795ccebafb8d3b)
+            type_hints = cached_type_hints(_typecheckingstub__a8cac551258c664fa22546d9e22165fa40b5f44145662e897e795ccebafb8d3b)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument assume_role_additional_options", value=assume_role_additional_options, expected_type=type_hints["assume_role_additional_options"])
@@ -2512,7 +2512,7 @@ class DefaultCdkOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0899633c73fd2c73f9c6c2b2894e20ca7222b2dfd4977df4c8d18455ca92f77)
+            type_hints = cached_type_hints(_typecheckingstub__d0899633c73fd2c73f9c6c2b2894e20ca7222b2dfd4977df4c8d18455ca92f77)
             check_type(argname="argument all", value=all, expected_type=type_hints["all"])
             check_type(argname="argument app", value=app, expected_type=type_hints["app"])
             check_type(argname="argument asset_metadata", value=asset_metadata, expected_type=type_hints["asset_metadata"])
@@ -2901,7 +2901,7 @@ class DeployCommand(CdkCommand):
         if isinstance(args, dict):
             args = DeployOptions(**args)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__371f443435723b189c14dd89f81c55f77ea01545daf8a12960f9e8754c7b681f)
+            type_hints = cached_type_hints(_typecheckingstub__371f443435723b189c14dd89f81c55f77ea01545daf8a12960f9e8754c7b681f)
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument expected_message", value=expected_message, expected_type=type_hints["expected_message"])
             check_type(argname="argument expect_error", value=expect_error, expected_type=type_hints["expect_error"])
@@ -3142,7 +3142,7 @@ class DeployOptions(DefaultCdkOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a103d023ecc8f4af691d654c6ebfdc77d30a512c5b2ecfc097ed2bccc76a6bd1)
+            type_hints = cached_type_hints(_typecheckingstub__a103d023ecc8f4af691d654c6ebfdc77d30a512c5b2ecfc097ed2bccc76a6bd1)
             check_type(argname="argument all", value=all, expected_type=type_hints["all"])
             check_type(argname="argument app", value=app, expected_type=type_hints["app"])
             check_type(argname="argument asset_metadata", value=asset_metadata, expected_type=type_hints["asset_metadata"])
@@ -3689,7 +3689,7 @@ class DestroyCommand(CdkCommand):
         if isinstance(args, dict):
             args = DestroyOptions(**args)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9dd0c09ede9057e58caf38c3101fcc11475482990b1681226fb5ef27af6a9fe)
+            type_hints = cached_type_hints(_typecheckingstub__b9dd0c09ede9057e58caf38c3101fcc11475482990b1681226fb5ef27af6a9fe)
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument expected_message", value=expected_message, expected_type=type_hints["expected_message"])
             check_type(argname="argument expect_error", value=expect_error, expected_type=type_hints["expect_error"])
@@ -3880,7 +3880,7 @@ class DestroyOptions(DefaultCdkOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__284b36eefd847af8eef59cd2d256f0fc1255a2f524b3fe151070b4c81e14c056)
+            type_hints = cached_type_hints(_typecheckingstub__284b36eefd847af8eef59cd2d256f0fc1255a2f524b3fe151070b4c81e14c056)
             check_type(argname="argument all", value=all, expected_type=type_hints["all"])
             check_type(argname="argument app", value=app, expected_type=type_hints["app"])
             check_type(argname="argument asset_metadata", value=asset_metadata, expected_type=type_hints["asset_metadata"])
@@ -4242,7 +4242,7 @@ class DockerCacheOption:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c838d3bf7ce5d6fb384a055e25f3cad0b0e3f17a14f62a5239ff83e7dd2cb790)
+            type_hints = cached_type_hints(_typecheckingstub__c838d3bf7ce5d6fb384a055e25f3cad0b0e3f17a14f62a5239ff83e7dd2cb790)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument params", value=params, expected_type=type_hints["params"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4392,7 +4392,7 @@ class DockerImageAsset:
         if isinstance(source, dict):
             source = DockerImageSource(**source)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4246815008f6b5d274a03e8800cf41945c506402fc3803ad0b52a96bb1676d69)
+            type_hints = cached_type_hints(_typecheckingstub__4246815008f6b5d274a03e8800cf41945c506402fc3803ad0b52a96bb1676d69)
             check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
             check_type(argname="argument source", value=source, expected_type=type_hints["source"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
@@ -4494,7 +4494,7 @@ class DockerImageDestination(AwsDestination):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c0f545a6695051a1f710c49815c2924bf787c485ff8bd643e73ca33d6f44ccb)
+            type_hints = cached_type_hints(_typecheckingstub__0c0f545a6695051a1f710c49815c2924bf787c485ff8bd643e73ca33d6f44ccb)
             check_type(argname="argument assume_role_additional_options", value=assume_role_additional_options, expected_type=type_hints["assume_role_additional_options"])
             check_type(argname="argument assume_role_arn", value=assume_role_arn, expected_type=type_hints["assume_role_arn"])
             check_type(argname="argument assume_role_external_id", value=assume_role_external_id, expected_type=type_hints["assume_role_external_id"])
@@ -4687,7 +4687,7 @@ class DockerImageSource:
         if isinstance(cache_to, dict):
             cache_to = DockerCacheOption(**cache_to)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6e7c2957a6d1f05f0255045b81adc10d1731f3f4c022b7a322d02023536a3fd)
+            type_hints = cached_type_hints(_typecheckingstub__b6e7c2957a6d1f05f0255045b81adc10d1731f3f4c022b7a322d02023536a3fd)
             check_type(argname="argument cache_disabled", value=cache_disabled, expected_type=type_hints["cache_disabled"])
             check_type(argname="argument cache_from", value=cache_from, expected_type=type_hints["cache_from"])
             check_type(argname="argument cache_to", value=cache_to, expected_type=type_hints["cache_to"])
@@ -4956,7 +4956,7 @@ class EndpointServiceAvailabilityZonesContextQuery(ContextLookupRoleOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__294168e37bcda14debc206d75185efc2faf88ad9549471172c3c48fae0abfc2c)
+            type_hints = cached_type_hints(_typecheckingstub__294168e37bcda14debc206d75185efc2faf88ad9549471172c3c48fae0abfc2c)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument assume_role_additional_options", value=assume_role_additional_options, expected_type=type_hints["assume_role_additional_options"])
@@ -5094,7 +5094,7 @@ class FeatureFlag:
         if isinstance(unconfigured_behaves_like, dict):
             unconfigured_behaves_like = UnconfiguredBehavesLike(**unconfigured_behaves_like)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3319304c04d8505cf9982ecfa24f47834cf139c61f72ec4ae0183b015fff5eb7)
+            type_hints = cached_type_hints(_typecheckingstub__3319304c04d8505cf9982ecfa24f47834cf139c61f72ec4ae0183b015fff5eb7)
             check_type(argname="argument explanation", value=explanation, expected_type=type_hints["explanation"])
             check_type(argname="argument recommended_value", value=recommended_value, expected_type=type_hints["recommended_value"])
             check_type(argname="argument unconfigured_behaves_like", value=unconfigured_behaves_like, expected_type=type_hints["unconfigured_behaves_like"])
@@ -5220,7 +5220,7 @@ class FeatureFlagReportProperties:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1aba385c39bebe2c936684e9457255825ef604100d21a8db42669bf04a741197)
+            type_hints = cached_type_hints(_typecheckingstub__1aba385c39bebe2c936684e9457255825ef604100d21a8db42669bf04a741197)
             check_type(argname="argument flags", value=flags, expected_type=type_hints["flags"])
             check_type(argname="argument module", value=module, expected_type=type_hints["module"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5315,7 +5315,7 @@ class FileAsset:
         if isinstance(source, dict):
             source = FileSource(**source)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03f31f59405022df8239a41ac17bf13021dd522a457d1d3c36bdaee01d5ae999)
+            type_hints = cached_type_hints(_typecheckingstub__03f31f59405022df8239a41ac17bf13021dd522a457d1d3c36bdaee01d5ae999)
             check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
             check_type(argname="argument source", value=source, expected_type=type_hints["source"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
@@ -5406,7 +5406,7 @@ class FileAssetMetadataEntry:
             }
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28f8b9eab6aaa47810d1bf1c07ee07f5ed155043e425767875e16c5f20aa407e)
+            type_hints = cached_type_hints(_typecheckingstub__28f8b9eab6aaa47810d1bf1c07ee07f5ed155043e425767875e16c5f20aa407e)
             check_type(argname="argument artifact_hash_parameter", value=artifact_hash_parameter, expected_type=type_hints["artifact_hash_parameter"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument packaging", value=packaging, expected_type=type_hints["packaging"])
@@ -5551,7 +5551,7 @@ class FileDestination(AwsDestination):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d10c92471067275f326c7c7d4e110314247bc7c18f6a16f3fa7f8e43653625bc)
+            type_hints = cached_type_hints(_typecheckingstub__d10c92471067275f326c7c7d4e110314247bc7c18f6a16f3fa7f8e43653625bc)
             check_type(argname="argument assume_role_additional_options", value=assume_role_additional_options, expected_type=type_hints["assume_role_additional_options"])
             check_type(argname="argument assume_role_arn", value=assume_role_arn, expected_type=type_hints["assume_role_arn"])
             check_type(argname="argument assume_role_external_id", value=assume_role_external_id, expected_type=type_hints["assume_role_external_id"])
@@ -5678,7 +5678,7 @@ class FileSource:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2bc1844b341cb38ecb3363fa5e7a948caec3aaa09c66a4eb6c358132ba0e3b4a)
+            type_hints = cached_type_hints(_typecheckingstub__2bc1844b341cb38ecb3363fa5e7a948caec3aaa09c66a4eb6c358132ba0e3b4a)
             check_type(argname="argument executable", value=executable, expected_type=type_hints["executable"])
             check_type(argname="argument packaging", value=packaging, expected_type=type_hints["packaging"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
@@ -5775,7 +5775,7 @@ class Hooks:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3733f1e6e673d88bd132255b58006034de9ee37333b00886c1e264a27b8136ab)
+            type_hints = cached_type_hints(_typecheckingstub__3733f1e6e673d88bd132255b58006034de9ee37333b00886c1e264a27b8136ab)
             check_type(argname="argument post_deploy", value=post_deploy, expected_type=type_hints["post_deploy"])
             check_type(argname="argument post_destroy", value=post_destroy, expected_type=type_hints["post_destroy"])
             check_type(argname="argument pre_deploy", value=pre_deploy, expected_type=type_hints["pre_deploy"])
@@ -5902,7 +5902,7 @@ class HostedZoneContextQuery(ContextLookupRoleOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8eccaae9a756f96022a414a6e6ebf0ce50691546bc6d8cde2ca3680510f04929)
+            type_hints = cached_type_hints(_typecheckingstub__8eccaae9a756f96022a414a6e6ebf0ce50691546bc6d8cde2ca3680510f04929)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument assume_role_additional_options", value=assume_role_additional_options, expected_type=type_hints["assume_role_additional_options"])
@@ -6222,7 +6222,7 @@ class IntegManifest:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f4f76db560ef5b47d8c2b9122ca11c9dc4ece0a23be47262c81bac0f289b7186)
+            type_hints = cached_type_hints(_typecheckingstub__f4f76db560ef5b47d8c2b9122ca11c9dc4ece0a23be47262c81bac0f289b7186)
             check_type(argname="argument test_cases", value=test_cases, expected_type=type_hints["test_cases"])
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             check_type(argname="argument enable_lookups", value=enable_lookups, expected_type=type_hints["enable_lookups"])
@@ -6346,7 +6346,7 @@ class KeyContextQuery(ContextLookupRoleOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__331a732ca33b9b47bd03ed819972d2e65c21007707ea8ea1f7ecb0124bc33b53)
+            type_hints = cached_type_hints(_typecheckingstub__331a732ca33b9b47bd03ed819972d2e65c21007707ea8ea1f7ecb0124bc33b53)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument assume_role_additional_options", value=assume_role_additional_options, expected_type=type_hints["assume_role_additional_options"])
@@ -6499,7 +6499,7 @@ class LoadBalancerFilter(ContextLookupRoleOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__88b03d4aa71b745dfeea8aadaf6fe243743c6c080d842adbe793ceeab364f430)
+            type_hints = cached_type_hints(_typecheckingstub__88b03d4aa71b745dfeea8aadaf6fe243743c6c080d842adbe793ceeab364f430)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument assume_role_additional_options", value=assume_role_additional_options, expected_type=type_hints["assume_role_additional_options"])
@@ -6688,7 +6688,7 @@ class LoadBalancerListenerContextQuery(LoadBalancerFilter):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7fcd243289078c247e40f595e624fa49a28f9a4c817237ed44defcb35997db4a)
+            type_hints = cached_type_hints(_typecheckingstub__7fcd243289078c247e40f595e624fa49a28f9a4c817237ed44defcb35997db4a)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument assume_role_additional_options", value=assume_role_additional_options, expected_type=type_hints["assume_role_additional_options"])
@@ -6904,7 +6904,7 @@ class LoadManifestOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__185f78e45d1b609ea45acca81931dd5b5992991a7423c244b8cc7b4d203f8361)
+            type_hints = cached_type_hints(_typecheckingstub__185f78e45d1b609ea45acca81931dd5b5992991a7423c244b8cc7b4d203f8361)
             check_type(argname="argument skip_enum_check", value=skip_enum_check, expected_type=type_hints["skip_enum_check"])
             check_type(argname="argument skip_version_check", value=skip_version_check, expected_type=type_hints["skip_version_check"])
             check_type(argname="argument topo_sort", value=topo_sort, expected_type=type_hints["topo_sort"])
@@ -7007,7 +7007,7 @@ class Manifest(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92a3a8e390ca07d038618bc441cdf858af7a9061ee286bb534b9f446c6834d52)
+            type_hints = cached_type_hints(_typecheckingstub__92a3a8e390ca07d038618bc441cdf858af7a9061ee286bb534b9f446c6834d52)
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         return typing.cast("AssemblyManifest", jsii.sinvoke(cls, "load", [file_path]))
 
@@ -7031,7 +7031,7 @@ class Manifest(
         :param validate_schema: Validate the file according to the declared JSON Schema. Be aware that JSON Schema validation has a significant performance cost (about 10x over not validating). Default: false, unless $TESTING_CDK is set to '1'
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d8e67a18b9b5fcc00d83ef5eb21ea18cebefe37668a220bf60072d9a0d7c144)
+            type_hints = cached_type_hints(_typecheckingstub__8d8e67a18b9b5fcc00d83ef5eb21ea18cebefe37668a220bf60072d9a0d7c144)
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         options = LoadManifestOptions(
             skip_enum_check=skip_enum_check,
@@ -7050,7 +7050,7 @@ class Manifest(
         :param file_path: - path to the manifest file.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d54032e5981d21aee2040f0e80f2e0c20c4b41ab3c6268cc7bb8b21bee7635cd)
+            type_hints = cached_type_hints(_typecheckingstub__d54032e5981d21aee2040f0e80f2e0c20c4b41ab3c6268cc7bb8b21bee7635cd)
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         return typing.cast("AssetManifest", jsii.sinvoke(cls, "loadAssetManifest", [file_path]))
 
@@ -7062,7 +7062,7 @@ class Manifest(
         :param file_path: - path to the manifest file.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7bfc67a947aecf959646220e5d0176838484c69b5a013165eaa15fd29e771ec1)
+            type_hints = cached_type_hints(_typecheckingstub__7bfc67a947aecf959646220e5d0176838484c69b5a013165eaa15fd29e771ec1)
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         return typing.cast("IntegManifest", jsii.sinvoke(cls, "loadIntegManifest", [file_path]))
 
@@ -7077,7 +7077,7 @@ class Manifest(
         :param file_path: - path to the validation report file.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be6f05e4a70d5b061187154a8ef7c01c33e18d7f73c2fd1f2f9408ebac336bca)
+            type_hints = cached_type_hints(_typecheckingstub__be6f05e4a70d5b061187154a8ef7c01c33e18d7f73c2fd1f2f9408ebac336bca)
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         return typing.cast("PolicyValidationReportJson", jsii.sinvoke(cls, "loadValidationReport", [file_path]))
 
@@ -7098,7 +7098,7 @@ class Manifest(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1904dee688ea79823f072f8042f189d6cdb69ecfbca35e6d7a3de85776c2ad0f)
+            type_hints = cached_type_hints(_typecheckingstub__1904dee688ea79823f072f8042f189d6cdb69ecfbca35e6d7a3de85776c2ad0f)
             check_type(argname="argument manifest", value=manifest, expected_type=type_hints["manifest"])
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         return typing.cast(None, jsii.sinvoke(cls, "save", [manifest, file_path]))
@@ -7116,7 +7116,7 @@ class Manifest(
         :param file_path: - output file path.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__261869559d2019f3424a5134909873c5c76be4438b8d96dac531a15cb2948cf5)
+            type_hints = cached_type_hints(_typecheckingstub__261869559d2019f3424a5134909873c5c76be4438b8d96dac531a15cb2948cf5)
             check_type(argname="argument manifest", value=manifest, expected_type=type_hints["manifest"])
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         return typing.cast(None, jsii.sinvoke(cls, "saveAssemblyManifest", [manifest, file_path]))
@@ -7134,7 +7134,7 @@ class Manifest(
         :param file_path: - output file path.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3245d7cd9379380592fd902b795edd4d5a1a83fd4e2f1cd716a7dc37430a225)
+            type_hints = cached_type_hints(_typecheckingstub__d3245d7cd9379380592fd902b795edd4d5a1a83fd4e2f1cd716a7dc37430a225)
             check_type(argname="argument manifest", value=manifest, expected_type=type_hints["manifest"])
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         return typing.cast(None, jsii.sinvoke(cls, "saveAssetManifest", [manifest, file_path]))
@@ -7152,7 +7152,7 @@ class Manifest(
         :param file_path: - output file path.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e87d7fb94dbe0854043094e6893c4c82194ad1f7deaaf154666c903b0524d81f)
+            type_hints = cached_type_hints(_typecheckingstub__e87d7fb94dbe0854043094e6893c4c82194ad1f7deaaf154666c903b0524d81f)
             check_type(argname="argument manifest", value=manifest, expected_type=type_hints["manifest"])
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         return typing.cast(None, jsii.sinvoke(cls, "saveIntegManifest", [manifest, file_path]))
@@ -7207,7 +7207,7 @@ class MetadataEntry:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57833f80f1b2df590b5e91b75b52a1e9f98ddd4831080bc83367183e412d6914)
+            type_hints = cached_type_hints(_typecheckingstub__57833f80f1b2df590b5e91b75b52a1e9f98ddd4831080bc83367183e412d6914)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument data", value=data, expected_type=type_hints["data"])
             check_type(argname="argument trace", value=trace, expected_type=type_hints["trace"])
@@ -7308,7 +7308,7 @@ class MissingContext:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d2810e890c5f86bbf1b5e1171b84741b2e1a33b480b6fa9607485f30d392966)
+            type_hints = cached_type_hints(_typecheckingstub__7d2810e890c5f86bbf1b5e1171b84741b2e1a33b480b6fa9607485f30d392966)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
@@ -7386,7 +7386,7 @@ class NestedCloudAssemblyProperties:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8d8e2a3b3221fe0ebbf9a1e150d3485208466d606d1495e12837594e4642e1f)
+            type_hints = cached_type_hints(_typecheckingstub__a8d8e2a3b3221fe0ebbf9a1e150d3485208466d606d1495e12837594e4642e1f)
             check_type(argname="argument directory_name", value=directory_name, expected_type=type_hints["directory_name"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7450,7 +7450,7 @@ class PluginContextQuery:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a412879879a442f136b5a913c4ab5a5e1b62e2a4a0297b01b929d26013f1ff8)
+            type_hints = cached_type_hints(_typecheckingstub__3a412879879a442f136b5a913c4ab5a5e1b62e2a4a0297b01b929d26013f1ff8)
             check_type(argname="argument plugin_name", value=plugin_name, expected_type=type_hints["plugin_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "plugin_name": plugin_name,
@@ -7523,7 +7523,7 @@ class PluginReportJson:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12d9034a523d5e1b70ce03c12c614dbdf637694660012238ce4f3c820f2b294a)
+            type_hints = cached_type_hints(_typecheckingstub__12d9034a523d5e1b70ce03c12c614dbdf637694660012238ce4f3c820f2b294a)
             check_type(argname="argument conclusion", value=conclusion, expected_type=type_hints["conclusion"])
             check_type(argname="argument plugin_name", value=plugin_name, expected_type=type_hints["plugin_name"])
             check_type(argname="argument violations", value=violations, expected_type=type_hints["violations"])
@@ -7659,7 +7659,7 @@ class PolicyValidationReportJson:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0e1317fac44f2c3b8504883ed830f609b68b5b87ac3b25765c0a2457eeae72af)
+            type_hints = cached_type_hints(_typecheckingstub__0e1317fac44f2c3b8504883ed830f609b68b5b87ac3b25765c0a2457eeae72af)
             check_type(argname="argument plugin_reports", value=plugin_reports, expected_type=type_hints["plugin_reports"])
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             check_type(argname="argument title", value=title, expected_type=type_hints["title"])
@@ -7751,7 +7751,7 @@ class PolicyViolationJson:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bcde3a625348e3e8f67b81b338da206a992b7dc357454bef1a69462b2af19447)
+            type_hints = cached_type_hints(_typecheckingstub__bcde3a625348e3e8f67b81b338da206a992b7dc357454bef1a69462b2af19447)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
             check_type(argname="argument severity", value=severity, expected_type=type_hints["severity"])
@@ -7875,7 +7875,7 @@ class PropertyMutationMetadataEntry:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93b5b4d15dff99ef5fbc310a6752cb7f2089d127f27c38d708580d8f6a9e52eb)
+            type_hints = cached_type_hints(_typecheckingstub__93b5b4d15dff99ef5fbc310a6752cb7f2089d127f27c38d708580d8f6a9e52eb)
             check_type(argname="argument property_name", value=property_name, expected_type=type_hints["property_name"])
             check_type(argname="argument stack_trace", value=stack_trace, expected_type=type_hints["stack_trace"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7951,7 +7951,7 @@ class RuntimeInfo:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__178743947ef3209351713d04d738bc71d2ecae3ae59c1abd10c4a6b56cd5aa00)
+            type_hints = cached_type_hints(_typecheckingstub__178743947ef3209351713d04d738bc71d2ecae3ae59c1abd10c4a6b56cd5aa00)
             check_type(argname="argument libraries", value=libraries, expected_type=type_hints["libraries"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "libraries": libraries,
@@ -8032,7 +8032,7 @@ class SSMParameterContextQuery(ContextLookupRoleOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__980305d4784782c3752b01ac3e03f15a39bc258229940c9259dffc4c0ef0dad5)
+            type_hints = cached_type_hints(_typecheckingstub__980305d4784782c3752b01ac3e03f15a39bc258229940c9259dffc4c0ef0dad5)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument assume_role_additional_options", value=assume_role_additional_options, expected_type=type_hints["assume_role_additional_options"])
@@ -8182,7 +8182,7 @@ class SecurityGroupContextQuery(ContextLookupRoleOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__636adc5f8dd05156bcdda2b5b46333a469800041d6536bc240fd98937bedf070)
+            type_hints = cached_type_hints(_typecheckingstub__636adc5f8dd05156bcdda2b5b46333a469800041d6536bc240fd98937bedf070)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument assume_role_additional_options", value=assume_role_additional_options, expected_type=type_hints["assume_role_additional_options"])
@@ -8357,7 +8357,7 @@ class SuppressedViolationJson(PolicyViolationJson):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e21f6dba4dee667759c17cb931b5b0fe7ba7b33a5ddba43f2627743f7543c4f1)
+            type_hints = cached_type_hints(_typecheckingstub__e21f6dba4dee667759c17cb931b5b0fe7ba7b33a5ddba43f2627743f7543c4f1)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
             check_type(argname="argument severity", value=severity, expected_type=type_hints["severity"])
@@ -8526,7 +8526,7 @@ class Tag:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8797876976a9abc554ff74078b31cecfbd526dc4824e1a41edd7dc1e980f9796)
+            type_hints = cached_type_hints(_typecheckingstub__8797876976a9abc554ff74078b31cecfbd526dc4824e1a41edd7dc1e980f9796)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8716,7 +8716,7 @@ class TestOptions:
         if isinstance(hooks, dict):
             hooks = Hooks(**hooks)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b8b692b60499cf01ad0eb22936de4d85bca11a0cd5085ee1a7a2d042fe54b7d)
+            type_hints = cached_type_hints(_typecheckingstub__3b8b692b60499cf01ad0eb22936de4d85bca11a0cd5085ee1a7a2d042fe54b7d)
             check_type(argname="argument allow_delete_failures", value=allow_delete_failures, expected_type=type_hints["allow_delete_failures"])
             check_type(argname="argument allow_destroy", value=allow_destroy, expected_type=type_hints["allow_destroy"])
             check_type(argname="argument cdk_command_options", value=cdk_command_options, expected_type=type_hints["cdk_command_options"])
@@ -8854,7 +8854,7 @@ class TreeArtifactProperties:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2876ff1cecf9646045f557584f99de9afa25af35026c0611aa36d9be9ceda2f0)
+            type_hints = cached_type_hints(_typecheckingstub__2876ff1cecf9646045f557584f99de9afa25af35026c0611aa36d9be9ceda2f0)
             check_type(argname="argument file", value=file, expected_type=type_hints["file"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "file": file,
@@ -8907,7 +8907,7 @@ class UnconfiguredBehavesLike:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24e6acea6db216da68872ce6a70889e9d753101f47a05729ee1577a0c96387f4)
+            type_hints = cached_type_hints(_typecheckingstub__24e6acea6db216da68872ce6a70889e9d753101f47a05729ee1577a0c96387f4)
             check_type(argname="argument v1", value=v1, expected_type=type_hints["v1"])
             check_type(argname="argument v2", value=v2, expected_type=type_hints["v2"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -9011,7 +9011,7 @@ class ViolatingConstructJson:
         if isinstance(cloud_formation_resource, dict):
             cloud_formation_resource = CloudFormationResourceJson(**cloud_formation_resource)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea3cc2fdbd7a3b30805176d2b25feae7fa77bcaa4cb28f0be77e73de5086956f)
+            type_hints = cached_type_hints(_typecheckingstub__ea3cc2fdbd7a3b30805176d2b25feae7fa77bcaa4cb28f0be77e73de5086956f)
             check_type(argname="argument construct_path", value=construct_path, expected_type=type_hints["construct_path"])
             check_type(argname="argument cloud_formation_resource", value=cloud_formation_resource, expected_type=type_hints["cloud_formation_resource"])
             check_type(argname="argument construct_fqn", value=construct_fqn, expected_type=type_hints["construct_fqn"])
@@ -9161,7 +9161,7 @@ class VpcContextQuery(ContextLookupRoleOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b344502e3b6e6f7f3ea36aea745221e80503fe01dbd1896f774782d7359c6b63)
+            type_hints = cached_type_hints(_typecheckingstub__b344502e3b6e6f7f3ea36aea745221e80503fe01dbd1896f774782d7359c6b63)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument assume_role_additional_options", value=assume_role_additional_options, expected_type=type_hints["assume_role_additional_options"])
@@ -9358,7 +9358,7 @@ class AmiContextQuery(ContextLookupRoleOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4a7ca6bdb4ab65083322a53377e46c3e76de9489d9307e6fe5d5c1d341c0b8d)
+            type_hints = cached_type_hints(_typecheckingstub__c4a7ca6bdb4ab65083322a53377e46c3e76de9489d9307e6fe5d5c1d341c0b8d)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument assume_role_additional_options", value=assume_role_additional_options, expected_type=type_hints["assume_role_additional_options"])
@@ -9508,7 +9508,7 @@ class AvailabilityZonesContextQuery(ContextLookupRoleOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__adbf08ea9af9f33e65db1f0b9da5b59e3bba9d6ac6a15f200c89f16fbcf54304)
+            type_hints = cached_type_hints(_typecheckingstub__adbf08ea9af9f33e65db1f0b9da5b59e3bba9d6ac6a15f200c89f16fbcf54304)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument assume_role_additional_options", value=assume_role_additional_options, expected_type=type_hints["assume_role_additional_options"])
@@ -9659,7 +9659,7 @@ class CcApiContextQuery(ContextLookupRoleOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__527f00e61a39e5b3b1a863d96d9f33b15a5b10086b87f1f121e7b1201d7796bd)
+            type_hints = cached_type_hints(_typecheckingstub__527f00e61a39e5b3b1a863d96d9f33b15a5b10086b87f1f121e7b1201d7796bd)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument assume_role_additional_options", value=assume_role_additional_options, expected_type=type_hints["assume_role_additional_options"])
@@ -9964,7 +9964,7 @@ class LoadBalancerContextQuery(LoadBalancerFilter):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc7611528c17bdeb8bb2d2e7f66ccf8a1cc334604b406f62bfffded2c0ca5cf5)
+            type_hints = cached_type_hints(_typecheckingstub__bc7611528c17bdeb8bb2d2e7f66ccf8a1cc334604b406f62bfffded2c0ca5cf5)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument assume_role_additional_options", value=assume_role_additional_options, expected_type=type_hints["assume_role_additional_options"])
@@ -10234,7 +10234,7 @@ class TestCase(TestOptions):
         if isinstance(hooks, dict):
             hooks = Hooks(**hooks)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a15ed4761f9994da082716c3f328395dce904f39530d9fe41636f5e52ae67e79)
+            type_hints = cached_type_hints(_typecheckingstub__a15ed4761f9994da082716c3f328395dce904f39530d9fe41636f5e52ae67e79)
             check_type(argname="argument allow_delete_failures", value=allow_delete_failures, expected_type=type_hints["allow_delete_failures"])
             check_type(argname="argument allow_destroy", value=allow_destroy, expected_type=type_hints["allow_destroy"])
             check_type(argname="argument cdk_command_options", value=cdk_command_options, expected_type=type_hints["cdk_command_options"])

@@ -76,12 +76,8 @@ class DatetimeIndex(
     def __sub__(  # pyright: ignore[reportIncompatibleMethodOverride] # ty: ignore[invalid-method-override]
         self, other: timedelta | np.timedelta64 | np_ndarray_td | BaseOffset
     ) -> Self: ...
-    def __truediv__(  # type: ignore[override] # ty: ignore[invalid-method-override]
-        self, other: np_ndarray
-    ) -> Never: ...
-    def __rtruediv__(  # type: ignore[override] # ty: ignore[invalid-method-override]
-        self, other: np_ndarray
-    ) -> Never: ...
+    def __truediv__(self, other: np_ndarray) -> Never: ...  # type: ignore[override]
+    def __rtruediv__(self, other: np_ndarray) -> Never: ...  # type: ignore[override]
     @final
     def to_series(
         self, index: Index | None = None, name: Hashable | None = None
@@ -108,6 +104,7 @@ class DatetimeIndex(
     def shift(
         self, periods: int = 1, freq: Frequency | timedelta | None = None
     ) -> Self: ...
+    def diff(self, periods: int = 1) -> TimedeltaIndex: ...
 
 @overload
 def date_range(

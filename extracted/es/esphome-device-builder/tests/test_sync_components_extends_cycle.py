@@ -43,10 +43,47 @@ def test_convert_config_vars_breaks_self_referential_extends(monkeypatch) -> Non
 def test_merge_extends_skips_seen_refs() -> None:
     """A ref already on the expansion path is not re-resolved."""
     node = {"extends": ["CYCLE"], "config_vars": {"local": {"key": "Optional"}}}
-    merged = sync_components._merge_extends_config_vars(
+    merged, inherited = sync_components._merge_extends_config_vars(
         node, Path("/nonexistent"), frozenset({"CYCLE"})
     )
     assert set(merged) == {"local"}
+    assert inherited == {}
+
+
+def test_merge_extends_attributes_inherited_keys_per_ref(monkeypatch) -> None:
+    """Each inherited key maps to its own ref; a multi-ref key takes the merge-winning last one."""
+
+    def fake_resolve(ref: str, schema_dir: Path) -> dict:
+        return {
+            "A": {"a_field": {"key": "Optional"}, "shared": {"key": "Optional"}},
+            "B": {"b_field": {"key": "Optional"}, "shared": {"key": "Required"}},
+        }.get(ref, {})
+
+    monkeypatch.setattr(sync_components, "_resolve_extends", fake_resolve)
+
+    node = {"extends": ["A", "B"], "config_vars": {"a_field": {"key": "Required"}}}
+    merged, inherited = sync_components._merge_extends_config_vars(node, Path("/nonexistent"))
+
+    assert merged["shared"] == {"key": "Required"}
+    assert inherited == {"b_field": "B", "shared": "B"}
+
+
+def test_sibling_ref_stays_expandable_under_an_inherited_field(monkeypatch) -> None:
+    """A field inherited from one ref may nest-extend a sibling ref listed on the same node."""
+
+    def fake_resolve(ref: str, schema_dir: Path) -> dict:
+        if ref == "A":
+            return {"child": {"key": "Optional", "type": "schema", "schema": {"extends": ["B"]}}}
+        if ref == "B":
+            return {"leaf": {"key": "Optional", "type": "string"}}
+        return {}
+
+    monkeypatch.setattr(sync_components, "_resolve_extends", fake_resolve)
+
+    entries = sync_components._convert_config_vars({"extends": ["A", "B"]}, Path("/nonexistent"))
+
+    child = next(e for e in entries if e["key"] == "child")
+    assert [e["key"] for e in child["config_entries"]] == ["leaf"]
 
 
 def test_get_esphome_loader_primes_core_target_platform(monkeypatch) -> None:

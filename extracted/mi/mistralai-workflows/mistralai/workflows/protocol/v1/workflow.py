@@ -53,10 +53,11 @@ DeploymentName = Annotated[str | None, BeforeValidator(_validate_deployment_name
 class LocationType(str, Enum):
     local = "local"
     k8s = "k8s"
+    managed = "managed"
 
 
 class DeploymentLocation(BaseModel):
-    location_type: LocationType = Field(description="Where the deployment runs: 'local' or 'k8s'")
+    location_type: LocationType = Field(description="Where the deployment runs: 'local', 'k8s', or 'managed'")
     k8s_cluster: str | None = Field(default=None, description="K8s cluster name, if applicable")
     k8s_namespace: str | None = Field(default=None, description="K8s namespace, if applicable")
 
@@ -341,7 +342,13 @@ class RunSummary(BaseModel):
 
 
 class WorkflowBasicDefinitionWithMetadata(WorkflowBasicDefinition):
-    run_count: int | float = Field(description="The number of times the workflow has been run")
+    run_count: int | float = Field(
+        description="The total number of runs of the workflow, including retries. Deprecated: prefer execution_count.",
+        deprecated=True,
+    )
+    execution_count: int | float = Field(
+        description="The number of distinct executions of the workflow (excludes retried runs of the same execution)"
+    )
     last_run: WorkflowExecutionWithoutResultResponse | None = Field(
         default=None, description="The last run of the workflow"
     )
@@ -437,6 +444,11 @@ class WorkflowExecutionRequest(BaseModel):
         description="Maximum time to wait for completion when wait_for_result is true.",
     )
     custom_tracing_attributes: dict[str, str] | None = Field(default=None)
+    force_new_trace: bool = Field(
+        default=False,
+        description="If true, ignore the caller's trace context and start a new, independent trace for "
+        "this execution instead of joining the caller's trace.",
+    )
     extensions: Dict[str, Any] | None = Field(
         default=None,
         description="Plugin-specific data to propagate into WorkflowContext.extensions at execution time.",

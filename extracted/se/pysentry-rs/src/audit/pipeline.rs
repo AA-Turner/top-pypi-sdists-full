@@ -22,6 +22,12 @@ use futures::future::try_join_all;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
+/// Findings at/above the `fail_on` threshold (or failing maintenance issues)
+pub const EXIT_VULNERABILITIES_FOUND: i32 = 1;
+/// System errors (bad config, network failure, parse failure) — distinguishable
+/// from findings so CI can tell "vulnerable" from "audit never ran"
+pub const EXIT_ERROR: i32 = 2;
+
 #[cfg_attr(feature = "hotpath", hotpath::measure)]
 pub async fn audit(
     audit_args: &AuditArgs,
@@ -38,7 +44,7 @@ pub async fn audit(
         Ok(sources) => sources,
         Err(e) => {
             eprintln!("Error: Invalid vulnerability sources: {e}");
-            return Ok(1);
+            return Ok(EXIT_ERROR);
         }
     };
 
@@ -88,7 +94,7 @@ pub async fn audit(
         Ok(result) => result,
         Err(e) => {
             eprintln!("Error: Audit failed: {e}");
-            return Ok(1);
+            return Ok(EXIT_ERROR);
         }
     };
 
@@ -149,6 +155,9 @@ pub async fn audit(
     }
 
     if !audit_args.is_quiet() {
+        #[cfg(feature = "hotpath")]
+        let _hp_notices =
+            hotpath::MeasurementGuardSync::new("audit::post_audit_notices", false, false);
         let audit_cache = AuditCache::new(cache_dir.to_path_buf());
 
         // Show feedback message (once per day) — suppressed in CI
@@ -203,7 +212,7 @@ pub async fn audit(
     let fail_maintenance = report.should_fail_on_maintenance(&maintenance_config);
 
     if fail_vulns || fail_maintenance {
-        Ok(1)
+        Ok(EXIT_VULNERABILITIES_FOUND)
     } else {
         Ok(0)
     }
@@ -249,6 +258,7 @@ pub(crate) fn evaluate_fail_condition(
     (matches, fail_vulns)
 }
 
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 async fn perform_audit(
     audit_args: &AuditArgs,
     cache_dir: &Path,
@@ -258,6 +268,16 @@ async fn perform_audit(
     ci_env: &crate::ci::CiEnvironment,
 ) -> Result<(AuditReport, bool)> {
     std::fs::create_dir_all(cache_dir)?;
+
+    // --service-url overrides the OSV provider's endpoint, so it only makes sense when OSV is
+    // the sole source. Re-checked here post-merge (not via clap conflicts_with) because config
+    // can inject sources that clap never sees.
+    if audit_args.service_url.is_some() && source_types != [VulnerabilitySourceType::Osv] {
+        return Err(anyhow::anyhow!(
+            "--service-url is only valid with `--sources osv` (it overrides the OSV \
+             provider's endpoint). Re-run with `--sources osv`."
+        ));
+    }
 
     // --group is only meaningful for pyproject.toml-based parsers (uv.lock, poetry.lock,
     // pylock.toml). Reject combinations that bypass pyproject.toml parsing up-front so the
@@ -618,19 +638,17 @@ async fn perform_audit(
 
     let databases = vuln_result?;
 
-    let database = if databases.len() == 1 {
-        // invariant: guarded by len() == 1, so the first element always exists.
-        #[allow(clippy::unwrap_used)]
-        databases.into_iter().next().unwrap()
-    } else {
-        if !audit_args.is_quiet() {
-            eprintln!(
-                "Merging vulnerability data from {} sources...",
-                databases.len()
-            );
-        }
-        VulnerabilityDatabase::merge(databases)
-    };
+    if databases.len() > 1 && !audit_args.is_quiet() {
+        eprintln!(
+            "Merging vulnerability data from {} sources...",
+            databases.len()
+        );
+    }
+    // Always merge, even for a single source: a source can report the same
+    // vulnerability under aliased advisory IDs (e.g. PyPI lists GHSA and PYSEC
+    // entries separately). merge collapses aliases per package, so the count
+    // reflects distinct vulnerabilities instead of double-counting aliases.
+    let database = VulnerabilityDatabase::merge(databases);
 
     if audit_args.is_verbose() {
         eprintln!("Matching against vulnerability database...");
@@ -858,6 +876,44 @@ mod tests {
                 .contains("requirements.txt has no dependency-group concept"),
             "unexpected error message: {err}"
         );
+    }
+
+    #[tokio::test]
+    async fn test_service_url_requires_osv_only_source() {
+        use crate::cli::{AuditArgs, VulnerabilitySourceType};
+        use clap::Parser;
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let project_path_str = temp_dir.path().to_str().unwrap();
+        let audit_args = AuditArgs::try_parse_from([
+            "pysentry",
+            "--service-url",
+            "https://osv.internal/v1",
+            project_path_str,
+        ])
+        .unwrap();
+
+        let cache_dir = temp_dir.path().join("cache");
+        // Sources resolve to PyPA (not the required osv-only set) → guard must fire pre-network.
+        let result = super::perform_audit(
+            &audit_args,
+            &cache_dir,
+            crate::config::HttpConfig::default(),
+            3600,
+            &[VulnerabilitySourceType::Pypa],
+            &crate::ci::CiEnvironment::None,
+        )
+        .await;
+
+        assert!(
+            result.is_err(),
+            "expected error: --service-url without osv-only sources"
+        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("--service-url is only valid with `--sources osv`"),);
     }
 
     // A user who passes BOTH --group and explicit --requirements-files is asking for two

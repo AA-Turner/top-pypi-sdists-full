@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: feedparser
-Version: 6.0.13
+Version: 6.0.14
 Summary: Universal feed parser, handles RSS 0.9x, RSS 1.0, RSS 2.0, CDF, Atom 0.3, and Atom 1.0 feeds
 Home-page: https://github.com/kurtmckee/feedparser
 Download-URL: https://pypi.python.org/pypi/feedparser
@@ -24,7 +24,7 @@ Classifier: Topic :: Text Processing :: Markup :: XML
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: feedparser-sgmllib<2,>=1
+Requires-Dist: feedparser-sgmllib<3,>=2
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

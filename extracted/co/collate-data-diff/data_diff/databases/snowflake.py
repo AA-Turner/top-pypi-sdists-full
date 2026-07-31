@@ -160,6 +160,7 @@ class Snowflake(Database):
                 format=serialization.PrivateFormat.PKCS8,
                 encryption_algorithm=serialization.NoEncryption(),
             )
+            kw.pop("private_key_passphrase", None)
 
         self._conn = snowflake.connector.connect(schema=f'"{schema}"', **kw)
 

@@ -28187,6 +28187,18 @@ components:
             - v2-beta.entry.updated.reviewSnapshot
             type: string
         type: object
+    EntryUpdatedReviewSnapshotEvent:
+      allOf:
+      - $ref: '#/components/schemas/EventBase'
+      - $ref: '#/components/schemas/UpdateEventMixin'
+      - properties:
+          entry:
+            $ref: '#/components/schemas/Entry'
+          eventType:
+            enum:
+            - v2.entry.updated.reviewSnapshot
+            type: string
+        type: object
     Enzyme:
       additionalProperties: false
       properties:
@@ -28248,6 +28260,7 @@ components:
           v2.entry.updated.assignedReviewers: '#/components/schemas/EntryUpdatedAssignedReviewersEvent'
           v2.entry.updated.fields: '#/components/schemas/EntryUpdatedFieldsEvent'
           v2.entry.updated.reviewRecord: '#/components/schemas/EntryUpdatedReviewRecordEvent'
+          v2.entry.updated.reviewSnapshot: '#/components/schemas/EntryUpdatedReviewSnapshotEvent'
           v2.request.created: '#/components/schemas/RequestCreatedEvent'
           v2.request.updated.fields: '#/components/schemas/RequestUpdatedFieldsEvent'
           v2.workflowOutput.created: '#/components/schemas/WorkflowOutputCreatedEvent'
@@ -28260,6 +28273,7 @@ components:
           v2.workflowTaskGroup.created: '#/components/schemas/WorkflowTaskGroupCreatedEvent'
           v2.workflowTaskGroup.mappingCompleted: '#/components/schemas/WorkflowTaskGroupMappingCompletedEvent'
           v2.workflowTaskGroup.updated.watchers: '#/components/schemas/WorkflowTaskGroupUpdatedWatchersEvent'
+          v2.worksheet.updated.reviewSnapshot: '#/components/schemas/WorksheetUpdatedReviewSnapshotEvent'
         propertyName: eventType
       oneOf:
       - $ref: '#/components/schemas/EntityRegisteredEvent'
@@ -28268,6 +28282,7 @@ components:
       - $ref: '#/components/schemas/EntryUpdatedReviewRecordEvent'
       - $ref: '#/components/schemas/EntryUpdatedAssignedReviewersEvent'
       - $ref: '#/components/schemas/EntryUpdatedReviewSnapshotBetaEvent'
+      - $ref: '#/components/schemas/EntryUpdatedReviewSnapshotEvent'
       - $ref: '#/components/schemas/StageEntryCreatedEvent'
       - $ref: '#/components/schemas/StageEntryUpdatedFieldsEvent'
       - $ref: '#/components/schemas/StageEntryUpdatedReviewRecordEvent'
@@ -28297,6 +28312,7 @@ components:
       - $ref: '#/components/schemas/WorkflowOutputCreatedEvent'
       - $ref: '#/components/schemas/WorkflowOutputUpdatedFieldsEvent'
       - $ref: '#/components/schemas/WorksheetUpdatedReviewSnapshotBetaEvent'
+      - $ref: '#/components/schemas/WorksheetUpdatedReviewSnapshotEvent'
     EventBase:
       properties:
         createdAt:
@@ -28305,6 +28321,13 @@ components:
         deprecated:
           example: false
           type: boolean
+        deprecationDate:
+          description: 'Present only when `deprecated` is true. The date at which
+            this event version is deprecated and may stop being sent.
+
+            '
+          format: date-time
+          type: string
         excludedProperties:
           description: 'These properties have been dropped from the payload due to
             size.
@@ -36006,6 +36029,18 @@ components:
             enum:
             - v2-beta.worksheet.updated.reviewSnapshot
             type: string
+        type: object
+    WorksheetUpdatedReviewSnapshotEvent:
+      allOf:
+      - $ref: '#/components/schemas/EventBase'
+      - $ref: '#/components/schemas/UpdateEventMixin'
+      - properties:
+          eventType:
+            enum:
+            - v2.worksheet.updated.reviewSnapshot
+            type: string
+          worksheet:
+            $ref: '#/components/schemas/WorksheetReviewChanges'
         type: object
   securitySchemes:
     basicApiKeyAuth:

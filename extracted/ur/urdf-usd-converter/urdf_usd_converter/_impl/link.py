@@ -17,9 +17,11 @@ from .urdf_parser.elements import (
     ElementJoint,
     ElementLink,
     ElementMesh,
+    ElementPose,
     ElementVisual,
 )
 from .utils import (
+    float3_to_quatd,
     float3_to_quatf,
     get_geometry_name,
     set_schema_attribute,
@@ -114,6 +116,34 @@ def convert_link(parent: Usd.Prim, having_articulation_root: bool, link: Element
     return link_xform
 
 
+def _inertia_tensor_in_body_frame(inertia: ElementInertia, origin: ElementPose | None) -> list[float]:
+    """
+    Transform the URDF inertia tensor into the body's local frame.
+
+    URDF `inertia` is expressed in the inertial frame defined by `origin`.
+    `newton:inertia` requires the symmetric tensor in the body/link frame, so
+    when `origin.rpy` is non-identity the tensor is rotated as
+    `I_body = R * I_urdf * R^T`, where `R` is built from URDF's fixed-axis
+    (extrinsic) XYZ convention, `R = Rz(yaw) * Ry(pitch) * Rx(roll)`.
+
+    In `Gf`'s row-vector convention `Gf.Matrix3d(quat)` is the transpose of the
+    column-convention `R`, so the `R_gf.GetTranspose() * I * R_gf` below
+    evaluates to the standard `R * I * R^T`.
+    """
+    ixx = inertia.get_with_default("ixx")
+    ixy = inertia.get_with_default("ixy")
+    ixz = inertia.get_with_default("ixz")
+    iyy = inertia.get_with_default("iyy")
+    iyz = inertia.get_with_default("iyz")
+    izz = inertia.get_with_default("izz")
+    # Gf.Matrix3d is row-major: (r0c0, r0c1, r0c2, r1c0, ...)
+    mat = Gf.Matrix3d(ixx, ixy, ixz, ixy, iyy, iyz, ixz, iyz, izz)
+    if origin:
+        rotation = Gf.Matrix3d(float3_to_quatd(origin.get_with_default("rpy")))
+        mat = rotation.GetTranspose() * mat * rotation
+    return [mat[0, 0], mat[1, 1], mat[2, 2], mat[0, 1], mat[0, 2], mat[1, 2]]
+
+
 def apply_inertial(prim: Usd.Prim, link: ElementLink, data: ConversionData):
     """
     Set the inertial parameters of a link.
@@ -130,18 +160,10 @@ def apply_inertial(prim: Usd.Prim, link: ElementLink, data: ConversionData):
         orientation, diag_inertia = extract_inertia(inertia)
         mass_api.GetPrincipalAxesAttr().Set(orientation)
         mass_api.GetDiagonalInertiaAttr().Set(diag_inertia)
-        set_schema_attribute(
-            prim_over,
-            "newton:inertia",
-            [
-                inertia.get_with_default("ixx"),
-                inertia.get_with_default("iyy"),
-                inertia.get_with_default("izz"),
-                inertia.get_with_default("ixy"),
-                inertia.get_with_default("ixz"),
-                inertia.get_with_default("iyz"),
-            ],
-        )
+
+        # `newton:inertia` is in body local frame
+        i_body = _inertia_tensor_in_body_frame(inertia, link.inertial.origin)
+        set_schema_attribute(prim_over, "newton:inertia", i_body)
 
     if link.inertial.origin:
         position = Gf.Vec3f(link.inertial.origin.get_with_default("xyz"))
@@ -425,6 +447,20 @@ def _convert_joint_velocity_limit(joint_type: str, velocity: float) -> float:
     return velocity
 
 
+def _convert_mimic_offset(joint_type: str, offset: float) -> float:
+    """
+    Convert a URDF mimic offset to NewtonMimicAPI units.
+
+    URDF authors ``<mimic offset>`` in the follower joint's position units, so revolute
+    and continuous joints use radians while NewtonMimicAPI documents ``newton:mimicCoef0``
+    in degrees. Prismatic joints use distance in both and need no conversion. The
+    multiplier is dimensionless.
+    """
+    if joint_type in ("revolute", "continuous"):
+        return math.degrees(offset)
+    return offset
+
+
 def apply_newton_joint_api(element_joint: ElementJoint, prim: Usd.Prim):
     """
     Map URDF joint dynamics and velocity limits to NewtonJointAPI.
@@ -514,7 +550,7 @@ def set_physics_mimic_joint(element_joint: ElementJoint, prim: Usd.Prim, ref_pri
     # Newton USD Schemas: joint0 = coef1 * joint1 + coef0
     prim.ApplyAPI("NewtonMimicAPI")
     set_schema_attribute(prim, "newton:mimicEnabled", True)
-    set_schema_attribute(prim, "newton:mimicCoef0", offset)
+    set_schema_attribute(prim, "newton:mimicCoef0", _convert_mimic_offset(element_joint.type, offset))
     set_schema_attribute(prim, "newton:mimicCoef1", multiplier)
 
     rel = prim.CreateRelationship("newton:mimicJoint")

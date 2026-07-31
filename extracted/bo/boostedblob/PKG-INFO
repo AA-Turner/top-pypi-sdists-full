@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: boostedblob
-Version: 1.0.0
+Version: 1.1.0
 Summary: Command line tool and async library to perform basic file operations on local paths, Google Cloud Storage paths and Azure Blob Storage paths.
 Author-email: Shantanu Jain <hauntsaninja@gmail.com>
 Requires-Python: >=3.10
@@ -24,7 +24,7 @@ environment.
 
 ## Installation
 
-Just run `pip install boostedblob`. boostedblob requires Python 3.8 or better.
+Just run `pip install boostedblob`. boostedblob requires Python 3.10 or better.
 
 ## Usage
 

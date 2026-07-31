@@ -23,6 +23,8 @@ class EventAttributes(StrEnum):
     activity_execution_id = "wf.activity.execution_id"
     activity_attempt = "wf.activity.attempt"
     activity_max_attempts = "wf.activity.max_attempts"
+    activity_schedule_to_start_ms = "wf.activity.schedule_to_start.ms"
+    activity_execution_ms = "wf.activity.execution.ms"
 
     workflow_id = "wf.workflow.id"
     workflow_execution_id = "wf.workflow.execution_id"

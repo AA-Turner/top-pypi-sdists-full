@@ -264,9 +264,9 @@ def _parse_api_actions(root: Any) -> list[ParsedAutomation]:
 
     Structurally a near-duplicate of ``script:`` — named callable
     with typed ``variables:`` and a ``then:`` action list — so the
-    same :class:`AutomationTree` shape carries it. The deprecated
-    ``service:`` discriminator key is accepted as an alias for
-    ``action:`` on read; the writer emits ``action:``.
+    same :class:`AutomationTree` shape carries it. The legacy
+    ``services:`` block key and ``service:`` discriminator are
+    accepted on read; a write respells its block to canonical.
     """
     if not isinstance(root, dict):
         return []
@@ -274,6 +274,8 @@ def _parse_api_actions(root: Any) -> list[ParsedAutomation]:
     if not isinstance(api_block, dict):
         return []
     actions = api_block.get("actions")
+    if not isinstance(actions, list):
+        actions = api_block.get("services")
     if not isinstance(actions, list):
         return []
 
@@ -303,6 +305,8 @@ class ComponentTarget(NamedTuple):
 
     A top-level instance, or a nested sub-entity carrying the parent context
     (``parent_domain`` / ``parent_id`` / ``sub_key``) the writer splices under.
+    ``catalog_id`` is the instance's catalog id (the parent's for a
+    sub-entity), stamped by the walk.
     """
 
     domain: str
@@ -310,6 +314,7 @@ class ComponentTarget(NamedTuple):
     parent_domain: str | None = None
     parent_id: str | None = None
     sub_key: str | None = None
+    catalog_id: str | None = None
 
 
 def resolve_component_domain(yaml_text: str, component_id: str) -> str | None:
@@ -324,6 +329,20 @@ def resolve_component_domain(yaml_text: str, component_id: str) -> str | None:
     if target is None:
         return None
     return target.parent_domain or target.domain
+
+
+def resolve_action_field_target(yaml_text: str, component_id: str) -> tuple[str, str] | None:
+    """
+    Resolve *component_id* to ``(instance_domain, catalog_id)`` for action-field writes.
+
+    Thin wrapper over :func:`resolve_component_target`; a sub-entity id
+    resolves to its parent instance (whose form computes the field
+    paths). ``None`` when no instance matches or the YAML won't load.
+    """
+    target = resolve_component_target(yaml_text, component_id)
+    if target is None or target.catalog_id is None:
+        return None
+    return target.parent_domain or target.domain, target.catalog_id
 
 
 def resolve_component_target(yaml_text: str, component_id: str) -> ComponentTarget | None:
@@ -378,9 +397,15 @@ def _iter_instance_targets(
             if not isinstance(instance, dict):
                 continue
             comp_id = instance_id(str(domain), instance, idx, is_list=is_list)
-            yield str(domain), instance, comp_id, ComponentTarget(domain=str(domain))
+            cat_id = catalog_id(str(domain), instance.get("platform"))
+            yield (
+                str(domain),
+                instance,
+                comp_id,
+                ComponentTarget(domain=str(domain), catalog_id=cat_id),
+            )
             for sub_domain, sub, sub_id, sub_key in iter_subentities(
-                str(domain), instance, comp_id
+                str(domain), instance, comp_id, cat_id=cat_id
             ):
                 yield (
                     sub_domain,
@@ -392,6 +417,7 @@ def _iter_instance_targets(
                         parent_domain=str(domain),
                         parent_id=comp_id,
                         sub_key=sub_key,
+                        catalog_id=cat_id,
                     ),
                 )
 
@@ -413,6 +439,7 @@ def iter_subentities(
     domain: str,
     instance: dict,
     parent_id: str,
+    cat_id: str | None = None,
 ) -> Iterator[tuple[str, dict, str, str]]:
     """
     Yield ``(platform_type, sub_instance, sub_id, sub_key)`` per configured sub-block.
@@ -421,7 +448,8 @@ def iter_subentities(
     writer locates it by parent + sub-key, so it round-trips without a
     declared ``id:``.
     """
-    cat_id = catalog_id(domain, instance.get("platform"))
+    if cat_id is None:
+        cat_id = catalog_id(domain, instance.get("platform"))
     for sub_key, sub_domain in platform_subentity_keys(cat_id):
         sub = instance.get(sub_key)
         if isinstance(sub, dict):
@@ -461,24 +489,36 @@ def _component_body_entries(catalog_id: str) -> list[Any]:
     return json_loads(raw).get("config_entries") or []
 
 
-# Per-``<domain>.<platform>`` set of ``type: trigger`` action-list field
-# keys, read from the component bodies on first use (process cache).
-_ACTION_FIELD_INDEX: dict[str, frozenset[str]] = {}
+# Per-``<domain>.<platform>`` tuple of ``type: trigger`` action-list field
+# schema paths, read from the component bodies on first use (process cache).
+_ACTION_FIELD_PATH_INDEX: dict[str, tuple[tuple[str, ...], ...]] = {}
 
 
-def _component_action_fields(catalog_id: str) -> frozenset[str]:
-    """Return the ``type: trigger`` action-list field keys for *catalog_id*."""
-    cached = _ACTION_FIELD_INDEX.get(catalog_id)
+def component_action_field_paths(catalog_id: str) -> tuple[tuple[str, ...], ...]:
+    """Schema-key paths of every ``type: trigger`` entry in the shipped body, depth-first."""
+    cached = _ACTION_FIELD_PATH_INDEX.get(catalog_id)
     if cached is None:
-        cached = frozenset(
-            entry["key"]
-            for entry in _component_body_entries(catalog_id)
-            if isinstance(entry, dict)
-            and entry.get("type") == "trigger"
-            and isinstance(entry.get("key"), str)
-        )
-        _ACTION_FIELD_INDEX[catalog_id] = cached
+        paths: list[tuple[str, ...]] = []
+        _collect_trigger_paths(_component_body_entries(catalog_id), (), paths)
+        cached = tuple(paths)
+        _ACTION_FIELD_PATH_INDEX[catalog_id] = cached
     return cached
+
+
+def _collect_trigger_paths(
+    entries: Any, prefix: tuple[str, ...], out: list[tuple[str, ...]]
+) -> None:
+    """Accumulate ``type: trigger`` entry paths from a ``config_entries`` list."""
+    if not isinstance(entries, list):
+        return
+    for entry in entries:
+        if not isinstance(entry, dict) or not isinstance(entry.get("key"), str):
+            continue
+        key = entry["key"]
+        if entry.get("type") == "trigger":
+            out.append((*prefix, key))
+            continue
+        _collect_trigger_paths(entry.get("config_entries"), (*prefix, key), out)
 
 
 # Per-``<domain>.<platform>`` tuple of ``(sub_key, platform_type)`` pairs for
@@ -533,36 +573,82 @@ def _parse_component_action_fields(root: Any) -> list[ParsedAutomation]:
     """
     out: list[ParsedAutomation] = []
     for domain, instance, comp_id, target in _iter_instance_targets(root):
-        # Action-list fields (``open_action`` …) are a top-level-component
-        # concern; the shared walk also yields sub-entities (for inline
-        # ``on_*`` parsing), so skip them here to keep the scope unchanged.
+        # The shared walk also yields sub-entities (for inline ``on_*``
+        # parsing); skip them — a nested field, sub-entity blocks
+        # included, is addressed on the *parent* instance via the dotted
+        # path (the path the parent's config form computes), and
+        # list-nested blocks aren't sub-entities at all.
         if target.is_sub_entity:
             continue
-        fields = _component_action_fields(catalog_id(domain, instance.get("platform")))
-        if not fields:
+        paths = component_action_field_paths(catalog_id(domain, instance.get("platform")))
+        if not paths:
             continue
         comp_name = str(instance.get("name") or comp_id)
-        for key, body in list(instance.items()):
-            if key not in fields:
-                continue
-            from_line, to_line = _key_range(instance, key)
-            tree, error, unsupported = _safe_tree(
-                partial(_decompose_trigger_body, body, trigger_id=None),
-                trigger_id=None,
-            )
-            out.append(
-                ParsedAutomation(
-                    location=ComponentActionFieldLocation(component_id=comp_id, field=key),
-                    label=f"{comp_name} → {_pretty_name(key)}",
-                    automation=tree,
-                    from_line=from_line,
-                    to_line=to_line,
-                    raw_yaml=_dump_slice({key: body}),
-                    error=error,
-                    unsupported=unsupported,
+        hits: list[ParsedAutomation] = []
+        for schema_path in paths:
+            for parent, leaf_key, concrete in _iter_concrete_field_paths(instance, schema_path):
+                body = parent[leaf_key]
+                from_line, to_line = _key_range(parent, leaf_key)
+                tree, error, unsupported = _safe_tree(
+                    partial(_decompose_trigger_body, body, trigger_id=None),
+                    trigger_id=None,
                 )
-            )
+                hits.append(
+                    ParsedAutomation(
+                        location=ComponentActionFieldLocation(
+                            component_id=comp_id, field=".".join(concrete)
+                        ),
+                        label=f"{comp_name} → {_pretty_field_path(concrete)}",
+                        automation=tree,
+                        from_line=from_line,
+                        to_line=to_line,
+                        raw_yaml=_dump_slice({leaf_key: body}),
+                        error=error,
+                        unsupported=unsupported,
+                    )
+                )
+        # Document order, not catalog order — matches the pre-nested
+        # behaviour for multiple top-level fields on one instance.
+        hits.sort(key=lambda parsed: parsed.from_line)
+        out.extend(hits)
     return out
+
+
+def _iter_concrete_field_paths(
+    node: dict,
+    path: tuple[str, ...],
+    _prefix: tuple[str, ...] = (),
+) -> Iterator[tuple[dict, str, tuple[str, ...]]]:
+    """
+    Yield ``(leaf_parent, leaf_key, concrete_path)`` per present occurrence of *path*.
+
+    A list value at an intermediate segment fans out per mapping item
+    with its index inserted into the concrete path; scalars where a
+    mapping is expected are skipped silently.
+    """
+    key = path[0]
+    if len(path) == 1:
+        if key in node:
+            yield node, key, (*_prefix, key)
+        return
+    value = node.get(key)
+    if isinstance(value, dict):
+        yield from _iter_concrete_field_paths(value, path[1:], (*_prefix, key))
+    elif isinstance(value, list):
+        for idx, item in enumerate(value):
+            if isinstance(item, dict):
+                yield from _iter_concrete_field_paths(item, path[1:], (*_prefix, key, str(idx)))
+
+
+def _pretty_field_path(segments: tuple[str, ...]) -> str:
+    """Human label for a concrete field path; an index folds into its list segment."""
+    parts: list[str] = []
+    for seg in segments:
+        if seg.isdecimal():
+            parts[-1] = f"{parts[-1]} #{int(seg) + 1}"
+        else:
+            parts.append(_pretty_name(seg))
+    return " → ".join(parts)
 
 
 def _parse_instance_triggers(

@@ -4,9 +4,8 @@
 from __future__ import annotations
 
 from abc import ABC
-from copy import Error
 from http import HTTPStatus
-from typing import Awaitable, Callable, cast, Optional
+from typing import Awaitable, Callable, Optional, cast
 from uuid import uuid4
 
 from microsoft_agents.activity import (
@@ -15,6 +14,7 @@ from microsoft_agents.activity import (
     ActivityTypes,
     CallerIdConstants,
     Channels,
+    ChannelId,
     ConversationAccount,
     ConversationReference,
     ConversationResourceResponse,
@@ -26,8 +26,7 @@ from microsoft_agents.activity import (
 )
 from microsoft_agents.hosting.core.connector import (
     ConnectorClientBase,
-    ConnectorClient,
-    UserTokenClient,
+    UserTokenClientBase,
 )
 from microsoft_agents.hosting.core.authorization import (
     AuthenticationConstants,
@@ -64,16 +63,10 @@ class ChannelServiceAdapter(ChannelAdapter, ABC):
         :type activities: list[:class:`microsoft_agents.activity.Activity`]
         :return: List of resource responses for the sent activities.
         :rtype: list[:class:`microsoft_agents.activity.ResourceResponse`]
-        :raises TypeError: If context or activities are None/invalid.
+        :raises ValueError: If the activities list is empty.
         """
-        if not context:
-            raise TypeError("Expected TurnContext but got None instead")
-
-        if activities is None:
-            raise TypeError("Expected Activities list but got None instead")
-
         if len(activities) == 0:
-            raise TypeError("Expecting one or more activities, but the list was empty.")
+            raise ValueError("send_activities: activities list cannot be empty")
 
         responses = []
 
@@ -91,12 +84,11 @@ class ChannelServiceAdapter(ChannelAdapter, ABC):
                 # no-op
                 pass
             else:
-                connector_client = cast(
-                    ConnectorClientBase,
-                    context.turn_state.get(self._AGENT_CONNECTOR_CLIENT_KEY),
-                )
+                connector_client = context.services.get(ConnectorClientBase)
                 if not connector_client:
-                    raise Error("Unable to extract ConnectorClient from turn context.")
+                    raise RuntimeError(
+                        "Unable to extract ConnectorClient from turn context."
+                    )
 
                 with spans.AdapterSendActivities([activity]):
                     if activity.reply_to_id:
@@ -130,22 +122,19 @@ class ChannelServiceAdapter(ChannelAdapter, ABC):
         :type activity: :class:`microsoft_agents.activity.Activity`
         :return: Resource response for the updated activity.
         :rtype: :class:`microsoft_agents.activity.ResourceResponse`
-        :raises TypeError: If context or activity are None/invalid.
+        :raises TypeError: activity.id is None
         """
-        if not context:
-            raise TypeError("Expected TurnContext but got None instead")
 
-        if activity is None:
-            raise TypeError("Expected Activity but got None instead")
+        if activity.id is None:
+            raise TypeError("Expected Activity with an id but got None instead")
 
         with spans.AdapterUpdateActivity(activity):
 
-            connector_client = cast(
-                ConnectorClientBase,
-                context.turn_state.get(self._AGENT_CONNECTOR_CLIENT_KEY),
-            )
+            connector_client = context.services.get(ConnectorClientBase)
             if not connector_client:
-                raise Error("Unable to extract ConnectorClient from turn context.")
+                raise RuntimeError(
+                    "Unable to extract ConnectorClient from turn context."
+                )
 
             return await connector_client.conversations.update_activity(
                 activity.conversation.id, activity.id, activity
@@ -161,22 +150,20 @@ class ChannelServiceAdapter(ChannelAdapter, ABC):
         :type context: :class:`microsoft_agents.hosting.core.turn_context.TurnContext`
         :param reference: Reference to the conversation and activity to delete.
         :type reference: :class:`microsoft_agents.activity.ConversationReference`
-        :raises TypeError: If context or reference are None/invalid.
+        :raises TypeError: reference.conversation or reference.activity_id is None
         """
-        if not context:
-            raise TypeError("Expected TurnContext but got None instead")
-
-        if not reference:
-            raise TypeError("Expected ConversationReference but got None instead")
+        if not reference.conversation or not reference.activity_id:
+            raise TypeError(
+                "Expected ConversationReference with conversation and activity_id but got None instead"
+            )
 
         with spans.AdapterDeleteActivity(context.activity):
 
-            connector_client = cast(
-                ConnectorClientBase,
-                context.turn_state.get(self._AGENT_CONNECTOR_CLIENT_KEY),
-            )
+            connector_client = context.services.get(ConnectorClientBase)
             if not connector_client:
-                raise Error("Unable to extract ConnectorClient from turn context.")
+                raise RuntimeError(
+                    "Unable to extract ConnectorClient from turn context."
+                )
 
             await connector_client.conversations.delete_activity(
                 reference.conversation.id, reference.activity_id
@@ -237,7 +224,7 @@ class ChannelServiceAdapter(ChannelAdapter, ABC):
         :param callback: The method to call for the resulting agent turn.
         :type callback: Callable[[:class:`microsoft_agents.hosting.core.turn_context.TurnContext`], Awaitable]
         :param audience: The audience for the conversation.
-        :type audience: Optional[str]
+        :type audience: str | None
         """
         with spans.AdapterContinueConversation(continuation_activity):
             return await self.process_proactive(
@@ -260,19 +247,13 @@ class ChannelServiceAdapter(ChannelAdapter, ABC):
             raise TypeError(
                 "CloudAdapter.create_conversation(): service_url is required."
             )
-        if not conversation_parameters:
-            raise TypeError(
-                "CloudAdapter.create_conversation(): conversation_parameters is required."
-            )
-        if not callback:
-            raise TypeError("CloudAdapter.create_conversation(): callback is required.")
 
         # Create a ClaimsIdentity, to create the connector and for adding to the turn context.
         claims_identity = self.create_claims_identity(agent_app_id)
         claims_identity.claims[AuthenticationConstants.SERVICE_URL_CLAIM] = service_url
 
         # Create the connector client to use for outbound requests.
-        connector_client: ConnectorClient = (
+        connector_client = (
             await self._channel_service_client_factory.create_connector_client(
                 None, claims_identity, service_url, audience
             )
@@ -294,18 +275,23 @@ class ChannelServiceAdapter(ChannelAdapter, ABC):
         context = self._create_turn_context(
             claims_identity,
             None,
-            callback,
             create_activity,
         )
-        context.turn_state[self._AGENT_CONNECTOR_CLIENT_KEY] = connector_client
+        context.services.set(ConnectorClientBase, connector_client)
+        context.turn_state[self._AGENT_CONNECTOR_CLIENT_KEY] = (
+            connector_client  # for back-compat
+        )
 
         # Create a UserTokenClient instance for the application to use. (For example, in the OAuthPrompt.)
-        user_token_client: UserTokenClient = (
+        user_token_client = (
             await self._channel_service_client_factory.create_user_token_client(
                 context, claims_identity
             )
         )
-        context.turn_state[self.USER_TOKEN_CLIENT_KEY] = user_token_client
+        context.services.set(UserTokenClientBase, user_token_client)
+        context.turn_state[self.USER_TOKEN_CLIENT_KEY] = (
+            user_token_client  # for back-compat
+        )
 
         # Run the pipeline
         await self.run_pipeline(context, callback)
@@ -325,24 +311,29 @@ class ChannelServiceAdapter(ChannelAdapter, ABC):
         context = self._create_turn_context(
             claims_identity,
             audience,
-            callback,
             activity=continuation_activity,
         )
 
-        user_token_client: UserTokenClient = (
+        user_token_client = (
             await self._channel_service_client_factory.create_user_token_client(
                 context, claims_identity
             )
         )
-        context.turn_state[self.USER_TOKEN_CLIENT_KEY] = user_token_client
+        context.services.set(UserTokenClientBase, user_token_client)
+        context.turn_state[self.USER_TOKEN_CLIENT_KEY] = (
+            user_token_client  # for back-compat
+        )
 
         # Create the connector client to use for outbound requests.
-        connector_client: ConnectorClient = (
+        connector_client = (
             await self._channel_service_client_factory.create_connector_client(
                 context, claims_identity, continuation_activity.service_url, audience
             )
         )
-        context.turn_state[self._AGENT_CONNECTOR_CLIENT_KEY] = connector_client
+        context.services.set(ConnectorClientBase, connector_client)
+        context.turn_state[self._AGENT_CONNECTOR_CLIENT_KEY] = (
+            connector_client  # for back-compat
+        )
 
         # Run the pipeline
         await self.run_pipeline(context, callback)
@@ -368,7 +359,7 @@ class ChannelServiceAdapter(ChannelAdapter, ABC):
         claims_identity: ClaimsIdentity,
         activity: Activity,
         callback: Callable[[TurnContext], Awaitable],
-    ):
+    ) -> InvokeResponse | None:
         """
         Creates a turn context and runs the middleware pipeline for an incoming activity.
 
@@ -380,7 +371,7 @@ class ChannelServiceAdapter(ChannelAdapter, ABC):
         :type callback: Callable[[:class:`microsoft_agents.hosting.core.turn_context.TurnContext`], Awaitable]
 
         :return: A task that represents the work queued to execute.
-        :rtype: Optional[:class:`microsoft_agents.activity.InvokeResponse`]
+        :rtype: :class:`microsoft_agents.activity.InvokeResponse` | None
 
         .. note::
             This class processes an activity received by the agents web server. This includes any messages
@@ -410,20 +401,22 @@ class ChannelServiceAdapter(ChannelAdapter, ABC):
         context = self._create_turn_context(
             claims_identity,
             outgoing_audience,
-            callback,
             activity=activity,
         )
 
         # Create a UserTokenClient instance for the OAuth flow.
-        user_token_client: UserTokenClient = (
+        user_token_client = (
             await self._channel_service_client_factory.create_user_token_client(
                 context, claims_identity, use_anonymous_auth_callback
             )
         )
-        context.turn_state[self.USER_TOKEN_CLIENT_KEY] = user_token_client
+        context.services.set(UserTokenClientBase, user_token_client)
+        context.turn_state[self.USER_TOKEN_CLIENT_KEY] = (
+            user_token_client  # for back-compat
+        )
 
         # Create the connector client to use for outbound requests.
-        connector_client: Optional[ConnectorClient] = None
+        connector_client: ConnectorClientBase | None = None
         if self._resolve_if_connector_client_is_needed(activity):
             connector_client = (
                 await self._channel_service_client_factory.create_connector_client(
@@ -435,7 +428,10 @@ class ChannelServiceAdapter(ChannelAdapter, ABC):
                     use_anonymous_auth_callback,
                 )
             )
-            context.turn_state[self._AGENT_CONNECTOR_CLIENT_KEY] = connector_client
+            context.services.set(ConnectorClientBase, connector_client)
+            context.turn_state[self._AGENT_CONNECTOR_CLIENT_KEY] = (
+                connector_client  # for back-compat
+            )
 
         await self.run_pipeline(context, callback)
 
@@ -465,8 +461,6 @@ class ChannelServiceAdapter(ChannelAdapter, ABC):
 
     @staticmethod
     def _validate_continuation_activity(continuation_activity: Activity):
-        if not continuation_activity:
-            raise TypeError("CloudAdapter: continuation_activity is required.")
 
         if not continuation_activity.conversation:
             raise TypeError(
@@ -488,7 +482,7 @@ class ChannelServiceAdapter(ChannelAdapter, ABC):
         # Create a conversation update activity to represent the result.
         activity = Activity.create_event_activity()
         activity.name = ActivityEventNames.create_conversation
-        activity.channel_id = channel_id
+        activity.channel_id = ChannelId(channel_id)
         activity.service_url = service_url
         activity.id = create_conversation_result.activity_id or str(uuid4())
         activity.conversation = ConversationAccount(
@@ -503,28 +497,21 @@ class ChannelServiceAdapter(ChannelAdapter, ABC):
     def _create_turn_context(
         self,
         claims_identity: ClaimsIdentity,
-        oauth_scope: str,
-        callback: Callable[[TurnContext], Awaitable],
+        oauth_scope: str | None = None,
         activity: Optional[Activity] = None,
     ) -> TurnContext:
         context = TurnContext(self, activity, claims_identity)
-
-        context.turn_state[self.AGENT_IDENTITY_KEY] = claims_identity
-        context.turn_state[self.AGENT_CALLBACK_HANDLER_KEY] = callback
-        context.turn_state[self.CHANNEL_SERVICE_FACTORY_KEY] = (
-            self._channel_service_client_factory
-        )
         context.turn_state[self.OAUTH_SCOPE_KEY] = oauth_scope
-
+        context.turn_state[self.AGENT_IDENTITY_KEY] = claims_identity  # for back-compat
         return context
 
-    def _process_turn_results(self, context: TurnContext) -> Optional[InvokeResponse]:
+    def _process_turn_results(self, context: TurnContext) -> InvokeResponse | None:
         """Process the results of a turn and return the appropriate response.
 
         :param context: The turn context
         :type context: :class:`microsoft_agents.hosting.core.turn_context.TurnContext`
         :return: The invoke response, if applicable
-        :rtype: Optional[:class:`microsoft_agents.activity.InvokeResponse`]
+        :rtype: :class:`microsoft_agents.activity.InvokeResponse` | None
         """
         # Handle ExpectedReplies scenarios where all activities have been
         # buffered and sent back at once in an invoke response.
@@ -541,11 +528,11 @@ class ChannelServiceAdapter(ChannelAdapter, ABC):
         if context.activity.type == ActivityTypes.invoke:
 
             with spans.AdapterSendActivities([context.activity]):
-                activity_invoke_response: Activity = context.turn_state.get(
-                    self.INVOKE_RESPONSE_KEY
+                activity_invoke_response: Activity | None = cast(
+                    Activity | None, context.turn_state.get(self.INVOKE_RESPONSE_KEY)
                 )
                 if not activity_invoke_response:
-                    return InvokeResponse(status=HTTPStatus.OK)
+                    return InvokeResponse(status=HTTPStatus.NOT_IMPLEMENTED)
 
                 return InvokeResponse.model_validate(activity_invoke_response.value)
 

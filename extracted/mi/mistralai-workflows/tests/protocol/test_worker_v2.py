@@ -14,6 +14,7 @@ def test_scope_not_found_code_remains_part_of_protocol_surface() -> None:
 
 
 def test_event_route_claims_model_dump_is_json_safe_by_default() -> None:
+    execution_id = uuid.uuid4()
     claims = EventRouteClaims(
         scope_kind="root",
         workflow_owner_customer_id=uuid.uuid4(),
@@ -25,6 +26,7 @@ def test_event_route_claims_model_dump_is_json_safe_by_default() -> None:
         workflow_exec_id="exec",
         workflow_run_id="run",
         root_workflow_exec_id="root-exec",
+        execution_id=execution_id,
     )
 
     dumped = claims.model_dump()
@@ -32,6 +34,8 @@ def test_event_route_claims_model_dump_is_json_safe_by_default() -> None:
     assert isinstance(claims.workflow_id, uuid.UUID)
     assert isinstance(dumped["workflow_id"], str)
     assert dumped["workflow_id"] == str(claims.workflow_id)
+    assert isinstance(claims.execution_id, uuid.UUID)
+    assert dumped["execution_id"] == str(execution_id)
 
 
 @pytest.mark.parametrize(

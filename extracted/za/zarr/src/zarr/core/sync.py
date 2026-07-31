@@ -8,8 +8,6 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, wait
 from typing import TYPE_CHECKING
 
-from typing_extensions import ParamSpec
-
 from zarr.core.config import config
 
 if TYPE_CHECKING:
@@ -18,8 +16,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
-P = ParamSpec("P")
 
 # From https://github.com/fsspec/filesystem_spec/blob/master/fsspec/asyn.py
 
@@ -198,7 +194,7 @@ def collect_aiterator[T](data: AsyncIterator[T]) -> tuple[T, ...]:
 
 class SyncMixin:
     def _sync[T](self, coroutine: Coroutine[Any, Any, T]) -> T:
-        # TODO: refactor this to to take *args and **kwargs and pass those to the method
+        # TODO: refactor this to take *args and **kwargs and pass those to the method
         # this should allow us to better type the sync wrapper
         return sync(
             coroutine,

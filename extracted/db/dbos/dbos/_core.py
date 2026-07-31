@@ -144,6 +144,7 @@ class WorkflowHandleFuture(Generic[R]):
     def get_result(
         self, *, polling_interval_sec: float = DEFAULT_POLLING_INTERVAL
     ) -> R:
+        start_time = int(time.time() * 1000)
         try:
             try:
                 r = self.future.result()
@@ -157,12 +158,20 @@ class WorkflowHandleFuture(Generic[R]):
                 e, None, self.dbos._serializer
             )
             self.dbos._sys_db.record_get_result(
-                self.workflow_id, None, serialized_e, serialization
+                self.workflow_id,
+                None,
+                serialized_e,
+                serialization,
+                started_at_epoch_ms=start_time,
             )
             raise
         serialized_r, serialization = serialize_value(r, None, self.dbos._serializer)
         self.dbos._sys_db.record_get_result(
-            self.workflow_id, serialized_r, None, serialization
+            self.workflow_id,
+            serialized_r,
+            None,
+            serialization,
+            started_at_epoch_ms=start_time,
         )
         return r
 
@@ -185,6 +194,7 @@ class WorkflowHandlePolling(Generic[R]):
     def get_result(
         self, *, polling_interval_sec: float = DEFAULT_POLLING_INTERVAL
     ) -> R:
+        start_time = int(time.time() * 1000)
         try:
             r: R = self.dbos._sys_db.await_workflow_result(
                 self.workflow_id, polling_interval_sec
@@ -194,12 +204,20 @@ class WorkflowHandlePolling(Generic[R]):
                 e, None, self.dbos._serializer
             )
             self.dbos._sys_db.record_get_result(
-                self.workflow_id, None, serialized_e, serialization
+                self.workflow_id,
+                None,
+                serialized_e,
+                serialization,
+                started_at_epoch_ms=start_time,
             )
             raise
         serialized_r, serialization = serialize_value(r, None, self.dbos._serializer)
         self.dbos._sys_db.record_get_result(
-            self.workflow_id, serialized_r, None, serialization
+            self.workflow_id,
+            serialized_r,
+            None,
+            serialization,
+            started_at_epoch_ms=start_time,
         )
         return r
 
@@ -223,6 +241,7 @@ class WorkflowHandleAsyncTask(Generic[R]):
     async def get_result(
         self, *, polling_interval_sec: float = DEFAULT_POLLING_INTERVAL
     ) -> R:
+        start_time = int(time.time() * 1000)
         try:
             try:
                 r = await self.task
@@ -241,6 +260,7 @@ class WorkflowHandleAsyncTask(Generic[R]):
                 None,
                 serialized_e,
                 serialization,
+                started_at_epoch_ms=start_time,
             )
             raise
         serialized_r, serialization = serialize_value(r, None, self.dbos._serializer)
@@ -250,6 +270,7 @@ class WorkflowHandleAsyncTask(Generic[R]):
             serialized_r,
             None,
             serialization,
+            started_at_epoch_ms=start_time,
         )
         return r
 
@@ -272,6 +293,7 @@ class WorkflowHandleAsyncPolling(Generic[R]):
     async def get_result(
         self, *, polling_interval_sec: float = DEFAULT_POLLING_INTERVAL
     ) -> R:
+        start_time = int(time.time() * 1000)
         try:
             r: R = await self.dbos._sys_db.await_workflow_result_async(
                 self.workflow_id,
@@ -287,6 +309,7 @@ class WorkflowHandleAsyncPolling(Generic[R]):
                 None,
                 serialized_e,
                 serialization,
+                started_at_epoch_ms=start_time,
             )
             raise
         serialized_r, serialization = serialize_value(r, None, self.dbos._serializer)
@@ -296,6 +319,7 @@ class WorkflowHandleAsyncPolling(Generic[R]):
             serialized_r,
             None,
             serialization,
+            started_at_epoch_ms=start_time,
         )
         return r
 
@@ -513,6 +537,7 @@ def _init_workflow(
     is_dequeued_request: Optional[bool],
     serialization_type: Optional[WorkflowSerializationFormat],
     child_workflow_id: Optional[str] = None,
+    child_start_time_ms: Optional[int] = None,
 ) -> tuple[WorkflowStatusInternal, bool]:
     status = _assemble_workflow_status(
         dbos,
@@ -555,7 +580,11 @@ def _init_workflow(
                 "output": None,
                 "error": sererr,
                 "serialization": serialization,
-                "started_at_epoch_ms": int(time.time() * 1000),
+                "started_at_epoch_ms": (
+                    child_start_time_ms
+                    if child_start_time_ms is not None
+                    else int(time.time() * 1000)
+                ),
             }
             dbos._sys_db.record_operation_result(result)
         raise
@@ -1104,6 +1133,7 @@ def start_workflow(
     }
 
     local_ctx = get_local_dbos_context()
+    _validate_enqueue_only_options(local_ctx, queue_name)
     workflow_timeout_ms, workflow_deadline_epoch_ms = _get_timeout_deadline(
         local_ctx, queue_name
     )
@@ -1128,6 +1158,7 @@ def start_workflow(
     new_wf_ctx = DBOSContext.create_start_workflow_child(local_ctx)
     new_child_workflow_id = new_wf_ctx.id_assigned_for_next_workflow
 
+    child_start_time = int(time.time() * 1000)
     if new_wf_ctx.has_parent():
         recorded_result = dbos._sys_db.check_operation_execution(
             new_wf_ctx.parent_workflow_id,
@@ -1160,6 +1191,7 @@ def start_workflow(
         is_dequeued_request=is_dequeued,
         serialization_type=serialization_type,
         child_workflow_id=new_child_workflow_id,
+        child_start_time_ms=child_start_time,
     )
 
     if status["serialization"] == DBOSPortableJSON.name():
@@ -1173,6 +1205,7 @@ def start_workflow(
             new_child_workflow_id,
             new_wf_ctx.parent_workflow_fid,
             get_dbos_func_name(func),
+            started_at_epoch_ms=child_start_time,
         )
 
     if (
@@ -1193,6 +1226,12 @@ def start_workflow(
         kwargs,
     )
     return WorkflowHandleFuture(new_child_workflow_id, future, dbos)
+
+
+def _retrieve_future_exception(future: "asyncio.Future[Any]") -> None:
+    """Mark a future's exception as retrieved so asyncio does not report it at GC."""
+    if not future.cancelled():
+        future.exception()
 
 
 async def start_workflow_async(
@@ -1231,6 +1270,7 @@ async def start_workflow_async(
         "kwargs": kwargs,
     }
 
+    _validate_enqueue_only_options(local_ctx, queue_name)
     workflow_timeout_ms, workflow_deadline_epoch_ms = _get_timeout_deadline(
         local_ctx, queue_name
     )
@@ -1251,6 +1291,7 @@ async def start_workflow_async(
     )
     new_child_workflow_id = new_wf_ctx.id_assigned_for_next_workflow
 
+    child_start_time = int(time.time() * 1000)
     if new_wf_ctx.has_parent():
         recorded_result = await asyncio.to_thread(
             dbos._sys_db.check_operation_execution,
@@ -1287,6 +1328,7 @@ async def start_workflow_async(
         is_dequeued_request=is_dequeued_request,
         serialization_type=serialization_type,
         child_workflow_id=new_child_workflow_id,
+        child_start_time_ms=child_start_time,
     )
 
     if status["serialization"] == DBOSPortableJSON.name():
@@ -1300,6 +1342,7 @@ async def start_workflow_async(
             new_child_workflow_id,
             new_wf_ctx.parent_workflow_fid,
             get_dbos_func_name(func),
+            started_at_epoch_ms=child_start_time,
         )
 
     wf_status = status["status"]
@@ -1323,6 +1366,8 @@ async def start_workflow_async(
     inner_task.add_done_callback(dbos._workflow_tasks.discard)
     # Shield the workflow task from cancellation
     task = asyncio.shield(inner_task)
+    # Nothing awaits this future when dequeue/recovery callers discard the handle (#796)
+    task.add_done_callback(_retrieve_future_exception)
     return WorkflowHandleAsyncTask(new_child_workflow_id, task, dbos)
 
 
@@ -1399,12 +1444,15 @@ def workflow_wrapper(
         workflow_id = None
         # Holds the initialized status so the invoke step can be built once the workflow is cleared to execute.
         init_status: dict[str, WorkflowStatusInternal] = {}
+        # Hoisted out of record_get_result: Pending.then invokes it only after awaiting the body.
+        get_result_start_time = int(time.time() * 1000)
 
         def check_and_init() -> Union[NoResult, "DeferredResult[R]", R]:
             """Initialize the workflow row, returning a deferred wait for an existing workflow's result to skip re-running its body, or NoResult to run it."""
             nonlocal workflow_id
             workflow_id = child_wfid
 
+            child_start_time = int(time.time() * 1000)
             if parent_wfid:
                 r = dbos._sys_db.check_operation_execution(
                     parent_wfid,
@@ -1434,6 +1482,7 @@ def workflow_wrapper(
                 is_dequeued_request=False,
                 serialization_type=fi.serialization_type,
                 child_workflow_id=child_wfid,
+                child_start_time_ms=child_start_time,
             )
 
             # TODO: maybe modify the parameters if they've been changed by `_init_workflow`
@@ -1447,6 +1496,7 @@ def workflow_wrapper(
                     child_wfid,
                     parent_fid,
                     get_dbos_func_name(func),
+                    started_at_epoch_ms=child_start_time,
                 )
 
             if should_execute:
@@ -1474,13 +1524,23 @@ def workflow_wrapper(
                 )
                 assert workflow_id is not None
                 dbos._sys_db.record_get_result(
-                    workflow_id, None, serialized_e, serialization, resctx
+                    workflow_id,
+                    None,
+                    serialized_e,
+                    serialization,
+                    resctx,
+                    started_at_epoch_ms=get_result_start_time,
                 )
                 raise
             serialized_r, serialization = serialize_value(r, None, dbos._serializer)
             assert workflow_id is not None
             dbos._sys_db.record_get_result(
-                workflow_id, serialized_r, None, serialization, resctx
+                workflow_id,
+                serialized_r,
+                None,
+                serialization,
+                resctx,
+                started_at_epoch_ms=get_result_start_time,
             )
             return r
 
@@ -1567,6 +1627,7 @@ def decorate_transaction(
                 }
                 with EnterDBOSTransaction(session, attributes=attributes):
                     ctx = assert_current_dbos_context()
+                    step_start_time = int(time.time() * 1000)
                     # Check if the step record for this transaction exists
                     recorded_step_output = dbos._sys_db.check_operation_execution(
                         ctx.workflow_id, ctx.function_id, transaction_name
@@ -1609,7 +1670,7 @@ def decorate_transaction(
                         "output": None,
                         "error": None,
                         "serialization": None,
-                        "started_at_epoch_ms": int(time.time() * 1000),
+                        "started_at_epoch_ms": step_start_time,
                     }
                     retry_wait_seconds = 0.001
                     backoff_factor = 1.5
@@ -2290,7 +2351,10 @@ def record_sleep(
         }
         with EnterDBOSStepCtx(attributes, cur_ctx) as ctx:
             return dbos._sys_db.record_sleep(
-                ctx.workflow_id, ctx.curr_step_function_id, seconds
+                ctx.workflow_id,
+                ctx.curr_step_function_id,
+                seconds,
+                project_completion_time=True,
             )
     else:
         # Cannot call it from outside of a workflow
@@ -2362,6 +2426,29 @@ def close_stream(dbos: "DBOS", step_ctx: Optional["DBOSContext"], key: str) -> N
     else:
         # Cannot call it from outside of a workflow
         raise DBOSException("close_stream() must be called from within a workflow")
+
+
+def _validate_enqueue_only_options(
+    ctx: Optional[DBOSContext], queue: Optional[str]
+) -> None:
+    """Reject enqueue options on a workflow that is not being enqueued."""
+    if queue is not None or ctx is None:
+        return
+    set_options = [
+        name
+        for name, value in (
+            ("deduplication_id", ctx.deduplication_id),
+            ("priority", ctx.priority),
+            ("queue_partition_key", ctx.queue_partition_key),
+            ("delay_seconds", ctx.delay_until_epoch_ms),
+        )
+        if value is not None
+    ]
+    if set_options:
+        raise DBOSException(
+            f"Enqueue option(s) {', '.join(set_options)} set on a workflow that is not being enqueued. "
+            "These options are only supported when enqueueing a workflow onto a queue."
+        )
 
 
 def _get_timeout_deadline(

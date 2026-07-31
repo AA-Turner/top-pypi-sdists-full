@@ -130,7 +130,7 @@ TEST(Variant, FromTyped) {
 
 TEST(Variant, Upcast) {
   Array<int> a0 = {1, 2, 3};
-  static_assert(details::type_contains_v<Array<Variant<int, float>>, Array<int>>);
+  static_assert(type_subsumes_v<Array<Variant<int, float>>, Array<int>>);
   Array<Variant<int, float>> a1 = a0;
   EXPECT_EQ(a1[0].get<int>(), 1);
 }
@@ -138,7 +138,9 @@ TEST(Variant, Upcast) {
 TEST(Variant, AllObjectRef) {
   Variant<TInt, Array<TInt>> v0 = TInt(1);
   EXPECT_EQ(v0.get<TInt>()->value, 1);
-  static_assert(std::is_base_of_v<ObjectRef, decltype(v0)>);
+  // Variant is uniformly backed by a single Any (TVMFFIAny), even when every
+  // alternative derives from ObjectRef, so it is not ObjectRef-derived.
+  static_assert(!std::is_base_of_v<ObjectRef, decltype(v0)>);
   Any any0 = v0;
   EXPECT_EQ(any0.cast<TInt>()->value, 1);
   auto v2 = any0.cast<Variant<TInt, Array<TInt>>>();
@@ -148,7 +150,9 @@ TEST(Variant, AllObjectRef) {
   EXPECT_EQ(v0.get<Array<TInt>>().size(), 2);
   EXPECT_EQ(v0.get<Array<TInt>>()[0]->value, 2);
   EXPECT_EQ(v0.get<Array<TInt>>()[1]->value, 3);
-  EXPECT_EQ(sizeof(v0), sizeof(ObjectRef));
+  // The uniform TVMFFIAny backing makes the layout independent of the contained
+  // alternatives: sizeof(Variant<...>) == sizeof(Any).
+  EXPECT_EQ(sizeof(v0), sizeof(Any));
 }
 
 TEST(Variant, PODSameAs) {

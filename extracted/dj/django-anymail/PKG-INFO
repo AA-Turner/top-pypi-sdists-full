@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-anymail
-Version: 15.0
+Version: 15.1
 Summary: Django email backends and webhooks for Amazon SES, Brevo,  MailerSend, Mailgun, Mailjet, Mailtrap, Mandrill, Postal, Postmark, Resend,  Scaleway TEM, SendGrid, SparkPost, and Unisender Go  (EmailBackend, transactional email tracking and inbound email signals)
 Project-URL: Homepage, https://github.com/anymail/django-anymail
 Project-URL: Documentation, https://anymail.dev/en/stable/
@@ -9,34 +9,7 @@ Project-URL: Changelog, https://anymail.dev/en/stable/changelog/
 Project-URL: Tracker, https://github.com/anymail/django-anymail/issues
 Author: Anymail Contributors
 Author-email: Mike Edmunds <medmunds@gmail.com>
-License: BSD 3-Clause License
-        
-        Copyright (c) 2016-2024, Anymail Contributors
-        
-        Redistribution and use in source and binary forms, with or without modification,
-        are permitted provided that the following conditions are met:
-        
-            1. Redistributions of source code must retain the above copyright notice,
-               this list of conditions and the following disclaimer.
-        
-            2. Redistributions in binary form must reproduce the above copyright
-               notice, this list of conditions and the following disclaimer in the
-               documentation and/or other materials provided with the distribution.
-        
-            3. Neither the name of the copyright holder nor the names of its contributors
-               may be used to endorse or promote products derived from this software
-               without specific prior written permission.
-        
-        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-        ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-        WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
-        ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-        (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-        LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-        ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-        (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-        SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+License-Expression: BSD-3-Clause
 License-File: LICENSE
 Keywords: AWS SES,ActiveCampaign,Amazon SES,Bird,Brevo,Django,ESP,EmailBackend,MailChimp,MailerSend,Mailgun,Mailjet,Mailtrap,Mandrill,Postal,Postmark,Resend,Scaleway,Scaleway TEM,SendGrid,SendinBlue,Simple Email Service,Sinch,SparkPost,Twilio,Unisender Go,email,email backend,email service provider,email tracking,inbound email,transactional mail,webhook
 Classifier: Development Status :: 5 - Production/Stable
@@ -135,7 +108,7 @@ Anymail currently supports these ESPs:
 Anymail includes:
 
 * Integration of each ESP's sending APIs into
-  `Django's built-in email <https://docs.djangoproject.com/en/v15.0/topics/email/>`_
+  `Django's built-in email <https://docs.djangoproject.com/en/v15.1/topics/email/>`_
   package, including support for HTML, attachments, extra headers,
   and other standard email features
 * Extensions to expose common ESP-added functionality, like tags, metadata,
@@ -153,32 +126,32 @@ Anymail maintains compatibility with all Django versions that are in mainstream
 or extended support, plus (usually) a few older Django versions, and is extensively
 tested on all Python versions supported by Django. (Even-older Django versions
 may still be covered by an Anymail extended support release; consult the
-`changelog <https://anymail.dev/en/v15.0/changelog/>`_ for details.)
+`changelog <https://anymail.dev/en/v15.1/changelog/>`_ for details.)
 
 Anymail releases follow `semantic versioning <https://semver.org/>`_.
 The package is released under the BSD license.
 
 .. END shared-intro
 
-.. image:: https://github.com/anymail/django-anymail/actions/workflows/test.yml/badge.svg?tag=v15.0
-       :target: https://github.com/anymail/django-anymail/actions?query=workflow:test+branch:v15.0
+.. image:: https://github.com/anymail/django-anymail/actions/workflows/test.yml/badge.svg?tag=v15.1
+       :target: https://github.com/anymail/django-anymail/actions?query=workflow:test+branch:v15.1
        :alt:    test status in GitHub Actions
 
-.. image:: https://github.com/anymail/django-anymail/actions/workflows/integration-test.yml/badge.svg?tag=v15.0
-       :target: https://github.com/anymail/django-anymail/actions?query=workflow:integration-test+branch:v15.0
+.. image:: https://github.com/anymail/django-anymail/actions/workflows/integration-test.yml/badge.svg?tag=v15.1
+       :target: https://github.com/anymail/django-anymail/actions?query=workflow:integration-test+branch:v15.1
        :alt:    integration test status in GitHub Actions
 
-.. image:: https://readthedocs.org/projects/anymail/badge/?version=v15.0
-       :target: https://anymail.dev/en/v15.0/
+.. image:: https://readthedocs.org/projects/anymail/badge/?version=v15.1
+       :target: https://anymail.dev/en/v15.1/
        :alt:    documentation build status on ReadTheDocs
 
 **Resources**
 
-* Full documentation: https://anymail.dev/en/v15.0/
-* Help and troubleshooting: https://anymail.dev/en/v15.0/help/
+* Full documentation: https://anymail.dev/en/v15.1/
+* Help and troubleshooting: https://anymail.dev/en/v15.1/help/
 * Package on PyPI: https://pypi.org/project/django-anymail/
 * Project on Github: https://github.com/anymail/django-anymail
-* Changelog: https://anymail.dev/en/v15.0/changelog/
+* Changelog: https://anymail.dev/en/v15.1/changelog/
 
 
 Anymail 1-2-3
@@ -202,7 +175,7 @@ or SparkPost or any other supported ESP where you see "mailgun":
    Mailgun doesn't have any, but some other ESPs do.)
 
 
-2. Edit your project's ``settings.py``:
+2. Edit your project's ``settings.py``. In Django 6.1 or later:
 
    .. code-block:: python
 
@@ -212,17 +185,33 @@ or SparkPost or any other supported ESP where you see "mailgun":
             # ...
         ]
 
-        ANYMAIL = {
-            # (exact settings here depend on your ESP...)
-            "MAILGUN_API_KEY": "<your Mailgun key>",
-            "MAILGUN_SENDER_DOMAIN": 'mg.example.com',  # your Mailgun domain, if needed
+        MAILERS = {
+            "default": {
+                # Change "mailgun" to "amazon_ses" or "mailtrap" or another ESP
+                "BACKEND": "anymail.backends.mailgun.EmailBackend",
+                "OPTIONS": {
+                    # The exact options here depend on your ESP...
+                    "api_key": "<your Mailgun key>",
+                    "sender_domain": "mg.example.com",  # your Mailgun domain, if needed
+                },
+            },
         }
-        EMAIL_BACKEND = "anymail.backends.mailgun.EmailBackend"  # or amazon_ses.EmailBackend, or...
         DEFAULT_FROM_EMAIL = "you@example.com"  # if you don't already have this in settings
         SERVER_EMAIL = "your-server@example.com"  # ditto (default from-email for Django errors)
 
+   In Django 6.0 or earlier, replace ``MAILERS`` with ``EMAIL_BACKEND`` and ``ANYMAIL``:
 
-3. Now the regular `Django email functions <https://docs.djangoproject.com/en/v15.0/topics/email/>`_
+   .. code-block:: python
+
+        # Instead of MAILERS:
+        EMAIL_BACKEND = "anymail.backends.mailgun.EmailBackend"
+        ANYMAIL = {
+            "MAILGUN_API_KEY": "<your Mailgun key>",
+            "MAILGUN_SENDER_DOMAIN": 'mg.example.com',
+        }
+
+
+3. Now the regular `Django email functions <https://docs.djangoproject.com/en/v15.1/topics/email/>`_
    will send through your chosen ESP:
 
    .. code-block:: python
@@ -266,7 +255,7 @@ or SparkPost or any other supported ESP where you see "mailgun":
 .. END quickstart
 
 
-See the `full documentation <https://anymail.dev/en/v15.0/>`_
+See the `full documentation <https://anymail.dev/en/v15.1/>`_
 for more features and options, including receiving messages and tracking
 sent message status.
 

@@ -16,74 +16,111 @@ from __future__ import annotations
 
 import re
 
+from ...helpers.yaml.scan import child_block_end, is_list_item_line
 from ...models.automations import YamlDiff
 
+#: Accepted spellings, canonical first — esphome's ``cv.rename_key``
+#: aliases in ``components/api``. The catalog sync fails when upstream
+#: adds a rename outside its handled list, so new pairs land here
+#: deliberately, with a migration helper.
+BLOCK_KEYS = ("actions", "services")
+ITEM_KEYS = ("action", "service")
 
-def has_inline_actions_value(
+_ITEM_KEY_ALT = "|".join(re.escape(key) for key in ITEM_KEYS)
+_LEGACY_ITEM_KEY_ALT = "|".join(re.escape(key) for key in ITEM_KEYS[1:])
+#: Discriminator lines with the indent captured; callers compare the
+#: ``indent`` group against the expected column so a same-named key
+#: nested deeper in an action body can't match.
+_INLINE_DISCRIMINATOR_RE = re.compile(rf"^(?P<indent>[ ]*)-\s*(?:{_ITEM_KEY_ALT}):\s*(?P<val>\S+)")
+_CHILD_DISCRIMINATOR_RE = re.compile(rf"^(?P<indent>[ ]*)(?:{_ITEM_KEY_ALT}):\s*(?P<val>\S+)")
+
+
+def inline_actions_key(
     lines: list[str],
     api_span: tuple[int, int, str],
-) -> bool:
-    """Return True iff ``actions:`` under *api_span* carries an inline value.
+) -> str | None:
+    """Return the block key under *api_span* carrying an inline value, if any.
 
     Flow-style values (``actions: []``, ``actions: null``,
     ``actions: !secret foo``, …) can't be spliced into the way the
     line-based writer wants. Callers should refuse the upsert /
     delete and surface a clear error rather than emit a second
-    ``actions:`` key alongside the inline one.
+    key alongside the inline one. Both spellings are checked in full.
     """
     api_start, api_end, child_indent = api_span
-    header = f"{child_indent}actions:"
-    for idx in range(api_start + 1, api_end):
-        text = lines[idx].rstrip("\n\r")
-        if text == header:
-            return False
-        if text.startswith(header + " "):
-            rest = text[len(header) :].strip()
-            return bool(rest) and not rest.startswith("#")
-    return False
+    for key in BLOCK_KEYS:
+        header = f"{child_indent}{key}:"
+        for idx in range(api_start + 1, api_end):
+            text = lines[idx].rstrip("\n\r")
+            if text == header:
+                break
+            if text.startswith(header + " "):
+                rest = text[len(header) :].strip()
+                if rest and not rest.startswith("#"):
+                    return key
+                break
+    return None
 
 
 def locate_actions_list(
     lines: list[str],
     api_span: tuple[int, int, str],
-) -> tuple[int, int, str] | None:
-    """Return ``(start, end, item_indent)`` for ``api.actions:`` or ``None``.
+) -> tuple[int, int, str, str] | None:
+    """Return ``(start, end, item_indent, key)`` for the api action list or ``None``.
 
-    ``start`` is the line index of the ``actions:`` key; ``end`` is
-    one past the last item line; ``item_indent`` is the leading
-    whitespace shared by each ``- ...`` dash line.
+    Matches either block spelling, canonical winning when both appear;
+    ``start`` is the line index of the block key; ``end`` is one past
+    the last item line; ``item_indent`` is the leading whitespace
+    shared by each ``- ...`` dash line; ``key`` is the spelling in the
+    file.
     """
-    api_start, api_end, child_indent = api_span
-    header = f"{child_indent}actions:"
-    actions_start: int | None = None
-    for idx in range(api_start + 1, api_end):
-        text = lines[idx].rstrip("\n\r")
-        if text == header or text.startswith(header + " "):
-            actions_start = idx
-            break
-    if actions_start is None:
+    _api_start, api_end, child_indent = api_span
+    found = _find_block_key_line(lines, api_span)
+    if found is None:
         return None
-    actions_end = api_end
-    for idx in range(actions_start + 1, api_end):
-        content = lines[idx].rstrip("\n\r")
-        if not content:
-            continue
-        leading = len(content) - len(content.lstrip(" "))
-        if leading <= len(child_indent):
-            actions_end = idx
-            break
+    actions_start, matched_key = found
+    actions_end = child_block_end(lines, actions_start, api_end, child_indent)
     item_indent: str | None = None
     for idx in range(actions_start + 1, actions_end):
         raw = lines[idx].rstrip("\n\r")
         stripped = raw.lstrip(" ")
-        if stripped.startswith("- "):
+        if is_list_item_line(stripped):
             item_indent = raw[: len(raw) - len(stripped)]
             break
     if item_indent is None:
         # Empty list — assume the canonical two-space nesting under
         # ``actions:`` so the first item still indents predictably.
         item_indent = child_indent + "  "
-    return actions_start, actions_end, item_indent
+    return actions_start, actions_end, item_indent, matched_key
+
+
+def canonicalize_block(
+    lines: list[str],
+    actions_start: int,
+    actions_end: int,
+    item_indent: str,
+    matched_key: str,
+) -> list[str]:
+    """
+    Respell the block key and item discriminators to canonical, line for line.
+
+    Only the key tokens change; discriminators are matched on the dash
+    line or at the item's child indent only, so a same-named key inside
+    an action body stays untouched. An item already carrying the
+    canonical discriminator keeps its legacy one.
+    """
+    out = list(lines)
+    out[actions_start] = re.sub(
+        rf"^(\s*){re.escape(matched_key)}:", rf"\g<1>{BLOCK_KEYS[0]}:", out[actions_start], count=1
+    )
+    item_re = re.compile(rf"^({re.escape(item_indent)}(?:-\s*|  ))(?:{_LEGACY_ITEM_KEY_ALT}):")
+    canonical_re = re.compile(rf"^{re.escape(item_indent)}(?:-\s*|  ){ITEM_KEYS[0]}:")
+    for start, end in _item_spans(out, actions_start, actions_end, item_indent):
+        if any(canonical_re.match(out[idx].rstrip("\n\r")) for idx in range(start, end)):
+            continue
+        for idx in range(start, end):
+            out[idx] = item_re.sub(rf"\g<1>{ITEM_KEYS[0]}:", out[idx], count=1)
+    return out
 
 
 def find_item(
@@ -94,17 +131,14 @@ def find_item(
     action_name: str,
 ) -> tuple[int, int] | None:
     """Locate the line range of the list item whose discriminator matches."""
-    item_starts: list[int] = []
-    for idx in range(actions_start + 1, actions_end):
-        raw = lines[idx].rstrip("\n\r")
-        if not raw.startswith(item_indent + "- "):
-            continue
-        item_starts.append(idx)
-    for run, start in enumerate(item_starts):
-        end = item_starts[run + 1] if run + 1 < len(item_starts) else actions_end
-        if _discriminator(lines, start, end, item_indent) == action_name:
-            return start, end
-    return None
+    return next(
+        (
+            span
+            for span in _item_spans(lines, actions_start, actions_end, item_indent)
+            if _discriminator(lines, *span, item_indent) == action_name
+        ),
+        None,
+    )
 
 
 def count_siblings(
@@ -116,15 +150,11 @@ def count_siblings(
 ) -> int:
     """Count list items at *item_indent* that aren't the matched span."""
     item_start, item_end = matched
-    siblings = 0
-    for idx in range(actions_start + 1, actions_end):
-        raw = lines[idx].rstrip("\n\r")
-        if not raw.startswith(item_indent + "- "):
-            continue
-        if item_start <= idx < item_end:
-            continue
-        siblings += 1
-    return siblings
+    return sum(
+        1
+        for start, _end in _item_spans(lines, actions_start, actions_end, item_indent)
+        if not item_start <= start < item_end
+    )
 
 
 def indent_for_list(rendered_item: str, item_indent: str) -> str:
@@ -207,11 +237,9 @@ def render_append(
     item_indent: str,
     rendered: str,
 ) -> tuple[str, YamlDiff]:
-    """Append a new list item at the end of an existing ``api.actions:``."""
+    """Append a new list item at the pre-trimmed *actions_end* of ``api.actions:``."""
     item_text = indent_for_list(rendered, item_indent)
     insert_at = actions_end
-    while insert_at > 0 and not lines[insert_at - 1].strip():
-        insert_at -= 1
     new_lines = [*lines[:insert_at], item_text, *lines[insert_at:]]
     new_text = "".join(new_lines)
     return new_text, YamlDiff(
@@ -254,6 +282,42 @@ def render_delete_actions_key(
 # ---------------------------------------------------------------------------
 
 
+def _item_spans(
+    lines: list[str],
+    actions_start: int,
+    actions_end: int,
+    item_indent: str,
+) -> list[tuple[int, int]]:
+    """Return each list item's ``(start, end)`` line span within the block."""
+    spans: list[tuple[int, int]] = []
+    start: int | None = None
+    for idx in range(actions_start + 1, actions_end):
+        raw = lines[idx].rstrip("\n\r")
+        stripped = raw.lstrip(" ")
+        if raw[: len(raw) - len(stripped)] == item_indent and is_list_item_line(stripped):
+            if start is not None:
+                spans.append((start, idx))
+            start = idx
+    if start is not None:
+        spans.append((start, actions_end))
+    return spans
+
+
+def _find_block_key_line(
+    lines: list[str],
+    api_span: tuple[int, int, str],
+) -> tuple[int, str] | None:
+    """Return ``(line index, key)`` of the first block key matching either spelling."""
+    api_start, api_end, child_indent = api_span
+    for key in BLOCK_KEYS:
+        header = f"{child_indent}{key}:"
+        for idx in range(api_start + 1, api_end):
+            text = lines[idx].rstrip("\n\r")
+            if text == header or text.startswith(header + " "):
+                return idx, key
+    return None
+
+
 def _discriminator(
     lines: list[str],
     item_start: int,
@@ -262,17 +326,11 @@ def _discriminator(
 ) -> str | None:
     """Read the ``action:`` (or legacy ``service:``) key for a list item."""
     child_indent = item_indent + "  "
-    inline = re.match(
-        rf"^{re.escape(item_indent)}-\s*(?P<key>action|service):\s*(?P<val>\S+)",
-        lines[item_start].rstrip("\n\r"),
-    )
-    if inline:
+    inline = _INLINE_DISCRIMINATOR_RE.match(lines[item_start].rstrip("\n\r"))
+    if inline and inline.group("indent") == item_indent:
         return inline.group("val").strip("'\"")
-    child_re = re.compile(
-        rf"^{re.escape(child_indent)}(?:action|service):\s*(?P<val>\S+)",
-    )
     for idx in range(item_start, item_end):
-        m = child_re.match(lines[idx].rstrip("\n\r"))
-        if m:
+        m = _CHILD_DISCRIMINATOR_RE.match(lines[idx].rstrip("\n\r"))
+        if m and m.group("indent") == child_indent:
             return m.group("val").strip("'\"")
     return None

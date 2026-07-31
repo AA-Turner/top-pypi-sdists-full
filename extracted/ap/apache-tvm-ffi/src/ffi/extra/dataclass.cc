@@ -29,8 +29,10 @@
 #include <tvm/ffi/container/map.h>
 #include <tvm/ffi/container/shape.h>
 #include <tvm/ffi/container/tensor.h>
+#include <tvm/ffi/device.h>
 #include <tvm/ffi/enum.h>
 #include <tvm/ffi/extra/dataclass.h>
+#include <tvm/ffi/memory.h>
 #include <tvm/ffi/reflection/accessor.h>
 #include <tvm/ffi/reflection/creator.h>
 #include <tvm/ffi/reflection/registry.h>
@@ -43,6 +45,7 @@
 #include <iomanip>
 #include <limits>
 #include <memory>
+#include <new>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -78,6 +81,17 @@ bool IsStringType(int32_t ti) {
 /*! \brief Return true for Bytes or SmallBytes type indices. */
 bool IsBytesType(int32_t ti) {
   return ti == TypeIndex::kTVMFFIBytes || ti == TypeIndex::kTVMFFISmallBytes;
+}
+
+/*! \brief Append an indented child conversion error. */
+void AppendNestedErrorMessage(std::string* out, std::string_view message) {
+  out->append(":\n  ");
+  for (char ch : message) {
+    out->push_back(ch);
+    if (ch == '\n') {
+      out->append("  ");
+    }
+  }
 }
 
 /*! \brief Extract raw pointer and length from a String or SmallStr value. */
@@ -445,9 +459,9 @@ class ObjectDeepCopier : public ObjectGraphDFS<ObjectDeepCopier, CopyFrame, Any>
       return true;
     }
     int32_t ti = obj->type_index();
-    // Immutable leaf objects
+    // Immutable leaf objects and registered enum singletons
     if (ti == TypeIndex::kTVMFFIStr || ti == TypeIndex::kTVMFFIBytes ||
-        ti == TypeIndex::kTVMFFIShape) {
+        ti == TypeIndex::kTVMFFIShape || obj->IsInstance<EnumObj>()) {
       *out = value;
       return true;
     }
@@ -881,7 +895,7 @@ class ReprPrinter : public ObjectGraphDFS<ReprPrinter, ReprFrame, std::string> {
       *out = result;
       return true;
     }
-    // Default repr for EnumObj subclasses: ``<type_key>.<_name>``.  Reached only
+    // Default repr for EnumObj subclasses: ``<type_key>.<_str_index>``.  Reached only
     // when no user-registered ``__ffi_repr__`` hook has claimed this type, so
     // explicit repr overrides on specific enum subclasses still take precedence.
     if (obj->IsInstance<EnumObj>()) {
@@ -889,7 +903,7 @@ class ReprPrinter : public ObjectGraphDFS<ReprPrinter, ReprFrame, std::string> {
       const TVMFFITypeInfo* type_info = TVMFFIGetTypeInfo(ti);
       std::string result(type_info->type_key.data, type_info->type_key.size);
       result += '.';
-      result.append(enum_obj->_name.data(), enum_obj->_name.size());
+      result.append(enum_obj->_str_index.data(), enum_obj->_str_index.size());
       if (show_addr_) result += "@" + AddressStr(obj);
       state_[obj] = State::kDone;
       repr_cache_[obj] = result;
@@ -1695,12 +1709,42 @@ class RecursiveComparer : public ObjectGraphDFS<RecursiveComparer, CompareFrame,
 
 // ---------- Python-defined type support ----------
 
+// Python-defined layouts use ObjectRef as the common in-memory representation for every
+// object-valued C++ parent field, including ObjectPtr<T> fields.
+static_assert(std::is_standard_layout_v<ObjectPtr<Object>>);
+static_assert(std::is_standard_layout_v<ObjectRef>);
+static_assert(sizeof(ObjectPtr<Object>) == sizeof(ObjectRef));
+static_assert(alignof(ObjectPtr<Object>) == alignof(ObjectRef));
+
+enum class PyClassFieldStorageKind {
+  kPOD,
+  kAny,
+  kObjectRef,
+};
+
+PyClassFieldStorageKind GetPyClassFieldStorageKind(const TVMFFIFieldInfo* finfo) {
+  int32_t ti = finfo->field_static_type_index;
+  if (ti == TypeIndex::kTVMFFIAny) {
+    // C++-defined parent fields may use kTVMFFIAny as their conversion type
+    // while storing a compact ObjectRef/Optional<ObjectRef> in memory.
+    return finfo->size == static_cast<int64_t>(sizeof(ObjectRef))
+               ? PyClassFieldStorageKind::kObjectRef
+               : PyClassFieldStorageKind::kAny;
+  }
+  if (ti >= TypeIndex::kTVMFFIStaticObjectBegin) {
+    return PyClassFieldStorageKind::kObjectRef;
+  }
+  return PyClassFieldStorageKind::kPOD;
+}
+
 /*!
  * \brief Deleter for objects whose layout is defined from Python via Field descriptors.
  *
  * For the "strong" phase, iterates all reflected fields and destructs
  * Any/ObjectRef values in-place (to release references).  For the "weak"
- * phase, frees the underlying calloc'd memory.
+ * phase, forwards to the prepended ``TVMFFIObjectAllocHeader``'s
+ * ``delete_space`` (every Object carries one — libtvm_ffi's builtin
+ * default allocator ensures it).
  */
 void PyClassDeleter(void* self_void, int flags) {
   TVMFFIObject* self = static_cast<TVMFFIObject*>(self_void);
@@ -1708,19 +1752,23 @@ void PyClassDeleter(void* self_void, int flags) {
     const TVMFFITypeInfo* type_info = TVMFFIGetTypeInfo(self->type_index);
     refl::ForEachFieldInfo(type_info, [&](const TVMFFIFieldInfo* finfo) {
       void* field_addr = reinterpret_cast<char*>(self) + finfo->offset;
-      int32_t ti = finfo->field_static_type_index;
-      if (ti == TypeIndex::kTVMFFIAny) {
-        // Any field: call destructor to release owned references
-        reinterpret_cast<Any*>(field_addr)->~Any();
-      } else if (ti >= TypeIndex::kTVMFFIStaticObjectBegin) {
-        // ObjectRef field: call destructor to DecRef
-        reinterpret_cast<ObjectRef*>(field_addr)->~ObjectRef();
+      switch (GetPyClassFieldStorageKind(finfo)) {
+        case PyClassFieldStorageKind::kAny:
+          // Any field: call destructor to release owned references
+          reinterpret_cast<Any*>(field_addr)->~Any();
+          break;
+        case PyClassFieldStorageKind::kObjectRef:
+          // ObjectRef field: call destructor to DecRef
+          reinterpret_cast<ObjectRef*>(field_addr)->~ObjectRef();
+          break;
+        case PyClassFieldStorageKind::kPOD:
+          break;
       }
       // POD types (int, float, bool, etc.): no cleanup needed
     });
   }
   if (flags & kTVMFFIObjectDeleterFlagBitMaskWeak) {
-    std::free(self_void);
+    details::ObjectUnsafe::GetObjectAllocHeaderFromPtr(self_void)->delete_space(self_void);
   }
 }
 
@@ -1816,6 +1864,22 @@ void WriteFieldValue(void* field_addr, int32_t field_type_index, Any value) {
   } else {
     TVM_FFI_THROW(ValueError) << "Unsupported field type index for setter: " << field_type_index;
   }
+}
+
+void ConstructPyClassFields(Object* obj, const TVMFFITypeInfo* type_info) {
+  refl::ForEachFieldInfo(type_info, [&](const TVMFFIFieldInfo* finfo) {
+    void* field_addr = reinterpret_cast<char*>(obj) + finfo->offset;
+    switch (GetPyClassFieldStorageKind(finfo)) {
+      case PyClassFieldStorageKind::kAny:
+        new (field_addr) Any();
+        break;
+      case PyClassFieldStorageKind::kObjectRef:
+        new (field_addr) ObjectRef();
+        break;
+      case PyClassFieldStorageKind::kPOD:
+        break;
+    }
+  });
 }
 
 /*!
@@ -1925,8 +1989,21 @@ void BindFieldArgs(Object* obj, const AutoInitInfo& info, const TVMFFIAny* raw_a
   std::vector<bool> field_set(info.all_fields.size(), false);
 
   auto set_field = [&](size_t fi, const TVMFFIAny* value) {
-    void* addr = reinterpret_cast<char*>(obj) + info.all_fields[fi].info->offset;
-    TVM_FFI_CHECK_SAFE_CALL(refl::CallFieldSetter(info.all_fields[fi].info, addr, value));
+    const TVMFFIFieldInfo* field_info = info.all_fields[fi].info;
+    void* addr = reinterpret_cast<char*>(obj) + field_info->offset;
+    int ret_code = refl::CallFieldSetter(field_info, addr, value);
+    if (ret_code != 0) {
+      Error err = details::MoveFromSafeCallRaised();
+      auto field_name = std::string_view(field_info->name.data, field_info->name.size);
+      std::string message;
+      message.reserve(info.type_key.size() + field_name.size() + err.message().size() + 32);
+      message.append(info.type_key);
+      message.append(".__ffi_init__() field '");
+      message.append(field_name);
+      message.append("'");
+      AppendNestedErrorMessage(&message, err.message());
+      throw Error(err.kind(), std::move(message), err.backtrace(), err, std::nullopt);
+    }
     field_set[fi] = true;
   };
 
@@ -2040,22 +2117,23 @@ void PyClassRegisterTypeAttrColumns(int32_t type_index, int32_t total_size) {
   // Step 1. Register `__ffi_init__`
   RegisterFFIInit(type_index);
   // Step 2. Register `__ffi_new__`
-  Function new_fn = Function::FromTyped([type_index, total_size]() -> ObjectRef {
-    void* obj_ptr = std::calloc(1, static_cast<size_t>(total_size));
-    if (!obj_ptr) {
-      TVM_FFI_THROW(RuntimeError) << "Failed to allocate " << total_size << " bytes for type "
-                                  << TypeIndexToTypeKey(type_index);
-    }
+  Function new_fn = Function::FromTyped([type_index, total_size, type_info]() -> ObjectRef {
+    // Route through the custom-allocator registry so the prepended
+    // TVMFFIObjectAllocHeader is in place for PyClassDeleter's Weak
+    // branch. Then memset to zero-init the payload (mirrors the original
+    // calloc-based path); ConstructPyClassFields below placement-news the
+    // non-trivial fields while the memset covers the POD ones.
+    size_t alloc_size = static_cast<size_t>(total_size);
+    TVMFFICustomAllocator* alloc = TVMFFIGetCustomAllocator();
+    void* obj_ptr =
+        alloc->allocate(alloc_size, alignof(::std::max_align_t), type_index, alloc->context);
+    std::memset(obj_ptr, 0, alloc_size);
     TVMFFIObject* ffi_obj = reinterpret_cast<TVMFFIObject*>(obj_ptr);
     ffi_obj->type_index = type_index;
     ffi_obj->combined_ref_count = details::kCombinedRefCountBothOne;
     ffi_obj->deleter = PyClassDeleter;
-    // calloc zero-initializes all bytes.  For non-trivial field types:
-    //   - Any: zero state is {type_index=kTVMFFINone, v_int64=0}, representing None.
-    //   - ObjectRef: zero state is a null pointer.
-    // Both are valid initial states whose destructors and assignment operators
-    // handle correctly, so no placement construction is needed.
     Object* obj = reinterpret_cast<Object*>(obj_ptr);
+    ConstructPyClassFields(obj, type_info);
     return ObjectRef(details::ObjectUnsafe::ObjectPtrFromOwned<Object>(obj));
   });
   TVMFFIByteArray attr_name = refl::AsByteArray(refl::type_attr::kNew);
@@ -2064,10 +2142,12 @@ void PyClassRegisterTypeAttrColumns(int32_t type_index, int32_t total_size) {
   // Step 3. Register `__ffi_shallow_copy__`
   Function copy_fn =
       Function::FromTyped([type_index, total_size, type_info](const Object* src) -> ObjectRef {
-        void* obj_ptr = std::calloc(1, static_cast<size_t>(total_size));
-        if (!obj_ptr) {
-          TVM_FFI_THROW(RuntimeError) << "Failed to allocate for shallow copy";
-        }
+        // Allocator + memset mirror RegisterFFINew above.
+        size_t alloc_size = static_cast<size_t>(total_size);
+        TVMFFICustomAllocator* alloc = TVMFFIGetCustomAllocator();
+        void* obj_ptr =
+            alloc->allocate(alloc_size, alignof(::std::max_align_t), type_index, alloc->context);
+        std::memset(obj_ptr, 0, alloc_size);
         TVMFFIObject* ffi_obj = reinterpret_cast<TVMFFIObject*>(obj_ptr);
         ffi_obj->type_index = type_index;
         ffi_obj->combined_ref_count = details::kCombinedRefCountBothOne;

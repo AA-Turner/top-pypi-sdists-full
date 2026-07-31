@@ -207,6 +207,8 @@ def main(url: str):
     error = ""
     output_path = OUTPUT_DIR / OUTPUT_FILE
 
+    print("favicon extraction started", flush=True)
+
     try:
         # Run extraction
         success, output, error = get_favicon(url)

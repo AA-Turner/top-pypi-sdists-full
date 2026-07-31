@@ -1,0 +1,2 @@
+import"./rolldown-runtime-B4f9JIsa.js";import{F as e,H as t,Kt as n,M as r,Vt as i,it as a}from"./vendor-vue-core-C0-qk8Ov.js";import{r as o}from"./vendor-i18n-BYiZ3BVm.js";import{t as s}from"./_plugin-vue_export-helper-DsZasWr4.js";var c={class:`cloud-sorry-contact-support`},l=s(t({__name:`CloudSorryContactSupportView`,setup(t){let{t:s}=o();return(t,o)=>(a(),e(`div`,c,[r(`h1`,null,n(i(s)(`cloudSorryContactSupport_title`)),1)]))}}),[[`__scopeId`,`data-v-c3fa108d`]]);export{l as default};
+//# sourceMappingURL=CloudSorryContactSupportView-BCoBV6MC.js.map

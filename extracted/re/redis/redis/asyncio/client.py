@@ -37,6 +37,7 @@ from redis._defaults import (
     DEFAULT_SOCKET_TIMEOUT,
 )
 from redis._parsers.helpers import bool_ok, get_response_callbacks
+from redis.asyncio import _himport_exec
 from redis.asyncio.connection import (
     Connection,
     ConnectionPool,
@@ -81,14 +82,25 @@ from redis.exceptions import (
     ResponseError,
     WatchError,
 )
+from redis.himport import HImportRegistry, parse_himport_set_args
+from redis.maint_notifications import MaintNotificationsConfig
 from redis.observability.attributes import PubSubDirection
-from redis.typing import ChannelT, EncodableT, KeyT, PubSubHandler, Subscription
+from redis.typing import (
+    ChannelT,
+    EncodableT,
+    FieldT,
+    KeyT,
+    PubSubHandler,
+    Subscription,
+)
 from redis.utils import (
     SENTINEL,
     SSL_AVAILABLE,
     _set_info_logger,
+    check_protocol_version,
     deprecated_args,
     deprecated_function,
+    experimental_method,
     safe_str,
     str_if_bytes,
     truncate_text,
@@ -219,6 +231,23 @@ class Redis(
         Return a Redis client from the given connection pool.
         The Redis client will take ownership of the connection pool and
         close it when the Redis client is closed.
+
+        Because the client closes (disconnects all connections in) the pool
+        when it is closed or garbage-collected, the pool must not be shared
+        with other clients. Constructing multiple clients from the same pool
+        via ``from_pool`` -- for example one per request across tasks -- is
+        not safe: when one client is closed it will disconnect connections
+        still in use by the others.
+
+        To share a single pool across clients, construct the pool explicitly
+        and manage its lifecycle instead. Unlike ``from_pool``, the plain
+        ``Redis(connection_pool=pool)`` constructor does not take ownership of
+        the pool and will not close it, so a pool created this way can be
+        safely shared across clients. ``ConnectionPool`` supports the async
+        context manager protocol for this::
+
+            async with ConnectionPool.from_url(url) as pool:
+                r = Redis(connection_pool=pool)
         """
         client = cls(
             connection_pool=connection_pool,
@@ -288,6 +317,7 @@ class Redis(
         protocol: int | None = None,
         legacy_responses: bool = True,
         event_dispatcher: EventDispatcher | None = None,
+        maint_notifications_config: MaintNotificationsConfig | None = None,
     ):
         """
         Initialize a new Redis client.
@@ -323,6 +353,14 @@ class Redis(
             options that are not available are skipped. Pass `None` or `{}` to
             avoid setting additional TCP keepalive options. Argument is ignored
             when connection_pool is provided.
+        maint_notifications_config:
+            configures the pool to support maintenance notifications - see
+            `redis.maint_notifications.MaintNotificationsConfig` for details.
+            Only supported with RESP3
+            If not provided and protocol is RESP3, the maintenance notifications
+            will be enabled by default (logic is included in the connection pool
+            initialization).
+            Argument is ignored when connection_pool is provided.
         """
         kwargs: Dict[str, Any]
         if event_dispatcher is None:
@@ -376,10 +414,21 @@ class Redis(
             }
             # based on input, setup appropriate connection args
             if unix_socket_path is not None:
+                if (
+                    maint_notifications_config
+                    and maint_notifications_config.enabled is True
+                ):
+                    raise RedisError(
+                        "Maintenance notifications are not supported with Unix "
+                        "domain socket connections"
+                    )
                 kwargs.update(
                     {
                         "path": unix_socket_path,
                         "connection_class": UnixDomainSocketConnection,
+                        "maint_notifications_config": MaintNotificationsConfig(
+                            enabled=False
+                        ),
                     }
                 )
             else:
@@ -412,6 +461,19 @@ class Redis(
                             "ssl_password": ssl_password,
                         }
                     )
+            maint_notifications_enabled = (
+                maint_notifications_config and maint_notifications_config.enabled
+            )
+            if maint_notifications_enabled and not check_protocol_version(protocol, 3):
+                raise RedisError(
+                    "Maintenance notifications handlers on connection are only supported with RESP version 3"
+                )
+            if maint_notifications_config:
+                kwargs.update(
+                    {
+                        "maint_notifications_config": maint_notifications_config,
+                    }
+                )
             # This arg only used if no pool is passed in
             self.auto_close_connection_pool = auto_close_connection_pool
             connection_pool = ConnectionPool(**kwargs)
@@ -485,6 +547,14 @@ class Redis(
     def get_connection_kwargs(self):
         """Get the connection's key-word arguments"""
         return self.connection_pool.connection_kwargs
+
+    @property
+    def himport_registry(self) -> HImportRegistry:
+        """The client's HIMPORT fieldset registry (empty if none was declared).
+
+        Read-only: the registry is mutated only through the HIMPORT command methods.
+        """
+        return self.connection_pool.himport_registry
 
     def get_retry(self) -> Optional[Retry]:
         return self.get_connection_kwargs().get("retry")
@@ -764,7 +834,7 @@ class Redis(
         if close_connection_pool or (
             close_connection_pool is None and self.auto_close_connection_pool
         ):
-            await self.connection_pool.disconnect()
+            await self.connection_pool.aclose()
 
     @deprecated_function(version="5.0.1", reason="Use aclose() instead", name="close")
     async def close(self, close_connection_pool: Optional[bool] = None) -> None:
@@ -777,8 +847,44 @@ class Redis(
         """
         Send a command and parse the response
         """
+        # HIMPORT SET is the one command whose wire form depends on per-connection
+        # state: the fieldset must be PREPAREd on this connection first, and any
+        # fieldset discarded since this connection last reconciled must be dropped.
+        # Handling it here (rather than in himport_set) lets himport_set reuse the
+        # full execute_command machinery — retry, disconnect-on-error, pooling — so
+        # a failed HIMPORT SET disconnects the connection like any other command.
+        # This per-command branch in the hot dispatch path is deliberate and has no
+        # cleaner alternative: this is the only seam where the concrete borrowed
+        # connection is known, and connection-scoped session setup can only happen
+        # once that connection is chosen. The overhead is one string compare per
+        # command.
+        himport_set = parse_himport_set_args(args)
+        if himport_set is not None:
+            # ``args`` is an HIMPORT SET in either the joined ("HIMPORT SET", key,
+            # ...) or split ("HIMPORT", "SET", key, ...) raw form; the operands come
+            # back at the right offsets for the form. A command with too few operands
+            # returns None and falls through to the normal send path so the server
+            # returns its arity error instead of a client-side IndexError here.
+            key, fieldset_name, values = himport_set
+            return await self._himport_execute_set(conn, key, fieldset_name, values)
         await conn.send_command(*args)
         return await self.parse_response(conn, command_name, **options)
+
+    async def _himport_reconcile_discards(self, conn):
+        """Delegate to the shared async HIMPORT executor."""
+        return await _himport_exec.reconcile_discards(self, conn)
+
+    async def _himport_prepare_and_set(
+        self, conn, key, fieldset_name, values, fieldset
+    ):
+        """Delegate to the shared async HIMPORT executor."""
+        return await _himport_exec.prepare_and_set(
+            self, conn, key, fieldset_name, values, fieldset
+        )
+
+    async def _himport_execute_set(self, conn, key, fieldset_name, values):
+        """Delegate to the shared async HIMPORT executor."""
+        return await _himport_exec.execute_set(self, conn, key, fieldset_name, values)
 
     async def _close_connection(
         self,
@@ -865,10 +971,15 @@ class Redis(
             )
             raise
         finally:
-            if self.single_connection_client:
-                self._single_conn_lock.release()
-            if not self.connection:
-                await pool.release(conn)
+            try:
+                if self.single_connection_client and conn and conn.should_reconnect():
+                    await self._close_connection(conn)
+                    await conn.connect()
+            finally:
+                if self.single_connection_client:
+                    self._single_conn_lock.release()
+                if not self.connection:
+                    await pool.release(conn)
 
     async def parse_response(
         self, connection: Connection, command_name: Union[str, bytes], **options
@@ -897,6 +1008,48 @@ class Redis(
             retval = self.response_callbacks[command_name](response, **options)
             return await retval if inspect.isawaitable(retval) else retval
         return response
+
+    # HIMPORT orchestration (async mirror of redis.client.Redis). See
+    # ``.agents/himport_client_support_spec.md``.
+
+    @experimental_method()
+    async def himport_prepare(
+        self, fieldset_name: str, fields: Iterable[FieldT]
+    ) -> bool:
+        """Declare an HIMPORT fieldset for use by :meth:`himport_set`."""
+        await self.initialize()
+        fieldset = self.himport_registry.prepare(fieldset_name, fields)
+        conn = self.connection
+        if self.single_connection_client and conn is not None and conn.is_connected:
+            await self.himport_prepare_internal(fieldset_name, fieldset.fields)
+            conn._himport_prepared[fieldset_name] = fieldset.version
+        return True
+
+    @experimental_method()
+    async def himport_discard(self, fieldset_name: str) -> int:
+        """Remove a fieldset from the registry."""
+        await self.initialize()
+        removed = self.himport_registry.discard(fieldset_name)
+        conn = self.connection
+        if self.single_connection_client and conn is not None and conn.is_connected:
+            if removed:
+                await self.himport_discard_internal(fieldset_name)
+            conn._himport_prepared.pop(fieldset_name, None)
+            conn._himport_reconciled_revision = self.himport_registry.revision
+        return 1 if removed else 0
+
+    @experimental_method()
+    async def himport_discard_all(self) -> int:
+        """Remove all fieldsets from the registry."""
+        await self.initialize()
+        count = self.himport_registry.discard_all()
+        conn = self.connection
+        if self.single_connection_client and conn is not None and conn.is_connected:
+            if count:
+                await self.himport_discard_all_internal()
+            conn._himport_prepared.clear()
+            conn._himport_reconciled_revision = self.himport_registry.revision
+        return count
 
 
 StrictRedis = Redis
@@ -1865,9 +2018,16 @@ class Pipeline(Redis):  # lgtm [py/init-calls-subclass]
         self.command_stack.append((args, options))
         return self
 
+    async def _himport_prepare_pipeline(self, conn, commands):
+        """Delegate to the shared async HIMPORT executor."""
+        await _himport_exec.prepare_pipeline(self, conn, [args for args, _ in commands])
+
     async def _execute_transaction(  # noqa: C901
         self, connection: Connection, commands: CommandStackT, raise_on_error
     ):
+        # Ensure fieldsets referenced by buffered HIMPORT SETs are prepared on this
+        # connection before the MULTI/EXEC block (session state, not transactional).
+        await self._himport_prepare_pipeline(connection, commands)
         pre: CommandT = (("MULTI",), {})
         post: CommandT = (("EXEC",), {})
         cmds = (pre, *commands, post)
@@ -1946,9 +2106,26 @@ class Pipeline(Redis):  # lgtm [py/init-calls-subclass]
     async def _execute_pipeline(
         self, connection: Connection, commands: CommandStackT, raise_on_error: bool
     ):
+        # Fold any first-use HIMPORT PREPAREs for referenced fieldsets into the same
+        # packed write as the queued commands, so a pipeline that lands on a fresh or
+        # reconnected connection stays a single round trip (the batched write bypasses
+        # the per-command lazy PREPARE path). Deferred-discard reconciliation happens
+        # inside pipeline_prepares and only touches the socket when discards are
+        # actually pending.
+        fieldsets = await _himport_exec.pipeline_prepares(
+            self, connection, [args for args, _ in commands]
+        )
+        preflight = _himport_exec.prepare_wire_commands(fieldsets)
         # build up all commands into a single request to increase network perf
-        all_cmds = connection.pack_commands([args for args, _ in commands])
+        all_cmds = connection.pack_commands(preflight + [args for args, _ in commands])
         await connection.send_packed_command(all_cmds)
+
+        # Drain the leading PREPARE replies (bookkeeping + capture the first error)
+        # before the queued replies. Everything on the wire is read before raising so
+        # the pooled socket never desyncs.
+        prep_error = await _himport_exec.drain_pipeline_prepares(
+            self, connection, fieldsets
+        )
 
         response = []
         for args, options in commands:
@@ -1959,6 +2136,11 @@ class Pipeline(Redis):  # lgtm [py/init-calls-subclass]
             except ResponseError as e:
                 response.append(e)
 
+        # A PREPARE failure (rare: an invalid fieldset definition) is a hard error,
+        # raised regardless of raise_on_error as it was before folding -- only now
+        # every reply has already been drained.
+        if prep_error is not None:
+            raise prep_error
         if raise_on_error:
             self.raise_first_error(commands, response)
         return response

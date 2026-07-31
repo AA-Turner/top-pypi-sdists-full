@@ -23,6 +23,8 @@ else:
 
 __all__ = (
     "BrokerAZDistributionType",
+    "ChannelDestinationTypeType",
+    "ChannelStatusType",
     "ClientBrokerType",
     "ClusterStateType",
     "ClusterTypeType",
@@ -31,6 +33,7 @@ __all__ = (
     "CustomerActionStatusType",
     "DescribeTopicPartitionsPaginatorName",
     "EnhancedMonitoringType",
+    "IcebergCompressionTypeType",
     "KafkaClusterEncryptionInTransitTypeType",
     "KafkaClusterSaslScramMechanismType",
     "KafkaServiceName",
@@ -51,21 +54,29 @@ __all__ = (
     "NetworkTypeType",
     "NodeTypeType",
     "PaginatorName",
+    "PartitionStrategyType",
     "RebalancingStatusType",
     "RegionName",
     "ReplicationStartingPositionTypeType",
     "ReplicationTopicNameConfigurationTypeType",
     "ReplicatorStateType",
     "ResourceServiceName",
+    "S3CompressionTypeType",
+    "S3StorageClassType",
     "ServiceName",
     "StorageModeType",
     "TargetCompressionTypeType",
     "TopicStateType",
     "UserIdentityTypeType",
+    "ValueConverterType",
     "VpcConnectionStateType",
 )
 
 BrokerAZDistributionType = Literal["DEFAULT"]
+ChannelDestinationTypeType = Literal["ICEBERG", "S3"]
+ChannelStatusType = Literal[
+    "ACTIVE", "CREATING", "DELETING", "FAILED", "SUSPENDED", "SUSPENDING", "UPDATING"
+]
 ClientBrokerType = Literal["PLAINTEXT", "TLS", "TLS_PLAINTEXT"]
 ClusterStateType = Literal[
     "ACTIVE",
@@ -85,6 +96,7 @@ DescribeTopicPartitionsPaginatorName = Literal["describe_topic_partitions"]
 EnhancedMonitoringType = Literal[
     "DEFAULT", "PER_BROKER", "PER_TOPIC_PER_BROKER", "PER_TOPIC_PER_PARTITION"
 ]
+IcebergCompressionTypeType = Literal["SNAPPY", "ZSTD"]
 KafkaClusterEncryptionInTransitTypeType = Literal["TLS"]
 KafkaClusterSaslScramMechanismType = Literal["SHA256", "SHA512"]
 KafkaVersionStatusType = Literal["ACTIVE", "DEPRECATED"]
@@ -103,16 +115,20 @@ ListTopicsPaginatorName = Literal["list_topics"]
 ListVpcConnectionsPaginatorName = Literal["list_vpc_connections"]
 NetworkTypeType = Literal["DUAL", "IPV4"]
 NodeTypeType = Literal["BROKER"]
+PartitionStrategyType = Literal["TIME_HOUR"]
 RebalancingStatusType = Literal["ACTIVE", "PAUSED"]
 ReplicationStartingPositionTypeType = Literal["EARLIEST", "LATEST"]
 ReplicationTopicNameConfigurationTypeType = Literal[
     "IDENTICAL", "PREFIXED_WITH_SOURCE_CLUSTER_ALIAS"
 ]
 ReplicatorStateType = Literal["CREATING", "DELETING", "FAILED", "RUNNING", "UPDATING"]
+S3CompressionTypeType = Literal["GZIP", "NONE", "ZSTD"]
+S3StorageClassType = Literal["GLACIER_IR", "INTELLIGENT_TIERING", "STANDARD"]
 StorageModeType = Literal["LOCAL", "TIERED"]
 TargetCompressionTypeType = Literal["GZIP", "LZ4", "NONE", "SNAPPY", "ZSTD"]
 TopicStateType = Literal["ACTIVE", "CREATING", "DELETING", "UPDATING"]
 UserIdentityTypeType = Literal["AWSACCOUNT", "AWSSERVICE"]
+ValueConverterType = Literal["BYTE_ARRAY", "JSON", "JSON_SCHEMA_GSR", "STRING"]
 VpcConnectionStateType = Literal[
     "AVAILABLE",
     "CREATING",
@@ -433,6 +449,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

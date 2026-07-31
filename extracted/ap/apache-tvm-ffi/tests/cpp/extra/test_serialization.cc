@@ -22,9 +22,13 @@
 #include <tvm/ffi/container/list.h>
 #include <tvm/ffi/container/map.h>
 #include <tvm/ffi/container/shape.h>
+#include <tvm/ffi/device.h>
 #include <tvm/ffi/dtype.h>
+#include <tvm/ffi/enum.h>
 #include <tvm/ffi/extra/serialization.h>
 #include <tvm/ffi/extra/structural_equal.h>
+#include <tvm/ffi/reflection/enum_def.h>
+#include <tvm/ffi/reflection/registry.h>
 #include <tvm/ffi/string.h>
 
 #include <limits>
@@ -35,6 +39,99 @@ namespace {
 
 using namespace tvm::ffi;
 using namespace tvm::ffi::testing;
+
+class SerializationEnumObj : public EnumObj {
+ public:
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("test.SerializationEnum", SerializationEnumObj, EnumObj);
+};
+
+class SerializationEnum : public Enum {
+ public:
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NULLABLE(SerializationEnum, Enum, SerializationEnumObj);
+};
+
+class SerializationIntEnumObj : public IntEnumObj {
+ public:
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("test.SerializationIntEnum", SerializationIntEnumObj,
+                                    IntEnumObj);
+};
+
+class SerializationIntEnum : public IntEnum {
+ public:
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NULLABLE(SerializationIntEnum, IntEnum,
+                                             SerializationIntEnumObj);
+};
+
+class SerializationStrEnumObj : public StrEnumObj {
+ public:
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("test.SerializationStrEnum", SerializationStrEnumObj,
+                                    StrEnumObj);
+};
+
+class SerializationStrEnum : public StrEnum {
+ public:
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NULLABLE(SerializationStrEnum, StrEnum,
+                                             SerializationStrEnumObj);
+};
+
+TVM_FFI_STATIC_INIT_BLOCK() {
+  namespace refl = tvm::ffi::reflection;
+  refl::ObjectDef<SerializationEnumObj>(refl::init(false));  // NOLINT(bugprone-unused-raii)
+  refl::TypeAttrDef<SerializationEnumObj>().def_convert<SerializationEnum>();
+  refl::EnumDef<SerializationEnumObj>("Alpha");  // NOLINT(bugprone-unused-raii)
+
+  refl::ObjectDef<SerializationIntEnumObj>(refl::init(false)).def_convert<SerializationIntEnum>();
+  refl::EnumDef<SerializationIntEnumObj>("Seven", 7);  // NOLINT(bugprone-unused-raii)
+  // NOLINTNEXTLINE(bugprone-unused-raii)
+  refl::EnumDef<SerializationIntEnumObj>("Min", std::numeric_limits<int64_t>::min());
+  // NOLINTNEXTLINE(bugprone-unused-raii)
+  refl::EnumDef<SerializationIntEnumObj>("Max", std::numeric_limits<int64_t>::max());
+
+  refl::ObjectDef<SerializationStrEnumObj>(refl::init(false)).def_convert<SerializationStrEnum>();
+  refl::EnumDef<SerializationStrEnumObj>("payload");  // NOLINT(bugprone-unused-raii)
+}
+
+TEST(Serialization, EnumSingletonIdentity) {
+  Enum original = EnumObj::_GetByStrIndex<SerializationEnumObj>("Alpha");
+  json::Object expected = json::Object{
+      {"root_index", 0},
+      {"nodes", json::Array{json::Object{{"type", "test.SerializationEnum"}, {"data", "Alpha"}}}}};
+
+  EXPECT_TRUE(StructuralEqual()(ToJSONGraph(original), expected));
+  Enum restored = FromJSONGraph(expected).cast<Enum>();
+  EXPECT_TRUE(restored.same_as(original));
+}
+
+TEST(Serialization, PayloadEnumSingletonIdentity) {
+  Enum int_original = EnumObj::_GetByIntIndex<SerializationIntEnumObj>(7);
+  json::Object int_expected = json::Object{
+      {"root_index", 0},
+      {"nodes", json::Array{json::Object{{"type", "test.SerializationIntEnum"}, {"data", 7}}}}};
+  EXPECT_TRUE(StructuralEqual()(ToJSONGraph(int_original), int_expected));
+  EXPECT_TRUE(FromJSONGraph(int_expected).cast<Enum>().same_as(int_original));
+
+  Enum str_original = EnumObj::_GetByStrIndex<SerializationStrEnumObj>("payload");
+  json::Object str_expected = json::Object{
+      {"root_index", 0},
+      {"nodes",
+       json::Array{json::Object{{"type", "test.SerializationStrEnum"}, {"data", "payload"}}}}};
+  EXPECT_TRUE(StructuralEqual()(ToJSONGraph(str_original), str_expected));
+  EXPECT_TRUE(FromJSONGraph(str_expected).cast<Enum>().same_as(str_original));
+}
+
+TEST(Serialization, EnumCanonicalIndices) {
+  Enum min = EnumObj::_GetByIntIndex<SerializationIntEnumObj>(std::numeric_limits<int64_t>::min());
+  Enum max = EnumObj::_GetByIntIndex<SerializationIntEnumObj>(std::numeric_limits<int64_t>::max());
+  EXPECT_EQ(min.as_or_throw<SerializationIntEnum>()->_int_index,
+            std::numeric_limits<int64_t>::min());
+  EXPECT_EQ(max.as_or_throw<SerializationIntEnum>()->_int_index,
+            std::numeric_limits<int64_t>::max());
+  EXPECT_TRUE(EnumObj::_GetByStrIndex<SerializationIntEnumObj>("Min").same_as(min));
+  EXPECT_TRUE(EnumObj::_GetByStrIndex<SerializationIntEnumObj>("Max").same_as(max));
+  EXPECT_TRUE(EnumObj::_GetByIntIndex<SerializationStrEnumObj>(0).same_as(
+      EnumObj::_GetByStrIndex<SerializationStrEnumObj>("payload")));
+  EXPECT_THROW(EnumObj::_GetByIntIndex<SerializationIntEnumObj>(-1), Error);
+}
 
 TEST(Serialization, BoolNull) {
   json::Object expected_null =
@@ -660,6 +757,33 @@ TEST(Serialization, SharedObjectReferences) {
   EXPECT_EQ(result->body[0].get(), result->body[1].get());
 }
 
+TEST(Serialization, ArcAndObjectPtrFields) {
+  tvm::ffi::Arc<TIntObj> shared = make_arc<TIntObj>(42);
+  tvm::ffi::Arc<TIntObj> value = shared;
+  ObjectPtr<TNumberObj> alias = shared;
+  TObjectPtrHolder holder(std::move(value), std::move(alias));
+
+  Any deserialized = FromJSONGraph(ToJSONGraph(holder));
+  TObjectPtrHolder result = deserialized.cast<TObjectPtrHolder>();
+
+  ASSERT_NE(result->value, nullptr);
+  ASSERT_NE(result->optional_alias, nullptr);
+  EXPECT_EQ(result->value.get(), result->optional_alias.get());
+  ASSERT_TRUE(result->value->IsInstance<TIntObj>());
+  EXPECT_EQ(static_cast<TIntObj*>(result->value.get())->value, 42);
+}
+
+TEST(Serialization, NullableObjectPtrFieldNone) {
+  TObjectPtrHolder holder(make_arc<TIntObj>(42), nullptr);
+
+  Any deserialized = FromJSONGraph(ToJSONGraph(holder));
+  TObjectPtrHolder result = deserialized.cast<TObjectPtrHolder>();
+
+  ASSERT_NE(result->value, nullptr);
+  EXPECT_EQ(result->value->value, 42);
+  EXPECT_EQ(result->optional_alias, nullptr);
+}
+
 // ---------------------------------------------------------------------------
 // Nested objects
 // ---------------------------------------------------------------------------
@@ -817,6 +941,56 @@ TEST(Serialization, ErrorMissingRootIndex) {
 TEST(Serialization, ErrorMissingNodes) {
   json::Object graph{{"root_index", 0}};
   EXPECT_ANY_THROW(FromJSONGraph(graph));
+}
+
+// ---------------------------------------------------------------------------
+// Malformed-input validation: every case below must THROW an ffi::Error rather
+// than read out of bounds when deserializing an object graph.
+// ---------------------------------------------------------------------------
+TEST(Serialization, MalformedInput) {
+  // NOTE: use EXPECT_ANY_THROW rather than EXPECT_THROW(..., tvm::ffi::Error).
+  // FromJSONGraph is compiled into the shared library, so the tvm::ffi::Error it
+  // throws carries the library's typeinfo. On macOS (hidden-visibility typeinfo)
+  // that does not match the test executable's typeinfo, so an exact-type match
+  // spuriously fails even though the error is thrown correctly. This matches the
+  // other Serialization.Error* tests in this file, which also use EXPECT_ANY_THROW.
+  auto expect_throws = [](const json::Object& graph) { EXPECT_ANY_THROW(FromJSONGraph(graph)); };
+
+  // root_index points past the end of the nodes array.
+  expect_throws({{"root_index", 99}, {"nodes", json::Array{json::Object{{"type", "None"}}}}});
+
+  // root_index is negative.
+  expect_throws({{"root_index", -5}, {"nodes", json::Array{json::Object{{"type", "None"}}}}});
+
+  // A child reference inside an array node is out of range.
+  expect_throws(
+      {{"root_index", 0},
+       {"nodes", json::Array{json::Object{{"type", "ffi.Array"}, {"data", json::Array{42}}}}}});
+
+  // A key/value reference inside a map node is out of range.
+  expect_throws(
+      {{"root_index", 0},
+       {"nodes", json::Array{json::Object{{"type", "ffi.Map"}, {"data", json::Array{5, 6}}}}}});
+
+  // Map data has an odd number of entries (would read one past the end).
+  expect_throws({{"root_index", 0},
+                 {"nodes", json::Array{json::Object{{"type", "ffi.Map"}, {"data", json::Array{0}}},
+                                       json::Object{{"type", "int"}, {"data", 1}}}}});
+
+  // Device data has the wrong number of elements.
+  expect_throws(
+      {{"root_index", 0},
+       {"nodes", json::Array{json::Object{{"type", "Device"}, {"data", json::Array{1}}}}}});
+
+  // A node is missing the required "type" key.
+  expect_throws({{"root_index", 0}, {"nodes", json::Array{json::Object{{"data", 1}}}}});
+
+  // A node has the wrong value type for a child reference (string where an int
+  // index is expected).
+  expect_throws(
+      {{"root_index", 0},
+       {"nodes", json::Array{json::Object{{"type", "ffi.Array"},
+                                          {"data", json::Array{String("not-an-index")}}}}}});
 }
 
 // ---------------------------------------------------------------------------

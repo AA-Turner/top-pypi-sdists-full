@@ -147,6 +147,7 @@ class LineItemUsageSummary(google.protobuf.message.Message):
     RESERVED_BUDGET_EXHAUSTED_FIELD_NUMBER: builtins.int
     TOTAL_QUANTITY_FIELD_NUMBER: builtins.int
     RESERVED_SPEND_CENTS_FIELD_NUMBER: builtins.int
+    HAS_REMAINING_CAPACITY_FIELD_NUMBER: builtins.int
     line_item_uid: builtins.str
     """Refers to uid in sentry_protos.billing.v1.common.v1.LineItemDetails"""
     payg_spend_cents: builtins.int
@@ -172,6 +173,10 @@ class LineItemUsageSummary(google.protobuf.message.Message):
     period. Only set for members of a shared reserved-budget pool (e.g. Seer);
     0 for line items without a reserved budget.
     """
+    has_remaining_capacity: builtins.bool
+    """True when this line item can continue accepting usage from any capacity
+    source, including reserved, PAYG, or granted capacity.
+    """
     def __init__(
         self,
         *,
@@ -182,8 +187,9 @@ class LineItemUsageSummary(google.protobuf.message.Message):
         reserved_budget_exhausted: builtins.bool = ...,
         total_quantity: builtins.int = ...,
         reserved_spend_cents: builtins.int = ...,
+        has_remaining_capacity: builtins.bool = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["line_item_uid", b"line_item_uid", "payg_budget_exhausted", b"payg_budget_exhausted", "payg_spend_cents", b"payg_spend_cents", "quantity", b"quantity", "reserved_budget_exhausted", b"reserved_budget_exhausted", "reserved_spend_cents", b"reserved_spend_cents", "total_quantity", b"total_quantity"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["has_remaining_capacity", b"has_remaining_capacity", "line_item_uid", b"line_item_uid", "payg_budget_exhausted", b"payg_budget_exhausted", "payg_spend_cents", b"payg_spend_cents", "quantity", b"quantity", "reserved_budget_exhausted", b"reserved_budget_exhausted", "reserved_spend_cents", b"reserved_spend_cents", "total_quantity", b"total_quantity"]) -> None: ...
 
 global___LineItemUsageSummary = LineItemUsageSummary
 
@@ -195,12 +201,15 @@ class SharedLineItemUsageSummary(google.protobuf.message.Message):
     LINE_ITEM_SUMMARIES_FIELD_NUMBER: builtins.int
     PAYG_BUDGET_EXHAUSTED_FIELD_NUMBER: builtins.int
     RESERVED_BUDGET_EXHAUSTED_FIELD_NUMBER: builtins.int
+    HAS_REMAINING_CAPACITY_FIELD_NUMBER: builtins.int
     payg_spend_cents: builtins.int
     """Net cents consumed across all SKUs in this shared budget (after credits/trials applied)."""
     payg_budget_exhausted: builtins.bool
     """Whether the usage pricer had to cap the spend based on the budget set by the contract"""
     reserved_budget_exhausted: builtins.bool
     """false when this pool still has reserved quantity left."""
+    has_remaining_capacity: builtins.bool
+    """True when any member of this pool can continue accepting usage."""
     @property
     def line_item_summaries(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___LineItemUsageSummary]:
         """Line item breakdown within shared budget"""
@@ -212,8 +221,9 @@ class SharedLineItemUsageSummary(google.protobuf.message.Message):
         line_item_summaries: collections.abc.Iterable[global___LineItemUsageSummary] | None = ...,
         payg_budget_exhausted: builtins.bool = ...,
         reserved_budget_exhausted: builtins.bool = ...,
+        has_remaining_capacity: builtins.bool = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["line_item_summaries", b"line_item_summaries", "payg_budget_exhausted", b"payg_budget_exhausted", "payg_spend_cents", b"payg_spend_cents", "reserved_budget_exhausted", b"reserved_budget_exhausted"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["has_remaining_capacity", b"has_remaining_capacity", "line_item_summaries", b"line_item_summaries", "payg_budget_exhausted", b"payg_budget_exhausted", "payg_spend_cents", b"payg_spend_cents", "reserved_budget_exhausted", b"reserved_budget_exhausted"]) -> None: ...
 
 global___SharedLineItemUsageSummary = SharedLineItemUsageSummary
 

@@ -126,6 +126,9 @@ class TypeTable {
     if (it != type_key2index_.end()) {
       return type_table_[(*it).second]->type_index;
     }
+    if (parent_type_index == -2) {
+      return -2;
+    }
 
     // get parent's entry
     Entry* parent = [&]() -> Entry* {
@@ -621,41 +624,40 @@ namespace {
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace ffi = ::tvm::ffi;
   namespace refl = ::tvm::ffi::reflection;
-  refl::TypeAttrDef<ffi::Object>().def(
-      refl::type_attr::kConvert, &refl::details::FFIConvertFromAnyViewToObjectRef<ffi::ObjectRef>);
-  refl::TypeAttrDef<ffi::details::StringObj>().def(
-      refl::type_attr::kConvert, &refl::details::FFIConvertFromAnyViewToObjectRef<ffi::String>);
-  refl::TypeAttrDef<ffi::details::BytesObj>().def(
-      refl::type_attr::kConvert, &refl::details::FFIConvertFromAnyViewToObjectRef<ffi::Bytes>);
-  refl::TypeAttrDef<ffi::ErrorObj>().def(
-      refl::type_attr::kConvert, &refl::details::FFIConvertFromAnyViewToObjectRef<ffi::Error>);
-  refl::TypeAttrDef<ffi::FunctionObj>().def(
-      refl::type_attr::kConvert, &refl::details::FFIConvertFromAnyViewToObjectRef<ffi::Function>);
-  refl::TypeAttrDef<ffi::ShapeObj>().def(
-      refl::type_attr::kConvert, &refl::details::FFIConvertFromAnyViewToObjectRef<ffi::Shape>);
-  refl::TypeAttrDef<ffi::TensorObj>().def(
-      refl::type_attr::kConvert, &refl::details::FFIConvertFromAnyViewToObjectRef<ffi::Tensor>);
-  refl::TypeAttrDef<ffi::ArrayObj>().def(
-      refl::type_attr::kConvert,
-      &refl::details::FFIConvertFromAnyViewToObjectRef<ffi::Array<ffi::Any>>);
-  refl::TypeAttrDef<ffi::MapObj>().def(
-      refl::type_attr::kConvert,
-      &refl::details::FFIConvertFromAnyViewToObjectRef<ffi::Map<ffi::Any, ffi::Any>>);
+  refl::TypeAttrDef<ffi::Object>().def_convert<ffi::ObjectRef>();
+  refl::TypeAttrDef<ffi::details::StringObj>().def_convert<ffi::String>();
+  refl::TypeAttrDef<ffi::details::BytesObj>().def_convert<ffi::Bytes>();
+  refl::TypeAttrDef<ffi::ErrorObj>().def_convert<ffi::Error>();
+  refl::TypeAttrDef<ffi::FunctionObj>().def_convert<ffi::Function>();
+  refl::TypeAttrDef<ffi::ShapeObj>().def_convert<ffi::Shape>();
+  refl::TypeAttrDef<ffi::TensorObj>().def_convert<ffi::Tensor>();
+  refl::TypeAttrDef<ffi::ArrayObj>().def_convert<ffi::Array<ffi::Any>>();
+  refl::TypeAttrDef<ffi::MapObj>().def_convert<ffi::Map<ffi::Any, ffi::Any>>();
   // Skipped: TypeIndex::kTVMFFIModule
   // Skipped: TypeIndex::kTVMFFIOpaquePyObject
-  refl::TypeAttrDef<ffi::ListObj>().def(
-      refl::type_attr::kConvert,
-      &refl::details::FFIConvertFromAnyViewToObjectRef<ffi::List<ffi::Any>>);
-  refl::TypeAttrDef<ffi::DictObj>().def(
-      refl::type_attr::kConvert,
-      &refl::details::FFIConvertFromAnyViewToObjectRef<ffi::Dict<ffi::Any, ffi::Any>>);
+  refl::TypeAttrDef<ffi::ListObj>().def_convert<ffi::List<ffi::Any>>();
+  refl::TypeAttrDef<ffi::DictObj>().def_convert<ffi::Dict<ffi::Any, ffi::Any>>();
+  refl::ObjectDef<ffi::EnumStateObj>()
+      .def(refl::init<>())
+      .def_ro("entries", &ffi::EnumStateObj::entries, "Enum singletons in registration order.",
+              refl::init(false))
+      .def_ro("indexes", &ffi::EnumStateObj::indexes,
+              "Canonical integer and string indices to enum singletons.", refl::init(false))
+      .def_ro("attrs", &ffi::EnumStateObj::attrs,
+              "Extensible-attribute columns keyed by enum singleton.", refl::init(false));
   refl::ObjectDef<ffi::EnumObj>(refl::init(false))
-      .def_ro("_value", &ffi::EnumObj::_value, "Ordinal assigned at registration.",
+      .def_ro("_int_index", &ffi::EnumObj::_int_index, "Canonical integer index.",
               refl::AttachFieldFlag::SEqHashIgnore())
-      .def_ro("_name", &ffi::EnumObj::_name, "Instance name.");
-  refl::EnsureTypeAttrColumn(refl::type_attr::kEnumEntries);
-  refl::EnsureTypeAttrColumn(refl::type_attr::kEnumAttrs);
-  refl::EnsureTypeAttrColumn(refl::type_attr::kEnumValueEntries);
+      .def_ro("_str_index", &ffi::EnumObj::_str_index, "Canonical string index.");
+  refl::ObjectDef<ffi::IntEnumObj>(refl::init(false))
+      .def_ro("value", &ffi::EnumObj::_int_index, "Canonical integer index.", refl::init(false),
+              refl::AttachFieldFlag::SEqHashIgnore())
+      .def_convert<ffi::IntEnum>();
+  refl::ObjectDef<ffi::StrEnumObj>(refl::init(false))
+      .def_ro("value", &ffi::EnumObj::_str_index, "Canonical string index.", refl::init(false),
+              refl::AttachFieldFlag::SEqHashIgnore())
+      .def_convert<ffi::StrEnum>();
+  refl::EnsureTypeAttrColumn(refl::type_attr::kEnumState);
   refl::GlobalDef()
       .def_method("ffi.GetRegisteredTypeKeys",
                   []() -> ffi::Array<ffi::String> {

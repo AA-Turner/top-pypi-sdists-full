@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: huggingface_hub
-Version: 1.25.1
+Version: 1.26.0
 Summary: Client library to download and publish models, datasets and other repos on the huggingface.co hub
 Home-page: https://github.com/huggingface/huggingface_hub
 Author: Hugging Face, Inc.
@@ -61,7 +61,7 @@ Requires-Dist: pytest-env; extra == "testing"
 Requires-Dist: pytest-xdist; extra == "testing"
 Requires-Dist: pytest-vcr; extra == "testing"
 Requires-Dist: pytest-asyncio; extra == "testing"
-Requires-Dist: pytest-rerunfailures<16.0; extra == "testing"
+Requires-Dist: pytest-rerunfailures>=16.2; extra == "testing"
 Requires-Dist: pytest-mock; extra == "testing"
 Requires-Dist: urllib3<2.0; extra == "testing"
 Requires-Dist: soundfile; extra == "testing"
@@ -97,7 +97,7 @@ Requires-Dist: pytest-env; extra == "all"
 Requires-Dist: pytest-xdist; extra == "all"
 Requires-Dist: pytest-vcr; extra == "all"
 Requires-Dist: pytest-asyncio; extra == "all"
-Requires-Dist: pytest-rerunfailures<16.0; extra == "all"
+Requires-Dist: pytest-rerunfailures>=16.2; extra == "all"
 Requires-Dist: pytest-mock; extra == "all"
 Requires-Dist: urllib3<2.0; extra == "all"
 Requires-Dist: soundfile; extra == "all"
@@ -128,7 +128,7 @@ Requires-Dist: pytest-env; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: pytest-vcr; extra == "dev"
 Requires-Dist: pytest-asyncio; extra == "dev"
-Requires-Dist: pytest-rerunfailures<16.0; extra == "dev"
+Requires-Dist: pytest-rerunfailures>=16.2; extra == "dev"
 Requires-Dist: pytest-mock; extra == "dev"
 Requires-Dist: urllib3<2.0; extra == "dev"
 Requires-Dist: soundfile; extra == "dev"

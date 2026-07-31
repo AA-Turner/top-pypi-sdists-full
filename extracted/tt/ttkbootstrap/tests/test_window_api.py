@@ -8,6 +8,8 @@ Covers the parts that are checkable without a real display:
   `iconphoto=None` crash),
 - the consistent `style` property and the aqua `overrideredirect` guard.
 """
+import re
+import time
 import warnings
 
 import pytest
@@ -133,6 +135,24 @@ def test_ensure_on_screen_clamps_far_offscreen(root):
     assert y < root.winfo_screenheight()
 
 
+def _settled(window, tries=40):
+    """Wait until the window manager has actually placed `window`.
+
+    A geometry request is not applied synchronously. Until the window has been
+    mapped and positioned, `winfo_rootx()` can report a sentinel far off-screen
+    (-32730 under XWayland), so a test that reads it immediately measures
+    nothing at all -- and passes or fails on whether some earlier test happened
+    to pump the event loop for long enough.
+    """
+    for _ in range(tries):
+        window.update_idletasks()
+        window.update()
+        if window.winfo_rootx() > -10000:
+            return window
+        time.sleep(0.05)
+    return window
+
+
 def test_below_widget_drops_below_left_aligned(root):
     # A target with room beneath it: the popup's top-left sits at the target's
     # bottom-left (standard dropdown placement).
@@ -148,6 +168,26 @@ def test_below_widget_drops_below_left_aligned(root):
     target.destroy()
 
 
+def test_below_widget_stays_aligned_near_the_screen_edge(root):
+    # A dropdown is anchored to its widget, so the free-window breathing room in
+    # ensure_on_screen must not apply: with it, a target within 20px of the screen
+    # edge had its dropdown pushed inward, off the widget it belongs to, while
+    # nowhere near leaving the screen. Only a real overflow may move it.
+    top = ttk.Toplevel(size=(300, 200))
+    top.geometry("300x200+2+300")  # hard against the left edge
+    target = ttk.Frame(top, width=120, height=24)
+    target.place(x=0, y=0)
+    _settled(top)
+
+    popup = ttk.Toplevel(size=(200, 100))
+    popup.update_idletasks()
+    x, _ = positioning.below_widget(popup, target)
+    assert x == target.winfo_rootx(), "the dropdown drifted off its target"
+    popup.destroy()
+    target.destroy()
+    top.destroy()
+
+
 def test_below_widget_flips_above_when_no_room_below(root):
     # A target pinned near the bottom of its monitor: the popup flips to sit
     # above the target rather than overflowing the screen bottom.
@@ -156,8 +196,7 @@ def test_below_widget_flips_above_when_no_room_below(root):
     top.geometry(f"300x40+200+{screen_h - 60}")
     target = ttk.Frame(top, width=120, height=24)
     target.pack(padx=4, pady=4)
-    top.update_idletasks()
-    top.update()
+    _settled(top)
 
     popup = ttk.Toplevel(size=(200, 220))
     popup.update_idletasks()
@@ -167,6 +206,199 @@ def test_below_widget_flips_above_when_no_room_below(root):
     popup.destroy()
     target.destroy()
     top.destroy()
+
+
+# --------------------------------------------------------------------------
+# centering before the first map
+# --------------------------------------------------------------------------
+
+def test_geometry_records_the_size_it_applies(root):
+    win = ttk.Toplevel(master=root)
+    win.withdraw()
+    win.geometry("640x480")
+    assert win._applied_size == (640, 480)
+    # A move carries no size and must not clear the one already applied.
+    win.geometry("+10+10")
+    assert win._applied_size == (640, 480)
+    # `geometry("")` hands the window back to its natural size, so the
+    # remembered one stops being true and must not outlive it.
+    win.geometry("")
+    assert win._applied_size is None
+    win.destroy()
+
+
+def test_unmapped_size_prefers_the_size_that_was_applied(root):
+    # The whole point: a window's content request is nothing like the size a
+    # WxH geometry pins, and only the latter is what it will map at.
+    win = ttk.Toplevel(master=root, size=(600, 400))
+    ttk.Label(win, text="hi").pack()
+    win.withdraw()
+    win.update_idletasks()
+    assert win.winfo_reqwidth() < 600, "expected the content to ask for less"
+    assert win._unmapped_size() == (600, 400)
+    win.destroy()
+
+
+def test_showing_the_window_retires_the_recorded_size(root):
+    # A window manager resizes windows without going through `geometry` --
+    # maximize, a tiling layout, a frame drag -- so a size recorded before the
+    # window was shown cannot be trusted afterwards. The record is dropped on
+    # map, which is what makes the *newer* of the two sizes win without anyone
+    # tracking timestamps.
+    win = ttk.Toplevel(master=root, size=(300, 200))
+    ttk.Label(win, text="x").pack()
+    assert win._applied_size == (300, 200)
+    _settled(win)                     # showing it retires the record
+    assert win._applied_size is None
+    real = (win.winfo_width(), win.winfo_height())
+
+    win.withdraw()
+    assert win.winfo_width() > 1, "a shown window keeps its size while withdrawn"
+    assert win._unmapped_size() == real, "centering would use the size we no longer have"
+    win.destroy()
+
+
+def test_a_size_set_while_hidden_beats_the_last_shown_size(root):
+    # The other direction: a `geometry` call after the window was shown is a
+    # pending request, and the realized size is the stale one. Preferring the
+    # realized size unconditionally gets this backwards.
+    win = ttk.Toplevel(master=root, size=(300, 200))
+    ttk.Label(win, text="x").pack()
+    _settled(win)
+    win.withdraw()
+    win.geometry("800x600")
+    assert (win.winfo_width(), win.winfo_height()) != (800, 600), "expected winfo to lag"
+    assert win._unmapped_size() == (800, 600)
+    win.destroy()
+
+
+def test_unmapped_size_falls_back_to_content_raised_to_minsize(root):
+    # No size was ever applied, so the content's request stands -- but Tk will
+    # not map it smaller than minsize, so that floor is part of the answer.
+    win = ttk.Toplevel(master=root)
+    ttk.Label(win, text="hi").pack()
+    win.withdraw()
+    win.update_idletasks()
+    win.minsize(500, 300)
+    # The floor has to be the part doing the work, or this passes for the wrong
+    # reason -- assert a value, not the implementation's own expression.
+    assert win.winfo_reqwidth() < 500 and win.winfo_reqheight() < 300
+    assert win._unmapped_size() == (500, 300)
+    win.destroy()
+
+
+def test_place_window_center_before_first_map_uses_the_size_it_will_have(root):
+    # Centering a withdrawn window against its content request puts the window's
+    # top-left near the screen center rather than the window itself -- measured
+    # at ~(298, 216) out for a 600x400 window. This is what makes the
+    # withdraw -> center -> deiconify recipe (a window that appears centered
+    # instead of appearing and then jumping) actually land centered.
+    win = ttk.Toplevel(master=root, size=(600, 400))
+    ttk.Label(win, text="hi").pack()
+    win.withdraw()
+    win.update_idletasks()
+
+    applied = []
+    real = win.geometry
+
+    def spy(spec=None):
+        # Only a set call carries a spec; a query would append None and break
+        # the parse below.
+        if spec is not None:
+            applied.append(spec)
+        return real(spec)
+
+    win.geometry = spy
+    try:
+        win.place_window_center()
+    finally:
+        del win.geometry
+
+    def centered_for(size):
+        x, y = positioning.center_on_screen(win, size=size)
+        return positioning.ensure_on_screen(win, x, y, size=size)
+
+    assert applied, "no geometry was applied"
+    match = re.search(r"\+(-?\d+)\+(-?\d+)$", applied[-1])
+    assert match is not None, f"no +x+y in {applied[-1]!r}"
+    got = (int(match.group(1)), int(match.group(2)))
+    assert got == centered_for((600, 400))
+    request = (win.winfo_reqwidth(), win.winfo_reqheight())
+    assert got != centered_for(request), "centered against the content request"
+    win.destroy()
+
+
+def test_unmapped_size_ignores_the_size_a_never_shown_window_reports(root):
+    # The size a window reports before it has ever been shown is not the size
+    # it will map at, and *which* windows report one is platform-dependent: a
+    # Toplevel says 1x1, but on win32 the root says whatever size Tk started it
+    # at -- a plausible number that passes any "is this realized yet" check
+    # made of winfo alone. That is why being shown is tracked rather than
+    # inferred, and why the reported size is forced here: the root is shared
+    # across the suite and has long since been mapped.
+    win = ttk.Toplevel(master=root)
+    win.withdraw()
+    ttk.Label(win, text="wide enough that the content decides the size").pack(
+        padx=40, pady=40
+    )
+    win.update_idletasks()
+    request = (win.winfo_reqwidth(), win.winfo_reqheight())
+    assert request != (600, 200), "the forced size has to be the wrong answer"
+
+    win.winfo_width = lambda: 600
+    win.winfo_height = lambda: 200
+    assert win._unmapped_size() == request
+    win.destroy()
+
+
+def test_being_shown_is_noticed(root):
+    # The flag is now the only evidence a window was realized, so the event
+    # that sets it has to actually arrive. (Asserting the predicted size
+    # against the realized one would be stricter than the contract: a tiling
+    # window manager sizes a new toplevel to the workspace regardless of what
+    # it asked for.)
+    win = ttk.Toplevel(master=root)
+    win.withdraw()
+    ttk.Label(win, text="x").pack()
+    win.update_idletasks()
+    assert not win._ever_shown
+    win.deiconify()
+    _settled(win)
+    assert win._ever_shown, "the window was shown and nothing noticed"
+    win.destroy()
+
+
+def test_a_stale_map_does_not_retire_a_newer_size(root):
+    # These events are dispatched when the event queue is drained, not when
+    # they occur, so a map the window has since been withdrawn from can arrive
+    # *after* a newer size was recorded. Retiring the record on that event
+    # discards the pending size and centers against one the window no longer
+    # has -- the "newer size wins" invariant, backwards.
+    win = ttk.Toplevel(master=root)
+    ttk.Label(win, text="x").pack()
+    _settled(win)
+    win.withdraw()
+    win.geometry("800x600")
+    # Delivered directly rather than by racing the queue: whether a real map is
+    # still pending after `update_idletasks` is a window-manager timing detail,
+    # and the rule under test ("an event that arrives while the window is not
+    # on screen is stale") holds regardless of how the event got there.
+    win.event_generate("<Map>", when="now")
+    assert win._unmapped_size() == (800, 600)
+    win.destroy()
+
+
+def test_a_size_applied_while_shown_is_not_a_pending_request(root):
+    # A `geometry` call on a window already on screen takes effect at once, so
+    # there is no next map to retire it. Left recorded, it would outlive any
+    # later resize and be preferred over the size the window really has.
+    win = ttk.Toplevel(master=root)
+    ttk.Label(win, text="x").pack()
+    _settled(win)
+    win.geometry("400x300")
+    _settled(win)
+    assert win._applied_size is None
+    win.destroy()
 
 
 # --------------------------------------------------------------------------
@@ -457,3 +689,93 @@ def test_on_close_on_app_root_veto(root):
     _fire_close(root)
     assert calls == [1] and root.winfo_exists()
     root.protocol("WM_DELETE_WINDOW", "")  # reset so the shared root is untouched
+
+
+# --- monitor discovery -----------------------------------------------------
+#
+# Tk exposes no monitor enumeration on any platform, so the layout comes from
+# screeninfo when installed and from X11's Xinerama extension otherwise. The
+# ctypes query itself needs a real X server; these cover the chain around it.
+
+def test_xinerama_query_is_skipped_off_x11(monkeypatch):
+    # It must not try to load libX11 on Windows or macOS.
+    import sys
+
+    loaded = []
+    monkeypatch.setattr(positioning, "_load_library", lambda name: loaded.append(name))
+    for platform in ("win32", "darwin", "cygwin"):
+        monkeypatch.setattr(positioning, "_XINERAMA_UNAVAILABLE", False)
+        monkeypatch.setattr(sys, "platform", platform)
+        assert positioning._xinerama_monitors() is None
+    assert loaded == []
+
+
+def test_monitors_falls_back_to_xinerama_without_screeninfo(monkeypatch):
+    layout = [(0, 0, 1920, 1080), (1920, 0, 2560, 1440)]
+    monkeypatch.setattr(positioning, "_HAS_SCREENINFO", False)
+    monkeypatch.setattr(positioning, "_xinerama_monitors", lambda: layout)
+    assert positioning._monitors() == layout
+    # and a point resolves to the monitor that contains it, not the first one
+    assert positioning._monitor_at_point(2000, 500) == (1920, 0, 2560, 1440)
+
+
+def test_monitors_falls_back_when_screeninfo_raises(monkeypatch):
+    layout = [(0, 0, 1920, 1080)]
+    monkeypatch.setattr(positioning, "_HAS_SCREENINFO", True)
+    monkeypatch.setattr(
+        positioning, "get_monitors", lambda: (_ for _ in ()).throw(RuntimeError("no display")),
+        raising=False,
+    )
+    monkeypatch.setattr(positioning, "_xinerama_monitors", lambda: layout)
+    assert positioning._monitors() == layout
+
+
+def test_monitor_at_point_returns_none_when_no_source_answers(monkeypatch):
+    monkeypatch.setattr(positioning, "_HAS_SCREENINFO", False)
+    monkeypatch.setattr(positioning, "_xinerama_monitors", lambda: None)
+    assert positioning._monitor_at_point(10, 10) is None
+
+
+def test_placement_stays_on_screen_when_no_layout_is_available(root, monkeypatch):
+    # macOS without `screeninfo` has no monitor enumeration at all -- Xinerama is
+    # X11-only -- so the layout is unknown and placement falls back to Tk's own
+    # screen metrics. We cannot test multi-monitor aqua without the hardware, so
+    # pin the property that makes the unknown safe: with no layout, a window still
+    # lands fully inside the screen Tk describes. The worst case is then landing
+    # on the wrong display, never straddling two or hanging off the edge.
+    monkeypatch.setattr(positioning, "_HAS_SCREENINFO", False)
+    monkeypatch.setattr(positioning, "_xinerama_monitors", lambda: None)
+    assert positioning._monitors() is None
+
+    win = ttk.Toplevel(master=root, size=(400, 200))
+    win.withdraw()
+    win.update_idletasks()
+    size = (400, 200)
+
+    # centering falls back to winfo_screenwidth/height, anchored at the origin
+    x, y = positioning.center_on_screen(win, size=size)
+    assert 0 <= x and x + size[0] <= win.winfo_screenwidth()
+    assert 0 <= y and y + size[1] <= win.winfo_screenheight()
+
+    # clamping falls back to the virtual root; a point hard against the right
+    # edge is pulled back far enough for the whole window to fit
+    right_edge = win.winfo_vrootx() + win.winfo_vrootwidth()
+    cx, _ = positioning.ensure_on_screen(win, right_edge - 10, 0, size=size)
+    assert cx + size[0] <= right_edge
+    win.destroy()
+
+
+def test_clamp_uses_the_monitor_under_the_point_not_the_whole_desktop(root, monkeypatch):
+    # The case that motivated this: two monitors side by side, a window that
+    # would straddle the join. Clamping against the combined desktop leaves it
+    # straddling; clamping against the monitor pulls it fully onto one screen.
+    monkeypatch.setattr(positioning, "_HAS_SCREENINFO", False)
+    monkeypatch.setattr(
+        positioning, "_xinerama_monitors", lambda: [(0, 0, 1920, 1080), (1920, 0, 1920, 1080)]
+    )
+    top = ttk.Toplevel(title="child", size=(400, 200))
+    top.update_idletasks()
+    # ask to sit across the seam at x=1920
+    x, _ = positioning.ensure_on_screen(top, 1800, 300, size=(400, 200))
+    assert x + 400 <= 1920, "the window should be pulled fully onto the left monitor"
+    top.destroy()

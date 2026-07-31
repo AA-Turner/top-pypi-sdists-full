@@ -67,6 +67,10 @@ def test_echo() -> None:
     assert isinstance(dtype_result, tvm_ffi.dtype)
     assert dtype_result == tvm_ffi.dtype("float32")
 
+    c_dtype_result = fecho(tvm_ffi.core.DataType("float32"))
+    assert isinstance(c_dtype_result, tvm_ffi.dtype)
+    assert c_dtype_result == tvm_ffi.dtype("float32")
+
     # test device
     device_result = fecho(tvm_ffi.device("cuda:1"))
     assert isinstance(device_result, tvm_ffi.Device)
@@ -105,6 +109,16 @@ def test_echo() -> None:
         assert tensor_result.device.index == 0
 
     check_tensor()
+
+
+def test_typed_device_arg_accepts_string() -> None:
+    schema_id_device = tvm_ffi.get_global_func("testing.schema_id_device")
+    result = schema_id_device("cpu")
+    assert isinstance(result, tvm_ffi.Device)
+    assert result == tvm_ffi.device("cpu", 0)
+
+    result = schema_id_device("cuda:1")
+    assert result == tvm_ffi.device("cuda", 1)
 
 
 def test_return_raw_str_bytes() -> None:
@@ -178,39 +192,41 @@ def test_global_func() -> None:
 
 
 def test_rvalue_ref() -> None:
+    # Under universal cache-on the callback's arg aliases the caller's
+    # wrapper, so use_count inside is 1 (one wrapper, one chandle ref).
+    # ``_move()`` on either side detaches that wrapper's binding before
+    # the C++ AnyViewToOwnedAny transfer nulls the source chandle.
     use_count = tvm_ffi.get_global_func("testing.object_use_count")
 
     def callback(x: Any, expected_count: int) -> Any:
-        # The use count of TVM FFI objects is decremented as part of
-        # `ObjectRef.__del__`, which runs when the Python object is
-        # destructed.  However, Python object destruction is not
-        # deterministic, and even CPython's reference-counting is
-        # considered an implementation detail.  Therefore, to ensure
-        # correct results from this test, `gc.collect()` must be
-        # explicitly called.
+        # ``gc.collect()`` ensures Python destructors have run so
+        # use_count reflects only live wrappers.
         gc.collect()
         assert expected_count == use_count(x)
         return x._move()
 
     f = tvm_ffi.convert(callback)
 
-    def check0() -> None:
+    def check_caller_move() -> None:
+        # Caller passes ``x._move()``: callback receives a fresh canonical
+        # wrapper for the moved-in chandle.
         x = tvm_ffi.convert([1, 2])
         assert use_count(x) == 1
-        f(x, 2)
         f(x._move(), 1)
         assert x.__ctypes_handle__().value is None
 
-    def check1() -> None:
+    def check_callback_move() -> None:
+        # Callback returns ``x._move()``: caller sees a fresh canonical
+        # wrapper, distinct from the now-empty ``x``.
         x = tvm_ffi.convert([1, 2])
         assert use_count(x) == 1
-        y = f(x, 2)
-        f(x._move(), 2)
+        y = f(x, 1)
+        assert y is not x
         assert x.__ctypes_handle__().value is None
         assert y.__ctypes_handle__().value is not None
 
-    check0()
-    check1()
+    check_caller_move()
+    check_callback_move()
 
 
 def test_echo_with_opaque_object() -> None:
@@ -448,23 +464,25 @@ def test_convert_func_with_torch_tensor_cls() -> None:
     the outer caller's conversion path, so we verify shape survives the
     round-trip rather than isinstance on the return.
     """
+    assert torch is not None
+    torch_mod = torch
     calls = 0
 
     def callback(a: Any, b: Any, c: Any) -> Any:
         nonlocal calls
         calls += 1
-        assert isinstance(a, torch.Tensor)
-        assert isinstance(b, torch.Tensor)
-        assert isinstance(c, torch.Tensor)
+        assert isinstance(a, torch_mod.Tensor)
+        assert isinstance(b, torch_mod.Tensor)
+        assert isinstance(c, torch_mod.Tensor)
         assert list(a.shape) == [2]
         assert list(b.shape) == [3]
         assert list(c.shape) == [4]
         return b
 
-    f = tvm_ffi.convert_func(callback, tensor_cls=torch.Tensor)
-    a = torch.zeros(2)
-    b = torch.ones(3)
-    c = torch.full((4,), 2.0)
+    f = tvm_ffi.convert_func(callback, tensor_cls=torch_mod.Tensor)
+    a = torch_mod.zeros(2)
+    b = torch_mod.ones(3)
+    c = torch_mod.full((4,), 2.0)
     out = f(a, b, c)
     assert calls == 1
     assert tuple(out.shape) == (3,)
@@ -505,7 +523,7 @@ def test_callback_rawstr_and_bytearrayptr_args() -> None:
 
     # --- kTVMFFIRawStr path ---
     str_received: list[Any] = []
-    str_cb = tvm_ffi.convert(lambda x: str_received.append(x))
+    str_cb = tvm_ffi.convert(str_received.append)
     mod.invoke_with_raw_str(str_cb)
     assert len(str_received) == 1
     assert isinstance(str_received[0], str), f"expected str, got {type(str_received[0])}"
@@ -513,7 +531,7 @@ def test_callback_rawstr_and_bytearrayptr_args() -> None:
 
     # --- kTVMFFIByteArrayPtr path ---
     bytes_received: list[Any] = []
-    bytes_cb = tvm_ffi.convert(lambda x: bytes_received.append(x))
+    bytes_cb = tvm_ffi.convert(bytes_received.append)
     mod.invoke_with_byte_array_ptr(bytes_cb)
     assert len(bytes_received) == 1
     assert isinstance(bytes_received[0], bytes), f"expected bytes, got {type(bytes_received[0])}"

@@ -8,7 +8,6 @@ import numpy as np
 
 from zarr.core.common import NamedConfig
 from zarr.core.dtype.common import (
-    DataTypeValidationError,
     DTypeConfig_V2,
     DTypeJSON,
     HasItemSize,
@@ -23,6 +22,7 @@ from zarr.core.dtype.npy.common import (
     check_json_str,
 )
 from zarr.core.dtype.wrapper import TBaseDType, TBaseScalar, ZDType
+from zarr.errors import DataTypeValidationError
 
 if TYPE_CHECKING:
     from zarr.core.common import JSON, ZarrFormat
@@ -278,15 +278,16 @@ class Structured(ZDType[np.dtypes.VoidDType[int], np.void], HasItemSize):
             # structured dtypes are constructed directly from a list of lists
             # note that we do not handle the object codec here! this will prevent structured
             # dtypes from containing object dtypes.
+            name = data["name"]
             return cls(
-                fields=tuple(  # type: ignore[misc]
+                fields=tuple(  # type: ignore[str-unpack]
                     (  # type: ignore[misc]
                         f_name,
                         get_data_type_from_json(
                             {"name": f_dtype, "object_codec_id": None}, zarr_format=2
                         ),
                     )
-                    for f_name, f_dtype in data["name"]
+                    for f_name, f_dtype in name
                 )
             )
         msg = f"Invalid JSON representation of {cls.__name__}. Got {data!r}, expected a JSON array of arrays"
@@ -588,7 +589,9 @@ class Struct(Structured):
             ]
             return {"name": fields_v2, "object_codec_id": None}
         elif zarr_format == 3:
-            v3_unstable_dtype_warning(self)
+            # The "struct" data type has a stable Zarr V3 specification
+            # (https://github.com/zarr-developers/zarr-extensions/tree/main/data-types/struct),
+            # so unlike the legacy "structured" alias it does not emit an unstable-spec warning.
             fields_v3 = [
                 {"name": f_name, "data_type": f_dtype.to_json(zarr_format=zarr_format)}
                 for f_name, f_dtype in self.fields

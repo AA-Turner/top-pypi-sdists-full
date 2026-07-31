@@ -120,7 +120,9 @@ def build_result_protocol_block(
             "## RESULT PROTOCOL (required)\n"
             f"When you are done, write your FINAL answer as a single JSON document to:\n"
             f"    {target}\n"
-            "Create the parent directory if it does not exist. The JSON MUST validate "
+            "That directory ALREADY EXISTS — copy the path above exactly (do not retype "
+            "it, and do not create a new directory: if the target directory seems "
+            "missing, your path is mistyped). The JSON MUST validate "
             "against this JSON Schema (Draft 2020-12):\n"
             "```json\n"
             f"{schema_json}\n"
@@ -134,7 +136,9 @@ def build_result_protocol_block(
         "## RESULT PROTOCOL (required)\n"
         f"When you are done, write your FINAL answer to:\n"
         f"    {target}\n"
-        "Create the parent directory if it does not exist. This file is the sole channel "
+        "That directory ALREADY EXISTS — copy the path above exactly (do not retype it, "
+        "and do not create a new directory: if the target directory seems missing, your "
+        "path is mistyped). This file is the sole channel "
         "for your result; anything you print to stdout is ignored."
     )
 

@@ -3,6 +3,7 @@ from typing import Any
 import httpx
 
 from mistralai.workflows.client import _get_async_client
+from mistralai.workflows.core.auth import TokenProvider, get_token_provider
 from mistralai.workflows.core.config.config import config
 from mistralai.workflows.worker_client.sdk import PrivateWorkerClient
 
@@ -30,9 +31,13 @@ def get_worker_client(
     timeout: float = 60.0,
     api_key: str | None = None,
     headers: httpx.Headers | dict[str, str] | None = None,
+    token_provider: TokenProvider | None = None,
 ) -> PrivateWorkerClient:
     resolved_base_url = (base_url or config.worker.server_url).rstrip("/")
-    async_client = _get_async_client(timeout=timeout, api_key=api_key, headers=headers)
+    provider = token_provider or get_token_provider(api_key)
+    async_client = _get_async_client(
+        timeout=timeout, token_provider=provider, headers=headers, server_url=resolved_base_url
+    )
     client = PrivateWorkerClient(
         server_url=resolved_base_url,
         client=_NoopSyncClient(),

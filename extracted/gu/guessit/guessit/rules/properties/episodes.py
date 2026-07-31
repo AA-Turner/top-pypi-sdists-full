@@ -44,6 +44,8 @@ _CJK_DIGITS = {
     "九": 9,
 }
 
+_SEPS_RE = re.compile(rf"[{re.escape(seps)}]+")
+
 # ASCII digits or Han numerals up to 99 (十一 -> 11, 二十三 -> 23, single digit otherwise).
 cjk_number = r"(?:\d{1,4}|[一二两三四五六七八九]?十[一二两三四五六七八九]?|[零一二两三四五六七八九])"
 
@@ -232,6 +234,9 @@ def episodes(config: dict[str, Any]) -> Rebulk:
     season_max_range = config["season_max_range"]
     max_range_gap = config["max_range_gap"]
 
+    season_ep_marker_pattern = build_or_pattern(season_ep_markers, name="episodeMarker")
+    asymmetric_season_ep_marker = r"(?!@" + build_or_pattern(season_ep_markers) + r"\d)"
+
     rebulk = (
         Rebulk()
         .regex_defaults(flags=re.IGNORECASE)
@@ -293,7 +298,9 @@ def episodes(config: dict[str, Any]) -> Rebulk:
         validator={"__parent__": and_(seps_surround, ordering_validator)},
         disabled=is_season_episode_disabled,
     ).defaults(tags=["SxxExx"]).regex(
-        r"(?P<season>\d+)@?" + build_or_pattern(season_ep_markers, name="episodeMarker") + r"@?(?P<episode>\d+)"
+        # A separator before the marker requires one after it too: "1x03" and "1 x 03" are episodes,
+        # while "1080.x264" is a number followed by a codec token (#933).
+        r"(?P<season>\d+)" + asymmetric_season_ep_marker + r"@?" + season_ep_marker_pattern + r"@?(?P<episode>\d+)"
     ).repeater("+")
 
     rebulk.chain(
@@ -302,7 +309,7 @@ def episodes(config: dict[str, Any]) -> Rebulk:
         validator={"__parent__": and_(seps_surround, ordering_validator)},
         disabled=is_season_episode_disabled,
     ).defaults(tags=["SxxExx"]).regex(
-        r"(?P<season>\d+)@?" + build_or_pattern(season_ep_markers, name="episodeMarker") + r"@?(?P<episode>\d+)"
+        r"(?P<season>\d+)" + asymmetric_season_ep_marker + r"@?" + season_ep_marker_pattern + r"@?(?P<episode>\d+)"
     ).regex(
         build_or_pattern(
             season_ep_markers + discrete_separators + range_separators, name="episodeSeparator", escape=True
@@ -375,13 +382,16 @@ def episodes(config: dict[str, Any]) -> Rebulk:
 
     # Non-English convention where the number precedes the keyword:
     #   "1ª Temporada", "3 сезон", "5-й сезон", "2.Sezon" (season); "24 серия", "7.Bölüm" (episode).
-    # An optional ordinal suffix (ª/º/°, Portuguese a/o, Russian -й/-я/…) may sit between the two.
+    # An optional ordinal suffix (ª/º/°, Portuguese a/o, Russian -й/-я/…) may sit between the two,
+    # and the total may follow the keyword ("5 серия из 12"), as it does in the word-first patterns.
+    of_count = r"(?:@?" + build_or_pattern(of_words) + r"@?(?P<count>\d+))?"
     rebulk.regex(
         r"(?P<season>\d{1,2})"
         + ordinal_suffix
         + r"@?@?"
         + build_or_pattern(season_words_numfirst, name="seasonMarker")
-        + r"(?![^\W\d_])",
+        + r"(?![^\W\d_])"
+        + of_count,
         tags=["SxxExx", "numfirst"],
         formatter={"season": parse_numeral},
         disabled=is_season_episode_disabled,
@@ -391,7 +401,8 @@ def episodes(config: dict[str, Any]) -> Rebulk:
         + ordinal_suffix
         + r"@?@?"
         + build_or_pattern(episode_words_numfirst, name="episodeMarker")
-        + r"(?![^\W\d_])",
+        + r"(?![^\W\d_])"
+        + of_count,
         tags=["SxxExx", "numfirst"],
         formatter={"episode": parse_numeral},
         disabled=lambda context: is_disabled(context, "episode"),
@@ -409,8 +420,12 @@ def episodes(config: dict[str, Any]) -> Rebulk:
         disabled=lambda context: context.get("type") == "episode" or is_disabled(context, "episode"),
     )
 
+    # A roman numeral can be read out of the letters a longer marker continues with ("Ep" then
+    # "i" of "Episodio"), so the marker only counts when it ends on a word boundary. The digit
+    # variant above needs no such guard: a letter can never start its number.
     rebulk.regex(
         build_or_pattern(episode_words, name="episodeMarker")
+        + r"(?![^\W\d_])"
         + r"-?-?(?:(?:№|#)-?)?(?P<episode>"
         + numeral
         + ")"
@@ -538,7 +553,8 @@ def episodes(config: dict[str, Any]) -> Rebulk:
         SeePatternRange([*range_separators, "_"]),
         EpisodeNumberSeparatorRange(range_separators),
         SeasonSeparatorRange(range_separators),
-        RemoveWeakIfMovie,
+        RemoveWeakIfMovie(episode_words),
+        RemoveMisleadingLoneDigitEpisode,
         RemoveWeakIfSxxExx,
         RemoveWeakDuplicate,
         EpisodeDetailValidator,
@@ -759,17 +775,29 @@ class CountValidator(Rule):
         season_count: list[Match] = []
 
         for count in matches.named("count"):
-            previous = matches.previous(count, lambda match: match.name in ["episode", "season"], 0)
-            if previous:
-                if previous.name == "episode":
-                    episode_count.append(count)
-                elif previous.name == "season":
-                    season_count.append(count)
-            else:
+            numbered = self._numbered_by(matches, count)
+            if numbered is None:
                 to_remove.append(count)
+            elif numbered.name == "episode":
+                episode_count.append(count)
+            else:
+                season_count.append(count)
         if to_remove or episode_count or season_count:
             return to_remove, episode_count, season_count
         return False
+
+    @staticmethod
+    def _numbered_by(matches: Matches, count: Match) -> Match | None:
+        """The episode or season the count belongs to: the last one its own match holds.
+
+        Scoped to the count's match rather than to the nearest neighbour, because another property
+        can sit on the linking word itself — "de" is the German language code as much as it is the
+        Spanish "of" — and would then hide the number the count completes.
+        """
+        numbers = matches.range(
+            count.initiator.start, count.start, predicate=lambda match: match.name in ("episode", "season")
+        )
+        return numbers[-1] if numbers else None
 
 
 class SeePatternRange(Rule):
@@ -955,13 +983,36 @@ class SeasonSeparatorRange(AbstractSeparatorRange):
 class RemoveWeakIfMovie(Rule):
     """
     Remove weak-episode tagged matches if it seems to be a movie.
+
+    A year in the part is a movie signal strong enough to drop the weak readings, whatever the
+    requested type: forcing `type=episode` must not turn the leading number of a title into an
+    episode ("12.Angry.Men.1957" stays "12 Angry Men" + year 1957). Weak matches carrying an
+    explicit marker ("Episodio 13") are numbered on purpose and stay (#939).
     """
 
     priority = 64
     consequence = RemoveMatch
 
-    def enabled(self, context: dict[str, Any] | None) -> bool:
-        return bool(context and context.get("type") != "episode")
+    def __init__(self, episode_words: list[str]) -> None:
+        super().__init__()
+        self.episode_words = episode_words
+
+    def _is_numbered_on_purpose(self, matches: Matches, match: Match) -> bool:
+        """Whether the number carries an explicit marker ("Episodio 13", "S01E02")."""
+        initiator = match.initiator
+        if initiator is not None and (
+            initiator.children.named("episodeMarker") or initiator.children.named("seasonMarker")
+        ):
+            return True
+
+        # The word must sit in the same filepart: a parent directory named "Episode" says nothing
+        # about a number in the filename below it.
+        filepart = matches.markers.at_match(match, lambda marker: marker.name == "path", 0)
+        start = filepart.start if filepart else 0
+        preceding = (match.input_string or "")[start : match.start].strip(seps)
+        if not preceding:
+            return False
+        return _SEPS_RE.split(preceding)[-1].lower() in self.episode_words
 
     def when(self, matches: Matches, context: dict[str, Any] | None) -> Any:
         to_remove: list[Match] = []
@@ -989,7 +1040,14 @@ class RemoveWeakIfMovie(Rule):
         if remove:
             to_remove.extend(
                 matches.tagged(
-                    "weak-episode", predicate=(lambda m: m.initiator not in to_ignore and "anime" not in m.tags)
+                    "weak-episode",
+                    predicate=(
+                        lambda m: (
+                            m.initiator not in to_ignore
+                            and "anime" not in m.tags
+                            and not self._is_numbered_on_purpose(matches, m)
+                        )
+                    ),
                 )
             )
 
@@ -1051,6 +1109,102 @@ class RemoveWeak(Rule):
         if to_remove or to_append:
             return to_remove, to_append
         return False
+
+
+class RemoveMisleadingLoneDigitEpisode(Rule):
+    """
+    Remove a lone digit read as an episode while it plainly numbers something else.
+
+    Only a forced `type=episode` reads a single digit as an episode, and that pattern fires
+    wherever a digit sits — including inside a release group, in a parent directory, or in the
+    tail of a title — where it then evicts whatever owned that span. Such a digit is discarded
+    when it cannot be part of the episode numbering: quoted in a bracketed group, sitting in a
+    non-final path part, behind the dot of a decimal number, or unable to extend a marked episode
+    list (a list grows rightwards from its marker and stays glued to it, as in "E01 02 03")
+    (#943, #948).
+
+    Runs before anything is carved out of the name (rebulk executes rules by decreasing priority),
+    so the freed span goes back to the title instead of leaving a hole behind.
+    """
+
+    priority = PRE_PROCESS + 1
+    consequence = RemoveMatch
+
+    def enabled(self, context: dict[str, Any] | None) -> bool:
+        return bool(context and context.get("type") == "episode")
+
+    def when(self, matches: Matches, context: dict[str, Any] | None) -> Any:
+        to_remove: list[Match] = []
+        fileparts = matches.markers.named("path")
+        for index, filepart in enumerate(fileparts):
+            episodes_ = sorted(
+                matches.range(filepart.start, filepart.end, predicate=lambda m: m.name == "episode"),
+                key=lambda m: (m.start, m.end),
+            )
+            in_final_part = index == len(fileparts) - 1
+            misplaced = [
+                episode
+                for episode in episodes_
+                if self._is_lone_digit(episode)
+                and (
+                    self._numbers_something_else(matches, episode, in_final_part) or self._fraction_of_a_number(episode)
+                )
+            ]
+            kept = [episode for episode in episodes_ if episode not in misplaced]
+            misplaced.extend(self._detached_from_list(kept))
+
+            for episode in misplaced:
+                to_remove.extend(self._whole_match(matches, episode))
+
+        return to_remove
+
+    @staticmethod
+    def _is_lone_digit(episode: Match) -> bool:
+        return "weak-episode" in episode.tags and len(episode.raw or "") == 1
+
+    @staticmethod
+    def _numbers_something_else(matches: Matches, episode: Match, in_final_part: bool) -> bool:
+        """A digit numbering a parent directory ("/Volumes/data-1/…") or a quoted group ("[t.3.3.d]")."""
+        quoted = matches.markers.at_match(episode, lambda marker: marker.name == "group", 0)
+        return not in_final_part or bool(quoted)
+
+    @staticmethod
+    def _fraction_of_a_number(episode: Match) -> bool:
+        """A digit behind the dot of a decimal number ("02.5"): a half episode, not a second one."""
+        before = (episode.input_string or "")[: episode.start]
+        return len(before) > 1 and before[-1] == "." and before[-2].isdigit()
+
+    @classmethod
+    def _detached_from_list(cls, episodes_: list[Match]) -> list[Match]:
+        """Lone digits that cannot extend the marked episode list of their filepart."""
+        anchor = next((episode for episode in episodes_ if "weak-episode" not in episode.tags), None)
+        if anchor is None:
+            return []
+
+        detached: list[Match] = []
+        previous = anchor
+        for episode in episodes_:
+            if episode.end <= anchor.start:
+                if cls._is_lone_digit(episode):
+                    detached.append(episode)
+                continue
+
+            between = (episode.input_string or "")[previous.end : episode.start].strip(seps)
+            if between and cls._is_lone_digit(episode):
+                detached.append(episode)
+            else:
+                previous = episode
+
+        return detached
+
+    @staticmethod
+    def _whole_match(matches: Matches, episode: Match) -> list[Match]:
+        """The match and the private ones holding its span, so the freed text becomes a hole again."""
+        return matches.range(
+            episode.start,
+            episode.end,
+            predicate=lambda m: "weak-episode" in m.tags and m.start >= episode.start and m.end <= episode.end,
+        )
 
 
 class RemoveWeakIfSxxExx(Rule):

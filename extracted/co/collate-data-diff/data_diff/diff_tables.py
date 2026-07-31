@@ -11,13 +11,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import attrs
 
-from data_diff.errors import DataDiffMismatchingKeyTypesError
+from data_diff.errors import DataDiffMismatchingKeyTypesError, DataDiffUnsupportedKeyValueError
 from data_diff.info_tree import InfoTree, SegmentInfo
 from data_diff.utils import dbt_diff_string_template, run_as_daemon, safezip, getLogger, truncate_error, Vector
 from data_diff.thread_utils import ThreadedYielder
 from data_diff.table_segment import TableSegment, create_mesh_from_points
 from data_diff.tracking import create_end_event_json, create_start_event_json, send_event_json, is_tracking_enabled
-from data_diff.abcs.database_types import IKey
+from data_diff.abcs.database_types import IKey, ColType_Alphanum
 
 logger = getLogger(__name__)
 
@@ -309,7 +309,7 @@ class TableDiffer(ThreadBase, ABC):
         key_ranges = self._threaded_call_as_completed("query_key_range", [table1, table2])
 
         # Start with the first completed value, so we don't waste time waiting
-        min_key1, max_key1 = self._parse_key_range_result(key_types1, next(key_ranges))
+        min_key1, max_key1 = self._parse_key_range_result(key_types1, next(key_ranges), table1.key_columns)
 
         btable1 = table1.new_key_bounds(min_key=min_key1, max_key=max_key1, key_types=key_types1)
         btable2 = table2.new_key_bounds(min_key=min_key1, max_key=max_key1, key_types=key_types2)
@@ -337,7 +337,7 @@ class TableDiffer(ThreadBase, ABC):
         # Overall, the max number of new regions in this 2nd pass is 3^|k| - 1
 
         # Note: python types can be the same, but the rendering parameters (e.g. casing) can differ.
-        min_key2, max_key2 = self._parse_key_range_result(key_types2, next(key_ranges))
+        min_key2, max_key2 = self._parse_key_range_result(key_types2, next(key_ranges), table2.key_columns)
 
         points = [list(sorted(p)) for p in safezip(min_key1, min_key2, max_key1, max_key2)]
         box_mesh = create_mesh_from_points(*points)
@@ -351,17 +351,47 @@ class TableDiffer(ThreadBase, ABC):
 
         return ti
 
-    def _parse_key_range_result(self, key_types, key_range) -> Tuple[Vector, Vector]:
+    def _parse_key_range_result(self, key_types, key_range, key_columns=None) -> Tuple[Vector, Vector]:
         min_key_values, max_key_values = key_range
 
         # We add 1 because our ranges are exclusive of the end (like in Python)
         try:
             min_key = Vector(key_type.make_value(mn) for key_type, mn in safezip(key_types, min_key_values))
             max_key = Vector(key_type.make_value(mx) + 1 for key_type, mx in safezip(key_types, max_key_values))
-        except (TypeError, ValueError) as e:
+        except ValueError as e:
+            # A key value could not be mapped to a bisectable range. For an
+            # alphanumeric string key this means its min/max contain characters
+            # outside data-diff's bisection alphabet (e.g. '.', accents, other
+            # non-ASCII) — such keys can't be bisected safely, so we surface an
+            # actionable message. Other value errors (e.g. a malformed UUID) keep
+            # the original generic error.
+            raise self._key_range_error(key_types, min_key_values, max_key_values, key_columns) from e
+        except TypeError as e:
             raise type(e)(f"Cannot apply {key_types} to '{min_key_values}', '{max_key_values}'.") from e
 
         return min_key, max_key
+
+    @staticmethod
+    def _key_range_error(key_types, min_key_values, max_key_values, key_columns) -> ValueError:
+        names = list(key_columns) if key_columns else [f"#{i}" for i in range(len(key_types))]
+        offenders = []
+        for name, key_type, mn, mx in safezip(names, key_types, min_key_values, max_key_values):
+            if not isinstance(key_type, ColType_Alphanum):
+                continue  # only alphanum keys get the tailored, actionable guidance
+            for bound, value in (("min", mn), ("max", mx)):
+                try:
+                    key_type.make_value(value)
+                except ValueError as inner:
+                    offenders.append(f"column '{name}' ({bound}={value!r}): {inner}")
+        if offenders:
+            return DataDiffUnsupportedKeyValueError(
+                f"Cannot bisect on key {'; '.join(offenders)}. data-diff can only bisect string keys built "
+                "from spaces, hyphens, underscores, digits and unaccented ASCII letters (a-z, A-Z); keys "
+                "containing other characters (e.g. '.', accented or non-ASCII characters) cannot be mapped to "
+                "a comparable range. Use a numeric or UUID key column for this diff instead."
+            )
+        # Non-alphanum failure (e.g. a malformed UUID): preserve the original error.
+        return ValueError(f"Cannot apply {key_types} to '{min_key_values}', '{max_key_values}'.")
 
     def _bisect_and_diff_segments(
         self,

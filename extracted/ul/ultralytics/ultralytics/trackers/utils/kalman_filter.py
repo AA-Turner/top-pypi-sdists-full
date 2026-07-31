@@ -32,8 +32,6 @@ class KalmanFilterXYAH:
         >>> kf = KalmanFilterXYAH()
         >>> measurement = np.array([100, 200, 1.5, 50])
         >>> mean, covariance = kf.initiate(measurement)
-        >>> print(mean)
-        >>> print(covariance)
     """
 
     def __init__(self):
@@ -242,8 +240,9 @@ class KalmanFilterXYAH:
     ) -> np.ndarray:
         """Compute gating distance between state distribution and measurements.
 
-        A suitable distance threshold can be obtained from `chi2inv95`. If `only_position` is False, the chi-square
-        distribution has 4 degrees of freedom, otherwise 2.
+        A suitable threshold for the returned squared Mahalanobis distance is the 95th-percentile chi-square value:
+        9.4877 for 4 degrees of freedom when `only_position` is False, and 5.9915 for 2 otherwise. The `"gaussian"`
+        metric returns a squared Euclidean distance, for which this threshold does not apply.
 
         Args:
             mean (np.ndarray): Mean vector over the state distribution (8 dimensional).
@@ -309,8 +308,6 @@ class KalmanFilterXYWH(KalmanFilterXYAH):
         >>> kf = KalmanFilterXYWH()
         >>> measurement = np.array([100, 50, 20, 40])
         >>> mean, covariance = kf.initiate(measurement)
-        >>> print(mean)
-        >>> print(covariance)
     """
 
     def initiate(self, measurement: np.ndarray):
@@ -328,17 +325,6 @@ class KalmanFilterXYWH(KalmanFilterXYAH):
             >>> kf = KalmanFilterXYWH()
             >>> measurement = np.array([100, 50, 20, 40])
             >>> mean, covariance = kf.initiate(measurement)
-            >>> print(mean)
-            [100.  50.  20.  40.   0.   0.   0.   0.]
-            >>> print(covariance)
-            [[ 4.      0.      0.      0.      0.      0.      0.      0.    ]
-             [ 0.     16.      0.      0.      0.      0.      0.      0.    ]
-             [ 0.      0.      4.      0.      0.      0.      0.      0.    ]
-             [ 0.      0.      0.     16.      0.      0.      0.      0.    ]
-             [ 0.      0.      0.      0.      1.5625  0.      0.      0.    ]
-             [ 0.      0.      0.      0.      0.      6.25    0.      0.    ]
-             [ 0.      0.      0.      0.      0.      0.      1.5625  0.    ]
-             [ 0.      0.      0.      0.      0.      0.      0.      6.25  ]]
         """
         measurement = np.asarray(measurement, dtype=np.float64)
         mean_pos = measurement

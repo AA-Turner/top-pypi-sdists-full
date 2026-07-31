@@ -1,7 +1,7 @@
 import logging
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 from invoke.exceptions import Exit, Failure
 from invoke.runners import Result, Runner
@@ -61,6 +61,46 @@ def get_api_key(c: Runner) -> str | None:
     api_key_file = Path("../abraxas/.api_key")
     if api_key_file.exists():
         return api_key_file.read_text().strip()
+    return None
+
+
+class _DedicatedWorkspaceKey(NamedTuple):
+    env_var: str
+    local_key_file: Path | None
+    error_lines: tuple[str, ...]
+
+
+# Some test workers are homed in their own workspace, so the suite must authenticate
+# with that workspace's key rather than the default MISTRAL_API_KEY (mirrors the
+# external-worker credential handling in abraxas/tasks.py). Maps DEPLOYMENT_NAME to
+# where that workspace's key comes from.
+_DEDICATED_WORKSPACE_KEYS: dict[str, _DedicatedWorkspaceKey] = {
+    "example-dev-worker-events-v2": _DedicatedWorkspaceKey(
+        env_var="EVENTS_V2_WORKER_API_KEY",
+        local_key_file=Path("../abraxas/.events_v2_worker_api_key"),
+        error_lines=(
+            "EVENTS_V2_WORKER_API_KEY is not set and ../abraxas/.events_v2_worker_api_key file not found.",
+            "Start it with 'cd ../abraxas && make dev && invoke start-events-v2-worker'.",
+        ),
+    ),
+    "example-dev-worker-workload-identity": _DedicatedWorkspaceKey(
+        env_var="WORKLOAD_IDENTITY_WORKER_API_KEY",
+        # Staging-only SA worker; no local run, so no local key file.
+        local_key_file=None,
+        error_lines=(
+            "WORKLOAD_IDENTITY_WORKER_API_KEY is not set.",
+            "Set it to an API key minted in the SA worker's workspace (staging-only; no local run).",
+        ),
+    ),
+}
+
+
+def _resolve_dedicated_workspace_key(spec: _DedicatedWorkspaceKey) -> str | None:
+    from_env = os.environ.get(spec.env_var)
+    if from_env:
+        return from_env
+    if spec.local_key_file and spec.local_key_file.exists():
+        return spec.local_key_file.read_text().strip()
     return None
 
 
@@ -165,14 +205,22 @@ def integration_tests(
     Prerequisites: Dev environment must be running in abraxas (../abraxas).
     The MISTRAL_API_KEY environment variable must be set or ../abraxas/.api_key file must exist.
     """
-    api_key = get_api_key(c)
-    if not api_key:
-        api_key = os.environ.get("MISTRAL_API_KEY")
+    dedicated = _DEDICATED_WORKSPACE_KEYS.get(os.environ.get("DEPLOYMENT_NAME", ""))
+    if dedicated is not None:
+        api_key = _resolve_dedicated_workspace_key(dedicated)
+        if not api_key:
+            for line in dedicated.error_lines:
+                logger.error(line)
+            raise Exit(code=1)
+    else:
+        api_key = get_api_key(c)
+        if not api_key:
+            api_key = os.environ.get("MISTRAL_API_KEY")
 
-    if not api_key:
-        logger.error("MISTRAL_API_KEY environment variable is not set and ../abraxas/.api_key file not found.")
-        logger.error("Please start the dev environment with 'cd ../abraxas && make dev'.")
-        raise Exit(code=1)
+        if not api_key:
+            logger.error("MISTRAL_API_KEY environment variable is not set and ../abraxas/.api_key file not found.")
+            logger.error("Please start the dev environment with 'cd ../abraxas && make dev'.")
+            raise Exit(code=1)
 
     env: dict[str, str] = {"MISTRAL_API_KEY": api_key}
 

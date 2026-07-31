@@ -1,6 +1,4 @@
-"""
-Tests for `shtab`.
-"""
+"""Tests for `shtab`."""
 import logging
 import os
 import subprocess
@@ -134,7 +132,7 @@ def test_prog_scripts(shell, caplog, capsys):
         assert script_py == [
             "#compdef script.py", "_describe 'script.py commands' _commands",
             'local context state line curcontext="$curcontext" '
-            "one_or_more='(*)' remainder='(-)*' default='*::: :->script.py'",
+            "one_or_more='(*)' remainder='(-)*:' default='*::: :->script.py'",
             "_shtab_shtab_options+=(': :_shtab_shtab_commands' '*::: :->script.py')", "script.py)",
             "compdef _shtab_shtab -N script.py"]
     elif shell == "tcsh":
@@ -202,6 +200,19 @@ def test_custom_complete(shell, caplog):
         shell = Bash(completion)
         shell.test('"$($_shtab_test_pos_0_COMPGEN o)" = "one"')
 
+    assert not caplog.record_tuples
+
+
+def test_zsh_remainder_custom_complete_has_optional_message_colon(caplog):
+    parser = ArgumentParser(prog="test")
+    parser.add_argument("command", nargs=1).complete = {"zsh": "{_command_names -e}"}
+    parser.add_argument("args", nargs="...").complete = {"zsh": "_normal"}
+
+    with caplog.at_level(logging.INFO):
+        completion = shtab.complete(parser, shell="zsh")
+
+    assert '"(-)*::args:_normal"' in completion
+    assert '"(-)*:args:_normal"' not in completion
     assert not caplog.record_tuples
 
 
@@ -315,7 +326,7 @@ def test_add_argument_to_positional(shell, caplog, capsys):
         completion_manual = shtab.complete(parser, shell=shell)
         with pytest.raises(SystemExit) as exc:
             sub._actions[-1](sub, Namespace(), shell)
-            assert exc.type == SystemExit
+            assert exc.type is SystemExit
             assert exc.value.code == 0
     completion, err = capsys.readouterr()
     print(completion)

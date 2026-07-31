@@ -2,16 +2,16 @@
 Test the high-level compile function
 
 """
-import unittest
 
-from six import StringIO
+import unittest
+from io import StringIO
 
 from lesscpy import compile
 
 
 class TestCompileFunction(unittest.TestCase):
     """
-    Unit tests for compile
+    Unit tests for the compile function.
     """
 
     def test_compile_from_stream(self):
@@ -26,12 +26,12 @@ class TestCompileFunction(unittest.TestCase):
         """
         It can compile input from a file object
         """
-
         import tempfile
-        in_file = tempfile.NamedTemporaryFile(mode='w+')
-        in_file.write("a { border-width: 2px * 3; }")
-        in_file.seek(0)
-        output = compile(in_file, minify=True)
+
+        with tempfile.NamedTemporaryFile(mode="w+") as in_file:
+            in_file.write("a { border-width: 2px * 3; }")
+            in_file.seek(0)
+            output = compile(in_file, minify=True)
         self.assertEqual(output, "a{border-width:6px;}")
 
     def test_raises_exception(self):

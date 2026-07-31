@@ -60,6 +60,8 @@ class JournalRecord(BaseModel):
     # Hidden ref where a failed call's git state was salvaged (see backend).
     salvage_ref: str | None = None
     merged: bool | None = None
+    # Post-squash-merge commit SHA on shared main (merge_to_main calls only).
+    merged_sha: str | None = None
     attempts: int | None = None
     cost_usd: float | None = None
     phase: str | None = None

@@ -19,8 +19,12 @@
 #include <gtest/gtest.h>
 #include <tvm/ffi/any.h>
 #include <tvm/ffi/container/array.h>
+#include <tvm/ffi/container/tensor.h>
 #include <tvm/ffi/memory.h>
 #include <tvm/ffi/optional.h>
+
+#include <cstdint>
+#include <cstring>
 
 #include "./testing_object.h"
 
@@ -29,10 +33,42 @@ namespace {
 using namespace tvm::ffi;
 using namespace tvm::ffi::testing;
 
+// Regression guard: TypeTraits<Optional<T>>::storage_enabled must PROPAGATE from
+// TypeTraits<T>::storage_enabled (pass-through), not be hardcoded. This keeps a
+// nested Optional<Optional<T>> and Optional<T> used inside Variant<...>/containers
+// Any-backed exactly when T itself is storage-enabled.
+static_assert(TypeTraits<Optional<int>>::storage_enabled == TypeTraits<int>::storage_enabled);
+static_assert(TypeTraits<Optional<int>>::storage_enabled, "int is storage-enabled");
+static_assert(TypeTraits<Optional<TInt>>::storage_enabled == TypeTraits<TInt>::storage_enabled);
+static_assert(TypeTraits<Optional<TInt>>::storage_enabled, "ObjectRef is storage-enabled");
+// A non-owning view type is NOT storage-enabled; the pass-through must carry that.
+static_assert(!TypeTraits<TensorView>::storage_enabled);
+static_assert(TypeTraits<Optional<TensorView>>::storage_enabled ==
+              TypeTraits<TensorView>::storage_enabled);
+static_assert(!TypeTraits<Optional<TensorView>>::storage_enabled,
+              "Optional<view> must not be storage-enabled");
+// Because Optional<int>/Optional<TInt> are storage-enabled, the outer
+// Optional<Optional<T>> uses the Any-backed representation (sizeof == sizeof(Any)),
+// and Optional<T> is accepted as a storage type (e.g. inside Variant/containers).
+static_assert(sizeof(Optional<Optional<int>>) == sizeof(Any));
+static_assert(sizeof(Optional<Optional<TInt>>) == sizeof(Any));
+static_assert(details::storage_enabled_v<Optional<int>>);
+
+TEST(Optional, StorageEnabledPassThrough) {
+  // Optional<int> is storage-enabled, so a nested Optional round-trips through
+  // Any via the Any-backed path.
+  Optional<Optional<int>> nested = Optional<int>(7);
+  Any any = nested;
+  auto back = any.cast<Optional<Optional<int>>>();
+  EXPECT_TRUE(back.has_value());
+  EXPECT_EQ(back.value().value(), 7);
+}
+
 TEST(Optional, TInt) {
   Optional<TInt> x;
   Optional<TInt> y = TInt(11);
-  static_assert(sizeof(Optional<TInt>) == sizeof(ObjectRef));
+  // Optional<T> is uniformly backed by a single Any (TVMFFIAny) regardless of T.
+  static_assert(sizeof(Optional<TInt>) == sizeof(Any));
 
   EXPECT_TRUE(!x.has_value());
   EXPECT_EQ(x.value_or(TInt(12))->value, 12);
@@ -48,7 +84,6 @@ TEST(Optional, TInt) {
 
   // move from any to optional
   auto y2 = std::move(z_any).cast<Optional<TInt>>();
-  EXPECT_EQ(y2.use_count(), 1);
   EXPECT_TRUE(y2.has_value());
   EXPECT_EQ(y2.value_or(TInt(12))->value, 11);
 }
@@ -56,7 +91,8 @@ TEST(Optional, TInt) {
 TEST(Optional, double) {
   Optional<double> x;
   Optional<double> y = 11.0;
-  static_assert(sizeof(Optional<double>) > sizeof(ObjectRef));
+  // Layout is independent of the contained type: sizeof(Optional<T>) == sizeof(Any).
+  static_assert(sizeof(Optional<double>) == sizeof(Any));
 
   EXPECT_TRUE(!x.has_value());
   EXPECT_EQ(x.value_or(12), 12);
@@ -117,20 +153,31 @@ TEST(Optional, AnyConvertArray) {
 
 TEST(Optional, OptionalOfOptional) {
   // testcase of optional<optional>
+  //
+  // Because nullopt is uniformly represented as kTVMFFINone in the single
+  // TVMFFIAny backing, an engaged outer Optional that holds an empty inner
+  // Optional collapses to nullopt (the two states share the kTVMFFINone bit
+  // pattern). This matches the behavior of round-tripping a nested Optional
+  // through Any. Engaged-outer/engaged-inner still nests correctly.
   Optional<Optional<int>> opt_opt_int;
   EXPECT_TRUE(!opt_opt_int.has_value());
 
+  // engaged outer holding an empty inner collapses to nullopt.
   Optional<Optional<int>> opt_opt_int2 = Optional<int>(std::nullopt);
-  EXPECT_TRUE(opt_opt_int2.has_value());
-  EXPECT_TRUE(!opt_opt_int2.value().has_value());
+  EXPECT_TRUE(!opt_opt_int2.has_value());
+
+  // engaged outer holding an engaged inner nests correctly.
+  Optional<Optional<int>> opt_opt_int3 = Optional<int>(7);
+  EXPECT_TRUE(opt_opt_int3.has_value());
+  EXPECT_TRUE(opt_opt_int3.value().has_value());
+  EXPECT_EQ(opt_opt_int3.value().value(), 7);
 
   // Optional<Optional<ObjectRef>>
   Optional<Optional<TInt>> opt_opt_tint;
   EXPECT_TRUE(!opt_opt_tint.has_value());
 
   Optional<Optional<TInt>> opt_opt_tint2 = Optional<TInt>(std::nullopt);
-  EXPECT_TRUE(opt_opt_tint2.has_value());
-  EXPECT_TRUE(!opt_opt_tint2.value().has_value());
+  EXPECT_TRUE(!opt_opt_tint2.has_value());
   opt_opt_tint2 = std::nullopt;
   EXPECT_TRUE(!opt_opt_tint2.has_value());
 
@@ -188,7 +235,7 @@ TEST(Optional, String) {
   EXPECT_TRUE(opt_str == "hello");
   EXPECT_TRUE(opt_str == String("hello"));
   EXPECT_TRUE(opt_str != std::nullopt);
-  static_assert(sizeof(Optional<String>) == sizeof(String));
+  static_assert(sizeof(Optional<String>) == sizeof(Any));
 }
 
 TEST(Optional, Bytes) {
@@ -200,6 +247,18 @@ TEST(Optional, Bytes) {
   EXPECT_TRUE(opt_bytes.has_value());
   EXPECT_EQ(opt_bytes.value().operator std::string(), "hello");
   EXPECT_TRUE(opt_bytes != std::nullopt);
-  static_assert(sizeof(Optional<Bytes>) == sizeof(Bytes));
+  static_assert(sizeof(Optional<Bytes>) == sizeof(Any));
 }
+
+// Optional<T> is uniformly backed by a single TVMFFIAny (Any), so its layout is
+// independent of the contained type: every Optional<T> has the size and
+// alignment of a TVMFFIAny. (The Rust binding's in-place Optional<T> mirror is a
+// separate follow-up that adopts this uniform 16-byte representation.)
+template <typename... T>
+constexpr bool all_optional_layouts_uniform_v =
+    ((sizeof(Optional<T>) == sizeof(TVMFFIAny) && alignof(Optional<T>) == alignof(TVMFFIAny)) &&
+     ...);
+static_assert(
+    all_optional_layouts_uniform_v<bool, int8_t, int16_t, int32_t, int64_t, uint8_t, uint16_t,
+                                   uint32_t, uint64_t, float, double, String, Bytes>);
 }  // namespace

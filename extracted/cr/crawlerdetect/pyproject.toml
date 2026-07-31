@@ -1,11 +1,11 @@
 [project]
 name = "crawlerdetect"
-version = "0.4.1"
+version = "0.4.2"
 description = "CrawlerDetect is a Python library designed to identify bots, crawlers, and spiders by analyzing their user agents."
 authors = [{ name = "Vitalii Shishorin", email = "moskrc@gmail.com" }]
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.9, <4"
+requires-python = ">=3.10, <4"
 keywords = ["crawler",
     "crawler detect",
     "crawler detector",
@@ -23,11 +23,11 @@ crawlerdetect = "crawlerdetect.cli:main"
 
 [dependency-groups]
 dev = [
-    "ruff>=0.7.3,<0.8",
-    "pre-commit>=4.0.1,<5",
-    "bump-my-version>=0.28.1,<0.29",
-    "pytest>=8.3.3,<9",
-    "pytest-cov>=6.0.0,<7",
+    "ruff>=0.16.0,<0.17",
+    "pre-commit>=4.6.1,<5",
+    "bump-my-version>=1.5.0,<2",
+    "pytest>=9.1.1,<10",
+    "pytest-cov>=7.1.0,<8",
 ]
 
 [tool.mypy]
@@ -78,7 +78,7 @@ allow_dirty = false
 commit = true
 message = "Bump version: {current_version} → {new_version}"
 commit_args = ""
-current_version = "0.4.1"
+current_version = "0.4.2"
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
 serialize = ["{major}.{minor}.{patch}"]
 search = "{current_version}"
@@ -89,7 +89,7 @@ ignore_missing_files = false
 tag = true
 sign_tags = false
 setup_hooks = []
-pre_commit_hooks = []
+pre_commit_hooks = ["uv lock", "git add uv.lock"]
 post_commit_hooks = []
 
 [[tool.bumpversion.files]]

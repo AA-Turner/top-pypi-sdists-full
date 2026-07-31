@@ -1,3 +1,4 @@
+import itertools
 import math
 import sys
 from collections.abc import Callable, Mapping
@@ -11,9 +12,18 @@ from hypothesis import event
 from hypothesis.strategies import SearchStrategy
 
 import zarr
-from zarr.abc.store import RangeByteRequest, Store
+from zarr.abc.store import (
+    ByteRequest,
+    OffsetByteRequest,
+    RangeByteRequest,
+    Store,
+    SuffixByteRequest,
+)
 from zarr.codecs.bytes import BytesCodec
-from zarr.core.array import Array
+from zarr.codecs.crc32c_ import Crc32cCodec
+from zarr.codecs.sharding import SUBCHUNK_WRITE_ORDER, ShardingCodec, SubchunkWriteOrder
+from zarr.codecs.zstd import ZstdCodec
+from zarr.core.array import Array, CompressorsLike, SerializerLike
 from zarr.core.chunk_key_encodings import DefaultChunkKeyEncoding
 from zarr.core.common import JSON, AccessModeLiteral, ZarrFormat
 from zarr.core.dtype import get_data_type_from_native_dtype
@@ -125,6 +135,22 @@ array_shapes = npst.array_shapes(max_dims=4, min_side=3, max_side=5) | npst.arra
 def dimension_names(draw: st.DrawFn, *, ndim: int | None = None) -> list[None | str] | None:
     simple_text = st.text(zarr_key_chars, min_size=0)
     return draw(st.none() | st.lists(st.none() | simple_text, min_size=ndim, max_size=ndim))  # type: ignore[arg-type]
+
+
+subchunk_write_orders: st.SearchStrategy[SubchunkWriteOrder] = st.sampled_from(SUBCHUNK_WRITE_ORDER)
+
+# Inner codec chains for a ShardingCodec. We MUST sample the uncompressed,
+# single-BytesCodec configuration (no Zstd) — that is the only configuration in
+# which the FusedCodecPipeline's vectorized whole-shard "bulk decode" fast path
+# engages, so it is the only one that can exercise (and regress-guard) that path
+# against arbitrary indexing. Freezing the inner codecs to [BytesCodec, ZstdCodec]
+# silently disables the fast path under every property test.
+sharding_inner_codecs: st.SearchStrategy[list[BytesCodec | ZstdCodec]] = st.sampled_from(
+    [
+        [BytesCodec()],
+        [BytesCodec(), ZstdCodec()],
+    ]
+)
 
 
 @st.composite
@@ -255,6 +281,7 @@ def arrays(
     arrays: st.SearchStrategy | None = None,
     attrs: st.SearchStrategy = attrs,
     zarr_formats: st.SearchStrategy = zarr_formats,
+    subchunk_write_orders: SearchStrategy[SubchunkWriteOrder] = subchunk_write_orders,
     open_mode: AccessModeLiteral = "w",
 ) -> AnyArray:
     store = draw(stores, label="store")
@@ -266,20 +293,11 @@ def arrays(
         arrays = numpy_arrays(shapes=shapes)
     nparray = draw(arrays, label="array data")
     dim_names: None | list[str | None] = None
+    serializer: SerializerLike = "auto"
+    compressors_unsearched: CompressorsLike = "auto"
 
     # For v3 arrays, optionally use RectilinearChunkGridMetadata
     chunk_grid_meta: RegularChunkGridMetadata | RectilinearChunkGridMetadata | None = None
-    shard_shape = None
-    if zarr_format == 3:
-        chunk_grid_meta = draw(chunk_grids(shape=nparray.shape), label="chunk grid")
-
-        # Sharding is only supported with regular chunk grids, and has complex
-        # divisibility constraints that don't play well with hypothesis shrinking.
-        # Disabled for now — sharding should be tested separately.
-
-        dim_names = draw(dimension_names(ndim=nparray.ndim), label="dimension names")
-    else:
-        dim_names = None
 
     # test that None works too.
     fill_value = draw(st.one_of([st.none(), npst.from_dtype(nparray.dtype)]))
@@ -295,17 +313,38 @@ def arrays(
     # - RectilinearChunkGridMetadata -> nested list of ints (triggers rectilinear path)
     # - v2 -> flat tuple of ints
     chunks_param: tuple[int, ...] | list[list[int]]
-    if zarr_format == 3 and chunk_grid_meta is not None:
+    shard_shape = None
+    dim_names = None
+    if zarr_format == 3:
+        chunk_grid_meta = draw(st.none() | chunk_grids(shape=nparray.shape), label="chunk grid")
+        dim_names = draw(dimension_names(ndim=nparray.ndim), label="dimension names")
         if isinstance(chunk_grid_meta, RectilinearChunkGridMetadata):
             chunks_param = [
                 list(dim) if isinstance(dim, tuple) else [dim]
                 for dim in chunk_grid_meta.chunk_shapes
             ]
-        else:
+        elif isinstance(chunk_grid_meta, RegularChunkGridMetadata):
             chunks_param = chunk_grid_meta.chunk_shape
+        else:
+            chunks_param = draw(chunk_shapes(shape=nparray.shape), label="chunk shape")
+
+            if all(s > c and c > 1 for s, c in zip(nparray.shape, chunks_param, strict=True)):
+                shard_shape = draw(
+                    st.none() | shard_shapes(shape=nparray.shape, chunk_shape=chunks_param),
+                    label="shard shape",
+                )
+                if shard_shape is not None:
+                    subchunk_write_order = draw(subchunk_write_orders)
+                    inner_codecs = draw(sharding_inner_codecs, label="sharding inner codecs")
+                    serializer = ShardingCodec(
+                        subchunk_write_order=subchunk_write_order,
+                        codecs=inner_codecs,
+                        index_codecs=[BytesCodec(), Crc32cCodec()],
+                        chunk_shape=chunks_param,
+                    )
+                    compressors_unsearched = None
     else:
         chunks_param = draw(chunk_shapes(shape=nparray.shape), label="chunk shape")
-
     a = root.create_array(
         array_path,
         shape=nparray.shape,
@@ -313,9 +352,10 @@ def arrays(
         shards=shard_shape,
         dtype=nparray.dtype,
         attributes=attributes,
-        # compressor=compressor,  # FIXME
+        compressors=compressors_unsearched,  # FIXME
         fill_value=fill_value,
         dimension_names=dim_names,
+        serializer=serializer,
     )
 
     assert isinstance(a, Array)
@@ -329,12 +369,15 @@ def arrays(
 
     # Verify chunks — for rectilinear grids, .chunks raises
     if zarr_format == 3:
-        if isinstance(a.metadata.chunk_grid, RectilinearChunkGridMetadata):
-            assert shard_shape is None
-        else:
-            assert isinstance(a.metadata.chunk_grid, RegularChunkGridMetadata)
-            assert a.metadata.chunk_grid.chunk_shape == a.chunks
+        assert shard_shape == a.shards
+        if isinstance(a.metadata.chunk_grid, RegularChunkGridMetadata):
+            assert a.metadata.chunk_grid.chunk_shape == (
+                a.shards if shard_shape is not None else a.chunks
+            )
             assert shard_shape == a.shards
+        else:
+            assert isinstance(a.metadata.chunk_grid, RectilinearChunkGridMetadata)
+            assert shard_shape is None
 
     assert a.basename == name, (a.basename, name)
     assert dict(a.attrs) == expected_attrs
@@ -569,24 +612,161 @@ def orthogonal_indices(
     return tuple(zindexer), tuple(np.broadcast_arrays(*npindexer))
 
 
+@st.composite
+def block_indices(
+    draw: st.DrawFn, *, chunk_sizes: tuple[tuple[int, ...], ...]
+) -> tuple[tuple[int | slice, ...], tuple[slice, ...]]:
+    """
+    Strategy for block-selection indexers over a chunk grid.
+
+    Block indexing is basic indexing applied to the block grid (the grid of
+    chunks), so each axis is drawn with ``basic_indices`` over that axis's chunk
+    count, mirroring how ``orthogonal_indices`` reuses ``basic_indices`` per
+    axis. ``chunk_sizes`` gives the per-chunk data sizes of the array's *outer*
+    (block) grid for every axis — i.e. ``Array.write_chunk_sizes``, the grid that
+    ``Array.blocks`` addresses (the shard grid when sharding is used). For
+    example ``(3, 3, 3, 1)`` for a length-10 axis with a regular chunk size of 3,
+    or the explicit edges of a rectilinear axis; ``nchunks`` for an axis is
+    ``len(chunk_sizes[axis])``.
+
+    The array-space translation uses the cumulative sum of those sizes, matching
+    ``BlockIndexer``'s use of ``dim_grid.chunk_offset``. Because the sizes are
+    clipped to the array extent, the final offset equals the extent and the
+    translation is exact for regular (uniform), rectilinear, and sharded grids
+    alike.
+
+    Block indexing only supports integers and step-1 slices whose start
+    references an existing chunk, so strided slices and slices starting at the
+    grid edge are filtered out.
+
+    Returns
+    -------
+    block_indexer
+        A per-axis tuple of ints / step-1 slices addressing whole chunks,
+        suitable for ``Array.blocks`` / ``get_block_selection`` / ``set_block_selection``.
+    array_indexer
+        The equivalent array-space selection (a tuple of slices) for indexing
+        the corresponding numpy array, used as the comparison oracle.
+    """
+
+    def supported(nchunks: int) -> Callable[[tuple[Any, ...]], bool]:
+        # Block indexing only accepts step-1 slices whose start references an
+        # existing chunk (a slice starting at nchunks raises, unlike numpy).
+        def predicate(value: tuple[Any, ...]) -> bool:
+            dim_sel = value[0]
+            if isinstance(dim_sel, slice):
+                if dim_sel.step not in (None, 1):
+                    return False
+                start = dim_sel.start or 0
+                return 0 <= (start + nchunks if start < 0 else start) < nchunks
+            return True
+
+        return predicate
+
+    block_indexer: list[int | slice] = []
+    array_indexer: list[slice] = []
+    for sizes in chunk_sizes:
+        nchunks = len(sizes)
+        # offsets[i] is the array-space start of chunk i; length nchunks + 1.
+        offsets = list(itertools.accumulate(sizes, initial=0))
+        dim_strategy = (
+            basic_indices(min_dims=1, shape=(nchunks,), allow_ellipsis=False)
+            # normalize bare ints / slices to a 1-tuple, skip the empty tuple
+            .map(lambda x: (x,) if not isinstance(x, tuple) else x)
+            .filter(bool)
+            .filter(supported(nchunks))
+        )
+        # basic_indices draws slices far more often than bare integers, so the
+        # integer (single-block) branch below would only be hit on rare draws.
+        # Union in an explicit integer so it is reliably exercised — keeping
+        # coverage deterministic under the derandomized ``ci`` Hypothesis profile.
+        (dim_sel,) = draw(
+            dim_strategy | st.integers(min_value=0, max_value=nchunks - 1).map(lambda i: (i,))
+        )
+        block_indexer.append(dim_sel)
+        if isinstance(dim_sel, slice):
+            start, stop, _ = dim_sel.indices(nchunks)
+            array_indexer.append(slice(offsets[start], offsets[stop]))
+        else:
+            block = dim_sel % nchunks
+            array_indexer.append(slice(offsets[block], offsets[block + 1]))
+    return tuple(block_indexer), tuple(array_indexer)
+
+
+@st.composite
+def block_test_arrays(
+    draw: st.DrawFn,
+) -> tuple[Array[Any], np.ndarray[Any, Any]]:
+    """Draw an array for block-indexing property tests, with its source contents.
+
+    Two arms, selected with equal probability:
+
+    - **regular**: a regular chunk grid, optionally wrapped in sharding.
+    - **rectilinear**: a variable (rectilinear) chunk grid, always unsharded.
+
+    Returns ``(zarray, nparray)``. The per-axis block sizes the oracle needs are
+    ``zarray.write_chunk_sizes`` — the array's *outer* (block / shard) grid, which
+    is exactly the grid ``Array.blocks`` addresses; the caller reads it directly.
+    """
+    chunks: tuple[int, ...] | list[list[int]]
+    if draw(st.booleans()):
+        # regular arm, optionally sharded
+        nparray, chunks = draw(
+            np_array_and_chunks(
+                arrays=numpy_arrays(shapes=npst.array_shapes(max_dims=4, min_side=1))
+            )
+        )
+        # min_side=1 chunking guarantees shape // chunk >= 1 on every axis, which
+        # shard_shapes requires.
+        shards = draw(st.none() | shard_shapes(shape=nparray.shape, chunk_shape=chunks))
+        event("block regular sharded" if shards is not None else "block regular unsharded")
+        rectilinear = False
+    else:
+        # rectilinear arm, always unsharded
+        event("block rectilinear")
+        shape = draw(_rectilinear_shapes)
+        chunks = draw(rectilinear_chunks(shape=shape))
+        nparray = draw(numpy_arrays(shapes=st.just(shape), dtype=draw(dtypes())))
+        shards, rectilinear = None, True
+
+    store = draw(stores)
+    with zarr.config.set({"array.rectilinear_chunks": rectilinear}):
+        zarray = zarr.create_array(
+            store=store,
+            shape=nparray.shape,
+            chunks=chunks,
+            shards=shards,
+            dtype=nparray.dtype,
+        )
+    zarray[...] = nparray
+    return zarray, nparray
+
+
 def key_ranges(
     keys: SearchStrategy[str] = node_names, max_size: int = sys.maxsize
-) -> SearchStrategy[list[tuple[str, RangeByteRequest]]]:
+) -> SearchStrategy[list[tuple[str, ByteRequest | None]]]:
     """
     Function to generate key_ranges strategy for get_partial_values()
     returns list strategy w/ form::
 
-        [(key, (range_start, range_end)),
-         (key, (range_start, range_end)),...]
+        [(key, byte_request),
+         (key, byte_request),...]
+
+    where ``byte_request`` is ``None`` or any of the concrete ``ByteRequest``
+    subtypes. The bounds are drawn independently of each value's length, so the
+    offsets/suffixes routinely exceed the data and exercise the clamping logic
+    in ``_normalize_byte_range_index``.
     """
 
-    def make_request(start: int, length: int) -> RangeByteRequest:
+    def make_range(start: int, length: int) -> RangeByteRequest:
         return RangeByteRequest(start, end=min(start + length, max_size))
 
-    byte_ranges = st.builds(
-        make_request,
-        start=st.integers(min_value=0, max_value=max_size),
-        length=st.integers(min_value=0, max_value=max_size),
+    bound = st.integers(min_value=0, max_value=max_size)
+    byte_ranges: SearchStrategy[ByteRequest | None] = st.one_of(
+        st.none(),
+        st.builds(make_range, start=bound, length=bound),
+        st.builds(OffsetByteRequest, offset=bound),
+        st.builds(SuffixByteRequest, suffix=bound),
     )
     key_tuple = st.tuples(keys, byte_ranges)
     return st.lists(key_tuple, min_size=1, max_size=10)

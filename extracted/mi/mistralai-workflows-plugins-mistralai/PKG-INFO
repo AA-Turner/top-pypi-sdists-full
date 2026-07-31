@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistralai-workflows-plugins-mistralai
-Version: 3.9.0
+Version: 3.10.0
 Summary: Mistral AI plugin for Mistral Workflows - Provides native Mistral AI integration
 Project-URL: Homepage, https://mistral.ai
 Project-URL: Documentation, https://docs.mistral.ai/workflows/getting-started/introduction
@@ -21,7 +21,7 @@ Requires-Dist: authlib>=1.7.2
 Requires-Dist: mcp>=1.12.4
 Requires-Dist: mistralai-workflows<4.0.0,>=3.0.0a1
 Requires-Dist: mistralai[agents]<3.0.0,>=2.0.0
-Requires-Dist: starlette>=1.0.1
+Requires-Dist: starlette>=1.3.1
 Requires-Dist: structlog<26,>=24
 Description-Content-Type: text/markdown
 

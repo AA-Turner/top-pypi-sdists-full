@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crawlerdetect
-Version: 0.4.1
+Version: 0.4.2
 Summary: CrawlerDetect is a Python library designed to identify bots, crawlers, and spiders by analyzing their user agents.
 Project-URL: Homepage, https://github.com/moskrc/crawlerdetect
 Project-URL: Repository, https://github.com/moskrc/crawlerdetect
@@ -9,7 +9,7 @@ Author-email: Vitalii Shishorin <moskrc@gmail.com>
 License-Expression: MIT
 License-File: LICENSE
 Keywords: crawler,crawler detect,crawler detector,crawlerdetect,python crawler detect
-Requires-Python: <4,>=3.9
+Requires-Python: <4,>=3.10
 Description-Content-Type: text/markdown
 
 [![test](https://github.com/moskrc/crawlerdetect/actions/workflows/python-package.yml/badge.svg)](https://github.com/moskrc/crawlerdetect/actions/workflows/python-package.yml)
@@ -17,10 +17,9 @@ Description-Content-Type: text/markdown
 # About CrawlerDetect
 
 This is a Python wrapper for [CrawlerDetect](https://github.com/JayBizzle/Crawler-Detect) a web crawler detection library. It helps identify
-bots, crawlers, and spiders using the user agent and other HTTP headers. Currently, it can detect
-over 3,678 bots, spiders, and crawlers.
+bots, crawlers, and spiders using the user agent and other HTTP headers.
 
-> Currently synced with [JayBizzle/Crawler-Detect `v1.4.1`](https://github.com/JayBizzle/Crawler-Detect/releases/tag/v1.4.1).
+> Currently synced with [JayBizzle/Crawler-Detect `v1.4.1`](https://github.com/JayBizzle/Crawler-Detect/releases/tag/v1.4.1) - 1462 crawler patterns.
 
 # How to install
 ```bash
@@ -123,14 +122,6 @@ Preview the change first with `--dry-run -v` (nothing is written or committed):
 ```bash
 $ uv run bump-my-version bump --dry-run -v patch
 ```
-
-`bump-my-version bump` on its own (no part, no `--new-version`) fails with `Unable to get the next version.` — one of the two is required.
-
-You may also see a harmless warning:
-```
-Specified version (0.3.3) does not match last tagged version (0.3.2)
-```
-This just means the version in `pyproject.toml` and the latest `vX.Y.Z` git tag are out of sync (e.g. after a manual version edit) — bump-my-version still uses `pyproject.toml` as the source of truth and bumps correctly regardless.
 
 Once bumped, push the commit and tag, then [publish to PyPI](#how-to-publish-a-new-release-to-pypi):
 ```bash

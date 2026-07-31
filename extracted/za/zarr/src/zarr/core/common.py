@@ -1,13 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-import functools
 import math
-import operator
 import warnings
 from collections.abc import Iterable, Mapping, Sequence
 from enum import Enum
-from itertools import starmap
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -37,7 +34,7 @@ ZMETADATA_V2_JSON = ".zmetadata"
 
 BytesLike = bytes | bytearray | memoryview
 ShapeLike = Iterable[int | np.integer[Any]] | int | np.integer[Any]
-ChunksLike = ShapeLike | Sequence[Sequence[int]] | None
+ChunksLike = ShapeLike | Iterable[Iterable[int]]
 # For backwards compatibility
 ChunkCoords = tuple[int, ...]
 ZarrFormat = Literal[2, 3]
@@ -83,7 +80,7 @@ class NamedRequiredConfig[TName: str, TConfig: Mapping[str, object]](TypedDict):
 
 
 def product(tup: tuple[int, ...]) -> int:
-    return functools.reduce(operator.mul, tup, 1)
+    return math.prod(tup)
 
 
 def ceildiv(a: float, b: float) -> int:
@@ -92,22 +89,46 @@ def ceildiv(a: float, b: float) -> int:
     return math.ceil(a / b)
 
 
+def concurrent_iter[T: tuple[Any, ...], V](
+    items: Iterable[T],
+    func: Callable[..., Awaitable[V]],
+    limit: int | None = None,
+) -> list[asyncio.Task[V]]:
+    """Launch `func(*item)` for each item concurrently, returning the tasks.
+
+    When `limit` is set, no more than `limit` calls are in flight at once.
+    Tasks are returned in input order; callers that want completion order
+    should wrap the result in `asyncio.as_completed`.
+
+    Every task is scheduled (via `ensure_future`) before this function
+    returns, not on first iteration of the result. That matters for callers
+    that await the returned tasks one at a time — without eager scheduling,
+    each coroutine would only start when individually awaited, serializing
+    the work and defeating the semaphore. It also makes the return type
+    honest (real `Task`s support `.cancel()`, `.done()`, callbacks) rather
+    than bare coroutines.
+
+    See https://docs.python.org/3/library/asyncio-task.html#coroutines:
+    "Note that simply calling a coroutine will not schedule it to be executed:"
+    """
+    if limit is None:
+        return [asyncio.ensure_future(func(*item)) for item in items]
+
+    sem = asyncio.Semaphore(limit)
+
+    async def run(item: T) -> V:
+        async with sem:
+            return await func(*item)
+
+    return [asyncio.ensure_future(run(item)) for item in items]
+
+
 async def concurrent_map[T: tuple[Any, ...], V](
     items: Iterable[T],
     func: Callable[..., Awaitable[V]],
     limit: int | None = None,
 ) -> list[V]:
-    if limit is None:
-        return await asyncio.gather(*list(starmap(func, items)))
-
-    else:
-        sem = asyncio.Semaphore(limit)
-
-        async def run(item: tuple[Any]) -> V:
-            async with sem:
-                return await func(*item)
-
-        return await asyncio.gather(*[asyncio.ensure_future(run(item)) for item in items])
+    return await asyncio.gather(*concurrent_iter(items, func, limit))
 
 
 def enum_names[E: Enum](enum: type[E]) -> Iterator[str]:
@@ -215,6 +236,12 @@ def parse_bool(data: Any) -> bool:
     if isinstance(data, bool):
         return data
     raise ValueError(f"Expected bool, got {data} instead.")
+
+
+def parse_int(data: Any) -> int:
+    if isinstance(data, int) and not isinstance(data, bool):
+        return data
+    raise ValueError(f"Expected int, got {data} instead.")
 
 
 def _warn_write_empty_chunks_kwarg() -> None:

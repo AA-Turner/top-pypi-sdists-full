@@ -308,8 +308,10 @@ class RemoteSession(Session[Message]):
             return
 
         from mistralai.workflows.plugins.mistralai.connectors.constants import (
-            CONNECTORS_KEY,
             MISTRALAI_PLUGIN_KEY,
+        )
+        from mistralai.workflows.plugins.mistralai.connectors.models import (
+            resolved_connector_bindings_from_extension,
         )
 
         ctx = retrieve_context()
@@ -317,9 +319,9 @@ class RemoteSession(Session[Message]):
             # Outside a workflow context (e.g. LocalSession) — skip validation.
             return
 
-        mistralai_ext = (ctx.extensions or {}).get(MISTRALAI_PLUGIN_KEY, {})
-        bindings = mistralai_ext.get(CONNECTORS_KEY, {}).get("bindings", [])
-        resolved_names = {b["connector_name"] for b in bindings}
+        mistralai_ext = (ctx.trusted_extensions or {}).get(MISTRALAI_PLUGIN_KEY, {})
+        bindings = resolved_connector_bindings_from_extension(mistralai_ext)
+        resolved_names = {b.connector_name for b in bindings}
 
         agent_connector_names = {slot.connector_name for slot in agent.connectors}
         unresolved = agent_connector_names - resolved_names

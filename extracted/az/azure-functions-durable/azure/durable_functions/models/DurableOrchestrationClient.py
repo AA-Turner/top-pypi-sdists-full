@@ -354,7 +354,8 @@ class DurableOrchestrationClient:
 
     async def get_status_by(self, created_time_from: datetime = None,
                             created_time_to: datetime = None,
-                            runtime_status: List[OrchestrationRuntimeStatus] = None) \
+                            runtime_status: List[OrchestrationRuntimeStatus] = None,
+                            instance_id_prefix: str = None) \
             -> List[DurableOrchestrationStatus]:
         """Get the status of all orchestration instances that match the specified conditions.
 
@@ -367,6 +368,8 @@ class DurableOrchestrationClient:
         runtime_status: List[OrchestrationRuntimeStatus]
             Return orchestration instances which match any of the runtimeStatus values
             in this list.
+        instance_id_prefix: str
+            Return orchestration instances whose instance ID starts with this prefix.
 
         Returns
         -------
@@ -376,7 +379,8 @@ class DurableOrchestrationClient:
         # TODO: do we really want folks to us this without specifying all the args?
         options = RpcManagementOptions(created_time_from=created_time_from,
                                        created_time_to=created_time_to,
-                                       runtime_status=runtime_status)
+                                       runtime_status=runtime_status,
+                                       instance_id_prefix=instance_id_prefix)
         request_url = options.to_url(self._orchestration_bindings.rpc_base_url)
         response = await self._get_async_request(request_url)
         switch_statement = {
@@ -419,7 +423,8 @@ class DurableOrchestrationClient:
         Parameters
         ----------
         created_time_from : Optional[datetime]
-            Delete orchestration history which were created after this Date.
+            Delete orchestration history which were created after this Date. This argument
+            is required.
         created_time_to: Optional[datetime]
             Delete orchestration history which were created before this Date.
         runtime_status: Optional[List[OrchestrationRuntimeStatus]]
@@ -430,7 +435,15 @@ class DurableOrchestrationClient:
         -------
         PurgeHistoryResult
             The results of the request to purge history
+
+        Raises
+        ------
+        ValueError
+            When `created_time_from` is not provided.
         """
+        if created_time_from is None:
+            raise ValueError("created_time_from is required when purging instance history")
+
         options = RpcManagementOptions(created_time_from=created_time_from,
                                        created_time_to=created_time_to,
                                        runtime_status=runtime_status)

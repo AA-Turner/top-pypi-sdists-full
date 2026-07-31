@@ -143,6 +143,7 @@ if TYPE_CHECKING:
         ListDeploymentAuthorizedCredentialsV1WorkflowsDeploymentsAuthorizedCredentialsGetRequestTypedDict,
     )
     from .locationtype import LocationType
+    from .principaltype import PrincipalType
     from .querydefinition import QueryDefinition, QueryDefinitionTypedDict
     from .registerexecutionrequest import (
         RegisterExecutionRequest,
@@ -150,6 +151,7 @@ if TYPE_CHECKING:
     )
     from .registerexecutionresponse import (
         RegisterExecutionResponse,
+        RegisterExecutionResponseMetadataStatus,
         RegisterExecutionResponseTypedDict,
     )
     from .schedulecalendar import ScheduleCalendar, ScheduleCalendarTypedDict
@@ -160,6 +162,19 @@ if TYPE_CHECKING:
     from .schedulerange import ScheduleRange, ScheduleRangeTypedDict
     from .signaldefinition import SignalDefinition, SignalDefinitionTypedDict
     from .updatedefinition import UpdateDefinition, UpdateDefinitionTypedDict
+    from .upsert_execution_metadata_v1_workflows_executions_search_keys_temporal_workflow_id_patchop import (
+        UpsertExecutionMetadataV1WorkflowsExecutionsSearchKeysTemporalWorkflowIDPatchRequest,
+        UpsertExecutionMetadataV1WorkflowsExecutionsSearchKeysTemporalWorkflowIDPatchRequestTypedDict,
+    )
+    from .upsertexecutionmetadatarequest import (
+        UpsertExecutionMetadataRequest,
+        UpsertExecutionMetadataRequestTypedDict,
+    )
+    from .upsertexecutionmetadataresponse import (
+        UpsertExecutionMetadataResponse,
+        UpsertExecutionMetadataResponseMetadataStatus,
+        UpsertExecutionMetadataResponseTypedDict,
+    )
     from .validationerror import (
         Context,
         ContextTypedDict,
@@ -361,11 +376,13 @@ __all__ = [
     "LocationType",
     "Payload",
     "PayloadTypedDict",
+    "PrincipalType",
     "QueryDefinition",
     "QueryDefinitionTypedDict",
     "RegisterExecutionRequest",
     "RegisterExecutionRequestTypedDict",
     "RegisterExecutionResponse",
+    "RegisterExecutionResponseMetadataStatus",
     "RegisterExecutionResponseTypedDict",
     "ScheduleCalendar",
     "ScheduleCalendarTypedDict",
@@ -382,6 +399,13 @@ __all__ = [
     "SignalDefinitionTypedDict",
     "UpdateDefinition",
     "UpdateDefinitionTypedDict",
+    "UpsertExecutionMetadataRequest",
+    "UpsertExecutionMetadataRequestTypedDict",
+    "UpsertExecutionMetadataResponse",
+    "UpsertExecutionMetadataResponseMetadataStatus",
+    "UpsertExecutionMetadataResponseTypedDict",
+    "UpsertExecutionMetadataV1WorkflowsExecutionsSearchKeysTemporalWorkflowIDPatchRequest",
+    "UpsertExecutionMetadataV1WorkflowsExecutionsSearchKeysTemporalWorkflowIDPatchRequestTypedDict",
     "ValidationError",
     "ValidationErrorTypedDict",
     "Value",
@@ -529,11 +553,13 @@ _dynamic_imports: dict[str, str] = {
     "ListDeploymentAuthorizedCredentialsV1WorkflowsDeploymentsAuthorizedCredentialsGetRequest": ".list_deployment_authorized_credentials_v1_workflows_deployments_authorized_credentials_getop",
     "ListDeploymentAuthorizedCredentialsV1WorkflowsDeploymentsAuthorizedCredentialsGetRequestTypedDict": ".list_deployment_authorized_credentials_v1_workflows_deployments_authorized_credentials_getop",
     "LocationType": ".locationtype",
+    "PrincipalType": ".principaltype",
     "QueryDefinition": ".querydefinition",
     "QueryDefinitionTypedDict": ".querydefinition",
     "RegisterExecutionRequest": ".registerexecutionrequest",
     "RegisterExecutionRequestTypedDict": ".registerexecutionrequest",
     "RegisterExecutionResponse": ".registerexecutionresponse",
+    "RegisterExecutionResponseMetadataStatus": ".registerexecutionresponse",
     "RegisterExecutionResponseTypedDict": ".registerexecutionresponse",
     "ScheduleCalendar": ".schedulecalendar",
     "ScheduleCalendarTypedDict": ".schedulecalendar",
@@ -550,6 +576,13 @@ _dynamic_imports: dict[str, str] = {
     "SignalDefinitionTypedDict": ".signaldefinition",
     "UpdateDefinition": ".updatedefinition",
     "UpdateDefinitionTypedDict": ".updatedefinition",
+    "UpsertExecutionMetadataV1WorkflowsExecutionsSearchKeysTemporalWorkflowIDPatchRequest": ".upsert_execution_metadata_v1_workflows_executions_search_keys_temporal_workflow_id_patchop",
+    "UpsertExecutionMetadataV1WorkflowsExecutionsSearchKeysTemporalWorkflowIDPatchRequestTypedDict": ".upsert_execution_metadata_v1_workflows_executions_search_keys_temporal_workflow_id_patchop",
+    "UpsertExecutionMetadataRequest": ".upsertexecutionmetadatarequest",
+    "UpsertExecutionMetadataRequestTypedDict": ".upsertexecutionmetadatarequest",
+    "UpsertExecutionMetadataResponse": ".upsertexecutionmetadataresponse",
+    "UpsertExecutionMetadataResponseMetadataStatus": ".upsertexecutionmetadataresponse",
+    "UpsertExecutionMetadataResponseTypedDict": ".upsertexecutionmetadataresponse",
     "Context": ".validationerror",
     "ContextTypedDict": ".validationerror",
     "Loc": ".validationerror",

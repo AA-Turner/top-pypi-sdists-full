@@ -106,16 +106,9 @@ def _packing_cache_key(kind: str, raw: PackedRawTensor, device) -> Tuple[Any, ..
         raw.packed_dim.dimension,
         raw.gap,
         raw.align,
-        _layout_lens_key(raw.layout_lens),
+        raw.layout_lens,  # keyed by identity (the Cache wraps tensors so, value-free)
         str(device),
     )
-
-
-def _layout_lens_key(layout_lens):
-    """:return: value key for the per-seq layout lens (a small cpu int tensor, cheap to read)"""
-    if layout_lens is None:
-        return None
-    return tuple(int(v) for v in layout_lens.raw_tensor.flatten())
 
 
 def _device_lens(raw: PackedRawTensor):
@@ -244,12 +237,17 @@ class PackedRawTensor:
         if hit is not None:
             return hit
         starts, seqs_dim = self.seq_starts()
-        total = self.packed_dim.get_dim_value_tensor()
+        if _device_lens(self) is not None:
+            # the REAL content total (device scalar), NOT the bound.
+            lens = self.orig_dims[-1].get_dyn_size_ext_for_device(self.inner.device)
+            total = rf.cast(rf.reduce_sum(lens, axis=list(lens.dims)), starts.dtype)
+        else:
+            total = self.packed_dim.get_dim_value_tensor()
         if isinstance(total, Tensor):
             total = rf.cast(total, starts.dtype)
         else:
             # a static packed dim (e.g. built by the data pipeline) yields a python int, not a tensor
-            total = rf.copy_to_device(rf.constant(int(total), dims=(), dtype=starts.dtype), starts.device)
+            total = rf.convert_to_tensor(total, dims=(), dtype=starts.dtype, device=starts.device)
         end_dim = Dim(1, name="cu_seqlens_end")
         cu, cu_dim = rf.concat((starts, seqs_dim), (rf.expand_dim(total, dim=end_dim), end_dim))
         cu = rf.cast(cu, "int32")
@@ -508,6 +506,12 @@ def _same_seq_lens(a: Dim, b: Dim) -> bool:
         return True
     if a.dyn_size_ext.dims != b.dyn_size_ext.dims:
         return False
+    if a.dyn_size_ext.raw_tensor is b.dyn_size_ext.raw_tensor:
+        return True
+    if rf.is_static_traceable():
+        # no value reads under static tracing (would bake the comparison / fail on fake tensors):
+        # only identity of the size tensors (above) proves equality here
+        return False
     a_sizes = a.get_dyn_size_ext_for_device("cpu")
     b_sizes = b.get_dyn_size_ext_for_device("cpu")
     return bool(rf.reduce_all(a_sizes == b_sizes, axis=list(a_sizes.dims)).raw_tensor)
@@ -680,7 +684,7 @@ def _frame_coords(template: PackedRawTensor, d: Dim) -> Tensor:
         template.orig_dims,
         template.gap,
         template.align,
-        _layout_lens_key(template.layout_lens),
+        template.layout_lens,
         template.orig_dims.index(d),
         str(template.inner.device),
     )
@@ -742,7 +746,7 @@ def _frame_mask(template: PackedRawTensor) -> Optional[Tensor]:
         template.orig_dims,
         template.gap,
         template.align,
-        _layout_lens_key(template.layout_lens),
+        template.layout_lens,
         str(template.inner.device),
     )
     hit = _layout_cache.get(key)
@@ -871,7 +875,7 @@ def _segment_index(template: PackedRawTensor, seg_dims: Sequence[Dim]) -> Tuple[
             template.orig_dims,
             template.gap,
             template.align,
-            _layout_lens_key(template.layout_lens),
+            template.layout_lens,
             tuple(template.orig_dims.index(d) for d in seg_dims),
             str(template.inner.device),
         )
@@ -3496,7 +3500,7 @@ def regap(
     else:
         # cache the on-device starts + total (deterministic per target layout)
         # -> no per-step H2D sync (capture-safe)
-        dev_key = _packing_cache_key("regap_dev", raw, seg.device) + (gap, align, _layout_lens_key(layout_lens))
+        dev_key = _packing_cache_key("regap_dev", raw, seg.device) + (gap, align, layout_lens)
         hit = _layout_cache.get(dev_key)
         if hit is not None:
             new_starts, total_dev = hit

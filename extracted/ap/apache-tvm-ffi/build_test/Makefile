@@ -373,6 +373,30 @@ src/ffi/container.cc.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/container.cc.s
 .PHONY : src/ffi/container.cc.s
 
+src/ffi/custom_allocator.o: src/ffi/custom_allocator.cc.o
+.PHONY : src/ffi/custom_allocator.o
+
+# target to build an object file
+src/ffi/custom_allocator.cc.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/custom_allocator.cc.o
+.PHONY : src/ffi/custom_allocator.cc.o
+
+src/ffi/custom_allocator.i: src/ffi/custom_allocator.cc.i
+.PHONY : src/ffi/custom_allocator.i
+
+# target to preprocess a source file
+src/ffi/custom_allocator.cc.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/custom_allocator.cc.i
+.PHONY : src/ffi/custom_allocator.cc.i
+
+src/ffi/custom_allocator.s: src/ffi/custom_allocator.cc.s
+.PHONY : src/ffi/custom_allocator.s
+
+# target to generate assembly for a file
+src/ffi/custom_allocator.cc.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/custom_allocator.cc.s
+.PHONY : src/ffi/custom_allocator.cc.s
+
 src/ffi/dtype.o: src/ffi/dtype.cc.o
 .PHONY : src/ffi/dtype.o
 
@@ -733,6 +757,30 @@ src/ffi/extra/structural_hash.cc.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/extra/structural_hash.cc.s
 .PHONY : src/ffi/extra/structural_hash.cc.s
 
+src/ffi/extra/structural_visit.o: src/ffi/extra/structural_visit.cc.o
+.PHONY : src/ffi/extra/structural_visit.o
+
+# target to build an object file
+src/ffi/extra/structural_visit.cc.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/extra/structural_visit.cc.o
+.PHONY : src/ffi/extra/structural_visit.cc.o
+
+src/ffi/extra/structural_visit.i: src/ffi/extra/structural_visit.cc.i
+.PHONY : src/ffi/extra/structural_visit.i
+
+# target to preprocess a source file
+src/ffi/extra/structural_visit.cc.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/extra/structural_visit.cc.i
+.PHONY : src/ffi/extra/structural_visit.cc.i
+
+src/ffi/extra/structural_visit.s: src/ffi/extra/structural_visit.cc.s
+.PHONY : src/ffi/extra/structural_visit.s
+
+# target to generate assembly for a file
+src/ffi/extra/structural_visit.cc.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/extra/structural_visit.cc.s
+.PHONY : src/ffi/extra/structural_visit.cc.s
+
 src/ffi/extra/visit_error_context.o: src/ffi/extra/visit_error_context.cc.o
 .PHONY : src/ffi/extra/visit_error_context.o
 
@@ -909,6 +957,9 @@ help:
 	@echo "... src/ffi/container.o"
 	@echo "... src/ffi/container.i"
 	@echo "... src/ffi/container.s"
+	@echo "... src/ffi/custom_allocator.o"
+	@echo "... src/ffi/custom_allocator.i"
+	@echo "... src/ffi/custom_allocator.s"
 	@echo "... src/ffi/dtype.o"
 	@echo "... src/ffi/dtype.i"
 	@echo "... src/ffi/dtype.s"
@@ -954,6 +1005,9 @@ help:
 	@echo "... src/ffi/extra/structural_hash.o"
 	@echo "... src/ffi/extra/structural_hash.i"
 	@echo "... src/ffi/extra/structural_hash.s"
+	@echo "... src/ffi/extra/structural_visit.o"
+	@echo "... src/ffi/extra/structural_visit.i"
+	@echo "... src/ffi/extra/structural_visit.s"
 	@echo "... src/ffi/extra/visit_error_context.o"
 	@echo "... src/ffi/extra/visit_error_context.i"
 	@echo "... src/ffi/extra/visit_error_context.s"

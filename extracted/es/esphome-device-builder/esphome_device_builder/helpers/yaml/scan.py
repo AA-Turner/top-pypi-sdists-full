@@ -4,10 +4,22 @@ from __future__ import annotations
 
 import re
 
+# Regex prefix for a key on its list item's dash line (``- <key>: ...``).
+DASH_KEY_PREFIX = r"^\s*-\s+"
+
 
 def key_header_re(key: str, *, indent: str = "") -> re.Pattern[str]:
     """Pattern matching a ``<key>:`` header line at exactly *indent*, bare or with a comment."""
-    return re.compile(rf"^{re.escape(indent)}{re.escape(key)}:\s*(?:#.*)?$")
+    return key_line_res(key, prefix=f"^{re.escape(indent)}")[0]
+
+
+def key_line_res(key: str, *, prefix: str) -> tuple[re.Pattern[str], re.Pattern[str]]:
+    """``(block header, inline scalar)`` patterns for ``<key>:`` after regex *prefix*."""
+    escaped = re.escape(key)
+    return (
+        re.compile(rf"{prefix}{escaped}:\s*(?:#.*)?$"),
+        re.compile(rf"{prefix}{escaped}:\s*[^\s#]"),
+    )
 
 
 def find_block_header(lines: list[str], key: str) -> int | None:
@@ -28,6 +40,42 @@ def block_end_index(lines: list[str], start: int) -> int:
     return len(lines)
 
 
+def is_list_item_line(stripped: str) -> bool:
+    """Report whether a whitespace-stripped line opens a list item (``- foo`` or lone ``-``)."""
+    return stripped.startswith("- ") or stripped.rstrip(" ") == "-"
+
+
+def child_block_end(lines: list[str], start: int, end_bound: int, indent: str) -> int:
+    """
+    End (exclusive) of the child block whose key line sits at *indent*.
+
+    A flush-style list item at the key's own indent continues the block;
+    blank and comment lines never end it. The end trims back over
+    trailing blanks and comments at or above the key's indent (they
+    belong to the gap before the next key); deeper trailing comments
+    stay inside the block.
+    """
+    end = end_bound
+    for idx in range(start + 1, end_bound):
+        content = lines[idx].rstrip("\n\r")
+        stripped = content.lstrip(" ")
+        if not stripped or stripped.startswith("#"):
+            continue
+        leading = len(content) - len(stripped)
+        if leading < len(indent) or (leading == len(indent) and not is_list_item_line(stripped)):
+            end = idx
+            break
+    while end - 1 > start:
+        content = lines[end - 1].rstrip("\n\r")
+        stripped = content.lstrip(" ")
+        if stripped and (
+            not stripped.startswith("#") or len(content) - len(stripped) > len(indent)
+        ):
+            break
+        end -= 1
+    return end
+
+
 def top_list_item_starts(lines: list[str], start: int, end: int) -> list[int]:
     """
     Line indexes of the canonical-indent ``- `` items in a block body.
@@ -40,7 +88,9 @@ def top_list_item_starts(lines: list[str], start: int, end: int) -> list[int]:
     for idx in range(start + 1, end):
         raw = lines[idx].rstrip("\n\r")
         stripped = raw.lstrip(" ")
-        if not stripped.startswith("- "):
+        # A bare dash opens an item whose mapping starts on the next
+        # line (the shape the nested-delete prune writes).
+        if not is_list_item_line(stripped):
             continue
         prefix = raw[: len(raw) - len(stripped)]
         if item_indent is None:

@@ -19,10 +19,15 @@ import sys
 import typing
 import warnings
 from collections.abc import (
+    AsyncGenerator,
+    AsyncIterable,
+    AsyncIterator,
     Callable,
     Collection,
+    Generator,
     Hashable,
     Iterable,
+    Iterator,
     Mapping,
     Sequence,
 )
@@ -30,7 +35,15 @@ from contextvars import ContextVar
 from decimal import Context, Decimal, localcontext
 from fractions import Fraction
 from functools import reduce
-from inspect import Parameter, Signature, isabstract, isclass
+from inspect import (
+    Parameter,
+    Signature,
+    isabstract,
+    isasyncgenfunction,
+    isclass,
+    iscoroutinefunction,
+    isgeneratorfunction,
+)
 from re import Pattern
 from types import EllipsisType, FunctionType, GenericAlias
 from typing import (
@@ -161,12 +174,11 @@ def booleans() -> SearchStrategy[bool]:
 
 
 @overload
-def sampled_from(elements: Sequence[T]) -> SearchStrategy[T]:  # pragma: no cover
-    ...
+def sampled_from(elements: Sequence[T]) -> SearchStrategy[T]: ...
 
 
 @overload
-def sampled_from(elements: type[enum.Enum]) -> SearchStrategy[Any]:  # pragma: no cover
+def sampled_from(elements: type[enum.Enum]) -> SearchStrategy[Any]:
     # `SearchStrategy[Enum]` is unreliable due to metaclass issues.
     ...
 
@@ -174,8 +186,7 @@ def sampled_from(elements: type[enum.Enum]) -> SearchStrategy[Any]:  # pragma: n
 @overload
 def sampled_from(
     elements: type[enum.Enum] | Sequence[Any],
-) -> SearchStrategy[Any]:  # pragma: no cover
-    ...
+) -> SearchStrategy[Any]: ...
 
 
 @defines_strategy(eager="try")
@@ -252,7 +263,7 @@ def sampled_from(
         def has_annotations(elements):
             if sys.version_info[:2] < (3, 14):
                 return vars(elements).get("__annotations__")
-            else:  # pragma: no cover  # covered by 3.14 tests
+            else:
                 import annotationlib
 
                 return bool(annotationlib.get_annotations(elements))
@@ -521,8 +532,7 @@ V2 = TypeVar("V2")
 @overload
 def fixed_dictionaries(
     mapping: Mapping[K, SearchStrategy[V]],
-) -> SearchStrategy[dict[K, V]]:  # pragma: no cover
-    ...
+) -> SearchStrategy[dict[K, V]]: ...
 
 
 @overload
@@ -533,8 +543,7 @@ def fixed_dictionaries(
     mapping: Mapping[NoReturn, NoReturn],
     *,
     optional: Mapping[K2, SearchStrategy[V2]],
-) -> SearchStrategy[dict[K2, V2]]:  # pragma: no cover
-    ...
+) -> SearchStrategy[dict[K2, V2]]: ...
 
 
 @overload
@@ -542,8 +551,7 @@ def fixed_dictionaries(
     mapping: Mapping[K, SearchStrategy[V]],
     *,
     optional: Mapping[K2, SearchStrategy[V2]],
-) -> SearchStrategy[dict[K | K2, V | V2]]:  # pragma: no cover
-    ...
+) -> SearchStrategy[dict[K | K2, V | V2]]: ...
 
 
 @defines_strategy()
@@ -879,8 +887,7 @@ def from_regex(
     regex: bytes | Pattern[bytes],
     *,
     fullmatch: bool = False,
-) -> SearchStrategy[bytes]:  # pragma: no cover
-    ...
+) -> SearchStrategy[bytes]: ...
 
 
 @overload
@@ -889,8 +896,7 @@ def from_regex(
     *,
     fullmatch: bool = False,
     alphabet: Collection[str] | SearchStrategy[str] | None = characters(codec="utf-8"),
-) -> SearchStrategy[str]:  # pragma: no cover
-    ...
+) -> SearchStrategy[str]: ...
 
 
 @cacheable
@@ -1193,7 +1199,7 @@ def builds(
             isinstance(target, type)
             and (attr := sys.modules.get("attr")) is not None
             and attr.has(target)
-        ):  # pragma: no cover  # covered by our attrs tests in check-niche
+        ):
             # Use our custom introspection for attrs classes
             from hypothesis.strategies._internal.attrs import from_attrs
 
@@ -1399,7 +1405,7 @@ def _from_type(thing: type[Ex]) -> SearchStrategy[Ex]:
     if types.is_a_union(thing):
         args = sorted(thing.__args__, key=types.type_sorting_key)  # type: ignore
         return one_of([_from_type(t) for t in args])
-    if thing in types.LiteralStringTypes:  # pragma: no cover
+    if thing in types.LiteralStringTypes:
         # We can't really cover this because it needs either
         # typing-extensions or python3.11+ typing.
         # `LiteralString` from runtime's point of view is just a string.
@@ -1428,7 +1434,7 @@ def _from_type(thing: type[Ex]) -> SearchStrategy[Ex]:
                 "`from __future__ import annotations` instead of forward-reference "
                 "strings."
             )
-        raise InvalidArgument(f"{thing=} must be a type")  # pragma: no cover
+        raise InvalidArgument(f"{thing=} must be a type")
 
     if thing in types.NON_RUNTIME_TYPES:
         # Some code like `st.from_type(TypeAlias)` does not make sense.
@@ -1455,7 +1461,7 @@ def _from_type(thing: type[Ex]) -> SearchStrategy[Ex]:
             strategy = as_strategy(types._global_type_lookup[origin], thing)
             if strategy is not NotImplemented:
                 return strategy
-    except TypeError:  # pragma: no cover
+    except TypeError:
         # This was originally due to a bizarre divergence in behaviour on Python 3.9.0:
         # typing.Callable[[], foo] has __args__ = (foo,) but collections.abc.Callable
         # has __args__ = ([], foo); and as a result is non-hashable.
@@ -2002,7 +2008,7 @@ class DrawFn(Protocol):
     """
 
     def __init__(self):
-        raise TypeError("Protocols cannot be instantiated")  # pragma: no cover
+        raise TypeError("Protocols cannot be instantiated")
 
     # Protocol overrides our signature for __init__,
     # so we override it right back to make the docs look nice.
@@ -2477,7 +2483,7 @@ def data() -> SearchStrategy[DataObject]:
 if sys.version_info < (3, 12):
     # TypeAliasType is new in 3.12
     RegisterTypeT: TypeAlias = type[Ex]
-else:  # pragma: no cover  # covered by test_mypy.py
+else:
     from typing import TypeAliasType
 
     # see https://github.com/HypothesisWorks/hypothesis/issues/4410
@@ -2637,38 +2643,70 @@ def _functions(*, like, returns, pure):
             "The first argument to functions() must be a callable to imitate, "
             f"but got non-callable like={nicerepr(like)!r}"
         )
+    if pure and (
+        iscoroutinefunction(like)
+        or isgeneratorfunction(like)
+        or isasyncgenfunction(like)
+    ):
+        raise InvalidArgument(
+            f"pure=True is invalid for like={nicerepr(like)!r}, because async "
+            "functions are for non-deterministic IO and generators are consumed "
+            "by iteration, so returning a cached value makes no sense"
+        )
+    is_gen = isgeneratorfunction(like) or isasyncgenfunction(like)
     if returns in (None, ...):
-        # Passing `None` has never been *documented* as working, but it still
-        # did from May 2020 to Jan 2022 so we'll avoid breaking it without cause.
         hints = get_type_hints(like)
-        returns = from_type(hints.get("return", type(None)))
+        if is_gen:
+            # The return annotation describes the iterator, so e.g. yield
+            # integers for `-> Iterator[int]` or `-> AsyncIterator[int]`.
+            allowed = (
+                (AsyncIterator, AsyncIterable, AsyncGenerator)
+                if isasyncgenfunction(like)
+                else (Iterator, Iterable, Generator)
+            )
+            ret = hints.get("return")
+            # normalize eg Iterator[bool] to Iterator while keeping Iterator as Iterator.
+            kind = get_origin(ret) or ret
+            if ret is not None and kind not in allowed:
+                options = ", ".join(t.__name__ for t in allowed)
+                raise InvalidArgument(
+                    f"Cannot infer the yield type of like={nicerepr(like)!r} "
+                    f"from its return annotation {ret!r}. Expected one of "
+                    f"{options}. Alternatively, pass returns= to specify the yield type "
+                    "explicitly."
+                )
+            args = get_args(ret)
+            returns = from_type(args[0]) if args else none()
+        else:
+            # Passing `None` has never been *documented* as working, but it
+            # still did from May 2020 to Jan 2022 so we'll avoid breaking it
+            # without cause.
+            returns = from_type(hints.get("return", type(None)))
     check_strategy(returns, "returns")
+    if is_gen:
+        # Generated generator functions draw a list of values to yield up front.
+        returns = lists(returns)
     return FunctionStrategy(like, returns, pure)
 
 
 if typing.TYPE_CHECKING or ParamSpec is not None:
 
     @overload
-    def functions(
-        *, pure: bool = ...
-    ) -> SearchStrategy[Callable[[], None]]:  # pragma: no cover
-        ...
+    def functions(*, pure: bool = ...) -> SearchStrategy[Callable[[], None]]: ...
 
     @overload
     def functions(
         *,
         like: Callable[P, T],
         pure: bool = ...,
-    ) -> SearchStrategy[Callable[P, T]]:  # pragma: no cover
-        ...
+    ) -> SearchStrategy[Callable[P, T]]: ...
 
     @overload
     def functions(
         *,
         returns: SearchStrategy[T],
         pure: bool = ...,
-    ) -> SearchStrategy[Callable[[], T]]:  # pragma: no cover
-        ...
+    ) -> SearchStrategy[Callable[[], T]]: ...
 
     @overload
     def functions(
@@ -2676,8 +2714,7 @@ if typing.TYPE_CHECKING or ParamSpec is not None:
         like: Callable[P, Any],
         returns: SearchStrategy[T],
         pure: bool = ...,
-    ) -> SearchStrategy[Callable[P, T]]:  # pragma: no cover
-        ...
+    ) -> SearchStrategy[Callable[P, T]]: ...
 
     @defines_strategy()
     def functions(*, like=lambda: None, returns=..., pure=False):
@@ -2692,6 +2729,20 @@ if typing.TYPE_CHECKING or ParamSpec is not None:
         for the function is drawn from the ``returns`` argument, which must be a
         strategy.  If ``returns`` is not passed, we attempt to infer a strategy
         from the return-type annotation if present, falling back to :func:`~none`.
+
+        If ``like`` is an async function, a generator function, or an async
+        generator function, the generated function will be of the same kind.
+        Awaiting a generated async function returns a value drawn from
+        ``returns``, while generated generator functions draw a list of
+        values from ``returns`` up front and then yield from it - so a
+        return-type annotation like ``Iterator[int]`` or ``AsyncIterator[int]``
+        means we infer ``returns=integers()``.  ``pure=True`` is only
+        supported when ``like`` is a plain function.
+
+        Generated async functions and async generators follow Trio-style
+        checkpoint semantics, using :pypi:`anyio` or :pypi:`sniffio` if
+        imported to find the right way to checkpoint, and falling back to
+        :mod:`asyncio` otherwise.
 
         If ``pure=True``, all arguments passed to the generated function must be
         hashable, and if passed identical arguments the original return value will
@@ -2723,6 +2774,20 @@ else:  # pragma: no cover
         for the function is drawn from the ``returns`` argument, which must be a
         strategy.  If ``returns`` is not passed, we attempt to infer a strategy
         from the return-type annotation if present, falling back to :func:`~none`.
+
+        If ``like`` is an async function, a generator function, or an async
+        generator function, the generated function will be of the same kind.
+        Awaiting a generated async function returns a value drawn from
+        ``returns``, while generated generator functions draw a list of
+        values from ``returns`` up front and then yield from it - so a
+        return-type annotation like ``Iterator[int]`` or ``AsyncIterator[int]``
+        means we infer ``returns=integers()``.  ``pure=True`` is only
+        supported when ``like`` is a plain function.
+
+        Generated async functions and async generators follow Trio-style
+        checkpoint semantics, using :pypi:`anyio` or :pypi:`sniffio` if
+        imported to find the right way to checkpoint, and falling back to
+        :mod:`asyncio` otherwise.
 
         If ``pure=True``, all arguments passed to the generated function must be
         hashable, and if passed identical arguments the original return value will

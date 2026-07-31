@@ -175,6 +175,8 @@ def submit_to_archivedotorg(url: str) -> tuple[bool, str | None, str]:
 def main(url: str):
     """Submit a URL to archive.org for archiving."""
 
+    print("archive.org submission started", flush=True)
+
     config = load_config()
 
     # Check if feature is enabled

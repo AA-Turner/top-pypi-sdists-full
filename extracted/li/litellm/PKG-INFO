@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litellm
-Version: 1.94.0
+Version: 1.94.1
 Requires-Dist: fastuuid>=0.14.0,<1.0
 Requires-Dist: httpx>=0.28.0,<1.0
 Requires-Dist: openai>=2.20.0,<3.0.0

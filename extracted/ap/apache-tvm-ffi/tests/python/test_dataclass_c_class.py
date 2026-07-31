@@ -23,23 +23,35 @@ import warnings
 
 import pytest
 import tvm_ffi.testing
+from tvm_ffi import core
 from tvm_ffi.core import MISSING, TypeInfo
-from tvm_ffi.dataclasses import Field
-from tvm_ffi.dataclasses.c_class import _attach_field_objects
+from tvm_ffi.dataclasses import Field, field
+from tvm_ffi.dataclasses.c_class import _attach_field_objects, c_class
 from tvm_ffi.registry import _warn_missing_field_annotations
 from tvm_ffi.testing import (
     TestCompare,
+    TestCustomCompare,
+    TestCustomHash,
+    TestEqWithoutHash,
     TestHash,
     _TestCxxClassBase,
     _TestCxxClassDerived,
     _TestCxxClassDerivedDerived,
+    _TestCxxEnumHolder,
     _TestCxxInitSubset,
+    _TestCxxIntEnum,
     _TestCxxKwOnly,
+    _TestCxxStrEnum,
 )
 
 # ---------------------------------------------------------------------------
 # 1. Custom __init__ preservation
 # ---------------------------------------------------------------------------
+
+
+def test_c_class_dataclass_transform_has_converter() -> None:
+    metadata = c_class.__dataclass_transform__  # ty: ignore[unresolved-attribute]
+    assert metadata["kwargs"]["converter"] is field().converter
 
 
 def test_c_class_custom_init() -> None:
@@ -70,6 +82,50 @@ def test_c_class_auto_init_all_explicit() -> None:
     assert obj.v_i32 == 456
     assert obj.v_f64 == 4.0
     assert obj.v_f32 == 9.0
+
+
+def test_c_class_payload_enum_fields_normalize_in_init() -> None:
+    """IntEnum/StrEnum fields on @c_class accept raw payloads in __init__."""
+    obj = _TestCxxEnumHolder(priority=20, opcode="*")  # ty: ignore[invalid-argument-type]
+
+    assert isinstance(obj.priority, _TestCxxIntEnum)
+    assert isinstance(obj.opcode, _TestCxxStrEnum)
+    assert obj.priority.same_as(_TestCxxIntEnum.high)
+    assert obj.opcode.same_as(_TestCxxStrEnum.mul)
+    assert obj.priority.value == 20
+    assert obj.opcode.value == "*"
+
+    from_enum = _TestCxxEnumHolder(priority=_TestCxxIntEnum.low, opcode=_TestCxxStrEnum.add)
+    assert from_enum.priority.same_as(_TestCxxIntEnum.low)
+    assert from_enum.opcode.same_as(_TestCxxStrEnum.add)
+
+
+def test_c_class_payload_enum_fields_normalize_on_assignment() -> None:
+    """IntEnum/StrEnum fields on @c_class accept raw payloads on assignment."""
+    obj = _TestCxxEnumHolder(priority=_TestCxxIntEnum.low, opcode=_TestCxxStrEnum.add)
+
+    obj.priority = 20  # ty: ignore[invalid-assignment]
+    obj.opcode = "*"  # ty: ignore[invalid-assignment]
+    assert obj.priority.same_as(_TestCxxIntEnum.high)
+    assert obj.opcode.same_as(_TestCxxStrEnum.mul)
+
+    obj.priority = _TestCxxIntEnum.low
+    obj.opcode = _TestCxxStrEnum.add
+    assert obj.priority.same_as(_TestCxxIntEnum.low)
+    assert obj.opcode.same_as(_TestCxxStrEnum.add)
+
+
+def test_c_class_payload_enum_fields_reject_unknown_payloads() -> None:
+    """Unknown raw payloads are rejected without replacing existing enum fields."""
+    obj = _TestCxxEnumHolder(priority=_TestCxxIntEnum.low, opcode=_TestCxxStrEnum.add)
+
+    with pytest.raises((TypeError, RuntimeError), match="expected"):
+        obj.priority = 99  # ty: ignore[invalid-assignment]
+    with pytest.raises((TypeError, RuntimeError), match="expected"):
+        obj.opcode = "/"  # ty: ignore[invalid-assignment]
+
+    assert obj.priority.same_as(_TestCxxIntEnum.low)
+    assert obj.opcode.same_as(_TestCxxStrEnum.add)
 
 
 # ---------------------------------------------------------------------------
@@ -182,6 +238,28 @@ def test_c_class_ordering_different_type() -> None:
         a > 3.14  # ty: ignore[unsupported-operator]
     with pytest.raises(TypeError):
         a >= None  # ty: ignore[unsupported-operator]
+
+
+def test_c_class_installs_cxx_type_attr_columns() -> None:
+    """C++-registered TypeAttrColumn hooks become class attributes."""
+    info: TypeInfo = getattr(TestCustomCompare, "__tvm_ffi_type_info__")
+    attrs = {
+        name
+        for name in ("__ffi_hash__", "__ffi_eq__", "__ffi_compare__", "__ffi_repr__")
+        if core._lookup_type_attr(info.type_index, name) is not None
+    }
+    assert set(attrs) == {"__ffi_hash__", "__ffi_eq__", "__ffi_compare__"}
+
+    for cls, names in (
+        (TestCustomHash, ("__ffi_hash__",)),
+        (TestCustomCompare, ("__ffi_hash__", "__ffi_eq__", "__ffi_compare__")),
+        (TestEqWithoutHash, ("__ffi_eq__",)),
+    ):
+        type_info: TypeInfo = getattr(cls, "__tvm_ffi_type_info__")
+        for name in names:
+            assert core._lookup_type_attr(type_info.type_index, name) is not None
+            assert name in cls.__dict__
+            assert callable(cls.__dict__[name])
 
 
 # ---------------------------------------------------------------------------

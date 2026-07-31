@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: keras-nightly
-Version: 3.16.0.dev2026073004
+Version: 3.16.0.dev2026073104
 Summary: Multi-backend Keras
 Author-email: Keras team <keras-users@googlegroups.com>
 License: Apache License 2.0
@@ -93,7 +93,7 @@ The following table lists the minimum supported versions of each backend for the
 | TensorFlow | 2.16.1                    |
 | JAX        | 0.4.20                    |
 | PyTorch    | 2.1.0                     |
-| OpenVINO   | 2025.3.0                  |
+| OpenVINO   | 2026.2.0                  |
 
 #### Adding GPU support
 

@@ -32,6 +32,7 @@ async def async_client():
     await client.aclose()
 
 
+@pytest.mark.require_clickhouse
 @pytest.mark.asyncio
 @skip_if_rate_limited
 async def test_create_run(async_client: AsyncClient):
@@ -51,22 +52,19 @@ async def test_create_run(async_client: AsyncClient):
 
     async def check_run():
         try:
-            run = await async_client.runs.retrieve(
-                run_id, project_id=project_id, selects=["NAME"], start_time=start_time
-            )
+            run = await async_client.read_run(run_id, project_id=project_id)
             return run.name == "test_run"
         except ls_utils.LangSmithError:
             return False
 
     await wait_for(check_run)
 
-    run = await async_client.runs.retrieve(
-        run_id, project_id=project_id, selects=["NAME", "INPUTS"], start_time=start_time
-    )
+    run = await async_client.read_run(run_id, project_id=project_id)
     assert run.name == "test_run"
     assert run.inputs == {"input": "hello"}
 
 
+@pytest.mark.require_clickhouse
 @pytest.mark.asyncio
 @skip_if_rate_limited
 async def test_list_runs(async_client: AsyncClient):
@@ -459,6 +457,7 @@ async def test_list_annotation_queues(async_client: AsyncClient):
             await async_client.delete_annotation_queue(queue_id)
 
 
+@pytest.mark.require_clickhouse
 @pytest.mark.asyncio
 @pytest.mark.slow
 async def test_annotation_queue_runs(async_client: AsyncClient):

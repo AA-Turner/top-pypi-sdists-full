@@ -326,27 +326,37 @@ fn assert_rolls_back(graph: &mut DirGraph, query: &str, scope: Option<&[&str]>) 
 /// property variety that a partial restore shows up in the fingerprint.
 fn seeded() -> DirGraph {
     let mut graph = DirGraph::new();
+    seed_into(&mut graph);
+    graph
+}
+
+/// The seeding itself, factored out so a fixture on a *different backend*
+/// is provably the same graph rather than a similar one written twice.
+///
+/// Every arm below compares behaviour across backends, so a drift between
+/// two hand-maintained copies of these queries would surface as a backend
+/// difference and be believed.
+fn seed_into(graph: &mut DirGraph) {
     run(
-        &mut graph,
+        graph,
         "CREATE (a:Item {id: 1, name: 'a', qty: 10}), \
                 (b:Item {id: 2, name: 'b', qty: 20}), \
                 (c:Item {id: 3, name: 'c', qty: 30})",
     );
-    run(&mut graph, "CREATE (t:Tag:Hot {id: 1, name: 'urgent'})");
-    run(&mut graph, "CREATE (t:Tag:Cold {id: 2, name: 'later'})");
+    run(graph, "CREATE (t:Tag:Hot {id: 1, name: 'urgent'})");
+    run(graph, "CREATE (t:Tag:Cold {id: 2, name: 'later'})");
     run(
-        &mut graph,
+        graph,
         "MATCH (a:Item {id: 1}), (b:Item {id: 2}) CREATE (a)-[:LINKS {weight: 5}]->(b)",
     );
     run(
-        &mut graph,
+        graph,
         "MATCH (b:Item {id: 2}), (c:Item {id: 3}) CREATE (b)-[:LINKS {weight: 7}]->(c)",
     );
     run(
-        &mut graph,
+        graph,
         "MATCH (a:Item {id: 1}), (t:Tag {id: 1}) CREATE (a)-[:TAGGED]->(t)",
     );
-    graph
 }
 
 /// `seeded()` after `enable_columnar()` — the shape every graph takes the
@@ -381,6 +391,33 @@ fn seeded_columnar() -> DirGraph {
         graph.graph.node_count(),
         "every seeded node must read its properties through a column store"
     );
+    graph
+}
+
+/// `seeded()` on the **Mapped** backend — the storage mode a large-graph
+/// application actually runs in.
+///
+/// This fixture exists because the whole file was memory-only until 2026-07-30:
+/// `seeded`, `seeded_columnar` and `seeded_indexed` all build a bare
+/// `DirGraph`, so nothing here had ever executed the mapped path. Rollback on a
+/// mapped graph was entirely unverified — not "verified and slow", unverified.
+///
+/// Mapped is not a larger-than-RAM backend in the way the name suggests:
+/// `MappedGraph.inner` is the same heap `StableDiGraph<NodeData, EdgeData>` as
+/// `MemoryGraph.inner`. What `StorageMode::Mapped` changes is the backend
+/// variant plus `memory_limit = Some(0)`, which forces the columnar property
+/// store to spill to mmap. That distinction is the whole reason the arms below
+/// can be written at all.
+fn seeded_mapped() -> DirGraph {
+    use crate::graph::storage::mode::{new_dir_graph_in_mode, StorageMode};
+
+    let mut graph = new_dir_graph_in_mode(StorageMode::Mapped, None).expect("mapped graph");
+    assert!(
+        graph.graph.is_mapped(),
+        "the mapped fixture must actually be on the Mapped backend, or every \
+         arm below is a second run of the plain fixture"
+    );
+    seed_into(&mut graph);
     graph
 }
 
@@ -458,6 +495,16 @@ macro_rules! rollback_shapes {
                 #[test]
                 fn indexed() {
                     assert_rolls_back(&mut seeded_indexed(), $query, $scope);
+                }
+
+                /// The **mapped** shape — the storage mode a large-graph
+                /// application runs in, and a journal-path configuration
+                /// since 2026-07-30. Before that flip Mapped took the clone
+                /// checkpoint, so no shape here had ever been rolled back
+                /// through the journal on it.
+                #[test]
+                fn mapped() {
+                    assert_rolls_back(&mut seeded_mapped(), $query, $scope);
                 }
             }
         )*
@@ -682,6 +729,117 @@ fn journalled_statements_copy_zero_nodes_on_an_indexed_graph() {
     assert_statements_copy_zero_nodes(&mut seeded_indexed(), "indexed");
 }
 
+/// The mapped backend now takes the **journal** path too.
+///
+/// This arm was the inverse until 2026-07-30: it asserted `copied > 0`,
+/// pinning the whole-graph clone every mapped statement used to open, with a
+/// note to invert rather than delete it when Mapped gained a journal. This is
+/// that inversion. `MappedGraph.inner` is the same heap `StableDiGraph` as
+/// `MemoryGraph.inner`, so the same capture seam applies; only `Disk`, which
+/// has no petgraph and no `NodeIndex` identity for an `UndoEntry` to name,
+/// still returns `false` from `supports_undo_journal`.
+///
+/// Keeping the arm rather than folding it into the list above is deliberate:
+/// it is still the only place the *cost* of a mapped statement is measured,
+/// and a regression that quietly re-vetoes Mapped would otherwise be invisible
+/// again.
+#[test]
+fn mapped_statements_copy_zero_nodes() {
+    let mut graph = seeded_mapped();
+    assert!(
+        graph.graph.node_count() > 0,
+        "fixture must have nodes or the counter proves nothing"
+    );
+    assert_statements_copy_zero_nodes(&mut graph, "mapped");
+}
+
+/// Mapped rollback must be *correct*, whichever path it takes.
+///
+/// Separate from the cost arm above on purpose. The clone path and the journal
+/// path produce identical observable state by construction, which is exactly
+/// why the Python parity oracle cannot tell them apart — it compares outputs.
+/// So the cost is pinned by a counter and correctness is pinned by the
+/// fingerprint, and neither stands in for the other.
+///
+/// This is the arm that kept passing unchanged when Mapped switched to the
+/// journal. If it ever fails, the journal restored less than the clone used
+/// to, and the fingerprint says which field.
+#[test]
+fn mapped_rolls_back_completely() {
+    let mut graph = seeded_mapped();
+    assert_rolls_back(
+        &mut graph,
+        "MATCH (n:Item) DETACH DELETE n CREATE (:Blocked {id: 1})",
+        Some(&["Item"]),
+    );
+}
+
+/// The mapped **silent** write path must record nothing in the undo journal.
+///
+/// [`GraphWrite::node_weight_mut_silent`] has a *trait default* that forwards
+/// to the recorded `node_weight_mut`. `MemoryGraph` overrides it to bypass
+/// capture; `MappedGraph` relying on the default was harmless only while
+/// Mapped had no journal to capture into. The moment it got one, the default
+/// makes every silent write clone a `NodeData` pre-image — and both silent
+/// callers are sweeps over *every node of a type*:
+/// `refresh_columnar_node_handles`, and `BatchProcessor::detach_columnar_stores`
+/// / `reattach_columnar_stores`, which run only under
+/// `is_mapped() || is_disk()` and so are exercised by no memory-backed test at
+/// all. That is exactly the O(type)-per-write amplification commit 3bf9ef00
+/// removed from the WAL, re-created inside the journal.
+///
+/// Nothing existing catches it. The WAL payload guard
+/// (`tests/benchmarks/test_bench_wal_payload.py`) measures WAL *bytes*, which
+/// this override does not change; every `BACKEND_CLONE_NODES` arm counts
+/// backend clones, and the journal path clones no backend by construction. So
+/// the assertion has to read the journal itself.
+///
+/// The recorded arm is the non-vacuity control: without it a test that
+/// silently failed to install a journal, or looked at the wrong node, would
+/// pass by reading zero from an empty buffer.
+#[test]
+fn the_mapped_silent_write_path_records_nothing() {
+    use crate::graph::storage::GraphWrite;
+
+    let mut graph = seeded_mapped();
+    let idx = graph
+        .graph
+        .node_indices()
+        .next()
+        .expect("the fixture must have a node");
+
+    // Control: the recorded seam does capture, so the journal is really live.
+    graph.graph.begin_undo();
+    GraphWrite::node_weight_mut(&mut graph.graph, idx).expect("node is live");
+    let recorded = graph
+        .graph
+        .take_undo()
+        .expect("begin_undo must install a journal on a mapped graph")
+        .into_replay_order()
+        .count();
+    assert_eq!(
+        recorded, 1,
+        "the recorded seam must capture a pre-image, or the silent arm below \
+         is comparing against an empty journal for the wrong reason"
+    );
+
+    // The claim: the silent seam captures nothing.
+    graph.graph.begin_undo();
+    GraphWrite::node_weight_mut_silent(&mut graph.graph, idx).expect("node is live");
+    let silent = graph
+        .graph
+        .take_undo()
+        .expect("begin_undo must install a journal on a mapped graph")
+        .into_replay_order()
+        .count();
+    assert_eq!(
+        silent, 0,
+        "the mapped silent write path journalled {silent} entries; it must \
+         journal none, or the columnar detach/reattach and handle-refresh \
+         sweeps cost one pre-image per node of the type per chunk"
+    );
+}
+
 /// Rollback is allowed to be the expensive direction, but it must still not
 /// reach for a whole-graph copy on the journal path.
 fn assert_rollback_copies_zero_nodes(graph: &mut DirGraph, fixture: &str) {
@@ -713,6 +871,14 @@ fn journalled_rollback_copies_zero_nodes_on_a_saved_graph() {
 #[test]
 fn journalled_rollback_copies_zero_nodes_on_an_indexed_graph() {
     assert_rollback_copies_zero_nodes(&mut seeded_indexed(), "indexed");
+}
+
+/// The rollback half of the mapped switch. `mapped_rolls_back_completely`
+/// pins that the restore is faithful; this pins that it got there without a
+/// whole-graph copy.
+#[test]
+fn journalled_rollback_copies_zero_nodes_on_a_mapped_graph() {
+    assert_rollback_copies_zero_nodes(&mut seeded_mapped(), "mapped");
 }
 
 /// Pins that the `columnar` arms exercise the master side channel rather than
@@ -765,7 +931,27 @@ const WIDE_ITEMS: usize = 200;
 /// entries and any threshold that catches the difference is indistinguishable
 /// from noise.
 fn wide_columnar() -> DirGraph {
-    let mut graph = DirGraph::new();
+    wide_columnar_into(DirGraph::new())
+}
+
+/// [`wide_columnar`] on the **mapped** backend.
+///
+/// Not interchangeable with `seeded_mapped()`: a mapped graph built by Cypher
+/// `CREATE` has an *empty* `column_stores` (the mapped bulk-columnar path in
+/// `mutation::batch` is reached by `add_nodes`, not by the Cypher executor),
+/// so the master-store write path the cost guard below is about never fires on
+/// it. `enable_columnar()` — what `save()` calls — is what puts a mapped graph
+/// into the shape a real application graph is in, and the preconditions are
+/// asserted so the arm cannot go vacuous if that stops being true.
+fn wide_columnar_mapped() -> DirGraph {
+    use crate::graph::storage::mode::{new_dir_graph_in_mode, StorageMode};
+
+    let graph = new_dir_graph_in_mode(StorageMode::Mapped, None).expect("mapped graph");
+    assert!(graph.graph.is_mapped(), "fixture must be on Mapped");
+    wide_columnar_into(graph)
+}
+
+fn wide_columnar_into(mut graph: DirGraph) -> DirGraph {
     let rows: Vec<String> = (0..WIDE_ITEMS)
         .map(|i| format!("(:Item {{id: {i}, name: 'n{i}', qty: {i}}})"))
         .collect();
@@ -813,6 +999,39 @@ fn a_columnar_set_journals_one_pre_image_per_changed_node() {
     );
 }
 
+/// The same bound on the **mapped** backend, which is where it is easiest to
+/// lose and hardest to notice.
+///
+/// `node_weight_mut_silent` has a trait *default* that forwards to the recorded
+/// `node_weight_mut`. `MemoryGraph` overrides it, which is what the arm above
+/// pins; `MappedGraph` had no reason to until it gained a journal, and adding
+/// the journal without the override re-creates the O(type)-per-write cost
+/// exactly. Measured, not assumed: with the override removed this captured
+/// **200** pre-images for a one-row `SET`, against 0 with it.
+///
+/// This arm and `the_mapped_silent_write_path_records_nothing` guard the same
+/// override from opposite ends — one at the seam, one through the statement
+/// that actually reaches it — because the seam has a second caller
+/// (`mutation::batch`'s columnar detach/reattach, gated on
+/// `is_mapped() || is_disk()`) that no Cypher statement reaches today and so
+/// no end-to-end test can cover.
+#[test]
+fn a_mapped_columnar_set_journals_one_pre_image_per_changed_node() {
+    use crate::graph::storage::undo::{journal_node_pre_images, reset_journal_node_pre_images};
+
+    let mut graph = wide_columnar_mapped();
+    reset_journal_node_pre_images();
+    run(&mut graph, "MATCH (i:Item {id: 7}) SET i.priority = 3");
+    let captured = journal_node_pre_images();
+
+    assert!(
+        captured <= 2,
+        "a one-row columnar SET on a mapped graph captured {captured} node \
+         pre-images across {WIDE_ITEMS} nodes of the type; the mapped \
+         handle-refresh sweep is being journalled"
+    );
+}
+
 /// The same statement on a *plain* (never-saved) graph, as the control.
 ///
 /// Pins that the bound above is a property of the columnar path rather than of
@@ -832,6 +1051,73 @@ fn a_plain_set_journals_one_pre_image_per_changed_node() {
         captured <= 2,
         "a one-row SET on a non-columnar graph captured {captured} node \
          pre-images across {WIDE_ITEMS} nodes"
+    );
+}
+
+/// The fork-detection guard is a no-op *today*, and this is what proves it.
+///
+/// `set_via_column_master` now adds a type to `touched_columnar_types` only
+/// when `Arc::make_mut` actually forked the master, rather than
+/// unconditionally. That must change nothing while every node holds its own
+/// strong handle: the master's count is `1 (map) + N (nodes)` at the first
+/// write of a clause, so the fork is unavoidable and the type is registered
+/// exactly as before.
+///
+/// Two writes to the same type in one statement are the interesting case —
+/// the second finds the fresh allocation uniquely owned and mutates in place,
+/// so it does NOT fork. The sweep must still have happened, via the first
+/// write's registration. A regression here would surface as a stale per-node
+/// handle serving a pre-clause value, which is exactly what the assertions
+/// below read back.
+///
+/// When per-node handles become weak this test is expected to change meaning,
+/// not to be deleted: the fork count drops but the observable values must not.
+#[test]
+fn fork_detection_is_a_no_op_while_nodes_hold_strong_handles() {
+    let mut graph = wide_columnar();
+
+    // Locate the node up front: `id` is an inline canonical field, not a
+    // column-store property, so it cannot be used to read back through the
+    // per-node handle. `qty` is columnar and seeded to the node's index.
+    let idx = graph
+        .graph
+        .node_indices()
+        .find(|i| {
+            graph
+                .graph
+                .node_weight(*i)
+                .and_then(|n| n.get_property_value("qty"))
+                .map(|v| v == crate::datatypes::Value::Int64(1))
+                .unwrap_or(false)
+        })
+        .expect("fixture seeds qty = node index");
+
+    // Two SET clauses in one statement, same type and same property. The first
+    // forks (count is 1 + N); the second finds the fresh allocation uniquely
+    // owned and mutates IN PLACE, so it does not fork.
+    run(
+        &mut graph,
+        "MATCH (n:Item {id: 1}) SET n.qty = 111 SET n.qty = 222",
+    );
+
+    // Read back THROUGH the per-node handle, not through the master. If the
+    // first write had failed to register the type, no sweep would run and this
+    // handle would still point at the pre-clause allocation serving qty = 1.
+    let node = graph.graph.node_weight(idx).expect("node still present");
+    assert_eq!(
+        node.get_property_value("qty"),
+        Some(crate::datatypes::Value::Int64(222)),
+        "both writes must be visible through the per-node handle; reading 1 \
+         means the refresh sweep never ran, i.e. fork detection failed to \
+         register the type on the write that actually forked"
+    );
+
+    // The design pin still holds afterwards: the sweep re-pointed every node at
+    // the current master, so it is shared again.
+    let master = graph.column_stores.get("Item").expect("master");
+    assert!(
+        Arc::strong_count(master) > 1,
+        "the sweep must have re-pointed the per-node handles at the master"
     );
 }
 

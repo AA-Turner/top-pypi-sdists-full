@@ -1,19 +1,18 @@
 Metadata-Version: 2.4
 Name: posthog
-Version: 7.33.0
+Version: 7.35.0
 Summary: Integrate PostHog into any python application.
 Home-page: https://github.com/posthog/posthog-python
 Author: Posthog
 Author-email: PostHog <engineering@posthog.com>
 Maintainer: PostHog
 Maintainer-email: PostHog <engineering@posthog.com>
-License: MIT
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/posthog/posthog-python
 Project-URL: Repository, https://github.com/posthog/posthog-python
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11

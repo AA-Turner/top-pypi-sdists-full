@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: statsbombpy
-Version: 1.21.0
+Version: 1.22.0
 Summary: easily stream StatsBomb data into Python
 Home-page: https://github.com/statsbomb/statsbombpy
 Author: StatsBomb

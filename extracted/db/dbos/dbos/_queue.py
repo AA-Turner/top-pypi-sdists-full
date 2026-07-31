@@ -477,7 +477,25 @@ def queue_worker_thread(
             return
 
         try:
-            if queue._partition_queue:
+            if (
+                queue._partition_queue
+                and queue._concurrency == 1
+                and queue._limiter is None
+                and queue._worker_concurrency != 0
+            ):
+                # Batched path: one transaction claims every partition's head (valid only for concurrency=1, see start_queued_partitioned_workflows).
+                dequeued_workflows = dbos._sys_db.start_queued_partitioned_workflows(
+                    queue,
+                    GlobalParams.executor_id,
+                    GlobalParams.app_version,
+                )
+                for id in dequeued_workflows:
+                    try:
+                        execute_workflow_by_id(dbos, id, False, True)
+                    except Exception as e:
+                        dbos.logger.error(f"Error executing workflow {id}: {e}")
+            elif queue._partition_queue:
+                # Every other partitioned config sweeps one partition at a time.
                 queue_partition_keys = dbos._sys_db.get_queue_partitions(queue.name)
                 for key in queue_partition_keys:
                     local_running_count = dbos._active_workflows_set.count_for_queue(
@@ -492,8 +510,11 @@ def queue_worker_thread(
                             local_running_count,
                         )
                     except OperationalError as e:
-                        # Lock held: another worker owns this partition, so skip it; let serialization failures propagate to the outer handler's backoff.
-                        if isinstance(e.orig, errors.LockNotAvailable):
+                        # Lock held or claim raced by another worker: skip just this partition, no queue-wide backoff.
+                        if isinstance(
+                            e.orig,
+                            (errors.LockNotAvailable, errors.SerializationFailure),
+                        ):
                             continue
                         raise
                     for id in dequeued_workflows:

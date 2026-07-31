@@ -9,13 +9,16 @@
 # Contact: ops@keepersecurity.com
 #
 
-from flask import Flask
+from flask import Flask, jsonify
 import logging
+import os
 from werkzeug.middleware.proxy_fix import ProxyFix
+from flask_limiter.errors import RateLimitExceeded
 from .decorators.security import limiter, is_behind_proxy
 from .decorators.api_logging import SSLHandshakeFilter
 from .api.routes import init_routes
 from .decorators.logging import logger
+from .util.throttle import rate_limited_response
 
     
 def create_app():
@@ -35,8 +38,18 @@ def create_app():
         logger.debug("Configuring rate limiter")
         limiter.init_app(app)
 
+        @app.errorhandler(RateLimitExceeded)
+        def handle_rate_limit_exceeded(e):
+            detail = getattr(e, 'description', None) or str(e)
+            body, status = rate_limited_response(detail)
+            return jsonify(body), status
+
         logger.debug("Initializing API routes")
         init_routes(app)
+
+        if (os.environ.get('SAILPOINT_RECORD') or '').strip():
+            from .commands.integrations.sailpoint.service import SailPointService
+            SailPointService.start_background_services()
 
         print("Keeper Commander Service initialization complete")
         return app

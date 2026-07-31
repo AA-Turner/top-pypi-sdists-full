@@ -49,6 +49,7 @@ from pandas._stubs_only import (
 )
 from pandas.core.arraylike import OpsMixin
 from pandas.core.base import IndexOpsMixin
+from pandas.core.col import Expression
 from pandas.core.generic import NDFrame
 from pandas.core.groupby.generic import DataFrameGroupBy
 from pandas.core.indexers import BaseIndexer
@@ -191,7 +192,13 @@ _iLocSetItemKey: TypeAlias = (
     | tuple[int, IndexType]
 )
 _LocSetItemKey: TypeAlias = (
-    MaskType | Hashable | _IndexSliceTuple | Iterable[Scalar] | IndexingInt | slice
+    Expression
+    | MaskType
+    | Hashable
+    | _IndexSliceTuple
+    | Iterable[Scalar]
+    | IndexingInt
+    | slice
 )
 _SetItemValueNotDataFrame: TypeAlias = (
     ScalarOrNA
@@ -234,6 +241,14 @@ class _iLocIndexerFrame(_iLocIndexer, Generic[_T]):
 
 class _LocIndexerFrame(_LocIndexer, Generic[_T]):
     @overload
+    def __getitem__(self, idx: Expression) -> _T: ...
+    @overload
+    def __getitem__(self, idx: tuple[Expression, Scalar]) -> Series: ...
+    @overload
+    def __getitem__(
+        self, idx: tuple[Expression, list[HashableT] | Index | slice]
+    ) -> _T: ...
+    @overload
     def __getitem__(  # type: ignore[overload-overlap] # pyright: ignore[reportOverlappingOverload]
         self,
         idx: tuple[
@@ -267,7 +282,12 @@ class _LocIndexerFrame(_LocIndexer, Generic[_T]):
     def __getitem__(self, idx: Scalar) -> Series | _T: ...
     @overload
     def __getitem__(
-        self, idx: tuple[Scalar, slice] | tuple[slice, tuple[Scalar, ...]]
+        self,
+        idx: (
+            tuple[Scalar, slice]
+            | tuple[slice, tuple[Scalar, ...]]
+            | tuple[Scalar, SequenceNotStr[Scalar]]
+        ),
     ) -> Series | _T: ...
     @overload
     def __getitem__(
@@ -318,6 +338,8 @@ class _AtIndexerFrame(_AtIndexer):
     ) -> None: ...
 
 class _GetItemHack:
+    @overload
+    def __getitem__(self, key: Expression) -> Self: ...
     @overload
     def __getitem__(self, key: Scalar | tuple[Hashable, ...]) -> Series: ...  # type: ignore[overload-overlap] # pyright: ignore[reportOverlappingOverload]
     # With python 3.12+, the second overload needs a type-ignore statement
@@ -542,42 +564,31 @@ class DataFrame(NDFrame, OpsMixin, _GetItemHack):
             _str | npt.DTypeLike | Mapping[HashableT2, npt.DTypeLike] | None
         ) = None,
     ) -> np.recarray: ...
-    @overload
     def to_stata(
         self,
         path: FilePath | WriteBuffer[bytes],
         *,
-        convert_dates: dict[HashableT1, StataDateFormat] | None = ...,
-        write_index: _bool = ...,
-        byteorder: ToStataByteorder | None = ...,
-        time_stamp: dt.datetime | None = ...,
-        data_label: _str | None = ...,
-        variable_labels: dict[HashableT2, str] | None = ...,
-        version: Literal[117, 118, 119],
-        convert_strl: SequenceNotStr[Hashable] | None = ...,
-        compression: CompressionOptions = ...,
-        storage_options: StorageOptions = ...,
-        value_labels: dict[Hashable, dict[float, str]] | None = ...,
-    ) -> None: ...
-    @overload
-    def to_stata(
-        self,
-        path: FilePath | WriteBuffer[bytes],
-        *,
-        convert_dates: dict[HashableT1, StataDateFormat] | None = ...,
-        write_index: _bool = ...,
-        byteorder: Literal["<", ">", "little", "big"] | None = ...,
-        time_stamp: dt.datetime | None = ...,
-        data_label: _str | None = ...,
-        variable_labels: dict[HashableT2, str] | None = ...,
-        version: Literal[114, 117, 118, 119] | None = ...,
-        convert_strl: None = None,
-        compression: CompressionOptions = ...,
-        storage_options: StorageOptions = ...,
-        value_labels: dict[Hashable, dict[float, str]] | None = ...,
+        convert_dates: dict[HashableT1, StataDateFormat] | None = None,
+        write_index: _bool = True,
+        byteorder: ToStataByteorder | None = None,
+        time_stamp: dt.datetime | None = None,
+        data_label: _str | None = None,
+        variable_labels: dict[HashableT2, str] | None = None,
+        version: Literal[114, 117, 118, 119] | None = 114,
+        convert_strl: SequenceNotStr[Hashable] | None = None,
+        compression: CompressionOptions = "infer",
+        storage_options: StorageOptions = None,
+        value_labels: dict[HashableT3, dict[float, str]] | None = None,
     ) -> None: ...
     def to_feather(
-        self, path: FilePath | WriteBuffer[bytes], **kwargs: Any
+        self,
+        path: FilePath | WriteBuffer[bytes],
+        *,
+        # copied from https://arrow.apache.org/docs/python/generated/pyarrow.feather.write_feather.html#pyarrow.feather.write_feather
+        compression: Literal["zstd", "lz4", "uncompressed"] | None = None,
+        compression_level: int | None = None,
+        chunksize: int | None = None,
+        version: int = 2,
     ) -> None: ...
     @overload
     def to_parquet(
@@ -608,18 +619,18 @@ class DataFrame(NDFrame, OpsMixin, _GetItemHack):
         self,
         path: FilePath | WriteBuffer[bytes],
         *,
-        engine: Literal["pyarrow"] = ...,
-        index: bool | None = ...,
-        engine_kwargs: dict[str, Any] | None = ...,
+        engine: Literal["pyarrow"] = "pyarrow",
+        index: bool | None = None,
+        engine_kwargs: dict[str, Any] | None = None,
     ) -> None: ...
     @overload
     def to_orc(
         self,
         path: None = None,
         *,
-        engine: Literal["pyarrow"] = ...,
-        index: bool | None = ...,
-        engine_kwargs: dict[str, Any] | None = ...,
+        engine: Literal["pyarrow"] = "pyarrow",
+        index: bool | None = None,
+        engine_kwargs: dict[str, Any] | None = None,
     ) -> bytes: ...
     @overload
     def to_html(
@@ -721,6 +732,7 @@ class DataFrame(NDFrame, OpsMixin, _GetItemHack):
     def to_xml(
         self,
         path_or_buffer: FilePath | WriteBuffer[bytes] | WriteBuffer[str],
+        *,
         index: bool = ...,
         root_name: str = ...,
         row_name: str = ...,
@@ -741,6 +753,7 @@ class DataFrame(NDFrame, OpsMixin, _GetItemHack):
     def to_xml(
         self,
         path_or_buffer: None = None,
+        *,
         index: bool = ...,
         root_name: str | None = ...,
         row_name: str | None = ...,
@@ -1965,7 +1978,7 @@ class DataFrame(NDFrame, OpsMixin, _GetItemHack):
         lower: AnyArrayLike = ...,
         upper: AnyArrayLike | None = ...,
         *,
-        axis: Axis = ...,
+        axis: Axis,
         inplace: bool = False,
         **kwargs: Any,
     ) -> Self: ...
@@ -1975,7 +1988,17 @@ class DataFrame(NDFrame, OpsMixin, _GetItemHack):
         lower: AnyArrayLike | None = ...,
         upper: AnyArrayLike = ...,
         *,
-        axis: Axis = ...,
+        axis: Axis,
+        inplace: bool = False,
+        **kwargs: Any,
+    ) -> Self: ...
+    @overload
+    def clip(
+        self,
+        lower: DataFrame | None = None,
+        upper: DataFrame | None = None,
+        *,
+        axis: None = None,
         inplace: bool = False,
         **kwargs: Any,
     ) -> Self: ...

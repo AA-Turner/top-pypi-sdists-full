@@ -138,6 +138,8 @@ def _create_workflow_context_with_token() -> WorkflowContext:
             updates["execution_token"] = existing.execution_token
         if existing.extensions is not None:
             updates["extensions"] = existing.extensions
+        if existing.trusted_extensions is not None:
+            updates["trusted_extensions"] = existing.trusted_extensions
         if existing.on_behalf_of is not None:
             updates["on_behalf_of"] = existing.on_behalf_of
         if updates:

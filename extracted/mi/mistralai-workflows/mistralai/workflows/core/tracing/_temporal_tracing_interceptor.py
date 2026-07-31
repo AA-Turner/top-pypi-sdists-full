@@ -1,4 +1,5 @@
 import hashlib
+import time
 from typing import (
     Any,
     Mapping,
@@ -6,8 +7,11 @@ from typing import (
 )
 
 import opentelemetry
+import opentelemetry.context
+import opentelemetry.trace
 import structlog
 import temporalio
+from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 from opentelemetry.trace import StatusCode
 from temporalio.client import Interceptor
 from temporalio.contrib.opentelemetry import TracingInterceptor, TracingWorkflowInboundInterceptor, workflow
@@ -16,7 +20,16 @@ from temporalio.converter import PayloadConverter
 
 from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.encoding.trace_encoder import TraceEncoder
-from mistralai.workflows.core.tracing.utils import CUSTOM_TRACING_ATTRIBUTES, get_span_attributes
+from mistralai.workflows.core.tracing._otel_config import (
+    FORCE_SPAN_ID_ATTRIBUTE,
+    FORCE_TRACE_ID_ATTRIBUTE,
+    WORKFLOW_ROOT_ID_GENERATOR,
+)
+from mistralai.workflows.core.tracing.utils import (
+    CUSTOM_TRACING_ATTRIBUTES,
+    USER_TRACEPARENT_HEADER,
+    get_span_attributes,
+)
 from mistralai.workflows.models import EventAttributes, EventSpanType
 
 logger = structlog.get_logger(__name__)
@@ -41,19 +54,112 @@ def _carrier_has_valid_span(
     return opentelemetry.trace.get_current_span(context).get_span_context().is_valid
 
 
+def _traceparent_flags(traceparent: str) -> int | None:
+    parts = traceparent.split("-")
+    if len(parts) != 4 or len(parts[3]) != 2:
+        return None
+    try:
+        return int(parts[3], 16)
+    except ValueError:
+        return None
+
+
+def _sampled_by_rate(trace_id_hex: str, sample_rate: float) -> bool:
+    # Reuse OTel's own sampler (the same class the provider's ParentBasedTraceIdRatio uses for root
+    # spans) so this decision cannot drift from what the root span's sampler computes for the same id.
+    result = TraceIdRatioBased(sample_rate).should_sample(None, int(trace_id_hex, 16), "")
+    return bool(result.decision.is_sampled())
+
+
+def _apply_sample_rate(carrier: dict[str, Any], sample_rate: float) -> dict[str, Any]:
+    # The single trace-level sampling decision: set the carrier flag from the rate so children (via
+    # ParentBased) and the forced root (via the emit gate + WorkflowSampler) all follow this one flag.
+    traceparent = carrier.get("traceparent")
+    if not traceparent:
+        return carrier
+    parts = traceparent.split("-")
+    if len(parts) != 4:
+        return carrier
+    try:
+        sampled = _sampled_by_rate(parts[1], sample_rate)
+    except ValueError:
+        return carrier
+    parts[3] = "01" if sampled else "00"
+    return {**carrier, "traceparent": "-".join(parts)}
+
+
+def _traceparent_is_sampled(traceparent: str) -> bool:
+    flags = _traceparent_flags(traceparent)
+    return flags is not None and bool(flags & 0x01)
+
+
 class _MistralTracingWorkflowInboundInterceptor(TracingWorkflowInboundInterceptor):
     def _load_workflow_context_carrier(self) -> dict[str, Any] | None:
         carrier = super()._load_workflow_context_carrier()
+        info = temporalio.workflow.info()
         if carrier and _carrier_has_valid_span(self.text_map_propagator, carrier):
+            # Only the top-level workflow's first run decides sampling; children and
+            # continue-as-new/reset runs honor the propagated decision to avoid partial traces.
+            is_root_first_run = info.parent is None and info.run_id == info.first_execution_run_id
+            user_provided = USER_TRACEPARENT_HEADER in info.headers
+            if is_root_first_run and not user_provided:
+                carrier = _apply_sample_rate(carrier, config.common.otel_sample_rate)
+                self._workflow_context_carrier = carrier
             return carrier
 
-        info = temporalio.workflow.info()
-        fallback_carrier = {
-            **(carrier or {}),
-            "traceparent": _deterministic_workflow_traceparent(info.namespace, info.workflow_id, info.run_id),
-        }
+        fallback_carrier = _apply_sample_rate(
+            {
+                **(carrier or {}),
+                "traceparent": _deterministic_workflow_traceparent(info.namespace, info.workflow_id, info.run_id),
+            },
+            config.common.otel_sample_rate,
+        )
         self._workflow_context_carrier = fallback_carrier
         return fallback_carrier
+
+    async def execute_workflow(self, input: temporalio.worker.ExecuteWorkflowInput) -> Any:
+        self._maybe_emit_workflow_root_span()
+        return await super().execute_workflow(input)
+
+    def _maybe_emit_workflow_root_span(self) -> None:
+        # Emit once, from the first run of the chain; continue-as-new/reset runs inherit it via propagation.
+        # This runs inside Temporal's deterministic sandbox, which can't create real OTel spans, so we
+        # use _completed_span() (a sandbox-safe recording) and pass the desired ids as attributes.
+        # They're picked up on the host side by _completed_workflow_span().
+        info = temporalio.workflow.info()
+        if (
+            temporalio.workflow.unsafe.is_replaying()
+            or info.parent is not None
+            or info.run_id != info.first_execution_run_id
+        ):
+            return
+        carrier = self._load_workflow_context_carrier()
+        traceparent = carrier.get("traceparent") if carrier else None
+        if not traceparent:
+            return
+        parts = traceparent.split("-")
+        if len(parts) < 4:
+            return
+        # Skip the forced root when the trace is unsampled; children are dropped, so it would be an orphan.
+        if not _traceparent_is_sampled(traceparent):
+            return
+        trace_id_hex, span_id_hex = parts[1], parts[2]
+        # Attach an empty OTel context so the span has no parent (making it a true root). The FORCE_*
+        # attributes carry the desired ids across the sandbox boundary; the workflow id lets dora scope it.
+        token = opentelemetry.context.attach(opentelemetry.context.Context())
+        try:
+            self._completed_span(
+                f"StartWorkflow:{info.workflow_type}",
+                additional_attributes={
+                    FORCE_TRACE_ID_ATTRIBUTE: trace_id_hex,
+                    FORCE_SPAN_ID_ATTRIBUTE: span_id_hex,
+                    "temporalWorkflowID": info.workflow_id,
+                    "temporalRunID": info.run_id,
+                },
+                kind=opentelemetry.trace.SpanKind.SERVER,
+            )
+        finally:
+            opentelemetry.context.detach(token)
 
 
 class MistralTemporalTracingInterceptor(TracingInterceptor):
@@ -62,6 +168,26 @@ class MistralTemporalTracingInterceptor(TracingInterceptor):
     ) -> type[TracingWorkflowInboundInterceptor]:
         super().workflow_interceptor_class(input)
         return _MistralTracingWorkflowInboundInterceptor
+
+    def _completed_workflow_span(self, params: Any) -> Any:
+        # This runs on the host side, outside Temporal's sandbox, where real OTel spans are created.
+        # If the sandbox side (_maybe_emit_workflow_root_span) smuggled forced ids via attributes, we
+        # pop them here and prime the id generator so the next span OTel creates gets exactly those ids.
+        # Only StartWorkflow spans carry the FORCE_* attributes; all others pass through to super() with
+        # random ids.
+        attributes = params.attributes or {}
+        span_id_hex = attributes.pop(FORCE_SPAN_ID_ATTRIBUTE, None)
+        trace_id_hex = attributes.pop(FORCE_TRACE_ID_ATTRIBUTE, None)
+        if span_id_hex is None:
+            return super()._completed_workflow_span(params)
+        WORKFLOW_ROOT_ID_GENERATOR.prime(
+            trace_id=int(trace_id_hex, 16) if trace_id_hex else None,
+            span_id=int(span_id_hex, 16),
+        )
+        try:
+            return super()._completed_workflow_span(params)
+        finally:
+            WORKFLOW_ROOT_ID_GENERATOR.clear()
 
 
 class TraceDataSerializer:
@@ -280,6 +406,10 @@ class _TracingActivityInboundInterceptor(temporalio.worker.ActivityInboundInterc
     async def execute_activity(self, input: temporalio.worker.ExecuteActivityInput) -> Any:
         activity_info = temporalio.activity.info()
         custom_attributes = self._extract_custom_attributes_from_headers(input.headers)
+        schedule_to_start_ms = max(
+            0,
+            int((activity_info.started_time - activity_info.current_attempt_scheduled_time).total_seconds() * 1000),
+        )
         with self.tracer.start_as_current_span(
             f"ExecuteActivity:{activity_info.activity_type}",
             attributes={
@@ -289,10 +419,18 @@ class _TracingActivityInboundInterceptor(temporalio.worker.ActivityInboundInterc
                     custom_attributes=custom_attributes,
                 ),
                 EventAttributes.arguments: self.trace_serializer.serialize(input.args),
+                EventAttributes.activity_schedule_to_start_ms: schedule_to_start_ms,
             },
         ) as span:
+            start_ns = time.monotonic_ns()
             try:
-                result = await super().execute_activity(input)
+                # Time only the activity call; the inner finally excludes result serialization below.
+                try:
+                    result = await super().execute_activity(input)
+                finally:
+                    span.set_attribute(
+                        EventAttributes.activity_execution_ms, (time.monotonic_ns() - start_ns) // 1_000_000
+                    )
                 span.set_attribute(EventAttributes.result, self.trace_serializer.serialize(result))
                 span.set_status(StatusCode.OK)
                 return result
@@ -320,11 +458,17 @@ class MistralWorkflowTracingInterceptor(temporalio.client.Interceptor, temporali
         return _TracingWorkflowInboundInterceptor
 
 
-def get_temporal_tracing_interceptors() -> list[Interceptor]:
-    # TracingInterceptor handles trace context propagation from Temporal headers.
-    # always_create_workflow_spans=True ensures scheduled workflows get their own trace
-    # instead of polluting other workflow traces.
-    interceptors: list[Interceptor] = [MistralTemporalTracingInterceptor(always_create_workflow_spans=True)]
+def get_trace_context_interceptors() -> list[Interceptor]:
+    # Must wrap EventInterceptor so internal local activities inherit the workflow trace.
+    return [MistralTemporalTracingInterceptor(always_create_workflow_spans=True)]
+
+
+def get_span_recording_interceptors() -> list[Interceptor]:
+    # Innermost: serializes args after they are unwrapped and offload-restored.
     if config.common.otel_enabled:
-        interceptors.append(MistralWorkflowTracingInterceptor())
-    return interceptors
+        return [MistralWorkflowTracingInterceptor()]
+    return []
+
+
+def get_temporal_tracing_interceptors() -> list[Interceptor]:
+    return [*get_trace_context_interceptors(), *get_span_recording_interceptors()]

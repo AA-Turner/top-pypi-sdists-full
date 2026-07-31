@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ultralytics-thop
-Version: 2.1.5
+Version: 2.1.6
 Summary: Ultralytics THOP package for fast computation of PyTorch model FLOPs and parameters.
 Author-email: Ligeng Zhu <ligeng.zhu+github@gmail.com>
 Maintainer-email: Ultralytics <hello@ultralytics.com>

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "anomalo"
-version = "0.45.4"
+version = "0.46.0"
 description = "Python bindings for the Anomalo API"
 readme = "README.public.md"
 license = "Apache-2.0"

@@ -21,7 +21,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tensorrt"
-version = "11.1.0.106"
+version = "11.2.1.2"
 description = "TensorRT Metapackage"
 readme = {text = "NVIDIA TensorRT is an SDK that facilitates high-performance machine learning inference. It is designed to work in a complementary fashion with training frameworks such as PyTorch. It focuses specifically on running an already-trained network quickly and efficiently on NVIDIA hardware.", content-type = "text/markdown"}
 license = {text = "Proprietary"}
@@ -38,7 +38,7 @@ requires-python = ">=3.8"
 
 # This metapackage depends on the CUDA-versioned frontend package
 dependencies = [
-    "tensorrt_cu13==11.1.0.106",
+    "tensorrt_cu13==11.2.1.2",
 ]
 
 [project.urls]

@@ -84,7 +84,7 @@ __all__ = (
 
 AttachmentStatusType = Literal["CREATING", "DELETING", "ERROR", "FAILED", "READY", "SCALING"]
 ConfigurationSyncStateType = Literal["CAPACITY_CONSTRAINED", "IN_SYNC", "PENDING"]
-ContainerAssociationStatusType = Literal["ACTIVE", "CREATING", "DELETING"]
+ContainerAssociationStatusType = Literal["ACTIVE", "CREATING", "DELETING", "UPDATING"]
 ContainerMonitoringTypeType = Literal["ECS", "EKS"]
 EnabledAnalysisTypeType = Literal["HTTP_HOST", "TLS_SNI"]
 EncryptionTypeType = Literal["AWS_OWNED_KMS_KEY", "CUSTOMER_KMS"]
@@ -468,6 +468,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -485,6 +486,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

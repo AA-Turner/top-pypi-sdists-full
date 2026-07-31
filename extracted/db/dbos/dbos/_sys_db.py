@@ -310,9 +310,8 @@ class ExportedWorkflow(TypedDict):
 
 
 class GetPendingWorkflowsOutput:
-    def __init__(self, *, workflow_id: str, queue_name: Optional[str] = None):
+    def __init__(self, *, workflow_id: str):
         self.workflow_id: str = workflow_id
-        self.queue_name: Optional[str] = queue_name
 
 
 class WorkflowSchedule(TypedDict):
@@ -653,9 +652,9 @@ class SystemDatabase(ABC):
         self._listener_thread_lock = threading.Lock()
         self._listener_running = False
 
-        # Per-partition-key created_at cursors: keep per-key queue order monotonic across batches
+        # Per-(queue, partition key) created_at cursors: keep per-key queue order monotonic across batches
         self._batch_created_at_lock = threading.Lock()
-        self._batch_created_at_cursors: Dict[str, int] = {}
+        self._batch_created_at_cursors: Dict[Tuple[Optional[str], str], int] = {}
 
         # Now we can run background processes
         self._run_background_processes = True
@@ -980,6 +979,17 @@ class SystemDatabase(ABC):
         queue_name: Optional[str] = None,
     ) -> None:
         with self.engine.begin() as c:
+            # Check existence separately: a zero-row update also means "already complete", a legal no-op.
+            existing = set(
+                c.execute(
+                    sa.select(SystemSchema.workflow_status.c.workflow_uuid).where(
+                        SystemSchema.workflow_status.c.workflow_uuid.in_(workflow_ids)
+                    )
+                ).scalars()
+            )
+            missing = [wfid for wfid in workflow_ids if wfid not in existing]
+            if missing:
+                raise DBOSNonExistentWorkflowError("target", ", ".join(missing))
             # Set the workflows' status to ENQUEUED and clear recovery attempts and deadline,
             # but only if the workflow is not already complete.
             c.execute(
@@ -1203,7 +1213,7 @@ class SystemDatabase(ABC):
             status_by_id = {row[0]: row for row in rows}
             for original_workflow_id in original_workflow_ids:
                 if original_workflow_id not in status_by_id:
-                    raise Exception(f"Workflow {original_workflow_id} not found")
+                    raise DBOSNonExistentWorkflowError("target", original_workflow_id)
             statuses = [status_by_id[wid] for wid in original_workflow_ids]
             # Bulk insert all forked workflow status rows in one statement.
             c.execute(
@@ -1971,7 +1981,6 @@ class SystemDatabase(ABC):
             rows = c.execute(
                 sa.select(
                     SystemSchema.workflow_status.c.workflow_uuid,
-                    SystemSchema.workflow_status.c.queue_name,
                 ).where(
                     SystemSchema.workflow_status.c.status
                     == WorkflowStatusString.PENDING.value,
@@ -1981,11 +1990,7 @@ class SystemDatabase(ABC):
             ).fetchall()
 
             return [
-                GetPendingWorkflowsOutput(
-                    workflow_id=row.workflow_uuid,
-                    queue_name=row.queue_name,
-                )
-                for row in rows
+                GetPendingWorkflowsOutput(workflow_id=row.workflow_uuid) for row in rows
             ]
 
     def list_workflow_steps(
@@ -2314,8 +2319,8 @@ class SystemDatabase(ABC):
 
         # operation_outputs has no explicit status column; derive it from
         # whether `error` is populated. Bookkeeping rows from record_child_workflow
-        # and DBOS.getResult have NULL error and NULL output, so they appear
-        # as SUCCESS here — callers can filter them by function_name.
+        # have NULL error and NULL output, so they appear as SUCCESS here —
+        # callers can filter them by function_name.
         status_expr = sa.case(
             (
                 SystemSchema.operation_outputs.c.error.is_(None),
@@ -2355,8 +2360,7 @@ class SystemDatabase(ABC):
             raise ValueError("At least one group_by flag must be set to True")
 
         # Build select columns from boolean flags. MAX ignores NULLs, so rows
-        # without start/complete timestamps (child-workflow and getResult
-        # markers) drop out of the duration max.
+        # without start/complete timestamps drop out of the duration max.
         select_flags: List[Tuple[str, bool, sa.sql.ColumnElement[Any]]] = [
             ("count", select_count, func.count()),
             (
@@ -2501,21 +2505,36 @@ class SystemDatabase(ABC):
 
             res = conn.execute(stmt)
             rows = res.fetchall()
-            if len(rows) > 0 and int(rows[0][0]) != completed_at_epoch_ms:
-                raise DBOSWorkflowConflictIDError(result["workflow_uuid"])
+            if len(rows) > 0:
+                existing_completed_at = rows[0][0]
+                if (
+                    existing_completed_at is None
+                    or int(existing_completed_at) != completed_at_epoch_ms
+                ):
+                    raise DBOSWorkflowConflictIDError(result["workflow_uuid"])
 
         except DBAPIError as dbapi_error:
             if self._is_unique_constraint_violation(dbapi_error):
                 raise DBOSWorkflowConflictIDError(result["workflow_uuid"])
             raise
 
-    def record_operation_result(self, result: OperationResultInternal) -> None:
-        completed_at_epoch_ms = int(time.time() * 1000)
+    def record_operation_result(
+        self,
+        result: OperationResultInternal,
+        *,
+        completed_at_epoch_ms: Optional[int] = None,
+    ) -> None:
+        # Outside the retry: the conflict check compares the stored completion to ours.
+        completed_at = (
+            completed_at_epoch_ms
+            if completed_at_epoch_ms is not None
+            else int(time.time() * 1000)
+        )
 
         @db_retry()
         def record_operation_result_retry() -> None:
             with self.engine.begin() as c:
-                self._record_operation_result_txn(result, completed_at_epoch_ms, c)
+                self._record_operation_result_txn(result, completed_at, c)
             DebugTriggers.debug_trigger_point(DebugTriggers.DEBUG_TRIGGER_STEP_COMMIT)
 
         record_operation_result_retry()
@@ -2527,6 +2546,8 @@ class SystemDatabase(ABC):
         error: Optional[str],
         serialization: Optional[str],
         ctx: Optional["DBOSContext"] = None,
+        *,
+        started_at_epoch_ms: int,
     ) -> None:
         if ctx is None:
             ctx = get_local_dbos_context()
@@ -2551,6 +2572,8 @@ class SystemDatabase(ABC):
                     output=output,
                     error=error,
                     child_workflow_id=result_workflow_id,
+                    started_at_epoch_ms=started_at_epoch_ms,
+                    completed_at_epoch_ms=int(time.time() * 1000),
                     serialization=serialization,
                 )
                 .on_conflict_do_nothing()
@@ -2567,6 +2590,8 @@ class SystemDatabase(ABC):
         childUUID: str,
         functionID: int,
         functionName: str,
+        *,
+        started_at_epoch_ms: int,
     ) -> None:
         # An empty child id is never valid; fail loudly instead of silently wedging the parent on recovery.
         if not childUUID:
@@ -2574,11 +2599,14 @@ class SystemDatabase(ABC):
                 f"Attempted to record an empty child workflow ID for parent "
                 f"{parentUUID} (function {functionID}, {functionName})."
             )
+        # Spans the launch only: the parent does not wait for the child here.
         sql = sa.insert(SystemSchema.operation_outputs).values(
             workflow_uuid=parentUUID,
             function_id=functionID,
             function_name=functionName,
             child_workflow_id=childUUID,
+            started_at_epoch_ms=started_at_epoch_ms,
+            completed_at_epoch_ms=int(time.time() * 1000),
         )
         try:
             with self.engine.begin() as c:
@@ -3344,7 +3372,16 @@ class SystemDatabase(ABC):
         workflow_uuid: str,
         function_id: int,
         seconds: float,
+        *,
+        project_completion_time: bool = False,
     ) -> float:
+        """Checkpoint a durable sleep, returning the seconds still left to wait.
+
+        The row precedes the sleep because it stores the wake time recovery resumes
+        from. `project_completion_time` records that wake time as the completion, so
+        the duration is the sleep; callers registering a timeout they may abandon
+        early (recv, get_event) leave it off and record an instant.
+        """
         function_name = "DBOS.sleep"
         start_time = int(time.time() * 1000)
         recorded_output = self.check_operation_execution(
@@ -3375,7 +3412,10 @@ class SystemDatabase(ABC):
                         "output": DBOSPortableJSON.serialize(end_time),
                         "error": None,
                         "serialization": DBOSPortableJSON.name(),
-                    }
+                    },
+                    completed_at_epoch_ms=(
+                        int(end_time * 1000) if project_completion_time else None
+                    ),
                 )
             except DBOSWorkflowConflictIDError:
                 pass
@@ -3808,18 +3848,41 @@ class SystemDatabase(ABC):
         Returns:
             A list of unique partition names for the queue
         """
+        # Recursive-CTE loose index scan: neither Postgres nor SQLite can skip to the
+        # next distinct value inside a plain SELECT DISTINCT, which degenerates into a
+        # scan of every ENQUEUED row. Each iteration here is instead one index seek on
+        # idx_workflow_status_partition_dequeue_v2, so cost scales with the number of
+        # partitions rather than the backlog depth.
+        ws = SystemSchema.workflow_status
+        base_filter = sa.and_(
+            ws.c.queue_name == queue_name,
+            ws.c.status == WorkflowStatusString.ENQUEUED.value,
+            # Redundant literal IN mirroring the index's own predicate: SQLite's partial-index prover runs at prepare time, so it can't see bound params and can't derive IN membership from =.
+            ws.c.status.in_(
+                [
+                    sa.literal_column(f"'{WorkflowStatusString.ENQUEUED.value}'"),
+                    sa.literal_column(f"'{WorkflowStatusString.PENDING.value}'"),
+                ]
+            ),
+        )
+        partitions = (
+            sa.select(sa.func.min(ws.c.queue_partition_key).label("pk"))
+            .where(base_filter)
+            .where(ws.c.queue_partition_key.isnot(None))
+            .cte("partitions", recursive=True)
+        )
+        # Next key strictly after the previous one; > implies IS NOT NULL.
+        next_pk = (
+            sa.select(sa.func.min(ws.c.queue_partition_key))
+            .where(base_filter)
+            .where(ws.c.queue_partition_key > partitions.c.pk)
+            .scalar_subquery()
+        )
+        partitions = partitions.union_all(
+            sa.select(next_pk).where(partitions.c.pk.isnot(None))
+        )
+        query = sa.select(partitions.c.pk).where(partitions.c.pk.isnot(None))
         with self.engine.begin() as c:
-            query = (
-                sa.select(SystemSchema.workflow_status.c.queue_partition_key)
-                .distinct()
-                .where(SystemSchema.workflow_status.c.queue_name == queue_name)
-                .where(
-                    SystemSchema.workflow_status.c.status
-                    == WorkflowStatusString.ENQUEUED.value
-                )
-                .where(SystemSchema.workflow_status.c.queue_partition_key.isnot(None))
-            )
-
             rows = c.execute(query).fetchall()
             return [row[0] for row in rows]
 
@@ -4034,22 +4097,205 @@ class SystemDatabase(ABC):
             # Return the IDs of all functions we started
             return ret_ids
 
-    @db_retry()
-    def clear_queue_assignment(self, workflow_id: str) -> None:
+    # Max heads dequeued per partitioned sweep: bounds the IN-list bind params below (SQLite caps at 32766, libpq at 65535); leftover partitions rotate in on later polls via the PENDING gate.
+    PARTITIONED_DEQUEUE_SWEEP_CAP = 8192
+
+    def start_queued_partitioned_workflows(
+        self,
+        queue: "Queue",
+        executor_id: str,
+        app_version: str,
+    ) -> List[str]:
+        """Dequeue every partition's head-of-line workflow in one transaction, at most
+        PARTITIONED_DEQUEUE_SWEEP_CAP per sweep. Valid only for concurrency=1, no-limiter queues:
+        all workers rank the same head, so guarded flips admit at most one row per partition.
+        """
+        assert queue._concurrency == 1
+        assert queue._limiter is None
+        assert queue._partition_queue
+        start_time_ms = int(time.time() * 1000)
+        ws = SystemSchema.workflow_status
         with self.engine.begin() as c:
-            # Reset the task to "ENQUEUED" so the queue re-dispatches it; a no-op if the row is no longer PENDING-queued.
-            c.execute(
+            latest_version = c.execute(
+                sa.select(SystemSchema.application_versions.c.version_name)
+                .order_by(SystemSchema.application_versions.c.version_timestamp.desc())
+                .limit(1)
+            ).scalar()
+            is_latest_version = latest_version is None or latest_version == app_version
+            version_predicate = ws.c.application_version == app_version
+            if is_latest_version:
+                version_predicate = sa.or_(
+                    ws.c.application_version == app_version,
+                    ws.c.application_version.is_(None),
+                )
+            # Redundant literal IN mirroring idx_workflow_status_partition_dequeue_v2's predicate: SQLite's partial-index prover runs at prepare time, so it can't see bound params and can't derive IN membership from =.
+            status_prover = ws.c.status.in_(
+                [
+                    sa.literal_column(f"'{WorkflowStatusString.ENQUEUED.value}'"),
+                    sa.literal_column(f"'{WorkflowStatusString.PENDING.value}'"),
+                ]
+            )
+            enq = sa.and_(
+                ws.c.queue_name == queue.name,
+                ws.c.status == WorkflowStatusString.ENQUEUED.value,
+                status_prover,
+            )
+            # Walk distinct partition keys with a recursive-CTE loose index scan (one seek per key, mirroring get_queue_partitions) so sweep cost scales with partition count, not backlog depth.
+            partitions = (
+                sa.select(sa.func.min(ws.c.queue_partition_key).label("pk"))
+                .where(enq)
+                .where(ws.c.queue_partition_key.isnot(None))
+                .cte("partitions", recursive=True)
+            )
+            next_pk = (
+                sa.select(sa.func.min(ws.c.queue_partition_key))
+                .where(enq)
+                .where(ws.c.queue_partition_key > partitions.c.pk)
+                .scalar_subquery()
+            )
+            partitions = partitions.union_all(
+                sa.select(next_pk).where(partitions.c.pk.isnot(None))
+            )
+            # A partition's head is its first version-eligible row; workflow_uuid totalizes the order (same head for every worker under created_at ties), and the index's trailing workflow_uuid makes this a pure top-1 probe.
+            head_query = (
+                sa.select(ws.c.workflow_uuid)
+                .where(enq)
+                .where(ws.c.queue_partition_key == partitions.c.pk)
+                .where(version_predicate)
+                .order_by(
+                    ws.c.priority.asc(),
+                    ws.c.created_at.asc(),
+                    ws.c.workflow_uuid.asc(),
+                )
+                .limit(1)
+            )
+            # Admit a partition's head only while nothing in that partition runs anywhere, on any app version.
+            pending_probe = (
+                sa.select(sa.literal(1))
+                .where(ws.c.queue_name == queue.name)
+                .where(ws.c.status == WorkflowStatusString.PENDING.value)
+                .where(status_prover)
+                .where(ws.c.queue_partition_key.isnot(None))
+                .where(ws.c.queue_partition_key == partitions.c.pk)
+                .exists()
+            )
+            if self.engine.dialect.name == "postgresql":
+                # LATERAL joins plan as tight nested loops; correlated scalar subqueries run as slower per-row SubPlans on Postgres.
+                head = head_query.lateral("head")
+                cand_query = (
+                    sa.select(head.c.workflow_uuid)
+                    .select_from(partitions.join(head, sa.true()))
+                    .where(partitions.c.pk.isnot(None))
+                    .where(~pending_probe)
+                    .order_by(partitions.c.pk.asc())
+                    .limit(self.PARTITIONED_DEQUEUE_SWEEP_CAP)
+                )
+            else:
+                # SQLite has no LATERAL; a correlated scalar subquery probes each head, with version-ineligible (NULL-head) partitions filtered in the outer select.
+                heads = (
+                    sa.select(
+                        head_query.scalar_subquery().label("workflow_uuid"),
+                        partitions.c.pk,
+                    )
+                    .where(partitions.c.pk.isnot(None))
+                    .where(~pending_probe)
+                    .subquery("heads")
+                )
+                cand_query = (
+                    sa.select(heads.c.workflow_uuid)
+                    .where(heads.c.workflow_uuid.isnot(None))
+                    .order_by(heads.c.pk.asc())
+                    .limit(self.PARTITIONED_DEQUEUE_SWEEP_CAP)
+                )
+            candidate_ids = [row[0] for row in c.execute(cand_query).fetchall()]
+            if not candidate_ids:
+                return []
+
+            # Re-check queue/partition/version alongside status so a row resume_workflows moved to another queue mid-sweep is dropped, not hijacked.
+            claim_guard = sa.and_(
+                ws.c.status == WorkflowStatusString.ENQUEUED.value,
+                ws.c.queue_name == queue.name,
+                ws.c.queue_partition_key.isnot(None),
+                version_predicate,
+            )
+            # Lock the fixed candidate set -- never a LIMIT query, whose SKIP LOCKED could slide past a locked head and admit out of order. On SQLite this is an unlocked re-read; the RETURNING flip below is the guard.
+            locked_rows = c.execute(
+                sa.select(ws.c.workflow_uuid)
+                .where(ws.c.workflow_uuid.in_(candidate_ids))
+                .where(claim_guard)
+                .with_for_update(skip_locked=True)
+            ).fetchall()
+            locked_ids = {row[0] for row in locked_rows}
+            claim_ids = [id for id in candidate_ids if id in locked_ids]
+            if not claim_ids:
+                return []
+
+            # Start the workflows by marking them PENDING; RETURNING reports exactly the rows this statement flipped (requires SQLite >= 3.35).
+            flipped_rows = c.execute(
+                ws.update()
+                .where(ws.c.workflow_uuid.in_(claim_ids))
+                .where(claim_guard)
+                .values(
+                    status=WorkflowStatusString.PENDING.value,
+                    application_version=app_version,
+                    executor_id=executor_id,
+                    started_at_epoch_ms=start_time_ms,
+                    rate_limited=False,
+                    # If a timeout is set, set the deadline on dequeue
+                    workflow_deadline_epoch_ms=sa.case(
+                        (
+                            sa.and_(
+                                ws.c.workflow_timeout_ms.isnot(None),
+                                ws.c.workflow_deadline_epoch_ms.is_(None),
+                            ),
+                            start_time_ms + ws.c.workflow_timeout_ms,
+                        ),
+                        else_=ws.c.workflow_deadline_epoch_ms,
+                    ),
+                )
+                .returning(ws.c.workflow_uuid)
+            ).fetchall()
+            flipped_ids = {row[0] for row in flipped_rows}
+            # Preserve partition order for submission.
+            ret_ids = [id for id in claim_ids if id in flipped_ids]
+            if ret_ids:
+                dbos_logger.debug(f"[{queue.name}] dequeueing {len(ret_ids)} task(s)")
+            return ret_ids
+
+    @db_retry()
+    def reenqueue_for_recovery(
+        self, workflow_id: str, executor_ids: List[str], recovery_queue_name: str
+    ) -> bool:
+        """Return a PENDING workflow to a queue so it is re-dispatched. Returns
+        whether the row was re-enqueued.
+
+        The executor_ids predicate makes recovery idempotent. Recovery declares a
+        set of executors dead; once any live executor dequeues the workflow,
+        start_queued_workflows sets the workflow's executor ID on the row, so a
+        duplicate recovery request for the original (dead) executor matches
+        nothing instead of re-enqueueing a running workflow.
+        """
+        if not executor_ids:
+            return False
+        with self.engine.begin() as c:
+            res = c.execute(
                 sa.update(SystemSchema.workflow_status)
                 .where(SystemSchema.workflow_status.c.workflow_uuid == workflow_id)
-                .where(SystemSchema.workflow_status.c.queue_name.isnot(None))
                 .where(
                     SystemSchema.workflow_status.c.status
                     == WorkflowStatusString.PENDING.value
                 )
+                .where(SystemSchema.workflow_status.c.executor_id.in_(executor_ids))
                 .values(
-                    status=WorkflowStatusString.ENQUEUED.value, started_at_epoch_ms=None
+                    status=WorkflowStatusString.ENQUEUED.value,
+                    started_at_epoch_ms=None,
+                    updated_at=self._now_ms_sql(),
+                    queue_name=sa.func.coalesce(
+                        SystemSchema.workflow_status.c.queue_name, recovery_queue_name
+                    ),
                 )
             )
+            return res.rowcount > 0
 
     T = TypeVar("T")
 
@@ -4178,28 +4424,47 @@ class SystemDatabase(ABC):
         DebugTriggers.debug_trigger_point(DebugTriggers.DEBUG_TRIGGER_INITWF_COMMIT)
         return wf_status, workflow_deadline_epoch_ms, should_execute
 
-    def _max_partition_key_created_at(self, keys: List[str]) -> Dict[str, int]:
-        """Highest created_at among still-active (ENQUEUED/PENDING) rows per partition key, to seed the in-memory cursor so per-key order survives a restart/rebalance."""
+    def _max_partition_key_created_at(
+        self, keys: List[Tuple[Optional[str], str]]
+    ) -> Dict[Tuple[Optional[str], str], int]:
+        """Highest created_at among still-active (ENQUEUED/PENDING) rows per (queue, partition key), to seed the in-memory cursor so per-key order survives a restart/rebalance."""
         if not keys:
             return {}
+        queue_names = {queue_name for queue_name, _ in keys}
+        partition_keys = {partition_key for _, partition_key in keys}
+        # One arm per status so idx_workflow_status_partition_dequeue_v2 can seek: a status IN (...) matching that index's own predicate is dropped as redundant, leaving its status column unbound and blocking the seek on queue_partition_key.
+        arms = [
+            sa.select(
+                SystemSchema.workflow_status.c.queue_name,
+                SystemSchema.workflow_status.c.queue_partition_key,
+                sa.func.max(SystemSchema.workflow_status.c.created_at),
+            )
+            .where(SystemSchema.workflow_status.c.queue_name.in_(queue_names))
+            .where(
+                SystemSchema.workflow_status.c.queue_partition_key.in_(partition_keys)
+            )
+            .where(SystemSchema.workflow_status.c.status == status)
+            .group_by(
+                SystemSchema.workflow_status.c.queue_name,
+                SystemSchema.workflow_status.c.queue_partition_key,
+            )
+            for status in (
+                WorkflowStatusString.ENQUEUED.value,
+                WorkflowStatusString.PENDING.value,
+            )
+        ]
         with self.engine.begin() as c:
-            rows = c.execute(
-                sa.select(
-                    SystemSchema.workflow_status.c.queue_partition_key,
-                    sa.func.max(SystemSchema.workflow_status.c.created_at),
-                )
-                .where(SystemSchema.workflow_status.c.queue_partition_key.in_(keys))
-                .where(
-                    SystemSchema.workflow_status.c.status.in_(
-                        [
-                            WorkflowStatusString.ENQUEUED.value,
-                            WorkflowStatusString.PENDING.value,
-                        ]
-                    )
-                )
-                .group_by(SystemSchema.workflow_status.c.queue_partition_key)
-            ).fetchall()
-        return {row[0]: row[1] for row in rows if row[1] is not None}
+            rows = c.execute(sa.union_all(*arms)).fetchall()
+        # The IN lists cross-product, so discard groups for pairs this batch never asked about.
+        requested = set(keys)
+        seeds: Dict[Tuple[Optional[str], str], int] = {}
+        for queue_name, partition_key, max_created_at in rows:
+            key = (queue_name, partition_key)
+            if max_created_at is None or key not in requested:
+                continue
+            # Fold the per-status arms back into one high-water mark per key.
+            seeds[key] = max(seeds.get(key, 0), max_created_at)
+        return seeds
 
     def init_workflows(self, statuses: List[WorkflowStatusInternal]) -> Set[str]:
         """
@@ -4214,8 +4479,9 @@ class SystemDatabase(ABC):
         # Stamp created_at monotonic within each partition key so per-key order holds across batches; unordered rows (no key) get wall-clock time.
         now_ms = int(time.time() * 1000)
         # On first sight of a key, seed its cursor from the DB high-water mark so per-key order survives a restart/rebalance instead of resetting to wall-clock.
+        # Cursors are scoped per (queue, partition key), matching how the dequeue query orders rows.
         batch_keys = {
-            s["queue_partition_key"]
+            (s["queue_name"], s["queue_partition_key"])
             for s in statuses
             if s["queue_partition_key"] is not None
         }
@@ -4231,12 +4497,13 @@ class SystemDatabase(ABC):
                 self._batch_created_at_cursors[seeded_key] = max(
                     self._batch_created_at_cursors.get(seeded_key, 0), seeded_max + 1
                 )
-            next_for_key: Dict[str, int] = {}
+            next_for_key: Dict[Tuple[Optional[str], str], int] = {}
             for status in statuses:
-                key = status["queue_partition_key"]
-                if key is None:
+                partition_key = status["queue_partition_key"]
+                if partition_key is None:
                     created_ats.append(now_ms)
                     continue
+                key = (status["queue_name"], partition_key)
                 value = next_for_key.get(key)
                 if value is None:
                     value = max(now_ms, self._batch_created_at_cursors.get(key, 0))

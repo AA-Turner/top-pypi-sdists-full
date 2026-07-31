@@ -303,9 +303,14 @@ class DevicesResponse(DashboardModel):
 
 @dataclass
 class WizardResponse(DashboardModel):
-    """Response after creating a new device."""
+    """
+    Response after creating a new device.
+
+    ``warning``: config kept despite a package-confined validation failure.
+    """
 
     configuration: str
+    warning: str | None = None
 
 
 @dataclass

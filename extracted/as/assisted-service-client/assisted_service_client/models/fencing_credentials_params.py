@@ -34,23 +34,26 @@ class FencingCredentialsParams(object):
         'address': 'str',
         'username': 'str',
         'password': 'str',
-        'certificate_verification': 'str'
+        'certificate_verification': 'str',
+        'mac_address': 'str'
     }
 
     attribute_map = {
         'address': 'address',
         'username': 'username',
         'password': 'password',
-        'certificate_verification': 'certificate_verification'
+        'certificate_verification': 'certificate_verification',
+        'mac_address': 'mac_address'
     }
 
-    def __init__(self, address=None, username=None, password=None, certificate_verification='Enabled'):  # noqa: E501
+    def __init__(self, address=None, username=None, password=None, certificate_verification='Enabled', mac_address=None):  # noqa: E501
         """FencingCredentialsParams - a model defined in Swagger"""  # noqa: E501
 
         self._address = None
         self._username = None
         self._password = None
         self._certificate_verification = None
+        self._mac_address = None
         self.discriminator = None
 
         self.address = address
@@ -58,6 +61,8 @@ class FencingCredentialsParams(object):
         self.password = password
         if certificate_verification is not None:
             self.certificate_verification = certificate_verification
+        if mac_address is not None:
+            self.mac_address = mac_address
 
     @property
     def address(self):
@@ -162,6 +167,29 @@ class FencingCredentialsParams(object):
             )
 
         self._certificate_verification = certificate_verification
+
+    @property
+    def mac_address(self):
+        """Gets the mac_address of this FencingCredentialsParams.  # noqa: E501
+
+        The MAC address identifying the host for MAC-based fencing credentials.  # noqa: E501
+
+        :return: The mac_address of this FencingCredentialsParams.  # noqa: E501
+        :rtype: str
+        """
+        return self._mac_address
+
+    @mac_address.setter
+    def mac_address(self, mac_address):
+        """Sets the mac_address of this FencingCredentialsParams.
+
+        The MAC address identifying the host for MAC-based fencing credentials.  # noqa: E501
+
+        :param mac_address: The mac_address of this FencingCredentialsParams.  # noqa: E501
+        :type: str
+        """
+
+        self._mac_address = mac_address
 
     def to_dict(self):
         """Returns the model properties as a dict"""

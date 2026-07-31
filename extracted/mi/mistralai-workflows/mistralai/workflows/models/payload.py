@@ -20,6 +20,12 @@ class WorkflowContext(WorkflowContextBase):
 
     on_behalf_of: bool | None = None
     extensions: dict[str, Any] = Field(default_factory=dict)
+    # Worker-only channel populated by interceptors (e.g. the connector
+    # interceptor's resolved bindings), not by workflow callers. Travels
+    # alongside `extensions` but under a caller-inaccessible metadata key,
+    # so downstream readers (ToolCallClient, RemoteSession) can trust its
+    # contents as interceptor-owned without forgery checks.
+    trusted_extensions: dict[str, Any] = Field(default_factory=dict)
 
 
 class EncodedPayload(EncodedPayloadBase):
@@ -41,6 +47,7 @@ class PayloadMetadataKeys(StrEnum):
     ENCODING_OPTIONS = "encoding_options"
     EXECUTION_TOKEN = f"{INTERNAL_METADATA_PREFIX}execution_token"
     EXTENSIONS = f"{INTERNAL_METADATA_PREFIX}extensions"
+    TRUSTED_EXTENSIONS = f"{INTERNAL_METADATA_PREFIX}trusted_extensions"
     ON_BEHALF_OF = f"{INTERNAL_METADATA_PREFIX}on_behalf_of"
     IS_UNENCODED_MEMO = "is_unencoded_memo"
 

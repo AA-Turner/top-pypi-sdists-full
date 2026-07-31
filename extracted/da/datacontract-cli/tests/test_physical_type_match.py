@@ -1,6 +1,7 @@
 from datacontract.engines.checks.physical_type_match import physical_type_matches
 from datacontract.engines.ibis.native_type import (
     _rows,
+    oracle_char_length,
     reconstruct_native_type,
     supports_native_type_introspection,
 )
@@ -147,6 +148,134 @@ def test_bigquery_types_match():
 def test_athena_types_match():
     assert physical_type_matches("varchar", "varchar(255)", "athena")[0] is True
     assert physical_type_matches("varchar(255)", "varchar(100)", "athena")[0] is False
+
+
+def test_athena_hive_spellings_match_trino_reports():
+    # Glue stores Hive DDL spellings; Athena reports the Trino names back.
+    # STRING and VARCHAR are the same type there, so an imported contract
+    # (array<string>) must match its own column (array(varchar)).
+    assert physical_type_matches("string", "varchar", "athena")[0] is True
+    assert physical_type_matches("array<string>", "array(varchar)", "athena")[0] is True
+    # the alias belongs to the Trino family of dialects alone
+    assert physical_type_matches("string", "varchar", "postgres")[0] is False
+
+
+def test_snowflake_declared_scale_zero_matches_reconstructed_column():
+    # An INT column reports precision 38 / scale 0; the reconstructed native
+    # type must satisfy a contract declaring the type either way (#1377).
+    reconstructed = reconstruct_native_type("NUMBER", num_precision=38, num_scale=0)
+    assert physical_type_matches("NUMBER(38,0)", reconstructed, "snowflake")[0] is True
+    assert physical_type_matches("NUMBER(38)", reconstructed, "snowflake")[0] is True
+    assert physical_type_matches("NUMBER(12,2)", reconstructed, "snowflake")[0] is False
+
+
+def test_declared_fractional_seconds_precision_matches_its_own_column():
+    # The catalog reports the fractional seconds separately, in
+    # datetime_precision; without it a declared TIMESTAMP_NTZ(9) — which is what
+    # `datacontract import snowflake` writes — failed against its own column.
+    reconstructed = reconstruct_native_type("TIMESTAMP_NTZ", datetime_precision=9)
+    assert reconstructed == "TIMESTAMP_NTZ(9)"
+    assert physical_type_matches("TIMESTAMP_NTZ(9)", reconstructed, "snowflake")[0] is True
+    assert physical_type_matches("TIMESTAMP_NTZ", reconstructed, "snowflake")[0] is True
+    assert physical_type_matches("TIMESTAMP_NTZ(3)", reconstructed, "snowflake")[0] is False
+
+    assert (
+        physical_type_matches("datetime2(7)", reconstruct_native_type("datetime2", datetime_precision=7), "tsql")[0]
+        is True
+    )
+    assert physical_type_matches("time(3)", reconstruct_native_type("time", datetime_precision=3), "tsql")[0] is True
+
+
+def test_postgres_precision_goes_on_the_leading_word():
+    # Postgres spells the time zone out in data_type, and the precision belongs
+    # to the type name: `timestamp(6) without time zone`, not `timestamp
+    # without time zone(6)`, which does not parse.
+    reconstructed = reconstruct_native_type("timestamp without time zone", datetime_precision=6)
+    assert reconstructed == "timestamp(6) without time zone"
+    assert physical_type_matches("timestamp(6)", reconstructed, "postgres")[0] is True
+    assert physical_type_matches("timestamp", reconstructed, "postgres")[0] is True
+    assert physical_type_matches("timestamp(3)", reconstructed, "postgres")[0] is False
+
+    with_tz = reconstruct_native_type("timestamp with time zone", datetime_precision=6)
+    assert with_tz == "timestamp(6) with time zone"
+    assert physical_type_matches("timestamptz", with_tz, "postgres")[0] is True
+
+
+def test_datetime_precision_is_only_added_to_types_that_declare_one():
+    # DATE and the legacy SQL Server DATETIME report a datetime_precision but
+    # take no argument, so `date(0)` must never be reconstructed.
+    assert reconstruct_native_type("date", datetime_precision=0) == "date"
+    assert reconstruct_native_type("datetime", datetime_precision=3) == "datetime"
+    assert reconstruct_native_type("smalldatetime", datetime_precision=0) == "smalldatetime"
+    # Oracle carries the precision inside data_type already
+    assert reconstruct_native_type("TIMESTAMP(6)", datetime_precision=6) == "TIMESTAMP(6)"
+    # a character or decimal type still wins over datetime_precision
+    assert reconstruct_native_type("varchar", char_len=10, datetime_precision=6) == "varchar(10)"
+
+
+def test_oracle_length_is_read_in_characters_not_bytes():
+    # ALL_TAB_COLUMNS.DATA_LENGTH is in bytes: NVARCHAR2(50) reports 100 and
+    # VARCHAR2(50 CHAR) reports 200 in a multibyte character set. CHAR_LENGTH is
+    # the length the type was declared with.
+    assert oracle_char_length("NVARCHAR2", 100, 50) == 50
+    assert oracle_char_length("VARCHAR2", 200, 50) == 50
+    assert oracle_char_length("CHAR", 4, 1) == 1
+    # RAW is declared in bytes and reports CHAR_LENGTH 0
+    assert oracle_char_length("RAW", 2000, 0) == 2000
+    # types that carry no length at all are unchanged
+    assert oracle_char_length("DATE", 7, 0) is None
+    assert oracle_char_length("NUMBER", 22, 0) is None
+    # a catalog that does not report CHAR_LENGTH keeps the old behaviour
+    assert oracle_char_length("VARCHAR2", 50) == 50
+
+    assert physical_type_matches("NVARCHAR2(50)", reconstruct_native_type("NVARCHAR2", 50), "oracle")[0] is True
+
+
+def test_decimal_missing_scale_means_scale_zero():
+    # DECIMAL(p) is DECIMAL(p, 0) in every supported dialect.
+    assert physical_type_matches("NUMERIC(10)", "numeric(10,0)", "postgres")[0] is True
+    assert physical_type_matches("decimal(10,0)", "decimal(10)", "tsql")[0] is True
+    assert physical_type_matches("decimal(10,2)", "decimal(10)", "tsql")[0] is False
+
+
+def test_snowflake_structured_object_matches_show_columns_rendering():
+    # SHOW COLUMNS renders the real structured type with canonical names and
+    # default parameters filled in; the declared aliases must match it (#1377).
+    assert (
+        physical_type_matches("OBJECT(a INT, b TEXT)", "OBJECT(a NUMBER(38,0), b VARCHAR(16777216))", "snowflake")[0]
+        is True
+    )
+    # field order does not matter
+    assert physical_type_matches("OBJECT(b TEXT, a INT)", "OBJECT(a INT, b TEXT)", "snowflake")[0] is True
+    # nested structures recurse
+    assert (
+        physical_type_matches(
+            "OBJECT(a ARRAY(NUMBER), b OBJECT(c TEXT))",
+            "OBJECT(a ARRAY(NUMBER(38,0)), b OBJECT(c VARCHAR(99)))",
+            "snowflake",
+        )[0]
+        is True
+    )
+    # a different field name, element type, or declared precision still fails
+    assert physical_type_matches("OBJECT(a INT, b TEXT)", "OBJECT(a INT, c TEXT)", "snowflake")[0] is False
+    assert physical_type_matches("ARRAY(NUMBER)", "ARRAY(VARCHAR(5))", "snowflake")[0] is False
+    assert physical_type_matches("OBJECT(a NUMBER(5,2))", "OBJECT(a NUMBER(38,0))", "snowflake")[0] is False
+
+
+def test_snowflake_structured_object_matches_stripped_catalog_token():
+    # INFORMATION_SCHEMA reports a structured column as its bare token
+    # (OBJECT(a INT, b TEXT) as OBJECT); the stripped field list cannot
+    # contradict the declaration, so this matches rather than always failing.
+    assert physical_type_matches("OBJECT(a INT, b TEXT)", "OBJECT", "snowflake")[0] is True
+    assert physical_type_matches("ARRAY(NUMBER)", "ARRAY", "snowflake")[0] is True
+    # the base type is still enforced
+    assert physical_type_matches("OBJECT(a INT)", "ARRAY", "snowflake")[0] is False
+
+
+def test_snowflake_array_element_parameters():
+    assert physical_type_matches("ARRAY(NUMBER)", "ARRAY(NUMBER(38,0))", "snowflake")[0] is True
+    assert physical_type_matches("ARRAY(VARCHAR)", "ARRAY(VARCHAR(16777216))", "snowflake")[0] is True
+    assert physical_type_matches("MAP(VARCHAR, NUMBER)", "MAP(VARCHAR(16777216), NUMBER(38,0))", "snowflake")[0] is True
 
 
 # --- supports_native_type_introspection ------------------------------------

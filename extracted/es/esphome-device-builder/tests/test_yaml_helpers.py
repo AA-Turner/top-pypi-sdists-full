@@ -42,6 +42,7 @@ from esphome_device_builder.helpers.yaml import (
     _splice_into_domain_block,
     _splice_into_multi_conf_block,
     _strip_yaml_quotes,
+    child_block_end,
     fallback_ap_ssid,
     generate_api_encryption_key,
     generate_component_yaml,
@@ -1679,7 +1680,7 @@ def test_generate_component_yaml_quotes_yaml_keyword_strings(keyword: str) -> No
 
 @pytest.mark.parametrize(
     "value",
-    ["foo:bar", "foo #bar", "!secret api_key", "%"],
+    ["foo:bar", "foo #bar", "!include common.yaml", "%"],
     ids=["colon", "hash", "tag-prefix", "percent"],
 )
 def test_generate_component_yaml_quotes_strings_with_special_chars(value: str) -> None:
@@ -1692,6 +1693,26 @@ def test_generate_component_yaml_quotes_strings_with_special_chars(value: str) -
     crashing the downstream ``esphome`` load (``%`` is a YAML
     indicator character reserved for directives).
     """
+    component = _component(component_id="myc", category=ComponentCategory.MISC)
+    out = generate_component_yaml(component, {"v": value})
+    assert f'  v: "{value}"' in out
+
+
+@pytest.mark.parametrize("name", ["api_key", "mqtt.broker", "guest-wifi_2"], ids=str)
+def test_generate_component_yaml_emits_secret_reference_unquoted(name: str) -> None:
+    """A strict ``!secret <name>`` value emits as a tag, not a quoted literal."""
+    component = _component(component_id="myc", category=ComponentCategory.MISC)
+    out = generate_component_yaml(component, {"password": f"!secret {name}"})
+    assert f"  password: !secret {name}" in out
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["!secret foo bar", "!secret a#b", "!secretx", "!secret  double", "!secret "],
+    ids=["two-names", "hash-in-name", "no-space", "double-space", "no-name"],
+)
+def test_generate_component_yaml_quotes_loose_secret_shapes(value: str) -> None:
+    """Anything looser than ``!secret <name>`` keeps scalar-safe quoting."""
     component = _component(component_id="myc", category=ComponentCategory.MISC)
     out = generate_component_yaml(component, {"v": value})
     assert f'  v: "{value}"' in out
@@ -2224,3 +2245,29 @@ def test_write_user_yaml_wraps_oserror_as_esphome_error(tmp_path: Path) -> None:
     """A failed write surfaces as ``EsphomeError``, matching ``esphome.helpers.write_file``."""
     with pytest.raises(EsphomeError, match="Could not write file"):
         write_user_yaml(tmp_path / "missing" / "x.yaml", "a: 1\n")
+
+
+def _cbe(text: str, start: int, indent: str) -> int:
+    lines = text.splitlines(keepends=True)
+    return child_block_end(lines, start, len(lines), indent)
+
+
+def test_child_block_end_flush_dash_continues_the_block() -> None:
+    text = "api:\n  actions:\n  - action: a\n    then: []\n  encryption:\n    key: k\n"
+    assert _cbe(text, 1, "  ") == 4
+
+
+def test_child_block_end_lone_dash_continues_the_block() -> None:
+    text = "api:\n  actions:\n  -\n    action: a\n  encryption:\n    key: k\n"
+    assert _cbe(text, 1, "  ") == 4
+
+
+def test_child_block_end_comment_inside_does_not_end_the_block() -> None:
+    text = "api:\n  actions:\n  - action: a\n  # note\n  - action: b\n  encryption:\n    key: k\n"
+    assert _cbe(text, 1, "  ") == 5
+
+
+def test_child_block_end_trims_shallow_banner_but_keeps_deep_comment() -> None:
+    text = "api:\n  actions:\n  - action: a\n    # for a\n\n  # banner\n  encryption:\n    key: k\n"
+    # The deep ``# for a`` stays inside; the blank + shallow banner trim off.
+    assert _cbe(text, 1, "  ") == 4

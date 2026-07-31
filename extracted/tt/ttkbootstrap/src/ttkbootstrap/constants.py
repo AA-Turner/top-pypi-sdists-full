@@ -8,6 +8,7 @@ color/keyword constants. All names are exported via `__all__` for
 """
 from __future__ import annotations
 
+import re
 from typing import Final, Literal
 
 # ---------------------------
@@ -137,7 +138,8 @@ BOOTSTYLE_ORIENTS: Final = ("horizontal", "vertical")
 # the raised-panel ceiling. Accent colors (BOOTSTYLE_COLORS) are ALSO valid
 # surfaces (resolved separately), so a ghost/outline/link control can blend into
 # an accent container. A non-default surface prefixes the style name with an
-# `@<surface>.` segment. Raw-hex surfaces are deferred.
+# `@<surface>.` segment. A surface slot also accepts a value token (a raw hex
+# `@#hex` or a ramp-addressed role `@role[stop]`).
 DEFAULT_SURFACE: Final = "background"
 BOOTSTYLE_SURFACES: Final = ("background", "chrome", "card")
 # The full accepted surface vocabulary: named neutral surfaces + every accent
@@ -154,6 +156,87 @@ def surface_segment(surface: str) -> str:
     if surface and surface != DEFAULT_SURFACE:
         return f"@{surface}."
     return ""
+
+
+# ---------------------------------------------------------------------------
+# Bootstyle value tokens -- additive grammar. A *value token* is a raw hex color
+# (``#rgb``/``#rrggbb``) or a ramp-addressed role (``<role>[<stop>]``), legal only
+# in the two color-bearing slots: the color slot (``#2f2f2f``, ``primary[300]``)
+# and the surface slot (``@#ff0000``, ``@light[200]``). Everything in the closed
+# vocabulary above is unchanged; these two anchored, eagerly-validated patterns
+# sit alongside it, so a malformed value token fails loudly like any unknown
+# token. A ramp token re-resolves on theme switch (semantic); a hex token is a
+# frozen snapshot.
+# ---------------------------------------------------------------------------
+# Valid ramp stops: multiples of 50 in 50-950. Also the source for theme.py's
+# `_RAMP_STOPS` (one definition of the stop set).
+BOOTSTYLE_RAMP_STOPS: Final = tuple(range(50, 1000, 50))
+# Roles addressable by a ramp token. The eight iterable accent roles plus the two
+# surface aliases the surface slot needs (``background`` -> bg, ``foreground`` ->
+# fg). ``neutral`` is a render policy, not a ramp anchor, so it is excluded.
+BOOTSTYLE_RAMP_ROLES: Final = (
+    "primary", "secondary", "success", "info", "warning", "danger",
+    "light", "dark", "background", "foreground",
+)
+
+_HEX_TOKEN_RE = re.compile(r"#(?:[0-9a-f]{3}|[0-9a-f]{6})\Z")
+_RAMP_TOKEN_RE = re.compile(r"([a-z]+)\[([0-9]+)\]\Z")
+_RAMP_STOPS_SET = frozenset(BOOTSTYLE_RAMP_STOPS)
+_RAMP_ROLES_SET = frozenset(BOOTSTYLE_RAMP_ROLES)
+
+
+def normalize_hex_token(token: str) -> str:
+    """Return a ``#rgb``/``#rrggbb`` token as canonical lowercase 6-digit hex."""
+    token = token.lower()
+    if len(token) == 4:  # #rgb -> #rrggbb
+        return "#" + "".join(ch * 2 for ch in token[1:])
+    return token
+
+
+def is_hex_token(token: str) -> bool:
+    """Whether ``token`` is a valid ``#rgb``/``#rrggbb`` hex value token."""
+    return bool(_HEX_TOKEN_RE.match(token.lower()))
+
+
+def parse_ramp_token(token: str):
+    """Return ``(role, stop)`` for a valid ``role[stop]`` token, else ``None``."""
+    match = _RAMP_TOKEN_RE.match(token.lower())
+    if not match:
+        return None
+    role, stop = match.group(1), int(match.group(2))
+    if role in _RAMP_ROLES_SET and stop in _RAMP_STOPS_SET:
+        return role, stop
+    return None
+
+
+def is_value_token(token: str) -> bool:
+    """Whether ``token`` is a valid hex or ramp value token."""
+    return is_hex_token(token) or parse_ramp_token(token) is not None
+
+
+def looks_like_value_token(token: str) -> bool:
+    """Whether ``token`` is a value-token *attempt* (valid or malformed).
+
+    Routes a ``#...`` or bracketed fragment to value-token validation (loud-fail
+    on malformed) rather than the generic unknown-token path.
+    """
+    return token.startswith("#") or "[" in token or "]" in token
+
+
+def canonical_value_token(token: str) -> str:
+    """Canonicalize a valid value token.
+
+    Normalizes hex (``#rgb`` -> ``#rrggbb``) and re-serializes a ramp token from
+    its parsed role and stop, so equivalent spellings collapse to one style name
+    (``primary[050]`` -> ``primary[50]``) instead of minting duplicate styles.
+    """
+    if is_hex_token(token):
+        return normalize_hex_token(token)
+    ramp = parse_ramp_token(token)
+    if ramp is not None:
+        role, stop = ramp
+        return f"{role}[{stop}]"
+    return token.lower()
 
 # ---------------------------------------------------------------------------
 # Canonical bootstyle strings (generated). The closed set of bootstyle values
@@ -499,6 +582,10 @@ __all__ = [
     "BOOTSTYLE_BASES", "BOOTSTYLE_FAMILIES", "BOOTSTYLE_ORIENTS", "NEUTRAL_FAMILIES",
     "BOOTSTYLE_SURFACES", "DEFAULT_SURFACE", "BOOTSTYLE_SURFACE_TOKENS",
     "surface_segment",
+    # value tokens (2.1): hex + ramp accents & surfaces
+    "BOOTSTYLE_RAMP_STOPS", "BOOTSTYLE_RAMP_ROLES",
+    "is_hex_token", "normalize_hex_token", "parse_ramp_token",
+    "is_value_token", "looks_like_value_token", "canonical_value_token",
     # constants
     "NO", "FALSE", "OFF", "YES", "TRUE", "ON",
     "N", "S", "W", "E", "NW", "SW", "NE", "SE", "NS", "EW", "NSEW", "CENTER",

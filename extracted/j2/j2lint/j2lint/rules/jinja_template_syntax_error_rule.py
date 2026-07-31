@@ -1,11 +1,9 @@
-# Copyright (c) 2021-2025 Arista Networks, Inc.
+# Copyright (c) 2021-2026 Arista Networks, Inc.
 # Use of this source code is governed by the MIT license
 # that can be found in the LICENSE file.
 """jinja_template_syntax_error_rule.py - Rule class to check that file does not have jinja syntax errors."""
 
 from __future__ import annotations
-
-from typing import Any
 
 import jinja2
 
@@ -21,7 +19,7 @@ class JinjaTemplateSyntaxErrorRule(Rule):
     short_description = "jinja-syntax-error"
     severity = "HIGH"
 
-    def __init__(self, ignore: bool = False, warn: list[Any] | None = None) -> None:
+    def __init__(self, ignore: bool = False, warn: list[Rule] | None = None) -> None:
         super().__init__(ignore=ignore, warn=warn)
 
     def checktext(self, filename: str, text: str) -> list[LinterError]:

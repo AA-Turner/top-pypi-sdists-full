@@ -611,11 +611,11 @@ class Xliff1File(XliffFile[U]):
 
     sourcelanguage = property(getsourcelanguage, setsourcelanguage)
 
-    def settargetlanguage(self, language) -> None:  # ty:ignore[invalid-method-override]
-        if not language:
+    def settargetlanguage(self, targetlanguage: str | None) -> None:
+        if not targetlanguage:
             return
         for filenode in self.document.getroot().iterchildren(self.namespaced("file")):
-            filenode.set("target-language", language)
+            filenode.set("target-language", targetlanguage)
 
     def gettargetlanguage(self):
         filenode = next(self.document.getroot().iterchildren(self.namespaced("file")))
@@ -797,7 +797,7 @@ class Xliff1File(XliffFile[U]):
     def parsestring(cls, storestring):
         """Parses the string to return the correct file object."""
         # pylint: disable-next=import-outside-toplevel
-        from translate.storage import poxliff  # noqa: PLC0415
+        from translate.storage import poxliff  # ruff:ignore[import-outside-top-level]
 
         xliff = super().parsestring(storestring)
         if xliff.units:

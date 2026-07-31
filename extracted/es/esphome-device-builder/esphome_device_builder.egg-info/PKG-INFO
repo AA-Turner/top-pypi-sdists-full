@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esphome-device-builder
-Version: 1.7.0
+Version: 1.8.1
 Summary: ESPHome Device Builder
 Author-email: The ESPHome Authors <esphome@openhomefoundation.org>
 Maintainer-email: Open Home Foundation <esphome@openhomefoundation.org>
@@ -20,7 +20,7 @@ Classifier: Topic :: Home Automation
 Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: esphome-device-builder-frontend==0.1.283
+Requires-Dist: esphome-device-builder-frontend==0.1.292
 Requires-Dist: aiohttp>=3.9.0
 Requires-Dist: aiohttp-asyncmdnsresolver>=0.1.1
 Requires-Dist: colorlog>=6.8.0
@@ -35,7 +35,7 @@ Requires-Dist: ruamel.yaml>=0.18.0
 Requires-Dist: voluptuous>=0.13.1
 Requires-Dist: zeroconf>=0.150.0
 Provides-Extra: esphome
-Requires-Dist: esphome>=2026.7.2; extra == "esphome"
+Requires-Dist: esphome>=2026.7.3; extra == "esphome"
 Provides-Extra: test
 Requires-Dist: blockbuster<1.6,>=1.5.5; extra == "test"
 Requires-Dist: codespell==2.4.3; extra == "test"
@@ -50,7 +50,7 @@ Requires-Dist: pytest-codspeed==5.0.3; extra == "test"
 Requires-Dist: pytest-cov==7.1.0; extra == "test"
 Requires-Dist: pytest-timeout==2.4.0; extra == "test"
 Requires-Dist: pytest-xdist==3.8.0; extra == "test"
-Requires-Dist: ruff==0.15.22; extra == "test"
+Requires-Dist: ruff==0.16.0; extra == "test"
 Requires-Dist: types-PyYAML; extra == "test"
 Dynamic: license-file
 
@@ -429,6 +429,13 @@ a beefier dashboard on the same LAN, for example ESPHome Desktop
 running on a workstation, and offload compiles there. The firmware
 bytes still install from the original dashboard; only the build
 runs elsewhere.
+
+Remote build is designed for dashboards on the same local
+network. Running the peer link across a VPN, Tailscale, or any
+slow or high-latency uplink is best effort: it may work, but the
+timing assumptions favor LAN-class throughput, slow links aren't
+a design target, and issues that only reproduce over a slow link
+won't be pursued.
 
 Two roles:
 

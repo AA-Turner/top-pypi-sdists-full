@@ -7,6 +7,10 @@ _on_behalf_of_by_name: dict[str, bool] = {}
 
 _display_names_by_workflow: dict[str, str] = {}
 
+_search_keys_by_name: dict[str, tuple[str, ...]] = {}
+
+_entrypoint_param_names_by_name: dict[str, tuple[str, ...]] = {}
+
 
 def _get_workflow_entrypoint_method(cls_type: Type) -> Callable | None:
     for _, method in inspect.getmembers(cls_type, predicate=inspect.isfunction):
@@ -35,6 +39,21 @@ def is_workflow_on_behalf_of(workflow_name: str) -> bool:
 
 def get_workflow_display_name(workflow_name: str) -> str | None:
     return _display_names_by_workflow.get(workflow_name)
+
+
+def set_workflow_search_keys(
+    workflow_name: str, search_keys: tuple[str, ...], entrypoint_param_names: tuple[str, ...]
+) -> None:
+    _search_keys_by_name[workflow_name] = search_keys
+    _entrypoint_param_names_by_name[workflow_name] = entrypoint_param_names
+
+
+def get_workflow_search_keys(workflow_name: str) -> tuple[str, ...]:
+    return _search_keys_by_name.get(workflow_name, ())
+
+
+def get_workflow_entrypoint_param_names(workflow_name: str) -> tuple[str, ...]:
+    return _entrypoint_param_names_by_name.get(workflow_name, ())
 
 
 def set_workflow_entrypoint(method: Callable) -> None:

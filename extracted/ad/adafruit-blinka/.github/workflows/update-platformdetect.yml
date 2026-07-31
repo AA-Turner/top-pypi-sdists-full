@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: 2026 Melissa LeBlanc-Williams for Adafruit Industries
+#
+# SPDX-License-Identifier: Unlicense
+name: Update PlatformDetect Dependency
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 10 * * 1"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-platformdetect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Current Repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
+
+      - name: Update PlatformDetect dependency
+        id: update-platformdetect
+        run: |
+          python scripts/update_platformdetect_min.py
+          if git diff --quiet -- setup.py; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create pull request
+        if: steps.update-platformdetect.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: update-platformdetect-dependency
+          commit-message: Update PlatformDetect dependency
+          title: Update PlatformDetect dependency
+          body: Updates Blinka's minimum Adafruit-PlatformDetect dependency to the latest PyPI release.
+          delete-branch: true

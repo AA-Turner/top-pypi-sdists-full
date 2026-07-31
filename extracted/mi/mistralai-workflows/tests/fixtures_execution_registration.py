@@ -5,6 +5,8 @@ Kept separate from the test module to avoid sandbox import issues.
 
 from __future__ import annotations
 
+from enum import Enum
+
 from pydantic import BaseModel
 
 from mistralai.workflows import activity, workflow
@@ -69,4 +71,105 @@ class ParentWorkflow:
 class ChildWorkflow:
     @workflow.entrypoint
     async def run(self, params: ChildParams) -> str:
+        return await capture_token()
+
+
+class SearchKeyCustomer(BaseModel):
+    name: str
+    tier: int
+
+
+class SearchKeyInput(BaseModel):
+    id: str
+    customer: SearchKeyCustomer
+    note: str | None = None
+
+
+@workflow.define(
+    name="test-registration-search-keys",
+    search_keys=["id", "customer.name", "customer.tier", "note"],
+)
+class SearchKeyWorkflow:
+    @workflow.entrypoint
+    async def run(self, payload: SearchKeyInput) -> str:
+        return await capture_token()
+
+
+class SearchKeyContext(BaseModel):
+    tenant_name: str
+    region: str | None = None
+
+
+@workflow.define(
+    name="test-registration-search-keys-multi",
+    search_keys=["payload.id", "payload.customer.name", "context.tenant_name", "context.region"],
+)
+class MultiParamSearchKeyWorkflow:
+    @workflow.entrypoint
+    async def run(self, payload: SearchKeyInput, context: SearchKeyContext) -> str:
+        return await capture_token()
+
+
+@workflow.define(
+    name="test-registration-search-keys-scalar",
+    search_keys=["city"],
+)
+class ScalarParamSearchKeyWorkflow:
+    @workflow.entrypoint
+    async def run(self, city: str) -> str:
+        return await capture_token()
+
+
+class Tier(str, Enum):
+    free = "free"
+    paid = "paid"
+
+
+@workflow.define(
+    name="test-registration-search-keys-scalar-int",
+    search_keys=["count"],
+)
+class ScalarIntSearchKeyWorkflow:
+    @workflow.entrypoint
+    async def run(self, count: int) -> str:
+        return await capture_token()
+
+
+@workflow.define(
+    name="test-registration-search-keys-scalar-enum",
+    search_keys=["tier"],
+)
+class ScalarEnumSearchKeyWorkflow:
+    @workflow.entrypoint
+    async def run(self, tier: Tier) -> str:
+        return await capture_token()
+
+
+@workflow.define(
+    name="test-registration-search-keys-multi-scalar",
+    search_keys=["city", "count"],
+)
+class MultiScalarSearchKeyWorkflow:
+    @workflow.entrypoint
+    async def run(self, city: str, count: int) -> str:
+        return await capture_token()
+
+
+@workflow.define(
+    name="test-registration-search-keys-mixed",
+    search_keys=["city", "payload.id", "payload.customer.name"],
+)
+class MixedScalarModelSearchKeyWorkflow:
+    @workflow.entrypoint
+    async def run(self, city: str, payload: SearchKeyInput) -> str:
+        return await capture_token()
+
+
+@workflow.define(
+    name="test-registration-search-keys-single-basemodel",
+    search_keys=["id", "customer.name", "customer.tier"],
+)
+class SingleBaseModelSearchKeyWorkflow:
+    @workflow.entrypoint
+    async def run(self, payload: SearchKeyInput) -> str:
         return await capture_token()

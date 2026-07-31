@@ -40,21 +40,50 @@ BACKEND_STR = Literal["cuda", "hip"]
 logger = logging.getLogger(__name__)
 
 
+def _find_compiler(name: str, *home_vars: str) -> str | None:
+    """Locate a compiler on ``PATH`` or under an env-specified toolkit home's ``bin``."""
+    found = shutil.which(name)
+    if found is not None:
+        return found
+    for var in home_vars:
+        home = os.environ.get(var)
+        if home:
+            found = shutil.which(name, path=str(Path(home) / "bin"))
+            if found is not None:
+                return found
+    return None
+
+
 @functools.lru_cache
 def _detect_gpu_backend() -> BACKEND_STR:
-    """Auto-detect whether to use CUDA or HIP (ROCm).
+    """Auto-detect whether to use CUDA or HIP (ROCm), defaulting to CUDA.
 
-    Returns 'hip' if ROCm/HIP is available, 'cuda' otherwise.
+    Resolution order: the ``TVM_FFI_GPU_BACKEND`` override, then PyTorch build
+    signals (``torch.version.hip`` / ``torch.version.cuda``), then a discoverable
+    ``hipcc`` when no ``nvcc`` can be found. Compilers are resolved from ``PATH``
+    and from the ``CUDA_HOME``/``CUDA_PATH`` and ``ROCM_HOME``/``ROCM_PATH``
+    toolkit homes, so an env-specified CUDA install is honored even when ``nvcc``
+    is off ``PATH``. The mere existence of ``/opt/rocm`` is not treated as
+    evidence of HIP.
     """
-    # Check environment variable override first
     backend = os.environ.get("TVM_FFI_GPU_BACKEND", "").lower()
     if backend in ("cuda", "hip"):
         return backend  # type: ignore[return-value]
     try:
-        _find_rocm_home()
+        import torch  # noqa: PLC0415
+
+        version = getattr(torch, "version", None)
+        if getattr(version, "hip", None):
+            return "hip"
+        if getattr(version, "cuda", None):
+            return "cuda"
+    except Exception:
+        pass
+    if _find_compiler("nvcc", "CUDA_HOME", "CUDA_PATH") is None and (
+        _find_compiler("hipcc", "ROCM_HOME", "ROCM_PATH") is not None
+    ):
         return "hip"
-    except RuntimeError:
-        return "cuda"
+    return "cuda"
 
 
 def _resolve_gpu_backend(backend: str | None) -> BACKEND_STR:
@@ -489,6 +518,16 @@ def _generate_ninja_build(  # noqa: PLR0915, PLR0912
         ninja.append("  command = ld -r -o $out $in")
         ninja.append("")
 
+        # Copy a single object straight through, bypassing `ld -r`. A partial
+        # link of one input is a pointless round-trip, and some system linkers
+        # (e.g. GNU ld 2.45) assign a nonzero sh_addr to zero-size, non-SHF_ALLOC
+        # sections like `.note.GNU-stack` during it. JITLink then materializes a
+        # zero-length block at that address, which collides with a real block in
+        # EHFrameEdgeFixer's block map and aborts C++ (eh_frame-bearing) loads.
+        ninja.append("rule copy_object")
+        ninja.append("  command = cp -f $in $out")
+        ninja.append("")
+
         if embed_cubin:
             ninja.append("rule embed_cubin")
             ninja.append(
@@ -533,7 +572,10 @@ def _generate_ninja_build(  # noqa: PLR0915, PLR0912
     if object_mode:
         # Object-only output: merge all object files into the target.
         if not IS_WINDOWS:
-            ninja.append(f"build {output_name}: merge_objects {' '.join(obj_files)}")
+            # A single object needs no partial link — copy it through to avoid
+            # `ld -r` rewriting section addresses (see the copy_object rule).
+            rule = "copy_object" if len(obj_files) == 1 else "merge_objects"
+            ninja.append(f"build {output_name}: {rule} {' '.join(obj_files)}")
             ninja.append("")
             ninja.append(f"default {output_name}")
         else:

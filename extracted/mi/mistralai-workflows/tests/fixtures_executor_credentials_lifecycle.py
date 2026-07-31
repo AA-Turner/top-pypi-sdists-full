@@ -22,9 +22,10 @@ def _get_hooked_client():
     # workflow definitions and httpx is restricted inside the sandbox.
     import httpx
 
+    from mistralai.workflows.core.auth import StaticTokenProvider
     from mistralai.workflows.hooks.executor_credentials_hook import AsyncExecutorCredentialsHook
 
-    hook = AsyncExecutorCredentialsHook(server_url="http://mint-server", api_key="test-key")
+    hook = AsyncExecutorCredentialsHook(server_url="http://mint-server", token_provider=StaticTokenProvider("test-key"))
     return httpx.AsyncClient(
         event_hooks={"request": [hook]},
         transport=httpx.MockTransport(lambda req: httpx.Response(200, json={"ok": True})),
@@ -41,9 +42,10 @@ async def api_call(client=Depends(_get_hooked_client)) -> dict:
 async def api_call_own_client() -> dict:
     import httpx
 
+    from mistralai.workflows.core.auth import StaticTokenProvider
     from mistralai.workflows.hooks.executor_credentials_hook import AsyncExecutorCredentialsHook
 
-    hook = AsyncExecutorCredentialsHook(server_url="http://mint-server", api_key="test-key")
+    hook = AsyncExecutorCredentialsHook(server_url="http://mint-server", token_provider=StaticTokenProvider("test-key"))
     async with httpx.AsyncClient(
         event_hooks={"request": [hook]},
         transport=httpx.MockTransport(lambda req: httpx.Response(200, json={"ok": True})),

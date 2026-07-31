@@ -423,7 +423,6 @@ async function main() {
         page = matchingPage;
       }
     }
-    emitProgress(formatClosedCount(0));
 
     // console.error(`Modalcloser listening on ${url}`);
 
@@ -443,6 +442,7 @@ async function main() {
         // Dialog may have been dismissed by page
       }
     });
+    emitProgress(formatClosedCount(0));
 
     // Poll for CSS modals
     while (running) {

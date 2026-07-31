@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: shtab
-Version: 1.8.1
+Version: 1.8.2
 Summary: Automagic shell tab completion for Python CLI applications
 Author-email: Casper da Costa-Luis <casper.dcl@physics.org>
 Maintainer-email: tqdm developers <devs@tqdm.ml>
@@ -36,9 +36,6 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: Implementation
-Classifier: Programming Language :: Python :: Implementation :: IronPython
-Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Unix Shell
 Classifier: Topic :: Desktop Environment
 Classifier: Topic :: Education :: Computer Aided Instruction (CAI)
@@ -63,7 +60,6 @@ License-File: LICENCE
 Provides-Extra: dev
 Requires-Dist: pytest>=6; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: pytest-timeout; extra == "dev"
 Dynamic: license-file
 
 |Logo|
@@ -71,7 +67,8 @@ Dynamic: license-file
 shtab
 =====
 
-|PyPI-Downloads| |Tests| |Coverage| |PyPI| |Conda|
+|PyPI-Downloads| |Tests| |Coverage| |Quality|
+|PyPI| |Conda|
 
 - What: Automatically generate shell tab completion scripts for Python CLI apps
 - Why: Speed & correctness. Alternatives like
@@ -181,13 +178,16 @@ for more guidance.
 .. |Coverage| image:: https://codecov.io/gh/tqdm/shtab/branch/main/graph/badge.svg
    :target: https://codecov.io/gh/tqdm/shtab
    :alt: Coverage
+.. |Quality| image:: https://app.codacy.com/project/badge/Grade/0ce50da5c6e04236a891b092c7012753
+   :target: https://app.codacy.com/gh/tqdm/shtab/dashboard
+   :alt: Quality
 .. |Conda| image:: https://img.shields.io/conda/v/conda-forge/shtab.svg?label=conda&logo=conda-forge
    :target: https://anaconda.org/conda-forge/shtab
    :alt: conda-forge
 .. |PyPI| image:: https://img.shields.io/pypi/v/shtab.svg?label=pip&logo=PyPI&logoColor=white
    :target: https://pypi.org/project/shtab
    :alt: PyPI
-.. |PyPI-Downloads| image:: https://img.shields.io/pypi/dm/shtab.svg?label=pypi%20downloads&logo=PyPI&logoColor=white
+.. |PyPI-Downloads| image:: https://static.pepy.tech/personalized-badge/shtab?left_text=downloads%2Fmonth
    :target: https://pepy.tech/project/shtab
    :alt: Downloads
 .. |Hits| image:: https://cgi.cdcl.ml/hits?q=shtab&style=social&r=https://github.com/tqdm/shtab&a=hidden

@@ -1,0 +1,1 @@
+import{Et as e,dt as t,it as n,nn as r,ot as i}from"./index-BgYNBSAi.js";import"./core-6VOdyL6D.js";function a(a,o){r();var s=t();e(()=>n(s,o.value||``)),i(a,s)}export{a as default};

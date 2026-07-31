@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sagemaker-core
-Version: 2.17.0
+Version: 2.18.0
 Summary: An python package for sagemaker core functionalities
 Author-email: AWS <sagemaker-interests@amazon.com>
 Project-URL: Homepage, https://github.com/aws/sagemaker-python-sdk
@@ -13,7 +13,7 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: boto3<2.0.0,>=1.42.2
+Requires-Dist: boto3<2.0.0,>=1.43.20
 Requires-Dist: pydantic<3.0.0,>=2.0.0
 Requires-Dist: PyYAML<7.0,>=6.0
 Requires-Dist: jsonschema<5.0.0

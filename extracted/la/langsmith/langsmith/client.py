@@ -156,9 +156,10 @@ def _reset_tracing_drop_log() -> None:
 def _get_openapi_base_url(api_url: str) -> str:
     """Convert a handwritten client API URL to a generated OpenAPI base URL."""
     api_url = api_url.rstrip("/")
-    if api_url.endswith("/api/v1"):
-        return api_url[: -len("/api/v1")]
-    return api_url[:-3] if api_url.endswith("/v1") else api_url
+    for suffix in ("/api/v1", "/api"):
+        if api_url.endswith(suffix):
+            return api_url[: -len(suffix)]
+    return api_url
 
 
 _TRACING_SEND_TIMEOUT = (3, 10)  # (connect, read) seconds for background sends
@@ -275,6 +276,9 @@ if TYPE_CHECKING:
     from langchain_core.runnables import Runnable
 
     from langsmith import schemas
+    from langsmith._openapi_client.resources.annotation_queues.annotation_queues import (
+        AsyncAnnotationQueuesResource,
+    )
     from langsmith._openapi_client.resources.datasets.datasets import (
         AsyncDatasetsResource,
     )
@@ -685,6 +689,25 @@ def _format_feedback_score(score: Union[float, int, bool, None]):
         # Truncate at 4 decimal places
         return round(score, 4)
     return score
+
+
+def _check_feedback_session_id(info: ls_schemas.LangSmithInfo) -> None:
+    """Raise on SmithDB-only deployments, warn elsewhere.
+
+    Call only when run-level feedback has no ``session_id``.
+    """
+    docs = "https://docs.langchain.com/langsmith/smithdb-sdk-migration#feedback-create"
+    if (info.instance_flags or {}).get("ch_query_enabled") is False:
+        raise ValueError(
+            "session_id must be provided when creating feedback for a run:"
+            f" this deployment cannot locate the run without it. See {docs}"
+        )
+    warnings.warn(
+        "Creating feedback for a run without session_id is deprecated and will"
+        f" stop working in a future release. See {docs}",
+        ls_utils.LangSmithWarning,
+        stacklevel=3,
+    )
 
 
 def _get_tracing_sampling_rate(
@@ -1509,7 +1532,7 @@ class Client:
             self._langsmith_api_sync = SyncLangsmithOpenAPIClient(
                 api_key=self._api_key,
                 tenant_id=str(self._workspace_id) if self._workspace_id else None,
-                base_url=self.api_url,
+                base_url=_get_openapi_base_url(self.api_url),
                 timeout=_httpx.Timeout(
                     connect=self._timeout[0],
                     read=self._timeout[1],
@@ -1523,43 +1546,50 @@ class Client:
     @property
     def runs(self) -> AsyncRunsResource:
         """Access the runs resource."""
-        _check_backend_version(self.info.version)
+        _check_backend_version(self.info.version, min_version="0.16.0")
         return self._get_langsmith_api().runs
 
     @property
     def evaluators(self) -> AsyncEvaluatorsResource:
         """Access the evaluator resource."""
-        _check_backend_version(self.info.version)
+        _check_backend_version(self.info.version, min_version="0.16.0")
         return self._get_langsmith_api().online_evaluators
 
     @property
     def sandboxes(self) -> AsyncSandboxesResource:
         """Access the sandboxes resource (registries, snapshots, boxes)."""
-        _check_backend_version(self.info.version)
+        _check_backend_version(self.info.version, min_version="0.16.0")
         return self._get_langsmith_api().sandboxes
 
     @property
     def datasets(self) -> AsyncDatasetsResource:
         """Access the v2 datasets resource (experiment_runs, etc.)."""
-        _check_backend_version(self.info.version)
+        _check_backend_version(self.info.version, min_version="0.16.0")
         return self._get_langsmith_api().datasets
+
+    @property
+    def annotation_queues(self) -> AsyncAnnotationQueuesResource:
+        """Access the annotation queues resource (runs, items)."""
+        # The items endpoints landed in backend 0.16.14; the rest are older.
+        _check_backend_version(self.info.version, min_version="0.16.14")
+        return self._get_langsmith_api().annotation_queues
 
     @property
     def threads(self) -> AsyncThreadsResource:
         """Access the threads resource (query, stats, list_traces)."""
-        _check_backend_version(self.info.version)
+        _check_backend_version(self.info.version, min_version="0.16.0")
         return self._get_langsmith_api().threads
 
     @property
     def traces(self) -> AsyncTracesResource:
         """Access the traces resource (query, list_runs)."""
-        _check_backend_version(self.info.version)
+        _check_backend_version(self.info.version, min_version="0.16.0")
         return self._get_langsmith_api().traces
 
     @property
     def public(self) -> AsyncPublicResource:
         """Access the public shared-run resource."""
-        _check_backend_version(self.info.version)
+        _check_backend_version(self.info.version, min_version="0.16.0")
         return self._get_langsmith_api().public
 
     def _dump_failed_trace(
@@ -7933,11 +7963,11 @@ class Client:
             extra (Optional[Dict]):
                 Metadata for the feedback.
             session_id (Optional[Union[UUID, str]]):
-                The session (project) ID of the run this feedback is for. Used to
-                optimize feedback ingestion by avoiding server-side lookups.
+                The session (project) ID of the run. Required for run-level
+                feedback; omitting it is deprecated. See
+                https://docs.langchain.com/langsmith/smithdb-sdk-migration#feedback-create
             start_time (Optional[datetime]):
-                The start time of the run this feedback is for. Used to optimize
-                feedback ingestion by avoiding server-side lookups.
+                The start time of the run. Better performance if provided.
             extend_trace_retention (bool, default=True):
                 If false, create the feedback without extending the trace's retention
                 tier.
@@ -7998,6 +8028,8 @@ class Client:
             raise ValueError(
                 "project_id cannot be provided if run_id or trace_id is provided"
             )
+        if run_id is not None and session_id is None:
+            _check_feedback_session_id(self.info)
         if kwargs:
             warnings.warn(
                 "The following arguments are no longer used in the create_feedback"

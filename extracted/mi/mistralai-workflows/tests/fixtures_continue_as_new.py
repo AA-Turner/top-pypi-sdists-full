@@ -14,9 +14,10 @@ REREG_NON_OBO_CAN = "test-rereg-non-obo-continue-as-new"
 def _get_hooked_client():
     import httpx
 
+    from mistralai.workflows.core.auth import StaticTokenProvider
     from mistralai.workflows.hooks.executor_credentials_hook import AsyncExecutorCredentialsHook
 
-    hook = AsyncExecutorCredentialsHook(server_url="http://mint-server", api_key="test-key")
+    hook = AsyncExecutorCredentialsHook(server_url="http://mint-server", token_provider=StaticTokenProvider("test-key"))
     return httpx.AsyncClient(
         event_hooks={"request": [hook]},
         transport=httpx.MockTransport(lambda req: httpx.Response(200, json={"ok": True})),

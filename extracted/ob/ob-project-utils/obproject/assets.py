@@ -384,6 +384,16 @@ def user_ref(user_id: str) -> Dict[str, str]:
     return entity_ref("user", user_id)
 
 
+def _default_entity_ref() -> Dict[str, str]:
+    """Producer identity: the task pathspec in a run, the invoking user outside one."""
+    from metaflow import current
+    from metaflow.util import get_username
+
+    if current.is_running_flow and current.pathspec:
+        return task_ref(*current.pathspec.split("/"))
+    return user_ref(get_username() or "unknown")
+
+
 class Asset:
     def __init__(self, project=None, branch=None, entity_ref=None, read_only=False):
         from metaflow_extensions.outerbounds.remote_config import init_config
@@ -398,7 +408,7 @@ class Asset:
         # Always sanitize branch name for API compatibility
         branch = _sanitize_branch_name(branch)
         if entity_ref is None:
-            entity_ref = {"entity_kind": "task", "entity_id": current.pathspec}
+            entity_ref = _default_entity_ref()
 
         self.project = project
         self.branch = branch
@@ -695,26 +705,35 @@ class Asset:
         metadata_updated = self._remove_from_metadata("models", name)
         return DeleteResult(catalog_deleted=catalog_deleted, metadata_updated=metadata_updated)
 
+    def get_flowproject_spec(self):
+        """Latest flowproject spec for this branch, or None if none is deployed."""
+        endpoint = (
+            f"/v1/perimeters/{self.perimeter}/projects/{self.project}"
+            f"/branches/{self.branch}/latestflowproject"
+        )
+        try:
+            return _make_request(
+                self.base_url, self.service_headers, "GET", endpoint,
+            )
+        except requests.HTTPError as e:
+            if e.response is not None and e.response.status_code == 404:
+                return None
+            raise
+
     def _add_to_metadata(self, kind, name, description=None):
         """Add a named asset to flowproject metadata if not already present. Returns True if metadata changed.
 
         No-op when metadata doesn't exist (404 on GET) — the project must be
         deployed at least once before runtime registrations can sync to metadata.
         """
-        endpoint = (
-            f"/v1/perimeters/{self.perimeter}/projects/{self.project}"
-            f"/branches/{self.branch}/latestflowproject"
-        )
         try:
-            spec = _make_request(
-                self.base_url, self.service_headers, "GET", endpoint,
-            )
+            spec = self.get_flowproject_spec()
         except requests.HTTPError as e:
-            if e.response is not None and e.response.status_code == 404:
-                return False
             raise RuntimeError(
                 f"catalog register succeeded but metadata GET failed for {kind}/{name}: {e}"
             ) from e
+        if spec is None:
+            return False
 
         entries = spec.get(kind, []) or []
         if any(entry.get("id") == name for entry in entries):
@@ -774,20 +793,14 @@ class Asset:
         (404) or if the name wasn't in the spec to begin with.
         Best-effort against concurrent edits — backend has no CAS today.
         """
-        endpoint = (
-            f"/v1/perimeters/{self.perimeter}/projects/{self.project}"
-            f"/branches/{self.branch}/latestflowproject"
-        )
         try:
-            spec = _make_request(
-                self.base_url, self.service_headers, "GET", endpoint,
-            )
+            spec = self.get_flowproject_spec()
         except requests.HTTPError as e:
-            if e.response is not None and e.response.status_code == 404:
-                return False
             raise RuntimeError(
                 f"metadata GET failed for {kind}/{name}: {e}"
             ) from e
+        if spec is None:
+            return False
 
         original = spec.get(kind, [])
         filtered = [a for a in original if a.get("id") != name]
@@ -863,6 +876,15 @@ class Asset:
         annotations["promoted_from_branch"] = source_branch
         annotations["promoted_from_instance"] = source_id
 
+        # get_model resolves artifact-kind assets via Task(created_by.entity_id),
+        # so the promoted instance has to keep the producing task.
+        source_ref = src.get("created_by") or {}
+        if source_ref.get("entity_id"):
+            promoted_ref = dict(source_ref)
+            annotations["promoted_by"] = self.entity_ref.get("entity_id", "")
+        else:
+            promoted_ref = self.entity_ref
+
         result = register_asset(
             self.base_url,
             self.service_headers,
@@ -871,7 +893,7 @@ class Asset:
             branch=target_branch,
             name=name,
             kind=kind,
-            entity_ref=self.entity_ref,
+            entity_ref=promoted_ref,
             description=description,
             data_asset_kind=asset_kind if kind == "data" else None,
             model_asset_kind=asset_kind if kind == "models" else None,
@@ -879,6 +901,9 @@ class Asset:
             annotations=annotations,
             tags=tags if tags else None,
         )
+
+        # register_asset is the bare catalog write, unlike the Asset methods.
+        self._add_to_metadata(kind, name, description)
 
         # Read back the new instance ID if we need to set aliases
         new_instance_id = None

@@ -446,3 +446,9 @@ def test_structured_json_lines():
         {"logging.googleapis.com/labels":{"event.name":"foo","key":"4"},"logging.googleapis.com/spanId":"0000000000000016","logging.googleapis.com/trace":"projects/fakeproject/traces/00000000000000000000000000000019","logging.googleapis.com/trace_sampled":false,"message":"hello","severity":"ERROR","time":"2025-01-15T21:25:10.997977393Z"}
         """
     ), "Each `LogData` should be on its own line"
+
+
+def test_deprecation_warning():
+    buf = StringIO()
+    with pytest.deprecated_call():
+        CloudLoggingExporter(project_id=PROJECT_ID, structured_json_file=buf)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-adk
-Version: 2.5.0
+Version: 2.6.0
 Summary: Agent Development Kit
 Author-email: Google LLC <googleapis-packages@google.com>
 Requires-Python: >=3.10
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 License-File: LICENSE
+Requires-Dist: aiohttp!=3.14.2
 Requires-Dist: aiosqlite>=0.21
 Requires-Dist: authlib>=1.6.6,<2
 Requires-Dist: click>=8.1.8,<9
@@ -56,6 +57,7 @@ Requires-Dist: google-cloud-bigquery-storage>=2 ; extra == "all"
 Requires-Dist: google-cloud-bigtable>=2.39.1 ; extra == "all"
 Requires-Dist: google-cloud-dataplex>=1.7,<3 ; extra == "all"
 Requires-Dist: google-cloud-discoveryengine>=0.13.12,<0.14 ; extra == "all"
+Requires-Dist: google-cloud-eventarc-publishing>=0.10,<1 ; extra == "all"
 Requires-Dist: google-cloud-parametermanager>=0.4,<1 ; extra == "all"
 Requires-Dist: google-cloud-pubsub>=2,<3 ; extra == "all"
 Requires-Dist: google-cloud-resource-manager>=1.12,<2 ; extra == "all"
@@ -80,6 +82,7 @@ Requires-Dist: google-adk-community ; extra == "community"
 Requires-Dist: daytona>=0.191 ; extra == "daytona"
 Requires-Dist: sqlalchemy>=2,<3 ; extra == "db"
 Requires-Dist: sqlalchemy-spanner>=1.14 ; extra == "db"
+Requires-Dist: codespell[toml]==2.4.2 ; extra == "dev"
 Requires-Dist: flit>=3.10 ; extra == "dev"
 Requires-Dist: isort==8.0.1 ; extra == "dev"
 Requires-Dist: mdformat==0.7.22 ; extra == "dev"
@@ -103,6 +106,7 @@ Requires-Dist: sphinx-rtd-theme ; extra == "docs"
 Requires-Dist: e2b>=2,<3 ; extra == "e2b"
 Requires-Dist: gepa>=0.1 ; extra == "eval"
 Requires-Dist: google-cloud-aiplatform[evaluation]>=1.148 ; extra == "eval"
+Requires-Dist: google-cloud-texttospeech>=2.37 ; extra == "eval"
 Requires-Dist: jinja2>=3.1.4,<4 ; extra == "eval"
 Requires-Dist: pandas>=2.2.3 ; extra == "eval"
 Requires-Dist: rouge-score>=0.1.2 ; extra == "eval"
@@ -128,6 +132,7 @@ Requires-Dist: google-cloud-bigquery-storage>=2 ; extra == "gcp"
 Requires-Dist: google-cloud-bigtable>=2.39.1 ; extra == "gcp"
 Requires-Dist: google-cloud-dataplex>=1.7,<3 ; extra == "gcp"
 Requires-Dist: google-cloud-discoveryengine>=0.13.12,<0.14 ; extra == "gcp"
+Requires-Dist: google-cloud-eventarc-publishing>=0.10,<1 ; extra == "gcp"
 Requires-Dist: google-cloud-parametermanager>=0.4,<1 ; extra == "gcp"
 Requires-Dist: google-cloud-pubsub>=2,<3 ; extra == "gcp"
 Requires-Dist: google-cloud-resource-manager>=1.12,<2 ; extra == "gcp"
@@ -144,6 +149,7 @@ Requires-Dist: pyarrow>=14 ; extra == "gcp"
 Requires-Dist: python-dateutil>=2.9.0.post0,<3 ; extra == "gcp"
 Requires-Dist: anyio>=4.9,<5 ; extra == "mcp"
 Requires-Dist: mcp>=1.24,<2 ; extra == "mcp"
+Requires-Dist: oci>=2.126 ; extra == "oci"
 Requires-Dist: opentelemetry-instrumentation-google-genai>=0.7b1,<1 ; extra == "otel-gcp"
 Requires-Dist: opentelemetry-instrumentation-grpc>=0.43b0,<1 ; extra == "otel-gcp"
 Requires-Dist: opentelemetry-instrumentation-httpx>=0.54b0,<1 ; extra == "otel-gcp"
@@ -166,6 +172,7 @@ Requires-Dist: google-cloud-bigquery-storage>=2 ; extra == "test"
 Requires-Dist: google-cloud-bigtable>=2.39.1 ; extra == "test"
 Requires-Dist: google-cloud-dataplex>=1.7,<3 ; extra == "test"
 Requires-Dist: google-cloud-discoveryengine>=0.13.12,<0.14 ; extra == "test"
+Requires-Dist: google-cloud-eventarc-publishing>=0.10,<1 ; extra == "test"
 Requires-Dist: google-cloud-firestore>=2.11,<3 ; extra == "test"
 Requires-Dist: google-cloud-iamconnectorcredentials>=0.1,<0.2 ; extra == "test"
 Requires-Dist: google-cloud-parametermanager>=0.4,<1 ; extra == "test"
@@ -227,6 +234,7 @@ Provides-Extra: eval
 Provides-Extra: extensions
 Provides-Extra: gcp
 Provides-Extra: mcp
+Provides-Extra: oci
 Provides-Extra: otel-gcp
 Provides-Extra: slack
 Provides-Extra: test
@@ -283,6 +291,18 @@ pip install google-adk
 ```
 
 **Requirements:** Python 3.10+.
+
+For transitive dependency protection, we recommend to install with our companion
+constraints files (for python 3.10 to 3.14).
+
+Choose the constraints file matching your Python version:
+
+```bash
+# For example, for Python 3.10
+curl -o constraints-3.10.txt https://github.com/google/adk-python/blob/main/constraints-3.10.txt
+pip install google-adk -c constraints-3.10.txt
+rm constraints-3.10.txt
+```
 
 To install optional integrations, you can use the following command:
 

@@ -1,6 +1,6 @@
 [project]
 name = "jcodemunch-mcp"
-version = "1.108.199"
+version = "1.108.204"
 description = "Token-efficient MCP server for source code exploration via tree-sitter AST parsing"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -132,4 +132,9 @@ dev = [
     "pytest-cov>=7.0.0",
     "hypothesis>=6.0.0",
     "ruff>=0.6.0",
+    # Not a package dependency: the benchmark harnesses in benchmarks/ import it.
+    # Here so tests/test_benchmark_reference.py's loader tests RUN in CI instead
+    # of importorskip-ing. The harness is edited by people who are not running
+    # it, which is exactly how its jCodeMunch constants went four months stale.
+    "tiktoken>=0.7.0",
 ]

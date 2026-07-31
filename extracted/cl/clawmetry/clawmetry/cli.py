@@ -600,56 +600,95 @@ def _get_api_key_interactive() -> str:
 
     if not _re.match(r"^[^@]+@[^@]+\.[^@]+$", entry):
         print("  ❌  That doesn't look like a valid email.")
-        return getpass.getpass("  API key (cm_…): ").strip()
+        entry = _input("  📧 Try again — your email: ").strip()
+        if not _re.match(r"^[^@]+@[^@]+\.[^@]+$", entry):
+            return getpass.getpass("  API key (cm_…): ").strip()
 
     email = entry.lower()
-    print(f"\n  📨 Sending code to {email}…", end="", flush=True)
-    r = _api_call("/api/auth/email-otp", {"action": "send", "email": email})
-    if r.get("_status") == 503:
-        import time as _time
 
-        retry_after = r.get("retry_after") or 5
-        try:
-            retry_after = max(1, min(int(retry_after), 30))
-        except (TypeError, ValueError):
-            retry_after = 5
-        print(f"\n  ⏳ Server's busy — retrying in {retry_after}s…", flush=True)
-        _time.sleep(retry_after)
-        print(f"  📨 Sending code to {email}…", end="", flush=True)
-        r = _api_call("/api/auth/email-otp", {"action": "send", "email": email})
+    def _send_code(addr):
+        """Send an OTP to ``addr`` with the 503 backoff. Returns the response."""
+        print(f"\n  📨 Sending code to {addr}…", end="", flush=True)
+        rr = _api_call("/api/auth/email-otp", {"action": "send", "email": addr})
+        if rr.get("_status") == 503:
+            import time as _time
+
+            retry_after = rr.get("retry_after") or 5
+            try:
+                retry_after = max(1, min(int(retry_after), 30))
+            except (TypeError, ValueError):
+                retry_after = 5
+            print(f"\n  ⏳ Server's busy — retrying in {retry_after}s…", flush=True)
+            _time.sleep(retry_after)
+            print(f"  📨 Sending code to {addr}…", end="", flush=True)
+            rr = _api_call("/api/auth/email-otp", {"action": "send", "email": addr})
+        return rr
+
+    # OTP loop with RECOVERY: a typo'd email or a code that never arrives must
+    # never force a restart of the whole wizard (founder live-hit 2026-07-30).
+    # At the code prompt: `r` resends, typing a different email switches to it,
+    # blank input never burns an attempt; even three wrong codes offer a way
+    # back before falling to the paste-an-API-key exit.
+    while True:
+        r = _send_code(email)
         if r.get("_status") == 503:
             print(" ❌")
             print("\n  Couldn't reach our servers right now.")
             print("  Please try `clawmetry connect` again in a minute.\n")
             sys.exit(1)
-    if r.get("error"):
-        print(f" ❌  {r['error']}")
-        print("  Visit https://clawmetry.com/connect to get your API key.")
-        return getpass.getpass("  API key (cm_…): ").strip()
-    print(" ✅")
-    print()
+        if r.get("error"):
+            print(f" ❌  {r['error']}")
+            fix = _input("  Type a corrected email to retry, or press Enter to use an API key instead: ").strip()
+            if "@" in fix:
+                email = fix.lower()
+                continue
+            print("  Visit https://clawmetry.com/connect to get your API key.")
+            return getpass.getpass("  API key (cm_…): ").strip()
+        print(" ✅")
+        print("  Typo in the email, or no code arriving? Type r to resend, or just type the right email.")
+        print()
 
-    # Ask for OTP
-    for attempt in range(3):
-        otp = _input("  🔑 Enter the 6-digit code: ").strip()
-        if not otp:
+        wrong = 0
+        switched = False
+        while wrong < 3:
+            otp = _input("  🔑 Enter the 6-digit code (r = resend): ").strip()
+            if not otp:
+                continue  # a stray Enter must not burn an attempt
+            if otp.lower() in ("r", "resend"):
+                rr = _send_code(email)
+                print(" ✅" if not rr.get("error") and rr.get("_status") != 503 else f" ❌  {rr.get('error', 'server busy')}")
+                continue
+            if "@" in otp:
+                # They typed an email at the code prompt: that IS the typo fix.
+                email = otp.lower()
+                switched = True
+                break
+            print("  Verifying…", end="", flush=True)
+            r2 = _api_call(
+                "/api/auth/email-otp", {"action": "verify", "email": email, "otp": otp}
+            )
+            if r2.get("error"):
+                print(f" ❌  {r2['error']}")
+                wrong += 1
+                if wrong < 3:
+                    print("  Try again (r = resend, or type a different email).")
+                continue
+            api_key = r2.get("api_key", "")
+            if api_key.startswith("cm_"):
+                is_new = r2.get("is_new", False)
+                print(f" ✅  {'Account created' if is_new else 'Welcome back'}!")
+                print()
+                return api_key
+            print(" ❌  Server returned an unexpected response.")
+            wrong += 1
+        if switched:
+            continue  # send a code to the corrected address
+        fix = _input("  Still stuck? Type a different email, r to resend, or press Enter to stop: ").strip()
+        if fix.lower() in ("r", "resend"):
             continue
-        print("  Verifying…", end="", flush=True)
-        r2 = _api_call(
-            "/api/auth/email-otp", {"action": "verify", "email": email, "otp": otp}
-        )
-        if r2.get("error"):
-            print(f" ❌  {r2['error']}")
-            if attempt < 2:
-                print("  Try again.")
+        if "@" in fix:
+            email = fix.lower()
             continue
-        api_key = r2.get("api_key", "")
-        if api_key.startswith("cm_"):
-            is_new = r2.get("is_new", False)
-            print(f" ✅  {'Account created' if is_new else 'Welcome back'}!")
-            print()
-            return api_key
-        print(" ❌  Server returned an unexpected response.")
         break
 
     print()
@@ -793,7 +832,12 @@ def _cmd_connect(args) -> None:
     # re-prompt for an email on the next update / install.sh run. The
     # `--force` flag lets the user override after explicit confirmation.
     from clawmetry.config import is_cloud_disabled, NOCLOUD_MARKER_PATH
-    if is_cloud_disabled() and not getattr(args, "force", False):
+    # Sign in while KEEPING the nocloud marker: account + trial license yes,
+    # data egress no. Set by the Case-B "keep local-only" answer below, or
+    # passed in directly by onboard's Self-Hosted trial path (args.keep_local),
+    # which has already asked its own questions and must not be re-prompted.
+    _keep_local_signin = bool(getattr(args, "keep_local", False))
+    if is_cloud_disabled() and not getattr(args, "force", False) and not _keep_local_signin:
         # Two cases here:
         #
         # (A) AUTOMATED invocation -- install.sh / curl|bash / wrappers that
@@ -861,10 +905,28 @@ def _cmd_connect(args) -> None:
             _choice = ""
 
         if _choice != "1":
+            # Keeping data local must NOT mean staying anonymous: identity is
+            # what unlocks runtimes (the trial license), egress is a separate
+            # decision (founder spec 2026-07-30 — answering "keep local-only"
+            # used to silently drop the sign-in the user had just chosen).
             print()
-            print("Staying local-only. Dashboard: http://localhost:8900")
-            print(f"(To convert later: rm {NOCLOUD_MARKER_PATH} && clawmetry connect)")
-            return
+            print("Staying local-only: your data will not leave this machine.")
+            try:
+                sys.stdout.write(
+                    "Sign in anyway to unlock every runtime here with a free "
+                    "7-day Pro trial license? [Y/n]: "
+                )
+                sys.stdout.flush()
+                _t2 = (_choice_src.readline() or "").strip().lower()
+            except (OSError, KeyboardInterrupt, EOFError):
+                _t2 = "n"
+            if _t2 in ("n", "no"):
+                print()
+                print("Staying local-only. Dashboard: http://localhost:8900")
+                print(f"(To convert later: rm {NOCLOUD_MARKER_PATH} && clawmetry connect)")
+                return
+            _keep_local_signin = True
+            print()
 
         # User chose cloud signup -- remove the marker, then fall through to
         # the normal connect flow below (it'll prompt for email + OTP).
@@ -939,7 +1001,8 @@ def _cmd_connect(args) -> None:
     custom_name = getattr(args, "custom_node_id", None) or ""
     machine_hostname = custom_name or socket.gethostname()
     _existing_node_id = _saved_node_id
-    print("Connecting to ClawMetry Cloud… ", end="", flush=True)
+    print("Verifying your account… " if _keep_local_signin
+          else "Connecting to ClawMetry Cloud… ", end="", flush=True)
     try:
         result = validate_key(
             api_key, hostname=machine_hostname, existing_node_id=_existing_node_id
@@ -979,9 +1042,17 @@ def _cmd_connect(args) -> None:
     _enc_key_arg = getattr(args, "enc_key", None) or ""
     _kc_key = _keychain_get(node_id)  # '' when keyring not installed
 
+    if _keep_local_signin:
+        # No snapshots ever leave on this path — the E2E key ceremony is
+        # noise (and printing a "keep this safe" secret mid-Self-Hosted run
+        # reads like a cloud signup; founder live-hit 2026-07-30).
+        enc_key = _kc_key or _saved_enc_key or generate_encryption_key()
     print()
-    print("🔐 Encryption key protects your data end-to-end.")
-    if _enc_key_arg:
+    if not _keep_local_signin:
+        print("🔐 Encryption key protects your data end-to-end.")
+    if _keep_local_signin:
+        pass  # enc_key already chosen above, silently
+    elif _enc_key_arg:
         enc_key = _derive_key_for_storage(_enc_key_arg)
         print("  Using provided encryption key.")
     elif _kc_key:
@@ -1014,12 +1085,14 @@ def _cmd_connect(args) -> None:
     # Explicit connect is an opt-in to cloud: clear any local-only marker so the
     # daemon actually pushes (otherwise a prior local-only install / disconnect
     # leaves it ingesting to DuckDB only and the node never appears in cloud).
-    try:
-        from clawmetry.config import enable_cloud as _enable_cloud
-        if _enable_cloud():
-            print("  Re-enabled cloud sync (was local-only)")
-    except Exception:
-        pass
+    # EXCEPT the keep-local sign-in: there the marker staying put is the point.
+    if not _keep_local_signin:
+        try:
+            from clawmetry.config import enable_cloud as _enable_cloud
+            if _enable_cloud():
+                print("  Re-enabled cloud sync (was local-only)")
+        except Exception:
+            pass
 
     # Backfill guarantee: sessions ingested while the node ran local-only are
     # stamped "done" in the family high-water marks, so the first cloud-
@@ -1028,12 +1101,13 @@ def _cmd_connect(args) -> None:
     # cloud said "No machines connected yet"). Clearing the marks makes the
     # next family pass re-ingest every session (idempotent PK upserts locally)
     # and push the full set to the newly connected account.
-    try:
-        _cleared = _reset_family_sync_marks()
-        if _cleared:
-            print(f"  Queued {_cleared} existing session(s) for cloud backfill")
-    except Exception:
-        pass  # connect must never fail because of backfill housekeeping
+    if not _keep_local_signin:
+        try:
+            _cleared = _reset_family_sync_marks()
+            if _cleared:
+                print(f"  Queued {_cleared} existing session(s) for cloud backfill")
+        except Exception:
+            pass  # connect must never fail because of backfill housekeeping
 
     print()
     print(f"  Connected as: {node_id}")
@@ -1057,6 +1131,30 @@ def _cmd_connect(args) -> None:
     except Exception:
         pass  # connect must never fail because of pro provisioning
 
+    # Every successful sign-in mints-or-reuses the account's 7-day trial
+    # license and activates it HERE (idempotent server-side) — including the
+    # keep-local path, where the license is the entire reason to sign in.
+    _activate_signup_trial()
+
+    if _keep_local_signin:
+        # Belt-and-braces: the marker was never removed on this path, but a
+        # future refactor must not accidentally flip a keep-local sign-in
+        # into cloud sync.
+        try:
+            from pathlib import Path as _P
+
+            _P(NOCLOUD_MARKER_PATH).parent.mkdir(parents=True, exist_ok=True)
+            _P(NOCLOUD_MARKER_PATH).touch()
+        except Exception:
+            pass
+        _dash_up = _ensure_local_dashboard()
+        print()
+        print("  Local-only kept: your data stays on this machine.")
+        if _dash_up:
+            print("  Dashboard: http://localhost:8900 (live now)")
+        else:
+            print("  Dashboard did not come up at http://localhost:8900. Start it: clawmetry")
+
     print()
 
     # --key-only: just save config, don't start daemon (for host-side NemoClaw OTP flow)
@@ -1067,7 +1165,9 @@ def _cmd_connect(args) -> None:
         return
 
     # Skip enc key reminder when --enc-key was passed (automated/sandbox use)
-    if not _enc_key_arg:
+    # and on keep-local sign-ins (no snapshot ever leaves; the secret is
+    # cloud-viewer material and printing it reads like a cloud signup).
+    if not _enc_key_arg and not _keep_local_signin:
         print("  Keep this secret key safe (like a password):")
         print(f"  {enc_key}")
         print()
@@ -1093,14 +1193,36 @@ def _cmd_connect(args) -> None:
     else:
         _start_daemon(config, args)
 
+    if _keep_local_signin:
+        # Self-Hosted stays self-hosted: no cloud dashboard URL, no secret
+        # in a URL fragment, no browser hand-off to app.clawmetry.com
+        # (founder live-hit 2026-07-30: the keep-local run ended by OPENING
+        # the cloud fleet page — a betrayal of "everything stays on your
+        # devices" even though zero data had synced).
+        print()
+        print("  All done! Your dashboard: http://localhost:8900")
+        print()
+        try:
+            import webbrowser
+            webbrowser.open("http://localhost:8900")
+        except Exception:
+            pass
+        return
+
     # Open browser with encryption key in URL fragment (never sent to server)
     # The #key=... fragment stays client-side — true E2E encryption
     _node_id = config.get("node_id", "")
     _dashboard_url = f"https://app.clawmetry.com/cloud?token={api_key}#key={enc_key}&node={_node_id}"
 
+    # Cloud includes the local dashboard too (the onboard copy promises
+    # BOTH app.clawmetry.com and localhost:8900) — make it true, best-effort.
+    _local_dash_up = _ensure_local_dashboard()
+
     print()
     print("  All done! Opening your dashboard...")
     print(f"  https://app.clawmetry.com/cloud")
+    if _local_dash_up:
+        print("  Also on this machine: http://localhost:8900")
     print()
 
     # If this was a zero-friction connect (no real key), the node landed on a
@@ -1215,6 +1337,58 @@ def _ensure_local_dashboard(port: int = 8900, wait_secs: float = 12.0) -> bool:
             return True
         _t.sleep(0.5)
     return _alive()
+
+
+def _activate_signup_trial() -> bool:
+    """Mint-or-reuse the signed-in account's 7-day trial license and
+    activate it locally, unlocking every runtime on the license rail.
+
+    Called at the end of every successful connect (founder spec 2026-07-30:
+    identity is what unlocks runtimes — including when the user keeps their
+    data local-only). Server-side it is idempotent: repeats reissue the
+    SAME license with its ORIGINAL expiry, an expired trial comes back
+    ``expired: true`` and gets an honest notice instead of a key.
+    Best-effort: returns True only when a live trial key ended up
+    activated; every failure path leaves the install exactly as it was.
+    """
+    try:
+        import json as _jk
+        import time as _tm
+        import urllib.request as _ur
+
+        cfg_path = os.path.expanduser("~/.clawmetry/config.json")
+        try:
+            with open(cfg_path, "r", encoding="utf-8") as _fh:
+                api_key = (_jk.load(_fh).get("api_key") or "").strip()
+        except Exception:
+            return False
+        if not api_key.startswith("cm_"):
+            return False
+
+        from clawmetry import license as _lic
+
+        req = _ur.Request(
+            _lic._cloud_base() + "/api/license/trial/signup",
+            data=_jk.dumps({"api_key": api_key}).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with _ur.urlopen(req, timeout=15) as resp:
+            body = _jk.loads(resp.read().decode())
+        if not (isinstance(body, dict) and body.get("ok") and body.get("key")):
+            return False
+        if body.get("expired"):
+            print("  Your 7-day Pro trial has ended. Keep every runtime: https://clawmetry.com/pricing")
+            return False
+        ok, _msg = _lic.activate(body["key"], node_id=_lic._node_id())
+        if not ok:
+            return False
+        _left = max(1, int((float(body.get("expires_at", 0)) - _tm.time() + 86399) // 86400))
+        _days = "day" if _left == 1 else "days"
+        print(f"  Pro trial active: every runtime unlocked on this machine, {_left} {_days} left.")
+        return True
+    except Exception:
+        return False
 
 
 def _start_daemon(config: dict, args) -> None:
@@ -2334,6 +2508,11 @@ def _status_snapshot(args) -> dict:
                     cloud["encryption"]["secret_key"] = enc_key
         except Exception as exc:
             cloud["config_error"] = str(exc)
+        try:
+            from clawmetry.config import is_cloud_disabled as _icd_json
+            cloud["local_only"] = _icd_json()
+        except Exception:
+            cloud["local_only"] = None
         snap["cloud_sync"] = cloud
 
     # Sync state.
@@ -2539,7 +2718,18 @@ def _cmd_status(args) -> None:
             masked_api = (
                 api_key[:6] + "…" + api_key[-4:] if len(api_key) > 10 else api_key
             )
-            print("  Cloud sync:  ✅  Connected")
+            try:
+                from clawmetry.config import is_cloud_disabled as _icd_status
+                _status_local_only = _icd_status()
+            except Exception:
+                _status_local_only = False
+            if _status_local_only:
+                # Signed-in Self-Hosted: the account exists (it holds the
+                # trial license) but nothing syncs — saying "Connected"
+                # here read as a betrayal (founder 2026-07-30).
+                print("  Cloud sync:  ⏸   Local-only (account linked; data stays on this machine)")
+            else:
+                print("  Cloud sync:  ✅  Connected")
             print(f"  API key:     {masked_api}")
             _acct_email, _acct_plan = _resolve_account_email(api_key)
             # Self-heal the local plan cache from the LIVE account. The runtime
@@ -3092,13 +3282,21 @@ def _cmd_onboard(args) -> None:
             else:
                 print(f"  {DIM(_line)}" if _line else "")
     print()
+    print(f"  {BOLD('Plans')} {DIM('(same either way; each tier includes the one before):')}")
+    print(f"    {DIM('Free    $0          watch OpenClaw + NVIDIA NemoClaw, forever')}")
+    print(f"    {DIM('Starter $9/node/mo  everything in Free + observability for all 14 runtimes')}")
+    print(f"    {DIM('Pro    $19/node/mo  everything in Starter + governance (alerts, approvals, evals)')}")
+    print()
     print(f"  {BOLD('How do you want to run ClawMetry?')}")
     print()
-    print(f"    {BOLD('[1] Sign in / Sign up')}  {DIM('Google, GitHub, or an email code. No card needed.')}")
-    print(f"                           {DIM('Starts your free 7-day Pro trial: every detected')}")
-    print(f"                           {DIM('runtime, right here plus a dashboard from anywhere.')}")
-    print(f"    {BOLD('[2] License key')}        {DIM('Self-Hosted Pro: all 14 runtimes, offline.')}")
-    print(f"    {BOLD('[3] Skip for now')}       {DIM('No account. OpenClaw + NeMo free at localhost:8900.')}")
+    print(f"    {BOLD('[1] Managed')}    {DIM('We host the dashboard for you: easy to manage when')}")
+    print(f"                   {DIM('observing a large fleet of nodes. app.clawmetry.com from')}")
+    print(f"                   {DIM('anywhere PLUS http://localhost:8900 on this machine; desk')}")
+    print(f"                   {DIM('device at clawmetry.com/device. E2E-encrypted: snapshots')}")
+    print(f"                   {DIM('are sealed here and only you hold the key.')}")
+    print(f"    {BOLD('[2] Self-Host')}  {DIM('You host it: great for observing one node, difficult')}")
+    print(f"                   {DIM('to manage for a fleet. Everything stays on your devices;')}")
+    print(f"                   {DIM('dashboard at http://localhost:8900.')}")
     print()
 
     def _write_nocloud_marker():
@@ -3157,11 +3355,12 @@ def _cmd_onboard(args) -> None:
 
     # Scriptable / non-interactive overrides. A headless install (curl | bash
     # with no /dev/tty) must NEVER silently create a cloud account, so the
-    # EOF fallback is LOCAL ([3] Skip) even though the interactive default
-    # keypress is [1] Sign in.
+    # EOF fallback is the free local tier ("0"), even though the interactive
+    # default keypress is [1] Cloud (founder 2026-07-30: lead with the full
+    # capability; self-host is the deliberate alternative).
     _env_local = _os.environ.get("CLAWMETRY_LOCAL_ONLY", "").strip().lower() in ("1", "true", "yes", "on")
     if getattr(args, "local", False) or _env_local:
-        choice = "3"
+        choice = "0"
     elif getattr(args, "cloud", False):
         choice = "1"
     else:
@@ -3174,12 +3373,12 @@ def _cmd_onboard(args) -> None:
             choice = _input(_prompt).strip()
         except (EOFError, KeyboardInterrupt):
             # No interactive answer possible: never mint an account. A
-            # connected node keeps its setup; a fresh one goes local ([3]).
+            # connected node keeps its setup; a fresh one goes free-local.
             print()
             if already_connected:
                 print(f"\n  {DIM('Keeping your current setup. Run  clawmetry status  to check sync health.')}\n")
                 return
-            choice = "3"
+            choice = "0"
         if not choice:
             if already_connected:
                 print(f"\n  {DIM('Keeping your current setup. Run  clawmetry status  to check sync health.')}\n")
@@ -3188,23 +3387,71 @@ def _cmd_onboard(args) -> None:
 
     print()
 
-    if choice == "2":
-        # ── Self-Hosted license key (local, offline, all 14 runtimes) ──────
+    if choice == "0":
+        # ── Free local tier (no account): --local / env / EOF fallback ────
+        print(f"  {GREEN(BOLD('Local only.'))} {DIM('No account, no cloud.')}")
+        print()
         _write_nocloud_marker()
+        _maybe_apply_nemoclaw_preset(_input, BOLD, CYAN, DIM)
+        _finish_local()
+        return
+
+    def _config_api_key() -> str:
         try:
-            _has_key = (_input("  Do you already have a license key? [y/N]: ").strip().lower() or "n")
+            import json as _jk
+            with open(_os.path.expanduser("~/.clawmetry/config.json"), "r", encoding="utf-8") as _fh:
+                return (_jk.load(_fh).get("api_key") or "").strip()
+        except Exception:
+            return ""
+
+    import argparse as _ap
+
+    if choice != "2":
+        # ── [1] Cloud (default): sign in, fleet dashboard from anywhere ───
+        # The keypress IS the cloud consent: clear the marker so connect goes
+        # straight to sign-in; an incomplete sign-in re-writes it below.
+        try:
+            from clawmetry.config import NOCLOUD_MARKER_PATH as _nocloud_path
+
+            _os.unlink(_nocloud_path)
+        except Exception:
+            pass
+        _fake_args = _ap.Namespace(
+            key=None, foreground=False, custom_node_id=None,
+            enc_key=None, key_only=False, no_daemon=False,
+        )
+        _cmd_connect(_fake_args)
+        print()
+        if _config_api_key():
+            # Trial mint + local activation already happened inside connect.
+            _maybe_apply_nemoclaw_preset(_input, BOLD, CYAN, DIM)
+            return
+        print(f"  {DIM('No account connected. Running local-only; try again anytime:')} {CYAN('clawmetry onboard')}")
+        print()
+        _write_nocloud_marker()
+        _maybe_apply_nemoclaw_preset(_input, BOLD, CYAN, DIM)
+        _finish_local()
+        return
+
+    # ── [2] Self-Hosted: key if you have one, else trial sign-in ────────────
+    # Data never leaves the machine on this path (nocloud marker). Identity
+    # is still how the trial unlocks runtimes: no key -> sign in (Google /
+    # GitHub / email OTP) via connect's keep-local mode, which mints and
+    # activates the 7-day trial license with the marker KEPT.
+    _write_nocloud_marker()
+    try:
+        _has_key = (_input("  Do you already have a license key? [y/N]: ").strip().lower() or "n")
+    except (EOFError, KeyboardInterrupt):
+        _has_key = "n"
+        print()
+    print()
+    if _has_key in ("y", "yes"):
+        try:
+            _lic_key = _input("  Paste your license key (CLAW1...), or press Enter to do it later: ").strip()
         except (EOFError, KeyboardInterrupt):
-            _has_key = "n"
+            _lic_key = ""
             print()
         print()
-        _lic_key = ""
-        if _has_key in ("y", "yes"):
-            try:
-                _lic_key = _input("  Paste your license key (CLAW1...), or press Enter to do it later: ").strip()
-            except (EOFError, KeyboardInterrupt):
-                _lic_key = ""
-                print()
-            print()
         if _lic_key:
             try:
                 from clawmetry import license as _lic
@@ -3216,115 +3463,46 @@ def _cmd_onboard(args) -> None:
                 print(f"  ⚠️  Activation failed: {_e}")
                 print(f"     {DIM('Try again later:')} {CYAN('clawmetry activate <key>')}")
         else:
-            # No key yet: hand them license pricing with the Self-Hosted
-            # toggle preselected (?deploy=self is honored by the pricing page).
             _pricing_url = "https://clawmetry.com/pricing?deploy=self"
-            print(f"  {DIM('Get one at')} {CYAN(_pricing_url)}")
-            print(f"  {DIM('then run')} {CYAN('clawmetry activate <key>')} {DIM('on this machine.')}")
-            try:
-                import webbrowser
-                if webbrowser.open(_pricing_url):
-                    print(f"  {DIM('(opened in your browser)')}")
-            except Exception:
-                pass
+            print(f"  {DIM('Get one at')} {CYAN(_pricing_url)} {DIM('then run')} {CYAN('clawmetry activate <key>')}")
         print()
         _maybe_apply_nemoclaw_preset(_input, BOLD, CYAN, DIM)
         _finish_local()
         return
 
-    if choice == "3":
-        # ── [3] Skip for now: local only, no account ──────────────────────
-        print(f"  {GREEN(BOLD('Local only.'))} {DIM('No account, no cloud.')}")
-        print()
-        _write_nocloud_marker()
-        _maybe_apply_nemoclaw_preset(_input, BOLD, CYAN, DIM)
-        _finish_local()
-        return
-
-    # ── [1] Sign in / Sign up (default): identify first, trial second ────────
-    # Auth rides the existing connect flow (GitHub / Google OAuth incl. the
-    # headless paste-code path, or email OTP). Success is a cm_ api_key in
-    # ~/.clawmetry/config.json; then the account's ONE 7-day Pro trial
-    # license is minted-or-reused server-side and activated locally, so
-    # every runtime unlocks on the same rail Self-Hosted Pro uses.
-
-    def _config_api_key() -> str:
-        try:
-            import json as _jk
-            with open(_os.path.expanduser("~/.clawmetry/config.json"), "r", encoding="utf-8") as _fh:
-                return (_jk.load(_fh).get("api_key") or "").strip()
-        except Exception:
-            return ""
-
-    def _activate_signup_trial() -> None:
-        """Mint-or-reuse this account's 7-day Pro trial license and activate
-        it locally. Best-effort: any failure leaves onboarding as it was
-        (the account still works, runtimes just stay tier-gated). Never
-        raises; re-runs never reset a trial (server reissues the original
-        expiry)."""
-        api_key = _config_api_key()
-        if not api_key.startswith("cm_"):
-            return
-        try:
-            import json as _jk
-            import time as _tm
-            import urllib.request as _ur
-
-            from clawmetry import license as _lic
-
-            req = _ur.Request(
-                _lic._cloud_base() + "/api/license/trial/signup",
-                data=_jk.dumps({"api_key": api_key}).encode(),
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            with _ur.urlopen(req, timeout=15) as resp:
-                body = _jk.loads(resp.read().decode())
-            if not (isinstance(body, dict) and body.get("ok") and body.get("key")):
-                return
-            if body.get("expired"):
-                print(f"  {DIM('Your 7-day Pro trial has ended. Keep every runtime:')} {CYAN('https://clawmetry.com/pricing')}")
-                print()
-                return
-            ok, _msg = _lic.activate(body["key"], node_id=_lic._node_id())
-            if not ok:
-                return
-            _left = max(1, int((float(body.get("expires_at", 0)) - _tm.time() + 86399) // 86400))
-            _days = "day" if _left == 1 else "days"
-            print(f"  {GREEN(BOLD('Pro trial active:'))} {DIM(f'every runtime unlocked on this machine, {_left} {_days} left.')}")
-            print()
-        except Exception:
-            return
-
-    import argparse as _ap
-
-    # The user's [1] keypress IS the local-only conversion answer: clear the
-    # nocloud marker so connect goes straight to sign-in instead of
-    # re-asking "keep local-only?" and silently dropping the auth on [2]
-    # (founder report 2026-07-29). An incomplete sign-in below re-writes it.
+    # No key: offer the trial (the default), free tier if declined.
     try:
-        from clawmetry.config import NOCLOUD_MARKER_PATH as _nocloud_path
-
-        _os.unlink(_nocloud_path)
-    except Exception:
-        pass
+        _want_trial = (_input(
+            "  Start your free 7-day Pro trial? Sign in with Google, GitHub, or an\n"
+            "  email code; your data still stays on this machine. [Y/n]: "
+        ).strip().lower() or "y")
+    except (EOFError, KeyboardInterrupt):
+        _want_trial = "n"
+        print()
+    print()
+    if _want_trial in ("n", "no"):
+        print(f"  {DIM('Free plan: OpenClaw + NeMo at http://localhost:8900.')}")
+        print(f"  {DIM('Trial or license anytime:')} {CYAN('clawmetry onboard')} {DIM('·')} {CYAN('https://clawmetry.com/pricing?deploy=self')}")
+        print()
+        _maybe_apply_nemoclaw_preset(_input, BOLD, CYAN, DIM)
+        _finish_local()
+        return
 
     _fake_args = _ap.Namespace(
         key=None, foreground=False, custom_node_id=None,
-        enc_key=None, key_only=False, no_daemon=False,
+        enc_key=None, key_only=False, no_daemon=False, keep_local=True,
     )
     _cmd_connect(_fake_args)
     print()
-
     if _config_api_key():
-        _activate_signup_trial()
+        # Connect (keep-local mode) minted + activated the trial, kept the
+        # marker, and ensured the local dashboard.
         _maybe_apply_nemoclaw_preset(_input, BOLD, CYAN, DIM)
         return
 
-    # Sign-in didn't complete: keep the machine useful locally, no account.
-    print(f"  {DIM('No account connected. Running local-only; try again anytime:')} {CYAN('clawmetry onboard')}")
+    # Sign-in didn't complete: free local tier, no account.
+    print(f"  {DIM('No account connected. Running the free plan; try again anytime:')} {CYAN('clawmetry onboard')}")
     print()
-    _write_nocloud_marker()
     _maybe_apply_nemoclaw_preset(_input, BOLD, CYAN, DIM)
     _finish_local()
     return

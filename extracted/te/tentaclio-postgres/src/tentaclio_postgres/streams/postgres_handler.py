@@ -1,4 +1,5 @@
 """Handler for postgresql:// urls."""
+
 from typing import Tuple
 
 from tentaclio.protocols import ReaderClosable, WriterClosable
@@ -6,7 +7,6 @@ from tentaclio.streams import csv_db_stream
 from tentaclio.urls import URL
 
 from tentaclio_postgres.clients import postgres_client
-
 
 __all__ = ["PostgresURLHandler"]
 

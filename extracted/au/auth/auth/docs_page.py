@@ -70,16 +70,39 @@ sequence top to bottom:
     curl -X POST  -H "Authorization: Bearer $KEY" $BASE/api/permission/engineers/deploy
     # -> {{"result": true}}
 
-    # 3. put a user in the role
+    # 3. issue alice an API key  <- REQUIRED since 3.0.0, see below
+    curl -X POST  -H "Authorization: Bearer $KEY" $BASE/api/apikeys/user/alice
+    # -> {{"success": true, "data": {{"api_key": "rak_...", ...}}}}
+
+    # 4. put a user in the role
     curl -X POST  -H "Authorization: Bearer $KEY" $BASE/api/membership/alice/engineers
     # -> {{"result": true}}
 
-    # 4. ask the question that matters
+    # 5. ask the question that matters
     curl -H "Authorization: Bearer $KEY" $BASE/api/has_permission/alice/deploy
     # -> {{"success": true, "data": {{"has_permission": true}}, ...}}
 
-Users, roles and permissions are created implicitly by the calls above — there
-is no separate "create user" step.
+**Why step 3 exists.** A namespace created after 3.0.0 is **strict** by default:
+a user must hold an API key in your namespace before it can be given a role.
+Skip step 3 and step 4 answers `409 {{"reason": "user_not_key_backed",
+"result": false}}` — a permanent refusal, not a transport fault, so retrying
+never helps. Issuing the key is what makes the user real; you do not have to
+keep the returned secret if you only need the identity to exist.
+
+If your users can never hold auth API keys — you already authenticate them
+yourself, and your "users" are opaque ids — turn strict identity off once for
+your namespace instead, and skip step 3 forever:
+
+    curl -X PUT -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+         -d '{{"strict_users": false}}' $BASE/api/settings
+    # -> {{"success": true, "data": {{"strict_users": false}}, ...}}
+
+That opt-out is audited, per-tenant, and supported indefinitely. Namespaces
+created before 3.0.0 were grandfathered onto it automatically, which is why
+existing integrations saw no change.
+
+Roles and permissions are created implicitly by the calls above — there is no
+separate "create user" step beyond the key in step 3.
 
 ## 3. Read this before you write code
 
@@ -131,11 +154,49 @@ Threat model: because possession of a key *is* authority, whoever holds your key
 can also rotate it out from under you, so rotate promptly on any suspected leak
 and update every consumer with the returned key.
 
+**Per-user API keys are separate from your client key.** `/api/apikeys/*`
+manages keys for *your users* (an identity UI creates/lists/revokes them; your
+backends validate them). The `rak_...` secret is returned **exactly once** at
+creation — auth stores only its SHA-256, so a lost secret means revoke and
+re-create. Validation is tenant-scoped: a key answers only under the client key
+whose namespace created it, so the service that validates must use the same
+client key as the UI that creates (`unknown_key` otherwise). These keys never
+authenticate `/api/*` itself — the Bearer header always takes your client key.
+Rotating your client key moves your users' API keys with the namespace; the
+secrets keep validating afterwards.
+
+**STRICT USER IDENTITY — the default since 3.0.0.** A tenant namespace
+created after 3.0.0 requires key-backed users: authorization decisions about
+users with no active API key answer negatively (same response shapes,
+additive reason `user_not_key_backed`). Every tenant that existed before
+3.0.0 was **grandfathered** with an explicit `strict_users: false` row —
+nothing changed for them at upgrade — and the audited per-tenant opt-out
+(`PUT /api/settings` `{{"strict_users": false}}`) survives indefinitely for
+platforms that authenticate their own callers. Gated decisions:
+has_permission, the membership check, user_permissions (answers `count: 0` +
+reason), workflow can_run. NOT gated: user_roles, members and every other
+listing. Membership adds for key-less subjects answer **409**
+`{{"result": false, "reason": "user_not_key_backed"}}` — a refused grant must
+not look like success; check `result` on writes regardless. Create the key
+first, then grant roles: key creation committing before the grant is a
+contract, with no eventual consistency in between. Strict mode never blocks
+key issuance or any delete/revoke path. The `reason` field is **stable
+contract** (only ever present on strict blocks). A strict block on read
+decisions is an **HTTP 200** — transport-failure handling (retries, breakers,
+fallbacks) will not fire on it; tenants that deliberately hold
+`strict_users: false` should assert that value in their deploy/health checks
+so an unexpected flip alarms instead of silently zeroing entitlements. The
+recommended backend flow: issue keys to your users, derive the user from
+`/api/apikeys/validate` — or do both steps in one round trip with
+`POST /api/apikeys/check_permission`.
+
 ## 4. Endpoints
 
 All paths need the `Authorization` header except `/ping` and `/health`.
-`<user>`, `<role>`/`<group>` and `<name>` go in the path, never in a body — no
-endpoint reads a JSON request body.
+`<user>`, `<role>`/`<group>` and `<name>` go in the path, never in a body. The
+only endpoints that read a JSON body are the per-user API-key ones (create's
+optional `label`; validate's `api_key` — secrets never belong in URLs, which
+get logged).
 
 ### Roles
 
@@ -185,7 +246,7 @@ Thin aliases over the permission model — a workflow name is just a permission.
 | GET | `/api/workflow/user/<user>/can_run/<workflow>` | wrapped, `data` = `{{"has_permission": true}}` |
 | GET | `/api/workflow/users/<workflow>` | wrapped, `data` = `{{"count": 2, "members": [{{"user": "alice", "role": "engineers"}}]}}` |
 
-### API keys
+### API keys (tenant key rotation)
 
 Rotate the key you authenticate with. The call is authenticated by your
 *current* key (no body, nothing in the path); the server mints a fresh key,
@@ -194,7 +255,35 @@ only copy — persist it. See section 3 for the full semantics and threat model.
 
 | Method | Path | Returns |
 |---|---|---|
-| POST | `/api/keys/rotate` | wrapped, `data` = `{{"new_key": "<uuid4>", "migrated": {{"roles": 1, "memberships": 1, "permissions": 1}}}}` |
+| POST | `/api/keys/rotate` | wrapped, `data` = `{{"new_key": "<uuid4>", "migrated": {{"roles": 1, "memberships": 1, "permissions": 1, "api_keys": 0, "settings": 0}}}}` |
+
+### Per-user API keys
+
+Keys for your *users*, held in your namespace. The `api_key` secret appears
+only in the creating response (auth stores its SHA-256, nothing recoverable).
+Listing shows revoked keys too (`is_active: false`) so a UI can render
+history. Validate answers `valid: false` with a `reason` rather than erroring;
+a key from another tenant is indistinguishable from an unknown one. At most 25
+active keys per user — revoke to free a slot.
+
+| Method | Path | Returns |
+|---|---|---|
+| POST | `/api/apikeys/user/<user>` | optional body `{{"label": "laptop"}}` → wrapped, `data` = `{{"api_key": "rak_<43 chars, shown ONCE>", "key_id": "<uuid4>", "user": "alice", "label": "laptop", "key_prefix": "rak_ab12cd34", "created": "<iso>", "expires_at": null}}` (400 once 25 active keys exist) |
+| GET | `/api/apikeys/user/<user>` | wrapped, `data` = `{{"count": 1, "keys": [{{"key_id": "<uuid4>", "key_prefix": "rak_ab12cd34", "label": "laptop", "is_active": true, "created": "<iso>", "revoked_at": null, "expires_at": null, "last_used_at": "<iso>"}}]}}` |
+| DELETE | `/api/apikeys/user/<user>/<key_id>` | wrapped, `data` = `{{"revoked": true, "already_revoked": false}}` (repeat calls idempotent; 404 JSON if no such key for that user in your namespace) |
+| POST | `/api/apikeys/validate` | body `{{"api_key": "rak_..."}}` → wrapped, `data` = `{{"valid": true, "user": "alice", "key_id": "<uuid4>", "label": "laptop", "expires_at": null}}` or `{{"valid": false, "reason": "revoked" | "expired" | "unknown_key"}}` |
+| POST | `/api/apikeys/check_permission` | body `{{"api_key": "rak_...", "permission": "deploy"}}` → wrapped, `data` = `{{"valid": true, "user": "alice", "key_id": "<uuid4>", "has_permission": true}}` or the validate-style `{{"valid": false, "reason": ...}}` — validate + permission check in ONE round trip |
+
+### Tenant settings
+
+Per-tenant switches. Today there is one: `strict_users` (see the deprecation
+note in section 3). Enabling it is how you opt in to strict user identity
+before 3.0.0 makes it the default.
+
+| Method | Path | Returns |
+|---|---|---|
+| GET | `/api/settings` | wrapped, `data` = `{{"strict_users": false}}` (defaults when never set) |
+| PUT | `/api/settings` | body `{{"strict_users": true}}` → wrapped, `data` = `{{"strict_users": true}}` (idempotent, audited) |
 
 ### Service
 
@@ -220,6 +309,9 @@ happens:
 | user | letters, digits, `_` `-` `.` `@` `+` (so emails work) | 1–64 |
 | role / group | letters, digits, `_` `-` | 1–64 |
 | permission / workflow | letters, digits, `_` `-` | 1–128 |
+| api key (secret) | `rak_` + 43 base62 chars, server-generated | 47 |
+| api-key id (`key_id`) | UUID4 | — |
+| api-key label | letters, digits, space, `_` `.` `-` | 1–64 |
 
 Note the asymmetry: `alice@example.com` is a valid **user**, but `@` and `.` are
 rejected in role and permission names. Slashes are never allowed — a name
@@ -235,8 +327,14 @@ containing `/` changes which route matches and yields 404.
                 service_url="https://auth.rodmena.app") as c:
         c.create_role("engineers")
         c.add_permission("engineers", "deploy")
+        c.create_api_key("alice")          # strict default since 3.0.0
         c.add_membership("alice", "engineers")
         c.user_has_permission("alice", "deploy")
+
+On a namespace created after 3.0.0, `create_api_key` is what makes the user
+real; without it `add_membership` is refused with `409 user_not_key_backed`.
+If your users cannot hold auth keys, call `c.set_strict_users(False)` once for
+the namespace instead and drop that line.
 
 The two constructor arguments are `api_key` (your UUID4 client key) and
 `service_url`. `Client` is an alias of `EnhancedAuthClient`, which adds
@@ -247,10 +345,20 @@ Methods mirror the endpoints: `create_role`, `delete_role`, `list_roles`,
 `remove_permission`, `has_permission`, `user_has_permission`,
 `get_user_permissions`, `get_role_permissions`, `get_user_roles`,
 `get_role_members`, `which_roles_can`, `which_users_can`,
-`get_users_for_workflow`, `rotate_key`, `ping`.
+`get_users_for_workflow`, `rotate_key`, `ping`, the per-user key lifecycle
+`create_api_key`, `list_api_keys`, `revoke_api_key`, `validate_api_key`,
+`check_api_key_permission`, and tenant settings `get_settings` /
+`set_strict_users`.
 Each returns the parsed JSON body, so the shapes in section 4 still apply.
 `rotate_key()` also switches the live client (and its session header) to the new
 key on success and returns it — persist `data.new_key`, it is the only copy.
+`create_api_key(user, label=None)` returns the once-only secret in
+`data.api_key` and deliberately does not retry on transport failure (a blind
+retry could mint a second key nobody saw). **Since 3.0.0 every method raises
+`AuthTransportError` on transport failure** — the 2.x answer-shaped error
+dict is gone, so an outage can never be misread as a denial. Catch it and map
+it to your unavailable/503 path; the deprecated `raise_on_error` constructor
+argument is accepted as a no-op so 2.x code keeps constructing.
 
 The library can also be used in-process against your own database, bypassing
 HTTP entirely — see https://pypi.org/project/auth/.
@@ -313,9 +421,17 @@ to it.
     BASE=https://auth.rodmena.app
     curl -X POST -H "Authorization: Bearer $KEY" $BASE/api/role/engineers
     curl -X POST -H "Authorization: Bearer $KEY" $BASE/api/permission/engineers/deploy
+    curl -X POST -H "Authorization: Bearer $KEY" $BASE/api/apikeys/user/alice
     curl -X POST -H "Authorization: Bearer $KEY" $BASE/api/membership/alice/engineers
     curl        -H "Authorization: Bearer $KEY" $BASE/api/has_permission/alice/deploy
     # -> {"success": true, "data": {"has_permission": true}, ...}
+
+**Do not drop the `apikeys` line.** A namespace created after 3.0.0 is strict by
+default: a user must hold a key in your namespace before it can be given a role,
+so without it the membership call answers `409 user_not_key_backed`. If your
+users can never hold auth keys, opt the namespace out once instead:
+`curl -X PUT -H "Authorization: Bearer $KEY" -H "Content-Type: application/json"
+-d '{"strict_users": false}' $BASE/api/settings`.
 
 **The one gotcha to remember:** a write to a missing role returns
 `200 {"result": false}`, not a 4xx — check the `result`/`data` field, never just
@@ -324,6 +440,35 @@ the status code. The full reference lists three more surprises like it.
 **Leaked a key?** `POST /api/keys/rotate` with your current key mints a fresh one
 and moves your whole namespace onto it in one shot — capture the returned key, it
 is the only copy. See `/docs`.
+
+## Per-user API keys & strict identity
+
+auth also manages **API keys for your end users** (since 2.4). Same
+`Authorization: Bearer <your-client-key>` header as every `/api/` call; the
+path names the END USER the key is for (methods are uppercase — `-X POST`):
+
+    curl -X POST -H "Authorization: Bearer $KEY" \\
+         $BASE/api/apikeys/user/alice
+    # -> {"data": {"api_key": "rak_<43 chars — shown ONCE, store it>", ...}}
+
+    curl -X POST -H "Authorization: Bearer $KEY" \\
+         -H "Content-Type: application/json" \\
+         -d '{"api_key": "rak_..."}' $BASE/api/apikeys/validate
+    # -> {"data": {"valid": true, "user": "alice", ...}}
+
+The secret is shown exactly once — only its SHA-256 is stored. Validate AND
+check a permission in one round trip with `POST /api/apikeys/check_permission`
+(body: `{"api_key": ..., "permission": ...}`). Revoking a key
+(`DELETE /api/apikeys/user/alice/<key_id>`) cuts that user's access end to end.
+
+Since **3.0.0, new tenants are strict by default**: authorization decisions
+answer only for key-backed users (create the key first, then grant roles — a
+key-less grant answers **409** `user_not_key_backed`), and
+`PUT /api/settings {"strict_users": false}` is the audited per-tenant opt-out
+for platforms that authenticate their own users. Tenants that existed before
+3.0.0 were grandfathered with an explicit opt-out row and saw no change. The
+Python client raises `AuthTransportError` on transport failure (3.0) — an
+outage can never read as a denial. Full detail: `/docs` sections 3–6.
 
 ## Guides
 
@@ -364,8 +509,13 @@ here and at `/docs`.
     with Client(api_key=KEY, service_url="https://auth.rodmena.app") as auth:
         auth.create_role("engineers")
         auth.add_permission("engineers", "deploy")
+        auth.create_api_key("alice")                  # strict default since 3.0.0
         auth.add_membership("alice", "engineers")
         auth.user_has_permission("alice", "deploy")   # the gate you check
+
+`create_api_key` is what makes a user real on a namespace created after 3.0.0;
+without it `add_membership` returns `409 user_not_key_backed`. Users that can
+never hold auth keys? Call `auth.set_strict_users(False)` once instead.
 
 Or call the HTTP API directly in any language — `/docs` has the exact endpoint
 list and response shapes.
@@ -388,6 +538,19 @@ key) mints a fresh key, atomically moves the whole namespace onto it, and return
 cutover: the old key instantly owns nothing. The client method also switches the
 live instance (and its session header) to the new key. Rotate on any suspected
 leak, and update every consumer with the returned key.
+
+## Per-user API keys & strict identity
+
+`auth.create_api_key("alice")` mints a `rak_...` secret for an end user
+(returned exactly once — hand it to that user; auth stores only its SHA-256);
+`auth.validate_api_key(secret)` resolves it back to the user;
+`auth.check_api_key_permission(secret, "deploy")` does validate + permission in
+one call. **Since 3.0.0 new tenants are strict by default:** create the user's
+key BEFORE granting roles (a key-less grant answers 409, reason
+`user_not_key_backed`), or opt the tenant out with
+`auth.set_strict_users(False)` if your app authenticates its own users. On
+transport failure every client method raises `AuthTransportError` — map it to
+your unavailable/503 path, never to a permission denial.
 
 ## Four contract surprises (they are the design, not bugs)
 

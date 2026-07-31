@@ -8,7 +8,7 @@ clobber. Pure function: same inputs → same output, fully unit-testable. Guards
 stay deterministic code, not LLM judgement (see the multi-instance safety model).
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Sequence
 
 # Fraction-of-lines-changed thresholds.
 _LARGE_CHANGE_RATIO = 0.5
@@ -17,21 +17,31 @@ _MODERATE_CHANGE_RATIO = 0.15
 
 def describe_attribution(
     *,
-    baseline_by: str,
+    other_editors: Sequence[str],
     current_by: str,
     created_by: str,
     me: str = "",
     me_confirmed: bool = True,
 ) -> Dict[str, Any]:
-    """Corroborate WHO owns a record from signals already on hand — no extra API.
+    """Corroborate WHO owns a record. Server facts come from the server.
 
-    - baseline_by: owner recorded in _sync_meta at YOUR download (local, free).
+    - other_editors: users OTHER THAN YOU that the server's own version history
+      names as having changed this record since your copy was taken. Empty means
+      "none, or not asked" — it is never on its own a clearance.
     - current_by:  the record's current sys_updated_by (already fetched).
     - created_by:  the record's sys_created_by (same fetch, one extra field).
     - me:          the confirmed current actor; "" when identity is unconfirmed.
 
+    This used to take ``baseline_by``: the editor name cached in _sync_meta at
+    YOUR download. That is a server fact kept locally and never refreshed, so it
+    answered "who owned it when I downloaded" — stale by construction, and read
+    as if it were current. Worse, comparing it against ``current_by`` could only
+    ever see the LAST editor, so a colleague's change that you have since pushed
+    over left no trace in either value. The version history answers the real
+    question over the whole range, on the server, at the moment it is asked.
+
     sys_updated_by is a CLAIM, not truth (impersonation can spoof it). We never
-    trust it alone: if the recorded owner changed since your download, or the
+    trust it alone: if the server names another editor since your copy, or the
     creator differs from the last editor, that is the signal to surface.
 
     But the flags must not fire on YOUR OWN edit. When you are the current editor
@@ -42,7 +52,7 @@ def describe_attribution(
     the attribution alarm. Whether the SERVER BODY moved is decided by content
     hashing against the pristine baseline, upstream of this function.
     """
-    baseline = (baseline_by or "").strip()
+    others = [e.strip() for e in (other_editors or []) if e and e.strip()]
     current = (current_by or "").strip()
     creator = (created_by or "").strip()
     actor = (me or "").strip() if me_confirmed else ""
@@ -51,17 +61,23 @@ def describe_attribution(
 
     # Raw signals, then the self-edit mute. Kept separate so "this WOULD have
     # flagged, but it was you" stays visible as attribution == "self".
-    ownership_changed_raw = bool(baseline) and bool(current) and baseline != current
+    ownership_changed_raw = bool(others)
     shared_raw = bool(creator) and bool(current) and creator != current
-    ownership_changed = ownership_changed_raw and not self_edit
+    # A named other editor is a SERVER fact about someone else's committed work.
+    # Being the last editor yourself does not unmake it, so unlike the shared-record
+    # heuristic this one is never muted by self_edit — that mute is exactly how
+    # "I pushed last" came to mean "nobody else is at stake".
+    ownership_changed = ownership_changed_raw
     shared = shared_raw and not self_edit
 
     if ownership_changed:
         attribution = "ownership_changed"
+        who = "', '".join(others)
         note = (
-            f"Ownership changed since your download: recorded owner was '{baseline}', "
-            f"now '{current}'. sys_updated_by is only a claim (impersonation can spoof "
-            f"it) — verify before trusting it."
+            f"The server's version history names '{who}' as having changed this record "
+            f"since your copy was taken (current sys_updated_by: '{current}'). "
+            f"sys_updated_by is only a claim (impersonation can spoof it) and names only "
+            f"the LAST editor — the history is what was checked."
         )
     elif shared:
         attribution = "shared"
@@ -100,8 +116,9 @@ def assess_push_risk(
     changed_lines: int,
     total_lines: int,
     me_confirmed: bool = True,
-    baseline_by: str = "",
+    other_editors: Sequence[str] = (),
     created_by: str = "",
+    drift_known: bool = True,
 ) -> Dict[str, Any]:
     """Score the risk of pushing a local edit over the current remote.
 
@@ -118,6 +135,14 @@ def assess_push_risk(
             live from the session). When False we must NOT claim the editor is
             someone else — that is the false "another user committed your update
             set" bug. We hedge instead.
+        drift_known: whether `drifted` was actually determined. False for a
+            cross-instance deploy, where the anchor describes the ORIGIN and says
+            nothing about the target. `drifted=False` used to stand in for
+            "unknown", and False is the reassuring branch — so a promotion that
+            was about to overwrite three of someone else's revisions on the target
+            was reported as "Safe to push: identical to your baseline, nobody
+            changed it, nothing unseen gets overwritten", at risk_level none.
+            Unknown drift can never print that sentence.
 
     Risk here means "what could this push destroy that you have NOT seen". With no
     server-side drift there is nothing unseen to destroy, so the size of YOUR OWN
@@ -132,7 +157,7 @@ def assess_push_risk(
     identity = "confirmed" if confirmed else "unconfirmed"
 
     attr = describe_attribution(
-        baseline_by=baseline_by,
+        other_editors=other_editors,
         current_by=remote_editor,
         created_by=created_by,
         me=me,
@@ -152,8 +177,16 @@ def assess_push_risk(
     moderate = ratio >= _MODERATE_CHANGE_RATIO
 
     factors: List[str] = []
+    if not drift_known:
+        factors.append(
+            "cross-instance: no shared baseline with the target, so changes made "
+            "there cannot be detected"
+        )
     if ownership_changed:
-        factors.append(f"ownership changed since download: '{baseline_by}' -> '{remote_editor}'")
+        factors.append(
+            "server version history names another editor since your copy: "
+            + ", ".join(f"'{e}'" for e in other_editors)
+        )
     if drifted and other_user:
         factors.append(f"server body changed by '{remote_editor}', not you")
     elif drifted and other_user_unconfirmed:
@@ -171,9 +204,13 @@ def assess_push_risk(
     # ownership_changed upstream, so your own edit can never be cross_party.
     cross_party = other_user or ownership_changed
 
+    # Unknown drift is not absent drift: the target may hold work no baseline of
+    # yours has ever seen, and the line count is the only evidence available.
+    if not drift_known:
+        level = "high" if large else "medium"
     # No drift = nothing on the server you have not seen = nothing this push can
     # destroy unknowingly. Your own edit's size is magnitude, not risk.
-    if not drifted:
+    elif not drifted:
         level = "none"
     elif cross_party and large:
         level = "critical"
@@ -191,17 +228,28 @@ def assess_push_risk(
     score = {"none": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}[level]
 
     magnitude = f"~{round(ratio * 100)}% of the lines" if total_lines else "an unknown amount"
-    if not drifted:
+    if not drift_known:
+        editor = f" (last changed there by '{remote_editor}')" if remote_editor else ""
+        message = (
+            f"The target's copy CANNOT be compared to your baseline — your anchor describes "
+            f"the instance you downloaded from, not this one. This push replaces {magnitude} "
+            f"of what the target currently holds{editor}. Anything the target has that your "
+            f"copy does not — another developer's later work, or fixes made directly there — "
+            f"is overwritten and will not show up as a conflict, because there is no shared "
+            f"history to detect one. Review the diff against the TARGET before promoting."
+        )
+    elif not drifted:
         scale = f"this edit changes {magnitude}" if total_lines else "no magnitude available"
         message = (
             f"Safe to push: the server body is identical to your baseline — nobody changed it "
             f"since your download/last push, so nothing unseen gets overwritten ({scale})."
         )
     elif ownership_changed and drifted:
+        who = "', '".join(e for e in other_editors if e)
         message = (
-            f"When you downloaded this, the last editor was '{baseline_by}' — now it's "
-            f"'{remote_editor}'. Someone changed it after your download. Your push would "
-            f"overwrite {magnitude} of the current version; confirm before overwriting."
+            f"The server's version history shows '{who}' changed this record after your copy "
+            f"was taken. Your push would overwrite {magnitude} of the current version — "
+            f"including their work, whoever holds the last stamp; confirm before overwriting."
         )
     elif other_user and drifted:
         message = (

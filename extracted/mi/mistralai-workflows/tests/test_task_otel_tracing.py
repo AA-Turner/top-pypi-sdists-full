@@ -1,17 +1,29 @@
 import json
+import logging
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from mistralai.client import Mistral
 from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk._logs.export import LogRecordExportResult
+from opentelemetry.sdk.metrics.export import MetricExportResult, MetricsData
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExportResult
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from opentelemetry.trace import SpanKind, StatusCode
 from temporalio.testing import WorkflowEnvironment
 
 from mistralai.workflows.core._events.event_context import EventContext
 from mistralai.workflows.core.task.task import Task
+from mistralai.workflows.core.tracing._otel_config import (
+    FORCE_SPAN_ID_ATTRIBUTE,
+    FORCE_TRACE_ID_ATTRIBUTE,
+    WORKFLOW_ROOT_ID_GENERATOR,
+)
 from mistralai.workflows.models import EventSpanType
 
 from .fixtures_task import (
@@ -24,11 +36,12 @@ from .fixtures_task import (
     simple_task_activity,
     stateful_task_activity,
 )
-from .utils import create_test_worker_with_events
+from .utils import create_test_worker, create_test_worker_with_events
 
-# Module-level exporter and provider to avoid "Overriding TracerProvider" warnings
+# Module-level exporter/provider (avoids "Overriding TracerProvider" warnings); the forced id
+# generator lets the interceptor materialize the root with the id other spans parent onto.
 _exporter = InMemorySpanExporter()
-_provider = TracerProvider()
+_provider = TracerProvider(id_generator=WORKFLOW_ROOT_ID_GENERATOR)
 _provider.add_span_processor(SimpleSpanProcessor(_exporter))
 trace.set_tracer_provider(_provider)
 
@@ -106,6 +119,62 @@ async def test_task_span_lifecycle(temporal_env: WorkflowEnvironment) -> None:
         assert span.end_time is not None
         assert span.start_time is not None
         assert span.end_time - span.start_time < 1e9, "Span duration should be < 1s (0-time span)"
+
+
+@pytest.mark.asyncio
+async def test_workflow_spans_nest_under_materialized_workflow_root(temporal_env: WorkflowEnvironment) -> None:
+    from mistralai.workflows.core._events.event_interceptor import EventInterceptor
+    from mistralai.workflows.core.tracing._temporal_tracing_interceptor import (
+        get_span_recording_interceptors,
+        get_trace_context_interceptors,
+    )
+
+    mock_client = AsyncMock(spec=Mistral)
+    mock_client.send_event = AsyncMock()
+
+    async with EventContext(mock_client):
+        async with create_test_worker(
+            temporal_env,
+            workflows=[SimpleTaskWorkflow],
+            activities=[simple_task_activity],
+            # Full interceptor stack (matching the worker) so ExecuteActivity spans are emitted too.
+            interceptors=[*get_trace_context_interceptors(), EventInterceptor(), *get_span_recording_interceptors()],
+        ):
+            handle = await temporal_env.client.start_workflow(
+                "simple_task_workflow",
+                id="test-workflow-root-parenting",
+                task_queue="test-task-queue",
+            )
+            await handle.result()
+
+    spans = _exporter.get_finished_spans()
+    root = [s for s in spans if s.name.startswith("StartWorkflow:")]
+    assert len(root) == 1, f"expected exactly one materialized StartWorkflow root span, got {[s.name for s in root]}"
+    root_span_id = root[0].context.span_id
+    assert root[0].parent is None or root[0].parent.span_id != root_span_id
+
+    # The force-id attributes are popped host-side and must never reach the exported span.
+    root_attrs = root[0].attributes or {}
+    assert FORCE_TRACE_ID_ATTRIBUTE not in root_attrs and FORCE_SPAN_ID_ATTRIBUTE not in root_attrs
+
+    # RunWorkflow and the internal lifecycle activities are peers under the materialized root.
+    run_workflow = [s for s in spans if s.name.startswith("RunWorkflow:")]
+    internal_starts = [s for s in spans if s.name.startswith("StartActivity:__internal__")]
+    assert internal_starts, "expected internal __internal__ StartActivity spans"
+    for span in run_workflow + internal_starts:
+        assert span.parent is not None
+        assert span.parent.span_id == root_span_id, (
+            f"{span.name} should be a child of the StartWorkflow root, got parent {span.parent.span_id:016x}"
+        )
+
+    # RunWorkflow/CompleteWorkflow (contrib) and ExecuteActivity (ours) all carry temporalWorkflowID,
+    # so the trace filter keeps them even for child executions (which emit no StartWorkflow root).
+    tagged = [s for s in spans if s.name.startswith(("RunWorkflow:", "CompleteWorkflow:", "ExecuteActivity:"))]
+    assert {"RunWorkflow", "CompleteWorkflow", "ExecuteActivity"} <= {s.name.split(":")[0] for s in tagged}
+    for span in tagged:
+        assert span.attributes and span.attributes.get("temporalWorkflowID"), (
+            f"{span.name} must carry temporalWorkflowID for trace scoping"
+        )
 
 
 @pytest.mark.asyncio
@@ -254,6 +323,111 @@ async def test_nested_tasks_create_parent_child_spans(temporal_env: WorkflowEnvi
         if span.attributes.get("task.lifecycle") != "started":
             assert span.parent is not None
             assert span.parent.span_id == inner_root.context.span_id
+
+
+_NOT_FOUND_RESPONSE = SimpleNamespace(ok=False, status_code=404, text="not found", reason="Not Found")
+_FORBIDDEN_RESPONSE = SimpleNamespace(ok=False, status_code=403, text="forbidden", reason="Forbidden")
+
+
+def test_span_export_failure_warns_with_404_hint_and_status() -> None:
+    from mistralai.workflows.core.tracing import _otel_config
+    from mistralai.workflows.core.tracing._otel_config import _LoggingOTLPSpanExporter
+
+    exporter = _LoggingOTLPSpanExporter(endpoint="http://invalid-endpoint:4318/v1/traces")
+    with patch.object(OTLPSpanExporter, "_export", return_value=_NOT_FOUND_RESPONSE):
+        with patch("mistralai.workflows.core.tracing._otel_config.logger.warning") as mock_warning:
+            result = exporter.export([])
+
+    assert result is SpanExportResult.FAILURE
+    mock_warning.assert_called_once_with(
+        f"Failed to export OpenTelemetry traces: {_otel_config._OTLP_404_HINT}",
+        endpoint="http://invalid-endpoint:4318/v1/traces",
+        status_code=404,
+    )
+
+
+def test_metric_export_failure_warns_with_404_hint_and_status() -> None:
+    from mistralai.workflows.core.tracing import _otel_config
+    from mistralai.workflows.core.tracing._otel_config import _LoggingOTLPMetricExporter
+
+    exporter = _LoggingOTLPMetricExporter(endpoint="http://invalid-endpoint:4318/v1/metrics")
+    with patch.object(OTLPMetricExporter, "_export", return_value=_NOT_FOUND_RESPONSE):
+        with patch("mistralai.workflows.core.tracing._otel_config.logger.warning") as mock_warning:
+            result = exporter.export(MetricsData(resource_metrics=[]))
+
+    assert result is MetricExportResult.FAILURE
+    mock_warning.assert_called_once_with(
+        f"Failed to export OpenTelemetry metrics: {_otel_config._OTLP_404_HINT}",
+        endpoint="http://invalid-endpoint:4318/v1/metrics",
+        status_code=404,
+    )
+
+
+def test_log_export_failure_warns_with_404_hint_and_status() -> None:
+    from mistralai.workflows.core.tracing import _otel_config
+    from mistralai.workflows.core.tracing._otel_config import _LoggingOTLPLogExporter
+
+    exporter = _LoggingOTLPLogExporter(endpoint="http://invalid-endpoint:4318/v1/logs")
+    with patch.object(OTLPLogExporter, "_export", return_value=_NOT_FOUND_RESPONSE):
+        with patch("mistralai.workflows.core.tracing._otel_config.logger.warning") as mock_warning:
+            result = exporter.export([])
+
+    assert result is LogRecordExportResult.FAILURE
+    mock_warning.assert_called_once_with(
+        f"Failed to export OpenTelemetry logs: {_otel_config._OTLP_404_HINT}",
+        endpoint="http://invalid-endpoint:4318/v1/logs",
+        status_code=404,
+    )
+
+
+def test_non_404_export_failure_reports_status_without_hint() -> None:
+    from mistralai.workflows.core.tracing import _otel_config
+    from mistralai.workflows.core.tracing._otel_config import _LoggingOTLPSpanExporter
+
+    exporter = _LoggingOTLPSpanExporter(endpoint="http://invalid-endpoint:4318/v1/traces")
+    with patch.object(OTLPSpanExporter, "_export", return_value=_FORBIDDEN_RESPONSE):
+        with patch("mistralai.workflows.core.tracing._otel_config.logger.warning") as mock_warning:
+            result = exporter.export([])
+
+    assert result is SpanExportResult.FAILURE
+    mock_warning.assert_called_once_with(
+        "Failed to export OpenTelemetry traces", endpoint=exporter._endpoint, status_code=403
+    )
+    assert _otel_config._OTLP_404_HINT not in mock_warning.call_args_list[0].args[0]
+
+
+def test_export_failure_warning_is_throttled_per_interval() -> None:
+    from mistralai.workflows.core.tracing import _otel_config
+    from mistralai.workflows.core.tracing._otel_config import _LoggingOTLPSpanExporter
+
+    exporter = _LoggingOTLPSpanExporter(endpoint="http://invalid-endpoint:4318/v1/traces")
+    # 1st call logs, 2nd (1s later) is suppressed, 3rd (past the interval) logs again with the count.
+    clock = iter([100.0, 101.0, 101.0 + _otel_config._EXPORT_WARN_INTERVAL_SECONDS + 1.0])
+    with patch.object(OTLPSpanExporter, "_export", return_value=_NOT_FOUND_RESPONSE):
+        with patch("mistralai.workflows.core.tracing._otel_config.time.monotonic", side_effect=lambda: next(clock)):
+            with patch("mistralai.workflows.core.tracing._otel_config.logger.warning") as mock_warning:
+                exporter.export([])
+                exporter.export([])
+                exporter.export([])
+
+    assert mock_warning.call_count == 2
+    assert mock_warning.call_args_list[1].kwargs["suppressed_failures"] == 1
+
+
+def test_export_diagnostics_filter_excludes_otel_from_log_export() -> None:
+    from mistralai.workflows.core.tracing import _otel_config
+    from mistralai.workflows.core.tracing._otel_config import _DropOtelExportDiagnosticsFilter
+
+    log_filter = _DropOtelExportDiagnosticsFilter()
+
+    def record(name: str) -> logging.LogRecord:
+        return logging.LogRecord(name, logging.WARNING, __file__, 0, "msg", None, None)
+
+    # Our own export-failure warnings and OTel SDK logs must not be re-exported (feedback loop),
+    # while application logs still flow to the OTel log exporter.
+    assert log_filter.filter(record(_otel_config.__name__)) is False
+    assert log_filter.filter(record("opentelemetry.exporter.otlp.proto.http._log_exporter")) is False
+    assert log_filter.filter(record("mistralai.workflows.core.worker")) is True
 
 
 @pytest.mark.asyncio

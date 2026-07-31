@@ -16,15 +16,20 @@ value re-emits its tag (see :func:`emitter.encode_value`).
 
 from __future__ import annotations
 
+import re
+
 from ...helpers.api import CommandError
 from ...helpers.yaml import (
     SubEntityRef,
-    _block_end,
+    YamlUpsertNotSupportedError,
     _indent_block,
     _splice_into_domain_block,
+    child_block_end,
     remove_inline_handler,
+    remove_nested_handler,
     remove_subentity_handler,
     upsert_inline_handler,
+    upsert_nested_handler,
     upsert_subentity_handler,
 )
 from ...models.api import ErrorCode
@@ -53,7 +58,9 @@ from .emitter import (
 )
 from .parsing import (
     ComponentTarget,
+    component_action_field_paths,
     make_yaml,
+    resolve_action_field_target,
     resolve_component_domain,
     resolve_component_target,
 )
@@ -285,20 +292,23 @@ def _upsert_subentity_on(
     """Splice an ``on_*:`` handler under a nested sub-entity (``aht20_temperature``)."""
     ref = _subentity_context(target)
     trigger = _require_trigger(target.domain, location)
-    if location.index is not None:
-        return upsert_subentity_on_entry(
-            yaml_text,
-            ref,
-            tree=tree,
-            component_id=location.component_id,
-            trigger_key=location.trigger,
-            trigger=trigger,
-            index=location.index,
+    try:
+        if location.index is not None:
+            return upsert_subentity_on_entry(
+                yaml_text,
+                ref,
+                tree=tree,
+                component_id=location.component_id,
+                trigger_key=location.trigger,
+                trigger=trigger,
+                index=location.index,
+            )
+        rendered = render_trigger_handler(tree, key=location.trigger)
+        res = upsert_subentity_handler(
+            yaml_text, ref, handler_key=location.trigger, rendered_yaml=rendered
         )
-    rendered = render_trigger_handler(tree, key=location.trigger)
-    res = upsert_subentity_handler(
-        yaml_text, ref, handler_key=location.trigger, rendered_yaml=rendered
-    )
+    except YamlUpsertNotSupportedError as err:
+        raise CommandError(ErrorCode.INVALID_ARGS, str(err)) from err
     if res is None:
         msg = (
             f"Sub-entity id={location.component_id!r} not found under "
@@ -309,6 +319,36 @@ def _upsert_subentity_on(
     return new_text, YamlDiff(fromLine=from_line, toLine=to_line, replacement=replacement)
 
 
+_FIELD_SEGMENT_RE = re.compile(r"^[a-z0-9_]+$")
+
+
+def _split_field_path(field: str) -> list[str]:
+    """Split a dotted action-field path, rejecting malformed segments."""
+    segments = field.split(".")
+    if not all(_FIELD_SEGMENT_RE.match(seg) for seg in segments) or segments[-1].isdecimal():
+        msg = f"Invalid action-field path {field!r}"
+        raise CommandError(ErrorCode.INVALID_ARGS, msg)
+    return segments
+
+
+def _require_known_field_path(cat_id: str, segments: list[str], field: str) -> None:
+    """
+    Reject a field path the shipped catalog doesn't declare as an action list.
+
+    A component with no catalogued trigger paths keeps the permissive
+    single-segment behaviour.
+    """
+    known = component_action_field_paths(cat_id)
+    if known:
+        schema_path = tuple(seg for seg in segments if not seg.isdecimal())
+        if schema_path not in known:
+            msg = f"{field!r} is not an action-list field of {cat_id!r}"
+            raise CommandError(ErrorCode.INVALID_ARGS, msg)
+    elif len(segments) > 1:
+        msg = f"{cat_id!r} has no catalogued action-list fields; can't splice {field!r}"
+        raise CommandError(ErrorCode.INVALID_ARGS, msg)
+
+
 def _upsert_component_action(
     yaml_text: str,
     tree: AutomationTree,
@@ -317,32 +357,68 @@ def _upsert_component_action(
     """Splice an action-list config field (``open_action:`` …) on a component.
 
     Reuses the same inline-handler splice as ``on_*`` handlers, keyed on
-    the literal ``field`` name; only the rendered body differs (a bare
-    action list, no ``then:`` wrapper).
+    the ``field`` path's leaf; only the rendered body differs (a bare
+    action list, no ``then:`` wrapper). A dotted field splices at the
+    nested path, creating missing intermediate mappings but never a
+    list item.
     """
-    domain = resolve_component_domain(yaml_text, location.component_id)
-    if domain is None:
+    segments = _split_field_path(location.field)
+    resolved = resolve_action_field_target(yaml_text, location.component_id)
+    if resolved is None:
         msg = (
             f"Component instance id={location.component_id!r} not found; "
             f"can't splice action field {location.field!r}"
         )
         raise CommandError(ErrorCode.NOT_FOUND, msg)
-    rendered = render_action_field(tree, key=location.field)
-    res = upsert_inline_handler(
-        yaml_text,
-        component_domain=domain,
-        component_id=location.component_id,
-        handler_key=location.field,
-        rendered_yaml=rendered,
-    )
+    domain, cat_id = resolved
+    _require_known_field_path(cat_id, segments, location.field)
+    rendered = render_action_field(tree, key=segments[-1])
+    # A single segment degenerates to the flat splice: the descent
+    # resolves zero intermediates and lands on the instance span.
+    try:
+        res = upsert_nested_handler(
+            yaml_text,
+            component_domain=domain,
+            component_id=location.component_id,
+            field_segments=segments,
+            rendered_yaml=rendered,
+        )
+    except YamlUpsertNotSupportedError as err:
+        raise CommandError(ErrorCode.INVALID_ARGS, str(err)) from err
     if res is None:
         msg = (
-            f"Component instance id={location.component_id!r} not found "
-            f"under {domain!r}; can't splice action field {location.field!r}"
+            f"Component instance id={location.component_id!r} under {domain!r} "
+            f"can't take action field {location.field!r} (instance or list item missing)"
         )
         raise CommandError(ErrorCode.NOT_FOUND, msg)
     new_text, from_line, to_line, replacement = res
     return new_text, YamlDiff(fromLine=from_line, toLine=to_line, replacement=replacement)
+
+
+def _canonicalized_api_block(
+    lines: list[str],
+    actions_span: tuple[int, int, str, str],
+) -> list[str]:
+    """Return *lines* with a legacy-spelled action block respelled to canonical."""
+    actions_start, actions_end, item_indent, block_key = actions_span
+    if block_key == api_actions.BLOCK_KEYS[0]:
+        return lines
+    return api_actions.canonicalize_block(lines, actions_start, actions_end, item_indent, block_key)
+
+
+def _widen_diff_to_block(
+    lines: list[str],
+    actions_start: int,
+    actions_end: int,
+    new_text: str,
+) -> tuple[str, YamlDiff]:
+    """Rebuild the diff to span the whole block so the respelled header ships too."""
+    new_lines = new_text.splitlines(keepends=True)
+    new_end = actions_end + (len(new_lines) - len(lines))
+    replacement = "".join(new_lines[actions_start:new_end])
+    return new_text, YamlDiff(
+        fromLine=actions_start + 1, toLine=actions_end, replacement=replacement
+    )
 
 
 def _upsert_api_action(
@@ -350,20 +426,28 @@ def _upsert_api_action(
     tree: AutomationTree,
     location: ApiActionLocation,
 ) -> tuple[str, YamlDiff]:
-    """Splice or replace an ``api.actions:`` list item by ``action_name``."""
+    """Splice or replace an api action item, respelling a legacy block to canonical."""
     rendered = render_api_action_item(tree, location.action_name)
     lines = yaml_text.splitlines(keepends=True)
     api_span = _locate_singleton_block(lines, "api")
     if api_span is None:
         new_text, _block = api_actions.render_create_block(yaml_text, rendered)
         return new_text, _build_diff_for_append(yaml_text, new_text)
-    if api_actions.has_inline_actions_value(lines, api_span):
-        msg = "api.actions: is inline (e.g. `actions: []`); rewrite it as a block list first"
+    inline_key = api_actions.inline_actions_key(lines, api_span)
+    if inline_key is not None:
+        msg = (
+            f"api.{inline_key}: is inline (e.g. `{inline_key}: []`); "
+            "rewrite it as a block list first"
+        )
         raise CommandError(ErrorCode.INVALID_ARGS, msg)
     actions_span = api_actions.locate_actions_list(lines, api_span)
     if actions_span is None:
         return api_actions.render_insert_actions_key(lines, api_span, rendered)
-    actions_start, actions_end, item_indent = actions_span
+    actions_start, actions_end, item_indent, block_key = actions_span
+    if len(item_indent) < 2:
+        msg = "api: block indentation is too shallow; re-indent it to edit actions"
+        raise CommandError(ErrorCode.INVALID_ARGS, msg)
+    lines = _canonicalized_api_block(lines, actions_span)
     existing = api_actions.find_item(
         lines,
         actions_start,
@@ -374,8 +458,12 @@ def _upsert_api_action(
     if existing is not None:
         item_start, item_end = existing
         rendered_text = api_actions.indent_for_list(rendered, item_indent)
-        return api_actions.render_replacement(lines, item_start, item_end, rendered_text)
-    return api_actions.render_append(lines, actions_end, item_indent, rendered)
+        new_text, diff = api_actions.render_replacement(lines, item_start, item_end, rendered_text)
+    else:
+        new_text, diff = api_actions.render_append(lines, actions_end, item_indent, rendered)
+    if block_key == api_actions.BLOCK_KEYS[0]:
+        return new_text, diff
+    return _widen_diff_to_block(lines, actions_start, actions_end, new_text)
 
 
 # ---------------------------------------------------------------------------
@@ -482,7 +570,7 @@ def _upsert_under_top_key(
         text = lines[idx].rstrip("\n\r")
         if text == handler_re_prefix or text.startswith(handler_re_prefix + " "):
             handler_start = idx
-            handler_end = _block_end(lines, idx, end, indent)
+            handler_end = child_block_end(lines, idx, end, indent)
             break
     rendered_text = "\n".join(_indent_block(rendered_yaml, indent)) + "\n"
     if handler_start is not None and handler_end is not None:
@@ -592,7 +680,7 @@ def _delete_under_top_key(
     for idx in range(start + 1, end):
         text = lines[idx].rstrip("\n\r")
         if text == handler_prefix or text.startswith(handler_prefix + " "):
-            handler_end = _block_end(lines, idx, end, indent)
+            handler_end = child_block_end(lines, idx, end, indent)
             new_lines = [*lines[:idx], *lines[handler_end:]]
             return "".join(new_lines), YamlDiff(
                 fromLine=idx + 1,
@@ -645,15 +733,18 @@ def _delete_subentity_on(
 ) -> tuple[str, YamlDiff]:
     """Drop an ``on_*:`` handler from a nested sub-entity (``aht20_temperature``)."""
     ref = _subentity_context(target)
-    if location.index is not None:
-        return delete_subentity_list_entry(
-            yaml_text,
-            ref,
-            component_id=location.component_id,
-            handler_key=location.trigger,
-            index=location.index,
-        )
-    res = remove_subentity_handler(yaml_text, ref, handler_key=location.trigger)
+    try:
+        if location.index is not None:
+            return delete_subentity_list_entry(
+                yaml_text,
+                ref,
+                component_id=location.component_id,
+                handler_key=location.trigger,
+                index=location.index,
+            )
+        res = remove_subentity_handler(yaml_text, ref, handler_key=location.trigger)
+    except YamlUpsertNotSupportedError as err:
+        raise CommandError(ErrorCode.INVALID_ARGS, str(err)) from err
     if res is None:
         msg = (
             f"Sub-entity id={location.component_id!r} not found under "
@@ -668,7 +759,12 @@ def _delete_component_action(
     yaml_text: str,
     location: ComponentActionFieldLocation,
 ) -> tuple[str, YamlDiff]:
-    """Drop an action-list config field (``open_action:`` …) from a component."""
+    """Drop an action-list config field (``open_action:`` …) from a component.
+
+    A dotted field removes the nested leaf and prunes intermediate
+    mappings the removal empties (never a list item or the instance).
+    """
+    segments = _split_field_path(location.field)
     domain = resolve_component_domain(yaml_text, location.component_id)
     if domain is None:
         msg = (
@@ -676,20 +772,20 @@ def _delete_component_action(
             f"can't delete action field {location.field!r}"
         )
         raise CommandError(ErrorCode.NOT_FOUND, msg)
-    res = remove_inline_handler(
+    res = remove_nested_handler(
         yaml_text,
         component_domain=domain,
         component_id=location.component_id,
-        handler_key=location.field,
+        field_segments=segments,
     )
     if res is None:
         msg = (
-            f"Component instance id={location.component_id!r} not found "
-            f"under {domain!r}; can't delete action field {location.field!r}"
+            f"Component instance id={location.component_id!r} under {domain!r} "
+            f"has no action field {location.field!r}; nothing to delete"
         )
         raise CommandError(ErrorCode.NOT_FOUND, msg)
-    new_text, from_line, to_line = res
-    return new_text, YamlDiff(fromLine=from_line, toLine=to_line, replacement="")
+    new_text, from_line, to_line, replacement = res
+    return new_text, YamlDiff(fromLine=from_line, toLine=to_line, replacement=replacement)
 
 
 def _delete_api_action(
@@ -702,14 +798,18 @@ def _delete_api_action(
     if api_span is None:
         msg = "api: block not present; nothing to delete"
         raise CommandError(ErrorCode.NOT_FOUND, msg)
-    if api_actions.has_inline_actions_value(lines, api_span):
-        msg = "api.actions: is inline (e.g. `actions: []`); rewrite it as a block list first"
+    inline_key = api_actions.inline_actions_key(lines, api_span)
+    if inline_key is not None:
+        msg = (
+            f"api.{inline_key}: is inline (e.g. `{inline_key}: []`); "
+            "rewrite it as a block list first"
+        )
         raise CommandError(ErrorCode.INVALID_ARGS, msg)
     actions_span = api_actions.locate_actions_list(lines, api_span)
     if actions_span is None:
         msg = "api.actions: not present; nothing to delete"
         raise CommandError(ErrorCode.NOT_FOUND, msg)
-    actions_start, actions_end, item_indent = actions_span
+    actions_start, actions_end, item_indent, block_key = actions_span
     existing = api_actions.find_item(
         lines,
         actions_start,
@@ -728,11 +828,15 @@ def _delete_api_action(
         item_indent,
         existing,
     )
-    if siblings > 0:
-        return api_actions.render_delete_item(lines, item_start, item_end)
-    # Last sibling — drop the entire ``actions:`` key as well so the
-    # file doesn't grow ``actions: []`` noise.
-    return api_actions.render_delete_actions_key(lines, actions_start, actions_end)
+    if siblings == 0:
+        # Last sibling — drop the entire block key as well so the file
+        # doesn't grow ``actions: []`` noise.
+        return api_actions.render_delete_actions_key(lines, actions_start, actions_end)
+    lines = _canonicalized_api_block(lines, actions_span)
+    new_text, diff = api_actions.render_delete_item(lines, item_start, item_end)
+    if block_key == api_actions.BLOCK_KEYS[0]:
+        return new_text, diff
+    return _widen_diff_to_block(lines, actions_start, actions_end, new_text)
 
 
 # ---------------------------------------------------------------------------

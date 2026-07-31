@@ -1,4 +1,15 @@
-from mistralai.workflows.core._graph import build_graph_statically
+import ast
+
+from mistralai.workflows import workflow
+from mistralai.workflows.core._graph import (
+    _activity_connectors_from_ast,
+    _collect_connector_bindings,
+    _connector_call_names,
+    _depends_import_names,
+    build_graph_dynamically,
+    build_graph_statically,
+)
+from mistralai.workflows.core.definition.workflow_definition import get_workflow_definition
 from mistralai.workflows.core.wire_format import AtlasWireFormat, FlatEdge, FlatNode
 
 
@@ -21,6 +32,228 @@ class StaticWorkflow:
     graphs = build_graph_statically(source, "/tmp/workflow.py", lambda path: None)
 
     assert graphs[0].signals[0].param_type == "str"
+
+
+class _ConnectorSlot:
+    def __init__(self, connector_name: str) -> None:
+        self.connector_name = connector_name
+
+
+def connector(name: str) -> _ConnectorSlot:
+    return _ConnectorSlot(name)
+
+
+BOUND_CONNECTOR = connector("bound_connector")
+
+
+class Agent:
+    pass
+
+
+class Runner:
+    pass
+
+
+@workflow.define(name="dynamic_agent_connector_workflow")
+class DynamicAgentConnectorWorkflow:
+    @workflow.entrypoint
+    async def run(self) -> None:
+        await Runner.run(
+            agent=Agent(
+                name="connector-agent",
+                connectors=[connector("inline_connector"), BOUND_CONNECTOR],
+            ),
+            inputs="hello",
+        )
+
+
+def test_dynamic_agent_connectors_ignore_non_connectors_inline_factory() -> None:
+    """Bound ``ConnectorSlot`` instances are resolved by duck-typing, but an inline call to a
+    ``connector`` factory that is not the connectors plugin (here a local stand-in) is not
+    mistaken for one. The plugin suite covers the positive inline case with the real factory."""
+    graph = build_graph_dynamically(DynamicAgentConnectorWorkflow)
+
+    agent_nodes = [node for node in graph.nodes if node.type == "agent"]
+
+    assert len(agent_nodes) == 1
+    assert agent_nodes[0].connectors == ["bound_connector"]
+
+
+def test_static_connectors_ignore_same_named_third_party_factory() -> None:
+    source = """
+from mistralai.workflows import workflow
+from mistralai.workflows.plugins.mistralai.connectors import connector, uses_connectors
+from aiohttp_retry import connector as tp_connector
+
+real = connector("real_connector")
+fake = tp_connector("not_a_connector")
+
+
+@workflow.define
+@uses_connectors(real, fake)
+class ConnectorWorkflow:
+    @workflow.entrypoint
+    async def run(self) -> None:
+        pass
+"""
+
+    graph = build_graph_statically(source, "/tmp/workflow.py", lambda path: None)[0]
+
+    assert graph.connectors == ["real_connector"]
+
+
+def test_static_connectors_ignore_attribute_connector_calls() -> None:
+    source = """
+from mistralai.workflows import workflow
+from mistralai.workflows.plugins.mistralai.connectors import connector, uses_connectors
+
+real = connector("real_connector")
+attr = some_obj.connector("attr_connector")
+
+
+@workflow.define
+@uses_connectors(real, attr)
+class ConnectorWorkflow:
+    @workflow.entrypoint
+    async def run(self) -> None:
+        pass
+"""
+
+    graph = build_graph_statically(source, "/tmp/workflow.py", lambda path: None)[0]
+
+    assert graph.connectors == ["real_connector"]
+
+
+def test_static_activity_connectors_handle_aliased_depends() -> None:
+    source = """
+from mistralai.workflows import Depends as D
+from mistralai.workflows.plugins.mistralai.connectors import connector
+
+
+async def my_activity(client=D(connector("aliased_dep_connector"))) -> None:
+    ...
+"""
+    module_ast = ast.parse(source)
+    fn_def = next(n for n in module_ast.body if isinstance(n, ast.AsyncFunctionDef))
+    call_names = _connector_call_names(module_ast)
+    depends_names = _depends_import_names(module_ast)
+    bindings = _collect_connector_bindings(module_ast, call_names)
+
+    assert _activity_connectors_from_ast(fn_def, bindings, call_names, depends_names) == ["aliased_dep_connector"]
+
+
+def test_static_connectors_via_plugin_reexport_import() -> None:
+    source = """
+from mistralai.workflows import workflow
+from mistralai.workflows.plugins.mistralai import connector, uses_connectors
+
+slot = connector("reexported_connector")
+
+
+@workflow.define
+@uses_connectors(slot)
+class ConnectorWorkflow:
+    @workflow.entrypoint
+    async def run(self) -> None:
+        pass
+"""
+
+    graph = build_graph_statically(source, "/tmp/workflow.py", lambda path: None)[0]
+
+    assert graph.connectors == ["reexported_connector"]
+
+
+def test_static_connectors_resolve_slots_imported_from_other_module() -> None:
+    workflow_src = """
+from mistralai.workflows import workflow
+from mistralai.workflows.plugins.mistralai import Agent, Runner, uses_connectors
+from shared_slots import github_slot
+
+
+@workflow.define
+@uses_connectors(github_slot)
+class ConnectorWorkflow:
+    @workflow.entrypoint
+    async def run(self) -> None:
+        await Runner.run(agent=Agent(name="a", connectors=[github_slot]), inputs="hi")
+"""
+    shared_src = """
+from mistralai.workflows.plugins.mistralai.connectors import connector
+
+github_slot = connector("github_app")
+"""
+
+    def resolver(file_path: str) -> str | None:
+        return shared_src if file_path.endswith("shared_slots.py") else None
+
+    graph = build_graph_statically(workflow_src, "/tmp/workflow.py", resolver)[0]
+
+    assert graph.connectors == ["github_app"]
+    agent_nodes = [node for node in graph.nodes if node.type == "agent"]
+    assert len(agent_nodes) == 1
+    assert agent_nodes[0].connectors == ["github_app"]
+
+
+def test_static_connectors_handle_aliased_uses_connectors_decorator() -> None:
+    source = """
+from mistralai.workflows import workflow
+from mistralai.workflows.plugins.mistralai import connector
+from mistralai.workflows.plugins.mistralai import uses_connectors as declare_connectors
+
+slot = connector("aliased_decorator_connector")
+
+
+@workflow.define
+@declare_connectors(slot)
+class ConnectorWorkflow:
+    @workflow.entrypoint
+    async def run(self) -> None:
+        pass
+"""
+
+    graph = build_graph_statically(source, "/tmp/workflow.py", lambda path: None)[0]
+
+    assert graph.connectors == ["aliased_decorator_connector"]
+
+
+def test_static_connectors_resolve_qualified_module_calls() -> None:
+    source = """
+from mistralai.workflows import workflow
+from mistralai.workflows.plugins.mistralai import connectors, uses_connectors
+
+gh = connectors.connector("github_app")
+
+
+@workflow.define
+@uses_connectors(gh, connectors.connector("inline_qualified"))
+class ConnectorWorkflow:
+    @workflow.entrypoint
+    async def run(self) -> None:
+        pass
+"""
+
+    graph = build_graph_statically(source, "/tmp/workflow.py", lambda path: None)[0]
+
+    assert graph.connectors == ["github_app", "inline_qualified"]
+
+
+def test_static_on_behalf_of_resolves_module_constant() -> None:
+    source = """
+from mistralai.workflows import workflow
+
+ON_BEHALF = True
+
+
+@workflow.define(on_behalf_of=ON_BEHALF)
+class OnBehalfWorkflow:
+    @workflow.entrypoint
+    async def run(self) -> None:
+        pass
+"""
+
+    graph = build_graph_statically(source, "/tmp/workflow.py", lambda path: None)[0]
+
+    assert graph.on_behalf_of is True
 
 
 # ---------------------------------------------------------------------------
@@ -272,7 +505,7 @@ class CallbackWorkflow:
 
     graphs = build_graph_statically(source, "/tmp/workflow.py", lambda path: None)
 
-    assert {n.type for n in graphs[0].nodes} == {"workflow", "entrypoint", "output"}
+    assert {n.type for n in graphs[0].nodes} == {"workflow", "entrypoint", "output", "unknown"}
     assert _activity_labels(graphs[0]) == []
 
 
@@ -460,6 +693,174 @@ class LoopWorkflow:
     assert notify_id in cond.branchDescendants
 
 
+def test_conditional_inside_loop_no_branch_merge_to_loop() -> None:
+    """When a conditional is the last statement in a loop body, its branches must
+    NOT produce branch_merge edges targeting the loop node — loops iterate
+    implicitly and those edges would render as spurious back-edges."""
+    source = """
+from mistralai.workflows import workflow, activity
+
+
+@activity
+async def handle_feedback(fb: str) -> None:
+    pass
+
+
+@workflow.define
+class AgentLoop:
+    @workflow.entrypoint
+    async def run(self) -> None:
+        while True:
+            feedback = "yes"
+            if feedback:
+                await handle_feedback(feedback)
+"""
+
+    graph = build_graph_statically(source, "/tmp/workflow.py", lambda path: None)[0]
+
+    loop = next(n for n in graph.nodes if n.type == "loop")
+    merge_to_loop = [e for e in graph.edges if e.to == loop.id and e.kind == "branch_merge"]
+    assert merge_to_loop == []
+
+
+def test_conditional_inside_nested_loop_no_branch_merge_to_loop() -> None:
+    """Same as above but for a loop nested inside a try/except (the _emit_inner_node path)."""
+    source = """
+from mistralai.workflows import workflow, activity
+
+
+@activity
+async def step_a() -> None:
+    pass
+
+
+@workflow.define
+class NestedLoopWorkflow:
+    @workflow.entrypoint
+    async def run(self) -> None:
+        try:
+            while True:
+                x = 1
+                if x:
+                    await step_a()
+        except Exception:
+            pass
+"""
+
+    graph = build_graph_statically(source, "/tmp/workflow.py", lambda path: None)[0]
+
+    loop = next(n for n in graph.nodes if n.type == "loop")
+    merge_to_loop = [e for e in graph.edges if e.to == loop.id and e.kind == "branch_merge"]
+    assert merge_to_loop == []
+
+
+def test_return_inside_loop_conditional_emits_exit_not_merge() -> None:
+    """A branch that ends with ``return`` inside a loop should emit a
+    branch_exit edge to the output node, not a branch_merge."""
+    source = """
+from mistralai.workflows import workflow, activity
+
+
+@activity
+async def check() -> bool:
+    return True
+
+
+@workflow.define
+class ReturnLoop:
+    @workflow.entrypoint
+    async def run(self) -> str:
+        while True:
+            result = await check()
+            if result:
+                return "done"
+"""
+
+    graph = build_graph_statically(source, "/tmp/workflow.py", lambda path: None)[0]
+
+    output = next(n for n in graph.nodes if n.type == "output")
+    true_exit = [e for e in graph.edges if e.kind == "branch_exit_true"]
+    assert len(true_exit) == 1
+    assert true_exit[0].to == output.id
+    merge_edges = [e for e in graph.edges if e.kind == "branch_merge"]
+    assert merge_edges == []
+
+
+def test_empty_false_branch_inside_loop_targets_first_child() -> None:
+    """An empty false branch inside a loop should skip-edge to the loop's
+    first child (loop-back), not the loop container node."""
+    source = """
+from mistralai.workflows import workflow, activity
+
+
+@activity
+async def step_a() -> None:
+    pass
+
+
+@activity
+async def step_b() -> None:
+    pass
+
+
+@workflow.define
+class LoopSkip:
+    @workflow.entrypoint
+    async def run(self) -> None:
+        while True:
+            await step_a()
+            x = True
+            if x:
+                await step_b()
+"""
+
+    graph = build_graph_statically(source, "/tmp/workflow.py", lambda path: None)[0]
+
+    loop = next(n for n in graph.nodes if n.type == "loop")
+    cond = next(n for n in graph.nodes if n.type == "conditional")
+    first_child = loop.children[0] if loop.children else None
+    assert first_child is not None
+
+    skip_edges = [e for e in graph.edges if e.kind == "branch_false_skip" and e.from_ == cond.id]
+    assert len(skip_edges) == 1
+    assert skip_edges[0].to == first_child
+    assert skip_edges[0].to != loop.id
+
+
+def test_nonempty_branch_inside_loop_no_merge() -> None:
+    """A non-empty branch inside a loop should NOT emit branch_merge —
+    loop iteration is implicit."""
+    source = """
+from mistralai.workflows import workflow, activity
+
+
+@activity
+async def step_a() -> None:
+    pass
+
+
+@activity
+async def step_b() -> None:
+    pass
+
+
+@workflow.define
+class LoopMerge:
+    @workflow.entrypoint
+    async def run(self) -> None:
+        while True:
+            await step_a()
+            x = True
+            if x:
+                await step_b()
+"""
+
+    graph = build_graph_statically(source, "/tmp/workflow.py", lambda path: None)[0]
+
+    merge_edges = [e for e in graph.edges if e.kind == "branch_merge"]
+    assert merge_edges == []
+
+
 # ---------------------------------------------------------------------------
 # execute_workflow → child_workflow nodes
 # ---------------------------------------------------------------------------
@@ -601,3 +1002,199 @@ def test_child_workflow_not_in_scanned_set_has_no_link() -> None:
     assert node.name == "ExternalWorkflow"
     assert node.child_workflow_id is None
     assert node.child_workflow_file is None
+
+
+_NAMED_CHILD_WORKFLOW = """
+from mistralai.workflows import workflow
+
+
+@workflow.define(name="child-registered-name")
+class ChildWorkflow:
+    @workflow.entrypoint
+    async def run(self, x: str) -> str:
+        return x
+"""
+
+_NAMED_PARENT_WORKFLOW = """
+from mistralai.workflows import workflow
+from child import ChildWorkflow
+
+
+@workflow.define(name="parent-registered-name")
+class ParentWorkflow:
+    @workflow.entrypoint
+    async def run(self, x: str) -> str:
+        result = await workflow.execute_workflow(workflow=ChildWorkflow, params=x)
+        return result
+"""
+
+
+def test_static_graph_uses_registered_workflow_names() -> None:
+    """The static builder reads the registered name from ``@workflow.define(name=...)``
+    for both the top-level workflow_name and the child_workflow link."""
+
+    def resolver(path: str) -> str | None:
+        return _NAMED_CHILD_WORKFLOW if path.endswith("child.py") else None
+
+    graphs = build_graph_statically(_NAMED_PARENT_WORKFLOW, "/work/parent.py", resolver)
+    assert graphs
+    graph = graphs[0]
+    assert graph.workflow_name == "parent-registered-name"
+    children = [n for n in graph.nodes if n.type == "child_workflow"]
+    assert len(children) == 1
+    node = children[0]
+    assert node.name == "child-registered-name"
+    assert node.child_workflow_id == "child-registered-name"
+    assert node.child_workflow_file == "/work/child.py"
+
+
+@workflow.define(name="child-dynamic-workflow")
+class ChildDynamicWorkflow:
+    @workflow.entrypoint
+    async def run(self, x: str) -> str:
+        return x
+
+
+@workflow.define(name="parent-dynamic-workflow")
+class ParentDynamicWorkflow:
+    @workflow.entrypoint
+    async def run(self, x: str) -> str:
+        result = await workflow.execute_workflow(workflow=ChildDynamicWorkflow, params=x)
+        return result
+
+
+def test_dynamic_graph_uses_registered_workflow_names() -> None:
+    """The dynamic builder identifies workflows by their registered name — what the
+    API/Atlas route by — for both the top-level graph and child_workflow links, not
+    the Python class name."""
+    child_name = get_workflow_definition(ChildDynamicWorkflow).name
+    parent_name = get_workflow_definition(ParentDynamicWorkflow).name
+    assert child_name != "ChildDynamicWorkflow"
+
+    graph = build_graph_dynamically(ParentDynamicWorkflow)
+    assert graph.workflow_name == parent_name
+
+    children = [n for n in graph.nodes if n.type == "child_workflow"]
+    assert len(children) == 1
+    node = children[0]
+    # Label, node id, and routing id all use the registered name.
+    assert node.name == child_name
+    assert node.child_workflow_id == child_name
+
+
+def test_flat_graph_round_trips_through_wire_format() -> None:
+    """Smoke test: every flat dict key must match AtlasWireFormat's Pydantic schema."""
+    source = """
+from mistralai.workflows import workflow
+
+@workflow.define
+class RoundTripWorkflow:
+    @workflow.entrypoint
+    async def run(self) -> str:
+        if True:
+            await self.step_a()
+        else:
+            await self.step_b()
+        return "done"
+
+    @workflow.activity
+    async def step_a(self) -> None:
+        pass
+
+    @workflow.activity
+    async def step_b(self) -> None:
+        pass
+"""
+    graphs = build_graph_statically(source, "/tmp/roundtrip.py", lambda path: None)
+    assert len(graphs) == 1
+    wire = graphs[0]
+    # Round-trip: dump to dict, validate back into model
+    roundtripped = AtlasWireFormat.model_validate(wire.model_dump())
+    assert roundtripped.workflow_name == wire.workflow_name
+    assert len(roundtripped.nodes) == len(wire.nodes)
+    assert len(roundtripped.edges) == len(wire.edges)
+
+
+def test_branch_descendants_includes_nested_conditional() -> None:
+    """branchDescendants is transitive: nodes from nested elif appear in the outer conditional."""
+    source = """
+from mistralai.workflows import workflow
+
+@workflow.define
+class NestedElifWorkflow:
+    @workflow.entrypoint
+    async def run(self) -> None:
+        if True:
+            await self.step_a()
+        elif True:
+            await self.step_b()
+        else:
+            await self.step_c()
+
+    @workflow.activity
+    async def step_a(self) -> None:
+        pass
+
+    @workflow.activity
+    async def step_b(self) -> None:
+        pass
+
+    @workflow.activity
+    async def step_c(self) -> None:
+        pass
+"""
+    graphs = build_graph_statically(source, "/tmp/elif.py", lambda path: None)
+    assert len(graphs) == 1
+    cond_nodes = [n for n in graphs[0].nodes if n.type == "conditional"]
+    assert len(cond_nodes) >= 1
+    outer = cond_nodes[0]
+    # branchDescendants is transitive: the nested elif's nodes are included
+    assert outer.branchDescendants is not None
+    assert len(outer.branchDescendants) > 0
+
+
+# ---------------------------------------------------------------------------
+# sleep nodes
+# ---------------------------------------------------------------------------
+
+
+_WITH_SLEEP = """
+from datetime import timedelta
+
+from mistralai.workflows import workflow
+
+
+@workflow.define
+class SleepingWorkflow:
+    @workflow.entrypoint
+    async def run(self) -> None:
+        await workflow.sleep(timedelta(hours=1))
+"""
+
+
+def test_sleep_emits_sleep_node() -> None:
+    graph = build_graph_statically(_WITH_SLEEP, "/tmp/workflow.py", lambda path: None)[0]
+    sleeps = [n for n in graph.nodes if n.type == "sleep"]
+    assert len(sleeps) == 1
+    assert "timedelta(hours=1)" in sleeps[0].name
+
+
+_WITH_ASYNCIO_SLEEP = """
+import asyncio
+
+from mistralai.workflows import workflow
+
+
+@workflow.define
+class AsyncioSleepWorkflow:
+    @workflow.entrypoint
+    async def run(self) -> None:
+        await asyncio.sleep(5)
+"""
+
+
+def test_asyncio_sleep_emits_sleep_node() -> None:
+    graph = build_graph_statically(_WITH_ASYNCIO_SLEEP, "/tmp/workflow.py", lambda path: None)[0]
+    sleeps = [n for n in graph.nodes if n.type == "sleep"]
+    assert len(sleeps) == 1
+    assert "5" in sleeps[0].name

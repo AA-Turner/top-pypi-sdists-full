@@ -72,3 +72,9 @@ class DataDiffSimpleSelectNotFound(Exception):
 
 class DataDiffMismatchingKeyTypesError(Exception):
     "Raised when the key types of two tables do not match, like VARCHAR and INT."
+
+
+# Subclasses ValueError because it replaces the ValueError previously raised from
+# _parse_key_range_result — keeps the exception contract for existing callers.
+class DataDiffUnsupportedKeyValueError(ValueError):
+    "Raised when a key column holds values that cannot be mapped to a bisectable range (e.g. text keys with '.', accents or other non-ASCII characters)."

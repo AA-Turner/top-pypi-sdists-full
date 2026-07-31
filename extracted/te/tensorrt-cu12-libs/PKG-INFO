@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: tensorrt_cu12_libs
-Version: 11.1.0.106
+Version: 11.2.1.2
 Summary: TensorRT Libraries
 Author: NVIDIA Corporation
 License: Proprietary
@@ -12,5 +12,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
 Description-Content-Type: text/plain
 License-File: LICENSE.txt
+Dynamic: license-file
 
 TensorRT Libraries

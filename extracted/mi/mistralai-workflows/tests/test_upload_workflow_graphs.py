@@ -27,8 +27,10 @@ def _fake_graph() -> AtlasWireFormat:
 FAKE_GRAPH = _fake_graph()
 
 _SUMMARISE_PATH = "mistralai.workflows.core.graph_summaries.summarise_workflow"
+_SUMMARY_CONFIG_PATH = "mistralai.workflows.core.worker._get_summary_config"
 
 _NO_SUMMARIES = patch(_SUMMARISE_PATH, AsyncMock(return_value=SummaryResult(status="ready", summaries={})))
+_MOCK_SUMMARY_CONFIG = patch(_SUMMARY_CONFIG_PATH, return_value=(MagicMock(), "mistral-small-latest"))
 
 
 def _make_ref(workflow_id=None, registration_id=None) -> WorkflowRegistrationRef:
@@ -59,18 +61,27 @@ class FakeWorkflow:
     __name__ = "FakeWorkflow"
 
 
+_workflow_definition = MagicMock(name="FakeWorkflow")
+_workflow_definition.name = "FakeWorkflow"
+setattr(FakeWorkflow, "__workflows_workflow_def", _workflow_definition)
+
+
 class TestUploadWorkflowGraphs:
     async def test_posts_correct_body(self) -> None:
         client = _make_client()
         ref = _make_ref()
 
-        with patch("mistralai.workflows.core._graph.build_graph_dynamically", return_value=FAKE_GRAPH), _NO_SUMMARIES:
+        with (
+            patch("mistralai.workflows.core._graph.build_graph_dynamically", return_value=FAKE_GRAPH),
+            _NO_SUMMARIES,
+            _MOCK_SUMMARY_CONFIG,
+        ):
             await _upload_workflow_graphs(refs=[ref], classes=[FakeWorkflow], client=client)
 
         http_client = client.sdk_configuration.async_client
         http_client.send.assert_called_once()
         sent_request: httpx.Request = http_client.send.call_args[0][0]
-        assert str(sent_request.url) == f"http://api.example.com/v1/workflows/{WF_ID}/graphs"
+        assert str(sent_request.url) == "http://api.example.com/v1/workflows/FakeWorkflow/graphs"
         body = json.loads(sent_request.content)
         assert body["workflow_registration_id"] == str(REG_ID)
         assert body["version"] == 3
@@ -95,7 +106,11 @@ class TestUploadWorkflowGraphs:
         client = _make_client(status_code=500)
         ref = _make_ref()
 
-        with patch("mistralai.workflows.core._graph.build_graph_dynamically", return_value=FAKE_GRAPH), _NO_SUMMARIES:
+        with (
+            patch("mistralai.workflows.core._graph.build_graph_dynamically", return_value=FAKE_GRAPH),
+            _NO_SUMMARIES,
+            _MOCK_SUMMARY_CONFIG,
+        ):
             await _upload_workflow_graphs(refs=[ref], classes=[FakeWorkflow], client=client)
 
         client.sdk_configuration.async_client.send.assert_called_once()
@@ -106,6 +121,7 @@ class TestUploadWorkflowGraphs:
         with (
             patch("mistralai.workflows.core._graph.build_graph_dynamically", return_value=FAKE_GRAPH) as mock_build,
             _NO_SUMMARIES,
+            _MOCK_SUMMARY_CONFIG,
         ):
             await _upload_workflow_graphs(refs=[], classes=[], client=client)
 
@@ -117,18 +133,25 @@ class TestUploadWorkflowGraphs:
         refs = [_make_ref(uuid4(), uuid4()), _make_ref(uuid4(), uuid4())]
         classes = [FakeWorkflow, FakeWorkflow]
 
-        with patch("mistralai.workflows.core._graph.build_graph_dynamically", return_value=FAKE_GRAPH), _NO_SUMMARIES:
+        with (
+            patch("mistralai.workflows.core._graph.build_graph_dynamically", return_value=FAKE_GRAPH),
+            _NO_SUMMARIES,
+            _MOCK_SUMMARY_CONFIG,
+        ):
             await _upload_workflow_graphs(refs=refs, classes=classes, client=client)
 
         assert client.sdk_configuration.async_client.send.call_count == 2
 
     async def test_fewer_refs_than_classes_sends_only_matched(self) -> None:
-        # Shouldn't happen (_run_worker guards against it), but _upload_workflow_graphs is safe via zip truncation.
         client = _make_client()
         refs = [_make_ref()]
         classes = [FakeWorkflow, FakeWorkflow]
 
-        with patch("mistralai.workflows.core._graph.build_graph_dynamically", return_value=FAKE_GRAPH), _NO_SUMMARIES:
+        with (
+            patch("mistralai.workflows.core._graph.build_graph_dynamically", return_value=FAKE_GRAPH),
+            _NO_SUMMARIES,
+            _MOCK_SUMMARY_CONFIG,
+        ):
             await _upload_workflow_graphs(refs=refs, classes=classes, client=client)
 
         assert client.sdk_configuration.async_client.send.call_count == 1
@@ -141,6 +164,7 @@ class TestUploadWorkflowGraphs:
         with (
             patch("mistralai.workflows.core._graph.build_graph_dynamically", return_value=_fake_graph()),
             patch(_SUMMARISE_PATH, AsyncMock(return_value=SummaryResult(status="ready", summaries=mock_summaries))),
+            _MOCK_SUMMARY_CONFIG,
         ):
             await _upload_workflow_graphs(refs=[ref], classes=[FakeWorkflow], client=client)
 
@@ -161,13 +185,29 @@ class TestUploadWorkflowGraphs:
                 _SUMMARISE_PATH,
                 AsyncMock(side_effect=SummariseError("LLM down")),
             ),
+            _MOCK_SUMMARY_CONFIG,
         ):
             await _upload_workflow_graphs(refs=[ref], classes=[FakeWorkflow], client=client)
 
         sent_request: httpx.Request = client.sdk_configuration.async_client.send.call_args[0][0]
         body = json.loads(sent_request.content)
-        # Build succeeded, so the graph is still uploaded (just without summaries),
-        # but the summary error is now surfaced in the payload's error field.
         assert body["graph_data"] is not None
         assert "node_summaries" not in body["graph_data"]
         assert "LLM down" in body["error"]
+
+    async def test_summaries_skipped_when_client_none(self) -> None:
+        client = _make_client()
+        ref = _make_ref()
+
+        with (
+            patch("mistralai.workflows.core._graph.build_graph_dynamically", return_value=_fake_graph()),
+            patch(_SUMMARISE_PATH) as mock_summarise,
+            patch(_SUMMARY_CONFIG_PATH, return_value=None),
+        ):
+            await _upload_workflow_graphs(refs=[ref], classes=[FakeWorkflow], client=client)
+
+        mock_summarise.assert_not_called()
+        sent_request: httpx.Request = client.sdk_configuration.async_client.send.call_args[0][0]
+        body = json.loads(sent_request.content)
+        assert body["graph_data"] is not None
+        assert body["error"] is None

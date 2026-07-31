@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hadolint_coatl
-Version: 2.14.0
+Version: 2.15.0.1
 Summary: Python wrapper around invoking hadolint (https://github.com/hadolint/hadolint)
 Home-page: https://github.com/coatl-dev/hadolint-coatl
 Author: César Román
@@ -9,11 +9,10 @@ License: MIT
 Project-URL: Funding, https://github.com/sponsors/cesarcoatl
 Project-URL: Source, https://github.com/coatl-dev/hadolint-coatl
 Project-URL: Tracker, https://github.com/coatl-dev/hadolint-coatl/issues
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Dynamic: license-file
@@ -48,7 +47,7 @@ Sample `.pre-commit-config.yaml`:
 
 ```yaml
   - repo: https://github.com/coatl-dev/hadolint-coatl
-    rev: 2.14.0
+    rev: 2.15.0.1
     hooks:
       - id: hadolint
 ```

@@ -11,7 +11,11 @@ from typing import Optional
 
 import httpx
 
-STARTER_PACK_API = "https://j.gravelle.us/jCodeMunch/starter-packs-system/api/index.php"
+# The packs are built by the jcodemunch-starter-packs CI job, which deploys to
+# jcodemunch.com. The legacy j.gravelle.us copy is no longer refreshed and served
+# an April build for months after the pipeline moved -- a stale artifact reads as
+# a working one, so the host that CI writes to is the only correct value here.
+STARTER_PACK_API = "https://jcodemunch.com/starter-packs-system/api/index.php"
 
 # ANSI helpers
 _BOLD = "\033[1m"
@@ -97,7 +101,12 @@ def _list_packs() -> int:
         symbols = pack.get("symbols", 0)
         size = pack.get("size", "")
         free = pack.get("free", False)
-        download_url = pack.get("download_url", "")
+        # Composed here, not taken from the catalog's own `download_url`. The
+        # server writes that field, and when the two disagree the printed line
+        # is the one a user copies -- which is how a stale host kept handing out
+        # its own address after the client had moved off it. This URL is the one
+        # `install-pack` will actually fetch, by construction.
+        download_url = f"{STARTER_PACK_API}?action=download&pack={pack_id}"
 
         tag = f"{_GREEN}  FREE  {_RESET}" if free else f"{_YELLOW} LICENSE {_RESET}"
         print(f"  {tag}  {pack_id:<20s}  {_BOLD}{name}{_RESET}")
@@ -116,7 +125,7 @@ def _list_packs() -> int:
         print()
 
     print(f"  {_DIM}Free packs require no license. Licensed packs require a jCodeMunch license.{_RESET}")
-    print(f"  {_DIM}Get a license: https://j.gravelle.us/jCodeMunch/#pricing{_RESET}")
+    print(f"  {_DIM}Get a license: https://jcodemunch.com/#pricing{_RESET}")
     print()
     return 0
 

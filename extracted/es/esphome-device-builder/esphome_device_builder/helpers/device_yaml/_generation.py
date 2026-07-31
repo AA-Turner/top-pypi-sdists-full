@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import base64
 import secrets
-import string
 from typing import TYPE_CHECKING, Any
 
 from ...definitions import load_platform_capabilities_index
 from ...models.boards import RP2_CANONICAL_PLATFORM, Connectivity
+from ..secrets_state import WIFI_PASSWORD_SECRET_REF, WIFI_SSID_SECRET_REF
 from ..yaml import (
     _safe_yaml_scalar,
+    fallback_ap_psk,
     fallback_ap_ssid,
     generate_api_encryption_key,
     merge_component_yaml,
@@ -37,14 +38,10 @@ _WIFI_FIRST_PLATFORMS: frozenset[str] = frozenset(
     {"esp8266", "bk72xx", "rtl87xx", "ln882x", "libretiny"}
 )
 
-# Fallback-hotspot psk alphabet + length, mirroring esphome's wizard.
-_AP_PSK_ALPHABET = string.ascii_letters + string.digits
-_AP_PSK_LENGTH = 12
-
 # Platforms supporting ``captive_portal:`` (esphome's ``cv.only_on``
 # allowlist). The fallback is emitted only here; a bare ``ap:`` without
 # a portal can't recover credentials, so other platforms get neither.
-_CAPTIVE_PORTAL_PLATFORMS: frozenset[str] = frozenset(
+CAPTIVE_PORTAL_PLATFORMS: frozenset[str] = frozenset(
     {"esp8266", "esp32", "bk72xx", "ln882x", RP2_CANONICAL_PLATFORM, "rtl87xx"}
 )
 
@@ -349,7 +346,7 @@ def _wifi_credentials_lines(ssid: str, psk: str) -> list[str]:
     """
     if ssid:
         return [f"  ssid: {_safe_yaml_scalar(ssid)}", f"  password: {_safe_yaml_scalar(psk)}"]
-    return ["  ssid: !secret wifi_ssid", "  password: !secret wifi_password"]
+    return [f"  ssid: {WIFI_SSID_SECRET_REF}", f"  password: {WIFI_PASSWORD_SECRET_REF}"]
 
 
 def _infer_native_wifi(board: BoardCatalogEntry) -> bool:
@@ -363,7 +360,7 @@ def _infer_native_wifi(board: BoardCatalogEntry) -> bool:
 
     1. Platform ``esp32`` + variant in ESPHome's ``NO_WIFI_VARIANTS``
        (currently ``esp32h2`` / ``esp32p4``) → False.
-    2. Platform ``rp2040`` → True only when the PlatformIO board id
+    2. Platform ``rp2`` → True only when the PlatformIO board id
        is in ESPHome's RP2040 ``BOARDS`` table marked ``"wifi": True``
        (the Pico W / Pico 2 W / Pimoroni / SparkFun / Waveshare W
        variants — the plain Pico, plain Pico 2, Seeed XIAO RP2040,
@@ -422,7 +419,7 @@ def _append_platform_block(
                 # is set.
                 lines.extend(("    advanced:", "      enable_idf_experimental_features: true"))
     else:
-        # esp8266, rp2040, bk72xx, rtl87xx, ln882x, nrf52 — board is required
+        # esp8266, rp2, bk72xx, rtl87xx, ln882x, nrf52 — board is required
         lines.append(f"  board: {esphome_cfg.board}")
     lines.append("")
 
@@ -523,23 +520,22 @@ def generate_minimal_stub_yaml(
         f'    key: "{api_key}"\n\n'
         "ota:\n  - platform: esphome\n\n"
         "wifi:\n"
-        "  ssid: !secret wifi_ssid\n"
-        "  password: !secret wifi_password\n"
+        f"  ssid: {WIFI_SSID_SECRET_REF}\n"
+        f"  password: {WIFI_PASSWORD_SECRET_REF}\n"
         f"{recovery}"
     )
 
 
 def _fallback_recovery_lines(label: str, platform: str) -> list[str]:
     """Fallback hotspot + ``captive_portal:`` recovery lines; bare separator where unsupported."""
-    if platform not in _CAPTIVE_PORTAL_PLATFORMS:
+    if platform not in CAPTIVE_PORTAL_PLATFORMS:
         # No captive portal → no fallback, but keep the wifi block's
         # trailing blank-line separator from the unconditional old path.
         return [""]
-    psk = "".join(secrets.choice(_AP_PSK_ALPHABET) for _ in range(_AP_PSK_LENGTH))
     return [
         "  ap:",
         f"    ssid: {_safe_yaml_scalar(fallback_ap_ssid(label))}",
-        f'    password: "{psk}"',
+        f'    password: "{fallback_ap_psk()}"',
         "",
         "captive_portal:",
         "",

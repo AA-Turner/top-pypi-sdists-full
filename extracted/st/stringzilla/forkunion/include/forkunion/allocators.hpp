@@ -67,10 +67,11 @@ FU_MAYBE_UNUSED_ static inline void *linux_numa_allocate(std::size_t size_bytes,
     void *result_ptr = ::mmap(nullptr, size_bytes, PROT_READ | PROT_WRITE, mmap_flags, -1, 0);
     if (result_ptr == MAP_FAILED) return nullptr; // ! Allocation failed
 
-    if (!linux_numa_bind(result_ptr, size_bytes, memory_domain_id)) {
-        ::munmap(result_ptr, size_bytes); // ? Unbind failed, clean up
-        return nullptr;                   // ! Binding failed
-    }
+    // Binding is best-effort. The pages are already validly mapped; a kernel that refuses `mbind` -
+    // qemu-user answers ENOSYS, a seccomp sandbox EPERM - still gave us memory, just placed by the
+    // default policy rather than pinned to this domain. Discarding it would fail an allocation that in
+    // fact succeeded; `runtime_capabilities()` is where a caller learns placement was unavailable.
+    linux_numa_bind(result_ptr, size_bytes, memory_domain_id);
     return result_ptr;
 
 #else
@@ -260,10 +261,9 @@ FU_MAYBE_UNUSED_ static inline void *linux_symmetric_allocate(machine_topology_t
             memory_domain_id_t const memory_domain_id =
                 topology.memory_domain_at(static_cast<memory_domain_index_t>(domain)).memory_domain_id;
             void *slice = static_cast<char *>(base) + domain * stride_bytes;
-            if (!linux_numa_bind(slice, stride_bytes, memory_domain_id)) {
-                ::munmap(base, total_bytes); // ? A slice would not bind; clean up
-                return nullptr;              // ! Binding failed
-            }
+            // Best-effort, as in `linux_numa_allocate`: the slice is validly mapped, and a kernel that
+            // refuses `mbind` still gave us distinct memory - default placement, not a failed allocation.
+            linux_numa_bind(slice, stride_bytes, memory_domain_id);
         }
     return base;
 #else
@@ -668,8 +668,8 @@ using freebsd_symmetric_allocator_t = freebsd_symmetric_allocator<>;
  *  @brief Enables `SeLockMemoryPrivilege` for the current process, needed before large-page allocation.
  *  @retval true if the privilege is now held by the process token.
  *  @note This only @b enables a privilege the account already holds; the account must first be granted
- *        "Lock pages in memory" (Local Security Policy / `SeLockMemoryPrivilege`), typically by an admin.
- *        Call once at start-up, then construct a `windows_numa_allocator` with `large_pages = true`.
+ *      "Lock pages in memory" (Local Security Policy / `SeLockMemoryPrivilege`), typically by an admin.
+ *      Call once at start-up, then construct a `windows_numa_allocator` with `large_pages = true`.
  */
 FU_MAYBE_UNUSED_ static inline bool windows_enable_lock_memory_privilege() noexcept {
 #if FU_ON_WINDOWS
@@ -815,7 +815,7 @@ struct windows_numa_allocator {
      *  @return allocation_result with a pointer to the allocated memory and the number of elements allocated.
      *  @retval empty object if the allocation failed.
      *  @note Unlike `linux_numa_allocator` there is no huge-page ladder: `VirtualAllocExNuma` commits at
-     *        the base page size, or the large-page size when `large_pages` is set on this allocator.
+     *      the base page size, or the large-page size when `large_pages` is set on this allocator.
      */
     allocation_result<value_type *, size_type> allocate_at_least(size_type size) noexcept {
         size_type const page_size_bytes = default_page_size_ ? default_page_size_ : ram_page_size();

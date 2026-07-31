@@ -223,6 +223,8 @@ def main(url: str):
     output = None
     error = ""
 
+    print("gallery-dl download started", flush=True)
+
     try:
         config = load_config(hydrate_binaries=False)
 

@@ -1355,6 +1355,30 @@ class SetDatasetRevisionMetadataResponse(BaseModel):
     errors: Optional[List[ChalkError]] = None
 
 
+class DatasetIcebergConversionResponse(BaseModel):
+    """Result of promoting a dataset revision to a self-contained Iceberg table.
+
+    Returned by :meth:`chalk.client.Dataset.promote_to_iceberg` /
+    :meth:`chalk.client.DatasetRevision.promote_to_iceberg`. The revision's parquet is registered
+    in place (no data is rewritten); ``metadata_location`` points at the Iceberg ``metadata.json``.
+
+    The table is self-contained and is **not** registered in any Iceberg catalog — you are
+    responsible for registering ``metadata_location`` in your own catalog (Glue, Polaris, BigLake,
+    etc.) if you want catalog-managed, name-based discovery. A failed promotion raises rather than
+    returning this model.
+    """
+
+    revision_id: str
+    table_location: str
+    metadata_location: str
+    num_data_files: int
+    num_rows: int
+    # Read back from the written metadata.json; may be None if that read-back fails. Iceberg
+    # snapshot ids are 63-bit longs, returned as a string to avoid JSON/JS integer-precision loss.
+    snapshot_id: Optional[str]
+    table_uuid: Optional[str]
+
+
 class DatasetRecomputeResponse(DatasetRevisionResponse):
     num_computers: Literal[1] = 1  # pyright: ignore[reportIncompatibleVariableOverride]
 

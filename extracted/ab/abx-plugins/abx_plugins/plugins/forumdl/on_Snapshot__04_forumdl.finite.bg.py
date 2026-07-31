@@ -189,6 +189,8 @@ def main(url: str):
     output = None
     error = ""
 
+    print("forum-dl download started", flush=True)
+
     try:
         config = load_config()
 

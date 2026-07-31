@@ -2682,6 +2682,13 @@ async def api_status(
         None, description='Filter requests by cluster name.'),
 ) -> List[payloads.RequestPayload]:
     """Gets the list of requests."""
+    # `fields` is caller-supplied and ends up in the SQL column list. Reject an
+    # unknown column here so the client gets a 400 instead of a 500 from the
+    # query layer.
+    try:
+        requests_lib.validate_fields(fields)
+    except ValueError as e:
+        raise fastapi.HTTPException(status_code=400, detail=str(e)) from e
     if request_ids is None:
         statuses = None
         if not all_status:
@@ -3151,6 +3158,31 @@ async def kubernetes_pod_ssh_proxy(websocket: fastapi.WebSocket,
             await loop.run_in_executor(None, proc.wait)
 
 
+def _build_slurm_job_ssh_command(
+    provider_config: Dict[str, Any],
+    job_id: str,
+    target_node: str,
+    cluster_name_on_cloud: str,
+    is_container_image: bool,
+) -> str:
+    login_node_user = provider_config['ssh']['user']
+    slurm_user = provider_config.get('slurm_user')
+    sshd_user = slurm_user if slurm_user is not None else login_node_user
+    if is_container_image:
+        sshd_user = 'root'
+    command = slurm_utils.srun_sshd_command(
+        job_id,
+        target_node,
+        sshd_user,
+        cluster_name_on_cloud,
+        is_container_image,
+    )
+    if slurm_user is not None:
+        command = command_runner.wrap_command_as_user(
+            command, slurm_user, use_sudo=login_node_user != 'root')
+    return command
+
+
 @app.websocket('/slurm-job-ssh-proxy')
 async def slurm_job_ssh_proxy(websocket: fastapi.WebSocket,
                               cluster_name: str,
@@ -3215,10 +3247,10 @@ async def slurm_job_ssh_proxy(websocket: fastapi.WebSocket,
     ) is not None
     ssh_cmd += [
         shlex.quote(
-            slurm_utils.srun_sshd_command(
+            _build_slurm_job_ssh_command(
+                provider_config,
                 job_id,
                 target_node,
-                login_node_user,
                 handle.cluster_name_on_cloud,
                 is_container_image,
             ))

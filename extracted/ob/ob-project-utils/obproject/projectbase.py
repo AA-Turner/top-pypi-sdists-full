@@ -174,6 +174,22 @@ class ProjectContext:
             payload
         )
 
+    @staticmethod
+    def _artifact_annotations(artifact, annotations):
+        """Annotations for an artifact-kind asset. User keys win.
+
+        run_pathspec duplicates created_by, which promotion rewrites; annotations
+        are copied forward on every hop.
+        """
+        from metaflow import current
+
+        merged = {"artifact": artifact}
+        if current.is_running_flow and current.pathspec:
+            merged["run_pathspec"] = current.pathspec
+        if annotations:
+            merged.update(annotations)
+        return merged
+
     def register_data(self, name, artifact, annotations=None, tags=None, description=None):
         """
         Register a Metaflow artifact as a data asset.
@@ -195,10 +211,7 @@ class ProjectContext:
                 tags={"version": "v2", "source": "postgres"})
         """
         if hasattr(self.flow, artifact):
-            # Merge user annotations with artifact reference
-            all_annotations = {"artifact": artifact}
-            if annotations:
-                all_annotations.update(annotations)
+            all_annotations = self._artifact_annotations(artifact, annotations)
 
             self._write_asset.register_data_asset(
                 name,
@@ -282,10 +295,7 @@ class ProjectContext:
                 tags={"framework": "sklearn", "status": "validated"})
         """
         if hasattr(self.flow, artifact):
-            # Merge user annotations with artifact reference
-            all_annotations = {"artifact": artifact}
-            if annotations:
-                all_annotations.update(annotations)
+            all_annotations = self._artifact_annotations(artifact, annotations)
 
             self._write_asset.register_model_asset(
                 name,

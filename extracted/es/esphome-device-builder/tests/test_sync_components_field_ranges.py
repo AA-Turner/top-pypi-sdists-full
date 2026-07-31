@@ -30,6 +30,7 @@ real upstream shapes.
 
 from __future__ import annotations
 
+import importlib
 import json
 from pathlib import Path
 
@@ -38,11 +39,16 @@ import pytest
 import voluptuous as vol
 
 from script.sync_components import (  # type: ignore[import-not-found]
+    _AUTOMATIONS_BODIES_DIR,
     _MACHINE_DERIVED_RANGE_FIELDS,
     _apply_field_ranges,
+    _collect_automation_field_ranges,
+    _collect_bleed_keys,
     _collect_field_ranges,
+    _field_ranges_in_schema,
     _numeric_range_bounds,
     _platform_field_keys,
+    _shed_range_bleed,
     _walk_entries,
     introspect_component,
 )
@@ -225,8 +231,8 @@ def test_collect_returns_empty_when_manifest_has_no_schema() -> None:
 def test_apply_overlays_range_onto_matching_entry() -> None:
     """The applier writes the bounds onto the entry's ``range`` key."""
     entries = [
-        {"key": "connection_slots", "range": None, "config_entries": []},
-        {"key": "active", "range": None, "config_entries": []},
+        {"key": "connection_slots", "type": "integer", "range": None, "config_entries": []},
+        {"key": "active", "type": "boolean", "range": None, "config_entries": []},
     ]
     _apply_field_ranges(entries, {("connection_slots",): (1, 15)})
     by_key = {e["key"]: e for e in entries}
@@ -244,7 +250,7 @@ def test_apply_overrides_existing_static_range() -> None:
     actually has to satisfy at compile time and should win.
     """
     entries = [
-        {"key": "byte_field", "range": [0, 255], "config_entries": []},
+        {"key": "byte_field", "type": "integer", "range": [0, 255], "config_entries": []},
     ]
     _apply_field_ranges(entries, {("byte_field",): (10, 200)})
     assert entries[0]["range"] == [10, 200]
@@ -256,12 +262,24 @@ def test_apply_walks_nested_paths() -> None:
         {
             "key": "outer",
             "config_entries": [
-                {"key": "inner", "range": None, "config_entries": []},
+                {"key": "inner", "type": "float", "range": None, "config_entries": []},
             ],
         },
     ]
     _apply_field_ranges(entries, {("outer", "inner"): (5, 50)})
     assert entries[0]["config_entries"][0]["range"] == [5, 50]
+
+
+def test_apply_skips_non_numeric_entries() -> None:
+    """A bound never lands on an entry whose input can't render it."""
+    entries = [
+        {"key": "buffer_size", "type": "string", "range": None, "config_entries": []},
+        {"key": "duty", "type": "float_with_unit", "range": None, "config_entries": []},
+    ]
+    _apply_field_ranges(entries, {("buffer_size",): (0.12, 1.0), ("duty",): (1, 100)})
+    by_key = {e["key"]: e for e in entries}
+    assert by_key["buffer_size"]["range"] is None
+    assert by_key["duty"]["range"] == [1, 100]
 
 
 def test_apply_is_a_no_op_with_empty_ranges() -> None:
@@ -346,18 +364,32 @@ def test_per_domain_bleed_does_not_aggregate_across_platforms() -> None:
     sibling domain bounds the same key.
     """
     hub = _FakeManifest({cv.Optional("address"): cv.hex_uint8_t})
-    bounded = _FakeManifest({cv.Optional("address"): cv.All(cv.int_, cv.Range(min=5, max=48))})
+    bounded = _FakeManifest({cv.Optional("address"): cv.All(cv.int_, cv.Range(min=0, max=255))})
     unbounded = _FakeManifest({cv.Optional("address"): cv.positive_int})
-    hub_ranges = _collect_field_ranges(hub)
-    bleed: dict[str, set] = {}
-    for domain, pm in (("a", bounded), ("b", unbounded)):
-        keys = _platform_field_keys([pm])
-        pbounded = set(_collect_field_ranges(pm))
-        bled = {p for p in hub_ranges if p in keys and p not in pbounded}
-        if bled:
-            bleed[domain] = bled
-    assert ("address",) not in bleed.get("a", set())  # a bounds it -> keep
-    assert ("address",) in bleed.get("b", set())  # b unbounded -> shed
+    bleed, _refined = _collect_bleed_keys(hub, [("a", bounded), ("b", unbounded)])
+    assert ("address",) not in bleed.get("a", {})  # a bounds it identically -> keep
+    assert ("address",) in bleed.get("b", {})  # b unbounded -> shed
+
+
+def test_divergent_platform_bound_is_shed_with_substitute() -> None:
+    """A shed path the platform bounds differently maps to the platform's own bounds."""
+    hub = _FakeManifest({cv.Optional("address"): cv.hex_uint8_t})
+    divergent = _FakeManifest({cv.Optional("address"): cv.All(cv.int_, cv.Range(min=5, max=48))})
+    unbounded = _FakeManifest({cv.Optional("address"): cv.positive_int})
+    bleed, _refined = _collect_bleed_keys(hub, [("a", divergent), ("b", unbounded)])
+    assert bleed["a"][("address",)] == (5, 48)
+    assert bleed["b"][("address",)] is None
+
+
+def test_shed_range_bleed_substitutes_and_drops() -> None:
+    """The shed keeps unshed paths, substitutes platform bounds, drops the rest."""
+    field_ranges = {
+        ("kept",): (0, 255),
+        ("substituted",): (0, 255),
+        ("dropped",): (0, 255),
+    }
+    shed = _shed_range_bleed(field_ranges, {("substituted",): (5, 48), ("dropped",): None})
+    assert shed == {("kept",): (0, 255), ("substituted",): (5, 48)}
 
 
 def test_no_platform_component_has_no_range_bleed() -> None:
@@ -379,3 +411,73 @@ def test_committed_catalog_ships_machine_derived_fields_unbounded() -> None:
         body = json.loads((_BODIES_DIR / f"{component_id}.json").read_text(encoding="utf-8"))
         entries_by_path = dict(_walk_entries(body["config_entries"]))
         assert entries_by_path[path].get("range") is None, (component_id, path)
+
+
+def test_shipped_catalog_mipi_spi_buffer_size_has_no_range() -> None:
+    """The rescaling ``cv.percentage`` field ships rangeless on its string entry."""
+    body = json.loads((_BODIES_DIR / "display.mipi_spi.json").read_text(encoding="utf-8"))
+    entry = next(e for e in body["config_entries"] if e["key"] == "buffer_size")
+    assert entry["type"] == "string"
+    assert entry.get("range") is None
+
+
+def test_shipped_catalog_ranges_only_on_numeric_entries() -> None:
+    """No shipped entry carries a ``range`` its input type can't render."""
+    violations = []
+    for body_path in sorted(_BODIES_DIR.glob("*.json")):
+        body = json.loads(body_path.read_text(encoding="utf-8"))
+        for path, entry in _walk_entries(body.get("config_entries") or []):
+            if entry.get("range") is not None and entry.get("type") not in (
+                "integer",
+                "float",
+                "float_with_unit",
+            ):
+                violations.append((body_path.name, ".".join(path), entry.get("type")))
+    assert not violations
+
+
+def test_apply_warns_on_dropped_bounds(caplog: pytest.LogCaptureFixture) -> None:
+    """A dropped bound names the component and field — the mistype signal."""
+    entries = [
+        {"key": "memory_address", "type": "string", "range": None, "config_entries": []},
+    ]
+    with caplog.at_level("WARNING"):
+        _apply_field_ranges(entries, {("memory_address",): (0, 255)}, "sensor.micronova")
+    assert "sensor.micronova" in caplog.text
+    assert "memory_address (string)" in caplog.text
+
+
+def test_field_ranges_in_schema_accepts_bare_schema() -> None:
+    """The schema-accepting core walks a schema with no manifest wrapper."""
+    schema = cv.Schema({cv.Required("level"): cv.int_range(min=1, max=15)})
+    assert _field_ranges_in_schema(schema) == {("level",): (1, 15)}
+
+
+def test_collect_automation_field_ranges_live() -> None:
+    """The live action registry yields canbus.send's 29-bit can_id bound."""
+    importlib.import_module("esphome.components.canbus")
+    ranges = _collect_automation_field_ranges()
+    assert ranges["action"]["canbus.send"][("can_id",)] == (0, 0x1FFFFFFF)
+
+
+def test_shipped_automations_canbus_send_carries_range() -> None:
+    """The generated canbus.send body bounds can_id."""
+    body_path = _AUTOMATIONS_BODIES_DIR / "actions" / "canbus.send.json"
+    body = json.loads(body_path.read_text(encoding="utf-8"))
+    entry = next(e for e in body["config_entries"] if e["key"] == "can_id")
+    assert entry["type"] == "integer"
+    assert entry["range"] == [0, 536870911]
+
+
+def test_numeric_range_bounds_peels_templatable() -> None:
+    """Bounds inside a ``cv.templatable`` wrapper are collected."""
+    assert _numeric_range_bounds(cv.templatable(cv.int_range(min=1, max=100))) == (1, 100)
+    assert _numeric_range_bounds(
+        cv.All(cv.templatable(cv.All(cv.positive_int, cv.Range(min=1, max=15))))
+    ) == (1, 15)
+
+
+def test_numeric_range_bounds_drops_js_unsafe_bounds() -> None:
+    """A bound beyond 2**53 - 1 is omitted; it is imprecise after JSON.parse."""
+    assert _numeric_range_bounds(vol.Range(min=0, max=2**64 - 1)) is None
+    assert _numeric_range_bounds(vol.Range(min=0, max=2**53 - 1)) == (0, 2**53 - 1)

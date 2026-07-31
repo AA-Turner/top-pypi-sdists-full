@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ttkbootstrap
-Version: 2.0.1
+Version: 2.1.0
 Summary: A supercharged theme extension for tkinter that enables on-demand modern flat style themes inspired by Bootstrap.
 Author-email: Israel Dryer <israel.dryer@gmail.com>
 License-Expression: MIT AND (Apache-2.0 OR BSD-2-Clause)
@@ -25,6 +25,7 @@ License-File: LICENSE
 Requires-Dist: pillow<13,>=10
 Dynamic: license-file
 
+[![CI](https://github.com/israel-dryer/ttkbootstrap/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/israel-dryer/ttkbootstrap/actions/workflows/ci.yml)
 ![](https://img.shields.io/github/release/israel-dryer/ttkbootstrap.svg)
 [![Downloads](https://pepy.tech/badge/ttkbootstrap)](https://pepy.tech/project/ttkbootstrap)
 [![Downloads](https://pepy.tech/badge/ttkbootstrap/month)](https://pepy.tech/project/ttkbootstrap)

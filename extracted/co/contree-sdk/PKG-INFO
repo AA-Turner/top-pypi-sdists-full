@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: contree-sdk
-Version: 0.3.4
+Version: 0.3.5
 Summary: SDK for ConTree container runtime with versioned filesystem state
 License: Apache-2.0
 License-File: LICENSE
@@ -19,7 +19,9 @@ Requires-Dist: httpx
 Requires-Dist: strenum
 Requires-Dist: typing-extensions; python_version < '3.13'
 Provides-Extra: dev
+Requires-Dist: deepagents; (python_version >= '3.11') and extra == 'dev'
 Requires-Dist: dprint-py; extra == 'dev'
+Requires-Dist: langchain-tests>=1.1.9; (python_version >= '3.11') and extra == 'dev'
 Requires-Dist: pytest-asyncio; extra == 'dev'
 Requires-Dist: pytest-cov; extra == 'dev'
 Requires-Dist: pytest-examples; extra == 'dev'
@@ -36,11 +38,15 @@ Requires-Dist: tomli; (python_version < '3.11') and extra == 'dev'
 Requires-Dist: typing-extensions; extra == 'dev'
 Requires-Dist: ty~=0.0.51; extra == 'dev'
 Provides-Extra: dev-security
-Requires-Dist: semgrep; extra == 'dev-security'
+Requires-Dist: semgrep>=1.0; extra == 'dev-security'
 Provides-Extra: docs
 Requires-Dist: contree-docs; extra == 'docs'
+Provides-Extra: examples
+Requires-Dist: langchain-openai; extra == 'examples'
+Requires-Dist: mini-swe-agent; extra == 'examples'
 Provides-Extra: httpx
-Provides-Extra: shell
+Provides-Extra: langchain
+Requires-Dist: deepagents; (python_version >= '3.11') and extra == 'langchain'
 Description-Content-Type: text/markdown
 
 # 📦 ConTree SDK

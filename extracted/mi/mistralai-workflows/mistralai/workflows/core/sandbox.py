@@ -24,6 +24,10 @@ _BASE_PASSTHROUGH_MODULES = (
     "mistralai.observability.api_models",
     "mistralai.observability.statistics",
     "mistralai.observability.utils",
+    # Pure, sandbox-safe optimizer core so the evaluation plugin reuses the SDK's GEPA
+    # engine (GEPA.search / pareto / objective) instead of reimplementing it.
+    "mistralai.observability.optimization",
+    "mistralai.observability.goal",
 )
 
 
